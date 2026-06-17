@@ -13,6 +13,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Poink.Web", "Poink.Web\Poin
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Poink.Web.Client", "Poink.Web.Client\Poink.Web.Client.csproj", "{4ABBB131-5875-7BE5-47EF-034D384B8AB4}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Poink.Shared.Web", "Poink.Shared.Web\Poink.Shared.Web.csproj", "{4582D7D7-2F48-41DF-85B2-178FA3355D5B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -84,6 +86,18 @@ Global
 		{4ABBB131-5875-7BE5-47EF-034D384B8AB4}.Release|x64.Build.0 = Release|Any CPU
 		{4ABBB131-5875-7BE5-47EF-034D384B8AB4}.Release|x86.ActiveCfg = Release|Any CPU
 		{4ABBB131-5875-7BE5-47EF-034D384B8AB4}.Release|x86.Build.0 = Release|Any CPU
+		{4582D7D7-2F48-41DF-85B2-178FA3355D5B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4582D7D7-2F48-41DF-85B2-178FA3355D5B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4582D7D7-2F48-41DF-85B2-178FA3355D5B}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{4582D7D7-2F48-41DF-85B2-178FA3355D5B}.Debug|x64.Build.0 = Debug|Any CPU
+		{4582D7D7-2F48-41DF-85B2-178FA3355D5B}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{4582D7D7-2F48-41DF-85B2-178FA3355D5B}.Debug|x86.Build.0 = Debug|Any CPU
+		{4582D7D7-2F48-41DF-85B2-178FA3355D5B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4582D7D7-2F48-41DF-85B2-178FA3355D5B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4582D7D7-2F48-41DF-85B2-178FA3355D5B}.Release|x64.ActiveCfg = Release|Any CPU
+		{4582D7D7-2F48-41DF-85B2-178FA3355D5B}.Release|x64.Build.0 = Release|Any CPU
+		{4582D7D7-2F48-41DF-85B2-178FA3355D5B}.Release|x86.ActiveCfg = Release|Any CPU
+		{4582D7D7-2F48-41DF-85B2-178FA3355D5B}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
