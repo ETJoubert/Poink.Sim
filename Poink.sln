@@ -15,6 +15,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Poink.Web.Client", "Poink.W
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Poink.Shared.Web", "Poink.Shared.Web\Poink.Shared.Web.csproj", "{4582D7D7-2F48-41DF-85B2-178FA3355D5B}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Poink.Prototype", "Poink.Prototype\Poink.Prototype\Poink.Prototype.csproj", "{22258C81-D87E-71E2-523A-9A0321E87603}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -98,6 +100,18 @@ Global
 		{4582D7D7-2F48-41DF-85B2-178FA3355D5B}.Release|x64.Build.0 = Release|Any CPU
 		{4582D7D7-2F48-41DF-85B2-178FA3355D5B}.Release|x86.ActiveCfg = Release|Any CPU
 		{4582D7D7-2F48-41DF-85B2-178FA3355D5B}.Release|x86.Build.0 = Release|Any CPU
+		{22258C81-D87E-71E2-523A-9A0321E87603}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{22258C81-D87E-71E2-523A-9A0321E87603}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{22258C81-D87E-71E2-523A-9A0321E87603}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{22258C81-D87E-71E2-523A-9A0321E87603}.Debug|x64.Build.0 = Debug|Any CPU
+		{22258C81-D87E-71E2-523A-9A0321E87603}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{22258C81-D87E-71E2-523A-9A0321E87603}.Debug|x86.Build.0 = Debug|Any CPU
+		{22258C81-D87E-71E2-523A-9A0321E87603}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{22258C81-D87E-71E2-523A-9A0321E87603}.Release|Any CPU.Build.0 = Release|Any CPU
+		{22258C81-D87E-71E2-523A-9A0321E87603}.Release|x64.ActiveCfg = Release|Any CPU
+		{22258C81-D87E-71E2-523A-9A0321E87603}.Release|x64.Build.0 = Release|Any CPU
+		{22258C81-D87E-71E2-523A-9A0321E87603}.Release|x86.ActiveCfg = Release|Any CPU
+		{22258C81-D87E-71E2-523A-9A0321E87603}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
