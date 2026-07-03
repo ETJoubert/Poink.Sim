@@ -21,6 +21,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Poink.AppHost", "Poink.AppH
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Poink.ServiceDefaults", "Poink.ServiceDefaults\Poink.ServiceDefaults.csproj", "{3056BBB4-83B1-45BD-B7D3-54528E137E45}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Poink.CTrader", "Poink.CTrader\Poink.CTrader.csproj", "{051205FE-943F-4CE6-B31E-42122F339C74}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -140,6 +142,18 @@ Global
 		{3056BBB4-83B1-45BD-B7D3-54528E137E45}.Release|x64.Build.0 = Release|Any CPU
 		{3056BBB4-83B1-45BD-B7D3-54528E137E45}.Release|x86.ActiveCfg = Release|Any CPU
 		{3056BBB4-83B1-45BD-B7D3-54528E137E45}.Release|x86.Build.0 = Release|Any CPU
+		{051205FE-943F-4CE6-B31E-42122F339C74}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{051205FE-943F-4CE6-B31E-42122F339C74}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{051205FE-943F-4CE6-B31E-42122F339C74}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{051205FE-943F-4CE6-B31E-42122F339C74}.Debug|x64.Build.0 = Debug|Any CPU
+		{051205FE-943F-4CE6-B31E-42122F339C74}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{051205FE-943F-4CE6-B31E-42122F339C74}.Debug|x86.Build.0 = Debug|Any CPU
+		{051205FE-943F-4CE6-B31E-42122F339C74}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{051205FE-943F-4CE6-B31E-42122F339C74}.Release|Any CPU.Build.0 = Release|Any CPU
+		{051205FE-943F-4CE6-B31E-42122F339C74}.Release|x64.ActiveCfg = Release|Any CPU
+		{051205FE-943F-4CE6-B31E-42122F339C74}.Release|x64.Build.0 = Release|Any CPU
+		{051205FE-943F-4CE6-B31E-42122F339C74}.Release|x86.ActiveCfg = Release|Any CPU
+		{051205FE-943F-4CE6-B31E-42122F339C74}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
