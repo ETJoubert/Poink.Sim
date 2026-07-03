@@ -18,7 +18,8 @@ Outstanding work for the cTrader Open API integration. See [LOGBOOK.md](LOGBOOK.
 - [x] ~~`AuthorizeAccountAsync` isn't called from anywhere yet~~ - `CTraderPage` now calls it when the user selects an account, then loads that account's symbols via the new `GetSymbolsAsync`.
 - [x] ~~Symbols are fetched but not yet used for anything beyond display~~ - added a "WATCH PRICE" action per symbol that subscribes to live spot quotes (`ProtoOASubscribeSpotsReq`/`ProtoOASpotEvent`) and shows current bid/ask on the page.
 - [ ] Only one symbol can be watched at a time (watching a new one unsubscribes the previous). Fine for now; would need a small dictionary of subscriptions to watch several at once.
-- [ ] No trendbars (historical candles) or order placement yet.
+- [x] ~~No trendbars (historical candles)~~ - `GetTrendbarsAsync` + a Range/Timeframe picker on `CTraderPage` covers this now. No order placement yet.
+- [ ] "Last month" + "Minute" (or similarly wide range + fine timeframe) combinations may exceed cTrader's own server-side max-range-per-period limit - currently just surfaces as whatever error cTrader returns, no client-side pre-validation or friendlier messaging for this specific case.
 - [ ] `CTraderPage` currently only authorizes one account at a time (selecting a different account doesn't de-authorize the previous one server-side, it just changes what the page displays) - fine for now, revisit if multi-account-at-once views are ever needed.
 - [ ] Decide TCP vs WebSocket transport for our use case.
 - [ ] Clean up the 24 nullable-reference warnings in vendored code (either annotate properly or scope-disable `Nullable` for this vendored code - decide which fits our conventions).

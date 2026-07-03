@@ -30,5 +30,12 @@ namespace Poink.CTrader
         Task<ProtoOASubscribeSpotsRes> SubscribeSpotsAsync(long ctidTraderAccountId, IEnumerable<long> symbolIds, CancellationToken cancellationToken = default);
 
         Task<ProtoOAUnsubscribeSpotsRes> UnsubscribeSpotsAsync(long ctidTraderAccountId, IEnumerable<long> symbolIds, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Requires <see cref="AuthorizeAccountAsync"/> to have been called for this account first.
+        /// cTrader enforces its own maximum time range per <paramref name="period"/> (e.g. minute bars
+        /// cover a shorter span than daily bars) - an out-of-range request surfaces as a <see cref="CTraderApiException"/>.
+        /// </summary>
+        Task<ProtoOAGetTrendbarsRes> GetTrendbarsAsync(long ctidTraderAccountId, long symbolId, ProtoOATrendbarPeriod period, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken = default);
     }
 }

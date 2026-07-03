@@ -80,6 +80,16 @@ namespace Poink.CTrader
             return SendAndWaitAsync<ProtoOAUnsubscribeSpotsRes>(request, cancellationToken);
         }
 
+        public Task<ProtoOAGetTrendbarsRes> GetTrendbarsAsync(long ctidTraderAccountId, long symbolId, ProtoOATrendbarPeriod period, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken = default) =>
+            SendAndWaitAsync<ProtoOAGetTrendbarsRes>(new ProtoOAGetTrendbarsReq
+            {
+                CtidTraderAccountId = ctidTraderAccountId,
+                SymbolId = symbolId,
+                Period = period,
+                FromTimestamp = from.ToUnixTimeMilliseconds(),
+                ToTimestamp = to.ToUnixTimeMilliseconds()
+            }, cancellationToken);
+
         private async Task<TRes> SendAndWaitAsync<TRes>(IMessage request, CancellationToken cancellationToken) where TRes : IMessage
         {
             if (_client is null) throw new InvalidOperationException("Not connected yet - call ConnectAsync first.");
