@@ -1,6 +1,6 @@
 # Poink.CTrader TODO
 
-Outstanding work for the cTrader Open API integration. See [LOGBOOK.md](LOGBOOK.md) for what's already done.
+Outstanding work for the cTrader Open API integration. See [README.md](README.md) for an architecture overview and [LOGBOOK.md](LOGBOOK.md) for what's already done.
 
 ## Next up
 
@@ -20,10 +20,13 @@ Outstanding work for the cTrader Open API integration. See [LOGBOOK.md](LOGBOOK.
 - [ ] Only one symbol can be watched at a time (watching a new one unsubscribes the previous). Fine for now; would need a small dictionary of subscriptions to watch several at once.
 - [x] ~~No trendbars (historical candles)~~ - `GetTrendbarsAsync` + a Range/Timeframe picker on `CTraderPage` covers this now. No order placement yet.
 - [ ] "Last month" + "Minute" (or similarly wide range + fine timeframe) combinations may exceed cTrader's own server-side max-range-per-period limit - currently just surfaces as whatever error cTrader returns, no client-side pre-validation or friendlier messaging for this specific case.
+- [x] ~~Need a way to visualize the historic data~~ - added a dependency-free canvas candlestick chart (`ts/candlestickChart.ts` + `CandlestickChart.razor`) with a TABLE VIEW / GRAPH VIEW toggle on `CTraderPage`. The JS module already exposes an `update(canvas, bar)` function for appending/replacing the last bar, in anticipation of real-time streaming.
+- [ ] Wire live spot ticks (the existing "WATCH PRICE" subscription) into the chart's `update()` function so the graph updates in real time instead of only showing whatever was loaded by "LOAD HISTORY". This is the natural next step now that both pieces exist independently.
+- [ ] The custom candlestick chart is intentionally minimal: no zoom/pan, no crosshair/tooltip, no volume sub-panel, fixed price-axis padding. Revisit if it needs to feel more like a "real" trading chart.
 - [ ] `CTraderPage` currently only authorizes one account at a time (selecting a different account doesn't de-authorize the previous one server-side, it just changes what the page displays) - fine for now, revisit if multi-account-at-once views are ever needed.
 - [ ] Decide TCP vs WebSocket transport for our use case.
 - [ ] Clean up the 24 nullable-reference warnings in vendored code (either annotate properly or scope-disable `Nullable` for this vendored code - decide which fits our conventions).
 - [ ] Add a test project (`Poink.CTrader.Tests`) - decide unit vs. integration (real demo account) coverage.
 - [ ] Test end-to-end against a demo account before ever pointing at live.
-- [ ] Add a short README to `Poink.CTrader` documenting how to reference and use it from other projects in the solution.
+- [x] ~~Add a short README to `Poink.CTrader` documenting how to reference and use it from other projects in the solution~~ - see [README.md](README.md).
 - [ ] Decide how to handle upstream updates: keep tracking `spotware/OpenAPI.Net` for new message types/fixes, or treat this as a one-time fork with no further syncing.

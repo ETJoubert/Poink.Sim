@@ -1,6 +1,6 @@
 # Poink.CTrader Logbook
 
-Chronological record of work done on the cTrader Open API integration. See [TODO.md](TODO.md) for outstanding work.
+Chronological record of work done on the cTrader Open API integration. See [README.md](README.md) for an architecture overview and [TODO.md](TODO.md) for outstanding work.
 
 ## 2026-07-03
 
@@ -67,6 +67,14 @@ Chronological record of work done on the cTrader Open API integration. See [TODO
 - Fixed an unrelated pre-existing warning while in the area: `MauiCTraderAuthUiService` used the obsolete `Application.Current.MainPage`; switched to `Application.Current.Windows.FirstOrDefault()?.Page`.
 - Verified `Poink.CTrader`, `Poink.Shared`, and `Poink` (net10.0-windows target) all build with 0 errors and 0 warnings.
 
+## 2026-07-03 (continued) - live spot price for a selected symbol
+
+- Added `SubscribeSpotsAsync`/`UnsubscribeSpotsAsync` to `ICTraderClient`/`CTraderClient` (`ProtoOASubscribeSpotsReq`/`ProtoOAUnsubscribeSpotsReq`, both take a `CtidTraderAccountId` + repeated `SymbolId`). These only confirm the subscription was accepted - the actual live ticks arrive as `ProtoOASpotEvent` push messages on the already-public `Messages` observable, no new per-tick API needed.
+- Found (from the generated code's own doc comment) that `ProtoOASpotEvent.Bid`/`.Ask` are integers scaled by 1/100_000 of a unit (e.g. `123000` -> `1.23`) - added a `PriceScale` constant in `CTraderPage` for the conversion. Used `HasBid`/`HasAsk` (protobuf's optional-field presence flags) rather than checking for zero, since a spot event may only carry one side of the quote.
+- `CTraderPage` now has a "WATCH PRICE" action per symbol row: subscribes to that symbol's spots, unsubscribing from whatever was previously watched first, then filters `client.Messages` for `ProtoOASpotEvent` matching that symbol id. Since spot events arrive on a background thread (not Blazor's render sync context), the update goes through `InvokeAsync(() => { ...; StateHasChanged(); })` rather than calling `StateHasChanged()` directly.
+- Selecting a different account, or reconnecting entirely, now also tears down the price watch/subscription, since a spot subscription is scoped to one account+symbol pair.
+- Verified `Poink.CTrader`, `Poink.Shared`, and `Poink` (net10.0-windows target) all build with 0 errors and 0 warnings.
+
 ## 2026-07-03 (continued) - historical trendbars + searchable symbol side panel
 
 - Confirmed cTrader's Open API supports historical OHLC data via `ProtoOAGetTrendbarsReq`/`Res` - takes a `Period` (`ProtoOATrendbarPeriod`: M1...M30, H1/H4/H12, D1, W1, MN1) and a `FromTimestamp`/`ToTimestamp` (unix ms) range. Added `GetTrendbarsAsync(ctidTraderAccountId, symbolId, period, from, to)` to `ICTraderClient`/`CTraderClient`.
@@ -78,8 +86,22 @@ Chronological record of work done on the cTrader Open API integration. See [TODO
   - Main content area now shows: selected symbol's live bid/ask, a Range dropdown (Last Hour/Day/Week/Month) and Timeframe dropdown (Minute/Hour/Day), a "LOAD HISTORY" button, and the resulting bars in a `DataTable<CTraderBarRow>`.
 - Verified `Poink.CTrader`, `Poink.Shared`, and `Poink` (net10.0-windows target) all build with 0 errors and 0 warnings.
 
-- Added `SubscribeSpotsAsync`/`UnsubscribeSpotsAsync` to `ICTraderClient`/`CTraderClient` (`ProtoOASubscribeSpotsReq`/`ProtoOAUnsubscribeSpotsReq`, both take a `CtidTraderAccountId` + repeated `SymbolId`). These only confirm the subscription was accepted - the actual live ticks arrive as `ProtoOASpotEvent` push messages on the already-public `Messages` observable, no new per-tick API needed.
-- Found (from the generated code's own doc comment) that `ProtoOASpotEvent.Bid`/`.Ask` are integers scaled by 1/100_000 of a unit (e.g. `123000` -> `1.23`) - added a `PriceScale` constant in `CTraderPage` for the conversion. Used `HasBid`/`HasAsk` (protobuf's optional-field presence flags) rather than checking for zero, since a spot event may only carry one side of the quote.
-- `CTraderPage` now has a "WATCH PRICE" action per symbol row: subscribes to that symbol's spots, unsubscribing from whatever was previously watched first, then filters `client.Messages` for `ProtoOASpotEvent` matching that symbol id. Since spot events arrive on a background thread (not Blazor's render sync context), the update goes through `InvokeAsync(() => { ...; StateHasChanged(); })` rather than calling `StateHasChanged()` directly.
-- Selecting a different account, or reconnecting entirely, now also tears down the price watch/subscription, since a spot subscription is scoped to one account+symbol pair.
+## 2026-07-03 (continued) - candlestick chart view
+
+- User asked for a lightweight time-series charting tool with future real-time update potential. Proposed vendoring TradingView's `lightweight-charts` (purpose-built for exactly this); the auto-download of that file from unpkg got blocked by the harness's safety classifier as an unapproved external-code fetch. Asked the user how to proceed; they chose to build a minimal custom canvas chart instead of pulling in any third-party JS library.
+- Added `Poink.Shared/ts/candlestickChart.ts` (compiles to `wwwroot/js/candlestickChart.js` via the project's existing `tsc` MSBuild step - same pattern as `poinkLogoGrid.ts`). Exports `render(canvas, bars)` (full redraw), `update(canvas, bar)` (append/replace the last bar - not wired to anything live yet, but ready for when real-time streaming is added), and `dispose(canvas)`. Pure `<canvas>` 2D drawing, no dependencies: wicks + bodies colored via this app's own `--color-success`/`--color-error` CSS variables so it matches the terminal theme automatically.
+- Added `Poink.Shared/Components/Pages/CTrader/CandlestickChart.razor(.cs)` - a small wrapper component (`[Parameter] List<CTraderBarRow> Bars`) that lazy-imports the JS module on first render (`IJSRuntime.InvokeAsync<IJSObjectReference>("import", "./_content/Poink.Shared/js/candlestickChart.js")`, the standard Razor Class Library static-asset import path) and re-renders only when `Bars` is a genuinely new list reference (avoids redrawing on every unrelated page re-render, e.g. live bid/ask ticks).
+- `CTraderPage` now has a TABLE VIEW / GRAPH VIEW toggle above the loaded bars - the existing `DataTable<CTraderBarRow>` stays as-is for table view; graph view renders `<CandlestickChart Bars="_bars" />`.
+- Verified `Poink.CTrader`, `Poink.Shared`, and `Poink` (net10.0-windows target) all build with 0 errors and 0 warnings; confirmed `tsc` actually emitted the compiled `candlestickChart.js`.
+
+## 2026-07-03 (continued) - sticky top bar, dropdown account picker
+
+- Per user request, restructured `CTraderPage`'s layout: pulled Connect button, status text, and account selection out of the scrolling content into a `.ctrader-topbar` (new `CTraderPage.razor.css`, `position: sticky; top: 0;`) that stays visible while the symbol sidebar/main content below it scroll.
+- Replaced the accounts `DataTable` + per-row "SELECT" button with a plain `<select>` dropdown bound to `_selectedAccountId`, wired through a new `OnAccountDropdownChanged(ChangeEventArgs)` handler that looks up the matching `CTraderAccountRow` and calls the existing `SelectAccountAsync`. No change to the underlying connect/select/authorize logic, purely a layout change.
+- Verified `Poink.CTrader`, `Poink.Shared`, and `Poink` (net10.0-windows target) all build with 0 errors and 0 warnings.
+
+## 2026-07-03 (continued) - content layout cleanup: control groups + bid/ask colors
+
+- Per user request, put Range/Timeframe/Load History and Table/Graph View on one row (`.ctrader-controls-row`), each in its own visually distinct bordered/tinted group (`.ctrader-control-group--load` using `--color-secondary`, `.ctrader-control-group--view` using `--color-primary`) so it's clear which controls belong together. Used `color-mix(in srgb, var(--color-X) 12%, transparent)` for the tint rather than hardcoding rgba values, so it stays correct if the theme's color variables ever change.
+- Reordered the bid/ask line to show the timestamp first, and gave time/bid/ask each their own color (`--color-secondary` for time, `--color-error` for bid, `--color-success` for ask - matches the common trading-UI convention of coloring bid/ask like a sell/buy price).
 - Verified `Poink.CTrader`, `Poink.Shared`, and `Poink` (net10.0-windows target) all build with 0 errors and 0 warnings.
