@@ -12,12 +12,14 @@ Outstanding work for the cTrader Open API integration. See [LOGBOOK.md](LOGBOOK.
 - [ ] `CTraderLoginPage`'s query-string parser is hand-rolled (deliberately, to avoid a `System.Web.HttpUtility` dependency that isn't guaranteed available across all MAUI target frameworks) - fine for simple `code`/`error` params, but doesn't handle multi-value keys or `+`-encoded spaces.
 - [ ] No refresh-token flow wired up yet (`ProtoOARefreshTokenReq`/`Res` per the vendored `OpenClient`) - access tokens will eventually expire and need silent refresh instead of re-running the whole login page.
 - [x] ~~Fix race condition sending `ProtoOAGetAccountListByAccessTokenReq` before `ProtoOAApplicationAuthRes` came back~~ - `VerifyConnectionAsync` now awaits app-auth before requesting the account list. Wired `LogService` (the app's existing Console Log panel) through the whole connect flow for visibility.
-- [ ] Add a Poink-specific service wrapping `OpenClient` that:
-  - sequences app auth -> account auth
-  - picks demo vs live host/port
-  - handles reconnect/backoff (the vendored `OpenClient` does not reconnect automatically)
-  - exposes a friendlier API surface to consuming projects
-- [ ] Add a `ProjectReference` to `Poink.CTrader` from whichever project needs it first (likely `Poink.Shared` or `Poink`) once the wrapper API is ready.
+- [x] ~~Add a Poink-specific service wrapping `OpenClient`~~ - `ICTraderClient`/`CTraderClient` in `Poink.CTrader`: `ConnectAsync` (opens the socket + completes the app-auth handshake), `GetAccountsAsync`, `AuthorizeAccountAsync`, a generic `SendAndWaitAsync<TRes>` helper correlating requests to responses (or a `ProtoOAErrorRes`/timeout), and a public `Messages` observable so callers can still watch every raw message (used by `CTraderPage` for its console logging). Registered in DI via `AddCTraderOpenApi`. `CTraderPage.VerifyConnectionAsync` shrank from ~70 lines of ad hoc subscription/TCS code to ~15 lines using this client.
+  - Reconnect/backoff is still **not** handled - one `CTraderClient` instance is good for exactly one connection attempt (construct a new one to retry). Revisit if/when this needs to run unattended for longer than one interactive check.
+- [x] ~~Add a `ProjectReference` to `Poink.CTrader` from whichever project needs it first~~ - `Poink.Shared` already references it (see earlier LOGBOOK entries).
+- [x] ~~`AuthorizeAccountAsync` isn't called from anywhere yet~~ - `CTraderPage` now calls it when the user selects an account, then loads that account's symbols via the new `GetSymbolsAsync`.
+- [x] ~~Symbols are fetched but not yet used for anything beyond display~~ - added a "WATCH PRICE" action per symbol that subscribes to live spot quotes (`ProtoOASubscribeSpotsReq`/`ProtoOASpotEvent`) and shows current bid/ask on the page.
+- [ ] Only one symbol can be watched at a time (watching a new one unsubscribes the previous). Fine for now; would need a small dictionary of subscriptions to watch several at once.
+- [ ] No trendbars (historical candles) or order placement yet.
+- [ ] `CTraderPage` currently only authorizes one account at a time (selecting a different account doesn't de-authorize the previous one server-side, it just changes what the page displays) - fine for now, revisit if multi-account-at-once views are ever needed.
 - [ ] Decide TCP vs WebSocket transport for our use case.
 - [ ] Clean up the 24 nullable-reference warnings in vendored code (either annotate properly or scope-disable `Nullable` for this vendored code - decide which fits our conventions).
 - [ ] Add a test project (`Poink.CTrader.Tests`) - decide unit vs. integration (real demo account) coverage.

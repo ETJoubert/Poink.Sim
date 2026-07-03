@@ -46,3 +46,31 @@ Chronological record of work done on the cTrader Open API integration. See [TODO
 - After fixing the env var setup, login/consent succeeded but `VerifyConnectionAsync` failed with `UNSUPPORTED_MESSAGE: Trading account is not authorized`. Root cause: `ProtoOAApplicationAuthReq` and `ProtoOAGetAccountListByAccessTokenReq` were sent back-to-back via `SendMessage` (which only enqueues) without waiting for `ProtoOAApplicationAuthRes` - the account-list request raced ahead of app authorization and was rejected. Fixed by awaiting the app-auth response before sending the account-list request.
 - Wired `LogService` (the app's existing "Console Log" panel, `Poink.Shared/Services/LogService.cs`) through the whole connect flow - every step and every raw message received now logs there for visibility.
 - **Confirmed working end-to-end against the user's real cTrader account: real trading accounts were returned.** This is the first fully verified proof that config -> OAuth -> token storage -> live `OpenClient` connection -> real API data all work together.
+
+## 2026-07-03 (continued) - extracted CTraderClient
+
+- With the connection proven working, extracted the ad hoc `OpenClient` handling out of `CTraderPage.razor.cs` into a reusable `Poink.CTrader.ICTraderClient`/`CTraderClient`:
+  - `ConnectAsync` opens the socket and completes the app-auth handshake as one step.
+  - `GetAccountsAsync` / `AuthorizeAccountAsync` are typed request/response helpers built on a generic `SendAndWaitAsync<TRes>` (subscribes for the expected response type or a `ProtoOAErrorRes` -> throws `CTraderApiException`, with a timeout).
+  - Exposes a public `Messages` (`IObservable<IMessage>`, backed by an `System.Reactive.Subjects.Subject` so it's available even before `ConnectAsync` is called) so callers can still observe every raw message - `CTraderPage` subscribes to this purely to forward log lines to `LogService`, keeping `Poink.CTrader` itself decoupled from `Poink.Shared`'s logging.
+  - Registered in `AddCTraderOpenApi` via DI, resolving the already-registered `App` + `CTraderApiOptions.UseLiveEnvironment`.
+  - One instance is good for exactly one connection attempt (mirrors the vendored `OpenClient`'s own single-use design) - `CTraderPage` does `await using var client = new CTraderClient(...)` per verification click, same lifecycle as before.
+- `CTraderPage.VerifyConnectionAsync` shrank from ~70 lines of manual subscription/`TaskCompletionSource` plumbing to ~15 lines using the new client, with identical behavior and logging.
+- Verified `Poink.CTrader` and `Poink.Shared` both build with 0 errors after the refactor.
+
+## 2026-07-03 (continued) - account selection + symbols page
+
+- Added `GetSymbolsAsync(ctidTraderAccountId, includeArchivedSymbols)` to `ICTraderClient`/`CTraderClient` (`ProtoOASymbolsListReq` -> `ProtoOASymbolsListRes`), same `SendAndWaitAsync` pattern as the existing methods.
+- Reworked `CTraderPage` so the `CTraderClient` connection now survives across button clicks (previously it was `await using`-scoped to a single verification call and disposed immediately): the page holds `_client`/`_token`/`_logSubscription` as fields, disposes/reconnects them at the start of a fresh "Connect" click, and implements `IAsyncDisposable` so Blazor disposes the connection when navigating away from the page. This was necessary because authorizing an account and then requesting its symbols both have to happen on the *same* authenticated connection.
+- Page flow is now: Connect -> list accounts -> user picks one ("Select" button) -> `AuthorizeAccountAsync` for that account -> `GetSymbolsAsync` -> display.
+- For the page layout, used the app's existing generic `Poink.Shared.Components.Shared.DataTable.DataTable<TItem>` component instead of hand-rolled HTML, bound to two small plain DTOs (`CTraderAccountRow`, `CTraderSymbolRow`) rather than the raw protobuf message types - the real `ProtoOACtidTraderAccount`/`ProtoOALightSymbol` classes have many more fields than are useful to show and would have produced noisy auto-generated columns.
+- Fixed an unrelated pre-existing warning while in the area: `MauiCTraderAuthUiService` used the obsolete `Application.Current.MainPage`; switched to `Application.Current.Windows.FirstOrDefault()?.Page`.
+- Verified `Poink.CTrader`, `Poink.Shared`, and `Poink` (net10.0-windows target) all build with 0 errors and 0 warnings.
+
+## 2026-07-03 (continued) - live spot price for a selected symbol
+
+- Added `SubscribeSpotsAsync`/`UnsubscribeSpotsAsync` to `ICTraderClient`/`CTraderClient` (`ProtoOASubscribeSpotsReq`/`ProtoOAUnsubscribeSpotsReq`, both take a `CtidTraderAccountId` + repeated `SymbolId`). These only confirm the subscription was accepted - the actual live ticks arrive as `ProtoOASpotEvent` push messages on the already-public `Messages` observable, no new per-tick API needed.
+- Found (from the generated code's own doc comment) that `ProtoOASpotEvent.Bid`/`.Ask` are integers scaled by 1/100_000 of a unit (e.g. `123000` -> `1.23`) - added a `PriceScale` constant in `CTraderPage` for the conversion. Used `HasBid`/`HasAsk` (protobuf's optional-field presence flags) rather than checking for zero, since a spot event may only carry one side of the quote.
+- `CTraderPage` now has a "WATCH PRICE" action per symbol row: subscribes to that symbol's spots, unsubscribing from whatever was previously watched first, then filters `client.Messages` for `ProtoOASpotEvent` matching that symbol id. Since spot events arrive on a background thread (not Blazor's render sync context), the update goes through `InvokeAsync(() => { ...; StateHasChanged(); })` rather than calling `StateHasChanged()` directly.
+- Selecting a different account, or reconnecting entirely, now also tears down the price watch/subscription, since a spot subscription is scoped to one account+symbol pair.
+- Verified `Poink.CTrader`, `Poink.Shared`, and `Poink` (net10.0-windows target) all build with 0 errors and 0 warnings.

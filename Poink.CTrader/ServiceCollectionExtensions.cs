@@ -22,6 +22,13 @@ namespace Poink.CTrader
                 return new App(options.ClientId, options.ClientSecret, options.RedirectUri);
             });
 
+            services.AddTransient<ICTraderClient>(sp =>
+            {
+                var app = sp.GetRequiredService<App>();
+                var options = sp.GetRequiredService<IOptions<CTraderApiOptions>>().Value;
+                return new CTraderClient(app, options.UseLiveEnvironment);
+            });
+
             return services;
         }
     }
