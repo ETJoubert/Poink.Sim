@@ -11,7 +11,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Poink.Web", "Poink.Web\Poin
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Poink.Web.Client", "Poink.Web.Client\Poink.Web.Client.csproj", "{4ABBB131-5875-7BE5-47EF-034D384B8AB4}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Poink.Shared.Web", "Poink.Shared.Web\Poink.Shared.Web.csproj", "{4582D7D7-2F48-41DF-85B2-178FA3355D5B}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Poink.Web.Shared", "Poink.Web.Shared\Poink.Web.Shared.csproj", "{4582D7D7-2F48-41DF-85B2-178FA3355D5B}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Poink.ServiceDefaults", "Poink.ServiceDefaults\Poink.ServiceDefaults.csproj", "{3056BBB4-83B1-45BD-B7D3-54528E137E45}"
 EndProject
