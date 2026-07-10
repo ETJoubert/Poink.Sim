@@ -5,7 +5,7 @@ VisualStudioVersion = 17.14.36915.13
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Poink.Scaffolder", "Poink.Scaffolder\Poink.Scaffolder.csproj", "{44A793ED-A570-4826-A139-B86147AF3DBD}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Poink.Shared", "Poink.Shared\Poink.Shared.csproj", "{5DF9A151-5B35-3F8F-89E2-B9CB6B9B1A3C}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Poink.Shared.Client", "Poink.Shared.Client\Poink.Shared.Client.csproj", "{5DF9A151-5B35-3F8F-89E2-B9CB6B9B1A3C}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Poink.Web", "Poink.Web\Poink.Web.csproj", "{E9A5510C-AC0C-190A-342F-B82B92BA834F}"
 EndProject
@@ -19,7 +19,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Poink.CTrader", "Poink.CTra
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Poink.Test", "Poink.Test\Poink.Test.csproj", "{78B83FC5-75D8-4EB2-BD8B-D0755369ACED}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Poink.Shared.Data", "Poink.Shared.Data\Poink.Shared.Data.csproj", "{E32E1486-0165-4508-AB07-5683581B92AC}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Poink.Shared.Server", "Poink.Shared.Server\Poink.Shared.Server.csproj", "{E32E1486-0165-4508-AB07-5683581B92AC}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Poink.Native", "Poink.Native\Poink.Native.csproj", "{16FC2CB3-B74A-49A4-B27A-F4DB621516C8}"
 EndProject

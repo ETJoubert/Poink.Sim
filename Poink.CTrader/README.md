@@ -29,10 +29,10 @@ Every typed method (`GetAccountsAsync`, `AuthorizeAccountAsync`, etc.) goes thro
 
 `Poink.CTrader` is intentionally dependency-light (EF-free, UI-framework-free) so it stays reusable. The concrete implementations that plug into its interfaces live in the consuming projects:
 
-- **`Poink.Shared`** (references `Poink.CTrader` via `ProjectReference`):
+- **`Poink.Shared.Client`** (references `Poink.CTrader` via `ProjectReference`):
   - `Data/Entities/CTraderAccountToken.cs` + `PoinkContext.CTraderAccountTokens` - the Postgres entity backing token storage.
   - `Services/CTrader/PostgresCTraderTokenStore.cs` - `ICTraderTokenStore` implementation using `PoinkContext`.
-  - `Services/Registration/CTraderOptionsInstaller.cs` - an `IConfiguredServiceInstaller`, auto-discovered by `Poink.Shared.Core.ServiceRegistrar`'s reflection scan (which only scans the `Poink.Shared` assembly - this is *why* the store implementation and DI wiring live here, not in `Poink.CTrader`). Calls `AddCTraderOpenApi` + registers `PostgresCTraderTokenStore`.
+  - `Services/Registration/CTraderOptionsInstaller.cs` - an `IConfiguredServiceInstaller`, auto-discovered by `Poink.Shared.Client.Core.ServiceRegistrar`'s reflection scan (which only scans the `Poink.Shared.Client` assembly - this is *why* the store implementation and DI wiring live here, not in `Poink.CTrader`). Calls `AddCTraderOpenApi` + registers `PostgresCTraderTokenStore`.
   - `Components/Pages/CTrader/CTraderPage.razor(.cs/.css)` - the actual UI: connect, pick an account (dropdown in a sticky top bar), search/select a symbol (side panel), watch its live bid/ask, load and view historical bars (table or candlestick graph).
   - `Components/Pages/CTrader/CandlestickChart.razor(.cs/.css)` - a small wrapper around a hand-rolled `<canvas>` chart (see below).
   - `Core/Features/BuiltInFeatures.cs` - the `CTrader` feature entry (nav route `/ctrader`); gate it in an app's `appsettings.json` `Features:Enabled` list.
@@ -42,7 +42,7 @@ Every typed method (`GetAccountsAsync`, `AuthorizeAccountAsync`, etc.) goes thro
   - `Services/MauiCTraderAuthUiService.cs` - `ICTraderAuthUiService` implementation; pushes `CTraderLoginPage` modally via `Application.Current.Windows[0].Page.Navigation`.
   - `MauiProgram.cs` - registers `ICTraderAuthUiService` directly (not through `ServiceRegistrar`, same pattern as the existing `ITokenStore`/`LocalStorageTokenStore`), and calls `builder.Configuration.AddEnvironmentVariables()` so secrets can be supplied without touching a tracked file.
 
-**If you want to use `Poink.CTrader` from a new project** (e.g. a background worker, `Poink.Web`, or an entirely different app): add a `ProjectReference`, call `AddCTraderOpenApi(configuration)`, and register your own `ICTraderTokenStore` + `ICTraderAuthUiService` for that context (or reuse `PostgresCTraderTokenStore` if it's also EF/Postgres-backed via `Poink.Shared`).
+**If you want to use `Poink.CTrader` from a new project** (e.g. a background worker, `Poink.Web`, or an entirely different app): add a `ProjectReference`, call `AddCTraderOpenApi(configuration)`, and register your own `ICTraderTokenStore` + `ICTraderAuthUiService` for that context (or reuse `PostgresCTraderTokenStore` if it's also EF/Postgres-backed via `Poink.Shared.Client`).
 
 ## Secrets
 
@@ -63,10 +63,10 @@ Every typed method (`GetAccountsAsync`, `AuthorizeAccountAsync`, etc.) goes thro
 
 ## The custom candlestick chart
 
-No third-party JS charting library is vendored (an attempt to fetch TradingView's `lightweight-charts` from a CDN was blocked by this environment's safety classifier as an unapproved external-code fetch; asked, the user chose to build custom instead). `Poink.Shared/ts/candlestickChart.ts` is a dependency-free `<canvas>` 2D renderer, compiled via the project's existing `tsc` MSBuild step (same pattern as `poinkLogoGrid.ts`) into `wwwroot/js/candlestickChart.js`. It reads this app's own `--color-success`/`--color-error` CSS variables so it matches the theme automatically. It already exports an `update(canvas, bar)` function (append/replace the last bar) for future real-time streaming, but nothing currently calls it - the live spot-price subscription (`CTraderPage`'s "WATCH PRICE") and the chart are still two independent features (see TODO).
+No third-party JS charting library is vendored (an attempt to fetch TradingView's `lightweight-charts` from a CDN was blocked by this environment's safety classifier as an unapproved external-code fetch; asked, the user chose to build custom instead). `Poink.Shared.Client/ts/candlestickChart.ts` is a dependency-free `<canvas>` 2D renderer, compiled via the project's existing `tsc` MSBuild step (same pattern as `poinkLogoGrid.ts`) into `wwwroot/js/candlestickChart.js`. It reads this app's own `--color-success`/`--color-error` CSS variables so it matches the theme automatically. It already exports an `update(canvas, bar)` function (append/replace the last bar) for future real-time streaming, but nothing currently calls it - the live spot-price subscription (`CTraderPage`'s "WATCH PRICE") and the chart are still two independent features (see TODO).
 
 ## Extending this further
 
 - New API call -> add a method to `ICTraderClient`/`CTraderClient` following the `SendAndWaitAsync<TRes>` pattern.
-- New UI feature -> lives in `Poink.Shared/Components/Pages/CTrader/` (feature-specific components, not `Components/Shared/`, since none of this is generic yet).
+- New UI feature -> lives in `Poink.Shared.Client/Components/Pages/CTrader/` (feature-specific components, not `Components/Shared/`, since none of this is generic yet).
 - Check [TODO.md](TODO.md) before starting anything - it lists known gaps (no refresh-token flow, single-user token-store simplification, no order placement, etc.) so you don't rediscover them the hard way.
