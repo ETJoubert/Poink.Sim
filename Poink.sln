@@ -25,6 +25,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Poink.CTrader", "Poink.CTra
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Poink.Test", "Poink.Test\Poink.Test.csproj", "{78B83FC5-75D8-4EB2-BD8B-D0755369ACED}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Poink.Shared.Data", "Poink.Shared.Data\Poink.Shared.Data.csproj", "{E32E1486-0165-4508-AB07-5683581B92AC}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -168,6 +170,18 @@ Global
 		{78B83FC5-75D8-4EB2-BD8B-D0755369ACED}.Release|x64.Build.0 = Release|Any CPU
 		{78B83FC5-75D8-4EB2-BD8B-D0755369ACED}.Release|x86.ActiveCfg = Release|Any CPU
 		{78B83FC5-75D8-4EB2-BD8B-D0755369ACED}.Release|x86.Build.0 = Release|Any CPU
+		{E32E1486-0165-4508-AB07-5683581B92AC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E32E1486-0165-4508-AB07-5683581B92AC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E32E1486-0165-4508-AB07-5683581B92AC}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{E32E1486-0165-4508-AB07-5683581B92AC}.Debug|x64.Build.0 = Debug|Any CPU
+		{E32E1486-0165-4508-AB07-5683581B92AC}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{E32E1486-0165-4508-AB07-5683581B92AC}.Debug|x86.Build.0 = Debug|Any CPU
+		{E32E1486-0165-4508-AB07-5683581B92AC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E32E1486-0165-4508-AB07-5683581B92AC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E32E1486-0165-4508-AB07-5683581B92AC}.Release|x64.ActiveCfg = Release|Any CPU
+		{E32E1486-0165-4508-AB07-5683581B92AC}.Release|x64.Build.0 = Release|Any CPU
+		{E32E1486-0165-4508-AB07-5683581B92AC}.Release|x86.ActiveCfg = Release|Any CPU
+		{E32E1486-0165-4508-AB07-5683581B92AC}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
