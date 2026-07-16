@@ -9,9 +9,10 @@
 //  instead of over the whole list.
 // ─────────────────────────────────────────────────────────────────────────
 using System;
-using Poink.Sim.Repositories;
+using Poink.Sim.Models;
+using Poink.Sim.Repository;
 
-namespace Poink.Sim.Features.Simulation;
+namespace Poink.Sim.Simulation;
 
 internal sealed class SimulationBarAggregator
 {

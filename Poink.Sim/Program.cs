@@ -14,8 +14,9 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Poink.Sim.Features.Simulation;
-using Poink.Sim.Repositories;
+using Poink.Sim.Brain;
+using Poink.Sim.Repository;
+using Poink.Sim.Simulation;
 
 var builder = WebApplication.CreateBuilder(args);
 

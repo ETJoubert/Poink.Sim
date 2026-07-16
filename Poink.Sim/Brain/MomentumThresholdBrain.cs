@@ -8,8 +8,9 @@
 // ─────────────────────────────────────────────────────────────────────────
 using System;
 using System.Linq;
+using Poink.Sim.Models;
 
-namespace Poink.Sim.Features.Simulation;
+namespace Poink.Sim.Brain;
 
 internal sealed class MomentumThresholdBrain : ISimulationBrain
 {

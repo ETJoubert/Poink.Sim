@@ -3,10 +3,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
-using Poink.Sim.Repositories;
+using Poink.Sim.Models;
+using Poink.Sim.Repository;
+using Poink.Sim.Simulation;
 using Poink.Shared.Client.Components.Pages.CTrader;
 
-namespace Poink.Sim.Features.Simulation
+namespace Poink.Sim.Components.Pages
 {
     public partial class SimulationPage : ComponentBase, IDisposable
     {

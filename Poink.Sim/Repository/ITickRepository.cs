@@ -8,7 +8,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace Poink.Sim.Repositories;
+namespace Poink.Sim.Repository;
 
 internal readonly record struct Tick(DateTime Timestamp, double Bid, double Ask);
 

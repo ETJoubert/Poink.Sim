@@ -6,11 +6,12 @@
 // they can undershoot Volume since zero ticks (unchanged mid) count toward neither.
 //
 // Poink.Sim's own copy of Poink.ML's Features/HlocAvdt/HlocAvdt.cs shape (kept duplicated,
-// not shared, so this project carries no Poink.ML dependency) -- SimulationBarAggregator's
-// per-tick math already mirrors HlocAvdtAggregator.Aggregate independently.
+// not shared, so this project carries no Poink.ML dependency) -- Simulation's
+// SimulationBarAggregator per-tick math already mirrors HlocAvdtAggregator.Aggregate
+// independently.
 using System;
 
-namespace Poink.Sim.Features.Simulation;
+namespace Poink.Sim.Models;
 
 internal readonly record struct HlocAvdtBar(
     DateTime OpenTime, DateTime CloseTime, DateTime HighTime, DateTime LowTime,

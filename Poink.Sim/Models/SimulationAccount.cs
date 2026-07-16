@@ -6,7 +6,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 using System;
 
-namespace Poink.Sim.Features.Simulation;
+namespace Poink.Sim.Models;
 
 internal enum PositionDirection { Long, Short }
 

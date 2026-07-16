@@ -88,17 +88,23 @@ page is the app's landing page (`/`, aliased at `/simulation`).
 
 ## Files
 
-| file | role |
-|---|---|
-| `ISimulationBrain.cs` | brain contract + `SimulationObservation`/`SimulationAction`/`SimulationDecision` |
-| `MomentumThresholdBrain.cs` | heuristic placeholder brain (percent-change threshold) |
-| `SimulationAccount.cs` | `Position`/`CapitalState`/`Trade` domain shapes (simple cash P&L) |
-| `Trader.cs` | applies decisions to Capital/Position, computes P&L |
-| `HlocAvdtBar.cs` | this project's own copy of Poink.ML's HLOC/AVDT bar shape |
-| `SimulationBarAggregator.cs` | incremental (stateful) tick → HLOC/AVDT bar aggregator |
-| `SimulationSnapshot.cs` | `SimulationConfig`/`SimulationSnapshot`/`SimulationLogEntry` read-model |
-| `SimulationEngine.cs` | orchestrating singleton: playback timer + MarketSim + Aggregator + Brain + Trader |
-| `SimulationPage.razor(.cs/.css)` | the `/` page (setup form + live playback view) |
+Organized by role rather than one flat feature folder:
+
+| folder | file | role |
+|---|---|---|
+| `Models/` | `HlocAvdtBar.cs` | this project's own copy of Poink.ML's HLOC/AVDT bar shape |
+| `Models/` | `SimulationAccount.cs` | `Position`/`CapitalState`/`Trade` domain shapes (simple cash P&L) |
+| `Models/` | `SimulationDecision.cs` | `SimulationAction`/`SimulationDecision`/`SimulationObservation` — the Brain's observe/decide data shapes |
+| `Models/` | `SimulationSnapshot.cs` | `SimulationConfig`/`SimulationSnapshot`/`SimulationLogEntry` read-model |
+| `Brain/` | `ISimulationBrain.cs` | brain contract |
+| `Brain/` | `MomentumThresholdBrain.cs` | heuristic placeholder brain (percent-change threshold) |
+| `Trader/` | `Trader.cs` | applies decisions to Capital/Position, computes P&L |
+| `Simulation/` | `SimulationBarAggregator.cs` | incremental (stateful) tick → HLOC/AVDT bar aggregator |
+| `Simulation/` | `SimulationEngine.cs` | orchestrating singleton: playback timer + MarketSim + Aggregator + Brain + Trader |
+| `Repository/` | `ITickRepository.cs` / `TickRepository.cs` | Postgres tick data access |
+| `Components/Pages/` | `SimulationPage.razor(.cs/.css)` | the `/` page (setup form + live playback view) |
+| `Components/Charts/` | `OhlcvChart.razor(.cs/.css)` | candlestick chart component |
+| `Components/Layout/` | `MainLayout.razor`, `SimNavLinks.razor` | app shell + nav |
 
 ## Build log
 
@@ -110,5 +116,6 @@ page is the app's landing page (`/`, aliased at `/simulation`).
 - [x] DI + navigation wiring (`Program.cs`, `SimNavLinks.razor`)
 - [x] Hide/show chart toggle for faster high-speed playback
 - [x] Split out of Poink.ML into its own project (Poink.Sim) — not analytics
+- [x] Reorganized from one flat feature folder into Models/Brain/Trader/Simulation/Repository/Components
 - [ ] End-to-end verification against real tick data (build + run + walk through the page)
 - [ ] Trained ML brain, stop-loss/take-profit, spread/commission cost (see "Not yet implemented")

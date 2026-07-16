@@ -27,9 +27,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Poink.Sim.Repositories;
+using Poink.Sim.Brain;
+using Poink.Sim.Models;
+using Poink.Sim.Repository;
+using Poink.Sim.Trader;
 
-namespace Poink.Sim.Features.Simulation;
+namespace Poink.Sim.Simulation;
 
 internal sealed class SimulationEngine : IDisposable
 {
@@ -49,7 +52,7 @@ internal sealed class SimulationEngine : IDisposable
     private int _cursor;
     private SimulationConfig? _config;
     private SimulationBarAggregator? _aggregator;
-    private Trader? _trader;
+    private Trader.Trader? _trader;
     private ISimulationBrain? _activeBrain;
     private double _speedMultiplier = 1.0;
     private bool _isPlaying;
@@ -104,7 +107,7 @@ internal sealed class SimulationEngine : IDisposable
                     _ticks = ticks;
                     _cursor = 0;
                     _config = config;
-                    _trader = new Trader(config.StartingCash);
+                    _trader = new Trader.Trader(config.StartingCash);
                     _aggregator = config.Aggregate ? new SimulationBarAggregator(config.BarSize) : null;
                     _activeBrain = brain;
                     _activeBrain.Reset();
@@ -176,7 +179,7 @@ internal sealed class SimulationEngine : IDisposable
             if (_config is null) return false;
             _timer.Change(Timeout.Infinite, Timeout.Infinite);
             _cursor = 0;
-            _trader = new Trader(_config.StartingCash);
+            _trader = new Trader.Trader(_config.StartingCash);
             _aggregator = _config.Aggregate ? new SimulationBarAggregator(_config.BarSize) : null;
             _activeBrain?.Reset();
             _recentBars.Clear();

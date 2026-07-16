@@ -7,8 +7,9 @@
 // ─────────────────────────────────────────────────────────────────────────
 using System;
 using System.Collections.Generic;
+using Poink.Sim.Models;
 
-namespace Poink.Sim.Features.Simulation;
+namespace Poink.Sim.Trader;
 
 internal sealed class Trader
 {

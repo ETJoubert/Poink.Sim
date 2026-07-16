@@ -7,9 +7,9 @@
 // ─────────────────────────────────────────────────────────────────────────
 using System;
 using System.Collections.Generic;
-using Poink.Sim.Repositories;
+using Poink.Sim.Repository;
 
-namespace Poink.Sim.Features.Simulation;
+namespace Poink.Sim.Models;
 
 internal sealed record SimulationConfig(
     string Table, DateTime From, DateTime To, bool Aggregate, TimeSpan BarSize,

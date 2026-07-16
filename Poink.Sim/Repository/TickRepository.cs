@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using Npgsql;
 
-namespace Poink.Sim.Repositories;
+namespace Poink.Sim.Repository;
 
 internal sealed class TickRepository : ITickRepository
 {

@@ -1,18 +1,13 @@
-// ── Pluggable trading-decision contract ──────────────────────────────────
-//  Deliberately NOT shaped like IForecastModel/IQuantileBrain/IPatternBrain
-//  (no Build/BuildInput, no TorchSharp Module<Tensor,Tensor>) -- those exist
-//  to construct/train a fresh model per run. A heuristic brain has no
-//  weights and nothing to train. A future TRAINED brain can still implement
-//  this exact interface: it would just hold a loaded Module<Tensor,Tensor>
-//  as a private field and do its own tensor prep inside Decide -- this
-//  interface only fixes the runtime observe/decide contract, not how (or
-//  whether) a model is involved.
+// ── Brain observe/decide data shapes ─────────────────────────────────────
+//  Split out of ISimulationBrain.cs so Models holds every plain data shape
+//  the Brain/Trader/Simulation layers pass around, and Brain/ holds only the
+//  ISimulationBrain contract itself.
 // ─────────────────────────────────────────────────────────────────────────
 using System;
 using System.Collections.Generic;
-using Poink.Sim.Repositories;
+using Poink.Sim.Repository;
 
-namespace Poink.Sim.Features.Simulation;
+namespace Poink.Sim.Models;
 
 internal enum SimulationAction { Hold, EnterLong, EnterShort, Close }
 
@@ -34,13 +29,3 @@ internal readonly record struct SimulationObservation(
     IReadOnlyList<HlocAvdtBar> RecentBars,
     IReadOnlyList<Tick> RecentTicks,
     CapitalState Capital, Position? Position);
-
-internal interface ISimulationBrain
-{
-    string Name { get; }
-
-    SimulationDecision Decide(SimulationObservation observation);
-
-    // Called once per run start; stateless brains no-op.
-    void Reset();
-}
