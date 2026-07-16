@@ -133,6 +133,22 @@ namespace Poink.Sim.Components.Pages
 
         private void SetSpeed(double multiplier) => Service.SetSpeed(multiplier);
 
+        // Max: uncapped backend throughput, chart/tick table still render.
+        private void SetMax()
+        {
+            Service.SetMaxSpeed();
+            _hideChart = false;
+        }
+
+        // Turbo: same uncapped throughput as Max, but skips chart/tick-table
+        // rendering entirely -- only the kv-row (Trader stats) and the
+        // trade/decision log stay visible while it runs.
+        private void SetTurbo()
+        {
+            Service.SetMaxSpeed();
+            _hideChart = true;
+        }
+
         private void ToggleHideChart() => _hideChart = !_hideChart;
 
         private void ResetSim() => Service.Reset();

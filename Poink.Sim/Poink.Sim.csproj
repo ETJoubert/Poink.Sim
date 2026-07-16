@@ -2,17 +2,25 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <!-- Split out of Poink.ML: this is trader-simulation playback (data replay +
-         heuristic/rule-based brains), not model training, so it carries none of
-         Poink.ML's TorchSharp/Microsoft.ML weight, just Postgres access
-         (Npgsql) and the shared Blazor terminal UI (Poink.Shared.Client). -->
+         heuristic/rule-based brains), not the training pipeline. It still carries
+         its own TorchSharp/Microsoft.ML for a future trained ISimulationBrain (see
+         Brain/ISimulationBrain.cs and README.md's "Trained ML brain" entry), kept
+         as this project's own copy rather than a ProjectReference to Poink.ML. -->
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
     <Optimize>true</Optimize>
+    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Npgsql" Version="10.0.3" />
+    <PackageReference Include="Microsoft.ML" Version="5.0.0" />
+    <PackageReference Include="TorchSharp" Version="0.107.0" />
+    <!-- CUDA backend targeting the RTX 3060, matching Poink.ML's choice. This package
+         bundles both CUDA and CPU kernels, so code still runs fine on machines without
+         a GPU. Swap back to TorchSharp-cpu for a much smaller download if needed. -->
+    <PackageReference Include="TorchSharp-cuda-windows" Version="0.107.0" />
   </ItemGroup>
 
   <ItemGroup>

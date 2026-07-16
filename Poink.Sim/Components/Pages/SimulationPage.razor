@@ -131,11 +131,15 @@
                                 @(s.IsPlaying ? "PAUSE" : "PLAY")
                             </button>
                             <button class="terminal-btn-action" @onclick="StepOnce" disabled="@(s.IsPlaying || s.IsFinished)">STEP</button>
-                            @foreach (var speed in new[] { 1.0, 5.0, 20.0, 100.0 })
+                            @foreach (var speed in new[] { 1000.0, 10000.0 })
                             {
-                                <button class="terminal-btn-action @(Math.Abs(s.SpeedMultiplier - speed) < 0.001 ? "active" : "")"
+                                <button class="terminal-btn-action @(!s.IsUncapped && Math.Abs(s.SpeedMultiplier - speed) < 0.001 ? "active" : "")"
                                         @onclick="() => SetSpeed(speed)">@speed.ToString("0")x</button>
                             }
+                            <button class="terminal-btn-action @(s.IsUncapped && !_hideChart ? "active" : "")"
+                                    @onclick="SetMax" title="Uncapped backend speed; chart/tick table keep rendering">MAX</button>
+                            <button class="terminal-btn-action @(s.IsUncapped && _hideChart ? "active" : "")"
+                                    @onclick="SetTurbo" title="Uncapped backend speed; chart/tick table hidden, only stats + log render">TURBO</button>
                             <button class="terminal-btn-action" @onclick="ResetSim">RESET</button>
                             <button class="terminal-btn-action" @onclick="UnloadSim">NEW SIMULATION</button>
                             <button class="terminal-btn-action @(_hideChart ? "active" : "")" @onclick="ToggleHideChart">

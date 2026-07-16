@@ -21,7 +21,7 @@ internal sealed record SimulationLogEntry(
 // Immutable read-model published wholesale each callback -- the page reads
 // the reference (no torn reads, no per-field locking needed on the page side).
 internal sealed record SimulationSnapshot(
-    SimulationConfig Config, bool IsPlaying, bool IsFinished, double SpeedMultiplier,
+    SimulationConfig Config, bool IsPlaying, bool IsFinished, double SpeedMultiplier, bool IsUncapped,
     int CursorIndex, int TotalCount, DateTime? CurrentTimestampUtc, double? CurrentPrice,
     CapitalState Capital, Position? Position,
     IReadOnlyList<HlocAvdtBar> RecentBars, IReadOnlyList<Tick> RecentTicks,

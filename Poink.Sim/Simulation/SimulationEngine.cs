@@ -13,6 +13,13 @@
 //  traffic to ~10/sec regardless of speed, so a high multiplier plays through
 //  history faster without flooding the Blazor Server circuit.
 //
+//  SetMaxSpeed() ("Max"/"Turbo" on the page) is a separate uncapped mode, not
+//  just a bigger multiplier: TimerCallback drains every remaining tick in one
+//  callback instead of a bounded slice, so a run finishes in a single publish
+//  regardless of how many ticks are left. "Turbo" vs "Max" is purely a page-
+//  side rendering choice (Turbo also hides the chart/tick table) -- the engine
+//  doesn't know the difference.
+//
 //  Mark-to-market (Trader.Snapshot) runs every raw tick; Brain.Decide +
 //  Trader.Apply run once per raw tick when aggregation is off, or once per
 //  completed bar when aggregation is on -- this is what makes the
@@ -38,7 +45,8 @@ internal sealed class SimulationEngine : IDisposable
 {
     private const int CallbackIntervalMs = 100;
     private const int BaseUnitsPerCallback = 5;
-    private const int MaxUnitsPerCallback = 5000;
+    private const int FiniteSpeedUnitsCap = 100_000; // headroom above 5 * MaxFiniteMultiplier
+    private const double MaxFiniteMultiplier = 10_000;
     private const int MaxRecentBars = 300;
     private const int MaxRecentTicks = 500;
     private const int MaxRecentLog = 200;
@@ -55,6 +63,7 @@ internal sealed class SimulationEngine : IDisposable
     private Trader.Trader? _trader;
     private ISimulationBrain? _activeBrain;
     private double _speedMultiplier = 1.0;
+    private bool _uncapped;
     private bool _isPlaying;
 
     private readonly List<HlocAvdtBar> _recentBars = new();
@@ -167,7 +176,15 @@ internal sealed class SimulationEngine : IDisposable
 
     public void SetSpeed(double multiplier)
     {
-        lock (_lock) { _speedMultiplier = Math.Clamp(multiplier, 0.1, 200); }
+        lock (_lock) { _uncapped = false; _speedMultiplier = Math.Clamp(multiplier, 0.1, MaxFiniteMultiplier); }
+        PublishSnapshot();
+    }
+
+    // Uncapped: TimerCallback drains every remaining tick in one callback instead
+    // of a bounded slice per callback -- see the class-level doc comment.
+    public void SetMaxSpeed()
+    {
+        lock (_lock) { _uncapped = true; }
         PublishSnapshot();
     }
 
@@ -229,7 +246,9 @@ internal sealed class SimulationEngine : IDisposable
             }
             else
             {
-                int units = Math.Clamp((int)Math.Round(BaseUnitsPerCallback * _speedMultiplier), 1, MaxUnitsPerCallback);
+                int units = _uncapped
+                    ? _ticks.Count - _cursor
+                    : Math.Clamp((int)Math.Round(BaseUnitsPerCallback * _speedMultiplier), 1, FiniteSpeedUnitsCap);
                 for (int i = 0; i < units && _cursor < _ticks.Count; i++)
                     AdvanceOneUnitLocked();
 
@@ -313,7 +332,7 @@ internal sealed class SimulationEngine : IDisposable
             snapshot = _config is null || _ticks is null
                 ? null
                 : new SimulationSnapshot(
-                    _config, _isPlaying, _cursor >= _ticks.Count, _speedMultiplier,
+                    _config, _isPlaying, _cursor >= _ticks.Count, _speedMultiplier, _uncapped,
                     _cursor, _ticks.Count, _lastTimestamp, _lastPrice,
                     _lastCapital, _trader?.CurrentPosition,
                     _recentBars.ToList(), _recentTicks.ToList(), _recentLog.ToList());

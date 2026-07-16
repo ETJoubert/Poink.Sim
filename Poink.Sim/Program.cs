@@ -1,15 +1,16 @@
 // ═══════════════════════════════════════════════════════════════════════════
 //  Poink.Sim — always-on Blazor Server dashboard for the trader simulation
 //
-//  Split out of Poink.ML because this isn't analytics/training: it replays
+//  Split out of Poink.ML because this isn't the training pipeline: it replays
 //  historical ticks for a chosen symbol and date range under user control
 //  (play/pause/step/speed), lets a pluggable ISimulationBrain observe the
 //  stream (raw ticks or aggregated HLOC/AVDT bars) plus live Capital/Position,
 //  and executes its decisions through Trader with simple cash P&L (no
-//  leverage). See Features/Simulation/README.md for the full design.
+//  leverage). See README.md for the full design.
 //
-//  No TorchSharp/Microsoft.ML dependency here on purpose -- only Postgres
-//  tick access (Repositories/) and the shared terminal UI (Poink.Shared.Client).
+//  Carries its own TorchSharp/Microsoft.ML (see Poink.Sim.csproj) for a future
+//  trained ISimulationBrain, plus Postgres tick access (Repository/) and the
+//  shared terminal UI (Poink.Shared.Client).
 // ═══════════════════════════════════════════════════════════════════════════
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;

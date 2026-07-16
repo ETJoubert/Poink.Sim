@@ -19,12 +19,14 @@ A live, interactive replay of historical ticks driven by three pieces:
 
 ## Why this is its own project
 
-Poink.Sim was split out of Poink.ML because simulation playback isn't analytics —
-it doesn't train anything. It carries no TorchSharp/Microsoft.ML dependency, only
-Postgres tick access and the shared Blazor terminal UI (`Poink.Shared.Client`).
-`ITickRepository`/`TickRepository` and the `HlocAvdtBar` bar shape are each
-duplicated here rather than referenced from Poink.ML, specifically to avoid
-pulling that dependency weight back in.
+Poink.Sim was split out of Poink.ML because simulation playback isn't Poink.ML's
+training pipeline — it's a separate app with its own lifecycle (play/pause/step/
+speed against live Capital/Position). It does carry its own TorchSharp/Microsoft.ML
+(for a future trained `ISimulationBrain`, see "Not yet implemented" below) plus
+Postgres tick access and the shared Blazor terminal UI (`Poink.Shared.Client`), but
+never a `ProjectReference` to Poink.ML itself: `ITickRepository`/`TickRepository`
+and the `HlocAvdtBar` bar shape are each duplicated here rather than shared, so
+this project's build/deploy stays independent of Poink.ML's.
 
 ## Playback design
 
@@ -39,6 +41,13 @@ never overlap and Pause/SetSpeed take effect cleanly at a callback boundary. The
 multiplier controls **how many ticks advance per callback**, not how fast the timer
 fires (fixed ~100ms cadence) — this bounds UI update traffic to ~10/sec regardless of
 speed, so high multipliers play through history faster without flooding the page.
+
+`SetMaxSpeed()` ("Max"/"Turbo" on the page) is a separate **uncapped** mode, not just
+a bigger multiplier: `TimerCallback` drains every remaining tick in one callback
+instead of a bounded slice, so a run finishes in a single publish no matter how many
+ticks are left. Max and Turbo run the engine identically — the only difference is a
+page-side rendering choice (Turbo also flips `_hideChart` on), since the engine has
+no concept of "hidden."
 
 Mark-to-market (`Trader.Snapshot`) runs every raw tick so Capital/Position stay live
 between decisions; `Brain.Decide` + `Trader.Apply` run once per raw tick when
@@ -79,12 +88,18 @@ page is the app's landing page (`/`, aliased at `/simulation`).
 - **Setup** — pick a symbol (from the tick tables Postgres has), a date range, the
   aggregation toggle (raw ticks vs. HLOC/AVDT bars) and bar size, a brain, and
   starting cash, then **Load Simulation**.
-- **Playback** — Play/Pause, Step (paused-only), speed buttons (1x/5x/20x/100x),
-  Reset (rewind, same config), New Simulation (back to setup), Hide/Show Chart
-  (skip chart rendering for faster trading at high speed). Live: a candlestick
-  chart (aggregation on) or a scrolling raw-tick table (aggregation off), a
-  Capital/Position readout (cash, realized/unrealized P&L, equity, position), and a
-  trade/decision log.
+- **Playback** — Play/Pause, Step (paused-only), speed buttons (1000x/10000x, plus
+  uncapped Max/Turbo — see below), Reset (rewind, same config), New Simulation (back
+  to setup), Hide/Show Chart (manually skip chart rendering for faster trading at
+  high speed). Live: a candlestick chart (aggregation on) or a scrolling raw-tick
+  table (aggregation off), a Capital/Position readout (cash, realized/unrealized
+  P&L, equity, position), and a trade/decision log.
+- **Max vs. Turbo** — both run the backend at uncapped speed (drain every remaining
+  tick in one go, see "Playback design" above); Max keeps the chart/tick table
+  rendering, Turbo hides them automatically (same effect as the Hide Chart toggle)
+  so only the Capital/Position stats and the trade/decision log update — useful for
+  very large runs where redrawing the chart is the actual bottleneck, not the
+  simulation math itself.
 
 ## Files
 
