@@ -1,0 +1,196 @@
+@page "/train"
+@namespace Poink.Sim.Components.Pages
+@using Poink.Shared.Client.Components.Shared.ViewDatatable
+@using Poink.Sim.Components.Training
+
+<div class="train-page">
+    <header class="train-header">
+        <span class="train-title">BRAIN TRAINING</span>
+        <span class="train-state @(Service.IsRunning ? "train-state-running" : "")">
+            @(Service.IsRunning ? "TRAINING" : "IDLE")
+        </span>
+    </header>
+
+    <div class="train-tabs">
+        <button class="terminal-btn-action @(_activeTab == TrainTab.Setup ? "active" : "")"
+                @onclick="() => _activeTab = TrainTab.Setup">SETUP</button>
+        <button class="terminal-btn-action @(_activeTab == TrainTab.Live ? "active" : "")"
+                @onclick="() => _activeTab = TrainTab.Live">LIVE</button>
+    </div>
+
+    @if (_activeTab == TrainTab.Setup)
+    {
+        <p class="train-help">
+            Runs a brain through many headless simulated episodes (synthetic random-walk
+            ticks, no Postgres needed), training it via the selected strategy after each
+            episode. Only brains the strategy recognizes as trainable can be selected.
+        </p>
+
+        <div class="train-setup-grid">
+            <div class="train-group">
+                <div class="train-group-title">Brain &amp; Strategy</div>
+                <div class="train-row">
+                    <label>
+                        Brain
+                        <select class="terminal-input" @bind="_brainName" disabled="@Service.IsRunning">
+                            @foreach (var name in Service.BrainNames)
+                            {
+                                <option value="@name">@name</option>
+                            }
+                        </select>
+                    </label>
+                    <label>
+                        Strategy
+                        <select class="terminal-input" @bind="_strategyName" disabled="@Service.IsRunning">
+                            @foreach (var name in Service.StrategyNames)
+                            {
+                                <option value="@name">@name</option>
+                            }
+                        </select>
+                    </label>
+                </div>
+            </div>
+
+            <div class="train-group">
+                <div class="train-group-title">Run parameters</div>
+                <div class="train-row">
+                    <label>
+                        Episodes
+                        <input class="terminal-input" type="number" min="1" @bind="_episodeCount" disabled="@Service.IsRunning" />
+                    </label>
+                    <label>
+                        Ticks / episode
+                        <input class="terminal-input" type="number" min="2" @bind="_ticksPerEpisode" disabled="@Service.IsRunning" />
+                    </label>
+                    <label>
+                        Starting cash
+                        <input class="terminal-input" type="number" min="1" step="100" @bind="_startingCash" disabled="@Service.IsRunning" />
+                    </label>
+                    <label>
+                        Learning rate
+                        <input class="terminal-input" type="number" min="0.00001" step="0.0001" @bind="_learningRate" disabled="@Service.IsRunning" />
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <div class="train-actions">
+            <button class="terminal-btn-action" @onclick="StartTraining" disabled="@Service.IsRunning">
+                @(Service.IsRunning ? "TRAINING..." : "START TRAINING")
+            </button>
+        </div>
+
+        @if (_startError is not null)
+        {
+            <p class="train-error">@_startError</p>
+        }
+        @if (Service.Error is not null)
+        {
+            <p class="train-error">@Service.Error</p>
+        }
+
+        @if (Service.TotalEpisodes > 0)
+        {
+            <div class="train-progress">
+                <div class="train-progress-bar">
+                    <div class="train-progress-fill" style="width: @(ProgressPercent)%"></div>
+                </div>
+                <span class="train-progress-text">
+                    @Service.EpisodesCompleted / @Service.TotalEpisodes episodes (@ProgressPercent%)
+                </span>
+            </div>
+        }
+    }
+    else
+    {
+        @if (Service.TotalEpisodes == 0)
+        {
+            <p class="train-help">No training run yet — switch to SETUP and start one.</p>
+        }
+        else
+        {
+            <div class="train-progress">
+                <div class="train-progress-bar">
+                    <div class="train-progress-fill" style="width: @(ProgressPercent)%"></div>
+                </div>
+                <span class="train-progress-text">
+                    @Service.EpisodesCompleted / @Service.TotalEpisodes episodes (@ProgressPercent%)
+                </span>
+            </div>
+
+            <div class="train-stats">
+                <div class="train-stat">
+                    <span class="train-stat-label">recent avg reward</span>
+                    <span class="train-stat-value">@Service.RecentAverageReward.ToString("N2")</span>
+                </div>
+                <div class="train-stat">
+                    <span class="train-stat-label">best episode</span>
+                    <span class="train-stat-value">@Service.BestReward.ToString("N2")</span>
+                </div>
+                <div class="train-stat">
+                    <span class="train-stat-label">worst episode</span>
+                    <span class="train-stat-value">@Service.WorstReward.ToString("N2")</span>
+                </div>
+                <div class="train-stat">
+                    <span class="train-stat-label">win rate</span>
+                    <span class="train-stat-value">@WinRatePercent.ToString("N0")%</span>
+                </div>
+            </div>
+
+            <div class="train-live-grid">
+                <div class="train-live-panel">
+                    <div class="train-panel-title">EPISODES</div>
+                    <EpisodeGrid Episodes="Service.RecentEpisodes" IsRunning="Service.IsRunning" />
+                </div>
+
+                <div class="train-live-panel">
+                    <div class="train-panel-title">REWARD</div>
+                    <RewardChart Episodes="Service.RecentEpisodes" IsRunning="Service.IsRunning" />
+                </div>
+
+                <div class="train-live-panel">
+                    <div class="train-panel-title">NETWORK ACTIVITY</div>
+                    <NetworkEmulator IsRunning="Service.IsRunning" />
+                </div>
+
+                <div class="train-live-panel">
+                    <div class="train-panel-title">ACTION DISTRIBUTION</div>
+                    <div class="action-dist">
+                        <div class="action-dist-row">
+                            <span class="action-dist-label action-dist-hold">HOLD</span>
+                            <div class="action-dist-track">
+                                <div class="action-dist-fill action-dist-fill-hold" style="width: @(Pct(ActionPercents.Hold))%"></div>
+                            </div>
+                            <span class="action-dist-pct">@ActionPercents.Hold.ToString("N0")%</span>
+                        </div>
+                        <div class="action-dist-row">
+                            <span class="action-dist-label action-dist-long">LONG</span>
+                            <div class="action-dist-track">
+                                <div class="action-dist-fill action-dist-fill-long" style="width: @(Pct(ActionPercents.EnterLong))%"></div>
+                            </div>
+                            <span class="action-dist-pct">@ActionPercents.EnterLong.ToString("N0")%</span>
+                        </div>
+                        <div class="action-dist-row">
+                            <span class="action-dist-label action-dist-short">SHORT</span>
+                            <div class="action-dist-track">
+                                <div class="action-dist-fill action-dist-fill-short" style="width: @(Pct(ActionPercents.EnterShort))%"></div>
+                            </div>
+                            <span class="action-dist-pct">@ActionPercents.EnterShort.ToString("N0")%</span>
+                        </div>
+                        <div class="action-dist-row">
+                            <span class="action-dist-label action-dist-close">CLOSE</span>
+                            <div class="action-dist-track">
+                                <div class="action-dist-fill action-dist-fill-close" style="width: @(Pct(ActionPercents.Close))%"></div>
+                            </div>
+                            <span class="action-dist-pct">@ActionPercents.Close.ToString("N0")%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="train-metrics-log">
+                <ViewDatatable Items="MetricsRows" Title="EPISODE METRICS" EmptyMessage="no episodes yet" />
+            </div>
+        }
+    }
+</div>

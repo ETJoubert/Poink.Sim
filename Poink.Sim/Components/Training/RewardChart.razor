@@ -1,0 +1,25 @@
+@namespace Poink.Sim.Components.Training
+
+<div class="reward-chart">
+    @if (Episodes.Count == 0)
+    {
+        <span class="reward-chart-empty">no episodes yet</span>
+    }
+    else
+    {
+        <svg viewBox="0 0 600 160" preserveAspectRatio="none" class="reward-chart-svg">
+            <line x1="@FormatCoord(PadLeft)" y1="@BaselineY" x2="@FormatCoord(ViewWidth - PadRight)" y2="@BaselineY" class="reward-chart-baseline" />
+            <polyline points="@PolylinePoints" class="reward-chart-line" />
+            @foreach (var p in Points)
+            {
+                <circle cx="@p.X" cy="@p.Y" r="2.5" class="reward-chart-point @(p.IsLatest && IsRunning ? "reward-chart-point-latest" : "")">
+                    <title>episode @p.Episode — reward @p.Reward.ToString("N2")</title>
+                </circle>
+            }
+        </svg>
+        <div class="reward-chart-labels">
+            <span>min @RewardRange.Min.ToString("N2")</span>
+            <span>max @RewardRange.Max.ToString("N2")</span>
+        </div>
+    }
+</div>

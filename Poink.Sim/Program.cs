@@ -16,8 +16,10 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Poink.Sim.Brain;
+using Poink.Sim.Brain.Neural;
 using Poink.Sim.Repository;
 using Poink.Sim.Simulation;
+using Poink.Sim.Training;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -26,7 +28,14 @@ var builder = WebApplication.CreateBuilder(args);
 // so its dependencies must be singleton-safe too. ITickRepository is stateless.
 builder.Services.AddSingleton<ITickRepository, TickRepository>();
 builder.Services.AddSingleton<ISimulationBrain, MomentumThresholdBrain>();
+builder.Services.AddSingleton<ISimulationBrain, RandomBrain>();
+// Registered as ISimulationBrain (not just IPolicyGradientBrain) so it shows up in
+// the existing simulation setup screen's Brain dropdown immediately -- untrained
+// at first, improving as RlTrainingService trains this same singleton instance.
+builder.Services.AddSingleton<ISimulationBrain, MlpPolicyBrain>();
 builder.Services.AddSingleton<SimulationEngine>();
+builder.Services.AddSingleton<IRlTrainingStrategy, PolicyGradientTrainingStrategy>();
+builder.Services.AddSingleton<RlTrainingService>();
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 

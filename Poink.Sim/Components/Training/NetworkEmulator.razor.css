@@ -1,0 +1,14 @@
+.network-emulator {
+    width: 100%;
+    height: 220px;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
+    border-radius: var(--border-radius-md);
+    background: rgba(255, 255, 255, 0.015);
+    overflow: hidden;
+}
+
+.network-emulator-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+}

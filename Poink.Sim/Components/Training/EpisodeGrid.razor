@@ -1,0 +1,19 @@
+@namespace Poink.Sim.Components.Training
+
+<div class="episode-grid">
+    @if (Blocks.Count == 0)
+    {
+        <span class="episode-grid-empty">no episodes yet</span>
+    }
+    else
+    {
+        @foreach (var block in Blocks)
+        {
+            <div class="episode-block @(block.IsLatest && IsRunning ? "episode-block-latest" : "")"
+                 style="background: @block.ColorCss"
+                 title="episode @block.Episode — reward @block.Reward.ToString("N2"), equity @block.FinalEquity.ToString("N2")">
+                @block.Glyph
+            </div>
+        }
+    }
+</div>

@@ -1,7 +1,9 @@
 # Simulation — interactive trader replay
 
-> Status: **in progress** — heuristic placeholder brain only (`MomentumThresholdBrain`);
-> no trained ML brain, stop-loss/take-profit, or spread/commission cost yet.
+> Status: **in progress** — heuristic placeholder brains (`MomentumThresholdBrain`,
+> `RandomBrain`) plus a first trained brain (`MlpPolicyBrain`, trained by a
+> reinforcement-learning strategy against simulated episodes, see "Machine-learning
+> brain" below); still no stop-loss/take-profit or spread/commission cost.
 
 ## What this feature is
 
@@ -22,7 +24,7 @@ A live, interactive replay of historical ticks driven by three pieces:
 Poink.Sim was split out of Poink.ML because simulation playback isn't Poink.ML's
 training pipeline — it's a separate app with its own lifecycle (play/pause/step/
 speed against live Capital/Position). It does carry its own TorchSharp/Microsoft.ML
-(for a future trained `ISimulationBrain`, see "Not yet implemented" below) plus
+(now used by a trained `ISimulationBrain`, see "Machine-learning brain" below) plus
 Postgres tick access and the shared Blazor terminal UI (`Poink.Shared.Client`), but
 never a `ProjectReference` to Poink.ML itself: `ITickRepository`/`TickRepository`
 and the `HlocAvdtBar` bar shape are each duplicated here rather than shared, so
@@ -64,13 +66,91 @@ Like every other `*TrainingService` singleton in Poink.ML, `SimulationEngine` ho
 one shared in-memory "current run" for the whole process, not per-user/session — this
 is intentional, matching that convention, not a gap.
 
+## Machine-learning brain (reinforcement learning)
+
+**TLDR:** the brain used to be hand-written if/else rules. Now there's also a brain
+that's a small neural network — it starts out making random trades, plays thousands
+of practice rounds against fake price data, and after each round nudges its own
+weights toward whatever decisions made money and away from whatever lost money. No
+historical "correct answer" data involved (that's what makes it reinforcement
+learning instead of the supervised training Poink.ML does elsewhere) — it only ever
+learns from its own simulated trading outcomes. The Train page (`/train`) runs these
+practice sessions and a toggleable log shows reward improving (or not) over time.
+
+The abstraction underneath:
+
+| Role | Interface | Analogy |
+|---|---|---|
+| A trader | `ISimulationBrain` | "someone who makes trading decisions" — a fixed rulebook or a trained network, the simulator doesn't care which |
+| A trainable trader | `IPolicyGradientBrain` | a trader who can also say *why* they made a choice (a confidence score) — the one extra thing a coach needs |
+| A coach | `IRlTrainingStrategy` | "a method of turning practice results into improvement" — one coaching style today (REINFORCE); a different one can be swapped in later without touching the trader or the practice-round logic |
+
+Everything else (`RlEpisodeRunner`, `RlTrainingService`) just wires a trader and a
+coach together and doesn't need to know which specific one it's holding — that's the
+whole point of splitting them into separate, swappable interfaces.
+
+`ISimulationBrain` was deliberately kept minimal (`Name`/`Decide`/`Reset`, no
+`Build`/`BuildInput`, no TorchSharp `Module`) so a heuristic brain has nothing to
+carry — but that same minimalism is exactly what let a trained brain implement it by
+holding a loaded `Module<Tensor,Tensor>` privately. That's now real, not just a
+design placeholder:
+
+- **`IPolicyGradientBrain`** (`Brain/Neural/`) is a sibling to `ISimulationBrain`, not
+  a replacement — same pattern Poink.ML uses to keep each model family behind its own
+  narrow interface (`IForecastModel`/`IQuantileBrain`/`IPatternBrain`) instead of one
+  do-everything abstraction. It adds `Network` (the live module), `Encode` (this
+  brain's own fixed-width feature encoding — the only data path in, so it only ever
+  sees what `SimulationObservation` already exposes, no lookahead), and
+  `DecideWithLogProbability` (forward pass + sampled action + that action's
+  log-probability, which a training strategy needs and plain playback doesn't).
+- **`MlpPolicyBrain`** is the first concrete network: a small MLP over the last 20
+  ticks/bars (as percent-change-from-current-price) plus four bounded capital/position
+  ratios (position direction, unrealized/realized PnL over equity, cash over equity),
+  outputting one logit per `SimulationAction`. Built once in the constructor and kept
+  alive for the object's lifetime — weights persist across simulation runs, and
+  training mutates this exact instance in place, so a brain plugged into a live
+  Simulation run visibly reflects whatever it has learned so far. `CapitalFraction` is
+  fixed at 0.5 for v1 (discrete action space only, no continuous position sizing yet).
+- **Training is reinforcement learning by actually trading, not supervised learning
+  on historical/labeled data** (unlike everything in Poink.ML). `RlEpisodeRunner`
+  (`Training/`) headlessly plays one episode against synthetic ticks
+  (`Simulation/DummyTickGenerator.cs`, shared with the live "Load Dummy Data" path) —
+  no Timer, no locking, no UI publish, since training needs to blast through many
+  episodes fast. Reward per decision point is the trader's equity drift since the
+  *previous* decision point (mark-to-market P&L from price movement while holding a
+  position, plus whatever a Close realizes) — dense and available every step, not just
+  at episode end.
+- **`IRlTrainingStrategy`** (`Training/`) is the "different training strategies" seam:
+  `Name`/`CanTrain`/`CreateOptimizer`/`TrainEpisode`, kept stateless like Poink.ML's
+  brain interfaces — `RlTrainingService` owns the optimizer's lifetime across a whole
+  run (so Adam's momentum persists correctly across episodes instead of resetting
+  every one), the strategy just turns one recorded episode into one gradient step.
+  Adding a new algorithm (e.g. a future DQN/actor-critic strategy) means one class + one
+  DI registration line, same as adding a new brain.
+- **`PolicyGradientTrainingStrategy`** is v1's concrete strategy: REINFORCE with
+  discounted reward-to-go (`γ = 0.99`) and a mean-centered baseline (simple variance
+  reduction, no separate value network) — loss is `-mean(logProb_t * normalizedReturn_t)`.
+- **`RlTrainingService`** is a DI singleton with the same `_lock`/`IsRunning`/`Error`/
+  `OnChanged` shape as every other `*TrainingService` in Poink.ML and as
+  `SimulationEngine` itself, but drives `RlEpisodeRunner` in a tight background loop
+  instead of a UI-paced Timer. It also keeps a bounded rolling log (`RecentEpisodes`,
+  last 500 episodes) of every completed episode's reward and final equity — the
+  toggleable "visual feedback" the Train page renders as a table so a run can actually
+  be evaluated against something, not just a single running-average number.
+- **The Train page** (`/train`) picks a brain + strategy (only pairings where
+  `CanTrain` is true are trainable), episode count, ticks per episode, starting cash,
+  and learning rate, then shows a live progress bar plus a "SHOW METRICS LOG" toggle
+  (off by default) that reveals the episode-by-episode reward/equity table.
+
+Known v1 limitations, deliberately not solved yet: **no weight persistence** (trained
+weights live only for the process's lifetime, matching Poink.ML's own gap — TorchSharp's
+`Module.save`/`load` is the natural follow-up); **fixed capital fraction** (no
+continuous position sizing); **dense per-tick reward only** (no reward shaping — e.g.
+drawdown penalty, transaction cost); **one brain trains at a time** (`IsRunning` guards
+against concurrent runs, same as every other `*TrainingService`).
+
 ## Not yet implemented
 
-- **Trained ML brain.** `ISimulationBrain` is deliberately not shaped like
-  `IForecastModel`/`IQuantileBrain`/`IPatternBrain` (no `Build`/`BuildInput`, no
-  TorchSharp `Module`) — a heuristic brain has no weights. A future trained brain can
-  still implement the same interface, holding a loaded `Module<Tensor,Tensor>`
-  privately and doing its own tensor prep inside `Decide`.
 - **Stop-loss / take-profit.** `Position` and `SimulationDecision` already carry
   `StopLossPrice`/`TakeProfitPrice` fields; `Trader.Apply` has a marked-but-unimplemented
   hook (`// SL/TP CHECK`) where auto-close logic slots in later without reworking
@@ -100,6 +180,10 @@ page is the app's landing page (`/`, aliased at `/simulation`).
   so only the Capital/Position stats and the trade/decision log update — useful for
   very large runs where redrawing the chart is the actual bottleneck, not the
   simulation math itself.
+- **Train** (`/train`) — pick a trainable brain + strategy, episode count, ticks per
+  episode, starting cash, learning rate, then **Start Training**. Runs headlessly
+  against synthetic ticks (no Postgres needed); toggle **Show Metrics Log** to watch
+  reward/equity per episode as it trains. See "Machine-learning brain" above.
 
 ## Files
 
@@ -113,11 +197,20 @@ Organized by role rather than one flat feature folder:
 | `Models/` | `SimulationSnapshot.cs` | `SimulationConfig`/`SimulationSnapshot`/`SimulationLogEntry` read-model |
 | `Brain/` | `ISimulationBrain.cs` | brain contract |
 | `Brain/` | `MomentumThresholdBrain.cs` | heuristic placeholder brain (percent-change threshold) |
+| `Brain/Neural/` | `IPolicyGradientBrain.cs` | trained-brain family contract (sibling to `ISimulationBrain`): `Network`, `Encode`, `DecideWithLogProbability` |
+| `Brain/Neural/` | `MlpPolicyBrain.cs` | first concrete network — small MLP over a price window + capital/position ratios |
 | `Trader/` | `Trader.cs` | applies decisions to Capital/Position, computes P&L |
 | `Simulation/` | `SimulationBarAggregator.cs` | incremental (stateful) tick → HLOC/AVDT bar aggregator |
 | `Simulation/` | `SimulationEngine.cs` | orchestrating singleton: playback timer + MarketSim + Aggregator + Brain + Trader |
+| `Simulation/` | `DummyTickGenerator.cs` | synthetic random-walk ticks, shared by "Load Dummy Data" and `RlEpisodeRunner` |
+| `Training/` | `RlEpisode.cs` | `RlStep`/`RlEpisode`/`RlEpisodeMetric` — recorded-trajectory and metrics-log shapes |
+| `Training/` | `RlEpisodeRunner.cs` | headless single-episode playback (one Trader, no Timer/UI) |
+| `Training/` | `IRlTrainingStrategy.cs` | RL algorithm contract — the "different training strategies" seam |
+| `Training/` | `PolicyGradientTrainingStrategy.cs` | v1 strategy: REINFORCE with discounted-return + mean baseline |
+| `Training/` | `RlTrainingService.cs` | background training orchestrator singleton + rolling episode-metrics log |
 | `Repository/` | `ITickRepository.cs` / `TickRepository.cs` | Postgres tick data access |
 | `Components/Pages/` | `SimulationPage.razor(.cs/.css)` | the `/` page (setup form + live playback view) |
+| `Components/Pages/` | `TrainPage.razor(.cs/.css)` | the `/train` page (training setup + progress + metrics log) |
 | `Components/Charts/` | `OhlcvChart.razor(.cs/.css)` | candlestick chart component |
 | `Components/Layout/` | `MainLayout.razor`, `SimNavLinks.razor` | app shell + nav |
 
@@ -132,5 +225,12 @@ Organized by role rather than one flat feature folder:
 - [x] Hide/show chart toggle for faster high-speed playback
 - [x] Split out of Poink.ML into its own project (Poink.Sim) — not analytics
 - [x] Reorganized from one flat feature folder into Models/Brain/Trader/Simulation/Repository/Components
+- [x] `IPolicyGradientBrain` + `MlpPolicyBrain` — first trained brain, MLP over price window + capital/position ratios
+- [x] `RlEpisodeRunner` — headless episode playback (`DummyTickGenerator` extracted for reuse)
+- [x] `IRlTrainingStrategy` + `PolicyGradientTrainingStrategy` — REINFORCE with discounted-return + mean baseline
+- [x] `RlTrainingService` + `TrainPage` (`/train`) — background training loop, progress, toggleable episode-metrics log
 - [ ] End-to-end verification against real tick data (build + run + walk through the page)
-- [ ] Trained ML brain, stop-loss/take-profit, spread/commission cost (see "Not yet implemented")
+- [ ] Weight persistence, continuous position sizing, reward shaping, additional RL strategies (see "Machine-learning brain")
+- [ ] Train against real historical ticks, not just synthetic episodes (`RlEpisodeRunner` takes `ITickRepository` + a random date-range window per episode; wire into `RlTrainingService`/`TrainPage`)
+- [ ] Swappable reward policy (`IRewardPolicy`, same DI-registered-family pattern as brains/strategies) instead of the hard-coded equity-delta line in `RlEpisodeRunner.RecordStep`
+- [ ] Stop-loss/take-profit, spread/commission cost (see "Not yet implemented")
