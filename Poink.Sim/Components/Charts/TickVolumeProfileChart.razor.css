@@ -1,0 +1,127 @@
+.tvp-wrapper {
+    position: relative;
+    width: 100%;
+    height: 280px;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: var(--border-radius-sm);
+    background: rgba(255, 255, 255, 0.015);
+    overflow: hidden;
+}
+
+.tvp-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    flex: 0 0 auto;
+}
+
+.tvp-title {
+    font-size: 0.6rem;
+    letter-spacing: 0.1em;
+    color: var(--color-secondary);
+    opacity: 0.85;
+}
+
+.tvp-gear-btn {
+    background: transparent;
+    color: var(--color-secondary);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+    width: 20px;
+    height: 20px;
+    line-height: 1;
+    font-size: 0.75rem;
+    cursor: pointer;
+}
+
+.tvp-gear-btn:hover {
+    color: #e6e6e6;
+    border-color: rgba(255, 255, 255, 0.35);
+}
+
+.tvp-settings {
+    position: absolute;
+    top: 28px;
+    right: 4px;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    background: rgba(10, 10, 10, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+    padding: 8px 10px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+
+.tvp-settings label {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    font-size: 0.68rem;
+    color: var(--color-secondary);
+}
+
+.tvp-settings input {
+    width: 90px;
+}
+
+.tvp-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    padding: 4px 8px;
+    overflow-y: auto;
+}
+
+.tvp-empty {
+    margin: auto;
+    font-size: 0.75rem;
+    color: var(--color-secondary);
+    opacity: 0.7;
+}
+
+.tvp-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    min-height: 10px;
+}
+
+.tvp-row-label {
+    flex: 0 0 58px;
+    font-size: 0.62rem;
+    color: var(--color-secondary);
+    opacity: 0.85;
+    white-space: nowrap;
+}
+
+.tvp-row-track {
+    flex: 1;
+    height: 65%;
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.tvp-row-bar {
+    height: 100%;
+    background: var(--color-secondary);
+    box-shadow: var(--shadow-glow-secondary);
+    border-radius: 2px;
+    transition: width 0.15s ease;
+}
+
+.tvp-row-count {
+    flex: 0 0 28px;
+    font-size: 0.62rem;
+    color: var(--color-secondary);
+    opacity: 0.7;
+    text-align: right;
+}

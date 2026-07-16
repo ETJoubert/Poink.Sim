@@ -196,6 +196,9 @@ namespace Poink.Sim.Components.Pages
             bars.Select(b => new CTraderBarRow(
                 b.OpenTime, b.Open, b.High, b.Low, b.Close, b.Volume, b.UpVolume, b.DownVolume, b.Distance)).ToList();
 
+        private static List<double> ToMidPrices(IReadOnlyList<Tick> ticks) =>
+            ticks.Select(t => (t.Bid + t.Ask) / 2.0).ToList();
+
         private static string StateClass(SimulationSnapshot s) =>
             s.IsFinished ? "sim-state-finished" : s.IsPlaying ? "sim-state-playing" : "sim-state-paused";
 

@@ -1,0 +1,43 @@
+@namespace Poink.Sim.Components.Charts
+
+<div class="tvp-wrapper">
+    <div class="tvp-header">
+        <span class="tvp-title">VOLUME PROFILE</span>
+        <button type="button" class="tvp-gear-btn" @onclick="ToggleSettings" title="Resolution / window">⚙</button>
+    </div>
+
+    @if (_showSettings)
+    {
+        <div class="tvp-settings">
+            <label>
+                Buckets
+                <input class="terminal-input" type="number" min="2" max="100" @bind="_bucketCount" @bind:event="oninput" />
+            </label>
+            <label>
+                Window (ticks)
+                <input class="terminal-input" type="number" min="2" max="@MaxWindow" @bind="_windowSize" @bind:event="oninput" />
+            </label>
+        </div>
+    }
+
+    <div class="tvp-body">
+        @{ var buckets = Buckets; }
+        @if (buckets.Count == 0)
+        {
+            <div class="tvp-empty">not enough tick data</div>
+        }
+        else
+        {
+            @foreach (var b in buckets)
+            {
+                <div class="tvp-row" title="@($"{b.Low:F5} - {b.High:F5}: {b.Count} ticks")">
+                    <span class="tvp-row-label">@b.Low.ToString("F5")</span>
+                    <div class="tvp-row-track">
+                        <div class="tvp-row-bar" style="width: @(b.Percent.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture))%"></div>
+                    </div>
+                    <span class="tvp-row-count">@b.Count</span>
+                </div>
+            }
+        }
+    </div>
+</div>

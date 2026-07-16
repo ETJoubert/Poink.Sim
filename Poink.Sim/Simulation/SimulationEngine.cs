@@ -332,6 +332,12 @@ internal sealed class SimulationEngine : IDisposable
         _lastTimestamp = tick.Timestamp;
         _lastCapital = _trader!.Snapshot(price);
 
+        // Always recorded, independent of the aggregation toggle -- the recent-ticks
+        // buffer feeds the volume-profile panel even when the Brain itself is only
+        // being shown bars (DecideAndApply below still passes it Array.Empty<Tick>()
+        // in that case, so Brain behavior is unchanged).
+        AppendTick(tick);
+
         if (_aggregator is not null)
         {
             var completed = _aggregator.Feed(tick);
@@ -344,7 +350,6 @@ internal sealed class SimulationEngine : IDisposable
         }
         else
         {
-            AppendTick(tick);
             DecideAndApply(tick.Timestamp, price, useBars: false);
             _lastCapital = _trader.Snapshot(price);
         }

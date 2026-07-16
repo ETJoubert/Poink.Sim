@@ -193,7 +193,31 @@
 /* ── Chart + trade/decision log + open positions ──────────────────────── */
 
 .sim-chart {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
     padding: 18px 24px 0;
+}
+
+.sim-chart-main {
+    flex: 1;
+    min-width: 0;
+}
+
+.sim-chart-side {
+    flex: 0 0 260px;
+    min-width: 0;
+}
+
+@media (max-width: 900px) {
+    .sim-chart {
+        flex-direction: column;
+    }
+
+    .sim-chart-side {
+        flex-basis: auto;
+        width: 100%;
+    }
 }
 
 /* Log on the left, open-position table bootstrapped to the right for now --
