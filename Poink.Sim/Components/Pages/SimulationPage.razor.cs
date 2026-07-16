@@ -28,6 +28,7 @@ namespace Poink.Sim.Components.Pages
         private string _barMinutesText = "1";
         private string _brainName = "";
         private double _startingCash = 10_000;
+        private int _traderCount = 1;
         private string? _loadError;
 
         private string SelectedTable
@@ -55,6 +56,20 @@ namespace Poink.Sim.Components.Pages
         private bool _isLoading;
         private string? _error;
         private bool _hideChart;
+        private int? _selectedTraderId;
+        private LogTab _activeLogTab;
+
+        private enum LogTab { Decisions, Positions, Traders }
+
+        // Falls back to the first trader whenever the selected id doesn't match
+        // (no snapshot yet, or a fresh load/reset restarted ids at 1) -- no explicit
+        // reset needed across load/reset/unload.
+        private TraderSnapshot? SelectedTrader =>
+            _snapshot is null
+                ? null
+                : _snapshot.Traders.FirstOrDefault(t => t.Id == _selectedTraderId) ?? _snapshot.Traders.FirstOrDefault();
+
+        private void SelectTrader(int id) => _selectedTraderId = id;
 
         private int ProgressPercent =>
             _snapshot is null || _snapshot.TotalCount <= 0
@@ -126,9 +141,10 @@ namespace Poink.Sim.Components.Pages
             if (string.IsNullOrWhiteSpace(_brainName)) { _loadError = "pick a brain"; return; }
             if (_startingCash <= 0) { _loadError = "starting cash must be positive"; return; }
             if (!int.TryParse(_barMinutesText, out var barMinutes) || barMinutes < 1) barMinutes = 1;
+            if (_traderCount < 1) _traderCount = 1;
 
             var config = new SimulationConfig(
-                _table, _from, _to, _aggregate, TimeSpan.FromMinutes(barMinutes), _brainName, _startingCash);
+                _table, _from, _to, _aggregate, TimeSpan.FromMinutes(barMinutes), _brainName, _startingCash, _traderCount);
 
             if (!Service.TryLoad(config))
                 _loadError = "a load is already in progress";
@@ -144,13 +160,14 @@ namespace Poink.Sim.Components.Pages
             if (string.IsNullOrWhiteSpace(_brainName)) { _loadError = "pick a brain"; return; }
             if (_startingCash <= 0) { _loadError = "starting cash must be positive"; return; }
             if (!int.TryParse(_barMinutesText, out var barMinutes) || barMinutes < 1) barMinutes = 1;
+            if (_traderCount < 1) _traderCount = 1;
 
             var to = _to > _from ? _to : DateTime.UtcNow;
             var from = _to > _from ? _from : to.AddHours(-4);
             var table = string.IsNullOrWhiteSpace(_table) ? "DUMMY" : _table;
 
             var config = new SimulationConfig(
-                table, from, to, _aggregate, TimeSpan.FromMinutes(barMinutes), _brainName, _startingCash);
+                table, from, to, _aggregate, TimeSpan.FromMinutes(barMinutes), _brainName, _startingCash, _traderCount);
 
             if (!Service.TryLoadDummy(config))
                 _loadError = "a load is already in progress";
@@ -224,12 +241,42 @@ namespace Poink.Sim.Components.Pages
                     .Reverse()
                     .ToList();
 
+        // Plain doubles (not pre-formatted strings) so the copied DataTable's own
+        // N2 formatting applies -- CellClass below colors Realized/Unrealized by sign.
+        private sealed record TraderCardItem(
+            int Id, string Trader, double Cash, double Realized, double Unrealized, double Equity, string Position, int Trades);
+
+        private List<TraderCardItem> TraderItems =>
+            _snapshot is null
+                ? new List<TraderCardItem>()
+                : _snapshot.Traders
+                    .Select(t => new TraderCardItem(
+                        t.Id, t.Label, t.Capital.Cash, t.Capital.RealizedPnl, t.Capital.UnrealizedPnl,
+                        t.Capital.Equity, t.Position is null ? "flat" : t.Position.Value.Direction.ToString(), t.TradeCount))
+                    .ToList();
+
+        // Returns DataTable's own scoped color classes (its CSS is isolated to that
+        // component, so SimulationPage's sim-pnl-* classes wouldn't apply here).
+        private static string TraderCellClass(TraderCardItem item, string propName) => propName switch
+        {
+            nameof(TraderCardItem.Realized) => DataTablePnlClass(item.Realized),
+            nameof(TraderCardItem.Unrealized) => DataTablePnlClass(item.Unrealized),
+            _ => "",
+        };
+
+        private static string DataTablePnlClass(double v) => v switch
+        {
+            > 0 => "data-table-value-positive",
+            < 0 => "data-table-value-negative",
+            _ => "",
+        };
+
         private sealed record LogRow(string Time, string Action, string Price, string Detail);
 
         private List<object> LogRows =>
-            _snapshot is null
+            SelectedTrader is not { } trader
                 ? new List<object>()
-                : _snapshot.RecentLog
+                : trader.RecentLog
                     .Select(object (l) => new LogRow(l.TimestampUtc.ToString("HH:mm:ss"), l.Action, l.Price.ToString("F5"), l.Detail ?? ""))
                     .Reverse()
                     .ToList();
@@ -240,14 +287,14 @@ namespace Poink.Sim.Components.Pages
         private sealed record OpenPositionRow(string Direction, string Size, string EntryPrice, string EntryTime, string UnrealizedPnl);
 
         private List<object> OpenPositionRows =>
-            _snapshot?.Position is not { } pos
+            SelectedTrader?.Position is not { } pos
                 ? new List<object>()
                 : new List<object>
                 {
                     new OpenPositionRow(
                         pos.Direction.ToString(), pos.Size.ToString("F4"), pos.EntryPrice.ToString("F5"),
                         pos.EntryTime.ToString("HH:mm:ss"),
-                        _snapshot.CurrentPrice is { } price ? pos.UnrealizedPnl(price).ToString("F2") : "—"),
+                        _snapshot?.CurrentPrice is { } price ? pos.UnrealizedPnl(price).ToString("F2") : "—"),
                 };
     }
 }

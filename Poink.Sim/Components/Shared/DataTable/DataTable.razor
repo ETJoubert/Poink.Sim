@@ -1,0 +1,456 @@
+@typeparam TItem
+@using Microsoft.AspNetCore.Components.Web
+@using Poink.Shared.Client.Components.Shared.Icon
+
+@if (_showTableColumnPicker || _showCardColumnPicker || _showGearPanel)
+{
+    <div class="data-table-picker-backdrop" @onclick="CloseAllPanels"></div>
+}
+
+<div class="data-table-controls">
+
+    @* Gear button — hidden on large screens, shown on small *@
+    <button class="data-table-gear-btn @(_showGearPanel ? "active" : "")"
+            @onclick='() => { _showGearPanel = !_showGearPanel; CloseAllPickers(); }' title="Controls">
+        <Icon Name="gear-fill" Class="dt-icon" />
+    </button>
+
+    @* Settings controls — inline on large, collapsible dropdown on small *@
+    <div class="data-table-controls-collapsible @(_showGearPanel ? "open" : "")">
+        <div class="data-table-controls-left">
+            @if (OnSearch.HasDelegate)
+            {
+                <div class="data-table-search">
+                    <span class="data-table-search-icon">></span>
+                    <input class="data-table-search-input" type="text" value="@_searchTerm" placeholder="@SearchPlaceholder"
+                           @oninput="HandleSearchInput" />
+                </div>
+            }
+            @if (PagedData != null)
+            {
+                <div class="data-table-page-size">
+                    <span class="data-table-page-size-label">ROWS</span>
+                    <select class="data-table-page-size-select" value="@PagedData.PageSize"
+                            @onchange='e => OnPageSizeChange.InvokeAsync(int.Parse(e.Value!.ToString()!))'>
+                        @foreach (var size in PageSizeOptions)
+                        {
+                            <option value="@size">@size</option>
+                        }
+                    </select>
+                </div>
+            }
+        </div>
+
+        <div class="data-table-view-toggle">
+            <button class="data-table-view-btn @(!_isCardView ? "active" : "")"
+                    @onclick='() => { _isCardView = false; CloseAllPickers(); }' title="Table view">
+                <Icon Name="list-ul" Class="dt-icon" />
+            </button>
+            <button class="data-table-view-btn @(_isCardView ? "active" : "")"
+                    @onclick='() => { _isCardView = true; CloseAllPickers(); }' title="Card view">
+                <Icon Name="grid-1x2-fill" Class="dt-icon" />
+            </button>
+        </div>
+
+        @if (!_isCardView)
+        {
+            <div class="data-table-picker-container">
+                <button class="data-table-picker-btn @(_showTableColumnPicker ? "active" : "")"
+                        @onclick="ToggleTableColumnPicker">
+                    COLS
+                    <Icon Name="chevron-down" Class="dt-icon-inline" />
+                </button>
+                @if (_showTableColumnPicker)
+                {
+                    <div class="data-table-picker-dropdown">
+                        <div class="data-table-picker-actions">
+                            <button class="data-table-picker-quick" @onclick="SelectAllTableColumns">ALL</button>
+                            <button class="data-table-picker-quick" @onclick="ClearAllTableColumns">NONE</button>
+                        </div>
+                        @foreach (var prop in GetProperties())
+                        {
+                            var propName = prop.Name;
+                            var isChecked = _tableColumnSelection == null || _tableColumnSelection.Contains(propName);
+                            <label class="data-table-picker-item">
+                                <input type="checkbox" checked="@isChecked" @onchange="() => ToggleTableColumn(propName)" />
+                                <span>@FormatHeader(propName)</span>
+                            </label>
+                        }
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="data-table-picker-container">
+                <button class="data-table-picker-btn @(_showCardColumnPicker ? "active" : "")"
+                        @onclick="ToggleCardColumnPicker">
+                    FIELDS
+                    <Icon Name="chevron-down" Class="dt-icon-inline" />
+                </button>
+                @if (_showCardColumnPicker)
+                {
+                    <div class="data-table-picker-dropdown">
+                        <div class="data-table-picker-actions">
+                            <button class="data-table-picker-quick" @onclick="SelectAllCardFields">ALL</button>
+                            <button class="data-table-picker-quick" @onclick="ClearAllCardFields">NONE</button>
+                        </div>
+                        @foreach (var prop in GetProperties())
+                        {
+                            var propName = prop.Name;
+                            var isChecked = _cardFieldSelection.Contains(propName);
+                            <label class="data-table-picker-item">
+                                <input type="checkbox" checked="@isChecked" @onchange="() => ToggleCardField(propName)" />
+                                <span>@FormatHeader(propName)</span>
+                            </label>
+                        }
+                    </div>
+                }
+            </div>
+            <div class="data-table-page-size">
+                <span class="data-table-page-size-label">COLS</span>
+                <select class="data-table-page-size-select" value="@_cardsPerRow"
+                        @onchange='e => _cardsPerRow = int.Parse(e.Value!.ToString()!)'>
+                    <option value="0">AUTO</option>
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                    <option value="5">5</option>
+                </select>
+            </div>
+        }
+    </div>
+
+    @* Pagination — always visible *@
+    @if (PagedData != null)
+    {
+        <div class="data-table-controls-right">
+            <span class="data-table-page-info">
+                @((PagedData.Page - 1) * PagedData.PageSize + 1)&ndash;@(Math.Min(PagedData.Page * PagedData.PageSize,
+                PagedData.TotalCount)) of @PagedData.TotalCount
+            </span>
+
+            @if (PagedData.TotalPages > 1)
+            {
+                <div class="data-table-page-buttons">
+                    <button class="data-table-page-btn" disabled="@(PagedData.Page <= 1)"
+                            @onclick='() => OnPageChange.InvokeAsync(PagedData.Page - 1)'>
+                        <Icon Name="chevron-left" Class="dt-icon" />
+                    </button>
+
+                    @foreach (var p in GetPageNumbers(PagedData.TotalPages, PagedData.Page))
+                    {
+                        @if (p == null)
+                        {
+                            <span class="data-table-page-ellipsis">...</span>
+                        }
+                        else
+                        {
+                            var pageNum = p.Value;
+                            <button class="data-table-page-btn @(pageNum == PagedData.Page ? "active" : "")"
+                                    @onclick='() => OnPageChange.InvokeAsync(pageNum)'>
+                                @pageNum
+                            </button>
+                        }
+                    }
+
+                    <button class="data-table-page-btn" disabled="@(PagedData.Page >= PagedData.TotalPages)"
+                            @onclick='() => OnPageChange.InvokeAsync(PagedData.Page + 1)'>
+                        <Icon Name="chevron-right" Class="dt-icon" />
+                    </button>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@if (EnableMultiSelect && _selectedItems.Count > 0)
+{
+    <div class="data-table-selection-bar">
+        <span class="data-table-selection-count">@_selectedItems.Count SELECTED</span>
+        <button class="data-table-selection-clear" @onclick="ClearSelection">CLEAR</button>
+        @if (BulkActions != null)
+        {
+            @BulkActions(_selectedItems.ToList())
+        }
+    </div>
+}
+
+@if (!_isCardView)
+{
+    <div class="data-table-wrapper">
+        <table class="data-table" @ref="_tableRef">
+            <thead>
+                <tr>
+                    @if (EnableMultiSelect)
+                    {
+                        <th class="data-table-th-check">
+                            <input type="checkbox" class="data-table-checkbox" checked="@AllCurrentPageSelected"
+                                   @onchange="_ => ToggleSelectAll()" />
+                        </th>
+                    }
+                    @if (ShowActions)
+                    {
+                        var actionsWidth = GetColumnWidth(ActionsColumnKey);
+                        <th class="data-table-th-resizable" data-col-key="@ActionsColumnKey"
+                            style="@(actionsWidth is int aw ? $"width:{aw}px;" : "")">
+                            @ActionsHeader
+                            <span class="data-table-col-resizer" data-min-width="@ActionsColumnMinWidth"></span>
+                        </th>
+                    }
+                    @if (ShowRowNumbers)
+                    {
+                        var rowNumWidth = GetColumnWidth(RowNumberColumnKey);
+                        <th class="data-table-th-resizable" data-col-key="@RowNumberColumnKey"
+                            style="@(rowNumWidth is int rw ? $"width:{rw}px;" : "")">
+                            #
+                            <span class="data-table-col-resizer"></span>
+                        </th>
+                    }
+                    @foreach (var prop in GetVisibleProperties())
+                    {
+                        var colWidth = GetColumnWidth(prop.Name);
+                        <th class="data-table-th-resizable" data-col-key="@prop.Name"
+                            style="@(colWidth is int w ? $"width:{w}px;" : "")">
+                            @FormatHeader(prop.Name)
+                            <span class="data-table-col-resizer"></span>
+                        </th>
+                    }
+                </tr>
+            </thead>
+            <tbody>
+                @for (int i = 0; i < EffectiveItems.Count; i++)
+                {
+                    var item = EffectiveItems[i];
+                    var rowNum = RowOffset + i + 1;
+                    var isSelected = IsSelected(item);
+                    <tr class="@(isSelected ? "data-table-row-selected" : "") @(EnableMultiSelect ? "data-table-row-selectable" : "")"
+                        @onclick="() => { if (EnableMultiSelect) ToggleSelectItem(item); }">
+                        @if (EnableMultiSelect)
+                        {
+                            <td class="data-table-td-check" @onclick:stopPropagation="true">
+                                <input type="checkbox" class="data-table-checkbox" checked="@isSelected"
+                                       @onchange="_ => ToggleSelectItem(item)" />
+                            </td>
+                        }
+                        @if (ShowActions)
+                        {
+                            <td @onclick:stopPropagation="true">
+                                <div class="data-table-actions-cell">
+                                    <button class="data-table-action-btn data-table-btn-view" @onclick='() => OpenDetail(item)'
+                                            title="View">
+                                        <Icon Name="eye-fill" Class="dt-icon" />
+                                    </button>
+                                    @if (OnEdit.HasDelegate)
+                                    {
+                                        <button class="data-table-action-btn data-table-btn-edit"
+                                                @onclick='() => OnEdit.InvokeAsync(item)' title="Edit">
+                                            <Icon Name="pencil-square" Class="dt-icon" />
+                                        </button>
+                                    }
+                                    @if (OnDelete.HasDelegate)
+                                    {
+                                        <button class="data-table-action-btn data-table-btn-delete" @onclick='() => RequestDelete(item)'
+                                                title="Delete">
+                                            <Icon Name="trash-fill" Class="dt-icon" />
+                                        </button>
+                                    }
+                                    @if (CustomActions != null)
+                                    {
+                                        @CustomActions(item)
+                                    }
+                                </div>
+                            </td>
+                        }
+                        @if (ShowRowNumbers)
+                        {
+                            <td class="data-table-td-rownum">@rowNum</td>
+                        }
+                        @foreach (var prop in GetVisibleProperties())
+                        {
+                            var cellValue = FormatValue(prop.GetValue(item));
+                            <td class="@GetCellClass(item, prop.Name)" title="@cellValue">@cellValue</td>
+                        }
+                    </tr>
+                }
+            </tbody>
+            @if (TableFooter != null)
+            {
+                <tfoot>
+                    @TableFooter
+                </tfoot>
+            }
+        </table>
+    </div>
+}
+else
+{
+    <div class="data-table-cards" style="grid-template-columns: @CardsGridStyle">
+        @foreach (var item in EffectiveItems)
+        {
+            var idProp = GetIdProperty();
+            var idLabel = idProp?.Name.ToUpper() ?? "ID";
+            var idValue = idProp != null ? FormatValue(idProp.GetValue(item)) : "-";
+            var cardFields = GetCardProperties().ToList();
+            var isSelected = IsSelected(item);
+            <div class="data-table-card @(isSelected ? "data-table-card-selected" : "") @(EnableMultiSelect ? "data-table-card-selectable" : "")"
+                 @onclick="() => { if (EnableMultiSelect) ToggleSelectItem(item); }">
+                <div class="data-table-card-header">
+                    <div class="data-table-card-id">
+                        <span class="data-table-card-id-label">@idLabel</span>
+                        <span class="data-table-card-id-value">@idValue</span>
+                    </div>
+                    @if (EnableMultiSelect)
+                    {
+                        <input type="checkbox" class="data-table-checkbox data-table-card-checkbox" checked="@isSelected"
+                               @onchange="_ => ToggleSelectItem(item)" @onclick:stopPropagation="true" />
+                    }
+                </div>
+                @if (cardFields.Count > 0)
+                {
+                    <div class="data-table-card-fields">
+                        @foreach (var prop in cardFields)
+                        {
+                            <div class="data-table-card-field">
+                                <span class="data-table-card-field-label">@FormatHeader(prop.Name)</span>
+                                @if (IsImageProperty(prop))
+                                {
+                                    var imgSrc = prop.GetValue(item)?.ToString();
+                                    if (!string.IsNullOrEmpty(imgSrc))
+                                    {
+                                        <img class="data-table-card-field-image" src="@imgSrc" alt="@FormatHeader(prop.Name)" />
+                                    }
+                                    else
+                                    {
+                                        <span class="data-table-card-field-value">-</span>
+                                    }
+                                }
+                                else
+                                {
+                                    <span class="data-table-card-field-value @GetCellClass(item, prop.Name)">@FormatValue(prop.GetValue(item))</span>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+                <div class="data-table-card-actions" @onclick:stopPropagation="true">
+                    <button class="data-table-action-btn data-table-btn-view data-table-card-view-btn"
+                            @onclick='() => OpenDetail(item)' title="View">
+                        <Icon Name="eye-fill" Class="dt-icon-inline" /> VIEW
+                    </button>
+                    @if (OnEdit.HasDelegate)
+                    {
+                        <button class="data-table-action-btn data-table-btn-edit" @onclick='() => OnEdit.InvokeAsync(item)'
+                                title="Edit">
+                            <Icon Name="pencil-square" Class="dt-icon" />
+                        </button>
+                    }
+                    @if (OnDelete.HasDelegate)
+                    {
+                        <button class="data-table-action-btn data-table-btn-delete" @onclick='() => RequestDelete(item)'
+                                title="Delete">
+                            <Icon Name="trash-fill" Class="dt-icon" />
+                        </button>
+                    }
+                    @if (CustomActions != null)
+                    {
+                        @CustomActions(item)
+                    }
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@if (_showDetail)
+{
+    <div class="data-table-detail-overlay" @onclick="CloseDetail">
+        <div class="data-table-detail-panel" @onclick:stopPropagation="true">
+            <div class="data-table-detail-header">
+                <span class="data-table-detail-title">RECORD DETAILS</span>
+                <button class="data-table-detail-close" @onclick="CloseDetail">
+                    <Icon Name="x-lg" Class="dt-icon" />
+                </button>
+            </div>
+            <div class="data-table-detail-body">
+                @foreach (var prop in GetProperties())
+                {
+                    <div class="data-table-detail-row">
+                        <span class="data-table-detail-label">@FormatHeader(prop.Name)</span>
+                        @if (IsImageProperty(prop))
+                        {
+                            var imgSrc = prop.GetValue(_detailItem)?.ToString();
+                            if (!string.IsNullOrEmpty(imgSrc))
+                            {
+                                <img class="data-table-detail-image" src="@imgSrc" alt="@FormatHeader(prop.Name)" />
+                            }
+                            else
+                            {
+                                <span class="data-table-detail-value">-</span>
+                            }
+                        }
+                        else
+                        {
+                            <span class="data-table-detail-value @GetCellClass(_detailItem, prop.Name)">@FormatValue(prop.GetValue(_detailItem))</span>
+                        }
+                    </div>
+                }
+            </div>
+            @if (ShowActions)
+            {
+                <div class="data-table-detail-footer">
+                    @if (OnEdit.HasDelegate)
+                    {
+                        <button class="data-table-action-btn data-table-btn-edit" @onclick="EditFromDetail" title="Edit">
+                            <Icon Name="pencil-square" Class="dt-icon-inline" /> EDIT
+                        </button>
+                    }
+                    @if (OnDelete.HasDelegate)
+                    {
+                        <button class="data-table-action-btn data-table-btn-delete" @onclick="() => RequestDelete(_detailItem)"
+                                title="Delete">
+                            <Icon Name="trash-fill" Class="dt-icon-inline" /> DELETE
+                        </button>
+                    }
+                    @if (CustomActions != null)
+                    {
+                        @CustomActions(_detailItem)
+                    }
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@if (_showDeleteConfirm)
+{
+    var idProp = GetIdProperty();
+    var idValue = idProp != null ? FormatValue(idProp.GetValue(_pendingDeleteItem)) : null;
+    <div class="data-table-confirm-overlay" @onclick="CancelDelete">
+        <div class="data-table-confirm-panel" @onclick:stopPropagation="true">
+            <div class="data-table-confirm-title">CONFIRM DELETE</div>
+            <p class="data-table-confirm-message">
+                Are you sure you want to delete
+                @if (!string.IsNullOrEmpty(idValue))
+                {
+                    <text> record <strong>@idValue</strong></text>
+                }
+                else
+                {
+                    <text> this record</text>
+                }
+                ?
+                This action cannot be undone.
+            </p>
+            <div class="data-table-confirm-actions">
+                <button class="data-table-confirm-btn data-table-confirm-cancel" @onclick="CancelDelete">
+                    CANCEL
+                </button>
+                <button class="data-table-confirm-btn data-table-confirm-delete" @onclick="ConfirmDelete">
+                    <Icon Name="trash-fill" Class="dt-icon-inline" /> DELETE
+                </button>
+            </div>
+        </div>
+    </div>
+}

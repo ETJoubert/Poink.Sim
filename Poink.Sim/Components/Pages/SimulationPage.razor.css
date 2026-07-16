@@ -234,36 +234,25 @@
     }
 }
 
-/* Log on the left, open-position table bootstrapped to the right for now --
-   this is the natural place for it to grow into a real panel once multi-
-   position trading exists (see Trader.cs's single-Position limitation). */
-.sim-tables-row {
+/* ── Tabbed panel: decision log / open positions / traders ─────────────── */
+
+.sim-log-panel {
     display: flex;
-    align-items: flex-start;
-    gap: 20px;
+    flex-direction: column;
     padding: 18px 24px 24px;
     flex: 1;
 }
 
-.sim-log {
-    flex: 1;
-    min-width: 0;
+.sim-log-tabs {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
 }
 
-.sim-positions {
-    flex: 0 0 380px;
+.sim-log-content {
     min-width: 0;
-}
-
-@media (max-width: 900px) {
-    .sim-tables-row {
-        flex-direction: column;
-    }
-
-    .sim-positions {
-        flex-basis: auto;
-        width: 100%;
-    }
 }
 
 /* ── Setup (pre-load) screen ──────────────────────────────────────────── */

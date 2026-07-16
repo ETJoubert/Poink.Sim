@@ -1,0 +1,1021 @@
+/* Generic DataTable component styles */
+
+/* Search input */
+.data-table-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
+  border-radius: 3px;
+  padding: 3px 8px;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
+}
+
+.data-table-search:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--color-primary) 30%, transparent);
+}
+
+.data-table-search-icon {
+  color: var(--color-primary);
+  font-family: var(--font-body);
+  font-size: 12px;
+  user-select: none;
+}
+
+.data-table-search-input {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--color-primary);
+  font-family: var(--font-body);
+  font-size: 12px;
+  width: 200px;
+}
+
+.data-table-search-input::placeholder {
+  color: var(--color-muted);
+}
+
+/* Table container */
+.data-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+}
+
+/* Main table */
+.data-table {
+  table-layout: fixed;
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-family: var(--font-body);
+}
+
+/* Table body rows */
+.data-table tbody tr {
+  transition: all 0.2s ease;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 10%, transparent);
+}
+
+.data-table tbody tr:hover {
+  background: color-mix(in srgb, var(--color-primary) 5%, transparent);
+}
+
+/* Table cells */
+.data-table td {
+  padding: 12px 16px;
+  vertical-align: middle;
+  border-right: 1px solid color-mix(in srgb, var(--color-primary) 8%, transparent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 0; /* required for text-overflow to work in table-layout:fixed */
+}
+
+.data-table td:last-child {
+  border-right: none;
+}
+
+.data-table th {
+  padding: 12px 16px;
+  border-right: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-align: center;
+  background: color-mix(in srgb, var(--color-primary) 2%, transparent);
+  border-bottom: 2px solid color-mix(in srgb, var(--color-primary) 20%, transparent);
+  color: var(--color-primary);
+  font-size: 12px;
+}
+
+.data-table th:last-child {
+  border-right: none;
+}
+
+/* Resizable columns */
+.data-table-th-resizable {
+  position: relative;
+}
+
+.data-table-col-resizer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: col-resize;
+  touch-action: none;
+  user-select: none;
+}
+
+.data-table-col-resizer:hover,
+.data-table-col-resizer:active {
+  background: color-mix(in srgb, var(--color-primary) 40%, transparent);
+}
+
+/* Table footer */
+.data-table tfoot td {
+  padding: 16px;
+  border-top: 2px solid var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 3%, transparent);
+  border-right: none;
+  font-weight: 700;
+}
+
+/* Icon glyphs used across control/action buttons */
+.data-table-controls ::deep .dt-icon,
+.data-table-actions-cell ::deep .dt-icon,
+.data-table-card-actions ::deep .dt-icon,
+.data-table-detail-close ::deep .dt-icon {
+  width: 14px;
+  height: 14px;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+::deep .dt-icon-inline {
+  width: 12px;
+  height: 12px;
+  vertical-align: -2px;
+  margin-right: 2px;
+  flex-shrink: 0;
+}
+
+/* Action buttons */
+.data-table-action-btn {
+  background: transparent;
+  border: 1px solid var(--color-primary);
+  color: var(--color-primary);
+  padding: 6px 10px;
+  font-size: 13px;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: all 0.2s;
+  font-family: var(--font-body);
+  min-width: 32px;
+  font-weight: 600;
+}
+
+.data-table-action-btn:hover:not(:disabled) {
+  background: var(--color-primary);
+  color: var(--color-bg-dark);
+  box-shadow: 0 0 10px var(--color-primary);
+  transform: translateY(-1px);
+}
+
+.data-table-action-btn:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+  border-color: var(--color-muted);
+  color: var(--color-muted);
+}
+
+/* Delete button styling */
+.data-table-action-btn.data-table-btn-delete {
+  border-color: var(--color-error);
+  color: var(--color-error);
+}
+
+.data-table-action-btn.data-table-btn-delete:hover:not(:disabled) {
+  background: var(--color-error);
+  color: var(--color-bg-dark);
+  box-shadow: 0 0 10px var(--color-error);
+}
+
+/* Edit button styling */
+.data-table-action-btn.data-table-btn-edit {
+  border-color: var(--color-secondary);
+  color: var(--color-secondary);
+}
+
+.data-table-action-btn.data-table-btn-edit:hover:not(:disabled) {
+  background: var(--color-secondary);
+  color: var(--color-bg-dark);
+  box-shadow: 0 0 10px var(--color-secondary);
+}
+
+/* Page controls bar */
+.data-table-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 8px 4px;
+  font-family: var(--font-body);
+  margin-bottom: 6px;
+  gap: 12px;
+  position: relative;
+}
+
+/* Gear button — hidden on large screens, revealed via media query */
+.data-table-gear-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
+  color: var(--color-muted);
+  width: 32px;
+  height: 32px;
+  font-size: 16px;
+  border-radius: 3px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+
+.data-table-gear-btn:hover,
+.data-table-gear-btn.active {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--color-primary) 20%, transparent);
+}
+
+/* Collapsible settings — transparent wrapper on large screens */
+.data-table-controls-collapsible {
+  display: contents;
+}
+
+.data-table-controls-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.data-table-controls-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+/* Row-count selector */
+.data-table-page-size {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.data-table-page-size-label {
+  font-size: 11px;
+  color: var(--color-muted);
+  letter-spacing: 1px;
+}
+
+.data-table-page-size-select {
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
+  color: var(--color-primary);
+  padding: 3px 6px;
+  font-size: 12px;
+  font-family: var(--font-body);
+  cursor: pointer;
+  border-radius: 3px;
+  transition: border-color 0.2s;
+}
+
+.data-table-page-size-select:hover,
+.data-table-page-size-select:focus {
+  border-color: var(--color-primary);
+  outline: none;
+  box-shadow: 0 0 6px color-mix(in srgb, var(--color-primary) 30%, transparent);
+}
+
+.data-table-page-size-select option {
+  background: var(--color-bg-dark);
+  color: var(--color-primary);
+}
+
+/* Page button group */
+.data-table-page-buttons {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Ellipsis between page buttons */
+.data-table-page-ellipsis {
+  color: var(--color-muted);
+  font-size: 12px;
+  padding: 0 4px;
+  font-family: var(--font-body);
+  user-select: none;
+}
+
+.data-table-page-btn {
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
+  color: var(--color-primary);
+  padding: 4px 10px;
+  font-size: 12px;
+  font-family: var(--font-body);
+  cursor: pointer;
+  border-radius: 3px;
+  transition: all 0.2s;
+  min-width: 32px;
+}
+
+.data-table-page-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 6px var(--color-primary);
+}
+
+.data-table-page-btn.active {
+  background: var(--color-primary);
+  color: var(--color-bg-dark);
+  font-weight: 700;
+  border-color: var(--color-primary);
+}
+
+.data-table-page-btn:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+}
+
+.data-table-page-info {
+  margin-left: 8px;
+  font-size: 11px;
+  color: var(--color-muted);
+  letter-spacing: 0.5px;
+}
+
+/* Action button container */
+.data-table-actions-cell {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Row number styling */
+.data-table tbody td.data-table-td-rownum {
+  color: var(--color-secondary);
+  font-weight: 700;
+  opacity: 0.7;
+  font-size: 13px;
+  text-align: center;
+}
+
+/* Multi-select checkbox column */
+.data-table-th-check,
+.data-table-td-check {
+  width: 50px;
+  min-width: 50px;
+  max-width: 50px;
+  text-align: center;
+  padding: 8px 4px;
+}
+
+.data-table-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 15px;
+  height: 15px;
+  border: 1.5px solid color-mix(in srgb, var(--color-primary) 40%, transparent);
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  flex-shrink: 0;
+  position: relative;
+  transition: border-color 0.15s;
+}
+
+.data-table-checkbox:hover {
+  border-color: var(--color-primary);
+}
+
+.data-table-checkbox:checked {
+  border-color: var(--color-primary);
+}
+
+.data-table-checkbox:checked::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  box-shadow: 0 0 6px var(--color-primary);
+}
+
+/* Selectable rows and cards */
+.data-table tbody tr.data-table-row-selectable {
+  cursor: pointer;
+}
+
+.data-table-card.data-table-card-selectable {
+  cursor: pointer;
+}
+
+/* Selected table row */
+.data-table tbody tr.data-table-row-selected {
+  background: color-mix(in srgb, var(--color-primary) 7%, transparent);
+  box-shadow: inset 3px 0 0 var(--color-primary);
+}
+
+/* Selected card */
+.data-table-card.data-table-card-selected {
+  border-color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 6%, transparent);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--color-primary) 18%, transparent);
+}
+
+/* Card header row (id + optional checkbox) */
+.data-table-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.data-table-card-checkbox {
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+/* Selection bar */
+.data-table-selection-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  margin-bottom: 6px;
+  background: color-mix(in srgb, var(--color-primary) 7%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 35%, transparent);
+  border-radius: 4px;
+  font-family: var(--font-body);
+  font-size: 11px;
+  letter-spacing: 1px;
+  flex-wrap: wrap;
+}
+
+.data-table-selection-count {
+  color: var(--color-primary);
+  font-weight: 700;
+}
+
+.data-table-selection-clear {
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 35%, transparent);
+  color: var(--color-muted);
+  padding: 2px 8px;
+  font-size: 10px;
+  font-family: var(--font-body);
+  letter-spacing: 1px;
+  cursor: pointer;
+  border-radius: 2px;
+  transition: all 0.15s;
+}
+
+.data-table-selection-clear:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+/* View button styling */
+.data-table-action-btn.data-table-btn-view {
+  border-color: var(--color-secondary);
+  color: var(--color-secondary);
+}
+
+.data-table-action-btn.data-table-btn-view:hover:not(:disabled) {
+  background: var(--color-secondary);
+  color: var(--color-bg-dark);
+  box-shadow: 0 0 10px var(--color-secondary);
+}
+
+/* View mode toggle */
+.data-table-view-toggle {
+  display: flex;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.data-table-view-btn {
+  background: transparent;
+  border: none;
+  border-right: 1px solid color-mix(in srgb, var(--color-primary) 20%, transparent);
+  color: var(--color-muted);
+  padding: 4px 10px;
+  font-size: 15px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: var(--font-body);
+  line-height: 1;
+}
+
+.data-table-view-btn:last-child {
+  border-right: none;
+}
+
+.data-table-view-btn:hover {
+  color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 5%, transparent);
+}
+
+.data-table-view-btn.active {
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+  color: var(--color-primary);
+}
+
+/* Card grid */
+.data-table-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+  padding: 4px 0;
+}
+
+.data-table-card {
+  border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
+  border-radius: 4px;
+  padding: 16px;
+  background: color-mix(in srgb, var(--color-primary) 2%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  font-family: var(--font-body);
+  transition: all 0.2s;
+}
+
+.data-table-card:hover {
+  border-color: color-mix(in srgb, var(--color-primary) 50%, transparent);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--color-primary) 10%, transparent);
+}
+
+.data-table-card-id {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.data-table-card-id-label {
+  font-size: 10px;
+  color: var(--color-muted);
+  letter-spacing: 1.5px;
+}
+
+.data-table-card-id-value {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-primary);
+  word-break: break-all;
+  opacity: 0.6;
+}
+
+.data-table-card-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: auto;
+}
+
+.data-table-card-view-btn {
+  flex: 1;
+}
+
+/* Card extra fields */
+.data-table-card-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-top: 1px solid color-mix(in srgb, var(--color-primary) 10%, transparent);
+  padding-top: 10px;
+}
+
+.data-table-card-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 8%, transparent);
+}
+
+.data-table-card-field:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.data-table-card-field-label {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--color-muted);
+  letter-spacing: 1px;
+}
+
+.data-table-card-field-value {
+  font-size: 12px;
+  color: var(--color-primary);
+  word-break: break-word;
+}
+
+.data-table-card-field-image {
+  width: 100%;
+  max-height: 160px;
+  object-fit: cover;
+  border-radius: 3px;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+/* Column / field picker */
+.data-table-picker-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 98;
+}
+
+.data-table-picker-container {
+  position: relative;
+  z-index: 99;
+}
+
+.data-table-picker-btn {
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
+  color: var(--color-muted);
+  padding: 4px 10px;
+  font-size: 11px;
+  font-family: var(--font-body);
+  letter-spacing: 1px;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.data-table-picker-btn:hover,
+.data-table-picker-btn.active {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--color-primary) 20%, transparent);
+}
+
+.data-table-picker-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 180px;
+  max-height: 260px;
+  overflow-y: auto;
+  background: var(--color-bg-dark);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
+  border-radius: 4px;
+  padding: 6px 0;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  font-family: var(--font-body);
+}
+
+.data-table-picker-actions {
+  display: flex;
+  gap: 6px;
+  padding: 4px 10px 8px;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 10%, transparent);
+  margin-bottom: 4px;
+}
+
+.data-table-picker-quick {
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
+  color: var(--color-muted);
+  padding: 2px 8px;
+  font-size: 10px;
+  font-family: var(--font-body);
+  letter-spacing: 1px;
+  cursor: pointer;
+  border-radius: 2px;
+  transition: all 0.15s;
+}
+
+.data-table-picker-quick:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.data-table-picker-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  cursor: pointer;
+  font-size: 11px;
+  color: var(--color-primary);
+  letter-spacing: 0.5px;
+  transition: background 0.15s;
+  user-select: none;
+}
+
+.data-table-picker-item:hover {
+  background: color-mix(in srgb, var(--color-primary) 6%, transparent);
+}
+
+.data-table-picker-item input[type="checkbox"] {
+  accent-color: var(--color-primary);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+/* Detail panel overlay */
+.data-table-detail-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 1000;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.data-table-detail-panel {
+  width: 420px;
+  max-width: 100vw;
+  height: 100%;
+  background: var(--color-bg-dark);
+  border-left: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
+  display: flex;
+  flex-direction: column;
+  font-family: var(--font-body);
+  animation: dt-slide-in 0.2s ease;
+  margin-bottom: 40px;
+}
+
+@keyframes dt-slide-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.data-table-detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 20%, transparent);
+  background: color-mix(in srgb, var(--color-primary) 3%, transparent);
+  flex-shrink: 0;
+}
+
+.data-table-detail-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-primary);
+  letter-spacing: 2px;
+}
+
+.data-table-detail-close {
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
+  color: var(--color-muted);
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
+  font-size: 11px;
+  border-radius: 3px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.data-table-detail-close:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--color-primary) 30%, transparent);
+}
+
+.data-table-detail-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.data-table-detail-row {
+  display: grid;
+  grid-template-columns: 130px 1fr;
+  gap: 12px;
+  padding: 10px 20px;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 6%, transparent);
+  align-items: baseline;
+}
+
+.data-table-detail-row:last-child {
+  border-bottom: none;
+}
+
+.data-table-detail-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--color-muted);
+  letter-spacing: 1px;
+  white-space: nowrap;
+}
+
+.data-table-detail-value {
+  font-size: 13px;
+  color: var(--color-primary);
+  word-break: break-word;
+}
+
+.data-table-detail-image {
+  width: 100%;
+  max-height: 200px;
+  object-fit: cover;
+  border-radius: 3px;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+.data-table-detail-footer {
+  padding: 16px 20px;
+  border-top: 1px solid color-mix(in srgb, var(--color-primary) 20%, transparent);
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+  background: color-mix(in srgb, var(--color-primary) 2%, transparent);
+  margin-bottom: 40px;
+}
+
+/* Delete confirmation dialog */
+.data-table-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.data-table-confirm-panel {
+  width: 340px;
+  max-width: calc(100vw - 32px);
+  background: var(--color-bg-dark);
+  border: 1px solid var(--color-error);
+  border-radius: 4px;
+  padding: 20px;
+  font-family: var(--font-body);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+  animation: dt-confirm-pop 0.15s ease;
+}
+
+@keyframes dt-confirm-pop {
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.data-table-confirm-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: var(--color-error);
+  margin-bottom: 12px;
+}
+
+.data-table-confirm-message {
+  font-size: 13px;
+  color: var(--color-primary);
+  line-height: 1.5;
+  margin: 0 0 18px;
+}
+
+.data-table-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.data-table-confirm-btn {
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  padding: 7px 14px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.data-table-confirm-cancel {
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
+  color: var(--color-muted);
+}
+
+.data-table-confirm-cancel:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.data-table-confirm-delete {
+  background: transparent;
+  border: 1px solid var(--color-error);
+  color: var(--color-error);
+}
+
+.data-table-confirm-delete:hover {
+  background: var(--color-error);
+  color: var(--color-bg-dark);
+  box-shadow: 0 0 10px var(--color-error);
+}
+
+/* ── Cell coloring (Poink.Sim addition) — used via the CellClass callback to
+   color PnL-style values green/red by sign, e.g. in the Traders table/cards. */
+.data-table-value-positive {
+  color: var(--color-success);
+}
+
+.data-table-value-negative {
+  color: var(--color-error);
+}
+
+/* ── Responsive: small screens ─────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  /* Show gear button */
+  .data-table-gear-btn {
+    display: flex;
+  }
+
+  /* Collapsible becomes a positioned dropdown below the controls bar */
+  .data-table-controls-collapsible {
+    display: none;
+    position: absolute;
+    top: calc(100% + 2px);
+    left: 0;
+    right: 0;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+    background: var(--color-bg-dark);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
+    border-radius: 4px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+    z-index: 100;
+  }
+
+  .data-table-controls-collapsible.open {
+    display: flex;
+  }
+
+  /* Stack left-side controls vertically */
+  .data-table-controls-collapsible .data-table-controls-left {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    width: 100%;
+  }
+
+  /* Search stretches full width */
+  .data-table-controls-collapsible .data-table-search {
+    width: 100%;
+  }
+
+  .data-table-controls-collapsible .data-table-search-input {
+    width: 100%;
+    flex: 1;
+  }
+
+  /* View toggle stretches full width */
+  .data-table-controls-collapsible .data-table-view-toggle {
+    width: 100%;
+  }
+
+  .data-table-controls-collapsible .data-table-view-btn {
+    flex: 1;
+    text-align: center;
+  }
+
+  /* Picker stretches full width, dropdown goes static (inline) */
+  .data-table-controls-collapsible .data-table-picker-container {
+    width: 100%;
+    z-index: auto;
+  }
+
+  .data-table-controls-collapsible .data-table-picker-btn {
+    width: 100%;
+    text-align: left;
+  }
+
+  .data-table-controls-collapsible .data-table-picker-dropdown {
+    position: static;
+    max-height: 200px;
+    border-radius: 0 0 3px 3px;
+    box-shadow: none;
+    border-top: none;
+    margin-top: 2px;
+  }
+
+  /* Condense pagination on small screens */
+  .data-table-page-info {
+    display: none;
+  }
+}

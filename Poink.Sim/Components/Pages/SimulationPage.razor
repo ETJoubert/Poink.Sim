@@ -2,6 +2,7 @@
 @page "/simulation"
 @namespace Poink.Sim.Components.Pages
 @using Poink.Sim.Components.Charts
+@using Poink.Sim.Components.Shared.DataTable
 @using Poink.Shared.Client.Components.Shared.ViewDatatable
 
 <div class="sim-page">
@@ -96,6 +97,10 @@
                             Starting cash
                             <input class="terminal-input" type="number" min="1" step="100" @bind="_startingCash" />
                         </label>
+                        <label>
+                            Traders
+                            <input class="terminal-input" type="number" min="1" max="20" @bind="_traderCount" />
+                        </label>
                     </div>
                 </div>
             </div>
@@ -127,11 +132,13 @@
     else
     {
         var s = _snapshot;
+        var trader = SelectedTrader!;
         <div class="sim-topbar">
             <header class="sim-header">
                 <div class="sim-header-title">
                     <span class="sim-header-symbol">@s.Config.Table</span>
                     <span class="sim-header-mode">@(s.Config.Aggregate ? $"{s.Config.BarSize.TotalMinutes:0}m bars" : "raw ticks")</span>
+                    <span class="sim-header-mode">viewing: @trader.Label</span>
                     <span class="sim-header-state @StateClass(s)">
                         @(s.IsFinished ? "FINISHED" : s.IsPlaying ? "PLAYING" : "PAUSED")
                     </span>
@@ -143,27 +150,27 @@
                     </div>
                     <div class="sim-stat">
                         <span class="sim-stat-label">cash</span>
-                        <span class="sim-stat-value">@Money(s.Capital.Cash)</span>
+                        <span class="sim-stat-value">@Money(trader.Capital.Cash)</span>
                     </div>
                     <div class="sim-stat">
                         <span class="sim-stat-label">realized</span>
-                        <span class="sim-stat-value @PnlClass(s.Capital.RealizedPnl)">@Money(s.Capital.RealizedPnl)</span>
+                        <span class="sim-stat-value @PnlClass(trader.Capital.RealizedPnl)">@Money(trader.Capital.RealizedPnl)</span>
                     </div>
                     <div class="sim-stat">
                         <span class="sim-stat-label">unrealized</span>
-                        <span class="sim-stat-value @PnlClass(s.Capital.UnrealizedPnl)">@Money(s.Capital.UnrealizedPnl)</span>
+                        <span class="sim-stat-value @PnlClass(trader.Capital.UnrealizedPnl)">@Money(trader.Capital.UnrealizedPnl)</span>
                     </div>
                     <div class="sim-stat sim-stat-highlight">
                         <span class="sim-stat-label">equity</span>
-                        <span class="sim-stat-value">@Money(s.Capital.Equity)</span>
+                        <span class="sim-stat-value">@Money(trader.Capital.Equity)</span>
                     </div>
                     <div class="sim-stat">
                         <span class="sim-stat-label">positions</span>
-                        <span class="sim-stat-value">@(s.Position is not null ? 1 : 0)</span>
+                        <span class="sim-stat-value">@(trader.Position is not null ? 1 : 0)</span>
                     </div>
                     <div class="sim-stat">
                         <span class="sim-stat-label">trades</span>
-                        <span class="sim-stat-value">@s.TradeCount</span>
+                        <span class="sim-stat-value">@trader.TradeCount</span>
                     </div>
                 </div>
             </header>
@@ -222,12 +229,30 @@
             </div>
         }
 
-        <div class="sim-tables-row">
-            <div class="sim-log">
-                <ViewDatatable Items="LogRows" Title="TRADE / DECISION LOG" />
+        <div class="sim-log-panel">
+            <div class="sim-log-tabs">
+                <button class="terminal-btn-action @(_activeLogTab == LogTab.Decisions ? "active" : "")"
+                        @onclick="() => _activeLogTab = LogTab.Decisions">DECISION LOG</button>
+                <button class="terminal-btn-action @(_activeLogTab == LogTab.Positions ? "active" : "")"
+                        @onclick="() => _activeLogTab = LogTab.Positions">POSITIONS</button>
+                <button class="terminal-btn-action @(_activeLogTab == LogTab.Traders ? "active" : "")"
+                        @onclick="() => _activeLogTab = LogTab.Traders">TRADERS</button>
             </div>
-            <div class="sim-positions">
-                <ViewDatatable Items="OpenPositionRows" Title="OPEN POSITIONS" EmptyMessage="flat" />
+            <div class="sim-log-content">
+                @if (_activeLogTab == LogTab.Decisions)
+                {
+                    <ViewDatatable Items="LogRows" Title="TRADE / DECISION LOG" />
+                }
+                else if (_activeLogTab == LogTab.Positions)
+                {
+                    <ViewDatatable Items="OpenPositionRows" Title="OPEN POSITIONS" EmptyMessage="flat" />
+                }
+                else
+                {
+                    <DataTable TItem="TraderCardItem" Items="TraderItems" ExcludeProperties="@(new List<string> { "Id" })"
+                               ShowRowNumbers="false" ActionsHeader="VIEW" CellClass="TraderCellClass"
+                               OnView="item => SelectTrader(item.Id)" />
+                }
             </div>
         </div>
 

@@ -13,16 +13,22 @@ namespace Poink.Sim.Models;
 
 internal sealed record SimulationConfig(
     string Table, DateTime From, DateTime To, bool Aggregate, TimeSpan BarSize,
-    string BrainName, double StartingCash);
+    string BrainName, double StartingCash, int TraderCount);
 
 internal sealed record SimulationLogEntry(
     DateTime TimestampUtc, string Action, double Price, string? Detail);
+
+// One trader's slice of the shared run -- all traders replay the same tick
+// stream against the same shared Brain instance (see SimulationEngine), but
+// each gets its own Capital/Position/log since Trader.Apply is per-instance.
+internal sealed record TraderSnapshot(
+    int Id, string Label, CapitalState Capital, Position? Position, int TradeCount,
+    IReadOnlyList<SimulationLogEntry> RecentLog);
 
 // Immutable read-model published wholesale each callback -- the page reads
 // the reference (no torn reads, no per-field locking needed on the page side).
 internal sealed record SimulationSnapshot(
     SimulationConfig Config, bool IsPlaying, bool IsFinished, double SpeedMultiplier, bool IsUncapped,
     int CursorIndex, int TotalCount, DateTime? CurrentTimestampUtc, double? CurrentPrice,
-    CapitalState Capital, Position? Position, int TradeCount,
-    IReadOnlyList<HlocAvdtBar> RecentBars, IReadOnlyList<Tick> RecentTicks,
-    IReadOnlyList<SimulationLogEntry> RecentLog);
+    IReadOnlyList<TraderSnapshot> Traders,
+    IReadOnlyList<HlocAvdtBar> RecentBars, IReadOnlyList<Tick> RecentTicks);

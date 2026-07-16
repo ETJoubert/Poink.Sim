@@ -56,11 +56,22 @@ internal sealed class SimulationEngine : IDisposable
     private readonly List<ISimulationBrain> _brains;
     private readonly Timer _timer;
 
+    // One per configured trader -- all sessions share the single _activeBrain
+    // instance (stateless today, see ISimulationBrain), but each owns its own
+    // Trader (Capital/Position) and its own recent-log buffer.
+    private sealed class TraderSession
+    {
+        public required int Id;
+        public required string Label;
+        public required Trader.Trader Trader;
+        public readonly List<SimulationLogEntry> RecentLog = new();
+    }
+
     private List<Tick>? _ticks;
     private int _cursor;
     private SimulationConfig? _config;
     private SimulationBarAggregator? _aggregator;
-    private Trader.Trader? _trader;
+    private List<TraderSession> _traderSessions = new();
     private ISimulationBrain? _activeBrain;
     private double _speedMultiplier = 1.0;
     private bool _uncapped;
@@ -68,11 +79,9 @@ internal sealed class SimulationEngine : IDisposable
 
     private readonly List<HlocAvdtBar> _recentBars = new();
     private readonly List<Tick> _recentTicks = new();
-    private readonly List<SimulationLogEntry> _recentLog = new();
 
     private double? _lastPrice;
     private DateTime? _lastTimestamp;
-    private CapitalState _lastCapital;
 
     public SimulationEngine(ITickRepository tickRepository, IEnumerable<ISimulationBrain> brains)
     {
@@ -163,20 +172,23 @@ internal sealed class SimulationEngine : IDisposable
             _ticks = ticks;
             _cursor = 0;
             _config = config;
-            _trader = new Trader.Trader(config.StartingCash);
+            _traderSessions = CreateSessions(config.TraderCount, config.StartingCash);
             _aggregator = config.Aggregate ? new SimulationBarAggregator(config.BarSize) : null;
             _activeBrain = brain;
             _activeBrain.Reset();
             _recentBars.Clear();
             _recentTicks.Clear();
-            _recentLog.Clear();
             _lastPrice = null;
             _lastTimestamp = null;
-            _lastCapital = new CapitalState(config.StartingCash, 0, 0);
             _isPlaying = false;
             IsLoading = false;
         }
     }
+
+    private static List<TraderSession> CreateSessions(int count, double startingCash) =>
+        Enumerable.Range(1, Math.Max(1, count))
+            .Select(i => new TraderSession { Id = i, Label = $"Trader {i}", Trader = new Trader.Trader(startingCash) })
+            .ToList();
 
     // Even-interval random walk with a fixed small spread -- good enough to
     // exercise playback/aggregation/brain wiring without a real tick shape.
@@ -256,15 +268,13 @@ internal sealed class SimulationEngine : IDisposable
             if (_config is null) return false;
             _timer.Change(Timeout.Infinite, Timeout.Infinite);
             _cursor = 0;
-            _trader = new Trader.Trader(_config.StartingCash);
+            _traderSessions = CreateSessions(_config.TraderCount, _config.StartingCash);
             _aggregator = _config.Aggregate ? new SimulationBarAggregator(_config.BarSize) : null;
             _activeBrain?.Reset();
             _recentBars.Clear();
             _recentTicks.Clear();
-            _recentLog.Clear();
             _lastPrice = null;
             _lastTimestamp = null;
-            _lastCapital = new CapitalState(_config.StartingCash, 0, 0);
             _isPlaying = false;
         }
         PublishSnapshot();
@@ -280,13 +290,12 @@ internal sealed class SimulationEngine : IDisposable
             _ticks = null;
             _cursor = 0;
             _config = null;
-            _trader = null;
+            _traderSessions = new();
             _aggregator = null;
             _activeBrain = null;
             _isPlaying = false;
             _recentBars.Clear();
             _recentTicks.Clear();
-            _recentLog.Clear();
             _lastPrice = null;
             _lastTimestamp = null;
         }
@@ -330,7 +339,6 @@ internal sealed class SimulationEngine : IDisposable
         double price = (tick.Bid + tick.Ask) / 2.0;
         _lastPrice = price;
         _lastTimestamp = tick.Timestamp;
-        _lastCapital = _trader!.Snapshot(price);
 
         // Always recorded, independent of the aggregation toggle -- the recent-ticks
         // buffer feeds the volume-profile panel even when the Brain itself is only
@@ -345,30 +353,33 @@ internal sealed class SimulationEngine : IDisposable
             {
                 AppendBar(completed.Value);
                 DecideAndApply(tick.Timestamp, completed.Value.Close, useBars: true);
-                _lastCapital = _trader.Snapshot(completed.Value.Close);
             }
         }
         else
         {
             DecideAndApply(tick.Timestamp, price, useBars: false);
-            _lastCapital = _trader.Snapshot(price);
         }
     }
 
-    // Must be called while holding _lock.
+    // Must be called while holding _lock. Every trader session decides/applies
+    // against the same shared _activeBrain instance -- see the TraderSession
+    // doc comment above.
     private void DecideAndApply(DateTime timestamp, double price, bool useBars)
     {
-        var capital = _trader!.Snapshot(price);
-        var observation = new SimulationObservation(
-            timestamp, price,
-            useBars ? _recentBars : Array.Empty<HlocAvdtBar>(),
-            useBars ? Array.Empty<Tick>() : _recentTicks,
-            capital, _trader.CurrentPosition);
+        foreach (var session in _traderSessions)
+        {
+            var capital = session.Trader.Snapshot(price);
+            var observation = new SimulationObservation(
+                timestamp, price,
+                useBars ? _recentBars : Array.Empty<HlocAvdtBar>(),
+                useBars ? Array.Empty<Tick>() : _recentTicks,
+                capital, session.Trader.CurrentPosition);
 
-        var decision = _activeBrain!.Decide(observation);
-        var detail = _trader.Apply(decision, price, timestamp);
-        if (detail is not null)
-            AppendLog(new SimulationLogEntry(timestamp, decision.Action.ToString(), price, detail));
+            var decision = _activeBrain!.Decide(observation);
+            var detail = session.Trader.Apply(decision, price, timestamp);
+            if (detail is not null)
+                AppendLog(session, new SimulationLogEntry(timestamp, decision.Action.ToString(), price, detail));
+        }
     }
 
     private void AppendBar(HlocAvdtBar bar)
@@ -383,10 +394,10 @@ internal sealed class SimulationEngine : IDisposable
         if (_recentTicks.Count > MaxRecentTicks) _recentTicks.RemoveAt(0);
     }
 
-    private void AppendLog(SimulationLogEntry entry)
+    private void AppendLog(TraderSession session, SimulationLogEntry entry)
     {
-        _recentLog.Add(entry);
-        if (_recentLog.Count > MaxRecentLog) _recentLog.RemoveAt(0);
+        session.RecentLog.Add(entry);
+        if (session.RecentLog.Count > MaxRecentLog) session.RecentLog.RemoveAt(0);
     }
 
     private void PublishSnapshot()
@@ -399,8 +410,10 @@ internal sealed class SimulationEngine : IDisposable
                 : new SimulationSnapshot(
                     _config, _isPlaying, _cursor >= _ticks.Count, _speedMultiplier, _uncapped,
                     _cursor, _ticks.Count, _lastTimestamp, _lastPrice,
-                    _lastCapital, _trader?.CurrentPosition, _trader?.TradeLog.Count ?? 0,
-                    _recentBars.ToList(), _recentTicks.ToList(), _recentLog.ToList());
+                    _traderSessions.Select(ts => new TraderSnapshot(
+                        ts.Id, ts.Label, ts.Trader.Snapshot(_lastPrice ?? 0), ts.Trader.CurrentPosition,
+                        ts.Trader.TradeLog.Count, ts.RecentLog.ToList())).ToList(),
+                    _recentBars.ToList(), _recentTicks.ToList());
         }
         Snapshot = snapshot;
         OnChanged?.Invoke();
