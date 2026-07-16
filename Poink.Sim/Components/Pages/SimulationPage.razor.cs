@@ -18,7 +18,7 @@ namespace Poink.Sim.Components.Pages
         // ── Setup form state ──
 
         private List<(string Table, long Rows, DateTime? MinTime, DateTime? MaxTime)> _availableTables = new();
-        private bool _loadingTables = true;
+        private bool _loadingTables;
         private bool _tableListFailed;
 
         private string _table = "";
@@ -63,10 +63,25 @@ namespace Poink.Sim.Components.Pages
 
         // ── Lifecycle ──
 
-        protected override async Task OnInitializedAsync()
+        // Deliberately synchronous and DB-free: initial render must never wait on
+        // Postgres (ListTickTables lists every ticks_* table then runs a full-scan
+        // COUNT(*) per table, which is slow and was blocking first paint -- twice,
+        // once for the prerender pass and once for the interactive circuit). The
+        // table list now only loads when the user clicks "INIT DATA" below.
+        protected override void OnInitialized()
         {
             Service.OnChanged += HandleServiceChanged;
             ApplyServiceState();
+
+            if (BrainNames.Count > 0)
+                _brainName = BrainNames[0];
+        }
+
+        private async Task InitTables()
+        {
+            _loadingTables = true;
+            _tableListFailed = false;
+            StateHasChanged();
 
             try
             {
@@ -82,9 +97,6 @@ namespace Poink.Sim.Components.Pages
             {
                 _loadingTables = false;
             }
-
-            if (BrainNames.Count > 0)
-                _brainName = BrainNames[0];
         }
 
         private void HandleServiceChanged() => _ = InvokeAsync(() =>

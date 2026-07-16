@@ -35,7 +35,7 @@
                             {
                                 <span>loading tables...</span>
                             }
-                            else
+                            else if (_availableTables.Count > 0)
                             {
                                 <select class="terminal-input" @bind="SelectedTable">
                                     @foreach (var t in _availableTables)
@@ -43,6 +43,13 @@
                                         <option value="@t.Table">@t.Table (@t.Rows.ToString("N0") rows)</option>
                                     }
                                 </select>
+                            }
+                            else
+                            {
+                                <button class="terminal-btn-action" @onclick="InitTables"
+                                        title="Connects to Postgres and lists ticks_* tables -- not needed for Load Dummy Data">
+                                    @(_tableListFailed ? "RETRY" : "INIT DATA")
+                                </button>
                             }
                         </label>
                         <label>
