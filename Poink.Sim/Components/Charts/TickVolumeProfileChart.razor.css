@@ -138,7 +138,6 @@
     background: var(--color-secondary);
     box-shadow: var(--shadow-glow-secondary);
     border-radius: 2px;
-    transition: width 0.15s ease;
 }
 
 /* Split mode: up/down bars sit one above the other, each independently left-aligned
