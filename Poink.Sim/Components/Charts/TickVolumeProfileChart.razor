@@ -1,4 +1,5 @@
 @namespace Poink.Sim.Components.Charts
+@using System.Globalization
 
 <div class="tvp-wrapper">
     <div class="tvp-header">
@@ -17,6 +18,10 @@
                 Window (ticks)
                 <input class="terminal-input" type="number" min="2" max="@MaxWindow" @bind="_windowSize" @bind:event="oninput" />
             </label>
+            <label class="tvp-toggle-row">
+                <input type="checkbox" @bind="_splitUpDown" />
+                Split up/down
+            </label>
         </div>
     }
 
@@ -30,13 +35,27 @@
         {
             @foreach (var b in buckets)
             {
-                <div class="tvp-row" title="@($"{b.Low:F5} - {b.High:F5}: {b.Count} ticks")">
-                    <span class="tvp-row-label">@b.Low.ToString("F5")</span>
-                    <div class="tvp-row-track">
-                        <div class="tvp-row-bar" style="width: @(b.Percent.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture))%"></div>
+                @if (_splitUpDown)
+                {
+                    <div class="tvp-row @(b.IsCurrent ? "tvp-row-current" : "")" title="@($"{b.Low:F5} - {b.High:F5}: {b.UpCount} up / {b.DownCount} down")">
+                        <span class="tvp-row-label">@b.Low.ToString("F5")</span>
+                        <div class="tvp-row-track tvp-row-track-split">
+                            <div class="tvp-row-bar tvp-row-bar-up" style="width: @(b.UpPercent.ToString("0.##", CultureInfo.InvariantCulture))%"></div>
+                            <div class="tvp-row-bar tvp-row-bar-down" style="width: @(b.DownPercent.ToString("0.##", CultureInfo.InvariantCulture))%"></div>
+                        </div>
+                        <span class="tvp-row-count">@b.UpCount/@b.DownCount</span>
                     </div>
-                    <span class="tvp-row-count">@b.Count</span>
-                </div>
+                }
+                else
+                {
+                    <div class="tvp-row @(b.IsCurrent ? "tvp-row-current" : "")" title="@($"{b.Low:F5} - {b.High:F5}: {b.Count} ticks")">
+                        <span class="tvp-row-label">@b.Low.ToString("F5")</span>
+                        <div class="tvp-row-track">
+                            <div class="tvp-row-bar" style="width: @(b.Percent.ToString("0.##", CultureInfo.InvariantCulture))%"></div>
+                        </div>
+                        <span class="tvp-row-count">@b.Count</span>
+                    </div>
+                }
             }
         }
     </div>

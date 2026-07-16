@@ -174,7 +174,7 @@
                         @(s.IsPlaying ? "PAUSE" : "PLAY")
                     </button>
                     <button class="terminal-btn-action" @onclick="StepOnce" disabled="@(s.IsPlaying || s.IsFinished)">STEP</button>
-                    @foreach (var speed in new[] { 1.0, 10.0, 100.0, 1000.0, 10000.0 })
+                    @foreach (var speed in new[] { 0.1,1.0, 10.0, 100.0, 1000.0, 10000.0 })
                     {
                         <button class="terminal-btn-action @(!s.IsUncapped && Math.Abs(s.SpeedMultiplier - speed) < 0.001 ? "active" : "")"
                                 @onclick="() => SetSpeed(speed)">@speed.ToString("0")x</button>
@@ -217,7 +217,7 @@
                     }
                 </div>
                 <div class="sim-chart-side">
-                    <TickVolumeProfileChart Prices="ToMidPrices(s.RecentTicks)" />
+                    <TickVolumeProfileChart Prices="ToMidPrices(s.RecentTicks)" CurrentPrice="s.CurrentPrice" />
                 </div>
             </div>
         }

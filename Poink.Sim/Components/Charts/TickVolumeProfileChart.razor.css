@@ -70,6 +70,16 @@
     width: 90px;
 }
 
+.tvp-settings label.tvp-toggle-row {
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+}
+
+.tvp-toggle-row input {
+    width: auto;
+}
+
 .tvp-body {
     display: flex;
     flex-direction: column;
@@ -102,6 +112,19 @@
     white-space: nowrap;
 }
 
+/* Row containing the live current price -- accent background band + brighter
+   accent-colored label so it reads at a glance against the rest of the profile. */
+.tvp-row-current {
+    background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+    border-radius: 2px;
+}
+
+.tvp-row-current .tvp-row-label {
+    color: var(--color-accent);
+    opacity: 1;
+    font-weight: bold;
+}
+
 .tvp-row-track {
     flex: 1;
     height: 65%;
@@ -118,10 +141,39 @@
     transition: width 0.15s ease;
 }
 
+/* Split mode: up/down bars sit one above the other, each independently left-aligned
+   at 0 -- not stacked/concatenated end-to-end -- so their lengths are directly
+   comparable at a glance. */
+.tvp-row-track-split {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+    background: transparent;
+    overflow: visible;
+}
+
+.tvp-row-track-split .tvp-row-bar {
+    flex: 1;
+    height: auto;
+    min-height: 0;
+}
+
+.tvp-row-bar-up {
+    background: var(--color-success);
+    box-shadow: 0 0 6px color-mix(in srgb, var(--color-success) 45%, transparent);
+}
+
+.tvp-row-bar-down {
+    background: var(--color-error);
+    box-shadow: 0 0 6px color-mix(in srgb, var(--color-error) 45%, transparent);
+}
+
 .tvp-row-count {
-    flex: 0 0 28px;
+    flex: 0 0 40px;
     font-size: 0.62rem;
     color: var(--color-secondary);
     opacity: 0.7;
     text-align: right;
+    white-space: nowrap;
 }
