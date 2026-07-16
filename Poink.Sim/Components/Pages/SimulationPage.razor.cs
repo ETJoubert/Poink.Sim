@@ -64,10 +64,11 @@ namespace Poink.Sim.Components.Pages
         // ── Lifecycle ──
 
         // Deliberately synchronous and DB-free: initial render must never wait on
-        // Postgres (ListTickTables lists every ticks_* table then runs a full-scan
-        // COUNT(*) per table, which is slow and was blocking first paint -- twice,
-        // once for the prerender pass and once for the interactive circuit). The
-        // table list now only loads when the user clicks "INIT DATA" below.
+        // Postgres. InitTables() calls RefreshTickTableStats(), which rescans every
+        // ticks_* table with a full-scan COUNT(*)/MIN/MAX and upserts tick_table_stats
+        // -- slow, and was blocking first paint twice (once for the prerender pass,
+        // once for the interactive circuit) when this ran eagerly here. The table
+        // list now only loads/refreshes when the user clicks "INIT DATA" below.
         protected override void OnInitialized()
         {
             Service.OnChanged += HandleServiceChanged;
@@ -85,7 +86,7 @@ namespace Poink.Sim.Components.Pages
 
             try
             {
-                _availableTables = await Task.Run(() => TickRepository.ListTickTables());
+                _availableTables = await Task.Run(() => TickRepository.RefreshTickTableStats());
                 if (_availableTables.Count > 0)
                     SelectedTable = _availableTables[0].Table;
             }
