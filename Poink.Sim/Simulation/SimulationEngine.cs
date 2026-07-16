@@ -103,32 +103,7 @@ internal sealed class SimulationEngine : IDisposable
             try
             {
                 var ticks = _tickRepository.ReadTicks(config.Table, config.From, config.To).ToList();
-                if (ticks.Count == 0)
-                    throw new InvalidOperationException("no ticks in the selected range");
-
-                var brain = _brains.FirstOrDefault(b => b.Name == config.BrainName) ?? _brains.FirstOrDefault();
-                if (brain is null)
-                    throw new InvalidOperationException("no simulation brain registered");
-
-                lock (_lock)
-                {
-                    _timer.Change(Timeout.Infinite, Timeout.Infinite);
-                    _ticks = ticks;
-                    _cursor = 0;
-                    _config = config;
-                    _trader = new Trader.Trader(config.StartingCash);
-                    _aggregator = config.Aggregate ? new SimulationBarAggregator(config.BarSize) : null;
-                    _activeBrain = brain;
-                    _activeBrain.Reset();
-                    _recentBars.Clear();
-                    _recentTicks.Clear();
-                    _recentLog.Clear();
-                    _lastPrice = null;
-                    _lastTimestamp = null;
-                    _lastCapital = new CapitalState(config.StartingCash, 0, 0);
-                    _isPlaying = false;
-                    IsLoading = false;
-                }
+                FinishLoad(config, ticks);
             }
             catch (Exception ex)
             {
@@ -138,6 +113,91 @@ internal sealed class SimulationEngine : IDisposable
         });
 
         return true;
+    }
+
+    // Bypasses Postgres entirely with a synthetic random-walk tick series, so the
+    // playback UI can be exercised without a running database. Table/From/To in
+    // config are cosmetic here (still shown in the header/progress text) -- the
+    // tick count/timespan actually played is GenerateDummyTicks's, not the DB's.
+    public bool TryLoadDummy(SimulationConfig config, int tickCount = 20_000)
+    {
+        lock (_lock)
+        {
+            if (IsLoading) return false;
+            IsLoading = true;
+            Error = null;
+        }
+        OnChanged?.Invoke();
+
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                var ticks = GenerateDummyTicks(config.From, config.To, tickCount);
+                FinishLoad(config, ticks);
+            }
+            catch (Exception ex)
+            {
+                lock (_lock) { IsLoading = false; Error = ex.Message; }
+            }
+            PublishSnapshot();
+        });
+
+        return true;
+    }
+
+    // Shared by TryLoad/TryLoadDummy once a tick list is in hand (from Postgres or
+    // generated). Runs off the UI thread inside the Task.Run callers above.
+    private void FinishLoad(SimulationConfig config, List<Tick> ticks)
+    {
+        if (ticks.Count == 0)
+            throw new InvalidOperationException("no ticks in the selected range");
+
+        var brain = _brains.FirstOrDefault(b => b.Name == config.BrainName) ?? _brains.FirstOrDefault();
+        if (brain is null)
+            throw new InvalidOperationException("no simulation brain registered");
+
+        lock (_lock)
+        {
+            _timer.Change(Timeout.Infinite, Timeout.Infinite);
+            _ticks = ticks;
+            _cursor = 0;
+            _config = config;
+            _trader = new Trader.Trader(config.StartingCash);
+            _aggregator = config.Aggregate ? new SimulationBarAggregator(config.BarSize) : null;
+            _activeBrain = brain;
+            _activeBrain.Reset();
+            _recentBars.Clear();
+            _recentTicks.Clear();
+            _recentLog.Clear();
+            _lastPrice = null;
+            _lastTimestamp = null;
+            _lastCapital = new CapitalState(config.StartingCash, 0, 0);
+            _isPlaying = false;
+            IsLoading = false;
+        }
+    }
+
+    // Even-interval random walk with a fixed small spread -- good enough to
+    // exercise playback/aggregation/brain wiring without a real tick shape.
+    private static List<Tick> GenerateDummyTicks(DateTime from, DateTime to, int count)
+    {
+        if (to <= from) to = from.AddHours(4);
+        if (count < 2) count = 2;
+
+        var interval = (to - from) / count;
+        var rng = Random.Shared;
+        double mid = 1.10000;
+        const double spread = 0.00020;
+        const double volatility = 0.00006;
+
+        var ticks = new List<Tick>(count);
+        for (int i = 0; i < count; i++)
+        {
+            mid = Math.Max(mid + (rng.NextDouble() - 0.5) * 2 * volatility, spread);
+            ticks.Add(new Tick(from + interval * i, mid - spread / 2, mid + spread / 2));
+        }
+        return ticks;
     }
 
     public bool Play()
@@ -334,7 +394,7 @@ internal sealed class SimulationEngine : IDisposable
                 : new SimulationSnapshot(
                     _config, _isPlaying, _cursor >= _ticks.Count, _speedMultiplier, _uncapped,
                     _cursor, _ticks.Count, _lastTimestamp, _lastPrice,
-                    _lastCapital, _trader?.CurrentPosition,
+                    _lastCapital, _trader?.CurrentPosition, _trader?.TradeLog.Count ?? 0,
                     _recentBars.ToList(), _recentTicks.ToList(), _recentLog.ToList());
         }
         Snapshot = snapshot;

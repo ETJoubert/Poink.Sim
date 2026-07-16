@@ -1,26 +1,286 @@
-/* Baseline layout shared with the other feature pages (see PatternSets'
-   PatternSetResultsPage.razor.css for the reasoning) -- this page has no
-   sidebar, so .page-with-sidebar/.main-content are reused only for their
-   terminal-themed padding, not their fixed-height scroll-clipping. */
-.page-with-sidebar {
-    height: auto;
-    overflow: visible;
+/* Flat page shell -- deliberately not the shared .terminal-container/
+   .terminal-section/.section-header/.section-content boxed-card chrome.
+   The scroll container is the ancestor MainLayout's `.content` (flex,
+   overflow-y: auto), so .sim-topbar's `position: sticky` sticks relative
+   to that, not to this div. */
+.sim-page {
+    display: flex;
+    flex-direction: column;
+    min-height: 100%;
 }
 
-.main-content {
-    height: auto;
-    overflow: visible;
+/* ── Topbar: header + toolbar pinned together while chart/log scroll under
+   it. One sticky wrapper (rather than sticky on header and toolbar
+   separately) so they stay stacked without hand-computed top offsets. ─── */
+
+.sim-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: var(--color-bg-terminal);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
 }
 
-.ml-controls-row {
+.sim-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+.sim-header-title {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.sim-header-symbol {
+    font-family: var(--font-heading);
+    font-size: 1.15rem;
+    font-weight: bold;
+    letter-spacing: 0.08em;
+    color: var(--color-accent);
+    text-shadow: var(--shadow-glow-accent);
+}
+
+.sim-header-mode {
+    font-size: 0.78rem;
+    color: var(--color-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.sim-header-state {
+    font-size: 0.68rem;
+    font-weight: bold;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 3px 10px;
+    border-radius: 999px;
+    border: 1px solid currentColor;
+}
+
+.sim-state-setup {
+    color: var(--color-secondary);
+}
+
+.sim-state-playing {
+    color: var(--color-success);
+    text-shadow: 0 0 8px color-mix(in srgb, var(--color-success) 60%, transparent);
+    animation: sim-pulse 1.6s ease-in-out infinite;
+}
+
+.sim-state-paused {
+    color: var(--color-warning);
+}
+
+.sim-state-finished {
+    color: var(--color-secondary);
+    opacity: 0.8;
+}
+
+@keyframes sim-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.55; }
+}
+
+.sim-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 18px;
+}
+
+.sim-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    min-width: 60px;
+}
+
+.sim-stat-label {
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-secondary);
+    opacity: 0.8;
+}
+
+.sim-stat-value {
+    font-size: 0.92rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.sim-stat-muted {
+    opacity: 0.5;
+    font-weight: 400;
+}
+
+.sim-stat-highlight .sim-stat-value {
+    color: var(--color-success);
+    text-shadow: 0 0 8px color-mix(in srgb, var(--color-success) 50%, transparent);
+}
+
+.sim-pnl-positive {
+    color: var(--color-success);
+}
+
+.sim-pnl-negative {
+    color: var(--color-error);
+}
+
+/* ── Toolbar: controls + progress, second row of the sticky topbar ─────── */
+
+.sim-toolbar {
+    padding: 14px 24px;
+}
+
+.sim-controls {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 8px;
     flex-wrap: wrap;
     margin-bottom: 12px;
 }
 
-.ml-controls-row label {
+.sim-toolbar-divider {
+    width: 1px;
+    align-self: stretch;
+    background: color-mix(in srgb, var(--color-primary) 20%, transparent);
+    margin: 0 4px;
+}
+
+/* Speed/mode buttons need their own selected-state feedback --
+   .terminal-btn-action has no global "active" styling. */
+.terminal-btn-action.active {
+    background: color-mix(in srgb, var(--color-primary) 18%, transparent);
+    box-shadow: 0 0 10px color-mix(in srgb, var(--color-primary) 40%, transparent);
+}
+
+.sim-progress {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.sim-progress-bar {
+    flex: 1;
+    max-width: 480px;
+    height: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.sim-progress-fill {
+    height: 100%;
+    background: var(--color-secondary);
+    box-shadow: var(--shadow-glow-secondary);
+    transition: width 0.2s ease;
+}
+
+.sim-progress-text {
+    font-size: 0.75rem;
+    color: var(--color-secondary);
+    white-space: nowrap;
+}
+
+/* ── Chart + trade/decision log + open positions ──────────────────────── */
+
+.sim-chart {
+    padding: 18px 24px 0;
+}
+
+/* Log on the left, open-position table bootstrapped to the right for now --
+   this is the natural place for it to grow into a real panel once multi-
+   position trading exists (see Trader.cs's single-Position limitation). */
+.sim-tables-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 20px;
+    padding: 18px 24px 24px;
+    flex: 1;
+}
+
+.sim-log {
+    flex: 1;
+    min-width: 0;
+}
+
+.sim-positions {
+    flex: 0 0 380px;
+    min-width: 0;
+}
+
+@media (max-width: 900px) {
+    .sim-tables-row {
+        flex-direction: column;
+    }
+
+    .sim-positions {
+        flex-basis: auto;
+        width: 100%;
+    }
+}
+
+/* ── Setup (pre-load) screen ──────────────────────────────────────────── */
+
+.sim-setup {
+    padding: 20px 24px 32px;
+    max-width: 920px;
+}
+
+.sim-help {
+    border-left: 3px solid var(--color-secondary);
+    background: rgba(255, 255, 255, 0.03);
+    padding: 12px 16px;
+    margin: 0 0 20px;
+    font-size: 0.85rem;
+    border-radius: 0 var(--border-radius-sm) var(--border-radius-sm) 0;
+}
+
+.sim-help strong {
+    color: var(--color-secondary);
+}
+
+.sim-setup-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-bottom: 18px;
+}
+
+.sim-group {
+    flex: 1;
+    min-width: 220px;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 12%, transparent);
+    border-radius: var(--border-radius-md);
+    padding: 14px 16px;
+    background: rgba(255, 255, 255, 0.015);
+}
+
+.sim-group-title {
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-secondary);
+    opacity: 0.85;
+    margin-bottom: 10px;
+}
+
+.sim-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.sim-row label {
     display: flex;
     flex-direction: column;
     gap: 4px;
@@ -28,91 +288,14 @@
     color: var(--color-secondary);
 }
 
-.ml-controls-grid {
+.sim-setup-actions {
     display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
-    margin-bottom: 12px;
+    align-items: center;
+    gap: 10px;
+    margin-top: 4px;
 }
 
-.ml-controls-group {
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 4px;
-    padding: 10px 14px 2px;
-    background: rgba(255, 255, 255, 0.02);
-}
-
-.ml-controls-group .ml-controls-row {
-    margin-bottom: 10px;
-}
-
-.ml-controls-group-title {
-    font-size: 0.68rem;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--color-secondary);
-    opacity: 0.85;
-    margin-bottom: 8px;
-}
-
-.ml-run-row {
-    margin-top: 2px;
-}
-
-.ml-run-error {
-    color: var(--color-error, #ff5f56);
-}
-
-/* Playback speed buttons need their own selected-state feedback --
-   .terminal-btn-action has no global "active" styling. */
-.terminal-btn-action.active {
-    background: color-mix(in srgb, var(--color-primary) 18%, transparent);
-    box-shadow: 0 0 10px color-mix(in srgb, var(--color-primary) 40%, transparent);
-}
-
-.ml-progress {
-    margin: 10px 0 14px;
-    max-width: 560px;
-}
-
-.ml-progress-bar {
-    height: 8px;
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    border-radius: 4px;
-    overflow: hidden;
-    background: rgba(255, 255, 255, 0.04);
-}
-
-.ml-progress-fill {
-    height: 100%;
-    background: var(--color-secondary);
-    transition: width 0.4s ease;
-}
-
-.ml-progress-text {
-    display: block;
-    margin-top: 6px;
-    font-size: 0.78rem;
-    color: var(--color-secondary);
-}
-
-.ml-help {
-    border-left: 3px solid var(--color-secondary);
-    background: rgba(255, 255, 255, 0.03);
-    padding: 10px 14px;
-    margin-bottom: 14px;
-    font-size: 0.85rem;
-}
-
-.ml-help p {
-    margin: 0;
-}
-
-.ml-help strong {
-    color: var(--color-secondary);
-}
-
-.ml-note {
+.sim-note {
     color: var(--color-text-muted, var(--color-secondary));
     font-size: 0.8rem;
     border-left: 2px solid rgba(255, 255, 255, 0.15);
@@ -120,36 +303,12 @@
     margin: 10px 0;
 }
 
-/* ── Key/value chips (price/cash/pnl/position readout) ─────────────────── */
-
-.ml-kv-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-bottom: 12px;
+.sim-error {
+    color: var(--color-error, #ff5f56);
+    padding: 0 24px 16px;
+    margin: 0;
 }
 
-.ml-kv {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 3px;
-    padding: 2px 10px;
-    font-size: 0.78rem;
-}
-
-.ml-kv b {
-    color: var(--color-secondary);
-    font-weight: 600;
-    margin-right: 6px;
-    text-transform: uppercase;
-    font-size: 0.68rem;
-    letter-spacing: 0.06em;
-}
-
-.ml-kv-useful {
-    border-color: var(--color-success, #27c93f);
-}
-
-.ml-kv-useful b {
-    color: var(--color-success, #27c93f);
+.sim-setup .sim-error {
+    padding: 0;
 }

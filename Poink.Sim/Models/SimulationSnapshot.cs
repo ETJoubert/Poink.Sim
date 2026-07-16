@@ -23,6 +23,6 @@ internal sealed record SimulationLogEntry(
 internal sealed record SimulationSnapshot(
     SimulationConfig Config, bool IsPlaying, bool IsFinished, double SpeedMultiplier, bool IsUncapped,
     int CursorIndex, int TotalCount, DateTime? CurrentTimestampUtc, double? CurrentPrice,
-    CapitalState Capital, Position? Position,
+    CapitalState Capital, Position? Position, int TradeCount,
     IReadOnlyList<HlocAvdtBar> RecentBars, IReadOnlyList<Tick> RecentTicks,
     IReadOnlyList<SimulationLogEntry> RecentLog);
