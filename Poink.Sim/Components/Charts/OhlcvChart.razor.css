@@ -1,7 +1,7 @@
 .ohlcv-chart-wrapper {
     position: relative;
     width: 100%;
-    height: 280px;
+    height: 100%;
 }
 
 .ohlcv-chart-wrapper.expanded {
