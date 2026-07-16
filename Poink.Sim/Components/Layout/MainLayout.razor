@@ -1,0 +1,54 @@
+@using Poink.Shared.Client.Components.Layout
+@using Poink.Shared.Client.Components.Shared.PageNav
+@inherits LayoutComponentBase
+
+<TerminalLoader />
+
+<div class="page @(SidebarMode ? "sidebar-mode" : "")">
+    <header class="top-nav">
+        <div class="nav-brand nav-brand-clickable" @onclick="CycleNavState"
+             title="Cycle nav layout (state @_pageNav.State)">
+            <span class="brand-prefix">$</span>
+            <span class="brand-name">
+                <span class="brand-letter" data-char="P">P</span>
+                <span class="brand-letter" data-char="O">O</span>
+                <span class="brand-letter" data-char="I">I</span>
+                <span class="brand-letter" data-char="N">N</span>
+                <span class="brand-letter" data-char="K">K</span>
+            </span>
+            <span class="brand-cursor">?</span>
+        </div>
+        @if (!SidebarMode)
+        {
+            <div class="nav-group">
+                <nav class="nav-tabs @(NavCollapsed ? "collapsed" : "")">
+                    <SimNavLinks LinkClass="nav-tab" Collapsed="NavCollapsed" />
+                </nav>
+            </div>
+        }
+    </header>
+
+    <div class="content-row">
+        @if (SidebarMode)
+        {
+            <nav class="side-nav @(NavCollapsed ? "collapsed" : "")">
+                <SimNavLinks LinkClass="side-nav-tab" Collapsed="NavCollapsed" />
+            </nav>
+        }
+        <div class="main-column">
+            <main>
+                <article class="content">
+                    @Body
+                </article>
+            </main>
+        </div>
+    </div>
+</div>
+
+@code {
+    private readonly PageNavState _pageNav = new();
+    private bool SidebarMode => _pageNav.SidebarMode;
+    private bool NavCollapsed => _pageNav.NavCollapsed;
+
+    private void CycleNavState() => _pageNav.Cycle();
+}

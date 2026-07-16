@@ -1,0 +1,11 @@
+<Router AppAssembly="typeof(Program).Assembly">
+    <Found Context="routeData">
+        <RouteView RouteData="routeData" DefaultLayout="typeof(Poink.Sim.Components.Layout.MainLayout)" />
+        <FocusOnNavigate RouteData="routeData" Selector="h1" />
+    </Found>
+    <NotFound>
+        <LayoutView Layout="typeof(Poink.Sim.Components.Layout.MainLayout)">
+            <p style="padding:24px;">Not found. Try <a href="/">the Simulation page</a>.</p>
+        </LayoutView>
+    </NotFound>
+</Router>

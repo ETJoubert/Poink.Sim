@@ -1,0 +1,155 @@
+/* Baseline layout shared with the other feature pages (see PatternSets'
+   PatternSetResultsPage.razor.css for the reasoning) -- this page has no
+   sidebar, so .page-with-sidebar/.main-content are reused only for their
+   terminal-themed padding, not their fixed-height scroll-clipping. */
+.page-with-sidebar {
+    height: auto;
+    overflow: visible;
+}
+
+.main-content {
+    height: auto;
+    overflow: visible;
+}
+
+.ml-controls-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+
+.ml-controls-row label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.8rem;
+    color: var(--color-secondary);
+}
+
+.ml-controls-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.ml-controls-group {
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 4px;
+    padding: 10px 14px 2px;
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.ml-controls-group .ml-controls-row {
+    margin-bottom: 10px;
+}
+
+.ml-controls-group-title {
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-secondary);
+    opacity: 0.85;
+    margin-bottom: 8px;
+}
+
+.ml-run-row {
+    margin-top: 2px;
+}
+
+.ml-run-error {
+    color: var(--color-error, #ff5f56);
+}
+
+/* Playback speed buttons need their own selected-state feedback --
+   .terminal-btn-action has no global "active" styling. */
+.terminal-btn-action.active {
+    background: color-mix(in srgb, var(--color-primary) 18%, transparent);
+    box-shadow: 0 0 10px color-mix(in srgb, var(--color-primary) 40%, transparent);
+}
+
+.ml-progress {
+    margin: 10px 0 14px;
+    max-width: 560px;
+}
+
+.ml-progress-bar {
+    height: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.ml-progress-fill {
+    height: 100%;
+    background: var(--color-secondary);
+    transition: width 0.4s ease;
+}
+
+.ml-progress-text {
+    display: block;
+    margin-top: 6px;
+    font-size: 0.78rem;
+    color: var(--color-secondary);
+}
+
+.ml-help {
+    border-left: 3px solid var(--color-secondary);
+    background: rgba(255, 255, 255, 0.03);
+    padding: 10px 14px;
+    margin-bottom: 14px;
+    font-size: 0.85rem;
+}
+
+.ml-help p {
+    margin: 0;
+}
+
+.ml-help strong {
+    color: var(--color-secondary);
+}
+
+.ml-note {
+    color: var(--color-text-muted, var(--color-secondary));
+    font-size: 0.8rem;
+    border-left: 2px solid rgba(255, 255, 255, 0.15);
+    padding-left: 10px;
+    margin: 10px 0;
+}
+
+/* ── Key/value chips (price/cash/pnl/position readout) ─────────────────── */
+
+.ml-kv-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.ml-kv {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 3px;
+    padding: 2px 10px;
+    font-size: 0.78rem;
+}
+
+.ml-kv b {
+    color: var(--color-secondary);
+    font-weight: 600;
+    margin-right: 6px;
+    text-transform: uppercase;
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
+}
+
+.ml-kv-useful {
+    border-color: var(--color-success, #27c93f);
+}
+
+.ml-kv-useful b {
+    color: var(--color-success, #27c93f);
+}

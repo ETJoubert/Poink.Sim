@@ -1,0 +1,195 @@
+@page "/"
+@page "/simulation"
+@namespace Poink.Sim.Features.Simulation
+@using Poink.Sim.Components.Charts
+@using Poink.Shared.Client.Components.Shared.ViewDatatable
+
+<div class="page-with-sidebar">
+    <main class="main-content">
+        <div class="terminal-container">
+
+            @if (_snapshot is null)
+            {
+                <div class="terminal-section">
+                    <div class="section-header static">
+                        <span class="prompt-symbol">></span>
+                        <span class="section-title">TRADER SIMULATION — SETUP @(_isLoading ? "— LOADING" : "")</span>
+                    </div>
+                    <div class="section-content">
+                        <div class="ml-help">
+                            <p>
+                                <strong>What this does.</strong> Replays historical ticks for a chosen symbol and date
+                                range under your control (play/pause/step/speed). A Brain observes the stream — either
+                                raw ticks or aggregated HLOC/AVDT bars, your choice — plus live Capital/Position, and
+                                decides trades; the Trader executes them with simple cash P&amp;L (no leverage).
+                            </p>
+                        </div>
+
+                        <div class="ml-controls-grid">
+                            <div class="ml-controls-group">
+                                <div class="ml-controls-group-title">Data</div>
+                                <div class="ml-controls-row">
+                                    <label>
+                                        Symbol
+                                        @if (_loadingTables)
+                                        {
+                                            <span>loading tables...</span>
+                                        }
+                                        else
+                                        {
+                                            <select class="terminal-input" @bind="SelectedTable">
+                                                @foreach (var t in _availableTables)
+                                                {
+                                                    <option value="@t.Table">@t.Table (@t.Rows.ToString("N0") rows)</option>
+                                                }
+                                            </select>
+                                        }
+                                    </label>
+                                    <label>
+                                        From
+                                        <input class="terminal-input" type="datetime-local" @bind="_from" />
+                                    </label>
+                                    <label>
+                                        To
+                                        <input class="terminal-input" type="datetime-local" @bind="_to" />
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="ml-controls-group">
+                                <div class="ml-controls-group-title">What the Brain sees</div>
+                                <div class="ml-controls-row">
+                                    <label>
+                                        <input type="checkbox" @bind="_aggregate" />
+                                        Aggregate into HLOC/AVDT bars
+                                    </label>
+                                    @if (_aggregate)
+                                    {
+                                        <label>
+                                            Bar minutes
+                                            <input class="terminal-input" type="number" min="1" @bind="_barMinutesText" />
+                                        </label>
+                                    }
+                                </div>
+                            </div>
+
+                            <div class="ml-controls-group">
+                                <div class="ml-controls-group-title">Brain &amp; Account</div>
+                                <div class="ml-controls-row">
+                                    <label>
+                                        Brain
+                                        <select class="terminal-input" @bind="_brainName">
+                                            @foreach (var name in BrainNames)
+                                            {
+                                                <option value="@name">@name</option>
+                                            }
+                                        </select>
+                                    </label>
+                                    <label>
+                                        Starting cash
+                                        <input class="terminal-input" type="number" min="1" step="100" @bind="_startingCash" />
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="ml-controls-row ml-run-row">
+                            <button class="terminal-btn-action" @onclick="LoadSimulation" disabled="@_isLoading">
+                                @(_isLoading ? "LOADING..." : "LOAD SIMULATION")
+                            </button>
+                        </div>
+
+                        @if (_tableListFailed)
+                        {
+                            <p class="ml-note">Tick table list unavailable (Postgres down?).</p>
+                        }
+                        @if (_loadError is not null)
+                        {
+                            <p class="ml-run-error">@_loadError</p>
+                        }
+                        @if (_error is not null)
+                        {
+                            <p class="ml-run-error">@_error</p>
+                        }
+                    </div>
+                </div>
+            }
+            else
+            {
+                var s = _snapshot;
+                <div class="terminal-section">
+                    <div class="section-header static">
+                        <span class="prompt-symbol">></span>
+                        <span class="section-title">
+                            @s.Config.Table @(s.Config.Aggregate ? $"— {s.Config.BarSize.TotalMinutes:0}m bars" : "— raw ticks")
+                            @(s.IsFinished ? "— FINISHED" : s.IsPlaying ? "— PLAYING" : "— PAUSED")
+                        </span>
+                    </div>
+                    <div class="section-content">
+                        <div class="ml-controls-row">
+                            <button class="terminal-btn-action" @onclick="TogglePlayPause" disabled="@s.IsFinished">
+                                @(s.IsPlaying ? "PAUSE" : "PLAY")
+                            </button>
+                            <button class="terminal-btn-action" @onclick="StepOnce" disabled="@(s.IsPlaying || s.IsFinished)">STEP</button>
+                            @foreach (var speed in new[] { 1.0, 5.0, 20.0, 100.0 })
+                            {
+                                <button class="terminal-btn-action @(Math.Abs(s.SpeedMultiplier - speed) < 0.001 ? "active" : "")"
+                                        @onclick="() => SetSpeed(speed)">@speed.ToString("0")x</button>
+                            }
+                            <button class="terminal-btn-action" @onclick="ResetSim">RESET</button>
+                            <button class="terminal-btn-action" @onclick="UnloadSim">NEW SIMULATION</button>
+                            <button class="terminal-btn-action @(_hideChart ? "active" : "")" @onclick="ToggleHideChart">
+                                @(_hideChart ? "SHOW CHART" : "HIDE CHART")
+                            </button>
+                        </div>
+
+                        <div class="ml-progress">
+                            <div class="ml-progress-bar">
+                                <div class="ml-progress-fill" style="width: @(ProgressPercent)%"></div>
+                            </div>
+                            <span class="ml-progress-text">
+                                @s.CursorIndex.ToString("N0") / @s.TotalCount.ToString("N0") ticks
+                                @(s.CurrentTimestampUtc is not null ? $" — {s.CurrentTimestampUtc:yyyy-MM-dd HH:mm:ss}" : "")
+                            </span>
+                        </div>
+
+                        <div class="ml-kv-row">
+                            <span class="ml-kv"><b>price</b>@PriceStr(s.CurrentPrice)</span>
+                            <span class="ml-kv"><b>cash</b>@Money(s.Capital.Cash)</span>
+                            <span class="ml-kv"><b>realized</b>@Money(s.Capital.RealizedPnl)</span>
+                            <span class="ml-kv"><b>unrealized</b>@Money(s.Capital.UnrealizedPnl)</span>
+                            <span class="ml-kv ml-kv-useful"><b>equity</b>@Money(s.Capital.Equity)</span>
+                            @if (s.Position is { } pos)
+                            {
+                                <span class="ml-kv"><b>position</b>@pos.Direction @pos.Size.ToString("F4") @@ @pos.EntryPrice.ToString("F5")</span>
+                            }
+                            else
+                            {
+                                <span class="ml-kv"><b>position</b>flat</span>
+                            }
+                        </div>
+
+                        @if (!_hideChart)
+                        {
+                            if (s.Config.Aggregate)
+                            {
+                                <OhlcvChart Bars="ToBarRows(s.RecentBars)" />
+                            }
+                            else
+                            {
+                                <ViewDatatable Items="TickRows" Title="RECENT TICKS" />
+                            }
+                        }
+
+                        <ViewDatatable Items="LogRows" Title="TRADE / DECISION LOG" />
+
+                        @if (_error is not null)
+                        {
+                            <p class="ml-run-error">@_error</p>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    </main>
+</div>

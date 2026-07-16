@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 18
-VisualStudioVersion = 18.7.11925.98 stable
+VisualStudioVersion = 18.7.11925.98
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Poink.Scaffolder", "Poink.Scaffolder\Poink.Scaffolder.csproj", "{44A793ED-A570-4826-A139-B86147AF3DBD}"
 EndProject
@@ -30,6 +30,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Poink.CLI", "Poink.CLI\Poink.CLI\Poink.CLI.csproj", "{E62A7C12-332C-403D-8400-3E8D9CBABDC4}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Poink.ML", "Poink.ML\Poink.ML.csproj", "{D7C25625-337A-0BB0-37E2-51EC397B801C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Poink.Sim", "Poink.Sim\Poink.Sim.csproj", "{15F75018-FA48-489E-98DA-20402CA4BA0E}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -197,6 +199,18 @@ Global
 		{D7C25625-337A-0BB0-37E2-51EC397B801C}.Release|x64.Build.0 = Release|Any CPU
 		{D7C25625-337A-0BB0-37E2-51EC397B801C}.Release|x86.ActiveCfg = Release|Any CPU
 		{D7C25625-337A-0BB0-37E2-51EC397B801C}.Release|x86.Build.0 = Release|Any CPU
+		{15F75018-FA48-489E-98DA-20402CA4BA0E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{15F75018-FA48-489E-98DA-20402CA4BA0E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{15F75018-FA48-489E-98DA-20402CA4BA0E}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{15F75018-FA48-489E-98DA-20402CA4BA0E}.Debug|x64.Build.0 = Debug|Any CPU
+		{15F75018-FA48-489E-98DA-20402CA4BA0E}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{15F75018-FA48-489E-98DA-20402CA4BA0E}.Debug|x86.Build.0 = Debug|Any CPU
+		{15F75018-FA48-489E-98DA-20402CA4BA0E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{15F75018-FA48-489E-98DA-20402CA4BA0E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{15F75018-FA48-489E-98DA-20402CA4BA0E}.Release|x64.ActiveCfg = Release|Any CPU
+		{15F75018-FA48-489E-98DA-20402CA4BA0E}.Release|x64.Build.0 = Release|Any CPU
+		{15F75018-FA48-489E-98DA-20402CA4BA0E}.Release|x86.ActiveCfg = Release|Any CPU
+		{15F75018-FA48-489E-98DA-20402CA4BA0E}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

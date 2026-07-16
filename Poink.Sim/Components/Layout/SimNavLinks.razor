@@ -1,0 +1,29 @@
+@using Poink.Shared.Client.Components.Shared.Icon
+
+@foreach (var link in Links)
+{
+    <NavLink href="@link.Route" class="@LinkClass" Match="NavLinkMatch.All" title="@link.Label">
+        @if (Collapsed)
+        {
+            <span class="nav-icon">
+                <Icon Name="@link.Icon" Class="nav-icon-img" />
+            </span>
+        }
+        else
+        {
+            <span>
+                <Icon Name="@link.Icon" Class="nav-icon-img" /> @link.Label
+            </span>
+        }
+    </NavLink>
+}
+
+@code {
+    [Parameter] public string LinkClass { get; set; } = "nav-tab";
+    [Parameter] public bool Collapsed { get; set; } = false;
+
+    private static readonly (string Route, string Label, string Icon)[] Links =
+    [
+        ("/", "Simulation", "play-circle-fill"),
+    ];
+}
