@@ -201,6 +201,11 @@ namespace Poink.Sim.Components.Pages
             Service.SavedBrains.Select(b => new SavedBrainRow(
                 b.Id, b.Name, b.BrainName, b.StrategyName, b.Dataset, b.WeightCount, b.Parameters.ToString(), b.AvgReward, b.SavedAt)).ToList();
 
+        // Drives the Live tab's Network Activity animation -- the currently
+        // selected brain's real architecture (see IPolicyGradientBrain.
+        // DescribeNetworkShape), not a hardcoded shape.
+        private IReadOnlyList<NetworkLayerShape> CurrentNetworkShape => Service.DescribeNetworkShape(_brainName);
+
         private int ProgressPercent =>
             Service.TotalEpisodes <= 0 ? 0 : (int)Math.Round(Service.EpisodesCompleted * 100.0 / Service.TotalEpisodes);
 

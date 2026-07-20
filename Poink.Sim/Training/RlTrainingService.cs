@@ -74,6 +74,12 @@ internal sealed class RlTrainingService
     public SavedBrainSummary? GetActiveSnapshot(string brainName) =>
         _activeSnapshotId.TryGetValue(brainName, out var id) ? SavedBrains.FirstOrDefault(b => b.Id == id) : null;
 
+    // Empty for an unknown or non-neural brain name -- see
+    // IPolicyGradientBrain.DescribeNetworkShape for what feeds the Train
+    // page's Network Activity animation.
+    public IReadOnlyList<NetworkLayerShape> DescribeNetworkShape(string brainName) =>
+        _brains.OfType<IPolicyGradientBrain>().FirstOrDefault(b => b.Name == brainName)?.DescribeNetworkShape() ?? [];
+
     public IReadOnlyList<string> BrainNames => _brains.Select(b => b.Name).ToList();
 
     // NN vs non-NN is just "does this brain have trainable weights" --

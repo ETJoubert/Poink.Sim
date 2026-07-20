@@ -13,8 +13,10 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using Poink.Sim.Models;
 using TorchSharp;
+using TorchSharp.Modules;
 using static TorchSharp.torch;
 using static TorchSharp.torch.nn;
 
@@ -23,6 +25,16 @@ namespace Poink.Sim.Brain.Neural;
 // One named value out of Encode(observation)'s raw input, purely for display
 // (e.g. the Train page's "what goes in" panel) -- never used for inference.
 internal sealed record RlInputFeature(string Label, double Value);
+
+// One "layer" in the Train page's ambient Network Activity animation. Units
+// is a real magnitude (a Linear's out_features, or an LSTM's hidden size),
+// not meant to be drawn one-dot-per-unit -- see networkEmulator.js for how
+// it's scaled down for legibility. IsRecurrent marks a layer that loops over
+// a sequence (an LSTM) rather than a plain feedforward one, so the animation
+// can draw it differently. Public (not internal like most of this file)
+// because it's passed as a [Parameter] into NetworkEmulator (see
+// RlEpisodeMetric's doc comment for why).
+public sealed record NetworkLayerShape(int Units, bool IsRecurrent);
 
 internal interface IPolicyGradientBrain : ISimulationBrain
 {
@@ -93,4 +105,43 @@ internal interface IPolicyGradientBrain : ISimulationBrain
     void MoveToTrainingDevice() => Network.to(cuda.is_available() ? CUDA : CPU);
 
     void MoveToInferenceDevice() => Network.to(CPU);
+
+    // Walks Network's own module tree (TorchSharp's named_modules(), the
+    // library's own reflection-ish traversal) to describe its shape for the
+    // Train page's Network Activity animation, instead of a shape hand-
+    // maintained per brain -- a differently-shaped future brain draws itself
+    // correctly here with zero changes. The first Linear/LSTM encountered
+    // also contributes its input width, so the very first visualized layer
+    // shows "what feeds in", not just "what comes out of the first op".
+    //
+    // LSTM specifically needs real System.Reflection on top of that: unlike
+    // Linear (which exposes in_features/out_features publicly), TorchSharp's
+    // LSTM only stores hidden_size/num_layers in private fields with no
+    // public accessor -- ReadLstmHiddenSize below is the one place this
+    // interface reaches past TorchSharp's public API.
+    IReadOnlyList<NetworkLayerShape> DescribeNetworkShape()
+    {
+        var shapes = new List<NetworkLayerShape>();
+        foreach (var (_, module) in Network.named_modules())
+        {
+            switch (module)
+            {
+                case Linear linear:
+                    if (shapes.Count == 0)
+                        shapes.Add(new NetworkLayerShape((int)linear.in_features, IsRecurrent: false));
+                    shapes.Add(new NetworkLayerShape((int)linear.out_features, IsRecurrent: false));
+                    break;
+                case LSTM lstm:
+                    shapes.Add(new NetworkLayerShape(ReadLstmHiddenSize(lstm), IsRecurrent: true));
+                    break;
+            }
+        }
+        return shapes;
+    }
+
+    private static readonly FieldInfo? LstmHiddenSizeField =
+        typeof(LSTM).GetField("_hidden_size", BindingFlags.NonPublic | BindingFlags.Instance);
+
+    private static int ReadLstmHiddenSize(LSTM lstm) =>
+        LstmHiddenSizeField?.GetValue(lstm) is long hiddenSize ? (int)hiddenSize : 0;
 }
