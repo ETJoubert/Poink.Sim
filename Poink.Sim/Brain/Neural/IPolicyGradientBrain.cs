@@ -10,12 +10,17 @@
 //  SimulationEngine/the existing Brain dropdown with zero engine changes --
 //  only a training strategy needs the extra members below.
 // ─────────────────────────────────────────────────────────────────────────
+using System.Collections.Generic;
 using Poink.Sim.Models;
 using TorchSharp;
 using static TorchSharp.torch;
 using static TorchSharp.torch.nn;
 
 namespace Poink.Sim.Brain.Neural;
+
+// One named value out of Encode(observation)'s raw input, purely for display
+// (e.g. the Train page's "what goes in" panel) -- never used for inference.
+internal sealed record RlInputFeature(string Label, double Value);
 
 internal interface IPolicyGradientBrain : ISimulationBrain
 {
@@ -35,4 +40,10 @@ internal interface IPolicyGradientBrain : ISimulationBrain
     // its loss; plain simulation playback only needs the Decision half (see
     // Decide() above).
     (SimulationDecision Decision, Tensor ActionLogProbability) DecideWithLogProbability(SimulationObservation observation);
+
+    // Labeled breakdown of Encode(observation) -- each brain knows its own
+    // feature layout, so it's the one that knows how to describe it. Used to
+    // show "what goes in" on the Train page; a future brain with a different
+    // feature layout just describes its own.
+    IReadOnlyList<RlInputFeature> DescribeInputs(SimulationObservation observation);
 }

@@ -14,6 +14,7 @@
 //  at episode end (see Training/RlEpisodeRunner.cs).
 // ─────────────────────────────────────────────────────────────────────────
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Poink.Sim.Models;
 using TorchSharp;
@@ -83,6 +84,25 @@ internal sealed class MlpPolicyBrain : IPolicyGradientBrain
         features[WindowSize + 3] = equity != 0 ? (float)(capital.Cash / equity) : 0f;
 
         return tensor(features).unsqueeze(0).to(_device);
+    }
+
+    public IReadOnlyList<RlInputFeature> DescribeInputs(SimulationObservation observation)
+    {
+        lock (_forwardLock)
+        {
+            using var scope = NewDisposeScope();
+            using var noGradGuard = no_grad();
+            using var input = Encode(observation);
+
+            var features = new List<RlInputFeature>(FeatureCount);
+            for (int i = 0; i < WindowSize; i++)
+                features.Add(new RlInputFeature($"t-{WindowSize - i}", input[0, i].item<float>()));
+            features.Add(new RlInputFeature("position", input[0, WindowSize + 0].item<float>()));
+            features.Add(new RlInputFeature("unrealized/eq", input[0, WindowSize + 1].item<float>()));
+            features.Add(new RlInputFeature("realized/eq", input[0, WindowSize + 2].item<float>()));
+            features.Add(new RlInputFeature("cash/eq", input[0, WindowSize + 3].item<float>()));
+            return features;
+        }
     }
 
     public SimulationDecision Decide(SimulationObservation observation)

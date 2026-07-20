@@ -5,16 +5,30 @@
 //  reward-only evaluator for the existing heuristic brains (no training,
 //  just "how did this brain do").
 // ─────────────────────────────────────────────────────────────────────────
+using System;
 using System.Collections.Generic;
+using Poink.Sim.Brain.Neural;
 using Poink.Sim.Models;
 using TorchSharp;
 using static TorchSharp.torch;
 
 namespace Poink.Sim.Training;
 
+// Passed into RlTrainingService.TryStartTraining -- either synthetic random-walk
+// ticks (Table/From/To ignored) or a real historic range loaded once from Postgres
+// and windowed per episode (see RlTrainingService.RandomWindow).
+internal sealed record RlDataSourceConfig(bool UseHistoricData, string Table, DateTime? From, DateTime? To)
+{
+    public static readonly RlDataSourceConfig Dummy = new(false, "", null, null);
+}
+
 internal sealed record RlStep(SimulationAction Action, Tensor? LogProbability, double Reward);
 
-internal sealed record RlEpisode(IReadOnlyList<RlStep> Steps, CapitalState FinalCapital);
+// LastInputs is null for any ISimulationBrain that isn't an IPolicyGradientBrain
+// (nothing to describe), and otherwise a labeled snapshot of what fed the network
+// on the episode's final decision -- not every tick, since that's "aggregated"
+// enough for the Train page's "what goes in" panel without flooding OnChanged.
+internal sealed record RlEpisode(IReadOnlyList<RlStep> Steps, CapitalState FinalCapital, IReadOnlyList<RlInputFeature>? LastInputs);
 
 // One row of RlTrainingService's rolling metrics log -- the "visual feedback"
 // the Train page shows while a run is in progress, so training can actually

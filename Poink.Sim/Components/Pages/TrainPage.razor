@@ -21,12 +21,63 @@
     @if (_activeTab == TrainTab.Setup)
     {
         <p class="train-help">
-            Runs a brain through many headless simulated episodes (synthetic random-walk
-            ticks, no Postgres needed), training it via the selected strategy after each
-            episode. Only brains the strategy recognizes as trainable can be selected.
+            Runs a brain through many headless simulated episodes, training it via the
+            selected strategy after each episode. Either synthetic random-walk ticks (no
+            Postgres needed) or a real historic range, randomly windowed per episode. Only
+            brains the strategy recognizes as trainable can be selected.
         </p>
 
         <div class="train-setup-grid">
+            <div class="train-group">
+                <div class="train-group-title">Data source</div>
+                <div class="train-row">
+                    <label>
+                        <input type="checkbox" @bind="_useHistoricData" disabled="@Service.IsRunning" />
+                        Train on real historic ticks
+                    </label>
+                </div>
+                @if (_useHistoricData)
+                {
+                    <div class="train-row">
+                        <label>
+                            Symbol
+                            @if (_loadingTables)
+                            {
+                                <span>loading tables...</span>
+                            }
+                            else if (_availableTables.Count > 0)
+                            {
+                                <select class="terminal-input" @bind="SelectedTable" disabled="@Service.IsRunning">
+                                    @foreach (var t in _availableTables)
+                                    {
+                                        <option value="@t.Table">@t.Table (@t.Rows.ToString("N0") rows)</option>
+                                    }
+                                </select>
+                            }
+                            else
+                            {
+                                <button class="terminal-btn-action" @onclick="InitTables" disabled="@Service.IsRunning"
+                                        title="Connects to Postgres and lists ticks_* tables">
+                                    @(_tableListFailed ? "RETRY" : "INIT DATA")
+                                </button>
+                            }
+                        </label>
+                        <label>
+                            From
+                            <input class="terminal-input" type="datetime-local" @bind="_from" disabled="@Service.IsRunning" />
+                        </label>
+                        <label>
+                            To
+                            <input class="terminal-input" type="datetime-local" @bind="_to" disabled="@Service.IsRunning" />
+                        </label>
+                    </div>
+                    @if (_tableListFailed)
+                    {
+                        <p class="train-error">Tick table list unavailable (Postgres down?).</p>
+                    }
+                }
+            </div>
+
             <div class="train-group">
                 <div class="train-group-title">Brain &amp; Strategy</div>
                 <div class="train-row">
@@ -185,6 +236,37 @@
                             <span class="action-dist-pct">@ActionPercents.Close.ToString("N0")%</span>
                         </div>
                     </div>
+                </div>
+
+                <div class="train-live-panel train-live-panel-wide">
+                    <div class="train-panel-title">
+                        INPUTS <span class="train-panel-subtitle">(what the network sees — last decision)</span>
+                    </div>
+                    @if (Service.LatestInputs is null)
+                    {
+                        <span class="reward-chart-empty">no data yet</span>
+                    }
+                    else
+                    {
+                        <div class="input-strip">
+                            @foreach (var bar in PriceWindowBars)
+                            {
+                                <div class="input-bar" style="height: @(bar.HeightPct)%; background: @bar.ColorCss"
+                                     title="@bar.Label — @bar.Value.ToString("N4")"></div>
+                            }
+                        </div>
+                        <div class="input-scalars">
+                            @foreach (var f in ScalarFeatures)
+                            {
+                                <div class="input-scalar">
+                                    <span class="input-scalar-label">@f.Label</span>
+                                    <span class="input-scalar-value @(f.Value switch { > 0 => "input-positive", < 0 => "input-negative", _ => "" })">
+                                        @f.Value.ToString("N3")
+                                    </span>
+                                </div>
+                            }
+                        </div>
+                    }
                 </div>
             </div>
 

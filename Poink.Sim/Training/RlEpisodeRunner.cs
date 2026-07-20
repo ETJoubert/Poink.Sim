@@ -5,6 +5,11 @@
 //  training needs to blast through many episodes fast, not play one back at
 //  a UI-paced cadence.
 //
+//  Data-source agnostic: takes an already-materialized tick list rather than
+//  generating/fetching ticks itself, so the caller (RlTrainingService) can
+//  hand it either a fresh synthetic random-walk window or a slice of real
+//  historic ticks loaded once from Postgres, without this file caring which.
+//
 //  Reward per decision point = equity drift since the *previous* decision
 //  point, marked at the same price both times a position is opened/closed
 //  (Trader.Open/Close never jump Cash at the entry/exit instant -- P&L only
@@ -31,10 +36,9 @@ internal static class RlEpisodeRunner
     private const int MaxRecentTicks = 500;
 
     public static RlEpisode Run(
-        ISimulationBrain brain, int tickCount, double startingCash,
+        ISimulationBrain brain, IReadOnlyList<Tick> ticks, double startingCash,
         bool aggregate = true, TimeSpan? barSize = null)
     {
-        var ticks = DummyTickGenerator.Generate(DateTime.UtcNow.AddHours(-4), DateTime.UtcNow, tickCount);
         var trader = new Trader.Trader(startingCash);
         var aggregator = aggregate ? new SimulationBarAggregator(barSize ?? TimeSpan.FromMinutes(1)) : null;
 
@@ -44,6 +48,7 @@ internal static class RlEpisodeRunner
 
         double lastPrice = 0;
         double previousEquity = startingCash;
+        SimulationObservation? lastObservation = null;
         foreach (var tick in ticks)
         {
             double price = (tick.Bid + tick.Ask) / 2.0;
@@ -59,22 +64,30 @@ internal static class RlEpisodeRunner
                 {
                     recentBars.Add(completed.Value);
                     if (recentBars.Count > MaxRecentBars) recentBars.RemoveAt(0);
-                    previousEquity = RecordStep(
+                    (previousEquity, lastObservation) = RecordStep(
                         brain, trader, tick.Timestamp, completed.Value.Close, recentBars, Array.Empty<Tick>(), steps, previousEquity);
                 }
             }
             else
             {
-                previousEquity = RecordStep(
+                (previousEquity, lastObservation) = RecordStep(
                     brain, trader, tick.Timestamp, price, Array.Empty<HlocAvdtBar>(), recentTicks, steps, previousEquity);
             }
         }
 
-        return new RlEpisode(steps, trader.Snapshot(lastPrice));
+        // Aggregated/labeled snapshot of "what goes in" -- the final decision
+        // point's own inputs, not a per-tick stream (see RlEpisode's doc comment).
+        var lastInputs = brain is IPolicyGradientBrain describableBrain && lastObservation is { } observation
+            ? describableBrain.DescribeInputs(observation)
+            : null;
+
+        return new RlEpisode(steps, trader.Snapshot(lastPrice), lastInputs);
     }
 
-    // Returns the post-decision equity, to be threaded in as the next call's previousEquity.
-    private static double RecordStep(
+    // Returns the post-decision equity (threaded in as the next call's previousEquity)
+    // and the observation this step decided from (so the caller can describe the
+    // episode's final inputs once the loop ends).
+    private static (double Equity, SimulationObservation Observation) RecordStep(
         ISimulationBrain brain, Trader.Trader trader, DateTime timestamp, double price,
         IReadOnlyList<HlocAvdtBar> bars, IReadOnlyList<Tick> ticks, List<RlStep> steps, double previousEquity)
     {
@@ -98,6 +111,6 @@ internal static class RlEpisodeRunner
         trader.Apply(decision, price, timestamp);
         var capitalAfter = trader.Snapshot(price);
         steps.Add(new RlStep(decision.Action, logProbability, reward));
-        return capitalAfter.Equity;
+        return (capitalAfter.Equity, observation);
     }
 }
