@@ -23,6 +23,7 @@ namespace Poink.Sim.Components.Pages
         private double _startingCash = 10_000;
         private double _learningRate = 0.001;
         private string? _startError;
+        private string _saveName = "";
 
         // ── Data source ──
         // Mirrors SimulationPage's table-select pattern: dummy synthetic ticks by
@@ -113,7 +114,7 @@ namespace Poink.Sim.Components.Pages
             Service.OnChanged += HandleServiceChanged;
             TickDataStore.OnChanged += HandleServiceChanged;
 
-            if (Service.BrainNames.Count > 0) _brainName = Service.BrainNames[0];
+            if (Service.BrainOptions.Count > 0) _brainName = Service.BrainOptions[0].Name;
             if (Service.StrategyNames.Count > 0) _strategyName = Service.StrategyNames[0];
 
             // TickRepository is a singleton -- reuse another page's already-loaded
@@ -162,6 +163,43 @@ namespace Poink.Sim.Components.Pages
             // that's the whole point of the tab existing.
             if (_startError is null) _activeTab = TrainTab.Live;
         }
+
+        // Fine to click mid-run -- SaveBrain reads the brain's own live
+        // Network, which a training strategy mutates in place, so this just
+        // snapshots whatever it currently holds, tagged with the Setup tab's
+        // current strategy/parameter/data-source fields (not necessarily what
+        // the last completed run actually used, if the user tweaked the form
+        // since).
+        private void SaveModel()
+        {
+            if (Service.SaveBrain(_saveName, _brainName, _strategyName, CurrentDatasetDescription,
+                    _episodeCount, _ticksPerEpisode, _startingCash, _learningRate))
+                _saveName = "";
+        }
+
+        // Just a reference string, not a link back to actual tick data (see
+        // SavedBrainSummary's doc comment) -- Dummy data has no fixed range, so
+        // "synthetic" is all there is to say about it.
+        private string CurrentDatasetDescription =>
+            _useHistoricData && !string.IsNullOrWhiteSpace(_table)
+                ? $"{_table} ({_from:yyyy-MM-dd HH:mm} to {_to:yyyy-MM-dd HH:mm})"
+                : "synthetic (random-walk)";
+
+        private void LoadSavedBrain(SavedBrainRow row) => Service.LoadSavedBrain(row.Id);
+
+        private void DeleteSavedBrain(SavedBrainRow row) => Service.DeleteSavedBrain(row.Id);
+
+        // Flattens SavedBrainSummary into a DataTable-friendly shape -- the
+        // generic DataTable<TItem> reflects over public properties directly
+        // (see its View/Card rendering), so Parameters needs to already be a
+        // display string rather than the nested BrainTrainingParameters object.
+        private sealed record SavedBrainRow(
+            long Id, string Name, string Brain, string Strategy, string Dataset,
+            long WeightCount, string Parameters, double AvgReward, DateTime SavedAt);
+
+        private List<SavedBrainRow> SavedBrainRows =>
+            Service.SavedBrains.Select(b => new SavedBrainRow(
+                b.Id, b.Name, b.BrainName, b.StrategyName, b.Dataset, b.WeightCount, b.Parameters.ToString(), b.AvgReward, b.SavedAt)).ToList();
 
         private int ProgressPercent =>
             Service.TotalEpisodes <= 0 ? 0 : (int)Math.Round(Service.EpisodesCompleted * 100.0 / Service.TotalEpisodes);

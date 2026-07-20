@@ -1,7 +1,9 @@
 @page "/train"
 @namespace Poink.Sim.Components.Pages
+@using Poink.Shared.Client.Components.Shared.Icon
 @using Poink.Shared.Client.Components.Shared.ViewDatatable
 @using Poink.Sim.Components.Training
+@using Poink.Sim.Components.Shared.DataTable
 @using Poink.Sim.Components.Shared.DateRangeSlider
 
 <div class="train-page">
@@ -90,29 +92,8 @@
                 }
             </div>
 
-            <div class="train-group">
-                <div class="train-group-title">Brain &amp; Strategy</div>
-                <div class="train-row">
-                    <label>
-                        Brain
-                        <select class="terminal-input" @bind="_brainName" disabled="@Service.IsRunning">
-                            @foreach (var name in Service.BrainNames)
-                            {
-                                <option value="@name">@name</option>
-                            }
-                        </select>
-                    </label>
-                    <label>
-                        Strategy
-                        <select class="terminal-input" @bind="_strategyName" disabled="@Service.IsRunning">
-                            @foreach (var name in Service.StrategyNames)
-                            {
-                                <option value="@name">@name</option>
-                            }
-                        </select>
-                    </label>
-                </div>
-            </div>
+            <BrainStrategyPicker BrainOptions="Service.BrainOptions" StrategyNames="Service.StrategyNames"
+                                  @bind-BrainName="_brainName" @bind-StrategyName="_strategyName" Disabled="Service.IsRunning" />
 
             <div class="train-group">
                 <div class="train-group-title">Run parameters</div>
@@ -135,6 +116,38 @@
                     </label>
                 </div>
             </div>
+        </div>
+
+        <div class="train-group train-group-wide">
+            <div class="train-group-title">Save current brain</div>
+            <div class="train-row">
+                <label>
+                    Name
+                    <input class="terminal-input" type="text" placeholder="e.g. mlp-v1-momentum-set" @bind="_saveName" />
+                </label>
+                <button class="terminal-btn-action" @onclick="SaveModel"
+                        disabled="@(string.IsNullOrWhiteSpace(_brainName) || string.IsNullOrWhiteSpace(_saveName))"
+                        title="Saves the selected brain's current weights, plus this screen's strategy/parameters, as a new snapshot">
+                    SAVE MODEL
+                </button>
+                @if (Service.SaveStatus is not null)
+                {
+                    <span class="train-help">@Service.SaveStatus</span>
+                }
+            </div>
+        </div>
+
+        <div class="train-group train-group-wide">
+            <div class="train-group-title">Saved brains</div>
+            <DataTable TItem="SavedBrainRow" Items="SavedBrainRows" ShowRowNumbers="false" ActionsHeader="ACTIONS"
+                       ExcludeProperties="@(new List<string> { "Id" })" OnDelete="DeleteSavedBrain">
+                <CustomActions Context="row">
+                    <button class="data-table-action-btn" @onclick="() => LoadSavedBrain(row)"
+                            title="Loads these weights into the live brain -- also what Simulation's Brain dropdown will use">
+                        <Icon Name="check2-square" Class="dt-icon" /> USE
+                    </button>
+                </CustomActions>
+            </DataTable>
         </div>
 
         <div class="train-actions">

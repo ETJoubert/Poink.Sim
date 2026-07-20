@@ -1,0 +1,76 @@
+.bic-card {
+    border: 1px solid color-mix(in srgb, var(--color-primary) 12%, transparent);
+    border-radius: var(--border-radius-md);
+    padding: 16px 18px;
+    background: rgba(255, 255, 255, 0.015);
+    max-width: 640px;
+}
+
+.bic-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.bic-name {
+    font-family: var(--font-heading);
+    font-size: 1rem;
+    font-weight: bold;
+    letter-spacing: 0.04em;
+}
+
+.bic-badge {
+    font-size: 0.62rem;
+    font-weight: bold;
+    letter-spacing: 0.06em;
+    padding: 3px 9px;
+    border-radius: 999px;
+    border: 1px solid currentColor;
+}
+
+.bic-badge-nn {
+    color: var(--color-secondary);
+    text-shadow: 0 0 8px color-mix(in srgb, var(--color-secondary) 50%, transparent);
+}
+
+.bic-badge-heuristic {
+    color: var(--color-muted);
+}
+
+.bic-note {
+    font-size: 0.85rem;
+    color: var(--color-secondary);
+    opacity: 0.85;
+    margin: 0;
+}
+
+.bic-fields {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 14px 20px;
+}
+
+.bic-field {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.bic-field-wide {
+    grid-column: 1 / -1;
+}
+
+.bic-field-label {
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-secondary);
+    opacity: 0.8;
+}
+
+.bic-field-value {
+    font-size: 0.85rem;
+    font-weight: 600;
+    word-break: break-word;
+}

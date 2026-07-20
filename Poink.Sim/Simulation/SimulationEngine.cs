@@ -36,6 +36,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Poink.Sim.Brain;
+using Poink.Sim.Brain.Neural;
 using Poink.Sim.Models;
 using Poink.Sim.Repository;
 using Poink.Sim.Trader;
@@ -166,6 +167,13 @@ internal sealed class SimulationEngine : IDisposable
         var brain = _brains.FirstOrDefault(b => b.Name == config.BrainName) ?? _brains.FirstOrDefault();
         if (brain is null)
             throw new InvalidOperationException("no simulation brain registered");
+
+        // See IPolicyGradientBrain's device-placement doc comment -- outside
+        // _lock since it's independent of this engine's own state, and safe
+        // because this app's usage is train-then-simulate, never simulating a
+        // brain while RlTrainingService is mid-training it.
+        if (brain is IPolicyGradientBrain inferenceBrain)
+            inferenceBrain.MoveToInferenceDevice();
 
         lock (_lock)
         {

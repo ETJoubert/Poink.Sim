@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Components;
 using Poink.Sim.Models;
 using Poink.Sim.Repository;
 using Poink.Sim.Simulation;
+using Poink.Sim.Training;
 using Poink.Shared.Client.Components.Pages.CTrader;
 
 namespace Poink.Sim.Components.Pages
@@ -15,6 +16,12 @@ namespace Poink.Sim.Components.Pages
         [Inject] private SimulationEngine Service { get; set; } = default!;
         [Inject] private ITickRepository TickRepository { get; set; } = default!;
         [Inject] private TickDataStore TickDataStore { get; set; } = default!;
+
+        // RlTrainingService owns the same live ISimulationBrain singletons this
+        // page's SimulationEngine drives -- injected only for its brain
+        // metadata (BrainOptions/GetActiveSnapshot) to feed the BRAIN tab, not
+        // for anything training-related.
+        [Inject] private RlTrainingService TrainingService { get; set; } = default!;
 
         // ── Setup form state ──
 
@@ -71,7 +78,13 @@ namespace Poink.Sim.Components.Pages
         private int? _selectedTraderId;
         private LogTab _activeLogTab;
 
-        private enum LogTab { Decisions, Positions, Traders }
+        private enum LogTab { Decisions, Positions, Traders, Brain }
+
+        // The brain actually driving the loaded run (s.Config.BrainName) --
+        // deliberately not the Setup form's _brainName, which the user may
+        // have since changed to something not in use by this run.
+        private bool CurrentBrainIsNeuralNetwork(string brainName) =>
+            TrainingService.BrainOptions.FirstOrDefault(b => b.Name == brainName)?.IsNeuralNetwork ?? false;
 
         // Falls back to the first trader whenever the selected id doesn't match
         // (no snapshot yet, or a fresh load/reset restarted ids at 1) -- no explicit

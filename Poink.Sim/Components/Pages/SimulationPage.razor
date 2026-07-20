@@ -4,6 +4,7 @@
 @using Poink.Sim.Components.Charts
 @using Poink.Sim.Components.Shared.DataTable
 @using Poink.Sim.Components.Shared.DateRangeSlider
+@using Poink.Sim.Components.Training
 @using Poink.Shared.Client.Components.Shared.ViewDatatable
 
 <div class="sim-page">
@@ -249,6 +250,8 @@
                         @onclick="() => _activeLogTab = LogTab.Positions">POSITIONS</button>
                 <button class="terminal-btn-action @(_activeLogTab == LogTab.Traders ? "active" : "")"
                         @onclick="() => _activeLogTab = LogTab.Traders">TRADERS</button>
+                <button class="terminal-btn-action @(_activeLogTab == LogTab.Brain ? "active" : "")"
+                        @onclick="() => _activeLogTab = LogTab.Brain">BRAIN</button>
             </div>
             <div class="sim-log-content">
                 @if (_activeLogTab == LogTab.Decisions)
@@ -259,11 +262,16 @@
                 {
                     <ViewDatatable Items="OpenPositionRows" Title="OPEN POSITIONS" EmptyMessage="flat" />
                 }
-                else
+                else if (_activeLogTab == LogTab.Traders)
                 {
                     <DataTable TItem="TraderCardItem" Items="TraderItems" ExcludeProperties="@(new List<string> { "Id" })"
                                ShowRowNumbers="false" ActionsHeader="VIEW" CellClass="TraderCellClass"
                                OnView="item => SelectTrader(item.Id)" />
+                }
+                else
+                {
+                    <BrainInfoCard BrainName="@s.Config.BrainName" IsNeuralNetwork="CurrentBrainIsNeuralNetwork(s.Config.BrainName)"
+                                   ActiveSnapshot="TrainingService.GetActiveSnapshot(s.Config.BrainName)" />
                 }
             </div>
         </div>

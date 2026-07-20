@@ -11,6 +11,8 @@
 //  only a training strategy needs the extra members below.
 // ─────────────────────────────────────────────────────────────────────────
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using Poink.Sim.Models;
 using TorchSharp;
 using static TorchSharp.torch;
@@ -46,4 +48,49 @@ internal interface IPolicyGradientBrain : ISimulationBrain
     // show "what goes in" on the Train page; a future brain with a different
     // feature layout just describes its own.
     IReadOnlyList<RlInputFeature> DescribeInputs(SimulationObservation observation);
+
+    // Serializes this brain's live weights via TorchSharp's own state-dict
+    // binary format (Module.save/load's Stream overloads -- no temp file
+    // needed) so a caller (IBrainRepository) can persist/restore them as a
+    // Postgres bytea column. Default implementation, not brain-specific:
+    // every IPolicyGradientBrain already exposes Network, and that's all
+    // save/load need.
+    byte[] ExportWeights()
+    {
+        using var stream = new MemoryStream();
+        Network.save(stream);
+        return stream.ToArray();
+    }
+
+    void ImportWeights(byte[] weights)
+    {
+        using var stream = new MemoryStream(weights);
+        Network.load(stream);
+    }
+
+    // Total scalar count across every parameter tensor -- shown alongside a
+    // saved brain (see IBrainRepository) so "how big is this network" is
+    // visible without deserializing its weights.
+    long WeightCount() => Network.parameters().Sum(p => p.numel());
+
+    // ── Device placement ─────────────────────────────────────────────────
+    //  Today's brain (MlpPolicyBrain) is tiny enough that device barely
+    //  matters, but a bigger future brain won't be: training's batched
+    //  per-episode backward pass is the one place GPU actually pays off,
+    //  while Simulation's tick-by-tick single-sample inference never gets
+    //  big enough to amortize GPU dispatch overhead, no matter the brain's
+    //  size -- so it always runs on CPU. RlTrainingService calls
+    //  MoveToTrainingDevice() right before a run starts; SimulationEngine
+    //  calls MoveToInferenceDevice() right before a load finishes.
+    //
+    //  Neither call is safe to run concurrently with the other on the same
+    //  live brain instance (relocating tensors while another thread is
+    //  mid-forward/backward on them is a native-memory race, not just a
+    //  "weights changed under you" cosmetic one) -- callers only invoke
+    //  these at a run's start, and this app's usage is train-then-simulate,
+    //  never both at once on the same brain, so no extra locking is added
+    //  here for that case.
+    void MoveToTrainingDevice() => Network.to(cuda.is_available() ? CUDA : CPU);
+
+    void MoveToInferenceDevice() => Network.to(CPU);
 }

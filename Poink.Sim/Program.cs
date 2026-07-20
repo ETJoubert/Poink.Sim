@@ -32,6 +32,7 @@ var builder = WebApplication.CreateBuilder(args);
 // DATA" button so neither page -- nor SimulationEngine/RlTrainingService, which
 // no longer touch Postgres themselves -- re-reads the same range twice.
 builder.Services.AddSingleton<ITickRepository, TickRepository>();
+builder.Services.AddSingleton<IBrainRepository, BrainRepository>();
 builder.Services.AddSingleton<TickDataStore>();
 builder.Services.AddSingleton<ISimulationBrain, MomentumThresholdBrain>();
 builder.Services.AddSingleton<ISimulationBrain, RandomBrain>();

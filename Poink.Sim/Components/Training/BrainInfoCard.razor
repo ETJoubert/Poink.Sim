@@ -1,0 +1,52 @@
+@namespace Poink.Sim.Components.Training
+
+<div class="bic-card">
+    <div class="bic-header">
+        <span class="bic-name">@BrainName</span>
+        <span class="bic-badge @(IsNeuralNetwork ? "bic-badge-nn" : "bic-badge-heuristic")">
+            @(IsNeuralNetwork ? "● NEURAL NET" : "○ HEURISTIC")
+        </span>
+    </div>
+
+    @if (!IsNeuralNetwork)
+    {
+        <p class="bic-note">Rule-based -- no trainable weights.</p>
+    }
+    else if (ActiveSnapshot is null)
+    {
+        <p class="bic-note">Live in-memory weights -- never saved, or trained further since the last save/load.</p>
+    }
+    else
+    {
+        <div class="bic-fields">
+            <div class="bic-field">
+                <span class="bic-field-label">Snapshot</span>
+                <span class="bic-field-value">@ActiveSnapshot.Name</span>
+            </div>
+            <div class="bic-field">
+                <span class="bic-field-label">Strategy</span>
+                <span class="bic-field-value">@ActiveSnapshot.StrategyName</span>
+            </div>
+            <div class="bic-field">
+                <span class="bic-field-label">Dataset</span>
+                <span class="bic-field-value">@ActiveSnapshot.Dataset</span>
+            </div>
+            <div class="bic-field">
+                <span class="bic-field-label">Weights</span>
+                <span class="bic-field-value">@ActiveSnapshot.WeightCount.ToString("N0")</span>
+            </div>
+            <div class="bic-field">
+                <span class="bic-field-label">Avg reward @@ save</span>
+                <span class="bic-field-value">@ActiveSnapshot.AvgReward.ToString("N2")</span>
+            </div>
+            <div class="bic-field">
+                <span class="bic-field-label">Saved</span>
+                <span class="bic-field-value">@ActiveSnapshot.SavedAt.ToString("yyyy-MM-dd HH:mm")</span>
+            </div>
+            <div class="bic-field bic-field-wide">
+                <span class="bic-field-label">Parameters</span>
+                <span class="bic-field-value">@ActiveSnapshot.Parameters</span>
+            </div>
+        </div>
+    }
+</div>

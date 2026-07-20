@@ -31,23 +31,30 @@ internal sealed class MlpPolicyBrain : IPolicyGradientBrain
     private const double CapitalFraction = 0.5;
 
     private readonly object _forwardLock = new();
-    private readonly Device _device;
 
     public MlpPolicyBrain()
     {
-        _device = cuda.is_available() ? CUDA : CPU;
+        // No explicit device placement -- a fresh Module already lives on CPU,
+        // which is exactly the idle/inference-default this brain should start
+        // in (see IPolicyGradientBrain's device-placement doc comment).
+        // RlTrainingService moves it to GPU only once a training run starts.
         Network = Sequential(
             ("hidden1", Linear(FeatureCount, 32)),
             ("fold1", Tanh()),
             ("hidden2", Linear(32, 16)),
             ("fold2", Tanh()),
-            ("heads", Linear(16, 4))) // one logit per SimulationAction
-            .to(_device);
+            ("heads", Linear(16, 4))); // one logit per SimulationAction
     }
 
     public string Name => "MLP Policy";
 
     public Module<Tensor, Tensor> Network { get; }
+
+    // Not cached in a field -- MoveToTrainingDevice/MoveToInferenceDevice
+    // relocate Network's own parameters without going through this class, so
+    // a cached field would risk going stale. Reading it straight off a live
+    // parameter is always correct and costs one enumerator step.
+    private Device CurrentDevice => Network.parameters().First().device;
 
     // Weights persist across runs deliberately -- resetting on every run would
     // undo whatever training has accumulated, defeating "trains by trading."
@@ -83,7 +90,7 @@ internal sealed class MlpPolicyBrain : IPolicyGradientBrain
         features[WindowSize + 2] = equity != 0 ? (float)(capital.RealizedPnl / equity) : 0f;
         features[WindowSize + 3] = equity != 0 ? (float)(capital.Cash / equity) : 0f;
 
-        return tensor(features).unsqueeze(0).to(_device);
+        return tensor(features).unsqueeze(0).to(CurrentDevice);
     }
 
     public IReadOnlyList<RlInputFeature> DescribeInputs(SimulationObservation observation)
