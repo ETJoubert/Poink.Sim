@@ -1,0 +1,127 @@
+.train-help {
+    border-left: 3px solid var(--color-secondary);
+    background: rgba(255, 255, 255, 0.03);
+    padding: 12px 16px;
+    margin: 0 0 20px;
+    font-size: 0.85rem;
+    border-radius: 0 var(--border-radius-sm) var(--border-radius-sm) 0;
+}
+
+.train-setup-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-bottom: 18px;
+}
+
+.train-group {
+    flex: 1;
+    min-width: 220px;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 12%, transparent);
+    border-radius: var(--border-radius-md);
+    padding: 14px 16px;
+    background: rgba(255, 255, 255, 0.015);
+}
+
+/* Forces the Data source group onto its own full-width row instead of sharing
+   one with the other setup groups -- the range slider needs the room. */
+.train-group-wide {
+    flex-basis: 100%;
+}
+
+.train-group-title {
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-secondary);
+    opacity: 0.85;
+    margin-bottom: 10px;
+}
+
+.train-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.train-row label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.8rem;
+    color: var(--color-secondary);
+}
+
+.train-row-range {
+    align-items: stretch;
+}
+
+.train-row-range ::deep .drs {
+    flex: 1;
+    min-width: 260px;
+}
+
+/* ── Data-loaded readiness pill, next to the LOAD DATA button ───────────── */
+
+.data-status {
+    font-size: 0.68rem;
+    font-weight: bold;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid currentColor;
+}
+
+.data-status-pending {
+    color: var(--color-secondary);
+    opacity: 0.75;
+}
+
+.data-status-ready {
+    color: var(--color-success);
+    text-shadow: 0 0 8px color-mix(in srgb, var(--color-success) 50%, transparent);
+}
+
+.train-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 4px;
+}
+
+.train-error {
+    color: var(--color-error, #ff5f56);
+    margin: 12px 0 0;
+}
+
+.train-progress {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 20px;
+}
+
+.train-progress-bar {
+    flex: 1;
+    max-width: 480px;
+    height: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.train-progress-fill {
+    height: 100%;
+    background: var(--color-secondary);
+    box-shadow: var(--shadow-glow-secondary);
+    transition: width 0.2s ease;
+}
+
+.train-progress-text {
+    font-size: 0.75rem;
+    color: var(--color-secondary);
+    white-space: nowrap;
+}

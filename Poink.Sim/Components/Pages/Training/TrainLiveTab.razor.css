@@ -1,0 +1,201 @@
+.train-help {
+    border-left: 3px solid var(--color-secondary);
+    background: rgba(255, 255, 255, 0.03);
+    padding: 12px 16px;
+    margin: 0 0 20px;
+    font-size: 0.85rem;
+    border-radius: 0 var(--border-radius-sm) var(--border-radius-sm) 0;
+}
+
+.train-progress {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 20px;
+}
+
+.train-progress-bar {
+    flex: 1;
+    max-width: 480px;
+    height: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.train-progress-fill {
+    height: 100%;
+    background: var(--color-secondary);
+    box-shadow: var(--shadow-glow-secondary);
+    transition: width 0.2s ease;
+}
+
+.train-progress-text {
+    font-size: 0.75rem;
+    color: var(--color-secondary);
+    white-space: nowrap;
+}
+
+.train-stats {
+    display: flex;
+    gap: 18px;
+    margin-top: 14px;
+}
+
+.train-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.train-stat-label {
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-secondary);
+    opacity: 0.8;
+}
+
+.train-stat-value {
+    font-size: 0.92rem;
+    font-weight: 600;
+}
+
+.train-metrics-log {
+    margin-top: 20px;
+}
+
+.train-live-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 16px;
+    margin-top: 20px;
+}
+
+.train-live-panel {
+    border: 1px solid color-mix(in srgb, var(--color-primary) 12%, transparent);
+    border-radius: var(--border-radius-md);
+    padding: 14px 16px;
+    background: rgba(255, 255, 255, 0.015);
+}
+
+.train-panel-title {
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-secondary);
+    opacity: 0.85;
+    margin-bottom: 10px;
+}
+
+.train-panel-subtitle {
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: normal;
+    opacity: 0.75;
+    font-size: 0.62rem;
+}
+
+.train-live-panel-wide {
+    grid-column: 1 / -1;
+}
+
+.input-strip {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 44px;
+    margin-bottom: 14px;
+}
+
+.input-bar {
+    flex: 1;
+    min-width: 4px;
+    border-radius: 2px 2px 0 0;
+    opacity: 0.85;
+}
+
+.input-scalars {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.input-scalar {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.input-scalar-label {
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-secondary);
+    opacity: 0.8;
+}
+
+.input-scalar-value {
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.input-positive {
+    color: var(--color-success);
+}
+
+.input-negative {
+    color: var(--color-error);
+}
+
+.action-dist {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.action-dist-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.action-dist-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    width: 46px;
+    flex-shrink: 0;
+}
+
+.action-dist-hold { color: var(--color-muted); }
+.action-dist-long { color: var(--color-success); }
+.action-dist-short { color: var(--color-error); }
+.action-dist-close { color: var(--color-secondary); }
+
+.action-dist-track {
+    flex: 1;
+    height: 8px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.05);
+    overflow: hidden;
+}
+
+.action-dist-fill {
+    height: 100%;
+    transition: width 0.3s ease;
+}
+
+.action-dist-fill-hold { background: var(--color-muted); }
+.action-dist-fill-long { background: var(--color-success); box-shadow: var(--shadow-glow-primary); }
+.action-dist-fill-short { background: var(--color-error); }
+.action-dist-fill-close { background: var(--color-secondary); box-shadow: var(--shadow-glow-secondary); }
+
+.action-dist-pct {
+    font-size: 0.7rem;
+    color: var(--color-secondary);
+    width: 32px;
+    text-align: right;
+    flex-shrink: 0;
+}

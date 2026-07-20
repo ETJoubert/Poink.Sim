@@ -1,0 +1,123 @@
+@namespace Poink.Sim.Components.Training
+@using Poink.Shared.Client.Components.Shared.ViewDatatable
+
+@if (Service.TotalEpisodes == 0)
+{
+    <p class="train-help">No training run yet — switch to SETUP and start one.</p>
+}
+else
+{
+    <div class="train-progress">
+        <div class="train-progress-bar">
+            <div class="train-progress-fill" style="width: @(ProgressPercent)%"></div>
+        </div>
+        <span class="train-progress-text">
+            @Service.EpisodesCompleted / @Service.TotalEpisodes episodes (@ProgressPercent%)
+        </span>
+    </div>
+
+    <div class="train-stats">
+        <div class="train-stat">
+            <span class="train-stat-label">recent avg reward</span>
+            <span class="train-stat-value">@Service.RecentAverageReward.ToString("N2")</span>
+        </div>
+        <div class="train-stat">
+            <span class="train-stat-label">best episode</span>
+            <span class="train-stat-value">@Service.BestReward.ToString("N2")</span>
+        </div>
+        <div class="train-stat">
+            <span class="train-stat-label">worst episode</span>
+            <span class="train-stat-value">@Service.WorstReward.ToString("N2")</span>
+        </div>
+        <div class="train-stat">
+            <span class="train-stat-label">win rate</span>
+            <span class="train-stat-value">@WinRatePercent.ToString("N0")%</span>
+        </div>
+    </div>
+
+    <div class="train-live-grid">
+        <div class="train-live-panel">
+            <div class="train-panel-title">EPISODES</div>
+            <EpisodeGrid Episodes="Service.RecentEpisodes" IsRunning="Service.IsRunning" />
+        </div>
+
+        <div class="train-live-panel">
+            <div class="train-panel-title">REWARD</div>
+            <RewardChart Episodes="Service.RecentEpisodes" IsRunning="Service.IsRunning" />
+        </div>
+
+        <div class="train-live-panel">
+            <div class="train-panel-title">NETWORK ACTIVITY</div>
+            <NetworkEmulator IsRunning="Service.IsRunning" LayerShapes="CurrentNetworkShape" />
+        </div>
+
+        <div class="train-live-panel">
+            <div class="train-panel-title">ACTION DISTRIBUTION</div>
+            <div class="action-dist">
+                <div class="action-dist-row">
+                    <span class="action-dist-label action-dist-hold">HOLD</span>
+                    <div class="action-dist-track">
+                        <div class="action-dist-fill action-dist-fill-hold" style="width: @(Pct(ActionPercents.Hold))%"></div>
+                    </div>
+                    <span class="action-dist-pct">@ActionPercents.Hold.ToString("N0")%</span>
+                </div>
+                <div class="action-dist-row">
+                    <span class="action-dist-label action-dist-long">LONG</span>
+                    <div class="action-dist-track">
+                        <div class="action-dist-fill action-dist-fill-long" style="width: @(Pct(ActionPercents.EnterLong))%"></div>
+                    </div>
+                    <span class="action-dist-pct">@ActionPercents.EnterLong.ToString("N0")%</span>
+                </div>
+                <div class="action-dist-row">
+                    <span class="action-dist-label action-dist-short">SHORT</span>
+                    <div class="action-dist-track">
+                        <div class="action-dist-fill action-dist-fill-short" style="width: @(Pct(ActionPercents.EnterShort))%"></div>
+                    </div>
+                    <span class="action-dist-pct">@ActionPercents.EnterShort.ToString("N0")%</span>
+                </div>
+                <div class="action-dist-row">
+                    <span class="action-dist-label action-dist-close">CLOSE</span>
+                    <div class="action-dist-track">
+                        <div class="action-dist-fill action-dist-fill-close" style="width: @(Pct(ActionPercents.Close))%"></div>
+                    </div>
+                    <span class="action-dist-pct">@ActionPercents.Close.ToString("N0")%</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="train-live-panel train-live-panel-wide">
+            <div class="train-panel-title">
+                INPUTS <span class="train-panel-subtitle">(what the network sees — last decision)</span>
+            </div>
+            @if (Service.LatestInputs is null)
+            {
+                <span class="reward-chart-empty">no data yet</span>
+            }
+            else
+            {
+                <div class="input-strip">
+                    @foreach (var bar in PriceWindowBars)
+                    {
+                        <div class="input-bar" style="height: @(bar.HeightPct)%; background: @bar.ColorCss"
+                             title="@bar.Label — @bar.Value.ToString("N4")"></div>
+                    }
+                </div>
+                <div class="input-scalars">
+                    @foreach (var f in ScalarFeatures)
+                    {
+                        <div class="input-scalar">
+                            <span class="input-scalar-label">@f.Label</span>
+                            <span class="input-scalar-value @(f.Value switch { > 0 => "input-positive", < 0 => "input-negative", _ => "" })">
+                                @f.Value.ToString("N3")
+                            </span>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+
+    <div class="train-metrics-log">
+        <ViewDatatable Items="MetricsRows" Title="EPISODE METRICS" EmptyMessage="no episodes yet" />
+    </div>
+}
