@@ -399,7 +399,8 @@ internal sealed class SimulationEngine : IDisposable
                     _cursor, _ticks.Count, _lastTimestamp, _lastPrice,
                     _traderSessions.Select(ts => new TraderSnapshot(
                         ts.Id, ts.Label, ts.Trader.Snapshot(_lastPrice ?? 0), ts.Trader.CurrentPosition,
-                        ts.Trader.TradeLog.Count, ts.RecentLog.ToList())).ToList(),
+                        ts.Trader.TradeLog.Count, ts.RecentLog.ToList(), ts.Trader.TradeLog.ToList(),
+                        ts.Trader.MaxEquity, ts.Trader.MaxDrawdown)).ToList(),
                     _recentBars.ToList(), _recentTicks.ToList());
         }
         Snapshot = snapshot;

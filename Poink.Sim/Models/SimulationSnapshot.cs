@@ -23,7 +23,8 @@ internal sealed record SimulationLogEntry(
 // each gets its own Capital/Position/log since Trader.Apply is per-instance.
 internal sealed record TraderSnapshot(
     int Id, string Label, CapitalState Capital, Position? Position, int TradeCount,
-    IReadOnlyList<SimulationLogEntry> RecentLog);
+    IReadOnlyList<SimulationLogEntry> RecentLog, IReadOnlyList<Trade> Trades,
+    double MaxEquity, double MaxDrawdown);
 
 // Immutable read-model published wholesale each callback -- the page reads
 // the reference (no torn reads, no per-field locking needed on the page side).

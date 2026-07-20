@@ -252,6 +252,8 @@
                         @onclick="() => _activeLogTab = LogTab.Traders">TRADERS</button>
                 <button class="terminal-btn-action @(_activeLogTab == LogTab.Brain ? "active" : "")"
                         @onclick="() => _activeLogTab = LogTab.Brain">BRAIN</button>
+                <button class="terminal-btn-action @(_activeLogTab == LogTab.Statistics ? "active" : "")"
+                        @onclick="() => _activeLogTab = LogTab.Statistics">STATISTICS</button>
             </div>
             <div class="sim-log-content">
                 @if (_activeLogTab == LogTab.Decisions)
@@ -268,10 +270,14 @@
                                ShowRowNumbers="false" ActionsHeader="VIEW" CellClass="TraderCellClass"
                                OnView="item => SelectTrader(item.Id)" />
                 }
-                else
+                else if (_activeLogTab == LogTab.Brain)
                 {
                     <BrainInfoCard BrainName="@s.Config.BrainName" IsNeuralNetwork="CurrentBrainIsNeuralNetwork(s.Config.BrainName)"
                                    ActiveSnapshot="TrainingService.GetActiveSnapshot(s.Config.BrainName)" />
+                }
+                else
+                {
+                    <ViewDatatable Items="StatRows" Title="STATISTICS" EmptyMessage="no closed trades yet" />
                 }
             </div>
         </div>

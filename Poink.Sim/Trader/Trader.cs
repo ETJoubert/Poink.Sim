@@ -15,16 +15,35 @@ internal sealed class Trader
 {
     private readonly List<Trade> _trades = new();
     private int _nextTradeId = 1;
+    private double _peakEquity;
 
-    public Trader(double startingCash) => Cash = startingCash;
+    public Trader(double startingCash)
+    {
+        Cash = startingCash;
+        _peakEquity = startingCash;
+        MaxEquity = startingCash;
+    }
 
     public double Cash { get; private set; }
     public double RealizedPnl { get; private set; }
     public Position? CurrentPosition { get; private set; }
     public IReadOnlyList<Trade> TradeLog => _trades;
 
-    public CapitalState Snapshot(double currentPrice) =>
-        new(Cash, RealizedPnl, CurrentPosition?.UnrealizedPnl(currentPrice) ?? 0);
+    // Tracked incrementally off every Snapshot() call (mark-to-market runs once per
+    // raw tick regardless of the aggregation toggle -- see SimulationEngine), rather
+    // than from a stored equity curve, so this stays O(1) memory for arbitrarily long runs.
+    public double MaxEquity { get; private set; }
+    public double MaxDrawdown { get; private set; }
+
+    public CapitalState Snapshot(double currentPrice)
+    {
+        var state = new CapitalState(Cash, RealizedPnl, CurrentPosition?.UnrealizedPnl(currentPrice) ?? 0);
+        if (state.Equity > _peakEquity) _peakEquity = state.Equity;
+        if (_peakEquity > MaxEquity) MaxEquity = _peakEquity;
+        double drawdown = _peakEquity - state.Equity;
+        if (drawdown > MaxDrawdown) MaxDrawdown = drawdown;
+        return state;
+    }
 
     // Applies one Brain decision at the given mark price/time. Returns a short
     // description of what happened (for the log), or null for a no-op.

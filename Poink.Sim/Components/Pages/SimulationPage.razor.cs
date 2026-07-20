@@ -78,7 +78,7 @@ namespace Poink.Sim.Components.Pages
         private int? _selectedTraderId;
         private LogTab _activeLogTab;
 
-        private enum LogTab { Decisions, Positions, Traders, Brain }
+        private enum LogTab { Decisions, Positions, Traders, Brain, Statistics }
 
         // The brain actually driving the loaded run (s.Config.BrainName) --
         // deliberately not the Setup form's _brainName, which the user may
@@ -349,6 +349,86 @@ namespace Poink.Sim.Components.Pages
         // 0-or-1 rows today; the table shape is what lets multi-position support
         // slot in later as "more rows" instead of a UI rework.
         private sealed record OpenPositionRow(string Direction, string Size, string EntryPrice, string EntryTime, string UnrealizedPnl);
+
+        // Derived once per render from the selected trader's full closed-trade log
+        // (TraderSnapshot.Trades) plus the equity extremes Trader tracks incrementally
+        // -- "win"/"loss" split on RealizedPnl sign; a zero-pnl trade counts as neither
+        // and also breaks a streak.
+        private sealed record TradeStats(
+            int WinCount, int LossCount, double BiggestWin, double BiggestLoss,
+            double AverageWin, double AverageLoss, int BuyCount, int SellCount,
+            TimeSpan TimeInMarket, TimeSpan TimeInLong, TimeSpan TimeInShort,
+            TimeSpan AverageTimeInLong, TimeSpan AverageTimeInShort,
+            double MaxEquity, double MaxDrawdown, int LongestWinStreak, int LongestLossStreak);
+
+        private TradeStats? Stats
+        {
+            get
+            {
+                if (SelectedTrader is not { } trader) return null;
+                var trades = trader.Trades;
+
+                var wins = trades.Where(t => t.RealizedPnl > 0).ToList();
+                var losses = trades.Where(t => t.RealizedPnl < 0).ToList();
+                var longs = trades.Where(t => t.Direction == PositionDirection.Long).ToList();
+                var shorts = trades.Where(t => t.Direction == PositionDirection.Short).ToList();
+
+                int longestWin = 0, longestLoss = 0, curWin = 0, curLoss = 0;
+                foreach (var t in trades)
+                {
+                    if (t.RealizedPnl > 0) { curWin++; curLoss = 0; }
+                    else if (t.RealizedPnl < 0) { curLoss++; curWin = 0; }
+                    else { curWin = 0; curLoss = 0; }
+                    longestWin = Math.Max(longestWin, curWin);
+                    longestLoss = Math.Max(longestLoss, curLoss);
+                }
+
+                static TimeSpan Duration(Trade t) => t.ExitTime - t.EntryTime;
+                static TimeSpan Sum(IEnumerable<Trade> ts) => ts.Aggregate(TimeSpan.Zero, (acc, t) => acc + Duration(t));
+                static TimeSpan Average(List<Trade> ts) =>
+                    ts.Count == 0 ? TimeSpan.Zero : TimeSpan.FromTicks((long)ts.Average(t => Duration(t).Ticks));
+
+                return new TradeStats(
+                    wins.Count, losses.Count,
+                    wins.Count > 0 ? wins.Max(t => t.RealizedPnl) : 0,
+                    losses.Count > 0 ? losses.Min(t => t.RealizedPnl) : 0,
+                    wins.Count > 0 ? wins.Average(t => t.RealizedPnl) : 0,
+                    losses.Count > 0 ? losses.Average(t => t.RealizedPnl) : 0,
+                    longs.Count, shorts.Count,
+                    Sum(trades), Sum(longs), Sum(shorts),
+                    Average(longs), Average(shorts),
+                    trader.MaxEquity, trader.MaxDrawdown,
+                    longestWin, longestLoss);
+            }
+        }
+
+        private sealed record StatRow(string Metric, string Value);
+
+        private static string TimeSpanStr(TimeSpan ts) => ts.ToString(@"d\.hh\:mm\:ss");
+
+        private List<object> StatRows =>
+            Stats is not { } st
+                ? new List<object>()
+                : new List<object>
+                {
+                    new StatRow("Won trades", st.WinCount.ToString("N0")),
+                    new StatRow("Lost trades", st.LossCount.ToString("N0")),
+                    new StatRow("Biggest win", Money(st.BiggestWin)),
+                    new StatRow("Biggest loss", Money(st.BiggestLoss)),
+                    new StatRow("Average win", Money(st.AverageWin)),
+                    new StatRow("Average loss", Money(st.AverageLoss)),
+                    new StatRow("Buys (long entries)", st.BuyCount.ToString("N0")),
+                    new StatRow("Sells (short entries)", st.SellCount.ToString("N0")),
+                    new StatRow("Time in market", TimeSpanStr(st.TimeInMarket)),
+                    new StatRow("Time in long", TimeSpanStr(st.TimeInLong)),
+                    new StatRow("Time in short", TimeSpanStr(st.TimeInShort)),
+                    new StatRow("Average time in long", TimeSpanStr(st.AverageTimeInLong)),
+                    new StatRow("Average time in short", TimeSpanStr(st.AverageTimeInShort)),
+                    new StatRow("Max equity", Money(st.MaxEquity)),
+                    new StatRow("Max drawdown", Money(st.MaxDrawdown)),
+                    new StatRow("Longest winning streak", st.LongestWinStreak.ToString("N0")),
+                    new StatRow("Longest losing streak", st.LongestLossStreak.ToString("N0")),
+                };
 
         private List<object> OpenPositionRows =>
             SelectedTrader?.Position is not { } pos
