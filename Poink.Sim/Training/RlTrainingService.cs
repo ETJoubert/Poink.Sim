@@ -23,15 +23,12 @@ internal sealed class RlTrainingService
     private const int MaxMetricsLog = 500;
 
     private readonly object _lock = new();
-    private readonly ITickRepository _tickRepository;
     private readonly List<ISimulationBrain> _brains;
     private readonly List<IRlTrainingStrategy> _strategies;
     private readonly List<RlEpisodeMetric> _episodeMetrics = new();
 
-    public RlTrainingService(
-        ITickRepository tickRepository, IEnumerable<ISimulationBrain> brains, IEnumerable<IRlTrainingStrategy> strategies)
+    public RlTrainingService(IEnumerable<ISimulationBrain> brains, IEnumerable<IRlTrainingStrategy> strategies)
     {
-        _tickRepository = tickRepository;
         _brains = brains.ToList();
         _strategies = strategies.ToList();
     }
@@ -63,9 +60,13 @@ internal sealed class RlTrainingService
 
     public event Action? OnChanged;
 
+    // historicTicks must already be materialized (see TickDataStore) when the
+    // caller wants real historic data -- this no longer touches Postgres itself,
+    // so a run can only start once the setup screen's "LOAD DATA" step has
+    // actually finished. Null means synthetic random-walk episodes.
     public bool TryStartTraining(
         string brainName, string strategyName, int episodeCount, int ticksPerEpisode, double startingCash, double learningRate,
-        RlDataSourceConfig dataSource)
+        List<Tick>? historicTicks)
     {
         var brain = _brains.FirstOrDefault(b => b.Name == brainName);
         var strategy = _strategies.FirstOrDefault(s => s.Name == strategyName);
@@ -77,11 +78,6 @@ internal sealed class RlTrainingService
             if (brain is null) { Error = $"no brain named '{brainName}'"; return false; }
             if (strategy is null) { Error = $"no training strategy named '{strategyName}'"; return false; }
             if (!strategy.CanTrain(brain)) { Error = $"'{strategy.Name}' cannot train '{brain.Name}'"; return false; }
-            if (dataSource.UseHistoricData && string.IsNullOrWhiteSpace(dataSource.Table))
-            {
-                Error = "pick a symbol/table for historic data";
-                return false;
-            }
 
             IsRunning = true;
             Error = null;
@@ -100,17 +96,9 @@ internal sealed class RlTrainingService
         {
             try
             {
-                // Loaded once up front (like SimulationEngine.TryLoad) rather than
-                // re-querying Postgres every episode -- a training run can be
-                // hundreds of episodes, and ReadTicks is a lazy per-call iterator.
-                List<Tick>? historicTicks = null;
-                if (dataSource.UseHistoricData)
-                {
-                    historicTicks = _tickRepository.ReadTicks(dataSource.Table, dataSource.From, dataSource.To).ToList();
-                    if (historicTicks.Count < ticksPerEpisode)
-                        throw new InvalidOperationException(
-                            $"'{dataSource.Table}' only has {historicTicks.Count} ticks in the selected range, need at least {ticksPerEpisode}");
-                }
+                if (historicTicks is not null && historicTicks.Count < ticksPerEpisode)
+                    throw new InvalidOperationException(
+                        $"only {historicTicks.Count} ticks loaded, need at least {ticksPerEpisode}");
 
                 var optimizer = strategy.CreateOptimizer(brain, learningRate);
                 var recentRewards = new Queue<double>();

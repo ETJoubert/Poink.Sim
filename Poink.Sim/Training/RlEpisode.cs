@@ -5,7 +5,6 @@
 //  reward-only evaluator for the existing heuristic brains (no training,
 //  just "how did this brain do").
 // ─────────────────────────────────────────────────────────────────────────
-using System;
 using System.Collections.Generic;
 using Poink.Sim.Brain.Neural;
 using Poink.Sim.Models;
@@ -13,14 +12,6 @@ using TorchSharp;
 using static TorchSharp.torch;
 
 namespace Poink.Sim.Training;
-
-// Passed into RlTrainingService.TryStartTraining -- either synthetic random-walk
-// ticks (Table/From/To ignored) or a real historic range loaded once from Postgres
-// and windowed per episode (see RlTrainingService.RandomWindow).
-internal sealed record RlDataSourceConfig(bool UseHistoricData, string Table, DateTime? From, DateTime? To)
-{
-    public static readonly RlDataSourceConfig Dummy = new(false, "", null, null);
-}
 
 internal sealed record RlStep(SimulationAction Action, Tensor? LogProbability, double Reward);
 

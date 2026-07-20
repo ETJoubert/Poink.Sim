@@ -3,6 +3,7 @@
 @namespace Poink.Sim.Components.Pages
 @using Poink.Sim.Components.Charts
 @using Poink.Sim.Components.Shared.DataTable
+@using Poink.Sim.Components.Shared.DateRangeSlider
 @using Poink.Shared.Client.Components.Shared.ViewDatatable
 
 <div class="sim-page">
@@ -27,40 +28,51 @@
             </p>
 
             <div class="sim-setup-grid">
-                <div class="sim-group">
+                <div class="sim-group sim-group-wide">
                     <div class="sim-group-title">Data</div>
                     <div class="sim-row">
                         <label>
                             Symbol
-                            @if (_loadingTables)
+                            @if (_availableTables.Count > 0)
                             {
-                                <span>loading tables...</span>
-                            }
-                            else if (_availableTables.Count > 0)
-                            {
-                                <select class="terminal-input" @bind="SelectedTable">
+                                <select class="terminal-input" @bind="SelectedTable" disabled="@_loadingTables">
                                     @foreach (var t in _availableTables)
                                     {
                                         <option value="@t.Table">@t.Table (@t.Rows.ToString("N0") rows)</option>
                                     }
                                 </select>
+                                <button class="terminal-btn-action" @onclick="RecountTables" disabled="@_loadingTables"
+                                        title="Rescans every ticks_* table (COUNT/MIN/MAX) and refreshes stored row counts -- slow, only needed after new data has been written">
+                                    @(_loadingTables ? "RECOUNTING..." : "RECOUNT")
+                                </button>
+                            }
+                            else if (_loadingTables)
+                            {
+                                <span>loading tables...</span>
                             }
                             else
                             {
-                                <button class="terminal-btn-action" @onclick="InitTables"
-                                        title="Connects to Postgres and lists ticks_* tables -- not needed for Load Dummy Data">
-                                    @(_tableListFailed ? "RETRY" : "INIT DATA")
+                                <button class="terminal-btn-action" @onclick="LoadTables"
+                                        title="Loads the cached tick_table_stats registry -- fast, no table scanning; not needed for Load Dummy Data">
+                                    @(_tableListFailed ? "RETRY" : "LOAD TABLES")
                                 </button>
                             }
                         </label>
-                        <label>
-                            From
-                            <input class="terminal-input" type="datetime-local" @bind="_from" />
-                        </label>
-                        <label>
-                            To
-                            <input class="terminal-input" type="datetime-local" @bind="_to" />
-                        </label>
+                    </div>
+                    <div class="sim-row sim-row-range">
+                        <DateRangeSlider Min="SliderMin" Max="SliderMax" From="_from" FromChanged="@(v => _from = v)"
+                                         To="_to" ToChanged="@(v => _to = v)"
+                                         Disabled="@(_loadingTables || TickDataStore.IsLoading)" />
+                    </div>
+                    <div class="sim-row">
+                        <span class="data-status @(IsDataReady ? "data-status-ready" : "data-status-pending")">
+                            @(TickDataStore.IsLoading ? "LOADING..." : IsDataReady ? $"DATA LOADED ({TickDataStore.LoadedCount:N0} ticks)" : "DATA NOT LOADED")
+                        </span>
+                        <button class="terminal-btn-action" @onclick="LoadData"
+                                disabled="@(string.IsNullOrWhiteSpace(_table) || TickDataStore.IsLoading)"
+                                title="Reads ticks for the selected symbol/range into memory -- required before Load Simulation">
+                            @(TickDataStore.IsLoading ? "LOADING..." : "LOAD DATA")
+                        </button>
                     </div>
                 </div>
 

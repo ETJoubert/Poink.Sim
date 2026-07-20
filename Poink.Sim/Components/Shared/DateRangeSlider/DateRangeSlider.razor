@@ -1,0 +1,39 @@
+@* Dual-handle range slider replacing two datetime-local inputs for picking a
+   From/To span within [Min, Max]. Two overlapping native <input type=range>
+   thumbs (pointer-events trick, see .razor.css) so dragging is fully native --
+   no JS interop needed. Week gridlines along the rail are a visual reference
+   only (not independently clickable); "FULL RANGE" resets to [Min, Max]. *@
+
+<div class="drs @(Disabled ? "drs-disabled" : "")">
+    <div class="drs-labels">
+        <span class="drs-label drs-label-from">@From.ToString("yyyy-MM-dd HH:mm")</span>
+        <span class="drs-label-span">@SpanLabel</span>
+        <span class="drs-label drs-label-to">@To.ToString("yyyy-MM-dd HH:mm")</span>
+    </div>
+
+    <div class="drs-track-wrap">
+        <div class="drs-rail">
+            <div class="drs-rail-fill" style="left: @Pct(FromPercent)%; right: @Pct(100 - ToPercent)%;"></div>
+            @foreach (var tick in WeekTicks)
+            {
+                <div class="drs-tick" style="left: @Pct(tick.Percent)%" title="@tick.Title">
+                    @if (tick.ShowLabel)
+                    {
+                        <span class="drs-tick-label">@tick.Label</span>
+                    }
+                </div>
+            }
+        </div>
+        <input type="range" class="drs-thumb drs-thumb-from" min="0" max="@_spanMinutes"
+               value="@_fromMinutes" @onchange="OnFromChanged" disabled="@Disabled" />
+        <input type="range" class="drs-thumb drs-thumb-to" min="0" max="@_spanMinutes"
+               value="@_toMinutes" @onchange="OnToChanged" disabled="@Disabled" />
+    </div>
+
+    <div class="drs-bounds">
+        <span>@Min.ToString("yyyy-MM-dd")</span>
+        <button type="button" class="drs-reset" @onclick="ResetToFullRange" disabled="@Disabled"
+                title="Select the full available range">FULL RANGE</button>
+        <span>@Max.ToString("yyyy-MM-dd")</span>
+    </div>
+</div>

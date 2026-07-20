@@ -1,9 +1,10 @@
 // ── Orchestrating singleton: MarketSim + Aggregator + Brain + Trader ────
-//  Ticks are materialized once per loaded run (ReadTicks(...).ToList()) and
-//  played back from memory with an integer cursor -- ReadTicks itself stays
-//  untouched (a lazy Postgres iterator), but a pausable/steppable/speed-
-//  controlled sim needs random access and can't hold a live DB reader across
-//  a pause. Playback runs on one System.Threading.Timer per engine, used as
+//  Ticks are materialized once (by TickDataStore, via the setup screen's "LOAD
+//  DATA" button, or generated fresh for TryLoadDummy) and handed to TryLoad as
+//  a plain list -- this engine never reads Postgres itself. Played back from
+//  memory with an integer cursor, because a pausable/steppable/speed-controlled
+//  sim needs random access and can't hold a live DB reader across a pause.
+//  Playback runs on one System.Threading.Timer per engine, used as
 //  a self-rescheduling one-shot (period = Infinite; the callback re-arms
 //  itself at the end) so callbacks never overlap and Pause/SetSpeed take
 //  effect cleanly at a callback boundary instead of racing a running one.
@@ -52,7 +53,6 @@ internal sealed class SimulationEngine : IDisposable
     private const int MaxRecentLog = 200;
 
     private readonly object _lock = new();
-    private readonly ITickRepository _tickRepository;
     private readonly List<ISimulationBrain> _brains;
     private readonly Timer _timer;
 
@@ -83,9 +83,8 @@ internal sealed class SimulationEngine : IDisposable
     private double? _lastPrice;
     private DateTime? _lastTimestamp;
 
-    public SimulationEngine(ITickRepository tickRepository, IEnumerable<ISimulationBrain> brains)
+    public SimulationEngine(IEnumerable<ISimulationBrain> brains)
     {
-        _tickRepository = tickRepository;
         _brains = brains.ToList();
         _timer = new Timer(TimerCallback, null, Timeout.Infinite, Timeout.Infinite);
     }
@@ -97,7 +96,10 @@ internal sealed class SimulationEngine : IDisposable
 
     public event Action? OnChanged;
 
-    public bool TryLoad(SimulationConfig config)
+    // ticks must already be materialized (see TickDataStore) -- this no longer
+    // touches Postgres itself, so a run can only start once the setup screen's
+    // "LOAD DATA" step has actually finished.
+    public bool TryLoad(SimulationConfig config, List<Tick> ticks)
     {
         lock (_lock)
         {
@@ -111,7 +113,6 @@ internal sealed class SimulationEngine : IDisposable
         {
             try
             {
-                var ticks = _tickRepository.ReadTicks(config.Table, config.From, config.To).ToList();
                 FinishLoad(config, ticks);
             }
             catch (Exception ex)

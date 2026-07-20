@@ -259,7 +259,6 @@
 
 .sim-setup {
     padding: 20px 24px 32px;
-    max-width: 920px;
 }
 
 .sim-help {
@@ -291,6 +290,12 @@
     background: rgba(255, 255, 255, 0.015);
 }
 
+/* Forces the Data group onto its own full-width row instead of sharing one
+   with the other setup groups -- the range slider needs the room. */
+.sim-group-wide {
+    flex-basis: 100%;
+}
+
 .sim-group-title {
     font-size: 0.68rem;
     letter-spacing: 0.12em;
@@ -313,6 +318,37 @@
     gap: 4px;
     font-size: 0.8rem;
     color: var(--color-secondary);
+}
+
+.sim-row-range {
+    align-items: stretch;
+}
+
+.sim-row-range ::deep .drs {
+    flex: 1;
+    min-width: 260px;
+}
+
+/* ── Data-loaded readiness pill, next to the LOAD DATA button ───────────── */
+
+.data-status {
+    font-size: 0.68rem;
+    font-weight: bold;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid currentColor;
+}
+
+.data-status-pending {
+    color: var(--color-secondary);
+    opacity: 0.75;
+}
+
+.data-status-ready {
+    color: var(--color-success);
+    text-shadow: 0 0 8px color-mix(in srgb, var(--color-success) 50%, transparent);
 }
 
 .sim-setup-actions {

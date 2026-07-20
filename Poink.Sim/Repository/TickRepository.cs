@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using Dapper;
 using Npgsql;
 
@@ -15,7 +16,7 @@ internal sealed class TickRepository : ITickRepository
     // so Dapper (SQL text + row mapping) is used instead of a static EF model.
     const string ConnectionString = "Host=localhost;Port=5432;Username=postgres;Password=postgres;Database=Poink.MarketData";
 
-    // Cache of ListTickTables()'s output -- COUNT(*)/MIN/MAX over a ticks_*
+    // Postgres-side cache of table stats -- COUNT(*)/MIN/MAX over a ticks_*
     // table is a full scan and too slow to run on every read (see
     // SimulationPage.razor.cs's OnInitialized comment). RefreshTickTableStats()
     // is the only thing that ever rescans and writes here.
@@ -24,6 +25,21 @@ internal sealed class TickRepository : ITickRepository
     private sealed record TickTableStats(long Rows, DateTime? MinTime, DateTime? MaxTime);
     private sealed record TickTableStatsRow(string TableName, long RowCount, DateTime? MinTimestamp, DateTime? MaxTimestamp);
 
+    // In-process cache of the last ListTickTables()/RefreshTickTableStats() result.
+    // TickRepository is registered as a singleton (see Program.cs), so this is
+    // shared by every page/circuit in the process -- once one page loads or
+    // recounts the table list, every other page can reuse it via CachedTables
+    // instead of hitting Postgres again on its own OnInitialized.
+    private readonly Lock _cacheLock = new();
+    private List<(string Table, long Rows, DateTime? MinTime, DateTime? MaxTime)>? _cachedTables;
+
+    public bool HasCachedTables { get { lock (_cacheLock) return _cachedTables is not null; } }
+
+    public IReadOnlyList<(string Table, long Rows, DateTime? MinTime, DateTime? MaxTime)> CachedTables
+    {
+        get { lock (_cacheLock) return _cachedTables ?? []; }
+    }
+
     public List<(string Table, long Rows, DateTime? MinTime, DateTime? MaxTime)> ListTickTables()
     {
         using var conn = new NpgsqlConnection(ConnectionString);
@@ -31,7 +47,9 @@ internal sealed class TickRepository : ITickRepository
         EnsureRegistryTable(conn);
 
         var rows = conn.Query<TickTableStatsRow>(Sql.SelectRegistryRows);
-        return rows.Select(r => (r.TableName, r.RowCount, r.MinTimestamp, r.MaxTimestamp)).ToList();
+        var result = rows.Select(r => (r.TableName, r.RowCount, r.MinTimestamp, r.MaxTimestamp)).ToList();
+        lock (_cacheLock) { _cachedTables = result; }
+        return result;
     }
 
     public List<(string Table, long Rows, DateTime? MinTime, DateTime? MaxTime)> RefreshTickTableStats()

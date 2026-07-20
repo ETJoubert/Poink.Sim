@@ -14,6 +14,7 @@ namespace Poink.Sim.Components.Pages
     {
         [Inject] private RlTrainingService Service { get; set; } = default!;
         [Inject] private ITickRepository TickRepository { get; set; } = default!;
+        [Inject] private TickDataStore TickDataStore { get; set; } = default!;
 
         private string _brainName = "";
         private string _strategyName = "";
@@ -52,7 +53,37 @@ namespace Poink.Sim.Components.Pages
             }
         }
 
-        private async Task InitTables()
+        private (string Table, long Rows, DateTime? MinTime, DateTime? MaxTime) SelectedTableMeta =>
+            _availableTables.FirstOrDefault(t => t.Table == _table);
+
+        private DateTime SliderMin => SelectedTableMeta.MinTime ?? DateTime.UtcNow.AddDays(-30);
+        private DateTime SliderMax => SelectedTableMeta.MaxTime ?? DateTime.UtcNow;
+
+        private bool IsDataReady => !string.IsNullOrWhiteSpace(_table) && TickDataStore.IsLoadedFor(_table, _from, _to);
+
+        // Fetches and caches the actual tick rows for the selected table+range
+        // (TickDataStore, shared with SimulationPage) -- separate from picking a
+        // table, and from StartTraining() below, which now just consumes whatever's
+        // already loaded here instead of re-reading Postgres itself.
+        private void LoadData()
+        {
+            _startError = null;
+            if (string.IsNullOrWhiteSpace(_table)) { _startError = "pick a symbol"; return; }
+            if (_to <= _from) { _startError = "To must be after From"; return; }
+
+            if (!TickDataStore.TryLoad(_table, _from, _to))
+                _startError = "a load is already in progress";
+        }
+
+        // Fast: reads the tick_table_stats registry (small table, no scanning).
+        private Task LoadTables() => FetchTables(() => TickRepository.ListTickTables());
+
+        // Slow: rescans every ticks_* table (COUNT(*)/MIN/MAX) and rebuilds the
+        // registry -- an explicit action so it never happens as a side effect of
+        // just wanting the already-known table list.
+        private Task RecountTables() => FetchTables(() => TickRepository.RefreshTickTableStats());
+
+        private async Task FetchTables(Func<List<(string Table, long Rows, DateTime? MinTime, DateTime? MaxTime)>> fetch)
         {
             _loadingTables = true;
             _tableListFailed = false;
@@ -60,8 +91,8 @@ namespace Poink.Sim.Components.Pages
 
             try
             {
-                _availableTables = await Task.Run(() => TickRepository.RefreshTickTableStats());
-                if (_availableTables.Count > 0)
+                _availableTables = await Task.Run(fetch);
+                if (_availableTables.Count > 0 && string.IsNullOrWhiteSpace(_table))
                     SelectedTable = _availableTables[0].Table;
             }
             catch
@@ -80,14 +111,28 @@ namespace Poink.Sim.Components.Pages
         protected override void OnInitialized()
         {
             Service.OnChanged += HandleServiceChanged;
+            TickDataStore.OnChanged += HandleServiceChanged;
 
             if (Service.BrainNames.Count > 0) _brainName = Service.BrainNames[0];
             if (Service.StrategyNames.Count > 0) _strategyName = Service.StrategyNames[0];
+
+            // TickRepository is a singleton -- reuse another page's already-loaded
+            // table list instead of making the user click a data button again here.
+            if (TickRepository.HasCachedTables)
+            {
+                _availableTables = TickRepository.CachedTables.ToList();
+                if (_availableTables.Count > 0 && string.IsNullOrWhiteSpace(_table))
+                    SelectedTable = _availableTables[0].Table;
+            }
         }
 
         private void HandleServiceChanged() => _ = InvokeAsync(StateHasChanged);
 
-        public void Dispose() => Service.OnChanged -= HandleServiceChanged;
+        public void Dispose()
+        {
+            Service.OnChanged -= HandleServiceChanged;
+            TickDataStore.OnChanged -= HandleServiceChanged;
+        }
 
         private void StartTraining()
         {
@@ -99,15 +144,18 @@ namespace Poink.Sim.Components.Pages
             if (_ticksPerEpisode < 2) { _startError = "ticks per episode must be at least 2"; return; }
             if (_startingCash <= 0) { _startError = "starting cash must be positive"; return; }
             if (_learningRate <= 0) { _startError = "learning rate must be positive"; return; }
-            if (_useHistoricData && string.IsNullOrWhiteSpace(_table)) { _startError = "pick a symbol"; return; }
-            if (_useHistoricData && _to <= _from) { _startError = "To must be after From"; return; }
 
-            var dataSource = _useHistoricData
-                ? new RlDataSourceConfig(true, _table, _from, _to)
-                : RlDataSourceConfig.Dummy;
+            List<Tick>? historicTicks = null;
+            if (_useHistoricData)
+            {
+                if (string.IsNullOrWhiteSpace(_table)) { _startError = "pick a symbol"; return; }
+                if (_to <= _from) { _startError = "To must be after From"; return; }
+                historicTicks = TickDataStore.GetLoaded(_table, _from, _to);
+                if (historicTicks is null) { _startError = "load the data first"; return; }
+            }
 
             if (!Service.TryStartTraining(
-                    _brainName, _strategyName, _episodeCount, _ticksPerEpisode, _startingCash, _learningRate, dataSource))
+                    _brainName, _strategyName, _episodeCount, _ticksPerEpisode, _startingCash, _learningRate, historicTicks))
                 _startError = Service.Error ?? "a training run is already in progress";
 
             // Jump straight to the live view once a run is actually kicked off --
