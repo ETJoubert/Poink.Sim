@@ -17,6 +17,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Poink.Sim.Brain;
 using Poink.Sim.Brain.Neural;
+using Poink.Sim.Diagnostics;
 using Poink.Sim.Repository;
 using Poink.Sim.Simulation;
 using Poink.Sim.Training;
@@ -44,6 +45,9 @@ builder.Services.AddSingleton<ISimulationBrain, LstmPolicyBrain>();
 builder.Services.AddSingleton<SimulationEngine>();
 builder.Services.AddSingleton<IRlTrainingStrategy, PolicyGradientTrainingStrategy>();
 builder.Services.AddSingleton<RlTrainingService>();
+#pragma warning disable CA1416 // SystemPerformanceMonitor is Windows-only, same as this app's other host assumptions (see its class comment).
+builder.Services.AddSingleton<SystemPerformanceMonitor>();
+#pragma warning restore CA1416
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 

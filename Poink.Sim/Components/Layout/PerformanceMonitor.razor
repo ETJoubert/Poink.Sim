@@ -1,0 +1,32 @@
+@* Static footer strip showing live host CPU/RAM/GPU, always visible under
+   the page content. This is Blazor Server, so "host" is the box the
+   dashboard itself runs on -- values come from SystemPerformanceMonitor's
+   singleton 1s-cadence sampler. *@
+@using Poink.Sim.Diagnostics
+
+<footer class="perf-footer">
+    <div class="perf-metric">
+        <span class="perf-label">CPU</span>
+        <div class="perf-bar"><div class="perf-bar-fill @LevelClass(Snap.CpuPercent)" style="width: @Pct(Snap.CpuPercent)%"></div></div>
+        <span class="perf-value">@Snap.CpuPercent.ToString("F0", Culture)%</span>
+    </div>
+    <div class="perf-metric">
+        <span class="perf-label">RAM</span>
+        <div class="perf-bar"><div class="perf-bar-fill @LevelClass(Snap.RamPercent)" style="width: @Pct(Snap.RamPercent)%"></div></div>
+        <span class="perf-value">@Snap.RamUsedGb.ToString("F1", Culture)/@Snap.RamTotalGb.ToString("F0", Culture)G</span>
+    </div>
+    <div class="perf-metric">
+        <span class="perf-label">GPU</span>
+        @if (Snap.GpuPercent is double gpuPercent)
+        {
+            <div class="perf-bar"><div class="perf-bar-fill @LevelClass(gpuPercent)" style="width: @Pct(gpuPercent)%"></div></div>
+            <span class="perf-value">
+                @gpuPercent.ToString("F0", Culture)%@(Snap.GpuMemUsedGb is double gpuMemGb ? $" · {gpuMemGb.ToString("F1", Culture)}G" : "")
+            </span>
+        }
+        else
+        {
+            <span class="perf-value perf-unavailable">N/A</span>
+        }
+    </div>
+</footer>

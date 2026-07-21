@@ -16,6 +16,8 @@
   <ItemGroup>
     <PackageReference Include="Npgsql" Version="10.0.3" />
     <PackageReference Include="Dapper" Version="2.1.66" />
+    <!-- CPU/GPU counters for the MainLayout performance toggle (Diagnostics/SystemPerformanceMonitor.cs). -->
+    <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="9.0.0" />
     <PackageReference Include="Microsoft.ML" Version="5.0.0" />
     <PackageReference Include="TorchSharp" Version="0.107.0" />
     <!-- CUDA backend targeting the RTX 3060, matching Poink.ML's choice. This package
