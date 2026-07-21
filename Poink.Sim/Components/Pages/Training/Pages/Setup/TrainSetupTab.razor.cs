@@ -33,6 +33,11 @@ namespace Poink.Sim.Components.Training
         private string? _startError;
         private string _saveName = "";
 
+        // Read by TrainPage's top-bar Start Training button after it awaits
+        // StartTraining(), so it knows whether to jump back to this tab to show
+        // the error (success already jumps to Live via OnTrainingStarted).
+        public string? StartError => _startError;
+
         // ── Data source ──
         // Mirrors SimulationPage's table-select pattern: dummy synthetic ticks by
         // default (no Postgres needed), or a real historic table+range that gets
@@ -139,7 +144,9 @@ namespace Poink.Sim.Components.Training
             TickDataStore.OnChanged -= HandleServiceChanged;
         }
 
-        private async Task StartTraining()
+        // Public: TrainPage's top-bar button calls into this via @ref, since the
+        // Start Training button now lives outside this tab (see StartError).
+        public async Task StartTraining()
         {
             _startError = null;
 
@@ -205,12 +212,10 @@ namespace Poink.Sim.Components.Training
             Service.SavedBrains.Select(b => new SavedBrainRow(
                 b.Id, b.Name, b.BrainName, b.StrategyName, b.Dataset, b.WeightCount, b.Parameters.ToString(), b.AvgReward, b.SavedAt)).ToList();
 
-        private int ProgressPercent =>
-            Service.TotalEpisodes <= 0 ? 0 : (int)Math.Round(Service.EpisodesCompleted * 100.0 / Service.TotalEpisodes);
-
         // Relays BrainStrategyPicker's own callback up to whatever bound BrainName
         // on this component (TrainPage, via @bind-BrainName) -- a plain @bind-BrainName
         // here would only rebind this component's local parameter, not propagate further.
         private Task HandleBrainNameChanged(string value) => BrainNameChanged.InvokeAsync(value);
     }
 }
+

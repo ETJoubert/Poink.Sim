@@ -131,12 +131,6 @@
     </DataTable>
 </div>
 
-<div class="train-actions">
-    <button class="terminal-btn-action" @onclick="StartTraining" disabled="@Service.IsRunning">
-        @(Service.IsRunning ? "TRAINING..." : "START TRAINING")
-    </button>
-</div>
-
 @if (_startError is not null)
 {
     <p class="train-error">@_startError</p>
@@ -144,16 +138,4 @@
 @if (Service.Error is not null)
 {
     <p class="train-error">@Service.Error</p>
-}
-
-@if (Service.TotalEpisodes > 0)
-{
-    <div class="train-progress">
-        <div class="train-progress-bar">
-            <div class="train-progress-fill" style="width: @(ProgressPercent)%"></div>
-        </div>
-        <span class="train-progress-text">
-            @Service.EpisodesCompleted / @Service.TotalEpisodes episodes (@ProgressPercent%)
-        </span>
-    </div>
 }

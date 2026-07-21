@@ -3,26 +3,48 @@
 @using Poink.Sim.Components.Training
 
 <div class="train-page">
-    <header class="train-header">
-        <span class="train-title">BRAIN TRAINING</span>
-        <span class="train-state @(Service.IsRunning ? "train-state-running" : "")">
-            @(Service.IsRunning ? "TRAINING" : "IDLE")
-        </span>
-    </header>
+    <div class="train-topbar">
+        <div class="train-topbar-row">
+            <header class="train-header">
+                <span class="train-title">BRAIN TRAINING</span>
+                <span class="train-state @(Service.IsRunning ? "train-state-running" : "")">
+                    @(Service.IsRunning ? "TRAINING" : "IDLE")
+                </span>
+            </header>
 
-    <div class="train-tabs">
-        <button class="terminal-btn-action @(_activeTab == TrainTab.Setup ? "active" : "")"
-                @onclick="() => _activeTab = TrainTab.Setup">SETUP</button>
-        <button class="terminal-btn-action @(_activeTab == TrainTab.Live ? "active" : "")"
-                @onclick="() => _activeTab = TrainTab.Live">LIVE</button>
+            <div class="train-tabs">
+                <button class="terminal-btn-action @(_activeTab == TrainTab.Setup ? "active" : "")"
+                        @onclick="() => _activeTab = TrainTab.Setup">SETUP</button>
+                <button class="terminal-btn-action @(_activeTab == TrainTab.Live ? "active" : "")"
+                        @onclick="() => _activeTab = TrainTab.Live">LIVE</button>
+            </div>
+
+            <div class="train-topbar-spacer"></div>
+
+            <button class="terminal-btn-action train-start-btn" @onclick="StartTraining" disabled="@Service.IsRunning">
+                @(Service.IsRunning ? "TRAINING..." : "START TRAINING")
+            </button>
+        </div>
+
+        @if (Service.TotalEpisodes > 0)
+        {
+            <div class="train-progress">
+                <div class="train-progress-bar">
+                    <div class="train-progress-fill" style="width: @(ProgressPercent)%"></div>
+                </div>
+                <span class="train-progress-text">
+                    @Service.EpisodesCompleted / @Service.TotalEpisodes episodes (@ProgressPercent%)
+                </span>
+            </div>
+        }
     </div>
 
-    @if (_activeTab == TrainTab.Setup)
-    {
-        <TrainSetupTab @bind-BrainName="_brainName" OnTrainingStarted="HandleTrainingStarted" />
-    }
-    else
-    {
-        <TrainLiveTab BrainName="_brainName" />
-    }
+    <div class="train-tab-content">
+        <div class="@(_activeTab == TrainTab.Setup ? "" : "train-tab-hidden")">
+            <TrainSetupTab @ref="_setupTab" @bind-BrainName="_brainName" OnTrainingStarted="HandleTrainingStarted" />
+        </div>
+        <div class="@(_activeTab == TrainTab.Live ? "" : "train-tab-hidden")">
+            <TrainLiveTab BrainName="_brainName" />
+        </div>
+    </div>
 </div>

@@ -136,8 +136,14 @@ internal sealed class LstmPolicyBrain : IPolicyGradientBrain
         }
     }
 
+    // See MlpPolicyBrain.SampleActionIndex's doc comment -- same native-crash
+    // hazard, same guard.
     private static int SampleActionIndex(Tensor actionProbabilities)
     {
+        if (!isfinite(actionProbabilities).all().item<bool>())
+            throw new InvalidOperationException(
+                "policy produced non-finite action probabilities (NaN/Inf) -- check input data and recent gradient updates for the cause");
+
         using var sampled = multinomial(actionProbabilities, 1);
         return (int)sampled.item<long>();
     }

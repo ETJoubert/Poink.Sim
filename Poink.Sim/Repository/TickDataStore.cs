@@ -60,7 +60,13 @@ internal sealed class TickDataStore
         {
             try
             {
-                var ticks = _tickRepository.ReadTicks(table, from, to).ToList();
+                // Real feed data (unlike DummyTickGenerator's synthetic walk) can contain
+                // bad rows -- zero/negative/non-finite bid or ask from a gap or a writer-side
+                // bug -- that would otherwise propagate as NaN/Infinity all the way through
+                // Trader's mark-to-market and a policy brain's features/logits.
+                var ticks = _tickRepository.ReadTicks(table, from, to)
+                    .Where(t => t.Bid > 0 && t.Ask > 0 && double.IsFinite(t.Bid) && double.IsFinite(t.Ask))
+                    .ToList();
                 if (ticks.Count == 0)
                     throw new InvalidOperationException("no ticks in the selected range");
 

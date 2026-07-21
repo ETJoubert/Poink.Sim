@@ -7,14 +7,7 @@
 }
 else
 {
-    <div class="train-progress">
-        <div class="train-progress-bar">
-            <div class="train-progress-fill" style="width: @(ProgressPercent)%"></div>
-        </div>
-        <span class="train-progress-text">
-            @Service.EpisodesCompleted / @Service.TotalEpisodes episodes (@ProgressPercent%)
-        </span>
-    </div>
+
 
     <div class="train-stats">
         <div class="train-stat">
@@ -57,28 +50,32 @@ else
                 <div class="action-dist-row">
                     <span class="action-dist-label action-dist-hold">HOLD</span>
                     <div class="action-dist-track">
-                        <div class="action-dist-fill action-dist-fill-hold" style="width: @(Pct(ActionPercents.Hold))%"></div>
+                        <div class="action-dist-fill action-dist-fill-hold" style="width: @(Pct(ActionPercents.Hold))%">
+                        </div>
                     </div>
                     <span class="action-dist-pct">@ActionPercents.Hold.ToString("N0")%</span>
                 </div>
                 <div class="action-dist-row">
                     <span class="action-dist-label action-dist-long">LONG</span>
                     <div class="action-dist-track">
-                        <div class="action-dist-fill action-dist-fill-long" style="width: @(Pct(ActionPercents.EnterLong))%"></div>
+                        <div class="action-dist-fill action-dist-fill-long"
+                             style="width: @(Pct(ActionPercents.EnterLong))%"></div>
                     </div>
                     <span class="action-dist-pct">@ActionPercents.EnterLong.ToString("N0")%</span>
                 </div>
                 <div class="action-dist-row">
                     <span class="action-dist-label action-dist-short">SHORT</span>
                     <div class="action-dist-track">
-                        <div class="action-dist-fill action-dist-fill-short" style="width: @(Pct(ActionPercents.EnterShort))%"></div>
+                        <div class="action-dist-fill action-dist-fill-short"
+                             style="width: @(Pct(ActionPercents.EnterShort))%"></div>
                     </div>
                     <span class="action-dist-pct">@ActionPercents.EnterShort.ToString("N0")%</span>
                 </div>
                 <div class="action-dist-row">
                     <span class="action-dist-label action-dist-close">CLOSE</span>
                     <div class="action-dist-track">
-                        <div class="action-dist-fill action-dist-fill-close" style="width: @(Pct(ActionPercents.Close))%"></div>
+                        <div class="action-dist-fill action-dist-fill-close" style="width: @(Pct(ActionPercents.Close))%">
+                        </div>
                     </div>
                     <span class="action-dist-pct">@ActionPercents.Close.ToString("N0")%</span>
                 </div>
@@ -107,7 +104,8 @@ else
                     {
                         <div class="input-scalar">
                             <span class="input-scalar-label">@f.Label</span>
-                            <span class="input-scalar-value @(f.Value switch { > 0 => "input-positive", < 0 => "input-negative", _ => "" })">
+                            <span
+                                class="input-scalar-value @(f.Value switch { > 0 => "input-positive", < 0 => "input-negative", _ => "" })">
                                 @f.Value.ToString("N3")
                             </span>
                         </div>

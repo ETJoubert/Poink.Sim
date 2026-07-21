@@ -84,44 +84,7 @@
     text-shadow: 0 0 8px color-mix(in srgb, var(--color-success) 50%, transparent);
 }
 
-.train-actions {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-top: 4px;
-}
-
 .train-error {
     color: var(--color-error, #ff5f56);
     margin: 12px 0 0;
-}
-
-.train-progress {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-top: 20px;
-}
-
-.train-progress-bar {
-    flex: 1;
-    max-width: 480px;
-    height: 6px;
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    border-radius: 4px;
-    overflow: hidden;
-    background: rgba(255, 255, 255, 0.04);
-}
-
-.train-progress-fill {
-    height: 100%;
-    background: var(--color-secondary);
-    box-shadow: var(--shadow-glow-secondary);
-    transition: width 0.2s ease;
-}
-
-.train-progress-text {
-    font-size: 0.75rem;
-    color: var(--color-secondary);
-    white-space: nowrap;
 }

@@ -135,8 +135,18 @@ internal sealed class MlpPolicyBrain : IPolicyGradientBrain
         }
     }
 
+    // TorchSharp's native multinomial does not validate its input -- a NaN/Inf
+    // probability (e.g. from a bad tick's price propagating through Encode, or
+    // exploding gradients during training) makes the native sampler read/write
+    // out of bounds instead of throwing, which crashes the whole process with
+    // an unrecoverable access violation. Catch it here instead, as an ordinary
+    // managed exception the training loop can surface as an Error.
     private static int SampleActionIndex(Tensor actionProbabilities)
     {
+        if (!isfinite(actionProbabilities).all().item<bool>())
+            throw new InvalidOperationException(
+                "policy produced non-finite action probabilities (NaN/Inf) -- check input data and recent gradient updates for the cause");
+
         using var sampled = multinomial(actionProbabilities, 1);
         return (int)sampled.item<long>();
     }
