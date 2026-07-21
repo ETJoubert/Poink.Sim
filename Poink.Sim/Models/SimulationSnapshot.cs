@@ -31,5 +31,6 @@ internal sealed record TraderSnapshot(
 internal sealed record SimulationSnapshot(
     SimulationConfig Config, bool IsPlaying, bool IsFinished, double SpeedMultiplier, bool IsUncapped,
     int CursorIndex, int TotalCount, DateTime? CurrentTimestampUtc, double? CurrentPrice,
+    double? CurrentBid, double? CurrentAsk,
     IReadOnlyList<TraderSnapshot> Traders,
     IReadOnlyList<HlocAvdtBar> RecentBars, IReadOnlyList<Tick> RecentTicks);

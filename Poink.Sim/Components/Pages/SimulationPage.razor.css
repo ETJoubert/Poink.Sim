@@ -154,11 +154,95 @@
     margin: 0 4px;
 }
 
-/* Speed/mode buttons need their own selected-state feedback --
-   .terminal-btn-action has no global "active" styling. */
-.terminal-btn-action.active {
-    background: color-mix(in srgb, var(--color-primary) 18%, transparent);
-    box-shadow: 0 0 10px color-mix(in srgb, var(--color-primary) 40%, transparent);
+/* ── Toolbar control buttons: self-contained (no dependency on the shared
+   .terminal-btn-action look), styled per role so PLAY, speed selection,
+   uncapped modes, and destructive actions are each visually distinct at
+   a glance rather than sharing one undifferentiated button style. ─────── */
+
+.sim-ctrl-btn {
+    font-family: var(--font-body);
+    font-weight: bold;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 7px 14px;
+    border-radius: var(--border-radius-sm);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 45%, transparent);
+    background: transparent;
+    color: var(--color-primary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.sim-ctrl-btn:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+    border-color: var(--color-primary);
+}
+
+.sim-ctrl-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+/* PLAY/PAUSE -- the primary action, filled so it reads first in the row. */
+.sim-ctrl-btn-play {
+    border: 1px solid var(--color-success);
+    color: var(--color-success);
+    background: color-mix(in srgb, var(--color-success) 14%, transparent);
+    font-size: 13px;
+    padding: 7px 22px;
+    text-shadow: 0 0 8px color-mix(in srgb, var(--color-success) 50%, transparent);
+}
+
+.sim-ctrl-btn-play:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-success) 24%, transparent);
+    box-shadow: 0 0 14px color-mix(in srgb, var(--color-success) 45%, transparent);
+}
+
+/* Speed selector -- compact segmented-control read, secondary color family. */
+.sim-ctrl-btn-speed {
+    border-color: color-mix(in srgb, var(--color-secondary) 40%, transparent);
+    color: var(--color-secondary);
+    padding: 7px 11px;
+    font-size: 11px;
+}
+
+.sim-ctrl-btn-speed.active {
+    background: var(--color-secondary);
+    color: var(--color-bg-terminal);
+    border-color: var(--color-secondary);
+    box-shadow: 0 0 12px color-mix(in srgb, var(--color-secondary) 55%, transparent);
+}
+
+/* MAX/TURBO -- uncapped modes, called out in accent so they read as "not the norm". */
+.sim-ctrl-btn-turbo {
+    border-color: color-mix(in srgb, var(--color-accent) 50%, transparent);
+    color: var(--color-accent);
+}
+
+.sim-ctrl-btn-turbo.active {
+    background: var(--color-accent);
+    color: var(--color-bg-terminal);
+    border-color: var(--color-accent);
+    box-shadow: 0 0 12px color-mix(in srgb, var(--color-accent) 55%, transparent);
+}
+
+/* RESET/NEW SIMULATION -- destructive-ish, warning tint. */
+.sim-ctrl-btn-warn {
+    border-color: color-mix(in srgb, var(--color-warning) 50%, transparent);
+    color: var(--color-warning);
+}
+
+.sim-ctrl-btn-warn:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-warning) 14%, transparent);
+    border-color: var(--color-warning);
+}
+
+.sim-ctrl-btn-toggle.active {
+    background: var(--color-primary);
+    color: var(--color-bg-terminal);
+    border-color: var(--color-primary);
+    box-shadow: 0 0 12px color-mix(in srgb, var(--color-primary) 45%, transparent);
 }
 
 .sim-progress {
@@ -188,6 +272,129 @@
     font-size: 0.75rem;
     color: var(--color-secondary);
     white-space: nowrap;
+}
+
+/* ── Tick window: shared control above the chart row, driving both the volume
+   profile panel (TickVolumeProfileChart) and the window-start marker on
+   OhlcvChart -- lives here rather than inside either chart so one slider
+   controls both instead of each keeping its own out-of-sync copy. Rail reads
+   right-to-left (0 at the right, increasing to the left) via `direction: rtl`
+   on the slider, so it reads as "how far back from now". ─────────────────── */
+
+.sim-window-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 24px 0;
+}
+
+.sim-window-title {
+    flex: 0 0 auto;
+    font-size: 0.62rem;
+    letter-spacing: 0.1em;
+    color: var(--color-secondary);
+    opacity: 0.85;
+    white-space: nowrap;
+}
+
+.sim-window-rail {
+    position: relative;
+    flex: 1;
+    height: 18px;
+}
+
+.sim-window-track {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 7px;
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.sim-window-fill {
+    position: absolute;
+    right: 0;
+    top: 7px;
+    height: 4px;
+    border-radius: 2px;
+    background: linear-gradient(270deg, var(--color-secondary) 0%, var(--color-accent) 100%);
+    box-shadow: var(--shadow-glow-secondary);
+    pointer-events: none;
+}
+
+.sim-window-slider {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 18px;
+    margin: 0;
+    direction: rtl;
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    cursor: pointer;
+}
+
+.sim-window-slider:focus {
+    outline: none;
+}
+
+.sim-window-slider::-webkit-slider-runnable-track {
+    background: transparent;
+    height: 4px;
+}
+
+/* Thumb styled as a vertical line -- marks the window-start position on the
+   rail rather than reading as a generic round slider handle. */
+.sim-window-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 3px;
+    height: 18px;
+    border-radius: 1px;
+    background: var(--color-accent);
+    box-shadow: var(--shadow-glow-accent);
+    cursor: pointer;
+}
+
+.sim-window-slider::-moz-range-track {
+    background: transparent;
+    height: 4px;
+}
+
+.sim-window-slider::-moz-range-thumb {
+    width: 3px;
+    height: 18px;
+    border-radius: 1px;
+    background: var(--color-accent);
+    box-shadow: var(--shadow-glow-accent);
+    cursor: pointer;
+    border: none;
+}
+
+/* Self-contained rather than .terminal-input -- that class is padded/sized for
+   full-width form fields, too heavy for a compact inline readout next to the rail. */
+.sim-window-input {
+    flex: 0 0 auto;
+    width: 60px;
+    background: var(--color-bg-terminal);
+    border: 1px solid color-mix(in srgb, var(--color-accent) 45%, transparent);
+    color: var(--color-accent);
+    padding: 3px 6px;
+    border-radius: var(--border-radius-sm);
+    font-family: var(--font-body);
+    font-size: 12px;
+
+    transition: all 0.2s ease;
+}
+
+.sim-window-input:focus {
+    outline: none;
+    border-color: var(--color-accent);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--color-accent) 45%, transparent);
 }
 
 /* ── Chart + trade/decision log + open positions ──────────────────────── */
@@ -246,9 +453,39 @@
 .sim-log-tabs {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 4px;
     margin-bottom: 10px;
     flex-wrap: wrap;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+/* Self-contained underline tabs -- deliberately not button-shaped, so the
+   log-panel tabs read as a distinct control family from the toolbar. */
+.sim-tab-btn {
+    font-family: var(--font-body);
+    font-weight: bold;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 8px 16px 9px;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--color-secondary);
+    opacity: 0.6;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.sim-tab-btn:hover {
+    opacity: 1;
+}
+
+.sim-tab-btn.active {
+    opacity: 1;
+    color: var(--color-primary);
+    border-bottom-color: var(--color-primary);
+    text-shadow: 0 0 8px color-mix(in srgb, var(--color-primary) 45%, transparent);
 }
 
 .sim-log-content {

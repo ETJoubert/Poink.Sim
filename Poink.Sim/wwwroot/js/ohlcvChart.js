@@ -10,6 +10,54 @@ const instances = new Map();
 const upColor = '#4dff88';
 const downColor = '#ff5f56';
 
+// Series Primitives API (attachPrimitive/detachPrimitive) has no built-in "vertical
+// line at a given time" the way createPriceLine() covers horizontal ones, so this is
+// a small hand-rolled primitive: updateAllViews() is called by the chart itself right
+// before every paint, which is where the time->x conversion happens; requestUpdate()
+// (handed to us via attached()) is how we ask the library to repaint after the target
+// time changes rather than only on the next pan/zoom/resize.
+function createVerticalLinePrimitive(color) {
+    let time = null;
+    let x = null;
+    let chart = null;
+    let requestUpdate = null;
+
+    const renderer = {
+        draw(target) {
+            if (x === null) return;
+            target.useBitmapCoordinateSpace(scope => {
+                const ctx = scope.context;
+                const px = Math.round(x * scope.horizontalPixelRatio) + 0.5;
+                ctx.save();
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 1;
+                ctx.setLineDash([4, 4]);
+                ctx.beginPath();
+                ctx.moveTo(px, 0);
+                ctx.lineTo(px, scope.bitmapSize.height);
+                ctx.stroke();
+                ctx.restore();
+            });
+        },
+    };
+    const paneView = { renderer: () => renderer };
+
+    return {
+        attached(param) {
+            chart = param.chart;
+            requestUpdate = param.requestUpdate;
+        },
+        updateAllViews() {
+            x = time !== null && chart ? chart.timeScale().timeToCoordinate(time) : null;
+        },
+        paneViews: () => [paneView],
+        setTime(t) {
+            time = t;
+            if (requestUpdate) requestUpdate();
+        },
+    };
+}
+
 export function create(container) {
     const chart = LightweightCharts.createChart(container, {
         layout: { background: { type: 'solid', color: 'transparent' }, textColor: '#c9c9c9' },
@@ -18,7 +66,10 @@ export function create(container) {
             horzLines: { color: 'rgba(255,255,255,0.06)' },
         },
         rightPriceScale: { borderColor: 'rgba(255,255,255,0.15)' },
-        timeScale: { borderColor: 'rgba(255,255,255,0.15)', timeVisible: true, secondsVisible: false },
+        // rightOffset leaves empty space (in bar widths) past the last/current bar instead
+        // of it sitting flush against the price-scale edge -- fitContent() (called after
+        // every setData) respects this gap rather than stretching the last bar into it.
+        timeScale: { borderColor: 'rgba(255,255,255,0.15)', timeVisible: true, secondsVisible: false, rightOffset: 10 },
         crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
         // Reacts to the container's own size (via ResizeObserver) so the expand/collapse
         // toggle in OhlcvChart.razor.cs needs no explicit resize call from .NET.
@@ -27,6 +78,10 @@ export function create(container) {
 
     const candleSeries = chart.addSeries(LightweightCharts.CandlestickSeries, {
         upColor, downColor, borderVisible: false, wickUpColor: upColor, wickDownColor: downColor,
+        // Off by default: the library auto-draws a dashed "last close" line + axis label
+        // on every series unless told otherwise, which would show alongside our own
+        // bid/ask lines below as an unwanted third one.
+        priceLineVisible: false, lastValueVisible: false,
     });
 
     const volumeSeries = chart.addSeries(LightweightCharts.HistogramSeries, {
@@ -67,8 +122,17 @@ export function create(container) {
 
     const markersPrimitive = LightweightCharts.createSeriesMarkers(candleSeries, []);
 
+    // Same accent color as the tick-window slider's thumb (SimulationPage.razor.css
+    // .sim-window-slider::-webkit-slider-thumb) -- read from the CSS custom property
+    // rather than hardcoded so it stays correct across themes (base.css defines a
+    // different --color-accent per theme), tying the marker back to the control that
+    // drives it at a glance.
+    const accentColor = getComputedStyle(container).getPropertyValue('--color-accent').trim() || '#ff6b9d';
+    const windowLine = createVerticalLinePrimitive(accentColor);
+    candleSeries.attachPrimitive(windowLine);
+
     const id = crypto.randomUUID();
-    instances.set(id, { chart, candleSeries, volumeSeries, markersPrimitive, tooltip });
+    instances.set(id, { chart, candleSeries, volumeSeries, markersPrimitive, tooltip, windowLine, bidLine: null, askLine: null });
     return id;
 }
 
@@ -103,6 +167,41 @@ export function setData(id, bars, predicted) {
     })));
 
     entry.chart.timeScale().fitContent();
+}
+
+// Live bid/ask as horizontal price lines pinned to the right axis -- updated in place
+// via applyOptions rather than remove+recreate, since this fires on every tick.
+export function setCurrentPrices(id, bid, ask) {
+    const entry = instances.get(id);
+    if (!entry) return;
+
+    entry.bidLine = updatePriceLine(entry.candleSeries, entry.bidLine, bid, downColor, 'BID');
+    entry.askLine = updatePriceLine(entry.candleSeries, entry.askLine, ask, upColor, 'ASK');
+}
+
+function updatePriceLine(series, line, price, color, title) {
+    if (price == null) {
+        if (line) series.removePriceLine(line);
+        return null;
+    }
+    if (line) {
+        line.applyOptions({ price });
+        return line;
+    }
+    return series.createPriceLine({
+        price, color, title,
+        lineWidth: 1,
+        lineStyle: LightweightCharts.LineStyle.Dashed,
+        axisLabelVisible: true,
+    });
+}
+
+// Vertical marker for where the tick window (feeding the volume-profile panel)
+// starts -- null hides it (e.g. once the whole buffer fits inside the window).
+export function setWindowStart(id, unixSeconds) {
+    const entry = instances.get(id);
+    if (!entry) return;
+    entry.windowLine.setTime(unixSeconds ?? null);
 }
 
 export function dispose(id) {

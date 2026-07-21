@@ -17,12 +17,18 @@ namespace Poink.Sim.Components.Charts
 
         [Parameter] public List<CTraderBarRow> Bars { get; set; } = new();
         [Parameter] public List<PredictedBar> Predicted { get; set; } = new();
+        [Parameter] public double? CurrentBid { get; set; }
+        [Parameter] public double? CurrentAsk { get; set; }
+        [Parameter] public DateTime? WindowStartUtc { get; set; }
 
         private ElementReference _containerRef;
         private IJSObjectReference? _module;
         private string? _chartId;
         private List<CTraderBarRow>? _renderedBars;
         private List<PredictedBar>? _renderedPredicted;
+        private double? _renderedBid;
+        private double? _renderedAsk;
+        private DateTime? _renderedWindowStart;
         private bool _expanded;
 
         protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -52,6 +58,25 @@ namespace Poink.Sim.Components.Charts
                 var predictedPayload = Predicted.Select(p => new { high = p.High, low = p.Low, label = p.Label, color = p.Color });
 
                 await _module.InvokeVoidAsync("setData", _chartId, payload, predictedPayload);
+            }
+
+            // Gated separately from Bars/Predicted above: CurrentBid/Ask moves every tick,
+            // while Bars only advances once per completed bar interval, so piggybacking on
+            // the Bars-changed check would leave the price lines stale between bar closes.
+            if (_module is not null && _chartId is not null && (_renderedBid != CurrentBid || _renderedAsk != CurrentAsk))
+            {
+                _renderedBid = CurrentBid;
+                _renderedAsk = CurrentAsk;
+                await _module.InvokeVoidAsync("setCurrentPrices", _chartId, CurrentBid, CurrentAsk);
+            }
+
+            // Marks how far back the tick window (driving the volume-profile panel) reaches --
+            // gated on its own, same reasoning as CurrentBid/Ask above.
+            if (_module is not null && _chartId is not null && _renderedWindowStart != WindowStartUtc)
+            {
+                _renderedWindowStart = WindowStartUtc;
+                long? unixSeconds = WindowStartUtc is { } w ? new DateTimeOffset(w, TimeSpan.Zero).ToUnixTimeSeconds() : null;
+                await _module.InvokeVoidAsync("setWindowStart", _chartId, unixSeconds);
             }
         }
 

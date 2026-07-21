@@ -26,12 +26,19 @@ namespace Poink.Sim.Components.Charts
         [Parameter] public IReadOnlyList<double> Prices { get; set; } = Array.Empty<double>();
         [Parameter] public double? CurrentPrice { get; set; }
 
+        // Owned by the parent page now (SimulationPage), not this component -- it also
+        // drives the "window start" marker on the OhlcvChart candlestick chart, so a
+        // single slider up there needs to control both rather than each chart having
+        // its own out-of-sync copy.
+        [Parameter] public int WindowSize { get; set; } = 200;
+
         private bool _showSettings;
         private bool _splitUpDown;
         private int _bucketCount = 20;
-        private int _windowSize = 200;
 
         private void ToggleSettings() => _showSettings = !_showSettings;
+
+        private int ClampedWindowSize => Math.Clamp(WindowSize, 2, MaxWindow);
 
         // Up/down counts classify each tick by direction vs. the prior tick (a standard
         // uptick/downtick volume proxy -- ticks carry no explicit trade-side field) and
@@ -45,7 +52,7 @@ namespace Poink.Sim.Components.Charts
             get
             {
                 var bucketCount = Math.Clamp(_bucketCount, 2, MaxBuckets);
-                var windowSize = Math.Clamp(_windowSize, 2, MaxWindow);
+                var windowSize = ClampedWindowSize;
 
                 var prices = Prices.Count > windowSize ? Prices.Skip(Prices.Count - windowSize).ToList() : Prices;
                 if (prices.Count < Math.Max(2, bucketCount * MinSamplesPerBucket)) return new List<Bucket>();

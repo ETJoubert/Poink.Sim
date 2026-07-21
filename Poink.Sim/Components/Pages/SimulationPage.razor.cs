@@ -78,6 +78,29 @@ namespace Poink.Sim.Components.Pages
         private int? _selectedTraderId;
         private LogTab _activeLogTab;
 
+        // Shared "how many of the most recent ticks" control -- drives both the
+        // TickVolumeProfileChart panel and the window-start marker on OhlcvChart, so it
+        // lives here rather than inside either chart component (see their [Parameter]s).
+        private const int MaxTickWindow = 5000; // matches SimulationEngine.MaxRecentTicks
+        private int _tickWindowSize = 200;
+        private int ClampedTickWindow => Math.Clamp(_tickWindowSize, 2, MaxTickWindow);
+        private double TickWindowFillPercent => ClampedTickWindow * 100.0 / MaxTickWindow;
+
+        // Timestamp of the tick that starts the current window -- null once the window
+        // covers the whole buffer, so OhlcvChart knows to hide the marker rather than
+        // drawing it at the very first bar. Snapped to the same bar-boundary formula
+        // SimulationBarAggregator.Feed uses so it lands exactly on a rendered bar's
+        // OpenTime -- lightweight-charts' timeToCoordinate only resolves times that
+        // exist as an actual point on the chart's time axis (an arbitrary in-between
+        // tick timestamp resolves to no coordinate at all, so nothing draws).
+        private DateTime? WindowStartUtc(IReadOnlyList<Tick> ticks, TimeSpan barSize)
+        {
+            if (ticks.Count <= ClampedTickWindow)
+                return null;
+            var raw = ticks[ticks.Count - ClampedTickWindow].Timestamp;
+            return new DateTime(raw.Ticks - (raw.Ticks % barSize.Ticks), raw.Kind);
+        }
+
         private enum LogTab { Decisions, Positions, Traders, Brain, Statistics }
 
         // The brain actually driving the loaded run (s.Config.BrainName) --
@@ -135,8 +158,10 @@ namespace Poink.Sim.Components.Pages
         private void LoadData()
         {
             _loadError = null;
-            if (string.IsNullOrWhiteSpace(_table)) { _loadError = "pick a symbol"; return; }
-            if (_to <= _from) { _loadError = "To must be after From"; return; }
+            if (string.IsNullOrWhiteSpace(_table))
+            { _loadError = "pick a symbol"; return; }
+            if (_to <= _from)
+            { _loadError = "To must be after From"; return; }
 
             if (!TickDataStore.TryLoad(_table, _from, _to))
                 _loadError = "a load is already in progress";
@@ -197,15 +222,22 @@ namespace Poink.Sim.Components.Pages
         {
             _loadError = null;
 
-            if (string.IsNullOrWhiteSpace(_table)) { _loadError = "pick a symbol"; return; }
-            if (_to <= _from) { _loadError = "To must be after From"; return; }
-            if (string.IsNullOrWhiteSpace(_brainName)) { _loadError = "pick a brain"; return; }
-            if (_startingCash <= 0) { _loadError = "starting cash must be positive"; return; }
-            if (!int.TryParse(_barMinutesText, out var barMinutes) || barMinutes < 1) barMinutes = 1;
-            if (_traderCount < 1) _traderCount = 1;
+            if (string.IsNullOrWhiteSpace(_table))
+            { _loadError = "pick a symbol"; return; }
+            if (_to <= _from)
+            { _loadError = "To must be after From"; return; }
+            if (string.IsNullOrWhiteSpace(_brainName))
+            { _loadError = "pick a brain"; return; }
+            if (_startingCash <= 0)
+            { _loadError = "starting cash must be positive"; return; }
+            if (!int.TryParse(_barMinutesText, out var barMinutes) || barMinutes < 1)
+                barMinutes = 1;
+            if (_traderCount < 1)
+                _traderCount = 1;
 
             var ticks = TickDataStore.GetLoaded(_table, _from, _to);
-            if (ticks is null) { _loadError = "load the data first"; return; }
+            if (ticks is null)
+            { _loadError = "load the data first"; return; }
 
             var config = new SimulationConfig(
                 _table, _from, _to, _aggregate, TimeSpan.FromMinutes(barMinutes), _brainName, _startingCash, _traderCount);
@@ -221,10 +253,14 @@ namespace Poink.Sim.Components.Pages
         {
             _loadError = null;
 
-            if (string.IsNullOrWhiteSpace(_brainName)) { _loadError = "pick a brain"; return; }
-            if (_startingCash <= 0) { _loadError = "starting cash must be positive"; return; }
-            if (!int.TryParse(_barMinutesText, out var barMinutes) || barMinutes < 1) barMinutes = 1;
-            if (_traderCount < 1) _traderCount = 1;
+            if (string.IsNullOrWhiteSpace(_brainName))
+            { _loadError = "pick a brain"; return; }
+            if (_startingCash <= 0)
+            { _loadError = "starting cash must be positive"; return; }
+            if (!int.TryParse(_barMinutesText, out var barMinutes) || barMinutes < 1)
+                barMinutes = 1;
+            if (_traderCount < 1)
+                _traderCount = 1;
 
             var to = _to > _from ? _to : DateTime.UtcNow;
             var from = _to > _from ? _from : to.AddHours(-4);
@@ -241,8 +277,10 @@ namespace Poink.Sim.Components.Pages
 
         private void TogglePlayPause()
         {
-            if (_snapshot?.IsPlaying == true) Service.Pause();
-            else Service.Play();
+            if (_snapshot?.IsPlaying == true)
+                Service.Pause();
+            else
+                Service.Play();
         }
 
         private void StepOnce() => Service.Step();
@@ -365,7 +403,8 @@ namespace Poink.Sim.Components.Pages
         {
             get
             {
-                if (SelectedTrader is not { } trader) return null;
+                if (SelectedTrader is not { } trader)
+                    return null;
                 var trades = trader.Trades;
 
                 var wins = trades.Where(t => t.RealizedPnl > 0).ToList();
@@ -376,9 +415,12 @@ namespace Poink.Sim.Components.Pages
                 int longestWin = 0, longestLoss = 0, curWin = 0, curLoss = 0;
                 foreach (var t in trades)
                 {
-                    if (t.RealizedPnl > 0) { curWin++; curLoss = 0; }
-                    else if (t.RealizedPnl < 0) { curLoss++; curWin = 0; }
-                    else { curWin = 0; curLoss = 0; }
+                    if (t.RealizedPnl > 0)
+                    { curWin++; curLoss = 0; }
+                    else if (t.RealizedPnl < 0)
+                    { curLoss++; curWin = 0; }
+                    else
+                    { curWin = 0; curLoss = 0; }
                     longestWin = Math.Max(longestWin, curWin);
                     longestLoss = Math.Max(longestLoss, curLoss);
                 }

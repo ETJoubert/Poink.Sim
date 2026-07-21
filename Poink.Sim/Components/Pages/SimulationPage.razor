@@ -6,6 +6,7 @@
 @using Poink.Sim.Components.Shared.DateRangeSlider
 @using Poink.Sim.Components.Training
 @using Poink.Shared.Client.Components.Shared.ViewDatatable
+@using System.Globalization
 
 <div class="sim-page">
 
@@ -190,23 +191,23 @@
 
             <div class="sim-toolbar">
                 <div class="sim-controls">
-                    <button class="terminal-btn-action" @onclick="TogglePlayPause" disabled="@s.IsFinished">
+                    <button class="sim-ctrl-btn sim-ctrl-btn-play" @onclick="TogglePlayPause" disabled="@s.IsFinished">
                         @(s.IsPlaying ? "PAUSE" : "PLAY")
                     </button>
-                    <button class="terminal-btn-action" @onclick="StepOnce" disabled="@(s.IsPlaying || s.IsFinished)">STEP</button>
+                    <button class="sim-ctrl-btn" @onclick="StepOnce" disabled="@(s.IsPlaying || s.IsFinished)">STEP</button>
                     @foreach (var speed in new[] { 0.1,1.0, 10.0, 100.0, 1000.0, 10000.0 })
                     {
-                        <button class="terminal-btn-action @(!s.IsUncapped && Math.Abs(s.SpeedMultiplier - speed) < 0.001 ? "active" : "")"
+                        <button class="sim-ctrl-btn sim-ctrl-btn-speed @(!s.IsUncapped && Math.Abs(s.SpeedMultiplier - speed) < 0.001 ? "active" : "")"
                                 @onclick="() => SetSpeed(speed)">@speed.ToString("0")x</button>
                     }
-                    <button class="terminal-btn-action @(s.IsUncapped && !_hideChart ? "active" : "")"
+                    <button class="sim-ctrl-btn sim-ctrl-btn-turbo @(s.IsUncapped && !_hideChart ? "active" : "")"
                             @onclick="SetMax" title="Uncapped backend speed; chart/tick table keep rendering">MAX</button>
-                    <button class="terminal-btn-action @(s.IsUncapped && _hideChart ? "active" : "")"
+                    <button class="sim-ctrl-btn sim-ctrl-btn-turbo @(s.IsUncapped && _hideChart ? "active" : "")"
                             @onclick="SetTurbo" title="Uncapped backend speed; chart/tick table hidden, only stats + log render">TURBO</button>
                     <span class="sim-toolbar-divider"></span>
-                    <button class="terminal-btn-action" @onclick="ResetSim">RESET</button>
-                    <button class="terminal-btn-action" @onclick="UnloadSim">NEW SIMULATION</button>
-                    <button class="terminal-btn-action @(_hideChart ? "active" : "")" @onclick="ToggleHideChart">
+                    <button class="sim-ctrl-btn sim-ctrl-btn-warn" @onclick="ResetSim">RESET</button>
+                    <button class="sim-ctrl-btn sim-ctrl-btn-warn" @onclick="UnloadSim">NEW SIMULATION</button>
+                    <button class="sim-ctrl-btn sim-ctrl-btn-toggle @(_hideChart ? "active" : "")" @onclick="ToggleHideChart">
                         @(_hideChart ? "SHOW CHART" : "HIDE CHART")
                     </button>
                 </div>
@@ -225,11 +226,25 @@
 
         @if (!_hideChart)
         {
+            <div class="sim-window-bar">
+                <span class="sim-window-title">TICK WINDOW</span>
+                <div class="sim-window-rail">
+                    <div class="sim-window-track"></div>
+                    <div class="sim-window-fill" style="width: @(TickWindowFillPercent.ToString("0.##", CultureInfo.InvariantCulture))%"></div>
+                    <input type="range" class="sim-window-slider" min="0" max="@MaxTickWindow" step="1"
+                           @bind="_tickWindowSize" @bind:event="oninput"
+                           title="Ticks back from now -- drives the volume profile window and the chart's window-start marker" />
+                </div>
+                <input class="sim-window-input" type="number" min="0" max="@MaxTickWindow"
+                       @bind="_tickWindowSize" @bind:event="oninput" />
+            </div>
+
             <div class="sim-chart">
                 <div class="sim-chart-main">
                     @if (s.Config.Aggregate)
                     {
-                        <OhlcvChart Bars="ToBarRows(s.RecentBars)" />
+                        <OhlcvChart Bars="ToBarRows(s.RecentBars)" CurrentBid="s.CurrentBid" CurrentAsk="s.CurrentAsk"
+                                    WindowStartUtc="WindowStartUtc(s.RecentTicks, s.Config.BarSize)" />
                     }
                     else
                     {
@@ -237,22 +252,22 @@
                     }
                 </div>
                 <div class="sim-chart-side">
-                    <TickVolumeProfileChart Prices="ToMidPrices(s.RecentTicks)" CurrentPrice="s.CurrentPrice" />
+                    <TickVolumeProfileChart Prices="ToMidPrices(s.RecentTicks)" CurrentPrice="s.CurrentPrice" WindowSize="ClampedTickWindow" />
                 </div>
             </div>
         }
 
         <div class="sim-log-panel">
             <div class="sim-log-tabs">
-                <button class="terminal-btn-action @(_activeLogTab == LogTab.Decisions ? "active" : "")"
+                <button class="sim-tab-btn @(_activeLogTab == LogTab.Decisions ? "active" : "")"
                         @onclick="() => _activeLogTab = LogTab.Decisions">DECISION LOG</button>
-                <button class="terminal-btn-action @(_activeLogTab == LogTab.Positions ? "active" : "")"
+                <button class="sim-tab-btn @(_activeLogTab == LogTab.Positions ? "active" : "")"
                         @onclick="() => _activeLogTab = LogTab.Positions">POSITIONS</button>
-                <button class="terminal-btn-action @(_activeLogTab == LogTab.Traders ? "active" : "")"
+                <button class="sim-tab-btn @(_activeLogTab == LogTab.Traders ? "active" : "")"
                         @onclick="() => _activeLogTab = LogTab.Traders">TRADERS</button>
-                <button class="terminal-btn-action @(_activeLogTab == LogTab.Brain ? "active" : "")"
+                <button class="sim-tab-btn @(_activeLogTab == LogTab.Brain ? "active" : "")"
                         @onclick="() => _activeLogTab = LogTab.Brain">BRAIN</button>
-                <button class="terminal-btn-action @(_activeLogTab == LogTab.Statistics ? "active" : "")"
+                <button class="sim-tab-btn @(_activeLogTab == LogTab.Statistics ? "active" : "")"
                         @onclick="() => _activeLogTab = LogTab.Statistics">STATISTICS</button>
             </div>
             <div class="sim-log-content">

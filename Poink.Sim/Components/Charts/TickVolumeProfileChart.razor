@@ -14,10 +14,6 @@
                 Buckets
                 <input class="terminal-input" type="number" min="2" max="100" @bind="_bucketCount" @bind:event="oninput" />
             </label>
-            <label>
-                Window (ticks)
-                <input class="terminal-input" type="number" min="2" max="@MaxWindow" @bind="_windowSize" @bind:event="oninput" />
-            </label>
             <label class="tvp-toggle-row">
                 <input type="checkbox" @bind="_splitUpDown" />
                 Split up/down

@@ -50,7 +50,7 @@ internal sealed class SimulationEngine : IDisposable
     private const int FiniteSpeedUnitsCap = 100_000; // headroom above 5 * MaxFiniteMultiplier
     private const double MaxFiniteMultiplier = 10_000;
     private const int MaxRecentBars = 300;
-    private const int MaxRecentTicks = 500;
+    private const int MaxRecentTicks = 5000;
     private const int MaxRecentLog = 200;
 
     private readonly object _lock = new();
@@ -82,6 +82,8 @@ internal sealed class SimulationEngine : IDisposable
     private readonly List<Tick> _recentTicks = new();
 
     private double? _lastPrice;
+    private double? _lastBid;
+    private double? _lastAsk;
     private DateTime? _lastTimestamp;
 
     public SimulationEngine(IEnumerable<ISimulationBrain> brains)
@@ -104,7 +106,8 @@ internal sealed class SimulationEngine : IDisposable
     {
         lock (_lock)
         {
-            if (IsLoading) return false;
+            if (IsLoading)
+                return false;
             IsLoading = true;
             Error = null;
         }
@@ -118,7 +121,8 @@ internal sealed class SimulationEngine : IDisposable
             }
             catch (Exception ex)
             {
-                lock (_lock) { IsLoading = false; Error = ex.Message; }
+                lock (_lock)
+                { IsLoading = false; Error = ex.Message; }
             }
             PublishSnapshot();
         });
@@ -134,7 +138,8 @@ internal sealed class SimulationEngine : IDisposable
     {
         lock (_lock)
         {
-            if (IsLoading) return false;
+            if (IsLoading)
+                return false;
             IsLoading = true;
             Error = null;
         }
@@ -149,7 +154,8 @@ internal sealed class SimulationEngine : IDisposable
             }
             catch (Exception ex)
             {
-                lock (_lock) { IsLoading = false; Error = ex.Message; }
+                lock (_lock)
+                { IsLoading = false; Error = ex.Message; }
             }
             PublishSnapshot();
         });
@@ -188,6 +194,8 @@ internal sealed class SimulationEngine : IDisposable
             _recentBars.Clear();
             _recentTicks.Clear();
             _lastPrice = null;
+            _lastBid = null;
+            _lastAsk = null;
             _lastTimestamp = null;
             _isPlaying = false;
             IsLoading = false;
@@ -203,7 +211,8 @@ internal sealed class SimulationEngine : IDisposable
     {
         lock (_lock)
         {
-            if (_ticks is null || _isPlaying || _cursor >= _ticks.Count) return false;
+            if (_ticks is null || _isPlaying || _cursor >= _ticks.Count)
+                return false;
             _isPlaying = true;
         }
         _timer.Change(0, Timeout.Infinite);
@@ -215,7 +224,8 @@ internal sealed class SimulationEngine : IDisposable
     {
         lock (_lock)
         {
-            if (!_isPlaying) return false;
+            if (!_isPlaying)
+                return false;
             _isPlaying = false;
         }
         PublishSnapshot();
@@ -226,7 +236,8 @@ internal sealed class SimulationEngine : IDisposable
     {
         lock (_lock)
         {
-            if (_isPlaying || _ticks is null || _cursor >= _ticks.Count) return false;
+            if (_isPlaying || _ticks is null || _cursor >= _ticks.Count)
+                return false;
             AdvanceOneUnitLocked();
         }
         PublishSnapshot();
@@ -235,7 +246,8 @@ internal sealed class SimulationEngine : IDisposable
 
     public void SetSpeed(double multiplier)
     {
-        lock (_lock) { _uncapped = false; _speedMultiplier = Math.Clamp(multiplier, 0.1, MaxFiniteMultiplier); }
+        lock (_lock)
+        { _uncapped = false; _speedMultiplier = Math.Clamp(multiplier, 0.1, MaxFiniteMultiplier); }
         PublishSnapshot();
     }
 
@@ -243,7 +255,8 @@ internal sealed class SimulationEngine : IDisposable
     // of a bounded slice per callback -- see the class-level doc comment.
     public void SetMaxSpeed()
     {
-        lock (_lock) { _uncapped = true; }
+        lock (_lock)
+        { _uncapped = true; }
         PublishSnapshot();
     }
 
@@ -252,7 +265,8 @@ internal sealed class SimulationEngine : IDisposable
     {
         lock (_lock)
         {
-            if (_config is null) return false;
+            if (_config is null)
+                return false;
             _timer.Change(Timeout.Infinite, Timeout.Infinite);
             _cursor = 0;
             _traderSessions = CreateSessions(_config.TraderCount, _config.StartingCash);
@@ -261,6 +275,8 @@ internal sealed class SimulationEngine : IDisposable
             _recentBars.Clear();
             _recentTicks.Clear();
             _lastPrice = null;
+            _lastBid = null;
+            _lastAsk = null;
             _lastTimestamp = null;
             _isPlaying = false;
         }
@@ -284,6 +300,8 @@ internal sealed class SimulationEngine : IDisposable
             _recentBars.Clear();
             _recentTicks.Clear();
             _lastPrice = null;
+            _lastBid = null;
+            _lastAsk = null;
             _lastTimestamp = null;
         }
         Snapshot = null;
@@ -308,7 +326,8 @@ internal sealed class SimulationEngine : IDisposable
                 for (int i = 0; i < units && _cursor < _ticks.Count; i++)
                     AdvanceOneUnitLocked();
 
-                if (_cursor >= _ticks.Count) _isPlaying = false;
+                if (_cursor >= _ticks.Count)
+                    _isPlaying = false;
                 reschedule = _isPlaying;
             }
         }
@@ -325,6 +344,8 @@ internal sealed class SimulationEngine : IDisposable
 
         double price = (tick.Bid + tick.Ask) / 2.0;
         _lastPrice = price;
+        _lastBid = tick.Bid;
+        _lastAsk = tick.Ask;
         _lastTimestamp = tick.Timestamp;
 
         // Always recorded, independent of the aggregation toggle -- the recent-ticks
@@ -372,19 +393,22 @@ internal sealed class SimulationEngine : IDisposable
     private void AppendBar(HlocAvdtBar bar)
     {
         _recentBars.Add(bar);
-        if (_recentBars.Count > MaxRecentBars) _recentBars.RemoveAt(0);
+        if (_recentBars.Count > MaxRecentBars)
+            _recentBars.RemoveAt(0);
     }
 
     private void AppendTick(Tick tick)
     {
         _recentTicks.Add(tick);
-        if (_recentTicks.Count > MaxRecentTicks) _recentTicks.RemoveAt(0);
+        if (_recentTicks.Count > MaxRecentTicks)
+            _recentTicks.RemoveAt(0);
     }
 
     private void AppendLog(TraderSession session, SimulationLogEntry entry)
     {
         session.RecentLog.Add(entry);
-        if (session.RecentLog.Count > MaxRecentLog) session.RecentLog.RemoveAt(0);
+        if (session.RecentLog.Count > MaxRecentLog)
+            session.RecentLog.RemoveAt(0);
     }
 
     private void PublishSnapshot()
@@ -392,16 +416,22 @@ internal sealed class SimulationEngine : IDisposable
         SimulationSnapshot? snapshot;
         lock (_lock)
         {
+            // The in-progress bar is appended after the completed ones so the chart's last
+            // candle updates tick-by-tick instead of only snapping into place once it closes.
+            var bars = _recentBars.ToList();
+            if (_aggregator?.CurrentPartialBar is { } partial)
+                bars.Add(partial);
+
             snapshot = _config is null || _ticks is null
                 ? null
                 : new SimulationSnapshot(
                     _config, _isPlaying, _cursor >= _ticks.Count, _speedMultiplier, _uncapped,
-                    _cursor, _ticks.Count, _lastTimestamp, _lastPrice,
+                    _cursor, _ticks.Count, _lastTimestamp, _lastPrice, _lastBid, _lastAsk,
                     _traderSessions.Select(ts => new TraderSnapshot(
                         ts.Id, ts.Label, ts.Trader.Snapshot(_lastPrice ?? 0), ts.Trader.CurrentPosition,
                         ts.Trader.TradeLog.Count, ts.RecentLog.ToList(), ts.Trader.TradeLog.ToList(),
                         ts.Trader.MaxEquity, ts.Trader.MaxDrawdown)).ToList(),
-                    _recentBars.ToList(), _recentTicks.ToList());
+                    bars, _recentTicks.ToList());
         }
         Snapshot = snapshot;
         OnChanged?.Invoke();
