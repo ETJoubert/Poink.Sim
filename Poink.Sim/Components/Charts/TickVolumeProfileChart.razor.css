@@ -26,57 +26,49 @@
     opacity: 0.85;
 }
 
-.tvp-gear-btn {
-    background: transparent;
-    color: var(--color-secondary);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    border-radius: 4px;
-    width: 20px;
-    height: 20px;
-    line-height: 1;
-    font-size: 0.75rem;
-    cursor: pointer;
-}
-
-.tvp-gear-btn:hover {
-    color: #e6e6e6;
-    border-color: rgba(255, 255, 255, 0.35);
-}
-
-.tvp-settings {
-    position: absolute;
-    top: 28px;
-    right: 4px;
-    z-index: 10;
+/* Always-visible instead of behind a gear/dropdown toggle -- Buckets/Split are
+   adjusted often enough to earn a permanent (if compact) row under the header. */
+.tvp-controls {
     display: flex;
-    flex-direction: column;
-    gap: 6px;
-    background: rgba(10, 10, 10, 0.95);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    border-radius: 4px;
-    padding: 8px 10px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
-}
-
-.tvp-settings label {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    font-size: 0.68rem;
-    color: var(--color-secondary);
-}
-
-.tvp-settings input {
-    width: 90px;
-}
-
-.tvp-settings label.tvp-toggle-row {
-    flex-direction: row;
     align-items: center;
-    gap: 6px;
+    gap: 12px;
+    padding: 5px 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    flex: 0 0 auto;
 }
 
-.tvp-toggle-row input {
+.tvp-control {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.62rem;
+    color: var(--color-secondary);
+    opacity: 0.85;
+    white-space: nowrap;
+}
+
+.tvp-control input[type="number"] {
+    width: 42px;
+    background: var(--color-bg-terminal);
+    border: 1px solid color-mix(in srgb, var(--color-secondary) 40%, transparent);
+    color: var(--color-secondary);
+    padding: 2px 4px;
+    border-radius: var(--border-radius-sm);
+    font-family: var(--font-body);
+    font-size: 0.62rem;
+}
+
+.tvp-control input[type="number"]:focus {
+    outline: none;
+    border-color: var(--color-secondary);
+    box-shadow: 0 0 6px color-mix(in srgb, var(--color-secondary) 45%, transparent);
+}
+
+.tvp-control-toggle {
+    gap: 4px;
+}
+
+.tvp-control-toggle input {
     width: auto;
 }
 

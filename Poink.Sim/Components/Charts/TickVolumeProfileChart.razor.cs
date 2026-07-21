@@ -9,12 +9,12 @@ namespace Poink.Sim.Components.Charts
     // deliberately plain Razor/CSS rather than the vendored lightweight-charts library
     // OhlcvChart uses, since it isn't pixel-synced to that chart's zoom/pan; it just
     // shares the same "high price at top" orientation so it reads naturally beside it.
-    // Recomputes from Prices on every render, which is cheap at the buffer's 500-tick cap.
+    // Recomputes from Prices on every render, which is cheap at the buffer's tick cap.
     // Takes plain mid-prices rather than the internal Tick type, since a public
     // [Parameter] can't expose a less-accessible type.
     public partial class TickVolumeProfileChart : ComponentBase
     {
-        private const int MaxWindow = 500; // matches SimulationEngine.MaxRecentTicks
+        private const int MaxWindow = 5000; // matches SimulationEngine.MaxRecentTicks / SimulationPage.MaxTickWindow
         private const int MaxBuckets = 100;
 
         // Below this many samples per bucket, maxCount-relative scaling degenerates --
@@ -32,11 +32,8 @@ namespace Poink.Sim.Components.Charts
         // its own out-of-sync copy.
         [Parameter] public int WindowSize { get; set; } = 200;
 
-        private bool _showSettings;
         private bool _splitUpDown;
         private int _bucketCount = 20;
-
-        private void ToggleSettings() => _showSettings = !_showSettings;
 
         private int ClampedWindowSize => Math.Clamp(WindowSize, 2, MaxWindow);
 

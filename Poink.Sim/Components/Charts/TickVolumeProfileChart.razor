@@ -4,22 +4,18 @@
 <div class="tvp-wrapper">
     <div class="tvp-header">
         <span class="tvp-title">VOLUME PROFILE</span>
-        <button type="button" class="tvp-gear-btn" @onclick="ToggleSettings" title="Resolution / window">⚙</button>
     </div>
 
-    @if (_showSettings)
-    {
-        <div class="tvp-settings">
-            <label>
-                Buckets
-                <input class="terminal-input" type="number" min="2" max="100" @bind="_bucketCount" @bind:event="oninput" />
-            </label>
-            <label class="tvp-toggle-row">
-                <input type="checkbox" @bind="_splitUpDown" />
-                Split up/down
-            </label>
-        </div>
-    }
+    <div class="tvp-controls">
+        <label class="tvp-control">
+            <span>Buckets</span>
+            <input type="number" min="2" max="100" @bind="_bucketCount" @bind:event="oninput" />
+        </label>
+        <label class="tvp-control tvp-control-toggle">
+            <input type="checkbox" @bind="_splitUpDown" />
+            <span>Split up/down</span>
+        </label>
+    </div>
 
     <div class="tvp-body">
         @{ var buckets = Buckets; }

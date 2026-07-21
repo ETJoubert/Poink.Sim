@@ -60,7 +60,11 @@ function createVerticalLinePrimitive(color) {
 
 export function create(container) {
     const chart = LightweightCharts.createChart(container, {
-        layout: { background: { type: 'solid', color: 'transparent' }, textColor: '#c9c9c9' },
+        layout: {
+            background: { type: 'solid', color: 'transparent' }, textColor: '#c9c9c9',
+            // Draggable divider between the candle pane and the volume pane below it.
+            panes: { enableResize: true, separatorColor: 'rgba(255,255,255,0.12)', separatorHoverColor: 'rgba(255,255,255,0.3)' },
+        },
         grid: {
             vertLines: { color: 'rgba(255,255,255,0.06)' },
             horzLines: { color: 'rgba(255,255,255,0.06)' },
@@ -84,10 +88,14 @@ export function create(container) {
         priceLineVisible: false, lastValueVisible: false,
     });
 
+    // Own pane (index 1) instead of squeezed into the bottom of the candle pane via
+    // scaleMargins -- gets its own price scale/axis and a native resizable splitter
+    // (layout.panes above) rather than overlapping the candles' low end.
     const volumeSeries = chart.addSeries(LightweightCharts.HistogramSeries, {
-        priceFormat: { type: 'volume' }, priceScaleId: 'volume',
-    });
-    volumeSeries.priceScale().applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
+        priceFormat: { type: 'volume' },
+    }, 1);
+    chart.panes()[0].setStretchFactor(3);
+    chart.panes()[1].setStretchFactor(1);
 
     // Styled inline, not via a CSS class: Blazor's CSS isolation only scopes elements
     // declared in the component's own .razor markup, not ones a JS module creates at
