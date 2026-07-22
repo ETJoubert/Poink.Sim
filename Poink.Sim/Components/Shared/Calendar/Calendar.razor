@@ -1,0 +1,24 @@
+@* Standalone month-grid date picker. Pure UI -- no popover/backdrop logic of
+   its own; callers (e.g. DateRangeSlider) decide how/where to show it. *@
+
+<div class="cal">
+    <div class="cal-header">
+        <button type="button" class="cal-nav" @onclick="PrevMonth" disabled="@(!CanGoPrev)" aria-label="Previous month">&lsaquo;</button>
+        <span class="cal-month">@MonthLabel</span>
+        <button type="button" class="cal-nav" @onclick="NextMonth" disabled="@(!CanGoNext)" aria-label="Next month">&rsaquo;</button>
+    </div>
+    <div class="cal-grid">
+        @foreach (var h in DayHeaders)
+        {
+            <span class="cal-dow">@h</span>
+        }
+        @foreach (var day in Days)
+        {
+            <button type="button"
+                    class="cal-day @(day.InMonth ? "" : "cal-day-out") @(day.IsToday ? "cal-day-today" : "") @(day.IsSelected ? "cal-day-selected" : "")"
+                    disabled="@day.IsDisabled" @onclick="() => SelectDay(day)">
+                @day.Date.Day
+            </button>
+        }
+    </div>
+</div>

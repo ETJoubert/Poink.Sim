@@ -27,7 +27,7 @@
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    padding: 20px 24px 16px;
+    padding: 5px 24px 5px;
     border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
 }
 
@@ -133,10 +133,84 @@
     color: var(--color-error);
 }
 
+/* ── Data row: symbol/date-range + aggregator. Lives inside the sticky
+   topbar between the header and the toolbar -- present in both Setup (no
+   toolbar below it yet) and the running view (pinned right above the
+   playback controls), so it doesn't move around as the page changes state.
+   Read-only once a simulation is loaded since changing it wouldn't take
+   effect without a fresh load. ────────────────────────────────────────── */
+
+.sim-datarow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 28px;
+    padding: 2px 24px;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+.sim-datarow-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.sim-datarow-data {
+    flex: 1;
+    min-width: 320px;
+}
+
+.sim-datarow-aggregate {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    height: 30px;
+}
+
+.sim-datarow-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.72rem;
+    letter-spacing: 0.02em;
+    color: var(--color-secondary);
+    white-space: nowrap;
+}
+
+.sim-datarow-barmin {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.72rem;
+    color: var(--color-secondary);
+    white-space: nowrap;
+}
+
+/* Sized after .sim-window-input -- same family of compact inline numeric
+   fields as the rest of the page, not the full-size .terminal-input. */
+.sim-datarow-barmin-input {
+    width: 44px;
+    background: var(--color-bg-terminal);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 45%, transparent);
+    color: var(--color-primary);
+    padding: 4px 6px;
+    border-radius: var(--border-radius-sm);
+    font-family: var(--font-body);
+    font-size: 12px;
+    transition: all 0.2s ease;
+}
+
+.sim-datarow-barmin-input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--color-primary) 40%, transparent);
+}
+
 /* ── Toolbar: controls + progress, second row of the sticky topbar ─────── */
 
 .sim-toolbar {
-    padding: 14px 24px;
+    padding: 5px 24px;
 }
 
 .sim-controls {
@@ -144,7 +218,15 @@
     align-items: center;
     gap: 8px;
     flex-wrap: wrap;
-    margin-bottom: 12px;
+}
+
+/* SimTimeline sits inline between the playback buttons and the
+   Reset/New/Hide cluster -- flex:1 lets it soak up the row's spare width
+   (pushing sim-controls-right to the end) instead of sitting on its own
+   row below the buttons. */
+.sim-controls ::deep .stl-progress {
+    flex: 1 1 240px;
+    min-width: 200px;
 }
 
 /* Reset/New Simulation/Hide Chart -- pushed to the far right of the toolbar,
@@ -547,10 +629,10 @@
     background: rgba(255, 255, 255, 0.015);
 }
 
-/* Forces the Data group onto its own full-width row instead of sharing one
-   with the other setup groups -- the range slider needs the room. */
-.sim-group-wide {
-    flex-basis: 100%;
+/* Brain & Account is the only group left in Setup -- cap its width instead of
+   letting a single flex:1 box stretch across the whole page. */
+.sim-setup-grid .sim-group:only-child {
+    flex: 0 1 480px;
 }
 
 .sim-group-title {

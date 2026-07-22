@@ -89,6 +89,8 @@ public partial class TickDataSource : ComponentBase
 
     private Task OnTableSelected(ChangeEventArgs e) => SelectTable(e.Value?.ToString() ?? "");
 
+
+
     // Also snaps From/To to the newly-selected table's own range -- same
     // behavior each page had inline before this was extracted.
     private async Task SelectTable(string value)
@@ -96,7 +98,8 @@ public partial class TickDataSource : ComponentBase
         await TableChanged.InvokeAsync(value);
 
         var meta = _availableTables.FirstOrDefault(t => t.Table == value);
-        if (meta.MaxTime is null) return;
+        if (meta.MaxTime is null)
+            return;
 
         var to = meta.MaxTime.Value;
         var from = meta.MinTime is not null && meta.MaxTime.Value - meta.MinTime.Value < TimeSpan.FromDays(1)

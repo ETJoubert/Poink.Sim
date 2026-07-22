@@ -1,7 +1,7 @@
 .tds-row {
     display: flex;
-    align-items: flex-end;
-    gap: 16px;
+    align-items: center;
+    gap: 10px;
     flex-wrap: wrap;
 }
 
@@ -11,6 +11,53 @@
     gap: 4px;
     font-size: 0.8rem;
     color: var(--color-secondary);
+}
+
+/* Smaller than .terminal-input -- this sits in a compact inline row now
+   rather than a full-size setup form field. */
+.tds-select {
+    background: var(--color-bg-terminal);
+    border: 1px solid var(--color-primary);
+    color: var(--color-primary);
+    padding: 6px 10px;
+    border-radius: var(--border-radius-sm);
+    font-family: var(--font-body);
+    font-size: 12px;
+    transition: all 0.2s ease;
+}
+
+.tds-select:focus {
+    outline: none;
+    border-color: var(--color-secondary);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--color-secondary) 45%, transparent);
+}
+
+/* RECOUNT / FULL RANGE -- sized after DateRangeSlider's .drs-reset rather
+   than the heavier .terminal-btn-action, so this row reads as a compact
+   toolbar instead of a form. */
+.tds-btn {
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
+    color: var(--color-secondary);
+    border-radius: var(--border-radius-sm);
+    font-size: 0.62rem;
+    font-weight: bold;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 7px 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.tds-btn:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-secondary) 12%, transparent);
+    box-shadow: var(--shadow-glow-secondary);
+}
+
+.tds-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
 .tds-empty {
@@ -25,10 +72,10 @@
     font-size: 0.8rem;
 }
 
-.tds-row-range {
-    margin-top: 10px;
-}
-
-.tds-row-range ::deep .drs {
-    min-width: 260px;
+/* Sits inline with the symbol select + Recount/Full range buttons rather than
+   dropping to its own row below them -- flex:1 lets it soak up the rest of
+   the row's width. */
+.tds-range {
+    flex: 1 1 380px;
+    min-width: 360px;
 }

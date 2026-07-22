@@ -3,13 +3,13 @@
 @if (Service.Progress is { } p)
 {
     <div class="stl-progress">
-        <span class="stl-label">@p.RangeFromUtc.ToString("yyyy-MM-dd HH:mm")</span>
+
         <div class="stl-rail" title="Position within the loaded run's From/To range -- keeps moving during Max">
             <div class="stl-track"></div>
             <div class="stl-fill" style="width: @(Pct(Percent(p)))%"></div>
             <div class="stl-marker" style="left: @(Pct(Percent(p)))%"></div>
         </div>
-        <span class="stl-label">@p.RangeToUtc.ToString("yyyy-MM-dd HH:mm")</span>
+
         <span class="stl-text">
             @p.CursorIndex.ToString("N0") / @p.TotalCount.ToString("N0") ticks (@((int)Math.Round(Percent(p)))%)
             @(p.CurrentTimestampUtc is not null ? $" — {p.CurrentTimestampUtc:yyyy-MM-dd HH:mm:ss}" : "")

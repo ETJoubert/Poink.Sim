@@ -38,7 +38,7 @@ main {
   align-items: center;
   justify-content: space-between;
   padding: 0 20px;
-  height: 60px;
+  height: 27px;
   position: sticky;
   top: 0;
   z-index: 1000;
@@ -144,6 +144,7 @@ main {
   min-width: 0;
 }
 
+
 .nav-tabs {
   display: flex;
   gap: 5px;
@@ -152,6 +153,7 @@ main {
   overflow-y: hidden;
   flex-wrap: nowrap;
   min-width: 0;
+
   scrollbar-width: thin;
   scrollbar-color: var(--color-primary) transparent;
 }
@@ -173,7 +175,54 @@ main {
   gap: 4px;
 }
 
-.nav-tabs.collapsed .nav-tab {
+/* ── Tab appearance -- previously came from Poink.Shared.Client's global
+   components.css (.nav-tab). Copied here so Poink.Sim's tabs can be themed
+   independently of that shared file. The tab elements themselves are
+   rendered by SimNavLinks (a child component), so every selector needs
+   ::deep -- Blazor's CSS isolation doesn't reach into child-rendered markup
+   otherwise (same pattern as SimNavLinks.razor.css's ::deep .nav-icon-img). */
+.nav-tabs ::deep .nav-tab {
+  background: var(--color-bg-tab);
+  border: 1px solid var(--color-primary);
+  color: var(--color-secondary);
+  padding: 5px 10px;
+  text-decoration: none;
+  text-shadow: none;
+  font-family: var(--font-body);
+  font-weight: bold;
+  font-size: 10px;
+  letter-spacing: 1px;
+  border-radius: 4px;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.nav-tabs ::deep .nav-tab:hover {
+  background: color-mix(in srgb, var(--color-primary) 5%, transparent);
+  border-color: var(--color-secondary);
+  color: var(--color-primary);
+  text-shadow: none;
+}
+
+.nav-tabs ::deep .nav-tab:active,
+.nav-tabs ::deep .nav-tab.active {
+  background: var(--color-bg-terminal);
+  border: 2px solid var(--color-primary);
+  color: var(--color-primary);
+  font-weight: 900;
+  text-shadow:
+    0 0 15px var(--color-primary),
+    0 0 25px color-mix(in srgb, var(--color-primary) 60%, transparent);
+  box-shadow:
+    0 0 25px color-mix(in srgb, var(--color-primary) 60%, transparent),
+    0 0 40px color-mix(in srgb, var(--color-primary) 30%, transparent),
+    inset 0 0 20px color-mix(in srgb, var(--color-primary) 10%, transparent);
+}
+
+.nav-tabs.collapsed ::deep .nav-tab {
   padding: 8px 10px;
   min-width: 36px;
   justify-content: center;
@@ -197,6 +246,11 @@ main {
   .nav-brand {
     font-size: 1em;
     letter-spacing: 0.1em;
+  }
+
+  .nav-tabs ::deep .nav-tab {
+    padding: 8px 15px;
+    font-size: 0.8em;
   }
 
   .side-nav {
@@ -260,7 +314,50 @@ main {
   align-items: center;
 }
 
-.side-nav.collapsed .side-nav-tab {
+/* ── Sidebar tab appearance -- same local-copy rationale as .nav-tab above,
+   replicated from components.css's .side-nav-tab. */
+.side-nav ::deep .side-nav-tab {
+  background: var(--color-bg-tab);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 20%, transparent);
+  color: var(--color-secondary);
+  padding: 12px 14px;
+  text-decoration: none;
+  text-shadow: none;
+  font-family: var(--font-body);
+  font-weight: bold;
+  font-size: 13px;
+  letter-spacing: 1px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  display: block;
+  white-space: nowrap;
+  box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.4);
+}
+
+.side-nav ::deep .side-nav-tab:hover {
+  background: color-mix(in srgb, var(--color-primary) 8%, transparent);
+  border-color: var(--color-secondary);
+  color: var(--color-primary);
+  text-shadow: none;
+  box-shadow:
+    0 0 10px color-mix(in srgb, var(--color-primary) 15%, transparent),
+    inset 0 0 8px color-mix(in srgb, var(--color-primary) 5%, transparent);
+}
+
+.side-nav ::deep .side-nav-tab:active,
+.side-nav ::deep .side-nav-tab.active {
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+  border: 1px solid var(--color-primary);
+  color: var(--color-primary);
+  text-shadow:
+    0 0 10px color-mix(in srgb, var(--color-primary) 90%, transparent),
+    0 0 20px color-mix(in srgb, var(--color-primary) 40%, transparent);
+  box-shadow:
+    0 0 18px color-mix(in srgb, var(--color-primary) 30%, transparent),
+    inset 0 0 12px color-mix(in srgb, var(--color-primary) 8%, transparent);
+}
+
+.side-nav.collapsed ::deep .side-nav-tab {
   width: 36px;
   padding: 8px 0;
   text-align: center;

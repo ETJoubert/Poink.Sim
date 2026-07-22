@@ -1,8 +1,8 @@
 .drs {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    min-width: 260px;
+    gap: 4px;
+    min-width: 360px;
 }
 
 .drs-disabled {
@@ -10,17 +10,54 @@
     pointer-events: none;
 }
 
-.drs-labels {
+/* Flattened: From/To used to sit on their own row above the track --
+   now they flank it directly, with the span badge trailing on the right,
+   so the whole control reads as one row instead of three stacked ones. */
+.drs-main {
     display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 8px;
-    font-size: 0.78rem;
+    align-items: center;
+    gap: 10px;
 }
 
+/* Backdrop + wrap/dropdown below follow the same "picker" pattern as
+   DataTable's column picker -- fixed backdrop to catch outside clicks,
+   relative wrap to anchor the absolute dropdown. */
+.drs-calendar-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 98;
+}
+
+.drs-label-wrap {
+    position: relative;
+    flex: 0 0 auto;
+}
+
+/* Label is now a <button> (was a <span>) so it can open the calendar --
+   reset native button chrome and keep the same look as before. */
 .drs-label {
+    flex: 0 0 auto;
+    background: transparent;
+    border: none;
+    padding: 0;
+    font-family: inherit;
     font-weight: 600;
+    font-size: 0.72rem;
     white-space: nowrap;
+    cursor: pointer;
+}
+
+.drs-label:hover:not(:disabled) {
+    text-decoration: underline;
+}
+
+.drs-label:focus-visible {
+    outline: 2px solid var(--color-secondary);
+    outline-offset: 2px;
+}
+
+.drs-label:disabled {
+    cursor: not-allowed;
 }
 
 .drs-label-from {
@@ -31,12 +68,36 @@
     color: var(--color-secondary);
 }
 
-.drs-label-span {
-    font-size: 0.65rem;
-    color: var(--color-muted, var(--color-secondary));
+.drs-calendar-dropdown {
+    position: absolute;
+    top: calc(100% + 6px);
+    z-index: 99;
+    background: var(--color-bg-dark);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
+    border-radius: var(--border-radius-sm);
+    padding: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.drs-label-wrap-from .drs-calendar-dropdown {
+    left: 0;
+}
+
+.drs-label-wrap-to .drs-calendar-dropdown {
+    right: 0;
+}
+
+.drs-span-badge {
+    flex: 0 0 auto;
+    font-size: 0.6rem;
+    font-weight: bold;
+    letter-spacing: 0.05em;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
-    opacity: 0.85;
+    color: var(--color-secondary);
+    border: 1px solid color-mix(in srgb, var(--color-secondary) 40%, transparent);
+    border-radius: 999px;
+    padding: 3px 10px;
+    white-space: nowrap;
 }
 
 /* ── Track: rail + fill + week gridlines behind two transparent range inputs.
@@ -46,6 +107,8 @@
 
 .drs-track-wrap {
     position: relative;
+    flex: 1;
+    min-width: 60px;
     height: 46px;
 }
 
@@ -87,10 +150,9 @@
     opacity: 0.7;
 }
 
-/* From/To sit on separate rows (rather than both at top: 8px) so their thumbs
-   never visually overlap even when the two values are equal or very close --
-   the two 16px-diameter thumbs would otherwise sit exactly on top of each
-   other, making it impossible to tell them apart or grab the right one. */
+/* From/To sit on separate rows (rather than both at the same top) so their
+   thumbs never visually overlap even when the two values are equal or very
+   close -- each gets its own half of the rail's vertical space. */
 .drs-thumb {
     position: absolute;
     left: 0;
@@ -103,7 +165,7 @@
 }
 
 .drs-thumb-from {
-    top: 2px;
+    top: 0px;
 }
 
 .drs-thumb-to {
@@ -119,26 +181,31 @@
     height: 4px;
 }
 
+/* Line-with-a-triangle marker instead of a round dial -- the thin stem
+   points exactly at the value on the rail, with the triangle as the
+   grabbable "flag" end. From's triangle sits at the top (away from the
+   rail, which runs through the middle of the 46px track-wrap); To's sits
+   at the bottom, mirrored -- see .drs-thumb-from/-to clip-path below. */
 .drs-thumb::-webkit-slider-thumb {
     pointer-events: auto;
     -webkit-appearance: none;
     appearance: none;
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
+    width: 14px;
+    height: 20px;
     cursor: pointer;
-    margin-top: -6px;
-    border: 2px solid var(--color-bg-terminal);
+    margin-top: 0;
 }
 
 .drs-thumb-from::-webkit-slider-thumb {
     background: var(--color-primary);
     box-shadow: var(--shadow-glow-primary);
+    clip-path: polygon(0% 0%, 100% 0%, 60% 45%, 60% 100%, 40% 100%, 40% 45%);
 }
 
 .drs-thumb-to::-webkit-slider-thumb {
     background: var(--color-secondary);
     box-shadow: var(--shadow-glow-secondary);
+    clip-path: polygon(40% 0%, 60% 0%, 60% 55%, 100% 100%, 0% 100%, 40% 55%);
 }
 
 .drs-thumb::-moz-range-track {
@@ -148,21 +215,22 @@
 
 .drs-thumb::-moz-range-thumb {
     pointer-events: auto;
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
+    width: 14px;
+    height: 20px;
     cursor: pointer;
-    border: 2px solid var(--color-bg-terminal);
+    border: none;
 }
 
 .drs-thumb-from::-moz-range-thumb {
     background: var(--color-primary);
     box-shadow: var(--shadow-glow-primary);
+    clip-path: polygon(0% 0%, 100% 0%, 60% 45%, 60% 100%, 40% 100%, 40% 45%);
 }
 
 .drs-thumb-to::-moz-range-thumb {
     background: var(--color-secondary);
     box-shadow: var(--shadow-glow-secondary);
+    clip-path: polygon(40% 0%, 60% 0%, 60% 55%, 100% 100%, 0% 100%, 40% 55%);
 }
 
 .drs-bounds {
@@ -173,27 +241,4 @@
     font-size: 0.62rem;
     color: var(--color-muted, var(--color-secondary));
     opacity: 0.7;
-}
-
-.drs-reset {
-    background: transparent;
-    border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
-    color: var(--color-secondary);
-    border-radius: var(--border-radius-sm);
-    font-size: 0.6rem;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    padding: 2px 8px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.drs-reset:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--color-secondary) 12%, transparent);
-    box-shadow: var(--shadow-glow-secondary);
-}
-
-.drs-reset:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
 }

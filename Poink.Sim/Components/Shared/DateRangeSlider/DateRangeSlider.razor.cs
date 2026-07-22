@@ -57,12 +57,42 @@ public partial class DateRangeSlider : ComponentBase
         await ToChanged.InvokeAsync(Min.AddMinutes(_toMinutes));
     }
 
-    private async Task ResetToFullRange()
+    // Calendar popovers for the From/To labels -- same minute-domain clamping
+    // as the range thumbs above, just fed from a picked date instead of a
+    // dragged pixel, so the From < To invariant stays enforced either way.
+    private bool _showFromCalendar;
+    private bool _showToCalendar;
+
+    private void ToggleFromCalendar()
     {
-        _fromMinutes = 0;
-        _toMinutes = _spanMinutes;
-        await FromChanged.InvokeAsync(Min);
-        await ToChanged.InvokeAsync(Max);
+        _showFromCalendar = !_showFromCalendar;
+        _showToCalendar = false;
+    }
+
+    private void ToggleToCalendar()
+    {
+        _showToCalendar = !_showToCalendar;
+        _showFromCalendar = false;
+    }
+
+    private void CloseCalendars()
+    {
+        _showFromCalendar = false;
+        _showToCalendar = false;
+    }
+
+    private async Task OnFromDateSelected(DateTime date)
+    {
+        _fromMinutes = Math.Clamp((int)(date - Min).TotalMinutes, 0, Math.Max(0, _toMinutes - 1));
+        _showFromCalendar = false;
+        await FromChanged.InvokeAsync(Min.AddMinutes(_fromMinutes));
+    }
+
+    private async Task OnToDateSelected(DateTime date)
+    {
+        _toMinutes = Math.Clamp((int)(date - Min).TotalMinutes, Math.Min(_spanMinutes, _fromMinutes + 1), _spanMinutes);
+        _showToCalendar = false;
+        await ToChanged.InvokeAsync(Min.AddMinutes(_toMinutes));
     }
 
     private string SpanLabel
