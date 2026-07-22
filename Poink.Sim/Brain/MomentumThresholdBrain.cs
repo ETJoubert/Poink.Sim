@@ -7,7 +7,6 @@
 //  touching the interface (see ISimulationBrain.cs).
 // ─────────────────────────────────────────────────────────────────────────
 using System;
-using System.Linq;
 using Poink.Sim.Models;
 
 namespace Poink.Sim.Brain;
@@ -36,8 +35,8 @@ internal sealed class MomentumThresholdBrain : ISimulationBrain
     public SimulationDecision Decide(SimulationObservation observation)
     {
         double? basePrice = observation.RecentBars.Count > 0
-            ? LookbackPrice(observation.RecentBars.Select(b => b.Close).ToList())
-            : LookbackPrice(observation.RecentTicks.Select(t => (t.Bid + t.Ask) / 2.0).ToList());
+            ? LookbackPrice(observation.RecentBars.Count, i => observation.RecentBars[i].Close)
+            : LookbackPrice(observation.RecentTicks.Count, i => (observation.RecentTicks[i].Bid + observation.RecentTicks[i].Ask) / 2.0);
 
         if (basePrice is null || basePrice == 0)
             return new SimulationDecision(SimulationAction.Hold);
@@ -71,10 +70,13 @@ internal sealed class MomentumThresholdBrain : ISimulationBrain
         return new SimulationDecision(SimulationAction.Hold);
     }
 
-    private double? LookbackPrice(System.Collections.Generic.List<double> prices)
+    // Reads a single price at the lookback point directly off the source buffer
+    // instead of copying the whole (up to 5000-tick) window just to index into
+    // it -- priceAt is only ever invoked once.
+    private double? LookbackPrice(int count, Func<int, double> priceAt)
     {
-        if (prices.Count < 2) return null;
-        int index = Math.Max(0, prices.Count - 1 - _lookback);
-        return prices[index];
+        if (count < 2) return null;
+        int index = Math.Max(0, count - 1 - _lookback);
+        return priceAt(index);
     }
 }

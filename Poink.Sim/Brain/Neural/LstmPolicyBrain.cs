@@ -68,17 +68,22 @@ internal sealed class LstmPolicyBrain : IPolicyGradientBrain
     public Tensor Encode(SimulationObservation observation)
     {
         double currentPrice = observation.CurrentPrice;
-        double[] prices = observation.RecentBars.Count > 0
-            ? observation.RecentBars.Select(b => b.Close).ToArray()
-            : observation.RecentTicks.Select(t => (t.Bid + t.Ask) / 2.0).ToArray();
+        bool useBars = observation.RecentBars.Count > 0;
+        int sourceCount = useBars ? observation.RecentBars.Count : observation.RecentTicks.Count;
 
         var features = new float[WindowSize + ScalarFeatureCount];
 
-        int available = Math.Min(WindowSize, prices.Length);
+        // Reads straight off the source buffer (up to 5000 ticks) instead of
+        // copying the whole thing via LINQ just to keep the trailing
+        // WindowSize=20 -- see MlpPolicyBrain.Encode's identical fix.
+        int available = Math.Min(WindowSize, sourceCount);
         int padding = WindowSize - available;
         for (int i = 0; i < available; i++)
         {
-            double price = prices[prices.Length - available + i];
+            int sourceIndex = sourceCount - available + i;
+            double price = useBars
+                ? observation.RecentBars[sourceIndex].Close
+                : (observation.RecentTicks[sourceIndex].Bid + observation.RecentTicks[sourceIndex].Ask) / 2.0;
             features[padding + i] = currentPrice == 0 ? 0f : (float)((price - currentPrice) / currentPrice);
         }
 

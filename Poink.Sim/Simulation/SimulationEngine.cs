@@ -76,7 +76,7 @@ internal sealed class SimulationEngine : IDisposable
         public required int Id;
         public required string Label;
         public required Trader.Trader Trader;
-        public readonly List<SimulationLogEntry> RecentLog = new();
+        public readonly RingBuffer<SimulationLogEntry> RecentLog = new(MaxRecentLog);
     }
 
     // _openReader recreates a fresh forward-only reader from the start of the
@@ -95,8 +95,8 @@ internal sealed class SimulationEngine : IDisposable
     private bool _uncapped;
     private bool _isPlaying;
 
-    private readonly List<HlocAvdtBar> _recentBars = new();
-    private readonly List<Tick> _recentTicks = new();
+    private readonly RingBuffer<HlocAvdtBar> _recentBars = new(MaxRecentBars);
+    private readonly RingBuffer<Tick> _recentTicks = new(MaxRecentTicks);
 
     private double? _lastPrice;
     private double? _lastBid;
@@ -488,26 +488,11 @@ internal sealed class SimulationEngine : IDisposable
         }
     }
 
-    private void AppendBar(HlocAvdtBar bar)
-    {
-        _recentBars.Add(bar);
-        if (_recentBars.Count > MaxRecentBars)
-            _recentBars.RemoveAt(0);
-    }
+    private void AppendBar(HlocAvdtBar bar) => _recentBars.Add(bar);
 
-    private void AppendTick(Tick tick)
-    {
-        _recentTicks.Add(tick);
-        if (_recentTicks.Count > MaxRecentTicks)
-            _recentTicks.RemoveAt(0);
-    }
+    private void AppendTick(Tick tick) => _recentTicks.Add(tick);
 
-    private void AppendLog(TraderSession session, SimulationLogEntry entry)
-    {
-        session.RecentLog.Add(entry);
-        if (session.RecentLog.Count > MaxRecentLog)
-            session.RecentLog.RemoveAt(0);
-    }
+    private void AppendLog(TraderSession session, SimulationLogEntry entry) => session.RecentLog.Add(entry);
 
     private void PublishSnapshot()
     {
