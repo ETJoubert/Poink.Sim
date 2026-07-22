@@ -1,34 +1,89 @@
 @page "/train"
 @namespace Poink.Sim.Components.Pages
 @using Poink.Sim.Components.Training
+@using Poink.Sim.Components.Shared.DataTable
+@using Poink.Sim.Components.Shared.TickDataSource
+@using Poink.Shared.Client.Components.Shared.Icon
 
 <div class="train-page">
     <div class="train-topbar">
-        <div class="train-topbar-row">
-            <header class="train-header">
-                <span class="train-title">BRAIN TRAINING</span>
-                <span class="train-state @(Service.IsRunning ? "train-state-running" : "")">
-                    @(Service.IsRunning ? "TRAINING" : "IDLE")
-                </span>
-            </header>
+        <header class="train-header">
+            <span class="train-title">BRAIN TRAINING</span>
+            @if (!string.IsNullOrWhiteSpace(_brainName))
+            {
+                <span class="train-header-mode">brain: @_brainName</span>
+                <span class="train-header-mode">in use: @(CurrentActiveSnapshot?.Name ?? "none")</span>
+            }
+            <span class="train-state @(Service.IsRunning ? "train-state-running" : "")">
+                @(Service.IsRunning ? "TRAINING" : "IDLE")
+            </span>
 
-            <div class="train-tabs">
-                <button class="terminal-btn-action @(_activeTab == TrainTab.Setup ? "active" : "")"
-                        @onclick="() => _activeTab = TrainTab.Setup">SETUP</button>
-                <button class="terminal-btn-action @(_activeTab == TrainTab.Live ? "active" : "")"
-                        @onclick="() => _activeTab = TrainTab.Live">LIVE</button>
+            @if (!Service.IsRunning)
+            {
+                <div class="train-header-actions">
+                    <button class="terminal-btn-action" @onclick="StartTraining"
+                            title="Trains on the symbol/range picked below -- each episode streams its own random window straight from Postgres">
+                        START TRAINING
+                    </button>
+                    <button class="terminal-btn-action" @onclick="StartTrainingSynthetic"
+                            title="Synthetic random-walk ticks -- no Postgres required">
+                        START TRAINING (SYNTHETIC)
+                    </button>
+                    @if (_startError is not null)
+                    {
+                        <span class="train-brainrow-error">@_startError</span>
+                    }
+                </div>
+            }
+        </header>
+
+        <div class="train-datarow">
+            <div class="train-datarow-field train-datarow-data">
+                <TickDataSource @bind-Table="_table" @bind-From="_from" @bind-To="_to" Disabled="Service.IsRunning" />
             </div>
+        </div>
 
-            <div class="train-topbar-spacer"></div>
+        <div class="train-datarow">
+            <BrainStrategyPicker BrainOptions="Service.BrainOptions" StrategyNames="Service.StrategyNames"
+                                  @bind-BrainName="_brainName" @bind-StrategyName="_strategyName" Disabled="Service.IsRunning" />
+            <label class="train-brainrow-field">
+                Episodes
+                <input class="train-brainrow-input train-brainrow-input-narrow" type="number" min="1"
+                       @bind="_episodeCount" disabled="@Service.IsRunning" />
+            </label>
+            <label class="train-brainrow-field">
+                Ticks/episode
+                <input class="train-brainrow-input" type="number" min="2" @bind="_ticksPerEpisode" disabled="@Service.IsRunning" />
+            </label>
+            <label class="train-brainrow-field">
+                Starting cash
+                <input class="train-brainrow-input" type="number" min="1" step="100" @bind="_startingCash"
+                       disabled="@Service.IsRunning" />
+            </label>
+            <label class="train-brainrow-field">
+                Learning rate
+                <input class="train-brainrow-input" type="number" min="0.00001" step="0.0001" @bind="_learningRate"
+                       disabled="@Service.IsRunning" />
+            </label>
+        </div>
 
-            <button class="terminal-btn-action train-start-btn" @onclick="StartTraining" disabled="@Service.IsRunning"
-                    title="Trains on the symbol/range picked in Setup -- each episode streams its own random window straight from Postgres">
-                @(Service.IsRunning ? "TRAINING..." : "START TRAINING")
-            </button>
-            <button class="terminal-btn-action train-start-btn" @onclick="StartTrainingSynthetic" disabled="@Service.IsRunning"
-                    title="Synthetic random-walk ticks -- no Postgres required">
-                @(Service.IsRunning ? "TRAINING..." : "START TRAINING (SYNTHETIC)")
-            </button>
+        <div class="train-datarow">
+            <label class="train-brainrow-field">
+                Save as
+                <input class="train-brainrow-input train-brainrow-input-wide" type="text"
+                       placeholder="e.g. mlp-v1-momentum-set" @bind="_saveName" />
+            </label>
+            <div class="train-brainrow-actions">
+                <button class="terminal-btn-action" @onclick="SaveModel"
+                        disabled="@(string.IsNullOrWhiteSpace(_brainName) || string.IsNullOrWhiteSpace(_saveName))"
+                        title="Saves the selected brain's current weights, plus this screen's strategy/parameters, as a new snapshot">
+                    SAVE MODEL
+                </button>
+                @if (Service.SaveStatus is not null)
+                {
+                    <span class="train-brainrow-status">@Service.SaveStatus</span>
+                }
+            </div>
         </div>
 
         @if (Service.TotalEpisodes > 0)
@@ -44,12 +99,35 @@
         }
     </div>
 
-    <div class="train-tab-content">
-        <div class="@(_activeTab == TrainTab.Setup ? "" : "train-tab-hidden")">
-            <TrainSetupTab @ref="_setupTab" @bind-BrainName="_brainName" OnTrainingStarted="HandleTrainingStarted" />
+    <div class="train-content">
+        <TrainLiveTab BrainName="_brainName" />
+
+        <div class="train-group train-group-wide">
+            <div class="train-group-header">
+                <span class="train-group-title">Saved brains</span>
+                <button class="terminal-btn-sm train-collapse-btn @(_savedBrainsExpanded ? "active" : "")"
+                        @onclick="() => _savedBrainsExpanded = !_savedBrainsExpanded">
+                    <Icon Name="@(_savedBrainsExpanded ? "chevron-down" : "chevron-right")" Class="dt-icon" />
+                    @(_savedBrainsExpanded ? "HIDE" : "SHOW")
+                </button>
+            </div>
+            @if (_savedBrainsExpanded)
+            {
+                <DataTable TItem="SavedBrainRow" Items="SavedBrainRows" ShowRowNumbers="false" ActionsHeader="ACTIONS"
+                           ExcludeProperties="@(new List<string> { "Id" })" OnDelete="DeleteSavedBrain">
+                    <CustomActions Context="row">
+                        <button class="data-table-action-btn" @onclick="() => LoadSavedBrain(row)"
+                                title="Loads these weights into the live brain -- also what Simulation's Brain dropdown will use">
+                            <Icon Name="check2-square" Class="dt-icon" /> USE
+                        </button>
+                    </CustomActions>
+                </DataTable>
+            }
         </div>
-        <div class="@(_activeTab == TrainTab.Live ? "" : "train-tab-hidden")">
-            <TrainLiveTab BrainName="_brainName" />
-        </div>
+
+        @if (Service.Error is not null)
+        {
+            <p class="train-error">@Service.Error</p>
+        }
     </div>
 </div>

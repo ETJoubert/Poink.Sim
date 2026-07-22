@@ -1,49 +1,44 @@
 /* Copied from TrainPage.razor.css -- Blazor CSS isolation doesn't cross
-   component boundaries, so this box needs to look identical to its Data
-   source/Run parameters siblings without depending on their scope. */
-.train-group {
-    flex: 1;
-    min-width: 220px;
-    border: 1px solid color-mix(in srgb, var(--color-primary) 12%, transparent);
-    border-radius: var(--border-radius-md);
-    padding: 14px 16px;
-    background: rgba(255, 255, 255, 0.015);
-}
-
-.train-group-title {
-    font-size: 0.68rem;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--color-secondary);
-    opacity: 0.85;
-    margin-bottom: 10px;
-}
-
-.train-row {
+   component boundaries, so these need to look identical to the other flat
+   fields (Episodes/Ticks/Starting cash/Learning rate) sharing the same
+   sticky-topbar row without depending on that page's scope. */
+.train-brainrow-field {
     display: flex;
     align-items: center;
-    gap: 16px;
-    flex-wrap: wrap;
+    gap: 6px;
+    font-size: 0.72rem;
+    color: var(--color-secondary);
+    white-space: nowrap;
 }
 
-.train-row label {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    font-size: 0.8rem;
-    color: var(--color-secondary);
+.train-brainrow-select {
+    background: var(--color-bg-terminal);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 45%, transparent);
+    color: var(--color-primary);
+    padding: 4px 6px;
+    border-radius: var(--border-radius-sm);
+    font-family: var(--font-body);
+    font-size: 12px;
+    min-width: 140px;
+    transition: all 0.2s ease;
+}
+
+.train-brainrow-select:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--color-primary) 40%, transparent);
 }
 
 /* ── NN vs heuristic badge, next to the Brain select ─────────────────────── */
 
 .bsp-badge {
-    align-self: flex-start;
     font-size: 0.62rem;
     font-weight: bold;
     letter-spacing: 0.06em;
     padding: 3px 9px;
     border-radius: 999px;
     border: 1px solid currentColor;
+    white-space: nowrap;
 }
 
 .bsp-badge-nn {

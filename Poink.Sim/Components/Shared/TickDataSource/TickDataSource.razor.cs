@@ -8,9 +8,9 @@ using Poink.Sim.Repository;
 namespace Poink.Sim.Components.Shared.TickDataSource;
 
 // Symbol picker + date-range slider for a ticks_<symbol> table -- shared by
-// SimulationPage and TrainSetupTab so both pages pick historic data the same
-// way, with the same RECOUNT-only button flow (no separate "load tables"
-// step; the table list fetches itself on init).
+// SimulationPage and TrainPage so both pages pick historic data the same way,
+// with the same RECOUNT-only button flow (no separate "load tables" step;
+// the table list fetches itself on init).
 public partial class TickDataSource : ComponentBase
 {
     [Inject] private ITickRepository TickRepository { get; set; } = default!;

@@ -8,9 +8,9 @@ using Poink.Sim.Training;
 
 namespace Poink.Sim.Components.Training
 {
-    // Split out of TrainPage so the Live tab owns its own re-render cycle,
-    // independent of the Setup tab -- see TrainSetupTab's doc comment. BrainName
-    // is the one piece of Setup state this side still needs, to visualize
+    // Split out of TrainPage so this content owns its own re-render cycle
+    // rather than piggybacking on the sticky topbar's. BrainName is the one
+    // piece of TrainPage's run-parameter state this side needs, to visualize
     // whichever brain is currently picked there.
     public partial class TrainLiveTab : ComponentBase, IDisposable
     {

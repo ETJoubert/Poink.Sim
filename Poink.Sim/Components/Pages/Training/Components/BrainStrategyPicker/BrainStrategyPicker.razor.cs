@@ -7,10 +7,10 @@ using Poink.Sim.Training;
 
 namespace Poink.Sim.Components.Training
 {
-    // Extracted out of TrainPage's Setup tab so the brain/strategy pickers and
-    // their NN-vs-heuristic distinction (see BrainOption) can be reused
-    // wherever a brain+strategy needs picking, without dragging TrainPage's
-    // other setup state along.
+    // Own component so the brain/strategy pickers and their NN-vs-heuristic
+    // distinction (see BrainOption) can be reused wherever a brain+strategy
+    // needs picking, without dragging TrainPage's other run-parameter state
+    // along.
     public partial class BrainStrategyPicker : ComponentBase
     {
         [Parameter, EditorRequired] public IReadOnlyList<BrainOption> BrainOptions { get; set; } = [];

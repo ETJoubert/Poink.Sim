@@ -1,42 +1,37 @@
 @namespace Poink.Sim.Components.Training
 
-<div class="train-group">
-    <div class="train-group-title">Brain &amp; Strategy</div>
-    <div class="train-row">
-        <label>
-            Brain
-            <select class="terminal-input" value="@BrainName" @onchange="OnBrainChanged" disabled="@Disabled">
-                @if (NeuralBrains.Any())
+<label class="train-brainrow-field">
+    Brain
+    <select class="train-brainrow-select" value="@BrainName" @onchange="OnBrainChanged" disabled="@Disabled">
+        @if (NeuralBrains.Any())
+        {
+            <optgroup label="NEURAL NETWORK">
+                @foreach (var b in NeuralBrains)
                 {
-                    <optgroup label="NEURAL NETWORK">
-                        @foreach (var b in NeuralBrains)
-                        {
-                            <option value="@b.Name">@b.Name</option>
-                        }
-                    </optgroup>
+                    <option value="@b.Name">@b.Name</option>
                 }
-                @if (HeuristicBrains.Any())
+            </optgroup>
+        }
+        @if (HeuristicBrains.Any())
+        {
+            <optgroup label="HEURISTIC">
+                @foreach (var b in HeuristicBrains)
                 {
-                    <optgroup label="HEURISTIC">
-                        @foreach (var b in HeuristicBrains)
-                        {
-                            <option value="@b.Name">@b.Name</option>
-                        }
-                    </optgroup>
+                    <option value="@b.Name">@b.Name</option>
                 }
-            </select>
-            <span class="bsp-badge @(SelectedIsNeuralNetwork ? "bsp-badge-nn" : "bsp-badge-heuristic")">
-                @(SelectedIsNeuralNetwork ? "● NEURAL NET" : "○ HEURISTIC")
-            </span>
-        </label>
-        <label>
-            Strategy
-            <select class="terminal-input" value="@StrategyName" @onchange="OnStrategyChanged" disabled="@Disabled">
-                @foreach (var name in StrategyNames)
-                {
-                    <option value="@name">@name</option>
-                }
-            </select>
-        </label>
-    </div>
-</div>
+            </optgroup>
+        }
+    </select>
+    <span class="bsp-badge @(SelectedIsNeuralNetwork ? "bsp-badge-nn" : "bsp-badge-heuristic")">
+        @(SelectedIsNeuralNetwork ? "● NEURAL NET" : "○ HEURISTIC")
+    </span>
+</label>
+<label class="train-brainrow-field">
+    Strategy
+    <select class="train-brainrow-select" value="@StrategyName" @onchange="OnStrategyChanged" disabled="@Disabled">
+        @foreach (var name in StrategyNames)
+        {
+            <option value="@name">@name</option>
+        }
+    </select>
+</label>

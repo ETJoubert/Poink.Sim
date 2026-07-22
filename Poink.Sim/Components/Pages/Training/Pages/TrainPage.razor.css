@@ -3,53 +3,40 @@
     flex-direction: column;
 }
 
-/* Static/sticky action bar -- stays pinned to the top of the scrollable content
-   area (the nearest scrolling ancestor is MainLayout's .content) so Setup/Live
-   and Start Training stay reachable regardless of scroll position. */
+/* Static/sticky control bar -- stays pinned to the top of the scrollable content
+   area (the nearest scrolling ancestor is MainLayout's .content) so every
+   control needed to start a run stays reachable regardless of scroll position.
+   Mirrors SimulationPage's .sim-topbar: no separate Setup page, everything
+   needed to kick off a run lives here instead of behind a tab switch. */
 .train-topbar {
     position: sticky;
     top: 0;
     z-index: 5;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    padding: 20px 24px 14px;
     background: var(--color-bg-dark);
-    border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
 }
 
-.train-topbar-row {
-    display: flex;
-    align-items: center;
-    gap: 20px;
-    flex-wrap: wrap;
-}
-
-.train-tab-content {
+.train-content {
     padding: 20px 24px 32px;
-}
-
-.train-tab-hidden {
-    display: none;
-}
-
-.train-tabs {
-    display: flex;
-    gap: 8px;
-}
-
-.train-topbar-spacer {
-    flex: 1;
-}
-
-.train-start-btn {
-    flex-shrink: 0;
 }
 
 .train-header {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     gap: 12px;
+    flex-wrap: wrap;
+    padding: 16px 24px 10px;
+}
+
+/* Start actions -- pushed to the end of the header row (same margin-left:
+   auto trick as .train-brainrow-actions below), only present while a run
+   isn't already in progress. */
+.train-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-left: auto;
 }
 
 .train-title {
@@ -59,6 +46,16 @@
     letter-spacing: 0.08em;
     color: var(--color-accent);
     text-shadow: var(--shadow-glow-accent);
+}
+
+/* Brain/snapshot currently in use -- mirrors SimulationPage's .sim-header-mode
+   so this always stays visible regardless of scroll position, instead of only
+   being visible in a Saved brains table buried behind a tab switch. */
+.train-header-mode {
+    font-size: 0.78rem;
+    color: var(--color-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
 }
 
 .train-state {
@@ -77,10 +74,104 @@
     text-shadow: 0 0 8px color-mix(in srgb, var(--color-success) 60%, transparent);
 }
 
+/* ── Data source / Brain & run-parameters rows -- same flat shell as
+   SimulationPage's .sim-datarow/.sim-brainrow-* (no bordered boxes), so the
+   sticky bar reads as one continuous toolbar rather than a form. ─────────── */
+
+.train-datarow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 28px;
+    padding: 6px 24px;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+.train-datarow-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.train-datarow-data {
+    flex: 1;
+    min-width: 320px;
+}
+
+.train-brainrow-field {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.72rem;
+    color: var(--color-secondary);
+    white-space: nowrap;
+}
+
+.train-brainrow-select,
+.train-brainrow-input {
+    background: var(--color-bg-terminal);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 45%, transparent);
+    color: var(--color-primary);
+    padding: 4px 6px;
+    border-radius: var(--border-radius-sm);
+    font-family: var(--font-body);
+    font-size: 12px;
+    transition: all 0.2s ease;
+}
+
+.train-brainrow-select {
+    min-width: 140px;
+}
+
+.train-brainrow-input {
+    width: 80px;
+}
+
+.train-brainrow-input-narrow {
+    width: 60px;
+}
+
+/* Save-as name field -- a free-text snapshot name needs more room than the
+   numeric run-parameter fields above. */
+.train-brainrow-input-wide {
+    width: 200px;
+}
+
+.train-brainrow-select:focus,
+.train-brainrow-input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--color-primary) 40%, transparent);
+}
+
+/* Save Model action -- pushed to the end of the Save-as row (same
+   margin-left: auto trick as .train-header-actions above). */
+.train-brainrow-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-left: auto;
+}
+
+/* Save Model's outcome ("saved 'x' at ..."), inline next to the button --
+   neutral, not tinted like .train-brainrow-error, since it's just as often a
+   success message as a failure one. */
+.train-brainrow-status {
+    font-size: 0.72rem;
+    color: var(--color-secondary);
+}
+
+.train-brainrow-error {
+    color: var(--color-error, #ff5f56);
+    font-size: 0.72rem;
+}
+
 .train-progress {
     display: flex;
     align-items: center;
     gap: 12px;
+    padding: 8px 24px;
 }
 
 .train-progress-bar {
@@ -104,4 +195,89 @@
     font-size: 0.75rem;
     color: var(--color-secondary);
     white-space: nowrap;
+}
+
+/* ── Save current brain / Saved brains -- management panels living in the
+   scrollable content below the topbar, since saving/loading a snapshot isn't
+   part of configuring the next run (see RlTrainingService.SaveBrain's doc
+   comment: fine to click mid-run). ───────────────────────────────────────── */
+
+.train-help {
+    border-left: 3px solid var(--color-secondary);
+    background: rgba(255, 255, 255, 0.03);
+    padding: 12px 16px;
+    margin: 0 0 20px;
+    font-size: 0.85rem;
+    border-radius: 0 var(--border-radius-sm) var(--border-radius-sm) 0;
+}
+
+.train-group {
+    flex: 1;
+    min-width: 220px;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 12%, transparent);
+    border-radius: var(--border-radius-md);
+    padding: 14px 16px;
+    background: rgba(255, 255, 255, 0.015);
+    margin-bottom: 18px;
+}
+
+.train-group-wide {
+    flex-basis: 100%;
+}
+
+.train-group-title {
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-secondary);
+    opacity: 0.85;
+    margin-bottom: 10px;
+}
+
+/* Saved brains -- title + collapse toggle sharing one row, instead of the
+   title sitting alone above the table (see .train-group-title). */
+.train-group-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.train-group-header .train-group-title {
+    margin-bottom: 0;
+}
+
+.train-collapse-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* Icon component renders its own <svg> subtree -- needs ::deep to reach past
+   that child-component boundary (see DataTable.razor.css's .dt-icon rules
+   for the same pattern). */
+.train-collapse-btn ::deep .dt-icon {
+    width: 12px;
+    height: 12px;
+}
+
+.train-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.train-row label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.8rem;
+    color: var(--color-secondary);
+}
+
+.train-error {
+    color: var(--color-error, #ff5f56);
+    margin: 12px 0 0;
 }
