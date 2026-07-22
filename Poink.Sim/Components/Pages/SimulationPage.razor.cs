@@ -33,8 +33,6 @@ namespace Poink.Sim.Components.Pages
         private int _traderCount = 1;
         private string? _loadError;
 
-        private List<string> BrainNames => Service.BrainNames.ToList();
-
         // ── Live state (mirrors the service) ──
 
         private SimulationSnapshot? _snapshot;
@@ -92,8 +90,8 @@ namespace Poink.Sim.Components.Pages
             Service.OnChanged += HandleServiceChanged;
             ApplyServiceState();
 
-            if (BrainNames.Count > 0)
-                _brainName = BrainNames[0];
+            if (TrainingService.BrainOptions.Count > 0)
+                _brainName = TrainingService.BrainOptions[0].Name;
         }
 
         private void HandleServiceChanged() => _ = InvokeAsync(() =>
@@ -113,6 +111,19 @@ namespace Poink.Sim.Components.Pages
         {
             Service.OnChanged -= HandleServiceChanged;
         }
+
+        // ── Saved brains (setup-only picker, see SavedBrainsTable) ──
+
+        // Loading also selects the snapshot's architecture as this page's brain,
+        // matching what the old plain <select> let you do directly -- picking a
+        // saved brain here is both "load these weights" and "use this brain".
+        private void UseSavedBrain(SavedBrainSummary summary)
+        {
+            if (TrainingService.LoadSavedBrain(summary.Id))
+                _brainName = summary.BrainName;
+        }
+
+        private void DeleteSavedBrainSnapshot(SavedBrainSummary summary) => TrainingService.DeleteSavedBrain(summary.Id);
 
         // ── Setup actions ──
 

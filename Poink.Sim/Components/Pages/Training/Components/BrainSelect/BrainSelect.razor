@@ -1,0 +1,28 @@
+@namespace Poink.Sim.Components.Training
+
+<label class="bsel-field">
+    @Label
+    <select class="bsel-select" value="@BrainName" @onchange="OnBrainChanged" disabled="@Disabled">
+        @if (NeuralBrains.Any())
+        {
+            <optgroup label="NEURAL NETWORK">
+                @foreach (var b in NeuralBrains)
+                {
+                    <option value="@b.Name">@b.Name</option>
+                }
+            </optgroup>
+        }
+        @if (HeuristicBrains.Any())
+        {
+            <optgroup label="HEURISTIC">
+                @foreach (var b in HeuristicBrains)
+                {
+                    <option value="@b.Name">@b.Name</option>
+                }
+            </optgroup>
+        }
+    </select>
+    <span class="bsel-badge @(SelectedIsNeuralNetwork ? "bsel-badge-nn" : "bsel-badge-heuristic")">
+        @(SelectedIsNeuralNetwork ? "● NEURAL NET" : "○ HEURISTIC")
+    </span>
+</label>

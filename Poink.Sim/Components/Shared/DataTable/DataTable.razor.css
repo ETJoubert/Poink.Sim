@@ -602,7 +602,7 @@
 .data-table-card-field-label {
   font-size: 9px;
   font-weight: 700;
-  color: var(--color-muted);
+  color: var(--color-secondary);
   letter-spacing: 1px;
 }
 

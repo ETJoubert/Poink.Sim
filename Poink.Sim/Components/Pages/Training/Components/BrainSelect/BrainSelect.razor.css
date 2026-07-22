@@ -1,0 +1,53 @@
+/* Self-contained (not shared with the host page's own field styles) --
+   Blazor CSS isolation doesn't cross component boundaries, so this needs to
+   look identical wherever it's dropped in (TrainPage's sticky topbar via
+   BrainStrategyPicker, SimulationPage's setup row) without depending on
+   either page's own scope. Same visual language as those pages' own
+   *-brainrow-field/-select, just under a component-local prefix. */
+.bsel-field {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.72rem;
+    color: var(--color-secondary);
+    white-space: nowrap;
+}
+
+.bsel-select {
+    background: var(--color-bg-terminal);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 45%, transparent);
+    color: var(--color-primary);
+    padding: 4px 6px;
+    border-radius: var(--border-radius-sm);
+    font-family: var(--font-body);
+    font-size: 12px;
+    min-width: 140px;
+    transition: all 0.2s ease;
+}
+
+.bsel-select:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--color-primary) 40%, transparent);
+}
+
+/* ── NN vs heuristic badge, next to the Brain select ─────────────────────── */
+
+.bsel-badge {
+    font-size: 0.62rem;
+    font-weight: bold;
+    letter-spacing: 0.06em;
+    padding: 3px 9px;
+    border-radius: 999px;
+    border: 1px solid currentColor;
+    white-space: nowrap;
+}
+
+.bsel-badge-nn {
+    color: var(--color-secondary);
+    text-shadow: 0 0 8px color-mix(in srgb, var(--color-secondary) 50%, transparent);
+}
+
+.bsel-badge-heuristic {
+    color: var(--color-muted);
+}

@@ -1,0 +1,25 @@
+@namespace Poink.Sim.Components.Training
+@using Poink.Sim.Components.Shared.DataTable
+@using Poink.Sim.Repository
+@using Poink.Shared.Client.Components.Shared.Icon
+
+<div class="sbt-group">
+    <div class="sbt-header">
+        <span class="sbt-title">@Title</span>
+        <button class="sbt-collapse-btn @(_expanded ? "active" : "")" @onclick="() => _expanded = !_expanded">
+            <Icon Name="@(_expanded ? "chevron-down" : "chevron-right")" Class="sbt-icon" />
+            @(_expanded ? "HIDE" : "SHOW")
+        </button>
+    </div>
+    @if (_expanded)
+    {
+        <DataTable TItem="SavedBrainRow" Items="Rows" ShowRowNumbers="false" ActionsHeader="ACTIONS"
+                   ExcludeProperties="@(new List<string> { "Id" })" OnDelete="HandleDelete" EmptyMessage="no saved brains yet">
+            <CustomActions Context="row">
+                <button class="sbt-use-btn" @onclick="() => HandleUse(row)" title="@UseTitle">
+                    <Icon Name="check2-square" Class="sbt-icon" /> USE
+                </button>
+            </CustomActions>
+        </DataTable>
+    }
+</div>

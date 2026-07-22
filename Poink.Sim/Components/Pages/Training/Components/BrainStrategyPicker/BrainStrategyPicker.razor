@@ -1,31 +1,6 @@
 @namespace Poink.Sim.Components.Training
 
-<label class="train-brainrow-field">
-    Brain
-    <select class="train-brainrow-select" value="@BrainName" @onchange="OnBrainChanged" disabled="@Disabled">
-        @if (NeuralBrains.Any())
-        {
-            <optgroup label="NEURAL NETWORK">
-                @foreach (var b in NeuralBrains)
-                {
-                    <option value="@b.Name">@b.Name</option>
-                }
-            </optgroup>
-        }
-        @if (HeuristicBrains.Any())
-        {
-            <optgroup label="HEURISTIC">
-                @foreach (var b in HeuristicBrains)
-                {
-                    <option value="@b.Name">@b.Name</option>
-                }
-            </optgroup>
-        }
-    </select>
-    <span class="bsp-badge @(SelectedIsNeuralNetwork ? "bsp-badge-nn" : "bsp-badge-heuristic")">
-        @(SelectedIsNeuralNetwork ? "● NEURAL NET" : "○ HEURISTIC")
-    </span>
-</label>
+<BrainSelect BrainOptions="BrainOptions" BrainName="BrainName" BrainNameChanged="BrainNameChanged" Disabled="Disabled" />
 <label class="train-brainrow-field">
     Strategy
     <select class="train-brainrow-select" value="@StrategyName" @onchange="OnStrategyChanged" disabled="@Disabled">

@@ -1,9 +1,7 @@
 @page "/train"
 @namespace Poink.Sim.Components.Pages
 @using Poink.Sim.Components.Training
-@using Poink.Sim.Components.Shared.DataTable
 @using Poink.Sim.Components.Shared.TickDataSource
-@using Poink.Shared.Client.Components.Shared.Icon
 
 <div class="train-page">
     <div class="train-topbar">
@@ -101,29 +99,6 @@
 
     <div class="train-content">
         <TrainLiveTab BrainName="_brainName" />
-
-        <div class="train-group train-group-wide">
-            <div class="train-group-header">
-                <span class="train-group-title">Saved brains</span>
-                <button class="terminal-btn-sm train-collapse-btn @(_savedBrainsExpanded ? "active" : "")"
-                        @onclick="() => _savedBrainsExpanded = !_savedBrainsExpanded">
-                    <Icon Name="@(_savedBrainsExpanded ? "chevron-down" : "chevron-right")" Class="dt-icon" />
-                    @(_savedBrainsExpanded ? "HIDE" : "SHOW")
-                </button>
-            </div>
-            @if (_savedBrainsExpanded)
-            {
-                <DataTable TItem="SavedBrainRow" Items="SavedBrainRows" ShowRowNumbers="false" ActionsHeader="ACTIONS"
-                           ExcludeProperties="@(new List<string> { "Id" })" OnDelete="DeleteSavedBrain">
-                    <CustomActions Context="row">
-                        <button class="data-table-action-btn" @onclick="() => LoadSavedBrain(row)"
-                                title="Loads these weights into the live brain -- also what Simulation's Brain dropdown will use">
-                            <Icon Name="check2-square" Class="dt-icon" /> USE
-                        </button>
-                    </CustomActions>
-                </DataTable>
-            }
-        </div>
 
         @if (Service.Error is not null)
         {

@@ -272,6 +272,13 @@
     padding: 5px 24px;
 }
 
+/* Saved brains -- setup-only, non-sticky (unlike .sim-topbar) since it's a
+   secondary tool for picking a brain, not something that needs to stay
+   pinned while playback runs (and it's gone entirely once a run is loaded). */
+.sim-setup-content {
+    padding: 18px 24px;
+}
+
 .sim-controls {
     display: flex;
     align-items: center;

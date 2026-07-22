@@ -1,6 +1,4 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using Microsoft.AspNetCore.Components;
 using Poink.Sim.Repository;
 using Poink.Sim.Training;
@@ -41,11 +39,6 @@ namespace Poink.Sim.Components.Pages
         private bool _datasetIsHistoric;
 
         private string _saveName = "";
-
-        // Collapses the (potentially long) Saved brains table -- the current
-        // in-use snapshot is already visible in the sticky header above, so
-        // this table only needs expanding when actually managing snapshots.
-        private bool _savedBrainsExpanded = true;
 
         protected override void OnInitialized()
         {
@@ -134,21 +127,5 @@ namespace Poink.Sim.Components.Pages
             _datasetIsHistoric && !string.IsNullOrWhiteSpace(_table)
                 ? $"{_table} ({_from:yyyy-MM-dd HH:mm} to {_to:yyyy-MM-dd HH:mm})"
                 : "synthetic (random-walk)";
-
-        private void LoadSavedBrain(SavedBrainRow row) => Service.LoadSavedBrain(row.Id);
-
-        private void DeleteSavedBrain(SavedBrainRow row) => Service.DeleteSavedBrain(row.Id);
-
-        // Flattens SavedBrainSummary into a DataTable-friendly shape -- the
-        // generic DataTable<TItem> reflects over public properties directly
-        // (see its View/Card rendering), so Parameters needs to already be a
-        // display string rather than the nested BrainTrainingParameters object.
-        private sealed record SavedBrainRow(
-            long Id, string Name, string Brain, string Strategy, string Dataset,
-            long WeightCount, string Parameters, double AvgReward, DateTime SavedAt);
-
-        private List<SavedBrainRow> SavedBrainRows =>
-            Service.SavedBrains.Select(b => new SavedBrainRow(
-                b.Id, b.Name, b.BrainName, b.StrategyName, b.Dataset, b.WeightCount, b.Parameters.ToString(), b.AvgReward, b.SavedAt)).ToList();
     }
 }

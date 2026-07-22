@@ -1,7 +1,8 @@
 /* Copied from TrainPage.razor.css -- Blazor CSS isolation doesn't cross
-   component boundaries, so these need to look identical to the other flat
+   component boundaries, so this needs to look identical to the other flat
    fields (Episodes/Ticks/Starting cash/Learning rate) sharing the same
-   sticky-topbar row without depending on that page's scope. */
+   sticky-topbar row without depending on that page's scope. (The Brain
+   select's own matching styles live in BrainSelect.razor.css now.) */
 .train-brainrow-field {
     display: flex;
     align-items: center;
@@ -27,25 +28,4 @@
     outline: none;
     border-color: var(--color-primary);
     box-shadow: 0 0 8px color-mix(in srgb, var(--color-primary) 40%, transparent);
-}
-
-/* ── NN vs heuristic badge, next to the Brain select ─────────────────────── */
-
-.bsp-badge {
-    font-size: 0.62rem;
-    font-weight: bold;
-    letter-spacing: 0.06em;
-    padding: 3px 9px;
-    border-radius: 999px;
-    border: 1px solid currentColor;
-    white-space: nowrap;
-}
-
-.bsp-badge-nn {
-    color: var(--color-secondary);
-    text-shadow: 0 0 8px color-mix(in srgb, var(--color-secondary) 50%, transparent);
-}
-
-.bsp-badge-heuristic {
-    color: var(--color-muted);
 }

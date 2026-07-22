@@ -197,10 +197,9 @@
     white-space: nowrap;
 }
 
-/* ── Save current brain / Saved brains -- management panels living in the
-   scrollable content below the topbar, since saving/loading a snapshot isn't
-   part of configuring the next run (see RlTrainingService.SaveBrain's doc
-   comment: fine to click mid-run). ───────────────────────────────────────── */
+/* ── Leftover styling from panels that used to live in the scrollable
+   content below the topbar (Saved brains moved to SimulationPage -- see
+   SavedBrainsTable) -- kept for whatever still references it below. ───── */
 
 .train-help {
     border-left: 3px solid var(--color-secondary);
@@ -209,57 +208,6 @@
     margin: 0 0 20px;
     font-size: 0.85rem;
     border-radius: 0 var(--border-radius-sm) var(--border-radius-sm) 0;
-}
-
-.train-group {
-    flex: 1;
-    min-width: 220px;
-    border: 1px solid color-mix(in srgb, var(--color-primary) 12%, transparent);
-    border-radius: var(--border-radius-md);
-    padding: 14px 16px;
-    background: rgba(255, 255, 255, 0.015);
-    margin-bottom: 18px;
-}
-
-.train-group-wide {
-    flex-basis: 100%;
-}
-
-.train-group-title {
-    font-size: 0.68rem;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--color-secondary);
-    opacity: 0.85;
-    margin-bottom: 10px;
-}
-
-/* Saved brains -- title + collapse toggle sharing one row, instead of the
-   title sitting alone above the table (see .train-group-title). */
-.train-group-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    margin-bottom: 10px;
-}
-
-.train-group-header .train-group-title {
-    margin-bottom: 0;
-}
-
-.train-collapse-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-}
-
-/* Icon component renders its own <svg> subtree -- needs ::deep to reach past
-   that child-component boundary (see DataTable.razor.css's .dt-icon rules
-   for the same pattern). */
-.train-collapse-btn ::deep .dt-icon {
-    width: 12px;
-    height: 12px;
 }
 
 .train-row {
