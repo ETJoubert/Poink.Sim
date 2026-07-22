@@ -4,6 +4,7 @@
 @using Poink.Sim.Components.Charts
 @using Poink.Sim.Components.Shared.DataTable
 @using Poink.Sim.Components.Shared.DateRangeSlider
+@using Poink.Sim.Components.Shared.SimTimeline
 @using Poink.Sim.Components.Shared.TickDataSource
 @using Poink.Sim.Components.Training
 @using Poink.Shared.Client.Components.Shared.ViewDatatable
@@ -149,15 +150,15 @@
                         @(s.IsPlaying ? "PAUSE" : "PLAY")
                     </button>
                     <button class="sim-ctrl-btn" @onclick="StepOnce" disabled="@(s.IsPlaying || s.IsFinished)">STEP</button>
-                    @foreach (var speed in new[] { 0.1,1.0, 10.0, 100.0, 1000.0, 10000.0 })
-                    {
-                        <button class="sim-ctrl-btn sim-ctrl-btn-speed @(!s.IsUncapped && Math.Abs(s.SpeedMultiplier - speed) < 0.001 ? "active" : "")"
-                                @onclick="() => SetSpeed(speed)">@speed.ToString("0")x</button>
-                    }
-                    <button class="sim-ctrl-btn sim-ctrl-btn-turbo @(s.IsUncapped && !_hideChart ? "active" : "")"
-                            @onclick="SetMax" title="Uncapped backend speed; chart/tick table keep rendering">MAX</button>
-                    <button class="sim-ctrl-btn sim-ctrl-btn-turbo @(s.IsUncapped && _hideChart ? "active" : "")"
-                            @onclick="SetTurbo" title="Uncapped backend speed; chart/tick table hidden, only stats + log render">TURBO</button>
+                    <div class="sim-speed-stepper @(s.IsUncapped ? "sim-speed-stepper-inactive" : "")" title="Playback speed">
+                        <button class="sim-ctrl-btn sim-speed-step" @onclick="() => DecreaseSpeed(s)"
+                                disabled="@(SpeedIndex(s) == 0)" title="Slower">−</button>
+                        <span class="sim-speed-value">@FormatSpeed(s.SpeedMultiplier)</span>
+                        <button class="sim-ctrl-btn sim-speed-step" @onclick="() => IncreaseSpeed(s)"
+                                disabled="@(SpeedIndex(s) == Speeds.Length - 1)" title="Faster">+</button>
+                    </div>
+                    <button class="sim-ctrl-btn sim-ctrl-btn-max @(s.IsUncapped ? "active" : "")"
+                            @onclick="SetMax" title="Uncapped backend speed -- combine with Hide Chart for the fastest runs">MAX</button>
                     <span class="sim-toolbar-divider"></span>
                     <button class="sim-ctrl-btn sim-ctrl-btn-warn" @onclick="ResetSim">RESET</button>
                     <button class="sim-ctrl-btn sim-ctrl-btn-warn" @onclick="UnloadSim">NEW SIMULATION</button>
@@ -166,15 +167,7 @@
                     </button>
                 </div>
 
-                <div class="sim-progress">
-                    <div class="sim-progress-bar">
-                        <div class="sim-progress-fill" style="width: @(ProgressPercent)%"></div>
-                    </div>
-                    <span class="sim-progress-text">
-                        @s.CursorIndex.ToString("N0") / @s.TotalCount.ToString("N0") ticks (@ProgressPercent%)
-                        @(s.CurrentTimestampUtc is not null ? $" — {s.CurrentTimestampUtc:yyyy-MM-dd HH:mm:ss}" : "")
-                    </span>
-                </div>
+                <SimTimeline />
             </div>
         </div>
 

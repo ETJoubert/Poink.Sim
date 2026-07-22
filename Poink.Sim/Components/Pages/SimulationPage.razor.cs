@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using Microsoft.AspNetCore.Components;
 using Poink.Sim.Models;
@@ -83,11 +84,6 @@ namespace Poink.Sim.Components.Pages
                 : _snapshot.Traders.FirstOrDefault(t => t.Id == _selectedTraderId) ?? _snapshot.Traders.FirstOrDefault();
 
         private void SelectTrader(int id) => _selectedTraderId = id;
-
-        private int ProgressPercent =>
-            _snapshot is null || _snapshot.TotalCount <= 0
-                ? 0
-                : (int)Math.Round(_snapshot.CursorIndex * 100.0 / _snapshot.TotalCount);
 
         // ── Lifecycle ──
 
@@ -185,21 +181,30 @@ namespace Poink.Sim.Components.Pages
 
         private void SetSpeed(double multiplier) => Service.SetSpeed(multiplier);
 
-        // Max: uncapped backend throughput, chart/tick table still render.
-        private void SetMax()
+        // Bounded speed presets the +/- stepper cycles through -- separate from
+        // Max, which is an uncapped mode the engine treats entirely differently
+        // (see SimulationEngine.SetMaxSpeed).
+        private static readonly double[] Speeds = [0.1, 1.0, 10.0, 100.0, 1000.0, 10000.0];
+
+        // Falls back to the 1x slot when the engine's current multiplier doesn't
+        // land on a preset (e.g. right after loading) or while Max is active and
+        // holding the pre-Max value.
+        private static int SpeedIndex(SimulationSnapshot s)
         {
-            Service.SetMaxSpeed();
-            _hideChart = false;
+            var i = Array.FindIndex(Speeds, sp => Math.Abs(sp - s.SpeedMultiplier) < 0.001);
+            return i >= 0 ? i : Array.IndexOf(Speeds, 1.0);
         }
 
-        // Turbo: same uncapped throughput as Max, but skips chart/tick-table
-        // rendering entirely -- only the kv-row (Trader stats) and the
-        // trade/decision log stay visible while it runs.
-        private void SetTurbo()
-        {
-            Service.SetMaxSpeed();
-            _hideChart = true;
-        }
+        private void DecreaseSpeed(SimulationSnapshot s) => Service.SetSpeed(Speeds[Math.Max(0, SpeedIndex(s) - 1)]);
+
+        private void IncreaseSpeed(SimulationSnapshot s) => Service.SetSpeed(Speeds[Math.Min(Speeds.Length - 1, SpeedIndex(s) + 1)]);
+
+        private static string FormatSpeed(double v) => (v < 1 ? v.ToString("0.#", CultureInfo.InvariantCulture) : v.ToString("0", CultureInfo.InvariantCulture)) + "x";
+
+        // Max: uncapped backend throughput (replaces the old separate Turbo
+        // button -- hiding the chart for faster high-speed rendering is now just
+        // the existing Hide Chart toggle, used independently of speed).
+        private void SetMax() => Service.SetMaxSpeed();
 
         private void ToggleHideChart() => _hideChart = !_hideChart;
 

@@ -50,12 +50,14 @@ multiplier controls **how many ticks advance per callback**, not how fast the ti
 fires (fixed ~100ms cadence) — this bounds UI update traffic to ~10/sec regardless of
 speed, so high multipliers play through history faster without flooding the page.
 
-`SetMaxSpeed()` ("Max"/"Turbo" on the page) is a separate **uncapped** mode, not just
-a bigger multiplier: `TimerCallback` drains every remaining tick in one callback
-instead of a bounded slice, so a run finishes in a single publish no matter how many
-ticks are left. Max and Turbo run the engine identically — the only difference is a
-page-side rendering choice (Turbo also flips `_hideChart` on), since the engine has
-no concept of "hidden."
+`SetMaxSpeed()` ("Max" on the page) is a separate **uncapped** mode, not just a
+bigger multiplier: `TimerCallback` drains ticks for a fixed time slice
+(`UncappedSliceMs`) instead of a bounded tick count, immediately rescheduling for
+the next slice — as fast as the reader/brain allow overall, but still publishing a
+snapshot roughly every slice so the page (timeline, stats) visibly progresses
+instead of freezing until one final publish. Hiding the chart/tick table for faster
+rendering during a Max run is a separate, independent page-side toggle (Hide Chart),
+since the engine has no concept of "hidden."
 
 Mark-to-market (`Trader.Snapshot`) runs every raw tick so Capital/Position stay live
 between decisions; `Brain.Decide` + `Trader.Apply` run once per raw tick when
@@ -227,18 +229,17 @@ page is the app's landing page (`/`, aliased at `/simulation`).
 - **Setup** — pick a symbol (from the tick tables Postgres has), a date range, the
   aggregation toggle (raw ticks vs. HLOC/AVDT bars) and bar size, a brain, and
   starting cash, then **Load Simulation**.
-- **Playback** — Play/Pause, Step (paused-only), speed buttons (1000x/10000x, plus
-  uncapped Max/Turbo — see below), Reset (rewind, same config), New Simulation (back
-  to setup), Hide/Show Chart (manually skip chart rendering for faster trading at
-  high speed). Live: a candlestick chart (aggregation on) or a scrolling raw-tick
-  table (aggregation off), a Capital/Position readout (cash, realized/unrealized
-  P&L, equity, position), and a trade/decision log.
-- **Max vs. Turbo** — both run the backend at uncapped speed (drain every remaining
-  tick in one go, see "Playback design" above); Max keeps the chart/tick table
-  rendering, Turbo hides them automatically (same effect as the Hide Chart toggle)
-  so only the Capital/Position stats and the trade/decision log update — useful for
-  very large runs where redrawing the chart is the actual bottleneck, not the
-  simulation math itself.
+- **Playback** — Play/Pause, Step (paused-only), a +/- speed stepper cycling through
+  presets (0.1x-10000x), an uncapped Max button, Reset (rewind, same config), New
+  Simulation (back to setup), Hide/Show Chart (manually skip chart rendering for
+  faster trading at high speed). Live: a candlestick chart (aggregation on) or a
+  scrolling raw-tick table (aggregation off), a Capital/Position readout (cash,
+  realized/unrealized P&L, equity, position), a timeline rail showing where the
+  current tick sits between the run's From/To, and a trade/decision log.
+- **Max** — runs the backend at uncapped speed (drains every remaining tick in one
+  go, see "Playback design" above); combine with Hide Chart for very large runs
+  where redrawing the chart is the actual bottleneck, not the simulation math
+  itself.
 - **Train** (`/train`) — **Setup** tab: pick a trainable brain + strategy, episode
   count, ticks per episode, starting cash, learning rate, then **Start Training**
   (runs headlessly against synthetic ticks, no Postgres needed). **Live** tab

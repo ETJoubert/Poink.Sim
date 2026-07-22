@@ -18,6 +18,14 @@ internal sealed record SimulationConfig(
 internal sealed record SimulationLogEntry(
     DateTime TimestampUtc, string Action, double Price, string? Detail);
 
+// Cheap sibling to SimulationSnapshot below -- just enough to place the
+// current tick on a From/To timeline, so a component can track live progress
+// (including through an uncapped Max run's rapid slices, see SimulationEngine.
+// PublishProgress) without paying for a full Snapshot's recent-ticks/bars/
+// trader-log copies on every update.
+internal sealed record SimulationProgress(
+    int CursorIndex, int TotalCount, DateTime? CurrentTimestampUtc, DateTime RangeFromUtc, DateTime RangeToUtc);
+
 // One trader's slice of the shared run -- all traders replay the same tick
 // stream against the same shared Brain instance (see SimulationEngine), but
 // each gets its own Capital/Position/log since Trader.Apply is per-instance.

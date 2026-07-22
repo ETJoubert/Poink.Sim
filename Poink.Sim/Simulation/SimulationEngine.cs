@@ -18,12 +18,15 @@
 //  traffic to ~10/sec regardless of speed, so a high multiplier plays through
 //  history faster without flooding the Blazor Server circuit.
 //
-//  SetMaxSpeed() ("Max"/"Turbo" on the page) is a separate uncapped mode, not
-//  just a bigger multiplier: TimerCallback drains every remaining tick in one
-//  callback instead of a bounded slice, so a run finishes in a single publish
-//  regardless of how many ticks are left. "Turbo" vs "Max" is purely a page-
-//  side rendering choice (Turbo also hides the chart/tick table) -- the engine
-//  doesn't know the difference.
+//  SetMaxSpeed() ("Max" on the page) is a separate uncapped mode, not just a
+//  bigger multiplier: TimerCallback drains ticks for a fixed time slice
+//  (UncappedSliceMs) instead of a bounded tick count, immediately rescheduling
+//  for the next slice -- as fast as the reader/brain allow overall, but still
+//  publishing a snapshot roughly every slice so the page's timeline/stats
+//  visibly progress instead of freezing until one final publish. Hiding the
+//  chart/tick table for faster rendering during a Max run is a separate,
+//  independent page-side toggle (Hide Chart) -- the engine has no concept of
+//  "hidden".
 //
 //  Mark-to-market (Trader.Snapshot) runs every raw tick; Brain.Decide +
 //  Trader.Apply run once per raw tick when aggregation is off, or once per
@@ -36,6 +39,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -53,6 +57,8 @@ internal sealed class SimulationEngine : IDisposable
     private const int BaseUnitsPerCallback = 5;
     private const int FiniteSpeedUnitsCap = 100_000; // headroom above 5 * MaxFiniteMultiplier
     private const double MaxFiniteMultiplier = 10_000;
+    private const int UncappedSliceMs = 100; // time budget per callback while uncapped, not a tick cap
+
     private const int MaxRecentBars = 300;
     private const int MaxRecentTicks = 5000;
     private const int MaxRecentLog = 200;
@@ -110,7 +116,16 @@ internal sealed class SimulationEngine : IDisposable
     public bool IsLoading { get; private set; }
     public string? Error { get; private set; }
 
+    // Cheap cursor/timestamp-only read-model, updated in lockstep with every
+    // Snapshot publish plus (during uncapped Max slices) far more often than
+    // Snapshot is -- see PublishProgress. Lets a standalone timeline component
+    // subscribe to OnProgress alone and stay live through a Max run without
+    // pulling in Snapshot's expensive recent-ticks/bars/trader-log copies, so
+    // Max doesn't pay for a full page re-render on every slice.
+    public SimulationProgress? Progress { get; private set; }
+
     public event Action? OnChanged;
+    public event Action? OnProgress;
 
     // Streams straight from Postgres -- picking a symbol+range is enough, no
     // separate "LOAD DATA" preload step. TotalCount comes from a single
@@ -333,24 +348,40 @@ internal sealed class SimulationEngine : IDisposable
             _lastTimestamp = null;
         }
         Snapshot = null;
+        Progress = null;
         Error = null;
         OnChanged?.Invoke();
+        OnProgress?.Invoke();
     }
 
     private void TimerCallback(object? state)
     {
         bool reschedule;
+        bool wasUncapped;
         lock (_lock)
         {
+            wasUncapped = _uncapped;
             if (!_isPlaying || _reader is null)
             {
                 reschedule = false;
             }
+            else if (_uncapped)
+            {
+                // Time-boxed rather than "drain everything in one shot": still as
+                // fast as the reader/brain allow, but sliced so a multi-million-tick
+                // run keeps advancing visibly instead of appearing frozen until the
+                // very end.
+                var sw = Stopwatch.StartNew();
+                while (_cursor < _totalCount && sw.ElapsedMilliseconds < UncappedSliceMs)
+                    AdvanceOneUnitLocked();
+
+                if (_cursor >= _totalCount)
+                    _isPlaying = false;
+                reschedule = _isPlaying;
+            }
             else
             {
-                int units = _uncapped
-                    ? _totalCount - _cursor
-                    : Math.Clamp((int)Math.Round(BaseUnitsPerCallback * _speedMultiplier), 1, FiniteSpeedUnitsCap);
+                int units = Math.Clamp((int)Math.Round(BaseUnitsPerCallback * _speedMultiplier), 1, FiniteSpeedUnitsCap);
                 for (int i = 0; i < units && _cursor < _totalCount; i++)
                     AdvanceOneUnitLocked();
 
@@ -359,9 +390,19 @@ internal sealed class SimulationEngine : IDisposable
                 reschedule = _isPlaying;
             }
         }
-        PublishSnapshot();
+
+        // Mid-run Max slices only get the cheap progress-only publish (just cursor/
+        // timestamp -- no recent-ticks/bars/trader-log copies) so a timeline
+        // indicator can track them live without forcing a full page re-render on
+        // every slice; everything else catches up in one full publish once the
+        // run pauses/finishes, same as Max always has.
+        if (wasUncapped && reschedule)
+            PublishProgress();
+        else
+            PublishSnapshot();
+
         if (reschedule)
-            _timer.Change(CallbackIntervalMs, Timeout.Infinite);
+            _timer.Change(wasUncapped ? 0 : CallbackIntervalMs, Timeout.Infinite);
     }
 
     // Must be called while holding _lock. Forward-only: playback never seeks
@@ -471,7 +512,27 @@ internal sealed class SimulationEngine : IDisposable
                     bars, _recentTicks.ToList());
         }
         Snapshot = snapshot;
+        Progress = snapshot is null
+            ? null
+            : new SimulationProgress(snapshot.CursorIndex, snapshot.TotalCount, snapshot.CurrentTimestampUtc,
+                snapshot.Config.From, snapshot.Config.To);
         OnChanged?.Invoke();
+        OnProgress?.Invoke();
+    }
+
+    // Cheap counterpart to PublishSnapshot for mid-Max-run slices -- cursor/
+    // timestamp only, none of Snapshot's recent-ticks/bars/trader-log copies.
+    // Fires OnProgress alone (not OnChanged), so only a component tracking
+    // Progress specifically re-renders; the rest of the page catches up on the
+    // next full PublishSnapshot (when the run pauses/finishes).
+    private void PublishProgress()
+    {
+        lock (_lock)
+        {
+            if (_config is null) return;
+            Progress = new SimulationProgress(_cursor, _totalCount, _lastTimestamp, _config.From, _config.To);
+        }
+        OnProgress?.Invoke();
     }
 
     public void Dispose()

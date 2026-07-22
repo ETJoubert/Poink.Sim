@@ -1,0 +1,64 @@
+.stl-progress {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.stl-label {
+    flex: 0 0 auto;
+    font-size: 0.68rem;
+    color: var(--color-secondary);
+    opacity: 0.75;
+    white-space: nowrap;
+}
+
+/* Where the current tick sits between the run's From/To -- rail/track/fill
+   language matching SimulationPage's tick-window slider, plus a fixed marker
+   line rather than a draggable thumb since this is a read-only indicator, not
+   a control. */
+.stl-rail {
+    position: relative;
+    flex: 1;
+    max-width: 480px;
+    height: 14px;
+}
+
+.stl-track {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 5px;
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.stl-fill {
+    position: absolute;
+    left: 0;
+    top: 5px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--color-secondary);
+    box-shadow: var(--shadow-glow-secondary);
+    transition: width 0.2s ease;
+}
+
+.stl-marker {
+    position: absolute;
+    top: 0;
+    width: 3px;
+    height: 14px;
+    margin-left: -1px;
+    border-radius: 1px;
+    background: var(--color-accent);
+    box-shadow: var(--shadow-glow-accent);
+    transition: left 0.2s ease;
+}
+
+.stl-text {
+    font-size: 0.75rem;
+    color: var(--color-secondary);
+    white-space: nowrap;
+}

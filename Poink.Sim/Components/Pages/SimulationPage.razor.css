@@ -199,28 +199,61 @@
     box-shadow: 0 0 14px color-mix(in srgb, var(--color-success) 45%, transparent);
 }
 
-/* Speed selector -- compact segmented-control read, secondary color family. */
-.sim-ctrl-btn-speed {
+/* Speed stepper -- +/- around the current preset, replacing the old row of one
+   button per speed. Wrapped in its own flex group so the two step buttons and
+   the value readout read as one segmented control. */
+.sim-speed-stepper {
+    display: flex;
+    align-items: center;
+    gap: 0;
+}
+
+.sim-speed-step {
     border-color: color-mix(in srgb, var(--color-secondary) 40%, transparent);
     color: var(--color-secondary);
-    padding: 7px 11px;
+    padding: 7px 12px;
+    font-size: 13px;
+    line-height: 1;
+}
+
+.sim-speed-step:first-child {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.sim-speed-step:last-child {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+    border-left: none;
+}
+
+.sim-speed-value {
+    display: inline-block;
+    min-width: 46px;
+    text-align: center;
     font-size: 11px;
+    font-weight: bold;
+    letter-spacing: 0.04em;
+    color: var(--color-secondary);
+    border-top: 1px solid color-mix(in srgb, var(--color-secondary) 40%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--color-secondary) 40%, transparent);
+    padding: 7px 0;
 }
 
-.sim-ctrl-btn-speed.active {
-    background: var(--color-secondary);
-    color: var(--color-bg-terminal);
-    border-color: var(--color-secondary);
-    box-shadow: 0 0 12px color-mix(in srgb, var(--color-secondary) 55%, transparent);
+/* Dimmed while Max (uncapped) is driving playback -- the stepper still shows
+   the preset it'll resume at, but it isn't the active speed right now. */
+.sim-speed-stepper-inactive .sim-speed-step,
+.sim-speed-stepper-inactive .sim-speed-value {
+    opacity: 0.5;
 }
 
-/* MAX/TURBO -- uncapped modes, called out in accent so they read as "not the norm". */
-.sim-ctrl-btn-turbo {
+/* MAX -- uncapped mode, called out in accent so it reads as "not the norm". */
+.sim-ctrl-btn-max {
     border-color: color-mix(in srgb, var(--color-accent) 50%, transparent);
     color: var(--color-accent);
 }
 
-.sim-ctrl-btn-turbo.active {
+.sim-ctrl-btn-max.active {
     background: var(--color-accent);
     color: var(--color-bg-terminal);
     border-color: var(--color-accent);
@@ -243,35 +276,6 @@
     color: var(--color-bg-terminal);
     border-color: var(--color-primary);
     box-shadow: 0 0 12px color-mix(in srgb, var(--color-primary) 45%, transparent);
-}
-
-.sim-progress {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.sim-progress-bar {
-    flex: 1;
-    max-width: 480px;
-    height: 6px;
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    border-radius: 4px;
-    overflow: hidden;
-    background: rgba(255, 255, 255, 0.04);
-}
-
-.sim-progress-fill {
-    height: 100%;
-    background: var(--color-secondary);
-    box-shadow: var(--shadow-glow-secondary);
-    transition: width 0.2s ease;
-}
-
-.sim-progress-text {
-    font-size: 0.75rem;
-    color: var(--color-secondary);
-    white-space: nowrap;
 }
 
 /* ── Tick window: shared control above the chart row, driving both the volume
