@@ -7,6 +7,7 @@
 @using Poink.Sim.Components.Shared.SimTimeline
 @using Poink.Sim.Components.Shared.TickDataSource
 @using Poink.Sim.Components.Training
+@using Poink.Shared.Client.Components.Shared.Icon
 @using Poink.Shared.Client.Components.Shared.ViewDatatable
 @using System.Globalization
 
@@ -147,9 +148,13 @@
             <div class="sim-toolbar">
                 <div class="sim-controls">
                     <button class="sim-ctrl-btn sim-ctrl-btn-play" @onclick="TogglePlayPause" disabled="@s.IsFinished">
+                        <Icon Name="@(s.IsPlaying ? "pause-fill" : "play-fill")" Class="sim-ctrl-icon" />
                         @(s.IsPlaying ? "PAUSE" : "PLAY")
                     </button>
-                    <button class="sim-ctrl-btn" @onclick="StepOnce" disabled="@(s.IsPlaying || s.IsFinished)">STEP</button>
+                    <button class="sim-ctrl-btn" @onclick="StepOnce" disabled="@(s.IsPlaying || s.IsFinished)">
+                        <Icon Name="skip-end-fill" Class="sim-ctrl-icon" />
+                        STEP
+                    </button>
                     <div class="sim-speed-stepper @(s.IsUncapped ? "sim-speed-stepper-inactive" : "")" title="Playback speed">
                         <button class="sim-ctrl-btn sim-speed-step" @onclick="() => DecreaseSpeed(s)"
                                 disabled="@(SpeedIndex(s) == 0)" title="Slower">−</button>
@@ -159,12 +164,15 @@
                     </div>
                     <button class="sim-ctrl-btn sim-ctrl-btn-max @(s.IsUncapped ? "active" : "")"
                             @onclick="SetMax" title="Uncapped backend speed -- combine with Hide Chart for the fastest runs">MAX</button>
-                    <span class="sim-toolbar-divider"></span>
-                    <button class="sim-ctrl-btn sim-ctrl-btn-warn" @onclick="ResetSim">RESET</button>
-                    <button class="sim-ctrl-btn sim-ctrl-btn-warn" @onclick="UnloadSim">NEW SIMULATION</button>
-                    <button class="sim-ctrl-btn sim-ctrl-btn-toggle @(_hideChart ? "active" : "")" @onclick="ToggleHideChart">
-                        @(_hideChart ? "SHOW CHART" : "HIDE CHART")
-                    </button>
+
+                    <div class="sim-controls-right">
+                        <span class="sim-toolbar-divider"></span>
+                        <button class="sim-ctrl-btn sim-ctrl-btn-warn" @onclick="ResetSim">RESET</button>
+                        <button class="sim-ctrl-btn sim-ctrl-btn-warn" @onclick="UnloadSim">NEW SIMULATION</button>
+                        <button class="sim-ctrl-btn sim-ctrl-btn-toggle @(_hideChart ? "active" : "")" @onclick="ToggleHideChart">
+                            @(_hideChart ? "SHOW CHART" : "HIDE CHART")
+                        </button>
+                    </div>
                 </div>
 
                 <SimTimeline />

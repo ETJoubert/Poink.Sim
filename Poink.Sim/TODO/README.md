@@ -17,5 +17,5 @@ Planned work for Poink.Sim, one file per plan.
   | `Pending Review` | Work is done; I'll test it and comment. |
   | `Done` | Completed. |
 
-- Update the Status line in place as the plan moves through these states --
-  don't add a second one.
+- Add the Status line with timestamp below the previous as the plan moves through these states --
+
