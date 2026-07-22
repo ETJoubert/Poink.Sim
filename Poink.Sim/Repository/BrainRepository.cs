@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using Dapper;
+using Microsoft.Extensions.Logging;
 using Npgsql;
 
 namespace Poink.Sim.Repository;
@@ -19,6 +20,10 @@ internal sealed class BrainRepository : IBrainRepository
     const string ConnectionString = $"Host=localhost;Port=5432;Username=postgres;Password=postgres;Database={DatabaseName}";
     const string TableName = "trained_brains";
 
+    private readonly ILogger<BrainRepository> _logger;
+
+    public BrainRepository(ILogger<BrainRepository> logger) => _logger = logger;
+
     public long SaveBrain(
         string name, string brainName, string strategyName, string dataset, BrainTrainingParameters parameters,
         long weightCount, double avgReward, byte[] weights)
@@ -29,10 +34,12 @@ internal sealed class BrainRepository : IBrainRepository
         EnsureTable(conn);
 
         string parametersJson = JsonSerializer.Serialize(parameters);
-        return conn.ExecuteScalar<long>(Sql.InsertBrain, new
+        long id = conn.ExecuteScalar<long>(Sql.InsertBrain, new
         {
             name, brainName, strategyName, dataset, parametersJson, weightCount, avgReward, weights
         });
+        _logger.LogInformation("Saved brain {Name} ({BrainName}/{StrategyName}) as id {Id}", name, brainName, strategyName, id);
+        return id;
     }
 
     public List<SavedBrainSummary> ListBrains()
@@ -42,12 +49,14 @@ internal sealed class BrainRepository : IBrainRepository
         conn.Open();
         EnsureTable(conn);
 
-        return conn.Query<BrainRow>(Sql.SelectBrainRows)
+        var result = conn.Query<BrainRow>(Sql.SelectBrainRows)
             .Select(r => new SavedBrainSummary(
                 r.Id, r.Name, r.BrainName, r.StrategyName, r.Dataset,
                 JsonSerializer.Deserialize<BrainTrainingParameters>(r.ParametersJson) ?? new BrainTrainingParameters(),
                 r.WeightCount, r.AvgReward, r.SavedAt))
             .ToList();
+        _logger.LogInformation("Listed {BrainCount} saved brains", result.Count);
+        return result;
     }
 
     public byte[]? LoadWeights(long id)
@@ -56,7 +65,12 @@ internal sealed class BrainRepository : IBrainRepository
         using var conn = new NpgsqlConnection(ConnectionString);
         conn.Open();
         EnsureTable(conn);
-        return conn.QuerySingleOrDefault<byte[]>(Sql.SelectWeights, new { id });
+        var weights = conn.QuerySingleOrDefault<byte[]>(Sql.SelectWeights, new { id });
+        if (weights is null)
+            _logger.LogWarning("No weights found for brain id {Id}", id);
+        else
+            _logger.LogInformation("Loaded weights for brain id {Id} ({ByteCount} bytes)", id, weights.Length);
+        return weights;
     }
 
     public void DeleteBrain(long id)
@@ -66,15 +80,19 @@ internal sealed class BrainRepository : IBrainRepository
         conn.Open();
         EnsureTable(conn);
         conn.Execute(Sql.DeleteBrain, new { id });
+        _logger.LogInformation("Deleted brain id {Id}", id);
     }
 
-    private static void EnsureDatabaseExists()
+    private void EnsureDatabaseExists()
     {
         using var conn = new NpgsqlConnection(MaintenanceConnectionString);
         conn.Open();
         bool exists = conn.ExecuteScalar<bool>(Sql.DatabaseExists, new { name = DatabaseName });
         if (!exists)
+        {
+            _logger.LogInformation("Database {DatabaseName} does not exist; creating it", DatabaseName);
             conn.Execute(Sql.CreateDatabase);
+        }
     }
 
     // The very first prototype of this table used brain_name as its primary
@@ -83,11 +101,14 @@ internal sealed class BrainRepository : IBrainRepository
     // have held one row per architecture, and nothing shipped against it.
     // Later additive columns (like "dataset") instead migrate in place via
     // ADD COLUMN IF NOT EXISTS, since by then real saved brains can exist.
-    private static void EnsureTable(NpgsqlConnection conn)
+    private void EnsureTable(NpgsqlConnection conn)
     {
         bool hasOldShape = conn.ExecuteScalar<bool>(Sql.OldShapeExists);
         if (hasOldShape)
+        {
+            _logger.LogWarning("Dropping legacy-shape {TableName} table before recreating it", TableName);
             conn.Execute(Sql.DropTable);
+        }
 
         conn.Execute(Sql.CreateTable);
         conn.Execute(Sql.AddDatasetColumn);

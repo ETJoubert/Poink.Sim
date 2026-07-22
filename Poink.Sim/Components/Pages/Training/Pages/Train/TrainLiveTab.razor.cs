@@ -67,29 +67,6 @@ namespace Poink.Sim.Components.Training
         private List<RlInputFeature> ScalarFeatures =>
             Service.LatestInputs?.Where(f => !f.Label.StartsWith("t-", StringComparison.Ordinal)).ToList() ?? new List<RlInputFeature>();
 
-        private sealed record InputBar(string Label, double Value, string HeightPct, string ColorCss);
-
-        // Bar height is scaled relative to the current window's own max magnitude
-        // (same "diverging, batch-relative intensity" treatment as EpisodeGrid) --
-        // these are small percent-change values, so an absolute scale would make
-        // every bar look identical.
-        private List<InputBar> PriceWindowBars
-        {
-            get
-            {
-                var features = PriceWindowFeatures;
-                if (features.Count == 0) return new List<InputBar>();
-
-                double maxAbs = features.Max(f => Math.Abs(f.Value));
-                return features.Select(f =>
-                {
-                    double heightPct = maxAbs > 0 ? Math.Clamp(Math.Abs(f.Value) / maxAbs, 0.08, 1.0) * 100 : 8;
-                    string colorVar = f.Value switch { > 0 => "--color-success", < 0 => "--color-error", _ => "--color-muted" };
-                    return new InputBar(f.Label, f.Value, Pct(heightPct), $"var({colorVar})");
-                }).ToList();
-            }
-        }
-
         private sealed record MetricsRow(int Episode, string Reward, string FinalEquity);
 
         // Most-recent-first, matching SimulationPage's LogRows convention.

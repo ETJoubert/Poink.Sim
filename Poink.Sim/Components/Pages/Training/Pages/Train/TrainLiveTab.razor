@@ -92,24 +92,35 @@ else
             }
             else
             {
-                <div class="input-strip">
-                    @foreach (var bar in PriceWindowBars)
-                    {
-                        <div class="input-bar" style="height: @(bar.HeightPct)%; background: @bar.ColorCss"
-                             title="@bar.Label — @bar.Value.ToString("N4")"></div>
-                    }
+                <div class="input-badge-group">
+                    <div class="input-badge-group-label">PRICE WINDOW</div>
+                    <div class="input-badges">
+                        @foreach (var f in PriceWindowFeatures)
+                        {
+                            <div class="input-badge">
+                                <span class="input-badge-label">@f.Label</span>
+                                <span
+                                    class="input-badge-value @(f.Value switch { > 0 => "input-positive", < 0 => "input-negative", _ => "" })">
+                                    @f.Value.ToString("N4")
+                                </span>
+                            </div>
+                        }
+                    </div>
                 </div>
-                <div class="input-scalars">
-                    @foreach (var f in ScalarFeatures)
-                    {
-                        <div class="input-scalar">
-                            <span class="input-scalar-label">@f.Label</span>
-                            <span
-                                class="input-scalar-value @(f.Value switch { > 0 => "input-positive", < 0 => "input-negative", _ => "" })">
-                                @f.Value.ToString("N3")
-                            </span>
-                        </div>
-                    }
+                <div class="input-badge-group">
+                    <div class="input-badge-group-label">ACCOUNT STATE</div>
+                    <div class="input-scalars">
+                        @foreach (var f in ScalarFeatures)
+                        {
+                            <div class="input-scalar">
+                                <span class="input-scalar-label">@f.Label</span>
+                                <span
+                                    class="input-scalar-value @(f.Value switch { > 0 => "input-positive", < 0 => "input-negative", _ => "" })">
+                                    @f.Value.ToString("N3")
+                                </span>
+                            </div>
+                        }
+                    </div>
                 </div>
             }
         </div>

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using Dapper;
+using Microsoft.Extensions.Logging;
 using Npgsql;
 
 namespace Poink.Sim.Repository;
@@ -33,6 +34,10 @@ internal sealed class TickRepository : ITickRepository
     private readonly Lock _cacheLock = new();
     private List<(string Table, long Rows, DateTime? MinTime, DateTime? MaxTime)>? _cachedTables;
 
+    private readonly ILogger<TickRepository> _logger;
+
+    public TickRepository(ILogger<TickRepository> logger) => _logger = logger;
+
     public bool HasCachedTables { get { lock (_cacheLock) return _cachedTables is not null; } }
 
     public IReadOnlyList<(string Table, long Rows, DateTime? MinTime, DateTime? MaxTime)> CachedTables
@@ -49,6 +54,7 @@ internal sealed class TickRepository : ITickRepository
         var rows = conn.Query<TickTableStatsRow>(Sql.SelectRegistryRows);
         var result = rows.Select(r => (r.TableName, r.RowCount, r.MinTimestamp, r.MaxTimestamp)).ToList();
         lock (_cacheLock) { _cachedTables = result; }
+        _logger.LogInformation("Listed {TableCount} tick tables", result.Count);
         return result;
     }
 
@@ -71,6 +77,7 @@ internal sealed class TickRepository : ITickRepository
         // correctly empties the registry if every ticks_* table has been dropped.
         conn.Execute(Sql.DeleteStaleRegistryRows, new { names = tableNames.ToArray() });
 
+        _logger.LogInformation("Refreshed tick table stats for {TableCount} tables", tableNames.Count);
         return ListTickTables();
     }
 
@@ -82,6 +89,7 @@ internal sealed class TickRepository : ITickRepository
     {
         using var conn = new NpgsqlConnection(ConnectionString);
         conn.Open();
+        _logger.LogInformation("Opening tick stream for {Table} (from={From}, to={To})", table, from, to);
 
         var sql = Sql.SelectTicks(table, from.HasValue, to.HasValue);
         foreach (var tick in conn.Query<Tick>(sql, new { from, to }, buffered: false))
@@ -110,7 +118,9 @@ internal sealed class TickRepository : ITickRepository
         conn.Open();
 
         var sql = Sql.CountTicks(table);
-        return conn.QuerySingle<long>(sql, new { from, to });
+        long count = conn.QuerySingle<long>(sql, new { from, to });
+        _logger.LogInformation("Counted ticks for {Table} between {From} and {To}: {Count}", table, from, to, count);
+        return count;
     }
 
     private static void EnsureRegistryTable(NpgsqlConnection conn) => conn.Execute(Sql.CreateRegistryTable);

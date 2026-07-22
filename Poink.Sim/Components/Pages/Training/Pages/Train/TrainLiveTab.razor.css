@@ -101,19 +101,51 @@
     grid-column: 1 / -1;
 }
 
-.input-strip {
-    display: flex;
-    align-items: flex-end;
-    gap: 2px;
-    height: 44px;
+.input-badge-group {
     margin-bottom: 14px;
 }
 
-.input-bar {
-    flex: 1;
-    min-width: 4px;
-    border-radius: 2px 2px 0 0;
-    opacity: 0.85;
+.input-badge-group-label {
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-secondary);
+    opacity: 0.8;
+    margin-bottom: 6px;
+}
+
+.input-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.input-badge {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 5px;
+    width: 76px;
+    flex-shrink: 0;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 12%, transparent);
+}
+
+.input-badge-label {
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-secondary);
+    opacity: 0.75;
+    white-space: nowrap;
+}
+
+.input-badge-value {
+    font-size: 0.72rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
 }
 
 .input-scalars {
@@ -126,6 +158,8 @@
     display: flex;
     flex-direction: column;
     gap: 2px;
+    width: 96px;
+    flex-shrink: 0;
 }
 
 .input-scalar-label {
@@ -134,11 +168,13 @@
     letter-spacing: 0.06em;
     color: var(--color-secondary);
     opacity: 0.8;
+    white-space: nowrap;
 }
 
 .input-scalar-value {
     font-size: 0.85rem;
     font-weight: 600;
+    font-variant-numeric: tabular-nums;
 }
 
 .input-positive {

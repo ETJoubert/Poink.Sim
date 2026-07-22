@@ -43,6 +43,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Poink.Sim.Brain;
 using Poink.Sim.Brain.Neural;
 using Poink.Sim.Models;
@@ -103,11 +104,13 @@ internal sealed class SimulationEngine : IDisposable
     private DateTime? _lastTimestamp;
 
     private readonly ITickRepository _tickRepository;
+    private readonly ILogger<SimulationEngine> _logger;
 
-    public SimulationEngine(IEnumerable<ISimulationBrain> brains, ITickRepository tickRepository)
+    public SimulationEngine(IEnumerable<ISimulationBrain> brains, ITickRepository tickRepository, ILogger<SimulationEngine> logger)
     {
         _brains = brains.ToList();
         _tickRepository = tickRepository;
+        _logger = logger;
         _timer = new Timer(TimerCallback, null, Timeout.Infinite, Timeout.Infinite);
     }
 
@@ -151,12 +154,13 @@ internal sealed class SimulationEngine : IDisposable
                     throw new InvalidOperationException("no ticks in the selected range");
 
                 IEnumerator<Tick> OpenReader() => _tickRepository.ReadTicks(config.Table, config.From, config.To).GetEnumerator();
-                FinishLoad(config, (int)Math.Min(count, int.MaxValue), OpenReader);
+                FinishLoad(config, (int)Math.Min(count, int.MaxValue), OpenReader, "historic");
             }
             catch (Exception ex)
             {
                 lock (_lock)
                 { IsLoading = false; Error = ex.Message; }
+                _logger.LogError(ex, "Failed to load simulation for table {Table}", config.Table);
             }
             PublishSnapshot();
         });
@@ -186,12 +190,13 @@ internal sealed class SimulationEngine : IDisposable
                 var ticks = DummyTickGenerator.Generate(config.From, config.To, tickCount);
                 if (ticks.Count == 0)
                     throw new InvalidOperationException("no ticks in the selected range");
-                FinishLoad(config, ticks.Count, () => ticks.GetEnumerator());
+                FinishLoad(config, ticks.Count, () => ticks.GetEnumerator(), "dummy");
             }
             catch (Exception ex)
             {
                 lock (_lock)
                 { IsLoading = false; Error = ex.Message; }
+                _logger.LogError(ex, "Failed to load dummy simulation");
             }
             PublishSnapshot();
         });
@@ -203,7 +208,7 @@ internal sealed class SimulationEngine : IDisposable
     // reader can be opened on demand -- openReader is stored so Reset can call
     // it again to rewind, without either caller needing to know that. Runs off
     // the UI thread inside the Task.Run callers above.
-    private void FinishLoad(SimulationConfig config, int totalCount, Func<IEnumerator<Tick>> openReader)
+    private void FinishLoad(SimulationConfig config, int totalCount, Func<IEnumerator<Tick>> openReader, string source)
     {
         var brain = _brains.FirstOrDefault(b => b.Name == config.BrainName) ?? _brains.FirstOrDefault();
         if (brain is null)
@@ -238,6 +243,10 @@ internal sealed class SimulationEngine : IDisposable
             _isPlaying = false;
             IsLoading = false;
         }
+
+        _logger.LogInformation(
+            "Loaded {Source} simulation: table={Table}, from={From}, to={To}, brain={Brain}, ticks={TotalCount}",
+            source, config.Table, config.From, config.To, brain.Name, totalCount);
     }
 
     private static List<TraderSession> CreateSessions(int count, double startingCash) =>
@@ -255,30 +264,39 @@ internal sealed class SimulationEngine : IDisposable
         }
         _timer.Change(0, Timeout.Infinite);
         PublishSnapshot();
+        _logger.LogInformation("Simulation playback started");
         return true;
     }
 
     public bool Pause()
     {
+        int cursor, total;
         lock (_lock)
         {
             if (!_isPlaying)
                 return false;
             _isPlaying = false;
+            cursor = _cursor;
+            total = _totalCount;
         }
         PublishSnapshot();
+        _logger.LogInformation("Simulation playback paused at {Cursor}/{Total}", cursor, total);
         return true;
     }
 
     public bool Step()
     {
+        int cursor, total;
         lock (_lock)
         {
             if (_isPlaying || _reader is null || _cursor >= _totalCount)
                 return false;
             AdvanceOneUnitLocked();
+            cursor = _cursor;
+            total = _totalCount;
         }
         PublishSnapshot();
+        _logger.LogInformation("Simulation stepped to {Cursor}/{Total}", cursor, total);
         return true;
     }
 
@@ -321,6 +339,7 @@ internal sealed class SimulationEngine : IDisposable
             _isPlaying = false;
         }
         PublishSnapshot();
+        _logger.LogInformation("Simulation reset to start of range");
         return true;
     }
 
@@ -352,6 +371,7 @@ internal sealed class SimulationEngine : IDisposable
         Error = null;
         OnChanged?.Invoke();
         OnProgress?.Invoke();
+        _logger.LogInformation("Simulation unloaded");
     }
 
     private void TimerCallback(object? state)
@@ -539,5 +559,6 @@ internal sealed class SimulationEngine : IDisposable
     {
         _timer.Dispose();
         lock (_lock) { _reader?.Dispose(); }
+        _logger.LogInformation("Simulation engine disposed");
     }
 }

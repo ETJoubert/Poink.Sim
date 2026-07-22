@@ -10,6 +10,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Poink.Sim.Brain;
 using Poink.Sim.Brain.Neural;
 using Poink.Sim.Repository;
@@ -35,6 +36,7 @@ internal sealed class RlTrainingService
     private readonly List<RlEpisodeMetric> _episodeMetrics = new();
     private readonly IBrainRepository _brainRepository;
     private readonly ITickRepository _tickRepository;
+    private readonly ILogger<RlTrainingService> _logger;
 
     // Which saved snapshot (if any) a live brain's current weights actually
     // match -- keyed by brain architecture name. Set on load/save, cleared the
@@ -44,12 +46,13 @@ internal sealed class RlTrainingService
 
     public RlTrainingService(
         IEnumerable<ISimulationBrain> brains, IEnumerable<IRlTrainingStrategy> strategies,
-        IBrainRepository brainRepository, ITickRepository tickRepository)
+        IBrainRepository brainRepository, ITickRepository tickRepository, ILogger<RlTrainingService> logger)
     {
         _brains = brains.ToList();
         _strategies = strategies.ToList();
         _brainRepository = brainRepository;
         _tickRepository = tickRepository;
+        _logger = logger;
 
         // Restore whatever was last saved for each trainable brain -- these are
         // DI singletons that otherwise only keep weights in memory, so without
@@ -69,7 +72,10 @@ internal sealed class RlTrainingService
                 _activeSnapshotId[latest.BrainName] = latest.Id;
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to restore saved brain weights at startup; continuing with untrained brains");
+        }
     }
 
     // Null if this brain's live weights don't (or no longer) match any saved
@@ -169,6 +175,11 @@ internal sealed class RlTrainingService
 
         OnChanged?.Invoke();
 
+        string source = historicRange is { } r ? r.Table : "dummy";
+        _logger.LogInformation(
+            "Training started: brain={Brain}, strategy={Strategy}, episodes={EpisodeCount}, ticksPerEpisode={TicksPerEpisode}, source={Source}",
+            brainName, strategyName, episodeCount, ticksPerEpisode, source);
+
         _ = Task.Run(() =>
         {
             try
@@ -210,10 +221,15 @@ internal sealed class RlTrainingService
                     }
                     OnChanged?.Invoke();
                 }
+
+                _logger.LogInformation(
+                    "Training completed: brain={Brain}, episodes={EpisodesCompleted}, bestReward={BestReward}, recentAvgReward={RecentAverageReward}",
+                    brainName, EpisodesCompleted, BestReward, RecentAverageReward);
             }
             catch (Exception ex)
             {
                 lock (_lock) { Error = ex.Message; }
+                _logger.LogError(ex, "Training failed: brain={Brain}, strategy={Strategy}", brainName, strategyName);
             }
             finally
             {
@@ -266,6 +282,7 @@ internal sealed class RlTrainingService
         {
             SaveStatus = $"save failed: {ex.Message}";
             OnChanged?.Invoke();
+            _logger.LogWarning(ex, "Failed to save brain snapshot: name={SavedName}, brain={BrainName}", savedName, brainName);
             return false;
         }
     }
@@ -279,6 +296,7 @@ internal sealed class RlTrainingService
         catch (Exception ex)
         {
             SaveStatus = $"couldn't list saved brains: {ex.Message}";
+            _logger.LogWarning(ex, "Failed to refresh saved brains list");
         }
         OnChanged?.Invoke();
     }
@@ -291,10 +309,22 @@ internal sealed class RlTrainingService
     public bool LoadSavedBrain(long id)
     {
         var summary = SavedBrains.FirstOrDefault(b => b.Id == id);
-        if (summary is null) { SaveStatus = "brain no longer exists"; OnChanged?.Invoke(); return false; }
+        if (summary is null)
+        {
+            SaveStatus = "brain no longer exists";
+            OnChanged?.Invoke();
+            _logger.LogWarning("LoadSavedBrain: id {Id} no longer exists", id);
+            return false;
+        }
 
         var brain = _brains.OfType<IPolicyGradientBrain>().FirstOrDefault(b => b.Name == summary.BrainName);
-        if (brain is null) { SaveStatus = $"no live '{summary.BrainName}' brain to load into"; OnChanged?.Invoke(); return false; }
+        if (brain is null)
+        {
+            SaveStatus = $"no live '{summary.BrainName}' brain to load into";
+            OnChanged?.Invoke();
+            _logger.LogWarning("LoadSavedBrain: no live '{BrainName}' brain to load id {Id} into", summary.BrainName, id);
+            return false;
+        }
 
         try
         {
@@ -303,11 +333,13 @@ internal sealed class RlTrainingService
             brain.ImportWeights(weights);
             _activeSnapshotId[summary.BrainName] = id;
             SaveStatus = $"loaded '{summary.Name}' into '{summary.BrainName}' -- ready to use in Simulation";
+            _logger.LogInformation("Loaded saved brain {SavedName} (id={Id}) into live brain {BrainName}", summary.Name, id, summary.BrainName);
             return true;
         }
         catch (Exception ex)
         {
             SaveStatus = $"load failed: {ex.Message}";
+            _logger.LogError(ex, "Failed to load saved brain id {Id}", id);
             return false;
         }
         finally
@@ -329,6 +361,7 @@ internal sealed class RlTrainingService
         {
             SaveStatus = $"delete failed: {ex.Message}";
             OnChanged?.Invoke();
+            _logger.LogWarning(ex, "Failed to delete saved brain id {Id}", id);
             return false;
         }
     }
@@ -349,6 +382,9 @@ internal sealed class RlTrainingService
             var window = _tickRepository.ReadWindow(table, start, count);
             if (window.Count > 0) return window;
         }
+        _logger.LogWarning(
+            "RandomEpisodeWindow: 5 random starts in {Table} landed in empty windows; falling back to range start {From}",
+            table, from);
         return _tickRepository.ReadWindow(table, from, count);
     }
 }
