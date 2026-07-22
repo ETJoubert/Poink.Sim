@@ -64,6 +64,14 @@ internal sealed class SimulationEngine : IDisposable
     private const int MaxRecentTicks = 5000;
     private const int MaxRecentLog = 200;
 
+    // Per-symbol price precision for the bar-mode volume-profile histogram (see
+    // BarPriceHistogram) -- every symbol uses this same 2-decimal-place width today;
+    // this is the single seam to swap in a real per-symbol lookup (pip size /
+    // decimal places) later without touching SimulationBarAggregator or its callers.
+    private const double DefaultPriceBucketWidth = 0.01;
+
+    private static double PriceBucketWidthFor(string table) => DefaultPriceBucketWidth;
+
     private readonly object _lock = new();
     private readonly List<ISimulationBrain> _brains;
     private readonly Timer _timer;
@@ -96,6 +104,7 @@ internal sealed class SimulationEngine : IDisposable
     private bool _isPlaying;
 
     private readonly RingBuffer<HlocAvdtBar> _recentBars = new(MaxRecentBars);
+    private readonly RingBuffer<BarPriceHistogram> _recentBarHistograms = new(MaxRecentBars);
     private readonly RingBuffer<Tick> _recentTicks = new(MaxRecentTicks);
 
     private double? _lastPrice;
@@ -231,10 +240,13 @@ internal sealed class SimulationEngine : IDisposable
             _totalCount = totalCount;
             _config = config;
             _traderSessions = CreateSessions(config.TraderCount, config.StartingCash);
-            _aggregator = config.Aggregate ? new SimulationBarAggregator(config.BarSize) : null;
+            _aggregator = config.Aggregate
+                ? new SimulationBarAggregator(config.BarSize, PriceBucketWidthFor(config.Table))
+                : null;
             _activeBrain = brain;
             _activeBrain.Reset();
             _recentBars.Clear();
+            _recentBarHistograms.Clear();
             _recentTicks.Clear();
             _lastPrice = null;
             _lastBid = null;
@@ -328,9 +340,12 @@ internal sealed class SimulationEngine : IDisposable
             _reader = _openReader();
             _cursor = 0;
             _traderSessions = CreateSessions(_config.TraderCount, _config.StartingCash);
-            _aggregator = _config.Aggregate ? new SimulationBarAggregator(_config.BarSize) : null;
+            _aggregator = _config.Aggregate
+                ? new SimulationBarAggregator(_config.BarSize, PriceBucketWidthFor(_config.Table))
+                : null;
             _activeBrain?.Reset();
             _recentBars.Clear();
+            _recentBarHistograms.Clear();
             _recentTicks.Clear();
             _lastPrice = null;
             _lastBid = null;
@@ -360,6 +375,7 @@ internal sealed class SimulationEngine : IDisposable
             _activeBrain = null;
             _isPlaying = false;
             _recentBars.Clear();
+            _recentBarHistograms.Clear();
             _recentTicks.Clear();
             _lastPrice = null;
             _lastBid = null;
@@ -457,8 +473,8 @@ internal sealed class SimulationEngine : IDisposable
             var completed = _aggregator.Feed(tick);
             if (completed is not null)
             {
-                AppendBar(completed.Value);
-                DecideAndApply(tick.Timestamp, completed.Value.Close, useBars: true);
+                AppendBar(completed.Value.Bar, completed.Value.Histogram);
+                DecideAndApply(tick.Timestamp, completed.Value.Bar.Close, useBars: true);
             }
         }
         else
@@ -489,7 +505,11 @@ internal sealed class SimulationEngine : IDisposable
         }
     }
 
-    private void AppendBar(HlocAvdtBar bar) => _recentBars.Add(bar);
+    private void AppendBar(HlocAvdtBar bar, BarPriceHistogram histogram)
+    {
+        _recentBars.Add(bar);
+        _recentBarHistograms.Add(histogram);
+    }
 
     private void AppendTick(Tick tick) => _recentTicks.Add(tick);
 
@@ -502,9 +522,14 @@ internal sealed class SimulationEngine : IDisposable
         {
             // The in-progress bar is appended after the completed ones so the chart's last
             // candle updates tick-by-tick instead of only snapping into place once it closes.
+            // Its histogram rides alongside, index-aligned with bars, for the same reason.
             var bars = _recentBars.ToList();
+            var barHistograms = _recentBarHistograms.ToList();
             if (_aggregator?.CurrentPartialBar is { } partial)
+            {
                 bars.Add(partial);
+                barHistograms.Add(_aggregator.CurrentPartialHistogram!);
+            }
 
             snapshot = _config is null || _reader is null
                 ? null
@@ -515,7 +540,7 @@ internal sealed class SimulationEngine : IDisposable
                         ts.Id, ts.Label, ts.Trader.Snapshot(_lastPrice ?? 0), ts.Trader.CurrentPosition,
                         ts.Trader.TradeLog.Count, ts.RecentLog.ToList(), ts.Trader.TradeLog.ToList(),
                         ts.Trader.MaxEquity, ts.Trader.MaxDrawdown)).ToList(),
-                    bars, _recentTicks.ToList());
+                    bars, barHistograms, _recentTicks.ToList());
         }
         Snapshot = snapshot;
         Progress = snapshot is null

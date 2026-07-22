@@ -42,4 +42,5 @@ internal sealed record SimulationSnapshot(
     int CursorIndex, int TotalCount, DateTime? CurrentTimestampUtc, double? CurrentPrice,
     double? CurrentBid, double? CurrentAsk,
     IReadOnlyList<TraderSnapshot> Traders,
-    IReadOnlyList<HlocAvdtBar> RecentBars, IReadOnlyList<Tick> RecentTicks);
+    IReadOnlyList<HlocAvdtBar> RecentBars, IReadOnlyList<BarPriceHistogram> RecentBarHistograms,
+    IReadOnlyList<Tick> RecentTicks);

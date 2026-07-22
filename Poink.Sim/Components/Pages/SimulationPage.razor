@@ -184,17 +184,34 @@
         @if (!_hideChart)
         {
             <div class="sim-window-bar">
-                <span class="sim-window-title">TICK WINDOW</span>
-                <div class="sim-window-rail">
-                    <div class="sim-window-track"></div>
-                    <div class="sim-window-fill"
-                         style="width: @(TickWindowFillPercent.ToString("0.##", CultureInfo.InvariantCulture))%"></div>
-                    <input type="range" class="sim-window-slider" min="0" max="@MaxTickWindow" step="1" @bind="_tickWindowSize"
-                           @bind:event="oninput"
-                           title="Ticks back from now -- drives the volume profile window and the chart's window-start marker" />
-                </div>
-                <input class="sim-window-input" type="number" min="0" max="@MaxTickWindow" @bind="_tickWindowSize"
-                       @bind:event="oninput" />
+                @if (s.Config.Aggregate)
+                {
+                    <span class="sim-window-title">BAR WINDOW</span>
+                    <div class="sim-window-rail">
+                        <div class="sim-window-track"></div>
+                        <div class="sim-window-fill"
+                             style="width: @(BarWindowFillPercent.ToString("0.##", CultureInfo.InvariantCulture))%"></div>
+                        <input type="range" class="sim-window-slider" min="1" max="@MaxBarWindow" step="1" @bind="_barWindowSize"
+                               @bind:event="oninput"
+                               title="Bars back from now -- their price histograms drive the volume profile window, and the bar itself drives the chart's window-start marker" />
+                    </div>
+                    <input class="sim-window-input" type="number" min="1" max="@MaxBarWindow" @bind="_barWindowSize"
+                           @bind:event="oninput" />
+                }
+                else
+                {
+                    <span class="sim-window-title">TICK WINDOW</span>
+                    <div class="sim-window-rail">
+                        <div class="sim-window-track"></div>
+                        <div class="sim-window-fill"
+                             style="width: @(TickWindowFillPercent.ToString("0.##", CultureInfo.InvariantCulture))%"></div>
+                        <input type="range" class="sim-window-slider" min="0" max="@MaxTickWindow" step="1" @bind="_tickWindowSize"
+                               @bind:event="oninput"
+                               title="Ticks back from now -- drives the volume profile window" />
+                    </div>
+                    <input class="sim-window-input" type="number" min="0" max="@MaxTickWindow" @bind="_tickWindowSize"
+                           @bind:event="oninput" />
+                }
             </div>
 
             <div class="sim-chart">
@@ -202,7 +219,7 @@
                     @if (s.Config.Aggregate)
                     {
                         <OhlcvChart Bars="ToBarRows(s.RecentBars)" CurrentBid="s.CurrentBid" CurrentAsk="s.CurrentAsk"
-                                    WindowStartUtc="WindowStartUtc(s.RecentTicks, s.Config.BarSize)" />
+                                    WindowStartUtc="WindowStartUtc(s.RecentBars)" />
                     }
                     else
                     {
@@ -210,8 +227,15 @@
                     }
                 </div>
                 <div class="sim-chart-side">
-                    <TickVolumeProfileChart Prices="ToMidPrices(s.RecentTicks)" CurrentPrice="s.CurrentPrice"
-                                            WindowSize="ClampedTickWindow" />
+                    @if (s.Config.Aggregate)
+                    {
+                        <TickVolumeProfileChart WeightedSamples="MergedBarSamples(s)" CurrentPrice="s.CurrentPrice" />
+                    }
+                    else
+                    {
+                        <TickVolumeProfileChart Prices="ToMidPrices(s.RecentTicks)" CurrentPrice="s.CurrentPrice"
+                                                WindowSize="ClampedTickWindow" />
+                    }
                 </div>
             </div>
         }

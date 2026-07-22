@@ -35,12 +35,19 @@ internal static class RlEpisodeRunner
     private const int MaxRecentBars = 300;
     private const int MaxRecentTicks = 500;
 
+    // Bucket width is irrelevant here -- training only reads the bar itself
+    // (recentBars below), never the per-bar price histogram SimulationBarAggregator
+    // also builds for SimulationEngine's volume-profile panel.
+    private const double UnusedPriceBucketWidth = 0.01;
+
     public static RlEpisode Run(
         ISimulationBrain brain, IReadOnlyList<Tick> ticks, double startingCash,
         bool aggregate = true, TimeSpan? barSize = null)
     {
         var trader = new Trader.Trader(startingCash);
-        var aggregator = aggregate ? new SimulationBarAggregator(barSize ?? TimeSpan.FromMinutes(1)) : null;
+        var aggregator = aggregate
+            ? new SimulationBarAggregator(barSize ?? TimeSpan.FromMinutes(1), UnusedPriceBucketWidth)
+            : null;
 
         var recentBars = new List<HlocAvdtBar>();
         var recentTicks = new List<Tick>();
@@ -62,10 +69,10 @@ internal static class RlEpisodeRunner
                 var completed = aggregator.Feed(tick);
                 if (completed is not null)
                 {
-                    recentBars.Add(completed.Value);
+                    recentBars.Add(completed.Value.Bar);
                     if (recentBars.Count > MaxRecentBars) recentBars.RemoveAt(0);
                     (previousEquity, lastObservation) = RecordStep(
-                        brain, trader, tick.Timestamp, completed.Value.Close, recentBars, Array.Empty<Tick>(), steps, previousEquity);
+                        brain, trader, tick.Timestamp, completed.Value.Bar.Close, recentBars, Array.Empty<Tick>(), steps, previousEquity);
                 }
             }
             else

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using Microsoft.AspNetCore.Components;
+using Poink.Sim.Components.Charts;
 using Poink.Sim.Models;
 using Poink.Sim.Repository;
 using Poink.Sim.Simulation;
@@ -45,24 +46,42 @@ namespace Poink.Sim.Components.Pages
         // Shared "how many of the most recent ticks" control -- drives both the
         // TickVolumeProfileChart panel and the window-start marker on OhlcvChart, so it
         // lives here rather than inside either chart component (see their [Parameter]s).
+        // Two selectors share this role depending on Config.Aggregate: bar-mode runs use
+        // a bar count (below), raw-tick runs fall back to this literal tick count since
+        // there are no bars to derive one from (SimulationEngine.RecentBars stays empty
+        // when Aggregate is off).
         private const int MaxTickWindow = 5000; // matches SimulationEngine.MaxRecentTicks
         private int _tickWindowSize = 200;
         private int ClampedTickWindow => Math.Clamp(_tickWindowSize, 2, MaxTickWindow);
         private double TickWindowFillPercent => ClampedTickWindow * 100.0 / MaxTickWindow;
 
-        // Timestamp of the tick that starts the current window -- null once the window
+        // Bar-mode counterpart to the tick-count fallback above -- counts bars back
+        // from now rather than ticks. The volume profile itself is fed by merging
+        // these bars' own price histograms, see MergedBarSamples below.
+        private const int MaxBarWindow = 300; // matches SimulationEngine.MaxRecentBars
+        private int _barWindowSize = 50;
+        private int ClampedBarWindow => Math.Clamp(_barWindowSize, 1, MaxBarWindow);
+        private double BarWindowFillPercent => ClampedBarWindow * 100.0 / MaxBarWindow;
+
+        // Merges the last ClampedBarWindow bars' price histograms into one weighted-sample
+        // list for TickVolumeProfileChart -- see BarPriceHistogram.Merge for how bars
+        // sharing one BucketWidth get summed bucket-for-bucket instead of needing the
+        // original per-tick prices back.
+        private List<WeightedPriceSample> MergedBarSamples(SimulationSnapshot s) =>
+            BarPriceHistogram.Merge(s.RecentBarHistograms, ClampedBarWindow)
+                .Select(t => new WeightedPriceSample(t.Price, t.Count, t.UpCount, t.DownCount))
+                .ToList();
+
+        // Timestamp of the bar that starts the current window -- null once the window
         // covers the whole buffer, so OhlcvChart knows to hide the marker rather than
-        // drawing it at the very first bar. Snapped to the same bar-boundary formula
-        // SimulationBarAggregator.Feed uses so it lands exactly on a rendered bar's
-        // OpenTime -- lightweight-charts' timeToCoordinate only resolves times that
-        // exist as an actual point on the chart's time axis (an arbitrary in-between
-        // tick timestamp resolves to no coordinate at all, so nothing draws).
-        private DateTime? WindowStartUtc(IReadOnlyList<Tick> ticks, TimeSpan barSize)
+        // drawing it at the very first bar. Bars' own OpenTime is already a valid point
+        // on the chart's time axis (unlike an arbitrary tick timestamp), so no snapping
+        // is needed here the way the old tick-based version required.
+        private DateTime? WindowStartUtc(IReadOnlyList<HlocAvdtBar> bars)
         {
-            if (ticks.Count <= ClampedTickWindow)
+            if (bars.Count <= ClampedBarWindow)
                 return null;
-            var raw = ticks[ticks.Count - ClampedTickWindow].Timestamp;
-            return new DateTime(raw.Ticks - (raw.Ticks % barSize.Ticks), raw.Kind);
+            return bars[bars.Count - ClampedBarWindow].OpenTime;
         }
 
         private enum LogTab { Decisions, Positions, Traders, Brain, Statistics }
