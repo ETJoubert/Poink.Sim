@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 using Poink.Sim.Models;
 using Poink.Sim.Repository;
@@ -14,8 +13,6 @@ namespace Poink.Sim.Components.Pages
     public partial class SimulationPage : ComponentBase, IDisposable
     {
         [Inject] private SimulationEngine Service { get; set; } = default!;
-        [Inject] private ITickRepository TickRepository { get; set; } = default!;
-        [Inject] private TickDataStore TickDataStore { get; set; } = default!;
 
         // RlTrainingService owns the same live ISimulationBrain singletons this
         // page's SimulationEngine drives -- injected only for its brain
@@ -24,10 +21,6 @@ namespace Poink.Sim.Components.Pages
         [Inject] private RlTrainingService TrainingService { get; set; } = default!;
 
         // ── Setup form state ──
-
-        private List<(string Table, long Rows, DateTime? MinTime, DateTime? MaxTime)> _availableTables = new();
-        private bool _loadingTables;
-        private bool _tableListFailed;
 
         private string _table = "";
         private DateTime _from = DateTime.UtcNow.AddDays(-1);
@@ -38,34 +31,6 @@ namespace Poink.Sim.Components.Pages
         private double _startingCash = 10_000;
         private int _traderCount = 1;
         private string? _loadError;
-
-        private string SelectedTable
-        {
-            get => _table;
-            set
-            {
-                _table = value;
-                var meta = _availableTables.FirstOrDefault(t => t.Table == value);
-                if (meta.MaxTime is not null)
-                {
-                    _to = meta.MaxTime.Value;
-                    _from = meta.MinTime is not null && meta.MaxTime.Value - meta.MinTime.Value < TimeSpan.FromDays(1)
-                        ? meta.MinTime.Value
-                        : meta.MaxTime.Value.AddDays(-1);
-                }
-            }
-        }
-
-        private (string Table, long Rows, DateTime? MinTime, DateTime? MaxTime) SelectedTableMeta =>
-            _availableTables.FirstOrDefault(t => t.Table == _table);
-
-        // Bounds for the DateRangeSlider -- the selected table's known span when
-        // one's picked, else a generous fallback so the slider still renders for
-        // Load Dummy Data (which uses _from/_to too, just without a real table).
-        private DateTime SliderMin => SelectedTableMeta.MinTime ?? DateTime.UtcNow.AddDays(-30);
-        private DateTime SliderMax => SelectedTableMeta.MaxTime ?? DateTime.UtcNow;
-
-        private bool IsDataReady => !string.IsNullOrWhiteSpace(_table) && TickDataStore.IsLoadedFor(_table, _from, _to);
 
         private List<string> BrainNames => Service.BrainNames.ToList();
 
@@ -126,75 +91,13 @@ namespace Poink.Sim.Components.Pages
 
         // ── Lifecycle ──
 
-        // Deliberately synchronous and DB-free: initial render must never wait on
-        // Postgres. RefreshTickTableStats() rescans every ticks_* table with a
-        // full-scan COUNT(*)/MIN/MAX and upserts tick_table_stats -- slow, and was
-        // blocking first paint twice (once for the prerender pass, once for the
-        // interactive circuit) when this ran eagerly here. The table list now only
-        // loads when the user clicks "LOAD DATA" below (or recounts via "RECOUNT"),
-        // except that TickRepository is a singleton, so if another page already did
-        // either this run, its in-memory CachedTables is reused here for free.
         protected override void OnInitialized()
         {
             Service.OnChanged += HandleServiceChanged;
-            TickDataStore.OnChanged += HandleServiceChanged;
             ApplyServiceState();
 
             if (BrainNames.Count > 0)
                 _brainName = BrainNames[0];
-
-            if (TickRepository.HasCachedTables)
-            {
-                _availableTables = TickRepository.CachedTables.ToList();
-                if (_availableTables.Count > 0 && string.IsNullOrWhiteSpace(_table))
-                    SelectedTable = _availableTables[0].Table;
-            }
-        }
-
-        // Fetches and caches the actual tick rows for the selected table+range
-        // (TickDataStore, shared with TrainPage) -- separate from picking a table,
-        // and from LoadSimulation() below, which now just consumes whatever's
-        // already loaded here instead of re-reading Postgres itself.
-        private void LoadData()
-        {
-            _loadError = null;
-            if (string.IsNullOrWhiteSpace(_table))
-            { _loadError = "pick a symbol"; return; }
-            if (_to <= _from)
-            { _loadError = "To must be after From"; return; }
-
-            if (!TickDataStore.TryLoad(_table, _from, _to))
-                _loadError = "a load is already in progress";
-        }
-
-        // Fast: reads the tick_table_stats registry (small table, no scanning).
-        private Task LoadTables() => FetchTables(() => TickRepository.ListTickTables());
-
-        // Slow: rescans every ticks_* table (COUNT(*)/MIN/MAX) and rebuilds the
-        // registry -- an explicit action so it never happens as a side effect of
-        // just wanting the already-known table list.
-        private Task RecountTables() => FetchTables(() => TickRepository.RefreshTickTableStats());
-
-        private async Task FetchTables(Func<List<(string Table, long Rows, DateTime? MinTime, DateTime? MaxTime)>> fetch)
-        {
-            _loadingTables = true;
-            _tableListFailed = false;
-            StateHasChanged();
-
-            try
-            {
-                _availableTables = await Task.Run(fetch);
-                if (_availableTables.Count > 0 && string.IsNullOrWhiteSpace(_table))
-                    SelectedTable = _availableTables[0].Table;
-            }
-            catch
-            {
-                _tableListFailed = true;
-            }
-            finally
-            {
-                _loadingTables = false;
-            }
         }
 
         private void HandleServiceChanged() => _ = InvokeAsync(() =>
@@ -213,7 +116,6 @@ namespace Poink.Sim.Components.Pages
         public void Dispose()
         {
             Service.OnChanged -= HandleServiceChanged;
-            TickDataStore.OnChanged -= HandleServiceChanged;
         }
 
         // ── Setup actions ──
@@ -235,14 +137,10 @@ namespace Poink.Sim.Components.Pages
             if (_traderCount < 1)
                 _traderCount = 1;
 
-            var ticks = TickDataStore.GetLoaded(_table, _from, _to);
-            if (ticks is null)
-            { _loadError = "load the data first"; return; }
-
             var config = new SimulationConfig(
                 _table, _from, _to, _aggregate, TimeSpan.FromMinutes(barMinutes), _brainName, _startingCash, _traderCount);
 
-            if (!Service.TryLoad(config, ticks))
+            if (!Service.TryLoad(config))
                 _loadError = "a load is already in progress";
         }
 

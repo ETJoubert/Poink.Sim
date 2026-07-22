@@ -1,75 +1,20 @@
 @namespace Poink.Sim.Components.Training
 @using Poink.Shared.Client.Components.Shared.Icon
 @using Poink.Sim.Components.Shared.DataTable
-@using Poink.Sim.Components.Shared.DateRangeSlider
+@using Poink.Sim.Components.Shared.TickDataSource
 
 <p class="train-help">
     Runs a brain through many headless simulated episodes, training it via the
-    selected strategy after each episode. Either synthetic random-walk ticks (no
-    Postgres needed) or a real historic range, randomly windowed per episode. Only
-    brains the strategy recognizes as trainable can be selected.
+    selected strategy after each episode. Pick a symbol/range below for real
+    historic ticks (Start Training), or use Start Training (Synthetic) for a
+    no-Postgres-needed random-walk run instead. Only brains the strategy
+    recognizes as trainable can be selected.
 </p>
 
 <div class="train-setup-grid">
     <div class="train-group train-group-wide">
         <div class="train-group-title">Data source</div>
-        <div class="train-row">
-            <label>
-                <input type="checkbox" @bind="_useHistoricData" disabled="@Service.IsRunning" />
-                Train on real historic ticks
-            </label>
-        </div>
-        @if (_useHistoricData)
-        {
-            <div class="train-row">
-                <label>
-                    Symbol
-                    @if (_availableTables.Count > 0)
-                    {
-                        <select class="terminal-input" @bind="SelectedTable" disabled="@(Service.IsRunning || _loadingTables)">
-                            @foreach (var t in _availableTables)
-                            {
-                                <option value="@t.Table">@t.Table (@t.Rows.ToString("N0") rows)</option>
-                            }
-                        </select>
-                        <button class="terminal-btn-action" @onclick="RecountTables" disabled="@(Service.IsRunning || _loadingTables)"
-                                title="Rescans every ticks_* table (COUNT/MIN/MAX) and refreshes stored row counts -- slow, only needed after new data has been written">
-                            @(_loadingTables ? "RECOUNTING..." : "RECOUNT")
-                        </button>
-                    }
-                    else if (_loadingTables)
-                    {
-                        <span>loading tables...</span>
-                    }
-                    else
-                    {
-                        <button class="terminal-btn-action" @onclick="LoadTables" disabled="@Service.IsRunning"
-                                title="Loads the cached tick_table_stats registry -- fast, no table scanning">
-                            @(_tableListFailed ? "RETRY" : "LOAD TABLES")
-                        </button>
-                    }
-                </label>
-            </div>
-            @if (_tableListFailed)
-            {
-                <p class="train-error">Tick table list unavailable (Postgres down?).</p>
-            }
-            <div class="train-row train-row-range">
-                <DateRangeSlider Min="SliderMin" Max="SliderMax" From="_from" FromChanged="@(v => _from = v)"
-                                 To="_to" ToChanged="@(v => _to = v)"
-                                 Disabled="@(Service.IsRunning || _loadingTables || TickDataStore.IsLoading)" />
-            </div>
-            <div class="train-row">
-                <span class="data-status @(IsDataReady ? "data-status-ready" : "data-status-pending")">
-                    @(TickDataStore.IsLoading ? "LOADING..." : IsDataReady ? $"DATA LOADED ({TickDataStore.LoadedCount:N0} ticks)" : "DATA NOT LOADED")
-                </span>
-                <button class="terminal-btn-action" @onclick="LoadData"
-                        disabled="@(Service.IsRunning || string.IsNullOrWhiteSpace(_table) || TickDataStore.IsLoading)"
-                        title="Reads ticks for the selected symbol/range into memory -- required before Start Training">
-                    @(TickDataStore.IsLoading ? "LOADING..." : "LOAD DATA")
-                </button>
-            </div>
-        }
+        <TickDataSource @bind-Table="_table" @bind-From="_from" @bind-To="_to" Disabled="Service.IsRunning" />
     </div>
 
     <BrainStrategyPicker BrainOptions="Service.BrainOptions" StrategyNames="Service.StrategyNames"

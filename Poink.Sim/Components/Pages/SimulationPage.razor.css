@@ -557,50 +557,11 @@
     color: var(--color-secondary);
 }
 
-.sim-row-range {
-    align-items: stretch;
-}
-
-.sim-row-range ::deep .drs {
-    flex: 1;
-    min-width: 260px;
-}
-
-/* ── Data-loaded readiness pill, next to the LOAD DATA button ───────────── */
-
-.data-status {
-    font-size: 0.68rem;
-    font-weight: bold;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    padding: 4px 10px;
-    border-radius: 999px;
-    border: 1px solid currentColor;
-}
-
-.data-status-pending {
-    color: var(--color-secondary);
-    opacity: 0.75;
-}
-
-.data-status-ready {
-    color: var(--color-success);
-    text-shadow: 0 0 8px color-mix(in srgb, var(--color-success) 50%, transparent);
-}
-
 .sim-setup-actions {
     display: flex;
     align-items: center;
     gap: 10px;
     margin-top: 4px;
-}
-
-.sim-note {
-    color: var(--color-text-muted, var(--color-secondary));
-    font-size: 0.8rem;
-    border-left: 2px solid rgba(255, 255, 255, 0.15);
-    padding-left: 10px;
-    margin: 10px 0;
 }
 
 .sim-error {

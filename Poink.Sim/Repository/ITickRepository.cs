@@ -35,4 +35,14 @@ internal interface ITickRepository
     List<(string Table, long Rows, DateTime? MinTime, DateTime? MaxTime)> RefreshTickTableStats();
 
     IEnumerable<Tick> ReadTicks(string table, DateTime? from = null, DateTime? to = null);
+
+    // Bounded window read for a single training episode -- chunk-pruned by
+    // Timescale regardless of table size, so this stays cheap even against
+    // a 160M-row table. Materialized (not lazy) since callers always need
+    // the whole bounded window in hand (e.g. RlEpisodeRunner.Run).
+    List<Tick> ReadWindow(string table, DateTime start, int count);
+
+    // Cheap COUNT(*) over a chunk-pruned range -- used for progress bars
+    // instead of materializing the range just to know its length.
+    long CountTicks(string table, DateTime from, DateTime to);
 }

@@ -39,7 +39,7 @@ namespace Poink.Sim.Components.Pages
         // actually kicked off -- that's the whole point of the tab existing.
         private void HandleTrainingStarted() => _activeTab = TrainTab.Live;
 
-        // Lets the top bar's button work no matter which tab is active. On
+        // Lets the top bar's buttons work no matter which tab is active. On
         // validation failure, switch to Setup so the error message (rendered
         // there) is actually visible.
         private async Task StartTraining()
@@ -47,6 +47,17 @@ namespace Poink.Sim.Components.Pages
             if (_setupTab is null) return;
 
             await _setupTab.StartTraining();
+
+            if (_setupTab.StartError is not null) _activeTab = TrainTab.Setup;
+        }
+
+        // Mirrors Simulation's Load Dummy Data button -- ignores whatever
+        // symbol/range is picked in Setup, always synthetic random-walk ticks.
+        private async Task StartTrainingSynthetic()
+        {
+            if (_setupTab is null) return;
+
+            await _setupTab.StartTrainingSynthetic();
 
             if (_setupTab.StartError is not null) _activeTab = TrainTab.Setup;
         }

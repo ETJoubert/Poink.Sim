@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
-using Poink.Sim.Repository;
 using Poink.Sim.Training;
 
 namespace Poink.Sim.Components.Training
@@ -15,8 +14,6 @@ namespace Poink.Sim.Components.Training
     public partial class TrainSetupTab : ComponentBase, IDisposable
     {
         [Inject] private RlTrainingService Service { get; set; } = default!;
-        [Inject] private ITickRepository TickRepository { get; set; } = default!;
-        [Inject] private TickDataStore TickDataStore { get; set; } = default!;
 
         [Parameter] public string BrainName { get; set; } = "";
         [Parameter] public EventCallback<string> BrainNameChanged { get; set; }
@@ -33,107 +30,32 @@ namespace Poink.Sim.Components.Training
         private string? _startError;
         private string _saveName = "";
 
+        // Which Start button was last used -- drives CurrentDatasetDescription
+        // below (SaveModel's dataset tag), since there's no live checkbox to
+        // read anymore.
+        private bool _datasetIsHistoric;
+
         // Read by TrainPage's top-bar Start Training button after it awaits
         // StartTraining(), so it knows whether to jump back to this tab to show
         // the error (success already jumps to Live via OnTrainingStarted).
         public string? StartError => _startError;
 
         // ── Data source ──
-        // Mirrors SimulationPage's table-select pattern: dummy synthetic ticks by
-        // default (no Postgres needed), or a real historic table+range that gets
-        // loaded once and randomly windowed per episode (see RlTrainingService).
-        private bool _useHistoricData;
-        private List<(string Table, long Rows, DateTime? MinTime, DateTime? MaxTime)> _availableTables = new();
-        private bool _loadingTables;
-        private bool _tableListFailed;
+        // Mirrors SimulationPage's table-select pattern -- a symbol+range is
+        // always picked here, but which one of the two Start Training buttons
+        // (TrainPage's top bar) the user clicks decides whether it's actually
+        // used: the historic button streams a randomly-windowed slice per
+        // episode straight from Postgres (see RlTrainingService.
+        // RandomEpisodeWindow), the synthetic button ignores this entirely.
         private string _table = "";
         private DateTime _from = DateTime.UtcNow.AddDays(-1);
         private DateTime _to = DateTime.UtcNow;
 
-        private string SelectedTable
-        {
-            get => _table;
-            set
-            {
-                _table = value;
-                var meta = _availableTables.FirstOrDefault(t => t.Table == value);
-                if (meta.MaxTime is not null)
-                {
-                    _to = meta.MaxTime.Value;
-                    _from = meta.MinTime is not null && meta.MaxTime.Value - meta.MinTime.Value < TimeSpan.FromDays(1)
-                        ? meta.MinTime.Value
-                        : meta.MaxTime.Value.AddDays(-1);
-                }
-            }
-        }
-
-        private (string Table, long Rows, DateTime? MinTime, DateTime? MaxTime) SelectedTableMeta =>
-            _availableTables.FirstOrDefault(t => t.Table == _table);
-
-        private DateTime SliderMin => SelectedTableMeta.MinTime ?? DateTime.UtcNow.AddDays(-30);
-        private DateTime SliderMax => SelectedTableMeta.MaxTime ?? DateTime.UtcNow;
-
-        private bool IsDataReady => !string.IsNullOrWhiteSpace(_table) && TickDataStore.IsLoadedFor(_table, _from, _to);
-
-        // Fetches and caches the actual tick rows for the selected table+range
-        // (TickDataStore, shared with SimulationPage) -- separate from picking a
-        // table, and from StartTraining() below, which now just consumes whatever's
-        // already loaded here instead of re-reading Postgres itself.
-        private void LoadData()
-        {
-            _startError = null;
-            if (string.IsNullOrWhiteSpace(_table)) { _startError = "pick a symbol"; return; }
-            if (_to <= _from) { _startError = "To must be after From"; return; }
-
-            if (!TickDataStore.TryLoad(_table, _from, _to))
-                _startError = "a load is already in progress";
-        }
-
-        // Fast: reads the tick_table_stats registry (small table, no scanning).
-        private Task LoadTables() => FetchTables(() => TickRepository.ListTickTables());
-
-        // Slow: rescans every ticks_* table (COUNT(*)/MIN/MAX) and rebuilds the
-        // registry -- an explicit action so it never happens as a side effect of
-        // just wanting the already-known table list.
-        private Task RecountTables() => FetchTables(() => TickRepository.RefreshTickTableStats());
-
-        private async Task FetchTables(Func<List<(string Table, long Rows, DateTime? MinTime, DateTime? MaxTime)>> fetch)
-        {
-            _loadingTables = true;
-            _tableListFailed = false;
-            StateHasChanged();
-
-            try
-            {
-                _availableTables = await Task.Run(fetch);
-                if (_availableTables.Count > 0 && string.IsNullOrWhiteSpace(_table))
-                    SelectedTable = _availableTables[0].Table;
-            }
-            catch
-            {
-                _tableListFailed = true;
-            }
-            finally
-            {
-                _loadingTables = false;
-            }
-        }
-
         protected override void OnInitialized()
         {
             Service.OnChanged += HandleServiceChanged;
-            TickDataStore.OnChanged += HandleServiceChanged;
 
             if (Service.StrategyNames.Count > 0) _strategyName = Service.StrategyNames[0];
-
-            // TickRepository is a singleton -- reuse another page's already-loaded
-            // table list instead of making the user click a data button again here.
-            if (TickRepository.HasCachedTables)
-            {
-                _availableTables = TickRepository.CachedTables.ToList();
-                if (_availableTables.Count > 0 && string.IsNullOrWhiteSpace(_table))
-                    SelectedTable = _availableTables[0].Table;
-            }
         }
 
         private void HandleServiceChanged() => _ = InvokeAsync(StateHasChanged);
@@ -141,37 +63,54 @@ namespace Poink.Sim.Components.Training
         public void Dispose()
         {
             Service.OnChanged -= HandleServiceChanged;
-            TickDataStore.OnChanged -= HandleServiceChanged;
         }
 
-        // Public: TrainPage's top-bar button calls into this via @ref, since the
-        // Start Training button now lives outside this tab (see StartError).
+        private bool ValidateCommonStartParams()
+        {
+            if (string.IsNullOrWhiteSpace(BrainName)) { _startError = "pick a brain"; return false; }
+            if (string.IsNullOrWhiteSpace(_strategyName)) { _startError = "pick a strategy"; return false; }
+            if (_episodeCount < 1) { _startError = "episode count must be positive"; return false; }
+            if (_ticksPerEpisode < 2) { _startError = "ticks per episode must be at least 2"; return false; }
+            if (_startingCash <= 0) { _startError = "starting cash must be positive"; return false; }
+            if (_learningRate <= 0) { _startError = "learning rate must be positive"; return false; }
+            return true;
+        }
+
+        // Public: TrainPage's top-bar Start Training button calls into this via
+        // @ref, since the button now lives outside this tab (see StartError).
+        // Historic: each episode streams its own randomly-windowed slice of the
+        // selected symbol/range straight from Postgres.
         public async Task StartTraining()
         {
             _startError = null;
+            if (!ValidateCommonStartParams()) return;
+            if (string.IsNullOrWhiteSpace(_table)) { _startError = "pick a symbol"; return; }
+            if (_to <= _from) { _startError = "To must be after From"; return; }
 
-            if (string.IsNullOrWhiteSpace(BrainName)) { _startError = "pick a brain"; return; }
-            if (string.IsNullOrWhiteSpace(_strategyName)) { _startError = "pick a strategy"; return; }
-            if (_episodeCount < 1) { _startError = "episode count must be positive"; return; }
-            if (_ticksPerEpisode < 2) { _startError = "ticks per episode must be at least 2"; return; }
-            if (_startingCash <= 0) { _startError = "starting cash must be positive"; return; }
-            if (_learningRate <= 0) { _startError = "learning rate must be positive"; return; }
-
-            List<Tick>? historicTicks = null;
-            if (_useHistoricData)
-            {
-                if (string.IsNullOrWhiteSpace(_table)) { _startError = "pick a symbol"; return; }
-                if (_to <= _from) { _startError = "To must be after From"; return; }
-                historicTicks = TickDataStore.GetLoaded(_table, _from, _to);
-                if (historicTicks is null) { _startError = "load the data first"; return; }
-            }
-
+            _datasetIsHistoric = true;
             if (!Service.TryStartTraining(
-                    BrainName, _strategyName, _episodeCount, _ticksPerEpisode, _startingCash, _learningRate, historicTicks))
+                    BrainName, _strategyName, _episodeCount, _ticksPerEpisode, _startingCash, _learningRate, (_table, _from, _to)))
                 _startError = Service.Error ?? "a training run is already in progress";
 
             // Jump straight to the live view once a run is actually kicked off --
             // that's the whole point of the tab existing.
+            if (_startError is null) await OnTrainingStarted.InvokeAsync();
+        }
+
+        // Public: TrainPage's top-bar Start Training (Synthetic) button. Ignores
+        // whatever symbol/range is picked above -- same synthetic random-walk
+        // path as Simulation's Load Dummy Data, so training can be exercised
+        // without a running database.
+        public async Task StartTrainingSynthetic()
+        {
+            _startError = null;
+            if (!ValidateCommonStartParams()) return;
+
+            _datasetIsHistoric = false;
+            if (!Service.TryStartTraining(
+                    BrainName, _strategyName, _episodeCount, _ticksPerEpisode, _startingCash, _learningRate, historicRange: null))
+                _startError = Service.Error ?? "a training run is already in progress";
+
             if (_startError is null) await OnTrainingStarted.InvokeAsync();
         }
 
@@ -190,9 +129,11 @@ namespace Poink.Sim.Components.Training
 
         // Just a reference string, not a link back to actual tick data (see
         // SavedBrainSummary's doc comment) -- Dummy data has no fixed range, so
-        // "synthetic" is all there is to say about it.
+        // "synthetic" is all there is to say about it. Reflects whichever Start
+        // button was last used, not the live form state (SaveModel is fine to
+        // click after tweaking the form since -- see its own doc comment).
         private string CurrentDatasetDescription =>
-            _useHistoricData && !string.IsNullOrWhiteSpace(_table)
+            _datasetIsHistoric && !string.IsNullOrWhiteSpace(_table)
                 ? $"{_table} ({_from:yyyy-MM-dd HH:mm} to {_to:yyyy-MM-dd HH:mm})"
                 : "synthetic (random-walk)";
 

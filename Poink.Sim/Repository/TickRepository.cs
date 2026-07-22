@@ -90,6 +90,29 @@ internal sealed class TickRepository : ITickRepository
         }
     }
 
+    // Bounded window for one training episode -- LIMIT keeps this cheap
+    // regardless of table size; Timescale prunes to the chunks overlapping
+    // @start before the LIMIT even applies.
+    public List<Tick> ReadWindow(string table, DateTime start, int count)
+    {
+        using var conn = new NpgsqlConnection(ConnectionString);
+        conn.Open();
+
+        var sql = Sql.SelectWindow(table);
+        return conn.Query<Tick>(sql, new { start, count }).ToList();
+    }
+
+    // Chunk-pruned COUNT(*) over a bounded range -- for progress bars, not
+    // a full-table scan.
+    public long CountTicks(string table, DateTime from, DateTime to)
+    {
+        using var conn = new NpgsqlConnection(ConnectionString);
+        conn.Open();
+
+        var sql = Sql.CountTicks(table);
+        return conn.QuerySingle<long>(sql, new { from, to });
+    }
+
     private static void EnsureRegistryTable(NpgsqlConnection conn) => conn.Execute(Sql.CreateRegistryTable);
 
     // ── SQL ──
@@ -140,5 +163,11 @@ internal sealed class TickRepository : ITickRepository
                 sql += " AND \"timestamp\" <  @to";
             return sql + " ORDER BY \"timestamp\"";
         }
+
+        public static string SelectWindow(string table) =>
+            $"SELECT \"timestamp\", \"bid\", \"ask\" FROM \"{table}\" WHERE \"timestamp\" >= @start ORDER BY \"timestamp\" LIMIT @count";
+
+        public static string CountTicks(string table) =>
+            $"SELECT COUNT(*) FROM \"{table}\" WHERE \"timestamp\" >= @from AND \"timestamp\" < @to";
     }
 }

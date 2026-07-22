@@ -34,6 +34,7 @@ internal sealed class RlTrainingService
     private readonly List<IRlTrainingStrategy> _strategies;
     private readonly List<RlEpisodeMetric> _episodeMetrics = new();
     private readonly IBrainRepository _brainRepository;
+    private readonly ITickRepository _tickRepository;
 
     // Which saved snapshot (if any) a live brain's current weights actually
     // match -- keyed by brain architecture name. Set on load/save, cleared the
@@ -41,11 +42,14 @@ internal sealed class RlTrainingService
     // from whatever was last saved). Read by SimulationPage's Brain info card.
     private readonly Dictionary<string, long> _activeSnapshotId = new();
 
-    public RlTrainingService(IEnumerable<ISimulationBrain> brains, IEnumerable<IRlTrainingStrategy> strategies, IBrainRepository brainRepository)
+    public RlTrainingService(
+        IEnumerable<ISimulationBrain> brains, IEnumerable<IRlTrainingStrategy> strategies,
+        IBrainRepository brainRepository, ITickRepository tickRepository)
     {
         _brains = brains.ToList();
         _strategies = strategies.ToList();
         _brainRepository = brainRepository;
+        _tickRepository = tickRepository;
 
         // Restore whatever was last saved for each trainable brain -- these are
         // DI singletons that otherwise only keep weights in memory, so without
@@ -123,13 +127,14 @@ internal sealed class RlTrainingService
 
     public event Action? OnChanged;
 
-    // historicTicks must already be materialized (see TickDataStore) when the
-    // caller wants real historic data -- this no longer touches Postgres itself,
-    // so a run can only start once the setup screen's "LOAD DATA" step has
-    // actually finished. Null means synthetic random-walk episodes.
+    // historicRange identifies a table + time range to sample from -- each
+    // episode pulls its own bounded window straight from Postgres via
+    // ITickRepository.ReadWindow (chunk-pruned by Timescale), so nothing here
+    // ever materializes the full range. Null means synthetic random-walk
+    // episodes.
     public bool TryStartTraining(
         string brainName, string strategyName, int episodeCount, int ticksPerEpisode, double startingCash, double learningRate,
-        List<Tick>? historicTicks)
+        (string Table, DateTime From, DateTime To)? historicRange)
     {
         var brain = _brains.FirstOrDefault(b => b.Name == brainName);
         var strategy = _strategies.FirstOrDefault(s => s.Name == strategyName);
@@ -168,9 +173,13 @@ internal sealed class RlTrainingService
         {
             try
             {
-                if (historicTicks is not null && historicTicks.Count < ticksPerEpisode)
-                    throw new InvalidOperationException(
-                        $"only {historicTicks.Count} ticks loaded, need at least {ticksPerEpisode}");
+                if (historicRange is { } range)
+                {
+                    long available = _tickRepository.CountTicks(range.Table, range.From, range.To);
+                    if (available < ticksPerEpisode)
+                        throw new InvalidOperationException(
+                            $"only {available} ticks in the selected range, need at least {ticksPerEpisode}");
+                }
 
                 var optimizer = strategy.CreateOptimizer(brain, learningRate);
                 var recentRewards = new Queue<double>();
@@ -178,8 +187,8 @@ internal sealed class RlTrainingService
 
                 for (int episode = 0; episode < episodeCount; episode++)
                 {
-                    var episodeTicks = historicTicks is not null
-                        ? RandomWindow(historicTicks, ticksPerEpisode, rng)
+                    var episodeTicks = historicRange is { } episodeRange
+                        ? RandomEpisodeWindow(episodeRange.Table, episodeRange.From, episodeRange.To, ticksPerEpisode, rng)
                         : DummyTickGenerator.Generate(DateTime.UtcNow.AddHours(-4), DateTime.UtcNow, ticksPerEpisode);
 
                     var result = RlEpisodeRunner.Run(brain, episodeTicks, startingCash);
@@ -324,13 +333,22 @@ internal sealed class RlTrainingService
         }
     }
 
-    // Picks a random contiguous slice of `count` ticks out of the full historic
-    // range loaded for this run, so successive episodes train against different
-    // (but real) market windows instead of replaying the same segment every time.
-    private static List<Tick> RandomWindow(List<Tick> ticks, int count, Random rng)
+    // Picks a random start timestamp within [from, to) and reads up to `count`
+    // ticks from there, so successive episodes train against different (but
+    // real) market windows without ever holding the full range in memory.
+    // Retries a few times if the random start lands in a gap with no ticks
+    // (e.g. a weekend) before falling back to reading from the range start,
+    // which TryStartTraining's upfront CountTicks check already guarantees
+    // has at least `count` ticks ahead of it... other than gaps, so this
+    // fallback can still legitimately come up short near a gap-heavy `to`.
+    private List<Tick> RandomEpisodeWindow(string table, DateTime from, DateTime to, int count, Random rng)
     {
-        int maxStart = ticks.Count - count;
-        int start = maxStart <= 0 ? 0 : rng.Next(0, maxStart + 1);
-        return ticks.GetRange(start, count);
+        for (int attempt = 0; attempt < 5; attempt++)
+        {
+            var start = from.AddTicks((long)(rng.NextDouble() * (to - from).Ticks));
+            var window = _tickRepository.ReadWindow(table, start, count);
+            if (window.Count > 0) return window;
+        }
+        return _tickRepository.ReadWindow(table, from, count);
     }
 }

@@ -21,8 +21,13 @@
 
             <div class="train-topbar-spacer"></div>
 
-            <button class="terminal-btn-action train-start-btn" @onclick="StartTraining" disabled="@Service.IsRunning">
+            <button class="terminal-btn-action train-start-btn" @onclick="StartTraining" disabled="@Service.IsRunning"
+                    title="Trains on the symbol/range picked in Setup -- each episode streams its own random window straight from Postgres">
                 @(Service.IsRunning ? "TRAINING..." : "START TRAINING")
+            </button>
+            <button class="terminal-btn-action train-start-btn" @onclick="StartTrainingSynthetic" disabled="@Service.IsRunning"
+                    title="Synthetic random-walk ticks -- no Postgres required">
+                @(Service.IsRunning ? "TRAINING..." : "START TRAINING (SYNTHETIC)")
             </button>
         </div>
 

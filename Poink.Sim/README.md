@@ -10,8 +10,9 @@
 A live, interactive replay of historical ticks driven by three pieces:
 
 - **MarketSim** — streams historical ticks for a chosen symbol and date range from
-  Postgres (`ITickRepository`), materialized once per run and played back under
-  user control (play/pause/step/speed), either raw or aggregated into HLOC/AVDT bars.
+  Postgres (`ITickRepository`), read live off a forward-only reader as playback
+  advances under user control (play/pause/step/speed), either raw or aggregated
+  into HLOC/AVDT bars.
 - **Brain** (`ISimulationBrain`) — observes the stream (raw ticks or completed bars,
   whichever the aggregation toggle selects) plus the current Capital/Position, and
   decides whether to hold, enter long/short, or close.
@@ -32,10 +33,15 @@ this project's build/deploy stays independent of Poink.ML's.
 
 ## Playback design
 
-`ITickRepository.ReadTicks` stays untouched (a lazy Postgres iterator); `SimulationEngine`
-materializes a run's ticks once into an in-memory list with an integer cursor, because a
-pausable/steppable/speed-controlled sim needs random access and can't hold a live DB
-reader across a pause.
+`SimulationEngine` plays a run back off a live, forward-only `ITickRepository.ReadTicks`
+reader instead of materializing the selected range into memory -- playback only ever
+moves forward (Play/Step/speed all advance the same reader), so a pausable/steppable/
+speed-controlled sim never actually needs random access. `Reset` disposes the current
+reader and opens a fresh one from the start of the configured range; the progress bar's
+total comes from a single upfront chunk-pruned `COUNT(*)`, not the reader's length.
+`TryLoadDummy`'s synthetic ticks are a small in-memory list instead (no Postgres
+involved), wrapped behind the same reader interface so the playback/reset code doesn't
+need to know which source it's replaying.
 
 Playback runs on one `System.Threading.Timer` per engine, used as a **self-rescheduling
 one-shot** (period = `Infinite`; the callback re-arms itself at the end) so callbacks

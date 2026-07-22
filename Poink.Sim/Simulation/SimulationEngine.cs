@@ -1,9 +1,13 @@
 // ── Orchestrating singleton: MarketSim + Aggregator + Brain + Trader ────
-//  Ticks are materialized once (by TickDataStore, via the setup screen's "LOAD
-//  DATA" button, or generated fresh for TryLoadDummy) and handed to TryLoad as
-//  a plain list -- this engine never reads Postgres itself. Played back from
-//  memory with an integer cursor, because a pausable/steppable/speed-controlled
-//  sim needs random access and can't hold a live DB reader across a pause.
+//  Real historic runs stream ticks straight from Postgres via a live,
+//  forward-only ITickRepository.ReadTicks reader -- this engine never
+//  materializes the full selected range in memory (see ITickRepository's
+//  ReadTicks doc comment: already a lazy Dapper `buffered: false` iterator).
+//  Playback only ever moves the reader forward; Reset disposes it and opens a
+//  fresh one from the start of the configured range. TryLoadDummy's synthetic
+//  ticks are a small in-memory List<Tick> instead (never touches Postgres),
+//  wrapped behind the same reader abstraction so AdvanceOneUnitLocked/Reset
+//  don't need to know which source they're playing back.
 //  Playback runs on one System.Threading.Timer per engine, used as
 //  a self-rescheduling one-shot (period = Infinite; the callback re-arms
 //  itself at the end) so callbacks never overlap and Pause/SetSpeed take
@@ -68,8 +72,14 @@ internal sealed class SimulationEngine : IDisposable
         public readonly List<SimulationLogEntry> RecentLog = new();
     }
 
-    private List<Tick>? _ticks;
+    // _openReader recreates a fresh forward-only reader from the start of the
+    // configured range (Postgres: a new ITickRepository.ReadTicks call --
+    // Dummy: a fresh GetEnumerator() over the already-materialized synthetic
+    // list) -- Reset calls it again instead of trying to rewind _reader itself.
+    private Func<IEnumerator<Tick>>? _openReader;
+    private IEnumerator<Tick>? _reader;
     private int _cursor;
+    private int _totalCount;
     private SimulationConfig? _config;
     private SimulationBarAggregator? _aggregator;
     private List<TraderSession> _traderSessions = new();
@@ -86,9 +96,12 @@ internal sealed class SimulationEngine : IDisposable
     private double? _lastAsk;
     private DateTime? _lastTimestamp;
 
-    public SimulationEngine(IEnumerable<ISimulationBrain> brains)
+    private readonly ITickRepository _tickRepository;
+
+    public SimulationEngine(IEnumerable<ISimulationBrain> brains, ITickRepository tickRepository)
     {
         _brains = brains.ToList();
+        _tickRepository = tickRepository;
         _timer = new Timer(TimerCallback, null, Timeout.Infinite, Timeout.Infinite);
     }
 
@@ -99,10 +112,11 @@ internal sealed class SimulationEngine : IDisposable
 
     public event Action? OnChanged;
 
-    // ticks must already be materialized (see TickDataStore) -- this no longer
-    // touches Postgres itself, so a run can only start once the setup screen's
-    // "LOAD DATA" step has actually finished.
-    public bool TryLoad(SimulationConfig config, List<Tick> ticks)
+    // Streams straight from Postgres -- picking a symbol+range is enough, no
+    // separate "LOAD DATA" preload step. TotalCount comes from a single
+    // chunk-pruned COUNT(*) (cheap regardless of table size); actual rows are
+    // read lazily, one at a time, as playback advances (see AdvanceOneUnitLocked).
+    public bool TryLoad(SimulationConfig config)
     {
         lock (_lock)
         {
@@ -117,7 +131,12 @@ internal sealed class SimulationEngine : IDisposable
         {
             try
             {
-                FinishLoad(config, ticks);
+                long count = _tickRepository.CountTicks(config.Table, config.From, config.To);
+                if (count <= 0)
+                    throw new InvalidOperationException("no ticks in the selected range");
+
+                IEnumerator<Tick> OpenReader() => _tickRepository.ReadTicks(config.Table, config.From, config.To).GetEnumerator();
+                FinishLoad(config, (int)Math.Min(count, int.MaxValue), OpenReader);
             }
             catch (Exception ex)
             {
@@ -150,7 +169,9 @@ internal sealed class SimulationEngine : IDisposable
             try
             {
                 var ticks = DummyTickGenerator.Generate(config.From, config.To, tickCount);
-                FinishLoad(config, ticks);
+                if (ticks.Count == 0)
+                    throw new InvalidOperationException("no ticks in the selected range");
+                FinishLoad(config, ticks.Count, () => ticks.GetEnumerator());
             }
             catch (Exception ex)
             {
@@ -163,13 +184,12 @@ internal sealed class SimulationEngine : IDisposable
         return true;
     }
 
-    // Shared by TryLoad/TryLoadDummy once a tick list is in hand (from Postgres or
-    // generated). Runs off the UI thread inside the Task.Run callers above.
-    private void FinishLoad(SimulationConfig config, List<Tick> ticks)
+    // Shared by TryLoad/TryLoadDummy once a total count is known and a fresh
+    // reader can be opened on demand -- openReader is stored so Reset can call
+    // it again to rewind, without either caller needing to know that. Runs off
+    // the UI thread inside the Task.Run callers above.
+    private void FinishLoad(SimulationConfig config, int totalCount, Func<IEnumerator<Tick>> openReader)
     {
-        if (ticks.Count == 0)
-            throw new InvalidOperationException("no ticks in the selected range");
-
         var brain = _brains.FirstOrDefault(b => b.Name == config.BrainName) ?? _brains.FirstOrDefault();
         if (brain is null)
             throw new InvalidOperationException("no simulation brain registered");
@@ -184,8 +204,11 @@ internal sealed class SimulationEngine : IDisposable
         lock (_lock)
         {
             _timer.Change(Timeout.Infinite, Timeout.Infinite);
-            _ticks = ticks;
+            _reader?.Dispose();
+            _openReader = openReader;
+            _reader = openReader();
             _cursor = 0;
+            _totalCount = totalCount;
             _config = config;
             _traderSessions = CreateSessions(config.TraderCount, config.StartingCash);
             _aggregator = config.Aggregate ? new SimulationBarAggregator(config.BarSize) : null;
@@ -211,7 +234,7 @@ internal sealed class SimulationEngine : IDisposable
     {
         lock (_lock)
         {
-            if (_ticks is null || _isPlaying || _cursor >= _ticks.Count)
+            if (_reader is null || _isPlaying || _cursor >= _totalCount)
                 return false;
             _isPlaying = true;
         }
@@ -236,7 +259,7 @@ internal sealed class SimulationEngine : IDisposable
     {
         lock (_lock)
         {
-            if (_isPlaying || _ticks is null || _cursor >= _ticks.Count)
+            if (_isPlaying || _reader is null || _cursor >= _totalCount)
                 return false;
             AdvanceOneUnitLocked();
         }
@@ -265,9 +288,11 @@ internal sealed class SimulationEngine : IDisposable
     {
         lock (_lock)
         {
-            if (_config is null)
+            if (_config is null || _openReader is null)
                 return false;
             _timer.Change(Timeout.Infinite, Timeout.Infinite);
+            _reader?.Dispose();
+            _reader = _openReader();
             _cursor = 0;
             _traderSessions = CreateSessions(_config.TraderCount, _config.StartingCash);
             _aggregator = _config.Aggregate ? new SimulationBarAggregator(_config.BarSize) : null;
@@ -290,8 +315,11 @@ internal sealed class SimulationEngine : IDisposable
         lock (_lock)
         {
             _timer.Change(Timeout.Infinite, Timeout.Infinite);
-            _ticks = null;
+            _reader?.Dispose();
+            _reader = null;
+            _openReader = null;
             _cursor = 0;
+            _totalCount = 0;
             _config = null;
             _traderSessions = new();
             _aggregator = null;
@@ -314,19 +342,19 @@ internal sealed class SimulationEngine : IDisposable
         bool reschedule;
         lock (_lock)
         {
-            if (!_isPlaying || _ticks is null)
+            if (!_isPlaying || _reader is null)
             {
                 reschedule = false;
             }
             else
             {
                 int units = _uncapped
-                    ? _ticks.Count - _cursor
+                    ? _totalCount - _cursor
                     : Math.Clamp((int)Math.Round(BaseUnitsPerCallback * _speedMultiplier), 1, FiniteSpeedUnitsCap);
-                for (int i = 0; i < units && _cursor < _ticks.Count; i++)
+                for (int i = 0; i < units && _cursor < _totalCount; i++)
                     AdvanceOneUnitLocked();
 
-                if (_cursor >= _ticks.Count)
+                if (_cursor >= _totalCount)
                     _isPlaying = false;
                 reschedule = _isPlaying;
             }
@@ -336,10 +364,19 @@ internal sealed class SimulationEngine : IDisposable
             _timer.Change(CallbackIntervalMs, Timeout.Infinite);
     }
 
-    // Must be called while holding _lock.
+    // Must be called while holding _lock. Forward-only: playback never seeks
+    // backwards, only Reset/a fresh load restart the reader from the beginning.
     private void AdvanceOneUnitLocked()
     {
-        var tick = _ticks![_cursor];
+        if (!_reader!.MoveNext())
+        {
+            // Reader ran dry before totalCount (a defensive fallback -- e.g. rows
+            // deleted between the upfront COUNT and now) -- treat as finished
+            // rather than looping forever.
+            _cursor = _totalCount;
+            return;
+        }
+        var tick = _reader.Current;
         _cursor++;
 
         double price = (tick.Bid + tick.Ask) / 2.0;
@@ -422,11 +459,11 @@ internal sealed class SimulationEngine : IDisposable
             if (_aggregator?.CurrentPartialBar is { } partial)
                 bars.Add(partial);
 
-            snapshot = _config is null || _ticks is null
+            snapshot = _config is null || _reader is null
                 ? null
                 : new SimulationSnapshot(
-                    _config, _isPlaying, _cursor >= _ticks.Count, _speedMultiplier, _uncapped,
-                    _cursor, _ticks.Count, _lastTimestamp, _lastPrice, _lastBid, _lastAsk,
+                    _config, _isPlaying, _cursor >= _totalCount, _speedMultiplier, _uncapped,
+                    _cursor, _totalCount, _lastTimestamp, _lastPrice, _lastBid, _lastAsk,
                     _traderSessions.Select(ts => new TraderSnapshot(
                         ts.Id, ts.Label, ts.Trader.Snapshot(_lastPrice ?? 0), ts.Trader.CurrentPosition,
                         ts.Trader.TradeLog.Count, ts.RecentLog.ToList(), ts.Trader.TradeLog.ToList(),
@@ -437,5 +474,9 @@ internal sealed class SimulationEngine : IDisposable
         OnChanged?.Invoke();
     }
 
-    public void Dispose() => _timer.Dispose();
+    public void Dispose()
+    {
+        _timer.Dispose();
+        lock (_lock) { _reader?.Dispose(); }
+    }
 }

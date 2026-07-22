@@ -27,14 +27,11 @@ var builder = WebApplication.CreateBuilder(args);
 // Singleton: SimulationEngine holds one shared in-memory "current run" for the
 // whole process (matching every other *TrainingService singleton in Poink.ML),
 // so its dependencies must be singleton-safe too. ITickRepository also relies on
-// being a singleton itself, to share its loaded-table-list cache across pages.
-// TickDataStore is the same idea one level up: it holds the actual loaded tick
-// data (not just table metadata), shared by SimulationPage/TrainPage's "LOAD
-// DATA" button so neither page -- nor SimulationEngine/RlTrainingService, which
-// no longer touch Postgres themselves -- re-reads the same range twice.
+// being a singleton itself, to share its loaded-table-list cache across pages --
+// SimulationEngine/RlTrainingService both read ticks straight from it (streamed,
+// chunk-pruned range/window queries), never materializing a full range in memory.
 builder.Services.AddSingleton<ITickRepository, TickRepository>();
 builder.Services.AddSingleton<IBrainRepository, BrainRepository>();
-builder.Services.AddSingleton<TickDataStore>();
 builder.Services.AddSingleton<ISimulationBrain, MomentumThresholdBrain>();
 builder.Services.AddSingleton<ISimulationBrain, RandomBrain>();
 // Registered as ISimulationBrain (not just IPolicyGradientBrain) so it shows up in

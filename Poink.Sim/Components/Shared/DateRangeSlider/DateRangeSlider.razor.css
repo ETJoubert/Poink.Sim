@@ -46,14 +46,14 @@
 
 .drs-track-wrap {
     position: relative;
-    height: 34px;
+    height: 46px;
 }
 
 .drs-rail {
     position: absolute;
     left: 8px;
     right: 8px;
-    top: 15px;
+    top: 21px;
     height: 4px;
     border-radius: 2px;
     background: rgba(255, 255, 255, 0.08);
@@ -87,16 +87,27 @@
     opacity: 0.7;
 }
 
+/* From/To sit on separate rows (rather than both at top: 8px) so their thumbs
+   never visually overlap even when the two values are equal or very close --
+   the two 16px-diameter thumbs would otherwise sit exactly on top of each
+   other, making it impossible to tell them apart or grab the right one. */
 .drs-thumb {
     position: absolute;
     left: 0;
-    top: 8px;
     width: 100%;
     margin: 0;
     -webkit-appearance: none;
     appearance: none;
     background: transparent;
     pointer-events: none;
+}
+
+.drs-thumb-from {
+    top: 2px;
+}
+
+.drs-thumb-to {
+    top: 24px;
 }
 
 .drs-thumb:focus {

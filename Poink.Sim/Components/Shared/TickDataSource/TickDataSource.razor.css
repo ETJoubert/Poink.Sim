@@ -1,0 +1,34 @@
+.tds-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.tds-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.8rem;
+    color: var(--color-secondary);
+}
+
+.tds-empty {
+    font-size: 0.8rem;
+    opacity: 0.7;
+    padding: 6px 0;
+}
+
+.tds-error {
+    color: var(--color-error, #ff5f56);
+    margin: 8px 0 0;
+    font-size: 0.8rem;
+}
+
+.tds-row-range {
+    margin-top: 10px;
+}
+
+.tds-row-range ::deep .drs {
+    min-width: 260px;
+}

@@ -1,0 +1,38 @@
+@namespace Poink.Sim.Components.Shared.TickDataSource
+@using Poink.Sim.Components.Shared.DateRangeSlider
+
+<div class="tds-row">
+    <label class="tds-field">
+        Symbol
+        @if (_availableTables.Count > 0)
+        {
+            <select class="terminal-input" value="@Table" @onchange="OnTableSelected" disabled="@(Disabled || _loadingTables)">
+                @foreach (var t in _availableTables)
+                {
+                    <option value="@t.Table">@t.Table (@t.Rows.ToString("N0") rows)</option>
+                }
+            </select>
+        }
+        else if (_loadingTables)
+        {
+            <span class="tds-empty">loading tables...</span>
+        }
+        else
+        {
+            <span class="tds-empty">no tables found</span>
+        }
+    </label>
+    <button class="terminal-btn-action" @onclick="RecountTables" disabled="@(Disabled || _loadingTables)"
+            title="Rescans every ticks_* table (COUNT/MIN/MAX) and refreshes stored row counts -- slow, only needed after new data has been written">
+        @(_loadingTables ? "RECOUNTING..." : "RECOUNT")
+    </button>
+</div>
+@if (_tableListFailed)
+{
+    <p class="tds-error">Tick table list unavailable (Postgres down?).</p>
+}
+<div class="tds-row-range">
+    <DateRangeSlider Min="SliderMin" Max="SliderMax" From="From" FromChanged="@(v => FromChanged.InvokeAsync(v))"
+                      To="To" ToChanged="@(v => ToChanged.InvokeAsync(v))"
+                      Disabled="@(Disabled || _loadingTables)" />
+</div>
