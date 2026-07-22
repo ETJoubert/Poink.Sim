@@ -1,0 +1,29 @@
+@namespace Poink.Sim.Components.Shared.StatisticsPanel
+
+<div class="stp-panel">
+    @if (Groups.Count == 0)
+    {
+        <div class="stp-empty">
+            <span class="stp-empty-prompt">[OK]</span>
+            <span>@EmptyMessage</span>
+        </div>
+    }
+    else
+    {
+        @foreach (var group in Groups)
+        {
+            <div class="stp-group">
+                <div class="stp-group-header">@group.Title.ToUpperInvariant()</div>
+                <div class="stp-group-grid">
+                    @foreach (var item in group.Items)
+                    {
+                        <div class="stp-item">
+                            <span class="stp-item-label">@item.Label</span>
+                            <span class="stp-item-value @EmphasisClass(item.Emphasis)">@item.Value</span>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    }
+</div>

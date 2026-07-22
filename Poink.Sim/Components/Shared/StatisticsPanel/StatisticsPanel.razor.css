@@ -1,0 +1,98 @@
+/* ============================================
+   StatisticsPanel — grouped stat cards, self-contained
+   Uses only CSS variables defined in base.css
+   ============================================ */
+
+.stp-panel {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 14px;
+  align-items: start;
+}
+
+/* ── Group card ──────────────────────────────── */
+.stp-group {
+  background: var(--color-bg-terminal);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
+  border-radius: var(--border-radius-md);
+  overflow: hidden;
+}
+
+.stp-group-header {
+  padding: 10px 16px;
+  font-family: var(--font-heading);
+  font-weight: bold;
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  color: var(--color-accent);
+  text-shadow: var(--shadow-glow-accent);
+  border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 20%, transparent);
+}
+
+.stp-group-grid {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Individual stat row ─────────────────────── */
+.stp-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 16px;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 8%, transparent);
+  transition: background-color 0.15s ease;
+}
+
+.stp-item:last-child {
+  border-bottom: none;
+}
+
+.stp-item:hover {
+  background-color: color-mix(in srgb, var(--color-primary) 4%, transparent);
+}
+
+.stp-item-label {
+  font-size: 11px;
+  letter-spacing: 0.03em;
+  color: var(--color-text-secondary);
+  opacity: 0.85;
+  white-space: nowrap;
+}
+
+.stp-item-value {
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-primary);
+  white-space: nowrap;
+  text-align: right;
+}
+
+.stp-value-positive {
+  color: var(--color-success);
+  text-shadow: 0 0 6px color-mix(in srgb, var(--color-success) 40%, transparent);
+}
+
+.stp-value-negative {
+  color: var(--color-error);
+  text-shadow: 0 0 6px color-mix(in srgb, var(--color-error) 40%, transparent);
+}
+
+/* ── Empty state ─────────────────────────────── */
+.stp-empty {
+  grid-column: 1 / -1;
+  padding: 24px 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  opacity: 0.7;
+}
+
+.stp-empty-prompt {
+  color: var(--color-primary);
+  font-weight: 700;
+}

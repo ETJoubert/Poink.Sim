@@ -207,6 +207,65 @@
     box-shadow: 0 0 8px color-mix(in srgb, var(--color-primary) 40%, transparent);
 }
 
+/* Brain & Account row -- same lean .sim-datarow shell as the data-source row
+   above it (see .sim-datarow), just with select/input fields for the run's
+   brain and account setup. Read-only once loaded, same as the data row. */
+
+.sim-brainrow-field {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.72rem;
+    color: var(--color-secondary);
+    white-space: nowrap;
+}
+
+.sim-brainrow-select,
+.sim-brainrow-input {
+    background: var(--color-bg-terminal);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 45%, transparent);
+    color: var(--color-primary);
+    padding: 4px 6px;
+    border-radius: var(--border-radius-sm);
+    font-family: var(--font-body);
+    font-size: 12px;
+    transition: all 0.2s ease;
+}
+
+.sim-brainrow-select {
+    min-width: 140px;
+}
+
+.sim-brainrow-input {
+    width: 80px;
+}
+
+.sim-brainrow-input-narrow {
+    width: 50px;
+}
+
+.sim-brainrow-select:focus,
+.sim-brainrow-input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--color-primary) 40%, transparent);
+}
+
+/* Load actions -- pushed to the end of the Brain & Account row (same
+   margin-left: auto trick as .sim-controls-right), only present pre-load. */
+.sim-brainrow-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-left: auto;
+}
+
+.sim-brainrow-error {
+    color: var(--color-error, #ff5f56);
+    font-size: 0.72rem;
+}
+
 /* ── Toolbar: controls + progress, second row of the sticky topbar ─────── */
 
 .sim-toolbar {
@@ -594,84 +653,8 @@
     min-width: 0;
 }
 
-/* ── Setup (pre-load) screen ──────────────────────────────────────────── */
-
-.sim-setup {
-    padding: 20px 24px 32px;
-}
-
-.sim-help {
-    border-left: 3px solid var(--color-secondary);
-    background: rgba(255, 255, 255, 0.03);
-    padding: 12px 16px;
-    margin: 0 0 20px;
-    font-size: 0.85rem;
-    border-radius: 0 var(--border-radius-sm) var(--border-radius-sm) 0;
-}
-
-.sim-help strong {
-    color: var(--color-secondary);
-}
-
-.sim-setup-grid {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 14px;
-    margin-bottom: 18px;
-}
-
-.sim-group {
-    flex: 1;
-    min-width: 220px;
-    border: 1px solid color-mix(in srgb, var(--color-primary) 12%, transparent);
-    border-radius: var(--border-radius-md);
-    padding: 14px 16px;
-    background: rgba(255, 255, 255, 0.015);
-}
-
-/* Brain & Account is the only group left in Setup -- cap its width instead of
-   letting a single flex:1 box stretch across the whole page. */
-.sim-setup-grid .sim-group:only-child {
-    flex: 0 1 480px;
-}
-
-.sim-group-title {
-    font-size: 0.68rem;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--color-secondary);
-    opacity: 0.85;
-    margin-bottom: 10px;
-}
-
-.sim-row {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    flex-wrap: wrap;
-}
-
-.sim-row label {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    font-size: 0.8rem;
-    color: var(--color-secondary);
-}
-
-.sim-setup-actions {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-top: 4px;
-}
-
 .sim-error {
     color: var(--color-error, #ff5f56);
     padding: 0 24px 16px;
     margin: 0;
-}
-
-.sim-setup .sim-error {
-    padding: 0;
 }

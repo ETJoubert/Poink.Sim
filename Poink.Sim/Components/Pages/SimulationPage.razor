@@ -5,6 +5,7 @@
 @using Poink.Sim.Components.Shared.DataTable
 @using Poink.Sim.Components.Shared.DateRangeSlider
 @using Poink.Sim.Components.Shared.SimTimeline
+@using Poink.Sim.Components.Shared.StatisticsPanel
 @using Poink.Sim.Components.Shared.TickDataSource
 @using Poink.Sim.Components.Training
 @using Poink.Shared.Client.Components.Shared.Icon
@@ -92,6 +93,49 @@
             </div>
         </div>
 
+        <div class="sim-datarow">
+            <label class="sim-brainrow-field">
+                Brain
+                <select class="sim-brainrow-select" @bind="_brainName" disabled="@(_isLoading || _snapshot is not null)">
+                    @foreach (var name in BrainNames)
+                    {
+                        <option value="@name">@name</option>
+                    }
+                </select>
+            </label>
+            <label class="sim-brainrow-field">
+                Starting cash
+                <input class="sim-brainrow-input" type="number" min="1" step="100" @bind="_startingCash"
+                       disabled="@(_isLoading || _snapshot is not null)" />
+            </label>
+            <label class="sim-brainrow-field">
+                Traders
+                <input class="sim-brainrow-input sim-brainrow-input-narrow" type="number" min="1" max="20"
+                       @bind="_traderCount" disabled="@(_isLoading || _snapshot is not null)" />
+            </label>
+
+            @if (_snapshot is null)
+            {
+                <div class="sim-brainrow-actions">
+                    <button class="sim-ctrl-btn sim-ctrl-btn-play" @onclick="LoadSimulation" disabled="@_isLoading">
+                        @(_isLoading ? "LOADING..." : "LOAD SIMULATION")
+                    </button>
+                    <button class="sim-ctrl-btn" @onclick="LoadDummySimulation" disabled="@_isLoading"
+                            title="Synthetic random-walk ticks -- no Postgres required">
+                        LOAD DUMMY DATA
+                    </button>
+                    @if (_loadError is not null)
+                    {
+                        <span class="sim-brainrow-error">@_loadError</span>
+                    }
+                    @if (_error is not null)
+                    {
+                        <span class="sim-brainrow-error">@_error</span>
+                    }
+                </div>
+            }
+        </div>
+
         @if (_snapshot is not null)
         {
             var s = _snapshot;
@@ -132,62 +176,7 @@
         }
     </div>
 
-    @if (_snapshot is null)
-    {
-        <div class="sim-setup">
-            <p class="sim-help">
-                <strong>What this does.</strong> Replays historical ticks for a chosen symbol and date
-                range under your control (play/pause/step/speed). A Brain observes the stream — either
-                raw ticks or aggregated HLOC/AVDT bars, your choice — plus live Capital/Position, and
-                decides trades; the Trader executes them with simple cash P&amp;L (no leverage).
-            </p>
-
-            <div class="sim-setup-grid">
-                <div class="sim-group">
-                    <div class="sim-group-title">Brain &amp; Account</div>
-                    <div class="sim-row">
-                        <label>
-                            Brain
-                            <select class="terminal-input" @bind="_brainName">
-                                @foreach (var name in BrainNames)
-                                {
-                                    <option value="@name">@name</option>
-                                }
-                            </select>
-                        </label>
-                        <label>
-                            Starting cash
-                            <input class="terminal-input" type="number" min="1" step="100" @bind="_startingCash" />
-                        </label>
-                        <label>
-                            Traders
-                            <input class="terminal-input" type="number" min="1" max="20" @bind="_traderCount" />
-                        </label>
-                    </div>
-                </div>
-            </div>
-
-            <div class="sim-setup-actions">
-                <button class="terminal-btn-action" @onclick="LoadSimulation" disabled="@_isLoading">
-                    @(_isLoading ? "LOADING..." : "LOAD SIMULATION")
-                </button>
-                <button class="terminal-btn-action" @onclick="LoadDummySimulation" disabled="@_isLoading"
-                        title="Synthetic random-walk ticks -- no Postgres required">
-                    LOAD DUMMY DATA
-                </button>
-            </div>
-
-            @if (_loadError is not null)
-            {
-                <p class="sim-error">@_loadError</p>
-            }
-            @if (_error is not null)
-            {
-                <p class="sim-error">@_error</p>
-            }
-        </div>
-    }
-    else
+    @if (_snapshot is not null)
     {
         var s = _snapshot;
 
@@ -262,7 +251,7 @@
                 }
                 else
                 {
-                    <ViewDatatable Items="StatRows" Title="STATISTICS" EmptyMessage="no closed trades yet" />
+                    <StatisticsPanel Groups="StatGroups" EmptyMessage="no closed trades yet" />
                 }
             </div>
         </div>
