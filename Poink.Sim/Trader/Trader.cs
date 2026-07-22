@@ -45,9 +45,9 @@ internal sealed class Trader
         return state;
     }
 
-    // Applies one Brain decision at the given mark price/time. Returns a short
-    // description of what happened (for the log), or null for a no-op.
-    public string? Apply(SimulationDecision decision, double currentPrice, DateTime timestamp)
+    // Applies one Brain decision at the given mark price/time. Returns the fill's
+    // structured details (for the decision log), or null for a no-op.
+    public TradeExecution? Apply(SimulationDecision decision, double currentPrice, DateTime timestamp)
     {
         // SL/TP CHECK (not implemented yet): if CurrentPosition is set and its
         // StopLossPrice/TakeProfitPrice is breached by currentPrice, force-close
@@ -63,7 +63,7 @@ internal sealed class Trader
         };
     }
 
-    private string? Open(PositionDirection direction, SimulationDecision decision, double price, DateTime time)
+    private TradeExecution? Open(PositionDirection direction, SimulationDecision decision, double price, DateTime time)
     {
         if (CurrentPosition is not null || price <= 0) return null;
 
@@ -73,11 +73,10 @@ internal sealed class Trader
 
         double size = committed / price;
         CurrentPosition = new Position(direction, size, price, time, decision.StopLossPrice, decision.TakeProfitPrice);
-        return $"{(direction == PositionDirection.Long ? "BUY" : "SHORT")} {size:F4} @ {price:F5}" +
-            (decision.Reason is null ? "" : $" ({decision.Reason})");
+        return new TradeExecution(direction, size, null, decision.Reason);
     }
 
-    private string? Close(double price, DateTime time, string? reason)
+    private TradeExecution? Close(double price, DateTime time, string? reason)
     {
         if (CurrentPosition is not { } position) return null;
 
@@ -87,7 +86,6 @@ internal sealed class Trader
         _trades.Add(new Trade(_nextTradeId++, position.Direction, position.Size, position.EntryPrice,
             position.EntryTime, price, time, pnl, reason));
         CurrentPosition = null;
-        return $"CLOSE {position.Direction} {position.Size:F4} @ {price:F5} pnl={pnl:F2}" +
-            (reason is null ? "" : $" ({reason})");
+        return new TradeExecution(position.Direction, position.Size, pnl, reason);
     }
 }

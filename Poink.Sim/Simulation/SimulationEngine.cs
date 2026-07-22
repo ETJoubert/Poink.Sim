@@ -482,9 +482,10 @@ internal sealed class SimulationEngine : IDisposable
                 capital, session.Trader.CurrentPosition);
 
             var decision = _activeBrain!.Decide(observation);
-            var detail = session.Trader.Apply(decision, price, timestamp);
-            if (detail is not null)
-                AppendLog(session, new SimulationLogEntry(timestamp, decision.Action.ToString(), price, detail));
+            var execution = session.Trader.Apply(decision, price, timestamp);
+            if (execution is { } exec)
+                AppendLog(session, new SimulationLogEntry(
+                    timestamp, decision.Action.ToString(), price, exec.Direction, exec.Size, exec.RealizedPnl, exec.Reason));
         }
     }
 

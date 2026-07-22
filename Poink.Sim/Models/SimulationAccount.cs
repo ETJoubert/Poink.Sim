@@ -32,3 +32,10 @@ internal readonly record struct CapitalState(double Cash, double RealizedPnl, do
 internal sealed record Trade(
     int Id, PositionDirection Direction, double Size, double EntryPrice, DateTime EntryTime,
     double ExitPrice, DateTime ExitTime, double RealizedPnl, string? Reason);
+
+// What Trader.Apply hands back for a fill (open or close) -- lets the decision
+// log show structured columns (Direction/Size/RealizedPnl/Reason) instead of a
+// single pre-formatted string. RealizedPnl is null for an open (nothing
+// realized yet); Reason echoes SimulationDecision.Reason.
+internal readonly record struct TradeExecution(
+    PositionDirection Direction, double Size, double? RealizedPnl, string? Reason);

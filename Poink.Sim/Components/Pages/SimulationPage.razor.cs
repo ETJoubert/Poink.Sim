@@ -276,20 +276,50 @@ namespace Poink.Sim.Components.Pages
             _ => "",
         };
 
-        private sealed record LogRow(string Time, string Action, string Price, string Detail);
+        // Plain nullable double (not a pre-formatted string) for RealizedPnl so the copied
+        // DataTable's own N2 formatting applies -- DecisionLogCellClass below colors it by
+        // sign, same pattern as TraderCardItem/TraderCellClass above.
+        private sealed record DecisionLogRow(
+            string Time, string Action, string Direction, string Size, string Price, double? RealizedPnl, string Reason);
 
-        private List<object> LogRows =>
+        private static string FormatLogAction(string action) => action switch
+        {
+            "EnterLong" => "BUY",
+            "EnterShort" => "SHORT",
+            "Close" => "CLOSE",
+            _ => action,
+        };
+
+        private List<DecisionLogRow> LogRows =>
             SelectedTrader is not { } trader
-                ? new List<object>()
+                ? new List<DecisionLogRow>()
                 : trader.RecentLog
-                    .Select(object (l) => new LogRow(l.TimestampUtc.ToString("HH:mm:ss"), l.Action, l.Price.ToString("F5"), l.Detail ?? ""))
+                    .Select(l => new DecisionLogRow(
+                        l.TimestampUtc.ToString("HH:mm:ss"), FormatLogAction(l.Action), l.Direction.ToString(),
+                        l.Size.ToString("F4"), l.Price.ToString("F5"), l.RealizedPnl, l.Reason ?? ""))
                     .Reverse()
                     .ToList();
+
+        private static string DecisionLogCellClass(DecisionLogRow item, string propName) => propName switch
+        {
+            nameof(DecisionLogRow.RealizedPnl) => item.RealizedPnl is { } v ? DataTablePnlClass(v) : "",
+            _ => "",
+        };
 
         // v1 (Trader.cs) only ever holds one open Position at a time, so this is
         // 0-or-1 rows today; the table shape is what lets multi-position support
         // slot in later as "more rows" instead of a UI rework.
-        private sealed record OpenPositionRow(string Direction, string Size, string EntryPrice, string EntryTime, string UnrealizedPnl);
+        //
+        // UnrealizedPnl stays a plain nullable double (not a pre-formatted string) so the
+        // copied DataTable's own N2 formatting applies -- PositionCellClass below colors it
+        // by sign, same pattern as TraderCardItem/TraderCellClass above.
+        private sealed record OpenPositionRow(string Direction, string Size, string EntryPrice, string EntryTime, double? UnrealizedPnl);
+
+        private static string PositionCellClass(OpenPositionRow item, string propName) => propName switch
+        {
+            nameof(OpenPositionRow.UnrealizedPnl) => item.UnrealizedPnl is { } v ? DataTablePnlClass(v) : "",
+            _ => "",
+        };
 
         // Derived once per render from the selected trader's full closed-trade log
         // (TraderSnapshot.Trades) plus the equity extremes Trader tracks incrementally.
@@ -301,15 +331,15 @@ namespace Poink.Sim.Components.Pages
 
         private IReadOnlyList<StatGroup> StatGroups => Stats?.Groups ?? [];
 
-        private List<object> OpenPositionRows =>
+        private List<OpenPositionRow> OpenPositionRows =>
             SelectedTrader?.Position is not { } pos
-                ? new List<object>()
-                : new List<object>
+                ? new List<OpenPositionRow>()
+                : new List<OpenPositionRow>
                 {
                     new OpenPositionRow(
                         pos.Direction.ToString(), pos.Size.ToString("F4"), pos.EntryPrice.ToString("F5"),
                         pos.EntryTime.ToString("HH:mm:ss"),
-                        _snapshot?.CurrentPrice is { } price ? pos.UnrealizedPnl(price).ToString("F2") : "—"),
+                        _snapshot?.CurrentPrice is { } price ? pos.UnrealizedPnl(price) : null),
                 };
     }
 }

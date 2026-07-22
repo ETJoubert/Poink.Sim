@@ -177,7 +177,14 @@
     </div>
 }
 
-@if (!_isCardView)
+@if (EffectiveItems.Count == 0)
+{
+    <div class="data-table-empty">
+        <span class="data-table-empty-prompt">[OK]</span>
+        <span>@EmptyMessage</span>
+    </div>
+}
+else if (!_isCardView)
 {
     <div class="data-table-wrapper">
         <table class="data-table" @ref="_tableRef">

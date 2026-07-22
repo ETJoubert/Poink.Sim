@@ -77,6 +77,10 @@ public partial class DataTable<TItem> : IAsyncDisposable
     [Parameter]
     public List<string>? ExcludeProperties { get; set; }
 
+    /// <summary>Shown in place of the table/cards when there are no items to display.</summary>
+    [Parameter]
+    public string EmptyMessage { get; set; } = "No data to display.";
+
     [Parameter]
     public Func<object?, string>? ValueFormatter { get; set; }
 
@@ -289,7 +293,7 @@ public partial class DataTable<TItem> : IAsyncDisposable
             _resizeInstance = await JS.InvokeAsync<IJSObjectReference>("eval", ResizeScript);
         }
 
-        if (!_isCardView && _resizeInstance != null)
+        if (!_isCardView && EffectiveItems.Count > 0 && _resizeInstance != null)
         {
             await _resizeInstance.InvokeVoidAsync("bind", _tableRef, _dotNetRef);
         }

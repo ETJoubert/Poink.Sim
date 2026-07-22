@@ -928,6 +928,24 @@
   box-shadow: 0 0 10px var(--color-error);
 }
 
+/* ── Empty state (Poink.Sim addition) — shown instead of the table/cards when
+   there are no items, e.g. "flat" on the Positions tab. */
+.data-table-empty {
+  padding: 24px 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--color-muted);
+  opacity: 0.7;
+  font-family: var(--font-body);
+}
+
+.data-table-empty-prompt {
+  color: var(--color-primary);
+  font-weight: 700;
+}
+
 /* ── Cell coloring (Poink.Sim addition) — used via the CellClass callback to
    color PnL-style values green/red by sign, e.g. in the Traders table/cards. */
 .data-table-value-positive {

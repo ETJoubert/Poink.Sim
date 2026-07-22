@@ -16,7 +16,8 @@ internal sealed record SimulationConfig(
     string BrainName, double StartingCash, int TraderCount);
 
 internal sealed record SimulationLogEntry(
-    DateTime TimestampUtc, string Action, double Price, string? Detail);
+    DateTime TimestampUtc, string Action, double Price, PositionDirection Direction,
+    double Size, double? RealizedPnl, string? Reason);
 
 // Cheap sibling to SimulationSnapshot below -- just enough to place the
 // current tick on a From/To timeline, so a component can track live progress

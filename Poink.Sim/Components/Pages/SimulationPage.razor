@@ -96,7 +96,8 @@
         <div class="sim-datarow">
             <label class="sim-brainrow-field">
                 Brain
-                <select class="sim-brainrow-select" @bind="_brainName" disabled="@(_isLoading || _snapshot is not null)">
+                <select class="sim-brainrow-select" @bind="_brainName"
+                        disabled="@(_isLoading || _snapshot is not null)">
                     @foreach (var name in BrainNames)
                     {
                         <option value="@name">@name</option>
@@ -217,25 +218,27 @@
 
         <div class="sim-log-panel">
             <div class="sim-log-tabs">
-                <button class="sim-tab-btn @(_activeLogTab == LogTab.Decisions ? "active" : "")"
-                        @onclick="() => _activeLogTab = LogTab.Decisions">DECISION LOG</button>
-                <button class="sim-tab-btn @(_activeLogTab == LogTab.Positions ? "active" : "")"
-                        @onclick="() => _activeLogTab = LogTab.Positions">POSITIONS</button>
                 <button class="sim-tab-btn @(_activeLogTab == LogTab.Traders ? "active" : "")"
                         @onclick="() => _activeLogTab = LogTab.Traders">TRADERS</button>
                 <button class="sim-tab-btn @(_activeLogTab == LogTab.Brain ? "active" : "")"
                         @onclick="() => _activeLogTab = LogTab.Brain">BRAIN</button>
+                <button class="sim-tab-btn @(_activeLogTab == LogTab.Decisions ? "active" : "")"
+                        @onclick="() => _activeLogTab = LogTab.Decisions">DECISION LOG</button>
+                <button class="sim-tab-btn @(_activeLogTab == LogTab.Positions ? "active" : "")"
+                        @onclick="() => _activeLogTab = LogTab.Positions">POSITIONS</button>
                 <button class="sim-tab-btn @(_activeLogTab == LogTab.Statistics ? "active" : "")"
                         @onclick="() => _activeLogTab = LogTab.Statistics">STATISTICS</button>
             </div>
             <div class="sim-log-content">
                 @if (_activeLogTab == LogTab.Decisions)
                 {
-                    <ViewDatatable Items="LogRows" Title="TRADE / DECISION LOG" />
+                    <DataTable TItem="DecisionLogRow" Items="LogRows" ShowRowNumbers="false" ActionsHeader="VIEW"
+                               CellClass="DecisionLogCellClass" EmptyMessage="no decisions yet" />
                 }
                 else if (_activeLogTab == LogTab.Positions)
                 {
-                    <ViewDatatable Items="OpenPositionRows" Title="OPEN POSITIONS" EmptyMessage="flat" />
+                    <DataTable TItem="OpenPositionRow" Items="OpenPositionRows" ShowRowNumbers="false" ActionsHeader="VIEW"
+                               CellClass="PositionCellClass" EmptyMessage="flat" />
                 }
                 else if (_activeLogTab == LogTab.Traders)
                 {
