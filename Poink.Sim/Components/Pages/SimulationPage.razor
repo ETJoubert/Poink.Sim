@@ -226,6 +226,8 @@
                         <ViewDatatable Items="TickRows" Title="RECENT TICKS" />
                     }
                 </div>
+                <div class="sim-chart-divider" @ref="_chartDividerRef" data-min-width="160" data-max-width="480"
+                     title="Drag to resize"></div>
                 <div class="sim-chart-side">
                     @if (s.Config.Aggregate)
                     {

@@ -2,8 +2,13 @@
 @using System.Globalization
 
 <div class="tvp-wrapper">
+    @{ var buckets = Buckets; }
     <div class="tvp-header">
         <span class="tvp-title">VOLUME PROFILE</span>
+        <label class="tvp-control tvp-control-toggle">
+            <input type="checkbox" @bind="_splitUpDown" />
+            <span>Split up/down</span>
+        </label>
     </div>
 
     <div class="tvp-controls">
@@ -11,14 +16,16 @@
             <span>Buckets</span>
             <input type="number" min="2" max="100" @bind="_bucketCount" @bind:event="oninput" />
         </label>
-        <label class="tvp-control tvp-control-toggle">
-            <input type="checkbox" @bind="_splitUpDown" />
-            <span>Split up/down</span>
-        </label>
+        @if (buckets.Count > 0)
+        {
+            <span class="tvp-control tvp-control-static" title="Price span per bucket">
+                <span>Width</span>
+                <span class="tvp-control-value">@((buckets[0].High - buckets[0].Low).ToString("0.#####", CultureInfo.InvariantCulture))</span>
+            </span>
+        }
     </div>
 
     <div class="tvp-body">
-        @{ var buckets = Buckets; }
         @if (buckets.Count == 0)
         {
             <div class="tvp-empty">not enough tick data</div>
@@ -35,7 +42,10 @@
                             <div class="tvp-row-bar tvp-row-bar-up" style="width: @(b.UpPercent.ToString("0.##", CultureInfo.InvariantCulture))%"></div>
                             <div class="tvp-row-bar tvp-row-bar-down" style="width: @(b.DownPercent.ToString("0.##", CultureInfo.InvariantCulture))%"></div>
                         </div>
-                        <span class="tvp-row-count">@b.UpCount/@b.DownCount</span>
+                        <span class="tvp-row-count tvp-row-count-split">
+                            <span class="tvp-row-count-up">@b.UpCount</span>/<span class="tvp-row-count-down">@b.DownCount</span>
+                            <span class="tvp-row-count-diff @(DiffClass(b.Diff))">(@(b.Diff.ToString("+0;-0;0", CultureInfo.InvariantCulture)))</span>
+                        </span>
                     </div>
                 }
                 else

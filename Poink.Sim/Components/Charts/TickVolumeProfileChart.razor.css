@@ -72,6 +72,18 @@
     width: auto;
 }
 
+/* Read-only counterpart to .tvp-control input[type="number"] -- same box, no
+   interactive border-highlight/focus state since there's nothing to edit. */
+.tvp-control-value {
+    background: var(--color-bg-terminal);
+    border: 1px solid color-mix(in srgb, var(--color-secondary) 25%, transparent);
+    color: var(--color-secondary);
+    padding: 2px 4px;
+    border-radius: var(--border-radius-sm);
+    font-family: var(--font-body);
+    font-size: 0.62rem;
+}
+
 .tvp-body {
     display: flex;
     flex-direction: column;
@@ -167,4 +179,34 @@
     opacity: 0.7;
     text-align: right;
     white-space: nowrap;
+}
+
+/* Wider than the plain single-count case above -- split mode packs up/down counts
+   plus the diff into the same column. */
+.tvp-row-count-split {
+    flex-basis: 92px;
+}
+
+/* Colored to match tvp-row-bar-up/-down so each number reads as belonging to its bar. */
+.tvp-row-count-up {
+    color: var(--color-success);
+    opacity: 1;
+}
+
+.tvp-row-count-down {
+    color: var(--color-error);
+    opacity: 1;
+}
+
+.tvp-row-count-diff {
+    margin-left: 4px;
+    opacity: 0.85;
+}
+
+.tvp-row-count-diff-up {
+    color: var(--color-success);
+}
+
+.tvp-row-count-diff-down {
+    color: var(--color-error);
 }

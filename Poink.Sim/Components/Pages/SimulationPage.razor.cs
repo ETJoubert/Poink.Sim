@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
+using Microsoft.JSInterop;
 using Poink.Sim.Components.Charts;
 using Poink.Sim.Models;
 using Poink.Sim.Repository;
@@ -12,9 +14,10 @@ using Poink.Shared.Client.Components.Pages.CTrader;
 
 namespace Poink.Sim.Components.Pages
 {
-    public partial class SimulationPage : ComponentBase, IDisposable
+    public partial class SimulationPage : ComponentBase, IDisposable, IAsyncDisposable
     {
         [Inject] private SimulationEngine Service { get; set; } = default!;
+        [Inject] private IJSRuntime JS { get; set; } = default!;
 
         // RlTrainingService owns the same live ISimulationBrain singletons this
         // page's SimulationEngine drives -- injected only for its brain
@@ -129,6 +132,68 @@ namespace Poink.Sim.Components.Pages
         public void Dispose()
         {
             Service.OnChanged -= HandleServiceChanged;
+        }
+
+        // ── Chart/volume-profile divider (drag to resize .sim-chart-side) ──
+
+        // Purely a client-side layout preference (like .sim-chart's own native
+        // vertical resize) -- nothing here round-trips back into .NET state, so no
+        // [JSInvokable]/DotNetObjectReference is needed, just eval + dispose.
+        private ElementReference _chartDividerRef;
+        private IJSObjectReference? _dividerResizeInstance;
+
+        private const string ChartDividerScript = """
+            (function() {
+                function bind(divider) {
+                    if (!divider || divider.dataset.bound) return;
+                    divider.dataset.bound = '1';
+                    var minWidth = parseInt(divider.dataset.minWidth, 10) || 160;
+                    var maxWidth = parseInt(divider.dataset.maxWidth, 10) || 480;
+                    divider.addEventListener('pointerdown', function(e) {
+                        e.preventDefault();
+                        var side = divider.nextElementSibling;
+                        if (!side) return;
+                        var startX = e.clientX;
+                        var startWidth = side.getBoundingClientRect().width;
+                        divider.setPointerCapture(e.pointerId);
+                        divider.classList.add('sim-chart-divider-active');
+
+                        function clamp(ev) {
+                            return Math.min(maxWidth, Math.max(minWidth, startWidth - (ev.clientX - startX)));
+                        }
+                        function onMove(ev) {
+                            side.style.width = clamp(ev) + 'px';
+                        }
+                        function onUp(ev) {
+                            divider.releasePointerCapture(e.pointerId);
+                            divider.removeEventListener('pointermove', onMove);
+                            divider.removeEventListener('pointerup', onUp);
+                            divider.classList.remove('sim-chart-divider-active');
+                        }
+                        divider.addEventListener('pointermove', onMove);
+                        divider.addEventListener('pointerup', onUp);
+                    });
+                }
+                return { bind: bind };
+            })()
+            """;
+
+        protected override async Task OnAfterRenderAsync(bool firstRender)
+        {
+            if (firstRender)
+                _dividerResizeInstance = await JS.InvokeAsync<IJSObjectReference>("eval", ChartDividerScript);
+
+            if (_snapshot is not null && !_hideChart && _dividerResizeInstance is not null)
+                await _dividerResizeInstance.InvokeVoidAsync("bind", _chartDividerRef);
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            if (_dividerResizeInstance is not null)
+            {
+                try { await _dividerResizeInstance.DisposeAsync(); }
+                catch (JSDisconnectedException) { }
+            }
         }
 
         // ── Saved brains (setup-only picker, see SavedBrainsTable) ──

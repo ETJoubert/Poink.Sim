@@ -55,7 +55,20 @@ namespace Poink.Sim.Components.Charts
         // are always computed alongside the plain total, so toggling split mode is a pure
         // presentation switch with no recompute.
         private sealed record Bucket(
-            double Low, double High, int Count, double Percent, int UpCount, int DownCount, double UpPercent, double DownPercent, bool IsCurrent);
+            double Low, double High, int Count, double Percent, int UpCount, int DownCount, double UpPercent, double DownPercent, bool IsCurrent)
+        {
+            public int Diff => UpCount - DownCount;
+        }
+
+        // Matches the up/down bars' own colors (tvp-row-bar-up/-down) so the diff reads
+        // as "which side is winning" at a glance, same convention as SimulationPage's
+        // PnlClass for realized/unrealized P&L.
+        private static string DiffClass(int diff) => diff switch
+        {
+            > 0 => "tvp-row-count-diff-up",
+            < 0 => "tvp-row-count-diff-down",
+            _ => "",
+        };
 
         private List<Bucket> Buckets
         {
