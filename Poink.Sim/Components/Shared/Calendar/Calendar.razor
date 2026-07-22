@@ -2,23 +2,107 @@
    its own; callers (e.g. DateRangeSlider) decide how/where to show it. *@
 
 <div class="cal">
-    <div class="cal-header">
-        <button type="button" class="cal-nav" @onclick="PrevMonth" disabled="@(!CanGoPrev)" aria-label="Previous month">&lsaquo;</button>
-        <span class="cal-month">@MonthLabel</span>
-        <button type="button" class="cal-nav" @onclick="NextMonth" disabled="@(!CanGoNext)" aria-label="Next month">&rsaquo;</button>
-    </div>
-    <div class="cal-grid">
-        @foreach (var h in DayHeaders)
-        {
-            <span class="cal-dow">@h</span>
-        }
-        @foreach (var day in Days)
-        {
-            <button type="button"
-                    class="cal-day @(day.InMonth ? "" : "cal-day-out") @(day.IsToday ? "cal-day-today" : "") @(day.IsSelected ? "cal-day-selected" : "")"
-                    disabled="@day.IsDisabled" @onclick="() => SelectDay(day)">
-                @day.Date.Day
-            </button>
-        }
-    </div>
+    @if (_showFullYear)
+    {
+        <div class="cal-fullyear-overlay">
+            <div class="cal-fullyear-header">
+                <button type="button" class="cal-nav" @onclick="PrevFullYear" disabled="@(!CanGoPrevFullYear)"
+                        aria-label="Previous year">&lsaquo;</button>
+                <span class="cal-month">@_fullYearYear</span>
+                <button type="button" class="cal-nav" @onclick="NextFullYear" disabled="@(!CanGoNextFullYear)"
+                        aria-label="Next year">&rsaquo;</button>
+                <button type="button" class="cal-fullyear-close" @onclick="ToggleFullYear" aria-label="Close full year view">&times;</button>
+            </div>
+            <div class="cal-fullyear-grid">
+                @foreach (var month in FullYearMonths)
+                {
+                    <div class="cal-mini-month">
+                        <div class="cal-month cal-mini-month-label">@month.Label</div>
+                        <div class="cal-grid">
+                            @foreach (var h in DayHeaders)
+                            {
+                                <span class="cal-dow">@h</span>
+                            }
+                            @foreach (var day in month.Days)
+                            {
+                                <button type="button"
+                                        class="cal-day @(day.InMonth ? "" : "cal-day-out") @(day.IsToday ? "cal-day-today" : "") @(day.IsSelected ? "cal-day-selected" : "")"
+                                        disabled="@day.IsDisabled" @onclick="() => SelectFullYearDay(day)">
+                                    @day.Date.Day
+                                </button>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+    @if (_view == CalendarView.Years)
+    {
+        <div class="cal-header">
+            <button type="button" class="cal-nav" @onclick="PrevYearRange" disabled="@(!CanGoPrevYearRange)"
+                    aria-label="Previous years">&lsaquo;</button>
+            <span class="cal-month">@YearRangeLabel</span>
+            <button type="button" class="cal-nav" @onclick="NextYearRange" disabled="@(!CanGoNextYearRange)"
+                    aria-label="Next years">&rsaquo;</button>
+        </div>
+        <div class="cal-months">
+            @foreach (var year in Years)
+            {
+                <button type="button"
+                        class="cal-month-cell @(year.IsCurrent ? "cal-month-cell-today" : "") @(year.IsSelected ? "cal-month-cell-selected" : "")"
+                        disabled="@year.IsDisabled" @onclick="() => SelectYear(year)">
+                    @year.Year
+                </button>
+            }
+        </div>
+    }
+    else if (_view == CalendarView.Months)
+    {
+        <div class="cal-header">
+            <button type="button" class="cal-nav" @onclick="PrevYear" disabled="@(!CanGoPrevYear)"
+                    aria-label="Previous year">&lsaquo;</button>
+            <button type="button" class="cal-month cal-month-btn" @onclick="ShowYears">@_displayedMonth.Year</button>
+            <button type="button" class="cal-nav" @onclick="NextYear" disabled="@(!CanGoNextYear)"
+                    aria-label="Next year">&rsaquo;</button>
+        </div>
+        <div class="cal-months">
+            @foreach (var month in Months)
+            {
+                <button type="button"
+                        class="cal-month-cell @(month.IsCurrent ? "cal-month-cell-today" : "") @(month.IsSelected ? "cal-month-cell-selected" : "")"
+                        disabled="@month.IsDisabled" @onclick="() => SelectMonth(month)">
+                    @month.Label
+                </button>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="cal-header">
+            <button type="button" class="cal-nav" @onclick="PrevMonth" disabled="@(!CanGoPrevMonth)"
+                    aria-label="Previous month">&lsaquo;</button>
+            <button type="button" class="cal-month cal-month-btn" @onclick="ShowMonths">@MonthLabel</button>
+            <div class="cal-header-actions">
+                <button type="button" class="cal-nav" @onclick="NextMonth" disabled="@(!CanGoNextMonth)"
+                        aria-label="Next month">&rsaquo;</button>
+                <button type="button" class="cal-nav cal-fullview-toggle" @onclick="ToggleFullYear"
+                        aria-label="Full year view" title="Full year view">&#9638;</button>
+            </div>
+        </div>
+        <div class="cal-grid">
+            @foreach (var h in DayHeaders)
+            {
+                <span class="cal-dow">@h</span>
+            }
+            @foreach (var day in Days)
+            {
+                <button type="button"
+                        class="cal-day @(day.InMonth ? "" : "cal-day-out") @(day.IsToday ? "cal-day-today" : "") @(day.IsSelected ? "cal-day-selected" : "")"
+                        disabled="@day.IsDisabled" @onclick="() => SelectDay(day)">
+                    @day.Date.Day
+                </button>
+            }
+        </div>
+    }
 </div>

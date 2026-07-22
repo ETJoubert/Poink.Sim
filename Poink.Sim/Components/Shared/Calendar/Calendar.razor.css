@@ -1,9 +1,16 @@
 .cal {
+    position: relative;
     display: flex;
     flex-direction: column;
     gap: 8px;
     font-family: var(--font-body);
     width: 220px;
+}
+
+.cal-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
 }
 
 .cal-header {
@@ -18,6 +25,19 @@
     letter-spacing: 0.04em;
     text-transform: uppercase;
     color: var(--color-primary);
+}
+
+.cal-month-btn {
+    background: transparent;
+    border: none;
+    padding: 2px 6px;
+    border-radius: var(--border-radius-sm);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.cal-month-btn:hover {
+    background: color-mix(in srgb, var(--color-primary) 12%, transparent);
 }
 
 .cal-nav {
@@ -89,4 +109,103 @@
     background: var(--color-primary);
     color: var(--color-bg-dark);
     font-weight: 700;
+}
+
+.cal-months {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+}
+
+.cal-month-cell {
+    background: transparent;
+    border: none;
+    color: var(--color-primary);
+    font-size: 0.68rem;
+    padding: 10px 0;
+    border-radius: var(--border-radius-sm);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.cal-month-cell:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+}
+
+.cal-month-cell:disabled {
+    opacity: 0.25;
+    cursor: not-allowed;
+}
+
+.cal-month-cell-today {
+    box-shadow: inset 0 0 0 1px var(--color-secondary);
+}
+
+.cal-month-cell-selected {
+    background: var(--color-primary);
+    color: var(--color-bg-dark);
+    font-weight: 700;
+}
+
+.cal-fullview-toggle {
+    font-size: 0.7rem;
+}
+
+/* Escapes the 220px .cal width via position:absolute -- .cal is the
+   positioned ancestor, so this overlays on top of (and past the right edge
+   of) whatever view was active underneath when it was opened. Width is
+   content-driven (4 columns at the same 220px as the normal single-month
+   view) rather than fixed, so it always matches .cal-months' track size. */
+.cal-fullyear-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 1;
+    width: fit-content;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: var(--color-bg-dark);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
+    border-radius: var(--border-radius-sm);
+    padding: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.cal-fullyear-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.cal-fullyear-close {
+    position: absolute;
+    right: 10px;
+    background: transparent;
+    border: none;
+    color: var(--color-muted);
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.cal-fullyear-close:hover {
+    color: var(--color-primary);
+}
+
+.cal-fullyear-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 220px);
+    gap: 16px;
+}
+
+.cal-mini-month {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.cal-mini-month-label {
+    text-align: center;
 }

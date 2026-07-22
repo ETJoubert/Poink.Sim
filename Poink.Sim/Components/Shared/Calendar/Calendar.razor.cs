@@ -19,7 +19,12 @@ public partial class Calendar : ComponentBase
 
     private static readonly string[] DayHeaders = { "S", "M", "T", "W", "T", "F", "S" };
 
+    private enum CalendarView { Days, Months, Years }
+
+    private const int YearsPerPage = 12;
+
     private DateTime _displayedMonth;
+    private CalendarView _view = CalendarView.Days;
 
     // Set once per instance (not OnParametersSet) so browsing months isn't
     // reset by parent re-renders while the popover stays open -- DateRangeSlider
@@ -32,17 +37,107 @@ public partial class Calendar : ComponentBase
 
     private string MonthLabel => _displayedMonth.ToString("MMMM yyyy", CultureInfo.InvariantCulture);
 
-    private bool CanGoPrev => Min is null || _displayedMonth > new DateTime(Min.Value.Year, Min.Value.Month, 1);
-    private bool CanGoNext => Max is null || _displayedMonth < new DateTime(Max.Value.Year, Max.Value.Month, 1);
+    private void ShowMonths() => _view = CalendarView.Months;
+    private void ShowYears() => _view = CalendarView.Years;
+
+    private bool CanGoPrevMonth => Min is null || _displayedMonth > new DateTime(Min.Value.Year, Min.Value.Month, 1);
+    private bool CanGoNextMonth => Max is null || _displayedMonth < new DateTime(Max.Value.Year, Max.Value.Month, 1);
+
+    private bool CanGoPrevYear => Min is null || _displayedMonth.Year > Min.Value.Year;
+    private bool CanGoNextYear => Max is null || _displayedMonth.Year < Max.Value.Year;
 
     private void PrevMonth()
     {
-        if (CanGoPrev) _displayedMonth = _displayedMonth.AddMonths(-1);
+        if (CanGoPrevMonth) _displayedMonth = _displayedMonth.AddMonths(-1);
     }
 
     private void NextMonth()
     {
-        if (CanGoNext) _displayedMonth = _displayedMonth.AddMonths(1);
+        if (CanGoNextMonth) _displayedMonth = _displayedMonth.AddMonths(1);
+    }
+
+    private void PrevYear()
+    {
+        if (CanGoPrevYear) _displayedMonth = _displayedMonth.AddYears(-1);
+    }
+
+    private void NextYear()
+    {
+        if (CanGoNextYear) _displayedMonth = _displayedMonth.AddYears(1);
+    }
+
+    private int YearRangeStart => (_displayedMonth.Year / YearsPerPage) * YearsPerPage;
+    private string YearRangeLabel => $"{YearRangeStart} - {YearRangeStart + YearsPerPage - 1}";
+
+    private bool CanGoPrevYearRange => Min is null || YearRangeStart - 1 >= Min.Value.Year;
+    private bool CanGoNextYearRange => Max is null || YearRangeStart + YearsPerPage <= Max.Value.Year;
+
+    private void PrevYearRange()
+    {
+        if (CanGoPrevYearRange) _displayedMonth = _displayedMonth.AddYears(-YearsPerPage);
+    }
+
+    private void NextYearRange()
+    {
+        if (CanGoNextYearRange) _displayedMonth = _displayedMonth.AddYears(YearsPerPage);
+    }
+
+    private sealed record YearCell(int Year, bool IsCurrent, bool IsSelected, bool IsDisabled);
+
+    private List<YearCell> Years
+    {
+        get
+        {
+            var start = YearRangeStart;
+            var today = DateTime.Today;
+
+            var cells = new List<YearCell>(YearsPerPage);
+            for (var i = 0; i < YearsPerPage; i++)
+            {
+                var year = start + i;
+                var yearStart = new DateTime(year, 1, 1);
+                var yearEnd = new DateTime(year, 12, 31);
+                var disabled = (Min is not null && yearEnd < Min.Value.Date) || (Max is not null && yearStart > Max.Value.Date);
+                cells.Add(new YearCell(year, year == today.Year, year == Value.Year, disabled));
+            }
+            return cells;
+        }
+    }
+
+    private void SelectYear(YearCell cell)
+    {
+        if (cell.IsDisabled) return;
+        _displayedMonth = new DateTime(cell.Year, _displayedMonth.Month, 1);
+        _view = CalendarView.Months;
+    }
+
+    private sealed record MonthCell(int Month, string Label, bool IsCurrent, bool IsSelected, bool IsDisabled);
+
+    private List<MonthCell> Months
+    {
+        get
+        {
+            var year = _displayedMonth.Year;
+            var today = DateTime.Today;
+
+            var cells = new List<MonthCell>(12);
+            for (var m = 1; m <= 12; m++)
+            {
+                var monthStart = new DateTime(year, m, 1);
+                var monthEnd = monthStart.AddMonths(1).AddDays(-1);
+                var disabled = (Min is not null && monthEnd < Min.Value.Date) || (Max is not null && monthStart > Max.Value.Date);
+                var label = monthStart.ToString("MMM", CultureInfo.InvariantCulture);
+                cells.Add(new MonthCell(m, label, year == today.Year && m == today.Month, year == Value.Year && m == Value.Month, disabled));
+            }
+            return cells;
+        }
+    }
+
+    private void SelectMonth(MonthCell cell)
+    {
+        if (cell.IsDisabled) return;
+        _displayedMonth = new DateTime(_displayedMonth.Year, cell.Month, 1);
+        _view = CalendarView.Days;
     }
 
     private sealed record DayCell(DateTime Date, bool InMonth, bool IsToday, bool IsSelected, bool IsDisabled);
@@ -50,29 +145,77 @@ public partial class Calendar : ComponentBase
     // Always 42 cells (6 full weeks) so the grid doesn't resize as months of
     // different lengths are navigated -- leading/trailing days from adjacent
     // months are shown dimmed and disabled rather than omitted.
-    private List<DayCell> Days
-    {
-        get
-        {
-            var leadingDays = (int)_displayedMonth.DayOfWeek;
-            var gridStart = _displayedMonth.AddDays(-leadingDays);
-            var today = DateTime.Today;
+    private List<DayCell> Days => BuildMonthDays(_displayedMonth);
 
-            var cells = new List<DayCell>(42);
-            for (var i = 0; i < 42; i++)
-            {
-                var date = gridStart.AddDays(i);
-                var inMonth = date.Month == _displayedMonth.Month && date.Year == _displayedMonth.Year;
-                var disabled = (Min is not null && date < Min.Value.Date) || (Max is not null && date > Max.Value.Date);
-                cells.Add(new DayCell(date, inMonth, date == today, date == Value.Date, disabled));
-            }
-            return cells;
+    private List<DayCell> BuildMonthDays(DateTime monthStart)
+    {
+        var leadingDays = (int)monthStart.DayOfWeek;
+        var gridStart = monthStart.AddDays(-leadingDays);
+        var today = DateTime.Today;
+
+        var cells = new List<DayCell>(42);
+        for (var i = 0; i < 42; i++)
+        {
+            var date = gridStart.AddDays(i);
+            var inMonth = date.Month == monthStart.Month && date.Year == monthStart.Year;
+            var disabled = (Min is not null && date < Min.Value.Date) || (Max is not null && date > Max.Value.Date);
+            cells.Add(new DayCell(date, inMonth, date == today, date == Value.Date, disabled));
         }
+        return cells;
     }
 
     private Task SelectDay(DayCell cell)
     {
         if (cell.IsDisabled) return Task.CompletedTask;
         return ValueChanged.InvokeAsync(cell.Date.Date + Value.TimeOfDay);
+    }
+
+    // Full-year overlay: a 4x3 grid of mini month calendars for one year, with
+    // its own year cursor separate from _displayedMonth (browsing the overlay
+    // shouldn't move the Days view underneath it until a day is actually picked).
+    private bool _showFullYear;
+    private int _fullYearYear;
+
+    private void ToggleFullYear()
+    {
+        _showFullYear = !_showFullYear;
+        if (_showFullYear) _fullYearYear = _displayedMonth.Year;
+    }
+
+    private bool CanGoPrevFullYear => Min is null || _fullYearYear > Min.Value.Year;
+    private bool CanGoNextFullYear => Max is null || _fullYearYear < Max.Value.Year;
+
+    private void PrevFullYear()
+    {
+        if (CanGoPrevFullYear) _fullYearYear--;
+    }
+
+    private void NextFullYear()
+    {
+        if (CanGoNextFullYear) _fullYearYear++;
+    }
+
+    private sealed record MiniMonth(string Label, List<DayCell> Days);
+
+    private List<MiniMonth> FullYearMonths
+    {
+        get
+        {
+            var cells = new List<MiniMonth>(12);
+            for (var m = 1; m <= 12; m++)
+            {
+                var monthStart = new DateTime(_fullYearYear, m, 1);
+                cells.Add(new MiniMonth(monthStart.ToString("MMM", CultureInfo.InvariantCulture), BuildMonthDays(monthStart)));
+            }
+            return cells;
+        }
+    }
+
+    private Task SelectFullYearDay(DayCell cell)
+    {
+        if (cell.IsDisabled) return Task.CompletedTask;
+        _displayedMonth = new DateTime(cell.Date.Year, cell.Date.Month, 1);
+        _showFullYear = false;
+        return SelectDay(cell);
     }
 }
