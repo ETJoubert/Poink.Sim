@@ -567,9 +567,10 @@
 
 /* ── Chart + trade/decision log + open positions ──────────────────────── */
 
-/* Native vertical resize handle (bottom-right) -- overflow:hidden is required for
-   the browser to render it; each side scrolls its own content internally instead
-   of the resize box clipping it (see .sim-chart-main/-side below). */
+/* Height is drag-resized via .sim-chart-hdivider below (not native `resize`,
+   which could only be grabbed from the exact bottom-right corner) -- each side
+   scrolls its own content internally instead of the row clipping it (see
+   .sim-chart-main/-side below). */
 .sim-chart {
     display: flex;
     flex-shrink: 0;
@@ -579,9 +580,7 @@
     height: 280px;
     min-height: 160px;
     max-height: 80vh;
-    resize: vertical;
     overflow: hidden;
-    border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 18%, transparent);
 }
 
 .sim-chart-main {
@@ -605,8 +604,13 @@
 }
 
 /* Draggable divider between the two charts -- see SimulationPage.razor.cs's
-   BindChartDivider for the pointer-drag logic that resizes .sim-chart-side. */
+   BindChartDivider for the pointer-drag logic that resizes .sim-chart-side. The
+   6px flex box is just the hit area for dragging; the visible mark is a thin
+   inset ::before line (same subtle color/weight as .sim-chart's border-bottom
+   below, so both dividers on this page read as one family), shorter than the
+   full height so it doesn't read as a hard section break. */
 .sim-chart-divider {
+    position: relative;
     flex: 0 0 6px;
     align-self: stretch;
     /* .sim-chart's own 16px gap now applies on both sides of this divider too (one
@@ -619,9 +623,26 @@
     border-radius: 3px;
 }
 
+.sim-chart-divider::before {
+    content: "";
+    position: absolute;
+    top: 15%;
+    bottom: 15%;
+    left: 50%;
+    width: 1px;
+    transform: translateX(-50%);
+    background: color-mix(in srgb, var(--color-primary) 20%, transparent);
+    transition: background 0.2s ease;
+}
+
 .sim-chart-divider:hover,
 .sim-chart-divider.sim-chart-divider-active {
-    background: color-mix(in srgb, var(--color-primary) 40%, transparent);
+    background: color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+.sim-chart-divider:hover::before,
+.sim-chart-divider.sim-chart-divider-active::before {
+    background: var(--color-primary);
 }
 
 @media (max-width: 900px) {
@@ -639,6 +660,44 @@
     .sim-chart-divider {
         display: none;
     }
+}
+
+/* Draggable divider between the chart row and the log panel below -- same
+   pattern as .sim-chart-divider above (drag anywhere along the bar, not just
+   one corner) and the same subtle inset-line styling, just rotated: the hit
+   area is a full-width horizontal strip instead of a full-height vertical one,
+   and the line runs left-right instead of top-bottom. See
+   SimulationPage.razor.cs's bindHeight for the pointer-drag logic that resizes
+   .sim-chart's height (the divider's previous sibling). */
+.sim-chart-hdivider {
+    position: relative;
+    flex: 0 0 6px;
+    cursor: row-resize;
+    touch-action: none;
+    user-select: none;
+    border-radius: 3px;
+}
+
+.sim-chart-hdivider::before {
+    content: "";
+    position: absolute;
+    left: 15%;
+    right: 15%;
+    top: 50%;
+    height: 1px;
+    transform: translateY(-50%);
+    background: color-mix(in srgb, var(--color-primary) 20%, transparent);
+    transition: background 0.2s ease;
+}
+
+.sim-chart-hdivider:hover,
+.sim-chart-hdivider.sim-chart-hdivider-active {
+    background: color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+.sim-chart-hdivider:hover::before,
+.sim-chart-hdivider.sim-chart-hdivider-active::before {
+    background: var(--color-primary);
 }
 
 /* ── Tabbed panel: decision log / open positions / traders ─────────────── */

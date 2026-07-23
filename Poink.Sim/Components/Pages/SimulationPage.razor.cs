@@ -134,12 +134,14 @@ namespace Poink.Sim.Components.Pages
             Service.OnChanged -= HandleServiceChanged;
         }
 
-        // ── Chart/volume-profile divider (drag to resize .sim-chart-side) ──
+        // ── Chart/volume-profile divider (drag to resize .sim-chart-side), and
+        // chart-row/log-panel divider (drag to resize .sim-chart's height) ──
 
-        // Purely a client-side layout preference (like .sim-chart's own native
-        // vertical resize) -- nothing here round-trips back into .NET state, so no
-        // [JSInvokable]/DotNetObjectReference is needed, just eval + dispose.
+        // Purely a client-side layout preference -- nothing here round-trips back
+        // into .NET state, so no [JSInvokable]/DotNetObjectReference is needed,
+        // just eval + dispose.
         private ElementReference _chartDividerRef;
+        private ElementReference _chartHDividerRef;
         private IJSObjectReference? _dividerResizeInstance;
 
         private const string ChartDividerScript = """
@@ -174,7 +176,38 @@ namespace Poink.Sim.Components.Pages
                         divider.addEventListener('pointerup', onUp);
                     });
                 }
-                return { bind: bind };
+                function bindHeight(divider) {
+                    if (!divider || divider.dataset.bound) return;
+                    divider.dataset.bound = '1';
+                    var minHeight = parseInt(divider.dataset.minHeight, 10) || 160;
+                    var maxHeightVh = parseInt(divider.dataset.maxHeightVh, 10) || 80;
+                    divider.addEventListener('pointerdown', function(e) {
+                        e.preventDefault();
+                        var target = divider.previousElementSibling;
+                        if (!target) return;
+                        var startY = e.clientY;
+                        var startHeight = target.getBoundingClientRect().height;
+                        var maxHeight = (maxHeightVh / 100) * window.innerHeight;
+                        divider.setPointerCapture(e.pointerId);
+                        divider.classList.add('sim-chart-hdivider-active');
+
+                        function clamp(ev) {
+                            return Math.min(maxHeight, Math.max(minHeight, startHeight + (ev.clientY - startY)));
+                        }
+                        function onMove(ev) {
+                            target.style.height = clamp(ev) + 'px';
+                        }
+                        function onUp(ev) {
+                            divider.releasePointerCapture(e.pointerId);
+                            divider.removeEventListener('pointermove', onMove);
+                            divider.removeEventListener('pointerup', onUp);
+                            divider.classList.remove('sim-chart-hdivider-active');
+                        }
+                        divider.addEventListener('pointermove', onMove);
+                        divider.addEventListener('pointerup', onUp);
+                    });
+                }
+                return { bind: bind, bindHeight: bindHeight };
             })()
             """;
 
@@ -184,7 +217,10 @@ namespace Poink.Sim.Components.Pages
                 _dividerResizeInstance = await JS.InvokeAsync<IJSObjectReference>("eval", ChartDividerScript);
 
             if (_snapshot is not null && !_hideChart && _dividerResizeInstance is not null)
+            {
                 await _dividerResizeInstance.InvokeVoidAsync("bind", _chartDividerRef);
+                await _dividerResizeInstance.InvokeVoidAsync("bindHeight", _chartHDividerRef);
+            }
         }
 
         public async ValueTask DisposeAsync()
