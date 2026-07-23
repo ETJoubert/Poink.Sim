@@ -93,8 +93,18 @@ namespace Poink.Sim.Components.Charts
         // so the caller gets both the two vertical lines on the main chart *and* the
         // bounds for whatever "small version of the price range" it wants to build
         // (see ProfilerPage's AddTRangeChart, which slices its loaded bars by this range
-        // into a mini candlestick chart).
+        // into a mini candlestick chart). T-Range Reference Chart fires this too, for
+        // its own first two clicks.
         [Parameter] public EventCallback<ChartTimeRange> OnTRangeChartDrawn { get; set; }
+
+        // Fired once T-Range Reference Chart's third click lands -- kept separate from
+        // OnVerticalLineDrawn (rather than just a third vertical line) so the caller can
+        // colour and group it as its own "reference window" rather than folding it into
+        // the main range's two lines (see ProfilerPage's AddReferenceLine/ReferenceLines).
+        // drawableOhlcvChart.js already rejects (ignores) any click here that doesn't
+        // land before the earlier of the first two, so whatever reaches this callback is
+        // always a valid reference point.
+        [Parameter] public EventCallback<DateTime> OnReferenceLineDrawn { get; set; }
 
         // Fired once an armed mode's whole click sequence is done (whether that's one
         // click, Diagonal's two, or T-Range/P-Range/Rectangle's 2/2/4) -- lets the caller
@@ -112,8 +122,18 @@ namespace Poink.Sim.Components.Charts
         // TRangeChart is TRange plus one extra OnTRangeChartDrawn call once both clicks
         // land -- its own classification (see ProfilerPage's Drawing.Kind), not merely
         // TRange with a flag, since it produces its own kind of card in the side panel.
-        private enum DrawMode { None, Horizontal, Vertical, Diagonal, TRange, PRange, Rectangle, TRangeChart }
+        // TRangeReferenceChart is TRangeChart plus a third click for a "reference window"
+        // line, constrained (client-side, see drawableOhlcvChart.js) to land before the
+        // earlier of the first two.
+        private enum DrawMode { None, Horizontal, Vertical, Diagonal, TRange, PRange, Rectangle, TRangeChart, TRangeReferenceChart }
         private DrawMode _mode;
+
+        // "What to click next" text for the toolbar hint span -- kept up to date by
+        // drawableOhlcvChart.js (see OnDrawHintAsync) rather than derived here, since only
+        // its click state machine knows how many clicks have landed so far for the armed
+        // mode (including Diagonal's first click, which produces no line/callback this
+        // component could otherwise derive progress from). Null while no mode is armed.
+        private string? _drawHint;
 
         private ElementReference _containerRef;
         private ElementReference _minimapRef;
@@ -137,6 +157,7 @@ namespace Poink.Sim.Components.Charts
             DrawMode.PRange => "prange",
             DrawMode.Rectangle => "rectangle",
             DrawMode.TRangeChart => "trangechart",
+            DrawMode.TRangeReferenceChart => "trangereferencechart",
             _ => "",
         };
 
@@ -270,6 +291,26 @@ namespace Poink.Sim.Components.Charts
         public Task OnTRangeChartClickedAsync(double unixSeconds1, double unixSeconds2) =>
             InvokeIfBound(OnTRangeChartDrawn, new ChartTimeRange(FromUnixSeconds(unixSeconds1), FromUnixSeconds(unixSeconds2)));
 
+        // Invoked once T-Range Reference Chart's third click lands -- drawableOhlcvChart.js
+        // only ever sends one that already passed its "before the earlier of the first
+        // two" check, so no further validation is needed here.
+        [JSInvokable]
+        public Task OnReferenceLineClickedAsync(double unixSeconds) =>
+            InvokeIfBound(OnReferenceLineDrawn, FromUnixSeconds(unixSeconds));
+
+        // Invoked by drawableOhlcvChart.js whenever the toolbar's "click the chart to
+        // place it" hint should change -- arming a tool (its first click's instructions),
+        // each click that lands (the next click's instructions), or a rejected click (e.g.
+        // T-Range Reference Chart's 3rd click landing on/after the earlier of its first
+        // two) explaining why it didn't count. Null clears it (tool disarmed).
+        [JSInvokable]
+        public Task OnDrawHintAsync(string? hint)
+        {
+            _drawHint = hint;
+            StateHasChanged();
+            return Task.CompletedTask;
+        }
+
         // Invoked once a draw mode's full click sequence has been dispatched (whether
         // that's H-Line/V-Line's one click, Diagonal's two, or T-Range/P-Range/Rectangle's
         // 2/2/4) -- separate from the per-line callbacks above so the toolbar's active
@@ -279,6 +320,7 @@ namespace Poink.Sim.Components.Charts
         public async Task OnDrawFinishedAsync()
         {
             _mode = DrawMode.None;
+            _drawHint = null;
             StateHasChanged();
 
             if (OnDrawFinished.HasDelegate)

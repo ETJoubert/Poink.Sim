@@ -1,0 +1,275 @@
+@page "/profiler"
+@namespace Poink.Sim.Components.Pages
+@using Poink.Sim.Components.Charts
+@using Poink.Sim.Components.Shared.DataTable
+@using Poink.Sim.Components.Shared.TickDataSource
+@using Poink.Sim.Repository
+@using Poink.Shared.Client.Components.Pages.CTrader
+
+<div class="prof-page">
+
+    <div class="prof-topbar">
+        <header class="prof-header">
+            <div class="prof-header-title">
+                <span class="prof-header-symbol">PROFILER</span>
+                @if (_config is not null)
+                {
+                    <span class="prof-header-mode">@_config.Table</span>
+                    <span class="prof-header-mode">@($"{_config.BarSize.TotalMinutes:0}m bars")</span>
+                    <span class="prof-header-mode">
+                        @_bars.Count.ToString("N0") bars / @_tickCount.ToString("N0") ticks
+                        @(_reachedStart ? " (full range loaded)" : " (more history available)")
+                    </span>
+                }
+                <span class="prof-header-state @StateClass()" title="Current profiler state">
+                    @(_isLoading ? "LOADING" : HasData ? "READY" : "SETUP")
+                </span>
+            </div>
+        </header>
+
+        <div class="prof-datarow">
+            <div class="prof-datarow-field prof-datarow-data">
+                <TickDataSource @bind-Table="_table" @bind-From="_from" @bind-To="_to" Disabled="_isLoading" />
+            </div>
+            <label class="prof-datarow-barmin" title="Size of each aggregated bar, in minutes">
+                Bar minutes
+                <input class="prof-datarow-barmin-input" type="number" min="1" @bind="_barMinutesText"
+                       disabled="@_isLoading" title="Size of each aggregated bar, in minutes" />
+            </label>
+            <div class="prof-datarow-actions">
+                <button class="prof-ctrl-btn prof-ctrl-btn-play" @onclick="Load" disabled="@(_isLoading || _isLoadingMore)"
+                        title="Load a recent slice of the selected range -- older history backfills automatically as you pan the chart">
+                    @(_isLoading ? "LOADING..." : "LOAD")
+                </button>
+                @if (HasData && !_reachedStart)
+                {
+                    <button class="prof-ctrl-btn" @onclick="LoadMore" disabled="@(_isLoading || _isLoadingMore)"
+                            title="Fetch the next older chunk of history -- same as panning the chart back to its earliest bar">
+                        @(_isLoadingMore ? "LOADING OLDER..." : "LOAD OLDER")
+                    </button>
+                }
+                @if (_error is not null)
+                {
+                    <span class="prof-error-inline" title="@_error">@_error</span>
+                }
+            </div>
+        </div>
+    </div>
+
+    @if (HasData)
+    {
+        <div class="prof-chart">
+            <div class="prof-chart-main"
+                 title="OHLC bar chart -- pan left to backfill older history, or use the toolbar to draw H-Line/V-Line/D-Line/T-Range/P-Range/Rectangle/T-Range Chart/T-Range Reference Chart">
+                <DrawableOhlcvChart Bars="ToBarRows()" KeepView="_keepView" OnNearStart="LoadMore"
+                                    HorizontalLines="AllHorizontalLines()" VerticalLines="AllVerticalLines()" DiagonalLines="AllDiagonalLines()"
+                                    RangeFills="AllRangeFills()"
+                                    OnHorizontalLineDrawn="AddHorizontalLine" OnVerticalLineDrawn="AddVerticalLine"
+                                    OnDiagonalLineDrawn="AddDiagonalLine" OnTRangeChartDrawn="AddTRangeChart"
+                                    OnReferenceLineDrawn="AddReferenceLine"
+                                    OnDrawFinished="FinishDrawing" />
+            </div>
+            <div class="prof-chart-side">
+                <div class="prof-vp" title="Volume profile across every bar loaded so far">
+                    <TickVolumeProfileChart WeightedSamples="MergedSamples()" CurrentPrice="LastClose" />
+                </div>
+            </div>
+        </div>
+
+        <div class="prof-chart-hdivider" @ref="_chartHDividerRef" data-min-height="200" data-max-height-vh="80"
+             title="Drag to resize"></div>
+    }
+    else if (!_isLoading)
+    {
+        <p class="prof-empty">Pick a symbol and date range above, then LOAD to view its bar chart and volume profile.</p>
+    }
+
+    <div class="prof-log-panel">
+        <div class="prof-log-tabs">
+            <button class="prof-tab-btn @(_activePanelTab == PanelTab.Drawings ? "active" : "")"
+                    @onclick="() => _activePanelTab = PanelTab.Drawings">DRAWINGS</button>
+            <button class="prof-tab-btn @(_activePanelTab == PanelTab.SavedTRangeCharts ? "active" : "")"
+                    @onclick="() => _activePanelTab = PanelTab.SavedTRangeCharts">SAVED T-RANGE CHARTS</button>
+            <button class="prof-tab-btn @(_activePanelTab == PanelTab.SavedTRangeReferenceCharts ? "active" : "")"
+                    @onclick="() => _activePanelTab = PanelTab.SavedTRangeReferenceCharts">SAVED T-RANGE REFERENCE CHARTS</button>
+        </div>
+        <div class="prof-log-content">
+            @if (_activePanelTab == PanelTab.Drawings)
+            {
+                <div class="prof-drawings-panel" title="Everything drawn on the chart via the toolbar">
+                    @if (_selectedDrawingIds.Count > 0)
+                    {
+                        <div class="prof-drawings-selection-bar">
+                            <span class="prof-drawings-selection-count">@_selectedDrawingIds.Count SELECTED</span>
+                            @if (_showLabelInput)
+                            {
+                                <input class="prof-drawings-label-input" type="text" placeholder="e.g. reversal-setup-a"
+                                       @bind="_labelText" @bind:event="oninput" @onkeydown="OnLabelKeyDown" autofocus
+                                       title="Label to save the selected T-Range Chart/T-Range Reference Chart drawings under" />
+                                <button class="prof-ctrl-btn" @onclick="SaveSelectedDrawings" disabled="@string.IsNullOrWhiteSpace(_labelText)"
+                                        title="Saves the selected drawings' ranges to the Poink.Sim database under this label -- only T-RANGE CHART/T-RANGE REFERENCE CHART drawings can be saved">
+                                    SAVE
+                                </button>
+                                <button class="prof-ctrl-btn" @onclick="CancelLabelSelected" title="Cancel without saving">CANCEL</button>
+                            }
+                            else
+                            {
+                                <button class="prof-ctrl-btn" @onclick="ShowLabelSelectedInput"
+                                        title="Label the selected drawings and save their ranges to the Poink.Sim database -- only T-RANGE CHART/T-RANGE REFERENCE CHART drawings can be saved">
+                                    LABEL SELECTED
+                                </button>
+                            }
+                            <button class="prof-ctrl-btn" @onclick="RemoveSelectedDrawings"
+                                    title="Remove the selected drawings from the chart -- does not affect anything already saved to the database">
+                                DELETE
+                            </button>
+                            <button class="prof-drawings-selection-clear" @onclick="() => _selectedDrawingIds.Clear()" title="Clear selection">
+                                CLEAR
+                            </button>
+                        </div>
+                    }
+                    @if (!HasData)
+                    {
+                        <p class="prof-drawings-empty">Load a symbol and date range above to start drawing.</p>
+                    }
+                    else if (_drawings.Count == 0)
+                    {
+                        <p class="prof-drawings-empty">Use the chart toolbar (H-LINE, V-LINE, D-LINE, T-RANGE, P-RANGE, RECT, T-RANGE CHART, T-RANGE REF CHART) to add one.</p>
+                    }
+                    else
+                    {
+                        <div class="prof-drawings-row">
+                            @for (var i = 0; i < _drawings.Count; i++)
+                            {
+                                var index = i;
+                                var d = _drawings[index];
+                                var isSelected = _selectedDrawingIds.Contains(d.Id);
+                                <div class="prof-drawing-card prof-drawing-card-@d.ColorGroup @(isSelected ? "prof-drawing-card-selected" : "")"
+                                     @onclick="() => ToggleDrawingSelected(d.Id)" title="Click to select">
+                                    <div class="prof-drawing-card-header">
+                                        <input type="checkbox" class="prof-drawing-select" checked="@isSelected"
+                                               @onchange="() => ToggleDrawingSelected(d.Id)" @onclick:stopPropagation="true"
+                                               title="Select this drawing" />
+                                        <span class="prof-drawing-kind">#@d.Id @d.Kind</span>
+                                        @if (_savedDrawingIds.Contains(d.Id))
+                                        {
+                                            <span class="prof-drawing-saved-badge" title="Saved to the Poink.Sim database">SAVED</span>
+                                        }
+                                        <button class="prof-drawing-remove" @onclick="() => RemoveDrawing(index)" @onclick:stopPropagation="true"
+                                                title="Remove this drawing (and every line it's made of)">✕</button>
+                                    </div>
+                                    @if (d.IsRange && d.RangeBarCount is { } barCount && d.RangeSpan is { } span)
+                                    {
+                                        <div class="prof-drawing-stats" title="Bars and time span between this range's two lines">
+                                            @barCount.ToString("N0") bars, @FormatSpan(span)
+                                        </div>
+                                    }
+                                    @if (d.ReferenceBarCount is { } refBarCount)
+                                    {
+                                        <div class="prof-drawing-stats" title="Bars inside the reference window (shaded in the mini chart below)">
+                                            @refBarCount.ToString("N0") reference bars
+                                        </div>
+                                    }
+                                    @foreach (var h in d.HorizontalLines)
+                                    {
+                                        <div class="prof-drawing-line">H @h.Label</div>
+                                    }
+                                    @foreach (var v in d.VerticalLines)
+                                    {
+                                        <div class="prof-drawing-line">V @v.Label</div>
+                                    }
+                                    @foreach (var dl in d.DiagonalLines)
+                                    {
+                                        <div class="prof-drawing-line">D @dl.Label</div>
+                                    }
+                                    @foreach (var r in d.ReferenceLines)
+                                    {
+                                        <div class="prof-drawing-line">REF @r.Label</div>
+                                    }
+                                    @if (d.ChartBars.Count > 0)
+                                    {
+                                        <div class="prof-drawing-minichart" title="Bars inside this time range (reference window shaded, if any)">
+                                            <CandlestickChart Bars="d.ChartBars" ReferenceBarCount="@(d.ReferenceBarCount ?? 0)" />
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+            else if (_activePanelTab == PanelTab.SavedTRangeCharts)
+            {
+                <div class="prof-saved-drawings-panel" title="Every T-Range Chart labeled and saved to the Poink.Sim database, across every symbol/session">
+                    <DataTable TItem="TRangeChart" Items="_savedTRangeCharts" ShowRowNumbers="false" ActionsHeader="ACTIONS"
+                               ExcludeProperties="@(new List<string> { "Id" })" OnDelete="HandleDeleteTRangeChart"
+                               EmptyMessage="no saved T-Range Charts yet -- select a T-Range Chart card above and use LABEL SELECTED">
+                        <CardContent Context="chart">
+                            @{ var bars = GetChartBars(chart); }
+                            @if (bars is null)
+                            {
+                                <p class="prof-saved-drawing-loading">loading chart...</p>
+                            }
+                            else if (bars.Count > 0)
+                            {
+                                <div class="prof-saved-drawing-chart" title="Redrawn from this range's ticks">
+                                    <CandlestickChart Bars="bars" />
+                                </div>
+                            }
+                        </CardContent>
+                        <DetailContent Context="chart">
+                            @{ var bars = GetChartBars(chart); }
+                            @if (bars is null)
+                            {
+                                <p class="prof-saved-drawing-loading">loading chart...</p>
+                            }
+                            else if (bars.Count > 0)
+                            {
+                                <div class="prof-saved-drawing-chart prof-saved-drawing-chart-detail" title="Redrawn from this range's ticks">
+                                    <CandlestickChart Bars="bars" />
+                                </div>
+                            }
+                        </DetailContent>
+                    </DataTable>
+                </div>
+            }
+            else
+            {
+                <div class="prof-saved-drawings-panel"
+                     title="Every T-Range Reference Chart labeled and saved to the Poink.Sim database, across every symbol/session">
+                    <DataTable TItem="TRangeReferenceChart" Items="_savedTRangeReferenceCharts" ShowRowNumbers="false" ActionsHeader="ACTIONS"
+                               ExcludeProperties="@(new List<string> { "Id" })" OnDelete="HandleDeleteTRangeReferenceChart"
+                               EmptyMessage="no saved T-Range Reference Charts yet -- select a T-Range Reference Chart card above and use LABEL SELECTED">
+                        <CardContent Context="chart">
+                            @{ var bars = GetReferenceChartBars(chart); }
+                            @if (bars is null)
+                            {
+                                <p class="prof-saved-drawing-loading">loading chart...</p>
+                            }
+                            else if (bars.Count > 0)
+                            {
+                                <div class="prof-saved-drawing-chart" title="Redrawn from this range's ticks -- reference window shaded">
+                                    <CandlestickChart Bars="bars" ReferenceBarCount="chart.ReferenceBarCount" />
+                                </div>
+                            }
+                        </CardContent>
+                        <DetailContent Context="chart">
+                            @{ var bars = GetReferenceChartBars(chart); }
+                            @if (bars is null)
+                            {
+                                <p class="prof-saved-drawing-loading">loading chart...</p>
+                            }
+                            else if (bars.Count > 0)
+                            {
+                                <div class="prof-saved-drawing-chart prof-saved-drawing-chart-detail" title="Redrawn from this range's ticks -- reference window shaded">
+                                    <CandlestickChart Bars="bars" ReferenceBarCount="chart.ReferenceBarCount" />
+                                </div>
+                            }
+                        </DetailContent>
+                    </DataTable>
+                </div>
+            }
+        </div>
+    </div>
+
+</div>

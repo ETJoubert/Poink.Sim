@@ -48,10 +48,15 @@
                     title="Click two points to mark a time range AND render a small candlestick chart of the bars inside it">
                 T-RANGE CHART
             </button>
+            <button type="button" class="doc-tool-btn doc-tool-btn-charts @(_mode == DrawMode.TRangeReferenceChart ? "active" : "")"
+                    @onclick="() => ToggleMode(DrawMode.TRangeReferenceChart)"
+                    title="Click two points like T-Range Chart, then a third point before the earlier of the two to mark a reference window">
+                T-RANGE REF CHART
+            </button>
         </div>
         @if (_mode != DrawMode.None)
         {
-            <span class="doc-toolbar-hint">click the chart to place it</span>
+            <span class="doc-toolbar-hint" title="What to click next">@(_drawHint ?? "click the chart to place it")</span>
         }
         <button type="button" class="doc-expand-btn" @onclick="ToggleExpanded" title="@(_expanded ? "Collapse" : "Expand")">
             @(_expanded ? "✕" : "⤢")

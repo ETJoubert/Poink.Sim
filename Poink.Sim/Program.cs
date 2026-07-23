@@ -55,6 +55,7 @@ builder.Host.UseSerilog((context, configuration) => configuration
 builder.Services.AddSingleton<ITickRepository, TickRepository>();
 builder.Services.AddSingleton<IBrainRepository, BrainRepository>();
 builder.Services.AddSingleton<ITRangeChartRepository, TRangeChartRepository>();
+builder.Services.AddSingleton<ITRangeReferenceChartRepository, TRangeReferenceChartRepository>();
 builder.Services.AddSingleton<ISimulationBrain, MomentumThresholdBrain>();
 builder.Services.AddSingleton<ISimulationBrain, RandomBrain>();
 // Registered as ISimulationBrain (not just IPolicyGradientBrain) so it shows up in

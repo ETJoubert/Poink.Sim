@@ -252,10 +252,64 @@
     background: var(--color-primary);
 }
 
-/* ── Drawings panel: full-width section below the chart row, its cards laid out
-   as a wrapping row (see .prof-drawings-row) rather than the tall vertical list
-   this used to be as a side column -- makes better use of the width now that it's
-   its own bottom section instead of squeezed next to the chart. A multi-click
+/* ── Tabbed panel: drawings / saved T-Range charts / saved T-Range reference
+   charts -- same underline-tab family as SimulationPage's own .sim-log-panel/
+   .sim-log-tabs/.sim-tab-btn (see that page's razor.css), just this page's own
+   copy since neither page shares code-behind. Rendered outside the @if (HasData)
+   block in ProfilerPage.razor -- same reasoning as the old standalone saved-
+   drawings panels below: labeled drawings from any past symbol/session (and the
+   tab bar itself) stay reachable even before a symbol is loaded. ────────────── */
+
+.prof-log-panel {
+    display: flex;
+    flex-direction: column;
+    padding: 18px 24px 24px;
+    flex: 1;
+}
+
+.prof-log-tabs {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+.prof-tab-btn {
+    font-family: var(--font-body);
+    font-weight: bold;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 8px 16px 9px;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--color-secondary);
+    opacity: 0.6;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.prof-tab-btn:hover {
+    opacity: 1;
+}
+
+.prof-tab-btn.active {
+    opacity: 1;
+    color: var(--color-primary);
+    border-bottom-color: var(--color-primary);
+    text-shadow: 0 0 8px color-mix(in srgb, var(--color-primary) 45%, transparent);
+}
+
+.prof-log-content {
+    min-width: 0;
+}
+
+/* ── Drawings tab: its cards laid out as a wrapping row (see .prof-drawings-row)
+   rather than a tall vertical list -- makes better use of the width now that it's
+   a full-width tab panel instead of squeezed next to the chart. A multi-click
    tool (T-Range/P-Range/Rectangle) still places several individual lines, but
    they're grouped under one card/one remove button here instead of exposing each
    underlying line separately, since removing a line by clicking its thin canvas
@@ -265,21 +319,6 @@
     display: flex;
     flex-direction: column;
     gap: 10px;
-    padding: 8px 24px 24px;
-}
-
-.prof-drawings-panel-header {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 12px;
-}
-
-.prof-drawings-title {
-    font-size: 0.62rem;
-    letter-spacing: 0.1em;
-    color: var(--color-secondary);
-    opacity: 0.85;
 }
 
 /* ── Bulk selection bar -- same look/feel as DataTable's own selection bar
@@ -490,15 +529,14 @@
     opacity: 0.8;
 }
 
-/* ── Saved-drawings browser -- independent of HasData/the current session
-   (see ProfilerPage.razor's placement, outside @if (HasData)), so labeled
-   drawings from any past symbol/session stay reachable. ───────────────── */
+/* ── Saved-drawings browser tabs -- independent of HasData/the current session
+   (see .prof-log-panel's placement in ProfilerPage.razor, outside @if (HasData)),
+   so labeled drawings from any past symbol/session stay reachable. ──────────── */
 
 .prof-saved-drawings-panel {
     display: flex;
     flex-direction: column;
     gap: 10px;
-    padding: 8px 24px 24px;
 }
 
 /* Chart preview for a saved drawing -- shown via DataTable's CardContent (card

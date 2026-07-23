@@ -124,8 +124,37 @@ function createRangeFillsPrimitive() {
 // .NET (see the subscribeClick handler in create() below) -- T-Range/P-Range/Rectangle/
 // T-Range-Chart place plain horizontal/vertical lines under the hood (2, 2, 2+2, and 2
 // respectively), not a shape of their own, so they need no entry in
-// createDiagonalLinesPrimitive or setLines below, unlike 'diagonal'.
-const modeClickCounts = { horizontal: 1, vertical: 1, diagonal: 2, trange: 2, prange: 2, rectangle: 4, trangechart: 2 };
+// createDiagonalLinesPrimitive or setLines below, unlike 'diagonal'. T-Range Reference
+// Chart is T-Range Chart's 2 clicks plus one more for its reference line.
+const modeClickCounts = {
+    horizontal: 1, vertical: 1, diagonal: 2, trange: 2, prange: 2, rectangle: 4,
+    trangechart: 2, trangereferencechart: 3,
+};
+
+// "What to click next" text for the toolbar hint (see OnDrawHintAsync) -- kept here
+// rather than mirrored in C# since only this module tracks how many clicks have
+// landed so far (entry.drawClicks), including Diagonal's first click, which produces
+// no line/callback on the .NET side a progress message could otherwise be derived
+// from. clickIndex is 0-based and always refers to the *next* click still needed
+// (so 0 means "about to place the first one").
+function drawHint(mode, clickIndex) {
+    switch (mode) {
+        case 'horizontal': return 'click a point to place the price line';
+        case 'vertical': return 'click a point to place the time line';
+        case 'diagonal':
+            return clickIndex === 0 ? 'click the start point (1 of 2)' : 'click the end point (2 of 2)';
+        case 'trange': return `click a time point (${clickIndex + 1} of 2)`;
+        case 'prange': return `click a price point (${clickIndex + 1} of 2)`;
+        case 'rectangle': return clickIndex < 2
+            ? `click a time bound (${clickIndex + 1} of 2)`
+            : `click a price bound (${clickIndex - 1} of 2)`;
+        case 'trangechart': return `click a time point (${clickIndex + 1} of 2) for the chart range`;
+        case 'trangereferencechart': return clickIndex < 2
+            ? `click a time point (${clickIndex + 1} of 2) for the chart range`
+            : 'click a point before the earlier line to place the reference window';
+        default: return 'click the chart to place it';
+    }
+}
 
 // Hand-rolled Series Primitive drawing an arbitrary set of two-point trend lines, each
 // in its own colour -- same technique as createVerticalLinesPrimitive above, except
@@ -497,6 +526,10 @@ export function create(container, minimapContainer, dotNetRef) {
         ranges: style.getPropertyValue('--color-secondary').trim() || accentColor,
         shapes: style.getPropertyValue('--color-warning').trim() || accentColor,
         charts: accentColor,
+        // T-Range Reference Chart's third ("reference window") line/fill -- deliberately
+        // its own colour, distinct from charts' accentColor, per "should also have some
+        // colour but different".
+        reference: style.getPropertyValue('--color-error').trim() || accentColor,
     };
 
     const verticalLines = createVerticalLinesPrimitive();
@@ -551,10 +584,24 @@ export function create(container, minimapContainer, dotNetRef) {
         const time = param.time;
         if (price === null || time == null) return;
 
-        entry.drawClicks.push({ time, price });
         const mode = entry.drawMode;
-        const clickIndex = entry.drawClicks.length;
         const ref = entry.dotNetRef;
+
+        // T-Range Reference Chart's 3rd click (the reference line) must land before the
+        // earlier of the first two -- reject it (leave the tool armed, drawClicks
+        // untouched) rather than counting it, telling the user why via the hint so they
+        // know to just try again instead of wondering why nothing happened.
+        if (mode === 'trangereferencechart' && entry.drawClicks.length === 2) {
+            const earliest = Math.min(entry.drawClicks[0].time, entry.drawClicks[1].time);
+            if (time >= earliest) {
+                ref.invokeMethodAsync(
+                    'OnDrawHintAsync', "that point isn't before the earlier line -- click before it to place the reference window");
+                return;
+            }
+        }
+
+        entry.drawClicks.push({ time, price });
+        const clickIndex = entry.drawClicks.length;
 
         switch (mode) {
             case 'horizontal':
@@ -567,6 +614,13 @@ export function create(container, minimapContainer, dotNetRef) {
                 // T-Range Chart draws the same two vertical lines T-Range does -- the mini
                 // chart itself is dispatched separately below, once both clicks are in.
                 ref.invokeMethodAsync('OnVerticalLineClickedAsync', time);
+                break;
+            case 'trangereferencechart':
+                // First two clicks are T-Range Chart's own vertical lines; the third is
+                // the reference line, dispatched through its own callback so the caller
+                // can colour/group it separately (see OnReferenceLineDrawn).
+                if (clickIndex <= 2) ref.invokeMethodAsync('OnVerticalLineClickedAsync', time);
+                else ref.invokeMethodAsync('OnReferenceLineClickedAsync', time);
                 break;
             case 'rectangle':
                 // First two clicks are the vertical (time) bounds, last two the
@@ -581,13 +635,16 @@ export function create(container, minimapContainer, dotNetRef) {
         }
 
         const needed = modeClickCounts[mode] || 1;
-        if (entry.drawClicks.length < needed) return;
+        if (entry.drawClicks.length < needed) {
+            ref.invokeMethodAsync('OnDrawHintAsync', drawHint(mode, entry.drawClicks.length));
+            return;
+        }
 
         if (mode === 'diagonal') {
             const clicks = entry.drawClicks;
             ref.invokeMethodAsync(
                 'OnDiagonalLineClickedAsync', clicks[0].price, clicks[0].time, clicks[1].price, clicks[1].time);
-        } else if (mode === 'trangechart') {
+        } else if (mode === 'trangechart' || mode === 'trangereferencechart') {
             const clicks = entry.drawClicks;
             ref.invokeMethodAsync('OnTRangeChartClickedAsync', clicks[0].time, clicks[1].time);
         }
@@ -622,11 +679,16 @@ export function setData(id, bars, resetView) {
 // Also resets any in-progress multi-click sequence (e.g. Diagonal's first click, or
 // T-Range/Rectangle's partial set of points) -- switching tools or re-clicking the
 // same toolbar button to cancel shouldn't leave stale clicks for the next placement.
+// Sends the freshly-armed tool's first hint (or clears it on disarm) so the toolbar
+// hint span never shows stale text left over from whatever was armed before.
 export function setDrawMode(id, mode) {
     const entry = instances.get(id);
     if (!entry) return;
     entry.drawMode = mode || null;
     entry.drawClicks = [];
+    if (entry.dotNetRef) {
+        entry.dotNetRef.invokeMethodAsync('OnDrawHintAsync', entry.drawMode ? drawHint(entry.drawMode, 0) : null);
+    }
 }
 
 // group: one of entry.groupColors' keys ('lines'/'ranges'/'shapes'/'charts', see

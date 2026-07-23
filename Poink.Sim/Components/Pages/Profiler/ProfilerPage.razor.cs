@@ -24,6 +24,7 @@ namespace Poink.Sim.Components.Pages
         [Inject] private ProfilerService Service { get; set; } = default!;
         [Inject] private IJSRuntime JS { get; set; } = default!;
         [Inject] private ITRangeChartRepository TRangeChartRepository { get; set; } = default!;
+        [Inject] private ITRangeReferenceChartRepository TRangeReferenceChartRepository { get; set; } = default!;
 
         // How many bars each fetch (the initial LOAD or a pan-triggered backfill)
         // tries to gather -- generous enough to be immediately useful, small enough
@@ -39,6 +40,13 @@ namespace Poink.Sim.Components.Pages
         private bool _isLoading;
         private bool _isLoadingMore;
         private string? _error;
+
+        // Which of the three bottom panels is showing -- same tabbed-panel pattern as
+        // SimulationPage's LogTab/_activeLogTab, just this page's own copy since neither
+        // page shares code-behind.
+        private PanelTab _activePanelTab;
+
+        private enum PanelTab { Drawings, SavedTRangeCharts, SavedTRangeReferenceCharts }
 
         // false while Load() is populating the very first chunk (so DrawableOhlcvChart
         // fits/rezooms to it), true from then on so a LoadMore backfill prepends
@@ -59,19 +67,32 @@ namespace Poink.Sim.Components.Pages
         // of exposing the individual lines a multi-click tool happened to be built from.
         // ChartBars is T-Range Chart's own addition -- the same two vertical lines T-Range
         // places, plus a snapshot of the loaded bars between them for a mini candlestick
-        // chart in its card (see AddTRangeChart). Id/RangeBarCount/RangeSpan are only set
-        // once a drawing is actually sealed (see FinishDrawing) -- 0/null while still
-        // _pending, since a range's bar count/span isn't final until its second click lands.
+        // chart in its card (see AddTRangeChart). ReferenceLines is T-Range Reference
+        // Chart's own addition on top of that -- its third click's line, kept separate
+        // from VerticalLines (rather than a third entry there) so it can be coloured and
+        // grouped as its own "reference window" instead of reading as part of the main
+        // range (see AddReferenceLine/AllVerticalLines/AllRangeFills). Id/RangeBarCount/
+        // RangeSpan are only set once a drawing is actually sealed (see FinishDrawing) --
+        // 0/null while still _pending, since a range's bar count/span isn't final until
+        // its second click lands.
         private sealed record Drawing(
             List<ChartHorizontalLine> HorizontalLines, List<ChartVerticalLine> VerticalLines,
-            List<ChartDiagonalLine> DiagonalLines, List<CTraderBarRow> ChartBars)
+            List<ChartDiagonalLine> DiagonalLines, List<CTraderBarRow> ChartBars, List<ChartVerticalLine> ReferenceLines)
         {
             public int Id { get; init; }
             public int? RangeBarCount { get; init; }
             public TimeSpan? RangeSpan { get; init; }
 
+            // How many of ChartBars' leading bars belong to the reference window rather
+            // than the main range -- set once alongside RangeBarCount/RangeSpan (see
+            // FinishDrawing), so ChartBars[..ReferenceBarCount] is the reference window
+            // and ChartBars[ReferenceBarCount..] is the main range (see CandlestickChart's
+            // own ReferenceBarCount parameter, which shades exactly that split).
+            public int? ReferenceBarCount { get; init; }
+
             public string Kind => this switch
             {
+                { ChartBars.Count: > 0, ReferenceLines.Count: > 0 } => "T-RANGE REFERENCE CHART",
                 { ChartBars.Count: > 0 } => "T-RANGE CHART",
                 { HorizontalLines.Count: 1, VerticalLines.Count: 0, DiagonalLines.Count: 0 } => "H-LINE",
                 { HorizontalLines.Count: 0, VerticalLines.Count: 1, DiagonalLines.Count: 0 } => "V-LINE",
@@ -85,17 +106,20 @@ namespace Poink.Sim.Components.Pages
             // Drives both the drawn shape's colour on the chart (see AllHorizontalLines/
             // AllVerticalLines/AllDiagonalLines/AllRangeFills below) and matches
             // DrawableOhlcvChart.razor.css's .doc-tool-btn-* toolbar groups, so a drawing
-            // always reads in the same colour as the button that placed it.
+            // always reads in the same colour as the button that placed it. The reference
+            // line/window itself is tagged "reference" directly in AllVerticalLines/
+            // AllRangeFills instead of through this property, since it needs a colour
+            // distinct from its own drawing's main "charts" classification.
             public string? ColorGroup => Kind switch
             {
                 "H-LINE" or "V-LINE" or "D-LINE" => "lines",
                 "T-RANGE" or "P-RANGE" => "ranges",
                 "RECTANGLE" => "shapes",
-                "T-RANGE CHART" => "charts",
+                "T-RANGE CHART" or "T-RANGE REFERENCE CHART" => "charts",
                 _ => null,
             };
 
-            public bool IsRange => VerticalLines.Count == 2 && Kind is "T-RANGE" or "T-RANGE CHART";
+            public bool IsRange => VerticalLines.Count == 2 && Kind is "T-RANGE" or "T-RANGE CHART" or "T-RANGE REFERENCE CHART";
         }
 
         // Completed drawings (reset on a fresh Load, kept across LoadMore backfills since
@@ -126,6 +150,11 @@ namespace Poink.Sim.Components.Pages
         // it's rendered outside the @if (HasData) block (see ProfilerPage.razor).
         private List<TRangeChart> _savedTRangeCharts = new();
 
+        // Same, for T-Range Reference Chart drawings -- its own repository/table (see
+        // ITRangeReferenceChartRepository) since every row here always carries a
+        // reference window on top of the main range, unlike plain T-Range Chart rows.
+        private List<TRangeReferenceChart> _savedTRangeReferenceCharts = new();
+
         // Bar snapshots for the Saved Drawings table's chart previews, fetched
         // on demand (see GetChartBars/LoadChartBarsAsync) by re-querying the
         // saved symbol's ticks for [StartTimeUtc, EndTimeUtc] rather than storing
@@ -133,7 +162,14 @@ namespace Poink.Sim.Components.Pages
         private readonly Dictionary<long, List<CTraderBarRow>> _chartBarsCache = new();
         private readonly HashSet<long> _chartBarsLoading = new();
 
-        private static Drawing NewPending() => new(new(), new(), new(), new());
+        // Same, for T-Range Reference Chart -- keyed by TRangeReferenceChart.Id, spanning
+        // [ReferenceStartTimeUtc, EndTimeUtc] (reference window + main range together) so
+        // the reference area is visible in the redrawn chart too (see
+        // GetReferenceChartBars/LoadReferenceChartBarsAsync).
+        private readonly Dictionary<long, List<CTraderBarRow>> _referenceChartBarsCache = new();
+        private readonly HashSet<long> _referenceChartBarsLoading = new();
+
+        private static Drawing NewPending() => new(new(), new(), new(), new(), new());
 
         private IEnumerable<Drawing> AllDrawings() => _drawings.Append(_pending);
 
@@ -183,7 +219,11 @@ namespace Poink.Sim.Components.Pages
             })()
             """;
 
-        protected override void OnInitialized() => _savedTRangeCharts = TRangeChartRepository.ListTRangeCharts();
+        protected override void OnInitialized()
+        {
+            _savedTRangeCharts = TRangeChartRepository.ListTRangeCharts();
+            _savedTRangeReferenceCharts = TRangeReferenceChartRepository.ListTRangeReferenceCharts();
+        }
 
         protected override async Task OnAfterRenderAsync(bool firstRender)
         {
@@ -313,14 +353,26 @@ namespace Poink.Sim.Components.Pages
         // drawableOhlcvChart.js's 'trangechart' case), so _pending already has its two
         // ChartVerticalLine entries by the time this runs; this just adds the mini chart's
         // own bar snapshot on top, from whatever's loaded between the (possibly reversed)
-        // click order.
+        // click order. For T-Range Reference Chart, drawableOhlcvChart.js fires this only
+        // after all 3 clicks have landed (see its 'trangereferencechart' case), so
+        // _pending.ReferenceLines is already populated here too -- the slice then starts
+        // from the reference click instead of the main range, so the reference window's
+        // own bars are part of ChartBars (see FinishDrawing's ReferenceBarCount, which
+        // marks where the reference window ends and the main range begins within it).
         private void AddTRangeChart(ChartTimeRange range)
         {
             var start = range.TimeUtc1 <= range.TimeUtc2 ? range.TimeUtc1 : range.TimeUtc2;
             var end = range.TimeUtc1 <= range.TimeUtc2 ? range.TimeUtc2 : range.TimeUtc1;
-            var slice = _bars.Where(b => b.OpenTime >= start && b.OpenTime <= end);
+            var sliceStart = _pending.ReferenceLines.Count > 0 ? _pending.ReferenceLines[0].TimeUtc : start;
+            var slice = _bars.Where(b => b.OpenTime >= sliceStart && b.OpenTime <= end);
             _pending.ChartBars.AddRange(ToBarRows(slice));
         }
+
+        // Wired to DrawableOhlcvChart's OnReferenceLineDrawn -- T-Range Reference Chart's
+        // third click, already guaranteed (by drawableOhlcvChart.js) to land before the
+        // earlier of the two main-range clicks that landed first.
+        private void AddReferenceLine(DateTime timeUtc) =>
+            _pending.ReferenceLines.Add(new ChartVerticalLine(timeUtc, timeUtc.ToString("yyyy-MM-dd HH:mm")));
 
         // Wired to DrawableOhlcvChart's OnDrawFinished -- fires once per completed
         // placement (a lone H-Line/V-Line/D-Line, or a full T-Range/P-Range/Rectangle
@@ -344,6 +396,20 @@ namespace Poink.Sim.Components.Pages
                         RangeBarCount = _bars.Count(b => b.OpenTime >= start && b.OpenTime <= end),
                         RangeSpan = end - start,
                     };
+
+                    // T-Range Reference Chart's reference window is [ReferenceLines[0],
+                    // start) -- strictly before the main range's own start, which is also
+                    // where AddTRangeChart's ChartBars slice switched from reference bars
+                    // to main-range bars, so this count doubles as the split index into
+                    // ChartBars that CandlestickChart's ReferenceBarCount parameter needs.
+                    if (drawing.ReferenceLines.Count > 0)
+                    {
+                        var referenceStart = drawing.ReferenceLines[0].TimeUtc;
+                        drawing = drawing with
+                        {
+                            ReferenceBarCount = _bars.Count(b => b.OpenTime >= referenceStart && b.OpenTime < start),
+                        };
+                    }
                 }
 
                 _drawings = _drawings.Append(drawing).ToList();
@@ -388,31 +454,44 @@ namespace Poink.Sim.Components.Pages
             else if (e.Key == "Escape") CancelLabelSelected();
         }
 
-        // Persists every selected T-Range Chart drawing's range to the Poink.Sim
-        // database under one shared label (see ITRangeChartRepository's doc
-        // comment) -- only Kind == "T-RANGE CHART" among the selection actually
-        // gets saved (any other kind has no well-defined [start, end] range to
-        // redraw from later, so it's silently skipped); selection stays
-        // on-screen afterwards -- only RemoveSelectedDrawings/the per-card "X"
-        // take a drawing off the chart.
+        // Persists every selected T-Range Chart/T-Range Reference Chart drawing's range
+        // to the Poink.Sim database under one shared label (see ITRangeChartRepository's
+        // and ITRangeReferenceChartRepository's doc comments) -- any other kind among the
+        // selection has no well-defined [start, end] range to redraw from later, so it's
+        // silently skipped; selection stays on-screen afterwards -- only
+        // RemoveSelectedDrawings/the per-card "X" take a drawing off the chart.
         private void SaveSelectedDrawings()
         {
             if (string.IsNullOrWhiteSpace(_labelText) || _config is null || _selectedDrawingIds.Count == 0) return;
 
             var label = _labelText.Trim();
-            foreach (var drawing in _drawings.Where(d => _selectedDrawingIds.Contains(d.Id) && d.Kind == "T-RANGE CHART"))
+            foreach (var drawing in _drawings.Where(d =>
+                _selectedDrawingIds.Contains(d.Id) && d.Kind is "T-RANGE CHART" or "T-RANGE REFERENCE CHART"))
             {
                 var t1 = drawing.VerticalLines[0].TimeUtc;
                 var t2 = drawing.VerticalLines[1].TimeUtc;
                 var start = t1 <= t2 ? t1 : t2;
                 var end = t1 <= t2 ? t2 : t1;
-                var barCount = drawing.RangeBarCount ?? drawing.ChartBars.Count;
+                var barCount = drawing.RangeBarCount ?? drawing.ChartBars.Count - (drawing.ReferenceBarCount ?? 0);
 
-                TRangeChartRepository.SaveTRangeChart(label, _config.Table, start, end, _config.BarSize.TotalMinutes, barCount);
+                if (drawing.Kind == "T-RANGE REFERENCE CHART")
+                {
+                    var referenceStart = drawing.ReferenceLines[0].TimeUtc;
+                    var referenceBarCount = drawing.ReferenceBarCount ?? 0;
+                    TRangeReferenceChartRepository.SaveTRangeReferenceChart(
+                        label, _config.Table, start, end, _config.BarSize.TotalMinutes, barCount,
+                        referenceStart, start, referenceBarCount);
+                }
+                else
+                {
+                    TRangeChartRepository.SaveTRangeChart(label, _config.Table, start, end, _config.BarSize.TotalMinutes, barCount);
+                }
+
                 _savedDrawingIds.Add(drawing.Id);
             }
 
             _savedTRangeCharts = TRangeChartRepository.ListTRangeCharts();
+            _savedTRangeReferenceCharts = TRangeReferenceChartRepository.ListTRangeReferenceCharts();
             _selectedDrawingIds.Clear();
             CancelLabelSelected();
         }
@@ -422,6 +501,13 @@ namespace Poink.Sim.Components.Pages
             TRangeChartRepository.DeleteTRangeChart(chart.Id);
             _savedTRangeCharts = TRangeChartRepository.ListTRangeCharts();
             _chartBarsCache.Remove(chart.Id);
+        }
+
+        private void HandleDeleteTRangeReferenceChart(TRangeReferenceChart chart)
+        {
+            TRangeReferenceChartRepository.DeleteTRangeReferenceChart(chart.Id);
+            _savedTRangeReferenceCharts = TRangeReferenceChartRepository.ListTRangeReferenceCharts();
+            _referenceChartBarsCache.Remove(chart.Id);
         }
 
         // Redraws a saved T-Range Chart by re-querying its symbol's ticks for
@@ -454,6 +540,35 @@ namespace Poink.Sim.Components.Pages
             StateHasChanged();
         }
 
+        // Same as GetChartBars/LoadChartBarsAsync above, but spanning [ReferenceStartTimeUtc,
+        // EndTimeUtc] -- reference window + main range together -- so the reference area is
+        // visible in the redrawn saved chart too (see CandlestickChart's ReferenceBarCount,
+        // fed from the stored chart.ReferenceBarCount directly -- no recomputation needed,
+        // it was already derived once when the drawing was first sealed).
+        private List<CTraderBarRow>? GetReferenceChartBars(TRangeReferenceChart chart)
+        {
+            if (_referenceChartBarsCache.TryGetValue(chart.Id, out var bars)) return bars;
+            if (_referenceChartBarsLoading.Add(chart.Id))
+                _ = LoadReferenceChartBarsAsync(chart);
+            return null;
+        }
+
+        private async Task LoadReferenceChartBarsAsync(TRangeReferenceChart chart)
+        {
+            try
+            {
+                var config = new ProfilerConfig(
+                    chart.Symbol, chart.ReferenceStartTimeUtc, chart.EndTimeUtc, TimeSpan.FromMinutes(chart.BarMinutes));
+                var loaded = await Service.LoadAsync(config, chart.EndTimeUtc, chart.BarCount + chart.ReferenceBarCount);
+                _referenceChartBarsCache[chart.Id] = ToBarRows(loaded.Bars);
+            }
+            finally
+            {
+                _referenceChartBarsLoading.Remove(chart.Id);
+            }
+            StateHasChanged();
+        }
+
         // Flattened for DrawableOhlcvChart, which only ever renders plain lines/shapes/
         // fills and has no notion of a "drawing" grouping -- includes _pending too, so a
         // multi-click tool's lines still appear on the chart as each one is placed, before
@@ -464,20 +579,38 @@ namespace Poink.Sim.Components.Pages
         private List<ChartHorizontalLine> AllHorizontalLines() =>
             AllDrawings().SelectMany(d => d.HorizontalLines.Select(l => l with { ColorGroup = d.ColorGroup })).ToList();
 
+        // Reference lines are tagged "reference" here rather than d.ColorGroup ("charts")
+        // -- see Drawing.ColorGroup's comment on why the reference window needs its own
+        // colour distinct from its drawing's main classification.
         private List<ChartVerticalLine> AllVerticalLines() =>
-            AllDrawings().SelectMany(d => d.VerticalLines.Select(l => l with { ColorGroup = d.ColorGroup })).ToList();
+            AllDrawings()
+                .SelectMany(d => d.VerticalLines.Select(l => l with { ColorGroup = d.ColorGroup })
+                    .Concat(d.ReferenceLines.Select(l => l with { ColorGroup = "reference" })))
+                .ToList();
 
         private List<ChartDiagonalLine> AllDiagonalLines() =>
             AllDrawings().SelectMany(d => d.DiagonalLines.Select(l => l with { ColorGroup = d.ColorGroup })).ToList();
 
         // One soft translucent band per T-Range/T-Range Chart drawing (see Drawing.IsRange)
         // -- "#Id" labels it on the chart itself, blank while still _pending (Id isn't
-        // assigned until FinishDrawing seals it).
+        // assigned until FinishDrawing seals it). A T-Range Reference Chart drawing adds
+        // a second band of its own, from its reference line back to the earlier of its
+        // two main-range lines -- tagged "reference" (not d.ColorGroup) so it renders in
+        // a colour distinct from the main range fill above it.
         private List<ChartRangeFill> AllRangeFills() =>
             AllDrawings()
                 .Where(d => d.IsRange)
                 .Select(d => new ChartRangeFill(
                     d.VerticalLines[0].TimeUtc, d.VerticalLines[1].TimeUtc, d.Id > 0 ? $"#{d.Id}" : null, d.ColorGroup))
+                .Concat(AllDrawings()
+                    .Where(d => d.ReferenceLines.Count > 0 && d.VerticalLines.Count == 2)
+                    .Select(d =>
+                    {
+                        var earliest = d.VerticalLines[0].TimeUtc <= d.VerticalLines[1].TimeUtc
+                            ? d.VerticalLines[0].TimeUtc : d.VerticalLines[1].TimeUtc;
+                        return new ChartRangeFill(
+                            d.ReferenceLines[0].TimeUtc, earliest, d.Id > 0 ? $"#{d.Id} REF" : null, "reference");
+                    }))
                 .ToList();
 
         // "2h 15m" / "3d 4h" / "45m" / "12s" -- coarsest two units that keep a range's
