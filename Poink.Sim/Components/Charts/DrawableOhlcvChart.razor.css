@@ -62,6 +62,7 @@
 .doc-tool-btn-ranges { --doc-color: var(--color-secondary); }
 .doc-tool-btn-shapes { --doc-color: var(--color-warning); }
 .doc-tool-btn-charts { --doc-color: var(--color-accent); }
+.doc-tool-btn-volume { --doc-color: var(--color-info); }
 
 .doc-tool-btn {
     font-family: var(--font-body);
@@ -87,6 +88,15 @@
     border-color: var(--doc-color, var(--color-accent));
     color: var(--color-bg-terminal);
     box-shadow: 0 0 10px color-mix(in srgb, var(--doc-color, var(--color-accent)) 50%, transparent);
+}
+
+/* "Has a value, click clears it" state -- distinct from .active ("currently armed,
+   waiting for clicks"): a soft fill rather than a full one, so VOLUME RANGE reads as
+   a different state than mid-placement instead of looking like it's still armed
+   (see DrawableOhlcvChart.razor.cs's ToggleVolumeRange). */
+.doc-tool-btn.has-value {
+    background: color-mix(in srgb, var(--doc-color, var(--color-accent)) 16%, transparent);
+    border-color: var(--doc-color, var(--color-accent));
 }
 
 .doc-toolbar-hint {

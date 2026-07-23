@@ -128,7 +128,7 @@ function createRangeFillsPrimitive() {
 // Chart is T-Range Chart's 2 clicks plus one more for its reference line.
 const modeClickCounts = {
     horizontal: 1, vertical: 1, diagonal: 2, trange: 2, prange: 2, rectangle: 4,
-    trangechart: 2, trangereferencechart: 3,
+    trangechart: 2, trangereferencechart: 3, volumerange: 2,
 };
 
 // "What to click next" text for the toolbar hint (see OnDrawHintAsync) -- kept here
@@ -152,6 +152,7 @@ function drawHint(mode, clickIndex) {
         case 'trangereferencechart': return clickIndex < 2
             ? `click a time point (${clickIndex + 1} of 2) for the chart range`
             : 'click a point before the earlier line to place the reference window';
+        case 'volumerange': return `click a time point (${clickIndex + 1} of 2) for the volume profile range`;
         default: return 'click the chart to place it';
     }
 }
@@ -530,6 +531,8 @@ export function create(container, minimapContainer, dotNetRef) {
         // its own colour, distinct from charts' accentColor, per "should also have some
         // colour but different".
         reference: style.getPropertyValue('--color-error').trim() || accentColor,
+        // Volume Range's own fill -- see DrawableOhlcvChart.razor.css's .doc-tool-btn-profile.
+        volume: style.getPropertyValue('--color-info').trim() || accentColor,
     };
 
     const verticalLines = createVerticalLinesPrimitive();
@@ -632,6 +635,11 @@ export function create(container, minimapContainer, dotNetRef) {
                 // A single point isn't a line yet -- nothing to draw until the second
                 // click completes it below.
                 break;
+            case 'volumerange':
+                // Never dispatches a generic vertical line -- see OnVolumeRangeDrawn's
+                // doc comment on the .NET side. Nothing to do until both clicks are in
+                // (dispatched as one bundled range below).
+                break;
         }
 
         const needed = modeClickCounts[mode] || 1;
@@ -647,6 +655,9 @@ export function create(container, minimapContainer, dotNetRef) {
         } else if (mode === 'trangechart' || mode === 'trangereferencechart') {
             const clicks = entry.drawClicks;
             ref.invokeMethodAsync('OnTRangeChartClickedAsync', clicks[0].time, clicks[1].time);
+        } else if (mode === 'volumerange') {
+            const clicks = entry.drawClicks;
+            ref.invokeMethodAsync('OnVolumeRangeClickedAsync', clicks[0].time, clicks[1].time);
         }
 
         entry.drawMode = null;

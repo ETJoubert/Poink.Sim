@@ -106,6 +106,23 @@ namespace Poink.Sim.Components.Charts
         // always a valid reference point.
         [Parameter] public EventCallback<DateTime> OnReferenceLineDrawn { get; set; }
 
+        // Fired once Volume Range's two time clicks have both landed. Deliberately does
+        // NOT also fire OnVerticalLineDrawn for either click (unlike TRange/TRangeChart) --
+        // this range isn't a chart annotation the caller should fold into its own
+        // drawings list, it's a standalone selection whose only job is telling the caller
+        // (ProfilerPage) which time window to build the volume profile panel from instead
+        // of every bar loaded so far.
+        [Parameter] public EventCallback<ChartTimeRange> OnVolumeRangeDrawn { get; set; }
+
+        // True once the caller has a Volume Range selection set (see OnVolumeRangeDrawn) --
+        // drives the VOLUME RANGE toolbar button's own clear state (see ToggleVolumeRange),
+        // since this component doesn't retain the selection itself once it's been reported.
+        [Parameter] public bool HasVolumeRange { get; set; }
+
+        // Fired when the VOLUME RANGE toolbar button is clicked while HasVolumeRange is
+        // true and the tool isn't currently armed -- see ToggleVolumeRange.
+        [Parameter] public EventCallback OnVolumeRangeCleared { get; set; }
+
         // Fired once an armed mode's whole click sequence is done (whether that's one
         // click, Diagonal's two, or T-Range/P-Range/Rectangle's 2/2/4) -- lets the caller
         // know where one "drawing" ends, e.g. to group a multi-click tool's several
@@ -125,7 +142,12 @@ namespace Poink.Sim.Components.Charts
         // TRangeReferenceChart is TRangeChart plus a third click for a "reference window"
         // line, constrained (client-side, see drawableOhlcvChart.js) to land before the
         // earlier of the first two.
-        private enum DrawMode { None, Horizontal, Vertical, Diagonal, TRange, PRange, Rectangle, TRangeChart, TRangeReferenceChart }
+        // VolumeRange is its own thing, not built from H-line/V-line placement at all --
+        // its two clicks never dispatch OnVerticalLineDrawn, only the bundled
+        // OnVolumeRangeDrawn once both land (see that callback's doc comment), since its
+        // whole purpose is telling the caller which time window to build the volume
+        // profile from rather than adding an annotation to the chart.
+        private enum DrawMode { None, Horizontal, Vertical, Diagonal, TRange, PRange, Rectangle, TRangeChart, TRangeReferenceChart, VolumeRange }
         private DrawMode _mode;
 
         // "What to click next" text for the toolbar hint span -- kept up to date by
@@ -158,6 +180,7 @@ namespace Poink.Sim.Components.Charts
             DrawMode.Rectangle => "rectangle",
             DrawMode.TRangeChart => "trangechart",
             DrawMode.TRangeReferenceChart => "trangereferencechart",
+            DrawMode.VolumeRange => "volumerange",
             _ => "",
         };
 
@@ -177,6 +200,33 @@ namespace Poink.Sim.Components.Charts
             }
             catch (JSDisconnectedException) { }
             catch (ObjectDisposedException) { }
+        }
+
+        // VOLUME RANGE's button triples as arm/disarm/clear instead of plain arm/disarm
+        // like every other tool's ToggleMode: clicking while it's currently armed just
+        // disarms it (same as any tool); clicking while unarmed but a selection already
+        // exists (HasVolumeRange) clears that selection via OnVolumeRangeCleared instead
+        // of re-arming, since the button visibly reads as "a range is selected" rather
+        // than "ready to draw" at that point (see the .razor markup's label/title
+        // swap) -- drawing a replacement range is still one click away via CLEAR then
+        // VOLUME RANGE again. Only unarmed with no selection falls through to the normal
+        // arm behaviour.
+        private async Task ToggleVolumeRange()
+        {
+            if (_mode == DrawMode.VolumeRange)
+            {
+                await ToggleMode(DrawMode.VolumeRange);
+                return;
+            }
+
+            if (HasVolumeRange)
+            {
+                if (OnVolumeRangeCleared.HasDelegate)
+                    await OnVolumeRangeCleared.InvokeAsync();
+                return;
+            }
+
+            await ToggleMode(DrawMode.VolumeRange);
         }
 
         protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -297,6 +347,13 @@ namespace Poink.Sim.Components.Charts
         [JSInvokable]
         public Task OnReferenceLineClickedAsync(double unixSeconds) =>
             InvokeIfBound(OnReferenceLineDrawn, FromUnixSeconds(unixSeconds));
+
+        // Invoked once Volume Range's two time clicks have both landed -- see
+        // OnVolumeRangeDrawn's doc comment for why this stays independent of
+        // OnVerticalLineClickedAsync/OnTRangeChartClickedAsync.
+        [JSInvokable]
+        public Task OnVolumeRangeClickedAsync(double unixSeconds1, double unixSeconds2) =>
+            InvokeIfBound(OnVolumeRangeDrawn, new ChartTimeRange(FromUnixSeconds(unixSeconds1), FromUnixSeconds(unixSeconds2)));
 
         // Invoked by drawableOhlcvChart.js whenever the toolbar's "click the chart to
         // place it" hint should change -- arming a tool (its first click's instructions),

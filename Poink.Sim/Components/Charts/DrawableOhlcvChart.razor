@@ -54,6 +54,22 @@
                 T-RANGE REF CHART
             </button>
         </div>
+        <!-- Volume: a standalone time-range selector that drives the volume profile
+             panel beside the chart -- not an annotation like the groups above, it has
+             no persistent card of its own (see ProfilerPage's SetVolumeRange). Its
+             button triples as arm/disarm/clear -- see ToggleVolumeRange. -->
+        <div class="doc-tool-group doc-tool-group-volume">
+            <button type="button"
+                    class="doc-tool-btn doc-tool-btn-volume @(_mode == DrawMode.VolumeRange ? "active" : "") @(HasVolumeRange && _mode != DrawMode.VolumeRange ? "has-value" : "")"
+                    @onclick="ToggleVolumeRange"
+                    title="@(_mode == DrawMode.VolumeRange
+                               ? "Click again to cancel"
+                               : HasVolumeRange
+                                   ? "A volume range is selected -- click to clear it and use every loaded bar again"
+                                   : "Click two points to set the time range the volume profile panel is built from")">
+                @(HasVolumeRange && _mode != DrawMode.VolumeRange ? "CLEAR VOLUME RANGE" : "VOLUME RANGE")
+            </button>
+        </div>
         @if (_mode != DrawMode.None)
         {
             <span class="doc-toolbar-hint" title="What to click next">@(_drawHint ?? "click the chart to place it")</span>

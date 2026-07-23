@@ -132,6 +132,17 @@ namespace Poink.Sim.Components.Pages
         private Drawing _pending = NewPending();
         private int _nextDrawingId = 1;
 
+        // The Volume Range tool's current selection (see DrawableOhlcvChart's
+        // DrawMode.VolumeRange/OnVolumeRangeDrawn) -- not a Drawing, just a standalone
+        // [start, end] pair that MergedSamples() filters _barHistograms by. Both null
+        // means "no selection", which MergedSamples() treats as "use every bar loaded
+        // so far" -- the volume profile's original default, still the fallback when
+        // this hasn't been set (see SetVolumeRange/ClearVolumeRange below). Reset on a
+        // fresh Load (new symbol/range), but -- like _drawings -- kept across LoadMore
+        // backfills since it marks a specific time window that's still on screen.
+        private DateTime? _volumeRangeStart;
+        private DateTime? _volumeRangeEnd;
+
         // Multi-select over _drawings' cards (keyed by Drawing.Id) -- drives the
         // selection bar's LABEL SELECTED/DELETE actions (see ToggleDrawingSelected/
         // RemoveSelectedDrawings/SaveSelectedDrawings below). _savedDrawingIds just
@@ -271,6 +282,8 @@ namespace Poink.Sim.Components.Pages
             _nextDrawingId = 1;
             _selectedDrawingIds.Clear();
             _savedDrawingIds.Clear();
+            _volumeRangeStart = null;
+            _volumeRangeEnd = null;
             CancelLabelSelected();
 
             try
@@ -373,6 +386,35 @@ namespace Poink.Sim.Components.Pages
         // earlier of the two main-range clicks that landed first.
         private void AddReferenceLine(DateTime timeUtc) =>
             _pending.ReferenceLines.Add(new ChartVerticalLine(timeUtc, timeUtc.ToString("yyyy-MM-dd HH:mm")));
+
+        // Wired to DrawableOhlcvChart's OnVolumeRangeDrawn -- unlike every other draw
+        // tool, this never touches _pending/_drawings (see _volumeRangeStart's doc
+        // comment): its two clicks just replace the active selection outright, which is
+        // what MergedSamples() filters _barHistograms by. ClearVolumeRange is the only
+        // other way these change.
+        private void SetVolumeRange(ChartTimeRange range)
+        {
+            _volumeRangeStart = range.TimeUtc1 <= range.TimeUtc2 ? range.TimeUtc1 : range.TimeUtc2;
+            _volumeRangeEnd = range.TimeUtc1 <= range.TimeUtc2 ? range.TimeUtc2 : range.TimeUtc1;
+        }
+
+        // Wired to the volume profile panel's ALL button (shown only while a selection
+        // is active) -- drops back to MergedSamples()'s default of every loaded bar.
+        private void ClearVolumeRange()
+        {
+            _volumeRangeStart = null;
+            _volumeRangeEnd = null;
+        }
+
+        // Bar count and span of the active Volume Range selection, for
+        // TickVolumeProfileChart's RangeLabel -- null while no selection is active,
+        // which hides that badge entirely (see _volumeRangeStart).
+        private string? VolumeRangeLabel()
+        {
+            if (_volumeRangeStart is not { } start || _volumeRangeEnd is not { } end) return null;
+            var barCount = _bars.Count(b => b.OpenTime >= start && b.OpenTime <= end);
+            return $"{barCount:N0} bars, {FormatSpan(end - start)}";
+        }
 
         // Wired to DrawableOhlcvChart's OnDrawFinished -- fires once per completed
         // placement (a lone H-Line/V-Line/D-Line, or a full T-Range/P-Range/Rectangle
@@ -611,7 +653,16 @@ namespace Poink.Sim.Components.Pages
                         return new ChartRangeFill(
                             d.ReferenceLines[0].TimeUtc, earliest, d.Id > 0 ? $"#{d.Id} REF" : null, "reference");
                     }))
+                .Concat(VolumeRangeFill())
                 .ToList();
+
+        // The Volume Range tool's own highlighted band -- not part of AllDrawings()
+        // since it isn't a Drawing at all (see SetVolumeRange above).
+        private IEnumerable<ChartRangeFill> VolumeRangeFill()
+        {
+            if (_volumeRangeStart is { } start && _volumeRangeEnd is { } end)
+                yield return new ChartRangeFill(start, end, "VOLUME RANGE", "volume");
+        }
 
         // "2h 15m" / "3d 4h" / "45m" / "12s" -- coarsest two units that keep a range's
         // span readable at a glance, for the card summary (see "bar count and Time").
@@ -629,15 +680,32 @@ namespace Poink.Sim.Components.Pages
             bars.Select(b => new CTraderBarRow(
                 b.OpenTime, b.Open, b.High, b.Low, b.Close, b.Volume, b.UpVolume, b.DownVolume, b.Distance)).ToList();
 
-        // Merges every loaded bar's price histogram into one weighted-sample list for
-        // TickVolumeProfileChart -- see BarPriceHistogram.Merge for how bars sharing one
-        // BucketWidth get summed bucket-for-bucket instead of needing the original
-        // per-tick prices back. Always covers everything loaded so far (grows as more
-        // history backfills in), same as ToBarRows above.
-        private List<WeightedPriceSample> MergedSamples() =>
-            BarPriceHistogram.Merge(_barHistograms, _barHistograms.Count)
+        // Merges the relevant loaded bars' price histograms into one weighted-sample list
+        // for TickVolumeProfileChart -- see BarPriceHistogram.Merge for how bars sharing
+        // one BucketWidth get summed bucket-for-bucket instead of needing the original
+        // per-tick prices back. Covers every loaded bar by default (grows as more history
+        // backfills in, same as ToBarRows above) -- narrowed to _volumeRangeStart/
+        // _volumeRangeEnd once the Volume Range tool has set one (see SetVolumeRange),
+        // which is the volume profile's originally intended behaviour: a selectable
+        // window, not unconditionally everything loaded. _bars and _barHistograms are
+        // always the same length and index-aligned (see ApplyChunk/ProfilerService), so
+        // zipping them together is safe.
+        private List<WeightedPriceSample> MergedSamples()
+        {
+            var histograms = _barHistograms;
+            if (_volumeRangeStart is { } start && _volumeRangeEnd is { } end)
+            {
+                histograms = _bars
+                    .Zip(_barHistograms, (bar, histogram) => (bar, histogram))
+                    .Where(t => t.bar.OpenTime >= start && t.bar.OpenTime <= end)
+                    .Select(t => t.histogram)
+                    .ToList();
+            }
+
+            return BarPriceHistogram.Merge(histograms, histograms.Count)
                 .Select(t => new WeightedPriceSample(t.Price, t.Count, t.UpCount, t.DownCount))
                 .ToList();
+        }
 
         private double? LastClose => _bars.Count > 0 ? _bars[^1].Close : null;
     }

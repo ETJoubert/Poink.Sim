@@ -60,17 +60,21 @@
     {
         <div class="prof-chart">
             <div class="prof-chart-main"
-                 title="OHLC bar chart -- pan left to backfill older history, or use the toolbar to draw H-Line/V-Line/D-Line/T-Range/P-Range/Rectangle/T-Range Chart/T-Range Reference Chart">
+                 title="OHLC bar chart -- pan left to backfill older history, or use the toolbar to draw H-Line/V-Line/D-Line/T-Range/P-Range/Rectangle/T-Range Chart/T-Range Reference Chart/Volume Range">
                 <DrawableOhlcvChart Bars="ToBarRows()" KeepView="_keepView" OnNearStart="LoadMore"
                                     HorizontalLines="AllHorizontalLines()" VerticalLines="AllVerticalLines()" DiagonalLines="AllDiagonalLines()"
                                     RangeFills="AllRangeFills()"
                                     OnHorizontalLineDrawn="AddHorizontalLine" OnVerticalLineDrawn="AddVerticalLine"
                                     OnDiagonalLineDrawn="AddDiagonalLine" OnTRangeChartDrawn="AddTRangeChart"
-                                    OnReferenceLineDrawn="AddReferenceLine"
+                                    OnReferenceLineDrawn="AddReferenceLine" OnVolumeRangeDrawn="SetVolumeRange"
+                                    HasVolumeRange="_volumeRangeStart is not null" OnVolumeRangeCleared="ClearVolumeRange"
                                     OnDrawFinished="FinishDrawing" />
             </div>
             <div class="prof-chart-side">
-                <div class="prof-vp" title="Volume profile across every bar loaded so far">
+                <div class="prof-vp"
+                     title="@(VolumeRangeLabel() is { } label
+                                ? $"Volume profile for the selected Volume Range ({label}) -- use the toolbar's CLEAR VOLUME RANGE button to go back to every loaded bar"
+                                : "Volume profile across every bar loaded so far -- use the toolbar's VOLUME RANGE tool to narrow it to a specific time window")">
                     <TickVolumeProfileChart WeightedSamples="MergedSamples()" CurrentPrice="LastClose" />
                 </div>
             </div>

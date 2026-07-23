@@ -157,7 +157,8 @@ added on top of an already-wired-up T-Range Reference Chart):
 | `shapes` | `--color-warning` | Rectangle |
 | `charts` | `--color-accent` | T-Range Chart / T-Range Reference Chart (main range) |
 | `reference` | `--color-error` | T-Range Reference Chart's reference window |
-| *(free)* | `--color-success`, `--color-info` | — pick one for the next new group |
+| `volume` | `--color-info` | Volume Range (drives the volume profile panel, not a chart annotation) |
+| *(free)* | `--color-success` | — pick this for the next new group |
 
 Adding a group only needs the `groupColors` entry above — no CSS file changes are
 needed unless the new tool's *toolbar button* doesn't fit an existing
