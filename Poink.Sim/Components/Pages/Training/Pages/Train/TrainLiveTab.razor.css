@@ -68,6 +68,53 @@
     margin-top: 20px;
 }
 
+/* ── Tabbed panel: episode metrics / trader stats / session stats ───────── */
+
+.train-stats-panel {
+    margin-top: 20px;
+}
+
+.train-stats-tabs {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+/* Self-contained underline tabs -- same family as SimulationPage's sim-tab-btn. */
+.train-tab-btn {
+    font-family: var(--font-body);
+    font-weight: bold;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 8px 16px 9px;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--color-secondary);
+    opacity: 0.6;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.train-tab-btn:hover {
+    opacity: 1;
+}
+
+.train-tab-btn.active {
+    opacity: 1;
+    color: var(--color-primary);
+    border-bottom-color: var(--color-primary);
+    text-shadow: 0 0 8px color-mix(in srgb, var(--color-primary) 45%, transparent);
+}
+
+.train-stats-content {
+    min-width: 0;
+}
+
 .train-live-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));

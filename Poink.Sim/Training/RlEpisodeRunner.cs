@@ -102,7 +102,7 @@ internal static class RlEpisodeRunner
             ? describableBrain.DescribeInputs(observation)
             : null;
 
-        return new RlEpisode(steps, trader.Snapshot(lastPrice), lastInputs);
+        return new RlEpisode(steps, trader.Snapshot(lastPrice), lastInputs, trader.TradeLog, trader.MaxEquity, trader.MaxDrawdown);
     }
 
     // Returns the post-decision equity (threaded in as the next call's previousEquity)

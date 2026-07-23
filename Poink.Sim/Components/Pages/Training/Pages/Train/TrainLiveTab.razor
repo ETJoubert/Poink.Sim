@@ -1,5 +1,5 @@
 @namespace Poink.Sim.Components.Training
-@using Poink.Shared.Client.Components.Shared.ViewDatatable
+@using Poink.Sim.Components.Shared.DataTable
 
 @if (Service.TotalEpisodes == 0)
 {
@@ -138,7 +138,34 @@ else
         </div>
     </div>
 
-    <div class="train-metrics-log">
-        <ViewDatatable Items="MetricsRows" Title="EPISODE METRICS" EmptyMessage="no episodes yet" />
+    <div class="train-stats-panel">
+        <div class="train-stats-tabs">
+            <button class="train-tab-btn @(_activeStatsTab == StatsTab.Episode ? "active" : "")"
+                    @onclick="() => _activeStatsTab = StatsTab.Episode"
+                    title="Reward and final equity for each completed episode">EPISODE</button>
+            <button class="train-tab-btn @(_activeStatsTab == StatsTab.Trader ? "active" : "")"
+                    @onclick="() => _activeStatsTab = StatsTab.Trader"
+                    title="Full trader statistics (wins/losses, streaks, time in market) for each completed episode">TRADER</button>
+            <button class="train-tab-btn @(_activeStatsTab == StatsTab.Session ? "active" : "")"
+                    @onclick="() => _activeStatsTab = StatsTab.Session"
+                    title="Trader statistics pooled across every retained episode this training run">SESSION</button>
+        </div>
+        <div class="train-stats-content">
+            @if (_activeStatsTab == StatsTab.Episode)
+            {
+                <DataTable TItem="MetricsRow" Items="MetricsRows" ShowRowNumbers="false" ShowActions="false"
+                           CellClass="MetricsCellClass" EmptyMessage="no episodes yet" />
+            }
+            else if (_activeStatsTab == StatsTab.Trader)
+            {
+                <DataTable TItem="TraderStatsRow" Items="EpisodeTraderStatsRows" ShowRowNumbers="false" ShowActions="false"
+                           CellClass="TraderStatsCellClass" EmptyMessage="no trades yet" />
+            }
+            else
+            {
+                <DataTable TItem="TraderStatsRow" Items="SessionTraderStatsRows" ShowRowNumbers="false" ShowActions="false"
+                           CellClass="TraderStatsCellClass" EmptyMessage="no trades yet" />
+            }
+        </div>
     </div>
 }

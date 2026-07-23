@@ -44,6 +44,7 @@ internal sealed class RlTrainingService
     private readonly BrainRegistry _brainRegistry;
     private readonly List<IRlTrainingStrategy> _strategies;
     private readonly List<RlEpisodeMetric> _episodeMetrics = new();
+    private readonly List<RlEpisodeTrades> _episodeTrades = new();
     private readonly IBrainRepository _brainRepository;
     private readonly ITickRepository _tickRepository;
     private readonly ILogger<RlTrainingService> _logger;
@@ -136,6 +137,16 @@ internal sealed class RlTrainingService
         get { lock (_lock) { return _episodeMetrics.ToList(); } }
     }
 
+    // Same bounded window as RecentEpisodes above, pairing each entry's full
+    // trade log/equity extremes with its episode number -- lets the Train page
+    // derive TradeStatistics per episode, or pooled across this whole window
+    // as a "session" rollup (see TrainLiveTab's EpisodeTraderStatsRows/
+    // SessionTraderStatsRows).
+    public IReadOnlyList<RlEpisodeTrades> RecentEpisodeTrades
+    {
+        get { lock (_lock) { return _episodeTrades.ToList(); } }
+    }
+
     // Set by SaveBrain(); read by the Train page to show what happened after
     // clicking "Save Model". Separate from Error, which is only ever set by a
     // training run itself.
@@ -173,6 +184,7 @@ internal sealed class RlTrainingService
             ActionCounts = RlActionCounts.Empty;
             LatestInputs = null;
             _episodeMetrics.Clear();
+            _episodeTrades.Clear();
             _activeSnapshotId.Remove(brain.Name);
         }
 
@@ -238,6 +250,8 @@ internal sealed class RlTrainingService
                         if (result.LastInputs is not null) LatestInputs = result.LastInputs;
                         _episodeMetrics.Add(new RlEpisodeMetric(episode + 1, reward, result.FinalCapital.Equity));
                         if (_episodeMetrics.Count > MaxMetricsLog) _episodeMetrics.RemoveAt(0);
+                        _episodeTrades.Add(new RlEpisodeTrades(episode + 1, result.Trades, result.MaxEquity, result.MaxDrawdown));
+                        if (_episodeTrades.Count > MaxMetricsLog) _episodeTrades.RemoveAt(0);
                     }
                     OnChanged?.Invoke();
                 }

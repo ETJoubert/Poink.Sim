@@ -19,7 +19,21 @@ internal sealed record RlStep(SimulationAction Action, Tensor? LogProbability, d
 // (nothing to describe), and otherwise a labeled snapshot of what fed the network
 // on the episode's final decision -- not every tick, since that's "aggregated"
 // enough for the Train page's "what goes in" panel without flooding OnChanged.
-internal sealed record RlEpisode(IReadOnlyList<RlStep> Steps, CapitalState FinalCapital, IReadOnlyList<RlInputFeature>? LastInputs);
+//
+// Trades/MaxEquity/MaxDrawdown are the episode's own Trader instance's closed-trade
+// log and incrementally-tracked equity extremes -- feeds TradeStatistics.From the
+// same way SimulationPage's Statistics tab does for a live Trader, so the Train
+// page's per-episode/session trader-statistics tables (see RlTrainingService.
+// RecentEpisodeTrades) reuse that exact metric set instead of a second one.
+internal sealed record RlEpisode(
+    IReadOnlyList<RlStep> Steps, CapitalState FinalCapital, IReadOnlyList<RlInputFeature>? LastInputs,
+    IReadOnlyList<Trade> Trades, double MaxEquity, double MaxDrawdown);
+
+// One completed episode's trade log/equity extremes, paired with its episode
+// number -- retained by RlTrainingService (same bounded window as
+// RlEpisodeMetric) so the Train page can derive TradeStatistics per episode,
+// or pooled across the whole retained window as a "session" rollup.
+internal sealed record RlEpisodeTrades(int EpisodeNumber, IReadOnlyList<Trade> Trades, double MaxEquity, double MaxDrawdown);
 
 // One row of RlTrainingService's rolling metrics log -- the "visual feedback"
 // the Train page shows while a run is in progress, so training can actually
