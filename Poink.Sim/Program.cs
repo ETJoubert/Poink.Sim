@@ -60,6 +60,7 @@ builder.Services.AddSingleton<ISimulationBrain, RandomBrain>();
 // at first, improving as RlTrainingService trains this same singleton instance.
 builder.Services.AddSingleton<ISimulationBrain, MlpPolicyBrain>();
 builder.Services.AddSingleton<ISimulationBrain, LstmPolicyBrain>();
+builder.Services.AddSingleton<ISimulationBrain, VolumeProfilePolicyBrain>();
 builder.Services.AddSingleton<SimulationEngine>();
 builder.Services.AddSingleton<IRlTrainingStrategy, PolicyGradientTrainingStrategy>();
 builder.Services.AddSingleton<RlTrainingService>();

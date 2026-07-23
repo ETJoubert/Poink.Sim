@@ -28,15 +28,59 @@
     padding: 16px 24px 10px;
 }
 
-/* Start actions -- pushed to the end of the header row (same margin-left:
-   auto trick as .train-brainrow-actions below), only present while a run
-   isn't already in progress. */
+/* Groups everything pushed to the end of the header row (Save Model group,
+   Start actions) behind one margin-left: auto, so both sit flush against the
+   right edge together instead of competing for space individually. */
+.train-header-end {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-left: auto;
+}
+
+/* Save Model group -- lives in the header (not the Save-as row below) so it
+   stays reachable regardless of scroll position, and works mid-run (see
+   SaveModel's doc comment in the code-behind). Collapsed to a single button
+   until clicked, then swaps for the name input/Save/Cancel group. */
+.train-header-save {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.train-header-save-input {
+    background: var(--color-bg-terminal);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 45%, transparent);
+    color: var(--color-primary);
+    padding: 4px 6px;
+    border-radius: var(--border-radius-sm);
+    font-family: var(--font-body);
+    font-size: 12px;
+    width: 200px;
+    transition: all 0.2s ease;
+}
+
+.train-header-save-input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--color-primary) 40%, transparent);
+}
+
+/* Save Model's outcome ("saved 'x' at ..."), inline next to the button --
+   neutral, not tinted like .train-brainrow-error, since it's just as often a
+   success message as a failure one. */
+.train-header-save-status {
+    font-size: 0.72rem;
+    color: var(--color-secondary);
+}
+
+/* Start actions -- only present while a run isn't already in progress. */
 .train-header-actions {
     display: flex;
     align-items: center;
     gap: 10px;
     flex-wrap: wrap;
-    margin-left: auto;
 }
 
 .train-title {
@@ -98,6 +142,31 @@
     min-width: 320px;
 }
 
+/* Category header at the start of each control row (Data Range, Data
+   Structure, Brain Type, Training, Trader, Reward Policy) -- fixed width so
+   labels line up vertically down the topbar, same accent color as the page
+   title so they read as section headings rather than another field. */
+.train-section-label {
+    font-size: 0.68rem;
+    font-weight: bold;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-accent);
+    min-width: 110px;
+}
+
+/* Reward Policy row -- informational only (no control yet), so it's muted
+   rather than styled like an active field. */
+.train-datarow-disabled {
+    opacity: 0.6;
+}
+
+.train-brainrow-note {
+    font-size: 0.72rem;
+    color: var(--color-secondary);
+    font-style: italic;
+}
+
 .train-brainrow-field {
     display: flex;
     align-items: center;
@@ -131,35 +200,11 @@
     width: 60px;
 }
 
-/* Save-as name field -- a free-text snapshot name needs more room than the
-   numeric run-parameter fields above. */
-.train-brainrow-input-wide {
-    width: 200px;
-}
-
 .train-brainrow-select:focus,
 .train-brainrow-input:focus {
     outline: none;
     border-color: var(--color-primary);
     box-shadow: 0 0 8px color-mix(in srgb, var(--color-primary) 40%, transparent);
-}
-
-/* Save Model action -- pushed to the end of the Save-as row (same
-   margin-left: auto trick as .train-header-actions above). */
-.train-brainrow-actions {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-    margin-left: auto;
-}
-
-/* Save Model's outcome ("saved 'x' at ..."), inline next to the button --
-   neutral, not tinted like .train-brainrow-error, since it's just as often a
-   success message as a failure one. */
-.train-brainrow-status {
-    font-size: 0.72rem;
-    color: var(--color-secondary);
 }
 
 .train-brainrow-error {

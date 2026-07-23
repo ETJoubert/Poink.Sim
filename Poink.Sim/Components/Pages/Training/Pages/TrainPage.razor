@@ -16,47 +16,100 @@
                 @(Service.IsRunning ? "TRAINING" : "IDLE")
             </span>
 
-            @if (!Service.IsRunning)
-            {
-                <div class="train-header-actions">
-                    <button class="terminal-btn-action" @onclick="StartTraining"
-                            title="Trains on the symbol/range picked below -- each episode streams its own random window straight from Postgres">
-                        START TRAINING
-                    </button>
-                    <button class="terminal-btn-action" @onclick="StartTrainingSynthetic"
-                            title="Synthetic random-walk ticks -- no Postgres required">
-                        START TRAINING (SYNTHETIC)
-                    </button>
-                    @if (_startError is not null)
+            <div class="train-header-end">
+                <div class="train-header-save">
+                    @if (_showSaveInput)
                     {
-                        <span class="train-brainrow-error">@_startError</span>
+                        <input class="train-header-save-input" type="text" placeholder="e.g. mlp-v1-momentum-set"
+                               @bind="_saveName" @bind:event="oninput" @onkeydown="OnSaveNameKeyDown" autofocus
+                               title="Name to save this snapshot under" />
+                        <button class="terminal-btn-action" @onclick="SaveModel"
+                                disabled="@string.IsNullOrWhiteSpace(_saveName)"
+                                title="Saves the selected brain's current weights, plus this screen's strategy/parameters, as a new snapshot">
+                            SAVE
+                        </button>
+                        <button class="terminal-btn-action" @onclick="CancelSaveModel" title="Cancel without saving">
+                            CANCEL
+                        </button>
+                    }
+                    else
+                    {
+                        <button class="terminal-btn-action" @onclick="ShowSaveModelInput"
+                                disabled="@string.IsNullOrWhiteSpace(_brainName)"
+                                title="Saves the selected brain's current weights, plus this screen's strategy/parameters, as a new snapshot">
+                            SAVE MODEL
+                        </button>
+                    }
+                    @if (Service.SaveStatus is not null)
+                    {
+                        <span class="train-header-save-status">@Service.SaveStatus</span>
                     }
                 </div>
-            }
+
+                @if (!Service.IsRunning)
+                {
+                    <div class="train-header-actions">
+                        <button class="terminal-btn-action" @onclick="StartTraining"
+                                title="Trains on the symbol/range picked below -- each episode streams its own random window straight from Postgres">
+                            START TRAINING
+                        </button>
+                        <button class="terminal-btn-action" @onclick="StartTrainingSynthetic"
+                                title="Synthetic random-walk ticks -- no Postgres required">
+                            START TRAINING (SYNTHETIC)
+                        </button>
+                        @if (_startError is not null)
+                        {
+                            <span class="train-brainrow-error">@_startError</span>
+                        }
+                    </div>
+                }
+            </div>
         </header>
 
         <div class="train-datarow">
+            <span class="train-section-label" title="Which symbol and time range the historic Start Training button samples episodes from -- ignored by the synthetic button">Data Range</span>
             <div class="train-datarow-field train-datarow-data">
                 <TickDataSource @bind-Table="_table" @bind-From="_from" @bind-To="_to" Disabled="Service.IsRunning" />
             </div>
         </div>
 
         <div class="train-datarow">
-            <BrainStrategyPicker BrainOptions="Service.BrainOptions" StrategyNames="Service.StrategyNames"
-                                  @bind-BrainName="_brainName" @bind-StrategyName="_strategyName" Disabled="Service.IsRunning" />
+            <span class="train-section-label" title="Which brain (neural network or heuristic) this run trains and plays back">Brain Type</span>
+            <BrainSelect BrainOptions="Service.BrainOptions" @bind-BrainName="_brainName" Disabled="Service.IsRunning" />
+        </div>
+
+        <div class="train-datarow">
+            <span class="train-section-label" title="How raw ticks are shaped into bars, and how far back the volume-profile brain looks over that bar data">Data Structure</span>
+            <label class="train-brainrow-field" title="Time span of one bar (M), in minutes -- also determines how much wall-clock time an episode's fetched ticks need to cover">
+                Bar width (min)
+                <input class="train-brainrow-input" type="number" min="1" step="1" @bind="_barWidthMinutes" disabled="@Service.IsRunning" />
+            </label>
+            <label class="train-brainrow-field" title="How many recent bars a volume-profile brain merges into its profile each decision -- ignored by brains that don't use a volume profile (e.g. MLP Policy, LSTM Policy)">
+                VP lookback (bars)
+                <input class="train-brainrow-input" type="number" min="1" step="1" @bind="_volumeProfileLookbackBars"
+                       disabled="@Service.IsRunning" />
+            </label>
+        </div>
+
+        <div class="train-datarow">
+            <span class="train-section-label" title="The training algorithm, and how much data each episode/run consists of">Training</span>
+            <label class="train-brainrow-field">
+                Strategy
+                <select class="train-brainrow-select" value="@_strategyName" @onchange="OnStrategyChanged" disabled="@Service.IsRunning">
+                    @foreach (var name in Service.StrategyNames)
+                    {
+                        <option value="@name">@name</option>
+                    }
+                </select>
+            </label>
             <label class="train-brainrow-field">
                 Episodes
                 <input class="train-brainrow-input train-brainrow-input-narrow" type="number" min="1"
                        @bind="_episodeCount" disabled="@Service.IsRunning" />
             </label>
-            <label class="train-brainrow-field">
-                Ticks/episode
-                <input class="train-brainrow-input" type="number" min="2" @bind="_ticksPerEpisode" disabled="@Service.IsRunning" />
-            </label>
-            <label class="train-brainrow-field">
-                Starting cash
-                <input class="train-brainrow-input" type="number" min="1" step="100" @bind="_startingCash"
-                       disabled="@Service.IsRunning" />
+            <label class="train-brainrow-field" title="How many bars one episode runs for (E) -- ticks are fetched to cover this many bars, then the episode stops once the last one completes, regardless of tick density">
+                Bars/episode
+                <input class="train-brainrow-input" type="number" min="1" @bind="_episodeBars" disabled="@Service.IsRunning" />
             </label>
             <label class="train-brainrow-field">
                 Learning rate
@@ -66,22 +119,17 @@
         </div>
 
         <div class="train-datarow">
+            <span class="train-section-label" title="Starting capital the simulated Trader begins each episode with">Trader</span>
             <label class="train-brainrow-field">
-                Save as
-                <input class="train-brainrow-input train-brainrow-input-wide" type="text"
-                       placeholder="e.g. mlp-v1-momentum-set" @bind="_saveName" />
+                Starting cash
+                <input class="train-brainrow-input" type="number" min="1" step="100" @bind="_startingCash"
+                       disabled="@Service.IsRunning" />
             </label>
-            <div class="train-brainrow-actions">
-                <button class="terminal-btn-action" @onclick="SaveModel"
-                        disabled="@(string.IsNullOrWhiteSpace(_brainName) || string.IsNullOrWhiteSpace(_saveName))"
-                        title="Saves the selected brain's current weights, plus this screen's strategy/parameters, as a new snapshot">
-                    SAVE MODEL
-                </button>
-                @if (Service.SaveStatus is not null)
-                {
-                    <span class="train-brainrow-status">@Service.SaveStatus</span>
-                }
-            </div>
+        </div>
+
+        <div class="train-datarow train-datarow-disabled">
+            <span class="train-section-label" title="How reward is computed each decision point">Reward Policy</span>
+            <span class="train-brainrow-note">Equity drift since the previous decision point -- not yet configurable</span>
         </div>
 
         @if (Service.TotalEpisodes > 0)

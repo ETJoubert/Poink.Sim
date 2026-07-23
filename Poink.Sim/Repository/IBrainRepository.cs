@@ -29,9 +29,16 @@ namespace Poink.Sim.Repository;
 public sealed class BrainTrainingParameters
 {
     public int EpisodeCount { get; set; }
-    public int TicksPerEpisode { get; set; }
+    public int EpisodeBars { get; set; }
+    public int BarWidthMinutes { get; set; }
     public double StartingCash { get; set; }
     public double LearningRate { get; set; }
+
+    // Only meaningful for brains implementing IHasLookbackBars (e.g.
+    // VolumeProfilePolicyBrain) -- null for every other brain, and for any
+    // snapshot saved before this field existed (see this class's own doc
+    // comment on why that deserializes cleanly).
+    public int? LookbackBars { get; set; }
 
     // Single shared display format -- both the Train page's Saved Brains table
     // and SimulationPage's Brain info card show this, and duplicating the
@@ -40,7 +47,7 @@ public sealed class BrainTrainingParameters
     // the same concern) -- "cash=1,000" must never render as "cash=1 000".
     public override string ToString() =>
         string.Create(CultureInfo.InvariantCulture,
-            $"episodes={EpisodeCount} ticks={TicksPerEpisode} cash={StartingCash:N0} lr={LearningRate:G3}");
+            $"episodes={EpisodeCount} bars={EpisodeBars}@{BarWidthMinutes}m cash={StartingCash:N0} lr={LearningRate:G3}{(LookbackBars is { } lookback ? $" lookback={lookback}" : "")}");
 }
 
 // Everything about a saved snapshot except the weights themselves, which are

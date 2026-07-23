@@ -21,11 +21,16 @@ internal readonly record struct SimulationDecision(
 
 // What the Brain is allowed to see at one decision point: one raw tick
 // (aggregation off) or one just-completed bar (aggregation on). RecentBars/
-// RecentTicks are bounded, most-recent-last history windows built by
-// SimulationEngine -- never anything beyond "now" (no lookahead). Capital/
-// Position are read-only Trader snapshots.
+// RecentTicks/RecentBarHistograms are bounded, most-recent-last history
+// windows built by SimulationEngine -- never anything beyond "now" (no
+// lookahead). RecentBarHistograms is empty when aggregation is off (raw-tick
+// mode has no bars, so no per-bar histograms either) -- a brain that reads it
+// merges down to whatever window it needs itself (see BarPriceHistogram.Merge),
+// the same way a brain slices its own trailing window out of RecentBars.
+// Capital/Position are read-only Trader snapshots.
 internal readonly record struct SimulationObservation(
     DateTime TimestampUtc, double CurrentPrice,
     IReadOnlyList<HlocAvdtBar> RecentBars,
     IReadOnlyList<Tick> RecentTicks,
+    IReadOnlyList<BarPriceHistogram> RecentBarHistograms,
     CapitalState Capital, Position? Position);

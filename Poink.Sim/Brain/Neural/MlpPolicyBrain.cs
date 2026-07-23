@@ -139,20 +139,44 @@ internal sealed class MlpPolicyBrain : IPolicyGradientBrain
         }
     }
 
-    // TorchSharp's native multinomial does not validate its input -- a NaN/Inf
-    // probability (e.g. from a bad tick's price propagating through Encode, or
-    // exploding gradients during training) makes the native sampler read/write
-    // out of bounds instead of throwing, which crashes the whole process with
-    // an unrecoverable access violation. Catch it here instead, as an ordinary
-    // managed exception the training loop can surface as an Error.
+    // The isfinite guard catches a NaN/Inf probability (e.g. from a bad tick's
+    // price propagating through Encode, or exploding gradients during
+    // training) as an ordinary managed exception the training loop can
+    // surface as an Error, instead of an unrecoverable native crash.
+    //
+    // Sampling itself is done manually (cumulative sum vs. one random draw)
+    // rather than via TorchSharp's native `multinomial` -- that op has been
+    // observed to crash the whole process on this exact 4-category call with
+    // two different native exceptions (a CUDA "dtype Bool" error, then a CPU
+    // "NYI" from an internal pow), both triggered by an ordinary near-one-hot
+    // probability vector (e.g. a confident policy) that isfinite doesn't
+    // (and shouldn't) reject -- 0/1 are perfectly finite. Reading out a
+    // handful of floats and walking a cumulative sum in managed code
+    // sidesteps that native op entirely; cheap and exact for a 4-way action
+    // space.
     private static int SampleActionIndex(Tensor actionProbabilities)
     {
         if (!isfinite(actionProbabilities).all().item<bool>())
             throw new InvalidOperationException(
                 "policy produced non-finite action probabilities (NaN/Inf) -- check input data and recent gradient updates for the cause");
 
-        using var sampled = multinomial(actionProbabilities, 1);
-        return (int)sampled.item<long>();
+        int actionCount = (int)actionProbabilities.shape[1];
+        Span<float> probabilities = stackalloc float[actionCount];
+        float total = 0;
+        for (int i = 0; i < actionCount; i++)
+        {
+            probabilities[i] = actionProbabilities[0, i].item<float>();
+            total += probabilities[i];
+        }
+
+        float threshold = (float)Random.Shared.NextDouble() * total;
+        float cumulative = 0;
+        for (int i = 0; i < actionCount; i++)
+        {
+            cumulative += probabilities[i];
+            if (cumulative >= threshold) return i;
+        }
+        return actionCount - 1; // float-rounding safety net -- cumulative sum landed just under threshold
     }
 
     private static SimulationDecision BuildDecision(int actionIndex) => actionIndex switch

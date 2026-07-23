@@ -142,15 +142,30 @@ internal sealed class LstmPolicyBrain : IPolicyGradientBrain
     }
 
     // See MlpPolicyBrain.SampleActionIndex's doc comment -- same native-crash
-    // hazard, same guard.
+    // hazard (native multinomial), same guard, same manual-sampling fix.
     private static int SampleActionIndex(Tensor actionProbabilities)
     {
         if (!isfinite(actionProbabilities).all().item<bool>())
             throw new InvalidOperationException(
                 "policy produced non-finite action probabilities (NaN/Inf) -- check input data and recent gradient updates for the cause");
 
-        using var sampled = multinomial(actionProbabilities, 1);
-        return (int)sampled.item<long>();
+        int actionCount = (int)actionProbabilities.shape[1];
+        Span<float> probabilities = stackalloc float[actionCount];
+        float total = 0;
+        for (int i = 0; i < actionCount; i++)
+        {
+            probabilities[i] = actionProbabilities[0, i].item<float>();
+            total += probabilities[i];
+        }
+
+        float threshold = (float)Random.Shared.NextDouble() * total;
+        float cumulative = 0;
+        for (int i = 0; i < actionCount; i++)
+        {
+            cumulative += probabilities[i];
+            if (cumulative >= threshold) return i;
+        }
+        return actionCount - 1; // float-rounding safety net -- cumulative sum landed just under threshold
     }
 
     private static SimulationDecision BuildDecision(int actionIndex) => actionIndex switch

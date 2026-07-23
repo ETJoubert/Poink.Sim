@@ -5,10 +5,15 @@
 //  training needs to blast through many episodes fast, not play one back at
 //  a UI-paced cadence.
 //
-//  Data-source agnostic: takes an already-materialized tick list rather than
-//  generating/fetching ticks itself, so the caller (RlTrainingService) can
-//  hand it either a fresh synthetic random-walk window or a slice of real
-//  historic ticks loaded once from Postgres, without this file caring which.
+//  Data-source agnostic: takes a tick sequence rather than generating/
+//  fetching ticks itself, so the caller (RlTrainingService) can hand it
+//  either a fresh synthetic random-walk list or a lazy, still-streaming
+//  Postgres cursor, without this file caring which. Deliberately IEnumerable
+//  rather than a materialized list -- the loop below stops as soon as
+//  episodeBars bars complete, and a lazy source (see
+//  RlTrainingService.RandomEpisodeWindow) means that early stop actually cuts
+//  the underlying DB read short instead of having already pulled a much
+//  larger window into memory for nothing.
 //
 //  Reward per decision point = equity drift since the *previous* decision
 //  point, marked at the same price both times a position is opened/closed
@@ -35,26 +40,26 @@ internal static class RlEpisodeRunner
     private const int MaxRecentBars = 300;
     private const int MaxRecentTicks = 500;
 
-    // Bucket width is irrelevant here -- training only reads the bar itself
-    // (recentBars below), never the per-bar price histogram SimulationBarAggregator
-    // also builds for SimulationEngine's volume-profile panel.
-    private const double UnusedPriceBucketWidth = 0.01;
+    // Matches SimulationEngine.DefaultPriceBucketWidth -- a brain that reads
+    // RecentBarHistograms (e.g. VolumeProfilePolicyBrain) needs training and
+    // live Simulation playback to quantize prices the same way.
+    private const double PriceBucketWidth = 0.01;
 
     public static RlEpisode Run(
-        ISimulationBrain brain, IReadOnlyList<Tick> ticks, double startingCash,
-        bool aggregate = true, TimeSpan? barSize = null)
+        ISimulationBrain brain, IEnumerable<Tick> ticks, double startingCash,
+        int episodeBars, TimeSpan barSize, bool aggregate = true)
     {
         var trader = new Trader.Trader(startingCash);
-        var aggregator = aggregate
-            ? new SimulationBarAggregator(barSize ?? TimeSpan.FromMinutes(1), UnusedPriceBucketWidth)
-            : null;
+        var aggregator = aggregate ? new SimulationBarAggregator(barSize, PriceBucketWidth) : null;
 
         var recentBars = new List<HlocAvdtBar>();
+        var recentBarHistograms = new List<BarPriceHistogram>();
         var recentTicks = new List<Tick>();
         var steps = new List<RlStep>();
 
         double lastPrice = 0;
         double previousEquity = startingCash;
+        int completedBars = 0;
         SimulationObservation? lastObservation = null;
         foreach (var tick in ticks)
         {
@@ -71,14 +76,23 @@ internal static class RlEpisodeRunner
                 {
                     recentBars.Add(completed.Value.Bar);
                     if (recentBars.Count > MaxRecentBars) recentBars.RemoveAt(0);
+                    recentBarHistograms.Add(completed.Value.Histogram);
+                    if (recentBarHistograms.Count > MaxRecentBars) recentBarHistograms.RemoveAt(0);
                     (previousEquity, lastObservation) = RecordStep(
-                        brain, trader, tick.Timestamp, completed.Value.Bar.Close, recentBars, Array.Empty<Tick>(), steps, previousEquity);
+                        brain, trader, tick.Timestamp, completed.Value.Bar.Close, recentBars, Array.Empty<Tick>(),
+                        recentBarHistograms, steps, previousEquity);
+
+                    // Episode length is enforced in bars, not by however many ticks the
+                    // caller happened to supply -- it only needs to supply "enough"
+                    // (see RlTrainingService's fetchSpan sizing).
+                    if (++completedBars >= episodeBars) break;
                 }
             }
             else
             {
                 (previousEquity, lastObservation) = RecordStep(
-                    brain, trader, tick.Timestamp, price, Array.Empty<HlocAvdtBar>(), recentTicks, steps, previousEquity);
+                    brain, trader, tick.Timestamp, price, Array.Empty<HlocAvdtBar>(), recentTicks,
+                    Array.Empty<BarPriceHistogram>(), steps, previousEquity);
             }
         }
 
@@ -96,11 +110,13 @@ internal static class RlEpisodeRunner
     // episode's final inputs once the loop ends).
     private static (double Equity, SimulationObservation Observation) RecordStep(
         ISimulationBrain brain, Trader.Trader trader, DateTime timestamp, double price,
-        IReadOnlyList<HlocAvdtBar> bars, IReadOnlyList<Tick> ticks, List<RlStep> steps, double previousEquity)
+        IReadOnlyList<HlocAvdtBar> bars, IReadOnlyList<Tick> ticks, IReadOnlyList<BarPriceHistogram> barHistograms,
+        List<RlStep> steps, double previousEquity)
     {
         var capitalNow = trader.Snapshot(price);
         double reward = capitalNow.Equity - previousEquity;
-        var observation = new SimulationObservation(timestamp, price, bars, ticks, capitalNow, trader.CurrentPosition);
+        var observation = new SimulationObservation(
+            timestamp, price, bars, ticks, barHistograms, capitalNow, trader.CurrentPosition);
 
         SimulationDecision decision;
         Tensor? logProbability = null;

@@ -1,6 +1,6 @@
 # Streaming tick reads (drop the full-range in-memory preload)
 
-Status: Pending Review
+Status: Done
 
 ## Why
 

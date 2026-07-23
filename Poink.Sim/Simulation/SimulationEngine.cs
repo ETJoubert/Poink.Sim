@@ -495,6 +495,7 @@ internal sealed class SimulationEngine : IDisposable
                 timestamp, price,
                 useBars ? _recentBars : Array.Empty<HlocAvdtBar>(),
                 useBars ? Array.Empty<Tick>() : _recentTicks,
+                useBars ? _recentBarHistograms : Array.Empty<BarPriceHistogram>(),
                 capital, session.Trader.CurrentPosition);
 
             var decision = _activeBrain!.Decide(observation);

@@ -1,5 +1,6 @@
 using System;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Web;
 using Poink.Sim.Repository;
 using Poink.Sim.Training;
 
@@ -13,7 +14,7 @@ namespace Poink.Sim.Components.Pages
     {
         [Inject] private RlTrainingService Service { get; set; } = default!;
 
-        // ── Data source ──
+        // ── Data Range Controls ──
         // Mirrors SimulationPage's table-select pattern -- a symbol+range is
         // always picked here, but which Start Training button gets clicked
         // decides whether it's actually used: the historic button streams a
@@ -24,13 +25,26 @@ namespace Poink.Sim.Components.Pages
         private DateTime _from = DateTime.UtcNow.AddDays(-1);
         private DateTime _to = DateTime.UtcNow;
 
-        // ── Brain / run parameters ──
+        // ── Brain Type Control ──
         private string _brainName = "";
+
+        // ── Data Structure Controls ──
+        // How raw ticks get shaped into bars, and how far back the volume-profile
+        // brain looks over that same bar data -- independent of how many bars
+        // one episode/run consists of (see Training Controls below).
+        private int _barWidthMinutes = 1;
+        private int _volumeProfileLookbackBars = 50;
+
+        // ── Training Controls ──
+        // The algorithm, plus how much data each episode/run consists of.
         private string _strategyName = "";
         private int _episodeCount = 100;
-        private int _ticksPerEpisode = 500;
-        private double _startingCash = 10_000;
+        private int _episodeBars = 200;
         private double _learningRate = 0.001;
+
+        // ── Trader Controls ──
+        private double _startingCash = 10_000;
+
         private string? _startError;
 
         // Which Start button was last used -- drives CurrentDatasetDescription
@@ -39,6 +53,11 @@ namespace Poink.Sim.Components.Pages
         private bool _datasetIsHistoric;
 
         private string _saveName = "";
+
+        // Drives the header's Save Model reveal -- clicking SAVE MODEL swaps it
+        // for the name input/Save/Cancel group rather than always showing the
+        // input, so the header stays compact until the user actually wants to save.
+        private bool _showSaveInput;
 
         protected override void OnInitialized()
         {
@@ -49,6 +68,11 @@ namespace Poink.Sim.Components.Pages
         }
 
         private void HandleServiceChanged() => _ = InvokeAsync(StateHasChanged);
+
+        // Inlined here (rather than through BrainStrategyPicker, now removed) so
+        // the Strategy select can sit in the Training Controls section while
+        // BrainSelect sits in its own Brain Type section -- see TrainPage.razor.
+        private void OnStrategyChanged(ChangeEventArgs e) => _strategyName = e.Value?.ToString() ?? "";
 
         public void Dispose() => Service.OnChanged -= HandleServiceChanged;
 
@@ -70,9 +94,11 @@ namespace Poink.Sim.Components.Pages
             if (string.IsNullOrWhiteSpace(_brainName)) { _startError = "pick a brain"; return false; }
             if (string.IsNullOrWhiteSpace(_strategyName)) { _startError = "pick a strategy"; return false; }
             if (_episodeCount < 1) { _startError = "episode count must be positive"; return false; }
-            if (_ticksPerEpisode < 2) { _startError = "ticks per episode must be at least 2"; return false; }
+            if (_episodeBars < 1) { _startError = "bars per episode must be at least 1"; return false; }
+            if (_barWidthMinutes < 1) { _startError = "bar width must be at least 1 minute"; return false; }
             if (_startingCash <= 0) { _startError = "starting cash must be positive"; return false; }
             if (_learningRate <= 0) { _startError = "learning rate must be positive"; return false; }
+            if (_volumeProfileLookbackBars < 1) { _startError = "volume profile lookback must be at least 1 bar"; return false; }
             return true;
         }
 
@@ -87,7 +113,8 @@ namespace Poink.Sim.Components.Pages
 
             _datasetIsHistoric = true;
             if (!Service.TryStartTraining(
-                    _brainName, _strategyName, _episodeCount, _ticksPerEpisode, _startingCash, _learningRate, (_table, _from, _to)))
+                    _brainName, _strategyName, _episodeCount, _episodeBars, _barWidthMinutes, _startingCash, _learningRate,
+                    _volumeProfileLookbackBars, (_table, _from, _to)))
                 _startError = Service.Error ?? "a training run is already in progress";
         }
 
@@ -101,7 +128,8 @@ namespace Poink.Sim.Components.Pages
 
             _datasetIsHistoric = false;
             if (!Service.TryStartTraining(
-                    _brainName, _strategyName, _episodeCount, _ticksPerEpisode, _startingCash, _learningRate, historicRange: null))
+                    _brainName, _strategyName, _episodeCount, _episodeBars, _barWidthMinutes, _startingCash, _learningRate,
+                    _volumeProfileLookbackBars, historicRange: null))
                 _startError = Service.Error ?? "a training run is already in progress";
         }
 
@@ -113,9 +141,28 @@ namespace Poink.Sim.Components.Pages
         // since).
         private void SaveModel()
         {
+            if (string.IsNullOrWhiteSpace(_saveName)) return;
+
             if (Service.SaveBrain(_saveName, _brainName, _strategyName, CurrentDatasetDescription,
-                    _episodeCount, _ticksPerEpisode, _startingCash, _learningRate))
+                    _episodeCount, _episodeBars, _barWidthMinutes, _startingCash, _learningRate, _volumeProfileLookbackBars))
+            {
                 _saveName = "";
+                _showSaveInput = false;
+            }
+        }
+
+        private void ShowSaveModelInput() => _showSaveInput = true;
+
+        private void CancelSaveModel()
+        {
+            _showSaveInput = false;
+            _saveName = "";
+        }
+
+        private void OnSaveNameKeyDown(KeyboardEventArgs e)
+        {
+            if (e.Key == "Enter") SaveModel();
+            else if (e.Key == "Escape") CancelSaveModel();
         }
 
         // Just a reference string, not a link back to actual tick data (see

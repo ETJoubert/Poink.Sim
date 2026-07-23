@@ -19,8 +19,8 @@ using Poink.Sim.Simulation;
 namespace Poink.Sim.Training;
 
 // One entry in the Brain picker -- IsNeuralNetwork is what lets the UI (see
-// BrainStrategyPicker) visually separate trained/trainable brains from
-// stateless heuristic ones, without the picker needing to know about
+// BrainSelect) visually separate trained/trainable brains from stateless
+// heuristic ones, without the picker needing to know about
 // IPolicyGradientBrain itself. Public because it's passed as a [Parameter]
 // into that Razor component (see RlEpisodeMetric's doc comment for why).
 public sealed record BrainOption(string Name, bool IsNeuralNetwork);
@@ -29,6 +29,16 @@ internal sealed class RlTrainingService
 {
     private const int RecentRewardWindow = 20;
     private const int MaxMetricsLog = 500;
+
+    // How many extra bars' worth of ticks to fetch beyond episodeBars -- a
+    // safety margin so the aggregator reliably completes the *last* requested
+    // bar even when the fetch window ends right at its boundary.
+    private const int EpisodeSpanBufferBars = 1;
+
+    // Synthetic episodes have no real tick density to match -- 1 tick/sec is
+    // "good enough to exercise playback/aggregation/brain wiring" (see
+    // DummyTickGenerator's own doc comment) without an unreasonably large list.
+    private const double SyntheticTickIntervalSeconds = 1.0;
 
     private readonly object _lock = new();
     private readonly List<ISimulationBrain> _brains;
@@ -135,12 +145,12 @@ internal sealed class RlTrainingService
 
     // historicRange identifies a table + time range to sample from -- each
     // episode pulls its own bounded window straight from Postgres via
-    // ITickRepository.ReadWindow (chunk-pruned by Timescale), so nothing here
+    // ITickRepository.ReadTicks (chunk-pruned by Timescale), so nothing here
     // ever materializes the full range. Null means synthetic random-walk
     // episodes.
     public bool TryStartTraining(
-        string brainName, string strategyName, int episodeCount, int ticksPerEpisode, double startingCash, double learningRate,
-        (string Table, DateTime From, DateTime To)? historicRange)
+        string brainName, string strategyName, int episodeCount, int episodeBars, int barWidthMinutes, double startingCash,
+        double learningRate, int volumeProfileLookbackBars, (string Table, DateTime From, DateTime To)? historicRange)
     {
         var brain = _brains.FirstOrDefault(b => b.Name == brainName);
         var strategy = _strategies.FirstOrDefault(s => s.Name == strategyName);
@@ -173,12 +183,21 @@ internal sealed class RlTrainingService
         if (brain is IPolicyGradientBrain trainableBrain)
             trainableBrain.MoveToTrainingDevice();
 
+        // No-op for brains that don't merge a bar-count window (e.g.
+        // MlpPolicyBrain) -- only IHasLookbackBars brains (VolumeProfilePolicyBrain)
+        // read this. Live Simulation playback reuses whatever was last set here.
+        if (brain is IHasLookbackBars lookbackBrain)
+            lookbackBrain.LookbackBars = volumeProfileLookbackBars;
+
         OnChanged?.Invoke();
 
         string source = historicRange is { } r ? r.Table : "dummy";
         _logger.LogInformation(
-            "Training started: brain={Brain}, strategy={Strategy}, episodes={EpisodeCount}, ticksPerEpisode={TicksPerEpisode}, source={Source}",
-            brainName, strategyName, episodeCount, ticksPerEpisode, source);
+            "Training started: brain={Brain}, strategy={Strategy}, episodes={EpisodeCount}, episodeBars={EpisodeBars}, barWidthMinutes={BarWidthMinutes}, source={Source}",
+            brainName, strategyName, episodeCount, episodeBars, barWidthMinutes, source);
+
+        var barWidth = TimeSpan.FromMinutes(barWidthMinutes);
+        var fetchSpan = barWidth * (episodeBars + EpisodeSpanBufferBars);
 
         _ = Task.Run(() =>
         {
@@ -186,23 +205,24 @@ internal sealed class RlTrainingService
             {
                 if (historicRange is { } range)
                 {
-                    long available = _tickRepository.CountTicks(range.Table, range.From, range.To);
-                    if (available < ticksPerEpisode)
+                    if (range.To - range.From < fetchSpan)
                         throw new InvalidOperationException(
-                            $"only {available} ticks in the selected range, need at least {ticksPerEpisode}");
+                            $"selected range only spans {(range.To - range.From).TotalMinutes:N0} min, need at least " +
+                            $"{fetchSpan.TotalMinutes:N0} min for a {episodeBars}-bar episode at {barWidthMinutes}m bars");
                 }
 
                 var optimizer = strategy.CreateOptimizer(brain, learningRate);
                 var recentRewards = new Queue<double>();
                 var rng = new Random();
+                int syntheticTickCount = Math.Max(2, (int)(fetchSpan.TotalSeconds / SyntheticTickIntervalSeconds));
 
                 for (int episode = 0; episode < episodeCount; episode++)
                 {
                     var episodeTicks = historicRange is { } episodeRange
-                        ? RandomEpisodeWindow(episodeRange.Table, episodeRange.From, episodeRange.To, ticksPerEpisode, rng)
-                        : DummyTickGenerator.Generate(DateTime.UtcNow.AddHours(-4), DateTime.UtcNow, ticksPerEpisode);
+                        ? RandomEpisodeWindow(episodeRange.Table, episodeRange.From, episodeRange.To, fetchSpan, rng)
+                        : DummyTickGenerator.Generate(DateTime.UtcNow - fetchSpan, DateTime.UtcNow, syntheticTickCount);
 
-                    var result = RlEpisodeRunner.Run(brain, episodeTicks, startingCash);
+                    var result = RlEpisodeRunner.Run(brain, episodeTicks, startingCash, episodeBars, barWidth);
                     double reward = strategy.TrainEpisode(brain, optimizer, result);
 
                     recentRewards.Enqueue(reward);
@@ -248,7 +268,8 @@ internal sealed class RlTrainingService
     // what's serialized, so nothing here needs the training loop's lock.
     public bool SaveBrain(
         string savedName, string brainName, string strategyName, string dataset,
-        int episodeCount, int ticksPerEpisode, double startingCash, double learningRate)
+        int episodeCount, int episodeBars, int barWidthMinutes, double startingCash, double learningRate,
+        int volumeProfileLookbackBars)
     {
         var brain = _brains.OfType<IPolicyGradientBrain>().FirstOrDefault(b => b.Name == brainName);
         if (brain is null)
@@ -269,8 +290,9 @@ internal sealed class RlTrainingService
             var weights = brain.ExportWeights();
             var parameters = new BrainTrainingParameters
             {
-                EpisodeCount = episodeCount, TicksPerEpisode = ticksPerEpisode,
+                EpisodeCount = episodeCount, EpisodeBars = episodeBars, BarWidthMinutes = barWidthMinutes,
                 StartingCash = startingCash, LearningRate = learningRate,
+                LookbackBars = brain is IHasLookbackBars ? volumeProfileLookbackBars : null,
             };
             long id = _brainRepository.SaveBrain(savedName, brainName, strategyName, dataset, parameters, brain.WeightCount(), RecentAverageReward, weights);
             _activeSnapshotId[brainName] = id;
@@ -366,25 +388,37 @@ internal sealed class RlTrainingService
         }
     }
 
-    // Picks a random start timestamp within [from, to) and reads up to `count`
-    // ticks from there, so successive episodes train against different (but
-    // real) market windows without ever holding the full range in memory.
-    // Retries a few times if the random start lands in a gap with no ticks
-    // (e.g. a weekend) before falling back to reading from the range start,
-    // which TryStartTraining's upfront CountTicks check already guarantees
-    // has at least `count` ticks ahead of it... other than gaps, so this
-    // fallback can still legitimately come up short near a gap-heavy `to`.
-    private List<Tick> RandomEpisodeWindow(string table, DateTime from, DateTime to, int count, Random rng)
+    // Picks a random start timestamp within [from, to - fetchSpan] and returns
+    // a still-lazy stream over that fetchSpan window (chunk-pruned, see
+    // ITickRepository.ReadTicks) -- deliberately NOT materialized here.
+    // RlEpisodeRunner.Run stops enumerating as soon as episodeBars bars
+    // complete, and since ReadTicks is a lazy Dapper query (buffered: false),
+    // stopping early actually cuts the Postgres read short instead of having
+    // already pulled the whole (possibly much larger, for a dense table)
+    // fetchSpan window into memory only to use a fraction of it.
+    //
+    // The gap check below (.Any()) costs one extra cheap, chunk-pruned round
+    // trip per attempt -- negligible next to what materializing the full
+    // window used to cost -- so successive episodes still train against
+    // different (but real) market windows without ever holding a full range,
+    // or even a full fetchSpan window, in memory. Retries a few times if the
+    // random start lands in a gap with no ticks (e.g. a weekend) before
+    // falling back to reading from the range start, which TryStartTraining's
+    // upfront duration check already guarantees has at least `fetchSpan` of
+    // range ahead of it... other than gaps, so this fallback can still
+    // legitimately come up short near a gap-heavy `to`.
+    private IEnumerable<Tick> RandomEpisodeWindow(string table, DateTime from, DateTime to, TimeSpan fetchSpan, Random rng)
     {
+        var latestStart = to - fetchSpan;
         for (int attempt = 0; attempt < 5; attempt++)
         {
-            var start = from.AddTicks((long)(rng.NextDouble() * (to - from).Ticks));
-            var window = _tickRepository.ReadWindow(table, start, count);
-            if (window.Count > 0) return window;
+            var start = latestStart <= from ? from : from.AddTicks((long)(rng.NextDouble() * (latestStart - from).Ticks));
+            if (_tickRepository.ReadTicks(table, start, start + fetchSpan).Any())
+                return _tickRepository.ReadTicks(table, start, start + fetchSpan);
         }
         _logger.LogWarning(
             "RandomEpisodeWindow: 5 random starts in {Table} landed in empty windows; falling back to range start {From}",
             table, from);
-        return _tickRepository.ReadWindow(table, from, count);
+        return _tickRepository.ReadTicks(table, from, from + fetchSpan);
     }
 }
