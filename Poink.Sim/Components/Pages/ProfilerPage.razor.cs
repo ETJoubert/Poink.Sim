@@ -3,10 +3,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
 using Poink.Sim.Components.Charts;
 using Poink.Sim.Models;
 using Poink.Sim.Profiler;
+using Poink.Sim.Repository;
 using Poink.Shared.Client.Components.Pages.CTrader;
 
 namespace Poink.Sim.Components.Pages
@@ -21,6 +23,7 @@ namespace Poink.Sim.Components.Pages
     {
         [Inject] private ProfilerService Service { get; set; } = default!;
         [Inject] private IJSRuntime JS { get; set; } = default!;
+        [Inject] private ITRangeChartRepository TRangeChartRepository { get; set; } = default!;
 
         // How many bars each fetch (the initial LOAD or a pan-triggered backfill)
         // tries to gather -- generous enough to be immediately useful, small enough
@@ -105,6 +108,31 @@ namespace Poink.Sim.Components.Pages
         private Drawing _pending = NewPending();
         private int _nextDrawingId = 1;
 
+        // Multi-select over _drawings' cards (keyed by Drawing.Id) -- drives the
+        // selection bar's LABEL SELECTED/DELETE actions (see ToggleDrawingSelected/
+        // RemoveSelectedDrawings/SaveSelectedDrawings below). _savedDrawingIds just
+        // marks which cards have been saved at least once this session, for the
+        // SAVED badge -- separate from _selectedDrawingIds since a save doesn't
+        // clear the card's own selection state. Only T-Range Chart drawings are
+        // actually persisted (see SaveSelectedDrawings) -- selecting/removing
+        // still works for every kind, same as before.
+        private HashSet<int> _selectedDrawingIds = new();
+        private HashSet<int> _savedDrawingIds = new();
+        private bool _showLabelInput;
+        private string _labelText = "";
+
+        // Browsable history of every T-Range Chart labeled via SaveSelectedDrawings,
+        // any symbol/session -- independent of the current _config/_drawings, so
+        // it's rendered outside the @if (HasData) block (see ProfilerPage.razor).
+        private List<TRangeChart> _savedTRangeCharts = new();
+
+        // Bar snapshots for the Saved Drawings table's chart previews, fetched
+        // on demand (see GetChartBars/LoadChartBarsAsync) by re-querying the
+        // saved symbol's ticks for [StartTimeUtc, EndTimeUtc] rather than storing
+        // bars in the database -- keyed by TRangeChart.Id.
+        private readonly Dictionary<long, List<CTraderBarRow>> _chartBarsCache = new();
+        private readonly HashSet<long> _chartBarsLoading = new();
+
         private static Drawing NewPending() => new(new(), new(), new(), new());
 
         private IEnumerable<Drawing> AllDrawings() => _drawings.Append(_pending);
@@ -155,6 +183,8 @@ namespace Poink.Sim.Components.Pages
             })()
             """;
 
+        protected override void OnInitialized() => _savedTRangeCharts = TRangeChartRepository.ListTRangeCharts();
+
         protected override async Task OnAfterRenderAsync(bool firstRender)
         {
             if (firstRender)
@@ -199,6 +229,9 @@ namespace Poink.Sim.Components.Pages
             _drawings = new();
             _pending = NewPending();
             _nextDrawingId = 1;
+            _selectedDrawingIds.Clear();
+            _savedDrawingIds.Clear();
+            CancelLabelSelected();
 
             try
             {
@@ -320,7 +353,106 @@ namespace Poink.Sim.Components.Pages
 
         // Removes a whole Drawing (all of its lines together) -- the side panel gives
         // each card exactly one remove button rather than one per underlying line.
-        private void RemoveDrawing(int index) => _drawings = _drawings.Where((_, i) => i != index).ToList();
+        private void RemoveDrawing(int index)
+        {
+            _selectedDrawingIds.Remove(_drawings[index].Id);
+            _drawings = _drawings.Where((_, i) => i != index).ToList();
+        }
+
+        private void ToggleDrawingSelected(int id)
+        {
+            if (!_selectedDrawingIds.Remove(id))
+                _selectedDrawingIds.Add(id);
+        }
+
+        // Bulk counterpart to RemoveDrawing above -- local-only, same as the
+        // per-card "X" button; doesn't touch anything already saved to the
+        // database (see SaveSelectedDrawings below).
+        private void RemoveSelectedDrawings()
+        {
+            _drawings = _drawings.Where(d => !_selectedDrawingIds.Contains(d.Id)).ToList();
+            _selectedDrawingIds.Clear();
+        }
+
+        private void ShowLabelSelectedInput() => _showLabelInput = true;
+
+        private void CancelLabelSelected()
+        {
+            _showLabelInput = false;
+            _labelText = "";
+        }
+
+        private void OnLabelKeyDown(KeyboardEventArgs e)
+        {
+            if (e.Key == "Enter") SaveSelectedDrawings();
+            else if (e.Key == "Escape") CancelLabelSelected();
+        }
+
+        // Persists every selected T-Range Chart drawing's range to the Poink.Sim
+        // database under one shared label (see ITRangeChartRepository's doc
+        // comment) -- only Kind == "T-RANGE CHART" among the selection actually
+        // gets saved (any other kind has no well-defined [start, end] range to
+        // redraw from later, so it's silently skipped); selection stays
+        // on-screen afterwards -- only RemoveSelectedDrawings/the per-card "X"
+        // take a drawing off the chart.
+        private void SaveSelectedDrawings()
+        {
+            if (string.IsNullOrWhiteSpace(_labelText) || _config is null || _selectedDrawingIds.Count == 0) return;
+
+            var label = _labelText.Trim();
+            foreach (var drawing in _drawings.Where(d => _selectedDrawingIds.Contains(d.Id) && d.Kind == "T-RANGE CHART"))
+            {
+                var t1 = drawing.VerticalLines[0].TimeUtc;
+                var t2 = drawing.VerticalLines[1].TimeUtc;
+                var start = t1 <= t2 ? t1 : t2;
+                var end = t1 <= t2 ? t2 : t1;
+                var barCount = drawing.RangeBarCount ?? drawing.ChartBars.Count;
+
+                TRangeChartRepository.SaveTRangeChart(label, _config.Table, start, end, _config.BarSize.TotalMinutes, barCount);
+                _savedDrawingIds.Add(drawing.Id);
+            }
+
+            _savedTRangeCharts = TRangeChartRepository.ListTRangeCharts();
+            _selectedDrawingIds.Clear();
+            CancelLabelSelected();
+        }
+
+        private void HandleDeleteTRangeChart(TRangeChart chart)
+        {
+            TRangeChartRepository.DeleteTRangeChart(chart.Id);
+            _savedTRangeCharts = TRangeChartRepository.ListTRangeCharts();
+            _chartBarsCache.Remove(chart.Id);
+        }
+
+        // Redraws a saved T-Range Chart by re-querying its symbol's ticks for
+        // [StartTimeUtc, EndTimeUtc] rather than reading back a stored bar
+        // snapshot (none is stored -- see ITRangeChartRepository's doc comment).
+        // Returns null (and kicks off the fetch) the first time a given chart is
+        // asked for; cached afterwards. beforeUtc=EndTimeUtc/count=BarCount
+        // reproduces the exact same bars the live chart showed when this range
+        // was first drawn (see ProfilerService.LoadAsync).
+        private List<CTraderBarRow>? GetChartBars(TRangeChart chart)
+        {
+            if (_chartBarsCache.TryGetValue(chart.Id, out var bars)) return bars;
+            if (_chartBarsLoading.Add(chart.Id))
+                _ = LoadChartBarsAsync(chart);
+            return null;
+        }
+
+        private async Task LoadChartBarsAsync(TRangeChart chart)
+        {
+            try
+            {
+                var config = new ProfilerConfig(chart.Symbol, chart.StartTimeUtc, chart.EndTimeUtc, TimeSpan.FromMinutes(chart.BarMinutes));
+                var loaded = await Service.LoadAsync(config, chart.EndTimeUtc, chart.BarCount);
+                _chartBarsCache[chart.Id] = ToBarRows(loaded.Bars);
+            }
+            finally
+            {
+                _chartBarsLoading.Remove(chart.Id);
+            }
+            StateHasChanged();
+        }
 
         // Flattened for DrawableOhlcvChart, which only ever renders plain lines/shapes/
         // fills and has no notion of a "drawing" grouping -- includes _pending too, so a

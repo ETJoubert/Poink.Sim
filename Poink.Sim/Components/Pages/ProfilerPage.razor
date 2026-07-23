@@ -1,7 +1,9 @@
 @page "/profiler"
 @namespace Poink.Sim.Components.Pages
 @using Poink.Sim.Components.Charts
+@using Poink.Sim.Components.Shared.DataTable
 @using Poink.Sim.Components.Shared.TickDataSource
+@using Poink.Sim.Repository
 @using Poink.Shared.Client.Components.Pages.CTrader
 
 <div class="prof-page">
@@ -39,6 +41,13 @@
                         title="Load a recent slice of the selected range -- older history backfills automatically as you pan the chart">
                     @(_isLoading ? "LOADING..." : "LOAD")
                 </button>
+                @if (HasData && !_reachedStart)
+                {
+                    <button class="prof-ctrl-btn" @onclick="LoadMore" disabled="@(_isLoading || _isLoadingMore)"
+                            title="Fetch the next older chunk of history -- same as panning the chart back to its earliest bar">
+                        @(_isLoadingMore ? "LOADING OLDER..." : "LOAD OLDER")
+                    </button>
+                }
                 @if (_error is not null)
                 {
                     <span class="prof-error-inline" title="@_error">@_error</span>
@@ -69,22 +78,41 @@
         <div class="prof-chart-hdivider" @ref="_chartHDividerRef" data-min-height="200" data-max-height-vh="80"
              title="Drag to resize"></div>
 
-        <div class="prof-loadmore-row">
-            @if (!_reachedStart)
-            {
-                <button class="prof-ctrl-btn" @onclick="LoadMore" disabled="@(_isLoading || _isLoadingMore)"
-                        title="Fetch the next older chunk of history -- same as panning the chart back to its earliest bar">
-                    @(_isLoadingMore ? "LOADING OLDER..." : "LOAD OLDER")
-                </button>
-            }
-            else
-            {
-                <span class="prof-loadmore-done">start of selected range reached</span>
-            }
-        </div>
-
         <div class="prof-drawings-panel" title="Everything drawn on the chart via the toolbar">
-            <span class="prof-drawings-title">DRAWINGS</span>
+            <div class="prof-drawings-panel-header">
+                <span class="prof-drawings-title">DRAWINGS</span>
+                @if (_selectedDrawingIds.Count > 0)
+                {
+                    <div class="prof-drawings-selection-bar">
+                        <span class="prof-drawings-selection-count">@_selectedDrawingIds.Count SELECTED</span>
+                        @if (_showLabelInput)
+                        {
+                            <input class="prof-drawings-label-input" type="text" placeholder="e.g. reversal-setup-a"
+                                   @bind="_labelText" @bind:event="oninput" @onkeydown="OnLabelKeyDown" autofocus
+                                   title="Label to save the selected T-Range Chart drawings under" />
+                            <button class="prof-ctrl-btn" @onclick="SaveSelectedDrawings" disabled="@string.IsNullOrWhiteSpace(_labelText)"
+                                    title="Saves the selected drawings' ranges to the Poink.Sim database under this label -- only T-RANGE CHART drawings can be saved">
+                                SAVE
+                            </button>
+                            <button class="prof-ctrl-btn" @onclick="CancelLabelSelected" title="Cancel without saving">CANCEL</button>
+                        }
+                        else
+                        {
+                            <button class="prof-ctrl-btn" @onclick="ShowLabelSelectedInput"
+                                    title="Label the selected drawings and save their ranges to the Poink.Sim database -- only T-RANGE CHART drawings can be saved">
+                                LABEL SELECTED
+                            </button>
+                        }
+                        <button class="prof-ctrl-btn" @onclick="RemoveSelectedDrawings"
+                                title="Remove the selected drawings from the chart -- does not affect anything already saved to the database">
+                            DELETE
+                        </button>
+                        <button class="prof-drawings-selection-clear" @onclick="() => _selectedDrawingIds.Clear()" title="Clear selection">
+                            CLEAR
+                        </button>
+                    </div>
+                }
+            </div>
             @if (_drawings.Count == 0)
             {
                 <p class="prof-drawings-empty">Use the chart toolbar (H-LINE, V-LINE, D-LINE, T-RANGE, P-RANGE, RECT, T-RANGE CHART) to add one.</p>
@@ -96,10 +124,19 @@
                     {
                         var index = i;
                         var d = _drawings[index];
-                        <div class="prof-drawing-card prof-drawing-card-@d.ColorGroup">
+                        var isSelected = _selectedDrawingIds.Contains(d.Id);
+                        <div class="prof-drawing-card prof-drawing-card-@d.ColorGroup @(isSelected ? "prof-drawing-card-selected" : "")"
+                             @onclick="() => ToggleDrawingSelected(d.Id)" title="Click to select">
                             <div class="prof-drawing-card-header">
+                                <input type="checkbox" class="prof-drawing-select" checked="@isSelected"
+                                       @onchange="() => ToggleDrawingSelected(d.Id)" @onclick:stopPropagation="true"
+                                       title="Select this drawing" />
                                 <span class="prof-drawing-kind">#@d.Id @d.Kind</span>
-                                <button class="prof-drawing-remove" @onclick="() => RemoveDrawing(index)"
+                                @if (_savedDrawingIds.Contains(d.Id))
+                                {
+                                    <span class="prof-drawing-saved-badge" title="Saved to the Poink.Sim database">SAVED</span>
+                                }
+                                <button class="prof-drawing-remove" @onclick="() => RemoveDrawing(index)" @onclick:stopPropagation="true"
                                         title="Remove this drawing (and every line it's made of)">✕</button>
                             </div>
                             @if (d.IsRange && d.RangeBarCount is { } barCount && d.RangeSpan is { } span)
@@ -136,5 +173,39 @@
     {
         <p class="prof-empty">Pick a symbol and date range above, then LOAD to view its bar chart and volume profile.</p>
     }
+
+    <div class="prof-saved-drawings-panel" title="Every T-Range Chart labeled and saved to the Poink.Sim database, across every symbol/session">
+        <span class="prof-drawings-title">SAVED DRAWINGS</span>
+        <DataTable TItem="TRangeChart" Items="_savedTRangeCharts" ShowRowNumbers="false" ActionsHeader="ACTIONS"
+                   ExcludeProperties="@(new List<string> { "Id" })" OnDelete="HandleDeleteTRangeChart"
+                   EmptyMessage="no saved T-Range Charts yet -- select a T-Range Chart card above and use LABEL SELECTED">
+            <CardContent Context="chart">
+                @{ var bars = GetChartBars(chart); }
+                @if (bars is null)
+                {
+                    <p class="prof-saved-drawing-loading">loading chart...</p>
+                }
+                else if (bars.Count > 0)
+                {
+                    <div class="prof-saved-drawing-chart" title="Redrawn from this range's ticks">
+                        <CandlestickChart Bars="bars" />
+                    </div>
+                }
+            </CardContent>
+            <DetailContent Context="chart">
+                @{ var bars = GetChartBars(chart); }
+                @if (bars is null)
+                {
+                    <p class="prof-saved-drawing-loading">loading chart...</p>
+                }
+                else if (bars.Count > 0)
+                {
+                    <div class="prof-saved-drawing-chart prof-saved-drawing-chart-detail" title="Redrawn from this range's ticks">
+                        <CandlestickChart Bars="bars" />
+                    </div>
+                }
+            </DetailContent>
+        </DataTable>
+    </div>
 
 </div>

@@ -577,6 +577,14 @@
   flex: 1;
 }
 
+/* Consumer-supplied content (see DataTable.razor.cs's CardContent parameter) --
+   no fixed sizing here since what it renders (e.g. a chart) picks its own. */
+.data-table-card-content {
+  border-top: 1px solid color-mix(in srgb, var(--color-primary) 10%, transparent);
+  padding-top: 10px;
+  margin-top: 4px;
+}
+
 /* Card extra fields */
 .data-table-card-fields {
   display: flex;
@@ -785,6 +793,12 @@
   border-color: var(--color-primary);
   color: var(--color-primary);
   box-shadow: 0 0 6px color-mix(in srgb, var(--color-primary) 30%, transparent);
+}
+
+/* Consumer-supplied content (see DataTable.razor.cs's DetailContent parameter) --
+   no fixed sizing here since what it renders (e.g. a chart) picks its own. */
+.data-table-detail-content {
+  padding: 12px 20px 0;
 }
 
 .data-table-detail-body {

@@ -56,6 +56,16 @@ public partial class DataTable<TItem> : IAsyncDisposable
     [Parameter]
     public RenderFragment<TItem>? CustomActions { get; set; }
 
+    /// <summary>Rendered inside each card (card view), between its header and its reflected
+    /// fields -- e.g. a chart preview alongside a row's plain metadata.</summary>
+    [Parameter]
+    public RenderFragment<TItem>? CardContent { get; set; }
+
+    /// <summary>Rendered inside the detail overlay (opened via the View action/eye icon),
+    /// above its reflected field list -- same use case as <see cref="CardContent"/>.</summary>
+    [Parameter]
+    public RenderFragment<TItem>? DetailContent { get; set; }
+
     [Parameter]
     public bool ShowActions { get; set; } = true;
 

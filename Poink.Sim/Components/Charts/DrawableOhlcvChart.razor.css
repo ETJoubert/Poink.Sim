@@ -117,3 +117,16 @@
     min-height: 0;
     width: 100%;
 }
+
+/* Visible-data window strip -- its canvas is created and styled by
+   drawableOhlcvChart.js itself (same reasoning as ohlcvChart.js's tooltip: Blazor
+   CSS isolation only scopes elements declared in this component's own markup, so a
+   scoped rule here would never match a JS-created child). This div only needs to
+   claim its own row in the flex column and give the canvas somewhere sized to fill. */
+.doc-minimap {
+    flex: 0 0 44px;
+    width: 100%;
+    position: relative;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    overflow: hidden;
+}

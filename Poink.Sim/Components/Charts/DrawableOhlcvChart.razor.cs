@@ -116,6 +116,7 @@ namespace Poink.Sim.Components.Charts
         private DrawMode _mode;
 
         private ElementReference _containerRef;
+        private ElementReference _minimapRef;
         private IJSObjectReference? _module;
         private string? _chartId;
         private DotNetObjectReference<DrawableOhlcvChart>? _dotNetRef;
@@ -168,7 +169,7 @@ namespace Poink.Sim.Components.Charts
                     _module = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/drawableOhlcvChart.js");
                     if (_disposed) return;
                     _dotNetRef = DotNetObjectReference.Create(this);
-                    _chartId = await _module.InvokeAsync<string>("create", _containerRef, _dotNetRef);
+                    _chartId = await _module.InvokeAsync<string>("create", _containerRef, _minimapRef, _dotNetRef);
                 }
 
                 if (_disposed) return;

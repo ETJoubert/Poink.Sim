@@ -314,6 +314,12 @@ else
                                @onchange="_ => ToggleSelectItem(item)" @onclick:stopPropagation="true" />
                     }
                 </div>
+                @if (CardContent != null)
+                {
+                    <div class="data-table-card-content" @onclick:stopPropagation="true">
+                        @CardContent(item)
+                    </div>
+                }
                 @if (cardFields.Count > 0)
                 {
                     <div class="data-table-card-fields">
@@ -381,6 +387,12 @@ else
                     <Icon Name="x-lg" Class="dt-icon" />
                 </button>
             </div>
+            @if (DetailContent != null)
+            {
+                <div class="data-table-detail-content">
+                    @DetailContent(_detailItem)
+                </div>
+            }
             <div class="data-table-detail-body">
                 @foreach (var prop in GetProperties())
                 {
