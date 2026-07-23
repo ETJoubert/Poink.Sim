@@ -129,6 +129,31 @@
     font-weight: bold;
 }
 
+/* Value Area -- the 70%-of-volume band around the Point of Control (see
+   VolumeProfileStats.Compute). Subtler than .tvp-row-poc below so POC still stands
+   out as the single strongest read within it. */
+.tvp-row-value-area {
+    background: color-mix(in srgb, var(--color-highlight) 8%, transparent);
+    border-radius: 2px;
+}
+
+.tvp-row-poc {
+    background: color-mix(in srgb, var(--color-highlight) 22%, transparent);
+    border-radius: 2px;
+}
+
+.tvp-row-poc .tvp-row-label {
+    color: var(--color-highlight);
+    opacity: 1;
+    font-weight: bold;
+}
+
+.tvp-control-poc .tvp-control-value,
+.tvp-control-va .tvp-control-value {
+    border-color: color-mix(in srgb, var(--color-highlight) 40%, transparent);
+    color: var(--color-highlight);
+}
+
 .tvp-row-track {
     flex: 1;
     height: 65%;

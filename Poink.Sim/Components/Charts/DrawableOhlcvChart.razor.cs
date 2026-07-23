@@ -45,6 +45,13 @@ namespace Poink.Sim.Components.Charts
     // band. Not ordered -- consumers should sort Start/End before rendering.
     public readonly record struct ChartRangeFill(DateTime StartUtc, DateTime EndUtc, string? Label = null, string? ColorGroup = null);
 
+    // One point of a computed overlay line (e.g. VWAP) -- unlike ChartHorizontalLine,
+    // this is a per-bar time series rather than a single fixed price, so it renders as
+    // its own native lightweight-charts LineSeries (see drawableOhlcvChart.js's
+    // vwapSeries) instead of the custom vertical/diagonal/range-fill primitives the
+    // click-to-draw tools use.
+    public readonly record struct ChartLinePoint(DateTime TimeUtc, double Price);
+
     // Candlestick + volume chart with click-to-draw annotations -- horizontal price
     // lines, vertical time lines, diagonal trend lines, plus T-Range/P-Range/Rectangle
     // (built from placing 2 or 2+2 of the single-axis lines in one go, see DrawMode) --
@@ -76,6 +83,12 @@ namespace Poink.Sim.Components.Charts
         [Parameter] public IReadOnlyList<ChartVerticalLine> VerticalLines { get; set; } = Array.Empty<ChartVerticalLine>();
         [Parameter] public IReadOnlyList<ChartDiagonalLine> DiagonalLines { get; set; } = Array.Empty<ChartDiagonalLine>();
         [Parameter] public IReadOnlyList<ChartRangeFill> RangeFills { get; set; } = Array.Empty<ChartRangeFill>();
+
+        // A computed overlay line (e.g. VWAP) drawn across the same time axis as Bars --
+        // not a user-drawn annotation, so it has no OnXxxDrawn callback of its own; the
+        // caller recomputes it from whatever bars/window it wants (see ProfilerPage's
+        // VwapPoints) and hands the whole series down each render.
+        [Parameter] public IReadOnlyList<ChartLinePoint> VwapLine { get; set; } = Array.Empty<ChartLinePoint>();
 
         // Fired with the clicked price/time once the user places a line while a draw
         // mode is armed -- the caller owns the canonical HorizontalLines/VerticalLines/
@@ -167,6 +180,7 @@ namespace Poink.Sim.Components.Charts
         private IReadOnlyList<ChartVerticalLine>? _renderedVerticalLines;
         private IReadOnlyList<ChartDiagonalLine>? _renderedDiagonalLines;
         private IReadOnlyList<ChartRangeFill>? _renderedRangeFills;
+        private IReadOnlyList<ChartLinePoint>? _renderedVwapLine;
         private bool _expanded;
         private bool _disposed;
 
@@ -258,6 +272,16 @@ namespace Poink.Sim.Components.Charts
                         volume = b.Volume,
                     });
                     await _module.InvokeVoidAsync("setData", _chartId, payload, !KeepView);
+                }
+
+                if (_disposed) return;
+
+                if (_module is not null && _chartId is not null && !ReferenceEquals(_renderedVwapLine, VwapLine))
+                {
+                    _renderedVwapLine = VwapLine;
+                    var vwapPoints = VwapLine.Select(p =>
+                        new { time = new DateTimeOffset(p.TimeUtc, TimeSpan.Zero).ToUnixTimeSeconds(), price = p.Price });
+                    await _module.InvokeVoidAsync("setVwapLine", _chartId, vwapPoints);
                 }
 
                 if (_disposed) return;

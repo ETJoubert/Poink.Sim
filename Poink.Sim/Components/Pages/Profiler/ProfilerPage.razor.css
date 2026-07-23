@@ -267,6 +267,47 @@
     flex: 1;
 }
 
+/* ── Chart overlays toggle row -- sits above the tab bar (not inside any one tab)
+   since it controls the main chart/volume-profile panel above, not anything specific
+   to the Drawings tab's own list. Same bordered-row look as .prof-drawings-selection-
+   bar below, and the same checkbox+label pattern as TickVolumeProfileChart's own
+   .tvp-control-toggle, so a toggle here reads as the same family of control. ──────── */
+
+.prof-overlay-toggles {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    padding: 5px 10px;
+    margin-bottom: 10px;
+    background: color-mix(in srgb, var(--color-highlight) 6%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-highlight) 30%, transparent);
+    border-radius: var(--border-radius-sm);
+}
+
+.prof-overlay-toggles-label {
+    font-size: 0.6rem;
+    font-weight: bold;
+    letter-spacing: 0.1em;
+    color: var(--color-highlight);
+    opacity: 0.9;
+}
+
+.prof-overlay-toggle {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.68rem;
+    color: var(--color-secondary);
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.prof-overlay-toggle input {
+    accent-color: var(--color-highlight);
+    cursor: pointer;
+}
+
 .prof-log-tabs {
     display: flex;
     align-items: center;

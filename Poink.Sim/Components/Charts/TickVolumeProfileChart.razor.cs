@@ -45,6 +45,12 @@ namespace Poink.Sim.Components.Charts
         // Prices/WindowSize entirely; when null, the plain per-tick path is used instead.
         [Parameter] public IReadOnlyList<WeightedPriceSample>? WeightedSamples { get; set; }
 
+        // Caller-controlled visibility for the Point of Control/Value Area highlight +
+        // header readout below -- ProfilerPage wires this to its own "POC/VA in profile"
+        // overlay toggle. Doesn't affect WeightedSamples/Buckets at all, only whether
+        // Levels (and therefore IsPoc/IsValueArea/the header readout) ever computes.
+        [Parameter] public bool ShowLevels { get; set; } = true;
+
         private bool _splitUpDown;
         private int _bucketCount = 20;
 
@@ -55,10 +61,17 @@ namespace Poink.Sim.Components.Charts
         // are always computed alongside the plain total, so toggling split mode is a pure
         // presentation switch with no recompute.
         private sealed record Bucket(
-            double Low, double High, int Count, double Percent, int UpCount, int DownCount, double UpPercent, double DownPercent, bool IsCurrent)
+            double Low, double High, int Count, double Percent, int UpCount, int DownCount, double UpPercent, double DownPercent,
+            bool IsCurrent, bool IsPoc, bool IsValueArea)
         {
             public int Diff => UpCount - DownCount;
         }
+
+        // Recomputed alongside Buckets below (same samples, same "cheap enough to redo
+        // every render" reasoning) -- null while there isn't enough data for a
+        // meaningful Point of Control/Value Area (see VolumeProfileStats.Compute), or
+        // while ShowLevels is off.
+        private VolumeProfileLevels? Levels => ShowLevels ? VolumeProfileStats.Compute(WeightedSamples ?? PlainSamples()) : null;
 
         // Matches the up/down bars' own colors (tvp-row-bar-up/-down) so the diff reads
         // as "which side is winning" at a glance, same convention as SimulationPage's
@@ -70,6 +83,11 @@ namespace Poink.Sim.Components.Charts
             _ => "",
         };
 
+        // Combinable, not exclusive -- the current-price row can also be the POC row (or
+        // sit inside the value area), and all three should still read at a glance.
+        private static string RowClass(Bucket b) =>
+            $"{(b.IsCurrent ? "tvp-row-current" : "")} {(b.IsValueArea ? "tvp-row-value-area" : "")} {(b.IsPoc ? "tvp-row-poc" : "")}";
+
         private List<Bucket> Buckets
         {
             get
@@ -80,8 +98,11 @@ namespace Poink.Sim.Components.Charts
                 var totalCount = samples.Sum(s => s.Count);
                 if (totalCount < Math.Max(2, bucketCount * MinSamplesPerBucket)) return new List<Bucket>();
 
+                var levels = Levels;
+
                 double min = samples.Min(s => s.Price), max = samples.Max(s => s.Price);
-                if (max <= min) return new List<Bucket> { new(min, max, totalCount, 100, 0, 0, 0, 0, CurrentPrice is not null) };
+                if (max <= min)
+                    return new List<Bucket> { new(min, max, totalCount, 100, 0, 0, 0, 0, CurrentPrice is not null, levels is not null, levels is not null) };
 
                 var counts = new int[bucketCount];
                 var upCounts = new int[bucketCount];
@@ -112,7 +133,9 @@ namespace Poink.Sim.Components.Charts
                     var pct = maxCount == 0 ? 0 : counts[i] * 100.0 / maxCount;
                     var upPct = maxSplit == 0 ? 0 : upCounts[i] * 100.0 / maxSplit;
                     var downPct = maxSplit == 0 ? 0 : downCounts[i] * 100.0 / maxSplit;
-                    buckets.Add(new Bucket(low, high, counts[i], pct, upCounts[i], downCounts[i], upPct, downPct, i == currentIdx));
+                    var isPoc = levels is { } l && low <= l.Poc && l.Poc < high;
+                    var isValueArea = levels is { } va && low < va.ValueAreaHigh && high > va.ValueAreaLow;
+                    buckets.Add(new Bucket(low, high, counts[i], pct, upCounts[i], downCounts[i], upPct, downPct, i == currentIdx, isPoc, isValueArea));
                 }
                 return buckets;
             }

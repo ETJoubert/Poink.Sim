@@ -37,6 +37,10 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   actual decision points. `Trader/Trader.cs`
 - **Mid price** — `(Bid + Ask) / 2.0`. Used throughout as "the" price since trades
   execute at mid — spread is not modeled yet.
+- **Point of Control (POC)** — The price level with the most volume in a volume
+  profile window; computed by `VolumeProfileStats.Compute` and shown both as the
+  highlighted row in `TickVolumeProfileChart` and as a projected line on the main
+  chart (`ProfilerPage.ProfileLevelLines`). `Components/Charts/VolumeProfileStats.cs`
 - **Position** — One open trade: `readonly record struct Position(PositionDirection,
   Size, EntryPrice, EntryTime, StopLossPrice?, TakeProfitPrice?)`. v1 allows only one
   open position at a time (no pyramiding); reversing direction requires an explicit
@@ -63,10 +67,20 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
 - **TickVolume / Volume** — In this app, "volume" is a tick count, not a
   traded-contract count (raw ticks carry no trade-volume field). `HlocAvdtBar.Volume`
   is literally the number of ticks in the bar.
+- **Value Area (VA) / Value Area High/Low (VAH/VAL)** — The tightest price band
+  holding 70% of a volume profile window's total volume, expanded outward one bucket
+  at a time from the Point of Control; VAH/VAL are that band's top/bottom edges.
+  `Components/Charts/VolumeProfileStats.cs`
 - **Volume Profile** — The tick-count-by-price-level histogram shown by
   `TickVolumeProfileChart`: how much activity occurred at each price level within the
-  current window, split into up/down-tick sub-bars.
-  `Components/Charts/TickVolumeProfileChart.razor.cs`
+  current window, split into up/down-tick sub-bars. Its Point of Control/Value Area
+  are highlighted directly in the panel and projected onto `ProfilerPage`'s main
+  chart as POC/VAH/VAL lines. `Components/Charts/TickVolumeProfileChart.razor.cs`
+- **VWAP (Volume-Weighted Average Price)** — Cumulative `Σ(Average × Volume) /
+  Σ(Volume)` over a bar window, using `HlocAvdtBar.Average`/`Volume` directly (no
+  histogram data needed); rendered on `ProfilerPage`'s main chart as a native
+  lightweight-charts `LineSeries`, narrowed to the active Volume Range selection if
+  one is set. `Components/Pages/Profiler/ProfilerPage.razor.cs` (`VwapPoints`)
 - **Win rate** — Percentage of episodes/trades with a positive reward/PnL. Used at
   trade-level (`TradeStatistics`) and episode-level (`RlTrainingService`,
   `TrainLiveTab`).
@@ -212,6 +226,10 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
 - **`CapitalState`** — Read-only snapshot handed to the Brain/UI: `(Cash,
   RealizedPnl, UnrealizedPnl)`, with `Equity => Cash + UnrealizedPnl`.
   `Models/SimulationAccount.cs`
+- **`ChartLinePoint`** — One `(TimeUtc, Price)` point of a computed overlay line (e.g.
+  VWAP) on `DrawableOhlcvChart` — a per-bar time series, unlike the single fixed price
+  of `ChartHorizontalLine`, so it renders as its own native LineSeries rather than one
+  of the click-to-draw primitives. `Components/Charts/DrawableOhlcvChart.razor.cs`
 - **`NetworkLayerShape`** — One "layer" description for `NetworkEmulator`'s animation:
   a real magnitude (Linear's `out_features` or LSTM's hidden size), not a literal
   one-dot-per-unit count; `IsRecurrent` flags an LSTM so the animation can draw it
@@ -230,6 +248,9 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   `SimulationEngine` on every callback (config, playback state, per-trader state,
   recent bars/ticks/histograms) — what the page renders from.
   `Models/SimulationSnapshot.cs`
+- **`VolumeProfileLevels`** — `(Poc, ValueAreaHigh, ValueAreaLow)`: the computed
+  Point of Control/Value Area for a volume profile window, from
+  `VolumeProfileStats.Compute`. `Components/Charts/VolumeProfileStats.cs`
 - **`WeightedPriceSample`** — One price level's contribution to the volume profile:
   `(Price, Count, UpCount, DownCount)`, either a single raw tick (Count=1) or a merged
   multi-tick bucket total.

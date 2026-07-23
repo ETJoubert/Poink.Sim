@@ -488,6 +488,16 @@ export function create(container, minimapContainer, dotNetRef) {
     chart.panes()[0].setStretchFactor(3);
     chart.panes()[1].setStretchFactor(1);
 
+    // VWAP overlay -- a plain native LineSeries rather than one of the hand-rolled
+    // primitives below, since lightweight-charts already renders a time-indexed price
+    // series on its own; ProfilerPage recomputes the points from its own loaded bars
+    // (see DrawableOhlcvChart.razor.cs's VwapLine parameter) and this just displays them.
+    const vwapColor = getComputedStyle(container).getPropertyValue('--color-tertiary').trim() || '#bd00ff';
+    const vwapSeries = chart.addSeries(LightweightCharts.LineSeries, {
+        color: vwapColor, lineWidth: 2, priceLineVisible: false, lastValueVisible: true,
+        crosshairMarkerVisible: false, title: 'VWAP',
+    });
+
     const tooltip = document.createElement('div');
     tooltip.style.cssText =
         'display:none;position:absolute;pointer-events:none;z-index:5;' +
@@ -504,11 +514,13 @@ export function create(container, minimapContainer, dotNetRef) {
         }
 
         const vol = param.seriesData.get(volumeSeries);
+        const vwap = param.seriesData.get(vwapSeries);
         const d = new Date(param.time * 1000);
         tooltip.innerHTML =
             `<div>${d.toISOString().slice(0, 16).replace('T', ' ')}</div>` +
             `<div>O ${bar.open.toFixed(2)}  H ${bar.high.toFixed(2)}  L ${bar.low.toFixed(2)}  C ${bar.close.toFixed(2)}</div>` +
-            (vol ? `<div>Vol ${vol.value.toLocaleString()}</div>` : '');
+            (vol ? `<div>Vol ${vol.value.toLocaleString()}</div>` : '') +
+            (vwap ? `<div>VWAP ${vwap.value.toFixed(5)}</div>` : '');
 
         tooltip.style.display = 'block';
         const left = Math.min(param.point.x + 12, container.clientWidth - tooltip.offsetWidth - 8);
@@ -533,6 +545,9 @@ export function create(container, minimapContainer, dotNetRef) {
         reference: style.getPropertyValue('--color-error').trim() || accentColor,
         // Volume Range's own fill -- see DrawableOhlcvChart.razor.css's .doc-tool-btn-profile.
         volume: style.getPropertyValue('--color-info').trim() || accentColor,
+        // POC/VAH/VAL price lines, computed (not user-drawn) -- see ProfilerPage's
+        // ProfileLevelLines. Its own colour, distinct from every drawn-tool group above.
+        profile: style.getPropertyValue('--color-highlight').trim() || accentColor,
     };
 
     const verticalLines = createVerticalLinesPrimitive();
@@ -544,7 +559,7 @@ export function create(container, minimapContainer, dotNetRef) {
 
     const id = crypto.randomUUID();
     const entry = {
-        chart, candleSeries, volumeSeries, tooltip, verticalLines, diagonalLines, rangeFills, accentColor, groupColors,
+        chart, candleSeries, volumeSeries, vwapSeries, tooltip, verticalLines, diagonalLines, rangeFills, accentColor, groupColors,
         horizontalLineObjs: [], dotNetRef, hasData: false, pendingLoadMore: false,
         drawMode: null, drawClicks: [], bars: [], minimap: null,
     };
@@ -684,6 +699,13 @@ export function setData(id, bars, resetView) {
     entry.hasData = bars.length > 0;
     if (resetView) entry.chart.timeScale().fitContent();
     drawMinimap(entry);
+}
+
+// points: [{ time, price }] -- see DrawableOhlcvChart.razor.cs's VwapLine parameter.
+export function setVwapLine(id, points) {
+    const entry = instances.get(id);
+    if (!entry) return;
+    entry.vwapSeries.setData(points.map(p => ({ time: p.time, value: p.price })));
 }
 
 // mode: one of modeClickCounts' keys, or null (null/falsy disarms drawing entirely).

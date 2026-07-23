@@ -143,6 +143,16 @@ namespace Poink.Sim.Components.Pages
         private DateTime? _volumeRangeStart;
         private DateTime? _volumeRangeEnd;
 
+        // Independent on/off switches for the three computed (non-Drawing) chart
+        // overlays -- see the CHART OVERLAYS header in ProfilerPage.razor. Split rather
+        // than one shared flag since POC/VA has two separate places it renders (the
+        // profile panel itself vs. the projected chart lines) and a user may want just
+        // one of those. Not reset on Load -- these are display preferences, not
+        // per-session drawing state (same reasoning as _activePanelTab).
+        private bool _showProfilePanelLevels = true;
+        private bool _showProfileChartLines = true;
+        private bool _showVwap = true;
+
         // Multi-select over _drawings' cards (keyed by Drawing.Id) -- drives the
         // selection bar's LABEL SELECTED/DELETE actions (see ToggleDrawingSelected/
         // RemoveSelectedDrawings/SaveSelectedDrawings below). _savedDrawingIds just
@@ -618,8 +628,52 @@ namespace Poink.Sim.Components.Pages
         // the chart colours it the same as the toolbar button that placed it (see "Show
         // colours on chart respective of type"). New list instances every call (not
         // cached), same reference-equality reasoning ApplyChunk/Add*Line above rely on.
+        // POC/VAH/VAL (ProfileLevelLines) are appended the same way -- they aren't a
+        // Drawing at all (nothing to select/remove/save), just three computed lines
+        // riding the same rendering path as the user-drawn ones.
         private List<ChartHorizontalLine> AllHorizontalLines() =>
-            AllDrawings().SelectMany(d => d.HorizontalLines.Select(l => l with { ColorGroup = d.ColorGroup })).ToList();
+            AllDrawings().SelectMany(d => d.HorizontalLines.Select(l => l with { ColorGroup = d.ColorGroup }))
+                .Concat(ProfileLevelLines())
+                .ToList();
+
+        // Point of Control/Value Area for whatever window MergedSamples() currently
+        // builds the volume profile panel from (every loaded bar, or the Volume Range
+        // selection if one is active) -- projected onto the main chart so they read
+        // directly against price action, not just inside the profile panel.
+        private List<ChartHorizontalLine> ProfileLevelLines()
+        {
+            if (!_showProfileChartLines) return new();
+            if (VolumeProfileStats.Compute(MergedSamples()) is not { } levels) return new();
+            return new()
+            {
+                new ChartHorizontalLine(levels.Poc, "POC", "profile"),
+                new ChartHorizontalLine(levels.ValueAreaHigh, "VAH", "profile"),
+                new ChartHorizontalLine(levels.ValueAreaLow, "VAL", "profile"),
+            };
+        }
+
+        // Cumulative volume-weighted average price over the same window ProfileLevelLines
+        // above uses -- HlocAvdtBar.Average/Volume already carry the tick-weighted mean
+        // price and tick count each bar needs, so this needs no histogram data at all.
+        private List<ChartLinePoint> VwapPoints()
+        {
+            if (!_showVwap) return new();
+
+            var bars = _volumeRangeStart is { } start && _volumeRangeEnd is { } end
+                ? _bars.Where(b => b.OpenTime >= start && b.OpenTime <= end)
+                : _bars;
+
+            var points = new List<ChartLinePoint>();
+            double cumulativePriceVolume = 0, cumulativeVolume = 0;
+            foreach (var bar in bars)
+            {
+                cumulativePriceVolume += bar.Average * bar.Volume;
+                cumulativeVolume += bar.Volume;
+                if (cumulativeVolume > 0)
+                    points.Add(new ChartLinePoint(bar.OpenTime, cumulativePriceVolume / cumulativeVolume));
+            }
+            return points;
+        }
 
         // Reference lines are tagged "reference" here rather than d.ColorGroup ("charts")
         // -- see Drawing.ColorGroup's comment on why the reference window needs its own
