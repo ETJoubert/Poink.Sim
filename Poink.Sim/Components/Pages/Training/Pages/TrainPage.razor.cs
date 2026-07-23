@@ -18,12 +18,10 @@ namespace Poink.Sim.Components.Pages
         [Inject] private RlTrainingService Service { get; set; } = default!;
 
         // ── Data Range Controls ──
-        // Mirrors SimulationPage's table-select pattern -- a symbol+range is
-        // always picked here, but which Start Training button gets clicked
-        // decides whether it's actually used: the historic button streams a
-        // randomly-windowed slice per episode straight from Postgres (see
-        // RlTrainingService.RandomEpisodeWindow), the synthetic button ignores
-        // this entirely.
+        // Mirrors SimulationPage's table-select pattern -- the picked symbol+
+        // range is what Start Training uses: each episode streams its own
+        // randomly-windowed slice straight from Postgres (see
+        // RlTrainingService.RandomEpisodeWindow).
         private string _table = "";
         private DateTime _from = DateTime.UtcNow.AddDays(-1);
         private DateTime _to = DateTime.UtcNow;
@@ -64,11 +62,6 @@ namespace Poink.Sim.Components.Pages
         private double _startingCash = 10_000;
 
         private string? _startError;
-
-        // Which Start button was last used -- drives CurrentDatasetDescription
-        // below (SaveModel's dataset tag), since there's no live checkbox to
-        // read anymore.
-        private bool _datasetIsHistoric;
 
         private string _saveName = "";
 
@@ -187,27 +180,17 @@ namespace Poink.Sim.Components.Pages
             if (string.IsNullOrWhiteSpace(_table)) { _startError = "pick a symbol"; return; }
             if (_to <= _from) { _startError = "To must be after From"; return; }
 
-            _datasetIsHistoric = true;
             if (!Service.TryStartTraining(
                     _brainName, _strategyName, _episodeCount, _episodeBars, _barWidthMinutes, _startingCash, _learningRate,
                     _volumeProfileLookbackBars, (_table, _from, _to)))
                 _startError = Service.Error ?? "a training run is already in progress";
         }
 
-        // Skips Postgres entirely (synthetic random-walk ticks) -- same as
-        // Simulation's Load Dummy Data, so training can be exercised without a
-        // running database. Ignores whatever symbol/range is picked above.
-        private void StartTrainingSynthetic()
-        {
-            _startError = null;
-            if (!ValidateCommonStartParams()) return;
+        private void PauseTraining() => Service.PauseTraining();
 
-            _datasetIsHistoric = false;
-            if (!Service.TryStartTraining(
-                    _brainName, _strategyName, _episodeCount, _episodeBars, _barWidthMinutes, _startingCash, _learningRate,
-                    _volumeProfileLookbackBars, historicRange: null))
-                _startError = Service.Error ?? "a training run is already in progress";
-        }
+        private void ResumeTraining() => Service.ResumeTraining();
+
+        private void StopTraining() => Service.StopTraining();
 
         // Fine to click mid-run -- SaveBrain reads the brain's own live
         // Network, which a training strategy mutates in place, so this just
@@ -242,13 +225,10 @@ namespace Poink.Sim.Components.Pages
         }
 
         // Just a reference string, not a link back to actual tick data (see
-        // SavedBrainSummary's doc comment) -- Dummy data has no fixed range, so
-        // "synthetic" is all there is to say about it. Reflects whichever Start
-        // button was last used, not the live form state (SaveModel is fine to
-        // click after tweaking the form since -- see its own doc comment).
-        private string CurrentDatasetDescription =>
-            _datasetIsHistoric && !string.IsNullOrWhiteSpace(_table)
-                ? $"{_table} ({_from:yyyy-MM-dd HH:mm} to {_to:yyyy-MM-dd HH:mm})"
-                : "synthetic (random-walk)";
+        // SavedBrainSummary's doc comment). Reflects the live Data Range form
+        // state, not necessarily what the last completed run actually used
+        // (SaveModel is fine to click after tweaking the form since -- see its
+        // own doc comment).
+        private string CurrentDatasetDescription => $"{_table} ({_from:yyyy-MM-dd HH:mm} to {_to:yyyy-MM-dd HH:mm})";
     }
 }

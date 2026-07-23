@@ -9,6 +9,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Poink.Sim.Brain;
@@ -54,6 +55,15 @@ internal sealed class RlTrainingService
     // moment that brain starts training again (its weights immediately diverge
     // from whatever was last saved). Read by SimulationPage's Brain info card.
     private readonly Dictionary<string, long> _activeSnapshotId = new();
+
+    // Pause/Stop signaling for the training loop below -- checked only between
+    // episodes (there's no per-step checkpoint to interrupt mid-episode), so
+    // both take effect once the in-flight episode finishes. Starts signaled
+    // (open gate) so a fresh run never blocks; Pause closes the gate, Resume
+    // or Stop reopens it so a paused loop can observe _stopRequested and exit
+    // cleanly instead of blocking forever.
+    private readonly ManualResetEventSlim _resumeSignal = new(true);
+    private volatile bool _stopRequested;
 
     public RlTrainingService(
         BrainRegistry brainRegistry, IEnumerable<IRlTrainingStrategy> strategies,
@@ -116,6 +126,7 @@ internal sealed class RlTrainingService
     public IReadOnlyList<SavedBrainSummary> SavedBrains { get; private set; } = [];
 
     public bool IsRunning { get; private set; }
+    public bool IsPaused { get; private set; }
     public string? Error { get; private set; }
     public int EpisodesCompleted { get; private set; }
     public int TotalEpisodes { get; private set; }
@@ -175,6 +186,9 @@ internal sealed class RlTrainingService
             if (!strategy.CanTrain(brain)) { Error = $"'{strategy.Name}' cannot train '{brain.Name}'"; return false; }
 
             IsRunning = true;
+            IsPaused = false;
+            _stopRequested = false;
+            _resumeSignal.Set();
             Error = null;
             EpisodesCompleted = 0;
             TotalEpisodes = episodeCount;
@@ -230,6 +244,9 @@ internal sealed class RlTrainingService
 
                 for (int episode = 0; episode < episodeCount; episode++)
                 {
+                    _resumeSignal.Wait();
+                    if (_stopRequested) break;
+
                     var episodeTicks = historicRange is { } episodeRange
                         ? RandomEpisodeWindow(episodeRange.Table, episodeRange.From, episodeRange.To, fetchSpan, rng)
                         : DummyTickGenerator.Generate(DateTime.UtcNow - fetchSpan, DateTime.UtcNow, syntheticTickCount);
@@ -256,9 +273,18 @@ internal sealed class RlTrainingService
                     OnChanged?.Invoke();
                 }
 
-                _logger.LogInformation(
-                    "Training completed: brain={Brain}, episodes={EpisodesCompleted}, bestReward={BestReward}, recentAvgReward={RecentAverageReward}",
-                    brainName, EpisodesCompleted, BestReward, RecentAverageReward);
+                if (_stopRequested)
+                {
+                    _logger.LogInformation(
+                        "Training stopped by user: brain={Brain}, episodesCompleted={EpisodesCompleted}",
+                        brainName, EpisodesCompleted);
+                }
+                else
+                {
+                    _logger.LogInformation(
+                        "Training completed: brain={Brain}, episodes={EpisodesCompleted}, bestReward={BestReward}, recentAvgReward={RecentAverageReward}",
+                        brainName, EpisodesCompleted, BestReward, RecentAverageReward);
+                }
             }
             catch (Exception ex)
             {
@@ -267,12 +293,52 @@ internal sealed class RlTrainingService
             }
             finally
             {
-                lock (_lock) { IsRunning = false; }
+                lock (_lock) { IsRunning = false; IsPaused = false; }
                 OnChanged?.Invoke();
             }
         });
 
         return true;
+    }
+
+    // Closes the resume gate so the loop above blocks before starting its
+    // next episode. No-op if nothing is running or it's already paused.
+    public void PauseTraining()
+    {
+        lock (_lock)
+        {
+            if (!IsRunning || IsPaused) return;
+            IsPaused = true;
+            _resumeSignal.Reset();
+        }
+        OnChanged?.Invoke();
+    }
+
+    public void ResumeTraining()
+    {
+        lock (_lock)
+        {
+            if (!IsRunning || !IsPaused) return;
+            IsPaused = false;
+            _resumeSignal.Set();
+        }
+        OnChanged?.Invoke();
+    }
+
+    // Reopens the resume gate (in case it was paused, so the loop can
+    // actually observe _stopRequested instead of blocking forever) and asks
+    // the loop to exit after its in-flight episode -- IsRunning only flips
+    // back to false once that happens, via the loop's own finally block.
+    public void StopTraining()
+    {
+        lock (_lock)
+        {
+            if (!IsRunning) return;
+            _stopRequested = true;
+            IsPaused = false;
+            _resumeSignal.Set();
+        }
+        OnChanged?.Invoke();
     }
 
     // Builds a new ComposedPolicyBrain from the Train page's Brain Builder

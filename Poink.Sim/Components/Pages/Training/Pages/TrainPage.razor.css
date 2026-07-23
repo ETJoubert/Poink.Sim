@@ -28,9 +28,8 @@
     padding: 16px 24px 10px;
 }
 
-/* Groups everything pushed to the end of the header row (Save Model group,
-   Start actions) behind one margin-left: auto, so both sit flush against the
-   right edge together instead of competing for space individually. */
+/* Pushes the Save Model group to the far right of the header row -- Start/
+   Pause/Stop live in the toolbar below instead (see .train-toolbar). */
 .train-header-end {
     display: flex;
     align-items: center;
@@ -73,14 +72,6 @@
 .train-header-save-status {
     font-size: 0.72rem;
     color: var(--color-secondary);
-}
-
-/* Start actions -- only present while a run isn't already in progress. */
-.train-header-actions {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
 }
 
 .train-title {
@@ -225,11 +216,88 @@
     font-size: 0.72rem;
 }
 
+/* ── Toolbar: Start/Pause/Stop + progress, second row of the sticky topbar --
+   mirrors SimulationPage's .sim-toolbar/.sim-controls (see that file's own
+   comment), self-contained control buttons rather than the shared
+   .terminal-btn-action look. ─────────────────────────────────────────────── */
+
+.train-toolbar {
+    padding: 5px 24px;
+}
+
+.train-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+::deep .train-ctrl-icon {
+    width: 13px;
+    height: 13px;
+    vertical-align: -2px;
+    margin-right: 3px;
+}
+
+.train-ctrl-btn {
+    font-family: var(--font-body);
+    font-weight: bold;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 7px 14px;
+    border-radius: var(--border-radius-sm);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 45%, transparent);
+    background: transparent;
+    color: var(--color-primary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.train-ctrl-btn:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+    border-color: var(--color-primary);
+}
+
+.train-ctrl-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+/* START/PAUSE/RESUME -- the primary action, filled so it reads first in the row. */
+.train-ctrl-btn-play {
+    border: 1px solid var(--color-success);
+    color: var(--color-success);
+    background: color-mix(in srgb, var(--color-success) 14%, transparent);
+    font-size: 13px;
+    padding: 7px 22px;
+    text-shadow: 0 0 8px color-mix(in srgb, var(--color-success) 50%, transparent);
+}
+
+.train-ctrl-btn-play:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-success) 24%, transparent);
+    box-shadow: 0 0 14px color-mix(in srgb, var(--color-success) 45%, transparent);
+}
+
+/* STOP -- destructive-ish, warning tint. */
+.train-ctrl-btn-warn {
+    border-color: color-mix(in srgb, var(--color-warning) 50%, transparent);
+    color: var(--color-warning);
+}
+
+.train-ctrl-btn-warn:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-warning) 14%, transparent);
+    border-color: var(--color-warning);
+}
+
+/* Sits inline next to the Start/Pause/Stop buttons -- flex:1 lets it soak up
+   the row's spare width, same as SimulationPage's SimTimeline. */
 .train-progress {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 8px 24px;
+    flex: 1 1 240px;
+    min-width: 200px;
 }
 
 .train-progress-bar {
