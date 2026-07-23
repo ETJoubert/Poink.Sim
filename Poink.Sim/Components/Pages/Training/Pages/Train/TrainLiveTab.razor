@@ -26,6 +26,18 @@ else
             <span class="train-stat-label">win rate</span>
             <span class="train-stat-value">@WinRatePercent.ToString("N0")%</span>
         </div>
+        <div class="train-stat">
+            <span class="train-stat-label">median reward</span>
+            <span class="train-stat-value">@RewardDistribution.Median.ToString("N2")</span>
+        </div>
+        <div class="train-stat">
+            <span class="train-stat-label">reward std dev</span>
+            <span class="train-stat-value">@RewardDistribution.StdDev.ToString("N2")</span>
+        </div>
+        <div class="train-stat">
+            <span class="train-stat-label">reward spread</span>
+            <span class="train-stat-value">@RewardSpread.ToString("N2")</span>
+        </div>
     </div>
 
     <div class="train-live-grid">
@@ -94,10 +106,10 @@ else
             {
                 <div class="input-badge-group">
                     <div class="input-badge-group-label">PRICE WINDOW</div>
-                    <div class="input-badges">
+                    <div class="input-scalars">
                         @foreach (var f in PriceWindowFeatures)
                         {
-                            <div class="input-badge">
+                            <div class="input-scalar">
                                 <span class="input-badge-label">@f.Label</span>
                                 <span
                                     class="input-badge-value @(f.Value switch { > 0 => "input-positive", < 0 => "input-negative", _ => "" })">

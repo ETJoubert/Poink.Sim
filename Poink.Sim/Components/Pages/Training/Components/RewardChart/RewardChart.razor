@@ -7,14 +7,41 @@
     }
     else
     {
+        <div class="reward-chart-controls">
+            <label class="reward-chart-candle-label"
+                   title="Groups consecutive episodes into OHLC candles (open/high/low/close of reward across the group) so a long run reads as a trend instead of noise -- Raw shows one point per episode">
+                Aggregate
+                <select class="reward-chart-candle-select" value="@_candleSize" @onchange="OnCandleSizeChanged">
+                    @foreach (var size in CandleSizeOptions)
+                    {
+                        <option value="@size">@(size == 1 ? "Raw" : $"{size} episodes")</option>
+                    }
+                </select>
+            </label>
+        </div>
         <svg viewBox="0 0 600 160" preserveAspectRatio="none" class="reward-chart-svg">
             <line x1="@FormatCoord(PadLeft)" y1="@BaselineY" x2="@FormatCoord(ViewWidth - PadRight)" y2="@BaselineY" class="reward-chart-baseline" />
-            <polyline points="@PolylinePoints" class="reward-chart-line" />
-            @foreach (var p in Points)
+            <text x="@FormatCoord(PadLeft + 2)" y="@FormatCoord(MapY(0) - 3)" class="reward-chart-baseline-label">0</text>
+            @if (_candleSize <= 1)
             {
-                <circle cx="@p.X" cy="@p.Y" r="2.5" class="reward-chart-point @(p.IsLatest && IsRunning ? "reward-chart-point-latest" : "")">
-                    <title>episode @p.Episode — reward @p.Reward.ToString("N2")</title>
-                </circle>
+                <polyline points="@PolylinePoints" class="reward-chart-line" />
+                @foreach (var p in Points)
+                {
+                    <circle cx="@p.X" cy="@p.Y" r="2.5" class="reward-chart-point @(p.IsLatest && IsRunning ? "reward-chart-point-latest" : "")">
+                        <title>episode @p.Episode — reward @p.Reward.ToString("N2")</title>
+                    </circle>
+                }
+            }
+            else
+            {
+                @foreach (var c in Candles)
+                {
+                    <g class="reward-chart-candle @(c.IsUp ? "reward-chart-candle-up" : "reward-chart-candle-down")">
+                        <line x1="@c.WickX" y1="@c.WickTopY" x2="@c.WickX" y2="@c.WickBottomY" class="reward-chart-candle-wick" />
+                        <rect x="@c.BodyX" y="@c.BodyY" width="@c.BodyWidth" height="@c.BodyHeight" rx="1" class="reward-chart-candle-body" />
+                        <title>episodes @c.FirstEpisode–@c.LastEpisode — open @c.Open.ToString("N2"), high @c.High.ToString("N2"), low @c.Low.ToString("N2"), close @c.Close.ToString("N2")</title>
+                    </g>
+                }
             }
         </svg>
         <div class="reward-chart-labels">

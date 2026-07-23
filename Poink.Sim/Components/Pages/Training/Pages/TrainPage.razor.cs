@@ -77,6 +77,13 @@ namespace Poink.Sim.Components.Pages
         // input, so the header stays compact until the user actually wants to save.
         private bool _showSaveInput;
 
+        // Collapses the Data Range/Brain Type/.../Reward Policy rows -- the
+        // header (title, state, Save/Start actions) and progress bar stay
+        // visible either way, since those matter regardless of whether the
+        // run's parameters are being edited right now. Starts expanded so
+        // nothing changes until a user opts into collapsing it.
+        private bool _controlsCollapsed;
+
         protected override void OnInitialized()
         {
             Service.OnChanged += HandleServiceChanged;
@@ -99,6 +106,8 @@ namespace Poink.Sim.Components.Pages
             _showBuildBrain = !_showBuildBrain;
             _buildBrainStatus = null;
         }
+
+        private void ToggleControls() => _controlsCollapsed = !_controlsCollapsed;
 
         private void OnArchitectureKindChanged(ChangeEventArgs e) =>
             _architectureKind = Enum.Parse<ArchitectureKind>(e.Value?.ToString() ?? nameof(ArchitectureKind.Mlp));

@@ -39,7 +39,9 @@
 
 .train-stats {
     display: flex;
+    flex-wrap: wrap;
     gap: 18px;
+    row-gap: 10px;
     margin-top: 14px;
 }
 

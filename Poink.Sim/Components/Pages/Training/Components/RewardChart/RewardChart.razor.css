@@ -16,11 +16,50 @@
     display: block;
 }
 
+.reward-chart-controls {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.reward-chart-candle-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.65rem;
+    color: var(--color-secondary);
+    opacity: 0.85;
+    white-space: nowrap;
+}
+
+.reward-chart-candle-select {
+    background: var(--color-bg-terminal);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 45%, transparent);
+    color: var(--color-primary);
+    padding: 2px 4px;
+    border-radius: var(--border-radius-sm);
+    font-family: var(--font-body);
+    font-size: 11px;
+    width: auto;
+}
+
+.reward-chart-candle-select:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--color-primary) 40%, transparent);
+}
+
+/* Solid (not dashed) and a distinct hue from the reward line/candles below,
+   so the zero reference reads clearly instead of blending into the data. */
 .reward-chart-baseline {
-    stroke: var(--color-secondary);
+    stroke: var(--color-muted);
     stroke-width: 1;
-    opacity: 0.25;
-    stroke-dasharray: 4 4;
+    opacity: 0.9;
+}
+
+.reward-chart-baseline-label {
+    fill: var(--color-muted);
+    font-size: 9px;
+    opacity: 1;
 }
 
 .reward-chart-line {
@@ -52,6 +91,35 @@
         r: 5;
         opacity: 1;
     }
+}
+
+/* Up/down candles reuse this app's success/error pair (EpisodeGrid already
+   established this pair fails CVD separation on color alone), so direction
+   never rides on color alone here either: up candles are hollow (stroke
+   only, matching the classic hollow-candle convention), down candles are
+   solid-filled -- shape carries the signal color repeats. */
+.reward-chart-candle-up .reward-chart-candle-body {
+    fill: color-mix(in srgb, var(--color-success) 12%, transparent);
+    stroke: var(--color-success);
+    stroke-width: 1.5;
+}
+
+.reward-chart-candle-down .reward-chart-candle-body {
+    fill: var(--color-error);
+    stroke: var(--color-error);
+    stroke-width: 1;
+}
+
+.reward-chart-candle-up .reward-chart-candle-wick {
+    stroke: var(--color-success);
+}
+
+.reward-chart-candle-down .reward-chart-candle-wick {
+    stroke: var(--color-error);
+}
+
+.reward-chart-candle-wick {
+    stroke-width: 1.25;
 }
 
 .reward-chart-labels {

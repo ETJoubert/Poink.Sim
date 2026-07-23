@@ -41,6 +41,35 @@ namespace Poink.Sim.Components.Training
             }
         }
 
+        // Best/worst are already whole-run extremes tracked by the service --
+        // define spread from those same two displayed numbers rather than
+        // re-deriving max-min from RecentEpisodes below, which is capped to
+        // the last 500 and would silently disagree with Best/Worst on a
+        // longer run.
+        private double RewardSpread => Service.BestReward - Service.WorstReward;
+
+        // Same bounded episode window as WinRatePercent above. Population
+        // (not sample) standard deviation -- this describes the actual
+        // observed episodes rather than estimating some larger population.
+        private (double StdDev, double Median) RewardDistribution
+        {
+            get
+            {
+                var rewards = Service.RecentEpisodes.Select(e => e.Reward).ToList();
+                if (rewards.Count == 0) return (0, 0);
+
+                double mean = rewards.Average();
+                double variance = rewards.Sum(r => (r - mean) * (r - mean)) / rewards.Count;
+                double stdDev = Math.Sqrt(variance);
+
+                var sorted = rewards.OrderBy(r => r).ToList();
+                int mid = sorted.Count / 2;
+                double median = sorted.Count % 2 == 0 ? (sorted[mid - 1] + sorted[mid]) / 2.0 : sorted[mid];
+
+                return (stdDev, median);
+            }
+        }
+
         private (double Hold, double EnterLong, double EnterShort, double Close) ActionPercents
         {
             get

@@ -17,6 +17,11 @@
                 @(Service.IsRunning ? "TRAINING" : "IDLE")
             </span>
 
+            <button class="terminal-btn-action" @onclick="ToggleControls"
+                    title="Show/hide the Data Range/Brain Type/.../Reward Policy rows below -- collapse them once a run's parameters are set, to give the panels below more room">
+                @(_controlsCollapsed ? "▸ CONTROLS" : "▾ CONTROLS")
+            </button>
+
             <div class="train-header-end">
                 <div class="train-header-save">
                     @if (_showSaveInput)
@@ -67,134 +72,137 @@
             </div>
         </header>
 
-        <div class="train-datarow">
-            <span class="train-section-label" title="Which symbol and time range the historic Start Training button samples episodes from -- ignored by the synthetic button">Data Range</span>
-            <div class="train-datarow-field train-datarow-data">
-                <TickDataSource @bind-Table="_table" @bind-From="_from" @bind-To="_to" Disabled="Service.IsRunning" />
-            </div>
-        </div>
-
-        <div class="train-datarow">
-            <span class="train-section-label" title="Which brain (neural network or heuristic) this run trains and plays back">Brain Type</span>
-            <BrainSelect BrainOptions="Service.BrainOptions" @bind-BrainName="_brainName" Disabled="Service.IsRunning" />
-            <button class="terminal-btn-action" @onclick="ToggleBuildBrain" disabled="@Service.IsRunning"
-                    title="Assemble a new brain from encoder/architecture parts -- it's added to the list above once created">
-                @(_showBuildBrain ? "- BUILD BRAIN" : "+ BUILD BRAIN")
-            </button>
-        </div>
-
-        @if (_showBuildBrain)
+        @if (!_controlsCollapsed)
         {
-            <div class="train-datarow train-buildbrain">
-                <span class="train-section-label" title="Pick which encoders feed this brain's market data, and which network shape reads them">Build Brain</span>
-                <label class="train-brainrow-field" title="Unique name for this brain -- must not match an existing one">
-                    Name
-                    <input class="train-brainrow-input train-brainrow-input-wide" type="text" @bind="_buildBrainName"
-                           disabled="@Service.IsRunning" placeholder="e.g. lstm-vp-experiment" />
+            <div class="train-datarow">
+                <span class="train-section-label" title="Which symbol and time range the historic Start Training button samples episodes from -- ignored by the synthetic button">Data Range</span>
+                <div class="train-datarow-field train-datarow-data">
+                    <TickDataSource @bind-Table="_table" @bind-From="_from" @bind-To="_to" Disabled="Service.IsRunning" />
+                </div>
+            </div>
+
+            <div class="train-datarow">
+                <span class="train-section-label" title="Which brain (neural network or heuristic) this run trains and plays back">Brain Type</span>
+                <BrainSelect BrainOptions="Service.BrainOptions" @bind-BrainName="_brainName" Disabled="Service.IsRunning" />
+                <button class="terminal-btn-action" @onclick="ToggleBuildBrain" disabled="@Service.IsRunning"
+                        title="Assemble a new brain from encoder/architecture parts -- it's added to the list above once created">
+                    @(_showBuildBrain ? "- BUILD BRAIN" : "+ BUILD BRAIN")
+                </button>
+            </div>
+
+            @if (_showBuildBrain)
+            {
+                <div class="train-datarow train-buildbrain">
+                    <span class="train-section-label" title="Pick which encoders feed this brain's market data, and which network shape reads them">Build Brain</span>
+                    <label class="train-brainrow-field" title="Unique name for this brain -- must not match an existing one">
+                        Name
+                        <input class="train-brainrow-input train-brainrow-input-wide" type="text" @bind="_buildBrainName"
+                               disabled="@Service.IsRunning" placeholder="e.g. lstm-vp-experiment" />
+                    </label>
+                    <label class="train-brainrow-field" title="20-bar trailing percent-change price window">
+                        <input type="checkbox" @bind="_includeBarWindow" disabled="@Service.IsRunning" /> Bar Window
+                    </label>
+                    <label class="train-brainrow-field" title="Volume histogram + point-of-control/value-area summary, merged from VP lookback bars above">
+                        <input type="checkbox" @bind="_includeVolumeProfile" disabled="@Service.IsRunning" /> Volume Profile
+                    </label>
+                    <label class="train-brainrow-field" title="Always included -- every brain needs to know its own position/capital regardless of market data">
+                        <input type="checkbox" checked="checked" disabled /> Account State
+                    </label>
+                    <label class="train-brainrow-field" title="Network shape applied to the combined features selected above">
+                        Architecture
+                        <select class="train-brainrow-select" value="@_architectureKind" @onchange="OnArchitectureKindChanged" disabled="@Service.IsRunning">
+                            <option value="Mlp">MLP</option>
+                            <option value="Lstm">LSTM</option>
+                        </select>
+                    </label>
+                    @if (_architectureKind == ArchitectureKind.Mlp)
+                    {
+                        <label class="train-brainrow-field" title="Comma-separated hidden layer sizes, e.g. 64,32,16">
+                            Hidden layers
+                            <input class="train-brainrow-input train-brainrow-input-wide" type="text" @bind="_mlpHiddenSizesText"
+                                   disabled="@Service.IsRunning" />
+                        </label>
+                    }
+                    else
+                    {
+                        <label class="train-brainrow-field" title="LSTM hidden state size">
+                            Hidden size
+                            <input class="train-brainrow-input" type="number" min="1" @bind="_lstmHiddenSize" disabled="@Service.IsRunning" />
+                        </label>
+                        <label class="train-brainrow-field" title="Number of stacked LSTM layers">
+                            LSTM layers
+                            <input class="train-brainrow-input" type="number" min="1" @bind="_lstmNumLayers" disabled="@Service.IsRunning" />
+                        </label>
+                        @if (!_includeBarWindow)
+                        {
+                            <span class="train-brainrow-error">LSTM needs Bar Window for its sequence</span>
+                        }
+                    }
+                    <button class="terminal-btn-action" @onclick="CreateBrain" disabled="@(Service.IsRunning || !CanCreateBrain)"
+                            title="Builds and registers this brain -- pick it from Brain Type above to train it">
+                        CREATE BRAIN
+                    </button>
+                    @if (_buildBrainStatus is not null)
+                    {
+                        <span class="train-brainrow-error">@_buildBrainStatus</span>
+                    }
+                </div>
+            }
+
+            <div class="train-datarow">
+                <span class="train-section-label" title="How raw ticks are shaped into bars, and how far back the volume-profile brain looks over that bar data">Data Structure</span>
+                <label class="train-brainrow-field" title="Time span of one bar (M), in minutes -- also determines how much wall-clock time an episode's fetched ticks need to cover">
+                    Bar width (min)
+                    <input class="train-brainrow-input" type="number" min="1" step="1" @bind="_barWidthMinutes" disabled="@Service.IsRunning" />
                 </label>
-                <label class="train-brainrow-field" title="20-bar trailing percent-change price window">
-                    <input type="checkbox" @bind="_includeBarWindow" disabled="@Service.IsRunning" /> Bar Window
+                <label class="train-brainrow-field" title="How many recent bars a volume-profile brain merges into its profile each decision -- ignored by brains that don't use a volume profile (e.g. MLP Policy, LSTM Policy)">
+                    VP lookback (bars)
+                    <input class="train-brainrow-input" type="number" min="1" step="1" @bind="_volumeProfileLookbackBars"
+                           disabled="@Service.IsRunning" />
                 </label>
-                <label class="train-brainrow-field" title="Volume histogram + point-of-control/value-area summary, merged from VP lookback bars above">
-                    <input type="checkbox" @bind="_includeVolumeProfile" disabled="@Service.IsRunning" /> Volume Profile
-                </label>
-                <label class="train-brainrow-field" title="Always included -- every brain needs to know its own position/capital regardless of market data">
-                    <input type="checkbox" checked="checked" disabled /> Account State
-                </label>
-                <label class="train-brainrow-field" title="Network shape applied to the combined features selected above">
-                    Architecture
-                    <select class="train-brainrow-select" value="@_architectureKind" @onchange="OnArchitectureKindChanged" disabled="@Service.IsRunning">
-                        <option value="Mlp">MLP</option>
-                        <option value="Lstm">LSTM</option>
+            </div>
+
+            <div class="train-datarow">
+                <span class="train-section-label" title="The training algorithm, and how much data each episode/run consists of">Training</span>
+                <label class="train-brainrow-field">
+                    Strategy
+                    <select class="train-brainrow-select" value="@_strategyName" @onchange="OnStrategyChanged" disabled="@Service.IsRunning">
+                        @foreach (var name in Service.StrategyNames)
+                        {
+                            <option value="@name">@name</option>
+                        }
                     </select>
                 </label>
-                @if (_architectureKind == ArchitectureKind.Mlp)
-                {
-                    <label class="train-brainrow-field" title="Comma-separated hidden layer sizes, e.g. 64,32,16">
-                        Hidden layers
-                        <input class="train-brainrow-input train-brainrow-input-wide" type="text" @bind="_mlpHiddenSizesText"
-                               disabled="@Service.IsRunning" />
-                    </label>
-                }
-                else
-                {
-                    <label class="train-brainrow-field" title="LSTM hidden state size">
-                        Hidden size
-                        <input class="train-brainrow-input" type="number" min="1" @bind="_lstmHiddenSize" disabled="@Service.IsRunning" />
-                    </label>
-                    <label class="train-brainrow-field" title="Number of stacked LSTM layers">
-                        LSTM layers
-                        <input class="train-brainrow-input" type="number" min="1" @bind="_lstmNumLayers" disabled="@Service.IsRunning" />
-                    </label>
-                    @if (!_includeBarWindow)
-                    {
-                        <span class="train-brainrow-error">LSTM needs Bar Window for its sequence</span>
-                    }
-                }
-                <button class="terminal-btn-action" @onclick="CreateBrain" disabled="@(Service.IsRunning || !CanCreateBrain)"
-                        title="Builds and registers this brain -- pick it from Brain Type above to train it">
-                    CREATE BRAIN
-                </button>
-                @if (_buildBrainStatus is not null)
-                {
-                    <span class="train-brainrow-error">@_buildBrainStatus</span>
-                }
+                <label class="train-brainrow-field">
+                    Episodes
+                    <input class="train-brainrow-input train-brainrow-input-narrow" type="number" min="1"
+                           @bind="_episodeCount" disabled="@Service.IsRunning" />
+                </label>
+                <label class="train-brainrow-field" title="How many bars one episode runs for (E) -- ticks are fetched to cover this many bars, then the episode stops once the last one completes, regardless of tick density">
+                    Bars/episode
+                    <input class="train-brainrow-input" type="number" min="1" @bind="_episodeBars" disabled="@Service.IsRunning" />
+                </label>
+                <label class="train-brainrow-field">
+                    Learning rate
+                    <input class="train-brainrow-input" type="number" min="0.00001" step="0.0001" @bind="_learningRate"
+                           disabled="@Service.IsRunning" />
+                </label>
+            </div>
+
+            <div class="train-datarow">
+                <span class="train-section-label" title="Starting capital the simulated Trader begins each episode with">Trader</span>
+                <label class="train-brainrow-field">
+                    Starting cash
+                    <input class="train-brainrow-input" type="number" min="1" step="100" @bind="_startingCash"
+                           disabled="@Service.IsRunning" />
+                </label>
+            </div>
+
+            <div class="train-datarow train-datarow-disabled">
+                <span class="train-section-label" title="How reward is computed each decision point">Reward Policy</span>
+                <span class="train-brainrow-note">Equity drift since the previous decision point -- not yet configurable</span>
             </div>
         }
-
-        <div class="train-datarow">
-            <span class="train-section-label" title="How raw ticks are shaped into bars, and how far back the volume-profile brain looks over that bar data">Data Structure</span>
-            <label class="train-brainrow-field" title="Time span of one bar (M), in minutes -- also determines how much wall-clock time an episode's fetched ticks need to cover">
-                Bar width (min)
-                <input class="train-brainrow-input" type="number" min="1" step="1" @bind="_barWidthMinutes" disabled="@Service.IsRunning" />
-            </label>
-            <label class="train-brainrow-field" title="How many recent bars a volume-profile brain merges into its profile each decision -- ignored by brains that don't use a volume profile (e.g. MLP Policy, LSTM Policy)">
-                VP lookback (bars)
-                <input class="train-brainrow-input" type="number" min="1" step="1" @bind="_volumeProfileLookbackBars"
-                       disabled="@Service.IsRunning" />
-            </label>
-        </div>
-
-        <div class="train-datarow">
-            <span class="train-section-label" title="The training algorithm, and how much data each episode/run consists of">Training</span>
-            <label class="train-brainrow-field">
-                Strategy
-                <select class="train-brainrow-select" value="@_strategyName" @onchange="OnStrategyChanged" disabled="@Service.IsRunning">
-                    @foreach (var name in Service.StrategyNames)
-                    {
-                        <option value="@name">@name</option>
-                    }
-                </select>
-            </label>
-            <label class="train-brainrow-field">
-                Episodes
-                <input class="train-brainrow-input train-brainrow-input-narrow" type="number" min="1"
-                       @bind="_episodeCount" disabled="@Service.IsRunning" />
-            </label>
-            <label class="train-brainrow-field" title="How many bars one episode runs for (E) -- ticks are fetched to cover this many bars, then the episode stops once the last one completes, regardless of tick density">
-                Bars/episode
-                <input class="train-brainrow-input" type="number" min="1" @bind="_episodeBars" disabled="@Service.IsRunning" />
-            </label>
-            <label class="train-brainrow-field">
-                Learning rate
-                <input class="train-brainrow-input" type="number" min="0.00001" step="0.0001" @bind="_learningRate"
-                       disabled="@Service.IsRunning" />
-            </label>
-        </div>
-
-        <div class="train-datarow">
-            <span class="train-section-label" title="Starting capital the simulated Trader begins each episode with">Trader</span>
-            <label class="train-brainrow-field">
-                Starting cash
-                <input class="train-brainrow-input" type="number" min="1" step="100" @bind="_startingCash"
-                       disabled="@Service.IsRunning" />
-            </label>
-        </div>
-
-        <div class="train-datarow train-datarow-disabled">
-            <span class="train-section-label" title="How reward is computed each decision point">Reward Policy</span>
-            <span class="train-brainrow-note">Equity drift since the previous decision point -- not yet configurable</span>
-        </div>
 
         @if (Service.TotalEpisodes > 0)
         {
