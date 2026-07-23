@@ -18,6 +18,7 @@ using Microsoft.Extensions.Hosting;
 using Poink.Sim.Brain;
 using Poink.Sim.Brain.Neural;
 using Poink.Sim.Diagnostics;
+using Poink.Sim.Profiler;
 using Poink.Sim.Repository;
 using Poink.Sim.Simulation;
 using Poink.Sim.Training;
@@ -76,6 +77,10 @@ builder.Services.AddSingleton<ISimulationBrain>(_ => ComposedPolicyBrain.Create(
     new BarWindowEncoder(), new VolumeProfileEncoder(), new CapitalStateEncoder()));
 builder.Services.AddSingleton<BrainRegistry>();
 builder.Services.AddSingleton<SimulationEngine>();
+// Scoped (not Singleton like SimulationEngine): ProfilerService holds no shared
+// "current run" state of its own -- each LoadAsync call is a self-contained batch
+// read, so there's nothing that needs to be shared process-wide across circuits.
+builder.Services.AddScoped<ProfilerService>();
 builder.Services.AddSingleton<IRlTrainingStrategy, PolicyGradientTrainingStrategy>();
 builder.Services.AddSingleton<RlTrainingService>();
 #pragma warning disable CA1416 // SystemPerformanceMonitor is Windows-only, same as this app's other host assumptions (see its class comment).

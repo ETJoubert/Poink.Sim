@@ -1,0 +1,419 @@
+/* Flat page shell, same convention as SimulationPage.razor.css -- deliberately
+   not the shared .terminal-container/.terminal-section boxed-card chrome. */
+.prof-page {
+    display: flex;
+    flex-direction: column;
+    min-height: 100%;
+}
+
+.prof-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: var(--color-bg-terminal);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+}
+
+.prof-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 5px 24px 5px;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+.prof-header-title {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.prof-header-symbol {
+    font-family: var(--font-heading);
+    font-size: 1.15rem;
+    font-weight: bold;
+    letter-spacing: 0.08em;
+    color: var(--color-accent);
+    text-shadow: var(--shadow-glow-accent);
+}
+
+.prof-header-mode {
+    font-size: 0.78rem;
+    color: var(--color-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.prof-header-state {
+    font-size: 0.68rem;
+    font-weight: bold;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 3px 10px;
+    border-radius: 999px;
+    border: 1px solid currentColor;
+}
+
+.prof-state-setup {
+    color: var(--color-secondary);
+}
+
+.prof-state-loading {
+    color: var(--color-warning);
+    animation: prof-pulse 1.6s ease-in-out infinite;
+}
+
+.prof-state-ready {
+    color: var(--color-success);
+    text-shadow: 0 0 8px color-mix(in srgb, var(--color-success) 60%, transparent);
+}
+
+@keyframes prof-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.55; }
+}
+
+/* ── Data row: symbol/date-range + bar size + load action ───────────────── */
+
+.prof-datarow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 28px;
+    padding: 10px 24px;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+.prof-datarow-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.prof-datarow-data {
+    flex: 1;
+    min-width: 320px;
+}
+
+.prof-datarow-barmin {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.72rem;
+    color: var(--color-secondary);
+    white-space: nowrap;
+}
+
+/* Sized after SimulationPage's equivalent (.sim-datarow-barmin-input) -- same
+   family of compact inline numeric fields as the rest of the app. */
+.prof-datarow-barmin-input {
+    width: 44px;
+    background: var(--color-bg-terminal);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 45%, transparent);
+    color: var(--color-primary);
+    padding: 4px 6px;
+    border-radius: var(--border-radius-sm);
+    font-family: var(--font-body);
+    font-size: 12px;
+    transition: all 0.2s ease;
+}
+
+.prof-datarow-barmin-input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--color-primary) 40%, transparent);
+}
+
+.prof-datarow-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-left: auto;
+}
+
+.prof-error-inline {
+    color: var(--color-error, #ff5f56);
+    font-size: 0.72rem;
+}
+
+/* Self-contained button styling, matching SimulationPage's .sim-ctrl-btn family. */
+.prof-ctrl-btn {
+    font-family: var(--font-body);
+    font-weight: bold;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 7px 14px;
+    border-radius: var(--border-radius-sm);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 45%, transparent);
+    background: transparent;
+    color: var(--color-primary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.prof-ctrl-btn:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+    border-color: var(--color-primary);
+}
+
+.prof-ctrl-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.prof-ctrl-btn-play {
+    border: 1px solid var(--color-success);
+    color: var(--color-success);
+    background: color-mix(in srgb, var(--color-success) 14%, transparent);
+    font-size: 13px;
+    padding: 7px 22px;
+    text-shadow: 0 0 8px color-mix(in srgb, var(--color-success) 50%, transparent);
+}
+
+.prof-ctrl-btn-play:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-success) 24%, transparent);
+    box-shadow: 0 0 14px color-mix(in srgb, var(--color-success) 45%, transparent);
+}
+
+/* ── Chart row: bar chart + volume profile side by side. Height is drag-resized
+   via .prof-chart-hdivider below (not native `resize`, which could only be
+   grabbed from the exact bottom-right corner) -- same pattern as SimulationPage's
+   chart-row/log-panel divider. flex-shrink: 0 keeps this row from being squeezed
+   by the page's own flex layout once JS starts setting its height inline. ──── */
+
+.prof-chart {
+    display: flex;
+    flex-shrink: 0;
+    align-items: stretch;
+    gap: 16px;
+    padding: 18px 24px 10px;
+    height: 60vh;
+    min-height: 200px;
+    max-height: 80vh;
+}
+
+.prof-chart-main {
+    flex: 1;
+    min-width: 0;
+}
+
+.prof-chart-side {
+    display: flex;
+    flex-direction: column;
+    flex: 0 0 260px;
+    min-width: 200px;
+    max-width: 320px;
+    overflow-y: auto;
+}
+
+.prof-vp {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+/* ── Draggable divider between the chart row and everything below it -- same
+   subtle inset-line styling and pointer-drag hit area as SimulationPage's own
+   .sim-chart-hdivider (see ProfilerPage.razor.cs's ChartHDividerScript for the
+   drag logic that resizes .prof-chart's height, its previous sibling). ──────── */
+
+.prof-chart-hdivider {
+    position: relative;
+    flex: 0 0 6px;
+    cursor: row-resize;
+    touch-action: none;
+    user-select: none;
+    border-radius: 3px;
+}
+
+.prof-chart-hdivider::before {
+    content: "";
+    position: absolute;
+    left: 15%;
+    right: 15%;
+    top: 50%;
+    height: 1px;
+    transform: translateY(-50%);
+    background: color-mix(in srgb, var(--color-primary) 20%, transparent);
+    transition: background 0.2s ease;
+}
+
+.prof-chart-hdivider:hover,
+.prof-chart-hdivider.prof-chart-hdivider-active {
+    background: color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+.prof-chart-hdivider:hover::before,
+.prof-chart-hdivider.prof-chart-hdivider-active::before {
+    background: var(--color-primary);
+}
+
+/* ── Drawings panel: full-width section below the chart row, its cards laid out
+   as a wrapping row (see .prof-drawings-row) rather than the tall vertical list
+   this used to be as a side column -- makes better use of the width now that it's
+   its own bottom section instead of squeezed next to the chart. A multi-click
+   tool (T-Range/P-Range/Rectangle) still places several individual lines, but
+   they're grouped under one card/one remove button here instead of exposing each
+   underlying line separately, since removing a line by clicking its thin canvas
+   rendering would be fiddly to hit precisely anyway. ─────────────────────────── */
+
+.prof-drawings-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 8px 24px 24px;
+}
+
+.prof-drawings-title {
+    font-size: 0.62rem;
+    letter-spacing: 0.1em;
+    color: var(--color-secondary);
+    opacity: 0.85;
+}
+
+.prof-drawings-empty {
+    margin: 0;
+    font-size: 0.75rem;
+    color: var(--color-secondary);
+    opacity: 0.7;
+}
+
+.prof-drawings-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+/* Same Lines/Ranges/Shapes/Charts classification and colours as DrawableOhlcvChart's
+   own toolbar (see its .doc-tool-btn-* modifiers) -- a card's left border + kind label
+   picks up its drawing's ColorGroup so a card visually matches the colour of both the
+   toolbar button that placed it and the shape/line it drew on the chart. */
+.prof-drawing-card-lines { --doc-color: var(--color-primary); }
+.prof-drawing-card-ranges { --doc-color: var(--color-secondary); }
+.prof-drawing-card-shapes { --doc-color: var(--color-warning); }
+.prof-drawing-card-charts { --doc-color: var(--color-accent); }
+
+.prof-drawing-card {
+    flex: 1 1 260px;
+    max-width: 320px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-left: 3px solid var(--doc-color, var(--color-accent));
+    border-radius: var(--border-radius-sm);
+    padding: 8px 10px;
+}
+
+.prof-drawing-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.prof-drawing-kind {
+    font-size: 0.65rem;
+    font-weight: bold;
+    letter-spacing: 0.08em;
+    color: var(--doc-color, var(--color-accent));
+}
+
+.prof-drawing-stats {
+    font-size: 0.7rem;
+    color: var(--color-secondary);
+    opacity: 0.85;
+    margin-bottom: 4px;
+}
+
+.prof-drawing-remove {
+    flex: 0 0 auto;
+    background: transparent;
+    border: none;
+    color: var(--color-secondary);
+    opacity: 0.6;
+    cursor: pointer;
+    font-size: 11px;
+    line-height: 1;
+    padding: 2px 4px;
+}
+
+.prof-drawing-remove:hover {
+    opacity: 1;
+    color: var(--color-error, #ff5f56);
+}
+
+.prof-drawing-line {
+    font-size: 0.75rem;
+    font-family: var(--font-body);
+    color: var(--color-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: 1px 0;
+}
+
+/* T-Range Chart's mini candlestick chart -- CandlestickChart (Poink.Shared.Client)
+   defaults its canvas to a full-size 320px tall (see its own .ctrader-candlestick-
+   canvas rule); ::deep + !important is the only way to reach into and override a
+   CSS-isolated component's own scoped style from here, which is necessary to shrink
+   it down to "a small version" that actually fits in a card. */
+.prof-drawing-minichart {
+    margin-top: 6px;
+    border-radius: var(--border-radius-sm);
+    overflow: hidden;
+}
+
+.prof-drawing-minichart ::deep .ctrader-candlestick-canvas {
+    height: 140px !important;
+}
+
+@media (max-width: 900px) {
+    .prof-chart {
+        flex-direction: column;
+        height: auto;
+    }
+
+    .prof-chart-main {
+        height: 400px;
+    }
+
+    .prof-chart-side {
+        flex-basis: auto;
+        width: 100%;
+        max-width: none;
+        max-height: 240px;
+    }
+
+    /* Stacked layout has nothing horizontal left for the hdivider to resize
+       meaningfully against -- same reasoning as SimulationPage's own
+       .sim-chart-divider (the vertical one) at this breakpoint. */
+    .prof-chart-hdivider {
+        display: none;
+    }
+}
+
+.prof-empty {
+    padding: 24px;
+    color: var(--color-secondary);
+    opacity: 0.8;
+}
+
+/* ── Manual backfill fallback, below the chart row -- mirrors what panning
+   near the chart's left edge triggers automatically (see OhlcvChart's
+   OnNearStart), for discoverability and for users who don't pan. ────────── */
+
+.prof-loadmore-row {
+    display: flex;
+    justify-content: center;
+    padding: 0 24px 24px;
+}
+
+.prof-loadmore-done {
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+    color: var(--color-secondary);
+    opacity: 0.7;
+}

@@ -1,0 +1,119 @@
+.doc-wrapper {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: var(--border-radius-sm);
+    background: rgba(255, 255, 255, 0.015);
+    overflow: hidden;
+}
+
+.doc-wrapper.expanded {
+    position: fixed;
+    top: 16px;
+    /* Clears the ancestor scroll container's own scrollbar width, same reasoning as
+       OhlcvChart.razor.css's .ohlcv-chart-wrapper.expanded. */
+    right: 32px;
+    bottom: 16px;
+    left: 16px;
+    z-index: 1000;
+    width: auto;
+    height: auto;
+    background: var(--color-bg-terminal);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+}
+
+.doc-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 0 0 auto;
+    flex-wrap: wrap;
+    padding: 4px 6px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* ── Tool groups: Lines (single/two-point shapes), Ranges (a pair of same-axis
+   lines), Shapes (multi-axis bounded areas), Charts (a range that also renders
+   its own mini chart) -- separated by a thin divider and each carrying its own
+   colour (see the .doc-tool-btn-* modifiers below) so the classification reads
+   at a glance instead of every button looking identical. ─────────────────────── */
+
+.doc-tool-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding-right: 8px;
+    margin-right: 2px;
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.doc-tool-group:last-of-type {
+    border-right: none;
+    padding-right: 0;
+    margin-right: 0;
+}
+
+.doc-tool-btn-lines { --doc-color: var(--color-primary); }
+.doc-tool-btn-ranges { --doc-color: var(--color-secondary); }
+.doc-tool-btn-shapes { --doc-color: var(--color-warning); }
+.doc-tool-btn-charts { --doc-color: var(--color-accent); }
+
+.doc-tool-btn {
+    font-family: var(--font-body);
+    font-weight: bold;
+    font-size: 10px;
+    letter-spacing: 0.05em;
+    padding: 4px 9px;
+    border-radius: var(--border-radius-sm);
+    border: 1px solid color-mix(in srgb, var(--doc-color, var(--color-primary)) 40%, transparent);
+    background: transparent;
+    color: var(--doc-color, var(--color-secondary));
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.doc-tool-btn:hover {
+    border-color: var(--doc-color, var(--color-primary));
+    filter: brightness(1.2);
+}
+
+.doc-tool-btn.active {
+    background: var(--doc-color, var(--color-accent));
+    border-color: var(--doc-color, var(--color-accent));
+    color: var(--color-bg-terminal);
+    box-shadow: 0 0 10px color-mix(in srgb, var(--doc-color, var(--color-accent)) 50%, transparent);
+}
+
+.doc-toolbar-hint {
+    font-size: 10px;
+    color: var(--color-accent);
+    opacity: 0.85;
+}
+
+.doc-expand-btn {
+    margin-left: auto;
+    background: rgba(10, 10, 10, 0.7);
+    color: var(--color-secondary);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+    width: 22px;
+    height: 22px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.doc-expand-btn:hover {
+    color: #e6e6e6;
+    border-color: rgba(255, 255, 255, 0.35);
+}
+
+.doc-chart-container {
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+}
