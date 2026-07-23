@@ -1,5 +1,6 @@
 @page "/train"
 @namespace Poink.Sim.Components.Pages
+@using Poink.Sim.Brain.Neural
 @using Poink.Sim.Components.Training
 @using Poink.Sim.Components.Shared.TickDataSource
 
@@ -76,7 +77,70 @@
         <div class="train-datarow">
             <span class="train-section-label" title="Which brain (neural network or heuristic) this run trains and plays back">Brain Type</span>
             <BrainSelect BrainOptions="Service.BrainOptions" @bind-BrainName="_brainName" Disabled="Service.IsRunning" />
+            <button class="terminal-btn-action" @onclick="ToggleBuildBrain" disabled="@Service.IsRunning"
+                    title="Assemble a new brain from encoder/architecture parts -- it's added to the list above once created">
+                @(_showBuildBrain ? "- BUILD BRAIN" : "+ BUILD BRAIN")
+            </button>
         </div>
+
+        @if (_showBuildBrain)
+        {
+            <div class="train-datarow train-buildbrain">
+                <span class="train-section-label" title="Pick which encoders feed this brain's market data, and which network shape reads them">Build Brain</span>
+                <label class="train-brainrow-field" title="Unique name for this brain -- must not match an existing one">
+                    Name
+                    <input class="train-brainrow-input train-brainrow-input-wide" type="text" @bind="_buildBrainName"
+                           disabled="@Service.IsRunning" placeholder="e.g. lstm-vp-experiment" />
+                </label>
+                <label class="train-brainrow-field" title="20-bar trailing percent-change price window">
+                    <input type="checkbox" @bind="_includeBarWindow" disabled="@Service.IsRunning" /> Bar Window
+                </label>
+                <label class="train-brainrow-field" title="Volume histogram + point-of-control/value-area summary, merged from VP lookback bars above">
+                    <input type="checkbox" @bind="_includeVolumeProfile" disabled="@Service.IsRunning" /> Volume Profile
+                </label>
+                <label class="train-brainrow-field" title="Always included -- every brain needs to know its own position/capital regardless of market data">
+                    <input type="checkbox" checked="checked" disabled /> Account State
+                </label>
+                <label class="train-brainrow-field" title="Network shape applied to the combined features selected above">
+                    Architecture
+                    <select class="train-brainrow-select" value="@_architectureKind" @onchange="OnArchitectureKindChanged" disabled="@Service.IsRunning">
+                        <option value="Mlp">MLP</option>
+                        <option value="Lstm">LSTM</option>
+                    </select>
+                </label>
+                @if (_architectureKind == ArchitectureKind.Mlp)
+                {
+                    <label class="train-brainrow-field" title="Comma-separated hidden layer sizes, e.g. 64,32,16">
+                        Hidden layers
+                        <input class="train-brainrow-input train-brainrow-input-wide" type="text" @bind="_mlpHiddenSizesText"
+                               disabled="@Service.IsRunning" />
+                    </label>
+                }
+                else
+                {
+                    <label class="train-brainrow-field" title="LSTM hidden state size">
+                        Hidden size
+                        <input class="train-brainrow-input" type="number" min="1" @bind="_lstmHiddenSize" disabled="@Service.IsRunning" />
+                    </label>
+                    <label class="train-brainrow-field" title="Number of stacked LSTM layers">
+                        LSTM layers
+                        <input class="train-brainrow-input" type="number" min="1" @bind="_lstmNumLayers" disabled="@Service.IsRunning" />
+                    </label>
+                    @if (!_includeBarWindow)
+                    {
+                        <span class="train-brainrow-error">LSTM needs Bar Window for its sequence</span>
+                    }
+                }
+                <button class="terminal-btn-action" @onclick="CreateBrain" disabled="@(Service.IsRunning || !CanCreateBrain)"
+                        title="Builds and registers this brain -- pick it from Brain Type above to train it">
+                    CREATE BRAIN
+                </button>
+                @if (_buildBrainStatus is not null)
+                {
+                    <span class="train-brainrow-error">@_buildBrainStatus</span>
+                }
+            </div>
+        }
 
         <div class="train-datarow">
             <span class="train-section-label" title="How raw ticks are shaped into bars, and how far back the volume-profile brain looks over that bar data">Data Structure</span>

@@ -1,6 +1,9 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
+using Poink.Sim.Brain.Neural;
 using Poink.Sim.Repository;
 using Poink.Sim.Training;
 
@@ -27,6 +30,21 @@ namespace Poink.Sim.Components.Pages
 
         // ── Brain Type Control ──
         private string _brainName = "";
+
+        // ── Build Brain Controls ──
+        // Assembles a new ComposedPolicyBrain from encoder/architecture parts
+        // at runtime (see RlTrainingService.TryBuildBrain) -- an addition to,
+        // not a replacement of, the BrainSelect dropdown above: a built brain
+        // is just registered into the same list, then picked the normal way.
+        private bool _showBuildBrain;
+        private string _buildBrainName = "";
+        private bool _includeBarWindow = true;
+        private bool _includeVolumeProfile;
+        private ArchitectureKind _architectureKind = ArchitectureKind.Mlp;
+        private string _mlpHiddenSizesText = "32,16";
+        private int _lstmHiddenSize = 64;
+        private int _lstmNumLayers = 2;
+        private string? _buildBrainStatus;
 
         // ── Data Structure Controls ──
         // How raw ticks get shaped into bars, and how far back the volume-profile
@@ -75,6 +93,55 @@ namespace Poink.Sim.Components.Pages
         private void OnStrategyChanged(ChangeEventArgs e) => _strategyName = e.Value?.ToString() ?? "";
 
         public void Dispose() => Service.OnChanged -= HandleServiceChanged;
+
+        private void ToggleBuildBrain()
+        {
+            _showBuildBrain = !_showBuildBrain;
+            _buildBrainStatus = null;
+        }
+
+        private void OnArchitectureKindChanged(ChangeEventArgs e) =>
+            _architectureKind = Enum.Parse<ArchitectureKind>(e.Value?.ToString() ?? nameof(ArchitectureKind.Mlp));
+
+        // LSTM needs a sequence-bearing part (Bar Window) to narrow() a
+        // sequence out of -- see LstmArchitecture's doc comment; mirrored here
+        // so the Create button disables instead of only failing after a click.
+        private bool CanCreateBrain =>
+            !string.IsNullOrWhiteSpace(_buildBrainName)
+            && (_includeBarWindow || _includeVolumeProfile)
+            && (_architectureKind != ArchitectureKind.Lstm || _includeBarWindow);
+
+        // Canonical part order (Bar Window before Volume Profile) regardless of
+        // checkbox click order -- CompositeEncoder requires any sequence-bearing
+        // part to be listed first (see its doc comment).
+        private void CreateBrain()
+        {
+            var encoderKinds = new List<EncoderKind>();
+            if (_includeBarWindow) encoderKinds.Add(EncoderKind.BarWindow);
+            if (_includeVolumeProfile) encoderKinds.Add(EncoderKind.VolumeProfile);
+
+            IReadOnlyList<int> hiddenSizes = _architectureKind == ArchitectureKind.Mlp
+                ? ParseHiddenSizes(_mlpHiddenSizesText)
+                : [_lstmHiddenSize, _lstmNumLayers];
+
+            if (Service.TryBuildBrain(_buildBrainName, encoderKinds, _architectureKind, hiddenSizes))
+            {
+                _buildBrainStatus = $"built '{_buildBrainName}' -- pick it above to train it";
+                _brainName = _buildBrainName;
+                _buildBrainName = "";
+                _showBuildBrain = false;
+            }
+            else
+            {
+                _buildBrainStatus = Service.Error;
+            }
+        }
+
+        private static IReadOnlyList<int> ParseHiddenSizes(string text) =>
+            text.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(s => int.TryParse(s, out int n) ? n : 0)
+                .Where(n => n > 0)
+                .ToList();
 
         // Drives the sticky header's progress bar.
         private int ProgressPercent =>

@@ -200,6 +200,19 @@
     width: 60px;
 }
 
+.train-brainrow-input-wide {
+    width: 160px;
+}
+
+/* Build Brain panel -- same look as the rest of the sticky topbar's rows,
+   just visually set apart (left accent) since it's an expandable extra,
+   not part of the always-visible run controls above it. */
+.train-buildbrain {
+    border-left: 2px solid var(--color-secondary);
+    padding-left: 10px;
+    margin-left: 2px;
+}
+
 .train-brainrow-select:focus,
 .train-brainrow-input:focus {
     outline: none;

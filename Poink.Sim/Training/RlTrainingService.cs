@@ -41,7 +41,7 @@ internal sealed class RlTrainingService
     private const double SyntheticTickIntervalSeconds = 1.0;
 
     private readonly object _lock = new();
-    private readonly List<ISimulationBrain> _brains;
+    private readonly BrainRegistry _brainRegistry;
     private readonly List<IRlTrainingStrategy> _strategies;
     private readonly List<RlEpisodeMetric> _episodeMetrics = new();
     private readonly IBrainRepository _brainRepository;
@@ -55,10 +55,10 @@ internal sealed class RlTrainingService
     private readonly Dictionary<string, long> _activeSnapshotId = new();
 
     public RlTrainingService(
-        IEnumerable<ISimulationBrain> brains, IEnumerable<IRlTrainingStrategy> strategies,
+        BrainRegistry brainRegistry, IEnumerable<IRlTrainingStrategy> strategies,
         IBrainRepository brainRepository, ITickRepository tickRepository, ILogger<RlTrainingService> logger)
     {
-        _brains = brains.ToList();
+        _brainRegistry = brainRegistry;
         _strategies = strategies.ToList();
         _brainRepository = brainRepository;
         _tickRepository = tickRepository;
@@ -74,7 +74,7 @@ internal sealed class RlTrainingService
             SavedBrains = _brainRepository.ListBrains();
             foreach (var latest in SavedBrains.GroupBy(b => b.BrainName).Select(g => g.OrderByDescending(b => b.SavedAt).First()))
             {
-                var brain = _brains.OfType<IPolicyGradientBrain>().FirstOrDefault(b => b.Name == latest.BrainName);
+                var brain = _brainRegistry.All.OfType<IPolicyGradientBrain>().FirstOrDefault(b => b.Name == latest.BrainName);
                 if (brain is null) continue;
                 var weights = _brainRepository.LoadWeights(latest.Id);
                 if (weights is null) continue;
@@ -98,15 +98,15 @@ internal sealed class RlTrainingService
     // IPolicyGradientBrain.DescribeNetworkShape for what feeds the Train
     // page's Network Activity animation.
     public IReadOnlyList<NetworkLayerShape> DescribeNetworkShape(string brainName) =>
-        _brains.OfType<IPolicyGradientBrain>().FirstOrDefault(b => b.Name == brainName)?.DescribeNetworkShape() ?? [];
+        _brainRegistry.All.OfType<IPolicyGradientBrain>().FirstOrDefault(b => b.Name == brainName)?.DescribeNetworkShape() ?? [];
 
-    public IReadOnlyList<string> BrainNames => _brains.Select(b => b.Name).ToList();
+    public IReadOnlyList<string> BrainNames => _brainRegistry.All.Select(b => b.Name).ToList();
 
     // NN vs non-NN is just "does this brain have trainable weights" --
     // IPolicyGradientBrain is the only family that does today (see that
     // interface's doc comment on why a heuristic brain never implements it).
     public IReadOnlyList<BrainOption> BrainOptions =>
-        _brains.Select(b => new BrainOption(b.Name, b is IPolicyGradientBrain)).ToList();
+        _brainRegistry.All.Select(b => new BrainOption(b.Name, b is IPolicyGradientBrain)).ToList();
 
     public IReadOnlyList<string> StrategyNames => _strategies.Select(s => s.Name).ToList();
 
@@ -152,7 +152,7 @@ internal sealed class RlTrainingService
         string brainName, string strategyName, int episodeCount, int episodeBars, int barWidthMinutes, double startingCash,
         double learningRate, int volumeProfileLookbackBars, (string Table, DateTime From, DateTime To)? historicRange)
     {
-        var brain = _brains.FirstOrDefault(b => b.Name == brainName);
+        var brain = _brainRegistry.All.FirstOrDefault(b => b.Name == brainName);
         var strategy = _strategies.FirstOrDefault(s => s.Name == strategyName);
 
         lock (_lock)
@@ -261,6 +261,56 @@ internal sealed class RlTrainingService
         return true;
     }
 
+    // Builds a new ComposedPolicyBrain from the Train page's Brain Builder
+    // panel and adds it to the shared BrainRegistry -- ephemeral, same as
+    // every other brain's *shape* (only trained weights persist across a
+    // restart, via SaveBrain below). CapitalStateEncoder is always appended
+    // regardless of encoderKinds (see BrainCatalog's doc comment); the caller
+    // (TrainPage.razor.cs) is responsible for listing encoderKinds in
+    // canonical order (BarWindow before VolumeProfile) so CompositeEncoder's
+    // sequence-first guard is satisfied.
+    public bool TryBuildBrain(string name, IReadOnlyList<EncoderKind> encoderKinds, ArchitectureKind architectureKind, IReadOnlyList<int> hiddenSizes)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            Error = "enter a name for the new brain";
+            OnChanged?.Invoke();
+            return false;
+        }
+        if (_brainRegistry.All.Any(b => b.Name == name))
+        {
+            Error = $"a brain named '{name}' already exists";
+            OnChanged?.Invoke();
+            return false;
+        }
+        if (encoderKinds.Count == 0)
+        {
+            Error = "pick at least one encoder";
+            OnChanged?.Invoke();
+            return false;
+        }
+
+        try
+        {
+            var parts = encoderKinds.Select(BrainCatalog.CreateEncoder).Append(new CapitalStateEncoder()).ToArray();
+            var architecture = BrainCatalog.CreateArchitecture(architectureKind, hiddenSizes);
+            var brain = ComposedPolicyBrain.Create(name, architecture, parts);
+            _brainRegistry.Register(brain);
+            Error = null;
+            OnChanged?.Invoke();
+            _logger.LogInformation("Built new brain: name={Name}, encoders={Encoders}, architecture={Architecture}",
+                name, string.Join(",", encoderKinds), architectureKind);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Error = $"couldn't build brain: {ex.Message}";
+            OnChanged?.Invoke();
+            _logger.LogWarning(ex, "Failed to build brain: name={Name}", name);
+            return false;
+        }
+    }
+
     // Exports the named brain's live weights and inserts a new snapshot row
     // (name/strategy/parameters travel with it -- see IBrainRepository's doc
     // comment on why this is always an insert, never an upsert). Safe to call
@@ -271,7 +321,7 @@ internal sealed class RlTrainingService
         int episodeCount, int episodeBars, int barWidthMinutes, double startingCash, double learningRate,
         int volumeProfileLookbackBars)
     {
-        var brain = _brains.OfType<IPolicyGradientBrain>().FirstOrDefault(b => b.Name == brainName);
+        var brain = _brainRegistry.All.OfType<IPolicyGradientBrain>().FirstOrDefault(b => b.Name == brainName);
         if (brain is null)
         {
             SaveStatus = $"'{brainName}' has no weights to save";
@@ -339,7 +389,7 @@ internal sealed class RlTrainingService
             return false;
         }
 
-        var brain = _brains.OfType<IPolicyGradientBrain>().FirstOrDefault(b => b.Name == summary.BrainName);
+        var brain = _brainRegistry.All.OfType<IPolicyGradientBrain>().FirstOrDefault(b => b.Name == summary.BrainName);
         if (brain is null)
         {
             SaveStatus = $"no live '{summary.BrainName}' brain to load into";

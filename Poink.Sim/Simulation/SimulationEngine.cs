@@ -73,7 +73,7 @@ internal sealed class SimulationEngine : IDisposable
     private static double PriceBucketWidthFor(string table) => DefaultPriceBucketWidth;
 
     private readonly object _lock = new();
-    private readonly List<ISimulationBrain> _brains;
+    private readonly BrainRegistry _brainRegistry;
     private readonly Timer _timer;
 
     // One per configured trader -- all sessions share the single _activeBrain
@@ -115,15 +115,15 @@ internal sealed class SimulationEngine : IDisposable
     private readonly ITickRepository _tickRepository;
     private readonly ILogger<SimulationEngine> _logger;
 
-    public SimulationEngine(IEnumerable<ISimulationBrain> brains, ITickRepository tickRepository, ILogger<SimulationEngine> logger)
+    public SimulationEngine(BrainRegistry brainRegistry, ITickRepository tickRepository, ILogger<SimulationEngine> logger)
     {
-        _brains = brains.ToList();
+        _brainRegistry = brainRegistry;
         _tickRepository = tickRepository;
         _logger = logger;
         _timer = new Timer(TimerCallback, null, Timeout.Infinite, Timeout.Infinite);
     }
 
-    public IReadOnlyList<string> BrainNames => _brains.Select(b => b.Name).ToList();
+    public IReadOnlyList<string> BrainNames => _brainRegistry.All.Select(b => b.Name).ToList();
     public SimulationSnapshot? Snapshot { get; private set; }
     public bool IsLoading { get; private set; }
     public string? Error { get; private set; }
@@ -219,7 +219,8 @@ internal sealed class SimulationEngine : IDisposable
     // the UI thread inside the Task.Run callers above.
     private void FinishLoad(SimulationConfig config, int totalCount, Func<IEnumerator<Tick>> openReader, string source)
     {
-        var brain = _brains.FirstOrDefault(b => b.Name == config.BrainName) ?? _brains.FirstOrDefault();
+        var brains = _brainRegistry.All;
+        var brain = brains.FirstOrDefault(b => b.Name == config.BrainName) ?? brains.FirstOrDefault();
         if (brain is null)
             throw new InvalidOperationException("no simulation brain registered");
 

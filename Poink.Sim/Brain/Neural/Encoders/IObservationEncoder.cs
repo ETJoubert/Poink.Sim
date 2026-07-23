@@ -1,0 +1,41 @@
+// ── Composable brain capability: observation -> feature vector ──────────
+//  Sibling to IPolicyGradientBrain/IHasLookbackBars, same "narrow interface,
+//  checked via is" house style -- this is the half of a brain that used to
+//  be baked directly into each concrete brain's own Encode method (see e.g.
+//  the now-deleted MlpPolicyBrain/VolumeProfilePolicyBrain). Pulling it out
+//  lets ComposedPolicyBrain (see that file) pair any encoder with any
+//  INetworkArchitecture instead of one hardwired combination per class.
+//
+//  Encode returns a plain float[], not a Tensor -- an encoder never touches
+//  TorchSharp/autograd/device placement at all; ComposedPolicyBrain is the
+//  one place that wraps the result into a Tensor and moves it to whatever
+//  device its Network currently lives on.
+//
+//  SequenceLength is the one piece of contract that couples an encoder to a
+//  recurrent architecture: 0 means "no natural sequence order", otherwise
+//  it's the width of a LEADING slice of Encode's output that a recurrent
+//  architecture (see LstmArchitecture) can narrow() out and feed through an
+//  LSTM as a true time series, with the remaining trailing values treated as
+//  plain scalars. CompositeEncoder (see that file) sums this across its
+//  parts and enforces that only the first part may be sequence-bearing --
+//  every implementer of this interface should be written with that ordering
+//  assumption in mind if it reports SequenceLength > 0.
+// ─────────────────────────────────────────────────────────────────────────
+using System.Collections.Generic;
+using Poink.Sim.Models;
+
+namespace Poink.Sim.Brain.Neural;
+
+internal interface IObservationEncoder
+{
+    int FeatureCount { get; }
+
+    int SequenceLength { get; }
+
+    // Fixed, observation-independent labels for each of FeatureCount values --
+    // used to describe Encode's output (see ComposedPolicyBrain.DescribeInputs)
+    // without needing to run the network.
+    IReadOnlyList<string> FeatureLabels { get; }
+
+    float[] Encode(SimulationObservation observation);
+}

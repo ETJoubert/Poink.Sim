@@ -58,9 +58,23 @@ builder.Services.AddSingleton<ISimulationBrain, RandomBrain>();
 // Registered as ISimulationBrain (not just IPolicyGradientBrain) so it shows up in
 // the existing simulation setup screen's Brain dropdown immediately -- untrained
 // at first, improving as RlTrainingService trains this same singleton instance.
-builder.Services.AddSingleton<ISimulationBrain, MlpPolicyBrain>();
-builder.Services.AddSingleton<ISimulationBrain, LstmPolicyBrain>();
-builder.Services.AddSingleton<ISimulationBrain, VolumeProfilePolicyBrain>();
+// Each is composed from small, reusable encoder/architecture pieces (see
+// Brain/Neural/ComposedPolicyBrain.cs) instead of a hardwired concrete class --
+// the names below are the only thing every other lookup (RlTrainingService,
+// SimulationEngine, IBrainRepository) keys off, so they must stay stable.
+builder.Services.AddSingleton<ISimulationBrain>(_ => ComposedPolicyBrain.Create(
+    "MLP Policy", new MlpArchitecture(32, 16),
+    new BarWindowEncoder(), new CapitalStateEncoder()));
+builder.Services.AddSingleton<ISimulationBrain>(_ => ComposedPolicyBrain.Create(
+    "LSTM Policy", new LstmArchitecture(hiddenSize: 64, numLayers: 2),
+    new BarWindowEncoder(), new CapitalStateEncoder()));
+builder.Services.AddSingleton<ISimulationBrain>(_ => ComposedPolicyBrain.Create(
+    "Volume Profile Policy", new MlpArchitecture(32, 16),
+    new VolumeProfileEncoder(), new CapitalStateEncoder()));
+builder.Services.AddSingleton<ISimulationBrain>(_ => ComposedPolicyBrain.Create(
+    "Volume Profile + Bars Policy", new MlpArchitecture(64, 32, 16),
+    new BarWindowEncoder(), new VolumeProfileEncoder(), new CapitalStateEncoder()));
+builder.Services.AddSingleton<BrainRegistry>();
 builder.Services.AddSingleton<SimulationEngine>();
 builder.Services.AddSingleton<IRlTrainingStrategy, PolicyGradientTrainingStrategy>();
 builder.Services.AddSingleton<RlTrainingService>();
