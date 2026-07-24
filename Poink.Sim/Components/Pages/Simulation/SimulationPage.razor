@@ -7,6 +7,7 @@
 @using Poink.Sim.Components.Shared.SimTimeline
 @using Poink.Sim.Components.Shared.StatisticsPanel
 @using Poink.Sim.Components.Shared.TickDataSource
+@using Poink.Sim.Components.Simulation
 @using Poink.Sim.Components.Training
 @using Poink.Shared.Client.Components.Shared.Icon
 @using Poink.Shared.Client.Components.Shared.ViewDatatable
@@ -264,6 +265,9 @@
                                                 WindowSize="ClampedTickWindow" />
                     }
                 </div>
+
+                <TraderControlsPanel TraderId="SelectedTrader?.Id" TraderLabel="SelectedTraderLabel" IsManual="SelectedTraderIsManual"
+                                     PositionSummary="SelectedPositionSummary" PendingSummary="SelectedPendingSummary" />
             </div>
 
             <div class="sim-chart-hdivider" @ref="_chartHDividerRef" data-min-height="160" data-max-height-vh="80"

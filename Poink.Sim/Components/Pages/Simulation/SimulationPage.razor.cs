@@ -120,6 +120,21 @@ namespace Poink.Sim.Components.Pages
             null => null,
         };
 
+        // TraderControlsPanel takes plain primitives rather than TraderSnapshot
+        // (which is internal, like most of Poink.Sim's domain model, and the
+        // component has to stay public -- see TraderControlsPanel.razor.cs) --
+        // these translate SelectedTrader into that shape.
+        private string SelectedTraderLabel => SelectedTrader?.Label ?? "";
+        private bool SelectedTraderIsManual => SelectedTrader?.Mode == TraderControlMode.Manual;
+
+        private string? SelectedPositionSummary =>
+            SelectedTrader?.Position is not { } pos ? null : $"{pos.Direction} {pos.Size:F4} @ {pos.EntryPrice:F5}";
+
+        private string? SelectedPendingSummary =>
+            SelectedTrader?.PendingOrder is not { } pending
+                ? null
+                : $"PENDING {pending.Direction} {pending.OrderType} @ {pending.TriggerPrice:F5}";
+
         // ── Lifecycle ──
 
         protected override void OnInitialized()
@@ -242,7 +257,8 @@ namespace Poink.Sim.Components.Pages
         {
             if (_dividerResizeInstance is not null)
             {
-                try { await _dividerResizeInstance.DisposeAsync(); }
+                try
+                { await _dividerResizeInstance.DisposeAsync(); }
                 catch (JSDisconnectedException) { }
             }
         }

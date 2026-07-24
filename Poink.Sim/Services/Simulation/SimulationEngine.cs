@@ -80,12 +80,15 @@ internal sealed class SimulationEngine : IDisposable
 
     // One per configured trader -- all sessions share the single _activeBrain
     // instance (stateless today, see ISimulationBrain), but each owns its own
-    // Trader (Capital/Position) and its own recent-log buffer.
+    // Trader (Capital/Position) and its own recent-log buffer. Trader is typed
+    // as ITrader (not the concrete class) so this session -- and DecideAndApply's
+    // orchestration of it -- can be exercised against a fake/mock in a unit test.
     private sealed class TraderSession
     {
         public required int Id;
         public required string Label;
-        public required Trader.Trader Trader;
+        public required Trader.ITrader Trader;
+        public TraderControlMode Mode = TraderControlMode.Auto;
         public readonly RingBuffer<SimulationLogEntry> RecentLog = new(MaxRecentLog);
     }
 
@@ -505,15 +508,22 @@ internal sealed class SimulationEngine : IDisposable
         }
     }
 
-    // Must be called while holding _lock. Every trader session decides/applies
-    // against the same shared _activeBrain instance -- see the TraderSession
-    // doc comment above. capitalStates is index-aligned with _traderSessions,
-    // already computed by this tick's Advance call (see AdvanceOneUnitLocked).
+    // Must be called while holding _lock. Every Auto-mode trader session decides/
+    // applies against the same shared _activeBrain instance -- see the TraderSession
+    // doc comment above. A Manual-mode session is skipped here entirely (it only
+    // moves via SubmitManualDecision, called from the page's trader controls panel)
+    // -- Trader.Advance (mark-to-market/SL-TP/stop-out/pending-trigger) still ran
+    // for it in AdvanceOneUnitLocked regardless of mode, just not this Brain step.
+    // capitalStates is index-aligned with _traderSessions, already computed by this
+    // tick's Advance call (see AdvanceOneUnitLocked).
     private void DecideAndApply(DateTime timestamp, double price, double bid, double ask, bool useBars, IReadOnlyList<CapitalState> capitalStates)
     {
         for (int i = 0; i < _traderSessions.Count; i++)
         {
             var session = _traderSessions[i];
+            if (session.Mode == TraderControlMode.Manual)
+                continue;
+
             var capital = capitalStates[i];
             var observation = new SimulationObservation(
                 timestamp, price,
@@ -528,6 +538,51 @@ internal sealed class SimulationEngine : IDisposable
                 AppendLog(session, new SimulationLogEntry(
                     timestamp, exec.Action.ToString(), price, exec.Direction, exec.Size, exec.RealizedPnl, exec.Commission, exec.Reason));
         }
+    }
+
+    // Toggles one trader session between Brain-driven (Auto) and human-driven
+    // (Manual) control. Switching to Manual takes effect on the *next* decision
+    // point -- there's no in-flight Brain decision to reconcile, since Decide()
+    // is a stateless, point-in-time call (see ISimulationBrain). Switching back to
+    // Auto doesn't touch any position/pending order a manual session already has
+    // open -- the Brain just resumes deciding for it from wherever it stands.
+    public bool SetTraderMode(int traderId, TraderControlMode mode)
+    {
+        lock (_lock)
+        {
+            var session = _traderSessions.FirstOrDefault(s => s.Id == traderId);
+            if (session is null)
+                return false;
+            session.Mode = mode;
+        }
+        PublishSnapshot();
+        return true;
+    }
+
+    // Applies a manually-constructed decision (built by the trader controls panel)
+    // to one Manual-mode session, bypassing the Brain entirely -- rejected if that
+    // session isn't in Manual mode (must SetTraderMode first), so a human and the
+    // Brain never issue conflicting decisions for the same session. Executes at the
+    // engine's last known Bid/Ask/timestamp, same price basis DecideAndApply uses.
+    public bool SubmitManualDecision(int traderId, SimulationDecision decision)
+    {
+        lock (_lock)
+        {
+            if (_config is null)
+                return false;
+            var session = _traderSessions.FirstOrDefault(s => s.Id == traderId);
+            if (session is null || session.Mode != TraderControlMode.Manual)
+                return false;
+
+            double bid = _lastBid ?? 0, ask = _lastAsk ?? 0;
+            var timestamp = _lastTimestamp ?? DateTime.UtcNow;
+            var execution = session.Trader.Apply(decision, bid, ask, timestamp);
+            if (execution is { } exec)
+                AppendLog(session, new SimulationLogEntry(
+                    timestamp, exec.Action.ToString(), (bid + ask) / 2.0, exec.Direction, exec.Size, exec.RealizedPnl, exec.Commission, exec.Reason));
+        }
+        PublishSnapshot();
+        return true;
     }
 
     private void AppendBar(HlocAvdtBar bar, BarPriceHistogram histogram)
@@ -562,8 +617,8 @@ internal sealed class SimulationEngine : IDisposable
                     _config, _isPlaying, _cursor >= _totalCount, _speedMultiplier, _uncapped,
                     _cursor, _totalCount, _lastTimestamp, _lastPrice, _lastBid, _lastAsk,
                     _traderSessions.Select(ts => new TraderSnapshot(
-                        ts.Id, ts.Label, ts.Trader.Snapshot(_lastBid ?? 0, _lastAsk ?? 0), ts.Trader.CurrentPosition,
-                        ts.Trader.TradeLog.Count, ts.RecentLog.ToList(), ts.Trader.TradeLog.ToList(),
+                        ts.Id, ts.Label, ts.Mode, ts.Trader.Snapshot(_lastBid ?? 0, _lastAsk ?? 0), ts.Trader.CurrentPosition,
+                        ts.Trader.CurrentPendingOrder, ts.Trader.TradeLog.Count, ts.RecentLog.ToList(), ts.Trader.TradeLog.ToList(),
                         ts.Trader.MaxEquity, ts.Trader.MaxDrawdown, ts.Trader.Leverage, ts.Trader.StopOutLevelPercent)).ToList(),
                     bars, barHistograms, _recentTicks.ToList());
         }
@@ -585,7 +640,8 @@ internal sealed class SimulationEngine : IDisposable
     {
         lock (_lock)
         {
-            if (_config is null) return;
+            if (_config is null)
+                return;
             Progress = new SimulationProgress(_cursor, _totalCount, _lastTimestamp, _config.From, _config.To);
         }
         OnProgress?.Invoke();
@@ -594,7 +650,8 @@ internal sealed class SimulationEngine : IDisposable
     public void Dispose()
     {
         _timer.Dispose();
-        lock (_lock) { _reader?.Dispose(); }
+        lock (_lock)
+        { _reader?.Dispose(); }
         _logger.LogInformation("Simulation engine disposed");
     }
 }

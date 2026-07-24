@@ -118,7 +118,7 @@ internal static class RlEpisodeRunner
     // episode's final inputs once the loop ends). capitalNow is this tick's
     // already-computed Advance result, so Trader.Snapshot isn't called twice.
     private static (double Equity, SimulationObservation Observation) RecordStep(
-        ISimulationBrain brain, Trader.Trader trader, DateTime timestamp, double price, double bid, double ask, CapitalState capitalNow,
+        ISimulationBrain brain, Trader.ITrader trader, DateTime timestamp, double price, double bid, double ask, CapitalState capitalNow,
         IReadOnlyList<HlocAvdtBar> bars, IReadOnlyList<Tick> ticks, IReadOnlyList<BarPriceHistogram> barHistograms,
         List<RlStep> steps, double previousEquity)
     {

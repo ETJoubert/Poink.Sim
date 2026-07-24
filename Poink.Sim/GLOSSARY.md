@@ -245,21 +245,36 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
 - **`SimulationEngine`** — The orchestrating DI singleton: wires MarketSim (tick
   reader) + `SimulationBarAggregator` + Brain + one-or-more `Trader`s, driven by a
   self-rescheduling `System.Threading.Timer` for play/pause/step/speed/Max playback.
-  Holds one shared in-memory "current run" for the whole process (not per-user/
-  session), matching Poink.ML's `*TrainingService` singleton convention.
+  `SetTraderMode`/`SubmitManualDecision` let the Simulation page's trader controls
+  panel take over a session from the Brain (see `TraderControlMode`) -- both are
+  ordinary public methods callable any time a run is loaded, not gated behind
+  play/pause. Holds one shared in-memory "current run" for the whole process (not
+  per-user/session), matching Poink.ML's `*TrainingService` singleton convention.
   `Simulation/SimulationEngine.cs`
 - **`SystemPerformanceMonitor`** — Singleton sampling host-machine CPU/RAM/GPU once
   per second (Windows-only, via `PerformanceCounter`/`GlobalMemoryStatusEx`), feeding
   the layout's `PerformanceMonitor` display. `Diagnostics/SystemPerformanceMonitor.cs`
-- **`Trader`** — Leveraged CFD account engine. `Apply(decision, bid, ask, timestamp)`
-  applies one `SimulationDecision` at a time (market fills, queuing a Limit/Stop
-  pending order, or closing/cancelling); `Advance(bid, ask, timestamp)` is the
-  unconditional per-tick maintenance pass (mark-to-market, SL/TP, stop-out, pending-
-  order trigger). Tracks `TradeLog`, `MaxEquity`, `MaxDrawdown`. One instance per
-  trader session in a run. `Trader/Trader.cs`
+- **`Trader`** — Leveraged CFD account engine, implements `ITrader`.
+  `Apply(decision, bid, ask, timestamp)` applies one `SimulationDecision` at a
+  time (market fills, queuing a Limit/Stop pending order, or closing/cancelling)
+  regardless of whether that decision came from a Brain or the trader controls
+  panel -- Trader has no notion of decision source, which is what makes manual
+  override possible without touching Trader itself.
+  `Advance(bid, ask, timestamp)` is the unconditional per-tick maintenance pass
+  (mark-to-market, SL/TP, stop-out, pending-order trigger) -- runs for every
+  session regardless of `TraderControlMode`. Tracks `TradeLog`, `MaxEquity`,
+  `MaxDrawdown`. One instance per trader session in a run. `Trader/Trader.cs`
+- **`ITrader`** — `Trader`'s public contract, extracted so `SimulationEngine`/
+  `RlEpisodeRunner` depend on the interface instead of the concrete class --
+  decouples `Trader` for direct unit testing (a test can substitute a fake/mock
+  `ITrader`). Construction still goes through `new Trader.Trader(...)` directly
+  at every call site; see `TODO/2026-07-24-trader-di-factory.md` for the
+  deferred factory/DI wiring. `Trader/ITrader.cs`
 - **`TraderSession`** — One configured trader's slice of a shared run: its own
-  `Trader`/recent-log buffer, all sharing the single `_activeBrain` instance for the
-  run. Private nested class in `Simulation/SimulationEngine.cs`.
+  `Trader`/recent-log buffer/`Mode` (`TraderControlMode`), all sharing the single
+  `_activeBrain` instance for the run (unless `Mode` is `Manual`, in which case
+  this session ignores the Brain -- see `TraderControlMode`). Private nested
+  class in `Simulation/SimulationEngine.cs`.
 - **`TraderSettings`** — Bundles one Trader's CFD account configuration --
   `Leverage`, `StopOutLevelPercent`, `CommissionModel` -- into a single object
   passed to `Trader`'s constructor, instead of a growing parameter list. Defaults
@@ -315,6 +330,11 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   `SimulationEngine` on every callback (config, playback state, per-trader state,
   recent bars/ticks/histograms) — what the page renders from.
   `Models/SimulationSnapshot.cs`
+- **`TraderSnapshot`** — One trader session's published state: `Mode`
+  (`TraderControlMode`), `Capital`, `Position`, `PendingOrder`, trade log/history,
+  equity extremes, account settings. What `SimulationPage`'s trader controls
+  panel reads to decide which controls to show (see `TraderControlMode`).
+  `Models/SimulationSnapshot.cs`
 - **`VolumeProfileLevels`** — `(Poc, ValueAreaHigh, ValueAreaLow)`: the computed
   Point of Control/Value Area for a volume profile window, from
   `VolumeProfileStats.Compute`. `Components/Charts/VolumeProfileStats.cs`
@@ -349,6 +369,15 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
 - **`StatEmphasis`** — `None`, `Positive`, `Negative`: display hint for a `StatItem`,
   mapped by `StatisticsPanel` to CSS classes (win/loss coloring).
   `Models/StatGroup.cs`
+- **`TraderControlMode`** — `Auto`, `Manual`: per-`TraderSession` toggle. `Auto`
+  (the default) is today's behavior -- the shared Brain decides for this session
+  every decision point. `Manual` skips the Brain for that session entirely
+  (`SimulationEngine.DecideAndApply`); it only moves via
+  `SimulationEngine.SubmitManualDecision`, called from the Simulation page's
+  trader controls panel. Doesn't affect `Trader.Advance` (mark-to-market/SL-TP/
+  stop-out/pending-trigger), which runs unconditionally either way -- Mode only
+  gates who submits *new* entries. Toggled via `SimulationEngine.SetTraderMode`.
+  `Models/SimulationSnapshot.cs`
 
 ## UI Components
 
@@ -412,6 +441,23 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   or pre-aggregated `WeightedSamples` (bar mode, via `BarPriceHistogram.Merge`). This
   *is* the app's "Volume Profile" concept.
   `Components/Charts/TickVolumeProfileChart.razor.cs`
+- **`TraderControlsPanel`** — Manual trader controls, the fixed-width panel to
+  the right of the chart row on the Simulation page. Shows an AUTO/MANUAL toggle
+  (`ToggleManualMode`, calling `SimulationEngine.SetTraderMode`); once Manual,
+  exposes a trading ticket (order type, trigger price for Limit/Stop, capital
+  fraction, optional SL/TP, Buy/Sell, Close/Cancel) that submits via
+  `SubmitEntry`/`SubmitCloseOrCancel` → `SimulationEngine.SubmitManualDecision`.
+  Takes plain primitives (`TraderId`/`TraderLabel`/`IsManual`/`PositionSummary`/
+  `PendingSummary`) rather than `TraderSnapshot` directly -- `TraderSnapshot`
+  is internal like most of Poink.Sim's domain model, and this component (like
+  every other one in this project) has to stay `public partial class` for the
+  Razor-generated half to compile, so `SimulationPage` pre-formats/projects the
+  fields instead of the domain model needing to go public just to cross this
+  boundary. Its own `.razor.css` duplicates the terminal-button look from
+  `SimulationPage.razor.css` (`.sim-ctrl-btn` etc.) rather than relying on it,
+  since Blazor CSS isolation only cascades a parent's scoped styles onto a
+  child component's own root element, not elements nested below it.
+  `Components/Pages/Simulation/Components/TraderControlsPanel/`
 - **`TrainLiveTab`** — The Train page's "Live" content: stat tiles, `EpisodeGrid`,
   `RewardChart`, `NetworkEmulator`, action-distribution bars, and the "what goes in"
   inputs panel (`PriceWindowFeatures`/`ScalarFeatures` split from

@@ -1,0 +1,94 @@
+@namespace Poink.Sim.Components.Simulation
+@using Poink.Sim.Models
+
+<div class="tcp-panel">
+    <div class="tcp-header">
+        <span class="tcp-title">TRADER CONTROLS</span>
+        @if (TraderId is not null)
+        {
+            @if (IsManual)
+            {
+                <button class="tcp-btn tcp-btn-toggle active" @onclick="ToggleManualMode"
+                        title="Hand this trader back to the Brain">MANUAL</button>
+            }
+            else
+            {
+                <button class="tcp-btn tcp-btn-toggle" @onclick="ToggleManualMode"
+                        title="Take manual control -- the Brain stops deciding for this trader">AUTO</button>
+            }
+        }
+    </div>
+
+    @if (TraderId is null)
+    {
+        <p class="tcp-hint">No trader selected.</p>
+    }
+    else if (!IsManual)
+    {
+        <p class="tcp-hint">Switch to MANUAL to take control of @TraderLabel.</p>
+    }
+    else
+    {
+        <div class="tcp-status">
+            @if (PositionSummary is { } position)
+            {
+                <span>@position</span>
+            }
+            else if (PendingSummary is { } pending)
+            {
+                <span>@pending</span>
+            }
+            else
+            {
+                <span>FLAT</span>
+            }
+        </div>
+
+        <label class="tcp-field"
+               title="Market fills immediately; Limit/Stop queue a pending order until price crosses the trigger">
+            Order type
+            <select class="tcp-input" @bind="_orderType">
+                <option value="@OrderType.Market">Market</option>
+                <option value="@OrderType.Limit">Limit</option>
+                <option value="@OrderType.Stop">Stop</option>
+            </select>
+        </label>
+
+        @if (_orderType != OrderType.Market)
+        {
+            <label class="tcp-field" title="Price level the pending order triggers at">
+                Trigger price
+                <input class="tcp-input" type="number" step="0.00001" @bind="_triggerPrice" />
+            </label>
+        }
+
+        <label class="tcp-field" title="Fraction of Cash committed as margin (0-1)">
+            Capital fraction
+            <input class="tcp-input" type="number" min="0.01" max="1" step="0.05" @bind="_capitalFraction" />
+        </label>
+
+        <label class="tcp-field" title="Optional -- force-close the position if price falls to this level">
+            Stop loss
+            <input class="tcp-input" type="number" step="0.00001" @bind="_stopLoss" />
+        </label>
+
+        <label class="tcp-field" title="Optional -- force-close the position if price reaches this level">
+            Take profit
+            <input class="tcp-input" type="number" step="0.00001" @bind="_takeProfit" />
+        </label>
+
+        <div class="tcp-actions">
+            <button class="tcp-btn tcp-buy" @onclick="() => SubmitEntry(true)"
+                    title="Enter long at the current order type/size/SL/TP">BUY</button>
+            <button class="tcp-btn tcp-sell" @onclick="() => SubmitEntry(false)"
+                    title="Enter short at the current order type/size/SL/TP">SELL</button>
+            <button class="tcp-btn tcp-btn-warn" @onclick="SubmitCloseOrCancel"
+                    title="Close the open position, or cancel a resting pending order">CLOSE / CANCEL</button>
+        </div>
+
+        @if (_error is not null)
+        {
+            <span class="tcp-error">@_error</span>
+        }
+    }
+</div>

@@ -21,7 +21,7 @@ using Poink.Sim.Trader.Orders;
 
 namespace Poink.Sim.Trader;
 
-internal sealed class Trader
+internal sealed class Trader : ITrader
 {
     private readonly List<Trade> _trades = new();
     private readonly TraderSettings _settings;

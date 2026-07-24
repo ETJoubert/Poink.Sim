@@ -1,0 +1,157 @@
+/* Self-contained -- Blazor CSS isolation only cascades a parent's scoped
+   styles onto a child component's own ROOT element, not elements nested below
+   it (button/input/etc. here are several levels under .tcp-panel), so this
+   duplicates the terminal-button/field look from SimulationPage.razor.css
+   rather than silently failing to apply once mounted there. Sized as a fixed
+   220px flex child (not drag-resized like .sim-chart-side, this is a compact
+   form, not a chart) -- SimulationPage.razor places this inside .sim-chart's
+   flex row, and this root's own flex/width rules govern it there regardless
+   of DOM nesting (component-root styles cross the component boundary the
+   other way -- parent layout, child's own sizing -- fine either direction). */
+.tcp-panel {
+    flex: 0 0 220px;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-left: 16px;
+    border-left: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+.tcp-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.tcp-title {
+    font-family: var(--font-heading);
+    font-size: 0.72rem;
+    font-weight: bold;
+    letter-spacing: 0.08em;
+    color: var(--color-secondary);
+    text-transform: uppercase;
+}
+
+.tcp-hint {
+    font-size: 0.78rem;
+    color: var(--color-secondary);
+}
+
+.tcp-status {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.78rem;
+    color: var(--color-primary);
+    padding: 6px 8px;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 20%, transparent);
+    border-radius: 4px;
+}
+
+.tcp-field {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    font-size: 0.72rem;
+    color: var(--color-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.tcp-input {
+    font-size: 0.85rem;
+    padding: 4px 6px;
+    background: var(--color-bg-terminal);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
+    border-radius: 4px;
+    color: var(--color-primary);
+}
+
+.tcp-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.tcp-error {
+    color: var(--color-error, #ff5f56);
+    font-size: 0.72rem;
+}
+
+/* ── Buttons -- same terminal look as SimulationPage's .sim-ctrl-btn family,
+   duplicated here since scoped CSS can't reach this deep into a child
+   component (see file header comment). ─────────────────────────────────── */
+
+.tcp-btn {
+    font-family: var(--font-body);
+    font-weight: bold;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 7px 14px;
+    border-radius: var(--border-radius-sm);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 45%, transparent);
+    background: transparent;
+    color: var(--color-primary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.tcp-btn:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+    border-color: var(--color-primary);
+}
+
+.tcp-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.tcp-btn-toggle.active {
+    background: var(--color-primary);
+    color: var(--color-bg-terminal);
+    border-color: var(--color-primary);
+    box-shadow: 0 0 12px color-mix(in srgb, var(--color-primary) 45%, transparent);
+}
+
+.tcp-btn-warn {
+    border-color: color-mix(in srgb, var(--color-warning) 50%, transparent);
+    color: var(--color-warning);
+}
+
+.tcp-btn-warn:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-warning) 14%, transparent);
+    border-color: var(--color-warning);
+}
+
+.tcp-buy {
+    border-color: color-mix(in srgb, var(--color-success) 50%, transparent);
+    color: var(--color-success);
+}
+
+.tcp-buy:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-success) 14%, transparent);
+    border-color: var(--color-success);
+}
+
+.tcp-sell {
+    border-color: color-mix(in srgb, var(--color-error) 50%, transparent);
+    color: var(--color-error);
+}
+
+.tcp-sell:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-error) 14%, transparent);
+    border-color: var(--color-error);
+}
+
+@media (max-width: 900px) {
+    .tcp-panel {
+        flex-basis: auto;
+        width: 100%;
+        border-left: none;
+        padding-left: 0;
+        border-top: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
+        padding-top: 10px;
+    }
+}

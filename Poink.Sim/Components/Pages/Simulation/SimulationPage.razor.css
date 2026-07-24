@@ -656,6 +656,10 @@
         width: 100%;
     }
 
+    /* TraderControlsPanel's own .tcp-panel stacking rule lives in its own
+       scoped .razor.css -- Blazor CSS isolation means this file's media query
+       can't reach it (see TraderControlsPanel.razor.css's file header). */
+
     /* Stacked layout has nothing horizontal left to divide. */
     .sim-chart-divider {
         display: none;
