@@ -1,6 +1,6 @@
 # Trader construction through DI (ITraderFactory)
 
-Status: Pending Approval
+Status: Approved
 
 ## Why
 
