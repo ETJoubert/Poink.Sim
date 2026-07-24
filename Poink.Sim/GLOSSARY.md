@@ -17,9 +17,14 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   current Cash committed when opening a position; ignored for Hold/Close. Fixed at 0.5
   for both neural brains in v1 (no continuous position sizing yet).
   `Models/SimulationDecision.cs`
-- **CFD-style account** — The account model this simulator implements: simple cash
-  P&L with no leverage/margin, where shorting is a first-class case (not a
-  borrow-based short). See README "What this feature is."
+- **CFD-style account** — The account model this simulator implements: leveraged
+  margin trading with real spread cost and commission, where shorting is a
+  first-class case (not a borrow-based short). See README "What this feature is."
+- **Commission model / `ICommissionModel`** — Pluggable per-fill commission cost:
+  `CommissionFor(size, fillPrice)`, charged once per fill leg (open and close are
+  separate calls). `PercentOfNotionalCommission` is the only implementation today
+  (a flat percent of the fill's notional value); swap in a different schedule
+  (flat fee, per-lot) without touching `Trader`. `Trader/Commission/`
 - **Distance** — In `HlocAvdtBar`, the sum of absolute tick-to-tick mid-price moves
   within a bar (path length actually traveled), distinct from the simple High−Low
   range. `Models/HlocAvdtBar.cs`
@@ -27,16 +32,40 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   `Trader.Snapshot`; surfaced by `TradeStatistics.MaxDrawdown`. `Trader/Trader.cs`
 - **Equity** — `Cash + UnrealizedPnl`; the account's total mark-to-market value.
   `Models/SimulationAccount.cs`
+- **Exit-side pricing** — Unrealized P&L and every fill mark/execute at the side
+  of the spread the position would actually exit at right now -- Bid for a Long,
+  Ask for a Short -- not mid. `Position.UnrealizedPnl(bid, ask)`.
+  `Models/SimulationAccount.cs`
 - **HLOC/AVDT bar** — This project's bar shape: High/Low/Open/Close plus Average
   price, tick-count Volume, path-length Distance, and Up/DownVolume tick-rule split.
   Poink.Sim's own duplicated copy of Poink.ML's bar shape (kept independent so this
   project's build/deploy doesn't depend on Poink.ML). `Models/HlocAvdtBar.cs`
+- **Leverage** — `TraderSettings.Leverage`: multiplies committed margin into
+  notional exposure (`notional = committed × Leverage`). 1 (the default) means no
+  leverage -- numerically identical to the pre-CFD sizing every existing brain
+  still produces. `Trader/TraderSettings.cs`
+- **Margin Used / Margin Free / Margin Level** — `MarginUsed`: locked collateral
+  for the open position, `Position.Size × Position.EntryPrice ÷ Leverage`
+  (margin-at-entry convention -- static for the life of the position, not
+  re-priced as the market moves), 0 while flat. `MarginFree`: `Equity −
+  MarginUsed`. `MarginLevel`: `Equity ÷ MarginUsed × 100`, `null` while flat.
+  `Models/SimulationAccount.cs` (`CapitalState`)
 - **Mark-to-market** — Re-pricing an open position's Unrealized P&L against the
-  current price without closing it. `Trader.Snapshot(currentPrice)` runs every raw
-  tick regardless of the aggregation toggle, so Capital/Position stay live between
-  actual decision points. `Trader/Trader.cs`
-- **Mid price** — `(Bid + Ask) / 2.0`. Used throughout as "the" price since trades
-  execute at mid — spread is not modeled yet.
+  current price without closing it, at exit-side price. `Trader.Advance` runs every
+  raw tick regardless of the aggregation toggle (calling `Trader.Snapshot`
+  internally, plus the SL/TP/stop-out/pending-order checks), so Capital/Position
+  stay live between actual decision points. `Trader/Trader.cs`
+- **Mid price** — `(Bid + Ask) / 2.0`. Still the Brain-facing/charting price
+  (`SimulationObservation.CurrentPrice`, the candle series) -- but fills and
+  mark-to-market use real `Tick.Bid`/`Ask` (exit-side pricing), not mid.
+- **Pending order (Limit / Stop)** — A Brain can request a deferred entry via
+  `SimulationDecision.OrderType`/`TriggerPrice` instead of an immediate market
+  fill; `Trader.CurrentPendingOrder` holds at most one at a time (mirrors the
+  one-position-at-a-time rule). Checked every raw tick by `Trader.Advance`
+  against real Bid/Ask, not just once per Brain decision point -- a Buy Limit
+  fires when Ask ≤ trigger, Buy Stop when Ask ≥ trigger, Sell Limit when Bid ≥
+  trigger, Sell Stop when Bid ≤ trigger, filling at the actual Bid/Ask (so a
+  gap-through produces realistic slippage). `Trader/Orders/PendingOrder.cs`
 - **Point of Control (POC)** — The price level with the most volume in a volume
   profile window; computed by `VolumeProfileStats.Compute` and shown both as the
   highlighted row in `TickVolumeProfileChart` and as a projected line on the main
@@ -44,15 +73,26 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
 - **Position** — One open trade: `readonly record struct Position(PositionDirection,
   Size, EntryPrice, EntryTime, StopLossPrice?, TakeProfitPrice?)`. v1 allows only one
   open position at a time (no pyramiding); reversing direction requires an explicit
-  Close first. `Models/SimulationAccount.cs`
-- **Realized P&L / Unrealized P&L** — Realized: profit/loss booked on Close.
-  Unrealized: `Position.UnrealizedPnl(currentPrice)`, live mark-to-market while a
-  position is open. `Models/SimulationAccount.cs`
-- **Spread / commission** — Not yet modeled; trades execute at mid price.
-  `Tick.Bid`/`Ask` already exist so real spread cost can be wired in later.
-- **Stop-loss / take-profit (SL/TP)** — `Position`/`SimulationDecision` already carry
-  `StopLossPrice`/`TakeProfitPrice`; `Trader.Apply` has a marked-but-unimplemented
-  `// SL/TP CHECK` hook where auto-close logic will slot in. `Trader/Trader.cs`
+  Close first. `StopLossPrice`/`TakeProfitPrice` are live -- checked every raw tick
+  by `Trader.Advance`, force-closing the position at exit-side price when breached.
+  `Models/SimulationAccount.cs`
+- **Realized P&L / Unrealized P&L** — Realized: profit/loss booked on Close, net of
+  the round-trip Commission. Unrealized: `Position.UnrealizedPnl(bid, ask)`, live
+  mark-to-market at exit-side price while a position is open.
+  `Models/SimulationAccount.cs`
+- **Spread / commission** — Fills always execute at the correct side of the real
+  `Tick.Bid`/`Ask` (buy at Ask, sell at Bid) -- in both raw-tick and bar-aggregated
+  mode, since `SimulationEngine`/`RlEpisodeRunner` thread the triggering tick's real
+  spread through regardless of the aggregation toggle. Commission is charged per
+  fill leg by the configured `ICommissionModel`. `Trader/Trader.cs`
+- **Stop-loss / take-profit (SL/TP)** — `Position`/`SimulationDecision` carry
+  `StopLossPrice`/`TakeProfitPrice`; `Trader.Advance` checks them every raw tick
+  (at exit-side price) and force-closes the position on breach, SL taking priority
+  if both breach the same tick. `Trader/Trader.cs`
+- **Stop-out / Margin call** — `Trader.Advance` force-closes the open position when
+  Margin Level drops below `TraderSettings.StopOutLevelPercent` (default 50%).
+  Checked after the SL/TP check, only while a position remains open.
+  `Trader/Trader.cs`
 - **Tick** — Raw `(Timestamp, Bid, Ask)` market data point, written into one Postgres
   table per symbol (`ticks_<symbol>`) by the Poink.Trader cAlgo robot.
   `Repository/ITickRepository.cs`
@@ -62,8 +102,10 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
 - **Time in market** — `TradeStatistics.TimeInMarket` / `.TimeInLong` / `.TimeInShort`:
   summed trade durations, split by direction.
 - **Trade** — One closed round-trip: `record Trade(Id, Direction, Size, EntryPrice,
-  EntryTime, ExitPrice, ExitTime, RealizedPnl, Reason)`, appended to `Trader.TradeLog`
-  on Close. `Models/SimulationAccount.cs`
+  EntryTime, ExitPrice, ExitTime, RealizedPnl, Commission, Reason)`, appended to
+  `Trader.TradeLog` on Close. `RealizedPnl` is net of `Commission` (the round-trip
+  total across both the open and close leg) -- what `TradeStatistics` win/loss
+  reads. `Models/SimulationAccount.cs`
 - **TickVolume / Volume** — In this app, "volume" is a tick count, not a
   traded-contract count (raw ticks carry no trade-volume field). `HlocAvdtBar.Volume`
   is literally the number of ticks in the bar.
@@ -171,7 +213,10 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
 - **`RandomBrain`** — Trivial baseline brain: each decision point rolls a probability
   (`ActionProbability`) to act at all, then rolls direction; the only brain with
   randomness, so it's the one where multiple traders sharing the same instance
-  actually diverge. `Brain/RandomBrain.cs`
+  actually diverge. Sets `StopLossPrice`/`TakeProfitPrice` on every entry (a fixed
+  percent distance from `CurrentPrice`, `_stopLossPercent`/`_takeProfitPercent`) --
+  the only brain that does, useful for exercising `Trader.Advance`'s SL/TP hook and
+  the chart's SL/TP lines end-to-end. `Brain/Heuristic/RandomBrain.cs`
 - **`RandomWindow` / `RandomEpisodeWindow`** — Picks a random start timestamp within a
   table's known range and reads the ticks spanning `fetchSpan` (`barWidthMinutes ×
   (episodeBars + 1)`) from there per training episode via `ITickRepository.ReadTicks`,
@@ -206,12 +251,20 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
 - **`SystemPerformanceMonitor`** — Singleton sampling host-machine CPU/RAM/GPU once
   per second (Windows-only, via `PerformanceCounter`/`GlobalMemoryStatusEx`), feeding
   the layout's `PerformanceMonitor` display. `Diagnostics/SystemPerformanceMonitor.cs`
-- **`Trader`** — Applies one `SimulationDecision` at a time to Cash/Position; computes
-  fills (`Open`/`Close`), tracks `TradeLog`, `MaxEquity`, `MaxDrawdown`. One instance
-  per trader session in a run. `Trader/Trader.cs`
+- **`Trader`** — Leveraged CFD account engine. `Apply(decision, bid, ask, timestamp)`
+  applies one `SimulationDecision` at a time (market fills, queuing a Limit/Stop
+  pending order, or closing/cancelling); `Advance(bid, ask, timestamp)` is the
+  unconditional per-tick maintenance pass (mark-to-market, SL/TP, stop-out, pending-
+  order trigger). Tracks `TradeLog`, `MaxEquity`, `MaxDrawdown`. One instance per
+  trader session in a run. `Trader/Trader.cs`
 - **`TraderSession`** — One configured trader's slice of a shared run: its own
   `Trader`/recent-log buffer, all sharing the single `_activeBrain` instance for the
   run. Private nested class in `Simulation/SimulationEngine.cs`.
+- **`TraderSettings`** — Bundles one Trader's CFD account configuration --
+  `Leverage`, `StopOutLevelPercent`, `CommissionModel` -- into a single object
+  passed to `Trader`'s constructor, instead of a growing parameter list. Defaults
+  reproduce pre-CFD behavior exactly (1x leverage, no commission).
+  `Trader/TraderSettings.cs`
 
 ## Data Shapes
 
@@ -220,20 +273,34 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   histograms can be summed bucket-for-bucket (`Merge`) to build a volume profile over
   an arbitrarily long window without retaining raw ticks. `Models/BarPriceHistogram.cs`
 - **`BrainTrainingParameters`** — Free-form training-run parameters (`EpisodeCount`,
-  `EpisodeBars`, `BarWidthMinutes`, `StartingCash`, `LearningRate`, `LookbackBars`)
-  saved alongside a brain snapshot; plain settable properties (not a record) so old
-  JSON blobs still deserialize after new fields are added. `Repository/IBrainRepository.cs`
+  `EpisodeBars`, `BarWidthMinutes`, `StartingCash`, `LearningRate`, `LookbackBars`,
+  `Leverage`, `StopOutLevelPercent`, `CommissionRatePercent`) saved alongside a
+  brain snapshot; plain settable properties (not a record) so old JSON blobs still
+  deserialize after new fields are added. `Repository/IBrainRepository.cs`
 - **`CapitalState`** — Read-only snapshot handed to the Brain/UI: `(Cash,
-  RealizedPnl, UnrealizedPnl)`, with `Equity => Cash + UnrealizedPnl`.
-  `Models/SimulationAccount.cs`
+  RealizedPnl, UnrealizedPnl, MarginUsed, MarginLevel)`, with `Equity => Cash +
+  UnrealizedPnl` and `MarginFree => Equity - MarginUsed`. `MarginUsed`/`MarginLevel`
+  are UI/statistics-only today -- not fed to any neural brain (changing the
+  encoder's feature count would break every already-trained network's input
+  layer). `Models/SimulationAccount.cs`
 - **`ChartLinePoint`** — One `(TimeUtc, Price)` point of a computed overlay line (e.g.
   VWAP) on `DrawableOhlcvChart` — a per-bar time series, unlike the single fixed price
   of `ChartHorizontalLine`, so it renders as its own native LineSeries rather than one
   of the click-to-draw primitives. `Components/Charts/DrawableOhlcvChart.razor.cs`
+- **`MaintenanceResult`** — Return shape of `Trader.Advance`: `(CapitalState Capital,
+  IReadOnlyList<TradeExecution> AutomaticFills)`. `AutomaticFills` is 0, 1, or
+  (rarely, e.g. a stop-out immediately followed by a pending-order trigger in the
+  same tick) 2 entries; callers log each one the same way they log a brain-driven
+  `Apply` fill. `Models/SimulationAccount.cs`
 - **`NetworkLayerShape`** — One "layer" description for `NetworkEmulator`'s animation:
   a real magnitude (Linear's `out_features` or LSTM's hidden size), not a literal
   one-dot-per-unit count; `IsRecurrent` flags an LSTM so the animation can draw it
   differently. `Brain/Neural/IPolicyGradientBrain.cs`
+- **`PendingOrder`** — A resting Limit/Stop entry order, not yet filled:
+  `(Direction, OrderType, TriggerPrice, CapitalFraction, StopLossPrice?,
+  TakeProfitPrice?, CreatedTime, Reason?)`. `OrderType` is always `Limit` or
+  `Stop` here -- Market orders never rest, they fill immediately in
+  `Trader.Apply`. `Trader/Orders/PendingOrder.cs`
 - **`RlInputFeature`** — One named value out of a policy brain's `Encode()` input,
   purely for the Train page's "what goes in" display panel — never used for inference
   itself. Record `(Label, Value)`. `Brain/Neural/IPolicyGradientBrain.cs`
@@ -262,14 +329,23 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
 - **`LogTab`** — `Decisions`, `Positions`, `Traders`, `Brain`, `Statistics`: the five
   tabs of the Simulation page's log/detail panel. Private enum in
   `Components/Pages/SimulationPage.razor.cs`.
+- **`OrderType`** — `Market`, `Limit`, `Stop`: how `SimulationDecision.Action`'s
+  `EnterLong`/`EnterShort` fills. `null`/`Market` (the default) opens immediately,
+  as every brain does today; `Limit`/`Stop` with a `TriggerPrice` queues a
+  `PendingOrder` instead. Deliberately not a new `SimulationAction` member -- the
+  neural brains' output layer is hardwired to one logit per `SimulationAction`
+  (`MlpArchitecture`/`LstmArchitecture`'s `ActionCount = 4`), so growing that enum
+  would break every already-trained network's weights. `Models/SimulationDecision.cs`
 - **`PositionDirection`** — `Long`, `Short`: direction of an open position; determines
   the sign in `UnrealizedPnl`. `Models/SimulationAccount.cs`
 - **Speed presets** — `0.1x, 1x, 10x, 100x, 1000x, 10000x`: the finite playback-speed
   multipliers the +/- stepper cycles through, separate from the uncapped "Max" mode.
   `Components/Pages/SimulationPage.razor.cs` (`Speeds` array)
 - **`SimulationAction`** — `Hold`, `EnterLong`, `EnterShort`, `Close`: the four
-  decisions a Brain can output; also the 4 output logits of both neural brains.
-  `Models/SimulationDecision.cs`
+  decisions a Brain can output; also the 4 output logits of both neural brains
+  (see `OrderType`'s doc comment on why this stays at 4 members). `Close` does
+  double duty: closes the open position if one exists, else cancels a resting
+  `PendingOrder`, else no-op. `Models/SimulationDecision.cs`
 - **`StatEmphasis`** — `None`, `Positive`, `Negative`: display hint for a `StatItem`,
   mapped by `StatisticsPanel` to CSS classes (win/loss coloring).
   `Models/StatGroup.cs`
@@ -306,8 +382,10 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   `wwwroot/js/networkEmulator.js`
 - **`OhlcvChart`** — Candlestick chart backed by the vendored TradingView Lightweight
   Charts JS library; shows completed + in-progress bars, live Bid/Ask price lines,
-  and a "window start" marker showing how far back the volume-profile window reaches.
-  `Components/Charts/OhlcvChart.razor.cs`
+  the selected trader's open position as a solid LONG/SHORT entry-price line plus
+  dashed SL/TP price lines (each null independently hides that one line -- flat,
+  or a position missing that field), and a "window start" marker showing how far
+  back the volume-profile window reaches. `Components/Charts/OhlcvChart.razor.cs`
 - **`PerformanceMonitor`** — Layout-level CPU/RAM/GPU readout, sourced from
   `SystemPerformanceMonitor`. `Components/Layout/PerformanceMonitor.razor.cs`
 - **`RewardChart`** — Pure inline-SVG line chart of reward-per-episode, no JS, with a

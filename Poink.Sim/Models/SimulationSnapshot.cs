@@ -13,11 +13,12 @@ namespace Poink.Sim.Models;
 
 internal sealed record SimulationConfig(
     string Table, DateTime From, DateTime To, bool Aggregate, TimeSpan BarSize,
-    string BrainName, double StartingCash, int TraderCount);
+    string BrainName, double StartingCash, int TraderCount,
+    double Leverage = 1.0, double StopOutLevelPercent = 50.0, double CommissionRatePercent = 0.0);
 
 internal sealed record SimulationLogEntry(
     DateTime TimestampUtc, string Action, double Price, PositionDirection Direction,
-    double Size, double? RealizedPnl, string? Reason);
+    double Size, double? RealizedPnl, double Commission, string? Reason);
 
 // Cheap sibling to SimulationSnapshot below -- just enough to place the
 // current tick on a From/To timeline, so a component can track live progress
@@ -30,10 +31,12 @@ internal sealed record SimulationProgress(
 // One trader's slice of the shared run -- all traders replay the same tick
 // stream against the same shared Brain instance (see SimulationEngine), but
 // each gets its own Capital/Position/log since Trader.Apply is per-instance.
+// Leverage/StopOutLevelPercent are the run's static account settings (not
+// per-tick state -- MarginUsed/MarginLevel/MarginFree already live on Capital).
 internal sealed record TraderSnapshot(
     int Id, string Label, CapitalState Capital, Position? Position, int TradeCount,
     IReadOnlyList<SimulationLogEntry> RecentLog, IReadOnlyList<Trade> Trades,
-    double MaxEquity, double MaxDrawdown);
+    double MaxEquity, double MaxDrawdown, double Leverage, double StopOutLevelPercent);
 
 // Immutable read-model published wholesale each callback -- the page reads
 // the reference (no torn reads, no per-field locking needed on the page side).

@@ -180,6 +180,21 @@
                     <input class="train-brainrow-input" type="number" min="1" step="100" @bind="_startingCash"
                            disabled="@Service.IsRunning" />
                 </label>
+                <label class="train-brainrow-field" title="Notional exposure per unit of margin committed -- 1 means no leverage">
+                    Leverage
+                    <input class="train-brainrow-input" type="number" min="1" step="1" @bind="_leverage"
+                           disabled="@Service.IsRunning" />
+                </label>
+                <label class="train-brainrow-field" title="Commission charged per fill, as a percent of that fill's notional value">
+                    Commission %
+                    <input class="train-brainrow-input" type="number" min="0" step="0.01" @bind="_commissionRatePercent"
+                           disabled="@Service.IsRunning" />
+                </label>
+                <label class="train-brainrow-field" title="Force-close the open position when Margin Level (Equity ÷ Margin Used) drops below this percent">
+                    Stop-out %
+                    <input class="train-brainrow-input" type="number" min="1" max="100" step="1" @bind="_stopOutLevelPercent"
+                           disabled="@Service.IsRunning" />
+                </label>
             </div>
 
             <div class="train-datarow train-datarow-disabled">

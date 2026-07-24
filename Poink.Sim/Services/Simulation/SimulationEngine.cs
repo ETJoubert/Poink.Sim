@@ -28,10 +28,12 @@
 //  independent page-side toggle (Hide Chart) -- the engine has no concept of
 //  "hidden".
 //
-//  Mark-to-market (Trader.Snapshot) runs every raw tick; Brain.Decide +
-//  Trader.Apply run once per raw tick when aggregation is off, or once per
-//  completed bar when aggregation is on -- this is what makes the
-//  aggregation toggle actually control what the Brain sees.
+//  Trader.Advance (mark-to-market plus SL/TP/stop-out/pending-order-trigger
+//  checks) runs unconditionally every raw tick, regardless of the aggregation
+//  toggle -- those need real intrabar precision. Brain.Decide + Trader.Apply
+//  run once per raw tick when aggregation is off, or once per completed bar
+//  when aggregation is on -- this is what makes the aggregation toggle
+//  actually control what the Brain sees.
 //
 //  Single global instance, like every other *TrainingService singleton in
 //  Poink.ML: one shared in-memory "current run" for the whole process, not
@@ -240,7 +242,7 @@ internal sealed class SimulationEngine : IDisposable
             _cursor = 0;
             _totalCount = totalCount;
             _config = config;
-            _traderSessions = CreateSessions(config.TraderCount, config.StartingCash);
+            _traderSessions = CreateSessions(config.TraderCount, config.StartingCash, BuildTraderSettings(config));
             _aggregator = config.Aggregate
                 ? new SimulationBarAggregator(config.BarSize, PriceBucketWidthFor(config.Table))
                 : null;
@@ -262,10 +264,14 @@ internal sealed class SimulationEngine : IDisposable
             source, config.Table, config.From, config.To, brain.Name, totalCount);
     }
 
-    private static List<TraderSession> CreateSessions(int count, double startingCash) =>
+    private static List<TraderSession> CreateSessions(int count, double startingCash, Trader.TraderSettings settings) =>
         Enumerable.Range(1, Math.Max(1, count))
-            .Select(i => new TraderSession { Id = i, Label = $"Trader {i}", Trader = new Trader.Trader(startingCash) })
+            .Select(i => new TraderSession { Id = i, Label = $"Trader {i}", Trader = new Trader.Trader(startingCash, settings) })
             .ToList();
+
+    private static Trader.TraderSettings BuildTraderSettings(SimulationConfig config) => new(
+        config.Leverage, config.StopOutLevelPercent,
+        new Trader.Commission.PercentOfNotionalCommission(config.CommissionRatePercent));
 
     public bool Play()
     {
@@ -340,7 +346,7 @@ internal sealed class SimulationEngine : IDisposable
             _reader?.Dispose();
             _reader = _openReader();
             _cursor = 0;
-            _traderSessions = CreateSessions(_config.TraderCount, _config.StartingCash);
+            _traderSessions = CreateSessions(_config.TraderCount, _config.StartingCash, BuildTraderSettings(_config));
             _aggregator = _config.Aggregate
                 ? new SimulationBarAggregator(_config.BarSize, PriceBucketWidthFor(_config.Table))
                 : null;
@@ -469,29 +475,46 @@ internal sealed class SimulationEngine : IDisposable
         // in that case, so Brain behavior is unchanged).
         AppendTick(tick);
 
+        // Unconditional every raw tick, independent of the aggregation toggle --
+        // SL/TP, stop-out, and a resting pending order all need real intrabar
+        // precision, not just once-per-decision-point precision. Each session's
+        // resulting CapitalState is carried into DecideAndApply below so
+        // Trader.Snapshot isn't computed a second time for the same tick.
+        var capitalStates = new List<CapitalState>(_traderSessions.Count);
+        foreach (var session in _traderSessions)
+        {
+            var maintenance = session.Trader.Advance(tick.Bid, tick.Ask, tick.Timestamp);
+            capitalStates.Add(maintenance.Capital);
+            foreach (var fill in maintenance.AutomaticFills)
+                AppendLog(session, new SimulationLogEntry(
+                    tick.Timestamp, fill.Action.ToString(), price, fill.Direction, fill.Size, fill.RealizedPnl, fill.Commission, fill.Reason));
+        }
+
         if (_aggregator is not null)
         {
             var completed = _aggregator.Feed(tick);
             if (completed is not null)
             {
                 AppendBar(completed.Value.Bar, completed.Value.Histogram);
-                DecideAndApply(tick.Timestamp, completed.Value.Bar.Close, useBars: true);
+                DecideAndApply(tick.Timestamp, completed.Value.Bar.Close, tick.Bid, tick.Ask, useBars: true, capitalStates);
             }
         }
         else
         {
-            DecideAndApply(tick.Timestamp, price, useBars: false);
+            DecideAndApply(tick.Timestamp, price, tick.Bid, tick.Ask, useBars: false, capitalStates);
         }
     }
 
     // Must be called while holding _lock. Every trader session decides/applies
     // against the same shared _activeBrain instance -- see the TraderSession
-    // doc comment above.
-    private void DecideAndApply(DateTime timestamp, double price, bool useBars)
+    // doc comment above. capitalStates is index-aligned with _traderSessions,
+    // already computed by this tick's Advance call (see AdvanceOneUnitLocked).
+    private void DecideAndApply(DateTime timestamp, double price, double bid, double ask, bool useBars, IReadOnlyList<CapitalState> capitalStates)
     {
-        foreach (var session in _traderSessions)
+        for (int i = 0; i < _traderSessions.Count; i++)
         {
-            var capital = session.Trader.Snapshot(price);
+            var session = _traderSessions[i];
+            var capital = capitalStates[i];
             var observation = new SimulationObservation(
                 timestamp, price,
                 useBars ? _recentBars : Array.Empty<HlocAvdtBar>(),
@@ -500,10 +523,10 @@ internal sealed class SimulationEngine : IDisposable
                 capital, session.Trader.CurrentPosition);
 
             var decision = _activeBrain!.Decide(observation);
-            var execution = session.Trader.Apply(decision, price, timestamp);
+            var execution = session.Trader.Apply(decision, bid, ask, timestamp);
             if (execution is { } exec)
                 AppendLog(session, new SimulationLogEntry(
-                    timestamp, decision.Action.ToString(), price, exec.Direction, exec.Size, exec.RealizedPnl, exec.Reason));
+                    timestamp, exec.Action.ToString(), price, exec.Direction, exec.Size, exec.RealizedPnl, exec.Commission, exec.Reason));
         }
     }
 
@@ -539,9 +562,9 @@ internal sealed class SimulationEngine : IDisposable
                     _config, _isPlaying, _cursor >= _totalCount, _speedMultiplier, _uncapped,
                     _cursor, _totalCount, _lastTimestamp, _lastPrice, _lastBid, _lastAsk,
                     _traderSessions.Select(ts => new TraderSnapshot(
-                        ts.Id, ts.Label, ts.Trader.Snapshot(_lastPrice ?? 0), ts.Trader.CurrentPosition,
+                        ts.Id, ts.Label, ts.Trader.Snapshot(_lastBid ?? 0, _lastAsk ?? 0), ts.Trader.CurrentPosition,
                         ts.Trader.TradeLog.Count, ts.RecentLog.ToList(), ts.Trader.TradeLog.ToList(),
-                        ts.Trader.MaxEquity, ts.Trader.MaxDrawdown)).ToList(),
+                        ts.Trader.MaxEquity, ts.Trader.MaxDrawdown, ts.Trader.Leverage, ts.Trader.StopOutLevelPercent)).ToList(),
                     bars, barHistograms, _recentTicks.ToList());
         }
         Snapshot = snapshot;

@@ -19,6 +19,7 @@ internal sealed class TradeStatistics
     public double BiggestLoss { get; }
     public double AverageWin { get; }
     public double AverageLoss { get; }
+    public double TotalCommission { get; }
     public int BuyCount { get; }
     public int SellCount { get; }
     public TimeSpan TimeInMarket { get; }
@@ -33,7 +34,7 @@ internal sealed class TradeStatistics
 
     private TradeStatistics(
         int winCount, int lossCount, double biggestWin, double biggestLoss,
-        double averageWin, double averageLoss, int buyCount, int sellCount,
+        double averageWin, double averageLoss, double totalCommission, int buyCount, int sellCount,
         TimeSpan timeInMarket, TimeSpan timeInLong, TimeSpan timeInShort,
         TimeSpan averageTimeInLong, TimeSpan averageTimeInShort,
         double maxEquity, double maxDrawdown, int longestWinStreak, int longestLossStreak)
@@ -44,6 +45,7 @@ internal sealed class TradeStatistics
         BiggestLoss = biggestLoss;
         AverageWin = averageWin;
         AverageLoss = averageLoss;
+        TotalCommission = totalCommission;
         BuyCount = buyCount;
         SellCount = sellCount;
         TimeInMarket = timeInMarket;
@@ -88,6 +90,7 @@ internal sealed class TradeStatistics
             losses.Count > 0 ? losses.Min(t => t.RealizedPnl) : 0,
             wins.Count > 0 ? wins.Average(t => t.RealizedPnl) : 0,
             losses.Count > 0 ? losses.Average(t => t.RealizedPnl) : 0,
+            trades.Sum(t => t.Commission),
             longs.Count, shorts.Count,
             Sum(trades), Sum(longs), Sum(shorts),
             Average(longs), Average(shorts),
@@ -115,6 +118,10 @@ internal sealed class TradeStatistics
         {
             new StatItem("Buys (long entries)", BuyCount.ToString("N0")),
             new StatItem("Sells (short entries)", SellCount.ToString("N0")),
+        }),
+        new StatGroup("Costs", new[]
+        {
+            new StatItem("Total commission", Money(TotalCommission), StatEmphasis.Negative),
         }),
         new StatGroup("Time in Market", new[]
         {

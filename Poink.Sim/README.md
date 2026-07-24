@@ -3,7 +3,9 @@
 > Status: **in progress** — heuristic placeholder brains (`MomentumThresholdBrain`,
 > `RandomBrain`) plus a first trained brain (`MlpPolicyBrain`, trained by a
 > reinforcement-learning strategy against simulated episodes, see "Machine-learning
-> brain" below); still no stop-loss/take-profit or spread/commission cost.
+> brain" below); the Trader is now a leveraged CFD account (margin, stop-out,
+> spread, commission, SL/TP, Limit/Stop pending orders) -- still no multiple
+> concurrent positions/pyramiding.
 
 ## What this feature is
 
@@ -17,8 +19,10 @@ A live, interactive replay of historical ticks driven by three pieces:
   whichever the aggregation toggle selects) plus the current Capital/Position, and
   decides whether to hold, enter long/short, or close.
 - **Trader** — applies the Brain's decisions, tracking Capital and one open Position
-  at a time, with simple cash P&L (no leverage/margin: capital moves 1:1 with
-  price × size). This is a CFD-style account, so shorting is a first-class case.
+  (plus at most one resting pending order) at a time, under leveraged CFD
+  mechanics: margin sizing, spread-correct fills (buy at Ask, sell at Bid),
+  pluggable commission, and automatic SL/TP/margin-stop-out closes. This is a
+  CFD-style account, so shorting is a first-class case, not a borrow-based short.
 
 ## Why this is its own project
 
@@ -212,14 +216,9 @@ the network is literally seeing at the moment it decides.
 
 ## Not yet implemented
 
-- **Stop-loss / take-profit.** `Position` and `SimulationDecision` already carry
-  `StopLossPrice`/`TakeProfitPrice` fields; `Trader.Apply` has a marked-but-unimplemented
-  hook (`// SL/TP CHECK`) where auto-close logic slots in later without reworking
-  the shape.
-- **Spread / commission cost.** Trades execute at mid price today; `Tick.Bid`/`Ask`
-  are already available for wiring this in later.
 - **Multiple concurrent positions / pyramiding.** v1 allows only one open position
-  at a time; reversing direction requires an explicit `Close` first.
+  (and at most one resting pending order) at a time; reversing direction requires
+  an explicit `Close` first.
 
 ## Using it
 
@@ -255,14 +254,16 @@ Organized by role rather than one flat feature folder:
 | folder | file | role |
 |---|---|---|
 | `Models/` | `HlocAvdtBar.cs` | this project's own copy of Poink.ML's HLOC/AVDT bar shape |
-| `Models/` | `SimulationAccount.cs` | `Position`/`CapitalState`/`Trade` domain shapes (simple cash P&L) |
-| `Models/` | `SimulationDecision.cs` | `SimulationAction`/`SimulationDecision`/`SimulationObservation` — the Brain's observe/decide data shapes |
+| `Models/` | `SimulationAccount.cs` | `Position`/`CapitalState`/`Trade`/`TradeExecution`/`MaintenanceResult` domain shapes (leveraged CFD account) |
+| `Models/` | `SimulationDecision.cs` | `SimulationAction`/`OrderType`/`SimulationDecision`/`SimulationObservation` — the Brain's observe/decide data shapes |
 | `Models/` | `SimulationSnapshot.cs` | `SimulationConfig`/`SimulationSnapshot`/`SimulationLogEntry` read-model |
 | `Brain/` | `ISimulationBrain.cs` | brain contract |
 | `Brain/` | `MomentumThresholdBrain.cs` | heuristic placeholder brain (percent-change threshold) |
 | `Brain/Neural/` | `IPolicyGradientBrain.cs` | trained-brain family contract (sibling to `ISimulationBrain`): `Network`, `Encode`, `DecideWithLogProbability`, `DescribeInputs`; also declares `RlInputFeature` |
 | `Brain/Neural/` | `MlpPolicyBrain.cs` | first concrete network — small MLP over a price window + capital/position ratios |
-| `Trader/` | `Trader.cs` | applies decisions to Capital/Position, computes P&L |
+| `Trader/` | `Trader.cs`, `TraderSettings.cs` | leveraged CFD account engine (`Apply`/`Advance`) + its settings bundle (leverage/stop-out/commission) |
+| `Trader/Commission/` | `ICommissionModel.cs`, `PercentOfNotionalCommission.cs` | pluggable per-fill commission cost |
+| `Trader/Orders/` | `PendingOrder.cs` | a resting Limit/Stop entry order |
 | `Simulation/` | `SimulationBarAggregator.cs` | incremental (stateful) tick → HLOC/AVDT bar aggregator |
 | `Simulation/` | `SimulationEngine.cs` | orchestrating singleton: playback timer + MarketSim + Aggregator + Brain + Trader |
 | `Simulation/` | `DummyTickGenerator.cs` | synthetic random-walk ticks, shared by "Load Dummy Data" and `RlEpisodeRunner` |
@@ -303,4 +304,5 @@ Organized by role rather than one flat feature folder:
 - [ ] Weight persistence, continuous position sizing, reward shaping, additional RL strategies (see "Machine-learning brain")
 - [x] Train against real historical ticks, not just synthetic episodes — `RlTrainingService` loads a table/date-range once from `ITickRepository` and windows it randomly per episode; `TrainPage` toggles dummy vs. historic
 - [ ] Swappable reward policy (`IRewardPolicy`, same DI-registered-family pattern as brains/strategies) instead of the hard-coded equity-delta line in `RlEpisodeRunner.RecordStep`
-- [ ] Stop-loss/take-profit, spread/commission cost (see "Not yet implemented")
+- [x] Full CFD capability — leverage, margin (used/free/level), spread-correct fills, pluggable commission (`ICommissionModel`), margin-call stop-out, and live SL/TP auto-close (`Trader.Advance`, run unconditionally every raw tick)
+- [x] Limit/Stop pending entry orders (`SimulationDecision.OrderType`/`TriggerPrice`, `Trader.CurrentPendingOrder`) — see GLOSSARY.md "Pending order (Limit / Stop)"

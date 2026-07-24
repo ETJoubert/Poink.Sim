@@ -139,8 +139,17 @@ export function create(container) {
     const windowLine = createVerticalLinePrimitive(accentColor);
     candleSeries.attachPrimitive(windowLine);
 
+    // Same theme-aware var pair drawableOhlcvChart.js uses for its own reference lines.
+    const style = getComputedStyle(container);
+    const slColor = style.getPropertyValue('--color-error').trim() || downColor;
+    const tpColor = style.getPropertyValue('--color-success').trim() || upColor;
+
     const id = crypto.randomUUID();
-    instances.set(id, { chart, candleSeries, volumeSeries, markersPrimitive, tooltip, windowLine, bidLine: null, askLine: null });
+    instances.set(id, {
+        chart, candleSeries, volumeSeries, markersPrimitive, tooltip, windowLine,
+        bidLine: null, askLine: null, slLine: null, tpLine: null, entryLine: null,
+        slColor, tpColor, entryColor: accentColor,
+    });
     return id;
 }
 
@@ -187,7 +196,23 @@ export function setCurrentPrices(id, bid, ask) {
     entry.askLine = updatePriceLine(entry.candleSeries, entry.askLine, ask, upColor, 'ASK');
 }
 
-function updatePriceLine(series, line, price, color, title) {
+// Selected trader's open position: entry price (solid, so it reads as "where you
+// are" against SL/TP's dashed "where it'll auto-close") plus SL/TP -- updated in
+// place the same way as setCurrentPrices, but only moves when the position
+// opens/closes/changes, not every tick. entryPrice/stopLoss/takeProfit each null
+// independently removes just that line (flat, or a position missing that field).
+export function setPositionLevels(id, entryPrice, isLong, stopLoss, takeProfit) {
+    const entry = instances.get(id);
+    if (!entry) return;
+
+    const entryTitle = isLong == null ? 'ENTRY' : (isLong ? 'LONG' : 'SHORT');
+    entry.entryLine = updatePriceLine(
+        entry.candleSeries, entry.entryLine, entryPrice, entry.entryColor, entryTitle, LightweightCharts.LineStyle.Solid);
+    entry.slLine = updatePriceLine(entry.candleSeries, entry.slLine, stopLoss, entry.slColor, 'SL');
+    entry.tpLine = updatePriceLine(entry.candleSeries, entry.tpLine, takeProfit, entry.tpColor, 'TP');
+}
+
+function updatePriceLine(series, line, price, color, title, lineStyle = LightweightCharts.LineStyle.Dashed) {
     if (price == null) {
         if (line) series.removePriceLine(line);
         return null;
@@ -199,7 +224,7 @@ function updatePriceLine(series, line, price, color, title) {
     return series.createPriceLine({
         price, color, title,
         lineWidth: 1,
-        lineStyle: LightweightCharts.LineStyle.Dashed,
+        lineStyle,
         axisLabelVisible: true,
     });
 }

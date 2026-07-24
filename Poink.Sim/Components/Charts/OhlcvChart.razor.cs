@@ -19,6 +19,10 @@ namespace Poink.Sim.Components.Charts
         [Parameter] public List<PredictedBar> Predicted { get; set; } = new();
         [Parameter] public double? CurrentBid { get; set; }
         [Parameter] public double? CurrentAsk { get; set; }
+        [Parameter] public double? EntryPrice { get; set; }
+        [Parameter] public bool? PositionIsLong { get; set; }
+        [Parameter] public double? StopLossPrice { get; set; }
+        [Parameter] public double? TakeProfitPrice { get; set; }
         [Parameter] public DateTime? WindowStartUtc { get; set; }
 
         private ElementReference _containerRef;
@@ -28,6 +32,10 @@ namespace Poink.Sim.Components.Charts
         private List<PredictedBar>? _renderedPredicted;
         private double? _renderedBid;
         private double? _renderedAsk;
+        private double? _renderedEntryPrice;
+        private bool? _renderedPositionIsLong;
+        private double? _renderedStopLoss;
+        private double? _renderedTakeProfit;
         private DateTime? _renderedWindowStart;
         private bool _expanded;
         private bool _disposed;
@@ -84,6 +92,21 @@ namespace Poink.Sim.Components.Charts
                     _renderedBid = CurrentBid;
                     _renderedAsk = CurrentAsk;
                     await _module.InvokeVoidAsync("setCurrentPrices", _chartId, CurrentBid, CurrentAsk);
+                }
+
+                if (_disposed) return;
+
+                // Selected trader's open position entry/SL/TP -- gated separately since it
+                // only moves when the position opens/closes/changes, not every tick like Bid/Ask.
+                if (_module is not null && _chartId is not null &&
+                    (_renderedEntryPrice != EntryPrice || _renderedPositionIsLong != PositionIsLong ||
+                     _renderedStopLoss != StopLossPrice || _renderedTakeProfit != TakeProfitPrice))
+                {
+                    _renderedEntryPrice = EntryPrice;
+                    _renderedPositionIsLong = PositionIsLong;
+                    _renderedStopLoss = StopLossPrice;
+                    _renderedTakeProfit = TakeProfitPrice;
+                    await _module.InvokeVoidAsync("setPositionLevels", _chartId, EntryPrice, PositionIsLong, StopLossPrice, TakeProfitPrice);
                 }
 
                 if (_disposed) return;

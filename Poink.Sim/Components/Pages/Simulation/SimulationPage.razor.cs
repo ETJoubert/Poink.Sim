@@ -35,6 +35,12 @@ namespace Poink.Sim.Components.Pages
         private string _brainName = "";
         private double _startingCash = 10_000;
         private int _traderCount = 1;
+
+        // ── Trader (CFD account) controls ──
+        private double _leverage = 1;
+        private double _commissionRatePercent = 0;
+        private double _stopOutLevelPercent = 50;
+
         private string? _loadError;
 
         // ── Live state (mirrors the service) ──
@@ -104,6 +110,15 @@ namespace Poink.Sim.Components.Pages
                 : _snapshot.Traders.FirstOrDefault(t => t.Id == _selectedTraderId) ?? _snapshot.Traders.FirstOrDefault();
 
         private void SelectTrader(int id) => _selectedTraderId = id;
+
+        // null while flat -- distinguishes the chart's entry-price line's LONG/SHORT
+        // label (OhlcvChart doesn't otherwise depend on Poink.Sim.Models' PositionDirection).
+        private bool? SelectedPositionIsLong => SelectedTrader?.Position?.Direction switch
+        {
+            PositionDirection.Long => true,
+            PositionDirection.Short => false,
+            null => null,
+        };
 
         // ── Lifecycle ──
 
@@ -259,16 +274,33 @@ namespace Poink.Sim.Components.Pages
             { _loadError = "pick a brain"; return; }
             if (_startingCash <= 0)
             { _loadError = "starting cash must be positive"; return; }
+            if (!ValidateTraderAccountParams())
+                return;
             if (!int.TryParse(_barMinutesText, out var barMinutes) || barMinutes < 1)
                 barMinutes = 1;
             if (_traderCount < 1)
                 _traderCount = 1;
 
             var config = new SimulationConfig(
-                _table, _from, _to, _aggregate, TimeSpan.FromMinutes(barMinutes), _brainName, _startingCash, _traderCount);
+                _table, _from, _to, _aggregate, TimeSpan.FromMinutes(barMinutes), _brainName, _startingCash, _traderCount,
+                _leverage, _stopOutLevelPercent, _commissionRatePercent);
 
             if (!Service.TryLoad(config))
                 _loadError = "a load is already in progress";
+        }
+
+        // Shared by LoadSimulation/LoadDummySimulation -- sets _loadError itself
+        // (matching those callers' own inline-validation style) so both can just
+        // early-return on false.
+        private bool ValidateTraderAccountParams()
+        {
+            if (_leverage < 1)
+            { _loadError = "leverage must be at least 1"; return false; }
+            if (_commissionRatePercent < 0)
+            { _loadError = "commission rate can't be negative"; return false; }
+            if (_stopOutLevelPercent <= 0 || _stopOutLevelPercent > 100)
+            { _loadError = "stop-out level must be between 0 and 100%"; return false; }
+            return true;
         }
 
         // Skips Postgres entirely (synthetic random-walk ticks) so the playback UI
@@ -282,6 +314,8 @@ namespace Poink.Sim.Components.Pages
             { _loadError = "pick a brain"; return; }
             if (_startingCash <= 0)
             { _loadError = "starting cash must be positive"; return; }
+            if (!ValidateTraderAccountParams())
+                return;
             if (!int.TryParse(_barMinutesText, out var barMinutes) || barMinutes < 1)
                 barMinutes = 1;
             if (_traderCount < 1)
@@ -292,7 +326,8 @@ namespace Poink.Sim.Components.Pages
             var table = string.IsNullOrWhiteSpace(_table) ? "DUMMY" : _table;
 
             var config = new SimulationConfig(
-                table, from, to, _aggregate, TimeSpan.FromMinutes(barMinutes), _brainName, _startingCash, _traderCount);
+                table, from, to, _aggregate, TimeSpan.FromMinutes(barMinutes), _brainName, _startingCash, _traderCount,
+                _leverage, _stopOutLevelPercent, _commissionRatePercent);
 
             if (!Service.TryLoadDummy(config))
                 _loadError = "a load is already in progress";
@@ -380,7 +415,8 @@ namespace Poink.Sim.Components.Pages
         // Plain doubles (not pre-formatted strings) so the copied DataTable's own
         // N2 formatting applies -- CellClass below colors Realized/Unrealized by sign.
         private sealed record TraderCardItem(
-            int Id, string Trader, double Cash, double Realized, double Unrealized, double Equity, string Position, int Trades);
+            int Id, string Trader, double Cash, double Realized, double Unrealized, double Equity,
+            double MarginUsed, double? MarginLevel, string Position, int Trades);
 
         private List<TraderCardItem> TraderItems =>
             _snapshot is null
@@ -388,7 +424,8 @@ namespace Poink.Sim.Components.Pages
                 : _snapshot.Traders
                     .Select(t => new TraderCardItem(
                         t.Id, t.Label, t.Capital.Cash, t.Capital.RealizedPnl, t.Capital.UnrealizedPnl,
-                        t.Capital.Equity, t.Position is null ? "flat" : t.Position.Value.Direction.ToString(), t.TradeCount))
+                        t.Capital.Equity, t.Capital.MarginUsed, t.Capital.MarginLevel,
+                        t.Position is null ? "flat" : t.Position.Value.Direction.ToString(), t.TradeCount))
                     .ToList();
 
         // Returns DataTable's own scoped color classes (its CSS is isolated to that
@@ -411,7 +448,7 @@ namespace Poink.Sim.Components.Pages
         // DataTable's own N2 formatting applies -- DecisionLogCellClass below colors it by
         // sign, same pattern as TraderCardItem/TraderCellClass above.
         private sealed record DecisionLogRow(
-            string Time, string Action, string Direction, string Size, string Price, double? RealizedPnl, string Reason);
+            string Time, string Action, string Direction, string Size, string Price, double? RealizedPnl, double Commission, string Reason);
 
         private static string FormatLogAction(string action) => action switch
         {
@@ -427,7 +464,7 @@ namespace Poink.Sim.Components.Pages
                 : trader.RecentLog
                     .Select(l => new DecisionLogRow(
                         l.TimestampUtc.ToString("HH:mm:ss"), FormatLogAction(l.Action), l.Direction.ToString(),
-                        l.Size.ToString("F4"), l.Price.ToString("F5"), l.RealizedPnl, l.Reason ?? ""))
+                        l.Size.ToString("F4"), l.Price.ToString("F5"), l.RealizedPnl, l.Commission, l.Reason ?? ""))
                     .Reverse()
                     .ToList();
 
@@ -470,7 +507,7 @@ namespace Poink.Sim.Components.Pages
                     new OpenPositionRow(
                         pos.Direction.ToString(), pos.Size.ToString("F4"), pos.EntryPrice.ToString("F5"),
                         pos.EntryTime.ToString("HH:mm:ss"),
-                        _snapshot?.CurrentPrice is { } price ? pos.UnrealizedPnl(price) : null),
+                        _snapshot?.CurrentBid is { } bid && _snapshot?.CurrentAsk is { } ask ? pos.UnrealizedPnl(bid, ask) : null),
                 };
     }
 }

@@ -5,6 +5,8 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Poink.Sim.Brain.Neural;
 using Poink.Sim.Repository;
+using Poink.Sim.Trader;
+using Poink.Sim.Trader.Commission;
 using Poink.Sim.Training;
 
 namespace Poink.Sim.Components.Pages
@@ -66,6 +68,9 @@ namespace Poink.Sim.Components.Pages
 
         // ── Trader Controls ──
         private double _startingCash = 10_000;
+        private double _leverage = 1;
+        private double _commissionRatePercent = 0;
+        private double _stopOutLevelPercent = 50;
 
         private string? _startError;
 
@@ -221,8 +226,14 @@ namespace Poink.Sim.Components.Pages
             if (_startingCash <= 0) { _startError = "starting cash must be positive"; return false; }
             if (_learningRate <= 0) { _startError = "learning rate must be positive"; return false; }
             if (_volumeProfileLookbackBars < 1) { _startError = "volume profile lookback must be at least 1 bar"; return false; }
+            if (_leverage < 1) { _startError = "leverage must be at least 1"; return false; }
+            if (_commissionRatePercent < 0) { _startError = "commission rate can't be negative"; return false; }
+            if (_stopOutLevelPercent <= 0 || _stopOutLevelPercent > 100) { _startError = "stop-out level must be between 0 and 100%"; return false; }
             return true;
         }
+
+        private TraderSettings CurrentTraderSettings => new(
+            _leverage, _stopOutLevelPercent, new PercentOfNotionalCommission(_commissionRatePercent));
 
         // Historic: each episode streams its own randomly-windowed slice of the
         // selected symbol/range straight from Postgres.
@@ -235,7 +246,7 @@ namespace Poink.Sim.Components.Pages
 
             if (!Service.TryStartTraining(
                     _brainName, _strategyName, _episodeCount, _episodeBars, _barWidthMinutes, _startingCash, _learningRate,
-                    _volumeProfileLookbackBars, (_table, _from, _to)))
+                    _volumeProfileLookbackBars, (_table, _from, _to), CurrentTraderSettings))
                 _startError = Service.Error ?? "a training run is already in progress";
         }
 
@@ -256,7 +267,8 @@ namespace Poink.Sim.Components.Pages
             if (string.IsNullOrWhiteSpace(_saveName)) return;
 
             if (Service.SaveBrain(_saveName, _brainName, _strategyName, CurrentDatasetDescription,
-                    _episodeCount, _episodeBars, _barWidthMinutes, _startingCash, _learningRate, _volumeProfileLookbackBars))
+                    _episodeCount, _episodeBars, _barWidthMinutes, _startingCash, _learningRate, _volumeProfileLookbackBars,
+                    CurrentTraderSettings))
             {
                 _saveName = "";
                 _showSaveInput = false;

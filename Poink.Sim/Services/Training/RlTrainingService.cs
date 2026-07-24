@@ -172,7 +172,8 @@ internal sealed class RlTrainingService
     // episodes.
     public bool TryStartTraining(
         string brainName, string strategyName, int episodeCount, int episodeBars, int barWidthMinutes, double startingCash,
-        double learningRate, int volumeProfileLookbackBars, (string Table, DateTime From, DateTime To)? historicRange)
+        double learningRate, int volumeProfileLookbackBars, (string Table, DateTime From, DateTime To)? historicRange,
+        Trader.TraderSettings? traderSettings = null)
     {
         var brain = _brainRegistry.All.FirstOrDefault(b => b.Name == brainName);
         var strategy = _strategies.FirstOrDefault(s => s.Name == strategyName);
@@ -251,7 +252,7 @@ internal sealed class RlTrainingService
                         ? RandomEpisodeWindow(episodeRange.Table, episodeRange.From, episodeRange.To, fetchSpan, rng)
                         : DummyTickGenerator.Generate(DateTime.UtcNow - fetchSpan, DateTime.UtcNow, syntheticTickCount);
 
-                    var result = RlEpisodeRunner.Run(brain, episodeTicks, startingCash, episodeBars, barWidth);
+                    var result = RlEpisodeRunner.Run(brain, episodeTicks, startingCash, episodeBars, barWidth, settings: traderSettings);
                     double reward = strategy.TrainEpisode(brain, optimizer, result);
 
                     recentRewards.Enqueue(reward);
@@ -399,7 +400,7 @@ internal sealed class RlTrainingService
     public bool SaveBrain(
         string savedName, string brainName, string strategyName, string dataset,
         int episodeCount, int episodeBars, int barWidthMinutes, double startingCash, double learningRate,
-        int volumeProfileLookbackBars)
+        int volumeProfileLookbackBars, Trader.TraderSettings? traderSettings = null)
     {
         var brain = _brainRegistry.All.OfType<IPolicyGradientBrain>().FirstOrDefault(b => b.Name == brainName);
         if (brain is null)
@@ -418,11 +419,14 @@ internal sealed class RlTrainingService
         try
         {
             var weights = brain.ExportWeights();
+            var settings = traderSettings ?? new Trader.TraderSettings();
             var parameters = new BrainTrainingParameters
             {
                 EpisodeCount = episodeCount, EpisodeBars = episodeBars, BarWidthMinutes = barWidthMinutes,
                 StartingCash = startingCash, LearningRate = learningRate,
                 LookbackBars = brain is IHasLookbackBars ? volumeProfileLookbackBars : null,
+                Leverage = settings.Leverage, StopOutLevelPercent = settings.StopOutLevelPercent,
+                CommissionRatePercent = settings.CommissionModel is Trader.Commission.PercentOfNotionalCommission p ? p.RatePercent : 0,
             };
             long id = _brainRepository.SaveBrain(savedName, brainName, strategyName, dataset, parameters, brain.WeightCount(), RecentAverageReward, weights);
             _activeSnapshotId[brainName] = id;

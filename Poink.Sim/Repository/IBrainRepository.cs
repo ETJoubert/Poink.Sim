@@ -40,6 +40,14 @@ public sealed class BrainTrainingParameters
     // comment on why that deserializes cleanly).
     public int? LookbackBars { get; set; }
 
+    // CFD account settings the run trained under -- default to pre-CFD
+    // behavior (1x, no stop-out risk, no commission) for any snapshot saved
+    // before these fields existed, same deserialization-tolerance reasoning
+    // as the rest of this class.
+    public double Leverage { get; set; } = 1.0;
+    public double StopOutLevelPercent { get; set; } = 50.0;
+    public double CommissionRatePercent { get; set; }
+
     // Single shared display format -- both the Train page's Saved Brains table
     // and SimulationPage's Brain info card show this, and duplicating the
     // format string between them would drift. InvariantCulture because this
@@ -47,7 +55,8 @@ public sealed class BrainTrainingParameters
     // the same concern) -- "cash=1,000" must never render as "cash=1 000".
     public override string ToString() =>
         string.Create(CultureInfo.InvariantCulture,
-            $"episodes={EpisodeCount} bars={EpisodeBars}@{BarWidthMinutes}m cash={StartingCash:N0} lr={LearningRate:G3}{(LookbackBars is { } lookback ? $" lookback={lookback}" : "")}");
+            $"episodes={EpisodeCount} bars={EpisodeBars}@{BarWidthMinutes}m cash={StartingCash:N0} lr={LearningRate:G3}" +
+            $" lev={Leverage:G3}x commission={CommissionRatePercent:G3}%{(LookbackBars is { } lookback ? $" lookback={lookback}" : "")}");
 }
 
 // Everything about a saved snapshot except the weights themselves, which are

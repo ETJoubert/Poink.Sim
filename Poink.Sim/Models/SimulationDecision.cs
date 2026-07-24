@@ -11,13 +11,26 @@ namespace Poink.Sim.Models;
 
 internal enum SimulationAction { Hold, EnterLong, EnterShort, Close }
 
-// CapitalFraction: 0..1 of current Cash to commit on Enter*; ignored for Hold/Close.
-// StopLossPrice/TakeProfitPrice: reserved for the future stop-loss/take-profit
-// extension (Trader does not act on them yet -- see Trader.cs). Reason: short
-// text shown in the trade/decision log.
+// Market: fill immediately (today's only behavior). Limit: fill at TriggerPrice
+// or better (Buy Limit waits for price to fall to it, Sell Limit for it to
+// rise). Stop: fill once price breaks through TriggerPrice (breakout entry).
+// Deliberately not a new SimulationAction member -- see OrderType usage below.
+internal enum OrderType { Market, Limit, Stop }
+
+// CapitalFraction: 0..1 of current Cash to commit as margin on Enter*; ignored
+// for Hold/Close. StopLossPrice/TakeProfitPrice: auto-close trigger levels for
+// the resulting position, acted on every tick by Trader.Advance. OrderType/
+// TriggerPrice: null/Market (the default) opens immediately as today; Limit/
+// Stop with a TriggerPrice queues a pending order instead -- kept as fields on
+// EnterLong/EnterShort rather than new SimulationAction members because the
+// neural brains' output layer is hardwired to one logit per SimulationAction
+// (see MlpArchitecture/LstmArchitecture's ActionCount=4), so growing the enum
+// would break every already-trained network's weights. Reason: short text
+// shown in the trade/decision log.
 internal readonly record struct SimulationDecision(
     SimulationAction Action, double CapitalFraction = 0,
-    double? StopLossPrice = null, double? TakeProfitPrice = null, string? Reason = null);
+    double? StopLossPrice = null, double? TakeProfitPrice = null,
+    OrderType? OrderType = null, double? TriggerPrice = null, string? Reason = null);
 
 // What the Brain is allowed to see at one decision point: one raw tick
 // (aggregation off) or one just-completed bar (aggregation on). RecentBars/

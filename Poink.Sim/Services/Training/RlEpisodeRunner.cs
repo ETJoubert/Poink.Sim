@@ -16,12 +16,11 @@
 //  larger window into memory for nothing.
 //
 //  Reward per decision point = equity drift since the *previous* decision
-//  point, marked at the same price both times a position is opened/closed
-//  (Trader.Open/Close never jump Cash at the entry/exit instant -- P&L only
-//  shows up as the mark price moves against an already-open position). So
-//  the reward has to be "equity now vs. equity last time we looked", not
-//  "equity before vs. after this one Apply call" (which is always exactly
-//  zero) -- previousEquity below carries that running baseline forward.
+//  point -- previousEquity carries the running equity baseline forward
+//  regardless of source, so a commission charge, a mark-to-market move, or an
+//  automatic Trader.Advance fill (SL/TP/stop-out/pending-trigger) between
+//  decision points all show up correctly in the next reward, not just what
+//  this one Apply call did.
 // ─────────────────────────────────────────────────────────────────────────
 using System;
 using System.Collections.Generic;
@@ -47,9 +46,9 @@ internal static class RlEpisodeRunner
 
     public static RlEpisode Run(
         ISimulationBrain brain, IEnumerable<Tick> ticks, double startingCash,
-        int episodeBars, TimeSpan barSize, bool aggregate = true)
+        int episodeBars, TimeSpan barSize, bool aggregate = true, Trader.TraderSettings? settings = null)
     {
-        var trader = new Trader.Trader(startingCash);
+        var trader = new Trader.Trader(startingCash, settings);
         var aggregator = aggregate ? new SimulationBarAggregator(barSize, PriceBucketWidth) : null;
 
         var recentBars = new List<HlocAvdtBar>();
@@ -57,17 +56,26 @@ internal static class RlEpisodeRunner
         var recentTicks = new List<Tick>();
         var steps = new List<RlStep>();
 
-        double lastPrice = 0;
+        double lastBid = 0, lastAsk = 0;
         double previousEquity = startingCash;
         int completedBars = 0;
         SimulationObservation? lastObservation = null;
         foreach (var tick in ticks)
         {
             double price = (tick.Bid + tick.Ask) / 2.0;
-            lastPrice = price;
+            lastBid = tick.Bid;
+            lastAsk = tick.Ask;
 
             recentTicks.Add(tick);
             if (recentTicks.Count > MaxRecentTicks) recentTicks.RemoveAt(0);
+
+            // Unconditional every tick, independent of the aggregation toggle --
+            // see SimulationEngine.AdvanceOneUnitLocked for the same reasoning.
+            // Automatic fills (SL/TP/stop-out/pending-trigger) need no separate
+            // RlStep -- they land in trader.TradeLog for free via Advance's
+            // internal Open/Close reuse, and the next decision point's reward
+            // naturally absorbs whatever equity drift they caused.
+            var maintenance = trader.Advance(tick.Bid, tick.Ask, tick.Timestamp);
 
             if (aggregator is not null)
             {
@@ -79,8 +87,8 @@ internal static class RlEpisodeRunner
                     recentBarHistograms.Add(completed.Value.Histogram);
                     if (recentBarHistograms.Count > MaxRecentBars) recentBarHistograms.RemoveAt(0);
                     (previousEquity, lastObservation) = RecordStep(
-                        brain, trader, tick.Timestamp, completed.Value.Bar.Close, recentBars, Array.Empty<Tick>(),
-                        recentBarHistograms, steps, previousEquity);
+                        brain, trader, tick.Timestamp, completed.Value.Bar.Close, tick.Bid, tick.Ask, maintenance.Capital,
+                        recentBars, Array.Empty<Tick>(), recentBarHistograms, steps, previousEquity);
 
                     // Episode length is enforced in bars, not by however many ticks the
                     // caller happened to supply -- it only needs to supply "enough"
@@ -91,8 +99,8 @@ internal static class RlEpisodeRunner
             else
             {
                 (previousEquity, lastObservation) = RecordStep(
-                    brain, trader, tick.Timestamp, price, Array.Empty<HlocAvdtBar>(), recentTicks,
-                    Array.Empty<BarPriceHistogram>(), steps, previousEquity);
+                    brain, trader, tick.Timestamp, price, tick.Bid, tick.Ask, maintenance.Capital,
+                    Array.Empty<HlocAvdtBar>(), recentTicks, Array.Empty<BarPriceHistogram>(), steps, previousEquity);
             }
         }
 
@@ -102,18 +110,18 @@ internal static class RlEpisodeRunner
             ? describableBrain.DescribeInputs(observation)
             : null;
 
-        return new RlEpisode(steps, trader.Snapshot(lastPrice), lastInputs, trader.TradeLog, trader.MaxEquity, trader.MaxDrawdown);
+        return new RlEpisode(steps, trader.Snapshot(lastBid, lastAsk), lastInputs, trader.TradeLog, trader.MaxEquity, trader.MaxDrawdown);
     }
 
     // Returns the post-decision equity (threaded in as the next call's previousEquity)
     // and the observation this step decided from (so the caller can describe the
-    // episode's final inputs once the loop ends).
+    // episode's final inputs once the loop ends). capitalNow is this tick's
+    // already-computed Advance result, so Trader.Snapshot isn't called twice.
     private static (double Equity, SimulationObservation Observation) RecordStep(
-        ISimulationBrain brain, Trader.Trader trader, DateTime timestamp, double price,
+        ISimulationBrain brain, Trader.Trader trader, DateTime timestamp, double price, double bid, double ask, CapitalState capitalNow,
         IReadOnlyList<HlocAvdtBar> bars, IReadOnlyList<Tick> ticks, IReadOnlyList<BarPriceHistogram> barHistograms,
         List<RlStep> steps, double previousEquity)
     {
-        var capitalNow = trader.Snapshot(price);
         double reward = capitalNow.Equity - previousEquity;
         var observation = new SimulationObservation(
             timestamp, price, bars, ticks, barHistograms, capitalNow, trader.CurrentPosition);
@@ -131,8 +139,8 @@ internal static class RlEpisodeRunner
             decision = brain.Decide(observation);
         }
 
-        trader.Apply(decision, price, timestamp);
-        var capitalAfter = trader.Snapshot(price);
+        trader.Apply(decision, bid, ask, timestamp);
+        var capitalAfter = trader.Snapshot(bid, ask);
         steps.Add(new RlStep(decision.Action, logProbability, reward));
         return (capitalAfter.Equity, observation);
     }
