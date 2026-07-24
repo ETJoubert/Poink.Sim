@@ -10,9 +10,11 @@ const upColor = '#4dff88';
 const downColor = '#ff5f56';
 
 // How close (in bars) the visible left edge has to get to the start of the
-// currently loaded data before a backfill request fires -- matches the threshold
-// used by lightweight-charts' own infinite-history examples.
-const nearStartThreshold = 10;
+// currently loaded data before a backfill request fires -- kept generous (well
+// above lightweight-charts' own infinite-history examples, which use ~10) so the
+// next chunk's round trip finishes before the user actually pans/zooms to the
+// loaded edge, instead of only starting once they're already there.
+const nearStartThreshold = 50;
 
 // Hand-rolled Series Primitive drawing an arbitrary set of dashed vertical lines, each
 // in its own colour -- same technique ohlcvChart.js's single-purpose window-start

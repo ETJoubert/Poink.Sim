@@ -90,6 +90,8 @@
                                     HasVolumeRange="_volumeRangeStart is not null" OnVolumeRangeCleared="ClearVolumeRange"
                                     OnDrawFinished="FinishDrawing" />
             </div>
+            <div class="prof-chart-divider" @ref="_chartDividerRef" data-min-width="200" data-max-width="320"
+                 title="Drag to resize"></div>
             <div class="prof-chart-side">
                 <div class="prof-vp"
                      title="@((VolumeRangeLabel() is { } label

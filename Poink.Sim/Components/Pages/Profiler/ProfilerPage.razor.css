@@ -202,10 +202,16 @@
     min-width: 0;
 }
 
+/* Dragged via .prof-chart-divider below, which sets this panel's width directly --
+   flex-basis has to stay auto here (rather than the usual "flex: 0 0 260px" shorthand)
+   so that inline width actually governs sizing instead of being overridden by a fixed
+   flex-basis. Shrinking/growing this panel just gives/takes space from .prof-chart-main
+   via its own flex: 1/min-width: 0 -- same pattern as SimulationPage's .sim-chart-side. */
 .prof-chart-side {
     display: flex;
     flex-direction: column;
-    flex: 0 0 260px;
+    flex: 0 0 auto;
+    width: 260px;
     min-width: 200px;
     max-width: 320px;
     overflow-y: auto;
@@ -214,6 +220,48 @@
 .prof-vp {
     flex: 1 1 auto;
     min-height: 0;
+}
+
+/* ── Draggable divider between the two charts -- same subtle inset-line styling
+   and pointer-drag hit area as SimulationPage's own .sim-chart-divider (see
+   ProfilerPage.razor.cs's ChartHDividerScript's bind for the drag logic that
+   resizes .prof-chart-side). ──────────────────────────────────────────────── */
+
+.prof-chart-divider {
+    position: relative;
+    flex: 0 0 6px;
+    align-self: stretch;
+    /* .prof-chart's own 16px gap now applies on both sides of this divider too
+       (one gap became two) -- these negative margins claw most of that back so
+       the total space between the two charts stays close to the original
+       single-gap width. */
+    margin: 0 -10px;
+    cursor: col-resize;
+    touch-action: none;
+    user-select: none;
+    border-radius: 3px;
+}
+
+.prof-chart-divider::before {
+    content: "";
+    position: absolute;
+    top: 15%;
+    bottom: 15%;
+    left: 50%;
+    width: 1px;
+    transform: translateX(-50%);
+    background: color-mix(in srgb, var(--color-primary) 20%, transparent);
+    transition: background 0.2s ease;
+}
+
+.prof-chart-divider:hover,
+.prof-chart-divider.prof-chart-divider-active {
+    background: color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+.prof-chart-divider:hover::before,
+.prof-chart-divider.prof-chart-divider-active::before {
+    background: var(--color-primary);
 }
 
 /* ── Draggable divider between the chart row and everything below it -- same
@@ -556,9 +604,10 @@
         max-height: 240px;
     }
 
-    /* Stacked layout has nothing horizontal left for the hdivider to resize
+    /* Stacked layout has nothing horizontal left for either divider to resize
        meaningfully against -- same reasoning as SimulationPage's own
-       .sim-chart-divider (the vertical one) at this breakpoint. */
+       .sim-chart-divider at this breakpoint. */
+    .prof-chart-divider,
     .prof-chart-hdivider {
         display: none;
     }

@@ -194,17 +194,49 @@ namespace Poink.Sim.Components.Pages
 
         private IEnumerable<Drawing> AllDrawings() => _drawings.Append(_pending);
 
-        // ── Chart-row/drawings-panel divider (drag to resize .prof-chart's height) --
-        // same pattern as SimulationPage's chart-row/log-panel divider (see its
-        // ChartDividerScript's bindHeight), just this page's own copy since neither page
-        // shares code-behind. Purely a client-side layout preference -- nothing here
-        // round-trips back into .NET state, so no [JSInvokable]/DotNetObjectReference is
-        // needed, just eval + dispose. ──────────────────────────────────────────────────
+        // ── Chart/volume-profile divider (drag to resize .prof-chart-side), and
+        // chart-row/drawings-panel divider (drag to resize .prof-chart's height) --
+        // same pattern as SimulationPage's own two dividers (see its
+        // ChartDividerScript's bind/bindHeight), just this page's own copy since
+        // neither page shares code-behind. Purely a client-side layout preference --
+        // nothing here round-trips back into .NET state, so no [JSInvokable]/
+        // DotNetObjectReference is needed, just eval + dispose. ────────────────────
+        private ElementReference _chartDividerRef;
         private ElementReference _chartHDividerRef;
         private IJSObjectReference? _dividerResizeInstance;
 
         private const string ChartHDividerScript = """
             (function() {
+                function bind(divider) {
+                    if (!divider || divider.dataset.bound) return;
+                    divider.dataset.bound = '1';
+                    var minWidth = parseInt(divider.dataset.minWidth, 10) || 200;
+                    var maxWidth = parseInt(divider.dataset.maxWidth, 10) || 320;
+                    divider.addEventListener('pointerdown', function(e) {
+                        e.preventDefault();
+                        var side = divider.nextElementSibling;
+                        if (!side) return;
+                        var startX = e.clientX;
+                        var startWidth = side.getBoundingClientRect().width;
+                        divider.setPointerCapture(e.pointerId);
+                        divider.classList.add('prof-chart-divider-active');
+
+                        function clamp(ev) {
+                            return Math.min(maxWidth, Math.max(minWidth, startWidth - (ev.clientX - startX)));
+                        }
+                        function onMove(ev) {
+                            side.style.width = clamp(ev) + 'px';
+                        }
+                        function onUp(ev) {
+                            divider.releasePointerCapture(e.pointerId);
+                            divider.removeEventListener('pointermove', onMove);
+                            divider.removeEventListener('pointerup', onUp);
+                            divider.classList.remove('prof-chart-divider-active');
+                        }
+                        divider.addEventListener('pointermove', onMove);
+                        divider.addEventListener('pointerup', onUp);
+                    });
+                }
                 function bindHeight(divider) {
                     if (!divider || divider.dataset.bound) return;
                     divider.dataset.bound = '1';
@@ -236,7 +268,7 @@ namespace Poink.Sim.Components.Pages
                         divider.addEventListener('pointerup', onUp);
                     });
                 }
-                return { bindHeight: bindHeight };
+                return { bind: bind, bindHeight: bindHeight };
             })()
             """;
 
@@ -252,7 +284,10 @@ namespace Poink.Sim.Components.Pages
                 _dividerResizeInstance = await JS.InvokeAsync<IJSObjectReference>("eval", ChartHDividerScript);
 
             if (HasData && _dividerResizeInstance is not null)
+            {
+                await _dividerResizeInstance.InvokeVoidAsync("bind", _chartDividerRef);
                 await _dividerResizeInstance.InvokeVoidAsync("bindHeight", _chartHDividerRef);
+            }
         }
 
         public async ValueTask DisposeAsync()
