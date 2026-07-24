@@ -368,6 +368,13 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
 - **Adam** — The Adam optimizer (`TorchSharp.torch.optim.Adam`) used by
   `PolicyGradientTrainingStrategy.CreateOptimizer`; its momentum/variance state is
   why the optimizer is created once per training run, not per episode.
+- **Auto Name convention** — `{Architecture}_{Layers}_{Data}`, e.g.
+  `MLP_L32-L16_dBW-dVP-dAS`: the Build Brain section's auto-generated name.
+  Layers are `L<size>` per MLP hidden layer or `H<hiddenSize>-N<numLayers>` for
+  LSTM; Data is `d` + each included encoder's initials (`BW`=Bar Window,
+  `VP`=Volume Profile, `AS`=Account State, always present). Toggled off via the
+  "Auto Name" checkbox to type a custom name instead.
+  `Components/Pages/Training/Pages/TrainPage.razor.cs` (`AutoBuildBrainName`)
 - **cAlgo** — The trading-platform/robot framework; "the Poink.Trader cAlgo robot" is
   the external process that writes ticks into the `ticks_<symbol>` Postgres tables
   (lives outside this project, referenced only in comments).

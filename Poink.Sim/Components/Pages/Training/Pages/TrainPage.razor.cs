@@ -36,6 +36,12 @@ namespace Poink.Sim.Components.Pages
         // is just registered into the same list, then picked the normal way.
         private bool _showBuildBrain;
         private string _buildBrainName = "";
+
+        // While on, the Name field tracks AutoBuildBrainName below instead of
+        // _buildBrainName -- flips off the moment the user edits the field
+        // directly (OnBuildBrainNameInput), and back on once a brain is
+        // created, so the next build starts auto-named again.
+        private bool _buildBrainNameAuto = true;
         private bool _includeBarWindow = true;
         private bool _includeVolumeProfile;
         private ArchitectureKind _architectureKind = ArchitectureKind.Mlp;
@@ -109,15 +115,61 @@ namespace Poink.Sim.Components.Pages
         // sequence out of -- see LstmArchitecture's doc comment; mirrored here
         // so the Create button disables instead of only failing after a click.
         private bool CanCreateBrain =>
-            !string.IsNullOrWhiteSpace(_buildBrainName)
+            !string.IsNullOrWhiteSpace(EffectiveBuildBrainName)
             && (_includeBarWindow || _includeVolumeProfile)
             && (_architectureKind != ArchitectureKind.Lstm || _includeBarWindow);
+
+        // {Architecture}_{Layers}_{Data}, e.g. MLP_L32-L16_dBW-dVP-dAS -- mirrors
+        // CreateBrain's own encoder/architecture choices below, so the generated
+        // name always describes exactly what CREATE BRAIN is about to build.
+        // Account State has no checkbox (always included) but still gets a
+        // "dAS" tag here for the same reason it gets a disabled-checked
+        // checkbox above: visible parity with the other two data sources.
+        private string AutoBuildBrainName
+        {
+            get
+            {
+                string arch = _architectureKind switch
+                {
+                    ArchitectureKind.Mlp => "MLP",
+                    ArchitectureKind.Lstm => "LSTM",
+                    _ => _architectureKind.ToString().ToUpperInvariant(),
+                };
+
+                string layers = _architectureKind == ArchitectureKind.Mlp
+                    ? string.Join("-", ParseHiddenSizes(_mlpHiddenSizesText).Select(n => $"L{n}"))
+                    : $"H{_lstmHiddenSize}-N{_lstmNumLayers}";
+
+                var dataParts = new List<string>();
+                if (_includeBarWindow) dataParts.Add("dBW");
+                if (_includeVolumeProfile) dataParts.Add("dVP");
+                dataParts.Add("dAS");
+                string data = string.Join("-", dataParts);
+
+                return string.IsNullOrEmpty(layers) ? $"{arch}_{data}" : $"{arch}_{layers}_{data}";
+            }
+        }
+
+        private string EffectiveBuildBrainName => _buildBrainNameAuto ? AutoBuildBrainName : _buildBrainName;
+
+        private void OnBuildBrainNameInput(ChangeEventArgs e)
+        {
+            _buildBrainNameAuto = false;
+            _buildBrainName = e.Value?.ToString() ?? "";
+        }
+
+        private void OnToggleAutoBuildBrainName(ChangeEventArgs e)
+        {
+            _buildBrainNameAuto = e.Value is bool isAuto && isAuto;
+            if (!_buildBrainNameAuto) _buildBrainName = AutoBuildBrainName;
+        }
 
         // Canonical part order (Bar Window before Volume Profile) regardless of
         // checkbox click order -- CompositeEncoder requires any sequence-bearing
         // part to be listed first (see its doc comment).
         private void CreateBrain()
         {
+            var name = EffectiveBuildBrainName;
             var encoderKinds = new List<EncoderKind>();
             if (_includeBarWindow) encoderKinds.Add(EncoderKind.BarWindow);
             if (_includeVolumeProfile) encoderKinds.Add(EncoderKind.VolumeProfile);
@@ -126,11 +178,12 @@ namespace Poink.Sim.Components.Pages
                 ? ParseHiddenSizes(_mlpHiddenSizesText)
                 : [_lstmHiddenSize, _lstmNumLayers];
 
-            if (Service.TryBuildBrain(_buildBrainName, encoderKinds, _architectureKind, hiddenSizes))
+            if (Service.TryBuildBrain(name, encoderKinds, _architectureKind, hiddenSizes))
             {
-                _buildBrainStatus = $"built '{_buildBrainName}' -- pick it above to train it";
-                _brainName = _buildBrainName;
+                _buildBrainStatus = $"built '{name}' -- pick it above to train it";
+                _brainName = name;
                 _buildBrainName = "";
+                _buildBrainNameAuto = true;
                 _showBuildBrain = false;
             }
             else

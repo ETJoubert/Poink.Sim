@@ -264,6 +264,21 @@
     cursor: not-allowed;
 }
 
+/* Controls collapse toggle -- icon-only and smaller than Start/Pause/Stop
+   since it's a secondary layout toggle, not a run action; sits to the left of
+   Start so it stays in the same row without competing for attention. */
+.train-ctrl-btn-collapse {
+    padding: 5px 7px;
+    line-height: 1;
+}
+
+.train-ctrl-btn-collapse ::deep .train-ctrl-icon {
+    width: 11px;
+    height: 11px;
+    margin-right: 0;
+    vertical-align: -1px;
+}
+
 /* START/PAUSE/RESUME -- the primary action, filled so it reads first in the row. */
 .train-ctrl-btn-play {
     border: 1px solid var(--color-success);

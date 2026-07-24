@@ -18,11 +18,6 @@
                 @(Service.IsRunning ? (Service.IsPaused ? "PAUSED" : "TRAINING") : "IDLE")
             </span>
 
-            <button class="terminal-btn-action" @onclick="ToggleControls"
-                    title="Show/hide the Data Range/Brain Type/.../Reward Policy rows below -- collapse them once a run's parameters are set, to give the panels below more room">
-                @(_controlsCollapsed ? "▸ CONTROLS" : "▾ CONTROLS")
-            </button>
-
             <div class="train-header-end">
                 <div class="train-header-save">
                     @if (_showSaveInput)
@@ -79,8 +74,14 @@
                     <span class="train-section-label" title="Pick which encoders feed this brain's market data, and which network shape reads them">Build Brain</span>
                     <label class="train-brainrow-field" title="Unique name for this brain -- must not match an existing one">
                         Name
-                        <input class="train-brainrow-input train-brainrow-input-wide" type="text" @bind="_buildBrainName"
-                               disabled="@Service.IsRunning" placeholder="e.g. lstm-vp-experiment" />
+                        <input class="train-brainrow-input train-brainrow-input-wide" type="text"
+                               value="@EffectiveBuildBrainName" @oninput="OnBuildBrainNameInput"
+                               disabled="@(Service.IsRunning || _buildBrainNameAuto)" placeholder="e.g. lstm-vp-experiment" />
+                    </label>
+                    <label class="train-brainrow-field"
+                           title="Auto-generate the name from architecture, layers, and selected data -- uncheck to type your own">
+                        <input type="checkbox" checked="@_buildBrainNameAuto" @onchange="OnToggleAutoBuildBrainName"
+                               disabled="@Service.IsRunning" /> Auto Name
                     </label>
                     <label class="train-brainrow-field" title="20-bar trailing percent-change price window">
                         <input type="checkbox" @bind="_includeBarWindow" disabled="@Service.IsRunning" /> Bar Window
@@ -189,6 +190,11 @@
 
         <div class="train-toolbar">
             <div class="train-controls">
+                <button class="train-ctrl-btn train-ctrl-btn-collapse" @onclick="ToggleControls"
+                        title="Show/hide the Data Range/Brain Type/.../Reward Policy rows above -- collapse them once a run's parameters are set, to give the panels below more room">
+                    <Icon Name="@(_controlsCollapsed ? "chevron-right" : "chevron-down")" Class="train-ctrl-icon" />
+                </button>
+
                 @if (!Service.IsRunning)
                 {
                     <button class="train-ctrl-btn train-ctrl-btn-play" @onclick="StartTraining"
