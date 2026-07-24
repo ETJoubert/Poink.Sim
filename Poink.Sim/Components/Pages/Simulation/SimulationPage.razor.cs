@@ -81,6 +81,14 @@ namespace Poink.Sim.Components.Pages
                 .Select(t => new WeightedPriceSample(t.Price, t.Count, t.UpCount, t.DownCount))
                 .ToList();
 
+        // Bar-mode counterpart for TickTimeProfileChart -- see BarPriceHistogram.MergeTime
+        // for how each bucket's seconds are approximated from its bar's average tick
+        // interval, since bar mode retains no per-tick timestamps to measure directly.
+        private List<WeightedTimeSample> MergedBarTimeSamples(SimulationSnapshot s) =>
+            BarPriceHistogram.MergeTime(s.RecentBars, s.RecentBarHistograms, ClampedBarWindow)
+                .Select(t => new WeightedTimeSample(t.Price, t.Count, t.Seconds, t.UpSeconds, t.DownSeconds))
+                .ToList();
+
         // Timestamp of the bar that starts the current window -- null once the window
         // covers the whole buffer, so OhlcvChart knows to hide the marker rather than
         // drawing it at the very first bar. Bars' own OpenTime is already a valid point
@@ -171,6 +179,7 @@ namespace Poink.Sim.Components.Pages
         // into .NET state, so no [JSInvokable]/DotNetObjectReference is needed,
         // just eval + dispose.
         private ElementReference _chartDividerRef;
+        private ElementReference _chartDividerRef2;
         private ElementReference _chartHDividerRef;
         private IJSObjectReference? _dividerResizeInstance;
 
@@ -249,6 +258,7 @@ namespace Poink.Sim.Components.Pages
             if (_snapshot is not null && !_hideChart && _dividerResizeInstance is not null)
             {
                 await _dividerResizeInstance.InvokeVoidAsync("bind", _chartDividerRef);
+                await _dividerResizeInstance.InvokeVoidAsync("bind", _chartDividerRef2);
                 await _dividerResizeInstance.InvokeVoidAsync("bindHeight", _chartHDividerRef);
             }
         }
@@ -402,6 +412,9 @@ namespace Poink.Sim.Components.Pages
 
         private static List<double> ToMidPrices(IReadOnlyList<Tick> ticks) =>
             ticks.Select(t => (t.Bid + t.Ask) / 2.0).ToList();
+
+        private static List<TimedPrice> ToTimedMidPrices(IReadOnlyList<Tick> ticks) =>
+            ticks.Select(t => new TimedPrice(t.Timestamp, (t.Bid + t.Ask) / 2.0)).ToList();
 
         private static string StateClass(SimulationSnapshot s) =>
             s.IsFinished ? "sim-state-finished" : s.IsPlaying ? "sim-state-playing" : "sim-state-paused";

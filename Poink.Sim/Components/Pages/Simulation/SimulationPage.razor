@@ -265,6 +265,19 @@
                                                 WindowSize="ClampedTickWindow" />
                     }
                 </div>
+                <div class="sim-chart-divider" @ref="_chartDividerRef2" data-min-width="160" data-max-width="480"
+                     title="Drag to resize"></div>
+                <div class="sim-chart-side">
+                    @if (s.Config.Aggregate)
+                    {
+                        <TickTimeProfileChart WeightedSamples="MergedBarTimeSamples(s)" CurrentPrice="s.CurrentPrice" />
+                    }
+                    else
+                    {
+                        <TickTimeProfileChart Ticks="ToTimedMidPrices(s.RecentTicks)" CurrentPrice="s.CurrentPrice"
+                                              WindowSize="ClampedTickWindow" />
+                    }
+                </div>
 
                 <TraderControlsPanel TraderId="SelectedTrader?.Id" TraderLabel="SelectedTraderLabel" IsManual="SelectedTraderIsManual"
                                      PositionSummary="SelectedPositionSummary" PendingSummary="SelectedPendingSummary" />

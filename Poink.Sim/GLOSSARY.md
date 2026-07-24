@@ -70,6 +70,8 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   profile window; computed by `VolumeProfileStats.Compute` and shown both as the
   highlighted row in `TickVolumeProfileChart` and as a projected line on the main
   chart (`ProfilerPage.ProfileLevelLines`). `Components/Charts/VolumeProfileStats.cs`
+  Time Profile computes its own, time-weighted POC independently via
+  `TimeProfileStats.Compute`.
 - **Position** — One open trade: `readonly record struct Position(PositionDirection,
   Size, EntryPrice, EntryTime, StopLossPrice?, TakeProfitPrice?)`. v1 allows only one
   open position at a time (no pyramiding); reversing direction requires an explicit
@@ -101,6 +103,15 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   count toward neither, so `UpVolume + DownVolume` can undershoot total `Volume`.
 - **Time in market** — `TradeStatistics.TimeInMarket` / `.TimeInLong` / `.TimeInShort`:
   summed trade durations, split by direction.
+- **Time Profile** — The dwell-time-by-price-level histogram shown by
+  `TickTimeProfileChart`: how many seconds price spent at each price level within the
+  current window (vs. Volume Profile's tick *count*), split into up-time/down-time
+  sub-bars. Raw-tick mode measures dwell time directly from consecutive tick
+  timestamps; bar mode approximates it per bucket from each bar's own average tick
+  interval (`BarPriceHistogram.MergeTime`), since bar mode retains no per-tick
+  timestamps. Its Point of Control/Value Area are computed by
+  `TimeProfileStats.Compute`, independently of Volume Profile's.
+  `Components/Charts/TickTimeProfileChart.razor.cs`
 - **Trade** — One closed round-trip: `record Trade(Id, Direction, Size, EntryPrice,
   EntryTime, ExitPrice, ExitTime, RealizedPnl, Commission, Reason)`, appended to
   `Trader.TradeLog` on Close. `RealizedPnl` is net of `Commission` (the round-trip
@@ -112,7 +123,8 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
 - **Value Area (VA) / Value Area High/Low (VAH/VAL)** — The tightest price band
   holding 70% of a volume profile window's total volume, expanded outward one bucket
   at a time from the Point of Control; VAH/VAL are that band's top/bottom edges.
-  `Components/Charts/VolumeProfileStats.cs`
+  `Components/Charts/VolumeProfileStats.cs` Time Profile computes its own,
+  time-weighted Value Area independently via `TimeProfileStats.Compute`.
 - **Volume Profile** — The tick-count-by-price-level histogram shown by
   `TickVolumeProfileChart`: how much activity occurred at each price level within the
   current window, split into up/down-tick sub-bars. Its Point of Control/Value Area
@@ -286,7 +298,10 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
 - **`BarPriceHistogram`** — Sparse per-bar, per-price-bucket tick-count breakdown
   (with up/down split), quantized to a shared `BucketWidth` so multiple bars'
   histograms can be summed bucket-for-bucket (`Merge`) to build a volume profile over
-  an arbitrarily long window without retaining raw ticks. `Models/BarPriceHistogram.cs`
+  an arbitrarily long window without retaining raw ticks. `MergeTime` is the Time
+  Profile counterpart: same bucket-for-bucket sum, but each bar's tick counts are
+  first weighted by that bar's average tick interval (`(CloseTime - OpenTime) /
+  Volume`) to approximate seconds spent per bucket. `Models/BarPriceHistogram.cs`
 - **`BrainTrainingParameters`** — Free-form training-run parameters (`EpisodeCount`,
   `EpisodeBars`, `BarWidthMinutes`, `StartingCash`, `LearningRate`, `LookbackBars`,
   `Leverage`, `StopOutLevelPercent`, `CommissionRatePercent`) saved alongside a
@@ -330,6 +345,13 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   `SimulationEngine` on every callback (config, playback state, per-trader state,
   recent bars/ticks/histograms) — what the page renders from.
   `Models/SimulationSnapshot.cs`
+- **`TimedPrice`** — `(Timestamp, Price)`: the minimum `TickTimeProfileChart` needs
+  from a raw `Tick` to measure dwell time between consecutive ticks in raw-tick mode;
+  a public stand-in since `Tick` itself is internal.
+  `Components/Charts/TickTimeProfileChart.razor.cs`
+- **`TimeProfileLevels`** — `(Poc, ValueAreaHigh, ValueAreaLow)`: the computed
+  Point of Control/Value Area for a Time Profile window, from
+  `TimeProfileStats.Compute`. `Components/Charts/TimeProfileStats.cs`
 - **`TraderSnapshot`** — One trader session's published state: `Mode`
   (`TraderControlMode`), `Capital`, `Position`, `PendingOrder`, trade log/history,
   equity extremes, account settings. What `SimulationPage`'s trader controls
@@ -341,6 +363,11 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
 - **`WeightedPriceSample`** — One price level's contribution to the volume profile:
   `(Price, Count, UpCount, DownCount)`, either a single raw tick (Count=1) or a merged
   multi-tick bucket total.
+- **`WeightedTimeSample`** — Time Profile's counterpart to `WeightedPriceSample`:
+  `(Price, Count, Seconds, UpSeconds, DownSeconds)`. `Count` still rides along purely
+  to gate `TickTimeProfileChart`'s "enough data yet" floor on sample count,
+  independent of how much wall-clock time those samples span.
+  `Components/Charts/TickTimeProfileChart.razor.cs`
 
 ## Enums & States
 
@@ -435,6 +462,14 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   `ticks_<symbol>` table; used identically by `SimulationPage` and `TrainPage` so
   both pick historic data the same way. Owns the "table list" fetch + the
   RECOUNT-only refresh button. `Components/Shared/TickDataSource/`
+- **`TickTimeProfileChart`** — Horizontal-bar time histogram (price on the row axis,
+  seconds spent at that price as bar width), rendered next to `TickVolumeProfileChart`
+  on the Simulation page behind its own draggable divider. Same pure Razor/CSS
+  approach and up/down-split/POC/Value-Area readout as `TickVolumeProfileChart`, just
+  weighted by dwell time instead of tick count. Consumes either raw `Ticks` (tick
+  mode, `TimedPrice` timestamp+price pairs) or pre-aggregated `WeightedSamples` (bar
+  mode, via `BarPriceHistogram.MergeTime`). This *is* the app's "Time Profile"
+  concept. `Components/Charts/TickTimeProfileChart.razor.cs`
 - **`TickVolumeProfileChart`** — Horizontal-bar tick histogram (price on the row
   axis, tick count as bar width), rendered as pure Razor/CSS (no JS, since it's not
   pixel-synced to `OhlcvChart`'s zoom/pan). Consumes either raw `Prices` (tick mode)

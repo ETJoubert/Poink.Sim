@@ -70,4 +70,40 @@ internal sealed class BarPriceHistogram
             result.Add((key * width, c.Count, c.UpCount, c.DownCount));
         return result;
     }
+
+    // Time-profile counterpart to Merge above, for TickTimeProfileChart's bar-mode
+    // WeightedSamples. Bar mode has no per-tick timestamps to measure dwell time from
+    // directly (only this histogram's per-bucket tick counts), so each bar's seconds are
+    // approximated as its own average tick interval -- (CloseTime - OpenTime) / Volume --
+    // times how many of its ticks landed in a given bucket. Assumes bars and histograms
+    // are index-aligned 1:1 (true today: SimulationEngine.AppendBar/PublishSnapshot always
+    // append/attach them together).
+    public static List<(double Price, int Count, double Seconds, double UpSeconds, double DownSeconds)> MergeTime(
+        IReadOnlyList<HlocAvdtBar> bars, IReadOnlyList<BarPriceHistogram> histograms, int windowCount)
+    {
+        var start = Math.Max(0, histograms.Count - windowCount);
+        var merged = new Dictionary<long, (int Count, double Seconds, double UpSeconds, double DownSeconds)>();
+        double width = 0;
+        for (var i = start; i < histograms.Count; i++)
+        {
+            var hist = histograms[i];
+            width = hist.BucketWidth;
+            var bar = bars[i];
+            var avgTickSeconds = Math.Max(0, (bar.CloseTime - bar.OpenTime).TotalSeconds) / Math.Max(1, bar.Volume);
+            foreach (var (key, c) in hist.Buckets)
+            {
+                merged.TryGetValue(key, out var existing);
+                merged[key] = (
+                    existing.Count + c.Count,
+                    existing.Seconds + c.Count * avgTickSeconds,
+                    existing.UpSeconds + c.UpCount * avgTickSeconds,
+                    existing.DownSeconds + c.DownCount * avgTickSeconds);
+            }
+        }
+
+        var result = new List<(double, int, double, double, double)>(merged.Count);
+        foreach (var (key, v) in merged)
+            result.Add((key * width, v.Count, v.Seconds, v.UpSeconds, v.DownSeconds));
+        return result;
+    }
 }

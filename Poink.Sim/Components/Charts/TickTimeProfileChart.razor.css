@@ -1,0 +1,237 @@
+.ttp-wrapper {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: var(--border-radius-sm);
+    background: rgba(255, 255, 255, 0.015);
+    overflow: hidden;
+}
+
+.ttp-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    flex: 0 0 auto;
+}
+
+.ttp-title {
+    font-size: 0.6rem;
+    letter-spacing: 0.1em;
+    color: var(--color-secondary);
+    opacity: 0.85;
+}
+
+/* Always-visible instead of behind a gear/dropdown toggle -- Buckets/Split are
+   adjusted often enough to earn a permanent (if compact) row under the header. */
+.ttp-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 5px 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    flex: 0 0 auto;
+}
+
+.ttp-control {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.62rem;
+    color: var(--color-secondary);
+    opacity: 0.85;
+    white-space: nowrap;
+}
+
+.ttp-control input[type="number"] {
+    width: 42px;
+    background: var(--color-bg-terminal);
+    border: 1px solid color-mix(in srgb, var(--color-secondary) 40%, transparent);
+    color: var(--color-secondary);
+    padding: 2px 4px;
+    border-radius: var(--border-radius-sm);
+    font-family: var(--font-body);
+    font-size: 0.62rem;
+}
+
+.ttp-control input[type="number"]:focus {
+    outline: none;
+    border-color: var(--color-secondary);
+    box-shadow: 0 0 6px color-mix(in srgb, var(--color-secondary) 45%, transparent);
+}
+
+.ttp-control-toggle {
+    gap: 4px;
+}
+
+.ttp-control-toggle input {
+    width: auto;
+}
+
+/* Read-only counterpart to .ttp-control input[type="number"] -- same box, no
+   interactive border-highlight/focus state since there's nothing to edit. */
+.ttp-control-value {
+    background: var(--color-bg-terminal);
+    border: 1px solid color-mix(in srgb, var(--color-secondary) 25%, transparent);
+    color: var(--color-secondary);
+    padding: 2px 4px;
+    border-radius: var(--border-radius-sm);
+    font-family: var(--font-body);
+    font-size: 0.62rem;
+}
+
+.ttp-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    padding: 4px 8px;
+    overflow-y: auto;
+}
+
+.ttp-empty {
+    margin: auto;
+    font-size: 0.75rem;
+    color: var(--color-secondary);
+    opacity: 0.7;
+}
+
+.ttp-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    min-height: 10px;
+}
+
+.ttp-row-label {
+    flex: 0 0 58px;
+    font-size: 0.62rem;
+    color: var(--color-secondary);
+    opacity: 0.85;
+    white-space: nowrap;
+}
+
+/* Row containing the live current price -- accent background band + brighter
+   accent-colored label so it reads at a glance against the rest of the profile. */
+.ttp-row-current {
+    background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+    border-radius: 2px;
+}
+
+.ttp-row-current .ttp-row-label {
+    color: var(--color-accent);
+    opacity: 1;
+    font-weight: bold;
+}
+
+/* Value Area -- the 70%-of-time band around the Point of Control (see
+   TimeProfileStats.Compute). Subtler than .ttp-row-poc below so POC still stands
+   out as the single strongest read within it. */
+.ttp-row-value-area {
+    background: color-mix(in srgb, var(--color-highlight) 8%, transparent);
+    border-radius: 2px;
+}
+
+.ttp-row-poc {
+    background: color-mix(in srgb, var(--color-highlight) 22%, transparent);
+    border-radius: 2px;
+}
+
+.ttp-row-poc .ttp-row-label {
+    color: var(--color-highlight);
+    opacity: 1;
+    font-weight: bold;
+}
+
+.ttp-control-poc .ttp-control-value,
+.ttp-control-va .ttp-control-value {
+    border-color: color-mix(in srgb, var(--color-highlight) 40%, transparent);
+    color: var(--color-highlight);
+}
+
+.ttp-row-track {
+    flex: 1;
+    height: 65%;
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.ttp-row-bar {
+    height: 100%;
+    background: var(--color-secondary);
+    box-shadow: var(--shadow-glow-secondary);
+    border-radius: 2px;
+}
+
+/* Split mode: up/down bars sit one above the other, each independently left-aligned
+   at 0 -- not stacked/concatenated end-to-end -- so their lengths are directly
+   comparable at a glance. */
+.ttp-row-track-split {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+    background: transparent;
+    overflow: visible;
+}
+
+.ttp-row-track-split .ttp-row-bar {
+    flex: 1;
+    height: auto;
+    min-height: 0;
+}
+
+.ttp-row-bar-up {
+    background: var(--color-success);
+    box-shadow: 0 0 6px color-mix(in srgb, var(--color-success) 45%, transparent);
+}
+
+.ttp-row-bar-down {
+    background: var(--color-error);
+    box-shadow: 0 0 6px color-mix(in srgb, var(--color-error) 45%, transparent);
+}
+
+.ttp-row-count {
+    flex: 0 0 52px;
+    font-size: 0.62rem;
+    color: var(--color-secondary);
+    opacity: 0.7;
+    text-align: right;
+    white-space: nowrap;
+}
+
+/* Wider than the plain single-value case above -- split mode packs up/down
+   durations plus the diff into the same column. */
+.ttp-row-count-split {
+    flex-basis: 118px;
+}
+
+/* Colored to match ttp-row-bar-up/-down so each value reads as belonging to its bar. */
+.ttp-row-count-up {
+    color: var(--color-success);
+    opacity: 1;
+}
+
+.ttp-row-count-down {
+    color: var(--color-error);
+    opacity: 1;
+}
+
+.ttp-row-count-diff {
+    margin-left: 4px;
+    opacity: 0.85;
+}
+
+.ttp-row-count-diff-up {
+    color: var(--color-success);
+}
+
+.ttp-row-count-diff-down {
+    color: var(--color-error);
+}

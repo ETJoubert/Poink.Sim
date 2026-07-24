@@ -1,0 +1,77 @@
+@namespace Poink.Sim.Components.Charts
+@using System.Globalization
+
+<div class="ttp-wrapper">
+    @{ var buckets = Buckets; }
+    <div class="ttp-header">
+        <span class="ttp-title">TIME PROFILE</span>
+        <label class="ttp-control ttp-control-toggle" title="Show separate up-time/down-time bars per bucket instead of one combined bar">
+            <input type="checkbox" @bind="_splitUpDown" />
+            <span>Split up/down</span>
+        </label>
+    </div>
+
+    <div class="ttp-controls">
+        <label class="ttp-control" title="How many price buckets to split the window's range into">
+            <span>Buckets</span>
+            <input type="number" min="2" max="100" @bind="_bucketCount" @bind:event="oninput" />
+        </label>
+        @if (buckets.Count > 0)
+        {
+            <span class="ttp-control ttp-control-static" title="Price span per bucket">
+                <span>Width</span>
+                <span class="ttp-control-value">@((buckets[0].High - buckets[0].Low).ToString("0.#####", CultureInfo.InvariantCulture))</span>
+            </span>
+        }
+        @if (Levels is { } levels)
+        {
+            <span class="ttp-control ttp-control-static ttp-control-poc"
+                  title="Point of Control -- the price level price spent the most time at in this profile">
+                <span>POC</span>
+                <span class="ttp-control-value">@levels.Poc.ToString("F5")</span>
+            </span>
+            <span class="ttp-control ttp-control-static ttp-control-va"
+                  title="Value Area -- the tightest price band holding 70% of this profile's time">
+                <span>VA</span>
+                <span class="ttp-control-value">@levels.ValueAreaLow.ToString("F5") - @levels.ValueAreaHigh.ToString("F5")</span>
+            </span>
+        }
+    </div>
+
+    <div class="ttp-body">
+        @if (buckets.Count == 0)
+        {
+            <div class="ttp-empty">not enough tick data</div>
+        }
+        else
+        {
+            @foreach (var b in buckets)
+            {
+                @if (_splitUpDown)
+                {
+                    <div class="ttp-row @RowClass(b)" title="@($"{b.Low:F5} - {b.High:F5}: {FormatSeconds(b.UpSeconds)} up / {FormatSeconds(b.DownSeconds)} down")">
+                        <span class="ttp-row-label">@b.Low.ToString("F5")</span>
+                        <div class="ttp-row-track ttp-row-track-split">
+                            <div class="ttp-row-bar ttp-row-bar-up" style="width: @(b.UpPercent.ToString("0.##", CultureInfo.InvariantCulture))%"></div>
+                            <div class="ttp-row-bar ttp-row-bar-down" style="width: @(b.DownPercent.ToString("0.##", CultureInfo.InvariantCulture))%"></div>
+                        </div>
+                        <span class="ttp-row-count ttp-row-count-split">
+                            <span class="ttp-row-count-up">@FormatSeconds(b.UpSeconds)</span>/<span class="ttp-row-count-down">@FormatSeconds(b.DownSeconds)</span>
+                            <span class="ttp-row-count-diff @(DiffClass(b.DiffSeconds))">(@(FormatSignedSeconds(b.DiffSeconds)))</span>
+                        </span>
+                    </div>
+                }
+                else
+                {
+                    <div class="ttp-row @RowClass(b)" title="@($"{b.Low:F5} - {b.High:F5}: {FormatSeconds(b.Seconds)}")">
+                        <span class="ttp-row-label">@b.Low.ToString("F5")</span>
+                        <div class="ttp-row-track">
+                            <div class="ttp-row-bar" style="width: @(b.Percent.ToString("0.##", CultureInfo.InvariantCulture))%"></div>
+                        </div>
+                        <span class="ttp-row-count">@FormatSeconds(b.Seconds)</span>
+                    </div>
+                }
+            }
+        }
+    </div>
+</div>
