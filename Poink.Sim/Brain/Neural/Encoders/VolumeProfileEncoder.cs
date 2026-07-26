@@ -42,6 +42,10 @@ internal sealed class VolumeProfileEncoder : IObservationEncoder, IHasLookbackBa
 
     public int SequenceLength => 0;
 
+    // Same number as LookbackBars itself -- this encoder's own trailing-merge
+    // window IS its warm-up requirement (see IObservationEncoder.WarmupBars).
+    public int WarmupBars => LookbackBars;
+
     public IReadOnlyList<string> FeatureLabels => Labels;
 
     public float[] Encode(SimulationObservation observation)

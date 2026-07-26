@@ -176,27 +176,40 @@ internal sealed class RlTrainingService
     public IReadOnlyList<HlocAvdtBar> LatestEpisodeBars { get; private set; } = Array.Empty<HlocAvdtBar>();
     public IReadOnlyList<BarPriceHistogram> LatestEpisodeBarHistograms { get; private set; } = Array.Empty<BarPriceHistogram>();
 
+    // How many of LatestEpisodeBars' leading entries are warm-up (history-
+    // building, no decision -- see RlEpisode.WarmupBars) -- LatestEpisodeBars
+    // [LatestEpisodeWarmupBars] is the first bar a decision was actually made
+    // on. LatestEpisodeBarInputs/BarEquity/BarOutputs below cover only that
+    // decision segment, so a caller indexing across both (e.g. TrainLiveTab's
+    // episode replay) must offset by this. 0 for a brain with no windowed
+    // encoder.
+    public int LatestEpisodeWarmupBars { get; private set; }
+
     // Same episode as LatestEpisodeBars above (set together, every episode) --
     // its closed-trade log, for the Train page's episode replay to draw as
     // entry-to-exit lines on the bar chart as playback reveals each trade's
     // exit bar.
     public IReadOnlyList<Trade> LatestEpisodeTrades { get; private set; } = Array.Empty<Trade>();
 
-    // Same episode as LatestEpisodeBars above, index-aligned 1:1 -- each
-    // entry is what DescribeInputs saw as of that bar's decision, so the
-    // Train page's episode replay can show "what the network saw" synced to
-    // whichever bar is currently revealed, not just the episode's last one
-    // (see LatestInputs above, which this doesn't replace).
+    // Same episode as LatestEpisodeBars above, but only its decision bars --
+    // index-aligned 1:1 with LatestEpisodeBars[LatestEpisodeWarmupBars..], not
+    // LatestEpisodeBars itself (see LatestEpisodeWarmupBars above). Each entry
+    // is what DescribeInputs saw as of that bar's decision, so the Train
+    // page's episode replay can show "what the network saw" synced to
+    // whichever decision bar is currently revealed, not just the episode's
+    // last one (see LatestInputs above, which this doesn't replace).
     public IReadOnlyList<IReadOnlyList<RlInputFeature>> LatestEpisodeBarInputs { get; private set; } = Array.Empty<IReadOnlyList<RlInputFeature>>();
 
     // Index-aligned 1:1 with LatestEpisodeBarInputs (not LatestEpisodeBars --
-    // both share the same IPolicyGradientBrain gate) -- each entry is that
-    // decision's pre-Apply equity, the anchor the Train page's de-normalized
-    // inputs toggle needs to invert "unrealized/eq"/"realized/eq"/"cash/eq"
-    // back to raw currency amounts (see RlEpisode.BarEquity's doc comment).
+    // both share the same IPolicyGradientBrain gate and LatestEpisodeWarmupBars
+    // offset) -- each entry is that decision's pre-Apply equity, the anchor
+    // the Train page's de-normalized inputs toggle needs to invert
+    // "unrealized/eq"/"realized/eq"/"cash/eq" back to raw currency amounts
+    // (see RlEpisode.BarEquity's doc comment).
     public IReadOnlyList<double> LatestEpisodeBarEquity { get; private set; } = Array.Empty<double>();
 
-    // Same episode as LatestEpisodeBars above, index-aligned 1:1 -- each
+    // Same episode as LatestEpisodeBars above, index-aligned 1:1 with
+    // LatestEpisodeBarInputs (same LatestEpisodeWarmupBars offset) -- each
     // entry is what the network decided as of that bar's decision (see
     // LatestOutputs above, which this doesn't replace, and RlOutputFeature's
     // doc comment).
@@ -275,6 +288,7 @@ internal sealed class RlTrainingService
             LatestOutputs = null;
             LatestEpisodeBars = Array.Empty<HlocAvdtBar>();
             LatestEpisodeBarHistograms = Array.Empty<BarPriceHistogram>();
+            LatestEpisodeWarmupBars = 0;
             LatestEpisodeTrades = Array.Empty<Trade>();
             LatestEpisodeBarInputs = Array.Empty<IReadOnlyList<RlInputFeature>>();
             LatestEpisodeBarEquity = Array.Empty<double>();
@@ -299,15 +313,25 @@ internal sealed class RlTrainingService
         if (brain is IHasLookbackBars lookbackBrain)
             lookbackBrain.LookbackBars = volumeProfileLookbackBars;
 
+        // Read after the LookbackBars assignment above so a lookback-windowed
+        // brain's WarmupBars already reflects this run's configured value (see
+        // ComposedPolicyBrain.WarmupBars / VolumeProfileEncoder.WarmupBars). 0
+        // for a brain with no windowed encoder (e.g. a bare CapitalStateEncoder
+        // brain) or a non-policy-gradient brain.
+        int warmupBars = brain is IPolicyGradientBrain warmupAwareBrain ? warmupAwareBrain.WarmupBars : 0;
+
         OnChanged?.Invoke();
 
         string source = historicRange is { } r ? r.Table : "dummy";
         _logger.LogInformation(
-            "Training started: brain={Brain}, strategy={Strategy}, episodes={EpisodeCount}, episodeBars={EpisodeBars}, barWidthMinutes={BarWidthMinutes}, source={Source}",
-            brainName, strategyName, episodeCount, episodeBars, barWidthMinutes, source);
+            "Training started: brain={Brain}, strategy={Strategy}, episodes={EpisodeCount}, episodeBars={EpisodeBars}, warmupBars={WarmupBars}, barWidthMinutes={BarWidthMinutes}, source={Source}",
+            brainName, strategyName, episodeCount, episodeBars, warmupBars, barWidthMinutes, source);
 
         var barWidth = TimeSpan.FromMinutes(barWidthMinutes);
-        var fetchSpan = barWidth * (episodeBars + EpisodeSpanBufferBars);
+        // +warmupBars so the brain's lookback window is full of real episode
+        // data by the time its first decision happens (see RlEpisodeRunner's
+        // warmupBars doc comment) -- never zero-padded/undersized history.
+        var fetchSpan = barWidth * (episodeBars + warmupBars + EpisodeSpanBufferBars);
 
         _ = Task.Run(() =>
         {
@@ -318,7 +342,8 @@ internal sealed class RlTrainingService
                     if (range.To - range.From < fetchSpan)
                         throw new InvalidOperationException(
                             $"selected range only spans {(range.To - range.From).TotalMinutes:N0} min, need at least " +
-                            $"{fetchSpan.TotalMinutes:N0} min for a {episodeBars}-bar episode at {barWidthMinutes}m bars");
+                            $"{fetchSpan.TotalMinutes:N0} min for a {episodeBars}-bar episode at {barWidthMinutes}m bars" +
+                            (warmupBars > 0 ? $" (plus {warmupBars} warm-up bars)" : ""));
                 }
 
                 var optimizer = strategy.CreateOptimizer(brain, learningRate);
@@ -335,7 +360,9 @@ internal sealed class RlTrainingService
                         ? RandomEpisodeWindow(episodeRange.Table, episodeRange.From, episodeRange.To, fetchSpan, rng)
                         : DummyTickGenerator.Generate(DateTime.UtcNow - fetchSpan, DateTime.UtcNow, syntheticTickCount);
 
-                    var result = RlEpisodeRunner.Run(brain, episodeTicks, startingCash, episodeBars, barWidth, _traderFactory, settings: traderSettings);
+                    var result = RlEpisodeRunner.Run(
+                        brain, episodeTicks, startingCash, episodeBars, barWidth, _traderFactory,
+                        settings: traderSettings, warmupBars: warmupBars);
                     double reward = strategy.TrainEpisode(brain, optimizer, result);
 
                     recentRewards.Enqueue(reward);
@@ -352,6 +379,7 @@ internal sealed class RlTrainingService
                         if (result.LastOutputs is not null) LatestOutputs = result.LastOutputs;
                         LatestEpisodeBars = result.Bars;
                         LatestEpisodeBarHistograms = result.BarHistograms;
+                        LatestEpisodeWarmupBars = result.WarmupBars;
                         LatestEpisodeTrades = result.Trades;
                         LatestEpisodeBarInputs = result.BarInputs;
                         LatestEpisodeBarEquity = result.BarEquity;

@@ -113,6 +113,13 @@ namespace Poink.Sim.Components.Training
         private List<IReadOnlyList<RlInputFeature>>? _replayBarInputs;
         private List<double>? _replayBarEquity;
         private List<IReadOnlyList<RlOutputFeature>>? _replayBarOutputs;
+
+        // How many of _replayBars' leading entries are warm-up (no decision) --
+        // snapshotted at Play alongside the other _replay* fields so a paused/
+        // in-progress replay keeps using the episode it actually started from,
+        // not whatever LatestEpisodeWarmupBars happens to be by the time a bar
+        // reveals (see RlTrainingService.LatestEpisodeWarmupBars).
+        private int _replayWarmupBars;
         private int _revealedBarCount;
         private bool _isReplaying;
         private Timer? _replayTimer;
@@ -154,23 +161,49 @@ namespace Poink.Sim.Components.Training
             }
         }
 
+        // How many of DisplayedEpisodeBars' leading entries are warm-up (no
+        // decision) -- the replay's own frozen snapshot while one's loaded
+        // (_replayWarmupBars), else whatever the live/idle episode's is (see
+        // RlTrainingService.LatestEpisodeWarmupBars).
+        private int DisplayedWarmupBars => _replayBars is not null ? _replayWarmupBars : Service.LatestEpisodeWarmupBars;
+
+        // Maps a 1-based _revealedBarCount (a position in DisplayedEpisodeBars,
+        // which includes warm-up bars) onto the matching 0-based index into
+        // *BarInputs/*BarEquity/*BarOutputs (which don't -- see
+        // RlTrainingService.LatestEpisodeWarmupBars). Negative while the
+        // revealed bar is still within warm-up -- there's no decision yet to
+        // look up.
+        private int DisplayedDecisionIndex => _revealedBarCount - 1 - DisplayedWarmupBars;
+
         // What the INPUTS panel below shows -- the episode's final decision
         // while idle, or (while a replay is in progress/paused) whatever the
         // network saw as of the currently-revealed bar, so the panel updates in
         // step with the chart instead of only ever showing the last decision.
-        private IReadOnlyList<RlInputFeature>? DisplayedInputs =>
-            _replayBars is not null && _replayBarInputs is not null
-                && _revealedBarCount > 0 && _revealedBarCount <= _replayBarInputs.Count
-                ? _replayBarInputs[_revealedBarCount - 1]
-                : Service.LatestInputs;
+        // null (not a stale fallback) while the revealed bar is still within
+        // warm-up -- there genuinely is no decision yet for that bar.
+        private IReadOnlyList<RlInputFeature>? DisplayedInputs
+        {
+            get
+            {
+                if (_replayBars is null) return Service.LatestInputs;
+                if (_replayBarInputs is null) return null;
+                int i = DisplayedDecisionIndex;
+                return i >= 0 && i < _replayBarInputs.Count ? _replayBarInputs[i] : null;
+            }
+        }
 
         // Same "which decision point" pairing as DisplayedInputs, but what the
         // network decided from those inputs -- the OUTPUTS panel's data source.
-        private IReadOnlyList<RlOutputFeature>? DisplayedOutputs =>
-            _replayBars is not null && _replayBarOutputs is not null
-                && _revealedBarCount > 0 && _revealedBarCount <= _replayBarOutputs.Count
-                ? _replayBarOutputs[_revealedBarCount - 1]
-                : Service.LatestOutputs;
+        private IReadOnlyList<RlOutputFeature>? DisplayedOutputs
+        {
+            get
+            {
+                if (_replayBars is null) return Service.LatestOutputs;
+                if (_replayBarOutputs is null) return null;
+                int i = DisplayedDecisionIndex;
+                return i >= 0 && i < _replayBarOutputs.Count ? _replayBarOutputs[i] : null;
+            }
+        }
 
         // Same "which decision point" pairing as DisplayedInputs, but the
         // pre-Apply equity CapitalStateEncoder actually divided by (see
@@ -180,12 +213,33 @@ namespace Poink.Sim.Components.Training
         {
             get
             {
-                if (_replayBars is not null && _replayBarEquity is not null
-                    && _revealedBarCount > 0 && _revealedBarCount <= _replayBarEquity.Count)
-                    return _replayBarEquity[_revealedBarCount - 1];
+                if (_replayBars is null)
+                {
+                    var latest = Service.LatestEpisodeBarEquity;
+                    return latest.Count > 0 ? latest[^1] : null;
+                }
+                if (_replayBarEquity is null) return null;
+                int i = DisplayedDecisionIndex;
+                return i >= 0 && i < _replayBarEquity.Count ? _replayBarEquity[i] : null;
+            }
+        }
 
-                var latest = Service.LatestEpisodeBarEquity;
-                return latest.Count > 0 ? latest[^1] : null;
+        // A single marker at the bar where the episode's first decision
+        // happened -- everything to its left is warm-up (history-building
+        // only, no decision/reward/trade possible), everything at/right of it
+        // is what episodeBars/reward/Steps actually cover (see RlEpisode.
+        // WarmupBars). Empty once idle with no bars, or if warm-up is 0 (a
+        // brain with no windowed encoder) or hasn't finished revealing yet
+        // during a replay.
+        private List<ChartVerticalLine> DisplayedWarmupBoundary
+        {
+            get
+            {
+                var bars = DisplayedEpisodeBars;
+                int warmupBars = DisplayedWarmupBars;
+                return warmupBars > 0 && warmupBars < bars.Count
+                    ? [new ChartVerticalLine(bars[warmupBars].TimeUtc, Label: "decisions start")]
+                    : [];
             }
         }
 
@@ -277,6 +331,7 @@ namespace Poink.Sim.Components.Training
             _replayBarInputs = Service.LatestEpisodeBarInputs.ToList();
             _replayBarEquity = Service.LatestEpisodeBarEquity.ToList();
             _replayBarOutputs = Service.LatestEpisodeBarOutputs.ToList();
+            _replayWarmupBars = Service.LatestEpisodeWarmupBars;
             _revealedBarCount = 0;
             _isReplaying = true;
             ScheduleNextReveal();
@@ -301,6 +356,7 @@ namespace Poink.Sim.Components.Training
             _replayBarInputs = null;
             _replayBarEquity = null;
             _replayBarOutputs = null;
+            _replayWarmupBars = 0;
             _revealedBarCount = 0;
         }
 

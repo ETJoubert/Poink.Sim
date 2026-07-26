@@ -138,7 +138,8 @@ else
 
                 <div class="train-episode-row">
                     <div class="train-episode-main">
-                        <DrawableOhlcvChart Bars="DisplayedEpisodeBars" DiagonalLines="DisplayedTradeLines" RangeFills="DisplayedWindowRange" />
+                        <DrawableOhlcvChart Bars="DisplayedEpisodeBars" DiagonalLines="DisplayedTradeLines" RangeFills="DisplayedWindowRange"
+                                            VerticalLines="DisplayedWarmupBoundary" />
                     </div>
                     <div class="train-episode-side">
                         <TickVolumeProfileChart WeightedSamples="EpisodeVolumeProfileSamples" CurrentPrice="EpisodeLastPrice" />

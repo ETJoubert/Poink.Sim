@@ -58,6 +58,14 @@ internal interface IPolicyGradientBrain : ISimulationBrain
     // already receives).
     Tensor Encode(SimulationObservation observation);
 
+    // How many trailing real bars RlEpisodeRunner should consume to build up
+    // history before this brain's first decision -- default 0 (no warm-up)
+    // for a brain with no windowed encoder. ComposedPolicyBrain overrides
+    // this to forward its encoder's own WarmupBars (see
+    // IObservationEncoder.WarmupBars); a hand-written IPolicyGradientBrain
+    // with no notion of a lookback window is fine leaving this at 0.
+    int WarmupBars => 0;
+
     // Forward pass + categorical sample + log-prob of the sampled action.
     // The log-prob is what a policy-gradient training strategy needs to build
     // its loss; plain simulation playback only needs the Decision half (see

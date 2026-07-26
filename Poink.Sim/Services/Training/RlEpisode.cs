@@ -33,23 +33,34 @@ internal sealed record RlStep(SimulationAction Action, Tensor? LogProbability, d
 // as soon as episodeBars bars complete. Feeds RlTrainingService.RecentEpisodeWindows
 // for the Train page's data-coverage timeline.
 //
-// Bars/BarHistograms are every bar this episode completed, index-aligned 1:1 (see
-// BarPriceHistogram.Merge/MergeTime) -- empty when aggregate: false (raw-tick mode,
-// unused by RlTrainingService today). Feeds RlTrainingService.LatestEpisodeBars/
-// LatestEpisodeBarHistograms for the Train page's "current episode" bar chart and
-// volume/price profiles.
+// Bars/BarHistograms are every bar this episode processed, index-aligned 1:1 (see
+// BarPriceHistogram.Merge/MergeTime) -- INCLUDING the leading WarmupBars bars (see
+// that field below), so the Train page's chart can render the lookback window
+// filling up before the first decision, not just the decision bars themselves.
+// Empty when aggregate: false (raw-tick mode, unused by RlTrainingService today).
+// Feeds RlTrainingService.LatestEpisodeBars/LatestEpisodeBarHistograms for the
+// Train page's "current episode" bar chart and volume/price profiles.
+//
+// WarmupBars is how many of Bars' leading entries were warm-up (history-building,
+// no decision -- see RlEpisodeRunner's warmupBars doc comment), so Bars[WarmupBars]
+// is the first bar a decision was actually made on. BarInputs/BarEquity/BarOutputs
+// below cover only that decision segment, i.e. BarInputs[i] describes Bars[i +
+// WarmupBars], not Bars[i] -- callers indexing across both arrays (e.g. TrainLiveTab)
+// must apply this offset. 0 for a brain with no windowed encoder.
 //
 // BarInputs is the same per-bar DescribeInputs snapshot LastInputs takes only once
-// (at the episode's final decision), but for every completed bar, index-aligned
-// 1:1 with Bars -- so the Train page's episode replay can show what the network
-// saw as of whichever bar is currently revealed, not just the episode's last one.
-// Empty for a non-IPolicyGradientBrain, same as LastInputs being null.
+// (at the episode's final decision), but for every decision bar, index-aligned 1:1
+// with Bars[WarmupBars..] (see WarmupBars above) -- so the Train page's episode
+// replay can show what the network saw as of whichever decision bar is currently
+// revealed, not just the episode's last one. Empty for a non-IPolicyGradientBrain,
+// same as LastInputs being null.
 //
 // BarEquity is index-aligned 1:1 with BarInputs (not Bars -- both share the same
-// IPolicyGradientBrain gate): each entry is that decision's pre-Apply equity
-// (observation.Capital.Equity, what CapitalStateEncoder actually divided by to
-// produce "unrealized/eq" etc.), needed to invert those ratios back to raw
-// currency amounts for the Train page's de-normalized inputs toggle.
+// IPolicyGradientBrain gate and the same WarmupBars offset): each entry is that
+// decision's pre-Apply equity (observation.Capital.Equity, what CapitalStateEncoder
+// actually divided by to produce "unrealized/eq" etc.), needed to invert those
+// ratios back to raw currency amounts for the Train page's de-normalized inputs
+// toggle.
 //
 // LastOutputs/BarOutputs mirror LastInputs/BarInputs but for what the network
 // decided rather than what fed it -- each decision's full RlOutputFeature
@@ -62,7 +73,7 @@ internal sealed record RlEpisode(
     IReadOnlyList<RlOutputFeature>? LastOutputs, IReadOnlyList<Trade> Trades, double MaxEquity, double MaxDrawdown,
     DateTime WindowStart, DateTime WindowEnd, IReadOnlyList<HlocAvdtBar> Bars, IReadOnlyList<BarPriceHistogram> BarHistograms,
     IReadOnlyList<IReadOnlyList<RlInputFeature>> BarInputs, IReadOnlyList<double> BarEquity,
-    IReadOnlyList<IReadOnlyList<RlOutputFeature>> BarOutputs);
+    IReadOnlyList<IReadOnlyList<RlOutputFeature>> BarOutputs, int WarmupBars);
 
 // One completed episode's trade log/equity extremes, paired with its episode
 // number -- retained by RlTrainingService (same bounded window as

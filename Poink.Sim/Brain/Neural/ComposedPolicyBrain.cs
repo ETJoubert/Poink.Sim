@@ -75,6 +75,8 @@ internal class ComposedPolicyBrain : IPolicyGradientBrain
 
     public Module<Tensor, Tensor> Network { get; }
 
+    public int WarmupBars => _encoder.WarmupBars;
+
     private Device CurrentDevice => Network.parameters().First().device;
 
     // Weights persist across runs deliberately -- resetting on every run

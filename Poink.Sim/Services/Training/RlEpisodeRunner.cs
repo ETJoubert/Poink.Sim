@@ -21,6 +21,17 @@
 //  automatic Trader.Advance fill (SL/TP/stop-out/pending-trigger) between
 //  decision points all show up correctly in the next reward, not just what
 //  this one Apply call did.
+//
+//  warmupBars offsets the episode's first decision forward by that many
+//  completed bars (ticks, in raw mode) -- those bars still feed recentBars/
+//  recentBarHistograms/recentTicks so a windowed encoder's lookback is full
+//  real data by the time decisions start, but they produce no RlStep/reward
+//  and don't count toward episodeBars. The caller (RlTrainingService) derives
+//  this from the brain's own IPolicyGradientBrain.WarmupBars and fetches a
+//  correspondingly wider tick span up front. Warm-up bars still land in
+//  Bars/BarHistograms (so the Train page's chart can render the lookback
+//  window filling up), just not in BarInputs/BarEquity/BarOutputs/Steps --
+//  see RlEpisode.WarmupBars for the offset this leaves callers to apply.
 // ─────────────────────────────────────────────────────────────────────────
 using System;
 using System.Collections.Generic;
@@ -47,7 +58,7 @@ internal static class RlEpisodeRunner
     public static RlEpisode Run(
         ISimulationBrain brain, IEnumerable<Tick> ticks, double startingCash,
         int episodeBars, TimeSpan barSize, Trader.ITraderFactory traderFactory,
-        bool aggregate = true, Trader.TraderSettings? settings = null)
+        bool aggregate = true, Trader.TraderSettings? settings = null, int warmupBars = 0)
     {
         var trader = traderFactory.Create(startingCash, settings);
         var aggregator = aggregate ? new SimulationBarAggregator(barSize, PriceBucketWidth) : null;
@@ -87,6 +98,7 @@ internal static class RlEpisodeRunner
         double lastBid = 0, lastAsk = 0;
         double previousEquity = startingCash;
         int completedBars = 0;
+        int warmupRemaining = warmupBars;
         SimulationObservation? lastObservation = null;
         IReadOnlyList<RlOutputFeature>? lastOutputs = null;
         DateTime windowStart = default, windowEnd = default;
@@ -120,8 +132,25 @@ internal static class RlEpisodeRunner
                     if (recentBars.Count > MaxRecentBars) recentBars.RemoveAt(0);
                     recentBarHistograms.Add(completed.Value.Histogram);
                     if (recentBarHistograms.Count > MaxRecentBars) recentBarHistograms.RemoveAt(0);
+
+                    // Every completed bar is recorded for display -- including the
+                    // warm-up bars skipped below -- so the Train page's chart can
+                    // render the lookback window actually filling up before the
+                    // episode's first decision, instead of only ever showing decision
+                    // bars (see RlEpisode's WarmupBars doc comment).
                     allBars.Add(completed.Value.Bar);
                     allBarHistograms.Add(completed.Value.Histogram);
+
+                    // Warm-up bars stop here -- no decision, no reward, no
+                    // contribution to episodeBars, no BarInputs/BarEquity/BarOutputs
+                    // entry (those stay decision-only, offset from Bars by
+                    // WarmupBars). This is what lets a windowed encoder's first real
+                    // decision see a full lookback of genuine episode data instead of
+                    // ever hitting its own zero-padding fallback (see
+                    // IObservationEncoder.WarmupBars and RlTrainingService's fetchSpan
+                    // sizing, which fetches enough extra ticks up front to cover this).
+                    if (warmupRemaining > 0) { warmupRemaining--; continue; }
+
                     (previousEquity, lastObservation, lastOutputs) = RecordStep(
                         brain, trader, tick.Timestamp, completed.Value.Bar.Close, tick.Bid, tick.Ask, maintenance.Capital,
                         recentBars, Array.Empty<Tick>(), recentBarHistograms, steps, previousEquity);
@@ -132,14 +161,18 @@ internal static class RlEpisodeRunner
                         allBarOutputs.Add(lastOutputs!);
                     }
 
-                    // Episode length is enforced in bars, not by however many ticks the
-                    // caller happened to supply -- it only needs to supply "enough"
-                    // (see RlTrainingService's fetchSpan sizing).
+                    // Episode length is enforced in decision bars, not by however many
+                    // ticks the caller happened to supply -- it only needs to supply
+                    // "enough" (see RlTrainingService's fetchSpan sizing).
                     if (++completedBars >= episodeBars) break;
                 }
             }
             else
             {
+                // Same warm-up skip as the aggregated branch above, counted in ticks
+                // rather than bars since this branch has no bar aggregator.
+                if (warmupRemaining > 0) { warmupRemaining--; continue; }
+
                 (previousEquity, lastObservation, lastOutputs) = RecordStep(
                     brain, trader, tick.Timestamp, price, tick.Bid, tick.Ask, maintenance.Capital,
                     Array.Empty<HlocAvdtBar>(), recentTicks, Array.Empty<BarPriceHistogram>(), steps, previousEquity);
@@ -159,9 +192,15 @@ internal static class RlEpisodeRunner
             ? describableBrain.DescribeInputs(observation)
             : null;
 
+        // Actual, not requested -- allBars.Count is the true count of bars processed
+        // (warm-up + decision) and completedBars is the true count of decision bars,
+        // so this stays correct even if the tick stream ran out mid-warm-up (e.g. a
+        // misconfigured fetchSpan), rather than trusting the warmupBars parameter as-is.
+        int actualWarmupBars = allBars.Count - completedBars;
+
         return new RlEpisode(
             steps, trader.Snapshot(lastBid, lastAsk), lastInputs, lastOutputs, trader.TradeLog, trader.MaxEquity, trader.MaxDrawdown,
-            windowStart, windowEnd, allBars, allBarHistograms, allBarInputs, allBarEquity, allBarOutputs);
+            windowStart, windowEnd, allBars, allBarHistograms, allBarInputs, allBarEquity, allBarOutputs, actualWarmupBars);
     }
 
     // Returns the post-decision equity (threaded in as the next call's previousEquity),

@@ -49,6 +49,15 @@ internal sealed class CompositeEncoder : IObservationEncoder
 
     public int SequenceLength { get; }
 
+    // Max, not sum -- every part reads from the same shared recentBars/
+    // recentBarHistograms tail independently (not disjoint slices), so once
+    // the deepest part's requirement is met, every shallower part's is too.
+    // Computed live rather than cached alongside FeatureCount/SequenceLength
+    // above: unlike those, a part's WarmupBars can change after construction
+    // (VolumeProfileEncoder.LookbackBars is mutable -- RlTrainingService sets
+    // it at each training run's start, see IHasLookbackBars).
+    public int WarmupBars => _parts.Count == 0 ? 0 : _parts.Max(p => p.WarmupBars);
+
     public IReadOnlyList<string> FeatureLabels { get; }
 
     public float[] Encode(SimulationObservation observation)

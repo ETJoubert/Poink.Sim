@@ -23,6 +23,8 @@ internal sealed class CapitalStateEncoder : IObservationEncoder
 
     public int SequenceLength => 0;
 
+    public int WarmupBars => 0; // account state is meaningful from the first tick -- no windowing
+
     public IReadOnlyList<string> FeatureLabels => Labels;
 
     public float[] Encode(SimulationObservation observation)

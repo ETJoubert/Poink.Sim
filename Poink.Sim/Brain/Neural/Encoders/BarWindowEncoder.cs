@@ -2,10 +2,14 @@
 //  Extracted from the formerly-duplicated MlpPolicyBrain/LstmPolicyBrain
 //  Encode logic (identical in both) -- the last WindowSize prices as
 //  percent-change-from-current-price, most-recent-last, zero-padded at the
-//  front early in an episode (neutral, no false signal) when fewer than
-//  WindowSize observations exist yet. Reads straight off the source buffer
-//  (up to 5000 ticks) instead of copying the whole thing via LINQ just to
-//  keep the trailing WindowSize.
+//  front (neutral, no false signal) when fewer than WindowSize observations
+//  exist yet -- a fallback for live Simulation playback, which really can
+//  start with no history. RlEpisodeRunner's WarmupBars-driven warm-up phase
+//  (see IObservationEncoder.WarmupBars) means training never exercises this
+//  padding path: a training episode's first decision only happens once
+//  WindowSize real bars/ticks have already accumulated. Reads straight off
+//  the source buffer (up to 5000 ticks) instead of copying the whole thing
+//  via LINQ just to keep the trailing WindowSize.
 //
 //  SequenceLength == FeatureCount (the whole output is one contiguous
 //  sequence) -- this is the one encoder in this codebase meant to be listed
@@ -29,6 +33,8 @@ internal sealed class BarWindowEncoder : IObservationEncoder
     public int FeatureCount => WindowSize;
 
     public int SequenceLength => WindowSize;
+
+    public int WarmupBars => WindowSize;
 
     public IReadOnlyList<string> FeatureLabels => Labels;
 

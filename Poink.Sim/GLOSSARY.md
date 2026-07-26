@@ -148,11 +148,15 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   counts toward a step's discounted return. `Training/PolicyGradientTrainingStrategy.cs`
 - **Episode** — One bounded practice run of `episodeBars` bars (each `barWidthMinutes`
   wide) through one Trader, recorded as an `RlEpisode` (list of `RlStep`s plus final
-  capital state, plus every completed `HlocAvdtBar`/`BarPriceHistogram` the episode
-  produced, plus -- index-aligned 1:1 with those bars, only for an
-  `IPolicyGradientBrain` -- each decision's `DescribeInputs` snapshot and its
-  pre-Apply equity anchor). `RlEpisodeRunner.Run` stops once that many bars complete, regardless
-  of how many ticks were fetched to get there. `Training/RlEpisode.cs`
+  capital state, plus every bar this episode processed -- including leading
+  **warm-up bars** (see that entry) -- as `HlocAvdtBar`/`BarPriceHistogram`, plus,
+  for only the *decision* bars and only for an `IPolicyGradientBrain`, each
+  decision's `DescribeInputs` snapshot and its pre-Apply equity anchor).
+  `RlEpisodeRunner.Run` starts recording `RlStep`s/rewards only after warm-up
+  completes (`Bars`/`BarHistograms` cover warm-up + decisions, `BarInputs`/
+  `BarEquity`/`BarOutputs` cover decisions only, offset from `Bars` by
+  `RlEpisode.WarmupBars`), then stops once `episodeBars` *decision* bars complete,
+  regardless of how many ticks were fetched to get there. `Training/RlEpisode.cs`
 - **Policy** — The Brain's decision function; "policy gradient" methods adjust network
   weights to increase the probability of actions that led to higher reward.
 - **REINFORCE** — The concrete RL algorithm implemented by
@@ -169,6 +173,30 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
 - **Reward-to-go** — Per-step discounted sum of all future rewards in an episode,
   computed backward from the episode's end.
   `Training/PolicyGradientTrainingStrategy.cs` (`TrainEpisode`)
+- **Warm-up bars** — `IPolicyGradientBrain.WarmupBars` (from `IObservationEncoder.
+  WarmupBars`, the max across a composed brain's encoder parts -- see
+  `CompositeEncoder.WarmupBars`): how many completed bars (ticks, in raw-tick mode)
+  `RlEpisodeRunner.Run` consumes purely to fill `recentBars`/`recentBarHistograms`/
+  `recentTicks` *before* the episode's first decision, so a windowed encoder's
+  lookback (`BarWindowEncoder`'s fixed 20, or `VolumeProfileEncoder`'s configurable
+  `LookbackBars`) is already full of real market data by then, instead of the
+  encoder's own zero-padding fallback. Warm-up bars generate no `RlStep`/reward and
+  don't count toward `episodeBars`, but they DO land in `RlEpisode.Bars`/
+  `BarHistograms` (and so `RlTrainingService.LatestEpisodeBars`/
+  `LatestEpisodeBarHistograms`) -- visible on the Train page's "current episode"
+  chart/volume/price profiles exactly like decision bars, just with no `BarInputs`/
+  `BarEquity`/`BarOutputs`/trade entry possible, so the lookback window's ramp-up is
+  actually watchable instead of happening off-screen. `RlEpisode.WarmupBars`/
+  `RlTrainingService.LatestEpisodeWarmupBars` record the split point; `TrainLiveTab`
+  draws it as a `ChartVerticalLine` (`DisplayedWarmupBoundary`, labeled "decisions
+  start") on the episode replay chart, and offsets `_revealedBarCount` by it
+  (`DisplayedDecisionIndex`) when indexing into the decision-only `BarInputs`/
+  `BarEquity`/`BarOutputs` arrays. `RlTrainingService.TryStartTraining` reads
+  `WarmupBars` off the brain right after setting `LookbackBars`, folds it into
+  `fetchSpan` (so enough extra ticks are pulled up front), and passes it through to
+  `RlEpisodeRunner.Run`. `Training/RlEpisodeRunner.cs`,
+  `Brain/Neural/Encoders/IObservationEncoder.cs`,
+  `Components/Pages/Training/Pages/Train/TrainLiveTab.razor.cs`
 
 ## Core Architecture — Classes & Interfaces
 
@@ -192,7 +220,11 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   by name (used by `TrainLiveTab`'s "what range the trader sees" chart marker --
   `BarWindowEncoder`'s own fixed 20-bar window has no such interface, since it's a
   private constant; that side derives its count from `DescribeInputs`' `t-N` labels
-  instead). `Brain/Neural/IHasLookbackBars.cs`
+  instead). Distinct from but related to `IObservationEncoder.WarmupBars` (see
+  **Warm-up bars**): `LookbackBars` is *settable* (a UI-configured merge width),
+  while `WarmupBars` is each encoder's own read-only "how far back do I need real
+  data" -- `VolumeProfileEncoder.WarmupBars` just returns its own `LookbackBars`.
+  `Brain/Neural/IHasLookbackBars.cs`
 - **`IPolicyGradientBrain`** — Sibling interface (not a replacement) to
   `ISimulationBrain`, for trainable stochastic-policy networks. Adds `Network` (live
   `Module<Tensor,Tensor>`), `Encode`, `DecideWithLogProbability`, `DescribeInputs`,
@@ -247,10 +279,11 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   the chart's SL/TP lines end-to-end. `Brain/Heuristic/RandomBrain.cs`
 - **`RandomWindow` / `RandomEpisodeWindow`** — Picks a random start timestamp within a
   table's known range and reads the ticks spanning `fetchSpan` (`barWidthMinutes ×
-  (episodeBars + 1)`) from there per training episode via `ITickRepository.ReadTicks`,
-  so successive episodes train against different real market windows without holding
-  the full range in memory; retries a few times on landing in an empty gap (e.g. a
-  weekend) before falling back to the range start. `Training/RlTrainingService.cs`
+  (episodeBars + warmupBars + 1)` -- see **Warm-up bars**) from there per training
+  episode via `ITickRepository.ReadTicks`, so successive episodes train against
+  different real market windows without holding the full range in memory; retries a
+  few times on landing in an empty gap (e.g. a weekend) before falling back to the
+  range start. `Training/RlTrainingService.cs`
 - **`RingBuffer<T>`** — Fixed-capacity circular buffer implementing
   `IReadOnlyList<T>`, most-recent-last; O(1) `Add` (vs. O(capacity) for
   `List.RemoveAt(0)`), used for the engine's bounded recent-ticks/bars/log windows.
