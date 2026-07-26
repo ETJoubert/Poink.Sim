@@ -217,6 +217,11 @@
                         <Icon Name="play-fill" Class="train-ctrl-icon" />
                         START
                     </button>
+                    <button class="train-ctrl-btn" @onclick="StepTraining"
+                            title="Runs exactly one episode on the symbol/range picked above, then pauses -- lets you step through training one episode at a time from the start">
+                        <Icon Name="skip-end-fill" Class="train-ctrl-icon" />
+                        STEP
+                    </button>
                 }
                 else if (Service.IsPaused)
                 {
@@ -224,6 +229,11 @@
                             title="Resume training from where it paused">
                         <Icon Name="play-fill" Class="train-ctrl-icon" />
                         RESUME
+                    </button>
+                    <button class="train-ctrl-btn" @onclick="StepTraining"
+                            title="Runs exactly one more episode, then pauses again -- lets you step through training one episode at a time">
+                        <Icon Name="skip-end-fill" Class="train-ctrl-icon" />
+                        STEP
                     </button>
                     <button class="train-ctrl-btn train-ctrl-btn-warn" @onclick="StopTraining"
                             title="Stop training once the in-flight episode finishes">
@@ -263,6 +273,7 @@
     </div>
 
     <div class="train-content">
+        <EpisodeCoverageTimeline From="_from" To="_to" BlockSpan="EpisodeBlockSpan" EpisodeWindows="Service.RecentEpisodeWindows" />
         <TrainLiveTab BrainName="_brainName" />
 
         @if (Service.Error is not null)

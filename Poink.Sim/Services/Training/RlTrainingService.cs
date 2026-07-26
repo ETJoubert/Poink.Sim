@@ -14,6 +14,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Poink.Sim.Brain;
 using Poink.Sim.Brain.Neural;
+using Poink.Sim.Models;
 using Poink.Sim.Repository;
 using Poink.Sim.Simulation;
 
@@ -46,8 +47,10 @@ internal sealed class RlTrainingService
     private readonly List<IRlTrainingStrategy> _strategies;
     private readonly List<RlEpisodeMetric> _episodeMetrics = new();
     private readonly List<RlEpisodeTrades> _episodeTrades = new();
+    private readonly List<RlEpisodeWindow> _episodeWindows = new();
     private readonly IBrainRepository _brainRepository;
     private readonly ITickRepository _tickRepository;
+    private readonly Trader.ITraderFactory _traderFactory;
     private readonly ILogger<RlTrainingService> _logger;
 
     // Which saved snapshot (if any) a live brain's current weights actually
@@ -65,14 +68,24 @@ internal sealed class RlTrainingService
     private readonly ManualResetEventSlim _resumeSignal = new(true);
     private volatile bool _stopRequested;
 
+    // Set for exactly one upcoming episode -- the training loop below checks
+    // this right after that episode completes and, if set, auto-pauses (same
+    // effect as PauseTraining) instead of continuing straight into the next
+    // one. Drives StepTraining (advance one episode from an already-paused
+    // run) and TryStartTraining's pauseAfterFirstEpisode (start a run already
+    // stepped, for stepping through from the very first episode).
+    private volatile bool _pauseAfterNextEpisode;
+
     public RlTrainingService(
         BrainRegistry brainRegistry, IEnumerable<IRlTrainingStrategy> strategies,
-        IBrainRepository brainRepository, ITickRepository tickRepository, ILogger<RlTrainingService> logger)
+        IBrainRepository brainRepository, ITickRepository tickRepository, Trader.ITraderFactory traderFactory,
+        ILogger<RlTrainingService> logger)
     {
         _brainRegistry = brainRegistry;
         _strategies = strategies.ToList();
         _brainRepository = brainRepository;
         _tickRepository = tickRepository;
+        _traderFactory = traderFactory;
         _logger = logger;
 
         // Restore whatever was last saved for each trainable brain -- these are
@@ -111,6 +124,14 @@ internal sealed class RlTrainingService
     public IReadOnlyList<NetworkLayerShape> DescribeNetworkShape(string brainName) =>
         _brainRegistry.All.OfType<IPolicyGradientBrain>().FirstOrDefault(b => b.Name == brainName)?.DescribeNetworkShape() ?? [];
 
+    // Null for a brain with no volume-profile-style trailing-bar window (e.g.
+    // a pure Bar Window brain, or an unknown name) -- see IHasLookbackBars'
+    // doc comment. Read by the Train page's episode replay to size its
+    // "what range the trader sees" chart marker for brains this doesn't cover
+    // (see BarWindowEncoder's own fixed, unexposed window instead).
+    public int? GetLookbackBars(string brainName) =>
+        (_brainRegistry.All.FirstOrDefault(b => b.Name == brainName) as IHasLookbackBars)?.LookbackBars;
+
     public IReadOnlyList<string> BrainNames => _brainRegistry.All.Select(b => b.Name).ToList();
 
     // NN vs non-NN is just "does this brain have trainable weights" --
@@ -141,6 +162,46 @@ internal sealed class RlTrainingService
     // rather than a per-tick stream.
     public IReadOnlyList<RlInputFeature>? LatestInputs { get; private set; }
 
+    // Same episode/decision as LatestInputs above -- what the network decided
+    // from those inputs (see RlOutputFeature's doc comment), for the Train
+    // page's "what the network decided" panel.
+    public IReadOnlyList<RlOutputFeature>? LatestOutputs { get; private set; }
+
+    // The most recently completed episode's full bar/histogram sequence --
+    // overwritten every episode (unlike RecentEpisodes/RecentEpisodeTrades,
+    // there's no bounded history of many episodes' worth here, just the
+    // latest one) so the Train page's "current episode" bar chart and
+    // volume/price profiles have something to show, paired well with the
+    // STEP control for pausing on exactly one episode at a time.
+    public IReadOnlyList<HlocAvdtBar> LatestEpisodeBars { get; private set; } = Array.Empty<HlocAvdtBar>();
+    public IReadOnlyList<BarPriceHistogram> LatestEpisodeBarHistograms { get; private set; } = Array.Empty<BarPriceHistogram>();
+
+    // Same episode as LatestEpisodeBars above (set together, every episode) --
+    // its closed-trade log, for the Train page's episode replay to draw as
+    // entry-to-exit lines on the bar chart as playback reveals each trade's
+    // exit bar.
+    public IReadOnlyList<Trade> LatestEpisodeTrades { get; private set; } = Array.Empty<Trade>();
+
+    // Same episode as LatestEpisodeBars above, index-aligned 1:1 -- each
+    // entry is what DescribeInputs saw as of that bar's decision, so the
+    // Train page's episode replay can show "what the network saw" synced to
+    // whichever bar is currently revealed, not just the episode's last one
+    // (see LatestInputs above, which this doesn't replace).
+    public IReadOnlyList<IReadOnlyList<RlInputFeature>> LatestEpisodeBarInputs { get; private set; } = Array.Empty<IReadOnlyList<RlInputFeature>>();
+
+    // Index-aligned 1:1 with LatestEpisodeBarInputs (not LatestEpisodeBars --
+    // both share the same IPolicyGradientBrain gate) -- each entry is that
+    // decision's pre-Apply equity, the anchor the Train page's de-normalized
+    // inputs toggle needs to invert "unrealized/eq"/"realized/eq"/"cash/eq"
+    // back to raw currency amounts (see RlEpisode.BarEquity's doc comment).
+    public IReadOnlyList<double> LatestEpisodeBarEquity { get; private set; } = Array.Empty<double>();
+
+    // Same episode as LatestEpisodeBars above, index-aligned 1:1 -- each
+    // entry is what the network decided as of that bar's decision (see
+    // LatestOutputs above, which this doesn't replace, and RlOutputFeature's
+    // doc comment).
+    public IReadOnlyList<IReadOnlyList<RlOutputFeature>> LatestEpisodeBarOutputs { get; private set; } = Array.Empty<IReadOnlyList<RlOutputFeature>>();
+
     // Bounded log of every completed episode this run -- the toggleable
     // "visual feedback" the Train page renders as a table, most-recent-first.
     public IReadOnlyList<RlEpisodeMetric> RecentEpisodes
@@ -158,6 +219,17 @@ internal sealed class RlTrainingService
         get { lock (_lock) { return _episodeTrades.ToList(); } }
     }
 
+    // Same bounded window as RecentEpisodes above, but only populated for a
+    // historic run (see TryStartTraining's loop below) -- a synthetic/dummy
+    // run has no real data range to plot against, so this stays empty for
+    // one. Feeds the Train page's data-coverage timeline (see
+    // EpisodeCoverageTimeline), which shades each bars/episode-length block
+    // of the selected range by how many of these windows overlap it.
+    public IReadOnlyList<RlEpisodeWindow> RecentEpisodeWindows
+    {
+        get { lock (_lock) { return _episodeWindows.ToList(); } }
+    }
+
     // Set by SaveBrain(); read by the Train page to show what happened after
     // clicking "Save Model". Separate from Error, which is only ever set by a
     // training run itself.
@@ -169,11 +241,13 @@ internal sealed class RlTrainingService
     // episode pulls its own bounded window straight from Postgres via
     // ITickRepository.ReadTicks (chunk-pruned by Timescale), so nothing here
     // ever materializes the full range. Null means synthetic random-walk
-    // episodes.
+    // episodes. pauseAfterFirstEpisode starts the run already stepped (see
+    // StepTraining) -- lets a user step through from episode 1 without first
+    // running a normal Start.
     public bool TryStartTraining(
         string brainName, string strategyName, int episodeCount, int episodeBars, int barWidthMinutes, double startingCash,
         double learningRate, int volumeProfileLookbackBars, (string Table, DateTime From, DateTime To)? historicRange,
-        Trader.TraderSettings? traderSettings = null)
+        Trader.TraderSettings? traderSettings = null, bool pauseAfterFirstEpisode = false)
     {
         var brain = _brainRegistry.All.FirstOrDefault(b => b.Name == brainName);
         var strategy = _strategies.FirstOrDefault(s => s.Name == strategyName);
@@ -198,8 +272,17 @@ internal sealed class RlTrainingService
             WorstReward = 0;
             ActionCounts = RlActionCounts.Empty;
             LatestInputs = null;
+            LatestOutputs = null;
+            LatestEpisodeBars = Array.Empty<HlocAvdtBar>();
+            LatestEpisodeBarHistograms = Array.Empty<BarPriceHistogram>();
+            LatestEpisodeTrades = Array.Empty<Trade>();
+            LatestEpisodeBarInputs = Array.Empty<IReadOnlyList<RlInputFeature>>();
+            LatestEpisodeBarEquity = Array.Empty<double>();
+            LatestEpisodeBarOutputs = Array.Empty<IReadOnlyList<RlOutputFeature>>();
             _episodeMetrics.Clear();
             _episodeTrades.Clear();
+            _episodeWindows.Clear();
+            _pauseAfterNextEpisode = pauseAfterFirstEpisode;
             _activeSnapshotId.Remove(brain.Name);
         }
 
@@ -252,7 +335,7 @@ internal sealed class RlTrainingService
                         ? RandomEpisodeWindow(episodeRange.Table, episodeRange.From, episodeRange.To, fetchSpan, rng)
                         : DummyTickGenerator.Generate(DateTime.UtcNow - fetchSpan, DateTime.UtcNow, syntheticTickCount);
 
-                    var result = RlEpisodeRunner.Run(brain, episodeTicks, startingCash, episodeBars, barWidth, settings: traderSettings);
+                    var result = RlEpisodeRunner.Run(brain, episodeTicks, startingCash, episodeBars, barWidth, _traderFactory, settings: traderSettings);
                     double reward = strategy.TrainEpisode(brain, optimizer, result);
 
                     recentRewards.Enqueue(reward);
@@ -266,12 +349,38 @@ internal sealed class RlTrainingService
                         WorstReward = EpisodesCompleted == 1 ? reward : Math.Min(WorstReward, reward);
                         ActionCounts = result.Steps.Aggregate(ActionCounts, (counts, step) => counts.Add(step.Action));
                         if (result.LastInputs is not null) LatestInputs = result.LastInputs;
+                        if (result.LastOutputs is not null) LatestOutputs = result.LastOutputs;
+                        LatestEpisodeBars = result.Bars;
+                        LatestEpisodeBarHistograms = result.BarHistograms;
+                        LatestEpisodeTrades = result.Trades;
+                        LatestEpisodeBarInputs = result.BarInputs;
+                        LatestEpisodeBarEquity = result.BarEquity;
+                        LatestEpisodeBarOutputs = result.BarOutputs;
                         _episodeMetrics.Add(new RlEpisodeMetric(episode + 1, reward, result.FinalCapital.Equity));
                         if (_episodeMetrics.Count > MaxMetricsLog) _episodeMetrics.RemoveAt(0);
                         _episodeTrades.Add(new RlEpisodeTrades(episode + 1, result.Trades, result.MaxEquity, result.MaxDrawdown));
                         if (_episodeTrades.Count > MaxMetricsLog) _episodeTrades.RemoveAt(0);
+                        if (historicRange is not null)
+                        {
+                            _episodeWindows.Add(new RlEpisodeWindow(episode + 1, result.WindowStart, result.WindowEnd));
+                            if (_episodeWindows.Count > MaxMetricsLog) _episodeWindows.RemoveAt(0);
+                        }
                     }
                     OnChanged?.Invoke();
+
+                    // Consume the one-shot step flag right after the episode it
+                    // was requested for -- same effect as PauseTraining, so the
+                    // loop's next _resumeSignal.Wait() blocks until Resume or
+                    // another StepTraining call reopens the gate.
+                    if (_pauseAfterNextEpisode)
+                    {
+                        _pauseAfterNextEpisode = false;
+                        lock (_lock)
+                        {
+                            if (IsRunning && !_stopRequested) { IsPaused = true; _resumeSignal.Reset(); }
+                        }
+                        OnChanged?.Invoke();
+                    }
                 }
 
                 if (_stopRequested)
@@ -321,6 +430,23 @@ internal sealed class RlTrainingService
         {
             if (!IsRunning || !IsPaused) return;
             IsPaused = false;
+            _resumeSignal.Set();
+        }
+        OnChanged?.Invoke();
+    }
+
+    // Reopens the gate for exactly one episode, then the training loop's own
+    // _pauseAfterNextEpisode check re-closes it -- lets a user advance a
+    // paused run one episode at a time instead of Resume's free-run. No-op
+    // unless a run is currently paused (see TryStartTraining's
+    // pauseAfterFirstEpisode for stepping from a not-yet-started run).
+    public void StepTraining()
+    {
+        lock (_lock)
+        {
+            if (!IsRunning || !IsPaused) return;
+            IsPaused = false;
+            _pauseAfterNextEpisode = true;
             _resumeSignal.Set();
         }
         OnChanged?.Invoke();

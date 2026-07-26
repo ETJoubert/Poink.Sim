@@ -46,9 +46,10 @@ internal static class RlEpisodeRunner
 
     public static RlEpisode Run(
         ISimulationBrain brain, IEnumerable<Tick> ticks, double startingCash,
-        int episodeBars, TimeSpan barSize, bool aggregate = true, Trader.TraderSettings? settings = null)
+        int episodeBars, TimeSpan barSize, Trader.ITraderFactory traderFactory,
+        bool aggregate = true, Trader.TraderSettings? settings = null)
     {
-        var trader = new Trader.Trader(startingCash, settings);
+        var trader = traderFactory.Create(startingCash, settings);
         var aggregator = aggregate ? new SimulationBarAggregator(barSize, PriceBucketWidth) : null;
 
         var recentBars = new List<HlocAvdtBar>();
@@ -56,15 +57,48 @@ internal static class RlEpisodeRunner
         var recentTicks = new List<Tick>();
         var steps = new List<RlStep>();
 
+        // Every completed bar for the whole episode, uncapped unlike recentBars/
+        // recentBarHistograms above (which stay capped to MaxRecentBars purely for
+        // what the brain reads each decision) -- naturally bounded by the
+        // episodeBars parameter itself, and only ever held for one episode at a
+        // time (RlTrainingService overwrites its copy every episode), so there's
+        // no unbounded growth risk. Feeds the Train page's "current episode" bar
+        // chart/volume/price profiles.
+        var allBars = new List<HlocAvdtBar>();
+        var allBarHistograms = new List<BarPriceHistogram>();
+
+        // Index-aligned 1:1 with allBars and each other -- only populated for an
+        // IPolicyGradientBrain (see RlEpisode's doc comment). allBarEquity is
+        // that decision's pre-Apply equity (observation.Capital.Equity, what
+        // CapitalStateEncoder actually divided by -- not the post-Apply equity
+        // RecordStep returns/threads into previousEquity), so the Train page
+        // can invert "unrealized/eq" etc. back to raw currency amounts.
+        var allBarInputs = new List<IReadOnlyList<RlInputFeature>>();
+        var allBarEquity = new List<double>();
+
+        // Index-aligned 1:1 with allBarInputs -- the same decision's full
+        // output distribution (see RlOutputFeature's doc comment), captured
+        // straight from RecordStep's own DecideWithLogProbability call rather
+        // than a second forward pass, which would risk re-sampling a
+        // different action than the one actually taken.
+        var allBarOutputs = new List<IReadOnlyList<RlOutputFeature>>();
+        var describableBrain = brain as IPolicyGradientBrain;
+
         double lastBid = 0, lastAsk = 0;
         double previousEquity = startingCash;
         int completedBars = 0;
         SimulationObservation? lastObservation = null;
+        IReadOnlyList<RlOutputFeature>? lastOutputs = null;
+        DateTime windowStart = default, windowEnd = default;
+        bool sawTick = false;
         foreach (var tick in ticks)
         {
             double price = (tick.Bid + tick.Ask) / 2.0;
             lastBid = tick.Bid;
             lastAsk = tick.Ask;
+
+            if (!sawTick) { windowStart = tick.Timestamp; sawTick = true; }
+            windowEnd = tick.Timestamp;
 
             recentTicks.Add(tick);
             if (recentTicks.Count > MaxRecentTicks) recentTicks.RemoveAt(0);
@@ -86,9 +120,17 @@ internal static class RlEpisodeRunner
                     if (recentBars.Count > MaxRecentBars) recentBars.RemoveAt(0);
                     recentBarHistograms.Add(completed.Value.Histogram);
                     if (recentBarHistograms.Count > MaxRecentBars) recentBarHistograms.RemoveAt(0);
-                    (previousEquity, lastObservation) = RecordStep(
+                    allBars.Add(completed.Value.Bar);
+                    allBarHistograms.Add(completed.Value.Histogram);
+                    (previousEquity, lastObservation, lastOutputs) = RecordStep(
                         brain, trader, tick.Timestamp, completed.Value.Bar.Close, tick.Bid, tick.Ask, maintenance.Capital,
                         recentBars, Array.Empty<Tick>(), recentBarHistograms, steps, previousEquity);
+                    if (describableBrain is not null)
+                    {
+                        allBarInputs.Add(describableBrain.DescribeInputs(lastObservation.Value));
+                        allBarEquity.Add(lastObservation.Value.Capital.Equity);
+                        allBarOutputs.Add(lastOutputs!);
+                    }
 
                     // Episode length is enforced in bars, not by however many ticks the
                     // caller happened to supply -- it only needs to supply "enough"
@@ -98,7 +140,7 @@ internal static class RlEpisodeRunner
             }
             else
             {
-                (previousEquity, lastObservation) = RecordStep(
+                (previousEquity, lastObservation, lastOutputs) = RecordStep(
                     brain, trader, tick.Timestamp, price, tick.Bid, tick.Ask, maintenance.Capital,
                     Array.Empty<HlocAvdtBar>(), recentTicks, Array.Empty<BarPriceHistogram>(), steps, previousEquity);
             }
@@ -106,18 +148,28 @@ internal static class RlEpisodeRunner
 
         // Aggregated/labeled snapshot of "what goes in" -- the final decision
         // point's own inputs, not a per-tick stream (see RlEpisode's doc comment).
-        var lastInputs = brain is IPolicyGradientBrain describableBrain && lastObservation is { } observation
+        // Same value as allBarInputs' last entry when aggregating; recomputed
+        // here too rather than reused since raw-tick mode (aggregate: false)
+        // never populates allBarInputs at all. lastOutputs, unlike lastInputs,
+        // is NOT recomputed the same way -- DescribeInputs is a pure re-read,
+        // but a second DecideWithLogProbability call would re-sample and could
+        // pick a different action than the one actually taken, so it's instead
+        // carried forward from RecordStep's own return each iteration.
+        var lastInputs = describableBrain is not null && lastObservation is { } observation
             ? describableBrain.DescribeInputs(observation)
             : null;
 
-        return new RlEpisode(steps, trader.Snapshot(lastBid, lastAsk), lastInputs, trader.TradeLog, trader.MaxEquity, trader.MaxDrawdown);
+        return new RlEpisode(
+            steps, trader.Snapshot(lastBid, lastAsk), lastInputs, lastOutputs, trader.TradeLog, trader.MaxEquity, trader.MaxDrawdown,
+            windowStart, windowEnd, allBars, allBarHistograms, allBarInputs, allBarEquity, allBarOutputs);
     }
 
-    // Returns the post-decision equity (threaded in as the next call's previousEquity)
-    // and the observation this step decided from (so the caller can describe the
-    // episode's final inputs once the loop ends). capitalNow is this tick's
+    // Returns the post-decision equity (threaded in as the next call's previousEquity),
+    // the observation this step decided from (so the caller can describe the episode's
+    // final inputs once the loop ends), and -- only for an IPolicyGradientBrain -- that
+    // decision's full output distribution (null otherwise). capitalNow is this tick's
     // already-computed Advance result, so Trader.Snapshot isn't called twice.
-    private static (double Equity, SimulationObservation Observation) RecordStep(
+    private static (double Equity, SimulationObservation Observation, IReadOnlyList<RlOutputFeature>? Outputs) RecordStep(
         ISimulationBrain brain, Trader.ITrader trader, DateTime timestamp, double price, double bid, double ask, CapitalState capitalNow,
         IReadOnlyList<HlocAvdtBar> bars, IReadOnlyList<Tick> ticks, IReadOnlyList<BarPriceHistogram> barHistograms,
         List<RlStep> steps, double previousEquity)
@@ -128,11 +180,13 @@ internal static class RlEpisodeRunner
 
         SimulationDecision decision;
         Tensor? logProbability = null;
+        IReadOnlyList<RlOutputFeature>? outputs = null;
         if (brain is IPolicyGradientBrain policyBrain)
         {
-            var (decidedAction, actionLogProbability) = policyBrain.DecideWithLogProbability(observation);
+            var (decidedAction, actionLogProbability, decisionOutputs) = policyBrain.DecideWithLogProbability(observation);
             decision = decidedAction;
             logProbability = actionLogProbability;
+            outputs = decisionOutputs;
         }
         else
         {
@@ -142,6 +196,6 @@ internal static class RlEpisodeRunner
         trader.Apply(decision, bid, ask, timestamp);
         var capitalAfter = trader.Snapshot(bid, ask);
         steps.Add(new RlStep(decision.Action, logProbability, reward));
-        return (capitalAfter.Equity, observation);
+        return (capitalAfter.Equity, observation, outputs);
     }
 }

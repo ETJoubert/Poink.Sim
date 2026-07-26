@@ -146,6 +146,30 @@
     font-size: 0.62rem;
 }
 
+/* Only applies alongside .train-panel-title (see the INPUTS panel) -- every
+   other panel keeps the plain block title above, so this doesn't change
+   their layout. */
+.train-panel-title-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.train-inputs-denorm-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: normal;
+    font-size: 0.62rem;
+    color: var(--color-secondary);
+    opacity: 0.85;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
 .train-live-panel-wide {
     grid-column: 1 / -1;
 }
@@ -283,4 +307,169 @@
     width: 32px;
     text-align: right;
     flex-shrink: 0;
+}
+
+/* OUTPUTS panel only -- marks which action the (stochastic) sampler actually
+   picked, distinct from the HOLD/LONG/SHORT/CLOSE color already carried by
+   .action-dist-label/-fill, since the highest-probability action isn't
+   necessarily the chosen one. */
+.action-dist-row-chosen {
+    background: color-mix(in srgb, var(--color-primary) 8%, transparent);
+    border-radius: var(--border-radius-sm);
+    box-shadow: inset 2px 0 0 var(--color-primary);
+    padding-left: 6px;
+    margin-left: -6px;
+}
+
+.action-dist-row-chosen .action-dist-pct {
+    color: var(--color-primary);
+    font-weight: 700;
+}
+
+.train-episode-empty {
+    font-size: 0.75rem;
+    color: var(--color-secondary);
+    opacity: 0.7;
+}
+
+/* Play/Pause + speed stepper + progress readout for the episode replay --
+   duplicates the look of TrainPage's .train-ctrl-btn/SimulationPage's
+   .sim-speed-stepper rather than relying on either: Blazor CSS isolation only
+   cascades a parent's scoped styles onto a child component's own root
+   element, not elements nested below it (see TraderControlsPanel's doc
+   comment for the same reasoning), and TrainLiveTab is TrainPage's child. */
+.train-episode-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+}
+
+::deep .train-episode-icon {
+    width: 13px;
+    height: 13px;
+    vertical-align: -2px;
+    margin-right: 3px;
+}
+
+.train-episode-btn {
+    font-family: var(--font-body);
+    font-weight: bold;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 7px 14px;
+    border-radius: var(--border-radius-sm);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 45%, transparent);
+    background: transparent;
+    color: var(--color-primary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.train-episode-btn:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+    border-color: var(--color-primary);
+}
+
+.train-episode-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.train-episode-btn-play {
+    border: 1px solid var(--color-success);
+    color: var(--color-success);
+    background: color-mix(in srgb, var(--color-success) 14%, transparent);
+}
+
+.train-episode-btn-play:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-success) 24%, transparent);
+    box-shadow: 0 0 14px color-mix(in srgb, var(--color-success) 45%, transparent);
+}
+
+.train-episode-speed {
+    display: flex;
+    align-items: center;
+    gap: 0;
+}
+
+.train-episode-speed-step {
+    border-color: color-mix(in srgb, var(--color-secondary) 40%, transparent);
+    color: var(--color-secondary);
+    padding: 7px 12px;
+    font-size: 13px;
+    line-height: 1;
+}
+
+.train-episode-speed-step:first-child {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.train-episode-speed-step:last-child {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+    border-left: none;
+}
+
+.train-episode-speed-value {
+    display: inline-block;
+    min-width: 40px;
+    text-align: center;
+    font-size: 11px;
+    font-weight: bold;
+    letter-spacing: 0.04em;
+    color: var(--color-secondary);
+}
+
+.train-episode-progress {
+    font-size: 0.7rem;
+    color: var(--color-secondary);
+    opacity: 0.8;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Static (non-draggable) counterpart to SimulationPage's .sim-chart row --
+   fixed panel widths are fine here since this is a one-off "what happened in
+   the last episode" view, not a live layout worth resizing every session.
+   Taller than a plain OhlcvChart would need since DrawableOhlcvChart adds its
+   own toolbar + minimap strip above/below the actual candlestick area. */
+.train-episode-row {
+    display: flex;
+    align-items: stretch;
+    gap: 16px;
+    height: 400px;
+}
+
+.train-episode-main {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.train-episode-side {
+    flex: 0 0 280px;
+    min-width: 160px;
+    max-width: 400px;
+    min-height: 0;
+}
+
+@media (max-width: 900px) {
+    .train-episode-row {
+        flex-direction: column;
+        height: auto;
+    }
+
+    .train-episode-side {
+        flex-basis: auto;
+        width: 100%;
+        height: 280px;
+    }
+
+    .train-episode-main {
+        height: 400px;
+    }
 }

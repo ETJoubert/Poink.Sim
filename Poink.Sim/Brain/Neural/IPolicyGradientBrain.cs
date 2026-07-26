@@ -26,6 +26,15 @@ namespace Poink.Sim.Brain.Neural;
 // (e.g. the Train page's "what goes in" panel) -- never used for inference.
 internal sealed record RlInputFeature(string Label, double Value);
 
+// One action's probability out of the policy's full output distribution for
+// one decision -- mirrors RlInputFeature but describes what the network
+// decided rather than what fed it. Probabilities across all four actions sum
+// to ~1; IsChosen flags which one the (stochastic) sampler actually picked
+// for this decision, since the highest-probability action isn't necessarily
+// the one taken. Label is the SimulationAction member name ("Hold"/
+// "EnterLong"/"EnterShort"/"Close").
+internal sealed record RlOutputFeature(string Label, double Probability, bool IsChosen);
+
 // One "layer" in the Train page's ambient Network Activity animation. Units
 // is a real magnitude (a Linear's out_features, or an LSTM's hidden size),
 // not meant to be drawn one-dot-per-unit -- see networkEmulator.js for how
@@ -52,8 +61,13 @@ internal interface IPolicyGradientBrain : ISimulationBrain
     // Forward pass + categorical sample + log-prob of the sampled action.
     // The log-prob is what a policy-gradient training strategy needs to build
     // its loss; plain simulation playback only needs the Decision half (see
-    // Decide() above).
-    (SimulationDecision Decision, Tensor ActionLogProbability) DecideWithLogProbability(SimulationObservation observation);
+    // Decide() above). Outputs is the same forward pass's full per-action
+    // distribution, labeled -- free to compute here (log_softmax already
+    // produces it before sampling collapses it to one index), so the Train
+    // page's "what the network decided" panel doesn't need a second forward
+    // pass (and re-sampling via a second call would risk a different action).
+    (SimulationDecision Decision, Tensor ActionLogProbability, IReadOnlyList<RlOutputFeature> Outputs) DecideWithLogProbability(
+        SimulationObservation observation);
 
     // Labeled breakdown of Encode(observation) -- each brain knows its own
     // feature layout, so it's the one that knows how to describe it. Used to

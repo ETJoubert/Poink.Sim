@@ -203,6 +203,12 @@ namespace Poink.Sim.Components.Pages
                 .Where(n => n > 0)
                 .ToList();
 
+        // One block's time span for EpisodeCoverageTimeline -- mirrors
+        // TryStartTraining's own fetchSpan sizing (barWidth * episodeBars,
+        // minus its extra safety-margin bar) so a block lines up with what one
+        // episode actually covers.
+        private TimeSpan EpisodeBlockSpan => TimeSpan.FromMinutes(_barWidthMinutes) * _episodeBars;
+
         // Drives the sticky header's progress bar.
         private int ProgressPercent =>
             Service.TotalEpisodes <= 0 ? 0 : (int)Math.Round(Service.EpisodesCompleted * 100.0 / Service.TotalEpisodes);
@@ -237,7 +243,19 @@ namespace Poink.Sim.Components.Pages
 
         // Historic: each episode streams its own randomly-windowed slice of the
         // selected symbol/range straight from Postgres.
-        private void StartTraining()
+        private void StartTraining() => StartTrainingCore(pauseAfterFirstEpisode: false);
+
+        // STEP button: while a run is already paused, just advance it one
+        // episode (Service already has everything it needs). Otherwise this
+        // starts a fresh run exactly like Start, but pre-paused after its
+        // first episode, so stepping can begin from episode 1.
+        private void StepTraining()
+        {
+            if (Service.IsRunning) { Service.StepTraining(); return; }
+            StartTrainingCore(pauseAfterFirstEpisode: true);
+        }
+
+        private void StartTrainingCore(bool pauseAfterFirstEpisode)
         {
             _startError = null;
             if (!ValidateCommonStartParams()) return;
@@ -246,7 +264,7 @@ namespace Poink.Sim.Components.Pages
 
             if (!Service.TryStartTraining(
                     _brainName, _strategyName, _episodeCount, _episodeBars, _barWidthMinutes, _startingCash, _learningRate,
-                    _volumeProfileLookbackBars, (_table, _from, _to), CurrentTraderSettings))
+                    _volumeProfileLookbackBars, (_table, _from, _to), CurrentTraderSettings, pauseAfterFirstEpisode))
                 _startError = Service.Error ?? "a training run is already in progress";
         }
 

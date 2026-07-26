@@ -148,7 +148,10 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   counts toward a step's discounted return. `Training/PolicyGradientTrainingStrategy.cs`
 - **Episode** — One bounded practice run of `episodeBars` bars (each `barWidthMinutes`
   wide) through one Trader, recorded as an `RlEpisode` (list of `RlStep`s plus final
-  capital state). `RlEpisodeRunner.Run` stops once that many bars complete, regardless
+  capital state, plus every completed `HlocAvdtBar`/`BarPriceHistogram` the episode
+  produced, plus -- index-aligned 1:1 with those bars, only for an
+  `IPolicyGradientBrain` -- each decision's `DescribeInputs` snapshot and its
+  pre-Apply equity anchor). `RlEpisodeRunner.Run` stops once that many bars complete, regardless
   of how many ticks were fetched to get there. `Training/RlEpisode.cs`
 - **Policy** — The Brain's decision function; "policy gradient" methods adjust network
   weights to increase the probability of actions that led to higher reward.
@@ -181,11 +184,24 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   strategy/parameters/metrics into its own Postgres database (`Poink.Sim`, separate
   from the `Poink.MarketData` tick database). Every save inserts a new snapshot row
   (never upserts), so training history stays browsable. `Repository/IBrainRepository.cs`
+- **`IHasLookbackBars`** — `{ int LookbackBars { get; set; } }`, implemented only by
+  `VolumeProfileEncoder` (default 50) -- how many trailing completed bars' histograms
+  it merges into one profile each decision. `ComposedPolicyBrain.Create` surfaces it
+  onto the composed brain via `LookbackAwarePolicyBrain` when exactly one part
+  implements it; `RlTrainingService.GetLookbackBars(brainName)` queries it generically
+  by name (used by `TrainLiveTab`'s "what range the trader sees" chart marker --
+  `BarWindowEncoder`'s own fixed 20-bar window has no such interface, since it's a
+  private constant; that side derives its count from `DescribeInputs`' `t-N` labels
+  instead). `Brain/Neural/IHasLookbackBars.cs`
 - **`IPolicyGradientBrain`** — Sibling interface (not a replacement) to
   `ISimulationBrain`, for trainable stochastic-policy networks. Adds `Network` (live
   `Module<Tensor,Tensor>`), `Encode`, `DecideWithLogProbability`, `DescribeInputs`,
   plus default-implemented `ExportWeights`/`ImportWeights`/`WeightCount`/
   `MoveToTrainingDevice`/`MoveToInferenceDevice`/`DescribeNetworkShape`.
+  `DecideWithLogProbability` also returns `Outputs` (the same forward pass's full
+  labeled `RlOutputFeature` distribution, not just the sampled action's log-prob) --
+  free to include since `log_softmax` already computes it before sampling collapses
+  it to one index (see `ComposedPolicyBrain.DescribeOutputs`).
   `Brain/Neural/IPolicyGradientBrain.cs`
 - **`IRlTrainingStrategy`** — The "coach" abstraction: `Name`/`CanTrain`/
   `CreateOptimizer`/`TrainEpisode`. Kept stateless like Poink.ML's brain interfaces;
@@ -248,7 +264,20 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   same `_lock`/`IsRunning`/`Error`/`OnChanged` shape as `SimulationEngine` and every
   Poink.ML `*TrainingService`. Drives `RlEpisodeRunner` in a tight loop, keeps a
   bounded rolling log (`RecentEpisodes`, last 500) and restores/persists brain weights
-  via `IBrainRepository`. `Training/RlTrainingService.cs`
+  via `IBrainRepository`. `StepTraining` (the Train page's STEP button) reopens the
+  same Pause/Resume gate for exactly one episode via `_pauseAfterNextEpisode`, so
+  the loop auto-re-pauses right after that episode instead of free-running;
+  `TryStartTraining`'s `pauseAfterFirstEpisode` does the same for a not-yet-started
+  run, so stepping can begin from episode 1. `LatestEpisodeBars`/
+  `LatestEpisodeBarHistograms`/`LatestEpisodeTrades`/`LatestEpisodeBarInputs`/
+  `LatestEpisodeBarEquity`/`LatestEpisodeBarOutputs` hold only the most recently
+  completed episode's full bar/histogram/closed-trade/per-decision-input/
+  per-decision-equity/per-decision-output data (overwritten every episode, not
+  a bounded log) -- feeds `TrainLiveTab`'s "current episode" bar chart,
+  volume/price profiles, and episode replay (including its de-normalized
+  inputs toggle and OUTPUTS panel). `GetLookbackBars(brainName)` looks up a
+  brain's `IHasLookbackBars.LookbackBars` by name for the same panel's "what
+  range the trader sees" chart marker. `Training/RlTrainingService.cs`
 - **`SimulationBarAggregator`** — Stateful incremental tick→HLOC/AVDT bar aggregator:
   "feed one tick, get zero-or-one completed bar back," since a sim advances
   tick-by-tick (unlike Poink.ML's batch/whole-list aggregators). Per-tick math
@@ -279,9 +308,14 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
 - **`ITrader`** — `Trader`'s public contract, extracted so `SimulationEngine`/
   `RlEpisodeRunner` depend on the interface instead of the concrete class --
   decouples `Trader` for direct unit testing (a test can substitute a fake/mock
-  `ITrader`). Construction still goes through `new Trader.Trader(...)` directly
-  at every call site; see `TODO/2026-07-24-trader-di-factory.md` for the
-  deferred factory/DI wiring. `Trader/ITrader.cs`
+  `ITrader`). `Trader/ITrader.cs`
+- **`ITraderFactory`** / **`TraderFactory`** — DI seam for `Trader` construction,
+  used by `SimulationEngine.CreateSessions` and `RlEpisodeRunner.Run` instead of
+  `new Trader.Trader(...)` directly, so an orchestration-level test can
+  substitute a fake `ITraderFactory` returning a mock `ITrader` without a real
+  `Trader` underneath. `TraderFactory.Create` is a one-line passthrough to
+  `new Trader(startingCash, settings)`; registered as an `AddSingleton` (stateless).
+  `Trader/ITraderFactory.cs`, `Trader/TraderFactory.cs`
 - **`TraderSession`** — One configured trader's slice of a shared run: its own
   `Trader`/recent-log buffer/`Mode` (`TraderControlMode`), all sharing the single
   `_activeBrain` instance for the run (unless `Mode` is `Manual`, in which case
@@ -331,9 +365,39 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   TakeProfitPrice?, CreatedTime, Reason?)`. `OrderType` is always `Limit` or
   `Stop` here -- Market orders never rest, they fill immediately in
   `Trader.Apply`. `Trader/Orders/PendingOrder.cs`
+- **`RlEpisodeWindow`** — `(EpisodeNumber, Start, End)`: one historic episode's
+  actual sampled tick timestamps (see `RlEpisode`'s `WindowStart`/`WindowEnd`),
+  only recorded for a run sampling a real data range (never for synthetic/dummy
+  episodes). Feeds `EpisodeCoverageTimeline`'s per-block usage shading.
+  `Training/RlEpisode.cs`
 - **`RlInputFeature`** — One named value out of a policy brain's `Encode()` input,
   purely for the Train page's "what goes in" display panel — never used for inference
-  itself. Record `(Label, Value)`. `Brain/Neural/IPolicyGradientBrain.cs`
+  itself. Record `(Label, Value)`. `Brain/Neural/IPolicyGradientBrain.cs` Label
+  conventions, one per encoder: `BarWindowEncoder` emits `t-20..t-1`
+  (percent-change-from-current-price, most-recent-last, invert via
+  `currentPrice * (1 + value)`); `VolumeProfileEncoder` emits `vp-0..vp-19`
+  (volume fraction, `[0,1]`) plus `poc-offset`/`va-high-offset`/`va-low-offset`
+  (same percent-change formula as `t-N`); `CapitalStateEncoder` emits `position`
+  (`1`/`-1`/`0` = long/short/flat, not a ratio), `unrealized/eq`, `realized/eq`,
+  `cash/eq` (each `rawAmount / equity`, invert via `value * equity`).
+  `TrainLiveTab`'s de-normalized toggle (`FormatInputValue`) inverts each of
+  these back to real units using whichever bar's `Close`/pre-decision equity
+  the panel is currently showing (`DisplayedCurrentPrice`/`DisplayedEquity`).
+  `Brain/Neural/Encoders/BarWindowEncoder.cs`,
+  `Brain/Neural/Encoders/VolumeProfileEncoder.cs`,
+  `Brain/Neural/Encoders/CapitalStateEncoder.cs`
+- **`RlOutputFeature`** — One action's probability out of a policy brain's full
+  output distribution for one decision, mirroring `RlInputFeature` but for what
+  the network decided rather than what fed it. Record `(Label, Probability,
+  IsChosen)` -- `Label` is the `SimulationAction` member name ("Hold"/
+  "EnterLong"/"EnterShort"/"Close"), probabilities across all four sum to ~1,
+  `IsChosen` flags whichever one the stochastic sampler actually picked (not
+  necessarily the highest-probability one). Produced by
+  `ComposedPolicyBrain.DecideWithLogProbability` from the same forward pass
+  that decides, not a second one. `TrainLiveTab`'s OUTPUTS panel renders it
+  reusing the ACTION DISTRIBUTION panel's `action-dist-*` styling, with
+  `.action-dist-row-chosen` highlighting `IsChosen`.
+  `Brain/Neural/IPolicyGradientBrain.cs`
 - **`SavedBrainSummary`** — Metadata-only view of one saved brain snapshot (everything
   except the weight bytes themselves), used to populate `SavedBrainsTable` without
   pulling megabytes of weights per row. `Repository/IBrainRepository.cs`
@@ -426,6 +490,21 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   whole minutes, with week gridlines and popover `Calendar`s for the From/To labels;
   commits on release (`onchange`, not `oninput`) to avoid per-pixel server
   round-trips in Blazor Server. `Components/Shared/DateRangeSlider/`
+- **`DrawableOhlcvChart`** — Candlestick + volume chart with click-to-draw
+  annotations (H/V/D lines, T-Range/P-Range/Rectangle, VWAP overlay) plus lazy
+  pan-triggered backfill; `ProfilerPage`'s main chart. Its own separate
+  component/JS module from `OhlcvChart` (see that component's doc comment for
+  why), not a wrapper around it. Also reused as-is by `TrainLiveTab`'s episode
+  replay for its generic `DiagonalLines` parameter (closed-trade entry-to-exit
+  markers) -- its drawing toolbar/minimap render there too even though nothing
+  wires their callbacks, a deliberate reuse-over-building-a-second-chart
+  tradeoff. `Components/Charts/DrawableOhlcvChart/`
+- **`EpisodeCoverageTimeline`** — Data-coverage heatmap at the top of `TrainPage`'s
+  `train-content`: one block per `bars/episode`-length slice of the selected Data
+  Range, shaded darker the more completed episodes (`RlTrainingService.
+  RecentEpisodeWindows`) sampled from it. Binds to the page's live From/To/bars-
+  per-episode fields, so the block layout previews before Start Training is
+  clicked. `Components/Pages/Training/Components/EpisodeCoverageTimeline/`
 - **`EpisodeGrid`** — One small colored block per completed training episode,
   wrapping left-to-right, colored by reward sign/magnitude with a redundant `+`/`−`/
   `·` glyph (for CVD accessibility, since the app's success/error color pair fails
@@ -494,9 +573,44 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   child component's own root element, not elements nested below it.
   `Components/Pages/Simulation/Components/TraderControlsPanel/`
 - **`TrainLiveTab`** — The Train page's "Live" content: stat tiles, `EpisodeGrid`,
-  `RewardChart`, `NetworkEmulator`, action-distribution bars, and the "what goes in"
-  inputs panel (`PriceWindowFeatures`/`ScalarFeatures` split from
-  `RlInputFeature.Label`). `Components/Pages/Training/Pages/Train/TrainLiveTab.razor.cs`
+  `RewardChart`, `NetworkEmulator`, action-distribution bars, a "current episode"
+  panel, an INPUTS panel, and an OUTPUTS panel.
+  `Components/Pages/Training/Pages/Train/TrainLiveTab.razor.cs`
+
+  The **current episode panel** renders the most recently completed episode's
+  bars via `DrawableOhlcvChart`, plus `TickVolumeProfileChart`/
+  `TickTimeProfileChart` merged from `RlTrainingService.LatestEpisodeBars`/
+  `LatestEpisodeBarHistograms` — reads well paired with the STEP control, which
+  pauses on exactly one episode at a time. Its PLAY/PAUSE + speed stepper drive
+  an **episode replay**: a local `System.Threading.Timer` reveals a frozen
+  snapshot of that episode's bars one at a time (`BaseBarsPerSecond` scaled by
+  the speed stepper, not real elapsed/bar-width time), with each closed trade
+  (`LatestEpisodeTrades`) drawn as a `DrawableOhlcvChart` diagonal line once its
+  exit bar is revealed, colored by realized P&L sign via the `win`/`loss` groups
+  added to `drawableOhlcvChart.js`'s `groupColors`. The snapshot is frozen at
+  Play so the still-completing episode that triggered it can't repaint
+  mid-animation, but `HandleServiceChanged` drops it (`StopAndResetReplay`) the
+  moment training is told to carry on again (Start/Resume/Step), so the panel
+  doesn't linger on a stale episode instead of following the next one live. The
+  chart also shades a `DisplayedWindowRange` (a `ChartRangeFill`, reusing
+  `DrawableOhlcvChart`'s `profile` color group) over the trailing bars feeding
+  the current decision — "what range the trader sees" — sized from whichever of
+  `PriceWindowFeatures`' count or `RlTrainingService.GetLookbackBars` is larger.
+
+  The **INPUTS panel** (`PriceWindowFeatures`/`ScalarFeatures` split from
+  `RlInputFeature.Label`) is synced to the same revealed bar as the chart during
+  a replay (`DisplayedInputs`) rather than always showing the episode's last
+  decision, with a de-normalized toggle (`FormatInputValue`) that inverts each
+  labeled value back to real price/currency units using whichever bar's
+  close/pre-decision equity is currently shown (`DisplayedCurrentPrice`/
+  `DisplayedEquity`) — see `RlInputFeature`'s doc comment for the label-by-label
+  formulas.
+
+  The **OUTPUTS panel** (`DisplayedOutputs`, synced to the same revealed bar the
+  same way) shows what the network decided from those inputs: each
+  `SimulationAction`'s probability as an `action-dist-row` (reusing ACTION
+  DISTRIBUTION's styling), with `.action-dist-row-chosen` highlighting whichever
+  one `RlOutputFeature.IsChosen` flags.
 
 ## Data / Repository Concepts
 

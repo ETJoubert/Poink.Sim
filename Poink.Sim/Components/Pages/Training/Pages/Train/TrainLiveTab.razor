@@ -1,5 +1,6 @@
 @namespace Poink.Sim.Components.Training
 @using Poink.Sim.Components.Shared.DataTable
+@using Poink.Shared.Client.Components.Shared.Icon
 
 @if (Service.TotalEpisodes == 0)
 {
@@ -96,9 +97,71 @@ else
 
         <div class="train-live-panel train-live-panel-wide">
             <div class="train-panel-title">
-                INPUTS <span class="train-panel-subtitle">(what the network sees — last decision)</span>
+                CURRENT EPISODE <span class="train-panel-subtitle">(bars, volume profile and price profile of the most recently completed episode)</span>
             </div>
-            @if (Service.LatestInputs is null)
+            @if (EpisodeBarRows.Count == 0)
+            {
+                <span class="train-episode-empty">no episode data yet</span>
+            }
+            else
+            {
+                <div class="train-episode-controls">
+                    @if (_isReplaying)
+                    {
+                        <button class="train-episode-btn train-episode-btn-play" @onclick="PauseEpisode" title="Pause the replay">
+                            <Icon Name="pause-fill" Class="train-episode-icon" />
+                            PAUSE
+                        </button>
+                    }
+                    else
+                    {
+                        <button class="train-episode-btn train-episode-btn-play" @onclick="PlayEpisode" disabled="@(!CanReplay)"
+                                title="@(ReplayHasPausedProgress
+                                           ? "Resume watching the trader trade through this episode, bar by bar"
+                                           : "Replay this episode from the start, bar by bar, so you can watch the trader trade")">
+                            <Icon Name="play-fill" Class="train-episode-icon" />
+                            @(ReplayHasPausedProgress ? "RESUME" : "PLAY")
+                        </button>
+                    }
+                    <div class="train-episode-speed" title="Replay speed -- how many bars reveal per second">
+                        <button class="train-episode-btn train-episode-speed-step" @onclick="DecreaseReplaySpeed"
+                                disabled="@(_replaySpeedIndex == 0)" title="Slower">-</button>
+                        <span class="train-episode-speed-value">@FormatReplaySpeed(ReplaySpeed)</span>
+                        <button class="train-episode-btn train-episode-speed-step" @onclick="IncreaseReplaySpeed"
+                                disabled="@(_replaySpeedIndex == ReplaySpeedOptions.Length - 1)" title="Faster">+</button>
+                    </div>
+                    @if (_replayBars is not null)
+                    {
+                        <span class="train-episode-progress">bar @_revealedBarCount / @_replayBars.Count</span>
+                    }
+                </div>
+
+                <div class="train-episode-row">
+                    <div class="train-episode-main">
+                        <DrawableOhlcvChart Bars="DisplayedEpisodeBars" DiagonalLines="DisplayedTradeLines" RangeFills="DisplayedWindowRange" />
+                    </div>
+                    <div class="train-episode-side">
+                        <TickVolumeProfileChart WeightedSamples="EpisodeVolumeProfileSamples" CurrentPrice="EpisodeLastPrice" />
+                    </div>
+                    <div class="train-episode-side">
+                        <TickTimeProfileChart WeightedSamples="EpisodeTimeProfileSamples" CurrentPrice="EpisodeLastPrice" />
+                    </div>
+                </div>
+            }
+        </div>
+
+        <div class="train-live-panel train-live-panel-wide">
+            <div class="train-panel-title train-panel-title-row">
+                <span>
+                    INPUTS <span class="train-panel-subtitle">(what the network sees — last decision, or the replay's current bar while one's playing)</span>
+                </span>
+                <label class="train-inputs-denorm-toggle"
+                       title="Show actual price/currency values instead of the network's normalized (bounded ratio) inputs">
+                    <input type="checkbox" @bind="_showDenormalizedInputs" />
+                    De-normalized
+                </label>
+            </div>
+            @if (DisplayedInputs is null)
             {
                 <span class="reward-chart-empty">no data yet</span>
             }
@@ -113,7 +176,7 @@ else
                                 <span class="input-badge-label">@f.Label</span>
                                 <span
                                     class="input-badge-value @(f.Value switch { > 0 => "input-positive", < 0 => "input-negative", _ => "" })">
-                                    @f.Value.ToString("N4")
+                                    @FormatInputValue(f)
                                 </span>
                             </div>
                         }
@@ -128,11 +191,38 @@ else
                                 <span class="input-scalar-label">@f.Label</span>
                                 <span
                                     class="input-scalar-value @(f.Value switch { > 0 => "input-positive", < 0 => "input-negative", _ => "" })">
-                                    @f.Value.ToString("N3")
+                                    @FormatInputValue(f, "N3")
                                 </span>
                             </div>
                         }
                     </div>
+                </div>
+            }
+        </div>
+
+        <div class="train-live-panel train-live-panel-wide">
+            <div class="train-panel-title">
+                OUTPUTS <span class="train-panel-subtitle">(what the network decided — last decision, or the replay's current bar while one's playing)</span>
+            </div>
+            @if (DisplayedOutputs is null)
+            {
+                <span class="reward-chart-empty">no data yet</span>
+            }
+            else
+            {
+                <div class="action-dist">
+                    @foreach (var o in DisplayedOutputs)
+                    {
+                        <div class="action-dist-row @(o.IsChosen ? "action-dist-row-chosen" : "")"
+                             title="@(o.IsChosen ? "What the network actually decided" : "")">
+                            <span class="action-dist-label action-dist-@(ActionCssSuffix(o.Label))">@ActionShortLabel(o.Label)</span>
+                            <div class="action-dist-track">
+                                <div class="action-dist-fill action-dist-fill-@(ActionCssSuffix(o.Label))"
+                                     style="width: @(Pct(o.Probability * 100))%"></div>
+                            </div>
+                            <span class="action-dist-pct">@(FormatProbabilityPct(o.Probability))%</span>
+                        </div>
+                    }
                 </div>
             }
         </div>

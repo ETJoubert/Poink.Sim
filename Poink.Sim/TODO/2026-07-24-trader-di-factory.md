@@ -1,6 +1,7 @@
 # Trader construction through DI (ITraderFactory)
 
 Status: Approved
+Status: Pending Review (2026-07-24) -- implemented, `dotnet build` clean
 
 ## Why
 

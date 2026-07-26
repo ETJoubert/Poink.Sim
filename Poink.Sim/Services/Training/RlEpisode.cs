@@ -5,6 +5,7 @@
 //  reward-only evaluator for the existing heuristic brains (no training,
 //  just "how did this brain do").
 // ─────────────────────────────────────────────────────────────────────────
+using System;
 using System.Collections.Generic;
 using Poink.Sim.Brain.Neural;
 using Poink.Sim.Models;
@@ -25,9 +26,43 @@ internal sealed record RlStep(SimulationAction Action, Tensor? LogProbability, d
 // same way SimulationPage's Statistics tab does for a live Trader, so the Train
 // page's per-episode/session trader-statistics tables (see RlTrainingService.
 // RecentEpisodeTrades) reuse that exact metric set instead of a second one.
+//
+// WindowStart/WindowEnd are the first/last tick timestamps this episode actually
+// consumed -- the real span sampled from the source data, not the wider fetchSpan
+// requested (see RlTrainingService.RandomEpisodeWindow), since the episode stops
+// as soon as episodeBars bars complete. Feeds RlTrainingService.RecentEpisodeWindows
+// for the Train page's data-coverage timeline.
+//
+// Bars/BarHistograms are every bar this episode completed, index-aligned 1:1 (see
+// BarPriceHistogram.Merge/MergeTime) -- empty when aggregate: false (raw-tick mode,
+// unused by RlTrainingService today). Feeds RlTrainingService.LatestEpisodeBars/
+// LatestEpisodeBarHistograms for the Train page's "current episode" bar chart and
+// volume/price profiles.
+//
+// BarInputs is the same per-bar DescribeInputs snapshot LastInputs takes only once
+// (at the episode's final decision), but for every completed bar, index-aligned
+// 1:1 with Bars -- so the Train page's episode replay can show what the network
+// saw as of whichever bar is currently revealed, not just the episode's last one.
+// Empty for a non-IPolicyGradientBrain, same as LastInputs being null.
+//
+// BarEquity is index-aligned 1:1 with BarInputs (not Bars -- both share the same
+// IPolicyGradientBrain gate): each entry is that decision's pre-Apply equity
+// (observation.Capital.Equity, what CapitalStateEncoder actually divided by to
+// produce "unrealized/eq" etc.), needed to invert those ratios back to raw
+// currency amounts for the Train page's de-normalized inputs toggle.
+//
+// LastOutputs/BarOutputs mirror LastInputs/BarInputs but for what the network
+// decided rather than what fed it -- each decision's full RlOutputFeature
+// distribution (see that record's doc comment). Unlike LastInputs, LastOutputs
+// is NOT independently recomputed from the final observation (see
+// RlEpisodeRunner.Run's doc comment on why a second DecideWithLogProbability
+// call would risk re-sampling a different action).
 internal sealed record RlEpisode(
     IReadOnlyList<RlStep> Steps, CapitalState FinalCapital, IReadOnlyList<RlInputFeature>? LastInputs,
-    IReadOnlyList<Trade> Trades, double MaxEquity, double MaxDrawdown);
+    IReadOnlyList<RlOutputFeature>? LastOutputs, IReadOnlyList<Trade> Trades, double MaxEquity, double MaxDrawdown,
+    DateTime WindowStart, DateTime WindowEnd, IReadOnlyList<HlocAvdtBar> Bars, IReadOnlyList<BarPriceHistogram> BarHistograms,
+    IReadOnlyList<IReadOnlyList<RlInputFeature>> BarInputs, IReadOnlyList<double> BarEquity,
+    IReadOnlyList<IReadOnlyList<RlOutputFeature>> BarOutputs);
 
 // One completed episode's trade log/equity extremes, paired with its episode
 // number -- retained by RlTrainingService (same bounded window as
@@ -43,6 +78,13 @@ internal sealed record RlEpisodeTrades(int EpisodeNumber, IReadOnlyList<Trade> T
 // partial class is always public -- a public parameter can't be typed with a
 // less-accessible type.
 public sealed record RlEpisodeMetric(int EpisodeNumber, double Reward, double FinalEquity);
+
+// One historic episode's actual sampled window (see RlEpisode's WindowStart/
+// WindowEnd doc comment) -- only recorded when training samples from a real
+// data range (never for synthetic/dummy episodes, which have no meaningful
+// range to plot against). Public for the same reason as RlEpisodeMetric above:
+// it's passed as a [Parameter] into EpisodeCoverageTimeline.
+public sealed record RlEpisodeWindow(int EpisodeNumber, DateTime Start, DateTime End);
 
 // Rolling tally of decisions taken across the current training run -- another
 // piece of "what's happening in the background" the Train page's Live tab shows.

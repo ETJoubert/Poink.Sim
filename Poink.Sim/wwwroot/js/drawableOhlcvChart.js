@@ -550,6 +550,11 @@ export function create(container, minimapContainer, dotNetRef) {
         // POC/VAH/VAL price lines, computed (not user-drawn) -- see ProfilerPage's
         // ProfileLevelLines. Its own colour, distinct from every drawn-tool group above.
         profile: style.getPropertyValue('--color-highlight').trim() || accentColor,
+        // Closed-trade diagonal lines (entry -> exit), computed not user-drawn -- see
+        // TrainLiveTab's episode replay, which colours each trade by its realized P&L
+        // sign rather than by draw tool.
+        win: style.getPropertyValue('--color-success').trim() || accentColor,
+        loss: style.getPropertyValue('--color-error').trim() || accentColor,
     };
 
     const verticalLines = createVerticalLinesPrimitive();

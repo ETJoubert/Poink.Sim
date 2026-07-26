@@ -104,17 +104,33 @@ internal class ComposedPolicyBrain : IPolicyGradientBrain
         }
     }
 
-    public (SimulationDecision Decision, Tensor ActionLogProbability) DecideWithLogProbability(SimulationObservation observation)
+    public (SimulationDecision Decision, Tensor ActionLogProbability, IReadOnlyList<RlOutputFeature> Outputs) DecideWithLogProbability(
+        SimulationObservation observation)
     {
         lock (_forwardLock)
         {
             var input = Encode(observation);
             var logits = Network.forward(input);
             var logProbs = functional.log_softmax(logits, dim: 1);
-            int actionIndex = SampleActionIndex(exp(logProbs));
+            var probabilities = exp(logProbs);
+            int actionIndex = SampleActionIndex(probabilities);
             var actionLogProbability = logProbs[0, actionIndex];
-            return (BuildDecision(actionIndex), actionLogProbability);
+            var outputs = DescribeOutputs(probabilities, actionIndex);
+            return (BuildDecision(actionIndex), actionLogProbability, outputs);
         }
+    }
+
+    // actionIndex order matches BuildDecision's switch below -- both read the
+    // same fixed Hold/EnterLong/EnterShort/Close layout the network's output
+    // layer is trained against.
+    private static readonly string[] ActionLabels = ["Hold", "EnterLong", "EnterShort", "Close"];
+
+    private static IReadOnlyList<RlOutputFeature> DescribeOutputs(Tensor actionProbabilities, int chosenIndex)
+    {
+        var outputs = new List<RlOutputFeature>(ActionLabels.Length);
+        for (int i = 0; i < ActionLabels.Length; i++)
+            outputs.Add(new RlOutputFeature(ActionLabels[i], actionProbabilities[0, i].item<float>(), i == chosenIndex));
+        return outputs;
     }
 
     // See MlpPolicyBrain's original SampleActionIndex doc comment (now
