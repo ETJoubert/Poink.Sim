@@ -15,12 +15,13 @@
 //  the underlying DB read short instead of having already pulled a much
 //  larger window into memory for nothing.
 //
-//  Reward per decision point = equity drift since the *previous* decision
-//  point -- previousEquity carries the running equity baseline forward
-//  regardless of source, so a commission charge, a mark-to-market move, or an
-//  automatic Trader.Advance fill (SL/TP/stop-out/pending-trigger) between
-//  decision points all show up correctly in the next reward, not just what
-//  this one Apply call did.
+//  Reward per decision point comes from whichever IRewardPolicy the caller
+//  passes (default EquityDriftRewardPolicy: raw equity drift since the
+//  *previous* decision point) -- previousCapital/previousPosition carry the
+//  running baselines forward regardless of source, so a commission charge, a
+//  mark-to-market move, or an automatic Trader.Advance fill (SL/TP/stop-out/
+//  pending-trigger) between decision points all show up correctly in the
+//  next reward, not just what this one Apply call did.
 //
 //  warmupBars offsets the episode's first decision forward by that many
 //  completed bars (ticks, in raw mode) -- those bars still feed recentBars/
@@ -58,8 +59,13 @@ internal static class RlEpisodeRunner
     public static RlEpisode Run(
         ISimulationBrain brain, IEnumerable<Tick> ticks, double startingCash,
         int episodeBars, TimeSpan barSize, Trader.ITraderFactory traderFactory,
-        bool aggregate = true, Trader.TraderSettings? settings = null, int warmupBars = 0)
+        bool aggregate = true, Trader.TraderSettings? settings = null, int warmupBars = 0,
+        IRewardPolicy? rewardPolicy = null)
     {
+        // Defaults to the exact pre-IRewardPolicy behavior (raw equity drift)
+        // when the caller doesn't pick one -- see EquityDriftRewardPolicy.
+        var effectiveRewardPolicy = rewardPolicy ?? new EquityDriftRewardPolicy();
+
         var trader = traderFactory.Create(startingCash, settings);
         var aggregator = aggregate ? new SimulationBarAggregator(barSize, PriceBucketWidth) : null;
 
@@ -82,7 +88,7 @@ internal static class RlEpisodeRunner
         // IPolicyGradientBrain (see RlEpisode's doc comment). allBarEquity is
         // that decision's pre-Apply equity (observation.Capital.Equity -- not
         // the post-Apply equity RecordStep returns/threads into
-        // previousEquity), one of the two anchors the Train page's
+        // previousCapital), one of the two anchors the Train page's
         // de-normalized INPUTS toggle can invert a feature against (see
         // DenormalizationAnchors).
         var allBarInputs = new List<IReadOnlyList<RlInputFeature>>();
@@ -97,7 +103,10 @@ internal static class RlEpisodeRunner
         var describableBrain = brain as IPolicyGradientBrain;
 
         double lastBid = 0, lastAsk = 0;
-        double previousEquity = startingCash;
+        // Flat starting snapshot -- no position, no PnL yet, matching the real
+        // Trader state before its first tick (see Trader's constructor).
+        CapitalState previousCapital = new(startingCash, 0, 0, 0, null);
+        Position? previousPosition = null;
         int completedBars = 0;
         int warmupRemaining = warmupBars;
         SimulationObservation? lastObservation = null;
@@ -152,9 +161,10 @@ internal static class RlEpisodeRunner
                     // sizing, which fetches enough extra ticks up front to cover this).
                     if (warmupRemaining > 0) { warmupRemaining--; continue; }
 
-                    (previousEquity, lastObservation, lastOutputs) = RecordStep(
+                    (previousCapital, lastObservation, lastOutputs) = RecordStep(
                         brain, trader, tick.Timestamp, completed.Value.Bar.Close, tick.Bid, tick.Ask, maintenance.Capital,
-                        recentBars, Array.Empty<Tick>(), recentBarHistograms, steps, previousEquity);
+                        recentBars, Array.Empty<Tick>(), recentBarHistograms, steps, previousCapital, previousPosition, effectiveRewardPolicy);
+                    previousPosition = lastObservation.Value.Position;
                     if (describableBrain is not null)
                     {
                         allBarInputs.Add(describableBrain.DescribeInputs(lastObservation.Value));
@@ -174,9 +184,10 @@ internal static class RlEpisodeRunner
                 // rather than bars since this branch has no bar aggregator.
                 if (warmupRemaining > 0) { warmupRemaining--; continue; }
 
-                (previousEquity, lastObservation, lastOutputs) = RecordStep(
+                (previousCapital, lastObservation, lastOutputs) = RecordStep(
                     brain, trader, tick.Timestamp, price, tick.Bid, tick.Ask, maintenance.Capital,
-                    Array.Empty<HlocAvdtBar>(), recentTicks, Array.Empty<BarPriceHistogram>(), steps, previousEquity);
+                    Array.Empty<HlocAvdtBar>(), recentTicks, Array.Empty<BarPriceHistogram>(), steps, previousCapital, previousPosition, effectiveRewardPolicy);
+                previousPosition = lastObservation.Value.Position;
             }
         }
 
@@ -204,19 +215,21 @@ internal static class RlEpisodeRunner
             windowStart, windowEnd, allBars, allBarHistograms, allBarInputs, allBarEquity, allBarOutputs, actualWarmupBars);
     }
 
-    // Returns the post-decision equity (threaded in as the next call's previousEquity),
-    // the observation this step decided from (so the caller can describe the episode's
-    // final inputs once the loop ends), and -- only for an IPolicyGradientBrain -- that
-    // decision's full output distribution (null otherwise). capitalNow is this tick's
-    // already-computed Advance result, so Trader.Snapshot isn't called twice.
-    private static (double Equity, SimulationObservation Observation, IReadOnlyList<RlOutputFeature>? Outputs) RecordStep(
+    // Returns the post-decision capital snapshot (threaded in as the next call's
+    // previousCapital), the observation this step decided from (so the caller can
+    // describe the episode's final inputs once the loop ends, and derive the next
+    // call's previousPosition), and -- only for an IPolicyGradientBrain -- that
+    // decision's full output distribution (null otherwise). capitalNow is this
+    // tick's already-computed Advance result, so Trader.Snapshot isn't called twice.
+    private static (CapitalState Capital, SimulationObservation Observation, IReadOnlyList<RlOutputFeature>? Outputs) RecordStep(
         ISimulationBrain brain, Trader.ITrader trader, DateTime timestamp, double price, double bid, double ask, CapitalState capitalNow,
         IReadOnlyList<HlocAvdtBar> bars, IReadOnlyList<Tick> ticks, IReadOnlyList<BarPriceHistogram> barHistograms,
-        List<RlStep> steps, double previousEquity)
+        List<RlStep> steps, CapitalState previousCapital, Position? previousPosition, IRewardPolicy rewardPolicy)
     {
-        double reward = capitalNow.Equity - previousEquity;
+        var positionNow = trader.CurrentPosition;
+        double reward = rewardPolicy.ComputeReward(new RewardContext(previousCapital, capitalNow, previousPosition, positionNow, timestamp));
         var observation = new SimulationObservation(
-            timestamp, price, bars, ticks, barHistograms, capitalNow, trader.CurrentPosition);
+            timestamp, price, bars, ticks, barHistograms, capitalNow, positionNow);
 
         SimulationDecision decision;
         Tensor? logProbability = null;
@@ -236,6 +249,6 @@ internal static class RlEpisodeRunner
         trader.Apply(decision, bid, ask, timestamp);
         var capitalAfter = trader.Snapshot(bid, ask);
         steps.Add(new RlStep(decision.Action, logProbability, reward));
-        return (capitalAfter.Equity, observation, outputs);
+        return (capitalAfter, observation, outputs);
     }
 }

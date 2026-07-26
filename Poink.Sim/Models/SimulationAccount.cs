@@ -13,9 +13,16 @@ internal enum PositionDirection { Long, Short }
 
 // StopLossPrice/TakeProfitPrice are auto-close trigger levels, acted on every
 // tick by Trader.Advance (checked at exit-side price -- see UnrealizedPnl).
+// TicksHeld/CumulativeDistance are running stats Trader.Advance updates every
+// raw tick this position stays open (both start at 0 the tick it opens):
+// TicksHeld is a plain count; CumulativeDistance is the sum of |mid-price
+// delta| tick-to-tick (path length traveled while holding, not net
+// EntryPrice-to-current displacement, so a position that whipsaws back and
+// forth accumulates distance even if it ends up near breakeven).
 internal readonly record struct Position(
     PositionDirection Direction, double Size, double EntryPrice, DateTime EntryTime,
-    double? StopLossPrice = null, double? TakeProfitPrice = null)
+    double? StopLossPrice = null, double? TakeProfitPrice = null,
+    int TicksHeld = 0, double CumulativeDistance = 0)
 {
     // Exit-side pricing: a Long exits (and marks) at Bid, a Short at Ask --
     // what the position would actually realize if closed right now, not mid.

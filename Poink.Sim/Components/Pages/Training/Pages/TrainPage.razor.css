@@ -146,17 +146,6 @@
     min-width: 110px;
 }
 
-/* Reward Policy row -- informational only (no control yet), so it's muted
-   rather than styled like an active field. */
-.train-datarow-disabled {
-    opacity: 0.6;
-}
-
-.train-brainrow-note {
-    font-size: 0.72rem;
-    color: var(--color-secondary);
-    font-style: italic;
-}
 
 .train-brainrow-field {
     display: flex;

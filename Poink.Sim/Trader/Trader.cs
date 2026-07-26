@@ -30,6 +30,12 @@ internal sealed class Trader : ITrader
     private PendingOrder? _pendingOrder;
     private double _openCommissionCharge;
 
+    // Last tick's mid-price, updated unconditionally every Advance call --
+    // the reference point Advance diffs the new tick's mid against to grow
+    // CurrentPosition's CumulativeDistance. Null only before the very first
+    // tick this Trader has ever seen.
+    private double? _lastMidPrice;
+
     public Trader(double startingCash, TraderSettings? settings = null)
     {
         Cash = startingCash;
@@ -83,6 +89,24 @@ internal sealed class Trader : ITrader
     // (only relevant once flat).
     public MaintenanceResult Advance(double bid, double ask, DateTime timestamp)
     {
+        // Grows the still-open position's TicksHeld/CumulativeDistance by this
+        // tick before any SL/TP/stop-out check below -- the position experienced
+        // this tick's move whether or not it's what ends up closing it.
+        // _lastMidPrice updates unconditionally (position open or not) so
+        // whenever a position next opens, the following tick already has a real
+        // "last" price to diff against instead of degenerating to 0.
+        double mid = (bid + ask) / 2.0;
+        if (CurrentPosition is { } openPosition)
+        {
+            double distance = _lastMidPrice is { } lastMid ? Math.Abs(mid - lastMid) : 0;
+            CurrentPosition = openPosition with
+            {
+                TicksHeld = openPosition.TicksHeld + 1,
+                CumulativeDistance = openPosition.CumulativeDistance + distance,
+            };
+        }
+        _lastMidPrice = mid;
+
         List<TradeExecution>? fills = null;
 
         if (CurrentPosition is { } position)

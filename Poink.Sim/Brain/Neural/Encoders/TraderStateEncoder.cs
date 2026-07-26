@@ -16,6 +16,14 @@
 //  position-count) without knowing the exact price it was entered at gives
 //  the network no way to tell how far current-price has moved from entry,
 //  only the size-conflated UnrealizedPnl figure.
+//
+//  position-ticks/position-distance are Position.TicksHeld/CumulativeDistance
+//  (0 while flat) -- running stats Trader.Advance grows every raw tick a
+//  position stays open (see Position's doc comment). Distance is path length
+//  (sum of |tick-to-tick mid-price delta|), not net EntryPrice-to-current
+//  displacement -- already derivable from position-price/current-price
+//  above -- so it tells the network how much a position has been whipsawed,
+//  not just where it ended up.
 // ─────────────────────────────────────────────────────────────────────────
 using System.Collections.Generic;
 using Poink.Sim.Models;
@@ -24,7 +32,7 @@ namespace Poink.Sim.Brain.Neural;
 
 internal sealed class TraderStateEncoder : IObservationEncoder
 {
-    private const int Count = 10;
+    private const int Count = 12;
 
     private readonly IFeatureNormalizer _directionNormalizer;
     private readonly IFeatureNormalizer _priceNormalizer;
@@ -43,6 +51,8 @@ internal sealed class TraderStateEncoder : IObservationEncoder
         [
             new FeatureDescriptor("position", _directionNormalizer),
             new FeatureDescriptor("position-price", _priceNormalizer),
+            new FeatureDescriptor("position-ticks", _valueNormalizer),
+            new FeatureDescriptor("position-distance", _priceNormalizer),
             new FeatureDescriptor("current-price", _priceNormalizer),
             new FeatureDescriptor("cash", _valueNormalizer),
             new FeatureDescriptor("realized", _valueNormalizer),
@@ -67,12 +77,16 @@ internal sealed class TraderStateEncoder : IObservationEncoder
         var capital = observation.Capital;
         double direction = observation.Position is { } position ? (position.Direction == PositionDirection.Long ? 1 : -1) : 0;
         double positionPrice = observation.Position?.EntryPrice ?? 0;
+        double positionTicks = observation.Position?.TicksHeld ?? 0;
+        double positionDistance = observation.Position?.CumulativeDistance ?? 0;
         double positionCount = observation.Position is null ? 0 : 1;
 
         return
         [
             _directionNormalizer.Normalize(direction, observation),
             _priceNormalizer.Normalize(positionPrice, observation),
+            _valueNormalizer.Normalize(positionTicks, observation),
+            _priceNormalizer.Normalize(positionDistance, observation),
             _priceNormalizer.Normalize(observation.CurrentPrice, observation),
             _valueNormalizer.Normalize(capital.Cash, observation),
             _valueNormalizer.Normalize(capital.RealizedPnl, observation),

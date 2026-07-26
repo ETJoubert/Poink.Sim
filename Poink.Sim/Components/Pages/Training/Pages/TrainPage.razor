@@ -206,9 +206,17 @@
                 </label>
             </div>
 
-            <div class="train-datarow train-datarow-disabled">
+            <div class="train-datarow">
                 <span class="train-section-label" title="How reward is computed each decision point">Reward Policy</span>
-                <span class="train-brainrow-note">Equity drift since the previous decision point -- not yet configurable</span>
+                <label class="train-brainrow-field" title="Which rules shape the per-decision reward -- Equity Drift is the raw, unshaped baseline; Trading Rules adds loss-aversion, an anti-churn entry cost, and a max-holding-time penalty on top of it">
+                    Policy
+                    <select class="train-brainrow-select" value="@_rewardPolicyName" @onchange="OnRewardPolicyChanged" disabled="@Service.IsRunning">
+                        @foreach (var name in Service.RewardPolicyNames)
+                        {
+                            <option value="@name">@name</option>
+                        }
+                    </select>
+                </label>
             </div>
         }
 

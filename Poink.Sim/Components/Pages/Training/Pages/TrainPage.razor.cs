@@ -65,6 +65,7 @@ namespace Poink.Sim.Components.Pages
         // ── Training Controls ──
         // The algorithm, plus how much data each episode/run consists of.
         private string _strategyName = "";
+        private string _rewardPolicyName = "";
         private int _episodeCount = 100;
         private int _episodeBars = 200;
         private double _learningRate = 0.001;
@@ -97,6 +98,7 @@ namespace Poink.Sim.Components.Pages
 
             if (Service.BrainOptions.Count > 0) _brainName = Service.BrainOptions[0].Name;
             if (Service.StrategyNames.Count > 0) _strategyName = Service.StrategyNames[0];
+            if (Service.RewardPolicyNames.Count > 0) _rewardPolicyName = Service.RewardPolicyNames[0];
         }
 
         private void HandleServiceChanged() => _ = InvokeAsync(StateHasChanged);
@@ -105,6 +107,8 @@ namespace Poink.Sim.Components.Pages
         // the Strategy select can sit in the Training Controls section while
         // BrainSelect sits in its own Brain Type section -- see TrainPage.razor.
         private void OnStrategyChanged(ChangeEventArgs e) => _strategyName = e.Value?.ToString() ?? "";
+
+        private void OnRewardPolicyChanged(ChangeEventArgs e) => _rewardPolicyName = e.Value?.ToString() ?? "";
 
         public void Dispose() => Service.OnChanged -= HandleServiceChanged;
 
@@ -236,6 +240,7 @@ namespace Poink.Sim.Components.Pages
         {
             if (string.IsNullOrWhiteSpace(_brainName)) { _startError = "pick a brain"; return false; }
             if (string.IsNullOrWhiteSpace(_strategyName)) { _startError = "pick a strategy"; return false; }
+            if (string.IsNullOrWhiteSpace(_rewardPolicyName)) { _startError = "pick a reward policy"; return false; }
             if (_episodeCount < 1) { _startError = "episode count must be positive"; return false; }
             if (_episodeBars < 1) { _startError = "bars per episode must be at least 1"; return false; }
             if (_barWidthMinutes < 1) { _startError = "bar width must be at least 1 minute"; return false; }
@@ -273,7 +278,7 @@ namespace Poink.Sim.Components.Pages
             if (_to <= _from) { _startError = "To must be after From"; return; }
 
             if (!Service.TryStartTraining(
-                    _brainName, _strategyName, _episodeCount, _episodeBars, _barWidthMinutes, _startingCash, _learningRate,
+                    _brainName, _strategyName, _rewardPolicyName, _episodeCount, _episodeBars, _barWidthMinutes, _startingCash, _learningRate,
                     _lookbackBars, (_table, _from, _to), CurrentTraderSettings, pauseAfterFirstEpisode))
                 _startError = Service.Error ?? "a training run is already in progress";
         }

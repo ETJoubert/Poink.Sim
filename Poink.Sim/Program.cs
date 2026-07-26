@@ -88,6 +88,12 @@ builder.Services.AddSingleton<SimulationEngine>();
 // read, so there's nothing that needs to be shared process-wide across circuits.
 builder.Services.AddScoped<ProfilerService>();
 builder.Services.AddSingleton<IRlTrainingStrategy, PolicyGradientTrainingStrategy>();
+// Order matters: RewardPolicyNames[0] (this first registration) is what
+// TrainPage.razor.cs's OnInitialized preselects, so the baseline/unshaped
+// policy -- not Trading Rules -- stays the default a fresh page load starts
+// on.
+builder.Services.AddSingleton<IRewardPolicy, EquityDriftRewardPolicy>();
+builder.Services.AddSingleton<IRewardPolicy, TradingRulesRewardPolicy>();
 builder.Services.AddSingleton<RlTrainingService>();
 #pragma warning disable CA1416 // SystemPerformanceMonitor is Windows-only, same as this app's other host assumptions (see its class comment).
 builder.Services.AddSingleton<SystemPerformanceMonitor>();
