@@ -118,12 +118,15 @@ internal sealed class SimulationEngine : IDisposable
     private DateTime? _lastTimestamp;
 
     private readonly ITickRepository _tickRepository;
+    private readonly Trader.ITraderFactory _traderFactory;
     private readonly ILogger<SimulationEngine> _logger;
 
-    public SimulationEngine(BrainRegistry brainRegistry, ITickRepository tickRepository, ILogger<SimulationEngine> logger)
+    public SimulationEngine(
+        BrainRegistry brainRegistry, ITickRepository tickRepository, Trader.ITraderFactory traderFactory, ILogger<SimulationEngine> logger)
     {
         _brainRegistry = brainRegistry;
         _tickRepository = tickRepository;
+        _traderFactory = traderFactory;
         _logger = logger;
         _timer = new Timer(TimerCallback, null, Timeout.Infinite, Timeout.Infinite);
     }
@@ -267,9 +270,9 @@ internal sealed class SimulationEngine : IDisposable
             source, config.Table, config.From, config.To, brain.Name, totalCount);
     }
 
-    private static List<TraderSession> CreateSessions(int count, double startingCash, Trader.TraderSettings settings) =>
+    private List<TraderSession> CreateSessions(int count, double startingCash, Trader.TraderSettings settings) =>
         Enumerable.Range(1, Math.Max(1, count))
-            .Select(i => new TraderSession { Id = i, Label = $"Trader {i}", Trader = new Trader.Trader(startingCash, settings) })
+            .Select(i => new TraderSession { Id = i, Label = $"Trader {i}", Trader = _traderFactory.Create(startingCash, settings) })
             .ToList();
 
     private static Trader.TraderSettings BuildTraderSettings(SimulationConfig config) => new(

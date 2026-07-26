@@ -21,6 +21,7 @@ using Poink.Sim.Diagnostics;
 using Poink.Sim.Profiler;
 using Poink.Sim.Repository;
 using Poink.Sim.Simulation;
+using Poink.Sim.Trader;
 using Poink.Sim.Training;
 using Serilog;
 using Serilog.Events;
@@ -78,6 +79,9 @@ builder.Services.AddSingleton<ISimulationBrain>(_ => ComposedPolicyBrain.Create(
     "Volume Profile + Bars Policy", new MlpArchitecture(64, 32, 16),
     new BarWindowEncoder(), new VolumeProfileEncoder(), new CapitalStateEncoder()));
 builder.Services.AddSingleton<BrainRegistry>();
+// Stateless, no reason for a shorter lifetime -- Create is a pure passthrough
+// to `new Trader.Trader(...)`.
+builder.Services.AddSingleton<ITraderFactory, TraderFactory>();
 builder.Services.AddSingleton<SimulationEngine>();
 // Scoped (not Singleton like SimulationEngine): ProfilerService holds no shared
 // "current run" state of its own -- each LoadAsync call is a self-contained batch
