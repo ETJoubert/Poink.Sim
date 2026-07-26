@@ -46,6 +46,7 @@ namespace Poink.Sim.Components.Pages
         private bool _buildBrainNameAuto = true;
         private bool _includeBarWindow = true;
         private bool _includeVolumeProfile;
+        private bool _includeTimeProfile;
         private ArchitectureKind _architectureKind = ArchitectureKind.Mlp;
         private string _mlpHiddenSizesText = "32,16";
         private int _lstmHiddenSize = 64;
@@ -53,11 +54,11 @@ namespace Poink.Sim.Components.Pages
         private string? _buildBrainStatus;
 
         // ── Data Structure Controls ──
-        // How raw ticks get shaped into bars, and how far back the volume-profile
-        // brain looks over that same bar data -- independent of how many bars
-        // one episode/run consists of (see Training Controls below).
+        // How raw ticks get shaped into bars, and how far back a Volume/Time
+        // Profile brain looks over that same bar data -- independent of how
+        // many bars one episode/run consists of (see Training Controls below).
         private int _barWidthMinutes = 1;
-        private int _volumeProfileLookbackBars = 50;
+        private int _lookbackBars = 50;
 
         // ── Training Controls ──
         // The algorithm, plus how much data each episode/run consists of.
@@ -121,15 +122,15 @@ namespace Poink.Sim.Components.Pages
         // so the Create button disables instead of only failing after a click.
         private bool CanCreateBrain =>
             !string.IsNullOrWhiteSpace(EffectiveBuildBrainName)
-            && (_includeBarWindow || _includeVolumeProfile)
+            && (_includeBarWindow || _includeVolumeProfile || _includeTimeProfile)
             && (_architectureKind != ArchitectureKind.Lstm || _includeBarWindow);
 
-        // {Architecture}_{Layers}_{Data}, e.g. MLP_L32-L16_dBW-dVP-dAS -- mirrors
+        // {Architecture}_{Layers}_{Data}, e.g. MLP_L32-L16_dBW-dVP-dTP-dAS -- mirrors
         // CreateBrain's own encoder/architecture choices below, so the generated
         // name always describes exactly what CREATE BRAIN is about to build.
         // Account State has no checkbox (always included) but still gets a
         // "dAS" tag here for the same reason it gets a disabled-checked
-        // checkbox above: visible parity with the other two data sources.
+        // checkbox above: visible parity with the other data sources.
         private string AutoBuildBrainName
         {
             get
@@ -148,6 +149,7 @@ namespace Poink.Sim.Components.Pages
                 var dataParts = new List<string>();
                 if (_includeBarWindow) dataParts.Add("dBW");
                 if (_includeVolumeProfile) dataParts.Add("dVP");
+                if (_includeTimeProfile) dataParts.Add("dTP");
                 dataParts.Add("dAS");
                 string data = string.Join("-", dataParts);
 
@@ -169,15 +171,17 @@ namespace Poink.Sim.Components.Pages
             if (!_buildBrainNameAuto) _buildBrainName = AutoBuildBrainName;
         }
 
-        // Canonical part order (Bar Window before Volume Profile) regardless of
-        // checkbox click order -- CompositeEncoder requires any sequence-bearing
-        // part to be listed first (see its doc comment).
+        // Canonical part order (Bar Window before Volume Profile before Time
+        // Profile) regardless of checkbox click order -- CompositeEncoder
+        // requires any sequence-bearing part to be listed first (see its doc
+        // comment).
         private void CreateBrain()
         {
             var name = EffectiveBuildBrainName;
             var encoderKinds = new List<EncoderKind>();
             if (_includeBarWindow) encoderKinds.Add(EncoderKind.BarWindow);
             if (_includeVolumeProfile) encoderKinds.Add(EncoderKind.VolumeProfile);
+            if (_includeTimeProfile) encoderKinds.Add(EncoderKind.TimeProfile);
 
             IReadOnlyList<int> hiddenSizes = _architectureKind == ArchitectureKind.Mlp
                 ? ParseHiddenSizes(_mlpHiddenSizesText)
@@ -231,7 +235,7 @@ namespace Poink.Sim.Components.Pages
             if (_barWidthMinutes < 1) { _startError = "bar width must be at least 1 minute"; return false; }
             if (_startingCash <= 0) { _startError = "starting cash must be positive"; return false; }
             if (_learningRate <= 0) { _startError = "learning rate must be positive"; return false; }
-            if (_volumeProfileLookbackBars < 1) { _startError = "volume profile lookback must be at least 1 bar"; return false; }
+            if (_lookbackBars < 1) { _startError = "profile lookback must be at least 1 bar"; return false; }
             if (_leverage < 1) { _startError = "leverage must be at least 1"; return false; }
             if (_commissionRatePercent < 0) { _startError = "commission rate can't be negative"; return false; }
             if (_stopOutLevelPercent <= 0 || _stopOutLevelPercent > 100) { _startError = "stop-out level must be between 0 and 100%"; return false; }
@@ -264,7 +268,7 @@ namespace Poink.Sim.Components.Pages
 
             if (!Service.TryStartTraining(
                     _brainName, _strategyName, _episodeCount, _episodeBars, _barWidthMinutes, _startingCash, _learningRate,
-                    _volumeProfileLookbackBars, (_table, _from, _to), CurrentTraderSettings, pauseAfterFirstEpisode))
+                    _lookbackBars, (_table, _from, _to), CurrentTraderSettings, pauseAfterFirstEpisode))
                 _startError = Service.Error ?? "a training run is already in progress";
         }
 
@@ -285,7 +289,7 @@ namespace Poink.Sim.Components.Pages
             if (string.IsNullOrWhiteSpace(_saveName)) return;
 
             if (Service.SaveBrain(_saveName, _brainName, _strategyName, CurrentDatasetDescription,
-                    _episodeCount, _episodeBars, _barWidthMinutes, _startingCash, _learningRate, _volumeProfileLookbackBars,
+                    _episodeCount, _episodeBars, _barWidthMinutes, _startingCash, _learningRate, _lookbackBars,
                     CurrentTraderSettings))
             {
                 _saveName = "";

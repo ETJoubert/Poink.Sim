@@ -111,7 +111,11 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   interval (`BarPriceHistogram.MergeTime`), since bar mode retains no per-tick
   timestamps. Its Point of Control/Value Area are computed by
   `TimeProfileStats.Compute`, independently of Volume Profile's.
-  `Components/Charts/TickTimeProfileChart.razor.cs`
+  `Components/Charts/TickTimeProfileChart.razor.cs`. Also available as a
+  trainable brain feature via `TimeProfileEncoder` (see **`IHasLookbackBars`**),
+  which re-bins the same `BarPriceHistogram.MergeTime` output/POC/Value-Area
+  math (`TimeProfileAnalysis`, the seconds-weighted counterpart to
+  `VolumeProfileAnalysis`) into a fixed-width network input instead of a chart.
 - **Trade** — One closed round-trip: `record Trade(Id, Direction, Size, EntryPrice,
   EntryTime, ExitPrice, ExitTime, RealizedPnl, Commission, Reason)`, appended to
   `Trader.TradeLog` on Close. `RealizedPnl` is net of `Commission` (the round-trip
@@ -178,8 +182,9 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   `CompositeEncoder.WarmupBars`): how many completed bars (ticks, in raw-tick mode)
   `RlEpisodeRunner.Run` consumes purely to fill `recentBars`/`recentBarHistograms`/
   `recentTicks` *before* the episode's first decision, so a windowed encoder's
-  lookback (`BarWindowEncoder`'s fixed 20, or `VolumeProfileEncoder`'s configurable
-  `LookbackBars`) is already full of real market data by then, instead of the
+  lookback (`BarWindowEncoder`'s fixed 20, or `VolumeProfileEncoder`'s/
+  `TimeProfileEncoder`'s configurable `LookbackBars`) is already full of real
+  market data by then, instead of the
   encoder's own zero-padding fallback. Warm-up bars generate no `RlStep`/reward and
   don't count toward `episodeBars`, but they DO land in `RlEpisode.Bars`/
   `BarHistograms` (and so `RlTrainingService.LatestEpisodeBars`/
@@ -212,19 +217,22 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   strategy/parameters/metrics into its own Postgres database (`Poink.Sim`, separate
   from the `Poink.MarketData` tick database). Every save inserts a new snapshot row
   (never upserts), so training history stays browsable. `Repository/IBrainRepository.cs`
-- **`IHasLookbackBars`** — `{ int LookbackBars { get; set; } }`, implemented only by
-  `VolumeProfileEncoder` (default 50) -- how many trailing completed bars' histograms
-  it merges into one profile each decision. `ComposedPolicyBrain.Create` surfaces it
-  onto the composed brain via `LookbackAwarePolicyBrain` when exactly one part
-  implements it; `RlTrainingService.GetLookbackBars(brainName)` queries it generically
+- **`IHasLookbackBars`** — `{ int LookbackBars { get; set; } }`, implemented by
+  `VolumeProfileEncoder` and `TimeProfileEncoder` (both default 50) -- how many
+  trailing completed bars' histograms each merges into one profile each decision.
+  `ComposedPolicyBrain.Create` surfaces it onto the composed brain via
+  `LookbackAwarePolicyBrain` whenever one or more parts implement it, broadcasting
+  one configured value to every one of them (so a brain combining both Volume
+  Profile and Time Profile shares a single lookback window rather than needing
+  two); `RlTrainingService.GetLookbackBars(brainName)` queries it generically
   by name (used by `TrainLiveTab`'s "what range the trader sees" chart marker --
   `BarWindowEncoder`'s own fixed 20-bar window has no such interface, since it's a
   private constant; that side derives its count from `DescribeInputs`' `t-N` labels
   instead). Distinct from but related to `IObservationEncoder.WarmupBars` (see
   **Warm-up bars**): `LookbackBars` is *settable* (a UI-configured merge width),
   while `WarmupBars` is each encoder's own read-only "how far back do I need real
-  data" -- `VolumeProfileEncoder.WarmupBars` just returns its own `LookbackBars`.
-  `Brain/Neural/IHasLookbackBars.cs`
+  data" -- `VolumeProfileEncoder`/`TimeProfileEncoder`'s `WarmupBars` just returns
+  its own `LookbackBars`. `Brain/Neural/IHasLookbackBars.cs`
 - **`IPolicyGradientBrain`** — Sibling interface (not a replacement) to
   `ISimulationBrain`, for trainable stochastic-policy networks. Adds `Network` (live
   `Module<Tensor,Tensor>`), `Encode`, `DecideWithLogProbability`, `DescribeInputs`,
@@ -368,7 +376,10 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   an arbitrarily long window without retaining raw ticks. `MergeTime` is the Time
   Profile counterpart: same bucket-for-bucket sum, but each bar's tick counts are
   first weighted by that bar's average tick interval (`(CloseTime - OpenTime) /
-  Volume`) to approximate seconds spent per bucket. `Models/BarPriceHistogram.cs`
+  Volume`) to approximate seconds spent per bucket. Both `Merge` and `MergeTime` feed
+  either a chart (`TickVolumeProfileChart`/`TickTimeProfileChart`) or a brain encoder
+  (`VolumeProfileEncoder`/`TimeProfileEncoder`) depending on the caller.
+  `Models/BarPriceHistogram.cs`
 - **`BrainTrainingParameters`** — Free-form training-run parameters (`EpisodeCount`,
   `EpisodeBars`, `BarWidthMinutes`, `StartingCash`, `LearningRate`, `LookbackBars`,
   `Leverage`, `StopOutLevelPercent`, `CommissionRatePercent`) saved alongside a
@@ -410,14 +421,19 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   (percent-change-from-current-price, most-recent-last, invert via
   `currentPrice * (1 + value)`); `VolumeProfileEncoder` emits `vp-0..vp-19`
   (volume fraction, `[0,1]`) plus `poc-offset`/`va-high-offset`/`va-low-offset`
-  (same percent-change formula as `t-N`); `CapitalStateEncoder` emits `position`
-  (`1`/`-1`/`0` = long/short/flat, not a ratio), `unrealized/eq`, `realized/eq`,
-  `cash/eq` (each `rawAmount / equity`, invert via `value * equity`).
+  (same percent-change formula as `t-N`); `TimeProfileEncoder` emits `tp-0..tp-19`
+  (seconds-spent fraction, `[0,1]`) plus `tp-poc-offset`/`tp-va-high-offset`/
+  `tp-va-low-offset` (same percent-change formula as `t-N`; prefixed with `tp-`,
+  unlike Volume Profile's bare offset labels, so the two encoders' labels never
+  collide when both are part of the same composed brain); `CapitalStateEncoder`
+  emits `position` (`1`/`-1`/`0` = long/short/flat, not a ratio), `unrealized/eq`,
+  `realized/eq`, `cash/eq` (each `rawAmount / equity`, invert via `value * equity`).
   `TrainLiveTab`'s de-normalized toggle (`FormatInputValue`) inverts each of
   these back to real units using whichever bar's `Close`/pre-decision equity
   the panel is currently showing (`DisplayedCurrentPrice`/`DisplayedEquity`).
   `Brain/Neural/Encoders/BarWindowEncoder.cs`,
   `Brain/Neural/Encoders/VolumeProfileEncoder.cs`,
+  `Brain/Neural/Encoders/TimeProfileEncoder.cs`,
   `Brain/Neural/Encoders/CapitalStateEncoder.cs`
 - **`RlOutputFeature`** — One action's probability out of a policy brain's full
   output distribution for one decision, mirroring `RlInputFeature` but for what
@@ -675,11 +691,11 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   `PolicyGradientTrainingStrategy.CreateOptimizer`; its momentum/variance state is
   why the optimizer is created once per training run, not per episode.
 - **Auto Name convention** — `{Architecture}_{Layers}_{Data}`, e.g.
-  `MLP_L32-L16_dBW-dVP-dAS`: the Build Brain section's auto-generated name.
+  `MLP_L32-L16_dBW-dVP-dTP-dAS`: the Build Brain section's auto-generated name.
   Layers are `L<size>` per MLP hidden layer or `H<hiddenSize>-N<numLayers>` for
   LSTM; Data is `d` + each included encoder's initials (`BW`=Bar Window,
-  `VP`=Volume Profile, `AS`=Account State, always present). Toggled off via the
-  "Auto Name" checkbox to type a custom name instead.
+  `VP`=Volume Profile, `TP`=Time Profile, `AS`=Account State, always present).
+  Toggled off via the "Auto Name" checkbox to type a custom name instead.
   `Components/Pages/Training/Pages/TrainPage.razor.cs` (`AutoBuildBrainName`)
 - **cAlgo** — The trading-platform/robot framework; "the Poink.Trader cAlgo robot" is
   the external process that writes ticks into the `ticks_<symbol>` Postgres tables

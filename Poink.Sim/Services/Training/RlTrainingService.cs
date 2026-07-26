@@ -124,7 +124,7 @@ internal sealed class RlTrainingService
     public IReadOnlyList<NetworkLayerShape> DescribeNetworkShape(string brainName) =>
         _brainRegistry.All.OfType<IPolicyGradientBrain>().FirstOrDefault(b => b.Name == brainName)?.DescribeNetworkShape() ?? [];
 
-    // Null for a brain with no volume-profile-style trailing-bar window (e.g.
+    // Null for a brain with no profile-style trailing-bar window (e.g.
     // a pure Bar Window brain, or an unknown name) -- see IHasLookbackBars'
     // doc comment. Read by the Train page's episode replay to size its
     // "what range the trader sees" chart marker for brains this doesn't cover
@@ -259,7 +259,7 @@ internal sealed class RlTrainingService
     // running a normal Start.
     public bool TryStartTraining(
         string brainName, string strategyName, int episodeCount, int episodeBars, int barWidthMinutes, double startingCash,
-        double learningRate, int volumeProfileLookbackBars, (string Table, DateTime From, DateTime To)? historicRange,
+        double learningRate, int lookbackBars, (string Table, DateTime From, DateTime To)? historicRange,
         Trader.TraderSettings? traderSettings = null, bool pauseAfterFirstEpisode = false)
     {
         var brain = _brainRegistry.All.FirstOrDefault(b => b.Name == brainName);
@@ -307,11 +307,12 @@ internal sealed class RlTrainingService
         if (brain is IPolicyGradientBrain trainableBrain)
             trainableBrain.MoveToTrainingDevice();
 
-        // No-op for brains that don't merge a bar-count window (e.g.
-        // MlpPolicyBrain) -- only IHasLookbackBars brains (VolumeProfilePolicyBrain)
-        // read this. Live Simulation playback reuses whatever was last set here.
+        // No-op for brains built from encoders with no lookback window (e.g. a
+        // bare Bar Window brain) -- only IHasLookbackBars brains (composed
+        // with a VolumeProfileEncoder and/or TimeProfileEncoder part) read
+        // this. Live Simulation playback reuses whatever was last set here.
         if (brain is IHasLookbackBars lookbackBrain)
-            lookbackBrain.LookbackBars = volumeProfileLookbackBars;
+            lookbackBrain.LookbackBars = lookbackBars;
 
         // Read after the LookbackBars assignment above so a lookback-windowed
         // brain's WarmupBars already reflects this run's configured value (see
@@ -502,8 +503,8 @@ internal sealed class RlTrainingService
     // restart, via SaveBrain below). CapitalStateEncoder is always appended
     // regardless of encoderKinds (see BrainCatalog's doc comment); the caller
     // (TrainPage.razor.cs) is responsible for listing encoderKinds in
-    // canonical order (BarWindow before VolumeProfile) so CompositeEncoder's
-    // sequence-first guard is satisfied.
+    // canonical order (BarWindow before VolumeProfile/TimeProfile) so
+    // CompositeEncoder's sequence-first guard is satisfied.
     public bool TryBuildBrain(string name, IReadOnlyList<EncoderKind> encoderKinds, ArchitectureKind architectureKind, IReadOnlyList<int> hiddenSizes)
     {
         if (string.IsNullOrWhiteSpace(name))
@@ -554,7 +555,7 @@ internal sealed class RlTrainingService
     public bool SaveBrain(
         string savedName, string brainName, string strategyName, string dataset,
         int episodeCount, int episodeBars, int barWidthMinutes, double startingCash, double learningRate,
-        int volumeProfileLookbackBars, Trader.TraderSettings? traderSettings = null)
+        int lookbackBars, Trader.TraderSettings? traderSettings = null)
     {
         var brain = _brainRegistry.All.OfType<IPolicyGradientBrain>().FirstOrDefault(b => b.Name == brainName);
         if (brain is null)
@@ -578,7 +579,7 @@ internal sealed class RlTrainingService
             {
                 EpisodeCount = episodeCount, EpisodeBars = episodeBars, BarWidthMinutes = barWidthMinutes,
                 StartingCash = startingCash, LearningRate = learningRate,
-                LookbackBars = brain is IHasLookbackBars ? volumeProfileLookbackBars : null,
+                LookbackBars = brain is IHasLookbackBars ? lookbackBars : null,
                 Leverage = settings.Leverage, StopOutLevelPercent = settings.StopOutLevelPercent,
                 CommissionRatePercent = settings.CommissionModel is Trader.Commission.PercentOfNotionalCommission p ? p.RatePercent : 0,
             };

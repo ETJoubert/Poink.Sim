@@ -15,7 +15,7 @@ using System.Collections.Generic;
 
 namespace Poink.Sim.Brain.Neural;
 
-internal enum EncoderKind { BarWindow, VolumeProfile }
+internal enum EncoderKind { BarWindow, VolumeProfile, TimeProfile }
 
 internal enum ArchitectureKind { Mlp, Lstm }
 
@@ -25,6 +25,7 @@ internal static class BrainCatalog
     {
         EncoderKind.BarWindow => new BarWindowEncoder(),
         EncoderKind.VolumeProfile => new VolumeProfileEncoder(),
+        EncoderKind.TimeProfile => new TimeProfileEncoder(),
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
     };
 

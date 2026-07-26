@@ -37,7 +37,7 @@ A brain's "shape" is two independent choices, wired together by
 
 | Piece | Interface | Current implementations |
 |---|---|---|
-| **Encoder** — observation → feature vector | `IObservationEncoder` (`FeatureCount`, `SequenceLength`, `FeatureLabels`, `Encode`) | `BarWindowEncoder` (20-bar percent-change price window), `VolumeProfileEncoder` (20-bucket histogram + POC/value-area summary, implements `IHasLookbackBars`), `CapitalStateEncoder` (4 bounded capital/position ratios) |
+| **Encoder** — observation → feature vector | `IObservationEncoder` (`FeatureCount`, `SequenceLength`, `FeatureLabels`, `Encode`) | `BarWindowEncoder` (20-bar percent-change price window), `VolumeProfileEncoder` (20-bucket tick-count histogram + POC/value-area summary, implements `IHasLookbackBars`), `TimeProfileEncoder` (20-bucket seconds-spent histogram + POC/value-area summary, same `IHasLookbackBars` capability), `CapitalStateEncoder` (4 bounded capital/position ratios) |
 | **Architecture** — feature vector → action logits | `INetworkArchitecture` (`Build(featureCount, sequenceLength)`) | `MlpArchitecture` (flat `Linear→Tanh` stack, any hidden-layer sizes), `LstmArchitecture` (LSTM over a leading sequence slice + trailing scalars, via `LstmPolicyNetwork`) |
 | **Combine multiple encoders** | `CompositeEncoder` | Concatenates parts in order; enforces that any sequence-bearing part (`SequenceLength > 0`) is listed **first**, so a recurrent architecture narrow()s the right slice |
 | **The brain itself** | `ComposedPolicyBrain` (+ `LookbackAwarePolicyBrain`) | Holds one `IObservationEncoder` + the `Module<Tensor,Tensor>` an architecture built from it; owns the one shared `Decide`/sampling/decision-mapping logic every composed brain uses |
@@ -51,12 +51,14 @@ ComposedPolicyBrain.Create(
     new BarWindowEncoder(), new VolumeProfileEncoder(), new CapitalStateEncoder());
 ```
 
-If exactly one encoder part implements `IHasLookbackBars` (today, only
-`VolumeProfileEncoder`), `Create` returns a `LookbackAwarePolicyBrain` instead
-of a plain `ComposedPolicyBrain`, so `brain is IHasLookbackBars` stays
-precise — true only when a part actually uses it, not for every composed
-brain. `LookbackBars` governs only that part's histogram-merge window (see
-`Training/RlTrainingService.cs`'s Train-page wiring), not any other encoder.
+If one or more encoder parts implement `IHasLookbackBars` (today,
+`VolumeProfileEncoder` and `TimeProfileEncoder`), `Create` returns a
+`LookbackAwarePolicyBrain` instead of a plain `ComposedPolicyBrain`, so
+`brain is IHasLookbackBars` stays precise — absent unless at least one part
+actually uses it. Setting `LookbackBars` broadcasts the same value to every
+wrapped part (see `Training/RlTrainingService.cs`'s Train-page wiring), so a
+brain combining both Volume Profile and Time Profile merges both over the
+same trailing-bar window rather than needing two separate settings.
 
 ## Where brains come from
 
@@ -97,11 +99,12 @@ persist, via the existing Save Model flow, keyed by the brain's `Name`.
 | `BrainRegistry.cs` | Shared mutable brain list backing both `RlTrainingService` and `SimulationEngine`; `Register` adds a runtime-built brain |
 | `Neural/IPolicyGradientBrain.cs` | Trained-brain family contract: `Network`, `Encode`, `DecideWithLogProbability`, `DescribeInputs`; default-implements `ExportWeights`/`ImportWeights`/`WeightCount`/`MoveToTrainingDevice`/`MoveToInferenceDevice`/`DescribeNetworkShape` off `Network` alone |
 | `Neural/IHasLookbackBars.cs` | Optional capability: a settable `LookbackBars` for an encoder that merges a trailing bar-count window |
-| `Neural/IObservationEncoder.cs` | Encoder contract: `FeatureCount`, `SequenceLength`, `FeatureLabels`, `Encode` |
-| `Neural/BarWindowEncoder.cs` | Encoder: 20-bar percent-change-from-current-price window |
-| `Neural/CapitalStateEncoder.cs` | Encoder: 4 bounded capital/position ratios |
-| `Neural/VolumeProfileEncoder.cs` | Encoder: 20-bucket relative volume histogram + POC/value-area summary; implements `IHasLookbackBars` |
-| `Neural/CompositeEncoder.cs` | Concatenates multiple encoders into one, enforcing the sequence-first ordering constraint |
+| `Neural/Encoders/IObservationEncoder.cs` | Encoder contract: `FeatureCount`, `SequenceLength`, `FeatureLabels`, `Encode` |
+| `Neural/Encoders/BarWindowEncoder.cs` | Encoder: 20-bar percent-change-from-current-price window |
+| `Neural/Encoders/CapitalStateEncoder.cs` | Encoder: 4 bounded capital/position ratios |
+| `Neural/Encoders/VolumeProfileEncoder.cs` | Encoder: 20-bucket relative volume (tick-count) histogram + POC/value-area summary; implements `IHasLookbackBars` |
+| `Neural/Encoders/TimeProfileEncoder.cs` | Encoder: 20-bucket relative time (seconds-spent) histogram + POC/value-area summary; implements `IHasLookbackBars`; labels prefixed `tp-` so they don't collide with `VolumeProfileEncoder`'s when both are composed together |
+| `Neural/Encoders/CompositeEncoder.cs` | Concatenates multiple encoders into one, enforcing the sequence-first ordering constraint |
 | `Neural/INetworkArchitecture.cs` | Architecture contract: `Build(featureCount, sequenceLength)` |
 | `Neural/MlpArchitecture.cs` | Architecture: flat `Linear→Tanh` stack, any hidden-layer sizes |
 | `Neural/LstmArchitecture.cs` | Architecture: LSTM over a leading sequence slice + trailing scalars |

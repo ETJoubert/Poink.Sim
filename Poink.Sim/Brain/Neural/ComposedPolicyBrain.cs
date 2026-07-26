@@ -22,9 +22,9 @@
 //
 //  Not sealed -- the one deliberate deviation from this folder's otherwise-
 //  universal "internal sealed class" convention, solely so LookbackAwarePolicyBrain
-//  (below) can extend it to surface IHasLookbackBars only when one of the
-//  encoder parts actually needs it (see Create's is-check) rather than every
-//  composed brain always implementing it. The constructor is private
+//  (below) can extend it to surface IHasLookbackBars only when one or more of
+//  the encoder parts actually needs it (see Create's is-check) rather than
+//  every composed brain always implementing it. The constructor is private
 //  protected so nothing else can subclass it.
 // ─────────────────────────────────────────────────────────────────────────
 using System;
@@ -53,21 +53,23 @@ internal class ComposedPolicyBrain : IPolicyGradientBrain
 
     // Builds a brain from an architecture plus one or more encoder parts
     // (concatenated via CompositeEncoder, see that class's ordering
-    // constraint). If exactly one part implements IHasLookbackBars, the
-    // returned brain surfaces that capability too (via LookbackAwarePolicyBrain)
-    // so RlTrainingService's `brain is IHasLookbackBars` check stays precise
-    // -- true only when a part actually uses it, not for every composed brain.
+    // constraint). If one or more parts implement IHasLookbackBars, the
+    // returned brain surfaces that capability too (via LookbackAwarePolicyBrain,
+    // which broadcasts one configured LookbackBars value to every one of
+    // them) so RlTrainingService's `brain is IHasLookbackBars` check stays
+    // precise -- absent unless at least one part actually uses it. Lets e.g.
+    // VolumeProfileEncoder and TimeProfileEncoder be combined in one brain
+    // and share the same trailing-bar window instead of needing separate
+    // lookback settings.
     public static IPolicyGradientBrain Create(string name, INetworkArchitecture architecture, params IObservationEncoder[] parts)
     {
         var encoder = CompositeEncoder.Create(parts);
         var network = architecture.Build(encoder.FeatureCount, encoder.SequenceLength);
 
         var lookbackParts = parts.OfType<IHasLookbackBars>().ToList();
-        if (lookbackParts.Count > 1)
-            throw new InvalidOperationException($"{name}: more than one encoder part implements IHasLookbackBars -- ComposedPolicyBrain only forwards to one");
 
-        return lookbackParts.Count == 1
-            ? new LookbackAwarePolicyBrain(name, encoder, network, lookbackParts[0])
+        return lookbackParts.Count > 0
+            ? new LookbackAwarePolicyBrain(name, encoder, network, lookbackParts)
             : new ComposedPolicyBrain(name, encoder, network);
     }
 
@@ -185,18 +187,22 @@ internal class ComposedPolicyBrain : IPolicyGradientBrain
     };
 }
 
-// Surfaces IHasLookbackBars only when one of the composed encoder's parts
-// actually implements it -- see ComposedPolicyBrain.Create.
+// Surfaces IHasLookbackBars only when one or more of the composed encoder's
+// parts actually implement it -- see ComposedPolicyBrain.Create. Setting
+// LookbackBars broadcasts the same value to every wrapped part, so e.g. a
+// VolumeProfileEncoder and TimeProfileEncoder combined in one brain always
+// merge over the same trailing-bar window; getting it just reads the first
+// (all parts are kept in sync by the setter, so any would do).
 internal sealed class LookbackAwarePolicyBrain : ComposedPolicyBrain, IHasLookbackBars
 {
-    private readonly IHasLookbackBars _lookbackPart;
+    private readonly IReadOnlyList<IHasLookbackBars> _lookbackParts;
 
-    internal LookbackAwarePolicyBrain(string name, IObservationEncoder encoder, Module<Tensor, Tensor> network, IHasLookbackBars lookbackPart)
-        : base(name, encoder, network) => _lookbackPart = lookbackPart;
+    internal LookbackAwarePolicyBrain(string name, IObservationEncoder encoder, Module<Tensor, Tensor> network, IReadOnlyList<IHasLookbackBars> lookbackParts)
+        : base(name, encoder, network) => _lookbackParts = lookbackParts;
 
     public int LookbackBars
     {
-        get => _lookbackPart.LookbackBars;
-        set => _lookbackPart.LookbackBars = value;
+        get => _lookbackParts[0].LookbackBars;
+        set { foreach (var part in _lookbackParts) part.LookbackBars = value; }
     }
 }

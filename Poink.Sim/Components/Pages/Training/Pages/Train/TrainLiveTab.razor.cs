@@ -257,9 +257,10 @@ namespace Poink.Sim.Components.Training
         // the max of a fixed-size price window (BarWindowEncoder; derived from
         // how many "t-N" entries DescribeInputs actually produced, since that
         // encoder's WindowSize is a private constant nothing exposes directly)
-        // and a volume-profile lookback (VolumeProfileEncoder, queryable
-        // generically via IHasLookbackBars). 0 for a brain with neither (e.g.
-        // a heuristic brain, where DisplayedInputs is null to begin with).
+        // and a profile lookback (VolumeProfileEncoder/TimeProfileEncoder,
+        // queryable generically via IHasLookbackBars). 0 for a brain with
+        // neither (e.g. a heuristic brain, where DisplayedInputs is null to
+        // begin with).
         private int DisplayedWindowBarCount => Math.Max(PriceWindowFeatures.Count, Service.GetLookbackBars(BrainName) ?? 0);
 
         // Shades the trailing DisplayedWindowBarCount bars ending at whichever
@@ -287,15 +288,17 @@ namespace Poink.Sim.Components.Training
         private bool _showDenormalizedInputs;
 
         // Converts one feature's normalized value into a human string. Price-
-        // window/offset features (labels "t-N"/"poc-offset"/"va-*-offset")
-        // invert via DisplayedCurrentPrice, account-ratio features
-        // ("unrealized/eq" etc.) via DisplayedEquity, "vp-N" volume-profile
-        // buckets just reformat as a percentage (inverting to a raw tick count
-        // would need re-merging BarPriceHistograms, not worth it for a
-        // fraction that already reads fine as one), and "position" becomes a
-        // direction label. Falls back to the plain normalized value if the
-        // needed anchor isn't available yet (e.g. no equity captured because
-        // the episode's brain isn't describable).
+        // window/offset features (labels "t-N"/"poc-offset"/"va-*-offset" from
+        // VolumeProfileEncoder, or "tp-poc-offset"/"tp-va-*-offset" from
+        // TimeProfileEncoder) invert via DisplayedCurrentPrice, account-ratio
+        // features ("unrealized/eq" etc.) via DisplayedEquity, "vp-N" volume-
+        // profile / "tp-N" time-profile buckets just reformat as a percentage
+        // (inverting to a raw tick count or seconds figure would need
+        // re-merging BarPriceHistograms, not worth it for a fraction that
+        // already reads fine as one), and "position" becomes a direction
+        // label. Falls back to the plain normalized value if the needed
+        // anchor isn't available yet (e.g. no equity captured because the
+        // episode's brain isn't describable).
         private string FormatInputValue(RlInputFeature f, string normalizedFormat = "N4") =>
             !_showDenormalizedInputs ? f.Value.ToString(normalizedFormat, CultureInfo.InvariantCulture) : f.Label switch
             {
@@ -303,11 +306,13 @@ namespace Poink.Sim.Components.Training
                 "unrealized/eq" or "realized/eq" or "cash/eq" => DisplayedEquity is { } equity
                     ? (f.Value * equity).ToString("N2", CultureInfo.InvariantCulture)
                     : f.Value.ToString(normalizedFormat, CultureInfo.InvariantCulture),
-                _ when f.Label.StartsWith("t-", StringComparison.Ordinal) || f.Label is "poc-offset" or "va-high-offset" or "va-low-offset" =>
+                _ when f.Label.StartsWith("t-", StringComparison.Ordinal)
+                        || f.Label is "poc-offset" or "va-high-offset" or "va-low-offset"
+                        or "tp-poc-offset" or "tp-va-high-offset" or "tp-va-low-offset" =>
                     DisplayedCurrentPrice is { } price
                         ? (price * (1 + f.Value)).ToString("F5", CultureInfo.InvariantCulture)
                         : f.Value.ToString(normalizedFormat, CultureInfo.InvariantCulture),
-                _ when f.Label.StartsWith("vp-", StringComparison.Ordinal) =>
+                _ when f.Label.StartsWith("vp-", StringComparison.Ordinal) || f.Label.StartsWith("tp-", StringComparison.Ordinal) =>
                     (f.Value * 100).ToString("N1", CultureInfo.InvariantCulture) + "%",
                 _ => f.Value.ToString(normalizedFormat, CultureInfo.InvariantCulture),
             };

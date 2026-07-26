@@ -86,8 +86,11 @@
                     <label class="train-brainrow-field" title="20-bar trailing percent-change price window">
                         <input type="checkbox" @bind="_includeBarWindow" disabled="@Service.IsRunning" /> Bar Window
                     </label>
-                    <label class="train-brainrow-field" title="Volume histogram + point-of-control/value-area summary, merged from VP lookback bars above">
+                    <label class="train-brainrow-field" title="Volume histogram + point-of-control/value-area summary, merged from Profile lookback bars below">
                         <input type="checkbox" @bind="_includeVolumeProfile" disabled="@Service.IsRunning" /> Volume Profile
+                    </label>
+                    <label class="train-brainrow-field" title="Time-weighted histogram + point-of-control/value-area summary (seconds spent at each price level), merged from Profile lookback bars below">
+                        <input type="checkbox" @bind="_includeTimeProfile" disabled="@Service.IsRunning" /> Time Profile
                     </label>
                     <label class="train-brainrow-field" title="Always included -- every brain needs to know its own position/capital regardless of market data">
                         <input type="checkbox" checked="checked" disabled /> Account State
@@ -134,14 +137,14 @@
             }
 
             <div class="train-datarow">
-                <span class="train-section-label" title="How raw ticks are shaped into bars, and how far back the volume-profile brain looks over that bar data">Data Structure</span>
+                <span class="train-section-label" title="How raw ticks are shaped into bars, and how far back a Volume/Time Profile brain looks over that bar data">Data Structure</span>
                 <label class="train-brainrow-field" title="Time span of one bar (M), in minutes -- also determines how much wall-clock time an episode's fetched ticks need to cover">
                     Bar width (min)
                     <input class="train-brainrow-input" type="number" min="1" step="1" @bind="_barWidthMinutes" disabled="@Service.IsRunning" />
                 </label>
-                <label class="train-brainrow-field" title="How many recent bars a volume-profile brain merges into its profile each decision -- ignored by brains that don't use a volume profile (e.g. MLP Policy, LSTM Policy)">
-                    VP lookback (bars)
-                    <input class="train-brainrow-input" type="number" min="1" step="1" @bind="_volumeProfileLookbackBars"
+                <label class="train-brainrow-field" title="How many recent bars a Volume Profile and/or Time Profile brain merges into its profile each decision (shared between both when a brain includes both) -- ignored by brains that use neither (e.g. MLP Policy, LSTM Policy)">
+                    Profile lookback (bars)
+                    <input class="train-brainrow-input" type="number" min="1" step="1" @bind="_lookbackBars"
                            disabled="@Service.IsRunning" />
                 </label>
             </div>
