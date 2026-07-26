@@ -231,7 +231,8 @@ internal static class RlEpisodeRunner
         List<RlStep> steps, CapitalState previousCapital, Position? previousPosition, IRewardPolicy rewardPolicy)
     {
         var positionNow = trader.CurrentPosition;
-        double reward = rewardPolicy.ComputeReward(new RewardContext(previousCapital, capitalNow, previousPosition, positionNow, timestamp));
+        double reward = rewardPolicy.ComputeReward(new RewardContext(
+            previousCapital, capitalNow, previousPosition, positionNow, timestamp, price, bars, barHistograms));
         var observation = new SimulationObservation(
             timestamp, price, bars, ticks, barHistograms, capitalNow, positionNow);
 

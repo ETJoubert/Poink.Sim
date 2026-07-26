@@ -19,6 +19,7 @@
 //  running mean/variance estimates) a correct place to reset.
 // ─────────────────────────────────────────────────────────────────────────
 using System;
+using System.Collections.Generic;
 using Poink.Sim.Models;
 
 namespace Poink.Sim.Training;
@@ -32,9 +33,18 @@ namespace Poink.Sim.Training;
 // own drift, not only the combined Equity figure. PreviousPosition/Position
 // are the position open going into the previous/current step respectively
 // (null while flat) -- comparing them is how a policy detects "a new position
-// was just opened" without needing its own state.
+// was just opened" without needing its own state. CurrentPrice/RecentBars/
+// RecentBarHistograms are the same market-data values RecordStep threads into
+// SimulationObservation one line later -- a policy that wants market-structure
+// context (e.g. MarketStructureRewardPolicy's Volume/Time Profile reads) needs
+// no extra plumbing beyond reading these. RecentBars/RecentBarHistograms are
+// empty (Array.Empty<...>(), not just short) whenever the episode runs in
+// raw-tick mode (aggregate: false) -- same documented behavior
+// SimulationObservation.RecentBarHistograms already has -- so a policy reading
+// them must treat empty as "no data this step," not crash.
 internal readonly record struct RewardContext(
-    CapitalState PreviousCapital, CapitalState CapitalNow, Position? PreviousPosition, Position? Position, DateTime TimestampUtc);
+    CapitalState PreviousCapital, CapitalState CapitalNow, Position? PreviousPosition, Position? Position, DateTime TimestampUtc,
+    double CurrentPrice, IReadOnlyList<HlocAvdtBar> RecentBars, IReadOnlyList<BarPriceHistogram> RecentBarHistograms);
 
 internal interface IRewardPolicy
 {
