@@ -39,12 +39,19 @@ namespace Poink.Sim.Components.Training
         // generic DataTable<TItem> reflects over public properties directly
         // (see its View/Card rendering), so Parameters needs to already be a
         // display string rather than the nested BrainTrainingParameters object.
+        // Structure (not "Brain") -- this is the composed architecture/name
+        // string (e.g. "MLP_L64-L32-L16_dBW-dVPR-dTPR-dAS"), a shape
+        // identifier, not a reference to a Brain entity. Status/TrainedAt are
+        // derived from SavedBrainSummary.TrainedAt -- null means this snapshot
+        // was saved before any training episode actually completed for it
+        // (see RlTrainingService's _lastTrainedAt), distinct from SavedAt.
         private sealed record SavedBrainRow(
-            long Id, string Name, string Brain, string Strategy, string Dataset,
-            long WeightCount, string Parameters, double AvgReward, DateTime SavedAt);
+            long Id, string Name, string Structure, string Strategy, string RewardPolicy, string Dataset,
+            long WeightCount, string Parameters, double AvgReward, string Status, DateTime? TrainedAt, DateTime SavedAt);
 
         private List<SavedBrainRow> Rows =>
             SavedBrains.Select(b => new SavedBrainRow(
-                b.Id, b.Name, b.BrainName, b.StrategyName, b.Dataset, b.WeightCount, b.Parameters.ToString(), b.AvgReward, b.SavedAt)).ToList();
+                b.Id, b.Name, b.BrainName, b.StrategyName, b.RewardPolicyName, b.Dataset, b.WeightCount, b.Parameters.ToString(), b.AvgReward,
+                b.TrainedAt is not null ? "Trained" : "Untrained", b.TrainedAt, b.SavedAt)).ToList();
     }
 }

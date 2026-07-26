@@ -53,7 +53,8 @@ internal sealed class TickRepository : ITickRepository
 
         var rows = conn.Query<TickTableStatsRow>(Sql.SelectRegistryRows);
         var result = rows.Select(r => (r.TableName, r.RowCount, r.MinTimestamp, r.MaxTimestamp)).ToList();
-        lock (_cacheLock) { _cachedTables = result; }
+        lock (_cacheLock)
+        { _cachedTables = result; }
         _logger.LogInformation("Listed {TableCount} tick tables", result.Count);
         return result;
     }
@@ -89,7 +90,7 @@ internal sealed class TickRepository : ITickRepository
     {
         using var conn = new NpgsqlConnection(ConnectionString);
         conn.Open();
-        _logger.LogInformation("Opening tick stream for {Table} (from={From}, to={To})", table, from, to);
+        //_logger.LogInformation("Opening tick stream for {Table} (from={From}, to={To})", table, from, to);
 
         var sql = Sql.SelectTicks(table, from.HasValue, to.HasValue);
         foreach (var tick in conn.Query<Tick>(sql, new { from, to }, buffered: false))

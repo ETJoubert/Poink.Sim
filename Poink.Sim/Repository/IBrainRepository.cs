@@ -16,6 +16,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using Poink.Sim.Brain.Neural;
 
 namespace Poink.Sim.Repository;
 
@@ -68,14 +69,22 @@ public sealed class BrainTrainingParameters
 // else in this file) because it's passed as a [Parameter] into BrainInfoCard
 // (see RlEpisodeMetric's doc comment for why a Razor component parameter
 // can't be typed with a less-accessible type).
+// Recipe is null for anything not built through RlTrainingService.TryBuildBrain
+// -- the four Program.cs-fixed brains reconstruct via their own source code
+// every restart instead (see BrainRecipe's doc comment). TrainedAt is null for
+// a snapshot saved before any training episode actually completed for that
+// brain (see RlTrainingService's _lastTrainedAt) -- distinct from SavedAt,
+// which is just when this row was inserted; a brain can be saved untrained.
 public sealed record SavedBrainSummary(
-    long Id, string Name, string BrainName, string StrategyName, string Dataset,
-    BrainTrainingParameters Parameters, long WeightCount, double AvgReward, DateTime SavedAt);
+    long Id, string Name, string BrainName, string StrategyName, string RewardPolicyName, string Dataset,
+    BrainTrainingParameters Parameters, BrainRecipe? Recipe, DateTime? TrainedAt,
+    long WeightCount, double AvgReward, DateTime SavedAt);
 
 internal interface IBrainRepository
 {
     long SaveBrain(
-        string name, string brainName, string strategyName, string dataset, BrainTrainingParameters parameters,
+        string name, string brainName, string strategyName, string rewardPolicyName, string dataset,
+        BrainTrainingParameters parameters, BrainRecipe? recipe, DateTime? trainedAt,
         long weightCount, double avgReward, byte[] weights);
 
     List<SavedBrainSummary> ListBrains();

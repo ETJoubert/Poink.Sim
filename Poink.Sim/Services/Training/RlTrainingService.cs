@@ -60,6 +60,26 @@ internal sealed class RlTrainingService
     // from whatever was last saved). Read by SimulationPage's Brain info card.
     private readonly Dictionary<string, long> _activeSnapshotId = new();
 
+    // The exact encoders/architecture/hidden sizes a runtime-built brain was
+    // constructed from -- keyed by brain Name, populated by TryBuildBrain and
+    // read back by SaveBrain/LoadSavedBrain so a brain can be reconstructed
+    // after a restart wipes it from BrainRegistry (see BrainRecipe's doc
+    // comment). No entry for the four Program.cs-fixed brains -- they never
+    // need reconstruction, so SaveBrain persists null for them.
+    private readonly Dictionary<string, BrainRecipe> _brainRecipes = new();
+
+    // Actual completed episodes for this brain in this process -- keyed by
+    // brain Name, NOT the Train page form's configured target episode count
+    // (that's just what a run was asked to do, not what happened; saving it
+    // made an untrained, just-built brain indistinguishable from a properly
+    // trained one). Updated every episode by TryStartTraining's loop.
+    private readonly Dictionary<string, int> _episodesTrainedByBrain = new();
+
+    // When this brain last completed a training episode -- keyed by brain
+    // Name, distinct from a saved snapshot's SavedAt (which is just when Save
+    // Model was clicked). Absent means never trained in this process.
+    private readonly Dictionary<string, DateTime> _lastTrainedAt = new();
+
     // Pause/Stop signaling for the training loop below -- checked only between
     // episodes (there's no per-step checkpoint to interrupt mid-episode), so
     // both take effect once the in-flight episode finishes. Starts signaled
@@ -98,19 +118,32 @@ internal sealed class RlTrainingService
         try
         {
             SavedBrains = _brainRepository.ListBrains();
-            foreach (var latest in SavedBrains.GroupBy(b => b.BrainName).Select(g => g.OrderByDescending(b => b.SavedAt).First()))
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to list saved brains at startup; continuing with untrained brains");
+        }
+
+        // Per-brain try/catch -- one stale/incompatible saved snapshot (e.g. from
+        // before an encoder's feature shape changed) must not abort restoring
+        // every other brain too; each brain's restore stands on its own.
+        foreach (var latest in SavedBrains.GroupBy(b => b.BrainName).Select(g => g.OrderByDescending(b => b.SavedAt).First()))
+        {
+            var brain = _brainRegistry.All.OfType<IPolicyGradientBrain>().FirstOrDefault(b => b.Name == latest.BrainName);
+            if (brain is null) continue;
+            try
             {
-                var brain = _brainRegistry.All.OfType<IPolicyGradientBrain>().FirstOrDefault(b => b.Name == latest.BrainName);
-                if (brain is null) continue;
                 var weights = _brainRepository.LoadWeights(latest.Id);
                 if (weights is null) continue;
                 brain.ImportWeights(weights);
                 _activeSnapshotId[latest.BrainName] = latest.Id;
+                _episodesTrainedByBrain[latest.BrainName] = latest.Parameters.EpisodeCount;
+                if (latest.TrainedAt is { } trainedAt) _lastTrainedAt[latest.BrainName] = trainedAt;
             }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to restore saved brain weights at startup; continuing with untrained brains");
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to restore saved brain weights for {BrainName}; continuing with untrained brain", latest.BrainName);
+            }
         }
     }
 
@@ -377,6 +410,8 @@ internal sealed class RlTrainingService
                     lock (_lock)
                     {
                         EpisodesCompleted = episode + 1;
+                        _episodesTrainedByBrain[brainName] = episode + 1;
+                        _lastTrainedAt[brainName] = DateTime.UtcNow;
                         RecentAverageReward = recentRewards.Average();
                         BestReward = EpisodesCompleted == 1 ? reward : Math.Max(BestReward, reward);
                         WorstReward = EpisodesCompleted == 1 ? reward : Math.Min(WorstReward, reward);
@@ -537,6 +572,7 @@ internal sealed class RlTrainingService
             var architecture = BrainCatalog.CreateArchitecture(architectureKind, hiddenSizes);
             var brain = ComposedPolicyBrain.Create(name, architecture, parts);
             _brainRegistry.Register(brain);
+            _brainRecipes[name] = new BrainRecipe(encoderKinds.ToList(), architectureKind, hiddenSizes.ToList());
             Error = null;
             OnChanged?.Invoke();
             _logger.LogInformation("Built new brain: name={Name}, encoders={Encoders}, architecture={Architecture}",
@@ -558,8 +594,8 @@ internal sealed class RlTrainingService
     // while a run isn't in progress -- reading the brain's own Network is
     // what's serialized, so nothing here needs the training loop's lock.
     public bool SaveBrain(
-        string savedName, string brainName, string strategyName, string dataset,
-        int episodeCount, int episodeBars, int barWidthMinutes, double startingCash, double learningRate,
+        string savedName, string brainName, string strategyName, string rewardPolicyName, string dataset,
+        int episodeBars, int barWidthMinutes, double startingCash, double learningRate,
         int lookbackBars, Trader.TraderSettings? traderSettings = null)
     {
         var brain = _brainRegistry.All.OfType<IPolicyGradientBrain>().FirstOrDefault(b => b.Name == brainName);
@@ -582,13 +618,18 @@ internal sealed class RlTrainingService
             var settings = traderSettings ?? new Trader.TraderSettings();
             var parameters = new BrainTrainingParameters
             {
-                EpisodeCount = episodeCount, EpisodeBars = episodeBars, BarWidthMinutes = barWidthMinutes,
+                EpisodeCount = _episodesTrainedByBrain.GetValueOrDefault(brainName),
+                EpisodeBars = episodeBars, BarWidthMinutes = barWidthMinutes,
                 StartingCash = startingCash, LearningRate = learningRate,
                 LookbackBars = brain is IHasLookbackBars ? lookbackBars : null,
                 Leverage = settings.Leverage, StopOutLevelPercent = settings.StopOutLevelPercent,
                 CommissionRatePercent = settings.CommissionModel is Trader.Commission.PercentOfNotionalCommission p ? p.RatePercent : 0,
             };
-            long id = _brainRepository.SaveBrain(savedName, brainName, strategyName, dataset, parameters, brain.WeightCount(), RecentAverageReward, weights);
+            DateTime? trainedAt = _lastTrainedAt.TryGetValue(brainName, out var t) ? t : null;
+            _brainRecipes.TryGetValue(brainName, out var recipe); // null for the 4 fixed Program.cs brains
+            long id = _brainRepository.SaveBrain(
+                savedName, brainName, strategyName, rewardPolicyName, dataset, parameters, recipe, trainedAt,
+                brain.WeightCount(), RecentAverageReward, weights);
             _activeSnapshotId[brainName] = id;
             SaveStatus = $"saved '{savedName}' at {DateTime.Now:HH:mm:ss}";
             RefreshSavedBrains();
@@ -622,6 +663,10 @@ internal sealed class RlTrainingService
     // mutated in place rather than swapping in a new instance) -- this is
     // also how a saved brain gets used for Simulation: SimulationPage/
     // SimulationEngine already pick brains by this same live-singleton name.
+    // If no live brain of that name exists (e.g. a runtime-built brain wiped
+    // from BrainRegistry by a restart -- see BrainRecipe's doc comment), and
+    // this snapshot has a saved recipe, it's rebuilt here first rather than
+    // failing outright.
     public bool LoadSavedBrain(long id)
     {
         var summary = SavedBrains.FirstOrDefault(b => b.Id == id);
@@ -636,10 +681,29 @@ internal sealed class RlTrainingService
         var brain = _brainRegistry.All.OfType<IPolicyGradientBrain>().FirstOrDefault(b => b.Name == summary.BrainName);
         if (brain is null)
         {
-            SaveStatus = $"no live '{summary.BrainName}' brain to load into";
-            OnChanged?.Invoke();
-            _logger.LogWarning("LoadSavedBrain: no live '{BrainName}' brain to load id {Id} into", summary.BrainName, id);
-            return false;
+            if (summary.Recipe is not { } recipe)
+            {
+                SaveStatus = $"no live '{summary.BrainName}' brain to load into, and no saved recipe to rebuild it from";
+                OnChanged?.Invoke();
+                _logger.LogWarning("LoadSavedBrain: no live '{BrainName}' brain and no recipe for id {Id}", summary.BrainName, id);
+                return false;
+            }
+            try
+            {
+                var parts = recipe.EncoderKinds.Select(BrainCatalog.CreateEncoder).Append(new TraderStateEncoder()).ToArray();
+                var architecture = BrainCatalog.CreateArchitecture(recipe.ArchitectureKind, recipe.HiddenSizes);
+                brain = ComposedPolicyBrain.Create(summary.BrainName, architecture, parts);
+                _brainRegistry.Register(brain);
+                _brainRecipes[summary.BrainName] = recipe;
+                _logger.LogInformation("Rebuilt brain {BrainName} from saved recipe for id {Id}", summary.BrainName, id);
+            }
+            catch (Exception ex)
+            {
+                SaveStatus = $"couldn't rebuild '{summary.BrainName}' from its saved recipe: {ex.Message}";
+                OnChanged?.Invoke();
+                _logger.LogWarning(ex, "LoadSavedBrain: failed to rebuild '{BrainName}' from recipe for id {Id}", summary.BrainName, id);
+                return false;
+            }
         }
 
         try
@@ -647,7 +711,17 @@ internal sealed class RlTrainingService
             var weights = _brainRepository.LoadWeights(id);
             if (weights is null) { SaveStatus = "weights not found"; return false; }
             brain.ImportWeights(weights);
+
+            // The one runtime setting a brain needs fixed for correct playback
+            // -- Simulation has no UI for this itself (see IHasLookbackBars),
+            // so this is the only place it's ever applied before Simulation
+            // uses the brain.
+            if (brain is IHasLookbackBars lookbackBrain && summary.Parameters.LookbackBars is { } lookback)
+                lookbackBrain.LookbackBars = lookback;
+
             _activeSnapshotId[summary.BrainName] = id;
+            _episodesTrainedByBrain[summary.BrainName] = summary.Parameters.EpisodeCount;
+            if (summary.TrainedAt is { } trainedAt) _lastTrainedAt[summary.BrainName] = trainedAt;
             SaveStatus = $"loaded '{summary.Name}' into '{summary.BrainName}' -- ready to use in Simulation";
             _logger.LogInformation("Loaded saved brain {SavedName} (id={Id}) into live brain {BrainName}", summary.Name, id, summary.BrainName);
             return true;

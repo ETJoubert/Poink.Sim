@@ -299,8 +299,8 @@ namespace Poink.Sim.Components.Pages
         {
             if (string.IsNullOrWhiteSpace(_saveName)) return;
 
-            if (Service.SaveBrain(_saveName, _brainName, _strategyName, CurrentDatasetDescription,
-                    _episodeCount, _episodeBars, _barWidthMinutes, _startingCash, _learningRate, _lookbackBars,
+            if (Service.SaveBrain(_saveName, _brainName, _strategyName, _rewardPolicyName, CurrentDatasetDescription,
+                    _episodeBars, _barWidthMinutes, _startingCash, _learningRate, _lookbackBars,
                     CurrentTraderSettings))
             {
                 _saveName = "";

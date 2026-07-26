@@ -216,9 +216,15 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   `Simulation/DummyTickGenerator.cs`
 - **`IBrainRepository` / `BrainRepository`** — Persists an `IPolicyGradientBrain`'s
   exported weights (TorchSharp state-dict bytes) plus the training run's
-  strategy/parameters/metrics into its own Postgres database (`Poink.Sim`, separate
-  from the `Poink.MarketData` tick database). Every save inserts a new snapshot row
-  (never upserts), so training history stays browsable. `Repository/IBrainRepository.cs`
+  strategy/reward-policy/parameters/metrics, and (for a runtime-built brain) the
+  `BrainRecipe` needed to reconstruct its exact shape, into its own Postgres
+  database (`Poink.Sim`, separate from the `Poink.MarketData` tick database). Every
+  save inserts a new snapshot row (never upserts), so training history stays
+  browsable. `recipe`/`trained_at` columns are nullable, additive migrations (see
+  `BrainRepository.Sql.AddRecipeColumn`/`AddTrainedAtColumn`, same `ADD COLUMN IF NOT
+  EXISTS` pattern as the older `dataset` column) -- a row saved before this feature
+  existed just has no recipe (can't be auto-rebuilt after a restart wipes it from
+  `BrainRegistry`) and an unknown trained status. `Repository/IBrainRepository.cs`
 - **`IFeatureNormalizer`** — `{ Normalize(rawValue, observation), Denormalize(normalizedValue,
   anchors), Format(rawValue) }`: the half of feature engineering split out of
   `IObservationEncoder` -- an encoder decides *which* raw quantity feeds a feature
@@ -446,7 +452,19 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   `EpisodeBars`, `BarWidthMinutes`, `StartingCash`, `LearningRate`, `LookbackBars`,
   `Leverage`, `StopOutLevelPercent`, `CommissionRatePercent`) saved alongside a
   brain snapshot; plain settable properties (not a record) so old JSON blobs still
-  deserialize after new fields are added. `Repository/IBrainRepository.cs`
+  deserialize after new fields are added. `EpisodeCount` is the brain's actual
+  completed-episode count in this process (`RlTrainingService._episodesTrainedByBrain`),
+  not the Train page form's configured target -- saving the target made an
+  untrained, just-built brain indistinguishable from a properly trained one.
+  `Repository/IBrainRepository.cs`
+- **`BrainRecipe`** — `{ EncoderKinds, ArchitectureKind, HiddenSizes }`: a runtime-built
+  brain's exact shape, as picked in the Train page's Build Brain panel. Populated by
+  `RlTrainingService.TryBuildBrain`, persisted alongside a saved snapshot (null for
+  the four Program.cs-fixed brains, which reconstruct via their own source code every
+  restart instead), and read back by `LoadSavedBrain` to rebuild a runtime brain
+  that's been wiped from `BrainRegistry` by a restart before importing its weights.
+  Public (like `EncoderKind`/`ArchitectureKind`, elevated from `internal` for this)
+  because it travels on `SavedBrainSummary`. `Brain/Neural/BrainCatalog.cs`
 - **`CapitalState`** — Read-only snapshot handed to the Brain/UI: `(Cash,
   RealizedPnl, UnrealizedPnl, MarginUsed, MarginLevel)`, with `Equity => Cash +
   UnrealizedPnl` and `MarginFree => Equity - MarginUsed`. Every field (plus
@@ -528,7 +546,13 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   `Brain/Neural/IPolicyGradientBrain.cs`
 - **`SavedBrainSummary`** — Metadata-only view of one saved brain snapshot (everything
   except the weight bytes themselves), used to populate `SavedBrainsTable` without
-  pulling megabytes of weights per row. `Repository/IBrainRepository.cs`
+  pulling megabytes of weights per row. `RewardPolicyName` records which
+  `IRewardPolicy` shaped this brain's training, same treatment as `StrategyName`.
+  `Recipe` (nullable `BrainRecipe`) and `TrainedAt` (nullable, distinct from
+  `SavedAt`) are null for a snapshot saved before this feature existed, or (for
+  `TrainedAt`) one saved before any training episode actually completed --
+  `SavedBrainsTable` renders that as a "Structure"/"Untrained" row rather than
+  assuming every saved brain was genuinely trained. `Repository/IBrainRepository.cs`
 - **`SimulationProgress`** — Cheap sibling of `SimulationSnapshot`: just
   cursor/total/timestamp/range, published far more often during an uncapped Max run
   so a lightweight component (`SimTimeline`) can track live progress without paying

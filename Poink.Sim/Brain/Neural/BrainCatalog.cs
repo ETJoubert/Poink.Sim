@@ -15,9 +15,25 @@ using System.Collections.Generic;
 
 namespace Poink.Sim.Brain.Neural;
 
-internal enum EncoderKind { BarWindow, VolumeProfile, TimeProfile, VolumeProfileRaw, TimeProfileRaw }
+// Public (not internal like most of this file) because BrainRecipe below
+// exposes both as public properties, and BrainRecipe itself must be public
+// since it travels on SavedBrainSummary (see that record's doc comment on
+// why it's public -- a Razor component's [Parameter] property can't be typed
+// with a less-accessible type than the component itself).
+public enum EncoderKind { BarWindow, VolumeProfile, TimeProfile, VolumeProfileRaw, TimeProfileRaw }
 
-internal enum ArchitectureKind { Mlp, Lstm }
+public enum ArchitectureKind { Mlp, Lstm }
+
+// A runtime-built brain's exact shape -- what LoadSavedBrain needs to
+// reconstruct an identical encoder/architecture composition after a restart
+// wipes it from BrainRegistry (see RlTrainingService.TryBuildBrain). Null on
+// a SavedBrainSummary for anything not built through TryBuildBrain -- the
+// four Program.cs-fixed brains reconstruct via their own source code every
+// restart instead, so they never need one.
+public sealed record BrainRecipe(IReadOnlyList<EncoderKind> EncoderKinds, ArchitectureKind ArchitectureKind, IReadOnlyList<int> HiddenSizes)
+{
+    public override string ToString() => $"{ArchitectureKind}[{string.Join(",", HiddenSizes)}] {string.Join("+", EncoderKinds)}";
+}
 
 internal static class BrainCatalog
 {
