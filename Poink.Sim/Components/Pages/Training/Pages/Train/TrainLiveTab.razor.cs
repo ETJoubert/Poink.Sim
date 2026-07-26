@@ -287,35 +287,25 @@ namespace Poink.Sim.Components.Training
         // see FormatInputValue for the per-label inversion.
         private bool _showDenormalizedInputs;
 
-        // Converts one feature's normalized value into a human string. Price-
-        // window/offset features (labels "t-N"/"poc-offset"/"va-*-offset" from
-        // VolumeProfileEncoder, or "tp-poc-offset"/"tp-va-*-offset" from
-        // TimeProfileEncoder) invert via DisplayedCurrentPrice, account-ratio
-        // features ("unrealized/eq" etc.) via DisplayedEquity, "vp-N" volume-
-        // profile / "tp-N" time-profile buckets just reformat as a percentage
-        // (inverting to a raw tick count or seconds figure would need
-        // re-merging BarPriceHistograms, not worth it for a fraction that
-        // already reads fine as one), and "position" becomes a direction
-        // label. Falls back to the plain normalized value if the needed
-        // anchor isn't available yet (e.g. no equity captured because the
-        // episode's brain isn't describable).
-        private string FormatInputValue(RlInputFeature f, string normalizedFormat = "N4") =>
-            !_showDenormalizedInputs ? f.Value.ToString(normalizedFormat, CultureInfo.InvariantCulture) : f.Label switch
-            {
-                "position" => f.Value switch { > 0 => "LONG", < 0 => "SHORT", _ => "FLAT" },
-                "unrealized/eq" or "realized/eq" or "cash/eq" => DisplayedEquity is { } equity
-                    ? (f.Value * equity).ToString("N2", CultureInfo.InvariantCulture)
-                    : f.Value.ToString(normalizedFormat, CultureInfo.InvariantCulture),
-                _ when f.Label.StartsWith("t-", StringComparison.Ordinal)
-                        || f.Label is "poc-offset" or "va-high-offset" or "va-low-offset"
-                        or "tp-poc-offset" or "tp-va-high-offset" or "tp-va-low-offset" =>
-                    DisplayedCurrentPrice is { } price
-                        ? (price * (1 + f.Value)).ToString("F5", CultureInfo.InvariantCulture)
-                        : f.Value.ToString(normalizedFormat, CultureInfo.InvariantCulture),
-                _ when f.Label.StartsWith("vp-", StringComparison.Ordinal) || f.Label.StartsWith("tp-", StringComparison.Ordinal) =>
-                    (f.Value * 100).ToString("N1", CultureInfo.InvariantCulture) + "%",
-                _ => f.Value.ToString(normalizedFormat, CultureInfo.InvariantCulture),
-            };
+        // Converts one feature's normalized value into a human string, via
+        // whichever IFeatureNormalizer produced it (see
+        // IObservationEncoder.Features/RlInputFeature.Normalizer) -- generic
+        // across every encoder's features, so a new encoder/normalizer never
+        // needs a matching new case here. DisplayedCurrentPrice/DisplayedEquity
+        // stand in for a live SimulationObservation's anchors (this is a
+        // historical replay bar, not a live one). Falls back to the plain
+        // normalized value if the anchor a feature's normalizer needs isn't
+        // available yet (e.g. no equity captured because the episode's brain
+        // isn't describable).
+        private string FormatInputValue(RlInputFeature f, string normalizedFormat = "N4")
+        {
+            if (!_showDenormalizedInputs) return f.Value.ToString(normalizedFormat, CultureInfo.InvariantCulture);
+
+            var anchors = new DenormalizationAnchors(DisplayedCurrentPrice, DisplayedEquity);
+            return f.Normalizer.Denormalize((float)f.Value, anchors) is { } raw
+                ? f.Normalizer.Format(raw)
+                : f.Value.ToString(normalizedFormat, CultureInfo.InvariantCulture);
+        }
 
         // PLAY: starts fresh from bar 0 over a new snapshot of whatever episode
         // is currently loaded, unless there's paused progress to continue from

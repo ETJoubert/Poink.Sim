@@ -24,7 +24,11 @@ namespace Poink.Sim.Brain.Neural;
 
 // One named value out of Encode(observation)'s raw input, purely for display
 // (e.g. the Train page's "what goes in" panel) -- never used for inference.
-internal sealed record RlInputFeature(string Label, double Value);
+// Normalizer is the same IFeatureNormalizer that produced Value (see
+// IObservationEncoder.Features), carried along so a display-only caller
+// (TrainLiveTab.FormatInputValue) can invert it back to real units generically,
+// without knowing this feature's label convention.
+internal sealed record RlInputFeature(string Label, double Value, IFeatureNormalizer Normalizer);
 
 // One action's probability out of the policy's full output distribution for
 // one decision -- mirrors RlInputFeature but describes what the network

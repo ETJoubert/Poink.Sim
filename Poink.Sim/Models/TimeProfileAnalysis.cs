@@ -12,7 +12,7 @@ using System.Linq;
 namespace Poink.Sim.Models;
 
 internal readonly record struct TimeProfileSummary(
-    double PointOfControlOffset, double ValueAreaHighOffset, double ValueAreaLowOffset);
+    double PointOfControl, double ValueAreaHigh, double ValueAreaLow);
 
 internal static class TimeProfileAnalysis
 {
@@ -55,17 +55,18 @@ internal static class TimeProfileAnalysis
     // Same value-area-expansion algorithm as VolumeProfileAnalysis.ComputeSummary,
     // ranked by seconds spent at a price level instead of tick count -- the
     // Point of Control is the price the market dwelled at longest, not
-    // necessarily the one with the most ticks. Empty/zero-time input -> all
-    // zeros, same neutral convention as BuildRelativeHistogram.
-    public static TimeProfileSummary ComputeSummary(
+    // necessarily the one with the most ticks. Empty/zero-time input -> null,
+    // same reasoning as VolumeProfileAnalysis.ComputeSummary: a raw price of 0
+    // isn't a meaningful "no data" stand-in the way an offset of 0 was.
+    public static TimeProfileSummary? ComputeSummary(
         IReadOnlyList<(double Price, int Count, double Seconds, double UpSeconds, double DownSeconds)> buckets,
-        double bucketWidth, double currentPrice, double valueAreaFraction = 0.70)
+        double bucketWidth, double valueAreaFraction = 0.70)
     {
-        if (buckets.Count == 0 || currentPrice == 0) return default;
+        if (buckets.Count == 0) return null;
 
         var ordered = buckets.OrderBy(b => b.Price).ToList();
         double totalSeconds = ordered.Sum(b => b.Seconds);
-        if (totalSeconds <= 0) return default;
+        if (totalSeconds <= 0) return null;
 
         int pocIndex = 0;
         for (int i = 1; i < ordered.Count; i++)
@@ -90,13 +91,9 @@ internal static class TimeProfileAnalysis
             }
         }
 
-        double pocPrice = ordered[pocIndex].Price + bucketWidth / 2.0;
-        double valueAreaHigh = ordered[highIdx].Price + bucketWidth;
-        double valueAreaLow = ordered[lowIdx].Price;
-
         return new TimeProfileSummary(
-            (pocPrice - currentPrice) / currentPrice,
-            (valueAreaHigh - currentPrice) / currentPrice,
-            (valueAreaLow - currentPrice) / currentPrice);
+            ordered[pocIndex].Price + bucketWidth / 2.0,
+            ordered[highIdx].Price + bucketWidth,
+            ordered[lowIdx].Price);
     }
 }

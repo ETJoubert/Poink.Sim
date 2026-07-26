@@ -16,8 +16,22 @@ internal sealed class CapitalStateEncoder : IObservationEncoder
 {
     private const int Count = 4;
 
-    private static readonly IReadOnlyList<string> Labels =
-        ["position", "unrealized/eq", "realized/eq", "cash/eq"];
+    private readonly IFeatureNormalizer _directionNormalizer;
+    private readonly IFeatureNormalizer _equityRatioNormalizer;
+    private readonly IReadOnlyList<FeatureDescriptor> _features;
+
+    public CapitalStateEncoder(IFeatureNormalizer? directionNormalizer = null, IFeatureNormalizer? equityRatioNormalizer = null)
+    {
+        _directionNormalizer = directionNormalizer ?? new DirectionNormalizer();
+        _equityRatioNormalizer = equityRatioNormalizer ?? new EquityRatioNormalizer();
+        _features =
+        [
+            new FeatureDescriptor("position", _directionNormalizer),
+            new FeatureDescriptor("unrealized/eq", _equityRatioNormalizer),
+            new FeatureDescriptor("realized/eq", _equityRatioNormalizer),
+            new FeatureDescriptor("cash/eq", _equityRatioNormalizer),
+        ];
+    }
 
     public int FeatureCount => Count;
 
@@ -25,19 +39,19 @@ internal sealed class CapitalStateEncoder : IObservationEncoder
 
     public int WarmupBars => 0; // account state is meaningful from the first tick -- no windowing
 
-    public IReadOnlyList<string> FeatureLabels => Labels;
+    public IReadOnlyList<FeatureDescriptor> Features => _features;
 
     public float[] Encode(SimulationObservation observation)
     {
         var capital = observation.Capital;
-        double equity = capital.Equity;
+        double direction = observation.Position is { } position ? (position.Direction == PositionDirection.Long ? 1 : -1) : 0;
 
         return
         [
-            observation.Position is { } position ? (position.Direction == PositionDirection.Long ? 1f : -1f) : 0f,
-            equity != 0 ? (float)(capital.UnrealizedPnl / equity) : 0f,
-            equity != 0 ? (float)(capital.RealizedPnl / equity) : 0f,
-            equity != 0 ? (float)(capital.Cash / equity) : 0f,
+            _directionNormalizer.Normalize(direction, observation),
+            _equityRatioNormalizer.Normalize(capital.UnrealizedPnl, observation),
+            _equityRatioNormalizer.Normalize(capital.RealizedPnl, observation),
+            _equityRatioNormalizer.Normalize(capital.Cash, observation),
         ];
     }
 }

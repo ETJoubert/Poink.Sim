@@ -1,10 +1,10 @@
 // ── Volume-profile feature engineering ───────────────────────────────────
 //  Pure functions over BarPriceHistogram.Merge's output -- no brain-specific
-//  state, so any brain (or future UI panel) can reuse them. Every offset is
-//  expressed as (price - currentPrice) / currentPrice, matching the relative
-//  normalization MlpPolicyBrain.Encode already uses for its price window, so
-//  a network sees the same kind of bounded, scale-free number regardless of
-//  the instrument's absolute price level.
+//  state, so any brain (or future UI panel) can reuse them. ComputeSummary
+//  returns raw POC/value-area prices, not normalized offsets -- turning a
+//  raw price into a bounded, scale-free network input is
+//  PriceOffsetNormalizer's job (see IFeatureNormalizer), not this analysis
+//  layer's.
 // ─────────────────────────────────────────────────────────────────────────
 using System;
 using System.Collections.Generic;
@@ -13,7 +13,7 @@ using System.Linq;
 namespace Poink.Sim.Models;
 
 internal readonly record struct VolumeProfileSummary(
-    double PointOfControlOffset, double ValueAreaHighOffset, double ValueAreaLowOffset);
+    double PointOfControl, double ValueAreaHigh, double ValueAreaLow);
 
 internal static class VolumeProfileAnalysis
 {
@@ -61,17 +61,20 @@ internal static class VolumeProfileAnalysis
     // below) carries more volume, until the included volume reaches
     // valueAreaFraction of the total (70% is the conventional default).
     // bucketWidth resolves Price (a bucket's low edge, per BarPriceHistogram)
-    // back into POC/value-area price levels. Empty/zero-volume input -> all
-    // zeros, same neutral convention as BuildRelativeHistogram.
-    public static VolumeProfileSummary ComputeSummary(
+    // back into POC/value-area price levels. Empty/zero-volume input -> null
+    // -- an actual raw price of 0 is not a meaningful "no data" stand-in the
+    // way an offset of 0 was, so the caller (VolumeProfileEncoder) has to
+    // decide the neutral fallback itself rather than normalizing a fake 0
+    // price.
+    public static VolumeProfileSummary? ComputeSummary(
         IReadOnlyList<(double Price, int Count, int UpCount, int DownCount)> buckets,
-        double bucketWidth, double currentPrice, double valueAreaFraction = 0.70)
+        double bucketWidth, double valueAreaFraction = 0.70)
     {
-        if (buckets.Count == 0 || currentPrice == 0) return default;
+        if (buckets.Count == 0) return null;
 
         var ordered = buckets.OrderBy(b => b.Price).ToList();
         long totalVolume = ordered.Sum(b => (long)b.Count);
-        if (totalVolume == 0) return default;
+        if (totalVolume == 0) return null;
 
         int pocIndex = 0;
         for (int i = 1; i < ordered.Count; i++)
@@ -96,13 +99,9 @@ internal static class VolumeProfileAnalysis
             }
         }
 
-        double pocPrice = ordered[pocIndex].Price + bucketWidth / 2.0;
-        double valueAreaHigh = ordered[highIdx].Price + bucketWidth;
-        double valueAreaLow = ordered[lowIdx].Price;
-
         return new VolumeProfileSummary(
-            (pocPrice - currentPrice) / currentPrice,
-            (valueAreaHigh - currentPrice) / currentPrice,
-            (valueAreaLow - currentPrice) / currentPrice);
+            ordered[pocIndex].Price + bucketWidth / 2.0,
+            ordered[highIdx].Price + bucketWidth,
+            ordered[lowIdx].Price);
     }
 }

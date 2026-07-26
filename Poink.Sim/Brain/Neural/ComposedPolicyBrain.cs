@@ -13,7 +13,7 @@
 //  place device placement happens) -- encoders themselves never touch
 //  TorchSharp/autograd/device at all.
 //
-//  DescribeInputs is a trivial zip of Encoder.FeatureLabels with
+//  DescribeInputs is a trivial zip of Encoder.Features with
 //  Encoder.Encode(observation) -- deliberately NOT wrapped in a lock/
 //  no_grad/NewDisposeScope like the 4 originals' DescribeInputs were, since
 //  it never touches Network or autograd (encoding alone never builds a
@@ -91,10 +91,10 @@ internal class ComposedPolicyBrain : IPolicyGradientBrain
     public IReadOnlyList<RlInputFeature> DescribeInputs(SimulationObservation observation)
     {
         var values = _encoder.Encode(observation);
-        var labels = _encoder.FeatureLabels;
+        var descriptors = _encoder.Features;
         var features = new List<RlInputFeature>(values.Length);
         for (int i = 0; i < values.Length; i++)
-            features.Add(new RlInputFeature(labels[i], values[i]));
+            features.Add(new RlInputFeature(descriptors[i].Label, values[i], descriptors[i].Normalizer));
         return features;
     }
 

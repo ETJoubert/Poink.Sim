@@ -1,7 +1,7 @@
 // ── Concatenates N encoders into one ─────────────────────────────────────
 //  How multiple IObservationEncoder parts combine into the one flat feature
 //  vector a ComposedPolicyBrain's Network actually sees -- FeatureCount/
-//  SequenceLength are sums, FeatureLabels/Encode are straight concatenations
+//  SequenceLength are sums, Features/Encode are straight concatenations
 //  in the order the caller lists parts.
 //
 //  Ordering constraint: if any part is sequence-bearing (SequenceLength > 0,
@@ -28,7 +28,7 @@ internal sealed class CompositeEncoder : IObservationEncoder
         _parts = parts;
         FeatureCount = parts.Sum(p => p.FeatureCount);
         SequenceLength = parts.Sum(p => p.SequenceLength);
-        FeatureLabels = parts.SelectMany(p => p.FeatureLabels).ToList();
+        Features = parts.SelectMany(p => p.Features).ToList();
     }
 
     public static CompositeEncoder Create(params IObservationEncoder[] parts)
@@ -58,7 +58,7 @@ internal sealed class CompositeEncoder : IObservationEncoder
     // it at each training run's start, see IHasLookbackBars).
     public int WarmupBars => _parts.Count == 0 ? 0 : _parts.Max(p => p.WarmupBars);
 
-    public IReadOnlyList<string> FeatureLabels { get; }
+    public IReadOnlyList<FeatureDescriptor> Features { get; }
 
     public float[] Encode(SimulationObservation observation)
     {

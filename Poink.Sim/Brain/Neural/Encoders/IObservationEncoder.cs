@@ -26,6 +26,14 @@ using Poink.Sim.Models;
 
 namespace Poink.Sim.Brain.Neural;
 
+// One feature slot's fixed label paired with the IFeatureNormalizer that
+// produced (and can invert) its value -- see that interface's doc comment.
+// Carrying the normalizer alongside the label (rather than a separate
+// parallel list) is what lets ComposedPolicyBrain.DescribeInputs build an
+// RlInputFeature that TrainLiveTab can de-normalize generically, without
+// knowing any encoder's label conventions by name.
+internal readonly record struct FeatureDescriptor(string Label, IFeatureNormalizer Normalizer);
+
 internal interface IObservationEncoder
 {
     int FeatureCount { get; }
@@ -43,10 +51,12 @@ internal interface IObservationEncoder
     // fallback during training.
     int WarmupBars { get; }
 
-    // Fixed, observation-independent labels for each of FeatureCount values --
-    // used to describe Encode's output (see ComposedPolicyBrain.DescribeInputs)
-    // without needing to run the network.
-    IReadOnlyList<string> FeatureLabels { get; }
+    // Fixed, observation-independent label + normalizer for each of
+    // FeatureCount values -- used to describe Encode's output (see
+    // ComposedPolicyBrain.DescribeInputs) without needing to run the
+    // network, and to invert a normalized value back to real units for
+    // display (see IFeatureNormalizer.Denormalize).
+    IReadOnlyList<FeatureDescriptor> Features { get; }
 
     float[] Encode(SimulationObservation observation);
 }

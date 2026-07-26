@@ -15,7 +15,6 @@
 //  if paired with LstmArchitecture it must not be listed first (see
 //  CompositeEncoder's ordering guard).
 // ─────────────────────────────────────────────────────────────────────────
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using Poink.Sim.Models;
@@ -28,10 +27,21 @@ internal sealed class VolumeProfileEncoder : IObservationEncoder, IHasLookbackBa
     private const int SummaryScalarCount = 3; // POC offset, value-area-high offset, value-area-low offset
     private const double ValueAreaFraction = 0.70;
 
-    private static readonly IReadOnlyList<string> Labels =
-        Enumerable.Range(0, HistogramBucketCount).Select(i => $"vp-{i}")
-            .Append("poc-offset").Append("va-high-offset").Append("va-low-offset")
+    private readonly IFeatureNormalizer _fractionNormalizer;
+    private readonly IFeatureNormalizer _priceOffsetNormalizer;
+    private readonly IReadOnlyList<FeatureDescriptor> _features;
+
+    public VolumeProfileEncoder(IFeatureNormalizer? fractionNormalizer = null, IFeatureNormalizer? priceOffsetNormalizer = null)
+    {
+        _fractionNormalizer = fractionNormalizer ?? new FractionNormalizer();
+        _priceOffsetNormalizer = priceOffsetNormalizer ?? new PriceOffsetNormalizer();
+        _features = Enumerable.Range(0, HistogramBucketCount)
+            .Select(i => new FeatureDescriptor($"vp-{i}", _fractionNormalizer))
+            .Append(new FeatureDescriptor("poc-offset", _priceOffsetNormalizer))
+            .Append(new FeatureDescriptor("va-high-offset", _priceOffsetNormalizer))
+            .Append(new FeatureDescriptor("va-low-offset", _priceOffsetNormalizer))
             .ToList();
+    }
 
     // How many trailing completed bars' histograms to merge into one profile
     // each decision -- see IHasLookbackBars's doc comment; live Simulation
@@ -46,11 +56,10 @@ internal sealed class VolumeProfileEncoder : IObservationEncoder, IHasLookbackBa
     // window IS its warm-up requirement (see IObservationEncoder.WarmupBars).
     public int WarmupBars => LookbackBars;
 
-    public IReadOnlyList<string> FeatureLabels => Labels;
+    public IReadOnlyList<FeatureDescriptor> Features => _features;
 
     public float[] Encode(SimulationObservation observation)
     {
-        double currentPrice = observation.CurrentPrice;
         var merged = BarPriceHistogram.Merge(observation.RecentBarHistograms, LookbackBars);
         double bucketWidth = observation.RecentBarHistograms.Count > 0
             ? observation.RecentBarHistograms[^1].BucketWidth
@@ -59,12 +68,18 @@ internal sealed class VolumeProfileEncoder : IObservationEncoder, IHasLookbackBa
         var features = new float[FeatureCount];
 
         var histogram = VolumeProfileAnalysis.BuildRelativeHistogram(merged, HistogramBucketCount);
-        Array.Copy(histogram, features, HistogramBucketCount);
+        for (int i = 0; i < HistogramBucketCount; i++)
+            features[i] = _fractionNormalizer.Normalize(histogram[i], observation);
 
-        var summary = VolumeProfileAnalysis.ComputeSummary(merged, bucketWidth, currentPrice, ValueAreaFraction);
-        features[HistogramBucketCount + 0] = (float)summary.PointOfControlOffset;
-        features[HistogramBucketCount + 1] = (float)summary.ValueAreaHighOffset;
-        features[HistogramBucketCount + 2] = (float)summary.ValueAreaLowOffset;
+        // No summary (empty/zero-volume window) leaves these three at their
+        // array-initialized 0f -- neutral, same "no false signal" convention
+        // BuildRelativeHistogram's own empty-input case uses.
+        if (VolumeProfileAnalysis.ComputeSummary(merged, bucketWidth, ValueAreaFraction) is { } summary)
+        {
+            features[HistogramBucketCount + 0] = _priceOffsetNormalizer.Normalize(summary.PointOfControl, observation);
+            features[HistogramBucketCount + 1] = _priceOffsetNormalizer.Normalize(summary.ValueAreaHigh, observation);
+            features[HistogramBucketCount + 2] = _priceOffsetNormalizer.Normalize(summary.ValueAreaLow, observation);
+        }
 
         return features;
     }

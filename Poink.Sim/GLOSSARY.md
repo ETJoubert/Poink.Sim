@@ -217,6 +217,25 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   strategy/parameters/metrics into its own Postgres database (`Poink.Sim`, separate
   from the `Poink.MarketData` tick database). Every save inserts a new snapshot row
   (never upserts), so training history stays browsable. `Repository/IBrainRepository.cs`
+- **`IFeatureNormalizer`** — `{ Normalize(rawValue, observation), Denormalize(normalizedValue,
+  anchors), Format(rawValue) }`: the half of feature engineering split out of
+  `IObservationEncoder` -- an encoder decides *which* raw quantity feeds a feature
+  slot, a normalizer decides *how* it's scaled into the bounded, scale-free value
+  the network sees. `Normalize` is encode-time (has a live `SimulationObservation`
+  to pull its anchor from); `Denormalize` is display-time, taking
+  `DenormalizationAnchors` (`{ CurrentPrice, Equity }`) instead since a historical
+  replay bar (`TrainLiveTab`) only has those two derived doubles, not a live
+  observation -- returns `null` when its anchor isn't available, so the caller
+  falls back to the plain normalized value. Four implementations:
+  `PriceOffsetNormalizer` (percent-change-from-current-price, invert via
+  `currentPrice * (1 + v)`), `EquityRatioNormalizer` (`rawAmount / equity`, invert
+  via `v * equity`), `FractionNormalizer` (passthrough for an already-`[0,1]`
+  histogram-bucket share, formats as a percentage), `DirectionNormalizer`
+  (passthrough for a categorical `-1/0/1`, formats as `LONG`/`SHORT`/`FLAT`). Each
+  encoder is constructed with the normalizer(s) it needs (optional constructor
+  parameters defaulting to the standard implementation), pairing each feature
+  label with its normalizer via `FeatureDescriptor` (see `IObservationEncoder`).
+  `Brain/Neural/Normalizers/`
 - **`IHasLookbackBars`** — `{ int LookbackBars { get; set; } }`, implemented by
   `VolumeProfileEncoder` and `TimeProfileEncoder` (both default 50) -- how many
   trailing completed bars' histograms each merges into one profile each decision.
@@ -416,21 +435,23 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   `Training/RlEpisode.cs`
 - **`RlInputFeature`** — One named value out of a policy brain's `Encode()` input,
   purely for the Train page's "what goes in" display panel — never used for inference
-  itself. Record `(Label, Value)`. `Brain/Neural/IPolicyGradientBrain.cs` Label
+  itself. Record `(Label, Value, Normalizer)` -- `Normalizer` is the same
+  `IFeatureNormalizer` that produced `Value` (see that entry and
+  `IObservationEncoder.Features`), carried along so `TrainLiveTab`'s de-normalized
+  toggle (`FormatInputValue`) can invert any feature back to real units generically,
+  without a per-label switch. `Brain/Neural/IPolicyGradientBrain.cs`. Label
   conventions, one per encoder: `BarWindowEncoder` emits `t-20..t-1`
-  (percent-change-from-current-price, most-recent-last, invert via
-  `currentPrice * (1 + value)`); `VolumeProfileEncoder` emits `vp-0..vp-19`
-  (volume fraction, `[0,1]`) plus `poc-offset`/`va-high-offset`/`va-low-offset`
-  (same percent-change formula as `t-N`); `TimeProfileEncoder` emits `tp-0..tp-19`
-  (seconds-spent fraction, `[0,1]`) plus `tp-poc-offset`/`tp-va-high-offset`/
-  `tp-va-low-offset` (same percent-change formula as `t-N`; prefixed with `tp-`,
-  unlike Volume Profile's bare offset labels, so the two encoders' labels never
-  collide when both are part of the same composed brain); `CapitalStateEncoder`
-  emits `position` (`1`/`-1`/`0` = long/short/flat, not a ratio), `unrealized/eq`,
-  `realized/eq`, `cash/eq` (each `rawAmount / equity`, invert via `value * equity`).
-  `TrainLiveTab`'s de-normalized toggle (`FormatInputValue`) inverts each of
-  these back to real units using whichever bar's `Close`/pre-decision equity
-  the panel is currently showing (`DisplayedCurrentPrice`/`DisplayedEquity`).
+  (`PriceOffsetNormalizer`); `VolumeProfileEncoder` emits `vp-0..vp-19`
+  (`FractionNormalizer`) plus `poc-offset`/`va-high-offset`/`va-low-offset`
+  (`PriceOffsetNormalizer`); `TimeProfileEncoder` emits `tp-0..tp-19`
+  (`FractionNormalizer`) plus `tp-poc-offset`/`tp-va-high-offset`/
+  `tp-va-low-offset` (`PriceOffsetNormalizer`; prefixed with `tp-`, unlike Volume
+  Profile's bare offset labels, so the two encoders' labels never collide when
+  both are part of the same composed brain); `CapitalStateEncoder` emits
+  `position` (`DirectionNormalizer`), `unrealized/eq`, `realized/eq`, `cash/eq`
+  (`EquityRatioNormalizer`). `TrainLiveTab`'s `DisplayedCurrentPrice`/
+  `DisplayedEquity` stand in for a live `SimulationObservation`'s anchors when
+  denormalizing (see `DenormalizationAnchors`).
   `Brain/Neural/Encoders/BarWindowEncoder.cs`,
   `Brain/Neural/Encoders/VolumeProfileEncoder.cs`,
   `Brain/Neural/Encoders/TimeProfileEncoder.cs`,

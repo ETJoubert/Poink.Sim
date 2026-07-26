@@ -37,10 +37,22 @@ A brain's "shape" is two independent choices, wired together by
 
 | Piece | Interface | Current implementations |
 |---|---|---|
-| **Encoder** — observation → feature vector | `IObservationEncoder` (`FeatureCount`, `SequenceLength`, `FeatureLabels`, `Encode`) | `BarWindowEncoder` (20-bar percent-change price window), `VolumeProfileEncoder` (20-bucket tick-count histogram + POC/value-area summary, implements `IHasLookbackBars`), `TimeProfileEncoder` (20-bucket seconds-spent histogram + POC/value-area summary, same `IHasLookbackBars` capability), `CapitalStateEncoder` (4 bounded capital/position ratios) |
+| **Encoder** — observation → feature vector | `IObservationEncoder` (`FeatureCount`, `SequenceLength`, `Features`, `Encode`) | `BarWindowEncoder` (20-bar percent-change price window), `VolumeProfileEncoder` (20-bucket tick-count histogram + POC/value-area summary, implements `IHasLookbackBars`), `TimeProfileEncoder` (20-bucket seconds-spent histogram + POC/value-area summary, same `IHasLookbackBars` capability), `CapitalStateEncoder` (4 bounded capital/position ratios) |
+| **Normalizer** — raw quantity → network-ready value (and back, for display) | `IFeatureNormalizer` (`Normalize`, `Denormalize`, `Format`) | `PriceOffsetNormalizer` (percent-change-from-current-price), `EquityRatioNormalizer` (ratio-over-equity), `FractionNormalizer` (passthrough for an already-`[0,1]` histogram share), `DirectionNormalizer` (passthrough for a categorical `-1/0/1`) |
 | **Architecture** — feature vector → action logits | `INetworkArchitecture` (`Build(featureCount, sequenceLength)`) | `MlpArchitecture` (flat `Linear→Tanh` stack, any hidden-layer sizes), `LstmArchitecture` (LSTM over a leading sequence slice + trailing scalars, via `LstmPolicyNetwork`) |
 | **Combine multiple encoders** | `CompositeEncoder` | Concatenates parts in order; enforces that any sequence-bearing part (`SequenceLength > 0`) is listed **first**, so a recurrent architecture narrow()s the right slice |
 | **The brain itself** | `ComposedPolicyBrain` (+ `LookbackAwarePolicyBrain`) | Holds one `IObservationEncoder` + the `Module<Tensor,Tensor>` an architecture built from it; owns the one shared `Decide`/sampling/decision-mapping logic every composed brain uses |
+
+An encoder decides *which* raw quantity feeds a given feature slot; a
+normalizer decides *how* that quantity is scaled into the bounded, scale-free
+value the network sees. Each encoder is constructed with the normalizer(s) it
+needs (optional constructor parameters defaulting to the standard
+implementation, e.g. `new BarWindowEncoder()` still works), pairing each
+feature's label with its normalizer via `FeatureDescriptor`
+(`IObservationEncoder.Features`). This is what lets `ComposedPolicyBrain.
+DescribeInputs`/`RlInputFeature` and `TrainLiveTab`'s de-normalized INPUTS
+view work generically off any encoder's features — a new encoder or a new
+normalizer never needs a matching new case on the display side.
 
 `ComposedPolicyBrain.Create(name, architecture, params encoders)` is the only
 entry point:
@@ -99,12 +111,17 @@ persist, via the existing Save Model flow, keyed by the brain's `Name`.
 | `BrainRegistry.cs` | Shared mutable brain list backing both `RlTrainingService` and `SimulationEngine`; `Register` adds a runtime-built brain |
 | `Neural/IPolicyGradientBrain.cs` | Trained-brain family contract: `Network`, `Encode`, `DecideWithLogProbability`, `DescribeInputs`; default-implements `ExportWeights`/`ImportWeights`/`WeightCount`/`MoveToTrainingDevice`/`MoveToInferenceDevice`/`DescribeNetworkShape` off `Network` alone |
 | `Neural/IHasLookbackBars.cs` | Optional capability: a settable `LookbackBars` for an encoder that merges a trailing bar-count window |
-| `Neural/Encoders/IObservationEncoder.cs` | Encoder contract: `FeatureCount`, `SequenceLength`, `FeatureLabels`, `Encode` |
+| `Neural/Encoders/IObservationEncoder.cs` | Encoder contract: `FeatureCount`, `SequenceLength`, `Features`, `Encode`; also defines `FeatureDescriptor` (`Label` + `IFeatureNormalizer`) |
 | `Neural/Encoders/BarWindowEncoder.cs` | Encoder: 20-bar percent-change-from-current-price window |
 | `Neural/Encoders/CapitalStateEncoder.cs` | Encoder: 4 bounded capital/position ratios |
 | `Neural/Encoders/VolumeProfileEncoder.cs` | Encoder: 20-bucket relative volume (tick-count) histogram + POC/value-area summary; implements `IHasLookbackBars` |
 | `Neural/Encoders/TimeProfileEncoder.cs` | Encoder: 20-bucket relative time (seconds-spent) histogram + POC/value-area summary; implements `IHasLookbackBars`; labels prefixed `tp-` so they don't collide with `VolumeProfileEncoder`'s when both are composed together |
 | `Neural/Encoders/CompositeEncoder.cs` | Concatenates multiple encoders into one, enforcing the sequence-first ordering constraint |
+| `Neural/Normalizers/IFeatureNormalizer.cs` | Normalizer contract: `Normalize`, `Denormalize`, `Format`; also defines `DenormalizationAnchors` (`CurrentPrice`/`Equity`) |
+| `Neural/Normalizers/PriceOffsetNormalizer.cs` | Normalizer: price ↔ percent-change-from-current-price |
+| `Neural/Normalizers/EquityRatioNormalizer.cs` | Normalizer: raw amount ↔ ratio-over-equity |
+| `Neural/Normalizers/FractionNormalizer.cs` | Normalizer: passthrough for an already-`[0,1]` histogram-bucket share |
+| `Neural/Normalizers/DirectionNormalizer.cs` | Normalizer: passthrough for a categorical `-1/0/1` position flag |
 | `Neural/INetworkArchitecture.cs` | Architecture contract: `Build(featureCount, sequenceLength)` |
 | `Neural/MlpArchitecture.cs` | Architecture: flat `Linear→Tanh` stack, any hidden-layer sizes |
 | `Neural/LstmArchitecture.cs` | Architecture: LSTM over a leading sequence slice + trailing scalars |

@@ -27,8 +27,16 @@ internal sealed class BarWindowEncoder : IObservationEncoder
 {
     private const int WindowSize = 20;
 
-    private static readonly IReadOnlyList<string> Labels =
-        Enumerable.Range(1, WindowSize).Select(i => $"t-{WindowSize - i + 1}").ToList();
+    private readonly IFeatureNormalizer _priceOffsetNormalizer;
+    private readonly IReadOnlyList<FeatureDescriptor> _features;
+
+    public BarWindowEncoder(IFeatureNormalizer? priceOffsetNormalizer = null)
+    {
+        _priceOffsetNormalizer = priceOffsetNormalizer ?? new PriceOffsetNormalizer();
+        _features = Enumerable.Range(1, WindowSize)
+            .Select(i => new FeatureDescriptor($"t-{WindowSize - i + 1}", _priceOffsetNormalizer))
+            .ToList();
+    }
 
     public int FeatureCount => WindowSize;
 
@@ -36,11 +44,10 @@ internal sealed class BarWindowEncoder : IObservationEncoder
 
     public int WarmupBars => WindowSize;
 
-    public IReadOnlyList<string> FeatureLabels => Labels;
+    public IReadOnlyList<FeatureDescriptor> Features => _features;
 
     public float[] Encode(SimulationObservation observation)
     {
-        double currentPrice = observation.CurrentPrice;
         bool useBars = observation.RecentBars.Count > 0;
         int sourceCount = useBars ? observation.RecentBars.Count : observation.RecentTicks.Count;
 
@@ -54,7 +61,7 @@ internal sealed class BarWindowEncoder : IObservationEncoder
             double price = useBars
                 ? observation.RecentBars[sourceIndex].Close
                 : (observation.RecentTicks[sourceIndex].Bid + observation.RecentTicks[sourceIndex].Ask) / 2.0;
-            features[padding + i] = currentPrice == 0 ? 0f : (float)((price - currentPrice) / currentPrice);
+            features[padding + i] = _priceOffsetNormalizer.Normalize(price, observation);
         }
 
         return features;
