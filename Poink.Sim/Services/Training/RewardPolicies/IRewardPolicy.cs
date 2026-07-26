@@ -12,7 +12,11 @@
 //  since IRewardPolicy instances are long-lived DI singletons (see
 //  Program.cs) reused across every episode of every run; a stateful
 //  implementation would leak state across episode boundaries unless it
-//  tracked per-episode resets itself.
+//  tracked per-episode resets itself. OnEpisodeStart is that hook: a no-op
+//  default so EquityDriftRewardPolicy/TradingRulesRewardPolicy need no
+//  change, but RlEpisodeRunner.Run calls it once at the top of every
+//  episode, giving a stateful policy (e.g. DifferentialSharpeRewardPolicy's
+//  running mean/variance estimates) a correct place to reset.
 // ─────────────────────────────────────────────────────────────────────────
 using System;
 using Poink.Sim.Models;
@@ -35,6 +39,10 @@ internal readonly record struct RewardContext(
 internal interface IRewardPolicy
 {
     string Name { get; }
+
+    // Called once per episode, before that episode's first ComputeReward --
+    // see this file's doc comment for why a stateful policy needs this.
+    void OnEpisodeStart() { }
 
     double ComputeReward(RewardContext context);
 }

@@ -65,6 +65,10 @@ internal static class RlEpisodeRunner
         // Defaults to the exact pre-IRewardPolicy behavior (raw equity drift)
         // when the caller doesn't pick one -- see EquityDriftRewardPolicy.
         var effectiveRewardPolicy = rewardPolicy ?? new EquityDriftRewardPolicy();
+        // Gives a stateful policy (see IRewardPolicy.OnEpisodeStart) a clean
+        // per-episode reset -- this Run call is exactly one episode (see this
+        // file's doc comment), so once here is once per episode.
+        effectiveRewardPolicy.OnEpisodeStart();
 
         var trader = traderFactory.Create(startingCash, settings);
         var aggregator = aggregate ? new SimulationBarAggregator(barSize, PriceBucketWidth) : null;

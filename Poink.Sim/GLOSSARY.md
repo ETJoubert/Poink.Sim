@@ -269,24 +269,32 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   free to include since `log_softmax` already computes it before sampling collapses
   it to one index (see `ComposedPolicyBrain.DescribeOutputs`).
   `Brain/Neural/IPolicyGradientBrain.cs`
-- **`IRewardPolicy`** — `{ Name, ComputeReward(RewardContext) }`: the piece that used
-  to be a single hardcoded line inside `RlEpisodeRunner.RecordStep` (reward = equity
-  drift). `ComputeReward` is a pure function of `RewardContext` (`PreviousCapital` --
-  the previous decision's whole post-Apply `CapitalState`, not just its `Equity`, so
-  a policy can also read e.g. `RealizedPnl`'s own drift -- `CapitalNow`,
-  `PreviousPosition`, `Position`, `TimestampUtc`) -- no internal state, since
-  instances are long-lived DI singletons reused across every episode. Same "pick by
-  `Name`" house style as `IRlTrainingStrategy` (`RlTrainingService.RewardPolicyNames`,
-  picked per training run via the Train page's Reward Policy select), but orthogonal
-  to it: `IRewardPolicy` decides *what* the raw per-step reward is,
-  `IRlTrainingStrategy`/`PolicyGradientTrainingStrategy` still owns turning that into
-  discounted, mean-centered-baseline returns and the REINFORCE loss unchanged. Two
-  implementations: `EquityDriftRewardPolicy` (the default -- raw equity drift, no
-  shaping) and `TradingRulesRewardPolicy` (same base, plus loss-aversion scaling on
-  negative steps, an anti-churn cost when a new position opens, a growing penalty
-  once a position's age exceeds a configured max holding duration, and a bonus
-  fraction of any step's `RealizedPnl` increase -- "realized is better than
-  unrealized," rewarding locking in a gain over letting it ride at risk).
+- **`IRewardPolicy`** — `{ Name, OnEpisodeStart(), ComputeReward(RewardContext) }`: the
+  piece that used to be a single hardcoded line inside `RlEpisodeRunner.RecordStep`
+  (reward = equity drift). `ComputeReward` is a pure function of `RewardContext`
+  (`PreviousCapital` -- the previous decision's whole post-Apply `CapitalState`, not
+  just its `Equity`, so a policy can also read e.g. `RealizedPnl`'s own drift --
+  `CapitalNow`, `PreviousPosition`, `Position`, `TimestampUtc`); instances are
+  long-lived DI singletons reused across every episode, so `ComputeReward` itself
+  carries no internal state by default. `OnEpisodeStart` (default no-op) is the
+  escape hatch for a policy that needs to -- called once per episode by
+  `RlEpisodeRunner.Run`, before that episode's first `ComputeReward`, so a stateful
+  implementation resets per-episode instead of leaking state across the singleton's
+  whole lifetime. Same "pick by `Name`" house style as `IRlTrainingStrategy`
+  (`RlTrainingService.RewardPolicyNames`, picked per training run via the Train
+  page's Reward Policy select), but orthogonal to it: `IRewardPolicy` decides *what*
+  the raw per-step reward is, `IRlTrainingStrategy`/`PolicyGradientTrainingStrategy`
+  still owns turning that into discounted, mean-centered-baseline returns and the
+  REINFORCE loss unchanged. Three implementations: `EquityDriftRewardPolicy` (the
+  default -- raw equity drift, no shaping), `TradingRulesRewardPolicy` (same base,
+  plus loss-aversion scaling on negative steps, an anti-churn cost when a new
+  position opens, a growing penalty once a position's age exceeds a configured max
+  holding duration, and a bonus fraction of any step's `RealizedPnl` increase --
+  "realized is better than unrealized," rewarding locking in a gain over letting it
+  ride at risk), and `DifferentialSharpeRewardPolicy` (Moody & Saffell's
+  Differential Sharpe Ratio -- rewards the step-by-step change in trailing
+  risk-adjusted return instead of raw equity movement, via exponential mean/
+  variance estimates that are the one example of `OnEpisodeStart`-managed state).
   `Training/RewardPolicies/`
 - **`IRlTrainingStrategy`** — The "coach" abstraction: `Name`/`CanTrain`/
   `CreateOptimizer`/`TrainEpisode`. Kept stateless like Poink.ML's brain interfaces;

@@ -94,6 +94,7 @@ builder.Services.AddSingleton<IRlTrainingStrategy, PolicyGradientTrainingStrateg
 // on.
 builder.Services.AddSingleton<IRewardPolicy, EquityDriftRewardPolicy>();
 builder.Services.AddSingleton<IRewardPolicy, TradingRulesRewardPolicy>();
+builder.Services.AddSingleton<IRewardPolicy, DifferentialSharpeRewardPolicy>();
 builder.Services.AddSingleton<RlTrainingService>();
 #pragma warning disable CA1416 // SystemPerformanceMonitor is Windows-only, same as this app's other host assumptions (see its class comment).
 builder.Services.AddSingleton<SystemPerformanceMonitor>();
