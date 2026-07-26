@@ -1,9 +1,10 @@
 // ── Normalizer: raw amount <-> ratio-over-equity ─────────────────────────
-//  Used by CapitalStateEncoder's unrealized/realized/cash-over-equity
-//  features -- expressing each as a fraction of equity keeps them bounded
-//  and scale-free regardless of starting cash. Equity == 0 normalizes to 0
-//  rather than dividing by zero, same neutral convention as before this was
-//  pulled out.
+//  Expresses a raw money amount (e.g. unrealized/realized PnL, cash) as a
+//  fraction of equity, keeping it bounded and scale-free regardless of
+//  starting cash -- available for injection into any encoder constructor
+//  that accepts an IFeatureNormalizer (e.g. TraderStateEncoder's
+//  valueNormalizer parameter) when scale-free ratios are wanted instead of
+//  exact amounts. Equity == 0 normalizes to 0 rather than dividing by zero.
 // ─────────────────────────────────────────────────────────────────────────
 using System.Globalization;
 using Poink.Sim.Models;

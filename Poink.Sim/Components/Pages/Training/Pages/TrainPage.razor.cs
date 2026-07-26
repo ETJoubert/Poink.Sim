@@ -47,6 +47,8 @@ namespace Poink.Sim.Components.Pages
         private bool _includeBarWindow = true;
         private bool _includeVolumeProfile;
         private bool _includeTimeProfile;
+        private bool _includeVolumeProfileRaw;
+        private bool _includeTimeProfileRaw;
         private ArchitectureKind _architectureKind = ArchitectureKind.Mlp;
         private string _mlpHiddenSizesText = "32,16";
         private int _lstmHiddenSize = 64;
@@ -122,13 +124,13 @@ namespace Poink.Sim.Components.Pages
         // so the Create button disables instead of only failing after a click.
         private bool CanCreateBrain =>
             !string.IsNullOrWhiteSpace(EffectiveBuildBrainName)
-            && (_includeBarWindow || _includeVolumeProfile || _includeTimeProfile)
+            && (_includeBarWindow || _includeVolumeProfile || _includeTimeProfile || _includeVolumeProfileRaw || _includeTimeProfileRaw)
             && (_architectureKind != ArchitectureKind.Lstm || _includeBarWindow);
 
         // {Architecture}_{Layers}_{Data}, e.g. MLP_L32-L16_dBW-dVP-dTP-dAS -- mirrors
         // CreateBrain's own encoder/architecture choices below, so the generated
         // name always describes exactly what CREATE BRAIN is about to build.
-        // Account State has no checkbox (always included) but still gets a
+        // Trader State has no checkbox (always included) but still gets a
         // "dAS" tag here for the same reason it gets a disabled-checked
         // checkbox above: visible parity with the other data sources.
         private string AutoBuildBrainName
@@ -150,6 +152,8 @@ namespace Poink.Sim.Components.Pages
                 if (_includeBarWindow) dataParts.Add("dBW");
                 if (_includeVolumeProfile) dataParts.Add("dVP");
                 if (_includeTimeProfile) dataParts.Add("dTP");
+                if (_includeVolumeProfileRaw) dataParts.Add("dVPR");
+                if (_includeTimeProfileRaw) dataParts.Add("dTPR");
                 dataParts.Add("dAS");
                 string data = string.Join("-", dataParts);
 
@@ -182,6 +186,8 @@ namespace Poink.Sim.Components.Pages
             if (_includeBarWindow) encoderKinds.Add(EncoderKind.BarWindow);
             if (_includeVolumeProfile) encoderKinds.Add(EncoderKind.VolumeProfile);
             if (_includeTimeProfile) encoderKinds.Add(EncoderKind.TimeProfile);
+            if (_includeVolumeProfileRaw) encoderKinds.Add(EncoderKind.VolumeProfileRaw);
+            if (_includeTimeProfileRaw) encoderKinds.Add(EncoderKind.TimeProfileRaw);
 
             IReadOnlyList<int> hiddenSizes = _architectureKind == ArchitectureKind.Mlp
                 ? ParseHiddenSizes(_mlpHiddenSizesText)

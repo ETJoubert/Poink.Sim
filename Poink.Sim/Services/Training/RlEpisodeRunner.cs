@@ -80,10 +80,11 @@ internal static class RlEpisodeRunner
 
         // Index-aligned 1:1 with allBars and each other -- only populated for an
         // IPolicyGradientBrain (see RlEpisode's doc comment). allBarEquity is
-        // that decision's pre-Apply equity (observation.Capital.Equity, what
-        // CapitalStateEncoder actually divided by -- not the post-Apply equity
-        // RecordStep returns/threads into previousEquity), so the Train page
-        // can invert "unrealized/eq" etc. back to raw currency amounts.
+        // that decision's pre-Apply equity (observation.Capital.Equity -- not
+        // the post-Apply equity RecordStep returns/threads into
+        // previousEquity), one of the two anchors the Train page's
+        // de-normalized INPUTS toggle can invert a feature against (see
+        // DenormalizationAnchors).
         var allBarInputs = new List<IReadOnlyList<RlInputFeature>>();
         var allBarEquity = new List<double>();
 

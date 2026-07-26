@@ -206,9 +206,10 @@ namespace Poink.Sim.Components.Training
         }
 
         // Same "which decision point" pairing as DisplayedInputs, but the
-        // pre-Apply equity CapitalStateEncoder actually divided by (see
-        // RlEpisode.BarEquity's doc comment) -- the anchor the de-normalized
-        // toggle needs to invert "unrealized/eq"/"realized/eq"/"cash/eq".
+        // pre-Apply equity (see RlEpisode.BarEquity's doc comment) -- one of
+        // the two anchors DenormalizationAnchors carries for whichever
+        // IFeatureNormalizer a given feature needs to invert (e.g.
+        // EquityRatioNormalizer, if an encoder is constructed with one).
         private double? DisplayedEquity
         {
             get

@@ -68,16 +68,16 @@ builder.Services.AddSingleton<ISimulationBrain, RandomBrain>();
 // SimulationEngine, IBrainRepository) keys off, so they must stay stable.
 builder.Services.AddSingleton<ISimulationBrain>(_ => ComposedPolicyBrain.Create(
     "MLP Policy", new MlpArchitecture(32, 16),
-    new BarWindowEncoder(), new CapitalStateEncoder()));
+    new BarWindowEncoder(), new TraderStateEncoder()));
 builder.Services.AddSingleton<ISimulationBrain>(_ => ComposedPolicyBrain.Create(
     "LSTM Policy", new LstmArchitecture(hiddenSize: 64, numLayers: 2),
-    new BarWindowEncoder(), new CapitalStateEncoder()));
+    new BarWindowEncoder(), new TraderStateEncoder()));
 builder.Services.AddSingleton<ISimulationBrain>(_ => ComposedPolicyBrain.Create(
     "Volume Profile Policy", new MlpArchitecture(32, 16),
-    new VolumeProfileEncoder(), new CapitalStateEncoder()));
+    new VolumeProfileEncoder(), new TraderStateEncoder()));
 builder.Services.AddSingleton<ISimulationBrain>(_ => ComposedPolicyBrain.Create(
     "Volume Profile + Bars Policy", new MlpArchitecture(64, 32, 16),
-    new BarWindowEncoder(), new VolumeProfileEncoder(), new CapitalStateEncoder()));
+    new BarWindowEncoder(), new VolumeProfileEncoder(), new TraderStateEncoder()));
 builder.Services.AddSingleton<BrainRegistry>();
 // Stateless, no reason for a shorter lifetime -- Create is a pure passthrough
 // to `new Trader.Trader(...)`.

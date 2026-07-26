@@ -1,5 +1,5 @@
 // ── Normalizer: passthrough for a categorical -1/0/1 direction flag ─────
-//  Used by CapitalStateEncoder's "position" feature -- long/short/flat is
+//  Used by TraderStateEncoder's "position" feature -- long/short/flat is
 //  already categorical, not a raw value plus anchor, so there's nothing to
 //  scale; Normalize is a plain float cast, same reasoning as
 //  FractionNormalizer. Format is the one place this normalizer does real

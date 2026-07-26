@@ -44,7 +44,7 @@ internal interface IObservationEncoder
     // output reflects genuine data rather than a padded/undersized window
     // (e.g. BarWindowEncoder's WindowSize, or VolumeProfileEncoder's own
     // LookbackBars) -- 0 for an encoder with no windowing (e.g.
-    // CapitalStateEncoder). RlEpisodeRunner reads this (via ComposedPolicyBrain/
+    // TraderStateEncoder). RlEpisodeRunner reads this (via ComposedPolicyBrain/
     // CompositeEncoder) to run a training episode's first WarmupBars completed
     // bars purely to fill recentBars/recentBarHistograms before any decision
     // is recorded, instead of ever exercising an encoder's own padding

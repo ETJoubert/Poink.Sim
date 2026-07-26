@@ -226,32 +226,37 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   `DenormalizationAnchors` (`{ CurrentPrice, Equity }`) instead since a historical
   replay bar (`TrainLiveTab`) only has those two derived doubles, not a live
   observation -- returns `null` when its anchor isn't available, so the caller
-  falls back to the plain normalized value. Four implementations:
+  falls back to the plain normalized value. Implementations:
   `PriceOffsetNormalizer` (percent-change-from-current-price, invert via
   `currentPrice * (1 + v)`), `EquityRatioNormalizer` (`rawAmount / equity`, invert
-  via `v * equity`), `FractionNormalizer` (passthrough for an already-`[0,1]`
+  via `v * equity`; available for injection, not wired into any encoder by
+  default), `FractionNormalizer` (passthrough for an already-`[0,1]`
   histogram-bucket share, formats as a percentage), `DirectionNormalizer`
-  (passthrough for a categorical `-1/0/1`, formats as `LONG`/`SHORT`/`FLAT`). Each
-  encoder is constructed with the normalizer(s) it needs (optional constructor
-  parameters defaulting to the standard implementation), pairing each feature
-  label with its normalizer via `FeatureDescriptor` (see `IObservationEncoder`).
-  `Brain/Neural/Normalizers/`
+  (passthrough for a categorical `-1/0/1`, formats as `LONG`/`SHORT`/`FLAT`),
+  `RawPriceNormalizer`/`RawValueNormalizer` (passthrough for an already-real,
+  unscaled price/quantity -- `Denormalize` is the identity, no anchor needed).
+  Each encoder is constructed with the normalizer(s) it needs (optional
+  constructor parameters defaulting to the standard implementation), pairing
+  each feature label with its normalizer via `FeatureDescriptor` (see
+  `IObservationEncoder`). `Brain/Neural/Normalizers/`
 - **`IHasLookbackBars`** — `{ int LookbackBars { get; set; } }`, implemented by
-  `VolumeProfileEncoder` and `TimeProfileEncoder` (both default 50) -- how many
+  `VolumeProfileEncoder`/`TimeProfileEncoder` and their raw counterparts
+  `VolumeProfileRawEncoder`/`TimeProfileRawEncoder` (all default 50) -- how many
   trailing completed bars' histograms each merges into one profile each decision.
   `ComposedPolicyBrain.Create` surfaces it onto the composed brain via
   `LookbackAwarePolicyBrain` whenever one or more parts implement it, broadcasting
-  one configured value to every one of them (so a brain combining both Volume
-  Profile and Time Profile shares a single lookback window rather than needing
-  two); `RlTrainingService.GetLookbackBars(brainName)` queries it generically
-  by name (used by `TrainLiveTab`'s "what range the trader sees" chart marker --
-  `BarWindowEncoder`'s own fixed 20-bar window has no such interface, since it's a
-  private constant; that side derives its count from `DescribeInputs`' `t-N` labels
-  instead). Distinct from but related to `IObservationEncoder.WarmupBars` (see
-  **Warm-up bars**): `LookbackBars` is *settable* (a UI-configured merge width),
-  while `WarmupBars` is each encoder's own read-only "how far back do I need real
-  data" -- `VolumeProfileEncoder`/`TimeProfileEncoder`'s `WarmupBars` just returns
-  its own `LookbackBars`. `Brain/Neural/IHasLookbackBars.cs`
+  one configured value to every one of them (so a brain combining multiple
+  Volume/Time Profile encoders shares a single lookback window rather than
+  needing separate settings); `RlTrainingService.GetLookbackBars(brainName)`
+  queries it generically by name (used by `TrainLiveTab`'s "what range the
+  trader sees" chart marker -- `BarWindowEncoder`'s own fixed 20-bar window has
+  no such interface, since it's a private constant; that side derives its count
+  from `DescribeInputs`' `t-N` labels instead). Distinct from but related to
+  `IObservationEncoder.WarmupBars` (see **Warm-up bars**): `LookbackBars` is
+  *settable* (a UI-configured merge width), while `WarmupBars` is each
+  encoder's own read-only "how far back do I need real data" -- these
+  encoders' `WarmupBars` just returns their own `LookbackBars`.
+  `Brain/Neural/IHasLookbackBars.cs`
 - **`IPolicyGradientBrain`** — Sibling interface (not a replacement) to
   `ISimulationBrain`, for trainable stochastic-policy networks. Adds `Network` (live
   `Module<Tensor,Tensor>`), `Encode`, `DecideWithLogProbability`, `DescribeInputs`,
@@ -397,7 +402,8 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   first weighted by that bar's average tick interval (`(CloseTime - OpenTime) /
   Volume`) to approximate seconds spent per bucket. Both `Merge` and `MergeTime` feed
   either a chart (`TickVolumeProfileChart`/`TickTimeProfileChart`) or a brain encoder
-  (`VolumeProfileEncoder`/`TimeProfileEncoder`) depending on the caller.
+  (`VolumeProfileEncoder`/`TimeProfileEncoder` and their unnormalized counterparts
+  `VolumeProfileRawEncoder`/`TimeProfileRawEncoder`) depending on the caller.
   `Models/BarPriceHistogram.cs`
 - **`BrainTrainingParameters`** — Free-form training-run parameters (`EpisodeCount`,
   `EpisodeBars`, `BarWidthMinutes`, `StartingCash`, `LearningRate`, `LookbackBars`,
@@ -406,10 +412,10 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   deserialize after new fields are added. `Repository/IBrainRepository.cs`
 - **`CapitalState`** — Read-only snapshot handed to the Brain/UI: `(Cash,
   RealizedPnl, UnrealizedPnl, MarginUsed, MarginLevel)`, with `Equity => Cash +
-  UnrealizedPnl` and `MarginFree => Equity - MarginUsed`. `MarginUsed`/`MarginLevel`
-  are UI/statistics-only today -- not fed to any neural brain (changing the
-  encoder's feature count would break every already-trained network's input
-  layer). `Models/SimulationAccount.cs`
+  UnrealizedPnl` and `MarginFree => Equity - MarginUsed`. Every field (plus
+  `Equity`, `SimulationObservation.CurrentPrice`, `Position?.EntryPrice`, and
+  whether a position is open) is fed to every neural brain via
+  `TraderStateEncoder`. `Models/SimulationAccount.cs`
 - **`ChartLinePoint`** — One `(TimeUtc, Price)` point of a computed overlay line (e.g.
   VWAP) on `DrawableOhlcvChart` — a per-bar time series, unlike the single fixed price
   of `ChartHorizontalLine`, so it renders as its own native LineSeries rather than one
@@ -447,15 +453,29 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   (`FractionNormalizer`) plus `tp-poc-offset`/`tp-va-high-offset`/
   `tp-va-low-offset` (`PriceOffsetNormalizer`; prefixed with `tp-`, unlike Volume
   Profile's bare offset labels, so the two encoders' labels never collide when
-  both are part of the same composed brain); `CapitalStateEncoder` emits
-  `position` (`DirectionNormalizer`), `unrealized/eq`, `realized/eq`, `cash/eq`
-  (`EquityRatioNormalizer`). `TrainLiveTab`'s `DisplayedCurrentPrice`/
-  `DisplayedEquity` stand in for a live `SimulationObservation`'s anchors when
-  denormalizing (see `DenormalizationAnchors`).
+  both are part of the same composed brain); `VolumeProfileRawEncoder` emits
+  `vpr-price-0..19` (`RawPriceNormalizer`) paired with `vpr-vol-0..19`
+  (`RawValueNormalizer`) -- a bucket's price isn't recoverable from its index
+  alone (the rebin range shifts with the lookback window), so it's fed
+  alongside the count, not instead of it -- plus `vpr-poc`/`vpr-va-high`/
+  `vpr-va-low` (`RawPriceNormalizer`); `TimeProfileRawEncoder` emits
+  `tpr-price-0..19`/`tpr-sec-0..19` the same way, plus `tpr-poc`/
+  `tpr-va-high`/`tpr-va-low` (`vpr-`/`tpr-` prefixes so all four Volume/Time
+  Profile encoders' labels can coexist in one composed brain);
+  `TraderStateEncoder` emits `position`
+  (`DirectionNormalizer`), `position-price`/`current-price`
+  (`RawPriceNormalizer`), `cash`, `realized`, `unrealized`, `equity`,
+  `margin`, `margin-level`, `position-count` (`RawValueNormalizer`).
+  `TrainLiveTab`'s
+  `DisplayedCurrentPrice`/`DisplayedEquity` stand in for a live
+  `SimulationObservation`'s anchors when denormalizing (see
+  `DenormalizationAnchors`).
   `Brain/Neural/Encoders/BarWindowEncoder.cs`,
   `Brain/Neural/Encoders/VolumeProfileEncoder.cs`,
   `Brain/Neural/Encoders/TimeProfileEncoder.cs`,
-  `Brain/Neural/Encoders/CapitalStateEncoder.cs`
+  `Brain/Neural/Encoders/VolumeProfileRawEncoder.cs`,
+  `Brain/Neural/Encoders/TimeProfileRawEncoder.cs`,
+  `Brain/Neural/Encoders/TraderStateEncoder.cs`
 - **`RlOutputFeature`** — One action's probability out of a policy brain's full
   output distribution for one decision, mirroring `RlInputFeature` but for what
   the network decided rather than what fed it. Record `(Label, Probability,
@@ -715,8 +735,9 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   `MLP_L32-L16_dBW-dVP-dTP-dAS`: the Build Brain section's auto-generated name.
   Layers are `L<size>` per MLP hidden layer or `H<hiddenSize>-N<numLayers>` for
   LSTM; Data is `d` + each included encoder's initials (`BW`=Bar Window,
-  `VP`=Volume Profile, `TP`=Time Profile, `AS`=Account State, always present).
-  Toggled off via the "Auto Name" checkbox to type a custom name instead.
+  `VP`=Volume Profile, `TP`=Time Profile, `VPR`=Volume Profile Raw,
+  `TPR`=Time Profile Raw, `AS`=Trader State, always present). Toggled off via
+  the "Auto Name" checkbox to type a custom name instead.
   `Components/Pages/Training/Pages/TrainPage.razor.cs` (`AutoBuildBrainName`)
 - **cAlgo** — The trading-platform/robot framework; "the Poink.Trader cAlgo robot" is
   the external process that writes ticks into the `ticks_<symbol>` Postgres tables

@@ -16,40 +16,82 @@ internal readonly record struct TimeProfileSummary(
 
 internal static class TimeProfileAnalysis
 {
-    // Re-bins the merged buckets into a fixed-width histogram of seconds
-    // fraction-of-total, ascending by price -- same shape/edge-case handling
-    // as VolumeProfileAnalysis.BuildRelativeHistogram, weighted by Seconds
-    // instead of Count. Empty/zero-time input -> all zeros (neutral).
-    public static float[] BuildRelativeHistogram(
-        IReadOnlyList<(double Price, int Count, double Seconds, double UpSeconds, double DownSeconds)> buckets, int bucketCount)
+    // Shared re-binning step behind both BuildRelativeHistogram and
+    // BuildRawHistogram below -- same shape/edge-case handling as
+    // VolumeProfileAnalysis.RebinCounts, weighted by Seconds instead of
+    // Count. Returns null (rather than an all-zero array) for empty/zero-
+    // time input so each caller applies its own neutral convention. binMin/
+    // binSize are the rebin's own bucket edges -- see VolumeProfileAnalysis.
+    // RebinCounts' doc comment.
+    private static double[]? RebinSeconds(
+        IReadOnlyList<(double Price, int Count, double Seconds, double UpSeconds, double DownSeconds)> buckets, int bucketCount,
+        out double totalSeconds, out double binMin, out double binSize)
     {
-        var histogram = new float[bucketCount];
-        if (buckets.Count == 0) return histogram;
+        totalSeconds = 0;
+        binMin = 0;
+        binSize = 0;
+        if (buckets.Count == 0) return null;
 
-        double totalSeconds = buckets.Sum(b => b.Seconds);
-        if (totalSeconds <= 0) return histogram;
+        totalSeconds = buckets.Sum(b => b.Seconds);
+        if (totalSeconds <= 0) return null;
 
+        var seconds = new double[bucketCount];
         double min = buckets.Min(b => b.Price), max = buckets.Max(b => b.Price);
+        binMin = min;
         if (max <= min)
         {
             // Every sample landed in one price bucket -- no range to spread
             // across, park it all in the middle bin (same convention as
             // VolumeProfileAnalysis).
-            histogram[bucketCount / 2] = 1f;
-            return histogram;
+            seconds[bucketCount / 2] = totalSeconds;
+            return seconds;
         }
 
-        double size = (max - min) / bucketCount;
-        var seconds = new double[bucketCount];
+        binSize = (max - min) / bucketCount;
         foreach (var bucket in buckets)
         {
-            int idx = Math.Clamp((int)((bucket.Price - min) / size), 0, bucketCount - 1);
+            int idx = Math.Clamp((int)((bucket.Price - min) / binSize), 0, bucketCount - 1);
             seconds[idx] += bucket.Seconds;
         }
+        return seconds;
+    }
+
+    // Re-bins the merged buckets into a fixed-width histogram of seconds
+    // fraction-of-total, ascending by price. Empty/zero-time input -> all
+    // zeros (neutral).
+    public static float[] BuildRelativeHistogram(
+        IReadOnlyList<(double Price, int Count, double Seconds, double UpSeconds, double DownSeconds)> buckets, int bucketCount)
+    {
+        var histogram = new float[bucketCount];
+        var seconds = RebinSeconds(buckets, bucketCount, out var totalSeconds, out _, out _);
+        if (seconds is null) return histogram;
 
         for (int i = 0; i < bucketCount; i++)
             histogram[i] = (float)(seconds[i] / totalSeconds);
         return histogram;
+    }
+
+    // Raw-value counterpart to BuildRelativeHistogram -- same fixed-width
+    // re-binning, but returns each bucket's literal seconds-spent paired with
+    // the exact price level that bucket represents (its center), for the same
+    // reason as VolumeProfileAnalysis.BuildRawHistogram: a bucket's price
+    // isn't recoverable from its index alone, and a network needs it to
+    // locate the current price (via TraderStateEncoder) against this
+    // distribution. Empty/zero-time input -> all-zero seconds and prices.
+    public static (float[] Seconds, float[] Prices) BuildRawHistogram(
+        IReadOnlyList<(double Price, int Count, double Seconds, double UpSeconds, double DownSeconds)> buckets, int bucketCount)
+    {
+        var secondsOut = new float[bucketCount];
+        var pricesOut = new float[bucketCount];
+        var seconds = RebinSeconds(buckets, bucketCount, out _, out var binMin, out var binSize);
+        if (seconds is null) return (secondsOut, pricesOut);
+
+        for (int i = 0; i < bucketCount; i++)
+        {
+            secondsOut[i] = (float)seconds[i];
+            pricesOut[i] = (float)(binMin + (i + 0.5) * binSize);
+        }
+        return (secondsOut, pricesOut);
     }
 
     // Same value-area-expansion algorithm as VolumeProfileAnalysis.ComputeSummary,

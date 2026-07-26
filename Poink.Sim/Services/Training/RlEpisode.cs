@@ -57,10 +57,9 @@ internal sealed record RlStep(SimulationAction Action, Tensor? LogProbability, d
 //
 // BarEquity is index-aligned 1:1 with BarInputs (not Bars -- both share the same
 // IPolicyGradientBrain gate and the same WarmupBars offset): each entry is that
-// decision's pre-Apply equity (observation.Capital.Equity, what CapitalStateEncoder
-// actually divided by to produce "unrealized/eq" etc.), needed to invert those
-// ratios back to raw currency amounts for the Train page's de-normalized inputs
-// toggle.
+// decision's pre-Apply equity (observation.Capital.Equity), one of the two
+// anchors (see DenormalizationAnchors) the Train page's de-normalized inputs
+// toggle can invert a feature against.
 //
 // LastOutputs/BarOutputs mirror LastInputs/BarInputs but for what the network
 // decided rather than what fed it -- each decision's full RlOutputFeature

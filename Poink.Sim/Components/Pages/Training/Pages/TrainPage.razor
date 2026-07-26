@@ -92,8 +92,14 @@
                     <label class="train-brainrow-field" title="Time-weighted histogram + point-of-control/value-area summary (seconds spent at each price level), merged from Profile lookback bars below">
                         <input type="checkbox" @bind="_includeTimeProfile" disabled="@Service.IsRunning" /> Time Profile
                     </label>
+                    <label class="train-brainrow-field" title="Same volume histogram + point-of-control/value-area summary as Volume Profile, but unnormalized -- feeds the network exact tick counts and exact price levels instead of a fraction-of-total/percent-offset">
+                        <input type="checkbox" @bind="_includeVolumeProfileRaw" disabled="@Service.IsRunning" /> Volume Profile (Raw)
+                    </label>
+                    <label class="train-brainrow-field" title="Same time-weighted histogram + point-of-control/value-area summary as Time Profile, but unnormalized -- feeds the network exact seconds spent and exact price levels instead of a fraction-of-total/percent-offset">
+                        <input type="checkbox" @bind="_includeTimeProfileRaw" disabled="@Service.IsRunning" /> Time Profile (Raw)
+                    </label>
                     <label class="train-brainrow-field" title="Always included -- every brain needs to know its own position/capital regardless of market data">
-                        <input type="checkbox" checked="checked" disabled /> Account State
+                        <input type="checkbox" checked="checked" disabled /> Trader State
                     </label>
                     <label class="train-brainrow-field" title="Network shape applied to the combined features selected above">
                         Architecture

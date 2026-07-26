@@ -202,10 +202,9 @@ internal sealed class RlTrainingService
 
     // Index-aligned 1:1 with LatestEpisodeBarInputs (not LatestEpisodeBars --
     // both share the same IPolicyGradientBrain gate and LatestEpisodeWarmupBars
-    // offset) -- each entry is that decision's pre-Apply equity, the anchor
-    // the Train page's de-normalized inputs toggle needs to invert
-    // "unrealized/eq"/"realized/eq"/"cash/eq" back to raw currency amounts
-    // (see RlEpisode.BarEquity's doc comment).
+    // offset) -- each entry is that decision's pre-Apply equity, one of the
+    // two anchors the Train page's de-normalized inputs toggle can invert a
+    // feature against (see RlEpisode.BarEquity's doc comment).
     public IReadOnlyList<double> LatestEpisodeBarEquity { get; private set; } = Array.Empty<double>();
 
     // Same episode as LatestEpisodeBars above, index-aligned 1:1 with
@@ -317,7 +316,7 @@ internal sealed class RlTrainingService
         // Read after the LookbackBars assignment above so a lookback-windowed
         // brain's WarmupBars already reflects this run's configured value (see
         // ComposedPolicyBrain.WarmupBars / VolumeProfileEncoder.WarmupBars). 0
-        // for a brain with no windowed encoder (e.g. a bare CapitalStateEncoder
+        // for a brain with no windowed encoder (e.g. a bare TraderStateEncoder
         // brain) or a non-policy-gradient brain.
         int warmupBars = brain is IPolicyGradientBrain warmupAwareBrain ? warmupAwareBrain.WarmupBars : 0;
 
@@ -500,7 +499,7 @@ internal sealed class RlTrainingService
     // Builds a new ComposedPolicyBrain from the Train page's Brain Builder
     // panel and adds it to the shared BrainRegistry -- ephemeral, same as
     // every other brain's *shape* (only trained weights persist across a
-    // restart, via SaveBrain below). CapitalStateEncoder is always appended
+    // restart, via SaveBrain below). TraderStateEncoder is always appended
     // regardless of encoderKinds (see BrainCatalog's doc comment); the caller
     // (TrainPage.razor.cs) is responsible for listing encoderKinds in
     // canonical order (BarWindow before VolumeProfile/TimeProfile) so
@@ -528,7 +527,7 @@ internal sealed class RlTrainingService
 
         try
         {
-            var parts = encoderKinds.Select(BrainCatalog.CreateEncoder).Append(new CapitalStateEncoder()).ToArray();
+            var parts = encoderKinds.Select(BrainCatalog.CreateEncoder).Append(new TraderStateEncoder()).ToArray();
             var architecture = BrainCatalog.CreateArchitecture(architectureKind, hiddenSizes);
             var brain = ComposedPolicyBrain.Create(name, architecture, parts);
             _brainRegistry.Register(brain);

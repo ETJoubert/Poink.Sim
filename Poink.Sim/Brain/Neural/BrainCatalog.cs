@@ -5,7 +5,7 @@
 //  encoders/architectures is small and changes rarely; adding a new one here
 //  plus a new enum case is the whole cost of making it pickable in the UI.
 //
-//  CapitalStateEncoder is deliberately NOT an EncoderKind option -- every
+//  TraderStateEncoder is deliberately NOT an EncoderKind option -- every
 //  built brain needs account state regardless of how its market data is
 //  represented, so RlTrainingService.TryBuildBrain appends it unconditionally
 //  rather than letting a user omit it.
@@ -15,7 +15,7 @@ using System.Collections.Generic;
 
 namespace Poink.Sim.Brain.Neural;
 
-internal enum EncoderKind { BarWindow, VolumeProfile, TimeProfile }
+internal enum EncoderKind { BarWindow, VolumeProfile, TimeProfile, VolumeProfileRaw, TimeProfileRaw }
 
 internal enum ArchitectureKind { Mlp, Lstm }
 
@@ -26,6 +26,8 @@ internal static class BrainCatalog
         EncoderKind.BarWindow => new BarWindowEncoder(),
         EncoderKind.VolumeProfile => new VolumeProfileEncoder(),
         EncoderKind.TimeProfile => new TimeProfileEncoder(),
+        EncoderKind.VolumeProfileRaw => new VolumeProfileRawEncoder(),
+        EncoderKind.TimeProfileRaw => new TimeProfileRawEncoder(),
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
     };
 

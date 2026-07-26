@@ -37,8 +37,8 @@ A brain's "shape" is two independent choices, wired together by
 
 | Piece | Interface | Current implementations |
 |---|---|---|
-| **Encoder** — observation → feature vector | `IObservationEncoder` (`FeatureCount`, `SequenceLength`, `Features`, `Encode`) | `BarWindowEncoder` (20-bar percent-change price window), `VolumeProfileEncoder` (20-bucket tick-count histogram + POC/value-area summary, implements `IHasLookbackBars`), `TimeProfileEncoder` (20-bucket seconds-spent histogram + POC/value-area summary, same `IHasLookbackBars` capability), `CapitalStateEncoder` (4 bounded capital/position ratios) |
-| **Normalizer** — raw quantity → network-ready value (and back, for display) | `IFeatureNormalizer` (`Normalize`, `Denormalize`, `Format`) | `PriceOffsetNormalizer` (percent-change-from-current-price), `EquityRatioNormalizer` (ratio-over-equity), `FractionNormalizer` (passthrough for an already-`[0,1]` histogram share), `DirectionNormalizer` (passthrough for a categorical `-1/0/1`) |
+| **Encoder** — observation → feature vector | `IObservationEncoder` (`FeatureCount`, `SequenceLength`, `Features`, `Encode`) | `BarWindowEncoder` (20-bar percent-change price window), `VolumeProfileEncoder` (20-bucket relative tick-count histogram + POC/value-area summary, implements `IHasLookbackBars`), `TimeProfileEncoder` (20-bucket relative seconds-spent histogram + POC/value-area summary, same `IHasLookbackBars` capability), `VolumeProfileRawEncoder`/`TimeProfileRawEncoder` (same histograms/summaries, unnormalized -- exact tick counts/seconds and exact price levels, also implement `IHasLookbackBars`), `TraderStateEncoder` (10 exact trader/account fields) |
+| **Normalizer** — raw quantity → network-ready value (and back, for display) | `IFeatureNormalizer` (`Normalize`, `Denormalize`, `Format`) | `PriceOffsetNormalizer` (percent-change-from-current-price), `EquityRatioNormalizer` (ratio-over-equity, available for injection), `FractionNormalizer` (passthrough for an already-`[0,1]` histogram share), `DirectionNormalizer` (passthrough for a categorical `-1/0/1`), `RawPriceNormalizer`/`RawValueNormalizer` (passthrough for an already-real price/quantity) |
 | **Architecture** — feature vector → action logits | `INetworkArchitecture` (`Build(featureCount, sequenceLength)`) | `MlpArchitecture` (flat `Linear→Tanh` stack, any hidden-layer sizes), `LstmArchitecture` (LSTM over a leading sequence slice + trailing scalars, via `LstmPolicyNetwork`) |
 | **Combine multiple encoders** | `CompositeEncoder` | Concatenates parts in order; enforces that any sequence-bearing part (`SequenceLength > 0`) is listed **first**, so a recurrent architecture narrow()s the right slice |
 | **The brain itself** | `ComposedPolicyBrain` (+ `LookbackAwarePolicyBrain`) | Holds one `IObservationEncoder` + the `Module<Tensor,Tensor>` an architecture built from it; owns the one shared `Decide`/sampling/decision-mapping logic every composed brain uses |
@@ -60,17 +60,18 @@ entry point:
 ```csharp
 ComposedPolicyBrain.Create(
     "Volume Profile + Bars Policy", new MlpArchitecture(64, 32, 16),
-    new BarWindowEncoder(), new VolumeProfileEncoder(), new CapitalStateEncoder());
+    new BarWindowEncoder(), new VolumeProfileEncoder(), new TraderStateEncoder());
 ```
 
 If one or more encoder parts implement `IHasLookbackBars` (today,
-`VolumeProfileEncoder` and `TimeProfileEncoder`), `Create` returns a
+`VolumeProfileEncoder`/`TimeProfileEncoder` and their raw counterparts
+`VolumeProfileRawEncoder`/`TimeProfileRawEncoder`), `Create` returns a
 `LookbackAwarePolicyBrain` instead of a plain `ComposedPolicyBrain`, so
 `brain is IHasLookbackBars` stays precise — absent unless at least one part
 actually uses it. Setting `LookbackBars` broadcasts the same value to every
 wrapped part (see `Training/RlTrainingService.cs`'s Train-page wiring), so a
-brain combining both Volume Profile and Time Profile merges both over the
-same trailing-bar window rather than needing two separate settings.
+brain combining any of these four merges all of them over the same
+trailing-bar window rather than needing separate settings.
 
 ## Where brains come from
 
@@ -79,17 +80,17 @@ same trailing-bar window rather than needing two separate settings.
 
 | Name | Encoders | Architecture |
 |---|---|---|
-| `MLP Policy` | Bar Window + Capital State | MLP (32, 16) |
-| `LSTM Policy` | Bar Window + Capital State | LSTM (hidden 64, 2 layers) |
-| `Volume Profile Policy` | Volume Profile + Capital State | MLP (32, 16) |
-| `Volume Profile + Bars Policy` | Bar Window + Volume Profile + Capital State | MLP (64, 32, 16) |
+| `MLP Policy` | Bar Window + Trader State | MLP (32, 16) |
+| `LSTM Policy` | Bar Window + Trader State | LSTM (hidden 64, 2 layers) |
+| `Volume Profile Policy` | Volume Profile + Trader State | MLP (32, 16) |
+| `Volume Profile + Bars Policy` | Bar Window + Volume Profile + Trader State | MLP (64, 32, 16) |
 
 **Built at runtime** — the Train page's "+ BUILD BRAIN" panel
 (`Components/Pages/Training/Pages/TrainPage.razor`) lets a user pick any
 encoder combination and architecture, then calls
 `RlTrainingService.TryBuildBrain`, which resolves the pick through
 `BrainCatalog` (the enum-driven `EncoderKind`/`ArchitectureKind` factory) and
-registers the result into `BrainRegistry`. `CapitalStateEncoder` is always
+registers the result into `BrainRegistry`. `TraderStateEncoder` is always
 appended automatically — it isn't a pickable `EncoderKind`, since every brain
 needs account state regardless of how market data is represented.
 
@@ -113,15 +114,19 @@ persist, via the existing Save Model flow, keyed by the brain's `Name`.
 | `Neural/IHasLookbackBars.cs` | Optional capability: a settable `LookbackBars` for an encoder that merges a trailing bar-count window |
 | `Neural/Encoders/IObservationEncoder.cs` | Encoder contract: `FeatureCount`, `SequenceLength`, `Features`, `Encode`; also defines `FeatureDescriptor` (`Label` + `IFeatureNormalizer`) |
 | `Neural/Encoders/BarWindowEncoder.cs` | Encoder: 20-bar percent-change-from-current-price window |
-| `Neural/Encoders/CapitalStateEncoder.cs` | Encoder: 4 bounded capital/position ratios |
+| `Neural/Encoders/TraderStateEncoder.cs` | Encoder: 10 exact trader/account fields (position direction, position entry price, current price, cash, realized/unrealized PnL, equity, margin, margin level, position count) |
 | `Neural/Encoders/VolumeProfileEncoder.cs` | Encoder: 20-bucket relative volume (tick-count) histogram + POC/value-area summary; implements `IHasLookbackBars` |
 | `Neural/Encoders/TimeProfileEncoder.cs` | Encoder: 20-bucket relative time (seconds-spent) histogram + POC/value-area summary; implements `IHasLookbackBars`; labels prefixed `tp-` so they don't collide with `VolumeProfileEncoder`'s when both are composed together |
+| `Neural/Encoders/VolumeProfileRawEncoder.cs` | Encoder: same as `VolumeProfileEncoder` but unnormalized (exact tick counts/prices); implements `IHasLookbackBars`; labels prefixed `vpr-` |
+| `Neural/Encoders/TimeProfileRawEncoder.cs` | Encoder: same as `TimeProfileEncoder` but unnormalized (exact seconds/prices); implements `IHasLookbackBars`; labels prefixed `tpr-` |
 | `Neural/Encoders/CompositeEncoder.cs` | Concatenates multiple encoders into one, enforcing the sequence-first ordering constraint |
 | `Neural/Normalizers/IFeatureNormalizer.cs` | Normalizer contract: `Normalize`, `Denormalize`, `Format`; also defines `DenormalizationAnchors` (`CurrentPrice`/`Equity`) |
 | `Neural/Normalizers/PriceOffsetNormalizer.cs` | Normalizer: price ↔ percent-change-from-current-price |
 | `Neural/Normalizers/EquityRatioNormalizer.cs` | Normalizer: raw amount ↔ ratio-over-equity |
 | `Neural/Normalizers/FractionNormalizer.cs` | Normalizer: passthrough for an already-`[0,1]` histogram-bucket share |
 | `Neural/Normalizers/DirectionNormalizer.cs` | Normalizer: passthrough for a categorical `-1/0/1` position flag |
+| `Neural/Normalizers/RawPriceNormalizer.cs` | Normalizer: passthrough for an already-real, unscaled price level |
+| `Neural/Normalizers/RawValueNormalizer.cs` | Normalizer: passthrough for an already-real, unscaled quantity |
 | `Neural/INetworkArchitecture.cs` | Architecture contract: `Build(featureCount, sequenceLength)` |
 | `Neural/MlpArchitecture.cs` | Architecture: flat `Linear→Tanh` stack, any hidden-layer sizes |
 | `Neural/LstmArchitecture.cs` | Architecture: LSTM over a leading sequence slice + trailing scalars |

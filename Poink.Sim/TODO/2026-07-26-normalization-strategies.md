@@ -2,11 +2,29 @@
 
 Status: Pending Approval
 
+## Update (2026-07-26)
+
+`CapitalStateEncoder` was renamed to `TraderStateEncoder` and its
+ratios-over-equity approach was replaced outright, on explicit request: every
+field (position direction, current price, cash, realized/unrealized PnL,
+equity, margin, margin level, position count) is now fed to the network
+exactly as `Trader`/`CapitalState` report it (`RawValueNormalizer`/
+`RawPriceNormalizer` passthrough), not scaled against equity. This supersedes
+this file's "Non-goals" note below, which assumed that approach wasn't in
+question. Separately, `VolumeProfileRawEncoder`/`TimeProfileRawEncoder` were
+added *alongside* (not replacing) `VolumeProfileEncoder`/`TimeProfileEncoder`,
+giving the same histogram/summary an unnormalized option (exact tick
+counts/seconds and exact price levels) a brain can pick instead of the
+fraction/offset convention this file investigates below. The scope below
+(`BarWindowEncoder`'s price window, and the fraction/offset convention as
+still used by the non-raw Volume/Time Profile encoders) is otherwise
+unchanged and still pending.
+
 ## Why
 
-Today every `IObservationEncoder` (`BarWindowEncoder`, `VolumeProfileEncoder`,
-`CapitalStateEncoder`) normalizes with one convention, chosen ad hoc when each
-was extracted rather than evaluated against alternatives:
+Today every `IObservationEncoder` (`BarWindowEncoder`, `VolumeProfileEncoder`)
+normalizes with one convention, chosen ad hoc when each was extracted rather
+than evaluated against alternatives:
 
 - **`BarWindowEncoder`**: simple percent-change-from-current-price,
   `(price - currentPrice) / currentPrice`, zero-padded when history is short.
@@ -14,9 +32,8 @@ was extracted rather than evaluated against alternatives:
   formula for POC/value-area scalars, plus fraction-of-total-volume for the
   20-bucket histogram. Explicitly documented as matching `BarWindowEncoder`'s
   convention "so a network sees the same kind of bounded, scale-free number
-  regardless of the instrument's absolute price level."
-- **`CapitalStateEncoder`**: ratios over equity (unrealized/realized PnL,
-  cash), already scale-free by construction.
+  regardless of the instrument's absolute price level." (`VolumeProfileRawEncoder`
+  now offers an unnormalized alternative -- see Update above.)
 
 This is a reasonable default but hasn't been checked against alternatives that
 are standard in financial ML. Worth a deliberate investigation before more
@@ -53,11 +70,12 @@ investigation and its outcome):
 
 ## Non-goals
 
-- No code changes yet -- this is investigation/decision only. If it leads to
-  a concrete change, split that into its own plan file per the TODO
-  convention.
-- Not re-litigating `CapitalStateEncoder`'s equity-ratio approach -- that's
-  already scale-free and not in question here.
+- No code changes yet to `BarWindowEncoder`/the non-raw Volume/Time Profile
+  encoders -- this remains investigation/decision only for those. If it leads
+  to a concrete change, split that into its own plan file per the TODO
+  convention. (`TraderStateEncoder`'s equity-ratio approach and a raw
+  Volume/Time Profile option were already decided/implemented outside this
+  investigation -- see Update above.)
 
 ## Verification
 
