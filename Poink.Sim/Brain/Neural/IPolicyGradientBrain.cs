@@ -38,15 +38,19 @@ namespace Poink.Sim.Brain.Neural;
 // type than the component itself).
 public sealed record RlInputFeature(string Label, double Value, IFeatureDisplayNormalizer Normalizer);
 
-// One action's probability out of the policy's full output distribution for
+// One choice's probability out of one output head's full distribution for
 // one decision -- mirrors RlInputFeature but describes what the network
-// decided rather than what fed it. Probabilities across all four actions sum
-// to ~1; IsChosen flags which one the (stochastic) sampler actually picked
-// for this decision, since the highest-probability action isn't necessarily
-// the one taken. Label is the SimulationAction member name ("Hold"/
-// "EnterLong"/"EnterShort"/"Close"). Public for the same BrainIoPanel reason
-// as RlInputFeature above.
-public sealed record RlOutputFeature(string Label, double Probability, bool IsChosen);
+// decided rather than what fed it. Probabilities within one Group sum to
+// ~1 (a brain has one "Direction" group plus one group per enabled
+// IActionOutputHead, e.g. "Volume"/"StopLoss"/"TakeProfit" -- see
+// BrainIoPanel, which renders each group as its own bar-set); IsChosen
+// flags which one the (stochastic) sampler actually picked for this
+// decision within its group, since the highest-probability choice isn't
+// necessarily the one taken. Label is the SimulationAction member name
+// ("Hold"/"EnterLong"/"EnterShort"/"Close") for the Direction group, or a
+// DiscretizedLevelsActionHead level label ("25%"/"Tight"/...) for the
+// others. Public for the same BrainIoPanel reason as RlInputFeature above.
+public sealed record RlOutputFeature(string Label, double Probability, bool IsChosen, string Group = "Direction");
 
 // One "layer" in the Train page's ambient Network Activity animation. Units
 // is a real magnitude (a Linear's out_features, or an LSTM's hidden size),

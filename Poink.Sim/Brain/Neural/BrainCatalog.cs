@@ -12,6 +12,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 using System;
 using System.Collections.Generic;
+using Poink.Sim.Models;
 
 namespace Poink.Sim.Brain.Neural;
 
@@ -24,15 +25,49 @@ public enum EncoderKind { BarWindow, VolumeProfile, TimeProfile, VolumeProfileRa
 
 public enum ArchitectureKind { Mlp, Lstm }
 
+// Which extra (non-direction) decisions a brain's network makes, on top of
+// the fixed Hold/EnterLong/EnterShort/Close pick -- see IActionOutputHead.
+// Independently selectable in the Train page's Build Brain panel; each one
+// enabled appends its own head to the network's output layer.
+public enum ActionOutputKind { Volume, StopLoss, TakeProfit }
+
+// How an enabled ActionOutputKind's raw output slots decode into a value --
+// see IActionOutputHead's doc comment. Only one member today; the whole
+// point of the interface is that a future Continuous member can be added
+// here (plus a new IActionOutputHead implementation and a new case in
+// BrainCatalog.CreateActionOutputHead) without touching ComposedPolicyBrain,
+// RlTrainingService, or persistence at all.
+public enum ActionOutputEncodingKind { DiscretizedLevels }
+
 // A runtime-built brain's exact shape -- what LoadSavedBrain needs to
-// reconstruct an identical encoder/architecture composition after a restart
-// wipes it from BrainRegistry (see RlTrainingService.TryBuildBrain). Null on
-// a SavedBrainSummary for anything not built through TryBuildBrain -- the
-// four Program.cs-fixed brains reconstruct via their own source code every
-// restart instead, so they never need one.
-public sealed record BrainRecipe(IReadOnlyList<EncoderKind> EncoderKinds, ArchitectureKind ArchitectureKind, IReadOnlyList<int> HiddenSizes)
+// reconstruct an identical encoder/architecture/action composition after a
+// restart wipes it from BrainRegistry (see RlTrainingService.TryBuildBrain).
+// Null on a SavedBrainSummary for anything not built through TryBuildBrain --
+// the four Program.cs-fixed brains reconstruct via their own source code
+// every restart instead, so they never need one.
+// ActionOutputKinds defaults to null (equivalent to empty -- no extra heads)
+// so a brain built before Volume/StopLoss/TakeProfit existed still
+// deserializes; ActionOutputEncodingKind defaults to DiscretizedLevels,
+// today's only implementation. EnabledDirections defaults to null
+// (equivalent to ComposedPolicyBrain.AllDirections -- every one of
+// Hold/EnterLong/EnterShort/Close) for the same reason, and for the same
+// reason: every direction is individually optional per brain, not just the
+// added heads (see SimulationAction's doc comment).
+public sealed record BrainRecipe(
+    IReadOnlyList<EncoderKind> EncoderKinds, ArchitectureKind ArchitectureKind, IReadOnlyList<int> HiddenSizes,
+    IReadOnlyList<ActionOutputKind>? ActionOutputKinds = null,
+    ActionOutputEncodingKind ActionOutputEncodingKind = ActionOutputEncodingKind.DiscretizedLevels,
+    IReadOnlyList<SimulationAction>? EnabledDirections = null)
 {
-    public override string ToString() => $"{ArchitectureKind}[{string.Join(",", HiddenSizes)}] {string.Join("+", EncoderKinds)}";
+    public override string ToString()
+    {
+        string baseDescription = $"{ArchitectureKind}[{string.Join(",", HiddenSizes)}] {string.Join("+", EncoderKinds)}";
+        if (EnabledDirections is { Count: > 0 } directions)
+            baseDescription += $" [{string.Join(",", directions)}]";
+        return ActionOutputKinds is { Count: > 0 }
+            ? $"{baseDescription} +{string.Join("+", ActionOutputKinds)}"
+            : baseDescription;
+    }
 }
 
 internal static class BrainCatalog
@@ -57,5 +92,11 @@ internal static class BrainCatalog
             hiddenSize: hiddenSizes.Count > 0 ? hiddenSizes[0] : 64,
             numLayers: hiddenSizes.Count > 1 ? hiddenSizes[1] : 2),
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
+    };
+
+    public static IActionOutputHead CreateActionOutputHead(ActionOutputKind kind, ActionOutputEncodingKind encodingKind) => encodingKind switch
+    {
+        ActionOutputEncodingKind.DiscretizedLevels => new DiscretizedLevelsActionHead(kind),
+        _ => throw new ArgumentOutOfRangeException(nameof(encodingKind), encodingKind, null),
     };
 }

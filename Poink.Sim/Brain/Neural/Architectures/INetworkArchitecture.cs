@@ -24,5 +24,11 @@ internal interface INetworkArchitecture
     // included for when a brain's Name wants to summarize its architecture.
     string Name { get; }
 
-    Module<Tensor, Tensor> Build(int featureCount, int sequenceLength);
+    // outputWidth: the final layer's total width -- however many directions
+    // the brain was built with (BrainCatalog.ComposedPolicyBrain.AllDirections
+    // or a narrower subset, see SimulationAction's doc comment) plus the
+    // combined OutputWidth of every IActionOutputHead it was built with.
+    // ComposedPolicyBrain slices its own direction count off the front and
+    // hands each head its own trailing slice, in that order.
+    Module<Tensor, Tensor> Build(int featureCount, int sequenceLength, int outputWidth);
 }

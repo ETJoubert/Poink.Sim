@@ -1,0 +1,179 @@
+<mxfile host="65bd71144e">
+    <diagram id="Rz9p1L0b29kQdrZADkYp" name="Page-1">
+        <mxGraphModel dx="2125" dy="2039" grid="1" gridSize="15" guides="0" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="53" value="Brain builder" style="rounded=0;whiteSpace=wrap;html=1;verticalAlign=middle;" vertex="1" parent="1">
+                    <mxGeometry x="120" y="720" width="480" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="14" style="edgeStyle=none;html=1;" edge="1" parent="1" source="2" target="9">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="25" style="edgeStyle=none;html=1;" edge="1" parent="1" source="2" target="24">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="2" value="Repo" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="225" y="60" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="6" style="edgeStyle=none;html=1;" edge="1" parent="1" source="3" target="2">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="3" value="Poink.MarketData" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="225" y="-45" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="33" style="edgeStyle=none;html=1;" edge="1" parent="1" source="9">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="385.909090909091" y="345" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="9" value="Simulator" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="240" y="180" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="16" style="edgeStyle=none;html=1;" edge="1" parent="1" source="11" target="9">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="28" style="edgeStyle=none;html=1;" edge="1" parent="1" source="11">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="345" y="366" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="11" value="Trader" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="45" y="300" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="15" style="edgeStyle=none;html=1;" edge="1" parent="1" source="12" target="18">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="12" value="Brain" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="120" y="600" width="480" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="22" style="edgeStyle=none;html=1;" edge="1" parent="1" source="17" target="19">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="17" value="Normalizer" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="-120" y="780" width="60" height="420" as="geometry"/>
+                </mxCell>
+                <mxCell id="31" style="edgeStyle=none;html=1;" edge="1" parent="1" source="18" target="11">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="18" value="Actions" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="105" y="390" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="19" value="Encoder" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+                    <mxGeometry y="780" width="60" height="420" as="geometry"/>
+                </mxCell>
+                <mxCell id="26" style="edgeStyle=none;html=1;" edge="1" parent="1" source="24" target="17">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="24" value="Sampler" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="-150" y="345" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="34" value="Input" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="120" y="780" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="35" value="Bars" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="120" y="900" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="36" value="Volume Profile (VP)" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="120" y="960" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="37" value="VP Raw" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="120" y="1020" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="38" value="Time Profile (TP)" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="120" y="1080" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="39" value="TP Raw" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="120" y="1140" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="40" value="Trader State" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="120" y="840" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="42" value="Structure" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="300" y="780" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="43" value="Network Type" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="300" y="840" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="44" value="Layers" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="300" y="900" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="45" value="Output" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="480" y="780" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="46" value="Long" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="480" y="840" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="47" value="Close" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="480" y="960" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="48" value="Hold" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="480" y="1020" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="49" value="Short" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="480" y="900" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="50" value="StopLoss" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="480" y="1080" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="51" value="TakeProfit" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="480" y="1140" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="52" value="Volume" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="480" y="1200" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="54" value="Sampler" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="660" y="780" width="60" height="480" as="geometry"/>
+                </mxCell>
+                <mxCell id="55" value="Simulator" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="945" y="600" width="540" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="56" value="Data" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="825" y="720" width="60" height="420" as="geometry"/>
+                </mxCell>
+                <mxCell id="57" value="Output" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="1365" y="720" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="58" value="Long" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="1365" y="780" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="59" value="Close" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="1365" y="900" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="60" value="Hold" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="1365" y="960" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="61" value="Short" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="1365" y="840" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="62" value="StopLoss" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="1365" y="1020" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="63" value="TakeProfit" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="1365" y="1080" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="64" value="Volume" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="1365" y="1140" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="65" value="Input" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="945" y="720" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="66" value="Bars" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="945" y="780" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="68" value="VP Raw" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="945" y="840" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="70" value="TP Raw" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="945" y="900" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="71" value="Trader State" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="945" y="960" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="72" value="Structure" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="1155" y="720" width="120" height="60" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>

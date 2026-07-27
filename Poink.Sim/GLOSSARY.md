@@ -14,8 +14,10 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   `Brain.Decide`/`Trader.Apply` run (once per tick vs. once per completed bar).
   `Models/SimulationSnapshot.cs`
 - **Capital fraction** — `SimulationDecision.CapitalFraction` (0..1): fraction of
-  current Cash committed when opening a position; ignored for Hold/Close. Fixed at 0.5
-  for both neural brains in v1 (no continuous position sizing yet).
+  current Cash committed when opening a position; ignored for Hold/Close. Fixed at
+  0.5 for a brain built without the `Volume` `ActionOutputKind` (see
+  `IActionOutputHead`); a brain built with it instead has its network pick one of
+  `DiscretizedLevelsActionHead`'s 25%/50%/75%/100% levels per entry.
   `Models/SimulationDecision.cs`
 - **CFD-style account** — The account model this simulator implements: leveraged
   margin trading with real spread cost and commission, where shorting is a
@@ -210,10 +212,46 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
 - **`BrainOption`** — One entry in the brain picker: `(Name, IsNeuralNetwork)`, lets
   the UI separate trained/trainable brains from stateless heuristic ones without
   knowing about `IPolicyGradientBrain`. `Training/RlTrainingService.cs`
+- **`CategoricalSampling`** — `SampleIndex(probabilities)`: the manual cumulative-
+  sum categorical sampler shared by `ComposedPolicyBrain`'s direction pick and
+  every `DiscretizedLevelsActionHead`. Deliberately not TorchSharp's native
+  `multinomial` -- that op has been observed to crash the whole process on this
+  exact call shape (a CUDA "dtype Bool" error, then a CPU "NYI" from an internal
+  `pow`), both triggered by an ordinary near-one-hot probability vector (e.g. a
+  confident policy). Reading out a handful of floats and walking a cumulative sum
+  in managed code sidesteps that native op entirely -- cheap and exact for the
+  small (<10-way) category counts every caller has. `Brain/Neural/CategoricalSampling.cs`
 - **`DummyTickGenerator`** — Static generator of synthetic even-interval random-walk
   ticks with a fixed small spread; shared by "Load Dummy Data" (Simulation) and
   headless RL episodes (Training), so both work without Postgres.
   `Simulation/DummyTickGenerator.cs`
+- **`IActionOutputHead`** — Sibling composable capability to `IObservationEncoder`/
+  `INetworkArchitecture`, for an extra (non-direction) decision a brain's network
+  can opt into: `{ Kind, OutputWidth, Sample(rawSlice) }`. A brain built with zero
+  or more of these (`ActionOutputKind.Volume`/`StopLoss`/`TakeProfit`, picked via
+  the Train page's Build Brain panel's Actions card) gets its network's final
+  layer widened by `Σheads.OutputWidth` beyond however many directions the brain
+  was built with (see `SimulationAction`'s doc comment on those also being
+  individually optional, and `INetworkArchitecture.Build`'s `outputWidth`
+  parameter, which is the resulting total); `Sample` decodes
+  one head's slice of raw output logits into a real-unit value (capital fraction
+  0..1 for `Volume`, percent-distance-from-price for `StopLoss`/`TakeProfit`; null
+  = "don't set it"), that choice's log-probability (summed into the same combined
+  `ActionLogProbability` the direction pick contributes to, so
+  `PolicyGradientTrainingStrategy`'s REINFORCE loss needs no changes per head), and
+  a labeled `RlOutputFeature` breakdown for `BrainIoPanel`. `ActionOutputEncodingKind`
+  (only `DiscretizedLevels` today) is the seam for swapping in a different
+  implementation later (e.g. a future continuous/Gaussian head) without touching
+  `ComposedPolicyBrain`, `RlTrainingService`, or persistence -- add a new enum
+  member, a new `IActionOutputHead` implementation, and a new case in
+  `BrainCatalog.CreateActionOutputHead`. `DiscretizedLevelsActionHead` is the v1
+  (and only) implementation: each enabled kind gets its own small independent
+  categorical head (`Volume`: 25/50/75/100% of cash; `StopLoss`/`TakeProfit`:
+  None/Tight/Medium/Wide, with Medium matching `RandomBrain`'s existing fixed
+  0.003/0.006 defaults), sampled via `CategoricalSampling` -- the same manual
+  sampler the direction pick uses. `Brain/Neural/ActionOutputs/IActionOutputHead.cs`,
+  `Brain/Neural/ActionOutputs/DiscretizedLevelsActionHead.cs`,
+  `Brain/Neural/BrainCatalog.cs`
 - **`IBrainRepository` / `BrainRepository`** — Persists an `IPolicyGradientBrain`'s
   exported weights (TorchSharp state-dict bytes) plus the training run's
   strategy/reward-policy/parameters/metrics, and (for a runtime-built brain) the
@@ -465,14 +503,23 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   not the Train page form's configured target -- saving the target made an
   untrained, just-built brain indistinguishable from a properly trained one.
   `Repository/IBrainRepository.cs`
-- **`BrainRecipe`** — `{ EncoderKinds, ArchitectureKind, HiddenSizes }`: a runtime-built
-  brain's exact shape, as picked in the Train page's Build Brain panel. Populated by
-  `RlTrainingService.TryBuildBrain`, persisted alongside a saved snapshot (null for
-  the four Program.cs-fixed brains, which reconstruct via their own source code every
-  restart instead), and read back by `LoadSavedBrain` to rebuild a runtime brain
-  that's been wiped from `BrainRegistry` by a restart before importing its weights.
-  Public (like `EncoderKind`/`ArchitectureKind`, elevated from `internal` for this)
-  because it travels on `SavedBrainSummary`. `Brain/Neural/BrainCatalog.cs`
+- **`BrainRecipe`** — `{ EncoderKinds, ArchitectureKind, HiddenSizes, ActionOutputKinds,
+  ActionOutputEncodingKind, EnabledDirections }`: a runtime-built brain's exact
+  shape, as picked in the Train page's Build Brain panel (now organized as three
+  cards -- Input/Structure/Actions). `ActionOutputKinds` (default null, treated as
+  empty -- see `IActionOutputHead`) and `ActionOutputEncodingKind` (default
+  `DiscretizedLevels`) round out the shape with which extra decisions the network
+  makes and how; `EnabledDirections` (default null, treated as
+  `ComposedPolicyBrain.AllDirections`) records which subset of `SimulationAction`
+  the direction head was narrowed to -- every one of Hold/EnterLong/EnterShort/
+  Close is individually optional per brain in the Actions card, not just the
+  added Volume/StopLoss/TakeProfit heads. Populated by `RlTrainingService.TryBuildBrain`, persisted alongside
+  a saved snapshot (null for the four Program.cs-fixed brains, which reconstruct via
+  their own source code every restart instead), and read back by `LoadSavedBrain`
+  to rebuild a runtime brain that's been wiped from `BrainRegistry` by a restart
+  before importing its weights. Public (like `EncoderKind`/`ArchitectureKind`,
+  elevated from `internal` for this) because it travels on `SavedBrainSummary`.
+  `Brain/Neural/BrainCatalog.cs`
 - **`CapitalState`** — Read-only snapshot handed to the Brain/UI: `(Cash,
   RealizedPnl, UnrealizedPnl, MarginUsed, MarginLevel)`, with `Equity => Cash +
   UnrealizedPnl` and `MarginFree => Equity - MarginUsed`. Every field (plus
@@ -545,24 +592,32 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   `Brain/Neural/Encoders/VolumeProfileRawEncoder.cs`,
   `Brain/Neural/Encoders/TimeProfileRawEncoder.cs`,
   `Brain/Neural/Encoders/TraderStateEncoder.cs`
-- **`RlOutputFeature`** — One action's probability out of a policy brain's full
-  output distribution for one decision, mirroring `RlInputFeature` but for what
-  the network decided rather than what fed it. Record `(Label, Probability,
-  IsChosen)` -- `Label` is the `SimulationAction` member name ("Hold"/
-  "EnterLong"/"EnterShort"/"Close"), probabilities across all four sum to ~1,
-  `IsChosen` flags whichever one the stochastic sampler actually picked (not
-  necessarily the highest-probability one). Produced by
+- **`RlOutputFeature`** — One choice's probability out of one output head's full
+  distribution for one decision, mirroring `RlInputFeature` but for what the
+  network decided rather than what fed it. Record `(Label, Probability, IsChosen,
+  Group = "Direction")` -- probabilities *within one `Group`* sum to ~1, not
+  across the whole list: a brain always has one `"Direction"` group (`Label` the
+  `SimulationAction` member name "Hold"/"EnterLong"/"EnterShort"/"Close" -- one
+  row per direction the brain was built with, not always 4, see that enum's doc
+  comment) plus one group per enabled `IActionOutputHead` (`"Volume"`/`"StopLoss"`/
+  `"TakeProfit"`, `Label` the sampled head's level name, e.g. "Tight"). `IsChosen`
+  flags whichever choice the stochastic sampler actually picked within its group
+  (not necessarily the highest-probability one). Produced by
   `ComposedPolicyBrain.DecideWithLogProbability` from the same forward pass that
   decides, not a second one -- `SimulationEngine.DecideAndApply` calls this
   instead of the plain `Decide` for whichever one trader session is currently
   selected for I/O (`SelectTraderForIo`/`TraderSnapshot.Outputs`), since
   `ComposedPolicyBrain.Decide` already runs this same forward pass internally
   and discards the distribution, so capturing it there costs nothing extra.
-  `BrainIoPanel`'s OUTPUTS card renders it with `action-dist-*` styling (the same
-  family `TrainLiveTab`'s separate, session-wide ACTION DISTRIBUTION panel uses,
-  duplicated rather than shared across the Blazor CSS-isolation boundary), with
-  `.action-dist-row-chosen` highlighting `IsChosen`. Public for the same
-  `BrainIoPanel` reason as `RlInputFeature`. `Brain/Neural/IPolicyGradientBrain.cs`
+  `BrainIoPanel`'s OUTPUTS card groups `Outputs` by `Group` and renders each as
+  its own `action-dist-*`-styled bar-set (the `"Direction"` group keeps its
+  existing HOLD/LONG/SHORT/CLOSE coloring via `ActionShortLabel`/`ActionCssSuffix`;
+  other groups render their level label as-is with a neutral `action-dist-level`
+  style) -- the same family `TrainLiveTab`'s separate, session-wide ACTION
+  DISTRIBUTION panel uses, duplicated rather than shared across the Blazor
+  CSS-isolation boundary, with `.action-dist-row-chosen` highlighting `IsChosen`.
+  Public for the same `BrainIoPanel` reason as `RlInputFeature`.
+  `Brain/Neural/IPolicyGradientBrain.cs`
 - **`SavedBrainSummary`** — Metadata-only view of one saved brain snapshot (everything
   except the weight bytes themselves), used to populate `SavedBrainsTable` without
   pulling megabytes of weights per row. `RewardPolicyName` records which
@@ -623,20 +678,32 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
 - **`OrderType`** — `Market`, `Limit`, `Stop`: how `SimulationDecision.Action`'s
   `EnterLong`/`EnterShort` fills. `null`/`Market` (the default) opens immediately,
   as every brain does today; `Limit`/`Stop` with a `TriggerPrice` queues a
-  `PendingOrder` instead. Deliberately not a new `SimulationAction` member -- the
-  neural brains' output layer is hardwired to one logit per `SimulationAction`
-  (`MlpArchitecture`/`LstmArchitecture`'s `ActionCount = 4`), so growing that enum
-  would break every already-trained network's weights. `Models/SimulationDecision.cs`
+  `PendingOrder` instead. Deliberately not a new `SimulationAction` member -- it's
+  a property of *how* to enter, not a distinct direction choice, same reasoning as
+  `CapitalFraction`/`StopLossPrice`/`TakeProfitPrice` (see `IActionOutputHead`, the
+  actual extension point for growing what a brain can decide).
+  `Models/SimulationDecision.cs`
 - **`PositionDirection`** — `Long`, `Short`: direction of an open position; determines
   the sign in `UnrealizedPnl`. `Models/SimulationAccount.cs`
 - **Speed presets** — `0.1x, 1x, 10x, 100x, 1000x, 10000x`: the finite playback-speed
   multipliers the +/- stepper cycles through, separate from the uncapped "Max" mode.
   `Components/Pages/SimulationPage.razor.cs` (`Speeds` array)
-- **`SimulationAction`** — `Hold`, `EnterLong`, `EnterShort`, `Close`: the four
-  decisions a Brain can output; also the 4 output logits of both neural brains
-  (see `OrderType`'s doc comment on why this stays at 4 members). `Close` does
-  double duty: closes the open position if one exists, else cancels a resting
-  `PendingOrder`, else no-op. `Models/SimulationDecision.cs`
+- **`SimulationAction`** — `Hold`, `EnterLong`, `EnterShort`, `Close`: the fixed set
+  of *direction* choices a Brain can output -- never grown or replaced (that's what
+  `IActionOutputHead` is for, appending logits for extra non-direction decisions
+  like Volume/StopLoss/TakeProfit after the direction ones). Public (elevated from
+  internal) because `BrainRecipe.EnabledDirections` needs to reference it. Every
+  member is individually optional per brain, not just the added heads: the Train
+  page's Build Brain panel's Actions card has a checkbox per direction (all 4
+  checked by default), `RlTrainingService.TryBuildBrain` threads the picked subset
+  through as `enabledDirections`, and `ComposedPolicyBrain.Create` sizes the
+  direction head to exactly that many logits (`ComposedPolicyBrain.AllDirections`
+  is the canonical order + all-4 default for a brain that doesn't specify a
+  subset, e.g. Program.cs's fixed brains) -- `BuildDecision` switches on the
+  sampled `SimulationAction` value itself (not a raw index) since a brain missing
+  e.g. `Hold` no longer has index 0 mean `Hold`. `Close` does double duty: closes
+  the open position if one exists, else cancels a resting `PendingOrder`, else
+  no-op. `Models/SimulationDecision.cs`, `Brain/Neural/ComposedPolicyBrain.cs`
 - **`StatEmphasis`** — `None`, `Positive`, `Negative`: display hint for a `StatItem`,
   mapped by `StatisticsPanel` to CSS classes (win/loss coloring).
   `Models/StatGroup.cs`
@@ -658,7 +725,9 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
 - **`BrainIoPanel`** — "What the network sees/decided" for one decision (INPUTS
   card: price-window/account-state feature values with a de-normalize toggle;
   OUTPUTS card: the Hold/Long/Short/Close probability distribution, sampled
-  action highlighted) -- `[Parameter]`s `Inputs`/`Outputs`/`CurrentPrice`/`Equity`
+  action highlighted) -- each card's title carries a pill badge with that
+  card's feature/action count (`Inputs`/`Outputs`' `.Count`). `[Parameter]`s
+  `Inputs`/`Outputs`/`CurrentPrice`/`Equity`
   (`RlInputFeature`/`RlOutputFeature` lists, primitive `double?` anchors). Shared
   between `TrainLiveTab` (Train page's Live tab -- `DisplayedInputs`/
   `DisplayedOutputs`, whichever decision the live episode or a frozen replay is
@@ -800,10 +869,12 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   formulas.
 
   The **OUTPUTS panel** (`DisplayedOutputs`, synced to the same revealed bar the
-  same way) shows what the network decided from those inputs: each
-  `SimulationAction`'s probability as an `action-dist-row` (reusing ACTION
-  DISTRIBUTION's styling), with `.action-dist-row-chosen` highlighting whichever
-  one `RlOutputFeature.IsChosen` flags.
+  same way) is `BrainIoPanel`'s shared OUTPUTS card, showing what the network
+  decided from those inputs: one `action-dist-row` (reusing ACTION DISTRIBUTION's
+  styling) per `RlOutputFeature`, grouped by `Group` -- the `SimulationAction`
+  direction pick plus one bar-set per `IActionOutputHead` the brain was built
+  with -- with `.action-dist-row-chosen` highlighting whichever one
+  `RlOutputFeature.IsChosen` flags in each group.
 
 ## Data / Repository Concepts
 

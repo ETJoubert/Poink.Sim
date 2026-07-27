@@ -34,6 +34,14 @@ public partial class BrainIoPanel : ComponentBase
     private List<RlInputFeature> ScalarFeatures =>
         Inputs?.Where(f => !f.Label.StartsWith("t-", System.StringComparison.Ordinal)).ToList() ?? new List<RlInputFeature>();
 
+    // One bar-set per RlOutputFeature.Group -- "Direction" (the fixed
+    // Hold/EnterLong/EnterShort/Close pick) plus one group per
+    // IActionOutputHead the brain was built with (e.g. "Volume"). Each
+    // group's own probabilities already sum to ~1 independently, so they're
+    // rendered as separate 100%-wide bar-sets rather than one flat list.
+    private IEnumerable<IGrouping<string, RlOutputFeature>> OutputGroups =>
+        Outputs?.GroupBy(o => o.Group) ?? Enumerable.Empty<IGrouping<string, RlOutputFeature>>();
+
     // Converts one feature's normalized value into a human string, via
     // whichever IFeatureNormalizer produced it (see
     // IObservationEncoder.Features/RlInputFeature.Normalizer) -- generic
@@ -61,9 +69,15 @@ public partial class BrainIoPanel : ComponentBase
     // card's fixed-width column than Pct's "0.##" would.
     private static string FormatProbabilityPct(double probability) => (probability * 100).ToString("N1", CultureInfo.InvariantCulture);
 
-    // Maps an RlOutputFeature.Label (a SimulationAction member name, see
-    // ComposedPolicyBrain.ActionLabels) onto a short display label and CSS
-    // suffix.
+    // Maps an RlOutputFeature.Label (a SimulationAction member name) onto a
+    // short display label and CSS suffix -- only meaningful for the
+    // "Direction" group; every other group (Volume/StopLoss/TakeProfit)
+    // shows its level label as-is with a neutral "level" style, since those
+    // aren't SimulationAction names.
+    private static string ActionShortLabel(RlOutputFeature o) => o.Group == "Direction" ? ActionShortLabel(o.Label) : o.Label;
+
+    private static string ActionCssSuffix(RlOutputFeature o) => o.Group == "Direction" ? ActionCssSuffix(o.Label) : "level";
+
     private static string ActionShortLabel(string actionLabel) => actionLabel switch
     {
         "Hold" => "HOLD",

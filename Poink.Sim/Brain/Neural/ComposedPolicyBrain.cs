@@ -41,14 +41,27 @@ internal class ComposedPolicyBrain : IPolicyGradientBrain
 {
     private const double CapitalFraction = 0.5;
 
+    // Canonical order + default (every direction enabled, today's original
+    // behavior) -- BuildDecision/DescribeOutputs iterate whatever subset a
+    // brain was built with in this same fixed order, so e.g. a brain missing
+    // Hold still lists EnterLong/EnterShort/Close in this relative order.
+    public static readonly IReadOnlyList<SimulationAction> AllDirections =
+        [SimulationAction.Hold, SimulationAction.EnterLong, SimulationAction.EnterShort, SimulationAction.Close];
+
     private readonly object _forwardLock = new();
     private readonly IObservationEncoder _encoder;
+    private readonly IReadOnlyList<IActionOutputHead> _actionOutputHeads;
+    private readonly IReadOnlyList<SimulationAction> _enabledDirections;
 
-    private protected ComposedPolicyBrain(string name, IObservationEncoder encoder, Module<Tensor, Tensor> network)
+    private protected ComposedPolicyBrain(
+        string name, IObservationEncoder encoder, Module<Tensor, Tensor> network,
+        IReadOnlyList<IActionOutputHead> actionOutputHeads, IReadOnlyList<SimulationAction> enabledDirections)
     {
         Name = name;
         _encoder = encoder;
         Network = network;
+        _actionOutputHeads = actionOutputHeads;
+        _enabledDirections = enabledDirections;
     }
 
     // Builds a brain from an architecture plus one or more encoder parts
@@ -61,17 +74,39 @@ internal class ComposedPolicyBrain : IPolicyGradientBrain
     // VolumeProfileEncoder and TimeProfileEncoder be combined in one brain
     // and share the same trailing-bar window instead of needing separate
     // lookback settings.
-    public static IPolicyGradientBrain Create(string name, INetworkArchitecture architecture, params IObservationEncoder[] parts)
+    //
+    // actionOutputHeads: zero or more extra (non-direction) decisions this
+    // brain's network also makes -- see IActionOutputHead. enabledDirections:
+    // which of Hold/EnterLong/EnterShort/Close this brain's direction pick is
+    // narrowed to -- like actionOutputHeads, every one of these is optional
+    // per brain (see SimulationAction's doc comment), not just the added
+    // heads; defaults to AllDirections (today's original always-4 behavior)
+    // so a direction-only brain (e.g. Program.cs's fixed brains) doesn't need
+    // to pass anything.
+    public static IPolicyGradientBrain Create(
+        string name, INetworkArchitecture architecture, IReadOnlyList<IActionOutputHead> actionOutputHeads,
+        IReadOnlyList<SimulationAction> enabledDirections, params IObservationEncoder[] parts)
     {
+        if (enabledDirections.Count == 0)
+            throw new ArgumentException("a brain needs at least one enabled direction (Hold/EnterLong/EnterShort/Close)", nameof(enabledDirections));
+
         var encoder = CompositeEncoder.Create(parts);
-        var network = architecture.Build(encoder.FeatureCount, encoder.SequenceLength);
+        int extraOutputWidth = actionOutputHeads.Sum(h => h.OutputWidth);
+        var network = architecture.Build(encoder.FeatureCount, encoder.SequenceLength, enabledDirections.Count + extraOutputWidth);
 
         var lookbackParts = parts.OfType<IHasLookbackBars>().ToList();
 
         return lookbackParts.Count > 0
-            ? new LookbackAwarePolicyBrain(name, encoder, network, lookbackParts)
-            : new ComposedPolicyBrain(name, encoder, network);
+            ? new LookbackAwarePolicyBrain(name, encoder, network, lookbackParts, actionOutputHeads, enabledDirections)
+            : new ComposedPolicyBrain(name, encoder, network, actionOutputHeads, enabledDirections);
     }
+
+    public static IPolicyGradientBrain Create(
+        string name, INetworkArchitecture architecture, IReadOnlyList<IActionOutputHead> actionOutputHeads, params IObservationEncoder[] parts) =>
+        Create(name, architecture, actionOutputHeads, AllDirections, parts);
+
+    public static IPolicyGradientBrain Create(string name, INetworkArchitecture architecture, params IObservationEncoder[] parts) =>
+        Create(name, architecture, [], AllDirections, parts);
 
     public string Name { get; }
 
@@ -115,76 +150,69 @@ internal class ComposedPolicyBrain : IPolicyGradientBrain
         {
             var input = Encode(observation);
             var logits = Network.forward(input);
-            var logProbs = functional.log_softmax(logits, dim: 1);
-            var probabilities = exp(logProbs);
-            int actionIndex = SampleActionIndex(probabilities);
-            var actionLogProbability = logProbs[0, actionIndex];
-            var outputs = DescribeOutputs(probabilities, actionIndex);
-            return (BuildDecision(actionIndex), actionLogProbability, outputs);
+
+            var directionLogits = logits.narrow(1, 0, _enabledDirections.Count);
+            var directionLogProbs = functional.log_softmax(directionLogits, dim: 1);
+            var directionProbabilities = exp(directionLogProbs);
+            int actionIndex = CategoricalSampling.SampleIndex(directionProbabilities);
+            var actionLogProbability = directionLogProbs[0, actionIndex];
+            var outputs = new List<RlOutputFeature>(DescribeOutputs(directionProbabilities, actionIndex));
+
+            var headValues = new Dictionary<ActionOutputKind, double?>();
+            int offset = _enabledDirections.Count;
+            foreach (var head in _actionOutputHeads)
+            {
+                var slice = logits.narrow(1, offset, head.OutputWidth);
+                var (value, logProbability, headOutputs) = head.Sample(slice);
+                headValues[head.Kind] = value;
+                actionLogProbability = actionLogProbability + logProbability;
+                outputs.AddRange(headOutputs);
+                offset += head.OutputWidth;
+            }
+
+            return (BuildDecision(_enabledDirections[actionIndex], headValues, observation.CurrentPrice), actionLogProbability, outputs);
         }
     }
 
-    // actionIndex order matches BuildDecision's switch below -- both read the
-    // same fixed Hold/EnterLong/EnterShort/Close layout the network's output
-    // layer is trained against.
-    private static readonly string[] ActionLabels = ["Hold", "EnterLong", "EnterShort", "Close"];
-
-    private static IReadOnlyList<RlOutputFeature> DescribeOutputs(Tensor actionProbabilities, int chosenIndex)
+    private IReadOnlyList<RlOutputFeature> DescribeOutputs(Tensor actionProbabilities, int chosenIndex)
     {
-        var outputs = new List<RlOutputFeature>(ActionLabels.Length);
-        for (int i = 0; i < ActionLabels.Length; i++)
-            outputs.Add(new RlOutputFeature(ActionLabels[i], actionProbabilities[0, i].item<float>(), i == chosenIndex));
+        var outputs = new List<RlOutputFeature>(_enabledDirections.Count);
+        for (int i = 0; i < _enabledDirections.Count; i++)
+            outputs.Add(new RlOutputFeature(_enabledDirections[i].ToString(), actionProbabilities[0, i].item<float>(), i == chosenIndex, Group: "Direction"));
         return outputs;
     }
 
-    // See MlpPolicyBrain's original SampleActionIndex doc comment (now
-    // carried over here) -- native-crash hazard (native multinomial), same
-    // guard, same manual-sampling fix. isfinite catches a NaN/Inf
-    // probability (e.g. from a bad tick's price propagating through Encode,
-    // or exploding gradients during training) as an ordinary managed
-    // exception the training loop can surface as an Error, instead of an
-    // unrecoverable native crash. Sampling itself is done manually
-    // (cumulative sum vs. one random draw) rather than via TorchSharp's
-    // native `multinomial` -- that op has been observed to crash the whole
-    // process on this exact 4-category call with two different native
-    // exceptions (a CUDA "dtype Bool" error, then a CPU "NYI" from an
-    // internal pow), both triggered by an ordinary near-one-hot probability
-    // vector (e.g. a confident policy) that isfinite doesn't (and shouldn't)
-    // reject -- 0/1 are perfectly finite. Reading out a handful of floats
-    // and walking a cumulative sum in managed code sidesteps that native op
-    // entirely; cheap and exact for a 4-way action space.
-    private static int SampleActionIndex(Tensor actionProbabilities)
+    // headValues holds this decision's sampled Volume/StopLoss/TakeProfit
+    // values (real units -- capital fraction 0..1, percent-distance-from-
+    // price) for whichever ActionOutputKinds this brain was built with;
+    // absent for any kind the brain wasn't built with, in which case the
+    // fixed CapitalFraction/no-SL-TP fallback below applies -- same
+    // treatment a direction-only brain has always had. StopLoss/TakeProfit
+    // percent-distances convert to absolute prices the same way
+    // RandomBrain.Decide already does. action is whichever SimulationAction
+    // _enabledDirections[actionIndex] resolved to -- switching on the actual
+    // enum value rather than a raw index, since a brain missing e.g. Hold
+    // no longer has index 0 mean Hold.
+    private static SimulationDecision BuildDecision(SimulationAction action, IReadOnlyDictionary<ActionOutputKind, double?> headValues, double currentPrice)
     {
-        if (!isfinite(actionProbabilities).all().item<bool>())
-            throw new InvalidOperationException(
-                "policy produced non-finite action probabilities (NaN/Inf) -- check input data and recent gradient updates for the cause");
+        double capitalFraction = headValues.TryGetValue(ActionOutputKind.Volume, out var volume) && volume is { } v ? v : CapitalFraction;
+        double? stopLossPercent = headValues.TryGetValue(ActionOutputKind.StopLoss, out var sl) ? sl : null;
+        double? takeProfitPercent = headValues.TryGetValue(ActionOutputKind.TakeProfit, out var tp) ? tp : null;
 
-        int actionCount = (int)actionProbabilities.shape[1];
-        Span<float> probabilities = stackalloc float[actionCount];
-        float total = 0;
-        for (int i = 0; i < actionCount; i++)
+        return action switch
         {
-            probabilities[i] = actionProbabilities[0, i].item<float>();
-            total += probabilities[i];
-        }
-
-        float threshold = (float)Random.Shared.NextDouble() * total;
-        float cumulative = 0;
-        for (int i = 0; i < actionCount; i++)
-        {
-            cumulative += probabilities[i];
-            if (cumulative >= threshold) return i;
-        }
-        return actionCount - 1; // float-rounding safety net -- cumulative sum landed just under threshold
+            SimulationAction.Hold => new SimulationDecision(SimulationAction.Hold),
+            SimulationAction.EnterLong => new SimulationDecision(SimulationAction.EnterLong, capitalFraction,
+                    StopLossPrice: stopLossPercent is { } slLong ? currentPrice * (1 - slLong) : null,
+                    TakeProfitPrice: takeProfitPercent is { } tpLong ? currentPrice * (1 + tpLong) : null,
+                    Reason: "policy"),
+            SimulationAction.EnterShort => new SimulationDecision(SimulationAction.EnterShort, capitalFraction,
+                    StopLossPrice: stopLossPercent is { } slShort ? currentPrice * (1 + slShort) : null,
+                    TakeProfitPrice: takeProfitPercent is { } tpShort ? currentPrice * (1 - tpShort) : null,
+                    Reason: "policy"),
+            _ => new SimulationDecision(SimulationAction.Close, Reason: "policy"),
+        };
     }
-
-    private static SimulationDecision BuildDecision(int actionIndex) => actionIndex switch
-    {
-        0 => new SimulationDecision(SimulationAction.Hold),
-        1 => new SimulationDecision(SimulationAction.EnterLong, CapitalFraction, Reason: "policy"),
-        2 => new SimulationDecision(SimulationAction.EnterShort, CapitalFraction, Reason: "policy"),
-        _ => new SimulationDecision(SimulationAction.Close, Reason: "policy"),
-    };
 }
 
 // Surfaces IHasLookbackBars only when one or more of the composed encoder's
@@ -197,8 +225,11 @@ internal sealed class LookbackAwarePolicyBrain : ComposedPolicyBrain, IHasLookba
 {
     private readonly IReadOnlyList<IHasLookbackBars> _lookbackParts;
 
-    internal LookbackAwarePolicyBrain(string name, IObservationEncoder encoder, Module<Tensor, Tensor> network, IReadOnlyList<IHasLookbackBars> lookbackParts)
-        : base(name, encoder, network) => _lookbackParts = lookbackParts;
+    internal LookbackAwarePolicyBrain(
+        string name, IObservationEncoder encoder, Module<Tensor, Tensor> network,
+        IReadOnlyList<IHasLookbackBars> lookbackParts, IReadOnlyList<IActionOutputHead> actionOutputHeads,
+        IReadOnlyList<SimulationAction> enabledDirections)
+        : base(name, encoder, network, actionOutputHeads, enabledDirections) => _lookbackParts = lookbackParts;
 
     public int LookbackBars
     {

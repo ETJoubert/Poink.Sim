@@ -15,8 +15,6 @@ namespace Poink.Sim.Brain.Neural;
 
 internal sealed class MlpArchitecture : INetworkArchitecture
 {
-    private const int ActionCount = 4; // one logit per SimulationAction
-
     private readonly int[] _hiddenSizes;
 
     public MlpArchitecture(params int[] hiddenSizes) => _hiddenSizes = hiddenSizes;
@@ -25,7 +23,7 @@ internal sealed class MlpArchitecture : INetworkArchitecture
 
     // sequenceLength is intentionally unused -- a flat MLP treats the whole
     // vector as one input, sequence or not.
-    public Module<Tensor, Tensor> Build(int featureCount, int sequenceLength)
+    public Module<Tensor, Tensor> Build(int featureCount, int sequenceLength, int outputWidth)
     {
         var layers = new List<(string, Module<Tensor, Tensor>)>();
         int inFeatures = featureCount;
@@ -35,7 +33,7 @@ internal sealed class MlpArchitecture : INetworkArchitecture
             layers.Add(($"fold{i + 1}", Tanh()));
             inFeatures = _hiddenSizes[i];
         }
-        layers.Add(("heads", Linear(inFeatures, ActionCount)));
+        layers.Add(("heads", Linear(inFeatures, outputWidth)));
 
         return Sequential(layers.ToArray());
     }

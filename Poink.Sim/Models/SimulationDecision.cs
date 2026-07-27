@@ -9,7 +9,13 @@ using Poink.Sim.Repository;
 
 namespace Poink.Sim.Models;
 
-internal enum SimulationAction { Hold, EnterLong, EnterShort, Close }
+// Public (elevated from internal, like EncoderKind/ArchitectureKind/
+// ActionOutputKind) because a brain's enabled subset of these travels on
+// BrainRecipe (BrainRecipe.EnabledDirections) -- see ComposedPolicyBrain.Create.
+// All 4 remain individually optional per brain, same as Volume/StopLoss/
+// TakeProfit (see IActionOutputHead): a brain built with fewer than 4 gets a
+// correspondingly narrower direction head instead of always-4 logits.
+public enum SimulationAction { Hold, EnterLong, EnterShort, Close }
 
 // Market: fill immediately (today's only behavior). Limit: fill at TriggerPrice
 // or better (Buy Limit waits for price to fall to it, Sell Limit for it to
@@ -22,11 +28,16 @@ internal enum OrderType { Market, Limit, Stop }
 // the resulting position, acted on every tick by Trader.Advance. OrderType/
 // TriggerPrice: null/Market (the default) opens immediately as today; Limit/
 // Stop with a TriggerPrice queues a pending order instead -- kept as fields on
-// EnterLong/EnterShort rather than new SimulationAction members because the
-// neural brains' output layer is hardwired to one logit per SimulationAction
-// (see MlpArchitecture/LstmArchitecture's ActionCount=4), so growing the enum
-// would break every already-trained network's weights. Reason: short text
-// shown in the trade/decision log.
+// EnterLong/EnterShort rather than new SimulationAction members because
+// they're properties of *how* to enter, not a distinct direction choice.
+// A ComposedPolicyBrain built with one or more IActionOutputHead (Volume/
+// StopLoss/TakeProfit -- see BrainCatalog.ActionOutputKind) fills
+// CapitalFraction/StopLossPrice/TakeProfitPrice from its network's own extra
+// output heads instead of the fixed CapitalFraction=0.5/no-SL-TP fallback;
+// that's the extension point for growing what a brain can decide, not new
+// SimulationAction members -- these 4 direction choices are the fixed set to
+// pick a subset from (see BrainRecipe.EnabledDirections), never grown or
+// replaced. Reason: short text shown in the trade/decision log.
 internal readonly record struct SimulationDecision(
     SimulationAction Action, double CapitalFraction = 0,
     double? StopLossPrice = null, double? TakeProfitPrice = null,

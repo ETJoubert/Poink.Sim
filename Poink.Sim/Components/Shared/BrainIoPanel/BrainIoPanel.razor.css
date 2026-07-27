@@ -22,6 +22,18 @@
     gap: 12px;
 }
 
+.brain-io-badge {
+    display: inline-block;
+    font-size: 0.6rem;
+    font-weight: bold;
+    letter-spacing: 0.04em;
+    padding: 1px 7px;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--color-secondary) 50%, transparent);
+    color: var(--color-secondary);
+    vertical-align: middle;
+}
+
 .brain-io-subtitle {
     font-weight: 400;
     text-transform: none;
@@ -113,6 +125,23 @@
    (session-wide running tallies, unrelated to this component) -- duplicated
    here rather than shared, since Blazor CSS isolation scopes styles to one
    component file and both panels need the same look. */
+.action-dist-group {
+    margin-bottom: 14px;
+}
+
+.action-dist-group:last-child {
+    margin-bottom: 0;
+}
+
+.action-dist-group-label {
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-secondary);
+    opacity: 0.8;
+    margin-bottom: 6px;
+}
+
 .action-dist {
     display: flex;
     flex-direction: column;
@@ -155,6 +184,12 @@
 .action-dist-fill-long { background: var(--color-success); box-shadow: var(--shadow-glow-primary); }
 .action-dist-fill-short { background: var(--color-error); }
 .action-dist-fill-close { background: var(--color-secondary); box-shadow: var(--shadow-glow-secondary); }
+
+/* Volume/StopLoss/TakeProfit levels (or any future non-Direction group) --
+   neutral styling, distinct from the 4 direction colors above since these
+   levels aren't SimulationAction members. */
+.action-dist-level { color: var(--color-primary); }
+.action-dist-fill-level { background: var(--color-primary); opacity: 0.7; }
 
 .action-dist-pct {
     font-size: 0.7rem;

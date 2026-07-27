@@ -54,14 +54,20 @@ DescribeInputs`/`RlInputFeature` and `TrainLiveTab`'s de-normalized INPUTS
 view work generically off any encoder's features — a new encoder or a new
 normalizer never needs a matching new case on the display side.
 
-`ComposedPolicyBrain.Create(name, architecture, params encoders)` is the only
-entry point:
+`ComposedPolicyBrain.Create(name, architecture, params encoders)` is the entry
+point for a direction-only brain:
 
 ```csharp
 ComposedPolicyBrain.Create(
     "Volume Profile + Bars Policy", new MlpArchitecture(64, 32, 16),
     new BarWindowEncoder(), new VolumeProfileEncoder(), new TraderStateEncoder());
 ```
+
+An overload taking an `IReadOnlyList<IActionOutputHead> actionOutputHeads`
+before the encoder params builds a brain whose network also decides
+Volume/StopLoss/TakeProfit (see `ActionOutputs/IActionOutputHead.cs` and
+`GLOSSARY.md`'s `IActionOutputHead` entry) — the Train page's Build Brain
+panel is what actually constructs these via `RlTrainingService.TryBuildBrain`.
 
 If one or more encoder parts implement `IHasLookbackBars` (today,
 `VolumeProfileEncoder`/`TimeProfileEncoder` and their raw counterparts

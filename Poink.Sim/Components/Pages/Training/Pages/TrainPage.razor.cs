@@ -4,6 +4,7 @@ using System.Linq;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Poink.Sim.Brain.Neural;
+using Poink.Sim.Models;
 using Poink.Sim.Repository;
 using Poink.Sim.Trader;
 using Poink.Sim.Trader.Commission;
@@ -53,6 +54,23 @@ namespace Poink.Sim.Components.Pages
         private string _mlpHiddenSizesText = "32,16";
         private int _lstmHiddenSize = 64;
         private int _lstmNumLayers = 2;
+
+        // Which extra (non-direction) decisions the built brain's network
+        // also makes -- see ActionOutputKind. All optional (unlike the
+        // encoder checkboxes, at least one of which is required).
+        private bool _includeVolumeOutput;
+        private bool _includeStopLossOutput;
+        private bool _includeTakeProfitOutput;
+
+        // Which of Hold/EnterLong/EnterShort/Close the built brain's
+        // direction pick is narrowed to -- default all 4 (today's original
+        // behavior), but every one is individually optional, same as the
+        // action-output checkboxes above (see SimulationAction's doc
+        // comment); CanCreateBrain requires at least one stay checked.
+        private bool _includeHold = true;
+        private bool _includeEnterLong = true;
+        private bool _includeEnterShort = true;
+        private bool _includeClose = true;
         private string? _buildBrainStatus;
 
         // ── Data Structure Controls ──
@@ -129,6 +147,7 @@ namespace Poink.Sim.Components.Pages
         private bool CanCreateBrain =>
             !string.IsNullOrWhiteSpace(EffectiveBuildBrainName)
             && (_includeBarWindow || _includeVolumeProfile || _includeTimeProfile || _includeVolumeProfileRaw || _includeTimeProfileRaw)
+            && (_includeHold || _includeEnterLong || _includeEnterShort || _includeClose)
             && (_architectureKind != ArchitectureKind.Lstm || _includeBarWindow);
 
         // {Architecture}_{Layers}_{Data}, e.g. MLP_L32-L16_dBW-dVP-dTP-dAS -- mirrors
@@ -161,7 +180,20 @@ namespace Poink.Sim.Components.Pages
                 dataParts.Add("dAS");
                 string data = string.Join("-", dataParts);
 
-                return string.IsNullOrEmpty(layers) ? $"{arch}_{data}" : $"{arch}_{layers}_{data}";
+                string name = string.IsNullOrEmpty(layers) ? $"{arch}_{data}" : $"{arch}_{layers}_{data}";
+
+                // Excluded (not included) directions are called out here --
+                // shorter than listing all the ones still enabled, and the
+                // common case (all 4) needs no tag at all.
+                var actionParts = new List<string>();
+                if (!_includeHold) actionParts.Add("noHOLD");
+                if (!_includeEnterLong) actionParts.Add("noLONG");
+                if (!_includeEnterShort) actionParts.Add("noSHORT");
+                if (!_includeClose) actionParts.Add("noCLOSE");
+                if (_includeVolumeOutput) actionParts.Add("aVOL");
+                if (_includeStopLossOutput) actionParts.Add("aSL");
+                if (_includeTakeProfitOutput) actionParts.Add("aTP");
+                return actionParts.Count == 0 ? name : $"{name}_{string.Join("-", actionParts)}";
             }
         }
 
@@ -197,7 +229,20 @@ namespace Poink.Sim.Components.Pages
                 ? ParseHiddenSizes(_mlpHiddenSizesText)
                 : [_lstmHiddenSize, _lstmNumLayers];
 
-            if (Service.TryBuildBrain(name, encoderKinds, _architectureKind, hiddenSizes))
+            var actionOutputKinds = new List<ActionOutputKind>();
+            if (_includeVolumeOutput) actionOutputKinds.Add(ActionOutputKind.Volume);
+            if (_includeStopLossOutput) actionOutputKinds.Add(ActionOutputKind.StopLoss);
+            if (_includeTakeProfitOutput) actionOutputKinds.Add(ActionOutputKind.TakeProfit);
+
+            // Canonical order (matches ComposedPolicyBrain.AllDirections)
+            // regardless of checkbox click order.
+            var enabledDirections = new List<SimulationAction>();
+            if (_includeHold) enabledDirections.Add(SimulationAction.Hold);
+            if (_includeEnterLong) enabledDirections.Add(SimulationAction.EnterLong);
+            if (_includeEnterShort) enabledDirections.Add(SimulationAction.EnterShort);
+            if (_includeClose) enabledDirections.Add(SimulationAction.Close);
+
+            if (Service.TryBuildBrain(name, encoderKinds, _architectureKind, hiddenSizes, actionOutputKinds, enabledDirections))
             {
                 _buildBrainStatus = $"built '{name}' -- pick it above to train it";
                 _brainName = name;

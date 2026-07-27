@@ -14,8 +14,6 @@ namespace Poink.Sim.Brain.Neural;
 
 internal sealed class LstmArchitecture : INetworkArchitecture
 {
-    private const int ActionCount = 4; // one logit per SimulationAction
-
     private readonly int _hiddenSize;
     private readonly int _numLayers;
 
@@ -27,7 +25,7 @@ internal sealed class LstmArchitecture : INetworkArchitecture
 
     public string Name => $"LSTM-{_hiddenSize}x{_numLayers}";
 
-    public Module<Tensor, Tensor> Build(int featureCount, int sequenceLength)
+    public Module<Tensor, Tensor> Build(int featureCount, int sequenceLength, int outputWidth)
     {
         if (sequenceLength <= 0)
             throw new InvalidOperationException(
@@ -36,6 +34,6 @@ internal sealed class LstmArchitecture : INetworkArchitecture
 
         return new LstmPolicyNetwork(
             "lstm_policy", windowSize: sequenceLength, scalarCount: featureCount - sequenceLength,
-            hiddenSize: _hiddenSize, numLayers: _numLayers, actionCount: ActionCount);
+            hiddenSize: _hiddenSize, numLayers: _numLayers, actionCount: outputWidth);
     }
 }
