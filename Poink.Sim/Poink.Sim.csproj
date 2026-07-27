@@ -30,8 +30,8 @@
 
   <ItemGroup>
     <!-- Used for the ViewDatatable/Icon/PageNav shared components and CSS/theme
-         static assets served under "serve", plus CTraderBarRow/PredictedBar for
-         the OhlcvChart component. -->
+         static assets served under "serve", plus CTraderBarRow for the
+         DrawableOhlcvChart component. -->
     <ProjectReference Include="..\Poink.Shared.Client\Poink.Shared.Client.csproj" />
   </ItemGroup>
 </Project>

@@ -56,19 +56,37 @@ namespace Poink.Sim.Components.Charts
     // lines, vertical time lines, diagonal trend lines, plus T-Range/P-Range/Rectangle
     // (built from placing 2 or 2+2 of the single-axis lines in one go, see DrawMode) --
     // plus the same pan-triggered "near the oldest loaded bar" backfill hook
-    // ProfilerPage's lazy loading needs (OnNearStart/KeepView).
+    // ProfilerPage's lazy loading needs (OnNearStart/KeepView), plus SimulationPage's
+    // live-trading overlay (CurrentBid/CurrentAsk, the selected trader's open-position
+    // lines, and the tick/bar window-start marker below).
     //
-    // Deliberately a separate component and JS module from OhlcvChart, not a wrapper
-    // around it -- OhlcvChart has no hook for click events or externally-supplied chart
-    // primitives, and Simulation (its only other caller) has no need for either, so
-    // adding them there would be dead weight on a component doing fine as-is. Profiler's
-    // chart needs have diverged enough (drawing tools, lazy history) to justify the small
-    // amount of duplicated chart-setup code between the two JS modules instead.
+    // One shared component/JS module across both use cases rather than two -- a caller
+    // that doesn't need a given group of parameters (Profiler never sets CurrentBid/
+    // EntryPrice; Simulation never wires the draw-tool callbacks) just leaves them at
+    // their defaults, since none of the groups depend on each other.
     public partial class DrawableOhlcvChart : ComponentBase, IAsyncDisposable
     {
         [Inject] private IJSRuntime JSRuntime { get; set; } = null!;
 
         [Parameter] public List<CTraderBarRow> Bars { get; set; } = new();
+
+        // Live bid/ask, as horizontal price lines pinned to the right axis -- see
+        // SimulationPage's sim-header price readout, which drives these every tick.
+        [Parameter] public double? CurrentBid { get; set; }
+        [Parameter] public double? CurrentAsk { get; set; }
+
+        // The selected trader's open position: entry price (solid LONG/SHORT line) plus
+        // dashed SL/TP lines -- each null independently hides just that one line (flat,
+        // or a position missing that field). See SimulationPage.SelectedPositionIsLong.
+        [Parameter] public double? EntryPrice { get; set; }
+        [Parameter] public bool? PositionIsLong { get; set; }
+        [Parameter] public double? StopLossPrice { get; set; }
+        [Parameter] public double? TakeProfitPrice { get; set; }
+
+        // Timestamp the tick/bar window (feeding SimulationPage's volume-profile panel)
+        // starts at -- null hides the marker (e.g. once the whole buffer fits inside the
+        // window). See SimulationPage.WindowStartUtc.
+        [Parameter] public DateTime? WindowStartUtc { get; set; }
 
         // Skips the auto fit-to-content/rezoom a Bars update normally triggers -- the
         // caller sets this true once the initial chunk has been drawn, so a later
@@ -181,6 +199,13 @@ namespace Poink.Sim.Components.Charts
         private IReadOnlyList<ChartDiagonalLine>? _renderedDiagonalLines;
         private IReadOnlyList<ChartRangeFill>? _renderedRangeFills;
         private IReadOnlyList<ChartLinePoint>? _renderedVwapLine;
+        private double? _renderedBid;
+        private double? _renderedAsk;
+        private double? _renderedEntryPrice;
+        private bool? _renderedPositionIsLong;
+        private double? _renderedStopLoss;
+        private double? _renderedTakeProfit;
+        private DateTime? _renderedWindowStart;
         private bool _expanded;
         private bool _disposed;
 
@@ -317,6 +342,41 @@ namespace Poink.Sim.Components.Charts
                     });
 
                     await _module.InvokeVoidAsync("setLines", _chartId, hLines, vLines, dLines, fills);
+                }
+
+                if (_disposed) return;
+
+                // Gated separately from Bars: CurrentBid/Ask moves every tick, while Bars
+                // only advances once per completed bar interval (see OhlcvChart's original
+                // reasoning for the same split).
+                if (_module is not null && _chartId is not null && (_renderedBid != CurrentBid || _renderedAsk != CurrentAsk))
+                {
+                    _renderedBid = CurrentBid;
+                    _renderedAsk = CurrentAsk;
+                    await _module.InvokeVoidAsync("setCurrentPrices", _chartId, CurrentBid, CurrentAsk);
+                }
+
+                if (_disposed) return;
+
+                // Only moves when the position opens/closes/changes, not every tick.
+                if (_module is not null && _chartId is not null &&
+                    (_renderedEntryPrice != EntryPrice || _renderedPositionIsLong != PositionIsLong ||
+                     _renderedStopLoss != StopLossPrice || _renderedTakeProfit != TakeProfitPrice))
+                {
+                    _renderedEntryPrice = EntryPrice;
+                    _renderedPositionIsLong = PositionIsLong;
+                    _renderedStopLoss = StopLossPrice;
+                    _renderedTakeProfit = TakeProfitPrice;
+                    await _module.InvokeVoidAsync("setPositionLevels", _chartId, EntryPrice, PositionIsLong, StopLossPrice, TakeProfitPrice);
+                }
+
+                if (_disposed) return;
+
+                if (_module is not null && _chartId is not null && _renderedWindowStart != WindowStartUtc)
+                {
+                    _renderedWindowStart = WindowStartUtc;
+                    long? unixSeconds = WindowStartUtc is { } w ? new DateTimeOffset(w, TimeSpan.Zero).ToUnixTimeSeconds() : null;
+                    await _module.InvokeVoidAsync("setWindowStart", _chartId, unixSeconds);
                 }
             }
             catch (ObjectDisposedException) { }

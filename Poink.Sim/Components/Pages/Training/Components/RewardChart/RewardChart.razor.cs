@@ -38,7 +38,7 @@ namespace Poink.Sim.Components.Training
         // Each candle is one OHLC bucket of consecutive episodes -- Open/Close
         // are the bucket's first/last reward, High/Low its extremes, mirroring
         // the OHLC bars the rest of this app already renders for price (see
-        // OhlcvChart), so a run's reward reads as a trend instead of noise once
+        // DrawableOhlcvChart), so a run's reward reads as a trend instead of noise once
         // there are more episodes than fit legibly as individual points.
         private sealed record Candle(
             string BodyX, string BodyWidth, string BodyY, string BodyHeight,

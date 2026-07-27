@@ -1,9 +1,8 @@
-// Candlestick + volume chart for ProfilerPage: click-to-draw horizontal/vertical/
-// diagonal lines (plus T-Range/P-Range/Rectangle, built from placing 2 or 2+2 of the
-// single-axis lines -- see modeClickCounts), plus pan-triggered history backfill.
-// Deliberately a separate, independent module from ohlcvChart.js (not a shared/
-// refactored one) -- see DrawableOhlcvChart.razor.cs's class comment for why
-// OhlcvChart itself stays untouched rather than growing these Profiler-specific behaviors.
+// Candlestick + volume chart shared by ProfilerPage/TrainLiveTab and SimulationPage:
+// click-to-draw horizontal/vertical/diagonal lines (plus T-Range/P-Range/Rectangle,
+// built from placing 2 or 2+2 of the single-axis lines -- see modeClickCounts), pan-
+// triggered history backfill, and Simulation's live bid/ask/position/window-start
+// overlay (see DrawableOhlcvChart.razor.cs's class comment).
 const instances = new Map();
 
 const upColor = '#4dff88';
@@ -60,6 +59,53 @@ function createVerticalLinesPrimitive() {
         paneViews: () => [paneView],
         setLines(newLines) {
             lines = newLines;
+            if (requestUpdate) requestUpdate();
+        },
+    };
+}
+
+// Single dashed vertical line at a given time, independent of the multi-line
+// createVerticalLinesPrimitive above (that one is a caller-supplied *list* of drawn
+// annotations; this is SimulationPage's own single "window start" marker, moved via
+// setTime rather than a whole-list replace) -- same technique ohlcvChart.js used for
+// this exact marker before this component absorbed its live-trading overlay.
+function createWindowLinePrimitive(color) {
+    let time = null;
+    let x = null;
+    let chart = null;
+    let requestUpdate = null;
+
+    const renderer = {
+        draw(target) {
+            if (x === null) return;
+            target.useBitmapCoordinateSpace(scope => {
+                const ctx = scope.context;
+                const px = Math.round(x * scope.horizontalPixelRatio) + 0.5;
+                ctx.save();
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 1;
+                ctx.setLineDash([4, 4]);
+                ctx.beginPath();
+                ctx.moveTo(px, 0);
+                ctx.lineTo(px, scope.bitmapSize.height);
+                ctx.stroke();
+                ctx.restore();
+            });
+        },
+    };
+    const paneView = { renderer: () => renderer };
+
+    return {
+        attached(param) {
+            chart = param.chart;
+            requestUpdate = param.requestUpdate;
+        },
+        updateAllViews() {
+            x = time !== null && chart ? chart.timeScale().timeToCoordinate(time) : null;
+        },
+        paneViews: () => [paneView],
+        setTime(t) {
+            time = t;
             if (requestUpdate) requestUpdate();
         },
     };
@@ -564,11 +610,21 @@ export function create(container, minimapContainer, dotNetRef) {
     const rangeFills = createRangeFillsPrimitive();
     candleSeries.attachPrimitive(rangeFills);
 
+    // SimulationPage's window-start marker, plus the SL/TP colours its position-level
+    // lines use -- same theme-aware --color-error/--color-success pair convention as
+    // groupColors.reference/win/loss above.
+    const windowLine = createWindowLinePrimitive(accentColor);
+    candleSeries.attachPrimitive(windowLine);
+    const slColor = style.getPropertyValue('--color-error').trim() || downColor;
+    const tpColor = style.getPropertyValue('--color-success').trim() || upColor;
+
     const id = crypto.randomUUID();
     const entry = {
         chart, candleSeries, volumeSeries, vwapSeries, tooltip, verticalLines, diagonalLines, rangeFills, accentColor, groupColors,
         horizontalLineObjs: [], dotNetRef, hasData: false, pendingLoadMore: false,
         drawMode: null, drawClicks: [], bars: [], minimap: null,
+        windowLine, slColor, tpColor, entryColor: accentColor,
+        bidLine: null, askLine: null, slLine: null, tpLine: null, entryLine: null,
     };
     instances.set(id, entry);
 
@@ -713,6 +769,57 @@ export function setVwapLine(id, points) {
     const entry = instances.get(id);
     if (!entry) return;
     entry.vwapSeries.setData(points.map(p => ({ time: p.time, value: p.price })));
+}
+
+function updatePriceLine(series, line, price, color, title, lineStyle = LightweightCharts.LineStyle.Dashed) {
+    if (price == null) {
+        if (line) series.removePriceLine(line);
+        return null;
+    }
+    if (line) {
+        line.applyOptions({ price });
+        return line;
+    }
+    return series.createPriceLine({
+        price, color, title,
+        lineWidth: 1,
+        lineStyle,
+        axisLabelVisible: true,
+    });
+}
+
+// Live bid/ask as horizontal price lines pinned to the right axis -- updated in place
+// via applyOptions rather than remove+recreate, since this fires on every tick (see
+// DrawableOhlcvChart.razor.cs's CurrentBid/CurrentAsk parameters).
+export function setCurrentPrices(id, bid, ask) {
+    const entry = instances.get(id);
+    if (!entry) return;
+
+    entry.bidLine = updatePriceLine(entry.candleSeries, entry.bidLine, bid, downColor, 'BID');
+    entry.askLine = updatePriceLine(entry.candleSeries, entry.askLine, ask, upColor, 'ASK');
+}
+
+// SimulationPage's selected trader's open position: entry price (solid, so it reads as
+// "where you are" against SL/TP's dashed "where it'll auto-close") plus SL/TP --
+// entryPrice/stopLoss/takeProfit each null independently removes just that line (flat,
+// or a position missing that field).
+export function setPositionLevels(id, entryPrice, isLong, stopLoss, takeProfit) {
+    const entry = instances.get(id);
+    if (!entry) return;
+
+    const entryTitle = isLong == null ? 'ENTRY' : (isLong ? 'LONG' : 'SHORT');
+    entry.entryLine = updatePriceLine(
+        entry.candleSeries, entry.entryLine, entryPrice, entry.entryColor, entryTitle, LightweightCharts.LineStyle.Solid);
+    entry.slLine = updatePriceLine(entry.candleSeries, entry.slLine, stopLoss, entry.slColor, 'SL');
+    entry.tpLine = updatePriceLine(entry.candleSeries, entry.tpLine, takeProfit, entry.tpColor, 'TP');
+}
+
+// Vertical marker for where SimulationPage's tick/bar window (feeding the volume-profile
+// panel) starts -- null hides it (e.g. once the whole buffer fits inside the window).
+export function setWindowStart(id, unixSeconds) {
+    const entry = instances.get(id);
+    if (!entry) return;
+    entry.windowLine.setTime(unixSeconds ?? null);
 }
 
 // mode: one of modeClickCounts' keys, or null (null/falsy disarms drawing entirely).

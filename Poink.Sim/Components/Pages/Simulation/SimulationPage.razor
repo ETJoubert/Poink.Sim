@@ -239,14 +239,38 @@
                         }
                     </div>
 
+                    @if (s.Config.Aggregate)
+                    {
+                        <div class="sim-overlay-toggles"
+                             title="Toggle the computed chart overlays alongside the volume profile -- Point of Control/Value Area and a cumulative VWAP line">
+                            <span class="sim-overlay-toggles-label">CHART OVERLAYS</span>
+                            <label class="sim-overlay-toggle"
+                                   title="Highlight the Point of Control (most-traded price) and Value Area rows inside the volume profile panel">
+                                <input type="checkbox" @bind="_showProfilePanelLevels" />
+                                <span>POC/VA in profile</span>
+                            </label>
+                            <label class="sim-overlay-toggle"
+                                   title="Project the Point of Control/Value Area High/Low as three dashed lines on the main chart">
+                                <input type="checkbox" @bind="_showProfileChartLines" />
+                                <span>POC/VAH/VAL lines</span>
+                            </label>
+                            <label class="sim-overlay-toggle"
+                                   title="Show a cumulative volume-weighted average price line on the main chart, over the same bar window as the volume profile">
+                                <input type="checkbox" @bind="_showVwap" />
+                                <span>VWAP line</span>
+                            </label>
+                        </div>
+                    }
+
                     <div class="sim-chart">
                         <div class="sim-chart-main">
                             @if (s.Config.Aggregate)
                             {
-                                <OhlcvChart Bars="ToBarRows(s.RecentBars)" CurrentBid="s.CurrentBid" CurrentAsk="s.CurrentAsk"
-                                            EntryPrice="SelectedTrader?.Position?.EntryPrice" PositionIsLong="SelectedPositionIsLong"
-                                            StopLossPrice="SelectedTrader?.Position?.StopLossPrice" TakeProfitPrice="SelectedTrader?.Position?.TakeProfitPrice"
-                                            WindowStartUtc="WindowStartUtc(s.RecentBars)" />
+                                <DrawableOhlcvChart Bars="ToBarRows(s.RecentBars)" CurrentBid="s.CurrentBid" CurrentAsk="s.CurrentAsk"
+                                                    EntryPrice="SelectedTrader?.Position?.EntryPrice" PositionIsLong="SelectedPositionIsLong"
+                                                    StopLossPrice="SelectedTrader?.Position?.StopLossPrice" TakeProfitPrice="SelectedTrader?.Position?.TakeProfitPrice"
+                                                    WindowStartUtc="WindowStartUtc(s.RecentBars)" HorizontalLines="ProfileLevelLines(s)"
+                                                    VwapLine="VwapPoints(s)" />
                             }
                             else
                             {
@@ -258,7 +282,8 @@
                         <div class="sim-chart-side">
                             @if (s.Config.Aggregate)
                             {
-                                <TickVolumeProfileChart WeightedSamples="MergedBarSamples(s)" CurrentPrice="s.CurrentPrice" />
+                                <TickVolumeProfileChart WeightedSamples="MergedBarSamples(s)" CurrentPrice="s.CurrentPrice"
+                                                        ShowLevels="_showProfilePanelLevels" />
                             }
                             else
                             {

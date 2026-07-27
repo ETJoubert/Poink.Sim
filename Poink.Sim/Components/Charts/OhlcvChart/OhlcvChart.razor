@@ -1,9 +1,0 @@
-@namespace Poink.Sim.Components.Charts
-
-<div class="ohlcv-chart-wrapper @(_expanded ? "expanded" : "")">
-    <button type="button" class="ohlcv-chart-expand-btn" @onclick="ToggleExpanded"
-            title="@(_expanded ? "Collapse" : "Expand")">
-        @(_expanded ? "✕" : "⤢")
-    </button>
-    <div class="ohlcv-chart-container" @ref="_containerRef"></div>
-</div>

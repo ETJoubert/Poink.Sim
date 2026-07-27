@@ -17,7 +17,7 @@ namespace Poink.Sim.Components.Training
     // still stylized down for legibility on the JS side, but the layer count/
     // relative sizes/recurrent marker are whichever brain is actually picked,
     // not a hardcoded MLP shape.
-    // Same JS ES-module import/dispose shape as OhlcvChart (this is nontrivial
+    // Same JS ES-module import/dispose shape as DrawableOhlcvChart (this is nontrivial
     // enough to earn its own file rather than an inline eval'd string).
     public partial class NetworkEmulator : ComponentBase, IAsyncDisposable
     {

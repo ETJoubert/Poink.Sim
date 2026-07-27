@@ -564,6 +564,41 @@
     box-shadow: 0 0 8px color-mix(in srgb, var(--color-accent) 45%, transparent);
 }
 
+.sim-overlay-toggles {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    padding: 5px 10px;
+    margin: 10px 24px 0;
+    background: color-mix(in srgb, var(--color-highlight) 6%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-highlight) 30%, transparent);
+    border-radius: var(--border-radius-sm);
+}
+
+.sim-overlay-toggles-label {
+    font-size: 0.6rem;
+    font-weight: bold;
+    letter-spacing: 0.1em;
+    color: var(--color-highlight);
+    opacity: 0.9;
+}
+
+.sim-overlay-toggle {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.68rem;
+    color: var(--color-secondary);
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.sim-overlay-toggle input {
+    accent-color: var(--color-highlight);
+    cursor: pointer;
+}
+
 .sim-chart {
     display: flex;
     flex-shrink: 0;

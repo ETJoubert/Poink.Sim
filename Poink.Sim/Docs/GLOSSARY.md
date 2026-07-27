@@ -821,15 +821,19 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   whole minutes, with week gridlines and popover `Calendar`s for the From/To labels;
   commits on release (`onchange`, not `oninput`) to avoid per-pixel server
   round-trips in Blazor Server. `Components/Shared/DateRangeSlider/`
-- **`DrawableOhlcvChart`** — Candlestick + volume chart with click-to-draw
-  annotations (H/V/D lines, T-Range/P-Range/Rectangle, VWAP overlay) plus lazy
-  pan-triggered backfill; `ProfilerPage`'s main chart. Its own separate
-  component/JS module from `OhlcvChart` (see that component's doc comment for
-  why), not a wrapper around it. Also reused as-is by `TrainLiveTab`'s episode
-  replay for its generic `DiagonalLines` parameter (closed-trade entry-to-exit
-  markers) -- its drawing toolbar/minimap render there too even though nothing
-  wires their callbacks, a deliberate reuse-over-building-a-second-chart
-  tradeoff. `Components/Charts/DrawableOhlcvChart/`
+- **`DrawableOhlcvChart`** — Candlestick + volume chart backed by the vendored
+  TradingView Lightweight Charts JS library; shared by `ProfilerPage`'s main chart,
+  `TrainLiveTab`'s episode replay, and `SimulationPage`'s live chart. Two independent
+  groups of parameters cover each: click-to-draw annotations (H/V/D lines, T-Range/
+  P-Range/Rectangle, VWAP overlay) plus lazy pan-triggered backfill for Profiler's
+  needs, and live Bid/Ask price lines, the selected trader's open position as a solid
+  LONG/SHORT entry-price line plus dashed SL/TP price lines (each null independently
+  hides that one line -- flat, or a position missing that field), and a "window start"
+  marker showing how far back the volume-profile window reaches for Simulation's.
+  `TrainLiveTab` reuses it as-is for its generic `DiagonalLines` parameter
+  (closed-trade entry-to-exit markers) -- its drawing toolbar/minimap render there too
+  even though nothing wires their callbacks, a deliberate reuse-over-building-a-
+  second-chart tradeoff. `Components/Charts/DrawableOhlcvChart/`
 - **`EpisodeCoverageTimeline`** — Data-coverage heatmap at the top of `TrainPage`'s
   `train-content`: one block per `bars/episode`-length slice of the selected Data
   Range, shaded darker the more completed episodes (`RlTrainingService.
@@ -846,12 +850,6 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   depending on whether training `IsRunning`. Explicitly not a readout of real
   activations. `Components/Pages/Training/Components/NetworkEmulator/` +
   `wwwroot/js/networkEmulator.js`
-- **`OhlcvChart`** — Candlestick chart backed by the vendored TradingView Lightweight
-  Charts JS library; shows completed + in-progress bars, live Bid/Ask price lines,
-  the selected trader's open position as a solid LONG/SHORT entry-price line plus
-  dashed SL/TP price lines (each null independently hides that one line -- flat,
-  or a position missing that field), and a "window start" marker showing how far
-  back the volume-profile window reaches. `Components/Charts/OhlcvChart/OhlcvChart.razor.cs`
 - **`PerformanceMonitor`** — Layout-level CPU/RAM/GPU readout, sourced from
   `SystemPerformanceMonitor`. `Components/Layout/PerformanceMonitor.razor.cs`
 - **`RewardChart`** — Pure inline-SVG line chart of reward-per-episode, no JS, with a
@@ -882,7 +880,7 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   concept. `Components/Charts/TickTimeProfileChart/TickTimeProfileChart.razor.cs`
 - **`TickVolumeProfileChart`** — Horizontal-bar tick histogram (price on the row
   axis, tick count as bar width), rendered as pure Razor/CSS (no JS, since it's not
-  pixel-synced to `OhlcvChart`'s zoom/pan). Consumes either raw `Prices` (tick mode)
+  pixel-synced to `DrawableOhlcvChart`'s zoom/pan). Consumes either raw `Prices` (tick mode)
   or pre-aggregated `WeightedSamples` (bar mode, via `BarPriceHistogram.Merge`). This
   *is* the app's "Volume Profile" concept.
   `Components/Charts/TickVolumeProfileChart/TickVolumeProfileChart.razor.cs`

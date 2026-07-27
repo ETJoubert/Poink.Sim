@@ -54,8 +54,8 @@ namespace Poink.Sim.Components.Pages
         private LogTab _activeLogTab;
 
         // Shared "how many of the most recent ticks" control -- drives both the
-        // TickVolumeProfileChart panel and the window-start marker on OhlcvChart, so it
-        // lives here rather than inside either chart component (see their [Parameter]s).
+        // TickVolumeProfileChart panel and the window-start marker on DrawableOhlcvChart,
+        // so it lives here rather than inside either chart component (see their [Parameter]s).
         // Two selectors share this role depending on Config.Aggregate: bar-mode runs use
         // a bar count (below), raw-tick runs fall back to this literal tick count since
         // there are no bars to derive one from (SimulationEngine.RecentBars stays empty
@@ -72,6 +72,15 @@ namespace Poink.Sim.Components.Pages
         private int _barWindowSize = 50;
         private int ClampedBarWindow => Math.Clamp(_barWindowSize, 1, MaxBarWindow);
         private double BarWindowFillPercent => ClampedBarWindow * 100.0 / MaxBarWindow;
+
+        // Independent on/off switches for the three computed (non-Drawing) chart
+        // overlays -- same split and reasoning as ProfilerPage's own CHART OVERLAYS
+        // toggles (POC/VA has two separate places it renders: the profile panel
+        // itself vs. the projected chart lines). Aggregate-mode only, so no reset
+        // path is needed for raw-tick runs.
+        private bool _showProfilePanelLevels = true;
+        private bool _showProfileChartLines = true;
+        private bool _showVwap = true;
 
         // Merges the last ClampedBarWindow bars' price histograms into one weighted-sample
         // list for TickVolumeProfileChart -- see BarPriceHistogram.Merge for how bars
@@ -90,9 +99,48 @@ namespace Poink.Sim.Components.Pages
                 .Select(t => new WeightedTimeSample(t.Price, t.Count, t.Seconds, t.UpSeconds, t.DownSeconds))
                 .ToList();
 
+        // Point of Control/Value Area over the same bar window MergedBarSamples above
+        // builds the volume profile panel from -- projected onto the main chart so they
+        // read directly against price action, not just inside the profile panel. See
+        // ProfilerPage.ProfileLevelLines for the same idea against its own window.
+        private List<ChartHorizontalLine> ProfileLevelLines(SimulationSnapshot s)
+        {
+            if (!_showProfileChartLines) return new();
+            if (VolumeProfileStats.Compute(MergedBarSamples(s)) is not { } levels) return new();
+            return new()
+            {
+                new ChartHorizontalLine(levels.Poc, "POC", "profile"),
+                new ChartHorizontalLine(levels.ValueAreaHigh, "VAH", "profile"),
+                new ChartHorizontalLine(levels.ValueAreaLow, "VAL", "profile"),
+            };
+        }
+
+        // Cumulative volume-weighted average price over the last ClampedBarWindow bars --
+        // same window ProfileLevelLines above uses. HlocAvdtBar.Average/Volume already
+        // carry the tick-weighted mean price and tick count each bar needs, so this needs
+        // no histogram data at all (see ProfilerPage.VwapPoints for the same computation).
+        private List<ChartLinePoint> VwapPoints(SimulationSnapshot s)
+        {
+            if (!_showVwap) return new();
+
+            var bars = s.RecentBars;
+            var windowBars = bars.Count > ClampedBarWindow ? bars.Skip(bars.Count - ClampedBarWindow) : bars;
+
+            var points = new List<ChartLinePoint>();
+            double cumulativePriceVolume = 0, cumulativeVolume = 0;
+            foreach (var bar in windowBars)
+            {
+                cumulativePriceVolume += bar.Average * bar.Volume;
+                cumulativeVolume += bar.Volume;
+                if (cumulativeVolume > 0)
+                    points.Add(new ChartLinePoint(bar.OpenTime, cumulativePriceVolume / cumulativeVolume));
+            }
+            return points;
+        }
+
         // Timestamp of the bar that starts the current window -- null once the window
-        // covers the whole buffer, so OhlcvChart knows to hide the marker rather than
-        // drawing it at the very first bar. Bars' own OpenTime is already a valid point
+        // covers the whole buffer, so DrawableOhlcvChart knows to hide the marker rather
+        // than drawing it at the very first bar. Bars' own OpenTime is already a valid point
         // on the chart's time axis (unlike an arbitrary tick timestamp), so no snapping
         // is needed here the way the old tick-based version required.
         private DateTime? WindowStartUtc(IReadOnlyList<HlocAvdtBar> bars)
@@ -125,7 +173,7 @@ namespace Poink.Sim.Components.Pages
         }
 
         // null while flat -- distinguishes the chart's entry-price line's LONG/SHORT
-        // label (OhlcvChart doesn't otherwise depend on Poink.Sim.Models' PositionDirection).
+        // label (DrawableOhlcvChart doesn't otherwise depend on Poink.Sim.Models' PositionDirection).
         private bool? SelectedPositionIsLong => SelectedTrader?.Position?.Direction switch
         {
             PositionDirection.Long => true,
