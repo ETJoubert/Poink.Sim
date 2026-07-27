@@ -35,20 +35,23 @@ namespace Poink.Sim.Brain.Neural;
 
 internal sealed class VolumeProfileRawEncoder : IObservationEncoder, IHasLookbackBars
 {
-    private const int HistogramBucketCount = 20; // matches VolumeProfileEncoder's bucket count
-    private const int BucketFeatureCount = HistogramBucketCount * 2; // price + volume per bucket
+    private const int DefaultBucketCount = 20; // matches VolumeProfileEncoder's bucket count
     private const int SummaryScalarCount = 3; // POC, value-area-high, value-area-low
     private const double ValueAreaFraction = 0.70;
 
+    private readonly int _bucketCount;
+    private readonly int _bucketFeatureCount; // price + volume per bucket
     private readonly IFeatureNormalizer _countNormalizer;
     private readonly IFeatureNormalizer _priceNormalizer;
     private readonly IReadOnlyList<FeatureDescriptor> _features;
 
-    public VolumeProfileRawEncoder(IFeatureNormalizer? countNormalizer = null, IFeatureNormalizer? priceNormalizer = null)
+    public VolumeProfileRawEncoder(int bucketCount = DefaultBucketCount, IFeatureNormalizer? countNormalizer = null, IFeatureNormalizer? priceNormalizer = null)
     {
+        _bucketCount = bucketCount;
+        _bucketFeatureCount = bucketCount * 2;
         _countNormalizer = countNormalizer ?? new RawValueNormalizer();
         _priceNormalizer = priceNormalizer ?? new RawPriceNormalizer();
-        _features = Enumerable.Range(0, HistogramBucketCount)
+        _features = Enumerable.Range(0, _bucketCount)
             .SelectMany(i => new[]
             {
                 new FeatureDescriptor($"vpr-price-{i}", _priceNormalizer),
@@ -65,7 +68,7 @@ internal sealed class VolumeProfileRawEncoder : IObservationEncoder, IHasLookbac
     // playback uses whatever was last configured.
     public int LookbackBars { get; set; } = 50;
 
-    public int FeatureCount => BucketFeatureCount + SummaryScalarCount;
+    public int FeatureCount => _bucketFeatureCount + SummaryScalarCount;
 
     public int SequenceLength => 0;
 
@@ -84,8 +87,8 @@ internal sealed class VolumeProfileRawEncoder : IObservationEncoder, IHasLookbac
 
         var features = new float[FeatureCount];
 
-        var (counts, prices) = VolumeProfileAnalysis.BuildRawHistogram(merged, HistogramBucketCount);
-        for (int i = 0; i < HistogramBucketCount; i++)
+        var (counts, prices) = VolumeProfileAnalysis.BuildRawHistogram(merged, _bucketCount);
+        for (int i = 0; i < _bucketCount; i++)
         {
             features[i * 2] = _priceNormalizer.Normalize(prices[i], observation);
             features[i * 2 + 1] = _countNormalizer.Normalize(counts[i], observation);
@@ -96,9 +99,9 @@ internal sealed class VolumeProfileRawEncoder : IObservationEncoder, IHasLookbac
         // BuildRawHistogram's own empty-input case uses.
         if (VolumeProfileAnalysis.ComputeSummary(merged, bucketWidth, ValueAreaFraction) is { } summary)
         {
-            features[BucketFeatureCount + 0] = _priceNormalizer.Normalize(summary.PointOfControl, observation);
-            features[BucketFeatureCount + 1] = _priceNormalizer.Normalize(summary.ValueAreaHigh, observation);
-            features[BucketFeatureCount + 2] = _priceNormalizer.Normalize(summary.ValueAreaLow, observation);
+            features[_bucketFeatureCount + 0] = _priceNormalizer.Normalize(summary.PointOfControl, observation);
+            features[_bucketFeatureCount + 1] = _priceNormalizer.Normalize(summary.ValueAreaHigh, observation);
+            features[_bucketFeatureCount + 2] = _priceNormalizer.Normalize(summary.ValueAreaLow, observation);
         }
 
         return features;

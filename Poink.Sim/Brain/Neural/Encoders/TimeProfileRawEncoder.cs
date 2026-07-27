@@ -29,20 +29,23 @@ namespace Poink.Sim.Brain.Neural;
 
 internal sealed class TimeProfileRawEncoder : IObservationEncoder, IHasLookbackBars
 {
-    private const int HistogramBucketCount = 20; // matches TimeProfileEncoder's bucket count
-    private const int BucketFeatureCount = HistogramBucketCount * 2; // price + seconds per bucket
+    private const int DefaultBucketCount = 20; // matches TimeProfileEncoder's bucket count
     private const int SummaryScalarCount = 3; // POC, value-area-high, value-area-low
     private const double ValueAreaFraction = 0.70;
 
+    private readonly int _bucketCount;
+    private readonly int _bucketFeatureCount; // price + seconds per bucket
     private readonly IFeatureNormalizer _secondsNormalizer;
     private readonly IFeatureNormalizer _priceNormalizer;
     private readonly IReadOnlyList<FeatureDescriptor> _features;
 
-    public TimeProfileRawEncoder(IFeatureNormalizer? secondsNormalizer = null, IFeatureNormalizer? priceNormalizer = null)
+    public TimeProfileRawEncoder(int bucketCount = DefaultBucketCount, IFeatureNormalizer? secondsNormalizer = null, IFeatureNormalizer? priceNormalizer = null)
     {
+        _bucketCount = bucketCount;
+        _bucketFeatureCount = bucketCount * 2;
         _secondsNormalizer = secondsNormalizer ?? new RawValueNormalizer();
         _priceNormalizer = priceNormalizer ?? new RawPriceNormalizer();
-        _features = Enumerable.Range(0, HistogramBucketCount)
+        _features = Enumerable.Range(0, _bucketCount)
             .SelectMany(i => new[]
             {
                 new FeatureDescriptor($"tpr-price-{i}", _priceNormalizer),
@@ -59,7 +62,7 @@ internal sealed class TimeProfileRawEncoder : IObservationEncoder, IHasLookbackB
     // playback uses whatever was last configured.
     public int LookbackBars { get; set; } = 50;
 
-    public int FeatureCount => BucketFeatureCount + SummaryScalarCount;
+    public int FeatureCount => _bucketFeatureCount + SummaryScalarCount;
 
     public int SequenceLength => 0;
 
@@ -78,8 +81,8 @@ internal sealed class TimeProfileRawEncoder : IObservationEncoder, IHasLookbackB
 
         var features = new float[FeatureCount];
 
-        var (seconds, prices) = TimeProfileAnalysis.BuildRawHistogram(merged, HistogramBucketCount);
-        for (int i = 0; i < HistogramBucketCount; i++)
+        var (seconds, prices) = TimeProfileAnalysis.BuildRawHistogram(merged, _bucketCount);
+        for (int i = 0; i < _bucketCount; i++)
         {
             features[i * 2] = _priceNormalizer.Normalize(prices[i], observation);
             features[i * 2 + 1] = _secondsNormalizer.Normalize(seconds[i], observation);
@@ -90,9 +93,9 @@ internal sealed class TimeProfileRawEncoder : IObservationEncoder, IHasLookbackB
         // BuildRawHistogram's own empty-input case uses.
         if (TimeProfileAnalysis.ComputeSummary(merged, bucketWidth, ValueAreaFraction) is { } summary)
         {
-            features[BucketFeatureCount + 0] = _priceNormalizer.Normalize(summary.PointOfControl, observation);
-            features[BucketFeatureCount + 1] = _priceNormalizer.Normalize(summary.ValueAreaHigh, observation);
-            features[BucketFeatureCount + 2] = _priceNormalizer.Normalize(summary.ValueAreaLow, observation);
+            features[_bucketFeatureCount + 0] = _priceNormalizer.Normalize(summary.PointOfControl, observation);
+            features[_bucketFeatureCount + 1] = _priceNormalizer.Normalize(summary.ValueAreaHigh, observation);
+            features[_bucketFeatureCount + 2] = _priceNormalizer.Normalize(summary.ValueAreaLow, observation);
         }
 
         return features;

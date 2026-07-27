@@ -23,19 +23,22 @@ namespace Poink.Sim.Brain.Neural;
 
 internal sealed class VolumeProfileEncoder : IObservationEncoder, IHasLookbackBars
 {
-    private const int HistogramBucketCount = 20; // matches TickVolumeProfileChart's default bucket count
+    private const int DefaultBucketCount = 20; // matches TickVolumeProfileChart's default bucket count
     private const int SummaryScalarCount = 3; // POC offset, value-area-high offset, value-area-low offset
     private const double ValueAreaFraction = 0.70;
 
+    private readonly int _bucketCount;
     private readonly IFeatureNormalizer _fractionNormalizer;
     private readonly IFeatureNormalizer _priceOffsetNormalizer;
     private readonly IReadOnlyList<FeatureDescriptor> _features;
 
-    public VolumeProfileEncoder(IFeatureNormalizer? fractionNormalizer = null, IFeatureNormalizer? priceOffsetNormalizer = null)
+    public VolumeProfileEncoder(
+        int bucketCount = DefaultBucketCount, IFeatureNormalizer? fractionNormalizer = null, IFeatureNormalizer? priceOffsetNormalizer = null)
     {
+        _bucketCount = bucketCount;
         _fractionNormalizer = fractionNormalizer ?? new FractionNormalizer();
         _priceOffsetNormalizer = priceOffsetNormalizer ?? new PriceOffsetNormalizer();
-        _features = Enumerable.Range(0, HistogramBucketCount)
+        _features = Enumerable.Range(0, _bucketCount)
             .Select(i => new FeatureDescriptor($"vp-{i}", _fractionNormalizer))
             .Append(new FeatureDescriptor("poc-offset", _priceOffsetNormalizer))
             .Append(new FeatureDescriptor("va-high-offset", _priceOffsetNormalizer))
@@ -48,7 +51,7 @@ internal sealed class VolumeProfileEncoder : IObservationEncoder, IHasLookbackBa
     // playback uses whatever was last configured.
     public int LookbackBars { get; set; } = 50;
 
-    public int FeatureCount => HistogramBucketCount + SummaryScalarCount;
+    public int FeatureCount => _bucketCount + SummaryScalarCount;
 
     public int SequenceLength => 0;
 
@@ -67,8 +70,8 @@ internal sealed class VolumeProfileEncoder : IObservationEncoder, IHasLookbackBa
 
         var features = new float[FeatureCount];
 
-        var histogram = VolumeProfileAnalysis.BuildRelativeHistogram(merged, HistogramBucketCount);
-        for (int i = 0; i < HistogramBucketCount; i++)
+        var histogram = VolumeProfileAnalysis.BuildRelativeHistogram(merged, _bucketCount);
+        for (int i = 0; i < _bucketCount; i++)
             features[i] = _fractionNormalizer.Normalize(histogram[i], observation);
 
         // No summary (empty/zero-volume window) leaves these three at their
@@ -76,9 +79,9 @@ internal sealed class VolumeProfileEncoder : IObservationEncoder, IHasLookbackBa
         // BuildRelativeHistogram's own empty-input case uses.
         if (VolumeProfileAnalysis.ComputeSummary(merged, bucketWidth, ValueAreaFraction) is { } summary)
         {
-            features[HistogramBucketCount + 0] = _priceOffsetNormalizer.Normalize(summary.PointOfControl, observation);
-            features[HistogramBucketCount + 1] = _priceOffsetNormalizer.Normalize(summary.ValueAreaHigh, observation);
-            features[HistogramBucketCount + 2] = _priceOffsetNormalizer.Normalize(summary.ValueAreaLow, observation);
+            features[_bucketCount + 0] = _priceOffsetNormalizer.Normalize(summary.PointOfControl, observation);
+            features[_bucketCount + 1] = _priceOffsetNormalizer.Normalize(summary.ValueAreaHigh, observation);
+            features[_bucketCount + 2] = _priceOffsetNormalizer.Normalize(summary.ValueAreaLow, observation);
         }
 
         return features;

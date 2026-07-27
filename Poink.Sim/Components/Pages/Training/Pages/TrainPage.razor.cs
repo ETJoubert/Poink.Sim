@@ -50,6 +50,18 @@ namespace Poink.Sim.Components.Pages
         private bool _includeTimeProfile;
         private bool _includeVolumeProfileRaw;
         private bool _includeTimeProfileRaw;
+
+        // Per-encoder input width -- independent of each other and of
+        // _lookbackBars below (see EncoderSizeOptions's doc comment for why
+        // these are build-time-only, unlike the runtime-adjustable lookback).
+        // Defaults match EncoderSizeOptions' own defaults, today's original
+        // hardcoded bucket/window counts.
+        private int _barWindowSize = 20;
+        private int _volumeProfileBucketCount = 20;
+        private int _timeProfileBucketCount = 20;
+        private int _volumeProfileRawBucketCount = 20;
+        private int _timeProfileRawBucketCount = 20;
+
         private ArchitectureKind _architectureKind = ArchitectureKind.Mlp;
         private string _mlpHiddenSizesText = "32,16";
         private int _lstmHiddenSize = 64;
@@ -114,10 +126,25 @@ namespace Poink.Sim.Components.Pages
         {
             Service.OnChanged += HandleServiceChanged;
 
-            if (Service.BrainOptions.Count > 0) _brainName = Service.BrainOptions[0].Name;
+            if (TrainableBrainOptions.Count > 0) _brainName = TrainableBrainOptions[0].Name;
             if (Service.StrategyNames.Count > 0) _strategyName = Service.StrategyNames[0];
             if (Service.RewardPolicyNames.Count > 0) _rewardPolicyName = Service.RewardPolicyNames[0];
         }
+
+        // Heuristic brains (MomentumThresholdBrain, RandomBrain) have no trainable
+        // weights -- IRlTrainingStrategy.CanTrain rejects anything but
+        // IPolicyGradientBrain, so this page's picker only ever offers the ones
+        // that can actually run here. BrainSelect still shows its NEURAL NETWORK/
+        // HEURISTIC split generically (SimulationPage passes it the full,
+        // unfiltered Service.BrainOptions for playback of either kind).
+        private IReadOnlyList<BrainOption> TrainableBrainOptions =>
+            Service.BrainOptions.Where(b => b.IsNeuralNetwork).ToList();
+
+        // Gates the Data Structure card -- Profile lookback only means something
+        // for a brain composed with a Volume/Time Profile (raw or not) encoder
+        // (see IHasLookbackBars); a plain Bar Window brain (e.g. MLP/LSTM Policy)
+        // ignores it entirely, so hide the field instead of showing a dead control.
+        private bool BrainHasProfileLookback => Service.GetLookbackBars(_brainName) is not null;
 
         private void HandleServiceChanged() => _ = InvokeAsync(StateHasChanged);
 
@@ -148,7 +175,44 @@ namespace Poink.Sim.Components.Pages
             !string.IsNullOrWhiteSpace(EffectiveBuildBrainName)
             && (_includeBarWindow || _includeVolumeProfile || _includeTimeProfile || _includeVolumeProfileRaw || _includeTimeProfileRaw)
             && (_includeHold || _includeEnterLong || _includeEnterShort || _includeClose)
-            && (_architectureKind != ArchitectureKind.Lstm || _includeBarWindow);
+            && (_architectureKind != ArchitectureKind.Lstm || _includeBarWindow)
+            && (!_includeBarWindow || _barWindowSize >= 1)
+            && (!_includeVolumeProfile || _volumeProfileBucketCount >= 1)
+            && (!_includeTimeProfile || _timeProfileBucketCount >= 1)
+            && (!_includeVolumeProfileRaw || _volumeProfileRawBucketCount >= 1)
+            && (!_includeTimeProfileRaw || _timeProfileRawBucketCount >= 1);
+
+        // Canonical part order (Bar Window before Volume Profile before Time
+        // Profile) regardless of checkbox click order -- CompositeEncoder
+        // requires any sequence-bearing part to be listed first (see its doc
+        // comment). Shared by CreateBrain and TotalInputCount so the two never
+        // drift apart.
+        private IReadOnlyList<EncoderKind> SelectedEncoderKinds
+        {
+            get
+            {
+                var kinds = new List<EncoderKind>();
+                if (_includeBarWindow) kinds.Add(EncoderKind.BarWindow);
+                if (_includeVolumeProfile) kinds.Add(EncoderKind.VolumeProfile);
+                if (_includeTimeProfile) kinds.Add(EncoderKind.TimeProfile);
+                if (_includeVolumeProfileRaw) kinds.Add(EncoderKind.VolumeProfileRaw);
+                if (_includeTimeProfileRaw) kinds.Add(EncoderKind.TimeProfileRaw);
+                return kinds;
+            }
+        }
+
+        private EncoderSizeOptions CurrentEncoderSizeOptions => new(
+            _barWindowSize, _volumeProfileBucketCount, _timeProfileBucketCount, _volumeProfileRawBucketCount, _timeProfileRawBucketCount);
+
+        // Live input-count readout for the Input Structure card -- reuses
+        // BrainCatalog.CreateEncoder (the same factory CreateBrain itself
+        // calls into via Service.TryBuildBrain) as the single source of truth
+        // for each encoder's FeatureCount, instead of duplicating that
+        // arithmetic here. Trader State is always included (see BrainCatalog's
+        // doc comment on why it's not a pickable EncoderKind).
+        private int TotalInputCount =>
+            new TraderStateEncoder().FeatureCount
+            + SelectedEncoderKinds.Sum(k => BrainCatalog.CreateEncoder(k, CurrentEncoderSizeOptions).FeatureCount);
 
         // {Architecture}_{Layers}_{Data}, e.g. MLP_L32-L16_dBW-dVP-dTP-dAS -- mirrors
         // CreateBrain's own encoder/architecture choices below, so the generated
@@ -211,19 +275,10 @@ namespace Poink.Sim.Components.Pages
             if (!_buildBrainNameAuto) _buildBrainName = AutoBuildBrainName;
         }
 
-        // Canonical part order (Bar Window before Volume Profile before Time
-        // Profile) regardless of checkbox click order -- CompositeEncoder
-        // requires any sequence-bearing part to be listed first (see its doc
-        // comment).
         private void CreateBrain()
         {
             var name = EffectiveBuildBrainName;
-            var encoderKinds = new List<EncoderKind>();
-            if (_includeBarWindow) encoderKinds.Add(EncoderKind.BarWindow);
-            if (_includeVolumeProfile) encoderKinds.Add(EncoderKind.VolumeProfile);
-            if (_includeTimeProfile) encoderKinds.Add(EncoderKind.TimeProfile);
-            if (_includeVolumeProfileRaw) encoderKinds.Add(EncoderKind.VolumeProfileRaw);
-            if (_includeTimeProfileRaw) encoderKinds.Add(EncoderKind.TimeProfileRaw);
+            var encoderKinds = SelectedEncoderKinds;
 
             IReadOnlyList<int> hiddenSizes = _architectureKind == ArchitectureKind.Mlp
                 ? ParseHiddenSizes(_mlpHiddenSizesText)
@@ -242,7 +297,7 @@ namespace Poink.Sim.Components.Pages
             if (_includeEnterShort) enabledDirections.Add(SimulationAction.EnterShort);
             if (_includeClose) enabledDirections.Add(SimulationAction.Close);
 
-            if (Service.TryBuildBrain(name, encoderKinds, _architectureKind, hiddenSizes, actionOutputKinds, enabledDirections))
+            if (Service.TryBuildBrain(name, encoderKinds, _architectureKind, hiddenSizes, actionOutputKinds, enabledDirections, CurrentEncoderSizeOptions))
             {
                 _buildBrainStatus = $"built '{name}' -- pick it above to train it";
                 _brainName = name;
@@ -302,8 +357,15 @@ namespace Poink.Sim.Components.Pages
             _leverage, _stopOutLevelPercent, new PercentOfNotionalCommission(_commissionRatePercent));
 
         // Historic: each episode streams its own randomly-windowed slice of the
-        // selected symbol/range straight from Postgres.
-        private void StartTraining() => StartTrainingCore(pauseAfterFirstEpisode: false);
+        // selected symbol/range straight from Postgres. Collapses the config
+        // panel once a run actually starts (not on STEP -- that's for careful
+        // episode-by-episode work where the panel likely should stay open), so
+        // the panels below get the room back without an extra click.
+        private void StartTraining()
+        {
+            StartTrainingCore(pauseAfterFirstEpisode: false);
+            if (_startError is null) _controlsCollapsed = true;
+        }
 
         // STEP button: while a run is already paused, just advance it one
         // episode (Service already has everything it needs). Otherwise this

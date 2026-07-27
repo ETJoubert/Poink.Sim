@@ -33,19 +33,22 @@ namespace Poink.Sim.Brain.Neural;
 
 internal sealed class TimeProfileEncoder : IObservationEncoder, IHasLookbackBars
 {
-    private const int HistogramBucketCount = 20; // matches VolumeProfileEncoder's bucket count
+    private const int DefaultBucketCount = 20; // matches VolumeProfileEncoder's bucket count
     private const int SummaryScalarCount = 3; // POC offset, value-area-high offset, value-area-low offset
     private const double ValueAreaFraction = 0.70;
 
+    private readonly int _bucketCount;
     private readonly IFeatureNormalizer _fractionNormalizer;
     private readonly IFeatureNormalizer _priceOffsetNormalizer;
     private readonly IReadOnlyList<FeatureDescriptor> _features;
 
-    public TimeProfileEncoder(IFeatureNormalizer? fractionNormalizer = null, IFeatureNormalizer? priceOffsetNormalizer = null)
+    public TimeProfileEncoder(
+        int bucketCount = DefaultBucketCount, IFeatureNormalizer? fractionNormalizer = null, IFeatureNormalizer? priceOffsetNormalizer = null)
     {
+        _bucketCount = bucketCount;
         _fractionNormalizer = fractionNormalizer ?? new FractionNormalizer();
         _priceOffsetNormalizer = priceOffsetNormalizer ?? new PriceOffsetNormalizer();
-        _features = Enumerable.Range(0, HistogramBucketCount)
+        _features = Enumerable.Range(0, _bucketCount)
             .Select(i => new FeatureDescriptor($"tp-{i}", _fractionNormalizer))
             .Append(new FeatureDescriptor("tp-poc-offset", _priceOffsetNormalizer))
             .Append(new FeatureDescriptor("tp-va-high-offset", _priceOffsetNormalizer))
@@ -58,7 +61,7 @@ internal sealed class TimeProfileEncoder : IObservationEncoder, IHasLookbackBars
     // playback uses whatever was last configured.
     public int LookbackBars { get; set; } = 50;
 
-    public int FeatureCount => HistogramBucketCount + SummaryScalarCount;
+    public int FeatureCount => _bucketCount + SummaryScalarCount;
 
     public int SequenceLength => 0;
 
@@ -77,8 +80,8 @@ internal sealed class TimeProfileEncoder : IObservationEncoder, IHasLookbackBars
 
         var features = new float[FeatureCount];
 
-        var histogram = TimeProfileAnalysis.BuildRelativeHistogram(merged, HistogramBucketCount);
-        for (int i = 0; i < HistogramBucketCount; i++)
+        var histogram = TimeProfileAnalysis.BuildRelativeHistogram(merged, _bucketCount);
+        for (int i = 0; i < _bucketCount; i++)
             features[i] = _fractionNormalizer.Normalize(histogram[i], observation);
 
         // No summary (empty/zero-time window) leaves these three at their
@@ -86,9 +89,9 @@ internal sealed class TimeProfileEncoder : IObservationEncoder, IHasLookbackBars
         // BuildRelativeHistogram's own empty-input case uses.
         if (TimeProfileAnalysis.ComputeSummary(merged, bucketWidth, ValueAreaFraction) is { } summary)
         {
-            features[HistogramBucketCount + 0] = _priceOffsetNormalizer.Normalize(summary.PointOfControl, observation);
-            features[HistogramBucketCount + 1] = _priceOffsetNormalizer.Normalize(summary.ValueAreaHigh, observation);
-            features[HistogramBucketCount + 2] = _priceOffsetNormalizer.Normalize(summary.ValueAreaLow, observation);
+            features[_bucketCount + 0] = _priceOffsetNormalizer.Normalize(summary.PointOfControl, observation);
+            features[_bucketCount + 1] = _priceOffsetNormalizer.Normalize(summary.ValueAreaHigh, observation);
+            features[_bucketCount + 2] = _priceOffsetNormalizer.Normalize(summary.ValueAreaLow, observation);
         }
 
         return features;

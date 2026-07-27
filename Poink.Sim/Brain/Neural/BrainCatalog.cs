@@ -39,6 +39,22 @@ public enum ActionOutputKind { Volume, StopLoss, TakeProfit }
 // RlTrainingService, or persistence at all.
 public enum ActionOutputEncodingKind { DiscretizedLevels }
 
+// Per-encoder input width, independent of each other and of IHasLookbackBars'
+// LookbackBars (a runtime-mutable merge window that never changes FeatureCount
+// -- see that interface's doc comment). These do change FeatureCount, so
+// they're build-time-only: baked into the encoder at construction via
+// BrainCatalog.CreateEncoder, then carried on BrainRecipe so LoadSavedBrain
+// reconstructs the exact same shape a saved snapshot's weights were trained
+// with. Defaults match this codebase's original hardcoded bucket/window
+// counts, so a recipe saved before this record existed (missing the property
+// entirely) still deserializes to the same shape it was originally built with.
+public sealed record EncoderSizeOptions(
+    int BarWindowSize = 20,
+    int VolumeProfileBucketCount = 20,
+    int TimeProfileBucketCount = 20,
+    int VolumeProfileRawBucketCount = 20,
+    int TimeProfileRawBucketCount = 20);
+
 // A runtime-built brain's exact shape -- what LoadSavedBrain needs to
 // reconstruct an identical encoder/architecture/action composition after a
 // restart wipes it from BrainRegistry (see RlTrainingService.TryBuildBrain).
@@ -52,12 +68,16 @@ public enum ActionOutputEncodingKind { DiscretizedLevels }
 // (equivalent to ComposedPolicyBrain.AllDirections -- every one of
 // Hold/EnterLong/EnterShort/Close) for the same reason, and for the same
 // reason: every direction is individually optional per brain, not just the
-// added heads (see SimulationAction's doc comment).
+// added heads (see SimulationAction's doc comment). EncoderSizes defaults to
+// null (equivalent to EncoderSizeOptions' own all-20 default -- a record type
+// can't itself be a default parameter value, only null can), same
+// deserialization-tolerance reasoning as the other optional properties here.
 public sealed record BrainRecipe(
     IReadOnlyList<EncoderKind> EncoderKinds, ArchitectureKind ArchitectureKind, IReadOnlyList<int> HiddenSizes,
     IReadOnlyList<ActionOutputKind>? ActionOutputKinds = null,
     ActionOutputEncodingKind ActionOutputEncodingKind = ActionOutputEncodingKind.DiscretizedLevels,
-    IReadOnlyList<SimulationAction>? EnabledDirections = null)
+    IReadOnlyList<SimulationAction>? EnabledDirections = null,
+    EncoderSizeOptions? EncoderSizes = null)
 {
     public override string ToString()
     {
@@ -72,15 +92,19 @@ public sealed record BrainRecipe(
 
 internal static class BrainCatalog
 {
-    public static IObservationEncoder CreateEncoder(EncoderKind kind) => kind switch
+    public static IObservationEncoder CreateEncoder(EncoderKind kind, EncoderSizeOptions? sizeOptions = null)
     {
-        EncoderKind.BarWindow => new BarWindowEncoder(),
-        EncoderKind.VolumeProfile => new VolumeProfileEncoder(),
-        EncoderKind.TimeProfile => new TimeProfileEncoder(),
-        EncoderKind.VolumeProfileRaw => new VolumeProfileRawEncoder(),
-        EncoderKind.TimeProfileRaw => new TimeProfileRawEncoder(),
-        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
-    };
+        var sizes = sizeOptions ?? new EncoderSizeOptions();
+        return kind switch
+        {
+            EncoderKind.BarWindow => new BarWindowEncoder(windowSize: sizes.BarWindowSize),
+            EncoderKind.VolumeProfile => new VolumeProfileEncoder(bucketCount: sizes.VolumeProfileBucketCount),
+            EncoderKind.TimeProfile => new TimeProfileEncoder(bucketCount: sizes.TimeProfileBucketCount),
+            EncoderKind.VolumeProfileRaw => new VolumeProfileRawEncoder(bucketCount: sizes.VolumeProfileRawBucketCount),
+            EncoderKind.TimeProfileRaw => new TimeProfileRawEncoder(bucketCount: sizes.TimeProfileRawBucketCount),
+            _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
+        };
+    }
 
     // hiddenSizes is the MLP's variable-length hidden-layer list for Mlp, or
     // exactly [hiddenSize, numLayers] for Lstm -- the Train page builds this

@@ -25,24 +25,26 @@ namespace Poink.Sim.Brain.Neural;
 
 internal sealed class BarWindowEncoder : IObservationEncoder
 {
-    private const int WindowSize = 20;
+    private const int DefaultWindowSize = 20;
 
+    private readonly int _windowSize;
     private readonly IFeatureNormalizer _priceOffsetNormalizer;
     private readonly IReadOnlyList<FeatureDescriptor> _features;
 
-    public BarWindowEncoder(IFeatureNormalizer? priceOffsetNormalizer = null)
+    public BarWindowEncoder(int windowSize = DefaultWindowSize, IFeatureNormalizer? priceOffsetNormalizer = null)
     {
+        _windowSize = windowSize;
         _priceOffsetNormalizer = priceOffsetNormalizer ?? new PriceOffsetNormalizer();
-        _features = Enumerable.Range(1, WindowSize)
-            .Select(i => new FeatureDescriptor($"t-{WindowSize - i + 1}", _priceOffsetNormalizer))
+        _features = Enumerable.Range(1, _windowSize)
+            .Select(i => new FeatureDescriptor($"t-{_windowSize - i + 1}", _priceOffsetNormalizer))
             .ToList();
     }
 
-    public int FeatureCount => WindowSize;
+    public int FeatureCount => _windowSize;
 
-    public int SequenceLength => WindowSize;
+    public int SequenceLength => _windowSize;
 
-    public int WarmupBars => WindowSize;
+    public int WarmupBars => _windowSize;
 
     public IReadOnlyList<FeatureDescriptor> Features => _features;
 
@@ -51,10 +53,10 @@ internal sealed class BarWindowEncoder : IObservationEncoder
         bool useBars = observation.RecentBars.Count > 0;
         int sourceCount = useBars ? observation.RecentBars.Count : observation.RecentTicks.Count;
 
-        var features = new float[WindowSize];
+        var features = new float[_windowSize];
 
-        int available = Math.Min(WindowSize, sourceCount);
-        int padding = WindowSize - available;
+        int available = Math.Min(_windowSize, sourceCount);
+        int padding = _windowSize - available;
         for (int i = 0; i < available; i++)
         {
             int sourceIndex = sourceCount - available + i;

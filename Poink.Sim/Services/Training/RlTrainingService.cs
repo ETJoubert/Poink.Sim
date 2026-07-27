@@ -547,7 +547,8 @@ internal sealed class RlTrainingService
     // CompositeEncoder's sequence-first guard is satisfied.
     public bool TryBuildBrain(
         string name, IReadOnlyList<EncoderKind> encoderKinds, ArchitectureKind architectureKind, IReadOnlyList<int> hiddenSizes,
-        IReadOnlyList<ActionOutputKind>? actionOutputKinds = null, IReadOnlyList<SimulationAction>? enabledDirections = null)
+        IReadOnlyList<ActionOutputKind>? actionOutputKinds = null, IReadOnlyList<SimulationAction>? enabledDirections = null,
+        EncoderSizeOptions? encoderSizes = null)
     {
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -576,7 +577,7 @@ internal sealed class RlTrainingService
 
         try
         {
-            var parts = encoderKinds.Select(BrainCatalog.CreateEncoder).Append(new TraderStateEncoder()).ToArray();
+            var parts = encoderKinds.Select(k => BrainCatalog.CreateEncoder(k, encoderSizes)).Append(new TraderStateEncoder()).ToArray();
             var architecture = BrainCatalog.CreateArchitecture(architectureKind, hiddenSizes);
             var actionOutputHeads = (actionOutputKinds ?? [])
                 .Select(k => BrainCatalog.CreateActionOutputHead(k, ActionOutputEncodingKind.DiscretizedLevels)).ToList();
@@ -585,7 +586,7 @@ internal sealed class RlTrainingService
             _brainRegistry.Register(brain);
             _brainRecipes[name] = new BrainRecipe(
                 encoderKinds.ToList(), architectureKind, hiddenSizes.ToList(),
-                actionOutputKinds?.ToList(), ActionOutputEncodingKind.DiscretizedLevels, enabledDirections?.ToList());
+                actionOutputKinds?.ToList(), ActionOutputEncodingKind.DiscretizedLevels, enabledDirections?.ToList(), encoderSizes);
             Error = null;
             OnChanged?.Invoke();
             _logger.LogInformation("Built new brain: name={Name}, encoders={Encoders}, architecture={Architecture}",
@@ -703,7 +704,7 @@ internal sealed class RlTrainingService
             }
             try
             {
-                var parts = recipe.EncoderKinds.Select(BrainCatalog.CreateEncoder).Append(new TraderStateEncoder()).ToArray();
+                var parts = recipe.EncoderKinds.Select(k => BrainCatalog.CreateEncoder(k, recipe.EncoderSizes)).Append(new TraderStateEncoder()).ToArray();
                 var architecture = BrainCatalog.CreateArchitecture(recipe.ArchitectureKind, recipe.HiddenSizes);
                 var actionOutputHeads = (recipe.ActionOutputKinds ?? [])
                     .Select(k => BrainCatalog.CreateActionOutputHead(k, recipe.ActionOutputEncodingKind)).ToList();

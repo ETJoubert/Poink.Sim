@@ -109,43 +109,74 @@
     text-shadow: 0 0 8px color-mix(in srgb, var(--color-success) 60%, transparent);
 }
 
-/* ── Data source / Brain & run-parameters rows -- same flat shell as
-   SimulationPage's .sim-datarow/.sim-brainrow-* (no bordered boxes), so the
-   sticky bar reads as one continuous toolbar rather than a form. ─────────── */
+/* ── Config cards -- Data Range/Brain Type/Data Structure/Training/Reward
+   Policy/Trader each get their own bordered card (.train-card), the same
+   shell the nested Input/Structure/Actions cards inside Build Brain use, so
+   every section in the topbar reads as one consistent card system rather
+   than a mix of flat rows and boxes. ──────────────────────────────────────── */
 
-.train-datarow {
+.train-config-cards {
     display: flex;
     flex-wrap: wrap;
-    align-items: center;
-    gap: 28px;
-    padding: 6px 24px;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 14px 24px;
     border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
 }
 
-.train-datarow-field {
+.train-card {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 8px;
+    min-width: 190px;
+    padding: 10px 12px;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
+    border-radius: var(--border-radius-sm);
+    background: color-mix(in srgb, var(--color-primary) 4%, transparent);
 }
 
-.train-datarow-data {
-    flex: 1;
-    min-width: 320px;
-}
-
-/* Category header at the start of each control row (Data Range, Data
-   Structure, Brain Type, Training, Trader, Reward Policy) -- fixed width so
-   labels line up vertically down the topbar, same accent color as the page
-   title so they read as section headings rather than another field. */
-.train-section-label {
-    font-size: 0.68rem;
+.train-card-title {
+    font-size: 0.62rem;
     font-weight: bold;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--color-accent);
-    min-width: 110px;
 }
 
+/* Data Range -- unlike the other config cards, this one spans the full
+   topbar width (its DateRangeSlider content needs the room, and it doesn't
+   make sense to wrap it next to a narrower card). */
+.train-card-full {
+    flex: 1 1 100%;
+}
+
+/* Keeps TickDataSource's symbol select/Recount button/date range slider on
+   one line now that the card has the full topbar width to do so, instead of
+   falling back to its own default wrap (still fine in SimulationPage/
+   ProfilerPage's narrower layouts, which keep TickDataSource's own default). */
+.train-card-full ::deep .tds-row {
+    flex-wrap: nowrap;
+}
+
+/* .train-card-fields-row's own display:flex (see above) treats its single
+   child here -- the whole <TickDataSource> -- as one shrinkable flex item,
+   squeezing it (and the date range slider inside) below the width nowrap
+   above assumes it gets. Only one child ever sits in this card's row, so
+   drop the flex context entirely rather than fight flex-shrink for it. */
+.train-card-full .train-card-fields-row {
+    display: block;
+}
+
+/* Horizontal field layout for a card's own controls -- wraps internally
+   rather than forcing the card wider than its container. Distinct from
+   .train-buildbrain-card-fields (vertical stack), which the nested
+   Input/Structure/Actions cards keep for their checkbox lists below. */
+.train-card-fields-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 16px;
+}
 
 .train-brainrow-field {
     display: flex;
@@ -184,42 +215,73 @@
     width: 160px;
 }
 
-/* Build Brain panel -- same look as the rest of the sticky topbar's rows,
-   just visually set apart (left accent) since it's an expandable extra,
-   not part of the always-visible run controls above it. */
-.train-buildbrain {
-    border-left: 2px solid var(--color-secondary);
-    padding-left: 10px;
-    margin-left: 2px;
+/* Non-editable readout sharing .train-brainrow-input's terminal-field look
+   (e.g. TotalInputCount) -- a plain <span>, not an <input>, so no border-color
+   focus transition applies. */
+.train-brainrow-readonly {
+    background: var(--color-bg-terminal);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 45%, transparent);
+    color: var(--color-primary);
+    padding: 4px 6px;
+    border-radius: var(--border-radius-sm);
+    font-family: var(--font-body);
+    font-size: 12px;
+    width: 80px;
+    text-align: right;
+    box-sizing: border-box;
 }
 
-/* Input/Structure/Actions cards -- flex-basis:100% forces this row onto its
-   own line below the Name/Auto Name fields, since .train-buildbrain (like
-   every .train-datarow) is itself a wrapping flex row. */
+/* + BUILD BRAIN toggle -- same look as TickDataSource's RECOUNT/FULL RANGE
+   buttons (.tds-btn), a lighter-weight outline style than .terminal-btn-action
+   since this only expands/collapses a panel rather than acting on the run.
+   Duplicated rather than shared because Blazor CSS isolation scopes
+   .tds-btn to TickDataSource's own render output. */
+.train-btn-toggle {
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
+    color: var(--color-secondary);
+    border-radius: var(--border-radius-sm);
+    font-family: var(--font-body);
+    font-size: 0.62rem;
+    font-weight: bold;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 7px 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.train-btn-toggle:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-secondary) 12%, transparent);
+    box-shadow: var(--shadow-glow-secondary);
+}
+
+.train-btn-toggle:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Build Brain panel -- nested inside the Brain Type card, visually set apart
+   (left accent) since it's an expandable extra, not part of the
+   always-visible picker above it. */
+.train-buildbrain {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    border-left: 2px solid var(--color-secondary);
+    padding-left: 10px;
+    margin: 4px 0 0 2px;
+}
+
+/* Input/Structure/Actions cards -- share .train-card's shell above, just
+   with their own vertical-stack fields (.train-buildbrain-card-fields, for
+   checkbox lists) instead of .train-card-fields-row. */
 .train-buildbrain-cards {
     display: flex;
     flex-wrap: wrap;
-    flex-basis: 100%;
     gap: 14px;
-}
-
-.train-buildbrain-card {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    min-width: 190px;
-    padding: 10px 12px;
-    border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
-    border-radius: var(--border-radius-sm);
-    background: color-mix(in srgb, var(--color-primary) 4%, transparent);
-}
-
-.train-buildbrain-card-title {
-    font-size: 0.62rem;
-    font-weight: bold;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--color-accent);
 }
 
 .train-buildbrain-card-fields {
