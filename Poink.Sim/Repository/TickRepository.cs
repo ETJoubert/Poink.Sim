@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using Dapper;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Npgsql;
 
@@ -15,7 +16,7 @@ internal sealed class TickRepository : ITickRepository
     // symbol with an identical (timestamp, bid, ask) shape -- see
     // Poink.Trader.cs, left untouched). Table names are only known at runtime,
     // so Dapper (SQL text + row mapping) is used instead of a static EF model.
-    const string ConnectionString = "Host=localhost;Port=5432;Username=postgres;Password=postgres;Database=Poink.MarketData";
+    private readonly string _connectionString;
 
     // Postgres-side cache of table stats -- COUNT(*)/MIN/MAX over a ticks_*
     // table is a full scan and too slow to run on every read (see
@@ -36,7 +37,14 @@ internal sealed class TickRepository : ITickRepository
 
     private readonly ILogger<TickRepository> _logger;
 
-    public TickRepository(ILogger<TickRepository> logger) => _logger = logger;
+    public TickRepository(ILogger<TickRepository> logger, IConfiguration configuration)
+    {
+        _logger = logger;
+        _connectionString = configuration.GetConnectionString("PoinkMarketData")
+            ?? throw new InvalidOperationException(
+                "No connection string configured for 'PoinkMarketData'. Add ConnectionStrings:PoinkMarketData " +
+                "to appsettings, appsettings.Secrets.json, or environment variables.");
+    }
 
     public bool HasCachedTables { get { lock (_cacheLock) return _cachedTables is not null; } }
 
@@ -47,7 +55,7 @@ internal sealed class TickRepository : ITickRepository
 
     public List<(string Table, long Rows, DateTime? MinTime, DateTime? MaxTime)> ListTickTables()
     {
-        using var conn = new NpgsqlConnection(ConnectionString);
+        using var conn = new NpgsqlConnection(_connectionString);
         conn.Open();
         EnsureRegistryTable(conn);
 
@@ -61,7 +69,7 @@ internal sealed class TickRepository : ITickRepository
 
     public List<(string Table, long Rows, DateTime? MinTime, DateTime? MaxTime)> RefreshTickTableStats()
     {
-        using var conn = new NpgsqlConnection(ConnectionString);
+        using var conn = new NpgsqlConnection(_connectionString);
         conn.Open();
         EnsureRegistryTable(conn);
 
@@ -88,7 +96,7 @@ internal sealed class TickRepository : ITickRepository
     // iterator is disposed/exhausted (see README.md's "Playback design" section).
     public IEnumerable<Tick> ReadTicks(string table, DateTime? from = null, DateTime? to = null)
     {
-        using var conn = new NpgsqlConnection(ConnectionString);
+        using var conn = new NpgsqlConnection(_connectionString);
         conn.Open();
         //_logger.LogInformation("Opening tick stream for {Table} (from={From}, to={To})", table, from, to);
 
@@ -104,7 +112,7 @@ internal sealed class TickRepository : ITickRepository
     // @start before the LIMIT even applies.
     public List<Tick> ReadWindow(string table, DateTime start, int count)
     {
-        using var conn = new NpgsqlConnection(ConnectionString);
+        using var conn = new NpgsqlConnection(_connectionString);
         conn.Open();
 
         var sql = Sql.SelectWindow(table);
@@ -115,7 +123,7 @@ internal sealed class TickRepository : ITickRepository
     // a full-table scan.
     public long CountTicks(string table, DateTime from, DateTime to)
     {
-        using var conn = new NpgsqlConnection(ConnectionString);
+        using var conn = new NpgsqlConnection(_connectionString);
         conn.Open();
 
         var sql = Sql.CountTicks(table);

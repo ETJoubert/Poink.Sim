@@ -1,6 +1,8 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Dapper;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Npgsql;
 
@@ -15,18 +17,29 @@ internal sealed class TRangeChartRepository : ITRangeChartRepository
     // TickRepository's separate "Poink.MarketData" database for the same
     // reasoning taken further).
     const string DatabaseName = "Poink.Sim";
-    const string MaintenanceConnectionString = "Host=localhost;Port=5432;Username=postgres;Password=postgres;Database=postgres";
-    const string ConnectionString = $"Host=localhost;Port=5432;Username=postgres;Password=postgres;Database={DatabaseName}";
     const string TableName = "trange_charts";
 
     private readonly ILogger<TRangeChartRepository> _logger;
+    private readonly string _maintenanceConnectionString;
+    private readonly string _connectionString;
 
-    public TRangeChartRepository(ILogger<TRangeChartRepository> logger) => _logger = logger;
+    public TRangeChartRepository(ILogger<TRangeChartRepository> logger, IConfiguration configuration)
+    {
+        _logger = logger;
+        _maintenanceConnectionString = configuration.GetConnectionString("PoinkSimMaintenance")
+            ?? throw new InvalidOperationException(
+                "No connection string configured for 'PoinkSimMaintenance'. Add ConnectionStrings:PoinkSimMaintenance " +
+                "to appsettings, appsettings.Secrets.json, or environment variables.");
+        _connectionString = configuration.GetConnectionString("PoinkSim")
+            ?? throw new InvalidOperationException(
+                "No connection string configured for 'PoinkSim'. Add ConnectionStrings:PoinkSim " +
+                "to appsettings, appsettings.Secrets.json, or environment variables.");
+    }
 
     public long SaveTRangeChart(string label, string symbol, System.DateTime startTimeUtc, System.DateTime endTimeUtc, double barMinutes, int barCount)
     {
         EnsureDatabaseExists();
-        using var conn = new NpgsqlConnection(ConnectionString);
+        using var conn = new NpgsqlConnection(_connectionString);
         conn.Open();
         EnsureTable(conn);
 
@@ -38,7 +51,7 @@ internal sealed class TRangeChartRepository : ITRangeChartRepository
     public List<TRangeChart> ListTRangeCharts()
     {
         EnsureDatabaseExists();
-        using var conn = new NpgsqlConnection(ConnectionString);
+        using var conn = new NpgsqlConnection(_connectionString);
         conn.Open();
         EnsureTable(conn);
 
@@ -50,7 +63,7 @@ internal sealed class TRangeChartRepository : ITRangeChartRepository
     public void DeleteTRangeChart(long id)
     {
         EnsureDatabaseExists();
-        using var conn = new NpgsqlConnection(ConnectionString);
+        using var conn = new NpgsqlConnection(_connectionString);
         conn.Open();
         EnsureTable(conn);
         conn.Execute(Sql.DeleteChart, new { id });
@@ -59,7 +72,7 @@ internal sealed class TRangeChartRepository : ITRangeChartRepository
 
     private void EnsureDatabaseExists()
     {
-        using var conn = new NpgsqlConnection(MaintenanceConnectionString);
+        using var conn = new NpgsqlConnection(_maintenanceConnectionString);
         conn.Open();
         bool exists = conn.ExecuteScalar<bool>(Sql.DatabaseExists, new { name = DatabaseName });
         if (!exists)

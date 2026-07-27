@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Dapper;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Npgsql;
 using Poink.Sim.Brain.Neural;
@@ -24,13 +25,24 @@ internal sealed class BrainRepository : IBrainRepository
     // checked first -- same idea as EnsureRegistryTable in TickRepository,
     // one level up).
     const string DatabaseName = "Poink.Sim";
-    const string MaintenanceConnectionString = "Host=localhost;Port=5432;Username=postgres;Password=postgres;Database=postgres";
-    const string ConnectionString = $"Host=localhost;Port=5432;Username=postgres;Password=postgres;Database={DatabaseName}";
     const string TableName = "trained_brains";
 
     private readonly ILogger<BrainRepository> _logger;
+    private readonly string _maintenanceConnectionString;
+    private readonly string _connectionString;
 
-    public BrainRepository(ILogger<BrainRepository> logger) => _logger = logger;
+    public BrainRepository(ILogger<BrainRepository> logger, IConfiguration configuration)
+    {
+        _logger = logger;
+        _maintenanceConnectionString = configuration.GetConnectionString("PoinkSimMaintenance")
+            ?? throw new InvalidOperationException(
+                "No connection string configured for 'PoinkSimMaintenance'. Add ConnectionStrings:PoinkSimMaintenance " +
+                "to appsettings, appsettings.Secrets.json, or environment variables.");
+        _connectionString = configuration.GetConnectionString("PoinkSim")
+            ?? throw new InvalidOperationException(
+                "No connection string configured for 'PoinkSim'. Add ConnectionStrings:PoinkSim " +
+                "to appsettings, appsettings.Secrets.json, or environment variables.");
+    }
 
     public long SaveBrain(
         string name, string brainName, string strategyName, string rewardPolicyName, string dataset,
@@ -38,7 +50,7 @@ internal sealed class BrainRepository : IBrainRepository
         long weightCount, double avgReward, byte[] weights)
     {
         EnsureDatabaseExists();
-        using var conn = new NpgsqlConnection(ConnectionString);
+        using var conn = new NpgsqlConnection(_connectionString);
         conn.Open();
         EnsureTable(conn);
 
@@ -55,7 +67,7 @@ internal sealed class BrainRepository : IBrainRepository
     public List<SavedBrainSummary> ListBrains()
     {
         EnsureDatabaseExists();
-        using var conn = new NpgsqlConnection(ConnectionString);
+        using var conn = new NpgsqlConnection(_connectionString);
         conn.Open();
         EnsureTable(conn);
 
@@ -73,7 +85,7 @@ internal sealed class BrainRepository : IBrainRepository
     public byte[]? LoadWeights(long id)
     {
         EnsureDatabaseExists();
-        using var conn = new NpgsqlConnection(ConnectionString);
+        using var conn = new NpgsqlConnection(_connectionString);
         conn.Open();
         EnsureTable(conn);
         var weights = conn.QuerySingleOrDefault<byte[]>(Sql.SelectWeights, new { id });
@@ -87,7 +99,7 @@ internal sealed class BrainRepository : IBrainRepository
     public void DeleteBrain(long id)
     {
         EnsureDatabaseExists();
-        using var conn = new NpgsqlConnection(ConnectionString);
+        using var conn = new NpgsqlConnection(_connectionString);
         conn.Open();
         EnsureTable(conn);
         conn.Execute(Sql.DeleteBrain, new { id });
@@ -96,7 +108,7 @@ internal sealed class BrainRepository : IBrainRepository
 
     private void EnsureDatabaseExists()
     {
-        using var conn = new NpgsqlConnection(MaintenanceConnectionString);
+        using var conn = new NpgsqlConnection(_maintenanceConnectionString);
         conn.Open();
         bool exists = conn.ExecuteScalar<bool>(Sql.DatabaseExists, new { name = DatabaseName });
         if (!exists)

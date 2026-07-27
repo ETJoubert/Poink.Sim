@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Dapper;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Npgsql;
 
@@ -15,20 +16,31 @@ internal sealed class TRangeReferenceChartRepository : ITRangeReferenceChartRepo
     // rather than sharing it, matching this codebase's existing per-repository
     // self-containment.
     const string DatabaseName = "Poink.Sim";
-    const string MaintenanceConnectionString = "Host=localhost;Port=5432;Username=postgres;Password=postgres;Database=postgres";
-    const string ConnectionString = $"Host=localhost;Port=5432;Username=postgres;Password=postgres;Database={DatabaseName}";
     const string TableName = "trange_reference_charts";
 
     private readonly ILogger<TRangeReferenceChartRepository> _logger;
+    private readonly string _maintenanceConnectionString;
+    private readonly string _connectionString;
 
-    public TRangeReferenceChartRepository(ILogger<TRangeReferenceChartRepository> logger) => _logger = logger;
+    public TRangeReferenceChartRepository(ILogger<TRangeReferenceChartRepository> logger, IConfiguration configuration)
+    {
+        _logger = logger;
+        _maintenanceConnectionString = configuration.GetConnectionString("PoinkSimMaintenance")
+            ?? throw new InvalidOperationException(
+                "No connection string configured for 'PoinkSimMaintenance'. Add ConnectionStrings:PoinkSimMaintenance " +
+                "to appsettings, appsettings.Secrets.json, or environment variables.");
+        _connectionString = configuration.GetConnectionString("PoinkSim")
+            ?? throw new InvalidOperationException(
+                "No connection string configured for 'PoinkSim'. Add ConnectionStrings:PoinkSim " +
+                "to appsettings, appsettings.Secrets.json, or environment variables.");
+    }
 
     public long SaveTRangeReferenceChart(
         string label, string symbol, DateTime startTimeUtc, DateTime endTimeUtc, double barMinutes, int barCount,
         DateTime referenceStartTimeUtc, DateTime referenceEndTimeUtc, int referenceBarCount)
     {
         EnsureDatabaseExists();
-        using var conn = new NpgsqlConnection(ConnectionString);
+        using var conn = new NpgsqlConnection(_connectionString);
         conn.Open();
         EnsureTable(conn);
 
@@ -46,7 +58,7 @@ internal sealed class TRangeReferenceChartRepository : ITRangeReferenceChartRepo
     public List<TRangeReferenceChart> ListTRangeReferenceCharts()
     {
         EnsureDatabaseExists();
-        using var conn = new NpgsqlConnection(ConnectionString);
+        using var conn = new NpgsqlConnection(_connectionString);
         conn.Open();
         EnsureTable(conn);
 
@@ -58,7 +70,7 @@ internal sealed class TRangeReferenceChartRepository : ITRangeReferenceChartRepo
     public void DeleteTRangeReferenceChart(long id)
     {
         EnsureDatabaseExists();
-        using var conn = new NpgsqlConnection(ConnectionString);
+        using var conn = new NpgsqlConnection(_connectionString);
         conn.Open();
         EnsureTable(conn);
         conn.Execute(Sql.DeleteChart, new { id });
@@ -67,7 +79,7 @@ internal sealed class TRangeReferenceChartRepository : ITRangeReferenceChartRepo
 
     private void EnsureDatabaseExists()
     {
-        using var conn = new NpgsqlConnection(MaintenanceConnectionString);
+        using var conn = new NpgsqlConnection(_maintenanceConnectionString);
         conn.Open();
         bool exists = conn.ExecuteScalar<bool>(Sql.DatabaseExists, new { name = DatabaseName });
         if (!exists)

@@ -13,6 +13,7 @@
 //  shared terminal UI (Poink.Shared.Client).
 // ═══════════════════════════════════════════════════════════════════════════
 using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Poink.Sim.Brain;
@@ -28,6 +29,11 @@ using Serilog.Events;
 using System.IO;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Local, gitignored overrides (e.g. a real remote Postgres host/credentials) — see
+// appsettings.json for the tracked local-dev connection strings and
+// Poink.CTrader/README.md's "Secrets" section for the convention.
+builder.Configuration.AddJsonFile("appsettings.Secrets.json", optional: true, reloadOnChange: true);
 
 // Console + a local rolling file (Poink.Sim/poink-sim-.log, next to this
 // file) kept for 14 days -- only DB calls and start/stop/load/save/reset
