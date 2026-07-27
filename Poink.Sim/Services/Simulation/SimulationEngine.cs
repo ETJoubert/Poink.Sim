@@ -90,6 +90,12 @@ internal sealed class SimulationEngine : IDisposable
         public required Trader.ITrader Trader;
         public TraderControlMode Mode = TraderControlMode.Auto;
         public readonly RingBuffer<SimulationLogEntry> RecentLog = new(MaxRecentLog);
+
+        // This session's most recently captured brain I/O -- only ever set for
+        // whichever session _selectedTraderIdForIo currently designates (see
+        // DecideAndApply/SelectTraderForIo); every other session's stays null.
+        public IReadOnlyList<RlInputFeature>? LatestInputs;
+        public IReadOnlyList<RlOutputFeature>? LatestOutputs;
     }
 
     // _openReader recreates a fresh forward-only reader from the start of the
@@ -107,6 +113,12 @@ internal sealed class SimulationEngine : IDisposable
     private double _speedMultiplier = 1.0;
     private bool _uncapped;
     private bool _isPlaying;
+
+    // Which trader session DecideAndApply captures brain Inputs/Outputs for
+    // (see TraderSession.LatestInputs/LatestOutputs) -- defaults to the first
+    // session whenever _traderSessions is (re)built, matching SimulationPage's
+    // own "falls back to FirstOrDefault()" default for its SelectedTrader.
+    private int? _selectedTraderIdForIo;
 
     private readonly RingBuffer<HlocAvdtBar> _recentBars = new(MaxRecentBars);
     private readonly RingBuffer<BarPriceHistogram> _recentBarHistograms = new(MaxRecentBars);
@@ -249,6 +261,7 @@ internal sealed class SimulationEngine : IDisposable
             _totalCount = totalCount;
             _config = config;
             _traderSessions = CreateSessions(config.TraderCount, config.StartingCash, BuildTraderSettings(config));
+            _selectedTraderIdForIo = _traderSessions.Count > 0 ? _traderSessions[0].Id : null;
             _aggregator = config.Aggregate
                 ? new SimulationBarAggregator(config.BarSize, PriceBucketWidthFor(config.Table))
                 : null;
@@ -353,6 +366,7 @@ internal sealed class SimulationEngine : IDisposable
             _reader = _openReader();
             _cursor = 0;
             _traderSessions = CreateSessions(_config.TraderCount, _config.StartingCash, BuildTraderSettings(_config));
+            _selectedTraderIdForIo = _traderSessions.Count > 0 ? _traderSessions[0].Id : null;
             _aggregator = _config.Aggregate
                 ? new SimulationBarAggregator(_config.BarSize, PriceBucketWidthFor(_config.Table))
                 : null;
@@ -535,7 +549,28 @@ internal sealed class SimulationEngine : IDisposable
                 useBars ? _recentBarHistograms : Array.Empty<BarPriceHistogram>(),
                 capital, session.Trader.CurrentPosition);
 
-            var decision = _activeBrain!.Decide(observation);
+            // Capturing Inputs/Outputs for every session on every decision would
+            // multiply the extra DescribeInputs/DecideWithLogProbability cost by
+            // TraderCount for no benefit, since only one trader's I/O is ever
+            // shown at a time (see SimulationPage's INPUTS/OUTPUTS tab) -- scoped
+            // to whichever session _selectedTraderIdForIo currently designates.
+            // ComposedPolicyBrain.Decide already runs this same forward pass and
+            // computes Outputs internally then discards them, so capturing here
+            // costs zero extra forward passes for Outputs; DescribeInputs is one
+            // extra (cheap, no autograd/forward pass) call.
+            SimulationDecision decision;
+            if (_activeBrain is IPolicyGradientBrain policyBrain && session.Id == _selectedTraderIdForIo)
+            {
+                var (decidedAction, _, outputs) = policyBrain.DecideWithLogProbability(observation);
+                session.LatestInputs = policyBrain.DescribeInputs(observation);
+                session.LatestOutputs = outputs;
+                decision = decidedAction;
+            }
+            else
+            {
+                decision = _activeBrain!.Decide(observation);
+            }
+
             var execution = session.Trader.Apply(decision, bid, ask, timestamp);
             if (execution is { } exec)
                 AppendLog(session, new SimulationLogEntry(
@@ -560,6 +595,19 @@ internal sealed class SimulationEngine : IDisposable
         }
         PublishSnapshot();
         return true;
+    }
+
+    // Which trader session DecideAndApply captures brain Inputs/Outputs for --
+    // called by SimulationPage whenever the user picks a different trader on
+    // the TRADERS tab, so the INPUTS/OUTPUTS tab follows the same selection
+    // (see TraderSession.LatestInputs/LatestOutputs). No PublishSnapshot here
+    // -- switching selection doesn't itself produce new data to show (the
+    // newly-selected session's I/O, if any, only starts populating from the
+    // next decision point onward), so there's nothing for a republish to
+    // reveal early.
+    public void SelectTraderForIo(int? traderId)
+    {
+        lock (_lock) { _selectedTraderIdForIo = traderId; }
     }
 
     // Applies a manually-constructed decision (built by the trader controls panel)
@@ -622,7 +670,8 @@ internal sealed class SimulationEngine : IDisposable
                     _traderSessions.Select(ts => new TraderSnapshot(
                         ts.Id, ts.Label, ts.Mode, ts.Trader.Snapshot(_lastBid ?? 0, _lastAsk ?? 0), ts.Trader.CurrentPosition,
                         ts.Trader.CurrentPendingOrder, ts.Trader.TradeLog.Count, ts.RecentLog.ToList(), ts.Trader.TradeLog.ToList(),
-                        ts.Trader.MaxEquity, ts.Trader.MaxDrawdown, ts.Trader.Leverage, ts.Trader.StopOutLevelPercent)).ToList(),
+                        ts.Trader.MaxEquity, ts.Trader.MaxDrawdown, ts.Trader.Leverage, ts.Trader.StopOutLevelPercent,
+                        ts.LatestInputs, ts.LatestOutputs)).ToList(),
                     bars, barHistograms, _recentTicks.ToList());
         }
         Snapshot = snapshot;

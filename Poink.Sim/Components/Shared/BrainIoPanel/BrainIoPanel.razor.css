@@ -1,0 +1,182 @@
+.brain-io-section {
+    margin-bottom: 20px;
+}
+
+.brain-io-section:last-child {
+    margin-bottom: 0;
+}
+
+.brain-io-title {
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-secondary);
+    opacity: 0.85;
+    margin-bottom: 10px;
+}
+
+.brain-io-title-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.brain-io-subtitle {
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: normal;
+    opacity: 0.75;
+    font-size: 0.62rem;
+}
+
+.brain-io-denorm-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: normal;
+    font-size: 0.62rem;
+    color: var(--color-secondary);
+    opacity: 0.85;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.input-badge-group {
+    margin-bottom: 14px;
+}
+
+.input-badge-group-label {
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-secondary);
+    opacity: 0.8;
+    margin-bottom: 6px;
+}
+
+.input-badge-label {
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-secondary);
+    opacity: 0.75;
+    white-space: nowrap;
+}
+
+.input-badge-value {
+    font-size: 0.72rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.input-scalars {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.input-scalar {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    width: 96px;
+    flex-shrink: 0;
+}
+
+.input-scalar-label {
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-secondary);
+    opacity: 0.8;
+    white-space: nowrap;
+}
+
+.input-scalar-value {
+    font-size: 0.85rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.input-positive {
+    color: var(--color-success);
+}
+
+.input-negative {
+    color: var(--color-error);
+}
+
+/* Same action-dist-* family TrainLiveTab's own ACTION DISTRIBUTION panel uses
+   (session-wide running tallies, unrelated to this component) -- duplicated
+   here rather than shared, since Blazor CSS isolation scopes styles to one
+   component file and both panels need the same look. */
+.action-dist {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.action-dist-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.action-dist-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    width: 46px;
+    flex-shrink: 0;
+}
+
+.action-dist-hold { color: var(--color-muted); }
+.action-dist-long { color: var(--color-success); }
+.action-dist-short { color: var(--color-error); }
+.action-dist-close { color: var(--color-secondary); }
+
+.action-dist-track {
+    flex: 1;
+    height: 8px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.05);
+    overflow: hidden;
+}
+
+.action-dist-fill {
+    height: 100%;
+    transition: width 0.3s ease;
+}
+
+.action-dist-fill-hold { background: var(--color-muted); }
+.action-dist-fill-long { background: var(--color-success); box-shadow: var(--shadow-glow-primary); }
+.action-dist-fill-short { background: var(--color-error); }
+.action-dist-fill-close { background: var(--color-secondary); box-shadow: var(--shadow-glow-secondary); }
+
+.action-dist-pct {
+    font-size: 0.7rem;
+    color: var(--color-secondary);
+    width: 32px;
+    text-align: right;
+    flex-shrink: 0;
+}
+
+/* OUTPUTS card only -- marks which action the (stochastic) sampler actually
+   picked, distinct from the HOLD/LONG/SHORT/CLOSE color already carried by
+   .action-dist-label/-fill, since the highest-probability action isn't
+   necessarily the chosen one. */
+.action-dist-row-chosen {
+    background: color-mix(in srgb, var(--color-primary) 8%, transparent);
+    border-radius: var(--border-radius-sm);
+    box-shadow: inset 2px 0 0 var(--color-primary);
+    padding-left: 6px;
+    margin-left: -6px;
+}
+
+.action-dist-row-chosen .action-dist-pct {
+    color: var(--color-primary);
+    font-weight: 700;
+}

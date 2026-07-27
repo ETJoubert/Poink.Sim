@@ -21,18 +21,34 @@ using Poink.Sim.Models;
 
 namespace Poink.Sim.Brain.Neural;
 
-// The real-world reference points TrainLiveTab's episode replay has on hand
-// for denormalizing a historical bar's feature values -- CurrentPrice/Equity
-// from a live SimulationObservation, standing in for one. Null when the
-// anchor a given feature needs isn't available yet (e.g. no equity captured
-// because the episode's brain isn't describable).
-internal readonly record struct DenormalizationAnchors(double? CurrentPrice, double? Equity);
+// The real-world reference points BrainIoPanel's de-normalized INPUTS view
+// has on hand for denormalizing a feature value -- CurrentPrice/Equity from
+// a live SimulationObservation (Simulation) or a historical replay bar
+// standing in for one (Train). Null when the anchor a given feature needs
+// isn't available yet (e.g. no equity captured because the episode's brain
+// isn't describable). Public (not internal like most of this file) because
+// it's a [Parameter]-adjacent type on BrainIoPanel, shared between the Train
+// and Simulation pages -- same reason RlInputFeature/RlOutputFeature are
+// public (see IPolicyGradientBrain.cs).
+public readonly record struct DenormalizationAnchors(double? CurrentPrice, double? Equity);
 
-internal interface IFeatureNormalizer
+// The display-time half of IFeatureNormalizer below -- Denormalize/Format,
+// without Normalize (which needs SimulationObservation, an internal
+// encode-time type BrainIoPanel never touches and has no reason to need
+// public). RlInputFeature.Normalizer is typed as this narrower interface
+// instead of the full IFeatureNormalizer, so it can travel as a
+// BrainIoPanel [Parameter] without dragging SimulationObservation (and
+// everything *it* references) public too. Every IFeatureNormalizer
+// implementation already satisfies this for free, via the inheritance below
+// -- no concrete normalizer needs its own change.
+public interface IFeatureDisplayNormalizer
 {
-    float Normalize(double rawValue, SimulationObservation observation);
-
     double? Denormalize(float normalizedValue, DenormalizationAnchors anchors);
 
     string Format(double rawValue);
+}
+
+internal interface IFeatureNormalizer : IFeatureDisplayNormalizer
+{
+    float Normalize(double rawValue, SimulationObservation observation);
 }

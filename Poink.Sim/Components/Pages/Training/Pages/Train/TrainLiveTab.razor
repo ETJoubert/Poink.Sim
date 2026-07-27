@@ -1,4 +1,5 @@
 @namespace Poink.Sim.Components.Training
+@using Poink.Sim.Components.Shared.BrainIoPanel
 @using Poink.Sim.Components.Shared.DataTable
 @using Poink.Shared.Client.Components.Shared.Icon
 
@@ -9,6 +10,10 @@
 else
 {
 
+    <div class="train-live-panel">
+        <div class="train-panel-title">EPISODES</div>
+        <EpisodeGrid Episodes="Service.RecentEpisodes" IsRunning="Service.IsRunning" />
+    </div>
 
     <div class="train-stats">
         <div class="train-stat">
@@ -43,18 +48,8 @@ else
 
     <div class="train-live-grid">
         <div class="train-live-panel">
-            <div class="train-panel-title">EPISODES</div>
-            <EpisodeGrid Episodes="Service.RecentEpisodes" IsRunning="Service.IsRunning" />
-        </div>
-
-        <div class="train-live-panel">
             <div class="train-panel-title">REWARD</div>
             <RewardChart Episodes="Service.RecentEpisodes" IsRunning="Service.IsRunning" />
-        </div>
-
-        <div class="train-live-panel">
-            <div class="train-panel-title">NETWORK ACTIVITY</div>
-            <NetworkEmulator IsRunning="Service.IsRunning" LayerShapes="CurrentNetworkShape" />
         </div>
 
         <div class="train-live-panel">
@@ -152,80 +147,7 @@ else
         </div>
 
         <div class="train-live-panel train-live-panel-wide">
-            <div class="train-panel-title train-panel-title-row">
-                <span>
-                    INPUTS <span class="train-panel-subtitle">(what the network sees — last decision, or the replay's current bar while one's playing)</span>
-                </span>
-                <label class="train-inputs-denorm-toggle"
-                       title="Show actual price/currency values instead of the network's normalized (bounded ratio) inputs">
-                    <input type="checkbox" @bind="_showDenormalizedInputs" />
-                    De-normalized
-                </label>
-            </div>
-            @if (DisplayedInputs is null)
-            {
-                <span class="reward-chart-empty">no data yet</span>
-            }
-            else
-            {
-                <div class="input-badge-group">
-                    <div class="input-badge-group-label">PRICE WINDOW</div>
-                    <div class="input-scalars">
-                        @foreach (var f in PriceWindowFeatures)
-                        {
-                            <div class="input-scalar">
-                                <span class="input-badge-label">@f.Label</span>
-                                <span
-                                    class="input-badge-value @(f.Value switch { > 0 => "input-positive", < 0 => "input-negative", _ => "" })">
-                                    @FormatInputValue(f)
-                                </span>
-                            </div>
-                        }
-                    </div>
-                </div>
-                <div class="input-badge-group">
-                    <div class="input-badge-group-label">ACCOUNT STATE</div>
-                    <div class="input-scalars">
-                        @foreach (var f in ScalarFeatures)
-                        {
-                            <div class="input-scalar">
-                                <span class="input-scalar-label">@f.Label</span>
-                                <span
-                                    class="input-scalar-value @(f.Value switch { > 0 => "input-positive", < 0 => "input-negative", _ => "" })">
-                                    @FormatInputValue(f, "N3")
-                                </span>
-                            </div>
-                        }
-                    </div>
-                </div>
-            }
-        </div>
-
-        <div class="train-live-panel train-live-panel-wide">
-            <div class="train-panel-title">
-                OUTPUTS <span class="train-panel-subtitle">(what the network decided — last decision, or the replay's current bar while one's playing)</span>
-            </div>
-            @if (DisplayedOutputs is null)
-            {
-                <span class="reward-chart-empty">no data yet</span>
-            }
-            else
-            {
-                <div class="action-dist">
-                    @foreach (var o in DisplayedOutputs)
-                    {
-                        <div class="action-dist-row @(o.IsChosen ? "action-dist-row-chosen" : "")"
-                             title="@(o.IsChosen ? "What the network actually decided" : "")">
-                            <span class="action-dist-label action-dist-@(ActionCssSuffix(o.Label))">@ActionShortLabel(o.Label)</span>
-                            <div class="action-dist-track">
-                                <div class="action-dist-fill action-dist-fill-@(ActionCssSuffix(o.Label))"
-                                     style="width: @(Pct(o.Probability * 100))%"></div>
-                            </div>
-                            <span class="action-dist-pct">@(FormatProbabilityPct(o.Probability))%</span>
-                        </div>
-                    }
-                </div>
-            }
+            <BrainIoPanel Inputs="DisplayedInputs" Outputs="DisplayedOutputs" CurrentPrice="DisplayedCurrentPrice" Equity="DisplayedEquity" />
         </div>
     </div>
 

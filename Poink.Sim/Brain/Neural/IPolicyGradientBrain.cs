@@ -26,9 +26,17 @@ namespace Poink.Sim.Brain.Neural;
 // (e.g. the Train page's "what goes in" panel) -- never used for inference.
 // Normalizer is the same IFeatureNormalizer that produced Value (see
 // IObservationEncoder.Features), carried along so a display-only caller
-// (TrainLiveTab.FormatInputValue) can invert it back to real units generically,
-// without knowing this feature's label convention.
-internal sealed record RlInputFeature(string Label, double Value, IFeatureNormalizer Normalizer);
+// (BrainIoPanel.FormatInputValue) can invert it back to real units generically,
+// without knowing this feature's label convention -- typed as the narrower
+// IFeatureDisplayNormalizer (Denormalize/Format only, see that interface's
+// doc comment) rather than the full IFeatureNormalizer, since the full
+// interface's Normalize needs an internal SimulationObservation this record
+// has no reason to require public. Public (not internal like most of this
+// file) because it's passed as a [Parameter] into BrainIoPanel, shared
+// between the Train and Simulation pages (see RlEpisodeMetric's doc comment
+// for why a Razor component parameter can't be typed with a less-accessible
+// type than the component itself).
+public sealed record RlInputFeature(string Label, double Value, IFeatureDisplayNormalizer Normalizer);
 
 // One action's probability out of the policy's full output distribution for
 // one decision -- mirrors RlInputFeature but describes what the network
@@ -36,8 +44,9 @@ internal sealed record RlInputFeature(string Label, double Value, IFeatureNormal
 // to ~1; IsChosen flags which one the (stochastic) sampler actually picked
 // for this decision, since the highest-probability action isn't necessarily
 // the one taken. Label is the SimulationAction member name ("Hold"/
-// "EnterLong"/"EnterShort"/"Close").
-internal sealed record RlOutputFeature(string Label, double Probability, bool IsChosen);
+// "EnterLong"/"EnterShort"/"Close"). Public for the same BrainIoPanel reason
+// as RlInputFeature above.
+public sealed record RlOutputFeature(string Label, double Probability, bool IsChosen);
 
 // One "layer" in the Train page's ambient Network Activity animation. Units
 // is a real magnitude (a Linear's out_features, or an LSTM's hidden size),

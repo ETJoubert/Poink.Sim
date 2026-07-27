@@ -56,11 +56,6 @@ namespace Poink.Sim.Components.Training
             _replayTimer?.Dispose();
         }
 
-        // Drives the Live tab's Network Activity animation -- the currently
-        // selected brain's real architecture (see IPolicyGradientBrain.
-        // DescribeNetworkShape), not a hardcoded shape.
-        private IReadOnlyList<NetworkLayerShape> CurrentNetworkShape => Service.DescribeNetworkShape(BrainName);
-
         // ── Current episode: bar chart + volume/price profiles ──
         // Same mapping SimulationPage.ToBarRows uses for its live OhlcvChart --
         // HlocAvdtBar is internal, so a public [Parameter] can't take it directly.
@@ -262,7 +257,8 @@ namespace Poink.Sim.Components.Training
         // queryable generically via IHasLookbackBars). 0 for a brain with
         // neither (e.g. a heuristic brain, where DisplayedInputs is null to
         // begin with).
-        private int DisplayedWindowBarCount => Math.Max(PriceWindowFeatures.Count, Service.GetLookbackBars(BrainName) ?? 0);
+        private int DisplayedWindowBarCount => Math.Max(
+            DisplayedInputs?.Count(f => f.Label.StartsWith("t-", StringComparison.Ordinal)) ?? 0, Service.GetLookbackBars(BrainName) ?? 0);
 
         // Shades the trailing DisplayedWindowBarCount bars ending at whichever
         // bar the chart/INPUTS panel currently show -- "what range the trader
@@ -281,31 +277,6 @@ namespace Poink.Sim.Components.Training
                 int startIndex = Math.Max(0, endIndex - windowSize + 1);
                 return [new(bars[startIndex].TimeUtc, bars[endIndex].TimeUtc, ColorGroup: "profile")];
             }
-        }
-
-        // Toggles the INPUTS panel between the network's own normalized
-        // (bounded ratio) values and their de-normalized real-world units --
-        // see FormatInputValue for the per-label inversion.
-        private bool _showDenormalizedInputs;
-
-        // Converts one feature's normalized value into a human string, via
-        // whichever IFeatureNormalizer produced it (see
-        // IObservationEncoder.Features/RlInputFeature.Normalizer) -- generic
-        // across every encoder's features, so a new encoder/normalizer never
-        // needs a matching new case here. DisplayedCurrentPrice/DisplayedEquity
-        // stand in for a live SimulationObservation's anchors (this is a
-        // historical replay bar, not a live one). Falls back to the plain
-        // normalized value if the anchor a feature's normalizer needs isn't
-        // available yet (e.g. no equity captured because the episode's brain
-        // isn't describable).
-        private string FormatInputValue(RlInputFeature f, string normalizedFormat = "N4")
-        {
-            if (!_showDenormalizedInputs) return f.Value.ToString(normalizedFormat, CultureInfo.InvariantCulture);
-
-            var anchors = new DenormalizationAnchors(DisplayedCurrentPrice, DisplayedEquity);
-            return f.Normalizer.Denormalize((float)f.Value, anchors) is { } raw
-                ? f.Normalizer.Format(raw)
-                : f.Value.ToString(normalizedFormat, CultureInfo.InvariantCulture);
         }
 
         // PLAY: starts fresh from bar 0 over a new snapshot of whatever episode
@@ -438,46 +409,10 @@ namespace Poink.Sim.Components.Training
 
         // CSS width percentages must use '.' as the decimal separator regardless of
         // host locale (this host's is comma-decimal) -- see TickVolumeProfileChart
-        // for the same concern.
+        // for the same concern. Still used by the ACTION DISTRIBUTION panel above
+        // (session-wide running tallies) -- the OUTPUTS panel's own equivalent now
+        // lives in BrainIoPanel, which has its own copy.
         private static string Pct(double v) => v.ToString("0.##", CultureInfo.InvariantCulture);
-
-        // One decimal place (unlike Pct's variable precision) -- probabilities
-        // are always in [0,100] and this reads better lined up in the OUTPUTS
-        // panel's fixed-width column than Pct's "0.##" would.
-        private static string FormatProbabilityPct(double probability) => (probability * 100).ToString("N1", CultureInfo.InvariantCulture);
-
-        // Maps an RlOutputFeature.Label (a SimulationAction member name, see
-        // ComposedPolicyBrain.ActionLabels) onto the same short display text
-        // and action-dist-* CSS suffix the ACTION DISTRIBUTION panel above
-        // already uses, so the OUTPUTS panel reads as the same family instead
-        // of introducing its own color/label convention.
-        private static string ActionShortLabel(string actionLabel) => actionLabel switch
-        {
-            "Hold" => "HOLD",
-            "EnterLong" => "LONG",
-            "EnterShort" => "SHORT",
-            "Close" => "CLOSE",
-            _ => actionLabel,
-        };
-
-        private static string ActionCssSuffix(string actionLabel) => actionLabel switch
-        {
-            "Hold" => "hold",
-            "EnterLong" => "long",
-            "EnterShort" => "short",
-            "Close" => "close",
-            _ => "",
-        };
-
-        // MlpPolicyBrain.DescribeInputs labels the price-window entries "t-N" and
-        // the account-state scalars by name (see that method) -- split on that
-        // convention rather than a fixed count, so this keeps working if a future
-        // brain's window size differs.
-        private List<RlInputFeature> PriceWindowFeatures =>
-            DisplayedInputs?.Where(f => f.Label.StartsWith("t-", StringComparison.Ordinal)).ToList() ?? new List<RlInputFeature>();
-
-        private List<RlInputFeature> ScalarFeatures =>
-            DisplayedInputs?.Where(f => !f.Label.StartsWith("t-", StringComparison.Ordinal)).ToList() ?? new List<RlInputFeature>();
 
         // Which of the three DataTable tabs below is showing -- mirrors
         // SimulationPage's LogTab/_activeLogTab pattern for its own tabbed panel.

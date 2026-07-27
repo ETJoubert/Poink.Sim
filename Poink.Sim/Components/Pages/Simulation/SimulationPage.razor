@@ -2,6 +2,7 @@
 @page "/simulation"
 @namespace Poink.Sim.Components.Pages
 @using Poink.Sim.Components.Charts
+@using Poink.Sim.Components.Shared.BrainIoPanel
 @using Poink.Sim.Components.Shared.DataTable
 @using Poink.Sim.Components.Shared.DateRangeSlider
 @using Poink.Sim.Components.Shared.SimTimeline
@@ -293,6 +294,8 @@
                         @onclick="() => _activeLogTab = LogTab.Traders">TRADERS</button>
                 <button class="sim-tab-btn @(_activeLogTab == LogTab.Brain ? "active" : "")"
                         @onclick="() => _activeLogTab = LogTab.Brain">BRAIN</button>
+                <button class="sim-tab-btn @(_activeLogTab == LogTab.InputsOutputs ? "active" : "")"
+                        @onclick="() => _activeLogTab = LogTab.InputsOutputs">INPUTS/OUTPUTS</button>
                 <button class="sim-tab-btn @(_activeLogTab == LogTab.Decisions ? "active" : "")"
                         @onclick="() => _activeLogTab = LogTab.Decisions">DECISION LOG</button>
                 <button class="sim-tab-btn @(_activeLogTab == LogTab.Positions ? "active" : "")"
@@ -322,6 +325,11 @@
                     <BrainInfoCard BrainName="@s.Config.BrainName"
                                    IsNeuralNetwork="CurrentBrainIsNeuralNetwork(s.Config.BrainName)"
                                    ActiveSnapshot="TrainingService.GetActiveSnapshot(s.Config.BrainName)" />
+                }
+                else if (_activeLogTab == LogTab.InputsOutputs)
+                {
+                    <BrainIoPanel Inputs="SelectedTrader?.Inputs" Outputs="SelectedTrader?.Outputs"
+                                  CurrentPrice="_snapshot?.CurrentPrice" Equity="SelectedTrader?.Capital.Equity" />
                 }
                 else
                 {

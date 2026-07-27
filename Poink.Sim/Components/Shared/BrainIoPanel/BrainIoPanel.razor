@@ -1,0 +1,78 @@
+@namespace Poink.Sim.Components.Shared.BrainIoPanel
+
+<div class="brain-io-section">
+    <div class="brain-io-title brain-io-title-row">
+        <span>
+            INPUTS <span class="brain-io-subtitle">(what the network sees for this decision)</span>
+        </span>
+        <label class="brain-io-denorm-toggle"
+               title="Show actual price/currency values instead of the network's normalized (bounded ratio) inputs">
+            <input type="checkbox" @bind="_showDenormalizedInputs" />
+            De-normalized
+        </label>
+    </div>
+    @if (Inputs is null)
+    {
+        <span class="reward-chart-empty">no data yet</span>
+    }
+    else
+    {
+        <div class="input-badge-group">
+            <div class="input-badge-group-label">PRICE WINDOW</div>
+            <div class="input-scalars">
+                @foreach (var f in PriceWindowFeatures)
+                {
+                    <div class="input-scalar">
+                        <span class="input-badge-label">@f.Label</span>
+                        <span
+                            class="input-badge-value @(f.Value switch { > 0 => "input-positive", < 0 => "input-negative", _ => "" })">
+                            @FormatInputValue(f)
+                        </span>
+                    </div>
+                }
+            </div>
+        </div>
+        <div class="input-badge-group">
+            <div class="input-badge-group-label">ACCOUNT STATE</div>
+            <div class="input-scalars">
+                @foreach (var f in ScalarFeatures)
+                {
+                    <div class="input-scalar">
+                        <span class="input-scalar-label">@f.Label</span>
+                        <span
+                            class="input-scalar-value @(f.Value switch { > 0 => "input-positive", < 0 => "input-negative", _ => "" })">
+                            @FormatInputValue(f, "N3")
+                        </span>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+<div class="brain-io-section">
+    <div class="brain-io-title">
+        OUTPUTS <span class="brain-io-subtitle">(what the network decided for this decision)</span>
+    </div>
+    @if (Outputs is null)
+    {
+        <span class="reward-chart-empty">no data yet</span>
+    }
+    else
+    {
+        <div class="action-dist">
+            @foreach (var o in Outputs)
+            {
+                <div class="action-dist-row @(o.IsChosen ? "action-dist-row-chosen" : "")"
+                     title="@(o.IsChosen ? "What the network actually decided" : "")">
+                    <span class="action-dist-label action-dist-@(ActionCssSuffix(o.Label))">@ActionShortLabel(o.Label)</span>
+                    <div class="action-dist-track">
+                        <div class="action-dist-fill action-dist-fill-@(ActionCssSuffix(o.Label))"
+                             style="width: @(Pct(o.Probability * 100))%"></div>
+                    </div>
+                    <span class="action-dist-pct">@(FormatProbabilityPct(o.Probability))%</span>
+                </div>
+            }
+        </div>
+    }
+</div>

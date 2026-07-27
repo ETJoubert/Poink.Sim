@@ -101,7 +101,7 @@ namespace Poink.Sim.Components.Pages
             return bars[bars.Count - ClampedBarWindow].OpenTime;
         }
 
-        private enum LogTab { Decisions, Positions, Traders, Brain, Statistics }
+        private enum LogTab { Decisions, Positions, Traders, Brain, InputsOutputs, Statistics }
 
         // The brain actually driving the loaded run (s.Config.BrainName) --
         // deliberately not the Setup form's _brainName, which the user may
@@ -117,7 +117,11 @@ namespace Poink.Sim.Components.Pages
                 ? null
                 : _snapshot.Traders.FirstOrDefault(t => t.Id == _selectedTraderId) ?? _snapshot.Traders.FirstOrDefault();
 
-        private void SelectTrader(int id) => _selectedTraderId = id;
+        private void SelectTrader(int id)
+        {
+            _selectedTraderId = id;
+            Service.SelectTraderForIo(id);
+        }
 
         // null while flat -- distinguishes the chart's entry-price line's LONG/SHORT
         // label (OhlcvChart doesn't otherwise depend on Poink.Sim.Models' PositionDirection).

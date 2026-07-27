@@ -7,6 +7,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 using System;
 using System.Collections.Generic;
+using Poink.Sim.Brain.Neural;
 using Poink.Sim.Repository;
 using Poink.Sim.Trader.Orders;
 
@@ -43,11 +44,20 @@ internal sealed record SimulationProgress(
 // session gets its own Capital/Position/log since Trader.Apply is per-instance.
 // Leverage/StopOutLevelPercent are the run's static account settings (not
 // per-tick state -- MarginUsed/MarginLevel/MarginFree already live on Capital).
+// Inputs/Outputs are that decision's brain I/O (see BrainIoPanel), captured
+// only for whichever one session SimulationEngine.SelectTraderForIo currently
+// designates -- null for every other session (capturing for all of them would
+// cost an extra DescribeInputs/DecideWithLogProbability call per session per
+// decision for no benefit, since only one trader's I/O is ever shown at a
+// time), for a Manual-mode session (the Brain is skipped entirely), or for a
+// brain that isn't an IPolicyGradientBrain (a heuristic brain has no
+// input/output distribution to describe).
 internal sealed record TraderSnapshot(
     int Id, string Label, TraderControlMode Mode, CapitalState Capital, Position? Position,
     PendingOrder? PendingOrder, int TradeCount,
     IReadOnlyList<SimulationLogEntry> RecentLog, IReadOnlyList<Trade> Trades,
-    double MaxEquity, double MaxDrawdown, double Leverage, double StopOutLevelPercent);
+    double MaxEquity, double MaxDrawdown, double Leverage, double StopOutLevelPercent,
+    IReadOnlyList<RlInputFeature>? Inputs, IReadOnlyList<RlOutputFeature>? Outputs);
 
 // Immutable read-model published wholesale each callback -- the page reads
 // the reference (no torn reads, no per-field locking needed on the page side).

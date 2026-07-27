@@ -231,10 +231,18 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   slot, a normalizer decides *how* it's scaled into the bounded, scale-free value
   the network sees. `Normalize` is encode-time (has a live `SimulationObservation`
   to pull its anchor from); `Denormalize` is display-time, taking
-  `DenormalizationAnchors` (`{ CurrentPrice, Equity }`) instead since a historical
-  replay bar (`TrainLiveTab`) only has those two derived doubles, not a live
-  observation -- returns `null` when its anchor isn't available, so the caller
-  falls back to the plain normalized value. Implementations:
+  `DenormalizationAnchors` (`{ CurrentPrice, Equity }`) instead since neither
+  `TrainLiveTab`'s historical replay bar nor a live Simulation decision has a full
+  `SimulationObservation` on hand for display purposes -- returns `null` when its
+  anchor isn't available, so the caller falls back to the plain normalized value.
+  `Denormalize`/`Format` (not `Normalize`, which needs the internal
+  `SimulationObservation`) are pulled out onto a public parent interface,
+  `IFeatureDisplayNormalizer`, purely so `RlInputFeature.Normalizer` can be typed
+  with something a Razor `[Parameter]` (`BrainIoPanel`) can legally reference --
+  every `IFeatureNormalizer` implementation satisfies it automatically via that
+  inheritance, no per-normalizer change needed. Both interfaces and
+  `DenormalizationAnchors` live in `Brain/Neural/Normalizers/IFeatureNormalizer.cs`.
+  Implementations:
   `PriceOffsetNormalizer` (percent-change-from-current-price, invert via
   `currentPrice * (1 + v)`), `EquityRatioNormalizer` (`rawAmount / equity`, invert
   via `v * equity`; available for injection, not wired into any encoder by
@@ -496,12 +504,15 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   episodes). Feeds `EpisodeCoverageTimeline`'s per-block usage shading.
   `Training/RlEpisode.cs`
 - **`RlInputFeature`** — One named value out of a policy brain's `Encode()` input,
-  purely for the Train page's "what goes in" display panel — never used for inference
+  purely for display (the shared `BrainIoPanel`'s INPUTS card, used by both the
+  Train page and Simulation's INPUTS/OUTPUTS tab) — never used for inference
   itself. Record `(Label, Value, Normalizer)` -- `Normalizer` is the same
-  `IFeatureNormalizer` that produced `Value` (see that entry and
-  `IObservationEncoder.Features`), carried along so `TrainLiveTab`'s de-normalized
-  toggle (`FormatInputValue`) can invert any feature back to real units generically,
-  without a per-label switch. `Brain/Neural/IPolicyGradientBrain.cs`. Label
+  normalizer that produced `Value` (see `IObservationEncoder.Features`), typed as
+  `IFeatureDisplayNormalizer` (not the full `IFeatureNormalizer`, see that entry)
+  so `BrainIoPanel` can invert any feature back to real units generically, without
+  a per-label switch. Public (not internal like most of `Brain/Neural/`) because
+  it's a `BrainIoPanel` `[Parameter]`, shared across the Train/Simulation page
+  boundary. `Brain/Neural/IPolicyGradientBrain.cs`. Label
   conventions, one per encoder: `BarWindowEncoder` emits `t-20..t-1`
   (`PriceOffsetNormalizer`); `VolumeProfileEncoder` emits `vp-0..vp-19`
   (`FractionNormalizer`) plus `poc-offset`/`va-high-offset`/`va-low-offset`
@@ -522,9 +533,11 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   (`DirectionNormalizer`), `position-price`/`position-distance`/`current-price`
   (`RawPriceNormalizer`), `position-ticks`/`cash`/`realized`/`unrealized`/
   `equity`/`margin`/`margin-level`/`position-count` (`RawValueNormalizer`).
-  `TrainLiveTab`'s
-  `DisplayedCurrentPrice`/`DisplayedEquity` stand in for a live
-  `SimulationObservation`'s anchors when denormalizing (see
+  The caller resolves `BrainIoPanel`'s `CurrentPrice`/`Equity` anchors before
+  handing them in -- `TrainLiveTab`'s `DisplayedCurrentPrice`/`DisplayedEquity`
+  stand in for a live `SimulationObservation`'s anchors (a historical replay bar,
+  not a live one); `SimulationPage`'s INPUTS/OUTPUTS tab passes the live
+  snapshot's `CurrentPrice`/`SelectedTrader.Capital.Equity` directly (see
   `DenormalizationAnchors`).
   `Brain/Neural/Encoders/BarWindowEncoder.cs`,
   `Brain/Neural/Encoders/VolumeProfileEncoder.cs`,
@@ -539,11 +552,17 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   "EnterLong"/"EnterShort"/"Close"), probabilities across all four sum to ~1,
   `IsChosen` flags whichever one the stochastic sampler actually picked (not
   necessarily the highest-probability one). Produced by
-  `ComposedPolicyBrain.DecideWithLogProbability` from the same forward pass
-  that decides, not a second one. `TrainLiveTab`'s OUTPUTS panel renders it
-  reusing the ACTION DISTRIBUTION panel's `action-dist-*` styling, with
-  `.action-dist-row-chosen` highlighting `IsChosen`.
-  `Brain/Neural/IPolicyGradientBrain.cs`
+  `ComposedPolicyBrain.DecideWithLogProbability` from the same forward pass that
+  decides, not a second one -- `SimulationEngine.DecideAndApply` calls this
+  instead of the plain `Decide` for whichever one trader session is currently
+  selected for I/O (`SelectTraderForIo`/`TraderSnapshot.Outputs`), since
+  `ComposedPolicyBrain.Decide` already runs this same forward pass internally
+  and discards the distribution, so capturing it there costs nothing extra.
+  `BrainIoPanel`'s OUTPUTS card renders it with `action-dist-*` styling (the same
+  family `TrainLiveTab`'s separate, session-wide ACTION DISTRIBUTION panel uses,
+  duplicated rather than shared across the Blazor CSS-isolation boundary), with
+  `.action-dist-row-chosen` highlighting `IsChosen`. Public for the same
+  `BrainIoPanel` reason as `RlInputFeature`. `Brain/Neural/IPolicyGradientBrain.cs`
 - **`SavedBrainSummary`** — Metadata-only view of one saved brain snapshot (everything
   except the weight bytes themselves), used to populate `SavedBrainsTable` without
   pulling megabytes of weights per row. `RewardPolicyName` records which
@@ -572,6 +591,13 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   (`TraderControlMode`), `Capital`, `Position`, `PendingOrder`, trade log/history,
   equity extremes, account settings. What `SimulationPage`'s trader controls
   panel reads to decide which controls to show (see `TraderControlMode`).
+  `Inputs`/`Outputs` (nullable `RlInputFeature`/`RlOutputFeature` lists) feed the
+  INPUTS/OUTPUTS tab's `BrainIoPanel` -- populated only for whichever one session
+  `SimulationEngine.SelectTraderForIo` currently designates (capturing for every
+  session on every decision would multiply the extra
+  `DescribeInputs`/`DecideWithLogProbability` cost by `TraderCount` for no
+  benefit, since only one trader's I/O is ever shown at a time), null for a
+  Manual-mode session or a non-`IPolicyGradientBrain` (heuristic) brain.
   `Models/SimulationSnapshot.cs`
 - **`VolumeProfileLevels`** — `(Poc, ValueAreaHigh, ValueAreaLow)`: the computed
   Point of Control/Value Area for a volume profile window, from
@@ -589,8 +615,10 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
 
 - **`CalendarView`** — `Days`, `Months`, `Years`: the three drill-down levels of the
   date picker. Private enum in `Components/Shared/Calendar/Calendar.razor.cs`.
-- **`LogTab`** — `Decisions`, `Positions`, `Traders`, `Brain`, `Statistics`: the five
-  tabs of the Simulation page's log/detail panel. Private enum in
+- **`LogTab`** — `Decisions`, `Positions`, `Traders`, `Brain`, `InputsOutputs`,
+  `Statistics`: the six tabs of the Simulation page's log/detail panel (rendered
+  as TRADERS, BRAIN, INPUTS/OUTPUTS, DECISION LOG, POSITIONS, STATISTICS).
+  `InputsOutputs` renders `BrainIoPanel` for `SelectedTrader`. Private enum in
   `Components/Pages/SimulationPage.razor.cs`.
 - **`OrderType`** — `Market`, `Limit`, `Stop`: how `SimulationDecision.Action`'s
   `EnterLong`/`EnterShort` fills. `null`/`Market` (the default) opens immediately,
@@ -627,6 +655,18 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
 - **`BrainInfoCard`** — Shows "what's actually running" for a live brain (name,
   NN-or-not, and its `ActiveSnapshot` if the live weights match a saved one) on
   `SimulationPage`'s BRAIN tab. `Components/Pages/Training/Components/BrainInfoCard/`
+- **`BrainIoPanel`** — "What the network sees/decided" for one decision (INPUTS
+  card: price-window/account-state feature values with a de-normalize toggle;
+  OUTPUTS card: the Hold/Long/Short/Close probability distribution, sampled
+  action highlighted) -- `[Parameter]`s `Inputs`/`Outputs`/`CurrentPrice`/`Equity`
+  (`RlInputFeature`/`RlOutputFeature` lists, primitive `double?` anchors). Shared
+  between `TrainLiveTab` (Train page's Live tab -- `DisplayedInputs`/
+  `DisplayedOutputs`, whichever decision the live episode or a frozen replay is
+  currently on) and `SimulationPage`'s INPUTS/OUTPUTS tab (`SelectedTrader?.Inputs`/
+  `Outputs`, the currently-selected trader's last live decision) -- callers resolve
+  their own notion of "which decision" down to these four parameters; the
+  component itself knows nothing about episodes, replays, or trader sessions.
+  `Components/Shared/BrainIoPanel/`
 - **`BrainSelect`** — Brain-only `<select>` + NN-vs-heuristic badge, reused directly
   by `SimulationPage` and by `TrainPage`'s Brain Type section.
   `Components/Pages/Training/Components/BrainSelect/`
@@ -724,9 +764,10 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   since Blazor CSS isolation only cascades a parent's scoped styles onto a
   child component's own root element, not elements nested below it.
   `Components/Pages/Simulation/Components/TraderControlsPanel/`
-- **`TrainLiveTab`** — The Train page's "Live" content: stat tiles, `EpisodeGrid`,
-  `RewardChart`, `NetworkEmulator`, action-distribution bars, a "current episode"
-  panel, an INPUTS panel, and an OUTPUTS panel.
+- **`TrainLiveTab`** — The Train page's "Live" content: a full-width `EpisodeGrid`
+  panel (directly under `TrainPage`'s `EpisodeCoverageTimeline`), stat tiles,
+  `RewardChart`, action-distribution bars, a "current episode" panel, an INPUTS
+  panel, and an OUTPUTS panel.
   `Components/Pages/Training/Pages/Train/TrainLiveTab.razor.cs`
 
   The **current episode panel** renders the most recently completed episode's
