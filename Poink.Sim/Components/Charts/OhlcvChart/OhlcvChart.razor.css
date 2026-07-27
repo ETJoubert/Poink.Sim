@@ -11,18 +11,12 @@
 .ohlcv-chart-wrapper.expanded {
     position: fixed;
     top: 16px;
-    /* main-content's own scrollbar (see layouts.css .main-content { overflow-y: auto })
-       sits flush against the viewport's right edge, so a plain 16px inset leaves the
-       overlay's edge underneath it -- clear the scrollbar's own width, not just the
-       usual margin. */
+    /* 32px, not 16px, to clear main-content's own scrollbar. */
     right: 32px;
     bottom: 16px;
     left: 16px;
     z-index: 1000;
-    /* The base rule's width: 100% resolves against the viewport for a fixed
-       element, which overrides the `right` inset above (over-constrained box --
-       width wins, so the right edge ran off past the viewport with no visible
-       margin). width: auto lets left/right jointly determine the box width instead. */
+    /* auto, not the base rule's 100%, so left/right jointly set the width. */
     width: auto;
     height: auto;
     background: var(--color-bg-terminal);

@@ -1,13 +1,3 @@
-/* Self-contained -- Blazor CSS isolation only cascades a parent's scoped
-   styles onto a child component's own ROOT element, not elements nested below
-   it (button/input/etc. here are several levels under .tcp-panel), so this
-   duplicates the terminal-button/field look from SimulationPage.razor.css
-   rather than silently failing to apply once mounted there. Sized as a fixed
-   220px flex child (not drag-resized like .sim-chart-side, this is a compact
-   form, not a chart) -- SimulationPage.razor places this inside .sim-chart's
-   flex row, and this root's own flex/width rules govern it there regardless
-   of DOM nesting (component-root styles cross the component boundary the
-   other way -- parent layout, child's own sizing -- fine either direction). */
 .tcp-panel {
     flex: 0 0 220px;
     min-height: 0;
@@ -78,10 +68,6 @@
     color: var(--color-error, #ff5f56);
     font-size: 0.72rem;
 }
-
-/* ── Buttons -- same terminal look as SimulationPage's .sim-ctrl-btn family,
-   duplicated here since scoped CSS can't reach this deep into a child
-   component (see file header comment). ─────────────────────────────────── */
 
 .tcp-btn {
     font-family: var(--font-body);

@@ -98,6 +98,11 @@
                                     }
                                 </select>
                             </label>
+                            <label class="train-brainrow-field">
+                                Learning rate
+                                <input class="train-brainrow-input" type="number" min="0.00001" step="0.0001"
+                                       @bind="_learningRate" disabled="@Service.IsRunning" />
+                            </label>
                         </div>
 
                         @if (_showBuildBrain)
@@ -213,8 +218,16 @@
                                     </div>
 
                                     <div class="train-card">
-                                        <div class="train-card-title"
-                                             title="Network shape applied to the inputs selected on the left">Structure</div>
+                                        <div class="train-card-title-row">
+                                            <div class="train-card-title"
+                                                 title="Network shape applied to the inputs selected on the left">Structure</div>
+                                            @if (FirstLayerTooSmall)
+                                            {
+                                                <span class="train-card-badge train-card-badge-warn"
+                                                      title="@($"First hidden layer ({FirstHiddenLayerSize}) is narrower than the network's {TotalInputCount} inputs -- a bottleneck compressing them before any transformation")">
+                                                    &#9888; @FirstHiddenLayerSize &lt; @TotalInputCount</span>
+                                            }
+                                        </div>
                                         <div class="train-buildbrain-card-fields">
                                             <label class="train-brainrow-field"
                                                    title="Network shape applied to the combined features selected above">
@@ -233,15 +246,17 @@
                                                         var index = i;
                                                         <label class="train-brainrow-field" title="@($"Size of hidden layer {index + 1}")">
                                                             Layer @(index + 1)
-                                                            <input class="train-brainrow-input" type="number" min="1" step="1"
-                                                                   value="@_mlpHiddenSizes[index]"
-                                                                   @oninput="e => OnHiddenLayerSizeChanged(index, e)"
-                                                                   disabled="@Service.IsRunning" />
-                                                            <button type="button" class="train-btn-remove-layer"
-                                                                    @onclick="() => RemoveHiddenLayer(index)"
-                                                                    disabled="@Service.IsRunning" title="Remove this layer">
-                                                                &#215;
-                                                            </button>
+                                                            <span class="train-hiddenlayer-controls">
+                                                                <input class="train-brainrow-input" type="number" min="1" step="1"
+                                                                       value="@_mlpHiddenSizes[index]"
+                                                                       @oninput="e => OnHiddenLayerSizeChanged(index, e)"
+                                                                       disabled="@Service.IsRunning" />
+                                                                <button type="button" class="train-btn-remove-layer"
+                                                                        @onclick="() => RemoveHiddenLayer(index)"
+                                                                        disabled="@Service.IsRunning" title="Remove this layer">
+                                                                    &#215;
+                                                                </button>
+                                                            </span>
                                                         </label>
                                                     }
                                                     <button type="button" class="train-btn-toggle" @onclick="AddHiddenLayer"
@@ -356,11 +371,6 @@
                                     <BarMinutesSelect @bind-Value="_barWidthMinutes" Disabled="@Service.IsRunning"
                                                        Label="Bar width (min)"
                                                        Title="Time span of one bar (M), in minutes -- also determines how much wall-clock time an episode's fetched ticks need to cover" />
-                                    <label class="train-brainrow-field">
-                                        Learning rate
-                                        <input class="train-brainrow-input" type="number" min="0.00001" step="0.0001"
-                                               @bind="_learningRate" disabled="@Service.IsRunning" />
-                                    </label>
                                 </div>
                             </div>
 

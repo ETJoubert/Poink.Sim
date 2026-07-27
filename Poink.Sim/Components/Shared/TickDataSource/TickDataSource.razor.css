@@ -13,8 +13,6 @@
     color: var(--color-secondary);
 }
 
-/* Smaller than .terminal-input -- this sits in a compact inline row now
-   rather than a full-size setup form field. */
 .tds-select {
     background: var(--color-bg-terminal);
     border: 1px solid var(--color-primary);
@@ -32,9 +30,6 @@
     box-shadow: 0 0 8px color-mix(in srgb, var(--color-secondary) 45%, transparent);
 }
 
-/* RECOUNT / FULL RANGE -- sized after DateRangeSlider's .drs-reset rather
-   than the heavier .terminal-btn-action, so this row reads as a compact
-   toolbar instead of a form. */
 .tds-btn {
     background: transparent;
     border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
@@ -72,9 +67,6 @@
     font-size: 0.8rem;
 }
 
-/* Sits inline with the symbol select + Recount/Full range buttons rather than
-   dropping to its own row below them -- flex:1 lets it soak up the rest of
-   the row's width. */
 .tds-range {
     flex: 1 1 380px;
     min-width: 360px;

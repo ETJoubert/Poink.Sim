@@ -583,7 +583,10 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   build-time-only, baked into each encoder at construction via
   `BrainCatalog.CreateEncoder` and carried on `BrainRecipe` so `LoadSavedBrain`
   reconstructs the exact shape a saved snapshot's weights were trained with.
-  `Brain/Neural/BrainCatalog.cs`
+  `Brain/Neural/BrainCatalog.cs`. The Structure card's header warns (via
+  `TrainPage`'s `FirstLayerTooSmall`) when the first hidden layer -- an MLP's
+  Layer 1, or an LSTM's hidden size -- is narrower than `TotalInputCount`, a
+  common accidental bottleneck.
 - **`CapitalState`** — Read-only snapshot handed to the Brain/UI: `(Cash,
   RealizedPnl, UnrealizedPnl, MarginUsed, MarginLevel)`, with `Equity => Cash +
   UnrealizedPnl` and `MarginFree => Equity - MarginUsed`. Every field (plus

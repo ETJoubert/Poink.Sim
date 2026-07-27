@@ -1,17 +1,8 @@
-/* Flat page shell -- deliberately not the shared .terminal-container/
-   .terminal-section/.section-header/.section-content boxed-card chrome.
-   The scroll container is the ancestor MainLayout's `.content` (flex,
-   overflow-y: auto), so .sim-topbar's `position: sticky` sticks relative
-   to that, not to this div. */
 .sim-page {
     display: flex;
     flex-direction: column;
     min-height: 100%;
 }
-
-/* ── Topbar: header + toolbar pinned together while chart/log scroll under
-   it. One sticky wrapper (rather than sticky on header and toolbar
-   separately) so they stay stacked without hand-computed top offsets. ─── */
 
 .sim-topbar {
     position: sticky;
@@ -133,13 +124,6 @@
     color: var(--color-error);
 }
 
-/* ── Data row: symbol/date-range + aggregator. Lives inside the sticky
-   topbar between the header and the toolbar -- present in both Setup (no
-   toolbar below it yet) and the running view (pinned right above the
-   playback controls), so it doesn't move around as the page changes state.
-   Read-only once a simulation is loaded since changing it wouldn't take
-   effect without a fresh load. ────────────────────────────────────────── */
-
 .sim-datarow {
     display: flex;
     flex-wrap: wrap;
@@ -177,10 +161,6 @@
     color: var(--color-secondary);
     white-space: nowrap;
 }
-
-/* Brain & Account row -- same lean .sim-datarow shell as the data-source row
-   above it (see .sim-datarow), just with select/input fields for the run's
-   brain and account setup. Read-only once loaded, same as the data row. */
 
 .sim-brainrow-field {
     display: flex;
@@ -222,8 +202,6 @@
     box-shadow: 0 0 8px color-mix(in srgb, var(--color-primary) 40%, transparent);
 }
 
-/* Load actions -- pushed to the end of the Brain & Account row (same
-   margin-left: auto trick as .sim-controls-right), only present pre-load. */
 .sim-brainrow-actions {
     display: flex;
     align-items: center;
@@ -237,15 +215,10 @@
     font-size: 0.72rem;
 }
 
-/* ── Toolbar: controls + progress, second row of the sticky topbar ─────── */
-
 .sim-toolbar {
     padding: 5px 24px;
 }
 
-/* Saved brains -- setup-only, non-sticky (unlike .sim-topbar) since it's a
-   secondary tool for picking a brain, not something that needs to stay
-   pinned while playback runs (and it's gone entirely once a run is loaded). */
 .sim-setup-content {
     padding: 18px 24px;
 }
@@ -257,17 +230,11 @@
     flex-wrap: wrap;
 }
 
-/* SimTimeline sits inline between the playback buttons and the
-   Reset/New/Hide cluster -- flex:1 lets it soak up the row's spare width
-   (pushing sim-controls-right to the end) instead of sitting on its own
-   row below the buttons. */
 .sim-controls ::deep .stl-progress {
     flex: 1 1 240px;
     min-width: 200px;
 }
 
-/* Reset/New Simulation/Hide Chart -- pushed to the far right of the toolbar,
-   away from the playback controls (Play/Step/Speed/Max) on the left. */
 .sim-controls-right {
     display: flex;
     align-items: center;
@@ -289,11 +256,6 @@
     vertical-align: -2px;
     margin-right: 3px;
 }
-
-/* ── Toolbar control buttons: self-contained (no dependency on the shared
-   .terminal-btn-action look), styled per role so PLAY, speed selection,
-   uncapped modes, and destructive actions are each visually distinct at
-   a glance rather than sharing one undifferentiated button style. ─────── */
 
 .sim-ctrl-btn {
     font-family: var(--font-body);
@@ -320,7 +282,6 @@
     cursor: not-allowed;
 }
 
-/* PLAY/PAUSE -- the primary action, filled so it reads first in the row. */
 .sim-ctrl-btn-play {
     border: 1px solid var(--color-success);
     color: var(--color-success);
@@ -335,9 +296,6 @@
     box-shadow: 0 0 14px color-mix(in srgb, var(--color-success) 45%, transparent);
 }
 
-/* Speed stepper -- +/- around the current preset, replacing the old row of one
-   button per speed. Wrapped in its own flex group so the two step buttons and
-   the value readout read as one segmented control. */
 .sim-speed-stepper {
     display: flex;
     align-items: center;
@@ -375,14 +333,11 @@
     margin: 2px;
 }
 
-/* Dimmed while Max (uncapped) is driving playback -- the stepper still shows
-   the preset it'll resume at, but it isn't the active speed right now. */
 .sim-speed-stepper-inactive .sim-speed-step,
 .sim-speed-stepper-inactive .sim-speed-value {
     opacity: 0.5;
 }
 
-/* MAX -- uncapped mode, called out in accent so it reads as "not the norm". */
 .sim-ctrl-btn-max {
     border-color: color-mix(in srgb, var(--color-accent) 50%, transparent);
     color: var(--color-accent);
@@ -395,7 +350,6 @@
     box-shadow: 0 0 12px color-mix(in srgb, var(--color-accent) 55%, transparent);
 }
 
-/* RESET/NEW SIMULATION -- destructive-ish, warning tint. */
 .sim-ctrl-btn-warn {
     border-color: color-mix(in srgb, var(--color-warning) 50%, transparent);
     color: var(--color-warning);
@@ -412,13 +366,6 @@
     border-color: var(--color-primary);
     box-shadow: 0 0 12px color-mix(in srgb, var(--color-primary) 45%, transparent);
 }
-
-/* ── Tick window: shared control above the chart row, driving both the volume
-   profile panel (TickVolumeProfileChart) and the window-start marker on
-   OhlcvChart -- lives here rather than inside either chart so one slider
-   controls both instead of each keeping its own out-of-sync copy. Rail reads
-   right-to-left (0 at the right, increasing to the left) via `direction: rtl`
-   on the slider, so it reads as "how far back from now". ─────────────────── */
 
 .sim-window-bar {
     display: flex;
@@ -486,8 +433,6 @@
     height: 4px;
 }
 
-/* Thumb styled as a vertical line -- marks the window-start position on the
-   rail rather than reading as a generic round slider handle. */
 .sim-window-slider::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
@@ -514,8 +459,6 @@
     border: none;
 }
 
-/* Self-contained rather than .terminal-input -- that class is padded/sized for
-   full-width form fields, too heavy for a compact inline readout next to the rail. */
 .sim-window-input {
     flex: 0 0 auto;
     width: 60px;
@@ -536,12 +479,6 @@
     box-shadow: 0 0 8px color-mix(in srgb, var(--color-accent) 45%, transparent);
 }
 
-/* ── Chart + trade/decision log + open positions ──────────────────────── */
-
-/* Height is drag-resized via .sim-chart-hdivider below (not native `resize`,
-   which could only be grabbed from the exact bottom-right corner) -- each side
-   scrolls its own content internally instead of the row clipping it (see
-   .sim-chart-main/-side below). */
 .sim-chart {
     display: flex;
     flex-shrink: 0;
@@ -561,11 +498,6 @@
     overflow-y: auto;
 }
 
-/* Dragged via .sim-chart-divider below, which sets this panel's width directly --
-   flex-basis has to stay auto here (rather than the usual "flex: 0 0 260px" shorthand)
-   so that inline width actually governs sizing instead of being overridden by a fixed
-   flex-basis. Shrinking/growing this panel just gives/takes space from
-   .sim-chart-main via its own flex: 1/min-width: 0. */
 .sim-chart-side {
     flex: 0 0 auto;
     width: 260px;
@@ -574,19 +506,10 @@
     min-height: 0;
 }
 
-/* Draggable divider between the two charts -- see SimulationPage.razor.cs's
-   BindChartDivider for the pointer-drag logic that resizes .sim-chart-side. The
-   6px flex box is just the hit area for dragging; the visible mark is a thin
-   inset ::before line (same subtle color/weight as .sim-chart's border-bottom
-   below, so both dividers on this page read as one family), shorter than the
-   full height so it doesn't read as a hard section break. */
 .sim-chart-divider {
     position: relative;
     flex: 0 0 6px;
     align-self: stretch;
-    /* .sim-chart's own 16px gap now applies on both sides of this divider too (one
-       gap became two) -- these negative margins claw most of that back so the total
-       space between the two charts stays close to the original single-gap width. */
     margin: 0 -10px;
     cursor: col-resize;
     touch-action: none;
@@ -627,23 +550,11 @@
         width: 100%;
     }
 
-    /* TraderControlsPanel's own .tcp-panel stacking rule lives in its own
-       scoped .razor.css -- Blazor CSS isolation means this file's media query
-       can't reach it (see TraderControlsPanel.razor.css's file header). */
-
-    /* Stacked layout has nothing horizontal left to divide. */
     .sim-chart-divider {
         display: none;
     }
 }
 
-/* Draggable divider between the chart row and the log panel below -- same
-   pattern as .sim-chart-divider above (drag anywhere along the bar, not just
-   one corner) and the same subtle inset-line styling, just rotated: the hit
-   area is a full-width horizontal strip instead of a full-height vertical one,
-   and the line runs left-right instead of top-bottom. See
-   SimulationPage.razor.cs's bindHeight for the pointer-drag logic that resizes
-   .sim-chart's height (the divider's previous sibling). */
 .sim-chart-hdivider {
     position: relative;
     flex: 0 0 6px;
@@ -675,8 +586,6 @@
     background: var(--color-primary);
 }
 
-/* ── Tabbed panel: decision log / open positions / traders ─────────────── */
-
 .sim-log-panel {
     display: flex;
     flex-direction: column;
@@ -693,8 +602,6 @@
     border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
 }
 
-/* Self-contained underline tabs -- deliberately not button-shaped, so the
-   log-panel tabs read as a distinct control family from the toolbar. */
 .sim-tab-btn {
     font-family: var(--font-body);
     font-weight: bold;

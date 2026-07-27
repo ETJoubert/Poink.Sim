@@ -1,6 +1,4 @@
-/* Generic DataTable component styles */
 
-/* Search input */
 .data-table-search {
   display: flex;
   align-items: center;
@@ -39,13 +37,11 @@
   color: var(--color-muted);
 }
 
-/* Table container */
 .data-table-wrapper {
   width: 100%;
   overflow-x: auto;
 }
 
-/* Main table */
 .data-table {
   table-layout: fixed;
   width: 100%;
@@ -54,7 +50,6 @@
   font-family: var(--font-body);
 }
 
-/* Table body rows */
 .data-table tbody tr {
   transition: all 0.2s ease;
   border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 10%, transparent);
@@ -64,7 +59,6 @@
   background: color-mix(in srgb, var(--color-primary) 5%, transparent);
 }
 
-/* Table cells */
 .data-table td {
   padding: 12px 16px;
   vertical-align: middle;
@@ -72,7 +66,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 0; /* required for text-overflow to work in table-layout:fixed */
+  max-width: 0;
 }
 
 .data-table td:last-child {
@@ -95,7 +89,6 @@
   border-right: none;
 }
 
-/* Resizable columns */
 .data-table-th-resizable {
   position: relative;
 }
@@ -116,7 +109,6 @@
   background: color-mix(in srgb, var(--color-primary) 40%, transparent);
 }
 
-/* Table footer */
 .data-table tfoot td {
   padding: 16px;
   border-top: 2px solid var(--color-primary);
@@ -125,7 +117,6 @@
   font-weight: 700;
 }
 
-/* Icon glyphs used across control/action buttons */
 .data-table-controls ::deep .dt-icon,
 .data-table-actions-cell ::deep .dt-icon,
 .data-table-card-actions ::deep .dt-icon,
@@ -144,7 +135,6 @@
   flex-shrink: 0;
 }
 
-/* Action buttons */
 .data-table-action-btn {
   background: transparent;
   border: 1px solid var(--color-primary);
@@ -173,7 +163,6 @@
   color: var(--color-muted);
 }
 
-/* Delete button styling */
 .data-table-action-btn.data-table-btn-delete {
   border-color: var(--color-error);
   color: var(--color-error);
@@ -185,7 +174,6 @@
   box-shadow: 0 0 10px var(--color-error);
 }
 
-/* Edit button styling */
 .data-table-action-btn.data-table-btn-edit {
   border-color: var(--color-secondary);
   color: var(--color-secondary);
@@ -197,7 +185,6 @@
   box-shadow: 0 0 10px var(--color-secondary);
 }
 
-/* Page controls bar */
 .data-table-controls {
   display: flex;
   align-items: center;
@@ -209,7 +196,6 @@
   position: relative;
 }
 
-/* Gear button — hidden on large screens, revealed via media query */
 .data-table-gear-btn {
   display: none;
   align-items: center;
@@ -233,7 +219,6 @@
   box-shadow: 0 0 6px color-mix(in srgb, var(--color-primary) 20%, transparent);
 }
 
-/* Collapsible settings — transparent wrapper on large screens */
 .data-table-controls-collapsible {
   display: contents;
 }
@@ -251,7 +236,6 @@
   margin-left: auto;
 }
 
-/* Row-count selector */
 .data-table-page-size {
   display: flex;
   align-items: center;
@@ -288,14 +272,12 @@
   color: var(--color-primary);
 }
 
-/* Page button group */
 .data-table-page-buttons {
   display: flex;
   align-items: center;
   gap: 4px;
 }
 
-/* Ellipsis between page buttons */
 .data-table-page-ellipsis {
   color: var(--color-muted);
   font-size: 12px;
@@ -342,7 +324,6 @@
   letter-spacing: 0.5px;
 }
 
-/* Action button container */
 .data-table-actions-cell {
   display: flex;
   gap: 6px;
@@ -350,7 +331,6 @@
   align-items: center;
 }
 
-/* Row number styling */
 .data-table tbody td.data-table-td-rownum {
   color: var(--color-secondary);
   font-weight: 700;
@@ -359,7 +339,6 @@
   text-align: center;
 }
 
-/* Multi-select checkbox column */
 .data-table-th-check,
 .data-table-td-check {
   width: 50px;
@@ -400,7 +379,6 @@
   box-shadow: 0 0 6px var(--color-primary);
 }
 
-/* Selectable rows and cards */
 .data-table tbody tr.data-table-row-selectable {
   cursor: pointer;
 }
@@ -409,20 +387,17 @@
   cursor: pointer;
 }
 
-/* Selected table row */
 .data-table tbody tr.data-table-row-selected {
   background: color-mix(in srgb, var(--color-primary) 7%, transparent);
   box-shadow: inset 3px 0 0 var(--color-primary);
 }
 
-/* Selected card */
 .data-table-card.data-table-card-selected {
   border-color: var(--color-primary);
   background: color-mix(in srgb, var(--color-primary) 6%, transparent);
   box-shadow: 0 0 14px color-mix(in srgb, var(--color-primary) 18%, transparent);
 }
 
-/* Card header row (id + optional checkbox) */
 .data-table-card-header {
   display: flex;
   align-items: flex-start;
@@ -435,7 +410,6 @@
   flex-shrink: 0;
 }
 
-/* Selection bar */
 .data-table-selection-bar {
   display: flex;
   align-items: center;
@@ -474,7 +448,6 @@
   color: var(--color-primary);
 }
 
-/* View button styling */
 .data-table-action-btn.data-table-btn-view {
   border-color: var(--color-secondary);
   color: var(--color-secondary);
@@ -486,7 +459,6 @@
   box-shadow: 0 0 10px var(--color-secondary);
 }
 
-/* View mode toggle */
 .data-table-view-toggle {
   display: flex;
   border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
@@ -521,7 +493,6 @@
   color: var(--color-primary);
 }
 
-/* Card grid */
 .data-table-cards {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
@@ -577,15 +548,12 @@
   flex: 1;
 }
 
-/* Consumer-supplied content (see DataTable.razor.cs's CardContent parameter) --
-   no fixed sizing here since what it renders (e.g. a chart) picks its own. */
 .data-table-card-content {
   border-top: 1px solid color-mix(in srgb, var(--color-primary) 10%, transparent);
   padding-top: 10px;
   margin-top: 4px;
 }
 
-/* Card extra fields */
 .data-table-card-fields {
   display: flex;
   flex-direction: column;
@@ -628,7 +596,6 @@
   border: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
 }
 
-/* Column / field picker */
 .data-table-picker-backdrop {
   position: fixed;
   inset: 0;
@@ -725,7 +692,6 @@
   flex-shrink: 0;
 }
 
-/* Detail panel overlay */
 .data-table-detail-overlay {
   position: fixed;
   inset: 0;
@@ -795,8 +761,6 @@
   box-shadow: 0 0 6px color-mix(in srgb, var(--color-primary) 30%, transparent);
 }
 
-/* Consumer-supplied content (see DataTable.razor.cs's DetailContent parameter) --
-   no fixed sizing here since what it renders (e.g. a chart) picks its own. */
 .data-table-detail-content {
   padding: 12px 20px 0;
 }
@@ -853,7 +817,6 @@
   margin-bottom: 40px;
 }
 
-/* Delete confirmation dialog */
 .data-table-confirm-overlay {
   position: fixed;
   inset: 0;
@@ -942,8 +905,6 @@
   box-shadow: 0 0 10px var(--color-error);
 }
 
-/* ── Empty state (Poink.Sim addition) — shown instead of the table/cards when
-   there are no items, e.g. "flat" on the Positions tab. */
 .data-table-empty {
   padding: 24px 16px;
   display: flex;
@@ -960,8 +921,6 @@
   font-weight: 700;
 }
 
-/* ── Cell coloring (Poink.Sim addition) — used via the CellClass callback to
-   color PnL-style values green/red by sign, e.g. in the Traders table/cards. */
 .data-table-value-positive {
   color: var(--color-success);
 }
@@ -970,14 +929,11 @@
   color: var(--color-error);
 }
 
-/* ── Responsive: small screens ─────────────────────────────────────────────── */
 @media (max-width: 640px) {
-  /* Show gear button */
   .data-table-gear-btn {
     display: flex;
   }
 
-  /* Collapsible becomes a positioned dropdown below the controls bar */
   .data-table-controls-collapsible {
     display: none;
     position: absolute;
@@ -998,7 +954,6 @@
     display: flex;
   }
 
-  /* Stack left-side controls vertically */
   .data-table-controls-collapsible .data-table-controls-left {
     flex-direction: column;
     align-items: stretch;
@@ -1006,7 +961,6 @@
     width: 100%;
   }
 
-  /* Search stretches full width */
   .data-table-controls-collapsible .data-table-search {
     width: 100%;
   }
@@ -1016,7 +970,6 @@
     flex: 1;
   }
 
-  /* View toggle stretches full width */
   .data-table-controls-collapsible .data-table-view-toggle {
     width: 100%;
   }
@@ -1026,7 +979,6 @@
     text-align: center;
   }
 
-  /* Picker stretches full width, dropdown goes static (inline) */
   .data-table-controls-collapsible .data-table-picker-container {
     width: 100%;
     z-index: auto;
@@ -1046,7 +998,6 @@
     margin-top: 2px;
   }
 
-  /* Condense pagination on small screens */
   .data-table-page-info {
     display: none;
   }

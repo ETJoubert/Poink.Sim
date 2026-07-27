@@ -234,6 +234,17 @@ namespace Poink.Sim.Components.Pages
             new TraderStateEncoder().FeatureCount
             + SelectedEncoderKinds.Sum(k => BrainCatalog.CreateEncoder(k, CurrentEncoderSizeOptions).FeatureCount);
 
+        // First hidden layer's width -- null for an MLP trimmed down to zero
+        // layers (a linear model, so there's no first layer to flag).
+        private int? FirstHiddenLayerSize => _architectureKind == ArchitectureKind.Mlp
+            ? (EffectiveMlpHiddenSizes.Count > 0 ? EffectiveMlpHiddenSizes[0] : null)
+            : _lstmHiddenSize;
+
+        // Flags a first layer narrower than the inputs feeding it -- not
+        // necessarily wrong, but a common accidental bottleneck worth
+        // surfacing in the Structure card header (see TrainPage.razor).
+        private bool FirstLayerTooSmall => FirstHiddenLayerSize is int size && size < TotalInputCount;
+
         // {Architecture}_{Layers}_{Data}, e.g. MLP_L32-L16_dBW-dVP-dTP-dAS -- mirrors
         // CreateBrain's own encoder/architecture choices below, so the generated
         // name always describes exactly what CREATE BRAIN is about to build.

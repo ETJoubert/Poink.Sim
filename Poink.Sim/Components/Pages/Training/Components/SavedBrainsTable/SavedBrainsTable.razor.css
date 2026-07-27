@@ -50,8 +50,6 @@
     background: color-mix(in srgb, var(--color-primary) 18%, transparent);
 }
 
-/* Icon component renders its own <svg> subtree -- needs ::deep to reach past
-   that child-component boundary. */
 .sbt-collapse-btn ::deep .sbt-icon,
 .sbt-use-btn ::deep .sbt-icon {
     width: 12px;
@@ -60,10 +58,6 @@
     margin-right: 2px;
 }
 
-/* Matches DataTable's own .data-table-action-btn look -- can't reuse that
-   class directly since this button is declared here (CustomActions render
-   fragment), not inside DataTable.razor, so DataTable's scoped CSS doesn't
-   reach it (see DataTable.razor.css's action-button rules). */
 .sbt-use-btn {
     background: transparent;
     border: 1px solid var(--color-primary);

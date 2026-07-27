@@ -13,10 +13,6 @@
     white-space: nowrap;
 }
 
-/* Where the current tick sits between the run's From/To -- rail/track/fill
-   language matching SimulationPage's tick-window slider, plus a fixed marker
-   line rather than a draggable thumb since this is a read-only indicator, not
-   a control. */
 .stl-rail {
     position: relative;
     flex: 1;

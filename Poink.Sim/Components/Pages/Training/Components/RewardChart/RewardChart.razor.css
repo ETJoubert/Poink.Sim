@@ -48,8 +48,6 @@
     box-shadow: 0 0 8px color-mix(in srgb, var(--color-primary) 40%, transparent);
 }
 
-/* Solid (not dashed) and a distinct hue from the reward line/candles below,
-   so the zero reference reads clearly instead of blending into the data. */
 .reward-chart-baseline {
     stroke: var(--color-muted);
     stroke-width: 1;
@@ -93,11 +91,6 @@
     }
 }
 
-/* Up/down candles reuse this app's success/error pair (EpisodeGrid already
-   established this pair fails CVD separation on color alone), so direction
-   never rides on color alone here either: up candles are hollow (stroke
-   only, matching the classic hollow-candle convention), down candles are
-   solid-filled -- shape carries the signal color repeats. */
 .reward-chart-candle-up .reward-chart-candle-body {
     fill: color-mix(in srgb, var(--color-success) 12%, transparent);
     stroke: var(--color-success);

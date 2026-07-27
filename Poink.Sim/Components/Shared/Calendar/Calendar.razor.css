@@ -151,11 +151,6 @@
     font-size: 0.7rem;
 }
 
-/* Escapes the 220px .cal width via position:absolute -- .cal is the
-   positioned ancestor, so this overlays on top of (and past the right edge
-   of) whatever view was active underneath when it was opened. Width is
-   content-driven (4 columns at the same 220px as the normal single-month
-   view) rather than fixed, so it always matches .cal-months' track size. */
 .cal-fullyear-overlay {
     position: absolute;
     top: 0;

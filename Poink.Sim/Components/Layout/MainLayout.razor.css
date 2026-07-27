@@ -1,6 +1,3 @@
-/* Mirrors Poink.Shared.Client's MainLayout.razor.css (cyberpunk terminal top-nav),
-   trimmed to what this app's simplified layout markup actually renders: no
-   nav-extra (auth/info), no settings popup. */
 
 .page {
   position: relative;
@@ -27,7 +24,6 @@ main {
   flex-direction: column;
 }
 
-/* Top Navigation Bar */
 .top-nav {
   background: var(--color-bg-terminal);
   border-bottom: 2px solid var(--color-primary);
@@ -144,7 +140,6 @@ main {
   min-width: 0;
 }
 
-
 .nav-tabs {
   display: flex;
   gap: 5px;
@@ -175,12 +170,7 @@ main {
   gap: 4px;
 }
 
-/* ── Tab appearance -- previously came from Poink.Shared.Client's global
-   components.css (.nav-tab). Copied here so Poink.Sim's tabs can be themed
-   independently of that shared file. The tab elements themselves are
-   rendered by SimNavLinks (a child component), so every selector needs
-   ::deep -- Blazor's CSS isolation doesn't reach into child-rendered markup
-   otherwise (same pattern as SimNavLinks.razor.css's ::deep .nav-icon-img). */
+/* ::deep required -- tab elements render inside child component SimNavLinks. */
 .nav-tabs ::deep .nav-tab {
   background: var(--color-bg-tab);
   border: 1px solid var(--color-primary);
@@ -236,7 +226,6 @@ main {
   flex-direction: column;
 }
 
-/* Responsive Design */
 @media (max-width: 768px) {
   .top-nav {
     padding: 0 10px;
@@ -272,7 +261,6 @@ main {
   }
 }
 
-/* Sidebar Nav Mode */
 .page.sidebar-mode {
   flex-direction: column;
 }
@@ -314,8 +302,6 @@ main {
   align-items: center;
 }
 
-/* ── Sidebar tab appearance -- same local-copy rationale as .nav-tab above,
-   replicated from components.css's .side-nav-tab. */
 .side-nav ::deep .side-nav-tab {
   background: var(--color-bg-tab);
   border: 1px solid color-mix(in srgb, var(--color-primary) 20%, transparent);

@@ -1,5 +1,3 @@
-/* Flat page shell, same convention as SimulationPage.razor.css -- deliberately
-   not the shared .terminal-container/.terminal-section boxed-card chrome. */
 .prof-page {
     display: flex;
     flex-direction: column;
@@ -76,8 +74,6 @@
     50% { opacity: 0.55; }
 }
 
-/* ── Data row: symbol/date-range + bar size + load action ───────────────── */
-
 .prof-datarow {
     display: flex;
     flex-wrap: wrap;
@@ -111,7 +107,6 @@
     font-size: 0.72rem;
 }
 
-/* Self-contained button styling, matching SimulationPage's .sim-ctrl-btn family. */
 .prof-ctrl-btn {
     font-family: var(--font-body);
     font-weight: bold;
@@ -151,12 +146,6 @@
     box-shadow: 0 0 14px color-mix(in srgb, var(--color-success) 45%, transparent);
 }
 
-/* ── Chart row: bar chart + volume profile side by side. Height is drag-resized
-   via .prof-chart-hdivider below (not native `resize`, which could only be
-   grabbed from the exact bottom-right corner) -- same pattern as SimulationPage's
-   chart-row/log-panel divider. flex-shrink: 0 keeps this row from being squeezed
-   by the page's own flex layout once JS starts setting its height inline. ──── */
-
 .prof-chart {
     display: flex;
     flex-shrink: 0;
@@ -173,11 +162,6 @@
     min-width: 0;
 }
 
-/* Dragged via .prof-chart-divider below, which sets this panel's width directly --
-   flex-basis has to stay auto here (rather than the usual "flex: 0 0 260px" shorthand)
-   so that inline width actually governs sizing instead of being overridden by a fixed
-   flex-basis. Shrinking/growing this panel just gives/takes space from .prof-chart-main
-   via its own flex: 1/min-width: 0 -- same pattern as SimulationPage's .sim-chart-side. */
 .prof-chart-side {
     display: flex;
     flex-direction: column;
@@ -193,19 +177,10 @@
     min-height: 0;
 }
 
-/* ── Draggable divider between the two charts -- same subtle inset-line styling
-   and pointer-drag hit area as SimulationPage's own .sim-chart-divider (see
-   ProfilerPage.razor.cs's ChartHDividerScript's bind for the drag logic that
-   resizes .prof-chart-side). ──────────────────────────────────────────────── */
-
 .prof-chart-divider {
     position: relative;
     flex: 0 0 6px;
     align-self: stretch;
-    /* .prof-chart's own 16px gap now applies on both sides of this divider too
-       (one gap became two) -- these negative margins claw most of that back so
-       the total space between the two charts stays close to the original
-       single-gap width. */
     margin: 0 -10px;
     cursor: col-resize;
     touch-action: none;
@@ -234,11 +209,6 @@
 .prof-chart-divider.prof-chart-divider-active::before {
     background: var(--color-primary);
 }
-
-/* ── Draggable divider between the chart row and everything below it -- same
-   subtle inset-line styling and pointer-drag hit area as SimulationPage's own
-   .sim-chart-hdivider (see ProfilerPage.razor.cs's ChartHDividerScript for the
-   drag logic that resizes .prof-chart's height, its previous sibling). ──────── */
 
 .prof-chart-hdivider {
     position: relative;
@@ -271,26 +241,12 @@
     background: var(--color-primary);
 }
 
-/* ── Tabbed panel: drawings / saved T-Range charts / saved T-Range reference
-   charts -- same underline-tab family as SimulationPage's own .sim-log-panel/
-   .sim-log-tabs/.sim-tab-btn (see that page's razor.css), just this page's own
-   copy since neither page shares code-behind. Rendered outside the @if (HasData)
-   block in ProfilerPage.razor -- same reasoning as the old standalone saved-
-   drawings panels below: labeled drawings from any past symbol/session (and the
-   tab bar itself) stay reachable even before a symbol is loaded. ────────────── */
-
 .prof-log-panel {
     display: flex;
     flex-direction: column;
     padding: 18px 24px 24px;
     flex: 1;
 }
-
-/* ── Chart overlays toggle row -- sits above the tab bar (not inside any one tab)
-   since it controls the main chart/volume-profile panel above, not anything specific
-   to the Drawings tab's own list. Same bordered-row look as .prof-drawings-selection-
-   bar below, and the same checkbox+label pattern as TickVolumeProfileChart's own
-   .tvp-control-toggle, so a toggle here reads as the same family of control. ──────── */
 
 .prof-overlay-toggles {
     display: flex;
@@ -367,23 +323,11 @@
     min-width: 0;
 }
 
-/* ── Drawings tab: its cards laid out as a wrapping row (see .prof-drawings-row)
-   rather than a tall vertical list -- makes better use of the width now that it's
-   a full-width tab panel instead of squeezed next to the chart. A multi-click
-   tool (T-Range/P-Range/Rectangle) still places several individual lines, but
-   they're grouped under one card/one remove button here instead of exposing each
-   underlying line separately, since removing a line by clicking its thin canvas
-   rendering would be fiddly to hit precisely anyway. ─────────────────────────── */
-
 .prof-drawings-panel {
     display: flex;
     flex-direction: column;
     gap: 10px;
 }
-
-/* ── Bulk selection bar -- same look/feel as DataTable's own selection bar
-   (see DataTable.razor.css's .data-table-selection-bar), hand-rolled here
-   since the drawing cards below are custom markup, not a DataTable. ────── */
 
 .prof-drawings-selection-bar {
     display: flex;
@@ -451,10 +395,6 @@
     gap: 10px;
 }
 
-/* Same Lines/Ranges/Shapes/Charts classification and colours as DrawableOhlcvChart's
-   own toolbar (see its .doc-tool-btn-* modifiers) -- a card's left border + kind label
-   picks up its drawing's ColorGroup so a card visually matches the colour of both the
-   toolbar button that placed it and the shape/line it drew on the chart. */
 .prof-drawing-card-lines { --doc-color: var(--color-primary); }
 .prof-drawing-card-ranges { --doc-color: var(--color-secondary); }
 .prof-drawing-card-shapes { --doc-color: var(--color-warning); }
@@ -543,17 +483,13 @@
     padding: 1px 0;
 }
 
-/* T-Range Chart's mini candlestick chart -- CandlestickChart (Poink.Shared.Client)
-   defaults its canvas to a full-size 320px tall (see its own .ctrader-candlestick-
-   canvas rule); ::deep + !important is the only way to reach into and override a
-   CSS-isolated component's own scoped style from here, which is necessary to shrink
-   it down to "a small version" that actually fits in a card. */
 .prof-drawing-minichart {
     margin-top: 6px;
     border-radius: var(--border-radius-sm);
     overflow: hidden;
 }
 
+/* ::deep + !important needed to override CandlestickChart's own CSS-isolated canvas size. */
 .prof-drawing-minichart ::deep .ctrader-candlestick-canvas {
     height: 140px !important;
 }
@@ -575,9 +511,6 @@
         max-height: 240px;
     }
 
-    /* Stacked layout has nothing horizontal left for either divider to resize
-       meaningfully against -- same reasoning as SimulationPage's own
-       .sim-chart-divider at this breakpoint. */
     .prof-chart-divider,
     .prof-chart-hdivider {
         display: none;
@@ -590,21 +523,12 @@
     opacity: 0.8;
 }
 
-/* ── Saved-drawings browser tabs -- independent of HasData/the current session
-   (see .prof-log-panel's placement in ProfilerPage.razor, outside @if (HasData)),
-   so labeled drawings from any past symbol/session stay reachable. ──────────── */
-
 .prof-saved-drawings-panel {
     display: flex;
     flex-direction: column;
     gap: 10px;
 }
 
-/* Chart preview for a saved drawing -- shown via DataTable's CardContent (card
-   view) and DetailContent (the eye-icon side panel), both wired in the
-   <DataTable> markup above. Same ::deep + !important override as
-   .prof-drawing-minichart (CandlestickChart defaults to a full-size 320px
-   canvas), just two different heights for the two contexts' available space. */
 .prof-saved-drawing-chart {
     border-radius: var(--border-radius-sm);
     overflow: hidden;

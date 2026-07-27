@@ -13,8 +13,6 @@
 .doc-wrapper.expanded {
     position: fixed;
     top: 16px;
-    /* Clears the ancestor scroll container's own scrollbar width, same reasoning as
-       OhlcvChart.razor.css's .ohlcv-chart-wrapper.expanded. */
     right: 32px;
     bottom: 16px;
     left: 16px;
@@ -36,12 +34,6 @@
     padding: 4px 6px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
-
-/* ── Tool groups: Lines (single/two-point shapes), Ranges (a pair of same-axis
-   lines), Shapes (multi-axis bounded areas), Charts (a range that also renders
-   its own mini chart) -- separated by a thin divider and each carrying its own
-   colour (see the .doc-tool-btn-* modifiers below) so the classification reads
-   at a glance instead of every button looking identical. ─────────────────────── */
 
 .doc-tool-group {
     display: flex;
@@ -90,10 +82,6 @@
     box-shadow: 0 0 10px color-mix(in srgb, var(--doc-color, var(--color-accent)) 50%, transparent);
 }
 
-/* "Has a value, click clears it" state -- distinct from .active ("currently armed,
-   waiting for clicks"): a soft fill rather than a full one, so VOLUME RANGE reads as
-   a different state than mid-placement instead of looking like it's still armed
-   (see DrawableOhlcvChart.razor.cs's ToggleVolumeRange). */
 .doc-tool-btn.has-value {
     background: color-mix(in srgb, var(--doc-color, var(--color-accent)) 16%, transparent);
     border-color: var(--doc-color, var(--color-accent));
@@ -128,11 +116,6 @@
     width: 100%;
 }
 
-/* Visible-data window strip -- its canvas is created and styled by
-   drawableOhlcvChart.js itself (same reasoning as ohlcvChart.js's tooltip: Blazor
-   CSS isolation only scopes elements declared in this component's own markup, so a
-   scoped rule here would never match a JS-created child). This div only needs to
-   claim its own row in the flex column and give the canvas somewhere sized to fill. */
 .doc-minimap {
     flex: 0 0 44px;
     width: 100%;

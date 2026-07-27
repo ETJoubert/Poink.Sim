@@ -68,8 +68,6 @@
     margin-top: 20px;
 }
 
-/* ── Tabbed panel: episode metrics / trader stats / session stats ───────── */
-
 .train-stats-panel {
     margin-top: 20px;
 }
@@ -83,7 +81,6 @@
     border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
 }
 
-/* Self-contained underline tabs -- same family as SimulationPage's sim-tab-btn. */
 .train-tab-btn {
     font-family: var(--font-body);
     font-weight: bold;
@@ -207,12 +204,6 @@
     opacity: 0.7;
 }
 
-/* Play/Pause + speed stepper + progress readout for the episode replay --
-   duplicates the look of TrainPage's .train-ctrl-btn/SimulationPage's
-   .sim-speed-stepper rather than relying on either: Blazor CSS isolation only
-   cascades a parent's scoped styles onto a child component's own root
-   element, not elements nested below it (see TraderControlsPanel's doc
-   comment for the same reasoning), and TrainLiveTab is TrainPage's child. */
 .train-episode-controls {
     display: flex;
     align-items: center;
@@ -306,11 +297,6 @@
     font-variant-numeric: tabular-nums;
 }
 
-/* Static (non-draggable) counterpart to SimulationPage's .sim-chart row --
-   fixed panel widths are fine here since this is a one-off "what happened in
-   the last episode" view, not a live layout worth resizing every session.
-   Taller than a plain OhlcvChart would need since DrawableOhlcvChart adds its
-   own toolbar + minimap strip above/below the actual candlestick area. */
 .train-episode-row {
     display: flex;
     align-items: stretch;

@@ -3,11 +3,6 @@
     flex-direction: column;
 }
 
-/* Static/sticky control bar -- stays pinned to the top of the scrollable content
-   area (the nearest scrolling ancestor is MainLayout's .content) so every
-   control needed to start a run stays reachable regardless of scroll position.
-   Mirrors SimulationPage's .sim-topbar: no separate Setup page, everything
-   needed to kick off a run lives here instead of behind a tab switch. */
 .train-topbar {
     position: sticky;
     top: 0;
@@ -28,8 +23,6 @@
     padding: 16px 24px 10px;
 }
 
-/* Pushes the Save Model group to the far right of the header row -- Start/
-   Pause/Stop live in the toolbar below instead (see .train-toolbar). */
 .train-header-end {
     display: flex;
     align-items: center;
@@ -38,10 +31,6 @@
     margin-left: auto;
 }
 
-/* Save Model group -- lives in the header (not the Save-as row below) so it
-   stays reachable regardless of scroll position, and works mid-run (see
-   SaveModel's doc comment in the code-behind). Collapsed to a single button
-   until clicked, then swaps for the name input/Save/Cancel group. */
 .train-header-save {
     display: flex;
     align-items: center;
@@ -66,9 +55,6 @@
     box-shadow: 0 0 8px color-mix(in srgb, var(--color-primary) 40%, transparent);
 }
 
-/* Save Model's outcome ("saved 'x' at ..."), inline next to the button --
-   neutral, not tinted like .train-brainrow-error, since it's just as often a
-   success message as a failure one. */
 .train-header-save-status {
     font-size: 0.72rem;
     color: var(--color-secondary);
@@ -83,9 +69,6 @@
     text-shadow: var(--shadow-glow-accent);
 }
 
-/* Brain/snapshot currently in use -- mirrors SimulationPage's .sim-header-mode
-   so this always stays visible regardless of scroll position, instead of only
-   being visible in a Saved brains table buried behind a tab switch. */
 .train-header-mode {
     font-size: 0.78rem;
     color: var(--color-secondary);
@@ -108,12 +91,6 @@
     color: var(--color-success);
     text-shadow: 0 0 8px color-mix(in srgb, var(--color-success) 60%, transparent);
 }
-
-/* ── Config cards -- Data Range/Brain Type/Data Structure/Training/Reward
-   Policy/Trader each get their own bordered card (.train-card), the same
-   shell the nested Input/Structure/Actions cards inside Build Brain use, so
-   every section in the topbar reads as one consistent card system rather
-   than a mix of flat rows and boxes. ──────────────────────────────────────── */
 
 .train-config-cards {
     display: flex;
@@ -143,9 +120,6 @@
     color: var(--color-accent);
 }
 
-/* Pairs a .train-card-title with a .train-card-badge on the same line (e.g.
-   Input Structure's live Total inputs readout) instead of stacking them --
-   only used where a card needs a header-level summary value. */
 .train-card-title-row {
     display: flex;
     align-items: center;
@@ -165,34 +139,24 @@
     line-height: 1.4;
 }
 
-/* Data Range -- unlike the other config cards, this one spans the full
-   topbar width (its DateRangeSlider content needs the room, and it doesn't
-   make sense to wrap it next to a narrower card). */
+.train-card-badge-warn {
+    color: var(--color-warning);
+    background: color-mix(in srgb, var(--color-warning) 15%, transparent);
+    border-color: color-mix(in srgb, var(--color-warning) 45%, transparent);
+}
+
 .train-card-full {
     flex: 1 1 100%;
 }
 
-/* Keeps TickDataSource's symbol select/Recount button/date range slider on
-   one line now that the card has the full topbar width to do so, instead of
-   falling back to its own default wrap (still fine in SimulationPage/
-   ProfilerPage's narrower layouts, which keep TickDataSource's own default). */
 .train-card-full ::deep .tds-row {
     flex-wrap: nowrap;
 }
 
-/* .train-card-fields-row's own display:flex (see above) treats its single
-   child here -- the whole <TickDataSource> -- as one shrinkable flex item,
-   squeezing it (and the date range slider inside) below the width nowrap
-   above assumes it gets. Only one child ever sits in this card's row, so
-   drop the flex context entirely rather than fight flex-shrink for it. */
 .train-card-full .train-card-fields-row {
     display: block;
 }
 
-/* Horizontal field layout for a card's own controls -- wraps internally
-   rather than forcing the card wider than its container. Distinct from
-   .train-buildbrain-card-fields (vertical stack), which the nested
-   Input/Structure/Actions cards keep for their checkbox lists below. */
 .train-card-fields-row {
     display: flex;
     flex-wrap: wrap;
@@ -237,9 +201,6 @@
     width: 160px;
 }
 
-/* Name field -- stretches across the Brain Type card's full width (unlike
-   every other Build Brain row, which stays sized to its own content), so it
-   reads as wide as the card it's naming a brain for. */
 .train-buildbrain-name-row {
     width: 100%;
 }
@@ -253,9 +214,6 @@
     width: 100%;
 }
 
-/* Non-editable readout sharing .train-brainrow-input's terminal-field look
-   (e.g. TotalInputCount) -- a plain <span>, not an <input>, so no border-color
-   focus transition applies. */
 .train-brainrow-readonly {
     background: var(--color-bg-terminal);
     border: 1px solid color-mix(in srgb, var(--color-primary) 45%, transparent);
@@ -269,11 +227,6 @@
     box-sizing: border-box;
 }
 
-/* + BUILD BRAIN toggle -- same look as TickDataSource's RECOUNT/FULL RANGE
-   buttons (.tds-btn), a lighter-weight outline style than .terminal-btn-action
-   since this only expands/collapses a panel rather than acting on the run.
-   Duplicated rather than shared because Blazor CSS isolation scopes
-   .tds-btn to TickDataSource's own render output. */
 .train-btn-toggle {
     background: transparent;
     border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
@@ -300,9 +253,6 @@
     cursor: not-allowed;
 }
 
-/* Build Brain panel -- nested inside the Brain Type card, visually set apart
-   (left accent) since it's an expandable extra, not part of the
-   always-visible picker above it. */
 .train-buildbrain {
     display: flex;
     flex-direction: column;
@@ -313,9 +263,6 @@
     margin: 4px 0 0 2px;
 }
 
-/* Input/Structure/Actions cards -- share .train-card's shell above, just
-   with their own vertical-stack fields (.train-buildbrain-card-fields, for
-   checkbox lists) instead of .train-card-fields-row. */
 .train-buildbrain-cards {
     display: flex;
     flex-wrap: wrap;
@@ -329,10 +276,6 @@
     gap: 6px;
 }
 
-/* Input Structure modifier -- each row stretches to the card's full width
-   with its input pushed to the right edge, instead of the label+input
-   staying packed together at the card's left edge like every other
-   checkbox/field card here. */
 .train-buildbrain-card-fields-end {
     align-items: stretch;
 }
@@ -342,14 +285,21 @@
     justify-content: space-between;
 }
 
-/* Structure card's MLP hidden layers -- one row per layer (size input + ×
-   remove) stacked vertically, replacing the old single comma-delimited text
-   field, plus a trailing + ADD LAYER button (.train-btn-toggle, shared with
-   + BUILD BRAIN above). */
 .train-hiddenlayers {
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
+    align-items: stretch;
+    gap: 6px;
+}
+
+.train-hiddenlayers .train-brainrow-field {
+    width: 100%;
+    justify-content: space-between;
+}
+
+.train-hiddenlayer-controls {
+    display: flex;
+    align-items: center;
     gap: 6px;
 }
 
@@ -387,11 +337,6 @@
     color: var(--color-error, #ff5f56);
     font-size: 0.72rem;
 }
-
-/* ── Toolbar: Start/Pause/Stop + progress, second row of the sticky topbar --
-   mirrors SimulationPage's .sim-toolbar/.sim-controls (see that file's own
-   comment), self-contained control buttons rather than the shared
-   .terminal-btn-action look. ─────────────────────────────────────────────── */
 
 .train-toolbar {
     padding: 5px 24px;
@@ -436,9 +381,6 @@
     cursor: not-allowed;
 }
 
-/* Controls collapse toggle -- icon-only and smaller than Start/Pause/Stop
-   since it's a secondary layout toggle, not a run action; sits to the left of
-   Start so it stays in the same row without competing for attention. */
 .train-ctrl-btn-collapse {
     padding: 5px 7px;
     line-height: 1;
@@ -451,7 +393,6 @@
     vertical-align: -1px;
 }
 
-/* START/PAUSE/RESUME -- the primary action, filled so it reads first in the row. */
 .train-ctrl-btn-play {
     border: 1px solid var(--color-success);
     color: var(--color-success);
@@ -466,7 +407,6 @@
     box-shadow: 0 0 14px color-mix(in srgb, var(--color-success) 45%, transparent);
 }
 
-/* STOP -- destructive-ish, warning tint. */
 .train-ctrl-btn-warn {
     border-color: color-mix(in srgb, var(--color-warning) 50%, transparent);
     color: var(--color-warning);
@@ -477,8 +417,6 @@
     border-color: var(--color-warning);
 }
 
-/* Sits inline next to the Start/Pause/Stop buttons -- flex:1 lets it soak up
-   the row's spare width, same as SimulationPage's SimTimeline. */
 .train-progress {
     display: flex;
     align-items: center;
@@ -509,10 +447,6 @@
     color: var(--color-secondary);
     white-space: nowrap;
 }
-
-/* ── Leftover styling from panels that used to live in the scrollable
-   content below the topbar (Saved brains moved to SimulationPage -- see
-   SavedBrainsTable) -- kept for whatever still references it below. ───── */
 
 .train-help {
     border-left: 3px solid var(--color-secondary);

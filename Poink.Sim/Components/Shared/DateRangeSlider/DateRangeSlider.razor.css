@@ -10,18 +10,12 @@
     pointer-events: none;
 }
 
-/* Flattened: From/To used to sit on their own row above the track --
-   now they flank it directly, with the span badge trailing on the right,
-   so the whole control reads as one row instead of three stacked ones. */
 .drs-main {
     display: flex;
     align-items: center;
     gap: 10px;
 }
 
-/* Backdrop + wrap/dropdown below follow the same "picker" pattern as
-   DataTable's column picker -- fixed backdrop to catch outside clicks,
-   relative wrap to anchor the absolute dropdown. */
 .drs-calendar-backdrop {
     position: fixed;
     inset: 0;
@@ -33,8 +27,6 @@
     flex: 0 0 auto;
 }
 
-/* Label is now a <button> (was a <span>) so it can open the calendar --
-   reset native button chrome and keep the same look as before. */
 .drs-label {
     flex: 0 0 auto;
     background: transparent;
@@ -100,11 +92,6 @@
     white-space: nowrap;
 }
 
-/* ── Track: rail + fill + week gridlines behind two transparent range inputs.
-   Both inputs stack on the same box; only their thumbs are interactive (see
-   pointer-events below), so dragging either one feels like one continuous
-   two-handle slider even though it's two native <input type=range>. ────── */
-
 .drs-track-wrap {
     position: relative;
     flex: 1;
@@ -150,9 +137,6 @@
     opacity: 0.7;
 }
 
-/* From/To sit on separate rows (rather than both at the same top) so their
-   thumbs never visually overlap even when the two values are equal or very
-   close -- each gets its own half of the rail's vertical space. */
 .drs-thumb {
     position: absolute;
     left: 0;
@@ -181,11 +165,6 @@
     height: 4px;
 }
 
-/* Line-with-a-triangle marker instead of a round dial -- the thin stem
-   points exactly at the value on the rail, with the triangle as the
-   grabbable "flag" end. From's triangle sits at the top (away from the
-   rail, which runs through the middle of the 46px track-wrap); To's sits
-   at the bottom, mirrored -- see .drs-thumb-from/-to clip-path below. */
 .drs-thumb::-webkit-slider-thumb {
     pointer-events: auto;
     -webkit-appearance: none;

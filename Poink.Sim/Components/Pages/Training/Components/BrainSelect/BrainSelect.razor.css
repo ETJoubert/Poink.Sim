@@ -1,9 +1,3 @@
-/* Self-contained (not shared with the host page's own field styles) --
-   Blazor CSS isolation doesn't cross component boundaries, so this needs to
-   look identical wherever it's dropped in (TrainPage's sticky topbar via
-   BrainStrategyPicker, SimulationPage's setup row) without depending on
-   either page's own scope. Same visual language as those pages' own
-   *-brainrow-field/-select, just under a component-local prefix. */
 .bsel-field {
     display: flex;
     align-items: center;
@@ -30,8 +24,6 @@
     border-color: var(--color-primary);
     box-shadow: 0 0 8px color-mix(in srgb, var(--color-primary) 40%, transparent);
 }
-
-/* ── NN vs heuristic badge, next to the Brain select ─────────────────────── */
 
 .bsel-badge {
     font-size: 0.62rem;
