@@ -102,11 +102,11 @@
                         @if (_showBuildBrain)
                         {
                             <div class="train-buildbrain">
-                                <div class="train-card-fields-row">
-                                    <label class="train-brainrow-field"
+                                <div class="train-card-fields-row train-buildbrain-name-row">
+                                    <label class="train-brainrow-field train-brainrow-field-grow"
                                            title="Unique name for this brain -- must not match an existing one">
                                         Name
-                                        <input class="train-brainrow-input train-brainrow-input-wide" type="text"
+                                        <input class="train-brainrow-input train-brainrow-input-full" type="text"
                                                value="@EffectiveBuildBrainName" @oninput="OnBuildBrainNameInput"
                                                disabled="@(Service.IsRunning || _buildBrainNameAuto)"
                                                placeholder="e.g. lstm-vp-experiment" />
@@ -154,10 +154,15 @@
                                     </div>
 
                                     <div class="train-card">
-                                        <div class="train-card-title"
-                                             title="Per-encoder input width -- how many network inputs each selected data source above contributes">
-                                            Input Structure</div>
-                                        <div class="train-buildbrain-card-fields">
+                                        <div class="train-card-title-row">
+                                            <div class="train-card-title"
+                                                 title="Per-encoder input width -- how many network inputs each selected data source above contributes">
+                                                Input Structure</div>
+                                            <span class="train-card-badge"
+                                                  title="Total network input width: every selected encoder's input count above, plus Trader State's fixed 12">
+                                                @TotalInputCount</span>
+                                        </div>
+                                        <div class="train-buildbrain-card-fields train-buildbrain-card-fields-end">
                                             @if (_includeBarWindow)
                                             {
                                                 <label class="train-brainrow-field"
@@ -203,11 +208,6 @@
                                                            @bind="_timeProfileRawBucketCount" disabled="@Service.IsRunning" />
                                                 </label>
                                             }
-                                            <label class="train-brainrow-field"
-                                                   title="Total network input width: every selected encoder's input count above, plus Trader State's fixed 12">
-                                                Total inputs
-                                                <span class="train-brainrow-input train-brainrow-readonly">@TotalInputCount</span>
-                                            </label>
                                         </div>
                                     </div>
 
@@ -226,12 +226,29 @@
                                             </label>
                                             @if (_architectureKind == ArchitectureKind.Mlp)
                                             {
-                                                <label class="train-brainrow-field"
-                                                       title="Comma-separated hidden layer sizes, e.g. 64,32,16">
-                                                    Hidden layers
-                                                    <input class="train-brainrow-input train-brainrow-input-wide" type="text"
-                                                           @bind="_mlpHiddenSizesText" disabled="@Service.IsRunning" />
-                                                </label>
+                                                <div class="train-hiddenlayers">
+                                                    @for (int i = 0; i < _mlpHiddenSizes.Count; i++)
+                                                    {
+                                                        var index = i;
+                                                        <label class="train-brainrow-field" title="@($"Size of hidden layer {index + 1}")">
+                                                            Layer @(index + 1)
+                                                            <input class="train-brainrow-input" type="number" min="1" step="1"
+                                                                   value="@_mlpHiddenSizes[index]"
+                                                                   @oninput="e => OnHiddenLayerSizeChanged(index, e)"
+                                                                   disabled="@Service.IsRunning" />
+                                                            <button type="button" class="train-btn-remove-layer"
+                                                                    @onclick="() => RemoveHiddenLayer(index)"
+                                                                    disabled="@Service.IsRunning" title="Remove this layer">
+                                                                &#215;
+                                                            </button>
+                                                        </label>
+                                                    }
+                                                    <button type="button" class="train-btn-toggle" @onclick="AddHiddenLayer"
+                                                            disabled="@Service.IsRunning"
+                                                            title="Add another hidden layer, stacked after the ones above">
+                                                        + ADD LAYER
+                                                    </button>
+                                                </div>
                                             }
                                             else
                                             {

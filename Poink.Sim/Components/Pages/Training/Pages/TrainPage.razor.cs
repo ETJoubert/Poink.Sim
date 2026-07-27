@@ -63,7 +63,13 @@ namespace Poink.Sim.Components.Pages
         private int _timeProfileRawBucketCount = 20;
 
         private ArchitectureKind _architectureKind = ArchitectureKind.Mlp;
-        private string _mlpHiddenSizesText = "32,16";
+
+        // One entry per MLP hidden layer, in network order -- edited via the
+        // Structure card's per-layer number inputs (+ ADD LAYER/remove ×)
+        // instead of a single comma-delimited text field. Can be emptied down
+        // to zero layers (a linear model), same as clearing the old text field
+        // could.
+        private List<int> _mlpHiddenSizes = [32, 16];
         private int _lstmHiddenSize = 64;
         private int _lstmNumLayers = 2;
 
@@ -168,6 +174,20 @@ namespace Poink.Sim.Components.Pages
         private void OnArchitectureKindChanged(ChangeEventArgs e) =>
             _architectureKind = Enum.Parse<ArchitectureKind>(e.Value?.ToString() ?? nameof(ArchitectureKind.Mlp));
 
+        // Mirrors the old ParseHiddenSizes(text)'s n > 0 filter -- a layer
+        // cleared to 0 (or left blank) drops out rather than building a
+        // zero-width layer.
+        private IReadOnlyList<int> EffectiveMlpHiddenSizes => _mlpHiddenSizes.Where(n => n > 0).ToList();
+
+        private void AddHiddenLayer() => _mlpHiddenSizes.Add(16);
+
+        private void RemoveHiddenLayer(int index) => _mlpHiddenSizes.RemoveAt(index);
+
+        private void OnHiddenLayerSizeChanged(int index, ChangeEventArgs e)
+        {
+            if (int.TryParse(e.Value?.ToString(), out int size)) _mlpHiddenSizes[index] = size;
+        }
+
         // LSTM needs a sequence-bearing part (Bar Window) to narrow() a
         // sequence out of -- see LstmArchitecture's doc comment; mirrored here
         // so the Create button disables instead of only failing after a click.
@@ -232,7 +252,7 @@ namespace Poink.Sim.Components.Pages
                 };
 
                 string layers = _architectureKind == ArchitectureKind.Mlp
-                    ? string.Join("-", ParseHiddenSizes(_mlpHiddenSizesText).Select(n => $"L{n}"))
+                    ? string.Join("-", EffectiveMlpHiddenSizes.Select(n => $"L{n}"))
                     : $"H{_lstmHiddenSize}-N{_lstmNumLayers}";
 
                 var dataParts = new List<string>();
@@ -281,7 +301,7 @@ namespace Poink.Sim.Components.Pages
             var encoderKinds = SelectedEncoderKinds;
 
             IReadOnlyList<int> hiddenSizes = _architectureKind == ArchitectureKind.Mlp
-                ? ParseHiddenSizes(_mlpHiddenSizesText)
+                ? EffectiveMlpHiddenSizes
                 : [_lstmHiddenSize, _lstmNumLayers];
 
             var actionOutputKinds = new List<ActionOutputKind>();
@@ -310,12 +330,6 @@ namespace Poink.Sim.Components.Pages
                 _buildBrainStatus = Service.Error;
             }
         }
-
-        private static IReadOnlyList<int> ParseHiddenSizes(string text) =>
-            text.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .Select(s => int.TryParse(s, out int n) ? n : 0)
-                .Where(n => n > 0)
-                .ToList();
 
         // One block's time span for EpisodeCoverageTimeline -- mirrors
         // TryStartTraining's own fetchSpan sizing (barWidth * episodeBars,

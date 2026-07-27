@@ -143,6 +143,28 @@
     color: var(--color-accent);
 }
 
+/* Pairs a .train-card-title with a .train-card-badge on the same line (e.g.
+   Input Structure's live Total inputs readout) instead of stacking them --
+   only used where a card needs a header-level summary value. */
+.train-card-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.train-card-badge {
+    font-family: var(--font-body);
+    font-size: 0.68rem;
+    font-weight: bold;
+    color: var(--color-primary);
+    background: color-mix(in srgb, var(--color-primary) 15%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 45%, transparent);
+    border-radius: 999px;
+    padding: 2px 8px;
+    line-height: 1.4;
+}
+
 /* Data Range -- unlike the other config cards, this one spans the full
    topbar width (its DateRangeSlider content needs the room, and it doesn't
    make sense to wrap it next to a narrower card). */
@@ -213,6 +235,22 @@
 
 .train-brainrow-input-wide {
     width: 160px;
+}
+
+/* Name field -- stretches across the Brain Type card's full width (unlike
+   every other Build Brain row, which stays sized to its own content), so it
+   reads as wide as the card it's naming a brain for. */
+.train-buildbrain-name-row {
+    width: 100%;
+}
+
+.train-brainrow-field-grow {
+    flex: 1;
+}
+
+.train-brainrow-input-full {
+    flex: 1;
+    width: 100%;
 }
 
 /* Non-editable readout sharing .train-brainrow-input's terminal-field look
@@ -289,6 +327,53 @@
     flex-direction: column;
     align-items: flex-start;
     gap: 6px;
+}
+
+/* Input Structure modifier -- each row stretches to the card's full width
+   with its input pushed to the right edge, instead of the label+input
+   staying packed together at the card's left edge like every other
+   checkbox/field card here. */
+.train-buildbrain-card-fields-end {
+    align-items: stretch;
+}
+
+.train-buildbrain-card-fields-end .train-brainrow-field {
+    width: 100%;
+    justify-content: space-between;
+}
+
+/* Structure card's MLP hidden layers -- one row per layer (size input + ×
+   remove) stacked vertically, replacing the old single comma-delimited text
+   field, plus a trailing + ADD LAYER button (.train-btn-toggle, shared with
+   + BUILD BRAIN above). */
+.train-hiddenlayers {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+}
+
+.train-btn-remove-layer {
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--color-error, #ff5f56) 40%, transparent);
+    color: var(--color-error, #ff5f56);
+    border-radius: var(--border-radius-sm);
+    font-family: var(--font-body);
+    font-size: 11px;
+    line-height: 1;
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.train-btn-remove-layer:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-error, #ff5f56) 15%, transparent);
+}
+
+.train-btn-remove-layer:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
 }
 
 .train-brainrow-select:focus,
