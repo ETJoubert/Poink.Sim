@@ -191,153 +191,172 @@
         }
     </div>
 
-    @if (_snapshot is null)
-    {
-        <div class="sim-setup-content">
-            <SavedBrainsTable SavedBrains="TrainingService.SavedBrains" OnUse="UseSavedBrain" OnDelete="DeleteSavedBrainSnapshot"
-                              UseTitle="Loads these weights into the brain and selects it for this simulation -- also what Train's brain picker will use" />
-        </div>
-    }
+    <div class="sim-body">
+        <div class="sim-main">
 
-    @if (_snapshot is not null)
-    {
-        var s = _snapshot;
+            @if (_snapshot is null)
+            {
+                <div class="sim-setup-content">
+                    <SavedBrainsTable SavedBrains="TrainingService.SavedBrains" OnUse="UseSavedBrain" OnDelete="DeleteSavedBrainSnapshot"
+                                      UseTitle="Loads these weights into the brain and selects it for this simulation -- also what Train's brain picker will use" />
+                </div>
+            }
 
-        @if (!_hideChart)
-        {
-            <div class="sim-window-bar">
-                @if (s.Config.Aggregate)
+            @if (_snapshot is not null)
+            {
+                var s = _snapshot;
+
+                @if (!_hideChart)
                 {
-                    <span class="sim-window-title">BAR WINDOW</span>
-                    <div class="sim-window-rail">
-                        <div class="sim-window-track"></div>
-                        <div class="sim-window-fill"
-                             style="width: @(BarWindowFillPercent.ToString("0.##", CultureInfo.InvariantCulture))%"></div>
-                        <input type="range" class="sim-window-slider" min="1" max="@MaxBarWindow" step="1" @bind="_barWindowSize"
-                               @bind:event="oninput"
-                               title="Bars back from now -- their price histograms drive the volume profile window, and the bar itself drives the chart's window-start marker" />
+                    <div class="sim-window-bar">
+                        @if (s.Config.Aggregate)
+                        {
+                            <span class="sim-window-title">BAR WINDOW</span>
+                            <div class="sim-window-rail">
+                                <div class="sim-window-track"></div>
+                                <div class="sim-window-fill"
+                                     style="width: @(BarWindowFillPercent.ToString("0.##", CultureInfo.InvariantCulture))%"></div>
+                                <input type="range" class="sim-window-slider" min="1" max="@MaxBarWindow" step="1" @bind="_barWindowSize"
+                                       @bind:event="oninput"
+                                       title="Bars back from now -- their price histograms drive the volume profile window, and the bar itself drives the chart's window-start marker" />
+                            </div>
+                            <input class="sim-window-input" type="number" min="1" max="@MaxBarWindow" @bind="_barWindowSize"
+                                   @bind:event="oninput" />
+                        }
+                        else
+                        {
+                            <span class="sim-window-title">TICK WINDOW</span>
+                            <div class="sim-window-rail">
+                                <div class="sim-window-track"></div>
+                                <div class="sim-window-fill"
+                                     style="width: @(TickWindowFillPercent.ToString("0.##", CultureInfo.InvariantCulture))%"></div>
+                                <input type="range" class="sim-window-slider" min="0" max="@MaxTickWindow" step="1" @bind="_tickWindowSize"
+                                       @bind:event="oninput"
+                                       title="Ticks back from now -- drives the volume profile window" />
+                            </div>
+                            <input class="sim-window-input" type="number" min="0" max="@MaxTickWindow" @bind="_tickWindowSize"
+                                   @bind:event="oninput" />
+                        }
                     </div>
-                    <input class="sim-window-input" type="number" min="1" max="@MaxBarWindow" @bind="_barWindowSize"
-                           @bind:event="oninput" />
-                }
-                else
-                {
-                    <span class="sim-window-title">TICK WINDOW</span>
-                    <div class="sim-window-rail">
-                        <div class="sim-window-track"></div>
-                        <div class="sim-window-fill"
-                             style="width: @(TickWindowFillPercent.ToString("0.##", CultureInfo.InvariantCulture))%"></div>
-                        <input type="range" class="sim-window-slider" min="0" max="@MaxTickWindow" step="1" @bind="_tickWindowSize"
-                               @bind:event="oninput"
-                               title="Ticks back from now -- drives the volume profile window" />
+
+                    <div class="sim-chart">
+                        <div class="sim-chart-main">
+                            @if (s.Config.Aggregate)
+                            {
+                                <OhlcvChart Bars="ToBarRows(s.RecentBars)" CurrentBid="s.CurrentBid" CurrentAsk="s.CurrentAsk"
+                                            EntryPrice="SelectedTrader?.Position?.EntryPrice" PositionIsLong="SelectedPositionIsLong"
+                                            StopLossPrice="SelectedTrader?.Position?.StopLossPrice" TakeProfitPrice="SelectedTrader?.Position?.TakeProfitPrice"
+                                            WindowStartUtc="WindowStartUtc(s.RecentBars)" />
+                            }
+                            else
+                            {
+                                <ViewDatatable Items="TickRows" Title="RECENT TICKS" />
+                            }
+                        </div>
+                        <div class="sim-chart-divider" @ref="_chartDividerRef" data-min-width="160" data-max-width="480"
+                             title="Drag to resize"></div>
+                        <div class="sim-chart-side">
+                            @if (s.Config.Aggregate)
+                            {
+                                <TickVolumeProfileChart WeightedSamples="MergedBarSamples(s)" CurrentPrice="s.CurrentPrice" />
+                            }
+                            else
+                            {
+                                <TickVolumeProfileChart Prices="ToMidPrices(s.RecentTicks)" CurrentPrice="s.CurrentPrice"
+                                                        WindowSize="ClampedTickWindow" />
+                            }
+                        </div>
+                        <div class="sim-chart-divider" @ref="_chartDividerRef2" data-min-width="160" data-max-width="480"
+                             title="Drag to resize"></div>
+                        <div class="sim-chart-side">
+                            @if (s.Config.Aggregate)
+                            {
+                                <TickTimeProfileChart WeightedSamples="MergedBarTimeSamples(s)" CurrentPrice="s.CurrentPrice" />
+                            }
+                            else
+                            {
+                                <TickTimeProfileChart Ticks="ToTimedMidPrices(s.RecentTicks)" CurrentPrice="s.CurrentPrice"
+                                                      WindowSize="ClampedTickWindow" />
+                            }
+                        </div>
                     </div>
-                    <input class="sim-window-input" type="number" min="0" max="@MaxTickWindow" @bind="_tickWindowSize"
-                           @bind:event="oninput" />
-                }
-            </div>
 
-            <div class="sim-chart">
-                <div class="sim-chart-main">
-                    @if (s.Config.Aggregate)
-                    {
-                        <OhlcvChart Bars="ToBarRows(s.RecentBars)" CurrentBid="s.CurrentBid" CurrentAsk="s.CurrentAsk"
-                                    EntryPrice="SelectedTrader?.Position?.EntryPrice" PositionIsLong="SelectedPositionIsLong"
-                                    StopLossPrice="SelectedTrader?.Position?.StopLossPrice" TakeProfitPrice="SelectedTrader?.Position?.TakeProfitPrice"
-                                    WindowStartUtc="WindowStartUtc(s.RecentBars)" />
-                    }
-                    else
-                    {
-                        <ViewDatatable Items="TickRows" Title="RECENT TICKS" />
-                    }
+                    <div class="sim-chart-hdivider" @ref="_chartHDividerRef" data-min-height="160" data-max-height-vh="80"
+                         title="Drag to resize"></div>
+                }
+
+                <div class="sim-log-panel">
+                    <div class="sim-log-tabs">
+                        <button class="sim-tab-btn @(_activeLogTab == LogTab.Traders ? "active" : "")"
+                                @onclick="() => _activeLogTab = LogTab.Traders">TRADERS</button>
+                        <button class="sim-tab-btn @(_activeLogTab == LogTab.Brain ? "active" : "")"
+                                @onclick="() => _activeLogTab = LogTab.Brain">BRAIN</button>
+                        <button class="sim-tab-btn @(_activeLogTab == LogTab.InputsOutputs ? "active" : "")"
+                                @onclick="() => _activeLogTab = LogTab.InputsOutputs">INPUTS/OUTPUTS</button>
+                        <button class="sim-tab-btn @(_activeLogTab == LogTab.Decisions ? "active" : "")"
+                                @onclick="() => _activeLogTab = LogTab.Decisions">DECISION LOG</button>
+                        <button class="sim-tab-btn @(_activeLogTab == LogTab.Positions ? "active" : "")"
+                                @onclick="() => _activeLogTab = LogTab.Positions">POSITIONS</button>
+                        <button class="sim-tab-btn @(_activeLogTab == LogTab.Statistics ? "active" : "")"
+                                @onclick="() => _activeLogTab = LogTab.Statistics">STATISTICS</button>
+                    </div>
+                    <div class="sim-log-content">
+                        @if (_activeLogTab == LogTab.Decisions)
+                        {
+                            <DataTable TItem="DecisionLogRow" Items="LogRows" ShowRowNumbers="false" ActionsHeader="VIEW"
+                                       CellClass="DecisionLogCellClass" EmptyMessage="no decisions yet" />
+                        }
+                        else if (_activeLogTab == LogTab.Positions)
+                        {
+                            <DataTable TItem="OpenPositionRow" Items="OpenPositionRows" ShowRowNumbers="false" ActionsHeader="VIEW"
+                                       CellClass="PositionCellClass" EmptyMessage="flat" />
+                        }
+                        else if (_activeLogTab == LogTab.Traders)
+                        {
+                            <DataTable TItem="TraderCardItem" Items="TraderItems" ExcludeProperties="@(new List<string> { "Id" })"
+                                       ShowRowNumbers="false" ActionsHeader="VIEW" CellClass="TraderCellClass"
+                                       OnView="item => SelectTrader(item.Id)" />
+                        }
+                        else if (_activeLogTab == LogTab.Brain)
+                        {
+                            <BrainInfoCard BrainName="@s.Config.BrainName"
+                                           IsNeuralNetwork="CurrentBrainIsNeuralNetwork(s.Config.BrainName)"
+                                           ActiveSnapshot="TrainingService.GetActiveSnapshot(s.Config.BrainName)" />
+                        }
+                        else if (_activeLogTab == LogTab.InputsOutputs)
+                        {
+                            <BrainIoPanel Inputs="SelectedTrader?.Inputs" Outputs="SelectedTrader?.Outputs"
+                                          CurrentPrice="_snapshot?.CurrentPrice" Equity="SelectedTrader?.Capital.Equity" />
+                        }
+                        else
+                        {
+                            <StatisticsPanel Groups="StatGroups" EmptyMessage="no closed trades yet" />
+                        }
+                    </div>
                 </div>
-                <div class="sim-chart-divider" @ref="_chartDividerRef" data-min-width="160" data-max-width="480"
-                     title="Drag to resize"></div>
-                <div class="sim-chart-side">
-                    @if (s.Config.Aggregate)
-                    {
-                        <TickVolumeProfileChart WeightedSamples="MergedBarSamples(s)" CurrentPrice="s.CurrentPrice" />
-                    }
-                    else
-                    {
-                        <TickVolumeProfileChart Prices="ToMidPrices(s.RecentTicks)" CurrentPrice="s.CurrentPrice"
-                                                WindowSize="ClampedTickWindow" />
-                    }
-                </div>
-                <div class="sim-chart-divider" @ref="_chartDividerRef2" data-min-width="160" data-max-width="480"
-                     title="Drag to resize"></div>
-                <div class="sim-chart-side">
-                    @if (s.Config.Aggregate)
-                    {
-                        <TickTimeProfileChart WeightedSamples="MergedBarTimeSamples(s)" CurrentPrice="s.CurrentPrice" />
-                    }
-                    else
-                    {
-                        <TickTimeProfileChart Ticks="ToTimedMidPrices(s.RecentTicks)" CurrentPrice="s.CurrentPrice"
-                                              WindowSize="ClampedTickWindow" />
-                    }
-                </div>
 
-                <TraderControlsPanel TraderId="SelectedTrader?.Id" TraderLabel="SelectedTraderLabel" IsManual="SelectedTraderIsManual"
-                                     PositionSummary="SelectedPositionSummary" PendingSummary="SelectedPendingSummary" />
-            </div>
-
-            <div class="sim-chart-hdivider" @ref="_chartHDividerRef" data-min-height="160" data-max-height-vh="80"
-                 title="Drag to resize"></div>
-        }
-
-        <div class="sim-log-panel">
-            <div class="sim-log-tabs">
-                <button class="sim-tab-btn @(_activeLogTab == LogTab.Traders ? "active" : "")"
-                        @onclick="() => _activeLogTab = LogTab.Traders">TRADERS</button>
-                <button class="sim-tab-btn @(_activeLogTab == LogTab.Brain ? "active" : "")"
-                        @onclick="() => _activeLogTab = LogTab.Brain">BRAIN</button>
-                <button class="sim-tab-btn @(_activeLogTab == LogTab.InputsOutputs ? "active" : "")"
-                        @onclick="() => _activeLogTab = LogTab.InputsOutputs">INPUTS/OUTPUTS</button>
-                <button class="sim-tab-btn @(_activeLogTab == LogTab.Decisions ? "active" : "")"
-                        @onclick="() => _activeLogTab = LogTab.Decisions">DECISION LOG</button>
-                <button class="sim-tab-btn @(_activeLogTab == LogTab.Positions ? "active" : "")"
-                        @onclick="() => _activeLogTab = LogTab.Positions">POSITIONS</button>
-                <button class="sim-tab-btn @(_activeLogTab == LogTab.Statistics ? "active" : "")"
-                        @onclick="() => _activeLogTab = LogTab.Statistics">STATISTICS</button>
-            </div>
-            <div class="sim-log-content">
-                @if (_activeLogTab == LogTab.Decisions)
+                @if (_error is not null)
                 {
-                    <DataTable TItem="DecisionLogRow" Items="LogRows" ShowRowNumbers="false" ActionsHeader="VIEW"
-                               CellClass="DecisionLogCellClass" EmptyMessage="no decisions yet" />
+                    <p class="sim-error">@_error</p>
                 }
-                else if (_activeLogTab == LogTab.Positions)
-                {
-                    <DataTable TItem="OpenPositionRow" Items="OpenPositionRows" ShowRowNumbers="false" ActionsHeader="VIEW"
-                               CellClass="PositionCellClass" EmptyMessage="flat" />
-                }
-                else if (_activeLogTab == LogTab.Traders)
-                {
-                    <DataTable TItem="TraderCardItem" Items="TraderItems" ExcludeProperties="@(new List<string> { "Id" })"
-                               ShowRowNumbers="false" ActionsHeader="VIEW" CellClass="TraderCellClass"
-                               OnView="item => SelectTrader(item.Id)" />
-                }
-                else if (_activeLogTab == LogTab.Brain)
-                {
-                    <BrainInfoCard BrainName="@s.Config.BrainName"
-                                   IsNeuralNetwork="CurrentBrainIsNeuralNetwork(s.Config.BrainName)"
-                                   ActiveSnapshot="TrainingService.GetActiveSnapshot(s.Config.BrainName)" />
-                }
-                else if (_activeLogTab == LogTab.InputsOutputs)
-                {
-                    <BrainIoPanel Inputs="SelectedTrader?.Inputs" Outputs="SelectedTrader?.Outputs"
-                                  CurrentPrice="_snapshot?.CurrentPrice" Equity="SelectedTrader?.Capital.Equity" />
-                }
-                else
-                {
-                    <StatisticsPanel Groups="StatGroups" EmptyMessage="no closed trades yet" />
-                }
-            </div>
+            }
         </div>
 
-        @if (_error is not null)
+        @if (_snapshot is not null)
         {
-            <p class="sim-error">@_error</p>
+            <div class="sim-sidepanel @(_traderPanelCollapsed ? "sim-sidepanel-collapsed" : "")">
+                <button class="sim-sidepanel-toggle" @onclick="ToggleTraderPanel"
+                        title="@(_traderPanelCollapsed ? "Expand trader controls" : "Collapse trader controls")">
+                    <Icon Name="@(_traderPanelCollapsed ? "chevron-left" : "chevron-right")" Class="sim-sidepanel-toggle-icon" />
+                </button>
+                @if (!_traderPanelCollapsed)
+                {
+                    <div class="sim-sidepanel-content">
+                        <TraderControlsPanel TraderId="SelectedTrader?.Id" TraderLabel="SelectedTraderLabel" IsManual="SelectedTraderIsManual"
+                                             PositionSummary="SelectedPositionSummary" PendingSummary="SelectedPendingSummary" />
+                    </div>
+                }
+            </div>
         }
-    }
+    </div>
 </div>

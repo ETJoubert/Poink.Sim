@@ -1,12 +1,7 @@
 .tcp-panel {
-    flex: 0 0 220px;
-    min-height: 0;
-    overflow-y: auto;
     display: flex;
     flex-direction: column;
     gap: 10px;
-    padding-left: 16px;
-    border-left: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
 }
 
 .tcp-header {
@@ -129,15 +124,4 @@
 .tcp-sell:hover:not(:disabled) {
     background: color-mix(in srgb, var(--color-error) 14%, transparent);
     border-color: var(--color-error);
-}
-
-@media (max-width: 900px) {
-    .tcp-panel {
-        flex-basis: auto;
-        width: 100%;
-        border-left: none;
-        padding-left: 0;
-        border-top: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
-        padding-top: 10px;
-    }
 }

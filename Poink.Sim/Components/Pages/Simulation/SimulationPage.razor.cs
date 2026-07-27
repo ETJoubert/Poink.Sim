@@ -49,6 +49,7 @@ namespace Poink.Sim.Components.Pages
         private bool _isLoading;
         private string? _error;
         private bool _hideChart;
+        private bool _traderPanelCollapsed;
         private int? _selectedTraderId;
         private LogTab _activeLogTab;
 
@@ -399,6 +400,8 @@ namespace Poink.Sim.Components.Pages
         private void SetMax() => Service.SetMaxSpeed();
 
         private void ToggleHideChart() => _hideChart = !_hideChart;
+
+        private void ToggleTraderPanel() => _traderPanelCollapsed = !_traderPanelCollapsed;
 
         private void ResetSim() => Service.Reset();
 
