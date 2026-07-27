@@ -1,11 +1,14 @@
 # Brain — pluggable trading-decision brains
 
-> This documents the **current, as-built state** of this folder. It supersedes
-> the "Machine-learning brain" section of `Poink.Sim/README.md` and the
-> `Brain/`-related entries in `Poink.Sim/GLOSSARY.md`, which still describe the
-> pre-composition brains (`MlpPolicyBrain`, `LstmPolicyBrain`,
-> `VolumeProfilePolicyBrain`, `VolumeProfileBarsPolicyBrain`) that no longer
-> exist — those files haven't been updated yet.
+> Doc version: **v1.2** — see "Changelog" at the bottom for what changed.
+> See [../Docs/README.md](../Docs/README.md) for documentation standards.
+
+This documents the **current, as-built state** of this folder — it is
+authoritative over the `Brain/`-related entries in `Poink.Sim/GLOSSARY.md`,
+which still describe the pre-composition brains (`MlpPolicyBrain`,
+`LstmPolicyBrain`, `VolumeProfilePolicyBrain`, `VolumeProfileBarsPolicyBrain`)
+that no longer exist as standalone classes — that file hasn't been updated
+yet.
 
 ## TLDR
 
@@ -113,11 +116,14 @@ persist, via the existing Save Model flow, keyed by the brain's `Name`.
 | File | Role |
 |---|---|
 | `ISimulationBrain.cs` | The brain contract every brain implements: `Name`, `Decide`, `Reset` |
-| `MomentumThresholdBrain.cs` | Heuristic: opens/holds on a ±threshold price move vs. N observations ago, closes on revert |
-| `RandomBrain.cs` | Heuristic: independently rolls whether to act and which direction each decision point — a trivial baseline |
 | `BrainRegistry.cs` | Shared mutable brain list backing both `RlTrainingService` and `SimulationEngine`; `Register` adds a runtime-built brain |
+| `Heuristic/MomentumThresholdBrain.cs` | Heuristic: opens/holds on a ±threshold price move vs. N observations ago, closes on revert |
+| `Heuristic/RandomBrain.cs` | Heuristic: independently rolls whether to act and which direction each decision point — a trivial baseline |
 | `Neural/IPolicyGradientBrain.cs` | Trained-brain family contract: `Network`, `Encode`, `DecideWithLogProbability`, `DescribeInputs`; default-implements `ExportWeights`/`ImportWeights`/`WeightCount`/`MoveToTrainingDevice`/`MoveToInferenceDevice`/`DescribeNetworkShape` off `Network` alone |
 | `Neural/IHasLookbackBars.cs` | Optional capability: a settable `LookbackBars` for an encoder that merges a trailing bar-count window |
+| `Neural/CategoricalSampling.cs` | Manual cumulative-sum categorical sampler shared by every direction/action-head pick (sidesteps a TorchSharp `multinomial` crash on this call shape) |
+| `Neural/ComposedPolicyBrain.cs` | The one generic brain — pairs an encoder with a network built by an architecture; `LookbackAwarePolicyBrain` is the `IHasLookbackBars`-surfacing subclass |
+| `Neural/BrainCatalog.cs` | UI-facing catalog (`EncoderKind`/`ArchitectureKind` enums + factory) the Train page's Brain Builder panel selects from |
 | `Neural/Encoders/IObservationEncoder.cs` | Encoder contract: `FeatureCount`, `SequenceLength`, `Features`, `Encode`; also defines `FeatureDescriptor` (`Label` + `IFeatureNormalizer`) |
 | `Neural/Encoders/BarWindowEncoder.cs` | Encoder: 20-bar percent-change-from-current-price window |
 | `Neural/Encoders/TraderStateEncoder.cs` | Encoder: 12 exact trader/account fields (position direction, position entry price, position ticks held, position cumulative distance, current price, cash, realized/unrealized PnL, equity, margin, margin level, position count) |
@@ -133,16 +139,16 @@ persist, via the existing Save Model flow, keyed by the brain's `Name`.
 | `Neural/Normalizers/DirectionNormalizer.cs` | Normalizer: passthrough for a categorical `-1/0/1` position flag |
 | `Neural/Normalizers/RawPriceNormalizer.cs` | Normalizer: passthrough for an already-real, unscaled price level |
 | `Neural/Normalizers/RawValueNormalizer.cs` | Normalizer: passthrough for an already-real, unscaled quantity |
-| `Neural/INetworkArchitecture.cs` | Architecture contract: `Build(featureCount, sequenceLength)` |
-| `Neural/MlpArchitecture.cs` | Architecture: flat `Linear→Tanh` stack, any hidden-layer sizes |
-| `Neural/LstmArchitecture.cs` | Architecture: LSTM over a leading sequence slice + trailing scalars |
-| `Neural/LstmPolicyNetwork.cs` | The hand-written `Module<Tensor,Tensor>` `LstmArchitecture` builds (LSTM's tuple-returning `forward` doesn't fit `Sequential`) |
-| `Neural/ComposedPolicyBrain.cs` | The one generic brain — pairs an encoder with a network built by an architecture; `LookbackAwarePolicyBrain` is the `IHasLookbackBars`-surfacing subclass |
-| `Neural/BrainCatalog.cs` | UI-facing catalog (`EncoderKind`/`ArchitectureKind` enums + factory) the Train page's Brain Builder panel selects from |
+| `Neural/Architectures/INetworkArchitecture.cs` | Architecture contract: `Build(featureCount, sequenceLength)` |
+| `Neural/Architectures/MlpArchitecture.cs` | Architecture: flat `Linear→Tanh` stack, any hidden-layer sizes |
+| `Neural/Architectures/LstmArchitecture.cs` | Architecture: LSTM over a leading sequence slice + trailing scalars |
+| `Neural/Architectures/LstmPolicyNetwork.cs` | The hand-written `Module<Tensor,Tensor>` `LstmArchitecture` builds (LSTM's tuple-returning `forward` doesn't fit `Sequential`) |
+| `Neural/ActionOutputs/IActionOutputHead.cs` | Optional-decision contract (`Kind`, `OutputWidth`, `Sample`) for a non-direction network output (Volume/StopLoss/TakeProfit) |
+| `Neural/ActionOutputs/DiscretizedLevelsActionHead.cs` | The v1 (and only) `IActionOutputHead` implementation: a small independent categorical head per enabled kind |
 
 ## Explicitly not (yet) in this model
 
-- **Training policy** (`IRlTrainingStrategy`, `Training/`) is already a
+- **Training policy** (`IRlTrainingStrategy`, `Services/Training/`) is already a
   separate, swappable axis — it operates on any `IPolicyGradientBrain`
   generically. Not part of this folder, not touched by the composition work
   above.
@@ -153,3 +159,17 @@ persist, via the existing Save Model flow, keyed by the brain's `Name`.
 - **Recipe persistence** — a runtime-built brain's *shape* (which encoders +
   architecture + hyperparameters) isn't saved anywhere; only its trained
   weights are, once "Save Model" is used.
+
+## Changelog
+
+- **v1.2** — 2026-07-27 — Fixed the Files table's paths (`Heuristic/`,
+  `Architectures/` subfolders weren't reflected), added the missing
+  `ActionOutputs/` and `CategoricalSampling.cs` rows, and fixed a stray
+  `Training/` reference to `Services/Training/`.
+- **v1.1** — 2026-07-27 — Adopted the project-wide doc versioning
+  convention ([../Docs/README.md](../Docs/README.md)); trimmed the stale
+  cross-reference to the old monolithic root README, now replaced by
+  [../README.md](../README.md) + [../Docs/Training.md](../Docs/Training.md).
+- **v1.0** — original write-up of the composition model (encoders +
+  normalizers + architectures), superseding the pre-composition brain
+  classes — see git history for detail.

@@ -2,8 +2,14 @@
 
 Definitions for domain and codebase terminology used in Poink.Sim. Intended for both
 human and agent lookup — if you hit an unfamiliar term while reading code, docs, or
-the UI in this project, check here first. See also [README.md](README.md) for prose
-design context; this file is the flat reference index.
+the UI in this project, check here first. See also [README.md](README.md) and
+[Docs/](Docs/README.md) for prose design context, organized by area
+(Simulation/Training/Brain/Profiler); this file is the flat reference index
+spanning all of them.
+
+> For `Brain`/`Brain/Neural` terms specifically, [Brain/README.md](Brain/README.md)
+> is authoritative — some entries below (e.g. `MlpPolicyBrain`, `LstmPolicyBrain`
+> as standalone classes) describe the pre-composition model and predate it.
 
 Each entry: **Term** — definition. `File path(s)` where the concept is defined.
 
@@ -21,7 +27,8 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   `Models/SimulationDecision.cs`
 - **CFD-style account** — The account model this simulator implements: leveraged
   margin trading with real spread cost and commission, where shorting is a
-  first-class case (not a borrow-based short). See README "What this feature is."
+  first-class case (not a borrow-based short). See
+  [Docs/Simulation.md](Docs/Simulation.md) "What it is."
 - **Commission model / `ICommissionModel`** — Pluggable per-fill commission cost:
   `CommissionFor(size, fillPrice)`, charged once per fill leg (open and close are
   separate calls). `PercentOfNotionalCommission` is the only implementation today
@@ -113,7 +120,7 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   interval (`BarPriceHistogram.MergeTime`), since bar mode retains no per-tick
   timestamps. Its Point of Control/Value Area are computed by
   `TimeProfileStats.Compute`, independently of Volume Profile's.
-  `Components/Charts/TickTimeProfileChart.razor.cs`. Also available as a
+  `Components/Charts/TickTimeProfileChart/TickTimeProfileChart.razor.cs`. Also available as a
   trainable brain feature via `TimeProfileEncoder` (see **`IHasLookbackBars`**),
   which re-bins the same `BarPriceHistogram.MergeTime` output/POC/Value-Area
   math (`TimeProfileAnalysis`, the seconds-weighted counterpart to
@@ -135,7 +142,7 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   `TickVolumeProfileChart`: how much activity occurred at each price level within the
   current window, split into up/down-tick sub-bars. Its Point of Control/Value Area
   are highlighted directly in the panel and projected onto `ProfilerPage`'s main
-  chart as POC/VAH/VAL lines. `Components/Charts/TickVolumeProfileChart.razor.cs`
+  chart as POC/VAH/VAL lines. `Components/Charts/TickVolumeProfileChart/TickVolumeProfileChart.razor.cs`
 - **VWAP (Volume-Weighted Average Price)** — Cumulative `Σ(Average × Volume) /
   Σ(Volume)` over a bar window, using `HlocAvdtBar.Average`/`Volume` directly (no
   histogram data needed); rendered on `ProfilerPage`'s main chart as a native
@@ -149,9 +156,9 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
 
 - **Baseline (mean-centered)** — Variance-reduction technique: returns are normalized
   as `(return - mean) / (std + epsilon)` before use in the loss, instead of a separate
-  learned value network. `Training/PolicyGradientTrainingStrategy.cs`
+  learned value network. `Services/Training/PolicyGradientTrainingStrategy.cs`
 - **Discount factor (γ)** — `DiscountFactor = 0.99`; weights how much future reward
-  counts toward a step's discounted return. `Training/PolicyGradientTrainingStrategy.cs`
+  counts toward a step's discounted return. `Services/Training/PolicyGradientTrainingStrategy.cs`
 - **Episode** — One bounded practice run of `episodeBars` bars (each `barWidthMinutes`
   wide) through one Trader, recorded as an `RlEpisode` (list of `RlStep`s plus final
   capital state, plus every bar this episode processed -- including leading
@@ -162,13 +169,13 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   completes (`Bars`/`BarHistograms` cover warm-up + decisions, `BarInputs`/
   `BarEquity`/`BarOutputs` cover decisions only, offset from `Bars` by
   `RlEpisode.WarmupBars`), then stops once `episodeBars` *decision* bars complete,
-  regardless of how many ticks were fetched to get there. `Training/RlEpisode.cs`
+  regardless of how many ticks were fetched to get there. `Services/Training/RlEpisode.cs`
 - **Policy** — The Brain's decision function; "policy gradient" methods adjust network
   weights to increase the probability of actions that led to higher reward.
 - **REINFORCE** — The concrete RL algorithm implemented by
   `PolicyGradientTrainingStrategy`: discounted reward-to-go with a mean-centered/
   std-normalized baseline; loss = `-mean(logProb_t * normalizedReturn_t)`.
-  `Training/PolicyGradientTrainingStrategy.cs`
+  `Services/Training/PolicyGradientTrainingStrategy.cs`
 - **Reinforcement learning (RL)** — Training paradigm where a Brain (policy) plays
   simulated trading episodes and learns from its own trading outcomes rather than
   labeled historical data (contrast with Poink.ML's supervised training elsewhere).
@@ -177,10 +184,10 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   The default (`EquityDriftRewardPolicy`) is the trader's raw equity drift since the
   previous decision point (mark-to-market P&L from price movement while holding, plus
   whatever a Close realizes); `TradingRulesRewardPolicy` shapes that same base figure
-  with loss-aversion/anti-churn/max-holding-time terms. `Training/RlEpisodeRunner.cs`
+  with loss-aversion/anti-churn/max-holding-time terms. `Services/Training/RlEpisodeRunner.cs`
 - **Reward-to-go** — Per-step discounted sum of all future rewards in an episode,
   computed backward from the episode's end.
-  `Training/PolicyGradientTrainingStrategy.cs` (`TrainEpisode`)
+  `Services/Training/PolicyGradientTrainingStrategy.cs` (`TrainEpisode`)
 - **Warm-up bars** — `IPolicyGradientBrain.WarmupBars` (from `IObservationEncoder.
   WarmupBars`, the max across a composed brain's encoder parts -- see
   `CompositeEncoder.WarmupBars`): how many completed bars (ticks, in raw-tick mode)
@@ -203,15 +210,25 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   `BarEquity`/`BarOutputs` arrays. `RlTrainingService.TryStartTraining` reads
   `WarmupBars` off the brain right after setting `LookbackBars`, folds it into
   `fetchSpan` (so enough extra ticks are pulled up front), and passes it through to
-  `RlEpisodeRunner.Run`. `Training/RlEpisodeRunner.cs`,
+  `RlEpisodeRunner.Run`. `Services/Training/RlEpisodeRunner.cs`,
   `Brain/Neural/Encoders/IObservationEncoder.cs`,
   `Components/Pages/Training/Pages/Train/TrainLiveTab.razor.cs`
 
 ## Core Architecture — Classes & Interfaces
 
+- **`BrainCatalog`** — UI-facing catalog (`EncoderKind`/`ArchitectureKind` enums
+  + factory methods) the Train page's Build Brain panel selects from to turn a
+  picked encoder/architecture combination into real `IObservationEncoder`/
+  `INetworkArchitecture` instances. See [Brain/README.md](Brain/README.md)
+  ("Where brains come from") for the full picture. `Brain/Neural/BrainCatalog.cs`
 - **`BrainOption`** — One entry in the brain picker: `(Name, IsNeuralNetwork)`, lets
   the UI separate trained/trainable brains from stateless heuristic ones without
-  knowing about `IPolicyGradientBrain`. `Training/RlTrainingService.cs`
+  knowing about `IPolicyGradientBrain`. `Services/Training/RlTrainingService.cs`
+- **`BrainRegistry`** — Shared, mutable, DI-singleton brain list that
+  `RlTrainingService` and `SimulationEngine` both read live (`.All`), so a brain
+  built mid-session (or loaded from a saved recipe) is immediately visible to
+  both Training and Simulation without either service holding its own copy.
+  `Register` adds a runtime-built brain. `Brain/BrainRegistry.cs`
 - **`CategoricalSampling`** — `SampleIndex(probabilities)`: the manual cumulative-
   sum categorical sampler shared by `ComposedPolicyBrain`'s direction pick and
   every `DiscretizedLevelsActionHead`. Deliberately not TorchSharp's native
@@ -221,10 +238,21 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   confident policy). Reading out a handful of floats and walking a cumulative sum
   in managed code sidesteps that native op entirely -- cheap and exact for the
   small (<10-way) category counts every caller has. `Brain/Neural/CategoricalSampling.cs`
+- **`ComposedPolicyBrain`** — The one generic trained-brain class: pairs one
+  `IObservationEncoder` (optionally a `CompositeEncoder` of several) with a
+  `Module<Tensor,Tensor>` an `INetworkArchitecture` built from it, and owns the
+  shared `Decide`/sampling/decision-mapping logic every composed brain uses.
+  `ComposedPolicyBrain.Create` is the factory both the fixed `Program.cs`
+  brains and the Train page's Build Brain panel go through; returns a
+  `LookbackAwarePolicyBrain` subclass instead when at least one encoder part
+  implements `IHasLookbackBars`. Full composition model (encoders +
+  normalizers + architectures) documented in
+  [Brain/README.md](Brain/README.md), not duplicated here.
+  `Brain/Neural/ComposedPolicyBrain.cs`
 - **`DummyTickGenerator`** — Static generator of synthetic even-interval random-walk
   ticks with a fixed small spread; shared by "Load Dummy Data" (Simulation) and
   headless RL episodes (Training), so both work without Postgres.
-  `Simulation/DummyTickGenerator.cs`
+  `Services/Simulation/DummyTickGenerator.cs`
 - **`IActionOutputHead`** — Sibling composable capability to `IObservationEncoder`/
   `INetworkArchitecture`, for an extra (non-direction) decision a brain's network
   can opt into: `{ Kind, OutputWidth, Sample(rawSlice) }`. A brain built with zero
@@ -357,11 +385,11 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   Value Area when Bar Window momentum agrees, or fading back to the Point of
   Control inside it, scaled by how much the Volume-Profile POC and Time-Profile POC
   agree -- confluence trusted, divergence discounted toward zero).
-  `Training/RewardPolicies/`
+  `Services/Training/RewardPolicies/`
 - **`IRlTrainingStrategy`** — The "coach" abstraction: `Name`/`CanTrain`/
   `CreateOptimizer`/`TrainEpisode`. Kept stateless like Poink.ML's brain interfaces;
   `RlTrainingService` owns the optimizer's lifetime across a whole run so Adam's
-  momentum persists correctly across episodes. `Training/IRlTrainingStrategy.cs`
+  momentum persists correctly across episodes. `Services/Training/IRlTrainingStrategy.cs`
 - **`ISimulationBrain`** — Minimal trading-decision contract: `Name`,
   `Decide(observation)`, `Reset()`. Deliberately excludes `Build`/`BuildInput`/
   TorchSharp `Module` so a stateless heuristic brain has nothing extra to carry.
@@ -372,27 +400,33 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   `COUNT(*)` for progress bars; `ListTickTables`/`RefreshTickTableStats` manage a
   cached `tick_table_stats` registry table so full-table scans only happen on an
   explicit "Recount," not every page load. `Repository/ITickRepository.cs`
-- **`LstmPolicyBrain`** — Policy-gradient brain: same feature contract as
-  `MlpPolicyBrain` but the 20-value price window is fed through an `LSTM` (hidden
-  size 64, 2 layers) as a true sequence rather than flattened; final hidden state
-  concatenated with capital scalars into a small MLP head. Each `Decide()` starts the
-  LSTM from a fresh zero hidden/cell state (no state carried across ticks).
-  `Brain/Neural/LstmPolicyBrain.cs`
-- **MarketSim** — README's name for the tick-streaming subsystem (not a standalone
-  class): streams historical ticks for a chosen symbol/date-range from Postgres via a
+- **`LstmArchitecture`** — `INetworkArchitecture` implementation: an LSTM
+  (hidden size 64, 2 layers by default) over a leading sequence slice plus
+  trailing scalars, via the hand-written `LstmPolicyNetwork` (LSTM's
+  tuple-returning `forward` doesn't fit `Sequential`). Not a standalone brain
+  class — `"LSTM Policy"` is the name of the fixed `ComposedPolicyBrain`
+  `Program.cs` builds from this + `BarWindowEncoder`/`TraderStateEncoder`; each
+  `Decide()` starts the LSTM from a fresh zero hidden/cell state (no state
+  carried across ticks). `Brain/Neural/Architectures/LstmArchitecture.cs`
+- **MarketSim** — Code-comment name (see `Services/Simulation/SimulationEngine.cs`'s
+  header) for the tick-streaming piece of Simulation, not a standalone class:
+  streams historical ticks for a chosen symbol/date-range from Postgres via a
   live, forward-only `ITickRepository.ReadTicks` reader as playback advances.
-- **`MlpPolicyBrain`** — First concrete trained network: a small MLP
-  (`Linear(24,32) → Tanh → Linear(32,16) → Tanh → Linear(16,4)`) over a 20-tick/bar
-  percent-change price window plus 4 bounded capital/position ratios, one logit per
-  `SimulationAction`. Weights persist across runs (built once, mutated in place by
-  training). `Brain/Neural/MlpPolicyBrain.cs`
+  See [Docs/Simulation.md](Docs/Simulation.md)'s "What it is" for the prose
+  description (there called "Tick stream").
+- **`MlpArchitecture`** — `INetworkArchitecture` implementation: a flat
+  `Linear→Tanh` stack over any hidden-layer sizes. Not a standalone brain
+  class — `"MLP Policy"` is the name of the fixed `ComposedPolicyBrain`
+  `Program.cs` builds from this + `BarWindowEncoder`/`TraderStateEncoder`
+  (hidden layers 32, 16); weights persist across runs (built once, mutated in
+  place by training). `Brain/Neural/Architectures/MlpArchitecture.cs`
 - **`MomentumThresholdBrain`** — Heuristic, rule-based brain: opens/holds a position
   when price moves beyond `±ThresholdPercent` vs. `Lookback` observations ago, closes
   when momentum reverts toward flat (within `RevertPercent`). Stateless, deterministic.
-  `Brain/MomentumThresholdBrain.cs`
+  `Brain/Heuristic/MomentumThresholdBrain.cs`
 - **`PolicyGradientTrainingStrategy`** — v1's concrete `IRlTrainingStrategy`: REINFORCE
   with discounted reward-to-go and a mean-centered baseline; uses `optim.Adam`.
-  `Training/PolicyGradientTrainingStrategy.cs`
+  `Services/Training/PolicyGradientTrainingStrategy.cs`
 - **`RandomBrain`** — Trivial baseline brain: each decision point rolls a probability
   (`ActionProbability`) to act at all, then rolls direction; the only brain with
   randomness, so it's the one where multiple traders sharing the same instance
@@ -400,22 +434,24 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   percent distance from `CurrentPrice`, `_stopLossPercent`/`_takeProfitPercent`) --
   the only brain that does, useful for exercising `Trader.Advance`'s SL/TP hook and
   the chart's SL/TP lines end-to-end. `Brain/Heuristic/RandomBrain.cs`
-- **`RandomWindow` / `RandomEpisodeWindow`** — Picks a random start timestamp within a
-  table's known range and reads the ticks spanning `fetchSpan` (`barWidthMinutes ×
-  (episodeBars + warmupBars + 1)` -- see **Warm-up bars**) from there per training
-  episode via `ITickRepository.ReadTicks`, so successive episodes train against
-  different real market windows without holding the full range in memory; retries a
-  few times on landing in an empty gap (e.g. a weekend) before falling back to the
-  range start. `Training/RlTrainingService.cs`
+- **`RandomEpisodeWindow`** — Picks a random start timestamp within a
+  table's known range and streams the ticks spanning `fetchSpan`
+  (`barWidthMinutes × (episodeBars + warmupBars + 1)` -- see **Warm-up
+  bars**) from there per training episode via `ITickRepository.ReadTicks`
+  (still a lazy, chunk-pruned read -- nothing here materializes more than
+  one episode's window), so successive episodes train against different
+  real market windows without ever holding the full range in memory;
+  retries a few times on landing in an empty gap (e.g. a weekend) before
+  falling back to the range start. `Services/Training/RlTrainingService.cs`
 - **`RingBuffer<T>`** — Fixed-capacity circular buffer implementing
   `IReadOnlyList<T>`, most-recent-last; O(1) `Add` (vs. O(capacity) for
   `List.RemoveAt(0)`), used for the engine's bounded recent-ticks/bars/log windows.
-  `Simulation/RingBuffer.cs`
+  `Services/Simulation/RingBuffer.cs`
 - **`RlEpisodeRunner`** — Static, headless single-episode playback: mirrors
   `SimulationEngine`'s tick loop (one Trader, aggregate-or-raw observation building)
   but with no Timer/locking/UI publish, so training can blast through many episodes
   fast. Data-source agnostic (takes an already-materialized tick list).
-  `Training/RlEpisodeRunner.cs`
+  `Services/Training/RlEpisodeRunner.cs`
 - **`RlTrainingService`** — Background training orchestrator DI singleton with the
   same `_lock`/`IsRunning`/`Error`/`OnChanged` shape as `SimulationEngine` and every
   Poink.ML `*TrainingService`. Drives `RlEpisodeRunner` in a tight loop, keeps a
@@ -433,12 +469,12 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   volume/price profiles, and episode replay (including its de-normalized
   inputs toggle and OUTPUTS panel). `GetLookbackBars(brainName)` looks up a
   brain's `IHasLookbackBars.LookbackBars` by name for the same panel's "what
-  range the trader sees" chart marker. `Training/RlTrainingService.cs`
+  range the trader sees" chart marker. `Services/Training/RlTrainingService.cs`
 - **`SimulationBarAggregator`** — Stateful incremental tick→HLOC/AVDT bar aggregator:
   "feed one tick, get zero-or-one completed bar back," since a sim advances
   tick-by-tick (unlike Poink.ML's batch/whole-list aggregators). Per-tick math
   mirrors Poink.ML's `HlocAvdtAggregator.Aggregate` exactly.
-  `Simulation/SimulationBarAggregator.cs`
+  `Services/Simulation/SimulationBarAggregator.cs`
 - **`SimulationEngine`** — The orchestrating DI singleton: wires MarketSim (tick
   reader) + `SimulationBarAggregator` + Brain + one-or-more `Trader`s, driven by a
   self-rescheduling `System.Threading.Timer` for play/pause/step/speed/Max playback.
@@ -447,7 +483,7 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   ordinary public methods callable any time a run is loaded, not gated behind
   play/pause. Holds one shared in-memory "current run" for the whole process (not
   per-user/session), matching Poink.ML's `*TrainingService` singleton convention.
-  `Simulation/SimulationEngine.cs`
+  `Services/Simulation/SimulationEngine.cs`
 - **`SystemPerformanceMonitor`** — Singleton sampling host-machine CPU/RAM/GPU once
   per second (Windows-only, via `PerformanceCounter`/`GlobalMemoryStatusEx`), feeding
   the layout's `PerformanceMonitor` display. `Diagnostics/SystemPerformanceMonitor.cs`
@@ -476,7 +512,7 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   `Trader`/recent-log buffer/`Mode` (`TraderControlMode`), all sharing the single
   `_activeBrain` instance for the run (unless `Mode` is `Manual`, in which case
   this session ignores the Brain -- see `TraderControlMode`). Private nested
-  class in `Simulation/SimulationEngine.cs`.
+  class in `Services/Simulation/SimulationEngine.cs`.
 - **`TraderSettings`** — Bundles one Trader's CFD account configuration --
   `Leverage`, `StopOutLevelPercent`, `CommissionModel` -- into a single object
   passed to `Trader`'s constructor, instead of a growing parameter list. Defaults
@@ -567,7 +603,7 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   actual sampled tick timestamps (see `RlEpisode`'s `WindowStart`/`WindowEnd`),
   only recorded for a run sampling a real data range (never for synthetic/dummy
   episodes). Feeds `EpisodeCoverageTimeline`'s per-block usage shading.
-  `Training/RlEpisode.cs`
+  `Services/Training/RlEpisode.cs`
 - **`RlInputFeature`** — One named value out of a policy brain's `Encode()` input,
   purely for display (the shared `BrainIoPanel`'s INPUTS card, used by both the
   Train page and Simulation's INPUTS/OUTPUTS tab) — never used for inference
@@ -659,7 +695,7 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
 - **`TimedPrice`** — `(Timestamp, Price)`: the minimum `TickTimeProfileChart` needs
   from a raw `Tick` to measure dwell time between consecutive ticks in raw-tick mode;
   a public stand-in since `Tick` itself is internal.
-  `Components/Charts/TickTimeProfileChart.razor.cs`
+  `Components/Charts/TickTimeProfileChart/TickTimeProfileChart.razor.cs`
 - **`TimeProfileLevels`** — `(Poc, ValueAreaHigh, ValueAreaLow)`: the computed
   Point of Control/Value Area for a Time Profile window, from
   `TimeProfileStats.Compute`. `Components/Charts/TimeProfileStats.cs`
@@ -685,7 +721,7 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   `(Price, Count, Seconds, UpSeconds, DownSeconds)`. `Count` still rides along purely
   to gate `TickTimeProfileChart`'s "enough data yet" floor on sample count,
   independent of how much wall-clock time those samples span.
-  `Components/Charts/TickTimeProfileChart.razor.cs`
+  `Components/Charts/TickTimeProfileChart/TickTimeProfileChart.razor.cs`
 
 ## Enums & States
 
@@ -695,7 +731,7 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   `Statistics`: the six tabs of the Simulation page's log/detail panel (rendered
   as TRADERS, BRAIN, INPUTS/OUTPUTS, DECISION LOG, POSITIONS, STATISTICS).
   `InputsOutputs` renders `BrainIoPanel` for `SelectedTrader`. Private enum in
-  `Components/Pages/SimulationPage.razor.cs`.
+  `Components/Pages/Simulation/SimulationPage.razor.cs`.
 - **`OrderType`** — `Market`, `Limit`, `Stop`: how `SimulationDecision.Action`'s
   `EnterLong`/`EnterShort` fills. `null`/`Market` (the default) opens immediately,
   as every brain does today; `Limit`/`Stop` with a `TriggerPrice` queues a
@@ -708,7 +744,7 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   the sign in `UnrealizedPnl`. `Models/SimulationAccount.cs`
 - **Speed presets** — `0.1x, 1x, 10x, 100x, 1000x, 10000x`: the finite playback-speed
   multipliers the +/- stepper cycles through, separate from the uncapped "Max" mode.
-  `Components/Pages/SimulationPage.razor.cs` (`Speeds` array)
+  `Components/Pages/Simulation/SimulationPage.razor.cs` (`Speeds` array)
 - **`SimulationAction`** — `Hold`, `EnterLong`, `EnterShort`, `Close`: the fixed set
   of *direction* choices a Brain can output -- never grown or replaced (that's what
   `IActionOutputHead` is for, appending logits for extra non-direction decisions
@@ -802,7 +838,7 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   the selected trader's open position as a solid LONG/SHORT entry-price line plus
   dashed SL/TP price lines (each null independently hides that one line -- flat,
   or a position missing that field), and a "window start" marker showing how far
-  back the volume-profile window reaches. `Components/Charts/OhlcvChart.razor.cs`
+  back the volume-profile window reaches. `Components/Charts/OhlcvChart/OhlcvChart.razor.cs`
 - **`PerformanceMonitor`** — Layout-level CPU/RAM/GPU readout, sourced from
   `SystemPerformanceMonitor`. `Components/Layout/PerformanceMonitor.razor.cs`
 - **`RewardChart`** — Pure inline-SVG line chart of reward-per-episode, no JS, with a
@@ -830,13 +866,13 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   weighted by dwell time instead of tick count. Consumes either raw `Ticks` (tick
   mode, `TimedPrice` timestamp+price pairs) or pre-aggregated `WeightedSamples` (bar
   mode, via `BarPriceHistogram.MergeTime`). This *is* the app's "Time Profile"
-  concept. `Components/Charts/TickTimeProfileChart.razor.cs`
+  concept. `Components/Charts/TickTimeProfileChart/TickTimeProfileChart.razor.cs`
 - **`TickVolumeProfileChart`** — Horizontal-bar tick histogram (price on the row
   axis, tick count as bar width), rendered as pure Razor/CSS (no JS, since it's not
   pixel-synced to `OhlcvChart`'s zoom/pan). Consumes either raw `Prices` (tick mode)
   or pre-aggregated `WeightedSamples` (bar mode, via `BarPriceHistogram.Merge`). This
   *is* the app's "Volume Profile" concept.
-  `Components/Charts/TickVolumeProfileChart.razor.cs`
+  `Components/Charts/TickVolumeProfileChart/TickVolumeProfileChart.razor.cs`
 - **`TraderControlsPanel`** — Manual trader controls, the fixed-width panel to
   the right of the chart row on the Simulation page. Shows an AUTO/MANUAL toggle
   (`ToggleManualMode`, calling `SimulationEngine.SetTraderMode`); once Manual,
@@ -953,9 +989,11 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   (`DiscountFactor = 0.99`).
 - **HLOC/AVDT** — High/Low/Open/Close + Average/Volume/Distance/Time: this project's
   bar shape name (`HlocAvdtBar`).
-- **LSTM** — Long Short-Term Memory (recurrent network); `LstmPolicyBrain`'s network
-  shape.
-- **MLP** — Multi-Layer Perceptron; `MlpPolicyBrain`'s network shape.
+- **LSTM** — Long Short-Term Memory (recurrent network); `LstmArchitecture`'s
+  network shape, used by the `"LSTM Policy"` brain.
+- **MLP** — Multi-Layer Perceptron; `MlpArchitecture`'s network shape, used by
+  the `"MLP Policy"`, `"Volume Profile Policy"`, and `"Volume Profile + Bars
+  Policy"` fixed brains (see `Program.cs`).
 - **NN** — Neural Network (e.g. `IsNeuralNetwork` on `BrainOption`).
 - **P&L** — Profit and Loss (realized/unrealized).
 - **REINFORCE** — The specific policy-gradient RL algorithm (Monte Carlo policy

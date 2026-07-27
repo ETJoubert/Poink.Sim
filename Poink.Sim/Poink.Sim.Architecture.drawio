@@ -1,0 +1,481 @@
+<mxfile host="65bd71144e">
+    <diagram id="poink-sim-architecture" name="Poink.Sim — Architecture">
+        <mxGraphModel dx="1430" dy="786" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1650" pageHeight="1250" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="title" value="Poink.Sim — Architecture Schematic" style="text;html=1;align=left;verticalAlign=middle;fontSize=24;fontStyle=1;fontColor=#1B2430;fontFamily=Helvetica;" parent="1" vertex="1">
+                    <mxGeometry x="60" y="20" width="900" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="subtitle" value="Blazor Server dashboard: live tick replay (Simulation) and headless reinforcement-learning training share one Brain / Trader domain core." style="text;html=1;align=left;verticalAlign=top;fontSize=13;fontColor=#5B6674;fontFamily=Helvetica;" parent="1" vertex="1">
+                    <mxGeometry x="60" y="54" width="1040" height="36" as="geometry"/>
+                </mxCell>
+                <mxCell id="legSim" value="● Simulation pipeline" style="rounded=1;arcSize=40;whiteSpace=wrap;html=1;align=left;spacingLeft=10;fontSize=12;fontFamily=Helvetica;fillColor=#FBEBD1;strokeColor=#C8872A;fontColor=#7A4E12;" parent="1" vertex="1">
+                    <mxGeometry x="1180" y="18" width="360" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="legTrain" value="● Training pipeline" style="rounded=1;arcSize=40;whiteSpace=wrap;html=1;align=left;spacingLeft=10;fontSize=12;fontFamily=Helvetica;fillColor=#DFF1EE;strokeColor=#2F8F83;fontColor=#1E5F58;" parent="1" vertex="1">
+                    <mxGeometry x="1180" y="40" width="360" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="legShared" value="● Shared core / data access" style="rounded=1;arcSize=40;whiteSpace=wrap;html=1;align=left;spacingLeft=10;fontSize=12;fontFamily=Helvetica;fillColor=#EEF1F4;strokeColor=#8A94A3;fontColor=#3A4552;" parent="1" vertex="1">
+                    <mxGeometry x="1180" y="62" width="360" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="bandA" value="BLAZOR UI  —  Interactive Server Render Mode" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F7F8FA;strokeColor=#D3D9E0;strokeWidth=1;align=left;verticalAlign=top;fontSize=13;fontStyle=1;fontColor=#6B7686;spacingLeft=14;spacingTop=10;" parent="1" vertex="1">
+                    <mxGeometry x="60" y="100" width="1500" height="190" as="geometry"/>
+                </mxCell>
+                <mxCell id="bandB" value="ORCHESTRATION  —  DI Singletons  (composition root: Program.cs)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F7F8FA;strokeColor=#D3D9E0;strokeWidth=1;align=left;verticalAlign=top;fontSize=13;fontStyle=1;fontColor=#6B7686;spacingLeft=14;spacingTop=10;" parent="1" vertex="1">
+                    <mxGeometry x="60" y="310" width="1500" height="160" as="geometry"/>
+                </mxCell>
+                <mxCell id="bandC" value="SHARED DOMAIN CORE" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F7F8FA;strokeColor=#D3D9E0;strokeWidth=1;align=left;verticalAlign=top;fontSize=13;fontStyle=1;fontColor=#6B7686;spacingLeft=14;spacingTop=10;" parent="1" vertex="1">
+                    <mxGeometry x="60" y="490" width="1500" height="210" as="geometry"/>
+                </mxCell>
+                <mxCell id="bandD" value="TRAINING SUPPORT  —  used only by RlTrainingService" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F7F8FA;strokeColor=#D3D9E0;strokeWidth=1;align=left;verticalAlign=top;fontSize=13;fontStyle=1;fontColor=#6B7686;spacingLeft=14;spacingTop=10;" parent="1" vertex="1">
+                    <mxGeometry x="60" y="720" width="1500" height="140" as="geometry"/>
+                </mxCell>
+                <mxCell id="bandE" value="REPOSITORY LAYER  —  Data Access" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F7F8FA;strokeColor=#D3D9E0;strokeWidth=1;align=left;verticalAlign=top;fontSize=13;fontStyle=1;fontColor=#6B7686;spacingLeft=14;spacingTop=10;" parent="1" vertex="1">
+                    <mxGeometry x="60" y="880" width="1500" height="120" as="geometry"/>
+                </mxCell>
+                <mxCell id="bandF" value="EXTERNAL SYSTEMS" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F7F8FA;strokeColor=#D3D9E0;strokeWidth=1;align=left;verticalAlign=top;fontSize=13;fontStyle=1;fontColor=#6B7686;spacingLeft=14;spacingTop=10;" parent="1" vertex="1">
+                    <mxGeometry x="60" y="1020" width="1500" height="120" as="geometry"/>
+                </mxCell>
+                <mxCell id="simPage" value="Simulation Page&lt;br&gt;&lt;i&gt;SimulationPage.razor&lt;/i&gt;&lt;br&gt;play · pause · step · speed" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fontFamily=Helvetica;align=center;verticalAlign=middle;strokeWidth=1.5;fillColor=#FBEBD1;strokeColor=#C8872A;fontColor=#5B3E10;" parent="1" vertex="1">
+                    <mxGeometry x="80" y="140" width="330" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="trainPage" value="Train Page&lt;br&gt;&lt;i&gt;TrainPage.razor, TrainLiveTab&lt;/i&gt;&lt;br&gt;Build Brain · Train · Episode Replay" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fontFamily=Helvetica;align=center;verticalAlign=middle;strokeWidth=1.5;fillColor=#DFF1EE;strokeColor=#2F8F83;fontColor=#173F3A;" parent="1" vertex="1">
+                    <mxGeometry x="430" y="140" width="330" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="profPage" value="Profiler Page&lt;br&gt;&lt;i&gt;ProfilerPage.razor&lt;/i&gt;&lt;br&gt;Volume / Time Profile analysis" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fontFamily=Helvetica;align=center;verticalAlign=middle;strokeWidth=1.5;fillColor=#EEF1F4;strokeColor=#8A94A3;fontColor=#2C3440;" parent="1" vertex="1">
+                    <mxGeometry x="780" y="140" width="290" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="perfMonUI" value="PerformanceMonitor&lt;br&gt;&lt;i&gt;layout widget&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fontFamily=Helvetica;align=center;verticalAlign=middle;strokeWidth=1.5;fillColor=#EEF1F4;strokeColor=#8A94A3;fontColor=#2C3440;" parent="1" vertex="1">
+                    <mxGeometry x="1090" y="140" width="270" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="sharedComp" value="Shared Components — BrainIoPanel · DrawableOhlcvChart / OhlcvChart · TickVolumeProfileChart · TickTimeProfileChart · SimTimeline · Calendar · DateRangeSlider · DataTable" style="rounded=1;whiteSpace=wrap;html=1;arcSize=6;fontSize=12;fontFamily=Helvetica;align=center;verticalAlign=middle;strokeWidth=1.5;fillColor=#EEF1F4;strokeColor=#8A94A3;fontColor=#2C3440;" parent="1" vertex="1">
+                    <mxGeometry x="70" y="210" width="1440" height="55" as="geometry"/>
+                </mxCell>
+                <mxCell id="simEngine" value="SimulationEngine&lt;br&gt;&lt;i&gt;singleton&lt;/i&gt;&lt;br&gt;Timer-driven play/pause/step/speed;&lt;br&gt;publishes SimulationSnapshot" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fontFamily=Helvetica;align=center;verticalAlign=middle;strokeWidth=1.5;fillColor=#FBEBD1;strokeColor=#C8872A;fontColor=#5B3E10;" parent="1" vertex="1">
+                    <mxGeometry x="100" y="350" width="340" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="rlSvc" value="RlTrainingService&lt;br&gt;&lt;i&gt;singleton&lt;/i&gt;&lt;br&gt;headless RL loop; publishes training&lt;br&gt;snapshot; persists via IBrainRepository" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fontFamily=Helvetica;align=center;verticalAlign=middle;strokeWidth=1.5;fillColor=#DFF1EE;strokeColor=#2F8F83;fontColor=#173F3A;" parent="1" vertex="1">
+                    <mxGeometry x="470" y="350" width="340" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="profSvc" value="ProfilerService&lt;br&gt;&lt;i&gt;scoped&lt;/i&gt;&lt;br&gt;self-contained batch reads" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fontFamily=Helvetica;align=center;verticalAlign=middle;strokeWidth=1.5;fillColor=#EEF1F4;strokeColor=#8A94A3;fontColor=#2C3440;" parent="1" vertex="1">
+                    <mxGeometry x="840" y="350" width="260" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="sysPerf" value="SystemPerformanceMonitor&lt;br&gt;&lt;i&gt;singleton, Windows-only&lt;/i&gt;&lt;br&gt;CPU / RAM / GPU sampling, 1 Hz" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fontFamily=Helvetica;align=center;verticalAlign=middle;strokeWidth=1.5;fillColor=#EEF1F4;strokeColor=#8A94A3;fontColor=#2C3440;" parent="1" vertex="1">
+                    <mxGeometry x="1130" y="350" width="260" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="brainHeader" value="Brain  —  ISimulationBrain / IPolicyGradientBrain" style="text;html=1;align=left;verticalAlign=middle;fontSize=13;fontStyle=1;fontColor=#3A4552;fontFamily=Helvetica;" parent="1" vertex="1">
+                    <mxGeometry x="100" y="525" width="880" height="22" as="geometry"/>
+                </mxCell>
+                <mxCell id="heuristic" value="Heuristic Brains&lt;br&gt;MomentumThresholdBrain&lt;br&gt;RandomBrain" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fontFamily=Helvetica;align=center;verticalAlign=middle;strokeWidth=1.5;fillColor=#EEF1F4;strokeColor=#8A94A3;fontColor=#2C3440;" parent="1" vertex="1">
+                    <mxGeometry x="100" y="553" width="210" height="55" as="geometry"/>
+                </mxCell>
+                <mxCell id="encoders" value="Encoders (IObservationEncoder)&lt;br&gt;BarWindow · VolumeProfile ·&lt;br&gt;TimeProfile · TraderState (+Raw)" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fontFamily=Helvetica;align=center;verticalAlign=middle;strokeWidth=1.5;fillColor=#EEF1F4;strokeColor=#8A94A3;fontColor=#2C3440;" parent="1" vertex="1">
+                    <mxGeometry x="325" y="553" width="210" height="55" as="geometry"/>
+                </mxCell>
+                <mxCell id="architectures" value="Architectures&lt;br&gt;MlpArchitecture&lt;br&gt;LstmArchitecture" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fontFamily=Helvetica;align=center;verticalAlign=middle;strokeWidth=1.5;fillColor=#EEF1F4;strokeColor=#8A94A3;fontColor=#2C3440;" parent="1" vertex="1">
+                    <mxGeometry x="550" y="553" width="180" height="55" as="geometry"/>
+                </mxCell>
+                <mxCell id="actionHeads" value="Action Output Heads&lt;br&gt;DiscretizedLevelsActionHead&lt;br&gt;(Volume / StopLoss / TakeProfit)" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fontFamily=Helvetica;align=center;verticalAlign=middle;strokeWidth=1.5;fillColor=#EEF1F4;strokeColor=#8A94A3;fontColor=#2C3440;" parent="1" vertex="1">
+                    <mxGeometry x="745" y="553" width="235" height="55" as="geometry"/>
+                </mxCell>
+                <mxCell id="composedBrain" value="ComposedPolicyBrain  (neural)&lt;br&gt;assembled from Encoders + Architecture + Heads" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fontFamily=Helvetica;fontStyle=1;align=center;verticalAlign=middle;strokeWidth=2.5;fillColor=#EEF1F4;strokeColor=#3A4552;fontColor=#1B2430;" parent="1" vertex="1">
+                    <mxGeometry x="300" y="618" width="420" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="brainReg" value="BrainRegistry / BrainCatalog&lt;br&gt;build / lookup by name" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fontFamily=Helvetica;align=center;verticalAlign=middle;strokeWidth=1.5;fillColor=#EEF1F4;strokeColor=#8A94A3;fontColor=#2C3440;" parent="1" vertex="1">
+                    <mxGeometry x="760" y="618" width="220" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="traderHeader" value="Trader" style="text;html=1;align=left;verticalAlign=middle;fontSize=13;fontStyle=1;fontColor=#3A4552;fontFamily=Helvetica;" parent="1" vertex="1">
+                    <mxGeometry x="1010" y="525" width="490" height="22" as="geometry"/>
+                </mxCell>
+                <mxCell id="traderBox" value="Trader : ITrader&lt;br&gt;CFD account engine&lt;br&gt;Apply() / Advance()" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fontFamily=Helvetica;fontStyle=1;align=center;verticalAlign=middle;strokeWidth=2.5;fillColor=#EEF1F4;strokeColor=#3A4552;fontColor=#1B2430;" parent="1" vertex="1">
+                    <mxGeometry x="1010" y="553" width="235" height="55" as="geometry"/>
+                </mxCell>
+                <mxCell id="factoryBox" value="ITraderFactory&lt;br&gt;(TraderFactory)&lt;br&gt;DI seam for construction" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fontFamily=Helvetica;align=center;verticalAlign=middle;strokeWidth=1.5;fillColor=#EEF1F4;strokeColor=#8A94A3;fontColor=#2C3440;" parent="1" vertex="1">
+                    <mxGeometry x="1265" y="553" width="235" height="55" as="geometry"/>
+                </mxCell>
+                <mxCell id="commissionBox" value="ICommissionModel&lt;br&gt;PercentOfNotionalCommission" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fontFamily=Helvetica;align=center;verticalAlign=middle;strokeWidth=1.5;fillColor=#EEF1F4;strokeColor=#8A94A3;fontColor=#2C3440;" parent="1" vertex="1">
+                    <mxGeometry x="1010" y="618" width="235" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="pendingOrderBox" value="PendingOrder&lt;br&gt;resting Limit/Stop entry" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fontFamily=Helvetica;align=center;verticalAlign=middle;strokeWidth=1.5;fillColor=#EEF1F4;strokeColor=#8A94A3;fontColor=#2C3440;" parent="1" vertex="1">
+                    <mxGeometry x="1265" y="618" width="235" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="rlEpisodeRunner" value="RlEpisodeRunner&lt;br&gt;headless single-episode playback&lt;br&gt;(mirrors SimulationEngine, no UI/Timer)" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fontFamily=Helvetica;align=center;verticalAlign=middle;strokeWidth=1.5;fillColor=#DFF1EE;strokeColor=#2F8F83;fontColor=#173F3A;" parent="1" vertex="1">
+                    <mxGeometry x="100" y="756" width="290" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="trainingStrategy" value="IRlTrainingStrategy&lt;br&gt;PolicyGradientTrainingStrategy&lt;br&gt;REINFORCE + Adam optimizer" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fontFamily=Helvetica;align=center;verticalAlign=middle;strokeWidth=1.5;fillColor=#DFF1EE;strokeColor=#2F8F83;fontColor=#173F3A;" parent="1" vertex="1">
+                    <mxGeometry x="420" y="756" width="290" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="rewardPolicy" value="IRewardPolicy  (4 implementations)&lt;br&gt;EquityDrift · TradingRules ·&lt;br&gt;DifferentialSharpe · MarketStructure" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fontFamily=Helvetica;align=center;verticalAlign=middle;strokeWidth=1.5;fillColor=#DFF1EE;strokeColor=#2F8F83;fontColor=#173F3A;" parent="1" vertex="1">
+                    <mxGeometry x="740" y="756" width="360" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="rlEpisodeModel" value="RlEpisode / RlStep&lt;br&gt;episode record — bars, inputs,&lt;br&gt;equity, outputs, reward" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fontFamily=Helvetica;align=center;verticalAlign=middle;strokeWidth=1.5;fillColor=#DFF1EE;strokeColor=#2F8F83;fontColor=#173F3A;" parent="1" vertex="1">
+                    <mxGeometry x="1130" y="756" width="260" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="tickRepo" value="ITickRepository&lt;br&gt;(TickRepository)&lt;br&gt;forward-only tick reads" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fontFamily=Helvetica;align=center;verticalAlign=middle;strokeWidth=1.5;fillColor=#EEF1F4;strokeColor=#8A94A3;fontColor=#2C3440;" parent="1" vertex="1">
+                    <mxGeometry x="100" y="915" width="280" height="65" as="geometry"/>
+                </mxCell>
+                <mxCell id="brainRepo" value="IBrainRepository&lt;br&gt;(BrainRepository)&lt;br&gt;weight + recipe snapshots" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fontFamily=Helvetica;align=center;verticalAlign=middle;strokeWidth=1.5;fillColor=#EEF1F4;strokeColor=#8A94A3;fontColor=#2C3440;" parent="1" vertex="1">
+                    <mxGeometry x="410" y="915" width="280" height="65" as="geometry"/>
+                </mxCell>
+                <mxCell id="trangeRepo" value="ITRangeChartRepository /&lt;br&gt;ITRangeReferenceChartRepository" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fontFamily=Helvetica;align=center;verticalAlign=middle;strokeWidth=1.5;fillColor=#EEF1F4;strokeColor=#8A94A3;fontColor=#2C3440;" parent="1" vertex="1">
+                    <mxGeometry x="720" y="915" width="320" height="65" as="geometry"/>
+                </mxCell>
+                <mxCell id="dummyGen" value="DummyTickGenerator&lt;br&gt;synthetic ticks — no Postgres needed" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fontFamily=Helvetica;align=center;verticalAlign=middle;strokeWidth=1.5;fillColor=#EEF1F4;strokeColor=#8A94A3;fontColor=#2C3440;" parent="1" vertex="1">
+                    <mxGeometry x="1070" y="915" width="290" height="65" as="geometry"/>
+                </mxCell>
+                <mxCell id="pgTicks" value="PostgreSQL&lt;br&gt;ticks_[symbol] tables&lt;br&gt;(market data)" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=14;fillColor=#EEF1F4;strokeColor=#5B6674;fontSize=12;fontFamily=Helvetica;fontColor=#1B2430;" parent="1" vertex="1">
+                    <mxGeometry x="250" y="1055" width="320" height="65" as="geometry"/>
+                </mxCell>
+                <mxCell id="pgBrain" value="PostgreSQL&lt;br&gt;Poink.Sim database&lt;br&gt;(brain snapshots)" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=14;fillColor=#EEF1F4;strokeColor=#5B6674;fontSize=12;fontFamily=Helvetica;fontColor=#1B2430;" parent="1" vertex="1">
+                    <mxGeometry x="630" y="1055" width="320" height="65" as="geometry"/>
+                </mxCell>
+                <mxCell id="torch" value="TorchSharp runtime&lt;br&gt;CPU / GPU tensors —&lt;br&gt;neural Brain inference and training" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fontFamily=Helvetica;align=center;verticalAlign=middle;strokeWidth=1.5;dashed=1;fillColor=#F2F2F2;strokeColor=#5B6674;fontColor=#2C3440;" parent="1" vertex="1">
+                    <mxGeometry x="1010" y="1055" width="320" height="65" as="geometry"/>
+                </mxCell>
+                <mxCell id="footer" value="Generated from Poink.Sim source (Program.cs, GLOSSARY.md). Amber = Simulation pipeline, Teal = Training pipeline, Grey = shared core / data access." style="text;html=1;align=left;verticalAlign=top;fontSize=11;fontStyle=2;fontColor=#8A94A3;fontFamily=Helvetica;" parent="1" vertex="1">
+                    <mxGeometry x="60" y="1150" width="1000" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="e1" value="play/pause/step ⇄ SimulationSnapshot" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#C8872A;fontColor=#8A5C15;fontSize=10;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;startArrow=block;startFill=1;strokeWidth=1.5;" parent="1" source="simPage" target="simEngine" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e2" value="start/stop/step ⇄ training snapshot" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#2F8F83;fontColor=#1E5F58;fontSize=10;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;startArrow=block;startFill=1;strokeWidth=1.5;" parent="1" source="trainPage" target="rlSvc" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e3" value="LoadAsync" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#8A94A3;fontColor=#5B6674;fontSize=10;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1.5;" parent="1" source="profPage" target="profSvc" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e4" value="reads sample" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#8A94A3;fontColor=#5B6674;fontSize=10;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1.5;" parent="1" source="perfMonUI" target="sysPerf" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e5" value="Decide()" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#C8872A;fontColor=#8A5C15;fontSize=10;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1.5;" parent="1" source="simEngine" target="heuristic" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="270" y="470"/>
+                            <mxPoint x="205" y="470"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e6" value="Decide()" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#C8872A;fontColor=#8A5C15;fontSize=10;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1.5;" parent="1" source="simEngine" target="composedBrain" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="270" y="480"/>
+                            <mxPoint x="535" y="480"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e7" value="create session" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#C8872A;fontColor=#8A5C15;fontSize=10;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1.5;" parent="1" source="simEngine" target="factoryBox" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e8" value="Apply / Advance" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#C8872A;fontColor=#8A5C15;fontSize=10;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1.5;" parent="1" source="simEngine" target="traderBox" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e9" value="ReadTicks (forward-only)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#C8872A;fontColor=#8A5C15;fontSize=10;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1.5;" parent="1" source="simEngine" target="tickRepo" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="70" y="395"/>
+                            <mxPoint x="70" y="948"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e10" value="fallback, no DB" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#C8872A;fontColor=#8A5C15;fontSize=10;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1.5;dashed=1;" parent="1" source="simEngine" target="dummyGen" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e11" value="drives loop" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#2F8F83;fontColor=#1E5F58;fontSize=10;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1.5;" parent="1" source="rlSvc" target="rlEpisodeRunner" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e12" value="DecideWithLogProbability" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#2F8F83;fontColor=#1E5F58;fontSize=10;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1.5;" parent="1" source="rlEpisodeRunner" target="composedBrain" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e13" value="Apply / Advance" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#2F8F83;fontColor=#1E5F58;fontSize=10;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1.5;" parent="1" source="rlEpisodeRunner" target="traderBox" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e14" value="ComputeReward" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#2F8F83;fontColor=#1E5F58;fontSize=10;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1.5;" parent="1" source="rlEpisodeRunner" target="rewardPolicy" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="245" y="840"/>
+                            <mxPoint x="920" y="840"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e15" value="records" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#2F8F83;fontColor=#1E5F58;fontSize=10;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1.5;" parent="1" source="rlEpisodeRunner" target="rlEpisodeModel" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="245" y="860"/>
+                            <mxPoint x="760" y="860"/>
+                            <mxPoint x="760" y="850"/>
+                            <mxPoint x="1260" y="850"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e16" value="TrainEpisode" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#2F8F83;fontColor=#1E5F58;fontSize=10;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1.5;" parent="1" source="rlSvc" target="trainingStrategy" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="640" y="520"/>
+                            <mxPoint x="740" y="520"/>
+                            <mxPoint x="740" y="740"/>
+                            <mxPoint x="565" y="740"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e17" value="save / load weights + recipe" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#2F8F83;fontColor=#1E5F58;fontSize=10;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1.5;" parent="1" source="rlSvc" target="brainRepo" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e18" value="RandomEpisodeWindow" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#2F8F83;fontColor=#1E5F58;fontSize=10;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1.5;" parent="1" source="rlSvc" target="tickRepo" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e19" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#8A94A3;fontColor=#5B6674;fontSize=10;endArrow=block;endFill=1;strokeWidth=1.5;" parent="1" source="profSvc" target="tickRepo" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="970" y="460"/>
+                            <mxPoint x="70" y="460"/>
+                            <mxPoint x="70" y="948"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e20" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#8A94A3;fontColor=#5B6674;fontSize=10;endArrow=block;endFill=1;strokeWidth=1.5;" parent="1" source="profSvc" target="trangeRepo" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1000" y="678"/>
+                            <mxPoint x="1110" y="678"/>
+                            <mxPoint x="1110" y="890"/>
+                            <mxPoint x="880" y="890"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e21" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#8A94A3;fontColor=#5B6674;fontSize=10;endArrow=block;endFill=1;strokeWidth=1.5;" parent="1" source="tickRepo" target="pgTicks" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e22" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#8A94A3;fontColor=#5B6674;fontSize=10;endArrow=block;endFill=1;strokeWidth=1.5;" parent="1" source="brainRepo" target="pgBrain" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e23" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#8A94A3;fontColor=#5B6674;fontSize=10;endArrow=block;endFill=1;strokeWidth=1.5;" parent="1" source="trangeRepo" target="pgTicks" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e24" value="Module(Tensor,Tensor)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#8A94A3;fontColor=#5B6674;fontSize=10;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1.5;" parent="1" source="composedBrain" target="torch" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="690" y="690"/>
+                            <mxPoint x="1170" y="690"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e25" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#AAB2BD;endArrow=block;endFill=1;strokeWidth=1;dashed=1;" parent="1" source="encoders" target="composedBrain" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e26" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#AAB2BD;endArrow=block;endFill=1;strokeWidth=1;dashed=1;" parent="1" source="architectures" target="composedBrain" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e27" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#AAB2BD;endArrow=block;endFill=1;strokeWidth=1;dashed=1;" parent="1" source="actionHeads" target="composedBrain" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e28" value="builds / looks up" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#AAB2BD;fontColor=#8A94A3;fontSize=10;endArrow=block;endFill=1;strokeWidth=1;dashed=1;" parent="1" source="brainReg" target="composedBrain" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e29" value="Create()" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#AAB2BD;fontColor=#8A94A3;fontSize=10;endArrow=block;endFill=1;strokeWidth=1;dashed=1;" parent="1" source="factoryBox" target="traderBox" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e30" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#AAB2BD;endArrow=block;endFill=1;strokeWidth=1;dashed=1;" parent="1" source="traderBox" target="commissionBox" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e31" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#AAB2BD;endArrow=block;endFill=1;strokeWidth=1;dashed=1;" parent="1" source="traderBox" target="pendingOrderBox" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+    <diagram id="z5PjM3v_mNCy9CgU_AiY" name="Page-2">
+        <mxGraphModel grid="1" page="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="0YjDbjtlBj8Xrp7DdRis-12" value="Simulation Page&lt;br&gt;&lt;i&gt;SimulationPage.razor&lt;/i&gt;&lt;br&gt;play · pause · step · speed" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fontFamily=Helvetica;align=center;verticalAlign=middle;strokeWidth=1.5;fillColor=#FBEBD1;strokeColor=#C8872A;fontColor=#5B3E10;" vertex="1" parent="1">
+                    <mxGeometry x="-140" y="557.5" width="330" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="0YjDbjtlBj8Xrp7DdRis-13" value="Train Page&lt;br&gt;&lt;i&gt;TrainPage.razor, TrainLiveTab&lt;/i&gt;&lt;br&gt;Build Brain · Train · Episode Replay" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fontFamily=Helvetica;align=center;verticalAlign=middle;strokeWidth=1.5;fillColor=#DFF1EE;strokeColor=#2F8F83;fontColor=#173F3A;" vertex="1" parent="1">
+                    <mxGeometry y="1053.292" width="330" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="0YjDbjtlBj8Xrp7DdRis-14" value="Profiler Page&lt;br&gt;&lt;i&gt;ProfilerPage.razor&lt;/i&gt;&lt;br&gt;Volume / Time Profile analysis" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fontFamily=Helvetica;align=center;verticalAlign=middle;strokeWidth=1.5;fillColor=#EEF1F4;strokeColor=#8A94A3;fontColor=#2C3440;" vertex="1" parent="1">
+                    <mxGeometry x="-140" y="677.5" width="290" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="0YjDbjtlBj8Xrp7DdRis-15" value="PerformanceMonitor&lt;br&gt;&lt;i&gt;layout widget&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fontFamily=Helvetica;align=center;verticalAlign=middle;strokeWidth=1.5;fillColor=#EEF1F4;strokeColor=#8A94A3;fontColor=#2C3440;" vertex="1" parent="1">
+                    <mxGeometry y="15" width="270" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="0YjDbjtlBj8Xrp7DdRis-17" value="SimulationEngine&lt;br&gt;&lt;i&gt;singleton&lt;/i&gt;&lt;br&gt;Timer-driven play/pause/step/speed;&lt;br&gt;publishes SimulationSnapshot" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fontFamily=Helvetica;align=center;verticalAlign=middle;strokeWidth=1.5;fillColor=#FBEBD1;strokeColor=#C8872A;fontColor=#5B3E10;" vertex="1" parent="1">
+                    <mxGeometry x="430" y="542.5" width="340" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="0YjDbjtlBj8Xrp7DdRis-18" value="RlTrainingService&lt;br&gt;&lt;i&gt;singleton&lt;/i&gt;&lt;br&gt;headless RL loop; publishes training&lt;br&gt;snapshot; persists via IBrainRepository" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fontFamily=Helvetica;align=center;verticalAlign=middle;strokeWidth=1.5;fillColor=#DFF1EE;strokeColor=#2F8F83;fontColor=#173F3A;" vertex="1" parent="1">
+                    <mxGeometry x="430" y="1038.292" width="340" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="0YjDbjtlBj8Xrp7DdRis-19" value="ProfilerService&lt;br&gt;&lt;i&gt;scoped&lt;/i&gt;&lt;br&gt;self-contained batch reads" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fontFamily=Helvetica;align=center;verticalAlign=middle;strokeWidth=1.5;fillColor=#EEF1F4;strokeColor=#8A94A3;fontColor=#2C3440;" vertex="1" parent="1">
+                    <mxGeometry x="440" y="840" width="260" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="0YjDbjtlBj8Xrp7DdRis-20" value="SystemPerformanceMonitor&lt;br&gt;&lt;i&gt;singleton, Windows-only&lt;/i&gt;&lt;br&gt;CPU / RAM / GPU sampling, 1 Hz" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fontFamily=Helvetica;align=center;verticalAlign=middle;strokeWidth=1.5;fillColor=#EEF1F4;strokeColor=#8A94A3;fontColor=#2C3440;" vertex="1" parent="1">
+                    <mxGeometry x="370" width="260" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="0YjDbjtlBj8Xrp7DdRis-22" value="Heuristic Brains&lt;br&gt;MomentumThresholdBrain&lt;br&gt;RandomBrain" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fontFamily=Helvetica;align=center;verticalAlign=middle;strokeWidth=1.5;fillColor=#EEF1F4;strokeColor=#8A94A3;fontColor=#2C3440;" vertex="1" parent="1">
+                    <mxGeometry x="480" y="700" width="210" height="55" as="geometry"/>
+                </mxCell>
+                <mxCell id="0YjDbjtlBj8Xrp7DdRis-23" value="Encoders (IObservationEncoder)&lt;br&gt;BarWindow · VolumeProfile ·&lt;br&gt;TimeProfile · TraderState (+Raw)" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fontFamily=Helvetica;align=center;verticalAlign=middle;strokeWidth=1.5;fillColor=#EEF1F4;strokeColor=#8A94A3;fontColor=#2C3440;" vertex="1" parent="1">
+                    <mxGeometry x="1477.5" y="-170" width="210" height="55" as="geometry"/>
+                </mxCell>
+                <mxCell id="0YjDbjtlBj8Xrp7DdRis-24" value="Architectures&lt;br&gt;MlpArchitecture&lt;br&gt;LstmArchitecture" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fontFamily=Helvetica;align=center;verticalAlign=middle;strokeWidth=1.5;fillColor=#EEF1F4;strokeColor=#8A94A3;fontColor=#2C3440;" vertex="1" parent="1">
+                    <mxGeometry x="1135" y="-110" width="180" height="55" as="geometry"/>
+                </mxCell>
+                <mxCell id="0YjDbjtlBj8Xrp7DdRis-25" value="Action Output Heads&lt;br&gt;DiscretizedLevelsActionHead&lt;br&gt;(Volume / StopLoss / TakeProfit)" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fontFamily=Helvetica;align=center;verticalAlign=middle;strokeWidth=1.5;fillColor=#EEF1F4;strokeColor=#8A94A3;fontColor=#2C3440;" vertex="1" parent="1">
+                    <mxGeometry x="1135" y="-170" width="235" height="55" as="geometry"/>
+                </mxCell>
+                <mxCell id="0YjDbjtlBj8Xrp7DdRis-26" value="ComposedPolicyBrain  (neural)&lt;br&gt;assembled from Encoders + Architecture + Heads" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fontFamily=Helvetica;fontStyle=1;align=center;verticalAlign=middle;strokeWidth=2.5;fillColor=#EEF1F4;strokeColor=#3A4552;fontColor=#1B2430;" vertex="1" parent="1">
+                    <mxGeometry x="1290" y="100.00407191448011" width="420" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="0YjDbjtlBj8Xrp7DdRis-27" value="BrainRegistry / BrainCatalog&lt;br&gt;build / lookup by name" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fontFamily=Helvetica;align=center;verticalAlign=middle;strokeWidth=1.5;fillColor=#EEF1F4;strokeColor=#8A94A3;fontColor=#2C3440;" vertex="1" parent="1">
+                    <mxGeometry x="1340" y="-107.5" width="220" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="0YjDbjtlBj8Xrp7DdRis-29" value="Trader : ITrader&lt;br&gt;CFD account engine&lt;br&gt;Apply() / Advance()" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fontFamily=Helvetica;fontStyle=1;align=center;verticalAlign=middle;strokeWidth=2.5;fillColor=#EEF1F4;strokeColor=#3A4552;fontColor=#1B2430;" vertex="1" parent="1">
+                    <mxGeometry x="1465" y="476.41666666666697" width="235" height="55" as="geometry"/>
+                </mxCell>
+                <mxCell id="0YjDbjtlBj8Xrp7DdRis-30" value="ITraderFactory&lt;br&gt;(TraderFactory)&lt;br&gt;DI seam for construction" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fontFamily=Helvetica;align=center;verticalAlign=middle;strokeWidth=1.5;fillColor=#EEF1F4;strokeColor=#8A94A3;fontColor=#2C3440;" vertex="1" parent="1">
+                    <mxGeometry x="935" y="290" width="235" height="55" as="geometry"/>
+                </mxCell>
+                <mxCell id="0YjDbjtlBj8Xrp7DdRis-31" value="ICommissionModel&lt;br&gt;PercentOfNotionalCommission" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fontFamily=Helvetica;align=center;verticalAlign=middle;strokeWidth=1.5;fillColor=#EEF1F4;strokeColor=#8A94A3;fontColor=#2C3440;" vertex="1" parent="1">
+                    <mxGeometry x="1852.5" y="611.416666666667" width="235" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="0YjDbjtlBj8Xrp7DdRis-32" value="PendingOrder&lt;br&gt;resting Limit/Stop entry" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fontFamily=Helvetica;align=center;verticalAlign=middle;strokeWidth=1.5;fillColor=#EEF1F4;strokeColor=#8A94A3;fontColor=#2C3440;" vertex="1" parent="1">
+                    <mxGeometry x="1852.5" y="531.416666666667" width="235" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="0YjDbjtlBj8Xrp7DdRis-33" value="RlEpisodeRunner&lt;br&gt;headless single-episode playback&lt;br&gt;(mirrors SimulationEngine, no UI/Timer)" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fontFamily=Helvetica;align=center;verticalAlign=middle;strokeWidth=1.5;fillColor=#DFF1EE;strokeColor=#2F8F83;fontColor=#173F3A;" vertex="1" parent="1">
+                    <mxGeometry x="890" y="1000" width="290" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="0YjDbjtlBj8Xrp7DdRis-34" value="IRlTrainingStrategy&lt;br&gt;PolicyGradientTrainingStrategy&lt;br&gt;REINFORCE + Adam optimizer" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fontFamily=Helvetica;align=center;verticalAlign=middle;strokeWidth=1.5;fillColor=#DFF1EE;strokeColor=#2F8F83;fontColor=#173F3A;" vertex="1" parent="1">
+                    <mxGeometry x="885" y="1195" width="290" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="0YjDbjtlBj8Xrp7DdRis-35" value="IRewardPolicy  (4 implementations)&lt;br&gt;EquityDrift · TradingRules ·&lt;br&gt;DifferentialSharpe · MarketStructure" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fontFamily=Helvetica;align=center;verticalAlign=middle;strokeWidth=1.5;fillColor=#DFF1EE;strokeColor=#2F8F83;fontColor=#173F3A;" vertex="1" parent="1">
+                    <mxGeometry x="1430" y="880" width="360" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="0YjDbjtlBj8Xrp7DdRis-36" value="RlEpisode / RlStep&lt;br&gt;episode record — bars, inputs,&lt;br&gt;equity, outputs, reward" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fontFamily=Helvetica;align=center;verticalAlign=middle;strokeWidth=1.5;fillColor=#DFF1EE;strokeColor=#2F8F83;fontColor=#173F3A;" vertex="1" parent="1">
+                    <mxGeometry x="1500" y="1000" width="260" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="0YjDbjtlBj8Xrp7DdRis-37" value="ITickRepository&lt;br&gt;(TickRepository)&lt;br&gt;forward-only tick reads" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fontFamily=Helvetica;align=center;verticalAlign=middle;strokeWidth=1.5;fillColor=#EEF1F4;strokeColor=#8A94A3;fontColor=#2C3440;" vertex="1" parent="1">
+                    <mxGeometry x="890" y="905" width="280" height="65" as="geometry"/>
+                </mxCell>
+                <mxCell id="0YjDbjtlBj8Xrp7DdRis-38" value="IBrainRepository&lt;br&gt;(BrainRepository)&lt;br&gt;weight + recipe snapshots" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fontFamily=Helvetica;align=center;verticalAlign=middle;strokeWidth=1.5;fillColor=#EEF1F4;strokeColor=#8A94A3;fontColor=#2C3440;" vertex="1" parent="1">
+                    <mxGeometry x="890" y="1100" width="280" height="65" as="geometry"/>
+                </mxCell>
+                <mxCell id="0YjDbjtlBj8Xrp7DdRis-39" value="ITRangeChartRepository /&lt;br&gt;ITRangeReferenceChartRepository" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fontFamily=Helvetica;align=center;verticalAlign=middle;strokeWidth=1.5;fillColor=#EEF1F4;strokeColor=#8A94A3;fontColor=#2C3440;" vertex="1" parent="1">
+                    <mxGeometry x="870" y="815" width="320" height="65" as="geometry"/>
+                </mxCell>
+                <mxCell id="0YjDbjtlBj8Xrp7DdRis-40" value="DummyTickGenerator&lt;br&gt;synthetic ticks — no Postgres needed" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fontFamily=Helvetica;align=center;verticalAlign=middle;strokeWidth=1.5;fillColor=#EEF1F4;strokeColor=#8A94A3;fontColor=#2C3440;" vertex="1" parent="1">
+                    <mxGeometry x="460" y="390" width="290" height="65" as="geometry"/>
+                </mxCell>
+                <mxCell id="0YjDbjtlBj8Xrp7DdRis-41" value="PostgreSQL&lt;br&gt;ticks_[symbol] tables&lt;br&gt;(market data)" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=14;fillColor=#EEF1F4;strokeColor=#5B6674;fontSize=12;fontFamily=Helvetica;fontColor=#1B2430;" vertex="1" parent="1">
+                    <mxGeometry x="885" y="661.416666666667" width="320" height="65" as="geometry"/>
+                </mxCell>
+                <mxCell id="0YjDbjtlBj8Xrp7DdRis-42" value="PostgreSQL&lt;br&gt;Poink.Sim database&lt;br&gt;(brain snapshots)" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=14;fillColor=#EEF1F4;strokeColor=#5B6674;fontSize=12;fontFamily=Helvetica;fontColor=#1B2430;" vertex="1" parent="1">
+                    <mxGeometry x="1340" y="1099.4583333333335" width="320" height="65" as="geometry"/>
+                </mxCell>
+                <mxCell id="0YjDbjtlBj8Xrp7DdRis-43" value="TorchSharp runtime&lt;br&gt;CPU / GPU tensors —&lt;br&gt;neural Brain inference and training" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fontFamily=Helvetica;align=center;verticalAlign=middle;strokeWidth=1.5;dashed=1;fillColor=#F2F2F2;strokeColor=#5B6674;fontColor=#2C3440;" vertex="1" parent="1">
+                    <mxGeometry x="1870" y="90.00407191448011" width="320" height="65" as="geometry"/>
+                </mxCell>
+                <mxCell id="0YjDbjtlBj8Xrp7DdRis-45" value="play/pause/step ⇄ SimulationSnapshot" style="rounded=1;html=1;strokeColor=#C8872A;fontColor=#8A5C15;fontSize=10;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;startArrow=block;startFill=1;strokeWidth=1.5;orthogonal=1;edgeStyle=elbowEdgeStyle;" edge="1" parent="1" source="0YjDbjtlBj8Xrp7DdRis-12" target="0YjDbjtlBj8Xrp7DdRis-17">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="0YjDbjtlBj8Xrp7DdRis-46" value="start/stop/step ⇄ training snapshot" style="rounded=1;html=1;strokeColor=#2F8F83;fontColor=#1E5F58;fontSize=10;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;startArrow=block;startFill=1;strokeWidth=1.5;orthogonal=1;edgeStyle=elbowEdgeStyle;" edge="1" parent="1" source="0YjDbjtlBj8Xrp7DdRis-13" target="0YjDbjtlBj8Xrp7DdRis-18">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="0YjDbjtlBj8Xrp7DdRis-47" value="LoadAsync" style="rounded=1;html=1;strokeColor=#8A94A3;fontColor=#5B6674;fontSize=10;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1.5;orthogonal=1;edgeStyle=elbowEdgeStyle;" edge="1" parent="1" source="0YjDbjtlBj8Xrp7DdRis-14" target="0YjDbjtlBj8Xrp7DdRis-19">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="0YjDbjtlBj8Xrp7DdRis-48" value="reads sample" style="rounded=1;html=1;strokeColor=#8A94A3;fontColor=#5B6674;fontSize=10;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1.5;orthogonal=1;edgeStyle=elbowEdgeStyle;" edge="1" parent="1" source="0YjDbjtlBj8Xrp7DdRis-15" target="0YjDbjtlBj8Xrp7DdRis-20">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="0YjDbjtlBj8Xrp7DdRis-49" value="Decide()" style="rounded=1;html=1;strokeColor=#C8872A;fontColor=#8A5C15;fontSize=10;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1.5;orthogonal=1;edgeStyle=elbowEdgeStyle;" edge="1" parent="1" source="0YjDbjtlBj8Xrp7DdRis-17" target="0YjDbjtlBj8Xrp7DdRis-22">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="0YjDbjtlBj8Xrp7DdRis-50" value="Decide()" style="rounded=1;html=1;strokeColor=#C8872A;fontColor=#8A5C15;fontSize=10;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1.5;orthogonal=1;edgeStyle=elbowEdgeStyle;" edge="1" parent="1" source="0YjDbjtlBj8Xrp7DdRis-17" target="0YjDbjtlBj8Xrp7DdRis-26">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="800" y="360"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="0YjDbjtlBj8Xrp7DdRis-51" value="create session" style="rounded=1;html=1;strokeColor=#C8872A;fontColor=#8A5C15;fontSize=10;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1.5;orthogonal=1;edgeStyle=elbowEdgeStyle;" edge="1" parent="1" source="0YjDbjtlBj8Xrp7DdRis-17" target="0YjDbjtlBj8Xrp7DdRis-30">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="0YjDbjtlBj8Xrp7DdRis-52" value="Apply / Advance" style="rounded=1;html=1;strokeColor=#C8872A;fontColor=#8A5C15;fontSize=10;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1.5;orthogonal=1;edgeStyle=elbowEdgeStyle;" edge="1" parent="1" source="0YjDbjtlBj8Xrp7DdRis-17" target="0YjDbjtlBj8Xrp7DdRis-29">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="0YjDbjtlBj8Xrp7DdRis-53" value="ReadTicks (forward-only)" style="rounded=1;html=1;strokeColor=#C8872A;fontColor=#8A5C15;fontSize=10;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1.5;orthogonal=1;edgeStyle=elbowEdgeStyle;entryX=0;entryY=0.25;entryDx=0;entryDy=0;" edge="1" parent="1" source="0YjDbjtlBj8Xrp7DdRis-17" target="0YjDbjtlBj8Xrp7DdRis-37">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="0YjDbjtlBj8Xrp7DdRis-54" value="fallback, no DB" style="rounded=1;html=1;strokeColor=#C8872A;fontColor=#8A5C15;fontSize=10;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1.5;dashed=1;orthogonal=1;edgeStyle=elbowEdgeStyle;" edge="1" parent="1" source="0YjDbjtlBj8Xrp7DdRis-17" target="0YjDbjtlBj8Xrp7DdRis-40">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="0YjDbjtlBj8Xrp7DdRis-55" value="drives loop" style="rounded=1;html=1;strokeColor=#2F8F83;fontColor=#1E5F58;fontSize=10;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1.5;orthogonal=1;edgeStyle=elbowEdgeStyle;" edge="1" parent="1" source="0YjDbjtlBj8Xrp7DdRis-18" target="0YjDbjtlBj8Xrp7DdRis-33">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="0YjDbjtlBj8Xrp7DdRis-56" value="DecideWithLogProbability" style="rounded=1;html=1;strokeColor=#2F8F83;fontColor=#1E5F58;fontSize=10;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1.5;orthogonal=1;edgeStyle=elbowEdgeStyle;" edge="1" parent="1" source="0YjDbjtlBj8Xrp7DdRis-33" target="0YjDbjtlBj8Xrp7DdRis-26">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="0YjDbjtlBj8Xrp7DdRis-57" value="Apply / Advance" style="rounded=1;html=1;strokeColor=#2F8F83;fontColor=#1E5F58;fontSize=10;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1.5;orthogonal=1;edgeStyle=elbowEdgeStyle;" edge="1" parent="1" source="0YjDbjtlBj8Xrp7DdRis-33" target="0YjDbjtlBj8Xrp7DdRis-29">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="0YjDbjtlBj8Xrp7DdRis-58" value="ComputeReward" style="rounded=1;html=1;strokeColor=#2F8F83;fontColor=#1E5F58;fontSize=10;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1.5;orthogonal=1;edgeStyle=elbowEdgeStyle;" edge="1" parent="1" source="0YjDbjtlBj8Xrp7DdRis-33" target="0YjDbjtlBj8Xrp7DdRis-35">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="0YjDbjtlBj8Xrp7DdRis-59" value="records" style="rounded=1;html=1;strokeColor=#2F8F83;fontColor=#1E5F58;fontSize=10;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1.5;orthogonal=1;edgeStyle=elbowEdgeStyle;" edge="1" parent="1" source="0YjDbjtlBj8Xrp7DdRis-33" target="0YjDbjtlBj8Xrp7DdRis-36">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="0YjDbjtlBj8Xrp7DdRis-60" value="TrainEpisode" style="rounded=1;html=1;strokeColor=#2F8F83;fontColor=#1E5F58;fontSize=10;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1.5;orthogonal=1;edgeStyle=elbowEdgeStyle;" edge="1" parent="1" source="0YjDbjtlBj8Xrp7DdRis-18" target="0YjDbjtlBj8Xrp7DdRis-34">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="0YjDbjtlBj8Xrp7DdRis-61" value="save / load weights + recipe" style="rounded=1;html=1;strokeColor=#2F8F83;fontColor=#1E5F58;fontSize=10;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1.5;orthogonal=1;edgeStyle=elbowEdgeStyle;" edge="1" parent="1" source="0YjDbjtlBj8Xrp7DdRis-18" target="0YjDbjtlBj8Xrp7DdRis-38">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="0YjDbjtlBj8Xrp7DdRis-62" value="RandomEpisodeWindow" style="rounded=1;html=1;strokeColor=#2F8F83;fontColor=#1E5F58;fontSize=10;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1.5;orthogonal=1;edgeStyle=elbowEdgeStyle;entryX=0;entryY=0.75;entryDx=0;entryDy=0;" edge="1" parent="1" source="0YjDbjtlBj8Xrp7DdRis-18" target="0YjDbjtlBj8Xrp7DdRis-37">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="0YjDbjtlBj8Xrp7DdRis-63" style="rounded=1;html=1;strokeColor=#8A94A3;fontColor=#5B6674;fontSize=10;endArrow=block;endFill=1;strokeWidth=1.5;orthogonal=1;edgeStyle=elbowEdgeStyle;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="0YjDbjtlBj8Xrp7DdRis-19" target="0YjDbjtlBj8Xrp7DdRis-37">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="880" y="910" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="0YjDbjtlBj8Xrp7DdRis-64" style="rounded=1;html=1;strokeColor=#8A94A3;fontColor=#5B6674;fontSize=10;endArrow=block;endFill=1;strokeWidth=1.5;orthogonal=1;edgeStyle=elbowEdgeStyle;" edge="1" parent="1" source="0YjDbjtlBj8Xrp7DdRis-19" target="0YjDbjtlBj8Xrp7DdRis-39">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="0YjDbjtlBj8Xrp7DdRis-65" style="rounded=1;html=1;strokeColor=#8A94A3;fontColor=#5B6674;fontSize=10;endArrow=block;endFill=1;strokeWidth=1.5;orthogonal=1;edgeStyle=elbowEdgeStyle;" edge="1" parent="1" source="0YjDbjtlBj8Xrp7DdRis-37" target="0YjDbjtlBj8Xrp7DdRis-41">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="0YjDbjtlBj8Xrp7DdRis-66" style="rounded=1;html=1;strokeColor=#8A94A3;fontColor=#5B6674;fontSize=10;endArrow=block;endFill=1;strokeWidth=1.5;orthogonal=1;edgeStyle=elbowEdgeStyle;" edge="1" parent="1" source="0YjDbjtlBj8Xrp7DdRis-38" target="0YjDbjtlBj8Xrp7DdRis-42">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="0YjDbjtlBj8Xrp7DdRis-67" style="rounded=1;html=1;strokeColor=#8A94A3;fontColor=#5B6674;fontSize=10;endArrow=block;endFill=1;strokeWidth=1.5;orthogonal=1;edgeStyle=elbowEdgeStyle;" edge="1" parent="1" source="0YjDbjtlBj8Xrp7DdRis-39" target="0YjDbjtlBj8Xrp7DdRis-41">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="0YjDbjtlBj8Xrp7DdRis-68" value="Module(Tensor,Tensor)" style="rounded=1;html=1;strokeColor=#8A94A3;fontColor=#5B6674;fontSize=10;labelBackgroundColor=#ffffff;endArrow=block;endFill=1;strokeWidth=1.5;orthogonal=1;edgeStyle=elbowEdgeStyle;" edge="1" parent="1" source="0YjDbjtlBj8Xrp7DdRis-26" target="0YjDbjtlBj8Xrp7DdRis-43">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="0YjDbjtlBj8Xrp7DdRis-69" style="rounded=1;html=1;strokeColor=#AAB2BD;endArrow=block;endFill=1;strokeWidth=1;dashed=1;orthogonal=1;edgeStyle=elbowEdgeStyle;" edge="1" parent="1" source="0YjDbjtlBj8Xrp7DdRis-23" target="0YjDbjtlBj8Xrp7DdRis-26">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="0YjDbjtlBj8Xrp7DdRis-70" style="rounded=1;html=1;strokeColor=#AAB2BD;endArrow=block;endFill=1;strokeWidth=1;dashed=1;orthogonal=1;edgeStyle=elbowEdgeStyle;" edge="1" parent="1" source="0YjDbjtlBj8Xrp7DdRis-24" target="0YjDbjtlBj8Xrp7DdRis-26">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="0YjDbjtlBj8Xrp7DdRis-71" style="rounded=1;html=1;strokeColor=#AAB2BD;endArrow=block;endFill=1;strokeWidth=1;dashed=1;orthogonal=1;edgeStyle=elbowEdgeStyle;" edge="1" parent="1" source="0YjDbjtlBj8Xrp7DdRis-25" target="0YjDbjtlBj8Xrp7DdRis-26">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="0YjDbjtlBj8Xrp7DdRis-72" value="builds / looks up" style="rounded=1;html=1;strokeColor=#AAB2BD;fontColor=#8A94A3;fontSize=10;endArrow=block;endFill=1;strokeWidth=1;dashed=1;orthogonal=1;edgeStyle=elbowEdgeStyle;" edge="1" parent="1" source="0YjDbjtlBj8Xrp7DdRis-27" target="0YjDbjtlBj8Xrp7DdRis-26">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="0YjDbjtlBj8Xrp7DdRis-73" value="Create()" style="rounded=1;html=1;strokeColor=#AAB2BD;fontColor=#8A94A3;fontSize=10;endArrow=block;endFill=1;strokeWidth=1;dashed=1;orthogonal=1;edgeStyle=elbowEdgeStyle;" edge="1" parent="1" source="0YjDbjtlBj8Xrp7DdRis-30" target="0YjDbjtlBj8Xrp7DdRis-29">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="0YjDbjtlBj8Xrp7DdRis-74" style="rounded=1;html=1;strokeColor=#AAB2BD;endArrow=block;endFill=1;strokeWidth=1;dashed=1;orthogonal=1;edgeStyle=elbowEdgeStyle;" edge="1" parent="1" source="0YjDbjtlBj8Xrp7DdRis-29" target="0YjDbjtlBj8Xrp7DdRis-31">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="0YjDbjtlBj8Xrp7DdRis-75" style="rounded=1;html=1;strokeColor=#AAB2BD;endArrow=block;endFill=1;strokeWidth=1;dashed=1;orthogonal=1;edgeStyle=elbowEdgeStyle;" edge="1" parent="1" source="0YjDbjtlBj8Xrp7DdRis-29" target="0YjDbjtlBj8Xrp7DdRis-32">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>
