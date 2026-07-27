@@ -2,6 +2,7 @@
 @namespace Poink.Sim.Components.Pages
 @using Poink.Sim.Brain.Neural
 @using Poink.Sim.Components.Training
+@using Poink.Sim.Components.Shared.BarMinutesSelect
 @using Poink.Sim.Components.Shared.TickDataSource
 @using Poink.Shared.Client.Components.Shared.Icon
 
@@ -352,12 +353,9 @@
                                         <input class="train-brainrow-input" type="number" min="1" @bind="_episodeBars"
                                                disabled="@Service.IsRunning" />
                                     </label>
-                                    <label class="train-brainrow-field"
-                                           title="Time span of one bar (M), in minutes -- also determines how much wall-clock time an episode's fetched ticks need to cover">
-                                        Bar width (min)
-                                        <input class="train-brainrow-input" type="number" min="1" step="1" @bind="_barWidthMinutes"
-                                               disabled="@Service.IsRunning" />
-                                    </label>
+                                    <BarMinutesSelect @bind-Value="_barWidthMinutes" Disabled="@Service.IsRunning"
+                                                       Label="Bar width (min)"
+                                                       Title="Time span of one bar (M), in minutes -- also determines how much wall-clock time an episode's fetched ticks need to cover" />
                                     <label class="train-brainrow-field">
                                         Learning rate
                                         <input class="train-brainrow-input" type="number" min="0.00001" step="0.0001"

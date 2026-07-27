@@ -35,7 +35,7 @@ namespace Poink.Sim.Components.Pages
         private string _table = "";
         private DateTime _from = DateTime.UtcNow.AddDays(-1);
         private DateTime _to = DateTime.UtcNow;
-        private string _barMinutesText = "1";
+        private int _barMinutes = 1;
 
         private bool _isLoading;
         private bool _isLoadingMore;
@@ -312,8 +312,6 @@ namespace Poink.Sim.Components.Pages
             { _error = "pick a symbol"; return; }
             if (_to <= _from)
             { _error = "To must be after From"; return; }
-            if (!int.TryParse(_barMinutesText, out var barMinutes) || barMinutes < 1)
-                barMinutes = 1;
 
             _isLoading = true;
             _keepView = false;
@@ -333,7 +331,7 @@ namespace Poink.Sim.Components.Pages
 
             try
             {
-                var config = new ProfilerConfig(_table, _from, _to, TimeSpan.FromMinutes(barMinutes));
+                var config = new ProfilerConfig(_table, _from, _to, TimeSpan.FromMinutes(_barMinutes));
                 var chunk = await Service.LoadAsync(config, config.To, BarsPerFetch);
                 if (chunk.Bars.Count == 0 && chunk.ReachedStart)
                 {

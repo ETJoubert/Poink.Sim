@@ -221,6 +221,16 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   picked encoder/architecture combination into real `IObservationEncoder`/
   `INetworkArchitecture` instances. See [Brain/README.md](Brain/README.md)
   ("Where brains come from") for the full picture. `Brain/Neural/BrainCatalog.cs`
+- **`BarMinutesOptions`** — The doubling choice list backing `BarMinutesSelect`:
+  1 minute up to 1024, plus a 1440 (1-day) cap on top since it's a meaningful
+  bar size a pure power-of-two wouldn't reach. `Label(minutes)` formats each
+  choice (e.g. `"64m (~1h)"`, `"1440m (1d)"`). `Helpers/BarMinutesOptions.cs`
+- **`BarMinutesSelect`** — Shared "Bar minutes"/"Bar width (min)" dropdown
+  component (`@bind-Value` + `Disabled`/`Label`/`Title` parameters), backed by
+  `BarMinutesOptions`; used by `ProfilerPage`, `SimulationPage` (only while its
+  Aggregate toggle is on), and `TrainPage`'s Training card, so all three pick
+  bar size the same way instead of each repeating its own numeric input/`<select>`
+  markup. `Components/Shared/BarMinutesSelect/BarMinutesSelect.razor`
 - **`BrainOption`** — One entry in the brain picker: `(Name, IsNeuralNetwork)`, lets
   the UI separate trained/trainable brains from stateless heuristic ones without
   knowing about `IPolicyGradientBrain`. `Services/Training/RlTrainingService.cs`

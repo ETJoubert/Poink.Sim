@@ -31,7 +31,7 @@ namespace Poink.Sim.Components.Pages
         private DateTime _from = DateTime.UtcNow.AddDays(-1);
         private DateTime _to = DateTime.UtcNow;
         private bool _aggregate = true;
-        private string _barMinutesText = "1";
+        private int _barMinutes = 1;
         private string _brainName = "";
         private double _startingCash = 10_000;
         private int _traderCount = 1;
@@ -306,13 +306,11 @@ namespace Poink.Sim.Components.Pages
             { _loadError = "starting cash must be positive"; return; }
             if (!ValidateTraderAccountParams())
                 return;
-            if (!int.TryParse(_barMinutesText, out var barMinutes) || barMinutes < 1)
-                barMinutes = 1;
             if (_traderCount < 1)
                 _traderCount = 1;
 
             var config = new SimulationConfig(
-                _table, _from, _to, _aggregate, TimeSpan.FromMinutes(barMinutes), _brainName, _startingCash, _traderCount,
+                _table, _from, _to, _aggregate, TimeSpan.FromMinutes(_barMinutes), _brainName, _startingCash, _traderCount,
                 _leverage, _stopOutLevelPercent, _commissionRatePercent);
 
             if (!Service.TryLoad(config))
@@ -346,8 +344,6 @@ namespace Poink.Sim.Components.Pages
             { _loadError = "starting cash must be positive"; return; }
             if (!ValidateTraderAccountParams())
                 return;
-            if (!int.TryParse(_barMinutesText, out var barMinutes) || barMinutes < 1)
-                barMinutes = 1;
             if (_traderCount < 1)
                 _traderCount = 1;
 
@@ -356,7 +352,7 @@ namespace Poink.Sim.Components.Pages
             var table = string.IsNullOrWhiteSpace(_table) ? "DUMMY" : _table;
 
             var config = new SimulationConfig(
-                table, from, to, _aggregate, TimeSpan.FromMinutes(barMinutes), _brainName, _startingCash, _traderCount,
+                table, from, to, _aggregate, TimeSpan.FromMinutes(_barMinutes), _brainName, _startingCash, _traderCount,
                 _leverage, _stopOutLevelPercent, _commissionRatePercent);
 
             if (!Service.TryLoadDummy(config))

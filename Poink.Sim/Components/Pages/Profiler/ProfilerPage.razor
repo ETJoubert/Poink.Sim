@@ -1,6 +1,7 @@
 @page "/profiler"
 @namespace Poink.Sim.Components.Pages
 @using Poink.Sim.Components.Charts
+@using Poink.Sim.Components.Shared.BarMinutesSelect
 @using Poink.Sim.Components.Shared.DataTable
 @using Poink.Sim.Components.Shared.TickDataSource
 @using Poink.Sim.Repository
@@ -31,11 +32,7 @@
             <div class="prof-datarow-field prof-datarow-data">
                 <TickDataSource @bind-Table="_table" @bind-From="_from" @bind-To="_to" Disabled="_isLoading" />
             </div>
-            <label class="prof-datarow-barmin" title="Size of each aggregated bar, in minutes">
-                Bar minutes
-                <input class="prof-datarow-barmin-input" type="number" min="1" @bind="_barMinutesText"
-                       disabled="@_isLoading" title="Size of each aggregated bar, in minutes" />
-            </label>
+            <BarMinutesSelect @bind-Value="_barMinutes" Disabled="@_isLoading" />
             <div class="prof-datarow-actions">
                 <button class="prof-ctrl-btn prof-ctrl-btn-play" @onclick="Load"
                         disabled="@(_isLoading || _isLoadingMore)"

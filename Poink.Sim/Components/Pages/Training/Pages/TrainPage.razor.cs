@@ -357,7 +357,6 @@ namespace Poink.Sim.Components.Pages
             if (string.IsNullOrWhiteSpace(_rewardPolicyName)) { _startError = "pick a reward policy"; return false; }
             if (_episodeCount < 1) { _startError = "episode count must be positive"; return false; }
             if (_episodeBars < 1) { _startError = "bars per episode must be at least 1"; return false; }
-            if (_barWidthMinutes < 1) { _startError = "bar width must be at least 1 minute"; return false; }
             if (_startingCash <= 0) { _startError = "starting cash must be positive"; return false; }
             if (_learningRate <= 0) { _startError = "learning rate must be positive"; return false; }
             if (_lookbackBars < 1) { _startError = "profile lookback must be at least 1 bar"; return false; }

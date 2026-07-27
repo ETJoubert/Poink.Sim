@@ -1,0 +1,13 @@
+@namespace Poink.Sim.Components.Shared.BarMinutesSelect
+@using Poink.Sim.Helpers
+
+<label class="bar-minutes-select" title="@Title">
+    @Label
+    <select class="bar-minutes-select-input" value="@Value" @onchange="OnChanged"
+            disabled="@Disabled" title="@Title">
+        @foreach (var minutes in BarMinutesOptions.Values)
+        {
+            <option value="@minutes">@BarMinutesOptions.Label(minutes)</option>
+        }
+    </select>
+</label>
