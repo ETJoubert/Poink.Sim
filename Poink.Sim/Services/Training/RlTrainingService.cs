@@ -159,13 +159,16 @@ internal sealed class RlTrainingService
     public IReadOnlyList<NetworkLayerShape> DescribeNetworkShape(string brainName) =>
         _brainRegistry.All.OfType<IPolicyGradientBrain>().FirstOrDefault(b => b.Name == brainName)?.DescribeNetworkShape() ?? [];
 
-    // Null for a brain with no profile-style trailing-bar window (e.g.
-    // a pure Bar Window brain, or an unknown name) -- see IHasLookbackBars'
-    // doc comment. Read by the Train page's episode replay to size its
-    // "what range the trader sees" chart marker for brains this doesn't cover
-    // (see BarWindowEncoder's own fixed, unexposed window instead).
-    public int? GetLookbackBars(string brainName) =>
-        (_brainRegistry.All.FirstOrDefault(b => b.Name == brainName) as IHasLookbackBars)?.LookbackBars;
+    // How far back this brain looks, in bars -- 0 for an unknown name or a
+    // non-policy-gradient brain. Every windowed encoder already defines its
+    // own WarmupBars as exactly its window/lookback (see BarWindowEncoder/
+    // VolumeProfileEncoder/TimeProfileEncoder), and CompositeEncoder.WarmupBars
+    // is the Max across whichever of them a brain was built with -- so this
+    // is a single generic source covering every brain shape, unlike the old
+    // profile-only GetLookbackBars it replaces. Read by the Train page's
+    // episode replay to size its "what range the trader sees" chart marker.
+    public int GetWarmupBars(string brainName) =>
+        (_brainRegistry.All.OfType<IPolicyGradientBrain>().FirstOrDefault(b => b.Name == brainName))?.WarmupBars ?? 0;
 
     public IReadOnlyList<string> BrainNames => _brainRegistry.All.Select(b => b.Name).ToList();
 
@@ -295,7 +298,7 @@ internal sealed class RlTrainingService
     // running a normal Start.
     public bool TryStartTraining(
         string brainName, string strategyName, string rewardPolicyName, int episodeCount, int episodeBars, int barWidthMinutes, double startingCash,
-        double learningRate, int lookbackBars, (string Table, DateTime From, DateTime To)? historicRange,
+        double learningRate, (string Table, DateTime From, DateTime To)? historicRange,
         Trader.TraderSettings? traderSettings = null, bool pauseAfterFirstEpisode = false)
     {
         var brain = _brainRegistry.All.FirstOrDefault(b => b.Name == brainName);
@@ -345,18 +348,10 @@ internal sealed class RlTrainingService
         if (brain is IPolicyGradientBrain trainableBrain)
             trainableBrain.MoveToTrainingDevice();
 
-        // No-op for brains built from encoders with no lookback window (e.g. a
-        // bare Bar Window brain) -- only IHasLookbackBars brains (composed
-        // with a VolumeProfileEncoder and/or TimeProfileEncoder part) read
-        // this. Live Simulation playback reuses whatever was last set here.
-        if (brain is IHasLookbackBars lookbackBrain)
-            lookbackBrain.LookbackBars = lookbackBars;
-
-        // Read after the LookbackBars assignment above so a lookback-windowed
-        // brain's WarmupBars already reflects this run's configured value (see
-        // ComposedPolicyBrain.WarmupBars / VolumeProfileEncoder.WarmupBars). 0
-        // for a brain with no windowed encoder (e.g. a bare TraderStateEncoder
-        // brain) or a non-policy-gradient brain.
+        // Every windowed encoder's lookback/window is baked in at brain-build
+        // time now (see EncoderSizeOptions), so WarmupBars just reads
+        // straight off the brain -- 0 for a brain with no windowed encoder
+        // (e.g. a bare TraderStateEncoder brain) or a non-policy-gradient brain.
         int warmupBars = brain is IPolicyGradientBrain warmupAwareBrain ? warmupAwareBrain.WarmupBars : 0;
 
         OnChanged?.Invoke();
@@ -610,7 +605,7 @@ internal sealed class RlTrainingService
     public bool SaveBrain(
         string savedName, string brainName, string strategyName, string rewardPolicyName, string dataset,
         int episodeBars, int barWidthMinutes, double startingCash, double learningRate,
-        int lookbackBars, Trader.TraderSettings? traderSettings = null)
+        Trader.TraderSettings? traderSettings = null)
     {
         var brain = _brainRegistry.All.OfType<IPolicyGradientBrain>().FirstOrDefault(b => b.Name == brainName);
         if (brain is null)
@@ -635,7 +630,7 @@ internal sealed class RlTrainingService
                 EpisodeCount = _episodesTrainedByBrain.GetValueOrDefault(brainName),
                 EpisodeBars = episodeBars, BarWidthMinutes = barWidthMinutes,
                 StartingCash = startingCash, LearningRate = learningRate,
-                LookbackBars = brain is IHasLookbackBars ? lookbackBars : null,
+                LookbackBars = brain.WarmupBars > 0 ? brain.WarmupBars : null,
                 Leverage = settings.Leverage, StopOutLevelPercent = settings.StopOutLevelPercent,
                 CommissionRatePercent = settings.CommissionModel is Trader.Commission.PercentOfNotionalCommission p ? p.RatePercent : 0,
             };
@@ -728,13 +723,6 @@ internal sealed class RlTrainingService
             var weights = _brainRepository.LoadWeights(id);
             if (weights is null) { SaveStatus = "weights not found"; return false; }
             brain.ImportWeights(weights);
-
-            // The one runtime setting a brain needs fixed for correct playback
-            // -- Simulation has no UI for this itself (see IHasLookbackBars),
-            // so this is the only place it's ever applied before Simulation
-            // uses the brain.
-            if (brain is IHasLookbackBars lookbackBrain && summary.Parameters.LookbackBars is { } lookback)
-                lookbackBrain.LookbackBars = lookback;
 
             _activeSnapshotId[summary.BrainName] = id;
             _episodesTrainedByBrain[summary.BrainName] = summary.Parameters.EpisodeCount;

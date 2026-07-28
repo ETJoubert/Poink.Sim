@@ -1,21 +1,33 @@
 # TODO
 
-Planned work for Poink.Sim, one file per plan.
+TODO List for Poink.SIM project
 
 ## Standards
 
-- **One file per plan.** Don't append unrelated work to an existing file --
-  create a new one.
-- **File name**: `yyyy-mm-dd-short-slug.md` (e.g. `2026-07-21-streaming-tick-reads.md`).
-- **Every plan file starts with a Status line** (top of the file, right under
-  the title), set to one of:
-
   | Status | Meaning |
-  |---|---|
-  | `Pending Approval` | Plan is written; I'm checking it out before work starts. |
+  |---|---||
   | `In Progress` | Agent is actively working on it. |
-  | `Pending Review` | Work is done; I'll test it and comment. |
+  | `Pending Review` | Work is done; User to test it and comment. |
   | `Done` | Completed. |
 
-- Add the Status line with timestamp below the previous as the plan moves through these states --
+  Structure
+  Index Subject | Scope
+  - Status
+  - Description
+
+# TODO LIST
+
+1. Move Charts into a resizeable card that will fill screen. Simulation, Trainer, Profile pages | UI
+- TODO
+- For Simulation and profile there are charts built that has `DrawableOhlcvChart`, Volume Profile, Time Profile, and Chart overlay.
+- It is fine for it to be a seperate components but there should be a control to maximize these elements to fill the screen.
+- For simulation the Profile Bars slider should be included.
+
+2. Collapsable Simulation inputs. | Simulation | UI
+- TODO
+- A collapse button should be placed left of the Play button that would collapse the Data Range selector and the brain/Trader options
+
+3. 
+
+
 

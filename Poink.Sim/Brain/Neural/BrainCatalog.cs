@@ -21,9 +21,23 @@ namespace Poink.Sim.Brain.Neural;
 // since it travels on SavedBrainSummary (see that record's doc comment on
 // why it's public -- a Razor component's [Parameter] property can't be typed
 // with a less-accessible type than the component itself).
-public enum EncoderKind { BarWindow, VolumeProfile, TimeProfile, VolumeProfileRaw, TimeProfileRaw }
+public enum EncoderKind { BarWindow, VolumeProfile, TimeProfile }
 
 public enum ArchitectureKind { Mlp, Lstm }
+
+// How a pickable encoder feeds its raw quantities to the network -- Normalized
+// is each encoder's original convention (fraction-of-total / percent-offset-
+// from-current-price via FractionNormalizer/PriceOffsetNormalizer), Raw feeds
+// the literal quantity (tick count/seconds/price) via RawValueNormalizer/
+// RawPriceNormalizer instead. A per-set build option (see EncoderSizeOptions),
+// orthogonal to EncoderKind -- picking this never changes which EncoderKind a
+// set maps to, only which normalizer pair its encoder is constructed with.
+// Deliberately just two members today, but the whole point of splitting this
+// out from EncoderKind is that a future strategy (log-returns, z-score, ...
+// see TODO/2026-07-26-normalization-strategies.md) is one new member handled
+// inside each encoder's existing normalization branch, not a new EncoderKind
+// value plus a whole new duplicate encoder class per set.
+public enum NormalizationKind { Normalized, Raw }
 
 // Which extra (non-direction) decisions a brain's network makes, on top of
 // the fixed Hold/EnterLong/EnterShort/Close pick -- see IActionOutputHead.
@@ -39,21 +53,32 @@ public enum ActionOutputKind { Volume, StopLoss, TakeProfit }
 // RlTrainingService, or persistence at all.
 public enum ActionOutputEncodingKind { DiscretizedLevels }
 
-// Per-encoder input width, independent of each other and of IHasLookbackBars'
-// LookbackBars (a runtime-mutable merge window that never changes FeatureCount
-// -- see that interface's doc comment). These do change FeatureCount, so
-// they're build-time-only: baked into the encoder at construction via
+// Every pickable set's build-time options -- structural width (window/bucket
+// count) plus, now, its NormalizationKind and (for the two profiles) its
+// merge-window length ("Window" in the Brain Builder's Input table). All of
+// these change either FeatureCount or the encoder's fixed behavior, so
+// they're baked into the encoder once at construction via
 // BrainCatalog.CreateEncoder, then carried on BrainRecipe so LoadSavedBrain
 // reconstructs the exact same shape a saved snapshot's weights were trained
-// with. Defaults match this codebase's original hardcoded bucket/window
-// counts, so a recipe saved before this record existed (missing the property
-// entirely) still deserializes to the same shape it was originally built with.
+// with -- nothing here is runtime-adjustable after a brain is built, same
+// treatment bucket count always had. VolumeProfileLookbackBars/
+// TimeProfileLookbackBars replace what used to be one runtime value shared
+// (broadcast) across both profiles via the since-removed IHasLookbackBars --
+// each profile now gets its own independent, fixed value instead.
+// BarWindowSize/VolumeProfileBucketCount/TimeProfileBucketCount keep their
+// original names/positions/defaults so a recipe saved before this record
+// gained Normalization/Lookback still deserializes those three correctly by
+// name; the two new *LookbackBars properties default to 50 (each encoder's
+// own original hardcoded default) for the same old-recipe-tolerance reason.
 public sealed record EncoderSizeOptions(
     int BarWindowSize = 20,
     int VolumeProfileBucketCount = 20,
     int TimeProfileBucketCount = 20,
-    int VolumeProfileRawBucketCount = 20,
-    int TimeProfileRawBucketCount = 20);
+    int VolumeProfileLookbackBars = 50,
+    int TimeProfileLookbackBars = 50,
+    NormalizationKind BarWindowNormalization = NormalizationKind.Normalized,
+    NormalizationKind VolumeProfileNormalization = NormalizationKind.Normalized,
+    NormalizationKind TimeProfileNormalization = NormalizationKind.Normalized);
 
 // A runtime-built brain's exact shape -- what LoadSavedBrain needs to
 // reconstruct an identical encoder/architecture/action composition after a
@@ -69,7 +94,7 @@ public sealed record EncoderSizeOptions(
 // Hold/EnterLong/EnterShort/Close) for the same reason, and for the same
 // reason: every direction is individually optional per brain, not just the
 // added heads (see SimulationAction's doc comment). EncoderSizes defaults to
-// null (equivalent to EncoderSizeOptions' own all-20 default -- a record type
+// null (equivalent to EncoderSizeOptions' own defaults -- a record type
 // can't itself be a default parameter value, only null can), same
 // deserialization-tolerance reasoning as the other optional properties here.
 public sealed record BrainRecipe(
@@ -97,11 +122,11 @@ internal static class BrainCatalog
         var sizes = sizeOptions ?? new EncoderSizeOptions();
         return kind switch
         {
-            EncoderKind.BarWindow => new BarWindowEncoder(windowSize: sizes.BarWindowSize),
-            EncoderKind.VolumeProfile => new VolumeProfileEncoder(bucketCount: sizes.VolumeProfileBucketCount),
-            EncoderKind.TimeProfile => new TimeProfileEncoder(bucketCount: sizes.TimeProfileBucketCount),
-            EncoderKind.VolumeProfileRaw => new VolumeProfileRawEncoder(bucketCount: sizes.VolumeProfileRawBucketCount),
-            EncoderKind.TimeProfileRaw => new TimeProfileRawEncoder(bucketCount: sizes.TimeProfileRawBucketCount),
+            EncoderKind.BarWindow => new BarWindowEncoder(windowSize: sizes.BarWindowSize, normalization: sizes.BarWindowNormalization),
+            EncoderKind.VolumeProfile => new VolumeProfileEncoder(
+                bucketCount: sizes.VolumeProfileBucketCount, lookbackBars: sizes.VolumeProfileLookbackBars, normalization: sizes.VolumeProfileNormalization),
+            EncoderKind.TimeProfile => new TimeProfileEncoder(
+                bucketCount: sizes.TimeProfileBucketCount, lookbackBars: sizes.TimeProfileLookbackBars, normalization: sizes.TimeProfileNormalization),
             _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
         };
     }

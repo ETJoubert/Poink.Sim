@@ -308,15 +308,12 @@ namespace Poink.Sim.Components.Training
             DisplayedEpisodeBars.Count > 0 ? DisplayedEpisodeBars[^1].Close : null;
 
         // How many trailing bars feed the currently-selected brain's decision --
-        // the max of a fixed-size price window (BarWindowEncoder; derived from
-        // how many "t-N" entries DescribeInputs actually produced, since that
-        // encoder's WindowSize is a private constant nothing exposes directly)
-        // and a profile lookback (VolumeProfileEncoder/TimeProfileEncoder,
-        // queryable generically via IHasLookbackBars). 0 for a brain with
-        // neither (e.g. a heuristic brain, where DisplayedInputs is null to
-        // begin with).
-        private int DisplayedWindowBarCount => Math.Max(
-            DisplayedInputs?.Count(f => f.Label.StartsWith("t-", StringComparison.Ordinal)) ?? 0, Service.GetLookbackBars(BrainName) ?? 0);
+        // Service.GetWarmupBars already generalizes across whichever windowed
+        // encoder(s) the brain was built with (Bar Window's fixed window,
+        // Volume/Time Profile's lookback, or the max of several combined --
+        // see CompositeEncoder.WarmupBars). 0 for a brain with none (e.g. a
+        // heuristic brain).
+        private int DisplayedWindowBarCount => Service.GetWarmupBars(BrainName);
 
         // Shades the trailing DisplayedWindowBarCount bars ending at whichever
         // bar the chart/INPUTS panel currently show -- "what range the trader

@@ -133,7 +133,7 @@
 
 .train-buildbrain-cards {
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: 2fr 1fr 1fr 1fr;
     gap: 14px;
 }
 
@@ -150,6 +150,43 @@
 .train-buildbrain-card-fields-end .train-brainrow-field {
     width: 100%;
     justify-content: space-between;
+}
+
+.train-card-input {
+    min-width: 340px;
+}
+
+.train-inputset-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.train-inputset-table th {
+    font-size: 0.62rem;
+    font-weight: bold;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-accent);
+    text-align: left;
+    padding: 0 8px 6px 0;
+}
+
+.train-inputset-table td {
+    padding: 5px 8px 5px 0;
+    border-top: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
+    vertical-align: middle;
+}
+
+.train-inputset-table .train-brainrow-select,
+.train-inputset-table .train-brainrow-input {
+    width: 100%;
+    min-width: 0;
+}
+
+.train-inputset-cell-na {
+    color: var(--color-secondary);
+    opacity: 0.5;
+    text-align: center;
 }
 
 .train-decoding-value {

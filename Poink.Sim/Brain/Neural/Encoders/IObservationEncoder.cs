@@ -1,6 +1,6 @@
 // ── Composable brain capability: observation -> feature vector ──────────
-//  Sibling to IPolicyGradientBrain/IHasLookbackBars, same "narrow interface,
-//  checked via is" house style -- this is the half of a brain that used to
+//  Sibling to IPolicyGradientBrain, same "narrow interface, checked via is"
+//  house style -- this is the half of a brain that used to
 //  be baked directly into each concrete brain's own Encode method (see e.g.
 //  the now-deleted MlpPolicyBrain/VolumeProfilePolicyBrain). Pulling it out
 //  lets ComposedPolicyBrain (see that file) pair any encoder with any

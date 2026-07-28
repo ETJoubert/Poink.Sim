@@ -107,22 +107,6 @@
                         <BrainBuilder Visible="_showBuildBrain" OnBrainCreated="HandleBrainCreated" />
                                 </div>
 
-                                                @if (BrainHasProfileLookback)
-                                                {
-                                                    <div class="train-card">
-                                                        <div class="train-card-title" title="How far back a Volume/Time Profile brain looks over its bar data">
-                                                            Data Structure</div>
-                                                            <div class="train-card-fields-row">
-                                                                <label class="train-brainrow-field"
-                                                                       title="How many recent bars a Volume Profile and/or Time Profile brain merges into its profile each decision (shared between both when a brain includes both)">
-                                                                    Profile lookback (bars)
-                                                                    <input class="train-brainrow-input" type="number" min="1" step="1" @bind="_lookbackBars"
-                                                                           disabled="@Service.IsRunning" />
-                                                                </label>
-                                                            </div>
-                                                        </div>
-                                                    }
-
                                                     <div class="train-card">
                                                         <div class="train-card-title" title="How much data each episode/run consists of">Training</div>
                                                         <div class="train-card-fields-row">

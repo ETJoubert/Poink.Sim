@@ -48,19 +48,26 @@ namespace Poink.Sim.Components.Training
         private bool _includeBarWindow = true;
         private bool _includeVolumeProfile;
         private bool _includeTimeProfile;
-        private bool _includeVolumeProfileRaw;
-        private bool _includeTimeProfileRaw;
 
-        // Per-encoder input width -- independent of each other and of
-        // TrainPage's own Profile lookback (see EncoderSizeOptions's doc
-        // comment for why these are build-time-only, unlike the
-        // runtime-adjustable lookback). Defaults match EncoderSizeOptions'
-        // own defaults, today's original hardcoded bucket/window counts.
+        // Normalized feeds fraction-of-total/percent-offset values (each
+        // set's original convention); Raw feeds exact tick counts/seconds and
+        // exact price levels instead -- see NormalizationKind's doc comment.
+        // A per-set build option, orthogonal to which EncoderKind a set maps
+        // to (see SelectedEncoderKinds/CurrentEncoderSizeOptions below).
+        private NormalizationKind _barWindowNormalization = NormalizationKind.Normalized;
+        private NormalizationKind _volumeProfileNormalization = NormalizationKind.Normalized;
+        private NormalizationKind _timeProfileNormalization = NormalizationKind.Normalized;
+
+        // Per-set structural width -- independent of each other, and now
+        // build-time-only for Volume/Time Profile's lookback too (see
+        // EncoderSizeOptions's doc comment): every one of these is baked into
+        // the encoder once at construction, same treatment bucket count
+        // always had. Defaults match EncoderSizeOptions' own defaults.
         private int _barWindowSize = 20;
         private int _volumeProfileBucketCount = 20;
         private int _timeProfileBucketCount = 20;
-        private int _volumeProfileRawBucketCount = 20;
-        private int _timeProfileRawBucketCount = 20;
+        private int _volumeProfileLookbackBars = 50;
+        private int _timeProfileLookbackBars = 50;
 
         private ArchitectureKind _architectureKind = ArchitectureKind.Mlp;
 
@@ -94,6 +101,15 @@ namespace Poink.Sim.Components.Training
 
         private void OnArchitectureKindChanged(ChangeEventArgs e) =>
             _architectureKind = Enum.Parse<ArchitectureKind>(e.Value?.ToString() ?? nameof(ArchitectureKind.Mlp));
+
+        private void OnBarWindowNormalizationChanged(ChangeEventArgs e) =>
+            _barWindowNormalization = Enum.Parse<NormalizationKind>(e.Value?.ToString() ?? nameof(NormalizationKind.Normalized));
+
+        private void OnVolumeProfileNormalizationChanged(ChangeEventArgs e) =>
+            _volumeProfileNormalization = Enum.Parse<NormalizationKind>(e.Value?.ToString() ?? nameof(NormalizationKind.Normalized));
+
+        private void OnTimeProfileNormalizationChanged(ChangeEventArgs e) =>
+            _timeProfileNormalization = Enum.Parse<NormalizationKind>(e.Value?.ToString() ?? nameof(NormalizationKind.Normalized));
 
         // Mirrors the old ParseHiddenSizes(text)'s n > 0 filter -- a layer
         // cleared to 0 (or left blank) drops out rather than building a
@@ -130,20 +146,20 @@ namespace Poink.Sim.Components.Training
         // so the Create button disables instead of only failing after a click.
         private bool CanCreateBrain =>
             !string.IsNullOrWhiteSpace(EffectiveBuildBrainName)
-            && (_includeBarWindow || _includeVolumeProfile || _includeTimeProfile || _includeVolumeProfileRaw || _includeTimeProfileRaw)
+            && (_includeBarWindow || _includeVolumeProfile || _includeTimeProfile)
             && (_includeHold || _includeEnterLong || _includeEnterShort || _includeClose)
             && (_architectureKind != ArchitectureKind.Lstm || _includeBarWindow)
             && (!_includeBarWindow || _barWindowSize >= 1)
-            && (!_includeVolumeProfile || _volumeProfileBucketCount >= 1)
-            && (!_includeTimeProfile || _timeProfileBucketCount >= 1)
-            && (!_includeVolumeProfileRaw || _volumeProfileRawBucketCount >= 1)
-            && (!_includeTimeProfileRaw || _timeProfileRawBucketCount >= 1);
+            && (!_includeVolumeProfile || (_volumeProfileBucketCount >= 1 && _volumeProfileLookbackBars >= 1))
+            && (!_includeTimeProfile || (_timeProfileBucketCount >= 1 && _timeProfileLookbackBars >= 1));
 
         // Canonical part order (Bar Window before Volume Profile before Time
         // Profile) regardless of checkbox click order -- CompositeEncoder
         // requires any sequence-bearing part to be listed first (see its doc
         // comment). Shared by CreateBrain and TotalInputCount so the two never
-        // drift apart.
+        // drift apart. EncoderKind no longer encodes Normalization (see
+        // CurrentEncoderSizeOptions below) -- picking Raw never changes which
+        // kind gets added here, only how CreateEncoder builds it.
         private IReadOnlyList<EncoderKind> SelectedEncoderKinds
         {
             get
@@ -152,16 +168,29 @@ namespace Poink.Sim.Components.Training
                 if (_includeBarWindow) kinds.Add(EncoderKind.BarWindow);
                 if (_includeVolumeProfile) kinds.Add(EncoderKind.VolumeProfile);
                 if (_includeTimeProfile) kinds.Add(EncoderKind.TimeProfile);
-                if (_includeVolumeProfileRaw) kinds.Add(EncoderKind.VolumeProfileRaw);
-                if (_includeTimeProfileRaw) kinds.Add(EncoderKind.TimeProfileRaw);
                 return kinds;
             }
         }
 
         private EncoderSizeOptions CurrentEncoderSizeOptions => new(
-            _barWindowSize, _volumeProfileBucketCount, _timeProfileBucketCount, _volumeProfileRawBucketCount, _timeProfileRawBucketCount);
+            BarWindowSize: _barWindowSize,
+            VolumeProfileBucketCount: _volumeProfileBucketCount,
+            TimeProfileBucketCount: _timeProfileBucketCount,
+            VolumeProfileLookbackBars: _volumeProfileLookbackBars,
+            TimeProfileLookbackBars: _timeProfileLookbackBars,
+            BarWindowNormalization: _barWindowNormalization,
+            VolumeProfileNormalization: _volumeProfileNormalization,
+            TimeProfileNormalization: _timeProfileNormalization);
 
-        // Live input-count readout for the Input Structure card -- reuses
+        private string VolumeProfileBucketsTooltip => _volumeProfileNormalization == NormalizationKind.Raw
+            ? "How many histogram buckets Volume Profile rebins its merged bars into -- each bucket feeds price and volume under Raw, so its input count is this times 2 plus 3 summary values"
+            : "How many histogram buckets Volume Profile rebins its merged bars into -- its input count is this plus 3 summary values";
+
+        private string TimeProfileBucketsTooltip => _timeProfileNormalization == NormalizationKind.Raw
+            ? "How many histogram buckets Time Profile rebins its merged bars into -- each bucket feeds price and seconds under Raw, so its input count is this times 2 plus 3 summary values"
+            : "How many histogram buckets Time Profile rebins its merged bars into -- its input count is this plus 3 summary values";
+
+        // Live input-count readout for the Input card -- reuses
         // BrainCatalog.CreateEncoder (the same factory CreateBrain itself
         // calls into via Service.TryBuildBrain) as the single source of truth
         // for each encoder's FeatureCount, instead of duplicating that
@@ -276,11 +305,9 @@ namespace Poink.Sim.Components.Training
                     : $"H{_lstmHiddenSize}-N{_lstmNumLayers}";
 
                 var dataParts = new List<string>();
-                if (_includeBarWindow) dataParts.Add("dBW");
-                if (_includeVolumeProfile) dataParts.Add("dVP");
-                if (_includeTimeProfile) dataParts.Add("dTP");
-                if (_includeVolumeProfileRaw) dataParts.Add("dVPR");
-                if (_includeTimeProfileRaw) dataParts.Add("dTPR");
+                if (_includeBarWindow) dataParts.Add(_barWindowNormalization == NormalizationKind.Raw ? "dBWR" : "dBW");
+                if (_includeVolumeProfile) dataParts.Add(_volumeProfileNormalization == NormalizationKind.Raw ? "dVPR" : "dVP");
+                if (_includeTimeProfile) dataParts.Add(_timeProfileNormalization == NormalizationKind.Raw ? "dTPR" : "dTP");
                 dataParts.Add("dAS");
                 string data = string.Join("-", dataParts);
 

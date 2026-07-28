@@ -42,11 +42,12 @@ namespace Poink.Sim.Components.Pages
         private bool _showBuildBrain;
 
         // ── Data Structure Controls ──
-        // How raw ticks get shaped into bars, and how far back a Volume/Time
-        // Profile brain looks over that same bar data -- independent of how
-        // many bars one episode/run consists of (see Training Controls below).
+        // How raw ticks get shaped into bars -- independent of how many bars
+        // one episode/run consists of (see Training Controls below). A brain's
+        // own per-set window/lookback (Bar Window size, Volume/Time Profile
+        // lookback) is a build-time choice made in BrainBuilder now, not a
+        // runtime setting here.
         private int _barWidthMinutes = 1;
-        private int _lookbackBars = 50;
 
         // ── Training Controls ──
         // The algorithm, plus how much data each episode/run consists of.
@@ -95,12 +96,6 @@ namespace Poink.Sim.Components.Pages
         // unfiltered Service.BrainOptions for playback of either kind).
         private IReadOnlyList<BrainOption> TrainableBrainOptions =>
             Service.BrainOptions.Where(b => b.IsNeuralNetwork).ToList();
-
-        // Gates the Data Structure card -- Profile lookback only means something
-        // for a brain composed with a Volume/Time Profile (raw or not) encoder
-        // (see IHasLookbackBars); a plain Bar Window brain (e.g. MLP/LSTM Policy)
-        // ignores it entirely, so hide the field instead of showing a dead control.
-        private bool BrainHasProfileLookback => Service.GetLookbackBars(_brainName) is not null;
 
         private void HandleServiceChanged() => _ = InvokeAsync(StateHasChanged);
 
@@ -155,7 +150,6 @@ namespace Poink.Sim.Components.Pages
             if (_episodeBars < 1) { _startError = "bars per episode must be at least 1"; return false; }
             if (_startingCash <= 0) { _startError = "starting cash must be positive"; return false; }
             if (_learningRate <= 0) { _startError = "learning rate must be positive"; return false; }
-            if (_lookbackBars < 1) { _startError = "profile lookback must be at least 1 bar"; return false; }
             if (_leverage < 1) { _startError = "leverage must be at least 1"; return false; }
             if (_commissionRatePercent < 0) { _startError = "commission rate can't be negative"; return false; }
             if (_stopOutLevelPercent <= 0 || _stopOutLevelPercent > 100) { _startError = "stop-out level must be between 0 and 100%"; return false; }
@@ -195,7 +189,7 @@ namespace Poink.Sim.Components.Pages
 
             if (!Service.TryStartTraining(
                     _brainName, _strategyName, _rewardPolicyName, _episodeCount, _episodeBars, _barWidthMinutes, _startingCash, _learningRate,
-                    _lookbackBars, (_table, _from, _to), CurrentTraderSettings, pauseAfterFirstEpisode))
+                    (_table, _from, _to), CurrentTraderSettings, pauseAfterFirstEpisode))
                 _startError = Service.Error ?? "a training run is already in progress";
         }
 
@@ -216,7 +210,7 @@ namespace Poink.Sim.Components.Pages
             if (string.IsNullOrWhiteSpace(_saveName)) return;
 
             if (Service.SaveBrain(_saveName, _brainName, _strategyName, _rewardPolicyName, CurrentDatasetDescription,
-                    _episodeBars, _barWidthMinutes, _startingCash, _learningRate, _lookbackBars,
+                    _episodeBars, _barWidthMinutes, _startingCash, _learningRate,
                     CurrentTraderSettings))
             {
                 _saveName = "";

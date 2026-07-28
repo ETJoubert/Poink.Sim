@@ -29,8 +29,8 @@
 //     firing confidently on a level that was never really established.
 //
 //  LookbackBars here is this policy's own, independent setting -- it is NOT
-//  tied to whatever LookbackBars a brain's IHasLookbackBars encoders (e.g.
-//  VolumeProfileEncoder) are configured with. IRewardPolicy and the brain
+//  tied to whatever lookback a brain's own windowed encoders (e.g.
+//  VolumeProfileEncoder) were built with. IRewardPolicy and the brain
 //  are already orthogonal axes (see IRewardPolicy's doc comment); this file
 //  doesn't change that, it just happens to default to the same starting
 //  value (50) the encoders do.

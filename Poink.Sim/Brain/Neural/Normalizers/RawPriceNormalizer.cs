@@ -1,6 +1,6 @@
 // ── Normalizer: passthrough for an already-real, unscaled price level ───
 //  Used where a caller wants the network fed the literal price (e.g.
-//  VolumeProfileRawEncoder/TimeProfileRawEncoder's POC/value-area summary,
+//  VolumeProfileEncoder/TimeProfileEncoder's Raw-mode POC/value-area summary,
 //  TraderStateEncoder's current price) instead of PriceOffsetNormalizer's
 //  percent-change-from-current-price encoding. Normalize is a plain float
 //  cast; Denormalize is the identity for the same reason -- the normalized

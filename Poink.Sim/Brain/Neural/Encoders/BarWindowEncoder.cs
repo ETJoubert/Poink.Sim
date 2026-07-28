@@ -1,15 +1,21 @@
 // ── Encoder: trailing bar/tick price window ──────────────────────────────
 //  Extracted from the formerly-duplicated MlpPolicyBrain/LstmPolicyBrain
-//  Encode logic (identical in both) -- the last WindowSize prices as
-//  percent-change-from-current-price, most-recent-last, zero-padded at the
-//  front (neutral, no false signal) when fewer than WindowSize observations
-//  exist yet -- a fallback for live Simulation playback, which really can
-//  start with no history. RlEpisodeRunner's WarmupBars-driven warm-up phase
-//  (see IObservationEncoder.WarmupBars) means training never exercises this
+//  Encode logic (identical in both) -- the last WindowSize prices, most-
+//  recent-last, zero-padded at the front (neutral, no false signal) when
+//  fewer than WindowSize observations exist yet -- a fallback for live
+//  Simulation playback, which really can start with no history.
+//  RlEpisodeRunner's WarmupBars-driven warm-up phase (see
+//  IObservationEncoder.WarmupBars) means training never exercises this
 //  padding path: a training episode's first decision only happens once
 //  WindowSize real bars/ticks have already accumulated. Reads straight off
 //  the source buffer (up to 5000 ticks) instead of copying the whole thing
 //  via LINQ just to keep the trailing WindowSize.
+//
+//  Normalization picks the feature convention: Normalized (default) feeds
+//  percent-change-from-current-price via PriceOffsetNormalizer; Raw feeds
+//  the literal price via RawPriceNormalizer instead. Same "t-N" labels
+//  either way -- the two modes are alternatives, never combined in one
+//  brain, so there's no collision to avoid by splitting the prefix.
 //
 //  SequenceLength == FeatureCount (the whole output is one contiguous
 //  sequence) -- this is the one encoder in this codebase meant to be listed
@@ -28,15 +34,16 @@ internal sealed class BarWindowEncoder : IObservationEncoder
     private const int DefaultWindowSize = 20;
 
     private readonly int _windowSize;
-    private readonly IFeatureNormalizer _priceOffsetNormalizer;
+    private readonly IFeatureNormalizer _normalizer;
     private readonly IReadOnlyList<FeatureDescriptor> _features;
 
-    public BarWindowEncoder(int windowSize = DefaultWindowSize, IFeatureNormalizer? priceOffsetNormalizer = null)
+    public BarWindowEncoder(
+        int windowSize = DefaultWindowSize, NormalizationKind normalization = NormalizationKind.Normalized, IFeatureNormalizer? normalizer = null)
     {
         _windowSize = windowSize;
-        _priceOffsetNormalizer = priceOffsetNormalizer ?? new PriceOffsetNormalizer();
+        _normalizer = normalizer ?? (normalization == NormalizationKind.Raw ? new RawPriceNormalizer() : new PriceOffsetNormalizer());
         _features = Enumerable.Range(1, _windowSize)
-            .Select(i => new FeatureDescriptor($"t-{_windowSize - i + 1}", _priceOffsetNormalizer))
+            .Select(i => new FeatureDescriptor($"t-{_windowSize - i + 1}", _normalizer))
             .ToList();
     }
 
@@ -63,7 +70,7 @@ internal sealed class BarWindowEncoder : IObservationEncoder
             double price = useBars
                 ? observation.RecentBars[sourceIndex].Close
                 : (observation.RecentTicks[sourceIndex].Bid + observation.RecentTicks[sourceIndex].Ask) / 2.0;
-            features[padding + i] = _priceOffsetNormalizer.Normalize(price, observation);
+            features[padding + i] = _normalizer.Normalize(price, observation);
         }
 
         return features;

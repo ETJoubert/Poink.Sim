@@ -21,96 +21,122 @@
         </div>
 
         <div class="train-buildbrain-cards">
-            <div class="train-card">
-                <div class="train-card-title" title="Which market/account data feeds this brain">Input</div>
-                <div class="train-buildbrain-card-fields">
-                    <label class="train-brainrow-field" title="20-bar trailing percent-change price window">
-                        <input type="checkbox" @bind="_includeBarWindow" disabled="@Service.IsRunning" />
-                        Bar Window
-                    </label>
-                    <label class="train-brainrow-field"
-                           title="Volume histogram + point-of-control/value-area summary, merged from Profile lookback bars below">
-                        <input type="checkbox" @bind="_includeVolumeProfile"
-                               disabled="@Service.IsRunning" /> Volume Profile
-                    </label>
-                    <label class="train-brainrow-field"
-                           title="Time-weighted histogram + point-of-control/value-area summary (seconds spent at each price level), merged from Profile lookback bars below">
-                        <input type="checkbox" @bind="_includeTimeProfile" disabled="@Service.IsRunning" />
-                        Time Profile
-                    </label>
-                    <label class="train-brainrow-field"
-                           title="Same volume histogram + point-of-control/value-area summary as Volume Profile, but unnormalized -- feeds the network exact tick counts and exact price levels instead of a fraction-of-total/percent-offset">
-                        <input type="checkbox" @bind="_includeVolumeProfileRaw"
-                               disabled="@Service.IsRunning" /> Volume Profile (Raw)
-                    </label>
-                    <label class="train-brainrow-field"
-                           title="Same time-weighted histogram + point-of-control/value-area summary as Time Profile, but unnormalized -- feeds the network exact seconds spent and exact price levels instead of a fraction-of-total/percent-offset">
-                        <input type="checkbox" @bind="_includeTimeProfileRaw"
-                               disabled="@Service.IsRunning" /> Time Profile (Raw)
-                    </label>
-                    <label class="train-brainrow-field"
-                           title="Always included -- every brain needs to know its own position/capital regardless of market data">
-                        <input type="checkbox" checked="checked" disabled /> Trader State
-                    </label>
-                </div>
-            </div>
-
-            <div class="train-card">
+            <div class="train-card train-card-input">
                 <div class="train-card-title-row">
                     <div class="train-card-title"
-                         title="Per-encoder input width -- how many network inputs each selected data source above contributes">
-                        Input Structure</div>
+                         title="Which market/account data feeds this brain -- check a set, then pick its normalization and input structure">
+                        Input</div>
                     <span class="train-card-badge"
-                          title="Total network input width: every selected encoder's input count above, plus Trader State's fixed 12">
+                          title="Total network input width: every selected set's input count below, plus Trader State's fixed 12">
                         @TotalInputCount</span>
                 </div>
-                <div class="train-buildbrain-card-fields train-buildbrain-card-fields-end">
-                    @if (_includeBarWindow)
-                    {
-                        <label class="train-brainrow-field"
-                               title="How many trailing bars' percent-change prices Bar Window feeds the network -- also its input count, 1 input per bar">
-                            Bar window size
-                            <input class="train-brainrow-input" type="number" min="1" step="1"
-                                   @bind="_barWindowSize" disabled="@Service.IsRunning" />
-                        </label>
-                    }
-                    @if (_includeVolumeProfile)
-                    {
-                        <label class="train-brainrow-field"
-                               title="How many histogram buckets Volume Profile rebins its merged bars into -- its input count is this plus 3 summary values">
-                            Volume profile buckets
-                            <input class="train-brainrow-input" type="number" min="1" step="1"
-                                   @bind="_volumeProfileBucketCount" disabled="@Service.IsRunning" />
-                        </label>
-                    }
-                    @if (_includeTimeProfile)
-                    {
-                        <label class="train-brainrow-field"
-                               title="How many histogram buckets Time Profile rebins its merged bars into -- its input count is this plus 3 summary values">
-                            Time profile buckets
-                            <input class="train-brainrow-input" type="number" min="1" step="1"
-                                   @bind="_timeProfileBucketCount" disabled="@Service.IsRunning" />
-                        </label>
-                    }
-                    @if (_includeVolumeProfileRaw)
-                    {
-                        <label class="train-brainrow-field"
-                               title="How many histogram buckets Volume Profile (Raw) rebins its merged bars into -- each bucket feeds price and volume, so its input count is this times 2 plus 3 summary values">
-                            Volume profile (raw) buckets
-                            <input class="train-brainrow-input" type="number" min="1" step="1"
-                                   @bind="_volumeProfileRawBucketCount" disabled="@Service.IsRunning" />
-                        </label>
-                    }
-                    @if (_includeTimeProfileRaw)
-                    {
-                        <label class="train-brainrow-field"
-                               title="How many histogram buckets Time Profile (Raw) rebins its merged bars into -- each bucket feeds price and seconds, so its input count is this times 2 plus 3 summary values">
-                            Time profile (raw) buckets
-                            <input class="train-brainrow-input" type="number" min="1" step="1"
-                                   @bind="_timeProfileRawBucketCount" disabled="@Service.IsRunning" />
-                        </label>
-                    }
-                </div>
+                <table class="train-inputset-table">
+                    <thead>
+                        <tr>
+                            <th title="Which market/account data feeds this brain -- check a set to include it">Any input set</th>
+                            <th title="Normalized feeds a fraction-of-total/percent-offset from current price; Raw feeds the literal quantity (price, tick count, or seconds) instead">
+                                Normalization</th>
+                            <th title="How much trailing bar history this set uses -- a fixed count of bars for Bar Window, merged into one profile for Volume/Time Profile">
+                                Window</th>
+                            <th title="How many histogram buckets Volume/Time Profile rebins its merged bars into -- not applicable to Bar Window or Trader State">
+                                Bucket</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>
+                                <label class="train-brainrow-field" title="Trailing bar price window">
+                                    <input type="checkbox" @bind="_includeBarWindow" disabled="@Service.IsRunning" />
+                                    Bar Window
+                                </label>
+                            </td>
+                            <td>
+                                <select class="train-brainrow-select" value="@_barWindowNormalization"
+                                        @onchange="OnBarWindowNormalizationChanged" disabled="@(Service.IsRunning || !_includeBarWindow)"
+                                        title="Normalized feeds percent-change-from-current-price; Raw feeds the literal price instead">
+                                    <option value="Normalized">Normalized</option>
+                                    <option value="Raw">Raw</option>
+                                </select>
+                            </td>
+                            <td>
+                                <input class="train-brainrow-input" type="number" min="1" step="1"
+                                       @bind="_barWindowSize" disabled="@(Service.IsRunning || !_includeBarWindow)"
+                                       title="How many trailing bars Bar Window feeds the network -- also its input count, 1 input per bar" />
+                            </td>
+                            <td class="train-inputset-cell-na" title="Bar Window has no bucketing -- one input per bar">&#8212;</td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <label class="train-brainrow-field"
+                                       title="Volume histogram + point-of-control/value-area summary, merged from its Window's trailing bars">
+                                    <input type="checkbox" @bind="_includeVolumeProfile" disabled="@Service.IsRunning" />
+                                    Volume Profile
+                                </label>
+                            </td>
+                            <td>
+                                <select class="train-brainrow-select" value="@_volumeProfileNormalization"
+                                        @onchange="OnVolumeProfileNormalizationChanged" disabled="@(Service.IsRunning || !_includeVolumeProfile)"
+                                        title="Normalized feeds a fraction-of-total/percent-offset from current price; Raw feeds exact tick counts and exact price levels instead">
+                                    <option value="Normalized">Normalized</option>
+                                    <option value="Raw">Raw</option>
+                                </select>
+                            </td>
+                            <td>
+                                <input class="train-brainrow-input" type="number" min="1" step="1"
+                                       @bind="_volumeProfileLookbackBars" disabled="@(Service.IsRunning || !_includeVolumeProfile)"
+                                       title="How many trailing bars Volume Profile merges into one profile each decision" />
+                            </td>
+                            <td>
+                                <input class="train-brainrow-input" type="number" min="1" step="1"
+                                       @bind="_volumeProfileBucketCount" disabled="@(Service.IsRunning || !_includeVolumeProfile)"
+                                       title="@VolumeProfileBucketsTooltip" />
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <label class="train-brainrow-field"
+                                       title="Time-weighted histogram + point-of-control/value-area summary (seconds spent at each price level), merged from its Window's trailing bars">
+                                    <input type="checkbox" @bind="_includeTimeProfile" disabled="@Service.IsRunning" />
+                                    Time Profile
+                                </label>
+                            </td>
+                            <td>
+                                <select class="train-brainrow-select" value="@_timeProfileNormalization"
+                                        @onchange="OnTimeProfileNormalizationChanged" disabled="@(Service.IsRunning || !_includeTimeProfile)"
+                                        title="Normalized feeds a fraction-of-total/percent-offset from current price; Raw feeds exact seconds spent and exact price levels instead">
+                                    <option value="Normalized">Normalized</option>
+                                    <option value="Raw">Raw</option>
+                                </select>
+                            </td>
+                            <td>
+                                <input class="train-brainrow-input" type="number" min="1" step="1"
+                                       @bind="_timeProfileLookbackBars" disabled="@(Service.IsRunning || !_includeTimeProfile)"
+                                       title="How many trailing bars Time Profile merges into one profile each decision" />
+                            </td>
+                            <td>
+                                <input class="train-brainrow-input" type="number" min="1" step="1"
+                                       @bind="_timeProfileBucketCount" disabled="@(Service.IsRunning || !_includeTimeProfile)"
+                                       title="@TimeProfileBucketsTooltip" />
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <label class="train-brainrow-field"
+                                       title="Always included -- every brain needs to know its own position/capital regardless of market data">
+                                    <input type="checkbox" checked="checked" disabled /> Trader State
+                                </label>
+                            </td>
+                            <td>
+                                <select class="train-brainrow-select" disabled
+                                        title="Every field is fed to the network exactly as reported (position, cash, equity, margin, ...) -- not yet configurable, may become selectable in the future">
+                                    <option>Raw</option>
+                                </select>
+                            </td>
+                            <td class="train-inputset-cell-na" title="Meaningful from the first tick -- no windowing">&#8212;</td>
+                            <td class="train-inputset-cell-na" title="Fixed 12 fields, no bucketing">&#8212;</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
 
             <div class="train-card">

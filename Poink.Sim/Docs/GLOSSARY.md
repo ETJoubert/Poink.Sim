@@ -122,7 +122,7 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   timestamps. Its Point of Control/Value Area are computed by
   `TimeProfileStats.Compute`, independently of Volume Profile's.
   `Components/Charts/TickTimeProfileChart/TickTimeProfileChart.razor.cs`. Also available as a
-  trainable brain feature via `TimeProfileEncoder` (see **`IHasLookbackBars`**),
+  trainable brain feature via `TimeProfileEncoder` (see **`EncoderSizeOptions`**),
   which re-bins the same `BarPriceHistogram.MergeTime` output/POC/Value-Area
   math (`TimeProfileAnalysis`, the seconds-weighted counterpart to
   `VolumeProfileAnalysis`) into a fixed-width network input instead of a chart.
@@ -194,9 +194,9 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   `CompositeEncoder.WarmupBars`): how many completed bars (ticks, in raw-tick mode)
   `RlEpisodeRunner.Run` consumes purely to fill `recentBars`/`recentBarHistograms`/
   `recentTicks` *before* the episode's first decision, so a windowed encoder's
-  lookback (`BarWindowEncoder`'s build-time-configurable window, default 20 --
-  see `EncoderSizeOptions` -- or `VolumeProfileEncoder`'s/`TimeProfileEncoder`'s
-  runtime-configurable `LookbackBars`) is already full of real
+  lookback (`BarWindowEncoder`'s window, default 20, or `VolumeProfileEncoder`'s/
+  `TimeProfileEncoder`'s lookback, default 50 -- all three build-time-fixed, see
+  `EncoderSizeOptions`) is already full of real data instead of ever hitting the
   encoder's own zero-padding fallback. Warm-up bars generate no `RlStep`/reward and
   don't count toward `episodeBars`, but they DO land in `RlEpisode.Bars`/
   `BarHistograms` (and so `RlTrainingService.LatestEpisodeBars`/
@@ -217,11 +217,17 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
 
 ## Core Architecture — Classes & Interfaces
 
-- **`BrainCatalog`** — UI-facing catalog (`EncoderKind`/`ArchitectureKind` enums
-  + factory methods) the Train page's Build Brain panel selects from to turn a
-  picked encoder/architecture combination into real `IObservationEncoder`/
-  `INetworkArchitecture` instances. See [Brain/README.md](Brain/README.md)
-  ("Where brains come from") for the full picture. `Brain/Neural/BrainCatalog.cs`
+- **`BrainCatalog`** — UI-facing catalog (`EncoderKind`/`ArchitectureKind`/
+  `NormalizationKind` enums + factory methods) the Train page's Build Brain
+  panel selects from to turn a picked encoder/architecture/normalization
+  combination into real `IObservationEncoder`/`INetworkArchitecture` instances.
+  `EncoderKind` (`BarWindow`/`VolumeProfile`/`TimeProfile`) picks *which* set;
+  `NormalizationKind` (`Normalized`/`Raw`, see `EncoderSizeOptions`) is an
+  orthogonal per-set build option, not a separate `EncoderKind` value -- a
+  future normalization strategy is a new `NormalizationKind` case handled
+  inside each affected encoder, not a new pickable kind. See
+  [Brain/README.md](Brain/README.md) ("Where brains come from") for the full
+  picture. `Brain/Neural/BrainCatalog.cs`
 - **`BarMinutesOptions`** — The doubling choice list backing `BarMinutesSelect`:
   1 minute up to 1024, plus a 1440 (1-day) cap on top since it's a meaningful
   bar size a pure power-of-two wouldn't reach. `Label(minutes)` formats each
@@ -254,10 +260,8 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   `Module<Tensor,Tensor>` an `INetworkArchitecture` built from it, and owns the
   shared `Decide`/sampling/decision-mapping logic every composed brain uses.
   `ComposedPolicyBrain.Create` is the factory both the fixed `Program.cs`
-  brains and the Train page's Build Brain panel go through; returns a
-  `LookbackAwarePolicyBrain` subclass instead when at least one encoder part
-  implements `IHasLookbackBars`. Full composition model (encoders +
-  normalizers + architectures) documented in
+  brains and the Train page's Build Brain panel go through. Full composition
+  model (encoders + normalizers + architectures) documented in
   [Brain/README.md](Brain/README.md), not duplicated here.
   `Brain/Neural/ComposedPolicyBrain.cs`
 - **`DummyTickGenerator`** — Static generator of synthetic even-interval random-walk
@@ -332,26 +336,6 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   constructor parameters defaulting to the standard implementation), pairing
   each feature label with its normalizer via `FeatureDescriptor` (see
   `IObservationEncoder`). `Brain/Neural/Normalizers/`
-- **`IHasLookbackBars`** — `{ int LookbackBars { get; set; } }`, implemented by
-  `VolumeProfileEncoder`/`TimeProfileEncoder` and their raw counterparts
-  `VolumeProfileRawEncoder`/`TimeProfileRawEncoder` (all default 50) -- how many
-  trailing completed bars' histograms each merges into one profile each decision.
-  `ComposedPolicyBrain.Create` surfaces it onto the composed brain via
-  `LookbackAwarePolicyBrain` whenever one or more parts implement it, broadcasting
-  one configured value to every one of them (so a brain combining multiple
-  Volume/Time Profile encoders shares a single lookback window rather than
-  needing separate settings); `RlTrainingService.GetLookbackBars(brainName)`
-  queries it generically by name (used by `TrainLiveTab`'s "what range the
-  trader sees" chart marker -- `BarWindowEncoder`'s own window has no such
-  interface, since -- unlike `LookbackBars` -- it changes `FeatureCount`, so it
-  can only be set once at construction (see `EncoderSizeOptions`), not adjusted
-  on a live brain; that side derives its count from `DescribeInputs`' `t-N`
-  labels instead). Distinct from but related to `IObservationEncoder.WarmupBars`
-  (see **Warm-up bars**): `LookbackBars` is *settable* (a UI-configured merge
-  width that never changes `FeatureCount`), while `WarmupBars` is each
-  encoder's own read-only "how far back do I need real data" -- these
-  encoders' `WarmupBars` just returns their own `LookbackBars`.
-  `Brain/Neural/IHasLookbackBars.cs`
 - **`IPolicyGradientBrain`** — Sibling interface (not a replacement) to
   `ISimulationBrain`, for trainable stochastic-policy networks. Adds `Network` (live
   `Module<Tensor,Tensor>`), `Encode`, `DecideWithLogProbability`, `DescribeInputs`,
@@ -478,8 +462,8 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   per-decision-equity/per-decision-output data (overwritten every episode, not
   a bounded log) -- feeds `TrainLiveTab`'s "current episode" bar chart,
   volume/price profiles, and episode replay (including its de-normalized
-  inputs toggle and OUTPUTS panel). `GetLookbackBars(brainName)` looks up a
-  brain's `IHasLookbackBars.LookbackBars` by name for the same panel's "what
+  inputs toggle and OUTPUTS panel). `GetWarmupBars(brainName)` looks up a
+  brain's `IPolicyGradientBrain.WarmupBars` by name for the same panel's "what
   range the trader sees" chart marker. `Services/Training/RlTrainingService.cs`
 - **`SimulationBarAggregator`** — Stateful incremental tick→HLOC/AVDT bar aggregator:
   "feed one tick, get zero-or-one completed bar back," since a sim advances
@@ -544,8 +528,8 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   first weighted by that bar's average tick interval (`(CloseTime - OpenTime) /
   Volume`) to approximate seconds spent per bucket. Both `Merge` and `MergeTime` feed
   either a chart (`TickVolumeProfileChart`/`TickTimeProfileChart`) or a brain encoder
-  (`VolumeProfileEncoder`/`TimeProfileEncoder` and their unnormalized counterparts
-  `VolumeProfileRawEncoder`/`TimeProfileRawEncoder`) depending on the caller.
+  (`VolumeProfileEncoder`/`TimeProfileEncoder`, in either their Normalized or Raw
+  `NormalizationKind`) depending on the caller.
   `Models/BarPriceHistogram.cs`
 - **`BrainTrainingParameters`** — Free-form training-run parameters (`EpisodeCount`,
   `EpisodeBars`, `BarWidthMinutes`, `StartingCash`, `LearningRate`, `LookbackBars`,
@@ -555,11 +539,15 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   completed-episode count in this process (`RlTrainingService._episodesTrainedByBrain`),
   not the Train page form's configured target -- saving the target made an
   untrained, just-built brain indistinguishable from a properly trained one.
+  `LookbackBars` is populated from the saved brain's own `WarmupBars` (any
+  windowed brain, not just Volume/Time Profile ones) rather than a user-supplied
+  run parameter -- an audit figure only, since Window is a build-time choice now
+  (see `EncoderSizeOptions`), not something a training run configures.
   `Repository/IBrainRepository.cs`
 - **`BrainRecipe`** — `{ EncoderKinds, ArchitectureKind, HiddenSizes, ActionOutputKinds,
   ActionOutputEncodingKind, EnabledDirections, EncoderSizes }`: a runtime-built
   brain's exact shape, as picked in the Train page's Build Brain panel (now
-  organized as four cards -- Input/Input Structure/Structure/Actions).
+  organized as four cards -- Input/Structure/Actions/Action Decoding).
   `ActionOutputKinds` (default null, treated as
   empty -- see `IActionOutputHead`) and `ActionOutputEncodingKind` (default
   `DiscretizedLevels`) round out the shape with which extra decisions the network
@@ -568,8 +556,8 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   the direction head was narrowed to -- every one of Hold/EnterLong/EnterShort/
   Close is individually optional per brain in the Actions card, not just the
   added Volume/StopLoss/TakeProfit heads. `EncoderSizes` (default null, treated
-  as `EncoderSizeOptions`' own all-20 default -- see that entry) records each
-  selected encoder's own input width. Populated by `RlTrainingService.TryBuildBrain`, persisted alongside
+  as `EncoderSizeOptions`' own defaults -- see that entry) records each
+  selected encoder's own build options. Populated by `RlTrainingService.TryBuildBrain`, persisted alongside
   a saved snapshot (null for the four Program.cs-fixed brains, which reconstruct via
   their own source code every restart instead), and read back by `LoadSavedBrain`
   to rebuild a runtime brain that's been wiped from `BrainRegistry` by a restart
@@ -577,17 +565,33 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   elevated from `internal` for this) because it travels on `SavedBrainSummary`.
   `Brain/Neural/BrainCatalog.cs`
 - **`EncoderSizeOptions`** — `{ BarWindowSize, VolumeProfileBucketCount,
-  TimeProfileBucketCount, VolumeProfileRawBucketCount, TimeProfileRawBucketCount }`
-  (all default 20): each pickable encoder's own input width, set independently
-  in the Build Brain panel's Input Structure card and shown live there via
-  `TrainPage`'s `TotalInputCount`. Unlike `IHasLookbackBars.LookbackBars` (a
-  runtime-mutable merge window that never changes `FeatureCount`), these
-  values *do* change `FeatureCount` -- Bar Window's window size directly *is*
-  its input count (one feature per bar, no rebinning), and the profile
-  encoders' bucket count directly sizes their rebinned histogram -- so they're
-  build-time-only, baked into each encoder at construction via
+  TimeProfileBucketCount, VolumeProfileLookbackBars, TimeProfileLookbackBars,
+  BarWindowNormalization, VolumeProfileNormalization, TimeProfileNormalization }`
+  (bucket/window sizes default 20, lookbacks default 50, normalizations default
+  `NormalizationKind.Normalized`): every pickable set's build-time options, set
+  in the Build Brain panel's Input table (one row per set -- Any input set /
+  Normalization / Window / Bucket, see `BrainBuilder`'s doc comment) and shown
+  live via `TrainPage`'s `TotalInputCount`. `BucketCount`/`WindowSize` directly
+  size `FeatureCount` (Bar Window's window size *is* its input count, one
+  feature per bar; the profile encoders' bucket count sizes their rebinned
+  histogram, doubled under Raw normalization -- see `RlInputFeature`'s label
+  catalog); `VolumeProfileLookbackBars`/`TimeProfileLookbackBars` replace what
+  used to be one runtime value shared (broadcast) across both profiles via the
+  since-removed `IHasLookbackBars` -- each profile now gets its own
+  independent, fixed value, same treatment bucket count already had. Every
+  property here is baked into its encoder once at construction via
   `BrainCatalog.CreateEncoder` and carried on `BrainRecipe` so `LoadSavedBrain`
-  reconstructs the exact shape a saved snapshot's weights were trained with.
+  reconstructs the exact shape a saved snapshot's weights were trained with --
+  nothing here is runtime-adjustable after a brain is built. `BarWindowSize`/
+  `VolumeProfileBucketCount`/`TimeProfileBucketCount` kept their original
+  names/positions/defaults across this redesign so a recipe saved before
+  Normalization/Lookback existed still deserializes those three correctly by
+  name (JSON binds record constructor parameters by name, not position); a
+  pre-redesign Volume/Time Profile brain that was trained at a *non-default*
+  lookback silently reverts to 50 if it's ever rebuilt from its recipe after a
+  restart, since that old value was tracked as a training-run parameter
+  (`BrainTrainingParameters.LookbackBars`), not on the recipe itself -- a
+  known, accepted gap for a solo-dev project rather than a migration shim.
   `Brain/Neural/BrainCatalog.cs`. The Structure card's header warns (via
   `TrainPage`'s `FirstLayerTooSmall`) when the first hidden layer -- an MLP's
   Layer 1, or an LSTM's hidden size -- is narrower than `TotalInputCount`, a
@@ -634,23 +638,26 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   boundary. `Brain/Neural/IPolicyGradientBrain.cs`. Label
   conventions, one per encoder -- ranges below reflect each encoder's default
   size (`EncoderSizeOptions`); every N scales with whatever bucket/window count
-  the brain was actually built with: `BarWindowEncoder` emits `t-N..t-1`
-  (`PriceOffsetNormalizer`, default `t-20..t-1`); `VolumeProfileEncoder` emits
-  `vp-0..vp-{N-1}`
+  the brain was actually built with, and every set's labels/shape depend on
+  its `NormalizationKind` pick (Normalized vs Raw), not on a separate class:
+  `BarWindowEncoder` emits `t-N..t-1` either way (`PriceOffsetNormalizer` when
+  Normalized, default `t-20..t-1`; `RawPriceNormalizer` when Raw); `VolumeProfileEncoder`
+  Normalized emits `vp-0..vp-{N-1}`
   (`FractionNormalizer`, default `vp-0..vp-19`) plus `poc-offset`/`va-high-offset`/`va-low-offset`
-  (`PriceOffsetNormalizer`); `TimeProfileEncoder` emits `tp-0..tp-{N-1}`
-  (`FractionNormalizer`, default `tp-0..tp-19`) plus `tp-poc-offset`/`tp-va-high-offset`/
-  `tp-va-low-offset` (`PriceOffsetNormalizer`; prefixed with `tp-`, unlike Volume
-  Profile's bare offset labels, so the two encoders' labels never collide when
-  both are part of the same composed brain); `VolumeProfileRawEncoder` emits
-  `vpr-price-0..{N-1}` (`RawPriceNormalizer`, default `vpr-price-0..19`) paired with `vpr-vol-0..{N-1}`
+  (`PriceOffsetNormalizer`), while its Raw mode instead emits `vpr-price-0..{N-1}`
+  (`RawPriceNormalizer`, default `vpr-price-0..19`) paired with `vpr-vol-0..{N-1}`
   (`RawValueNormalizer`) -- a bucket's price isn't recoverable from its index
   alone (the rebin range shifts with the lookback window), so it's fed
   alongside the count, not instead of it -- plus `vpr-poc`/`vpr-va-high`/
-  `vpr-va-low` (`RawPriceNormalizer`); `TimeProfileRawEncoder` emits
+  `vpr-va-low` (`RawPriceNormalizer`); `TimeProfileEncoder` mirrors that split,
+  Normalized emitting `tp-0..tp-{N-1}`
+  (`FractionNormalizer`, default `tp-0..tp-19`) plus `tp-poc-offset`/`tp-va-high-offset`/
+  `tp-va-low-offset` (`PriceOffsetNormalizer`; prefixed with `tp-`, unlike Volume
+  Profile's bare offset labels, so the two encoders' labels never collide when
+  both are part of the same composed brain), Raw instead emitting
   `tpr-price-0..{N-1}`/`tpr-sec-0..{N-1}` the same way (default `..19`), plus `tpr-poc`/
-  `tpr-va-high`/`tpr-va-low` (`vpr-`/`tpr-` prefixes so all four Volume/Time
-  Profile encoders' labels can coexist in one composed brain);
+  `tpr-va-high`/`tpr-va-low` (`vpr-`/`tpr-` prefixes so Volume and Time Profile's
+  labels can coexist in one composed brain even when both are set to Raw);
   `TraderStateEncoder` emits `position`
   (`DirectionNormalizer`), `position-price`/`position-distance`/`current-price`
   (`RawPriceNormalizer`), `position-ticks`/`cash`/`realized`/`unrealized`/
@@ -664,8 +671,6 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   `Brain/Neural/Encoders/BarWindowEncoder.cs`,
   `Brain/Neural/Encoders/VolumeProfileEncoder.cs`,
   `Brain/Neural/Encoders/TimeProfileEncoder.cs`,
-  `Brain/Neural/Encoders/VolumeProfileRawEncoder.cs`,
-  `Brain/Neural/Encoders/TimeProfileRawEncoder.cs`,
   `Brain/Neural/Encoders/TraderStateEncoder.cs`
 - **`RlOutputFeature`** — One choice's probability out of one output head's full
   distribution for one decision, mirroring `RlInputFeature` but for what the
@@ -794,10 +799,21 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
 
 ## UI Components
 
-- **`BrainBuilder`** — `TrainPage`'s Build Brain panel (Name row + Input/Input
-  Structure/Structure/Actions/Action Decoding cards + Create Brain button), split
+- **`BrainBuilder`** — `TrainPage`'s Build Brain panel (Name row + Input/
+  Structure/Actions/Action Decoding cards + Create Brain button), split
   out of `TrainPage` so its own encoder/architecture/action state lives with the
-  markup that edits it. `Visible` is a plain `[Parameter]` rather than an `@if`
+  markup that edits it. The Input card is an input-set table -- one row each for
+  Bar Window/Volume Profile/Time Profile/Trader State, columns Any input set
+  (checkbox) / Normalization (`NormalizationKind`: Normalized vs Raw, see
+  `EncoderSizeOptions`' doc comment) / Window (bar count -- Bar Window's fixed
+  window or Volume/Time Profile's independent lookback) / Bucket (histogram
+  bucket count, Volume/Time Profile only). Every row's controls stay mounted
+  and just go `disabled` when unchecked, so the table's shape never jumps as
+  sets toggle; cells that don't apply to a set (Bar Window's Bucket, Trader
+  State's Window/Bucket) show a plain "—" instead. Trader State stays a fixed
+  always-on row with a disabled, non-configurable Normalization cell (every
+  field is fed to the network exactly as reported -- may become selectable in
+  the future). `Visible` is a plain `[Parameter]` rather than an `@if`
   around the whole component, so a build left mid-configuration survives the
   panel being collapsed and reopened via `TrainPage`'s "+/- BUILD BRAIN" toggle,
   which still lives on `TrainPage` alongside `BrainSelect`. Reports a successful
@@ -961,8 +977,8 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   doesn't linger on a stale episode instead of following the next one live. The
   chart also shades a `DisplayedWindowRange` (a `ChartRangeFill`, reusing
   `DrawableOhlcvChart`'s `profile` color group) over the trailing bars feeding
-  the current decision — "what range the trader sees" — sized from whichever of
-  `PriceWindowFeatures`' count or `RlTrainingService.GetLookbackBars` is larger.
+  the current decision — "what range the trader sees" — sized from
+  `RlTrainingService.GetWarmupBars`.
 
   The **INPUTS panel** (`PriceWindowFeatures`/`ScalarFeatures` split from
   `RlInputFeature.Label`) is synced to the same revealed bar as the chart during

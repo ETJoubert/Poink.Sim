@@ -11,8 +11,8 @@
 //  meaningful brain to build).
 //
 //  position-price is the open position's exact EntryPrice (0 while flat) --
-//  same reasoning as VolumeProfileRawEncoder pairing each bucket's price
-//  with its volume: knowing *that* a position is held (position/
+//  same reasoning as VolumeProfileEncoder's Raw mode pairing each bucket's
+//  price with its volume: knowing *that* a position is held (position/
 //  position-count) without knowing the exact price it was entered at gives
 //  the network no way to tell how far current-price has moved from entry,
 //  only the size-conflated UnrealizedPnl figure.

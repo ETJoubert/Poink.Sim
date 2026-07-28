@@ -25,13 +25,14 @@ public partial class BrainIoPanel : ComponentBase
     private bool _showDenormalizedInputs;
 
     // Every encoder's label convention this panel groups inputs by -- see
-    // BarWindowEncoder ("t-N"), VolumeProfileEncoder/VolumeProfileRawEncoder
-    // ("vp-"/"vpr-" bucket labels, plus the normalized variant's unprefixed
+    // BarWindowEncoder ("t-N", same in both its Normalized and Raw modes),
+    // VolumeProfileEncoder ("vp-"/"vpr-" bucket labels depending on its
+    // Normalized/Raw pick, plus the Normalized mode's unprefixed
     // "poc-offset"/"va-high-offset"/"va-low-offset" summary scalars), and
-    // TimeProfileEncoder/TimeProfileRawEncoder ("tp-"/"tpr-"). Splitting on
-    // these conventions rather than a fixed count keeps this working if a
-    // future brain's window/bucket sizes differ. Whatever matches none of
-    // them is TraderStateEncoder's plain-named account-state scalars.
+    // TimeProfileEncoder ("tp-"/"tpr-", same split). Splitting on these
+    // conventions rather than a fixed count keeps this working if a future
+    // brain's window/bucket sizes differ. Whatever matches none of them is
+    // TraderStateEncoder's plain-named account-state scalars.
     private static bool IsPriceWindowLabel(string label) => label.StartsWith("t-", System.StringComparison.Ordinal);
 
     private static bool IsVolumeProfileLabel(string label) =>

@@ -76,7 +76,7 @@ delete saved entries via a shared `DataTable`.
 |---|---|---|
 | `Profiler/` | `ProfilerService.cs` | Backward-chunked tick → bar/histogram loader (scoped, no shared "current run" state) |
 | `Models/` | `ProfilerModels.cs` | `ProfilerConfig`/`ProfilerChunk` read-model |
-| `Models/` | `VolumeProfileAnalysis.cs`, `TimeProfileAnalysis.cs` | Shared Volume/Time Profile computation, also used by Training's `IHasLookbackBars` encoders |
+| `Models/` | `VolumeProfileAnalysis.cs`, `TimeProfileAnalysis.cs` | Shared Volume/Time Profile computation, also used by Training's `VolumeProfileEncoder`/`TimeProfileEncoder` |
 | `Repository/` | `ITRangeChartRepository.cs`, `TRangeChartRepository.cs` | Saved T-Range Chart storage |
 | `Repository/` | `ITRangeReferenceChartRepository.cs`, `TRangeReferenceChartRepository.cs` | Saved T-Range Reference Chart storage |
 | `Components/Pages/Profiler/` | `ProfilerPage.razor(.cs/.css)` | The `/profiler` page: setup form, chart, profile panels, drawing tools, saved-charts tables |

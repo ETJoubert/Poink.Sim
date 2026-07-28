@@ -52,10 +52,11 @@ internal sealed class CompositeEncoder : IObservationEncoder
     // Max, not sum -- every part reads from the same shared recentBars/
     // recentBarHistograms tail independently (not disjoint slices), so once
     // the deepest part's requirement is met, every shallower part's is too.
-    // Computed live rather than cached alongside FeatureCount/SequenceLength
-    // above: unlike those, a part's WarmupBars can change after construction
-    // (VolumeProfileEncoder.LookbackBars is mutable -- RlTrainingService sets
-    // it at each training run's start, see IHasLookbackBars).
+    // Computed on demand rather than cached alongside FeatureCount/
+    // SequenceLength above -- no invalidation to track, and this is the one
+    // aggregate view of "how far back does this brain look" other callers
+    // (RlTrainingService.GetWarmupBars, TrainLiveTab's chart shading) read
+    // generically off any composed brain, windowed or not.
     public int WarmupBars => _parts.Count == 0 ? 0 : _parts.Max(p => p.WarmupBars);
 
     public IReadOnlyList<FeatureDescriptor> Features { get; }

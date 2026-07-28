@@ -1,6 +1,6 @@
 # Brain — pluggable trading-decision brains
 
-> Doc version: **v1.2** — see "Changelog" at the bottom for what changed.
+> Doc version: **v1.3** — see "Changelog" at the bottom for what changed.
 > See [../Docs/README.md](../Docs/README.md) for documentation standards.
 
 This documents the **current, as-built state** of this folder — it is
@@ -40,11 +40,11 @@ A brain's "shape" is two independent choices, wired together by
 
 | Piece | Interface | Current implementations |
 |---|---|---|
-| **Encoder** — observation → feature vector | `IObservationEncoder` (`FeatureCount`, `SequenceLength`, `Features`, `Encode`) | `BarWindowEncoder` (20-bar percent-change price window), `VolumeProfileEncoder` (20-bucket relative tick-count histogram + POC/value-area summary, implements `IHasLookbackBars`), `TimeProfileEncoder` (20-bucket relative seconds-spent histogram + POC/value-area summary, same `IHasLookbackBars` capability), `VolumeProfileRawEncoder`/`TimeProfileRawEncoder` (same histograms/summaries, unnormalized -- exact tick counts/seconds and exact price levels, also implement `IHasLookbackBars`), `TraderStateEncoder` (12 exact trader/account fields) |
+| **Encoder** — observation → feature vector | `IObservationEncoder` (`FeatureCount`, `SequenceLength`, `Features`, `Encode`) | `BarWindowEncoder` (20-bar price window), `VolumeProfileEncoder` (20-bucket volume histogram + POC/value-area summary), `TimeProfileEncoder` (20-bucket time-weighted histogram + POC/value-area summary), `TraderStateEncoder` (12 exact trader/account fields). The first three each take a `NormalizationKind` (`Normalized`/`Raw`) picking which normalizer pair they're built with, plus (for the two profiles) their own fixed `lookbackBars` (default 50) |
 | **Normalizer** — raw quantity → network-ready value (and back, for display) | `IFeatureNormalizer` (`Normalize`, `Denormalize`, `Format`) | `PriceOffsetNormalizer` (percent-change-from-current-price), `EquityRatioNormalizer` (ratio-over-equity, available for injection), `FractionNormalizer` (passthrough for an already-`[0,1]` histogram share), `DirectionNormalizer` (passthrough for a categorical `-1/0/1`), `RawPriceNormalizer`/`RawValueNormalizer` (passthrough for an already-real price/quantity) |
 | **Architecture** — feature vector → action logits | `INetworkArchitecture` (`Build(featureCount, sequenceLength)`) | `MlpArchitecture` (flat `Linear→Tanh` stack, any hidden-layer sizes), `LstmArchitecture` (LSTM over a leading sequence slice + trailing scalars, via `LstmPolicyNetwork`) |
 | **Combine multiple encoders** | `CompositeEncoder` | Concatenates parts in order; enforces that any sequence-bearing part (`SequenceLength > 0`) is listed **first**, so a recurrent architecture narrow()s the right slice |
-| **The brain itself** | `ComposedPolicyBrain` (+ `LookbackAwarePolicyBrain`) | Holds one `IObservationEncoder` + the `Module<Tensor,Tensor>` an architecture built from it; owns the one shared `Decide`/sampling/decision-mapping logic every composed brain uses |
+| **The brain itself** | `ComposedPolicyBrain` | Holds one `IObservationEncoder` + the `Module<Tensor,Tensor>` an architecture built from it; owns the one shared `Decide`/sampling/decision-mapping logic every composed brain uses |
 
 An encoder decides *which* raw quantity feeds a given feature slot; a
 normalizer decides *how* that quantity is scaled into the bounded, scale-free
@@ -72,15 +72,13 @@ Volume/StopLoss/TakeProfit (see `ActionOutputs/IActionOutputHead.cs` and
 `GLOSSARY.md`'s `IActionOutputHead` entry) — the Train page's Build Brain
 panel is what actually constructs these via `RlTrainingService.TryBuildBrain`.
 
-If one or more encoder parts implement `IHasLookbackBars` (today,
-`VolumeProfileEncoder`/`TimeProfileEncoder` and their raw counterparts
-`VolumeProfileRawEncoder`/`TimeProfileRawEncoder`), `Create` returns a
-`LookbackAwarePolicyBrain` instead of a plain `ComposedPolicyBrain`, so
-`brain is IHasLookbackBars` stays precise — absent unless at least one part
-actually uses it. Setting `LookbackBars` broadcasts the same value to every
-wrapped part (see `Training/RlTrainingService.cs`'s Train-page wiring), so a
-brain combining any of these four merges all of them over the same
-trailing-bar window rather than needing separate settings.
+`VolumeProfileEncoder`/`TimeProfileEncoder` each merge their own fixed,
+constructor-supplied `lookbackBars` (default 50) of trailing bars into one
+profile per decision — independent of each other and of every other build
+option, same treatment `bucketCount` always had. A brain combining both no
+longer shares one lookback window between them (that was a deliberate design
+choice, since replaced): each profile's window is just another per-set build
+option set in the Train page's Build Brain panel (see `EncoderSizeOptions`).
 
 ## Where brains come from
 
@@ -120,17 +118,14 @@ persist, via the existing Save Model flow, keyed by the brain's `Name`.
 | `Heuristic/MomentumThresholdBrain.cs` | Heuristic: opens/holds on a ±threshold price move vs. N observations ago, closes on revert |
 | `Heuristic/RandomBrain.cs` | Heuristic: independently rolls whether to act and which direction each decision point — a trivial baseline |
 | `Neural/IPolicyGradientBrain.cs` | Trained-brain family contract: `Network`, `Encode`, `DecideWithLogProbability`, `DescribeInputs`; default-implements `ExportWeights`/`ImportWeights`/`WeightCount`/`MoveToTrainingDevice`/`MoveToInferenceDevice`/`DescribeNetworkShape` off `Network` alone |
-| `Neural/IHasLookbackBars.cs` | Optional capability: a settable `LookbackBars` for an encoder that merges a trailing bar-count window |
 | `Neural/CategoricalSampling.cs` | Manual cumulative-sum categorical sampler shared by every direction/action-head pick (sidesteps a TorchSharp `multinomial` crash on this call shape) |
-| `Neural/ComposedPolicyBrain.cs` | The one generic brain — pairs an encoder with a network built by an architecture; `LookbackAwarePolicyBrain` is the `IHasLookbackBars`-surfacing subclass |
-| `Neural/BrainCatalog.cs` | UI-facing catalog (`EncoderKind`/`ArchitectureKind` enums + factory) the Train page's Brain Builder panel selects from |
+| `Neural/ComposedPolicyBrain.cs` | The one generic brain — pairs an encoder with a network built by an architecture; owns the shared `Decide`/sampling/decision-mapping logic every composed brain uses |
+| `Neural/BrainCatalog.cs` | UI-facing catalog (`EncoderKind`/`ArchitectureKind`/`NormalizationKind` enums + factory) the Train page's Brain Builder panel selects from |
 | `Neural/Encoders/IObservationEncoder.cs` | Encoder contract: `FeatureCount`, `SequenceLength`, `Features`, `Encode`; also defines `FeatureDescriptor` (`Label` + `IFeatureNormalizer`) |
-| `Neural/Encoders/BarWindowEncoder.cs` | Encoder: 20-bar percent-change-from-current-price window |
+| `Neural/Encoders/BarWindowEncoder.cs` | Encoder: 20-bar price window; `NormalizationKind` picks percent-change-from-current-price (Normalized) or the literal price (Raw) |
 | `Neural/Encoders/TraderStateEncoder.cs` | Encoder: 12 exact trader/account fields (position direction, position entry price, position ticks held, position cumulative distance, current price, cash, realized/unrealized PnL, equity, margin, margin level, position count) |
-| `Neural/Encoders/VolumeProfileEncoder.cs` | Encoder: 20-bucket relative volume (tick-count) histogram + POC/value-area summary; implements `IHasLookbackBars` |
-| `Neural/Encoders/TimeProfileEncoder.cs` | Encoder: 20-bucket relative time (seconds-spent) histogram + POC/value-area summary; implements `IHasLookbackBars`; labels prefixed `tp-` so they don't collide with `VolumeProfileEncoder`'s when both are composed together |
-| `Neural/Encoders/VolumeProfileRawEncoder.cs` | Encoder: same as `VolumeProfileEncoder` but unnormalized (exact tick counts/prices); implements `IHasLookbackBars`; labels prefixed `vpr-` |
-| `Neural/Encoders/TimeProfileRawEncoder.cs` | Encoder: same as `TimeProfileEncoder` but unnormalized (exact seconds/prices); implements `IHasLookbackBars`; labels prefixed `tpr-` |
+| `Neural/Encoders/VolumeProfileEncoder.cs` | Encoder: volume histogram (default 20 buckets) + POC/value-area summary, merged from its own fixed `lookbackBars` (default 50) trailing bars; `NormalizationKind` picks fraction-of-total/percent-offset (Normalized) or exact tick counts/prices (Raw) |
+| `Neural/Encoders/TimeProfileEncoder.cs` | Encoder: time-weighted (seconds-spent) histogram counterpart to `VolumeProfileEncoder`, same `NormalizationKind`/`lookbackBars` shape; labels prefixed `tp-`/`tpr-` so they don't collide with `VolumeProfileEncoder`'s when both are composed together |
 | `Neural/Encoders/CompositeEncoder.cs` | Concatenates multiple encoders into one, enforcing the sequence-first ordering constraint |
 | `Neural/Normalizers/IFeatureNormalizer.cs` | Normalizer contract: `Normalize`, `Denormalize`, `Format`; also defines `DenormalizationAnchors` (`CurrentPrice`/`Equity`) |
 | `Neural/Normalizers/PriceOffsetNormalizer.cs` | Normalizer: price ↔ percent-change-from-current-price |
@@ -162,6 +157,15 @@ persist, via the existing Save Model flow, keyed by the brain's `Name`.
 
 ## Changelog
 
+- **v1.3** — 2026-07-28 — `VolumeProfileEncoder`/`TimeProfileEncoder` absorbed
+  their former `*RawEncoder` counterparts (deleted) behind a new
+  `NormalizationKind` (`Normalized`/`Raw`) build option, and `BarWindowEncoder`
+  gained the same option (previously Normalized-only) -- all three now take
+  their own fixed `lookbackBars`/`windowSize` at construction, no longer a
+  runtime-mutable value shared across Volume/Time Profile via the deleted
+  `IHasLookbackBars`/`LookbackAwarePolicyBrain`. See the Train page's Build
+  Brain panel doc comment (`BrainBuilder`) and `GLOSSARY.md`'s
+  `EncoderSizeOptions` entry for the Train page side of this change.
 - **v1.2** — 2026-07-27 — Fixed the Files table's paths (`Heuristic/`,
   `Architectures/` subfolders weren't reflected), added the missing
   `ActionOutputs/` and `CategoricalSampling.cs` rows, and fixed a stray

@@ -35,10 +35,12 @@ public sealed class BrainTrainingParameters
     public double StartingCash { get; set; }
     public double LearningRate { get; set; }
 
-    // Only meaningful for brains implementing IHasLookbackBars (e.g.
-    // VolumeProfilePolicyBrain) -- null for every other brain, and for any
-    // snapshot saved before this field existed (see this class's own doc
-    // comment on why that deserializes cleanly).
+    // How far back (in bars) this brain's windowed encoder(s) looked --
+    // populated from the brain's own WarmupBars at save time (see
+    // RlTrainingService.SaveBrain), null for a brain with no windowed
+    // encoder (e.g. a bare TraderStateEncoder brain) and for any snapshot
+    // saved before this field existed (see this class's own doc comment on
+    // why that deserializes cleanly).
     public int? LookbackBars { get; set; }
 
     // CFD account settings the run trained under -- default to pre-CFD

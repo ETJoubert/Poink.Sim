@@ -82,8 +82,8 @@ internal static class VolumeProfileAnalysis
     // Raw-value counterpart to BuildRelativeHistogram -- same fixed-width
     // re-binning, but returns each bucket's literal tick count paired with the
     // exact price level that bucket represents (its center), for a caller
-    // (VolumeProfileRawEncoder) that wants the network fed exact activity
-    // *and* exactly where it happened. A bucket's price is not recoverable
+    // (VolumeProfileEncoder's Raw mode) that wants the network fed exact
+    // activity *and* exactly where it happened. A bucket's price is not recoverable
     // from its index alone -- the rebin's [min, max] range shifts with
     // whatever the lookback window actually spanned, so bucket i can sit at a
     // different real price every decision; without the price alongside the

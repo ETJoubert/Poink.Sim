@@ -65,324 +65,336 @@
                         <span class="sim-stat-label">margin used</span>
                         <span class="sim-stat-value">@Money(trader.Capital.MarginUsed)</span>
                     </div>
-                    <div class="sim-stat" title="Equity ÷ Margin Used -- a stop-out force-closes the position below the configured threshold">
+                    <div class="sim-stat"
+                         title="Equity ÷ Margin Used -- a stop-out force-closes the position below the configured threshold">
                         <span class="sim-stat-label">margin level</span>
-                        <span class="sim-stat-value">@(trader.Capital.MarginLevel is { } level ? $"{level:F1}%" : "—")</span>
+                        <span class="sim-stat-value">@(trader.Capital.MarginLevel is { } level ? $"{level:F1}%" :
+                                             "—")</span>
+                        </div>
+                        <div class="sim-stat">
+                            <span class="sim-stat-label">positions</span>
+                            <span class="sim-stat-value">@(trader.Position is not null ? 1 : 0)</span>
+                        </div>
+                        <div class="sim-stat">
+                            <span class="sim-stat-label">trades</span>
+                            <span class="sim-stat-value">@trader.TradeCount</span>
+                        </div>
                     </div>
-                    <div class="sim-stat">
-                        <span class="sim-stat-label">positions</span>
-                        <span class="sim-stat-value">@(trader.Position is not null ? 1 : 0)</span>
-                    </div>
-                    <div class="sim-stat">
-                        <span class="sim-stat-label">trades</span>
-                        <span class="sim-stat-value">@trader.TradeCount</span>
+                }
+            </header>
+
+            <div class="sim-datarow">
+                <div class="sim-datarow-field sim-datarow-data">
+                    <TickDataSource @bind-Table="_table" @bind-From="_from" @bind-To="_to"
+                                    Disabled="@(_isLoading || _snapshot is not null)" />
+                </div>
+                <div class="sim-datarow-field">
+                    <div class="sim-datarow-aggregate">
+                        <label class="sim-datarow-checkbox"
+                               title="Aggregate into HLOC/AVDT bars instead of raw ticks -- can be changed while a simulation is running">
+                            <input type="checkbox" @bind="_aggregate" @bind:after="OnAggregationSettingChanged"
+                                   disabled="@_isLoading" />
+                            Bars
+                        </label>
+                        @if (_aggregate)
+                        {
+                            <BarMinutesSelect @bind-Value="_barMinutes" @bind-Value:after="OnAggregationSettingChanged"
+                                              Disabled="@_isLoading"
+                                              Title="Size of each aggregated bar, in minutes -- can be changed while a simulation is running" />
+                        }
                     </div>
                 </div>
-            }
-        </header>
-
-        <div class="sim-datarow">
-            <div class="sim-datarow-field sim-datarow-data">
-                <TickDataSource @bind-Table="_table" @bind-From="_from" @bind-To="_to"
-                                Disabled="@(_isLoading || _snapshot is not null)" />
             </div>
-            <div class="sim-datarow-field">
-                <div class="sim-datarow-aggregate">
-                    <label class="sim-datarow-checkbox" title="Aggregate into HLOC/AVDT bars instead of raw ticks -- can be changed while a simulation is running">
-                        <input type="checkbox" @bind="_aggregate" @bind:after="OnAggregationSettingChanged" disabled="@_isLoading" />
-                        Bars
-                    </label>
-                    @if (_aggregate)
-                    {
-                        <BarMinutesSelect @bind-Value="_barMinutes" @bind-Value:after="OnAggregationSettingChanged" Disabled="@_isLoading"
-                                           Title="Size of each aggregated bar, in minutes -- can be changed while a simulation is running" />
-                    }
-                </div>
-            </div>
-        </div>
 
-        <div class="sim-datarow">
-            <BrainSelect BrainOptions="TrainingService.BrainOptions" @bind-BrainName="_brainName"
-                         Disabled="@(_isLoading || _snapshot is not null)" />
-            <label class="sim-brainrow-field">
-                Starting cash
-                <input class="sim-brainrow-input" type="number" min="1" step="100" @bind="_startingCash"
-                       disabled="@(_isLoading || _snapshot is not null)" />
-            </label>
-            <label class="sim-brainrow-field">
-                Traders
-                <input class="sim-brainrow-input sim-brainrow-input-narrow" type="number" min="1" max="20"
-                       @bind="_traderCount" disabled="@(_isLoading || _snapshot is not null)" />
-            </label>
-            <label class="sim-brainrow-field" title="Notional exposure per unit of margin committed -- 1 means no leverage">
-                Leverage
-                <input class="sim-brainrow-input sim-brainrow-input-narrow" type="number" min="1" step="1" @bind="_leverage"
-                       disabled="@(_isLoading || _snapshot is not null)" />
-            </label>
-            <label class="sim-brainrow-field" title="Commission charged per fill, as a percent of that fill's notional value">
-                Commission %
-                <input class="sim-brainrow-input sim-brainrow-input-narrow" type="number" min="0" step="0.01" @bind="_commissionRatePercent"
-                       disabled="@(_isLoading || _snapshot is not null)" />
-            </label>
-            <label class="sim-brainrow-field" title="Force-close the open position when Margin Level (Equity ÷ Margin Used) drops below this percent">
-                Stop-out %
-                <input class="sim-brainrow-input sim-brainrow-input-narrow" type="number" min="1" max="100" step="1" @bind="_stopOutLevelPercent"
-                       disabled="@(_isLoading || _snapshot is not null)" />
-            </label>
+            <div class="sim-datarow">
+                <BrainSelect BrainOptions="TrainingService.BrainOptions" @bind-BrainName="_brainName"
+                             Disabled="@(_isLoading || _snapshot is not null)" />
+                <label class="sim-brainrow-field">
+                    Starting cash
+                    <input class="sim-brainrow-input" type="number" min="1" step="100" @bind="_startingCash"
+                           disabled="@(_isLoading || _snapshot is not null)" />
+                </label>
+                <label class="sim-brainrow-field">
+                    Traders
+                    <input class="sim-brainrow-input sim-brainrow-input-narrow" type="number" min="1" max="20"
+                           @bind="_traderCount" disabled="@(_isLoading || _snapshot is not null)" />
+                </label>
+                <label class="sim-brainrow-field"
+                       title="Notional exposure per unit of margin committed -- 1 means no leverage">
+                    Leverage
+                    <input class="sim-brainrow-input sim-brainrow-input-narrow" type="number" min="1" step="1"
+                           @bind="_leverage" disabled="@(_isLoading || _snapshot is not null)" />
+                </label>
+                <label class="sim-brainrow-field"
+                       title="Commission charged per fill, as a percent of that fill's notional value">
+                    Commission %
+                    <input class="sim-brainrow-input sim-brainrow-input-narrow" type="number" min="0" step="0.01"
+                           @bind="_commissionRatePercent" disabled="@(_isLoading || _snapshot is not null)" />
+                </label>
+                <label class="sim-brainrow-field"
+                       title="Force-close the open position when Margin Level (Equity ÷ Margin Used) drops below this percent">
+                    Stop-out %
+                    <input class="sim-brainrow-input sim-brainrow-input-narrow" type="number" min="1" max="100" step="1"
+                           @bind="_stopOutLevelPercent" disabled="@(_isLoading || _snapshot is not null)" />
+                </label>
 
-            @if (_snapshot is null)
-            {
-                <div class="sim-brainrow-actions">
-                    <button class="sim-ctrl-btn sim-ctrl-btn-play" @onclick="LoadSimulation" disabled="@_isLoading">
-                        @(_isLoading ? "LOADING..." : "LOAD SIMULATION")
-                    </button>
-                    <button class="sim-ctrl-btn" @onclick="LoadDummySimulation" disabled="@_isLoading"
-                            title="Synthetic random-walk ticks -- no Postgres required">
-                        LOAD DUMMY DATA
-                    </button>
-                    @if (_loadError is not null)
-                    {
-                        <span class="sim-brainrow-error">@_loadError</span>
-                    }
-                    @if (_error is not null)
-                    {
-                        <span class="sim-brainrow-error">@_error</span>
-                    }
-                </div>
-            }
-        </div>
-
-        @if (_snapshot is not null)
-        {
-            var s = _snapshot;
-            <div class="sim-toolbar">
-                <div class="sim-controls">
-                    <button class="sim-ctrl-btn sim-ctrl-btn-play" @onclick="TogglePlayPause" disabled="@s.IsFinished">
-                        <Icon Name="@(s.IsPlaying ? "pause-fill" : "play-fill")" Class="sim-ctrl-icon" />
-                        @(s.IsPlaying ? "PAUSE" : "PLAY")
-                    </button>
-                    <button class="sim-ctrl-btn" @onclick="StepOnce" disabled="@(s.IsPlaying || s.IsFinished)">
-                        <Icon Name="skip-end-fill" Class="sim-ctrl-icon" />
-                        STEP
-                    </button>
-                    <div class="sim-speed-stepper @(s.IsUncapped ? "sim-speed-stepper-inactive" : "")"
-                         title="Playback speed">
-                        <button class="sim-ctrl-btn sim-speed-step" @onclick="() => DecreaseSpeed(s)"
-                                disabled="@(SpeedIndex(s) == 0)" title="Slower">−</button>
-                        <span class="sim-speed-value">@FormatSpeed(s.SpeedMultiplier)</span>
-                        <button class="sim-ctrl-btn sim-speed-step" @onclick="() => IncreaseSpeed(s)"
-                                disabled="@(SpeedIndex(s) == Speeds.Length - 1)" title="Faster">+</button>
-                    </div>
-                    <button class="sim-ctrl-btn sim-ctrl-btn-max @(s.IsUncapped ? "active" : "")" @onclick="SetMax"
-                            title="Uncapped backend speed -- combine with Hide Chart for the fastest runs">MAX</button>
-                    <button class="sim-ctrl-btn sim-ctrl-btn-warn" @onclick="ResetSim">RESET</button>
-                    <SimTimeline />
-
-                    <div class="sim-controls-right">
-                        <span class="sim-toolbar-divider"></span>
-
-                        <button class="sim-ctrl-btn sim-ctrl-btn-warn" @onclick="UnloadSim">NEW SIMULATION</button>
-                        <button class="sim-ctrl-btn sim-ctrl-btn-toggle @(_hideChart ? "active" : "")"
-                                @onclick="ToggleHideChart">
-                            @(_hideChart ? "SHOW CHART" : "HIDE CHART")
+                @if (_snapshot is null)
+                {
+                    <div class="sim-brainrow-actions">
+                        <button class="sim-ctrl-btn sim-ctrl-btn-play" @onclick="LoadSimulation" disabled="@_isLoading">
+                            @(_isLoading ? "LOADING..." : "LOAD SIMULATION")
                         </button>
+                        <button class="sim-ctrl-btn" @onclick="LoadDummySimulation" disabled="@_isLoading"
+                                title="Synthetic random-walk ticks -- no Postgres required">
+                            LOAD DUMMY DATA
+                        </button>
+                        @if (_loadError is not null)
+                        {
+                            <span class="sim-brainrow-error">@_loadError</span>
+                        }
+                        @if (_error is not null)
+                        {
+                            <span class="sim-brainrow-error">@_error</span>
+                        }
                     </div>
-                </div>
+                }
             </div>
-        }
-    </div>
-
-    <div class="sim-body">
-        <div class="sim-main">
-
-            @if (_snapshot is null)
-            {
-                <div class="sim-setup-content">
-                    <SavedBrainsTable SavedBrains="TrainingService.SavedBrains" OnUse="UseSavedBrain" OnDelete="DeleteSavedBrainSnapshot"
-                                      UseTitle="Loads these weights into the brain and selects it for this simulation -- also what Train's brain picker will use" />
-                </div>
-            }
 
             @if (_snapshot is not null)
             {
                 var s = _snapshot;
-
-                @if (!_hideChart)
-                {
-                    <div class="sim-window-bar">
-                        @if (s.Config.Aggregate)
-                        {
-                            <span class="sim-window-title">BAR WINDOW</span>
-                            <div class="sim-window-rail">
-                                <div class="sim-window-track"></div>
-                                <div class="sim-window-fill"
-                                     style="width: @(BarWindowFillPercent.ToString("0.##", CultureInfo.InvariantCulture))%"></div>
-                                <input type="range" class="sim-window-slider" min="1" max="@MaxBarWindow" step="1" @bind="_barWindowSize"
-                                       @bind:event="oninput"
-                                       title="Bars back from now -- their price histograms drive the volume profile window, and the bar itself drives the chart's window-start marker" />
-                            </div>
-                            <input class="sim-window-input" type="number" min="1" max="@MaxBarWindow" @bind="_barWindowSize"
-                                   @bind:event="oninput" />
-                        }
-                        else
-                        {
-                            <span class="sim-window-title">TICK WINDOW</span>
-                            <div class="sim-window-rail">
-                                <div class="sim-window-track"></div>
-                                <div class="sim-window-fill"
-                                     style="width: @(TickWindowFillPercent.ToString("0.##", CultureInfo.InvariantCulture))%"></div>
-                                <input type="range" class="sim-window-slider" min="0" max="@MaxTickWindow" step="1" @bind="_tickWindowSize"
-                                       @bind:event="oninput"
-                                       title="Ticks back from now -- drives the volume profile window" />
-                            </div>
-                            <input class="sim-window-input" type="number" min="0" max="@MaxTickWindow" @bind="_tickWindowSize"
-                                   @bind:event="oninput" />
-                        }
-                    </div>
-
-                    @if (s.Config.Aggregate)
-                    {
-                        <div class="sim-overlay-toggles"
-                             title="Toggle the computed chart overlays alongside the volume profile -- Point of Control/Value Area and a cumulative VWAP line">
-                            <span class="sim-overlay-toggles-label">CHART OVERLAYS</span>
-                            <label class="sim-overlay-toggle"
-                                   title="Highlight the Point of Control (most-traded price) and Value Area rows inside the volume profile panel">
-                                <input type="checkbox" @bind="_showProfilePanelLevels" />
-                                <span>POC/VA in profile</span>
-                            </label>
-                            <label class="sim-overlay-toggle"
-                                   title="Project the Point of Control/Value Area High/Low as three dashed lines on the main chart">
-                                <input type="checkbox" @bind="_showProfileChartLines" />
-                                <span>POC/VAH/VAL lines</span>
-                            </label>
-                            <label class="sim-overlay-toggle"
-                                   title="Show a cumulative volume-weighted average price line on the main chart, over the same bar window as the volume profile">
-                                <input type="checkbox" @bind="_showVwap" />
-                                <span>VWAP line</span>
-                            </label>
+                <div class="sim-toolbar">
+                    <div class="sim-controls">
+                        <button class="sim-ctrl-btn sim-ctrl-btn-play" @onclick="TogglePlayPause" disabled="@s.IsFinished">
+                            <Icon Name="@(s.IsPlaying ? "pause-fill" : "play-fill")" Class="sim-ctrl-icon" />
+                            @(s.IsPlaying ? "PAUSE" : "PLAY")
+                        </button>
+                        <button class="sim-ctrl-btn" @onclick="StepOnce" disabled="@(s.IsPlaying || s.IsFinished)">
+                            <Icon Name="skip-end-fill" Class="sim-ctrl-icon" />
+                            STEP
+                        </button>
+                        <div class="sim-speed-stepper @(s.IsUncapped ? "sim-speed-stepper-inactive" : "")"
+                             title="Playback speed">
+                            <button class="sim-ctrl-btn sim-speed-step" @onclick="() => DecreaseSpeed(s)"
+                                    disabled="@(SpeedIndex(s) == 0)" title="Slower">−</button>
+                            <span class="sim-speed-value">@FormatSpeed(s.SpeedMultiplier)</span>
+                            <button class="sim-ctrl-btn sim-speed-step" @onclick="() => IncreaseSpeed(s)"
+                                    disabled="@(SpeedIndex(s) == Speeds.Length - 1)" title="Faster">+</button>
                         </div>
-                    }
+                        <button class="sim-ctrl-btn sim-ctrl-btn-max @(s.IsUncapped ? "active" : "")" @onclick="SetMax"
+                                title="Uncapped backend speed -- combine with Hide Chart for the fastest runs">MAX</button>
+                        <button class="sim-ctrl-btn sim-ctrl-btn-warn" @onclick="ResetSim">RESET</button>
+                        <SimTimeline />
 
-                    <div class="sim-chart">
-                        <div class="sim-chart-main">
-                            @if (s.Config.Aggregate)
-                            {
-                                <DrawableOhlcvChart Bars="ToBarRows(s.RecentBars)" CurrentBid="s.CurrentBid" CurrentAsk="s.CurrentAsk"
-                                                    EntryPrice="SelectedTrader?.Position?.EntryPrice" PositionIsLong="SelectedPositionIsLong"
-                                                    StopLossPrice="SelectedTrader?.Position?.StopLossPrice" TakeProfitPrice="SelectedTrader?.Position?.TakeProfitPrice"
-                                                    WindowStartUtc="WindowStartUtc(s.RecentBars)" HorizontalLines="ProfileLevelLines(s)"
-                                                    VwapLine="VwapPoints(s)" />
-                            }
-                            else
-                            {
-                                <ViewDatatable Items="TickRows" Title="RECENT TICKS" />
-                            }
-                        </div>
-                        <div class="sim-chart-divider" @ref="_chartDividerRef" data-min-width="160" data-max-width="480"
-                             title="Drag to resize"></div>
-                        <div class="sim-chart-side">
-                            @if (s.Config.Aggregate)
-                            {
-                                <TickVolumeProfileChart WeightedSamples="MergedBarSamples(s)" CurrentPrice="s.CurrentPrice"
-                                                        ShowLevels="_showProfilePanelLevels" />
-                            }
-                            else
-                            {
-                                <TickVolumeProfileChart Prices="ToMidPrices(s.RecentTicks)" CurrentPrice="s.CurrentPrice"
-                                                        WindowSize="ClampedTickWindow" />
-                            }
-                        </div>
-                        <div class="sim-chart-divider" @ref="_chartDividerRef2" data-min-width="160" data-max-width="480"
-                             title="Drag to resize"></div>
-                        <div class="sim-chart-side">
-                            @if (s.Config.Aggregate)
-                            {
-                                <TickTimeProfileChart WeightedSamples="MergedBarTimeSamples(s)" CurrentPrice="s.CurrentPrice" />
-                            }
-                            else
-                            {
-                                <TickTimeProfileChart Ticks="ToTimedMidPrices(s.RecentTicks)" CurrentPrice="s.CurrentPrice"
-                                                      WindowSize="ClampedTickWindow" />
-                            }
-                        </div>
-                    </div>
+                        <div class="sim-controls-right">
+                            <span class="sim-toolbar-divider"></span>
 
-                    <div class="sim-chart-hdivider" @ref="_chartHDividerRef" data-min-height="160" data-max-height-vh="80"
-                         title="Drag to resize"></div>
-                }
-
-                <div class="sim-log-panel">
-                    <div class="sim-log-tabs">
-                        <button class="sim-tab-btn @(_activeLogTab == LogTab.Traders ? "active" : "")"
-                                @onclick="() => _activeLogTab = LogTab.Traders">TRADERS</button>
-                        <button class="sim-tab-btn @(_activeLogTab == LogTab.Brain ? "active" : "")"
-                                @onclick="() => _activeLogTab = LogTab.Brain">BRAIN</button>
-                        <button class="sim-tab-btn @(_activeLogTab == LogTab.InputsOutputs ? "active" : "")"
-                                @onclick="() => _activeLogTab = LogTab.InputsOutputs">INPUTS/OUTPUTS</button>
-                        <button class="sim-tab-btn @(_activeLogTab == LogTab.Decisions ? "active" : "")"
-                                @onclick="() => _activeLogTab = LogTab.Decisions">DECISION LOG</button>
-                        <button class="sim-tab-btn @(_activeLogTab == LogTab.Positions ? "active" : "")"
-                                @onclick="() => _activeLogTab = LogTab.Positions">POSITIONS</button>
-                        <button class="sim-tab-btn @(_activeLogTab == LogTab.Statistics ? "active" : "")"
-                                @onclick="() => _activeLogTab = LogTab.Statistics">STATISTICS</button>
-                    </div>
-                    <div class="sim-log-content">
-                        @if (_activeLogTab == LogTab.Decisions)
-                        {
-                            <DataTable TItem="DecisionLogRow" Items="LogRows" ShowRowNumbers="false" ActionsHeader="VIEW"
-                                       CellClass="DecisionLogCellClass" EmptyMessage="no decisions yet" />
-                        }
-                        else if (_activeLogTab == LogTab.Positions)
-                        {
-                            <DataTable TItem="OpenPositionRow" Items="OpenPositionRows" ShowRowNumbers="false" ActionsHeader="VIEW"
-                                       CellClass="PositionCellClass" EmptyMessage="flat" />
-                        }
-                        else if (_activeLogTab == LogTab.Traders)
-                        {
-                            <DataTable TItem="TraderCardItem" Items="TraderItems" ExcludeProperties="@(new List<string> { "Id" })"
-                                       ShowRowNumbers="false" ActionsHeader="VIEW" CellClass="TraderCellClass"
-                                       OnView="item => SelectTrader(item.Id)" />
-                        }
-                        else if (_activeLogTab == LogTab.Brain)
-                        {
-                            <BrainInfoCard BrainName="@s.Config.BrainName"
-                                           IsNeuralNetwork="CurrentBrainIsNeuralNetwork(s.Config.BrainName)"
-                                           ActiveSnapshot="TrainingService.GetActiveSnapshot(s.Config.BrainName)" />
-                        }
-                        else if (_activeLogTab == LogTab.InputsOutputs)
-                        {
-                            <BrainIoPanel Inputs="SelectedTrader?.Inputs" Outputs="SelectedTrader?.Outputs"
-                                          CurrentPrice="_snapshot?.CurrentPrice" Equity="SelectedTrader?.Capital.Equity" />
-                        }
-                        else
-                        {
-                            <StatisticsPanel Groups="StatGroups" EmptyMessage="no closed trades yet" />
-                        }
+                            <button class="sim-ctrl-btn sim-ctrl-btn-warn" @onclick="UnloadSim">NEW SIMULATION</button>
+                            <button class="sim-ctrl-btn sim-ctrl-btn-toggle @(_hideChart ? "active" : "")"
+                                    @onclick="ToggleHideChart">
+                                @(_hideChart ? "SHOW CHART" : "HIDE CHART")
+                            </button>
+                        </div>
                     </div>
                 </div>
-
-                @if (_error is not null)
-                {
-                    <p class="sim-error">@_error</p>
-                }
             }
         </div>
 
-        @if (_snapshot is not null)
-        {
-            <div class="sim-sidepanel @(_traderPanelCollapsed ? "sim-sidepanel-collapsed" : "")">
-                <button class="sim-sidepanel-toggle" @onclick="ToggleTraderPanel"
-                        title="@(_traderPanelCollapsed ? "Expand trader controls" : "Collapse trader controls")">
-                    <Icon Name="@(_traderPanelCollapsed ? "chevron-left" : "chevron-right")" Class="sim-sidepanel-toggle-icon" />
-                </button>
-                @if (!_traderPanelCollapsed)
+        <div class="sim-body">
+            <div class="sim-main">
+
+                @if (_snapshot is null)
                 {
-                    <div class="sim-sidepanel-content">
-                        <TraderControlsPanel TraderId="SelectedTrader?.Id" TraderLabel="SelectedTraderLabel" IsManual="SelectedTraderIsManual"
-                                             PositionSummary="SelectedPositionSummary" PendingSummary="SelectedPendingSummary" />
+                    <div class="sim-setup-content">
+                        <SavedBrainsTable SavedBrains="TrainingService.SavedBrains" OnUse="UseSavedBrain"
+                                          OnDelete="DeleteSavedBrainSnapshot"
+                                          UseTitle="Loads these weights into the brain and selects it for this simulation -- also what Train's brain picker will use" />
                     </div>
                 }
+
+                @if (_snapshot is not null)
+                {
+                    var s = _snapshot;
+
+                    @if (!_hideChart)
+                    {
+                        <div class="sim-window-bar">
+                            @if (s.Config.Aggregate)
+                            {
+                                <span class="sim-window-title">PROFILE BARS</span>
+                                <div class="sim-window-rail">
+                                    <div class="sim-window-track"></div>
+                                    <div class="sim-window-fill"
+                                         style="width: @(BarWindowFillPercent.ToString("0.##", CultureInfo.InvariantCulture))%"></div>
+                                    <input type="range" class="sim-window-slider" min="1" max="@MaxBarWindow" step="1"
+                                           @bind="_barWindowSize" @bind:event="oninput"
+                                           title="Bars back from now -- their price histograms drive the volume profile window, and the bar itself drives the chart's window-start marker" />
+                                </div>
+                                <input class="sim-window-input" type="number" min="1" max="@MaxBarWindow" @bind="_barWindowSize"
+                                       @bind:event="oninput" />
+                            }
+                            else
+                            {
+                                <span class="sim-window-title">TICK WINDOW</span>
+                                <div class="sim-window-rail">
+                                    <div class="sim-window-track"></div>
+                                    <div class="sim-window-fill"
+                                         style="width: @(TickWindowFillPercent.ToString("0.##", CultureInfo.InvariantCulture))%"></div>
+                                    <input type="range" class="sim-window-slider" min="0" max="@MaxTickWindow" step="1"
+                                           @bind="_tickWindowSize" @bind:event="oninput"
+                                           title="Ticks back from now -- drives the volume profile window" />
+                                </div>
+                                <input class="sim-window-input" type="number" min="0" max="@MaxTickWindow" @bind="_tickWindowSize"
+                                       @bind:event="oninput" />
+                            }
+                        </div>
+
+                        @if (s.Config.Aggregate)
+                        {
+                            <div class="sim-overlay-toggles"
+                                 title="Toggle the computed chart overlays alongside the volume profile -- Point of Control/Value Area and a cumulative VWAP line">
+                                <span class="sim-overlay-toggles-label">CHART OVERLAYS</span>
+                                <label class="sim-overlay-toggle"
+                                       title="Highlight the Point of Control (most-traded price) and Value Area rows inside the volume profile panel">
+                                    <input type="checkbox" @bind="_showProfilePanelLevels" />
+                                    <span>POC/VA in profile</span>
+                                </label>
+                                <label class="sim-overlay-toggle"
+                                       title="Project the Point of Control/Value Area High/Low as three dashed lines on the main chart">
+                                    <input type="checkbox" @bind="_showProfileChartLines" />
+                                    <span>POC/VAH/VAL lines</span>
+                                </label>
+                                <label class="sim-overlay-toggle"
+                                       title="Show a cumulative volume-weighted average price line on the main chart, over the same bar window as the volume profile">
+                                    <input type="checkbox" @bind="_showVwap" />
+                                    <span>VWAP line</span>
+                                </label>
+                            </div>
+                        }
+
+                        <div class="sim-chart">
+                            <div class="sim-chart-main">
+                                @if (s.Config.Aggregate)
+                                {
+                                    <DrawableOhlcvChart Bars="ToBarRows(s.RecentBars)" CurrentBid="s.CurrentBid"
+                                                        CurrentAsk="s.CurrentAsk" EntryPrice="SelectedTrader?.Position?.EntryPrice"
+                                                        PositionIsLong="SelectedPositionIsLong" StopLossPrice="SelectedTrader?.Position?.StopLossPrice"
+                                                        TakeProfitPrice="SelectedTrader?.Position?.TakeProfitPrice"
+                                                        WindowStartUtc="WindowStartUtc(s.RecentBars)" HorizontalLines="ProfileLevelLines(s)"
+                                                        VwapLine="VwapPoints(s)" />
+                                }
+                                else
+                                {
+                                    <ViewDatatable Items="TickRows" Title="RECENT TICKS" />
+                                }
+                            </div>
+                            <div class="sim-chart-divider" @ref="_chartDividerRef" data-min-width="160" data-max-width="480"
+                                 title="Drag to resize"></div>
+                            <div class="sim-chart-side">
+                                @if (s.Config.Aggregate)
+                                {
+                                    <TickVolumeProfileChart WeightedSamples="MergedBarSamples(s)" CurrentPrice="s.CurrentPrice"
+                                                            ShowLevels="_showProfilePanelLevels" />
+                                }
+                                else
+                                {
+                                    <TickVolumeProfileChart Prices="ToMidPrices(s.RecentTicks)" CurrentPrice="s.CurrentPrice"
+                                                            WindowSize="ClampedTickWindow" />
+                                }
+                            </div>
+                            <div class="sim-chart-divider" @ref="_chartDividerRef2" data-min-width="160" data-max-width="480"
+                                 title="Drag to resize"></div>
+                            <div class="sim-chart-side">
+                                @if (s.Config.Aggregate)
+                                {
+                                    <TickTimeProfileChart WeightedSamples="MergedBarTimeSamples(s)" CurrentPrice="s.CurrentPrice" />
+                                }
+                                else
+                                {
+                                    <TickTimeProfileChart Ticks="ToTimedMidPrices(s.RecentTicks)" CurrentPrice="s.CurrentPrice"
+                                                          WindowSize="ClampedTickWindow" />
+                                }
+                            </div>
+                        </div>
+
+                        <div class="sim-chart-hdivider" @ref="_chartHDividerRef" data-min-height="160" data-max-height-vh="80"
+                             title="Drag to resize"></div>
+                    }
+
+                    <div class="sim-log-panel">
+                        <div class="sim-log-tabs">
+                            <button class="sim-tab-btn @(_activeLogTab == LogTab.Traders ? "active" : "")"
+                                    @onclick="() => _activeLogTab = LogTab.Traders">TRADERS</button>
+                            <button class="sim-tab-btn @(_activeLogTab == LogTab.Brain ? "active" : "")"
+                                    @onclick="() => _activeLogTab = LogTab.Brain">BRAIN</button>
+                            <button class="sim-tab-btn @(_activeLogTab == LogTab.InputsOutputs ? "active" : "")"
+                                    @onclick="() => _activeLogTab = LogTab.InputsOutputs">INPUTS/OUTPUTS</button>
+                            <button class="sim-tab-btn @(_activeLogTab == LogTab.Decisions ? "active" : "")"
+                                    @onclick="() => _activeLogTab = LogTab.Decisions">DECISION LOG</button>
+                            <button class="sim-tab-btn @(_activeLogTab == LogTab.Positions ? "active" : "")"
+                                    @onclick="() => _activeLogTab = LogTab.Positions">POSITIONS</button>
+                            <button class="sim-tab-btn @(_activeLogTab == LogTab.Statistics ? "active" : "")"
+                                    @onclick="() => _activeLogTab = LogTab.Statistics">STATISTICS</button>
+                        </div>
+                        <div class="sim-log-content">
+                            @if (_activeLogTab == LogTab.Decisions)
+                            {
+                                <DataTable TItem="DecisionLogRow" Items="LogRows" ShowRowNumbers="false" ActionsHeader="VIEW"
+                                           CellClass="DecisionLogCellClass" EmptyMessage="no decisions yet" />
+                            }
+                            else if (_activeLogTab == LogTab.Positions)
+                            {
+                                <DataTable TItem="OpenPositionRow" Items="OpenPositionRows" ShowRowNumbers="false"
+                                           ActionsHeader="VIEW" CellClass="PositionCellClass" EmptyMessage="flat" />
+                            }
+                            else if (_activeLogTab == LogTab.Traders)
+                            {
+                                <DataTable TItem="TraderCardItem" Items="TraderItems"
+                                           ExcludeProperties="@(new List<string> { "Id" })" ShowRowNumbers="false" ActionsHeader="VIEW"
+                                           CellClass="TraderCellClass" OnView="item => SelectTrader(item.Id)" />
+                            }
+                            else if (_activeLogTab == LogTab.Brain)
+                            {
+                                <BrainInfoCard BrainName="@s.Config.BrainName"
+                                               IsNeuralNetwork="CurrentBrainIsNeuralNetwork(s.Config.BrainName)"
+                                               ActiveSnapshot="TrainingService.GetActiveSnapshot(s.Config.BrainName)" />
+                            }
+                            else if (_activeLogTab == LogTab.InputsOutputs)
+                            {
+                                <BrainIoPanel Inputs="SelectedTrader?.Inputs" Outputs="SelectedTrader?.Outputs"
+                                              CurrentPrice="_snapshot?.CurrentPrice" Equity="SelectedTrader?.Capital.Equity" />
+                            }
+                            else
+                            {
+                                <StatisticsPanel Groups="StatGroups" EmptyMessage="no closed trades yet" />
+                            }
+                        </div>
+                    </div>
+
+                    @if (_error is not null)
+                    {
+                        <p class="sim-error">@_error</p>
+                    }
+                }
             </div>
-        }
+
+            @if (_snapshot is not null)
+            {
+                <div class="sim-sidepanel @(_traderPanelCollapsed ? "sim-sidepanel-collapsed" : "")">
+                    <button class="sim-sidepanel-toggle" @onclick="ToggleTraderPanel"
+                            title="@(_traderPanelCollapsed ? "Expand trader controls" : "Collapse trader controls")">
+                        <Icon Name="@(_traderPanelCollapsed ? "chevron-left" : "chevron-right")"
+                              Class="sim-sidepanel-toggle-icon" />
+                    </button>
+                    @if (!_traderPanelCollapsed)
+                    {
+                        <div class="sim-sidepanel-content">
+                            <TraderControlsPanel TraderId="SelectedTrader?.Id" TraderLabel="SelectedTraderLabel"
+                                                 IsManual="SelectedTraderIsManual" PositionSummary="SelectedPositionSummary"
+                                                 PendingSummary="SelectedPendingSummary" />
+                        </div>
+                    }
+                </div>
+            }
+        </div>
     </div>
-</div>
