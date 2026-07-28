@@ -1,0 +1,292 @@
+@namespace Poink.Sim.Components.Training
+@using Poink.Sim.Brain.Neural
+
+@if (Visible)
+{
+    <div class="train-buildbrain">
+        <div class="train-card-fields-row train-buildbrain-name-row">
+            <label class="train-brainrow-field train-brainrow-field-grow"
+                   title="Unique name for this brain -- must not match an existing one">
+                Name
+                <input class="train-brainrow-input train-brainrow-input-full" type="text"
+                       value="@EffectiveBuildBrainName" @oninput="OnBuildBrainNameInput"
+                       disabled="@(Service.IsRunning || _buildBrainNameAuto)"
+                       placeholder="e.g. lstm-vp-experiment" />
+            </label>
+            <label class="train-brainrow-field"
+                   title="Auto-generate the name from architecture, layers, and selected data -- uncheck to type your own">
+                <input type="checkbox" checked="@_buildBrainNameAuto" @onchange="OnToggleAutoBuildBrainName"
+                       disabled="@Service.IsRunning" /> Auto Name
+            </label>
+        </div>
+
+        <div class="train-buildbrain-cards">
+            <div class="train-card">
+                <div class="train-card-title" title="Which market/account data feeds this brain">Input</div>
+                <div class="train-buildbrain-card-fields">
+                    <label class="train-brainrow-field" title="20-bar trailing percent-change price window">
+                        <input type="checkbox" @bind="_includeBarWindow" disabled="@Service.IsRunning" />
+                        Bar Window
+                    </label>
+                    <label class="train-brainrow-field"
+                           title="Volume histogram + point-of-control/value-area summary, merged from Profile lookback bars below">
+                        <input type="checkbox" @bind="_includeVolumeProfile"
+                               disabled="@Service.IsRunning" /> Volume Profile
+                    </label>
+                    <label class="train-brainrow-field"
+                           title="Time-weighted histogram + point-of-control/value-area summary (seconds spent at each price level), merged from Profile lookback bars below">
+                        <input type="checkbox" @bind="_includeTimeProfile" disabled="@Service.IsRunning" />
+                        Time Profile
+                    </label>
+                    <label class="train-brainrow-field"
+                           title="Same volume histogram + point-of-control/value-area summary as Volume Profile, but unnormalized -- feeds the network exact tick counts and exact price levels instead of a fraction-of-total/percent-offset">
+                        <input type="checkbox" @bind="_includeVolumeProfileRaw"
+                               disabled="@Service.IsRunning" /> Volume Profile (Raw)
+                    </label>
+                    <label class="train-brainrow-field"
+                           title="Same time-weighted histogram + point-of-control/value-area summary as Time Profile, but unnormalized -- feeds the network exact seconds spent and exact price levels instead of a fraction-of-total/percent-offset">
+                        <input type="checkbox" @bind="_includeTimeProfileRaw"
+                               disabled="@Service.IsRunning" /> Time Profile (Raw)
+                    </label>
+                    <label class="train-brainrow-field"
+                           title="Always included -- every brain needs to know its own position/capital regardless of market data">
+                        <input type="checkbox" checked="checked" disabled /> Trader State
+                    </label>
+                </div>
+            </div>
+
+            <div class="train-card">
+                <div class="train-card-title-row">
+                    <div class="train-card-title"
+                         title="Per-encoder input width -- how many network inputs each selected data source above contributes">
+                        Input Structure</div>
+                    <span class="train-card-badge"
+                          title="Total network input width: every selected encoder's input count above, plus Trader State's fixed 12">
+                        @TotalInputCount</span>
+                </div>
+                <div class="train-buildbrain-card-fields train-buildbrain-card-fields-end">
+                    @if (_includeBarWindow)
+                    {
+                        <label class="train-brainrow-field"
+                               title="How many trailing bars' percent-change prices Bar Window feeds the network -- also its input count, 1 input per bar">
+                            Bar window size
+                            <input class="train-brainrow-input" type="number" min="1" step="1"
+                                   @bind="_barWindowSize" disabled="@Service.IsRunning" />
+                        </label>
+                    }
+                    @if (_includeVolumeProfile)
+                    {
+                        <label class="train-brainrow-field"
+                               title="How many histogram buckets Volume Profile rebins its merged bars into -- its input count is this plus 3 summary values">
+                            Volume profile buckets
+                            <input class="train-brainrow-input" type="number" min="1" step="1"
+                                   @bind="_volumeProfileBucketCount" disabled="@Service.IsRunning" />
+                        </label>
+                    }
+                    @if (_includeTimeProfile)
+                    {
+                        <label class="train-brainrow-field"
+                               title="How many histogram buckets Time Profile rebins its merged bars into -- its input count is this plus 3 summary values">
+                            Time profile buckets
+                            <input class="train-brainrow-input" type="number" min="1" step="1"
+                                   @bind="_timeProfileBucketCount" disabled="@Service.IsRunning" />
+                        </label>
+                    }
+                    @if (_includeVolumeProfileRaw)
+                    {
+                        <label class="train-brainrow-field"
+                               title="How many histogram buckets Volume Profile (Raw) rebins its merged bars into -- each bucket feeds price and volume, so its input count is this times 2 plus 3 summary values">
+                            Volume profile (raw) buckets
+                            <input class="train-brainrow-input" type="number" min="1" step="1"
+                                   @bind="_volumeProfileRawBucketCount" disabled="@Service.IsRunning" />
+                        </label>
+                    }
+                    @if (_includeTimeProfileRaw)
+                    {
+                        <label class="train-brainrow-field"
+                               title="How many histogram buckets Time Profile (Raw) rebins its merged bars into -- each bucket feeds price and seconds, so its input count is this times 2 plus 3 summary values">
+                            Time profile (raw) buckets
+                            <input class="train-brainrow-input" type="number" min="1" step="1"
+                                   @bind="_timeProfileRawBucketCount" disabled="@Service.IsRunning" />
+                        </label>
+                    }
+                </div>
+            </div>
+
+            <div class="train-card">
+                <div class="train-card-title-row">
+                    <div class="train-card-title" title="Network shape applied to the inputs selected on the left">Structure</div>
+                    @if (FirstLayerTooSmall)
+                    {
+                        <span class="train-card-badge train-card-badge-warn"
+                              title="@($"First hidden layer ({FirstHiddenLayerSize}) is narrower than the network's {TotalInputCount} inputs -- a bottleneck compressing them before any transformation")">
+                            &#9888; @FirstHiddenLayerSize &lt; @TotalInputCount</span>
+                    }
+                </div>
+                <div class="train-buildbrain-card-fields">
+                    <label class="train-brainrow-field"
+                           title="Network shape applied to the combined features selected above">
+                        Architecture
+                        <select class="train-brainrow-select" value="@_architectureKind"
+                                @onchange="OnArchitectureKindChanged" disabled="@Service.IsRunning">
+                            <option value="Mlp">MLP</option>
+                            <option value="Lstm">LSTM</option>
+                        </select>
+                    </label>
+                    @if (_architectureKind == ArchitectureKind.Mlp)
+                    {
+                        <div class="train-hiddenlayers">
+                            <button type="button" class="train-btn-toggle" @onclick="AddHiddenLayerOnTop"
+                                    disabled="@Service.IsRunning"
+                                    title="Add another hidden layer, inserted above layer 1 -- defaults to double layer 1's size">
+                                + ADD LAYER
+                            </button>
+                            @for (int i = 0; i < _mlpHiddenSizes.Count; i++)
+                            {
+                                var index = i;
+                                <label class="train-brainrow-field" title="@($"Size of hidden layer {index + 1}")">
+                                    Layer @(index + 1)
+                                    <span class="train-hiddenlayer-controls">
+                                        <input class="train-brainrow-input train-brainrow-input-right" type="number"
+                                               min="1" step="1" value="@_mlpHiddenSizes[index]"
+                                               @oninput="e => OnHiddenLayerSizeChanged(index, e)"
+                                               disabled="@Service.IsRunning" />
+                                        <button type="button" class="train-btn-remove-layer"
+                                                @onclick="() => RemoveHiddenLayer(index)"
+                                                disabled="@(Service.IsRunning || !CanRemoveHiddenLayer)"
+                                                title="@(CanRemoveHiddenLayer ? "Remove this layer" : "At least one hidden layer is required")">
+                                            &#215;
+                                        </button>
+                                    </span>
+                                </label>
+                            }
+                            <button type="button" class="train-btn-toggle" @onclick="AddHiddenLayer"
+                                    disabled="@Service.IsRunning"
+                                    title="Add another hidden layer, stacked after the ones above -- defaults to half the last layer's size">
+                                + ADD LAYER
+                            </button>
+                        </div>
+                    }
+                    else
+                    {
+                        <label class="train-brainrow-field" title="LSTM hidden state size">
+                            Hidden size
+                            <input class="train-brainrow-input train-brainrow-input-right" type="number" min="1"
+                                   @bind="_lstmHiddenSize" disabled="@Service.IsRunning" />
+                        </label>
+                        <label class="train-brainrow-field" title="Number of stacked LSTM layers">
+                            LSTM layers
+                            <input class="train-brainrow-input train-brainrow-input-right" type="number" min="1"
+                                   @bind="_lstmNumLayers" disabled="@Service.IsRunning" />
+                        </label>
+                        @if (!_includeBarWindow)
+                        {
+                            <span class="train-brainrow-error">LSTM needs Bar Window for its sequence</span>
+                        }
+                    }
+                </div>
+            </div>
+
+            <div class="train-card">
+                <div class="train-card-title-row">
+                    <div class="train-card-title"
+                         title="Which decisions this brain's network is allowed to make -- every one below is optional">
+                        Actions</div>
+                    <span class="train-card-badge"
+                          title="How many of the @TotalActionOptionCount available action decisions are enabled">
+                        @SelectedActionCount/@TotalActionOptionCount</span>
+                </div>
+                <div class="train-buildbrain-card-fields">
+                    <label class="train-brainrow-field"
+                           title="Toggle every action decision below on or off at once">
+                        <input type="checkbox" @bind="AllActionsSelected" disabled="@Service.IsRunning" />
+                        Select All
+                    </label>
+                    <label class="train-brainrow-field" title="Network can choose to do nothing this tick">
+                        <input type="checkbox" @bind="_includeHold" disabled="@Service.IsRunning" /> Hold
+                    </label>
+                    <label class="train-brainrow-field" title="Network can open a long position">
+                        <input type="checkbox" @bind="_includeEnterLong" disabled="@Service.IsRunning" />
+                        Enter Long
+                    </label>
+                    <label class="train-brainrow-field" title="Network can open a short position">
+                        <input type="checkbox" @bind="_includeEnterShort" disabled="@Service.IsRunning" />
+                        Enter Short
+                    </label>
+                    <label class="train-brainrow-field"
+                           title="Network can close an open position (or cancel a resting order)">
+                        <input type="checkbox" @bind="_includeClose" disabled="@Service.IsRunning" /> Close
+                    </label>
+                    <label class="train-brainrow-field"
+                           title="Network picks position size (25/50/75/100% of cash) for each entry, instead of a fixed 50%">
+                        <input type="checkbox" @bind="_includeVolumeOutput" disabled="@Service.IsRunning" />
+                        Volume
+                    </label>
+                    <label class="train-brainrow-field"
+                           title="Network picks a stop-loss distance (or none) for each entry">
+                        <input type="checkbox" @bind="_includeStopLossOutput"
+                               disabled="@Service.IsRunning" /> Stop Loss
+                    </label>
+                    <label class="train-brainrow-field"
+                           title="Network picks a take-profit distance (or none) for each entry">
+                        <input type="checkbox" @bind="_includeTakeProfitOutput"
+                               disabled="@Service.IsRunning" /> Take Profit
+                    </label>
+                </div>
+            </div>
+
+
+            <div class="train-card">
+                <div class="train-card-title-row">
+                    <div class="train-card-title"
+                         title="How the network's raw output logits become each enabled decision above -- every group below is sampled independently via its own softmax, not one joint choice across all of them">
+                        Action Decoding</div>
+                    <span class="train-card-badge"
+                          title="Total network output width: every enabled group's softmax width, summed">
+                        @TotalOutputWidth</span>
+                </div>
+                <div class="train-buildbrain-card-fields train-buildbrain-card-fields-end">
+                    <label class="train-brainrow-field"
+                           title="@($"Softmax over the {DirectionCount} enabled direction(s): {string.Join(" / ", EnabledDirectionLabels)}")">
+                        Direction
+                        <span class="train-decoding-value">@DirectionCount-way softmax</span>
+                    </label>
+                    @if (_includeVolumeOutput)
+                    {
+                        <label class="train-brainrow-field"
+                               title="Softmax over 4 capital-fraction levels: 25% / 50% / 75% / 100%">
+                            Volume
+                            <span class="train-decoding-value">@VolumeOutputWidth-way softmax</span>
+                        </label>
+                    }
+                    @if (_includeStopLossOutput)
+                    {
+                        <label class="train-brainrow-field"
+                               title="Softmax over 4 stop-loss distances: None / Tight / Medium / Wide">
+                            Stop Loss
+                            <span class="train-decoding-value">@StopLossOutputWidth-way softmax</span>
+                        </label>
+                    }
+                    @if (_includeTakeProfitOutput)
+                    {
+                        <label class="train-brainrow-field"
+                               title="Softmax over 4 take-profit distances: None / Tight / Medium / Wide">
+                            Take Profit
+                            <span class="train-decoding-value">@TakeProfitOutputWidth-way softmax</span>
+                        </label>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <button class="terminal-btn-action" @onclick="CreateBrain"
+                disabled="@(Service.IsRunning || !CanCreateBrain)"
+                title="Builds and registers this brain -- pick it from Brain Type above to train it">
+            CREATE BRAIN
+        </button>
+        @if (_buildBrainStatus is not null)
+        {
+            <span class="train-brainrow-error">@_buildBrainStatus</span>
+        }
+    </div>
+}

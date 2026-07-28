@@ -120,31 +120,6 @@
     color: var(--color-accent);
 }
 
-.train-card-title-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-}
-
-.train-card-badge {
-    font-family: var(--font-body);
-    font-size: 0.68rem;
-    font-weight: bold;
-    color: var(--color-primary);
-    background: color-mix(in srgb, var(--color-primary) 15%, transparent);
-    border: 1px solid color-mix(in srgb, var(--color-primary) 45%, transparent);
-    border-radius: 999px;
-    padding: 2px 8px;
-    line-height: 1.4;
-}
-
-.train-card-badge-warn {
-    color: var(--color-warning);
-    background: color-mix(in srgb, var(--color-warning) 15%, transparent);
-    border-color: color-mix(in srgb, var(--color-warning) 45%, transparent);
-}
-
 .train-card-full {
     flex: 1 1 100%;
 }
@@ -201,19 +176,6 @@
     width: 160px;
 }
 
-.train-buildbrain-name-row {
-    width: 100%;
-}
-
-.train-brainrow-field-grow {
-    flex: 1;
-}
-
-.train-brainrow-input-full {
-    flex: 1;
-    width: 100%;
-}
-
 .train-brainrow-readonly {
     background: var(--color-bg-terminal);
     border: 1px solid color-mix(in srgb, var(--color-primary) 45%, transparent);
@@ -250,79 +212,6 @@
 
 .train-btn-toggle:disabled {
     opacity: 0.5;
-    cursor: not-allowed;
-}
-
-.train-buildbrain {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 10px;
-    border-left: 2px solid var(--color-secondary);
-    padding-left: 10px;
-    margin: 4px 0 0 2px;
-}
-
-.train-buildbrain-cards {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 14px;
-}
-
-.train-buildbrain-card-fields {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 6px;
-}
-
-.train-buildbrain-card-fields-end {
-    align-items: stretch;
-}
-
-.train-buildbrain-card-fields-end .train-brainrow-field {
-    width: 100%;
-    justify-content: space-between;
-}
-
-.train-hiddenlayers {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 6px;
-}
-
-.train-hiddenlayers .train-brainrow-field {
-    width: 100%;
-    justify-content: space-between;
-}
-
-.train-hiddenlayer-controls {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.train-btn-remove-layer {
-    background: transparent;
-    border: 1px solid color-mix(in srgb, var(--color-error, #ff5f56) 40%, transparent);
-    color: var(--color-error, #ff5f56);
-    border-radius: var(--border-radius-sm);
-    font-family: var(--font-body);
-    font-size: 11px;
-    line-height: 1;
-    width: 20px;
-    height: 20px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.train-btn-remove-layer:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--color-error, #ff5f56) 15%, transparent);
-}
-
-.train-btn-remove-layer:disabled {
-    opacity: 0.35;
     cursor: not-allowed;
 }
 

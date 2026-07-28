@@ -794,6 +794,16 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
 
 ## UI Components
 
+- **`BrainBuilder`** — `TrainPage`'s Build Brain panel (Name row + Input/Input
+  Structure/Structure/Actions/Action Decoding cards + Create Brain button), split
+  out of `TrainPage` so its own encoder/architecture/action state lives with the
+  markup that edits it. `Visible` is a plain `[Parameter]` rather than an `@if`
+  around the whole component, so a build left mid-configuration survives the
+  panel being collapsed and reopened via `TrainPage`'s "+/- BUILD BRAIN" toggle,
+  which still lives on `TrainPage` alongside `BrainSelect`. Reports a successful
+  `RlTrainingService.TryBuildBrain` back via `OnBrainCreated`, which `TrainPage`
+  uses to point `BrainSelect` at the new brain and collapse the panel.
+  `Components/Pages/Training/Components/BrainBuilder/`
 - **`BrainInfoCard`** — Shows "what's actually running" for a live brain (name,
   NN-or-not, and its `ActiveSnapshot` if the live weights match a saved one) on
   `SimulationPage`'s BRAIN tab. `Components/Pages/Training/Components/BrainInfoCard/`

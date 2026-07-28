@@ -3,8 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
-using Poink.Sim.Brain.Neural;
-using Poink.Sim.Models;
 using Poink.Sim.Repository;
 using Poink.Sim.Trader;
 using Poink.Sim.Trader.Commission;
@@ -32,64 +30,16 @@ namespace Poink.Sim.Components.Pages
         // ── Brain Type Control ──
         private string _brainName = "";
 
-        // ── Build Brain Controls ──
-        // Assembles a new ComposedPolicyBrain from encoder/architecture parts
-        // at runtime (see RlTrainingService.TryBuildBrain) -- an addition to,
-        // not a replacement of, the BrainSelect dropdown above: a built brain
-        // is just registered into the same list, then picked the normal way.
+        // ── Build Brain Control ──
+        // Assembling a new ComposedPolicyBrain from encoder/architecture parts
+        // (see RlTrainingService.TryBuildBrain) lives entirely in BrainBuilder
+        // now -- an addition to, not a replacement of, the BrainSelect
+        // dropdown above: a built brain is just registered into the same
+        // list, then picked the normal way. Visible is passed straight
+        // through rather than wrapping the component in an @if, so a build
+        // left mid-configuration survives being collapsed and reopened (see
+        // BrainBuilder's own doc comment).
         private bool _showBuildBrain;
-        private string _buildBrainName = "";
-
-        // While on, the Name field tracks AutoBuildBrainName below instead of
-        // _buildBrainName -- flips off the moment the user edits the field
-        // directly (OnBuildBrainNameInput), and back on once a brain is
-        // created, so the next build starts auto-named again.
-        private bool _buildBrainNameAuto = true;
-        private bool _includeBarWindow = true;
-        private bool _includeVolumeProfile;
-        private bool _includeTimeProfile;
-        private bool _includeVolumeProfileRaw;
-        private bool _includeTimeProfileRaw;
-
-        // Per-encoder input width -- independent of each other and of
-        // _lookbackBars below (see EncoderSizeOptions's doc comment for why
-        // these are build-time-only, unlike the runtime-adjustable lookback).
-        // Defaults match EncoderSizeOptions' own defaults, today's original
-        // hardcoded bucket/window counts.
-        private int _barWindowSize = 20;
-        private int _volumeProfileBucketCount = 20;
-        private int _timeProfileBucketCount = 20;
-        private int _volumeProfileRawBucketCount = 20;
-        private int _timeProfileRawBucketCount = 20;
-
-        private ArchitectureKind _architectureKind = ArchitectureKind.Mlp;
-
-        // One entry per MLP hidden layer, in network order -- edited via the
-        // Structure card's per-layer number inputs (+ ADD LAYER/remove ×)
-        // instead of a single comma-delimited text field. Can be emptied down
-        // to zero layers (a linear model), same as clearing the old text field
-        // could.
-        private List<int> _mlpHiddenSizes = [32, 16];
-        private int _lstmHiddenSize = 64;
-        private int _lstmNumLayers = 2;
-
-        // Which extra (non-direction) decisions the built brain's network
-        // also makes -- see ActionOutputKind. All optional (unlike the
-        // encoder checkboxes, at least one of which is required).
-        private bool _includeVolumeOutput;
-        private bool _includeStopLossOutput;
-        private bool _includeTakeProfitOutput;
-
-        // Which of Hold/EnterLong/EnterShort/Close the built brain's
-        // direction pick is narrowed to -- default all 4 (today's original
-        // behavior), but every one is individually optional, same as the
-        // action-output checkboxes above (see SimulationAction's doc
-        // comment); CanCreateBrain requires at least one stay checked.
-        private bool _includeHold = true;
-        private bool _includeEnterLong = true;
-        private bool _includeEnterShort = true;
-        private bool _includeClose = true;
-        private string? _buildBrainStatus;
 
         // ── Data Structure Controls ──
         // How raw ticks get shaped into bars, and how far back a Volume/Time
@@ -163,184 +113,19 @@ namespace Poink.Sim.Components.Pages
 
         public void Dispose() => Service.OnChanged -= HandleServiceChanged;
 
-        private void ToggleBuildBrain()
+        private void ToggleBuildBrain() => _showBuildBrain = !_showBuildBrain;
+
+        // BrainBuilder's OnBrainCreated callback -- points Brain Type at the
+        // brain it just built and collapses the panel, mirroring what
+        // BrainBuilder.CreateBrain used to do to TrainPage's own fields
+        // directly before the two were split apart.
+        private void HandleBrainCreated(string name)
         {
-            _showBuildBrain = !_showBuildBrain;
-            _buildBrainStatus = null;
+            _brainName = name;
+            _showBuildBrain = false;
         }
 
         private void ToggleControls() => _controlsCollapsed = !_controlsCollapsed;
-
-        private void OnArchitectureKindChanged(ChangeEventArgs e) =>
-            _architectureKind = Enum.Parse<ArchitectureKind>(e.Value?.ToString() ?? nameof(ArchitectureKind.Mlp));
-
-        // Mirrors the old ParseHiddenSizes(text)'s n > 0 filter -- a layer
-        // cleared to 0 (or left blank) drops out rather than building a
-        // zero-width layer.
-        private IReadOnlyList<int> EffectiveMlpHiddenSizes => _mlpHiddenSizes.Where(n => n > 0).ToList();
-
-        private void AddHiddenLayer() => _mlpHiddenSizes.Add(16);
-
-        private void RemoveHiddenLayer(int index) => _mlpHiddenSizes.RemoveAt(index);
-
-        private void OnHiddenLayerSizeChanged(int index, ChangeEventArgs e)
-        {
-            if (int.TryParse(e.Value?.ToString(), out int size)) _mlpHiddenSizes[index] = size;
-        }
-
-        // LSTM needs a sequence-bearing part (Bar Window) to narrow() a
-        // sequence out of -- see LstmArchitecture's doc comment; mirrored here
-        // so the Create button disables instead of only failing after a click.
-        private bool CanCreateBrain =>
-            !string.IsNullOrWhiteSpace(EffectiveBuildBrainName)
-            && (_includeBarWindow || _includeVolumeProfile || _includeTimeProfile || _includeVolumeProfileRaw || _includeTimeProfileRaw)
-            && (_includeHold || _includeEnterLong || _includeEnterShort || _includeClose)
-            && (_architectureKind != ArchitectureKind.Lstm || _includeBarWindow)
-            && (!_includeBarWindow || _barWindowSize >= 1)
-            && (!_includeVolumeProfile || _volumeProfileBucketCount >= 1)
-            && (!_includeTimeProfile || _timeProfileBucketCount >= 1)
-            && (!_includeVolumeProfileRaw || _volumeProfileRawBucketCount >= 1)
-            && (!_includeTimeProfileRaw || _timeProfileRawBucketCount >= 1);
-
-        // Canonical part order (Bar Window before Volume Profile before Time
-        // Profile) regardless of checkbox click order -- CompositeEncoder
-        // requires any sequence-bearing part to be listed first (see its doc
-        // comment). Shared by CreateBrain and TotalInputCount so the two never
-        // drift apart.
-        private IReadOnlyList<EncoderKind> SelectedEncoderKinds
-        {
-            get
-            {
-                var kinds = new List<EncoderKind>();
-                if (_includeBarWindow) kinds.Add(EncoderKind.BarWindow);
-                if (_includeVolumeProfile) kinds.Add(EncoderKind.VolumeProfile);
-                if (_includeTimeProfile) kinds.Add(EncoderKind.TimeProfile);
-                if (_includeVolumeProfileRaw) kinds.Add(EncoderKind.VolumeProfileRaw);
-                if (_includeTimeProfileRaw) kinds.Add(EncoderKind.TimeProfileRaw);
-                return kinds;
-            }
-        }
-
-        private EncoderSizeOptions CurrentEncoderSizeOptions => new(
-            _barWindowSize, _volumeProfileBucketCount, _timeProfileBucketCount, _volumeProfileRawBucketCount, _timeProfileRawBucketCount);
-
-        // Live input-count readout for the Input Structure card -- reuses
-        // BrainCatalog.CreateEncoder (the same factory CreateBrain itself
-        // calls into via Service.TryBuildBrain) as the single source of truth
-        // for each encoder's FeatureCount, instead of duplicating that
-        // arithmetic here. Trader State is always included (see BrainCatalog's
-        // doc comment on why it's not a pickable EncoderKind).
-        private int TotalInputCount =>
-            new TraderStateEncoder().FeatureCount
-            + SelectedEncoderKinds.Sum(k => BrainCatalog.CreateEncoder(k, CurrentEncoderSizeOptions).FeatureCount);
-
-        // First hidden layer's width -- null for an MLP trimmed down to zero
-        // layers (a linear model, so there's no first layer to flag).
-        private int? FirstHiddenLayerSize => _architectureKind == ArchitectureKind.Mlp
-            ? (EffectiveMlpHiddenSizes.Count > 0 ? EffectiveMlpHiddenSizes[0] : null)
-            : _lstmHiddenSize;
-
-        // Flags a first layer narrower than the inputs feeding it -- not
-        // necessarily wrong, but a common accidental bottleneck worth
-        // surfacing in the Structure card header (see TrainPage.razor).
-        private bool FirstLayerTooSmall => FirstHiddenLayerSize is int size && size < TotalInputCount;
-
-        // {Architecture}_{Layers}_{Data}, e.g. MLP_L32-L16_dBW-dVP-dTP-dAS -- mirrors
-        // CreateBrain's own encoder/architecture choices below, so the generated
-        // name always describes exactly what CREATE BRAIN is about to build.
-        // Trader State has no checkbox (always included) but still gets a
-        // "dAS" tag here for the same reason it gets a disabled-checked
-        // checkbox above: visible parity with the other data sources.
-        private string AutoBuildBrainName
-        {
-            get
-            {
-                string arch = _architectureKind switch
-                {
-                    ArchitectureKind.Mlp => "MLP",
-                    ArchitectureKind.Lstm => "LSTM",
-                    _ => _architectureKind.ToString().ToUpperInvariant(),
-                };
-
-                string layers = _architectureKind == ArchitectureKind.Mlp
-                    ? string.Join("-", EffectiveMlpHiddenSizes.Select(n => $"L{n}"))
-                    : $"H{_lstmHiddenSize}-N{_lstmNumLayers}";
-
-                var dataParts = new List<string>();
-                if (_includeBarWindow) dataParts.Add("dBW");
-                if (_includeVolumeProfile) dataParts.Add("dVP");
-                if (_includeTimeProfile) dataParts.Add("dTP");
-                if (_includeVolumeProfileRaw) dataParts.Add("dVPR");
-                if (_includeTimeProfileRaw) dataParts.Add("dTPR");
-                dataParts.Add("dAS");
-                string data = string.Join("-", dataParts);
-
-                string name = string.IsNullOrEmpty(layers) ? $"{arch}_{data}" : $"{arch}_{layers}_{data}";
-
-                // Excluded (not included) directions are called out here --
-                // shorter than listing all the ones still enabled, and the
-                // common case (all 4) needs no tag at all.
-                var actionParts = new List<string>();
-                if (!_includeHold) actionParts.Add("noHOLD");
-                if (!_includeEnterLong) actionParts.Add("noLONG");
-                if (!_includeEnterShort) actionParts.Add("noSHORT");
-                if (!_includeClose) actionParts.Add("noCLOSE");
-                if (_includeVolumeOutput) actionParts.Add("aVOL");
-                if (_includeStopLossOutput) actionParts.Add("aSL");
-                if (_includeTakeProfitOutput) actionParts.Add("aTP");
-                return actionParts.Count == 0 ? name : $"{name}_{string.Join("-", actionParts)}";
-            }
-        }
-
-        private string EffectiveBuildBrainName => _buildBrainNameAuto ? AutoBuildBrainName : _buildBrainName;
-
-        private void OnBuildBrainNameInput(ChangeEventArgs e)
-        {
-            _buildBrainNameAuto = false;
-            _buildBrainName = e.Value?.ToString() ?? "";
-        }
-
-        private void OnToggleAutoBuildBrainName(ChangeEventArgs e)
-        {
-            _buildBrainNameAuto = e.Value is bool isAuto && isAuto;
-            if (!_buildBrainNameAuto) _buildBrainName = AutoBuildBrainName;
-        }
-
-        private void CreateBrain()
-        {
-            var name = EffectiveBuildBrainName;
-            var encoderKinds = SelectedEncoderKinds;
-
-            IReadOnlyList<int> hiddenSizes = _architectureKind == ArchitectureKind.Mlp
-                ? EffectiveMlpHiddenSizes
-                : [_lstmHiddenSize, _lstmNumLayers];
-
-            var actionOutputKinds = new List<ActionOutputKind>();
-            if (_includeVolumeOutput) actionOutputKinds.Add(ActionOutputKind.Volume);
-            if (_includeStopLossOutput) actionOutputKinds.Add(ActionOutputKind.StopLoss);
-            if (_includeTakeProfitOutput) actionOutputKinds.Add(ActionOutputKind.TakeProfit);
-
-            // Canonical order (matches ComposedPolicyBrain.AllDirections)
-            // regardless of checkbox click order.
-            var enabledDirections = new List<SimulationAction>();
-            if (_includeHold) enabledDirections.Add(SimulationAction.Hold);
-            if (_includeEnterLong) enabledDirections.Add(SimulationAction.EnterLong);
-            if (_includeEnterShort) enabledDirections.Add(SimulationAction.EnterShort);
-            if (_includeClose) enabledDirections.Add(SimulationAction.Close);
-
-            if (Service.TryBuildBrain(name, encoderKinds, _architectureKind, hiddenSizes, actionOutputKinds, enabledDirections, CurrentEncoderSizeOptions))
-            {
-                _buildBrainStatus = $"built '{name}' -- pick it above to train it";
-                _brainName = name;
-                _buildBrainName = "";
-                _buildBrainNameAuto = true;
-                _showBuildBrain = false;
-            }
-            else
-            {
-                _buildBrainStatus = Service.Error;
-            }
-        }
 
         // One block's time span for EpisodeCoverageTimeline -- mirrors
         // TryStartTraining's own fetchSpan sizing (barWidth * episodeBars,
