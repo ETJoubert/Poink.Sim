@@ -1,0 +1,11 @@
+@namespace Poink.Sim.Components.Training
+
+<div class="radial-gauge radial-gauge-@ColorVariant" title="@Title">
+    <svg viewBox="0 0 120 100" class="radial-gauge-svg">
+        <title>@Title</title>
+        <path d="@ArcPath" class="radial-gauge-track" />
+        <path d="@ArcPath" class="radial-gauge-fill" stroke-dasharray="@FillDash" />
+        <text x="60" y="58" class="radial-gauge-value">@FormattedValue</text>
+        <text x="60" y="76" class="radial-gauge-label">@Label</text>
+    </svg>
+</div>

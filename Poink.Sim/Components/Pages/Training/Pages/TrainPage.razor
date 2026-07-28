@@ -5,7 +5,7 @@
 @using Poink.Sim.Components.Shared.TickDataSource
 @using Poink.Shared.Client.Components.Shared.Icon
 
-<div class="train-page">
+<div class="train-page @(_dashboardView ? "train-page-dashboard" : "")">
     <div class="train-topbar">
         <header class="train-header">
             <span class="train-title">BRAIN TRAINING</span>
@@ -165,6 +165,12 @@
                                                                 title="Show/hide the Data Range/Brain Type/.../Trader cards above -- collapse them once a run's parameters are set, to give the panels below more room">
                                                             <Icon Name="@(_controlsCollapsed ? "chevron-right" : "chevron-down")" Class="train-ctrl-icon" />
                                                         </button>
+                                                        <button class="train-ctrl-btn train-ctrl-btn-collapse" @onclick="ToggleDashboardView"
+                                                                title="@(_dashboardView
+                                                                           ? "Switch back to the detailed view -- full-size charts, episode replay, inputs/outputs and stats tables"
+                                                                           : "Switch to the compact dashboard -- gauges, charts, metrics and the training log, all on one screen")">
+                                                            <Icon Name="@(_dashboardView ? "list-ul" : "speedometer2")" Class="train-ctrl-icon" />
+                                                        </button>
 
                                                         @if (!Service.IsRunning)
                                                         {
@@ -228,10 +234,17 @@
                                                 </div>
                                             </div>
 
-                                            <div class="train-content">
-                                                <EpisodeCoverageTimeline From="_from" To="_to" BlockSpan="EpisodeBlockSpan"
-                                                                         EpisodeWindows="Service.RecentEpisodeWindows" />
-                                                <TrainLiveTab BrainName="_brainName" />
+                                            <div class="train-content @(_dashboardView ? "train-content-dashboard" : "")">
+                                                @if (_dashboardView)
+                                                {
+                                                    <TrainDashboard BrainName="_brainName" />
+                                                }
+                                                else
+                                                {
+                                                    <EpisodeCoverageTimeline From="_from" To="_to" BlockSpan="EpisodeBlockSpan"
+                                                                             EpisodeWindows="Service.RecentEpisodeWindows" />
+                                                    <TrainLiveTab BrainName="_brainName" />
+                                                }
 
                                                 @if (Service.Error is not null)
                                                 {

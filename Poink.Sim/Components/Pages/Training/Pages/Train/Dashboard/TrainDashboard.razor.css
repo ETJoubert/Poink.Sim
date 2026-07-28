@@ -1,0 +1,312 @@
+/* Blazor CSS isolation is per-component -- these mirror TrainLiveTab's/
+   TrainPage's identically-named rules rather than sharing them, since a
+   scoped stylesheet only applies to markup rendered by its own component. */
+
+.train-help {
+    border-left: 3px solid var(--color-secondary);
+    background: rgba(255, 255, 255, 0.03);
+    padding: 12px 16px;
+    margin: 0 0 20px;
+    font-size: 0.85rem;
+    border-radius: 0 var(--border-radius-sm) var(--border-radius-sm) 0;
+}
+
+.train-panel-subtitle {
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: normal;
+    opacity: 0.75;
+    font-size: 0.62rem;
+}
+
+.action-dist {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1;
+    min-height: 0;
+    justify-content: center;
+}
+
+.action-dist-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.action-dist-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    width: 40px;
+    flex-shrink: 0;
+}
+
+.action-dist-hold { color: var(--color-muted); }
+.action-dist-long { color: var(--color-success); }
+.action-dist-short { color: var(--color-error); }
+.action-dist-close { color: var(--color-secondary); }
+
+.action-dist-track {
+    flex: 1;
+    height: 8px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.05);
+    overflow: hidden;
+}
+
+.action-dist-fill {
+    height: 100%;
+    transition: width 0.3s ease;
+}
+
+.action-dist-fill-hold { background: var(--color-muted); }
+.action-dist-fill-long { background: var(--color-success); box-shadow: var(--shadow-glow-primary); }
+.action-dist-fill-short { background: var(--color-error); }
+.action-dist-fill-close { background: var(--color-secondary); box-shadow: var(--shadow-glow-secondary); }
+
+.action-dist-pct {
+    font-size: 0.7rem;
+    color: var(--color-secondary);
+    width: 32px;
+    text-align: right;
+    flex-shrink: 0;
+}
+
+.train-dash {
+    flex: 1;
+    min-height: 0;
+    min-width: 0;
+    display: grid;
+    gap: 10px;
+    grid-template-columns: 240px minmax(0, 1fr) minmax(280px, 24%);
+    grid-template-rows: auto minmax(0, 1fr) minmax(0, 0.8fr) minmax(0, 0.9fr);
+    grid-template-areas:
+        "kpis    kpis    kpis"
+        "gauges  reward  episodes"
+        "actions reward  log"
+        "equity  trends  log";
+}
+
+.dash-panel {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    min-width: 0;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 12%, transparent);
+    border-radius: var(--border-radius-md);
+    padding: 10px 12px;
+    background: rgba(255, 255, 255, 0.015);
+}
+
+.dash-panel-title {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    font-size: 0.62rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-secondary);
+    opacity: 0.85;
+    margin-bottom: 6px;
+    flex-shrink: 0;
+}
+
+.dash-empty {
+    font-size: 0.72rem;
+    color: var(--color-secondary);
+    opacity: 0.7;
+}
+
+.dash-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+/* Let the reused charts stretch to fill their compact panel instead of the
+   fixed 160px height they use in TrainLiveTab's full-size layout. */
+.dash-panel ::deep .reward-chart,
+.dash-panel ::deep .trend-chart {
+    flex: 1;
+    min-height: 0;
+    height: 100%;
+}
+
+.dash-panel ::deep .reward-chart-svg,
+.dash-panel ::deep .trend-chart-svg {
+    flex: 1;
+    min-height: 0;
+    height: 100%;
+}
+
+.dash-area-kpis { grid-area: kpis; }
+.dash-area-gauges { grid-area: gauges; }
+.dash-area-reward { grid-area: reward; }
+.dash-area-episodes { grid-area: episodes; }
+.dash-area-actions { grid-area: actions; }
+.dash-area-equity { grid-area: equity; }
+.dash-area-trends { grid-area: trends; }
+.dash-area-log { grid-area: log; }
+
+/* KPI strip */
+
+.dash-area-kpis {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 16px;
+    row-gap: 6px;
+}
+
+.dash-state {
+    font-family: var(--font-body);
+    font-weight: bold;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    padding: 4px 10px;
+    border-radius: var(--border-radius-sm);
+    border: 1px solid currentColor;
+}
+
+.dash-state-training {
+    color: var(--color-success);
+    background: color-mix(in srgb, var(--color-success) 14%, transparent);
+    box-shadow: var(--shadow-glow-primary);
+}
+
+.dash-state-paused {
+    color: var(--color-warning);
+    background: color-mix(in srgb, var(--color-warning) 14%, transparent);
+}
+
+.dash-state-idle {
+    color: var(--color-muted);
+}
+
+.dash-kpi {
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    gap: 1px;
+}
+
+.dash-kpi-label {
+    font-size: 0.56rem;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--color-secondary);
+    opacity: 0.8;
+}
+
+.dash-kpi-value {
+    font-size: 0.86rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.dash-value-positive { color: var(--color-success); }
+.dash-value-negative { color: var(--color-error); }
+
+/* Gauges */
+
+.dash-area-gauges {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-evenly;
+}
+
+/* Trends: two TrendLineChart side by side */
+
+.dash-area-trends {
+    flex-direction: row;
+    gap: 10px;
+}
+
+.dash-trend-cell {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Equity sparkline */
+
+.dash-spark-svg {
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+    display: block;
+}
+
+.dash-spark-baseline {
+    stroke: var(--color-muted);
+    stroke-width: 1;
+    opacity: 0.8;
+}
+
+.dash-spark-line {
+    fill: none;
+    stroke: var(--color-secondary);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    filter: drop-shadow(0 0 4px color-mix(in srgb, var(--color-secondary) 50%, transparent));
+}
+
+/* Training log */
+
+.dash-log {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 0.68rem;
+}
+
+.dash-log-row {
+    display: flex;
+    flex-shrink: 0;
+    gap: 6px;
+    padding: 1px 0;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.dash-log-time {
+    color: var(--color-muted);
+    opacity: 0.8;
+    flex-shrink: 0;
+}
+
+.dash-log-level {
+    flex-shrink: 0;
+    text-transform: uppercase;
+    font-weight: 700;
+    width: 34px;
+}
+
+.dash-log-info { color: var(--color-secondary); }
+.dash-log-error { color: var(--color-error); }
+
+.dash-log-message {
+    color: var(--color-text-primary);
+    opacity: 0.85;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+@media (max-width: 1100px) {
+    .train-dash {
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: auto auto auto auto auto;
+        grid-template-areas:
+            "kpis    kpis"
+            "gauges  actions"
+            "reward  reward"
+            "episodes trends"
+            "equity  log";
+        overflow-y: auto;
+    }
+}

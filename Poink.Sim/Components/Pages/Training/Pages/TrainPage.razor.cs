@@ -122,6 +122,13 @@ namespace Poink.Sim.Components.Pages
 
         private void ToggleControls() => _controlsCollapsed = !_controlsCollapsed;
 
+        // Swaps TrainLiveTab's full detail view for TrainDashboard's compact
+        // one-viewport summary -- starts false so nothing changes until a
+        // user opts into it (same reasoning as _controlsCollapsed above).
+        private bool _dashboardView;
+
+        private void ToggleDashboardView() => _dashboardView = !_dashboardView;
+
         // One block's time span for EpisodeCoverageTimeline -- mirrors
         // TryStartTraining's own fetchSpan sizing (barWidth * episodeBars,
         // minus its extra safety-margin bar) so a block lines up with what one

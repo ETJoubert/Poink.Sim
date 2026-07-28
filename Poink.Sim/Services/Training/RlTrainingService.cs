@@ -27,10 +27,20 @@ namespace Poink.Sim.Training;
 // into that Razor component (see RlEpisodeMetric's doc comment for why).
 public sealed record BrainOption(string Name, bool IsNeuralNetwork);
 
+// One row of RlTrainingService.RecentLog -- Level is "info" or "error", same
+// two-level scheme SimulationEngine's SimulationLogEntry uses.
+internal sealed record RlTrainingLogEntry(DateTime TimestampUtc, string Level, string Message);
+
 internal sealed class RlTrainingService
 {
     private const int RecentRewardWindow = 20;
     private const int MaxMetricsLog = 500;
+    private const int MaxLogEntries = 200;
+
+    // Per-episode progress lines would spam a 200-entry log within one run --
+    // only every Nth episode (plus the first) gets a line; pause/resume/step/
+    // stop/save/load/error lines are unthrottled since they're user-driven.
+    private const int EpisodeLogInterval = 10;
 
     // How many extra bars' worth of ticks to fetch beyond episodeBars -- a
     // safety margin so the aggregator reliably completes the *last* requested
@@ -49,6 +59,7 @@ internal sealed class RlTrainingService
     private readonly List<RlEpisodeMetric> _episodeMetrics = new();
     private readonly List<RlEpisodeTrades> _episodeTrades = new();
     private readonly List<RlEpisodeWindow> _episodeWindows = new();
+    private readonly RingBuffer<RlTrainingLogEntry> _trainingLog = new(MaxLogEntries);
     private readonly IBrainRepository _brainRepository;
     private readonly ITickRepository _tickRepository;
     private readonly Trader.ITraderFactory _traderFactory;
@@ -287,7 +298,29 @@ internal sealed class RlTrainingService
     // training run itself.
     public string? SaveStatus { get; private set; }
 
+    // Bounded, chronological (oldest-first) UI-visible log for the whole
+    // service lifetime -- not cleared on start, so a fresh run's "start:"
+    // line stays visible alongside the previous run's outcome. Mirrors
+    // SimulationEngine.RecentLog's RingBuffer<T> pattern; the Train
+    // dashboard reverses this for most-recent-first display.
+    public IReadOnlyList<RlTrainingLogEntry> RecentLog
+    {
+        get { lock (_lock) { return _trainingLog.ToList(); } }
+    }
+
     public event Action? OnChanged;
+
+    // Takes _lock itself (Monitor is reentrant, so this is safe to call from
+    // inside an existing lock block too) -- RingBuffer<T> isn't thread-safe,
+    // and this is written from the background training-loop thread while
+    // RecentLog is read from Blazor's render thread. Deliberately doesn't
+    // raise OnChanged -- every call site sits right next to an existing
+    // OnChanged?.Invoke(), so the log rides that same render cadence instead
+    // of forcing an extra re-render.
+    private void AppendLog(string level, string message)
+    {
+        lock (_lock) { _trainingLog.Add(new RlTrainingLogEntry(DateTime.UtcNow, level, message)); }
+    }
 
     // historicRange identifies a table + time range to sample from -- each
     // episode pulls its own bounded window straight from Postgres via
@@ -360,6 +393,8 @@ internal sealed class RlTrainingService
         _logger.LogInformation(
             "Training started: brain={Brain}, strategy={Strategy}, rewardPolicy={RewardPolicy}, episodes={EpisodeCount}, episodeBars={EpisodeBars}, warmupBars={WarmupBars}, barWidthMinutes={BarWidthMinutes}, source={Source}",
             brainName, strategyName, rewardPolicyName, episodeCount, episodeBars, warmupBars, barWidthMinutes, source);
+        AppendLog("info",
+            $"start: brain={brainName}, strategy={strategyName}, policy={rewardPolicyName}, {episodeCount} episodes x {episodeBars} bars @ {barWidthMinutes}m, lr={learningRate:N4}, cash={startingCash:N0}, source={source}");
 
         var barWidth = TimeSpan.FromMinutes(barWidthMinutes);
         // +warmupBars so the brain's lookback window is full of real episode
@@ -434,6 +469,8 @@ internal sealed class RlTrainingService
                             if (_episodeWindows.Count > MaxMetricsLog) _episodeWindows.RemoveAt(0);
                         }
                     }
+                    if (episode == 0 || EpisodesCompleted % EpisodeLogInterval == 0)
+                        AppendLog("info", $"episode {EpisodesCompleted}/{episodeCount}: reward={reward:N2}, equity={result.FinalCapital.Equity:N2}, avg={RecentAverageReward:N2}");
                     OnChanged?.Invoke();
 
                     // Consume the one-shot step flag right after the episode it
@@ -447,6 +484,7 @@ internal sealed class RlTrainingService
                         {
                             if (IsRunning && !_stopRequested) { IsPaused = true; _resumeSignal.Reset(); }
                         }
+                        AppendLog("info", $"paused after episode {EpisodesCompleted} (step)");
                         OnChanged?.Invoke();
                     }
                 }
@@ -456,18 +494,21 @@ internal sealed class RlTrainingService
                     _logger.LogInformation(
                         "Training stopped by user: brain={Brain}, episodesCompleted={EpisodesCompleted}",
                         brainName, EpisodesCompleted);
+                    AppendLog("info", $"stopped by user after {EpisodesCompleted} episodes");
                 }
                 else
                 {
                     _logger.LogInformation(
                         "Training completed: brain={Brain}, episodes={EpisodesCompleted}, bestReward={BestReward}, recentAvgReward={RecentAverageReward}",
                         brainName, EpisodesCompleted, BestReward, RecentAverageReward);
+                    AppendLog("info", $"completed {EpisodesCompleted} episodes: best={BestReward:N2}, avg={RecentAverageReward:N2}");
                 }
             }
             catch (Exception ex)
             {
                 lock (_lock) { Error = ex.Message; }
                 _logger.LogError(ex, "Training failed: brain={Brain}, strategy={Strategy}", brainName, strategyName);
+                AppendLog("error", ex.Message);
             }
             finally
             {
@@ -488,6 +529,7 @@ internal sealed class RlTrainingService
             if (!IsRunning || IsPaused) return;
             IsPaused = true;
             _resumeSignal.Reset();
+            AppendLog("info", "pause requested -- pausing after in-flight episode");
         }
         OnChanged?.Invoke();
     }
@@ -499,6 +541,7 @@ internal sealed class RlTrainingService
             if (!IsRunning || !IsPaused) return;
             IsPaused = false;
             _resumeSignal.Set();
+            AppendLog("info", "resumed");
         }
         OnChanged?.Invoke();
     }
@@ -516,6 +559,7 @@ internal sealed class RlTrainingService
             IsPaused = false;
             _pauseAfterNextEpisode = true;
             _resumeSignal.Set();
+            AppendLog("info", "step: advancing one episode");
         }
         OnChanged?.Invoke();
     }
@@ -532,6 +576,7 @@ internal sealed class RlTrainingService
             _stopRequested = true;
             IsPaused = false;
             _resumeSignal.Set();
+            AppendLog("info", "stop requested -- stopping after in-flight episode");
         }
         OnChanged?.Invoke();
     }
@@ -645,12 +690,14 @@ internal sealed class RlTrainingService
                 brain.WeightCount(), RecentAverageReward, weights);
             _activeSnapshotId[brainName] = id;
             SaveStatus = $"saved '{savedName}' at {DateTime.Now:HH:mm:ss}";
+            AppendLog("info", $"saved snapshot '{savedName}' for {brainName}");
             RefreshSavedBrains();
             return true;
         }
         catch (Exception ex)
         {
             SaveStatus = $"save failed: {ex.Message}";
+            AppendLog("error", $"save failed: {ex.Message}");
             OnChanged?.Invoke();
             _logger.LogWarning(ex, "Failed to save brain snapshot: name={SavedName}, brain={BrainName}", savedName, brainName);
             return false;
@@ -686,6 +733,7 @@ internal sealed class RlTrainingService
         if (summary is null)
         {
             SaveStatus = "brain no longer exists";
+            AppendLog("error", $"load failed: id {id} no longer exists");
             OnChanged?.Invoke();
             _logger.LogWarning("LoadSavedBrain: id {Id} no longer exists", id);
             return false;
@@ -725,19 +773,21 @@ internal sealed class RlTrainingService
         try
         {
             var weights = _brainRepository.LoadWeights(id);
-            if (weights is null) { SaveStatus = "weights not found"; return false; }
+            if (weights is null) { SaveStatus = "weights not found"; AppendLog("error", $"load failed: weights not found for id {id}"); return false; }
             brain.ImportWeights(weights);
 
             _activeSnapshotId[summary.BrainName] = id;
             _episodesTrainedByBrain[summary.BrainName] = summary.Parameters.EpisodeCount;
             if (summary.TrainedAt is { } trainedAt) _lastTrainedAt[summary.BrainName] = trainedAt;
             SaveStatus = $"loaded '{summary.Name}' into '{summary.BrainName}' -- ready to use in Simulation";
+            AppendLog("info", $"loaded '{summary.Name}' into {summary.BrainName}");
             _logger.LogInformation("Loaded saved brain {SavedName} (id={Id}) into live brain {BrainName}", summary.Name, id, summary.BrainName);
             return true;
         }
         catch (Exception ex)
         {
             SaveStatus = $"load failed: {ex.Message}";
+            AppendLog("error", $"load failed: {ex.Message}");
             _logger.LogError(ex, "Failed to load saved brain id {Id}", id);
             return false;
         }

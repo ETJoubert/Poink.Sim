@@ -484,7 +484,10 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   same `_lock`/`IsRunning`/`Error`/`OnChanged` shape as `SimulationEngine` and every
   Poink.ML `*TrainingService`. Drives `RlEpisodeRunner` in a tight loop, keeps a
   bounded rolling log (`RecentEpisodes`, last 500) and restores/persists brain weights
-  via `IBrainRepository`. `StepTraining` (the Train page's STEP button) reopens the
+  via `IBrainRepository`. `RecentLog` is a separate, UI-visible `RingBuffer<
+  RlTrainingLogEntry>` (last 200) of run events -- start/pause/resume/step/stop/
+  save/load and throttled per-episode lines -- mirroring `SimulationEngine.
+  RecentLog`; consumed by `TrainDashboard`'s training-log panel. `StepTraining` (the Train page's STEP button) reopens the
   same Pause/Resume gate for exactly one episode via `_pauseAfterNextEpisode`, so
   the loop auto-re-pauses right after that episode instead of free-running;
   `TryStartTraining`'s `pauseAfterFirstEpisode` does the same for a not-yet-started
@@ -741,6 +744,11 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   CSS-isolation boundary, with `.action-dist-row-chosen` highlighting `IsChosen`.
   Public for the same `BrainIoPanel` reason as `RlInputFeature`.
   `Brain/Neural/IPolicyGradientBrain.cs`
+- **`RlTrainingLogEntry`** — `(TimestampUtc, Level, Message)`: one row of
+  `RlTrainingService.RecentLog`, the 200-entry `RingBuffer<T>` UI log of
+  training run events. `Level` is `"info"` or `"error"`, same two-level
+  scheme as `SimulationEngine`'s equivalent log entry. `Services/Training/
+  RlTrainingService.cs`
 - **`SavedBrainSummary`** — Metadata-only view of one saved brain snapshot (everything
   except the weight bytes themselves), used to populate `SavedBrainsTable` without
   pulling megabytes of weights per row. `RewardPolicyName` records which
@@ -940,6 +948,11 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   `wwwroot/js/networkEmulator.js`
 - **`PerformanceMonitor`** — Layout-level CPU/RAM/GPU readout, sourced from
   `SystemPerformanceMonitor`. `Components/Layout/PerformanceMonitor.razor.cs`
+- **`RadialGauge`** — Fixed 270-degree SVG arc meter (90-degree gap at the bottom)
+  for a single ratio against a limit, e.g. run progress or win rate on
+  `TrainDashboard`. Pure inline SVG, no JS, `stroke-dasharray` fill animated via
+  CSS transition; the printed center value is never color-alone.
+  `Components/Pages/Training/Components/RadialGauge/`
 - **`RewardChart`** — Pure inline-SVG line chart of reward-per-episode, no JS, with a
   zero-baseline reference and native `<title>` hover tooltips.
   `Components/Pages/Training/Components/RewardChart/`
@@ -989,6 +1002,15 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   since Blazor CSS isolation only cascades a parent's scoped styles onto a
   child component's own root element, not elements nested below it.
   `Components/Pages/Simulation/Components/TraderControlsPanel/`
+- **`TrainDashboard`** — Compact, single-viewport alternative to `TrainLiveTab`,
+  toggled from `TrainPage`'s toolbar (`_dashboardView`/`ToggleDashboardView`,
+  `speedometer2`/`list-ul` icon). A CSS grid fills the space under the sticky
+  topbar with no page scroll: KPI tiles, two `RadialGauge` dials (progress,
+  win rate), `RewardChart`, two `TrendLineChart` panels, `EpisodeGrid`,
+  action-distribution bars, a current-episode equity sparkline, and the
+  training log (`RlTrainingService.RecentLog`). Always fully live -- no
+  pause-and-freeze snapshot like `TrainLiveTab`'s live feedback toggle.
+  `Components/Pages/Training/Pages/Train/Dashboard/TrainDashboard.razor.cs`
 - **`TrainLiveTab`** — The Train page's "Live" content: a full-width `EpisodeGrid`
   panel (directly under `TrainPage`'s `EpisodeCoverageTimeline`), stat tiles, a
   PAUSE/RESUME LIVE VIEW toggle, `RewardChart`, three `TrendLineChart` panels
