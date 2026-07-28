@@ -46,10 +46,48 @@ else
         </div>
     </div>
 
+    <div class="train-live-toggle">
+        <button class="train-live-toggle-btn @(_liveFeedbackPaused ? "paused" : "")" @onclick="ToggleLiveFeedback"
+                title="@(_liveFeedbackPaused
+                           ? "Resume live updates for the charts, current-episode panel, inputs/outputs and stats tables below -- training keeps running in the background either way"
+                           : "Freeze the charts, current-episode panel, inputs/outputs and stats tables below at their current values -- Episodes and the stat tiles above keep updating live")">
+            <Icon Name="@(_liveFeedbackPaused ? "play-fill" : "pause-fill")" Class="train-live-toggle-icon" />
+            @(_liveFeedbackPaused ? "RESUME LIVE VIEW" : "PAUSE LIVE VIEW")
+        </button>
+        @if (_liveFeedbackPaused)
+        {
+            <span class="train-live-toggle-hint">frozen -- charts below are not updating</span>
+        }
+    </div>
+
     <div class="train-live-grid">
         <div class="train-live-panel">
             <div class="train-panel-title">REWARD</div>
-            <RewardChart Episodes="Service.RecentEpisodes" IsRunning="Service.IsRunning" />
+            <RewardChart Episodes="SourceChartEpisodes" IsRunning="SourceIsRunning" />
+        </div>
+
+        <div class="train-live-panel">
+            <div class="train-panel-title">
+                MEDIAN REWARD <span class="train-panel-subtitle">(rolling-window median -- less noisy than raw reward)</span>
+            </div>
+            <TrendLineChart Episodes="SourceChartEpisodes" IsRunning="SourceIsRunning" Aggregate="@MedianReward"
+                             ColorVariant="median" />
+        </div>
+
+        <div class="train-live-panel">
+            <div class="train-panel-title">
+                REWARD STD DEV <span class="train-panel-subtitle">(rolling-window spread -- falling means training is stabilizing)</span>
+            </div>
+            <TrendLineChart Episodes="SourceChartEpisodes" IsRunning="SourceIsRunning" Aggregate="@RewardStdDev"
+                             ColorVariant="stddev" />
+        </div>
+
+        <div class="train-live-panel">
+            <div class="train-panel-title">
+                WIN RATE <span class="train-panel-subtitle">(rolling-window % of episodes with positive reward)</span>
+            </div>
+            <TrendLineChart Episodes="SourceChartEpisodes" IsRunning="SourceIsRunning" Aggregate="@WinRate"
+                             ColorVariant="winrate" ValueFormat="N0" ValueSuffix="%" />
         </div>
 
         <div class="train-live-panel">

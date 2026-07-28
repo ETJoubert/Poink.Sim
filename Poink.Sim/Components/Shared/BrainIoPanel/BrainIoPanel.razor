@@ -18,34 +18,125 @@
     }
     else
     {
-        <div class="input-badge-group">
-            <div class="input-badge-group-label">PRICE WINDOW</div>
-            <div class="input-scalars">
-                @foreach (var f in PriceWindowFeatures)
-                {
-                    <div class="input-scalar">
-                        <span class="input-badge-label">@f.Label</span>
-                        <span
-                            class="input-badge-value @(f.Value switch { > 0 => "input-positive", < 0 => "input-negative", _ => "" })">
-                            @FormatInputValue(f)
-                        </span>
+        <div class="input-cards">
+            <div class="input-card input-card-price-window">
+                <div class="input-card-label">PRICE WINDOW</div>
+                <div class="input-card-body">
+                    <div class="input-scalars">
+                        @foreach (var f in PriceWindowFeatures)
+                        {
+                            <div class="input-scalar">
+                                <span class="input-badge-label">@f.Label</span>
+                                <span
+                                    class="input-badge-value @(f.Value switch { > 0 => "input-positive", < 0 => "input-negative", _ => "" })">
+                                    @FormatInputValue(f)
+                                </span>
+                            </div>
+                        }
                     </div>
-                }
+                </div>
             </div>
-        </div>
-        <div class="input-badge-group">
-            <div class="input-badge-group-label">ACCOUNT STATE</div>
-            <div class="input-scalars">
-                @foreach (var f in ScalarFeatures)
-                {
-                    <div class="input-scalar">
-                        <span class="input-scalar-label">@f.Label</span>
-                        <span
-                            class="input-scalar-value @(f.Value switch { > 0 => "input-positive", < 0 => "input-negative", _ => "" })">
-                            @FormatInputValue(f, "N3")
-                        </span>
+
+            <div class="input-card input-card-volume-profile">
+                <div class="input-card-label">VOLUME PROFILE</div>
+                <div class="input-card-body">
+                    @if (VolumeProfilePriceFeatures.Count > 0)
+                    {
+                        <div class="input-card-shade input-card-shade-a">
+                            <div class="input-shade-label">PRICE</div>
+                            <div class="input-scalars">
+                                @foreach (var f in VolumeProfilePriceFeatures)
+                                {
+                                    <div class="input-scalar">
+                                        <span class="input-scalar-label">@f.Label</span>
+                                        <span
+                                            class="input-scalar-value @(f.Value switch { > 0 => "input-positive", < 0 => "input-negative", _ => "" })">
+                                            @FormatInputValue(f, "N3")
+                                        </span>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+                    @if (VolumeProfileVolumeFeatures.Count > 0)
+                    {
+                        <div class="input-card-shade input-card-shade-b">
+                            <div class="input-shade-label">VOLUME</div>
+                            <div class="input-scalars">
+                                @foreach (var f in VolumeProfileVolumeFeatures)
+                                {
+                                    <div class="input-scalar">
+                                        <span class="input-scalar-label">@f.Label</span>
+                                        <span
+                                            class="input-scalar-value @(f.Value switch { > 0 => "input-positive", < 0 => "input-negative", _ => "" })">
+                                            @FormatInputValue(f, "N3")
+                                        </span>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <div class="input-card input-card-time-profile">
+                <div class="input-card-label">TIME PROFILE</div>
+                <div class="input-card-body">
+                    @if (TimeProfilePriceFeatures.Count > 0)
+                    {
+                        <div class="input-card-shade input-card-shade-a">
+                            <div class="input-shade-label">PRICE</div>
+                            <div class="input-scalars">
+                                @foreach (var f in TimeProfilePriceFeatures)
+                                {
+                                    <div class="input-scalar">
+                                        <span class="input-scalar-label">@f.Label</span>
+                                        <span
+                                            class="input-scalar-value @(f.Value switch { > 0 => "input-positive", < 0 => "input-negative", _ => "" })">
+                                            @FormatInputValue(f, "N3")
+                                        </span>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+                    @if (TimeProfileTimeFeatures.Count > 0)
+                    {
+                        <div class="input-card-shade input-card-shade-b">
+                            <div class="input-shade-label">TIME</div>
+                            <div class="input-scalars">
+                                @foreach (var f in TimeProfileTimeFeatures)
+                                {
+                                    <div class="input-scalar">
+                                        <span class="input-scalar-label">@f.Label</span>
+                                        <span
+                                            class="input-scalar-value @(f.Value switch { > 0 => "input-positive", < 0 => "input-negative", _ => "" })">
+                                            @FormatInputValue(f, "N3")
+                                        </span>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <div class="input-card input-card-trader-state">
+                <div class="input-card-label">TRADER STATE</div>
+                <div class="input-card-body">
+                    <div class="input-scalars">
+                        @foreach (var f in TraderStateFeatures)
+                        {
+                            <div class="input-scalar">
+                                <span class="input-scalar-label">@f.Label</span>
+                                <span
+                                    class="input-scalar-value @(f.Value switch { > 0 => "input-positive", < 0 => "input-negative", _ => "" })">
+                                    @FormatInputValue(f, "N3")
+                                </span>
+                            </div>
+                        }
                     </div>
-                }
+                </div>
             </div>
         </div>
     }

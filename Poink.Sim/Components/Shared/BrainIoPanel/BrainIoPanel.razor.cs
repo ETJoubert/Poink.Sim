@@ -24,15 +24,49 @@ public partial class BrainIoPanel : ComponentBase
     // ratio) values and their de-normalized real-world units.
     private bool _showDenormalizedInputs;
 
-    // DescribeInputs labels the price-window entries "t-N" and the
-    // account-state scalars by name -- split on that convention rather than a
-    // fixed count, so this keeps working if a future brain's window size
-    // differs.
-    private List<RlInputFeature> PriceWindowFeatures =>
-        Inputs?.Where(f => f.Label.StartsWith("t-", System.StringComparison.Ordinal)).ToList() ?? new List<RlInputFeature>();
+    // Every encoder's label convention this panel groups inputs by -- see
+    // BarWindowEncoder ("t-N"), VolumeProfileEncoder/VolumeProfileRawEncoder
+    // ("vp-"/"vpr-" bucket labels, plus the normalized variant's unprefixed
+    // "poc-offset"/"va-high-offset"/"va-low-offset" summary scalars), and
+    // TimeProfileEncoder/TimeProfileRawEncoder ("tp-"/"tpr-"). Splitting on
+    // these conventions rather than a fixed count keeps this working if a
+    // future brain's window/bucket sizes differ. Whatever matches none of
+    // them is TraderStateEncoder's plain-named account-state scalars.
+    private static bool IsPriceWindowLabel(string label) => label.StartsWith("t-", System.StringComparison.Ordinal);
 
-    private List<RlInputFeature> ScalarFeatures =>
-        Inputs?.Where(f => !f.Label.StartsWith("t-", System.StringComparison.Ordinal)).ToList() ?? new List<RlInputFeature>();
+    private static bool IsVolumeProfileLabel(string label) =>
+        label.StartsWith("vp-", System.StringComparison.Ordinal) || label.StartsWith("vpr-", System.StringComparison.Ordinal) ||
+        label is "poc-offset" or "va-high-offset" or "va-low-offset";
+
+    private static bool IsTimeProfileLabel(string label) =>
+        label.StartsWith("tp-", System.StringComparison.Ordinal) || label.StartsWith("tpr-", System.StringComparison.Ordinal);
+
+    // Within a profile's own group, its POC/value-area summary and (raw
+    // variant only) each bucket's exact price form the "price" half; the
+    // histogram fractions / raw tick-counts or seconds form the other half
+    // (volume for Volume Profile, time for Time Profile).
+    private static bool IsPriceLevelLabel(string label) =>
+        label.Contains("price", System.StringComparison.Ordinal) || label.Contains("poc", System.StringComparison.Ordinal) ||
+        label.Contains("va-high", System.StringComparison.Ordinal) || label.Contains("va-low", System.StringComparison.Ordinal);
+
+    private List<RlInputFeature> PriceWindowFeatures =>
+        Inputs?.Where(f => IsPriceWindowLabel(f.Label)).ToList() ?? new List<RlInputFeature>();
+
+    private List<RlInputFeature> VolumeProfilePriceFeatures =>
+        Inputs?.Where(f => IsVolumeProfileLabel(f.Label) && IsPriceLevelLabel(f.Label)).ToList() ?? new List<RlInputFeature>();
+
+    private List<RlInputFeature> VolumeProfileVolumeFeatures =>
+        Inputs?.Where(f => IsVolumeProfileLabel(f.Label) && !IsPriceLevelLabel(f.Label)).ToList() ?? new List<RlInputFeature>();
+
+    private List<RlInputFeature> TimeProfilePriceFeatures =>
+        Inputs?.Where(f => IsTimeProfileLabel(f.Label) && IsPriceLevelLabel(f.Label)).ToList() ?? new List<RlInputFeature>();
+
+    private List<RlInputFeature> TimeProfileTimeFeatures =>
+        Inputs?.Where(f => IsTimeProfileLabel(f.Label) && !IsPriceLevelLabel(f.Label)).ToList() ?? new List<RlInputFeature>();
+
+    private List<RlInputFeature> TraderStateFeatures =>
+        Inputs?.Where(f => !IsPriceWindowLabel(f.Label) && !IsVolumeProfileLabel(f.Label) && !IsTimeProfileLabel(f.Label)).ToList()
+        ?? new List<RlInputFeature>();
 
     // One bar-set per RlOutputFeature.Group -- "Direction" (the fixed
     // Hold/EnterLong/EnterShort/Close pick) plus one group per

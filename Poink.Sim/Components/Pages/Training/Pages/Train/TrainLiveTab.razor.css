@@ -112,6 +112,57 @@
     min-width: 0;
 }
 
+.train-live-toggle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 14px;
+}
+
+.train-live-toggle-btn {
+    font-family: var(--font-body);
+    font-weight: bold;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 7px 14px;
+    border-radius: var(--border-radius-sm);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 45%, transparent);
+    background: transparent;
+    color: var(--color-primary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.train-live-toggle-btn:hover {
+    background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+    border-color: var(--color-primary);
+}
+
+.train-live-toggle-btn.paused {
+    border-color: var(--color-warning);
+    color: var(--color-warning);
+    background: color-mix(in srgb, var(--color-warning) 14%, transparent);
+}
+
+.train-live-toggle-btn.paused:hover {
+    background: color-mix(in srgb, var(--color-warning) 24%, transparent);
+    box-shadow: 0 0 14px color-mix(in srgb, var(--color-warning) 45%, transparent);
+}
+
+::deep .train-live-toggle-icon {
+    width: 13px;
+    height: 13px;
+    vertical-align: -2px;
+    margin-right: 3px;
+}
+
+.train-live-toggle-hint {
+    font-size: 0.68rem;
+    color: var(--color-warning);
+    opacity: 0.85;
+}
+
 .train-live-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));

@@ -18,7 +18,8 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
 - **Aggregation toggle** — `SimulationConfig.Aggregate`: whether the Brain observes raw
   ticks or completed HLOC/AVDT bars. Controls not just chart display but how often
   `Brain.Decide`/`Trader.Apply` run (once per tick vs. once per completed bar).
-  `Models/SimulationSnapshot.cs`
+  Changeable mid-run via `SimulationEngine.SetAggregation` (see below), not just at
+  load time. `Models/SimulationSnapshot.cs`
 - **Capital fraction** — `SimulationDecision.CapitalFraction` (0..1): fraction of
   current Cash committed when opening a position; ignored for Hold/Close. Fixed at
   0.5 for a brain built without the `Volume` `ActionOutputKind` (see
@@ -491,9 +492,13 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   `SetTraderMode`/`SubmitManualDecision` let the Simulation page's trader controls
   panel take over a session from the Brain (see `TraderControlMode`) -- both are
   ordinary public methods callable any time a run is loaded, not gated behind
-  play/pause. Holds one shared in-memory "current run" for the whole process (not
-  per-user/session), matching Poink.ML's `*TrainingService` singleton convention.
-  `Services/Simulation/SimulationEngine.cs`
+  play/pause. `SetAggregation` likewise swaps the live `SimulationBarAggregator`/
+  bar size (or drops to raw ticks) at any point during a loaded run, replaying the
+  retained recent-ticks buffer through a fresh aggregator to rebuild bar history
+  under the new size instead of blanking the chart (older history than that ticks
+  window covers is simply gone). Holds one shared in-memory "current run" for the
+  whole process (not per-user/session), matching Poink.ML's `*TrainingService`
+  singleton convention. `Services/Simulation/SimulationEngine.cs`
 - **`SystemPerformanceMonitor`** — Singleton sampling host-machine CPU/RAM/GPU once
   per second (Windows-only, via `PerformanceCounter`/`GlobalMemoryStatusEx`), feeding
   the layout's `PerformanceMonitor` display. `Diagnostics/SystemPerformanceMonitor.cs`
@@ -793,7 +798,15 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   NN-or-not, and its `ActiveSnapshot` if the live weights match a saved one) on
   `SimulationPage`'s BRAIN tab. `Components/Pages/Training/Components/BrainInfoCard/`
 - **`BrainIoPanel`** — "What the network sees/decided" for one decision (INPUTS
-  card: price-window/account-state feature values with a de-normalize toggle;
+  section: feature values with a de-normalize toggle, grouped into one shaded
+  horizontal-strip card per encoder (label on the left, values flowing in a
+  row to the right) -- PRICE WINDOW, VOLUME PROFILE, TIME PROFILE, TRADER
+  STATE -- split purely by each `RlInputFeature.Label`'s naming convention
+  (`t-N`; `vp-`/`vpr-` plus the normalized variant's unprefixed POC/value-area
+  scalars; `tp-`/`tpr-`; everything else). The Volume Profile/Time Profile
+  cards further shade their POC/value-area-and-(raw-only)-price features apart
+  from their histogram fraction/tick-count/seconds features (PRICE vs
+  VOLUME/TIME), rendered as two side-by-side sub-groups within the strip;
   OUTPUTS card: the Hold/Long/Short/Close probability distribution, sampled
   action highlighted) -- each card's title carries a pill badge with that
   card's feature/action count (`Inputs`/`Outputs`' `.Count`). `[Parameter]`s
@@ -902,10 +915,24 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   child component's own root element, not elements nested below it.
   `Components/Pages/Simulation/Components/TraderControlsPanel/`
 - **`TrainLiveTab`** — The Train page's "Live" content: a full-width `EpisodeGrid`
-  panel (directly under `TrainPage`'s `EpisodeCoverageTimeline`), stat tiles,
-  `RewardChart`, action-distribution bars, a "current episode" panel, an INPUTS
-  panel, and an OUTPUTS panel.
+  panel (directly under `TrainPage`'s `EpisodeCoverageTimeline`), stat tiles, a
+  PAUSE/RESUME LIVE VIEW toggle, `RewardChart`, three `TrendLineChart` panels
+  (median reward, reward std dev, win rate), action-distribution bars, a
+  "current episode" panel, an INPUTS panel, and an OUTPUTS panel.
   `Components/Pages/Training/Pages/Train/TrainLiveTab.razor.cs`
+
+  The **live feedback toggle** (`ToggleLiveFeedback`/`_liveFeedbackPaused`) freezes
+  everything from the REWARD chart down (the three trend charts, action distribution,
+  current episode panel, INPUTS/OUTPUTS, and the EPISODE/TRADER/SESSION stats tables)
+  at a `LiveFeedbackSnapshot` taken the moment it's toggled on, so a run can be read
+  or compared without the page redrawing every episode. Background training keeps
+  running regardless -- `EpisodeGrid` and the stat tiles above the toggle (and
+  `TrainPage`'s `EpisodeCoverageTimeline`) always read straight from `RlTrainingService`
+  and stay live either way. Every property that used to read `Service.X` directly for
+  the frozen section now reads a matching `Source*` property instead, which falls back
+  to the snapshot while paused and to `Service` otherwise -- including `PlayEpisode`'s
+  fresh-start snapshot, so starting a replay while paused plays back the exact frozen
+  episode rather than mismatching frozen bars against a newer live episode's inputs/outputs.
 
   The **current episode panel** renders the most recently completed episode's
   bars via `DrawableOhlcvChart`, plus `TickVolumeProfileChart`/
@@ -943,6 +970,16 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   direction pick plus one bar-set per `IActionOutputHead` the brain was built
   with -- with `.action-dist-row-chosen` highlighting whichever one
   `RlOutputFeature.IsChosen` flags in each group.
+- **`TrendLineChart`** — Generic rolling-window trend line, reused by `TrainLiveTab`
+  for the MEDIAN REWARD, REWARD STD DEV, and WIN RATE panels alongside `RewardChart`.
+  Takes an `Aggregate` delegate (`Func<IReadOnlyList<RlEpisodeMetric>, double>`) so it
+  owns only the windowing/SVG rendering; each caller supplies the statistic. The
+  window is a widening-then-sliding trailing count of episodes (own selector, default
+  20) -- widening first so the chart has something to show from episode 1 instead of
+  staying empty until history fills. Only draws its zero-baseline reference when the
+  plotted range actually straddles zero (median reward can go negative; std dev/win
+  rate never do).
+  `Components/Pages/Training/Components/TrendLineChart/`
 
 ## Data / Repository Concepts
 

@@ -1,0 +1,37 @@
+@namespace Poink.Sim.Components.Training
+
+<div class="trend-chart trend-chart-@ColorVariant">
+    @if (Episodes.Count == 0)
+    {
+        <span class="trend-chart-empty">@EmptyMessage</span>
+    }
+    else
+    {
+        <div class="trend-chart-controls">
+            <label class="trend-chart-window-label"
+                   title="Trailing episode window this trend is computed over -- widens from episode 1 until it reaches this size, then slides">
+                Window
+                <select class="trend-chart-window-select" value="@WindowSize" @onchange="OnWindowSizeChanged">
+                    @foreach (var size in WindowOptions)
+                    {
+                        <option value="@size">@size episodes</option>
+                    }
+                </select>
+            </label>
+        </div>
+        <svg viewBox="0 0 600 160" preserveAspectRatio="none" class="trend-chart-svg">
+            <line x1="@FormatCoord(PadLeft)" y1="@BaselineY" x2="@FormatCoord(ViewWidth - PadRight)" y2="@BaselineY" class="trend-chart-baseline" />
+            <text x="@FormatCoord(PadLeft + 2)" y="@FormatCoord(MapY(0) - 3)" class="trend-chart-baseline-label">0</text>
+            @foreach (var p in Points)
+            {
+                <circle cx="@p.X" cy="@p.Y" r="2.5" class="trend-chart-point @(p.IsLatest && IsRunning ? "trend-chart-point-latest" : "")">
+                    <title>episode @p.Episode — @FormatValue(p.Value)</title>
+                </circle>
+            }
+        </svg>
+        <div class="trend-chart-labels">
+            <span>min @FormatValue(ValueRange.Min)</span>
+            <span>max @FormatValue(ValueRange.Max)</span>
+        </div>
+    }
+</div>

@@ -1,0 +1,104 @@
+.trend-chart {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.trend-chart-empty {
+    font-size: 0.75rem;
+    color: var(--color-secondary);
+    opacity: 0.7;
+}
+
+.trend-chart-svg {
+    width: 100%;
+    height: 160px;
+    display: block;
+}
+
+.trend-chart-controls {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.trend-chart-window-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.65rem;
+    color: var(--color-secondary);
+    opacity: 0.85;
+    white-space: nowrap;
+}
+
+.trend-chart-window-select {
+    background: var(--color-bg-terminal);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 45%, transparent);
+    color: var(--color-primary);
+    padding: 2px 4px;
+    border-radius: var(--border-radius-sm);
+    font-family: var(--font-body);
+    font-size: 11px;
+    width: auto;
+}
+
+.trend-chart-window-select:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--color-primary) 40%, transparent);
+}
+
+.trend-chart-baseline {
+    stroke: var(--color-muted);
+    stroke-width: 1;
+    opacity: 0.9;
+}
+
+.trend-chart-baseline-label {
+    fill: var(--color-muted);
+    font-size: 9px;
+    opacity: 1;
+}
+
+.trend-chart-point {
+    opacity: 0.8;
+}
+
+.trend-chart-point-latest {
+    animation: trend-point-pop 1.2s ease-in-out infinite;
+    transform-box: fill-box;
+    transform-origin: center;
+}
+
+@keyframes trend-point-pop {
+    0%, 100% {
+        r: 2.5;
+        opacity: 0.8;
+    }
+    50% {
+        r: 5;
+        opacity: 1;
+    }
+}
+
+.trend-chart-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.65rem;
+    color: var(--color-secondary);
+    opacity: 0.7;
+}
+
+/* Color variants -- one per statistic this chart is reused for. */
+
+.trend-chart-median .trend-chart-point {
+    fill: var(--color-info);
+}
+
+.trend-chart-stddev .trend-chart-point {
+    fill: var(--color-warning);
+}
+
+.trend-chart-winrate .trend-chart-point {
+    fill: var(--color-success);
+}

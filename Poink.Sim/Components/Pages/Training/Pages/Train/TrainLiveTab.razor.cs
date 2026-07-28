@@ -56,30 +56,88 @@ namespace Poink.Sim.Components.Training
             _replayTimer?.Dispose();
         }
 
+        // ── Live feedback toggle: freezes everything below the top stat tiles
+        // (charts, current-episode panel, inputs/outputs, stats tables) at
+        // whatever they're showing right now, so a run can be read/compared
+        // without the page redrawing underneath every episode. Background
+        // training keeps going regardless -- EpisodeGrid and the top stat
+        // tiles read straight from Service, never from this snapshot, so
+        // they (and Data Coverage, up on TrainPage) stay live either way.
+        // Every other property in this file that used to read Service.X
+        // directly now reads the matching Source* property below instead,
+        // which falls back to this snapshot while paused.
+        private bool _liveFeedbackPaused;
+        private LiveFeedbackSnapshot? _liveFeedbackSnapshot;
+
+        private sealed record LiveFeedbackSnapshot(
+            IReadOnlyList<RlEpisodeMetric> RecentEpisodes,
+            IReadOnlyList<RlEpisodeTrades> RecentEpisodeTrades,
+            RlActionCounts ActionCounts,
+            IReadOnlyList<HlocAvdtBar> LatestEpisodeBars,
+            IReadOnlyList<BarPriceHistogram> LatestEpisodeBarHistograms,
+            int LatestEpisodeWarmupBars,
+            IReadOnlyList<Trade> LatestEpisodeTrades,
+            IReadOnlyList<RlInputFeature>? LatestInputs,
+            IReadOnlyList<RlOutputFeature>? LatestOutputs,
+            IReadOnlyList<double> LatestEpisodeBarEquity,
+            IReadOnlyList<IReadOnlyList<RlInputFeature>> LatestEpisodeBarInputs,
+            IReadOnlyList<IReadOnlyList<RlOutputFeature>> LatestEpisodeBarOutputs);
+
+        private void ToggleLiveFeedback()
+        {
+            if (_liveFeedbackPaused)
+            {
+                _liveFeedbackPaused = false;
+                _liveFeedbackSnapshot = null;
+                return;
+            }
+
+            _liveFeedbackSnapshot = new LiveFeedbackSnapshot(
+                Service.RecentEpisodes, Service.RecentEpisodeTrades, Service.ActionCounts,
+                Service.LatestEpisodeBars, Service.LatestEpisodeBarHistograms, Service.LatestEpisodeWarmupBars,
+                Service.LatestEpisodeTrades, Service.LatestInputs, Service.LatestOutputs,
+                Service.LatestEpisodeBarEquity, Service.LatestEpisodeBarInputs, Service.LatestEpisodeBarOutputs);
+            _liveFeedbackPaused = true;
+        }
+
+        private bool SourceIsRunning => !_liveFeedbackPaused && Service.IsRunning;
+        private IReadOnlyList<RlEpisodeMetric> SourceChartEpisodes => _liveFeedbackSnapshot?.RecentEpisodes ?? Service.RecentEpisodes;
+        private IReadOnlyList<RlEpisodeTrades> SourceRecentEpisodeTrades => _liveFeedbackSnapshot?.RecentEpisodeTrades ?? Service.RecentEpisodeTrades;
+        private RlActionCounts SourceActionCounts => _liveFeedbackSnapshot?.ActionCounts ?? Service.ActionCounts;
+        private IReadOnlyList<HlocAvdtBar> SourceEpisodeBars => _liveFeedbackSnapshot?.LatestEpisodeBars ?? Service.LatestEpisodeBars;
+        private IReadOnlyList<BarPriceHistogram> SourceEpisodeBarHistograms => _liveFeedbackSnapshot?.LatestEpisodeBarHistograms ?? Service.LatestEpisodeBarHistograms;
+        private int SourceEpisodeWarmupBars => _liveFeedbackSnapshot?.LatestEpisodeWarmupBars ?? Service.LatestEpisodeWarmupBars;
+        private IReadOnlyList<Trade> SourceEpisodeTrades => _liveFeedbackSnapshot?.LatestEpisodeTrades ?? Service.LatestEpisodeTrades;
+        private IReadOnlyList<RlInputFeature>? SourceInputs => _liveFeedbackSnapshot?.LatestInputs ?? Service.LatestInputs;
+        private IReadOnlyList<RlOutputFeature>? SourceOutputs => _liveFeedbackSnapshot?.LatestOutputs ?? Service.LatestOutputs;
+        private IReadOnlyList<double> SourceEpisodeBarEquity => _liveFeedbackSnapshot?.LatestEpisodeBarEquity ?? Service.LatestEpisodeBarEquity;
+        private IReadOnlyList<IReadOnlyList<RlInputFeature>> SourceEpisodeBarInputs => _liveFeedbackSnapshot?.LatestEpisodeBarInputs ?? Service.LatestEpisodeBarInputs;
+        private IReadOnlyList<IReadOnlyList<RlOutputFeature>> SourceEpisodeBarOutputs => _liveFeedbackSnapshot?.LatestEpisodeBarOutputs ?? Service.LatestEpisodeBarOutputs;
+
         // ── Current episode: bar chart + volume/price profiles ──
         // Same mapping SimulationPage.ToBarRows uses for its live OhlcvChart --
         // HlocAvdtBar is internal, so a public [Parameter] can't take it directly.
         private List<CTraderBarRow> EpisodeBarRows =>
-            Service.LatestEpisodeBars
+            SourceEpisodeBars
                 .Select(b => new CTraderBarRow(b.OpenTime, b.Open, b.High, b.Low, b.Close, b.Volume, b.UpVolume, b.DownVolume, b.Distance))
                 .ToList();
 
         // Highlights the episode's last close as "current price" in both profile
         // charts below -- there's no live Bid/Ask once an episode has finished.
         private double? EpisodeLastPrice =>
-            Service.LatestEpisodeBars.Count > 0 ? Service.LatestEpisodeBars[^1].Close : null;
+            SourceEpisodeBars.Count > 0 ? SourceEpisodeBars[^1].Close : null;
 
         // Merges every bar this episode completed into one profile -- passing the
         // full histogram count as the window merges the whole episode, not just a
         // recent slice (see SimulationPage.MergedBarSamples for the live-sim
         // counterpart, which instead uses a user-adjustable window).
         private List<WeightedPriceSample> EpisodeVolumeProfileSamples =>
-            BarPriceHistogram.Merge(Service.LatestEpisodeBarHistograms, Service.LatestEpisodeBarHistograms.Count)
+            BarPriceHistogram.Merge(SourceEpisodeBarHistograms, SourceEpisodeBarHistograms.Count)
                 .Select(t => new WeightedPriceSample(t.Price, t.Count, t.UpCount, t.DownCount))
                 .ToList();
 
         private List<WeightedTimeSample> EpisodeTimeProfileSamples =>
-            BarPriceHistogram.MergeTime(Service.LatestEpisodeBars, Service.LatestEpisodeBarHistograms, Service.LatestEpisodeBarHistograms.Count)
+            BarPriceHistogram.MergeTime(SourceEpisodeBars, SourceEpisodeBarHistograms, SourceEpisodeBarHistograms.Count)
                 .Select(t => new WeightedTimeSample(t.Price, t.Count, t.Seconds, t.UpSeconds, t.DownSeconds))
                 .ToList();
 
@@ -141,7 +199,7 @@ namespace Poink.Sim.Components.Training
         {
             get
             {
-                var trades = _replayBars is not null ? _replayTrades ?? new List<Trade>() : Service.LatestEpisodeTrades;
+                var trades = _replayBars is not null ? _replayTrades ?? new List<Trade>() : SourceEpisodeTrades;
                 if (trades.Count == 0) return new List<ChartDiagonalLine>();
 
                 var visibleUntil = _replayBars is null
@@ -160,7 +218,7 @@ namespace Poink.Sim.Components.Training
         // decision) -- the replay's own frozen snapshot while one's loaded
         // (_replayWarmupBars), else whatever the live/idle episode's is (see
         // RlTrainingService.LatestEpisodeWarmupBars).
-        private int DisplayedWarmupBars => _replayBars is not null ? _replayWarmupBars : Service.LatestEpisodeWarmupBars;
+        private int DisplayedWarmupBars => _replayBars is not null ? _replayWarmupBars : SourceEpisodeWarmupBars;
 
         // Maps a 1-based _revealedBarCount (a position in DisplayedEpisodeBars,
         // which includes warm-up bars) onto the matching 0-based index into
@@ -180,7 +238,7 @@ namespace Poink.Sim.Components.Training
         {
             get
             {
-                if (_replayBars is null) return Service.LatestInputs;
+                if (_replayBars is null) return SourceInputs;
                 if (_replayBarInputs is null) return null;
                 int i = DisplayedDecisionIndex;
                 return i >= 0 && i < _replayBarInputs.Count ? _replayBarInputs[i] : null;
@@ -193,7 +251,7 @@ namespace Poink.Sim.Components.Training
         {
             get
             {
-                if (_replayBars is null) return Service.LatestOutputs;
+                if (_replayBars is null) return SourceOutputs;
                 if (_replayBarOutputs is null) return null;
                 int i = DisplayedDecisionIndex;
                 return i >= 0 && i < _replayBarOutputs.Count ? _replayBarOutputs[i] : null;
@@ -211,7 +269,7 @@ namespace Poink.Sim.Components.Training
             {
                 if (_replayBars is null)
                 {
-                    var latest = Service.LatestEpisodeBarEquity;
+                    var latest = SourceEpisodeBarEquity;
                     return latest.Count > 0 ? latest[^1] : null;
                 }
                 if (_replayBarEquity is null) return null;
@@ -294,11 +352,11 @@ namespace Poink.Sim.Components.Training
 
             if (!CanReplay) return;
             _replayBars = EpisodeBarRows;
-            _replayTrades = Service.LatestEpisodeTrades.ToList();
-            _replayBarInputs = Service.LatestEpisodeBarInputs.ToList();
-            _replayBarEquity = Service.LatestEpisodeBarEquity.ToList();
-            _replayBarOutputs = Service.LatestEpisodeBarOutputs.ToList();
-            _replayWarmupBars = Service.LatestEpisodeWarmupBars;
+            _replayTrades = SourceEpisodeTrades.ToList();
+            _replayBarInputs = SourceEpisodeBarInputs.ToList();
+            _replayBarEquity = SourceEpisodeBarEquity.ToList();
+            _replayBarOutputs = SourceEpisodeBarOutputs.ToList();
+            _replayWarmupBars = SourceEpisodeWarmupBars;
             _revealedBarCount = 0;
             _isReplaying = true;
             ScheduleNextReveal();
@@ -374,33 +432,47 @@ namespace Poink.Sim.Components.Training
         // longer run.
         private double RewardSpread => Service.BestReward - Service.WorstReward;
 
-        // Same bounded episode window as WinRatePercent above. Population
-        // (not sample) standard deviation -- this describes the actual
-        // observed episodes rather than estimating some larger population.
+        // Same bounded episode window as WinRatePercent above.
         private (double StdDev, double Median) RewardDistribution
         {
             get
             {
-                var rewards = Service.RecentEpisodes.Select(e => e.Reward).ToList();
-                if (rewards.Count == 0) return (0, 0);
-
-                double mean = rewards.Average();
-                double variance = rewards.Sum(r => (r - mean) * (r - mean)) / rewards.Count;
-                double stdDev = Math.Sqrt(variance);
-
-                var sorted = rewards.OrderBy(r => r).ToList();
-                int mid = sorted.Count / 2;
-                double median = sorted.Count % 2 == 0 ? (sorted[mid - 1] + sorted[mid]) / 2.0 : sorted[mid];
-
-                return (stdDev, median);
+                var episodes = Service.RecentEpisodes;
+                return episodes.Count == 0 ? (0, 0) : (RewardStdDev(episodes), MedianReward(episodes));
             }
         }
+
+        // Aggregate delegates for TrendLineChart below -- each reduces a
+        // (possibly windowed) slice of episodes to the one number that chart
+        // plots, so the chart itself doesn't need to know which statistic
+        // it's drawing.
+
+        private static double MedianReward(IReadOnlyList<RlEpisodeMetric> episodes)
+        {
+            var sorted = episodes.Select(e => e.Reward).OrderBy(r => r).ToList();
+            int mid = sorted.Count / 2;
+            return sorted.Count % 2 == 0 ? (sorted[mid - 1] + sorted[mid]) / 2.0 : sorted[mid];
+        }
+
+        // Population (not sample) standard deviation -- this describes the
+        // actual observed episodes rather than estimating some larger
+        // population.
+        private static double RewardStdDev(IReadOnlyList<RlEpisodeMetric> episodes)
+        {
+            var rewards = episodes.Select(e => e.Reward).ToList();
+            double mean = rewards.Average();
+            double variance = rewards.Sum(r => (r - mean) * (r - mean)) / rewards.Count;
+            return Math.Sqrt(variance);
+        }
+
+        private static double WinRate(IReadOnlyList<RlEpisodeMetric> episodes) =>
+            episodes.Count(e => e.Reward > 0) * 100.0 / episodes.Count;
 
         private (double Hold, double EnterLong, double EnterShort, double Close) ActionPercents
         {
             get
             {
-                var counts = Service.ActionCounts;
+                var counts = SourceActionCounts;
                 int total = Math.Max(1, counts.Total);
                 return (counts.Hold * 100.0 / total, counts.EnterLong * 100.0 / total,
                         counts.EnterShort * 100.0 / total, counts.Close * 100.0 / total);
@@ -426,7 +498,7 @@ namespace Poink.Sim.Components.Training
 
         // Most-recent-first, matching SimulationPage's LogRows convention.
         private List<MetricsRow> MetricsRows =>
-            Service.RecentEpisodes
+            SourceChartEpisodes
                 .Select(m => new MetricsRow(m.EpisodeNumber, m.Reward, m.FinalEquity))
                 .Reverse()
                 .ToList();
@@ -484,7 +556,7 @@ namespace Poink.Sim.Components.Training
         // MetricsRows) -- each episode's own Trader instance, so equity/drawdown
         // reset every row rather than carrying over from the previous episode.
         private List<TraderStatsRow> EpisodeTraderStatsRows =>
-            Service.RecentEpisodeTrades
+            SourceRecentEpisodeTrades
                 .Select(e => ToTraderStatsRow(
                     e.EpisodeNumber.ToString(CultureInfo.InvariantCulture),
                     TradeStatistics.From(e.Trades, e.MaxEquity, e.MaxDrawdown)))
@@ -502,7 +574,7 @@ namespace Poink.Sim.Components.Training
         {
             get
             {
-                var episodes = Service.RecentEpisodeTrades;
+                var episodes = SourceRecentEpisodeTrades;
                 if (episodes.Count == 0) return new List<TraderStatsRow>();
 
                 var trades = episodes.SelectMany(e => e.Trades).ToList();

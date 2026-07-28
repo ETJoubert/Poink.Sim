@@ -88,13 +88,14 @@
             </div>
             <div class="sim-datarow-field">
                 <div class="sim-datarow-aggregate">
-                    <label class="sim-datarow-checkbox" title="Aggregate into HLOC/AVDT bars instead of raw ticks">
-                        <input type="checkbox" @bind="_aggregate" disabled="@(_isLoading || _snapshot is not null)" />
+                    <label class="sim-datarow-checkbox" title="Aggregate into HLOC/AVDT bars instead of raw ticks -- can be changed while a simulation is running">
+                        <input type="checkbox" @bind="_aggregate" @bind:after="OnAggregationSettingChanged" disabled="@_isLoading" />
                         Bars
                     </label>
                     @if (_aggregate)
                     {
-                        <BarMinutesSelect @bind-Value="_barMinutes" Disabled="@(_isLoading || _snapshot is not null)" />
+                        <BarMinutesSelect @bind-Value="_barMinutes" @bind-Value:after="OnAggregationSettingChanged" Disabled="@_isLoading"
+                                           Title="Size of each aggregated bar, in minutes -- can be changed while a simulation is running" />
                     }
                 </div>
             </div>

@@ -33,6 +33,16 @@ namespace Poink.Sim.Components.Training
 
         private int _candleSize = 1;
 
+        // Cached once per render (OnParametersSet) rather than recomputed on
+        // every MapY call -- MapY is called once per point in Points (up to
+        // 500) plus up to 4x per candle in Candles, and re-deriving Min/Max
+        // over all Episodes on every one of those calls turned an O(n) pass
+        // into an O(n^2) one for no reason (see TrendLineChart's own version
+        // of this, which had the same pattern but at real quadratic cost
+        // because its range depends on a windowed aggregate, not a plain
+        // Min/Max).
+        private (double Min, double Max) _rewardRange = (-1, 1);
+
         private sealed record ChartPoint(string X, string Y, int Episode, double Reward, bool IsLatest);
 
         // Each candle is one OHLC bucket of consecutive episodes -- Open/Close
@@ -49,17 +59,18 @@ namespace Poink.Sim.Components.Training
         private static double PlotWidth => ViewWidth - PadLeft - PadRight;
         private static double PlotHeight => ViewHeight - PadTop - PadBottom;
 
-        private (double Min, double Max) RewardRange
+        protected override void OnParametersSet() => _rewardRange = ComputeRewardRange(Episodes);
+
+        private static (double Min, double Max) ComputeRewardRange(IReadOnlyList<RlEpisodeMetric> episodes)
         {
-            get
-            {
-                if (Episodes.Count == 0) return (-1, 1);
-                double min = Episodes.Min(e => e.Reward);
-                double max = Episodes.Max(e => e.Reward);
-                if (Math.Abs(max - min) < 1e-6) { min -= 1; max += 1; }
-                return (min, max);
-            }
+            if (episodes.Count == 0) return (-1, 1);
+            double min = episodes.Min(e => e.Reward);
+            double max = episodes.Max(e => e.Reward);
+            if (Math.Abs(max - min) < 1e-6) { min -= 1; max += 1; }
+            return (min, max);
         }
+
+        private (double Min, double Max) RewardRange => _rewardRange;
 
         private double MapX(int index) => MapXForSlot(index, Episodes.Count);
 
@@ -68,7 +79,7 @@ namespace Poink.Sim.Components.Training
 
         private double MapY(double reward)
         {
-            var (min, max) = RewardRange;
+            var (min, max) = _rewardRange;
             double t = (reward - min) / (max - min);
             return PadTop + (1 - t) * PlotHeight;
         }

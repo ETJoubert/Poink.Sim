@@ -354,6 +354,48 @@ internal sealed class SimulationEngine : IDisposable
         PublishSnapshot();
     }
 
+    // Swaps the live bar-aggregation mode/size without restarting playback -- takes
+    // effect at the very next tick. Rather than blanking the chart, a fresh
+    // aggregator replays it against _recentTicks (bars under the old size can't be
+    // merged with the new ones -- BarPriceHistogram assumes one BucketWidth per run
+    // -- so they're recomputed, not kept) to rebuild as much bar history as that
+    // retained tick window covers; older history than that is simply gone, same as
+    // it already was for the tick view. Recent ticks themselves, trader state, and
+    // the brain are untouched, so no position/equity is lost.
+    public bool SetAggregation(bool aggregate, TimeSpan barSize)
+    {
+        lock (_lock)
+        {
+            if (_config is null)
+                return false;
+            if (_config.Aggregate == aggregate && _config.BarSize == barSize)
+                return false;
+
+            _config = _config with { Aggregate = aggregate, BarSize = barSize };
+            _recentBars.Clear();
+            _recentBarHistograms.Clear();
+
+            if (aggregate)
+            {
+                var aggregator = new SimulationBarAggregator(barSize, PriceBucketWidthFor(_config.Table));
+                foreach (var tick in _recentTicks)
+                {
+                    var completed = aggregator.Feed(tick);
+                    if (completed is not null)
+                        AppendBar(completed.Value.Bar, completed.Value.Histogram);
+                }
+                _aggregator = aggregator;
+            }
+            else
+            {
+                _aggregator = null;
+            }
+        }
+        PublishSnapshot();
+        _logger.LogInformation("Simulation aggregation changed: aggregate={Aggregate}, barSize={BarSize}", aggregate, barSize);
+        return true;
+    }
+
     // Rewinds to the start of the same loaded config with a fresh Trader/Aggregator/Brain.
     public bool Reset()
     {

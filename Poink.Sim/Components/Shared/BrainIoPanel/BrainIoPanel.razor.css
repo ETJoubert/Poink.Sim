@@ -56,17 +56,80 @@
     white-space: nowrap;
 }
 
-.input-badge-group {
-    margin-bottom: 14px;
+.input-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
 }
 
-.input-badge-group-label {
+.input-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    border-radius: var(--border-radius-md);
+    padding: 10px 12px;
+}
+
+.input-card-label {
+    flex-shrink: 0;
+    min-width: 108px;
+    padding-top: 2px;
     font-size: 0.6rem;
     text-transform: uppercase;
     letter-spacing: 0.08em;
     color: var(--color-secondary);
     opacity: 0.8;
-    margin-bottom: 6px;
+}
+
+.input-card-body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 16px;
+}
+
+.input-card-price-window {
+    background: color-mix(in srgb, var(--color-secondary) 6%, var(--color-bg-terminal));
+    border: 1px solid color-mix(in srgb, var(--color-secondary) 25%, transparent);
+}
+
+.input-card-volume-profile {
+    background: color-mix(in srgb, var(--color-primary) 6%, var(--color-bg-terminal));
+    border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
+}
+
+.input-card-time-profile {
+    background: color-mix(in srgb, var(--color-accent) 6%, var(--color-bg-terminal));
+    border: 1px solid color-mix(in srgb, var(--color-accent) 25%, transparent);
+}
+
+.input-card-trader-state {
+    background: color-mix(in srgb, var(--color-tertiary) 6%, var(--color-bg-terminal));
+    border: 1px solid color-mix(in srgb, var(--color-tertiary) 25%, transparent);
+}
+
+.input-card-shade {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    border-radius: var(--border-radius-sm);
+    padding: 6px 10px;
+}
+
+.input-card-volume-profile .input-card-shade-a { background: color-mix(in srgb, var(--color-primary) 12%, transparent); }
+.input-card-volume-profile .input-card-shade-b { background: color-mix(in srgb, var(--color-primary) 4%, transparent); }
+.input-card-time-profile .input-card-shade-a { background: color-mix(in srgb, var(--color-accent) 12%, transparent); }
+.input-card-time-profile .input-card-shade-b { background: color-mix(in srgb, var(--color-accent) 4%, transparent); }
+
+.input-shade-label {
+    flex-shrink: 0;
+    font-size: 0.58rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-secondary);
+    opacity: 0.7;
 }
 
 .input-badge-label {

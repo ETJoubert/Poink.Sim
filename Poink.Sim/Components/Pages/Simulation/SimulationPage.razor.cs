@@ -380,6 +380,12 @@ namespace Poink.Sim.Components.Pages
             return true;
         }
 
+        // Fires after the Bars checkbox or bar-size select changes, both in Setup
+        // (before a sim is loaded, where it just leaves the fields for LoadSimulation/
+        // LoadDummySimulation to read) and live. Service.SetAggregation no-ops and
+        // returns false when nothing is loaded yet, so one handler covers both states.
+        private void OnAggregationSettingChanged() => Service.SetAggregation(_aggregate, TimeSpan.FromMinutes(_barMinutes));
+
         // Skips Postgres entirely (synthetic random-walk ticks) so the playback UI
         // can be exercised without a running database -- no symbol/date-range
         // validation, since neither is actually read from disk in this path.
