@@ -27,7 +27,7 @@ TODO List for Poink.SIM project
 - TODO
 - A collapse button should be placed left of the Play button that would collapse the Data Range selector and the brain/Trader options
 
-3. 
+3. Validation loop — the big one. Nothing today distinguishes learning from memorizing. Add to RlTrainingService: every N episodes, run a handful of evaluation episodes on a held-out date range (later than the training range, never sampled by RandomEpisodeWindow), with greedy action selection (argmax, no sampling) and no weight update. Track validation reward/equity separately in the Live tab, and treat "best validation score" as the snapshot worth saving — your snapshot-per-save history in IBrainRepository already supports keeping several and picking the winner.
 
 
 

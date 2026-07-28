@@ -1,6 +1,6 @@
 # Brain — pluggable trading-decision brains
 
-> Doc version: **v1.4** — see "Changelog" at the bottom for what changed.
+> Doc version: **v1.5** — see "Changelog" at the bottom for what changed.
 > See [../Docs/README.md](../Docs/README.md) for documentation standards.
 
 This documents the **current, as-built state** of this folder — it is
@@ -40,7 +40,7 @@ A brain's "shape" is two independent choices, wired together by
 
 | Piece | Interface | Current implementations |
 |---|---|---|
-| **Encoder** — observation → feature vector | `IObservationEncoder` (`FeatureCount`, `SequenceLength`, `Features`, `Encode`) | `BarWindowEncoder` (20-bar price window), `VolumeProfileEncoder` (20-bucket volume histogram + POC/value-area summary), `TimeProfileEncoder` (20-bucket time-weighted histogram + POC/value-area summary), `TraderStateEncoder` (12 exact trader/account fields). The first three each take a `NormalizationKind` (`Normalized`/`Raw`) picking which normalizer pair they're built with, plus (for the two profiles) their own fixed `lookbackBars` (default 50) |
+| **Encoder** — observation → feature vector | `IObservationEncoder` (`FeatureCount`, `SequenceLength`, `Features`, `Encode`) | `BarWindowEncoder` (20-bar price window), `VolumeProfileEncoder` (20-bucket volume histogram + POC/value-area summary), `TimeProfileEncoder` (20-bucket time-weighted histogram + POC/value-area summary), `SessionClockEncoder` (time-of-day + day-of-week as sin/cos pairs, no windowing), `SpreadVolatilityEncoder` (current Bid/Ask spread + short-window Average True Range), `TraderStateEncoder` (12 exact trader/account fields). The first three each take a `NormalizationKind` (`Normalized`/`Raw`) picking which normalizer pair they're built with, plus (for the two profiles) their own fixed `lookbackBars` (default 50); `SpreadVolatilityEncoder` instead takes its own fixed `atrPeriod` (default 14) |
 | **Normalizer** — raw quantity → network-ready value (and back, for display) | `IFeatureNormalizer` (`Normalize`, `Denormalize`, `Format`) | `PriceOffsetNormalizer` (percent-change-from-current-price), `EquityRatioNormalizer` (ratio-over-equity, available for injection), `FractionNormalizer` (passthrough for an already-`[0,1]` histogram share), `DirectionNormalizer` (passthrough for a categorical `-1/0/1`), `RawPriceNormalizer`/`RawValueNormalizer` (passthrough for an already-real price/quantity) |
 | **Architecture** — feature vector → action logits | `INetworkArchitecture` (`Build(featureCount, sequenceLength)`) | `MlpArchitecture` (flat `Linear→Tanh` stack, any hidden-layer sizes), `LstmArchitecture` (LSTM over a leading sequence slice + trailing scalars, via `LstmPolicyNetwork`), `CnnArchitecture` (Conv1d stack over a leading sequence slice + trailing scalars, via `CnnPolicyNetwork`) |
 | **Combine multiple encoders** | `CompositeEncoder` | Concatenates parts in order; enforces that any sequence-bearing part (`SequenceLength > 0`) is listed **first**, so a recurrent architecture narrow()s the right slice |
@@ -126,6 +126,8 @@ persist, via the existing Save Model flow, keyed by the brain's `Name`.
 | `Neural/Encoders/TraderStateEncoder.cs` | Encoder: 12 exact trader/account fields (position direction, position entry price, position ticks held, position cumulative distance, current price, cash, realized/unrealized PnL, equity, margin, margin level, position count) |
 | `Neural/Encoders/VolumeProfileEncoder.cs` | Encoder: volume histogram (default 20 buckets) + POC/value-area summary, merged from its own fixed `lookbackBars` (default 50) trailing bars; `NormalizationKind` picks fraction-of-total/percent-offset (Normalized) or exact tick counts/prices (Raw) |
 | `Neural/Encoders/TimeProfileEncoder.cs` | Encoder: time-weighted (seconds-spent) histogram counterpart to `VolumeProfileEncoder`, same `NormalizationKind`/`lookbackBars` shape; labels prefixed `tp-`/`tpr-` so they don't collide with `VolumeProfileEncoder`'s when both are composed together |
+| `Neural/Encoders/SessionClockEncoder.cs` | Encoder: time-of-day + day-of-week as sin/cos pairs (4 values), derived straight from `SimulationObservation.TimestampUtc` -- no windowing, no `NormalizationKind` (already bounded, nothing to scale) |
+| `Neural/Encoders/SpreadVolatilityEncoder.cs` | Encoder: current Bid/Ask spread + a short trailing Average True Range (2 values); ATR needs `atrPeriod + 1` bars (default period 14), bar-only like the two profile encoders |
 | `Neural/Encoders/CompositeEncoder.cs` | Concatenates multiple encoders into one, enforcing the sequence-first ordering constraint |
 | `Neural/Normalizers/IFeatureNormalizer.cs` | Normalizer contract: `Normalize`, `Denormalize`, `Format`; also defines `DenormalizationAnchors` (`CurrentPrice`/`Equity`) |
 | `Neural/Normalizers/PriceOffsetNormalizer.cs` | Normalizer: price ↔ percent-change-from-current-price |
@@ -159,6 +161,20 @@ persist, via the existing Save Model flow, keyed by the brain's `Name`.
 
 ## Changelog
 
+- **v1.5** — 2026-07-28 — Added two cheap FX-focused encoders, both pickable
+  in the Build Brain panel like any other `EncoderKind`: `SessionClockEncoder`
+  (time-of-day + day-of-week as sin/cos pairs -- recurring session structure
+  is one of the strongest regularities in FX ticks) and
+  `SpreadVolatilityEncoder` (current Bid/Ask spread + a short trailing
+  Average True Range). Neither needed a new normalizer: session-clock values
+  are already bounded/unitless (passthrough `RawValueNormalizer`), spread/ATR
+  are literal price-scaled quantities (passthrough `RawPriceNormalizer`, same
+  as `TraderStateEncoder`'s current-price feature). Required extending
+  `SimulationObservation` with `Bid`/`Ask` (the exact current-tick quote,
+  threaded through from `RlEpisodeRunner.RecordStep`/`SimulationEngine.
+  DecideAndApply`, both of which already had them on hand) since neither
+  aggregate mode's `CurrentPrice` (a mid-price either way) lets a brain
+  recover the spread on its own.
 - **v1.4** — 2026-07-28 — Added `CnnArchitecture`/`CnnPolicyNetwork`: a third
   `ArchitectureKind` (`Cnn`, alongside `Mlp`/`Lstm`) pickable in the Build
   Brain panel's Structure card -- a Conv1d stack (configurable kernel size +

@@ -51,10 +51,16 @@ internal readonly record struct SimulationDecision(
 // mode has no bars, so no per-bar histograms either) -- a brain that reads it
 // merges down to whatever window it needs itself (see BarPriceHistogram.Merge),
 // the same way a brain slices its own trailing window out of RecentBars.
-// Capital/Position are read-only Trader snapshots.
+// Capital/Position are read-only Trader snapshots. Bid/Ask are this decision's
+// exact current-tick quote -- CurrentPrice is already their mid (or a bar's
+// Close, itself built from mid-price ticks), so neither aggregation mode lets
+// a brain recover the spread from CurrentPrice alone; carried separately so
+// SpreadVolatilityEncoder (or any future spread-aware brain) reads the real
+// live spread regardless of aggregate/raw-tick mode.
 internal readonly record struct SimulationObservation(
     DateTime TimestampUtc, double CurrentPrice,
     IReadOnlyList<HlocAvdtBar> RecentBars,
     IReadOnlyList<Tick> RecentTicks,
     IReadOnlyList<BarPriceHistogram> RecentBarHistograms,
-    CapitalState Capital, Position? Position);
+    CapitalState Capital, Position? Position,
+    double Bid, double Ask);

@@ -22,7 +22,7 @@ namespace Poink.Sim.Brain.Neural;
 // since it travels on SavedBrainSummary (see that record's doc comment on
 // why it's public -- a Razor component's [Parameter] property can't be typed
 // with a less-accessible type than the component itself).
-public enum EncoderKind { BarWindow, VolumeProfile, TimeProfile }
+public enum EncoderKind { BarWindow, VolumeProfile, TimeProfile, SessionClock, SpreadVolatility }
 
 public enum ArchitectureKind { Mlp, Lstm, Cnn }
 
@@ -71,6 +71,9 @@ public enum ActionOutputEncodingKind { DiscretizedLevels }
 // gained Normalization/Lookback still deserializes those three correctly by
 // name; the two new *LookbackBars properties default to 50 (each encoder's
 // own original hardcoded default) for the same old-recipe-tolerance reason.
+// SpreadVolatilityAtrPeriod is the newest such property, same treatment:
+// defaults to 14 (SpreadVolatilityEncoder's own hardcoded default) so a
+// recipe saved before that encoder existed still deserializes.
 public sealed record EncoderSizeOptions(
     int BarWindowSize = 20,
     int VolumeProfileBucketCount = 20,
@@ -79,7 +82,8 @@ public sealed record EncoderSizeOptions(
     int TimeProfileLookbackBars = 50,
     NormalizationKind BarWindowNormalization = NormalizationKind.Normalized,
     NormalizationKind VolumeProfileNormalization = NormalizationKind.Normalized,
-    NormalizationKind TimeProfileNormalization = NormalizationKind.Normalized);
+    NormalizationKind TimeProfileNormalization = NormalizationKind.Normalized,
+    int SpreadVolatilityAtrPeriod = 14);
 
 // A runtime-built brain's exact shape -- what LoadSavedBrain needs to
 // reconstruct an identical encoder/architecture/action composition after a
@@ -128,6 +132,8 @@ internal static class BrainCatalog
                 bucketCount: sizes.VolumeProfileBucketCount, lookbackBars: sizes.VolumeProfileLookbackBars, normalization: sizes.VolumeProfileNormalization),
             EncoderKind.TimeProfile => new TimeProfileEncoder(
                 bucketCount: sizes.TimeProfileBucketCount, lookbackBars: sizes.TimeProfileLookbackBars, normalization: sizes.TimeProfileNormalization),
+            EncoderKind.SessionClock => new SessionClockEncoder(),
+            EncoderKind.SpreadVolatility => new SpreadVolatilityEncoder(atrPeriod: sizes.SpreadVolatilityAtrPeriod),
             _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
         };
     }

@@ -236,7 +236,8 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   `NormalizationKind` enums + factory methods) the Train page's Build Brain
   panel selects from to turn a picked encoder/architecture/normalization
   combination into real `IObservationEncoder`/`INetworkArchitecture` instances.
-  `EncoderKind` (`BarWindow`/`VolumeProfile`/`TimeProfile`) picks *which* set;
+  `EncoderKind` (`BarWindow`/`VolumeProfile`/`TimeProfile`/`SessionClock`/
+  `SpreadVolatility`) picks *which* set;
   `NormalizationKind` (`Normalized`/`Raw`, see `EncoderSizeOptions`) is an
   orthogonal per-set build option, not a separate `EncoderKind` value -- a
   future normalization strategy is a new `NormalizationKind` case handled
@@ -598,9 +599,12 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   `Brain/Neural/BrainCatalog.cs`
 - **`EncoderSizeOptions`** — `{ BarWindowSize, VolumeProfileBucketCount,
   TimeProfileBucketCount, VolumeProfileLookbackBars, TimeProfileLookbackBars,
-  BarWindowNormalization, VolumeProfileNormalization, TimeProfileNormalization }`
+  BarWindowNormalization, VolumeProfileNormalization, TimeProfileNormalization,
+  SpreadVolatilityAtrPeriod }`
   (bucket/window sizes default 20, lookbacks default 50, normalizations default
-  `NormalizationKind.Normalized`): every pickable set's build-time options, set
+  `NormalizationKind.Normalized`, `SpreadVolatilityAtrPeriod` defaults to 14 --
+  `SessionClockEncoder` has no size option at all, its shape is fixed): every
+  pickable set's build-time options, set
   in the Build Brain panel's Input table (one row per set -- Any input set /
   Normalization / Window / Bucket, see `BrainBuilder`'s doc comment) and shown
   live via `TrainPage`'s `TotalInputCount`. `BucketCount`/`WindowSize` directly
@@ -693,7 +697,12 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   `TraderStateEncoder` emits `position`
   (`DirectionNormalizer`), `position-price`/`position-distance`/`current-price`
   (`RawPriceNormalizer`), `position-ticks`/`cash`/`realized`/`unrealized`/
-  `equity`/`margin`/`margin-level`/`position-count` (`RawValueNormalizer`).
+  `equity`/`margin`/`margin-level`/`position-count` (`RawValueNormalizer`);
+  `SessionClockEncoder` emits `session-tod-sin`/`session-tod-cos`/
+  `session-dow-sin`/`session-dow-cos` (`RawValueNormalizer` -- already bounded
+  `[-1,1]`, no scaling needed), fixed regardless of `EncoderSizeOptions`;
+  `SpreadVolatilityEncoder` emits `spread`/`atr` (`RawPriceNormalizer`, same
+  price-scaled passthrough as `TraderStateEncoder`'s `current-price`).
   The caller resolves `BrainIoPanel`'s `CurrentPrice`/`Equity` anchors before
   handing them in -- `TrainLiveTab`'s `DisplayedCurrentPrice`/`DisplayedEquity`
   stand in for a live `SimulationObservation`'s anchors (a historical replay bar,
@@ -703,6 +712,8 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   `Brain/Neural/Encoders/BarWindowEncoder.cs`,
   `Brain/Neural/Encoders/VolumeProfileEncoder.cs`,
   `Brain/Neural/Encoders/TimeProfileEncoder.cs`,
+  `Brain/Neural/Encoders/SessionClockEncoder.cs`,
+  `Brain/Neural/Encoders/SpreadVolatilityEncoder.cs`,
   `Brain/Neural/Encoders/TraderStateEncoder.cs`
 - **`RlOutputFeature`** — One choice's probability out of one output head's full
   distribution for one decision, mirroring `RlInputFeature` but for what the
@@ -835,14 +846,20 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   Structure/Actions/Action Decoding cards + Create Brain button), split
   out of `TrainPage` so its own encoder/architecture/action state lives with the
   markup that edits it. The Input card is an input-set table -- one row each for
-  Bar Window/Volume Profile/Time Profile/Trader State, columns Any input set
+  Bar Window/Volume Profile/Time Profile/Session Clock/Spread + Volatility/
+  Trader State, columns Any input set
   (checkbox) / Normalization (`NormalizationKind`: Normalized vs Raw, see
   `EncoderSizeOptions`' doc comment) / Window (bar count -- Bar Window's fixed
-  window or Volume/Time Profile's independent lookback) / Bucket (histogram
-  bucket count, Volume/Time Profile only). Every row's controls stay mounted
+  window, Volume/Time Profile's independent lookback, or Spread + Volatility's
+  ATR period) / Bucket (histogram bucket count, Volume/Time Profile only).
+  Every row's controls stay mounted
   and just go `disabled` when unchecked, so the table's shape never jumps as
   sets toggle; cells that don't apply to a set (Bar Window's Bucket, Trader
-  State's Window/Bucket) show a plain "—" instead. Trader State stays a fixed
+  State's Window/Bucket, Session Clock's/Spread + Volatility's Normalization,
+  Session Clock's Window) show a plain "—" instead -- neither Session Clock
+  nor Spread + Volatility has a Raw/Normalized choice, since neither has an
+  alternative representation of its already-scale-free (sin/cos) or already
+  price-scaled (spread/ATR) values. Trader State stays a fixed
   always-on row with a disabled, non-configurable Normalization cell (every
   field is fed to the network exactly as reported -- may become selectable in
   the future). `Visible` is a plain `[Parameter]` rather than an `@if`

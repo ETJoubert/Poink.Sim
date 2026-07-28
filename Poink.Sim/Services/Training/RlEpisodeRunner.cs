@@ -259,7 +259,7 @@ internal static class RlEpisodeRunner
             steps[^1] = steps[^1] with { Reward = reward };
 
         var observation = new SimulationObservation(
-            timestamp, price, bars, ticks, barHistograms, capitalNow, positionNow);
+            timestamp, price, bars, ticks, barHistograms, capitalNow, positionNow, bid, ask);
 
         SimulationDecision decision;
         Tensor? logProbability = null;

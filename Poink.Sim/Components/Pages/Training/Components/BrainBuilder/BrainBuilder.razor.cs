@@ -48,6 +48,8 @@ namespace Poink.Sim.Components.Training
         private bool _includeBarWindow = true;
         private bool _includeVolumeProfile;
         private bool _includeTimeProfile;
+        private bool _includeSessionClock;
+        private bool _includeSpreadVolatility;
 
         // Normalized feeds fraction-of-total/percent-offset values (each
         // set's original convention); Raw feeds exact tick counts/seconds and
@@ -68,6 +70,7 @@ namespace Poink.Sim.Components.Training
         private int _timeProfileBucketCount = 20;
         private int _volumeProfileLookbackBars = 50;
         private int _timeProfileLookbackBars = 50;
+        private int _spreadVolatilityAtrPeriod = 14;
 
         private ArchitectureKind _architectureKind = ArchitectureKind.Mlp;
 
@@ -181,13 +184,14 @@ namespace Poink.Sim.Components.Training
         // only failing after a click.
         private bool CanCreateBrain =>
             !string.IsNullOrWhiteSpace(EffectiveBuildBrainName)
-            && (_includeBarWindow || _includeVolumeProfile || _includeTimeProfile)
+            && (_includeBarWindow || _includeVolumeProfile || _includeTimeProfile || _includeSessionClock || _includeSpreadVolatility)
             && (_includeHold || _includeEnterLong || _includeEnterShort || _includeClose)
             && (_architectureKind is not (ArchitectureKind.Lstm or ArchitectureKind.Cnn) || _includeBarWindow)
             && (_architectureKind != ArchitectureKind.Cnn || (_cnnKernelSize >= 1 && EffectiveCnnChannels.Count > 0))
             && (!_includeBarWindow || _barWindowSize >= 1)
             && (!_includeVolumeProfile || (_volumeProfileBucketCount >= 1 && _volumeProfileLookbackBars >= 1))
-            && (!_includeTimeProfile || (_timeProfileBucketCount >= 1 && _timeProfileLookbackBars >= 1));
+            && (!_includeTimeProfile || (_timeProfileBucketCount >= 1 && _timeProfileLookbackBars >= 1))
+            && (!_includeSpreadVolatility || _spreadVolatilityAtrPeriod >= 1);
 
         // Canonical part order (Bar Window before Volume Profile before Time
         // Profile) regardless of checkbox click order -- CompositeEncoder
@@ -204,6 +208,8 @@ namespace Poink.Sim.Components.Training
                 if (_includeBarWindow) kinds.Add(EncoderKind.BarWindow);
                 if (_includeVolumeProfile) kinds.Add(EncoderKind.VolumeProfile);
                 if (_includeTimeProfile) kinds.Add(EncoderKind.TimeProfile);
+                if (_includeSessionClock) kinds.Add(EncoderKind.SessionClock);
+                if (_includeSpreadVolatility) kinds.Add(EncoderKind.SpreadVolatility);
                 return kinds;
             }
         }
@@ -216,7 +222,8 @@ namespace Poink.Sim.Components.Training
             TimeProfileLookbackBars: _timeProfileLookbackBars,
             BarWindowNormalization: _barWindowNormalization,
             VolumeProfileNormalization: _volumeProfileNormalization,
-            TimeProfileNormalization: _timeProfileNormalization);
+            TimeProfileNormalization: _timeProfileNormalization,
+            SpreadVolatilityAtrPeriod: _spreadVolatilityAtrPeriod);
 
         private string VolumeProfileBucketsTooltip => _volumeProfileNormalization == NormalizationKind.Raw
             ? "How many histogram buckets Volume Profile rebins its merged bars into -- each bucket feeds price and volume under Raw, so its input count is this times 2 plus 3 summary values"
@@ -351,6 +358,8 @@ namespace Poink.Sim.Components.Training
                 if (_includeBarWindow) dataParts.Add(_barWindowNormalization == NormalizationKind.Raw ? "dBWR" : "dBW");
                 if (_includeVolumeProfile) dataParts.Add(_volumeProfileNormalization == NormalizationKind.Raw ? "dVPR" : "dVP");
                 if (_includeTimeProfile) dataParts.Add(_timeProfileNormalization == NormalizationKind.Raw ? "dTPR" : "dTP");
+                if (_includeSessionClock) dataParts.Add("dSC");
+                if (_includeSpreadVolatility) dataParts.Add("dSV");
                 dataParts.Add("dAS");
                 string data = string.Join("-", dataParts);
 

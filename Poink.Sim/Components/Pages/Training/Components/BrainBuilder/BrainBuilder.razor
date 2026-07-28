@@ -122,6 +122,34 @@
                         <tr>
                             <td>
                                 <label class="train-brainrow-field"
+                                       title="Time-of-day and day-of-week as sin/cos pairs -- captures recurring FX session structure (Sydney/Tokyo/London/New York open-close, weekend closure)">
+                                    <input type="checkbox" @bind="_includeSessionClock" disabled="@Service.IsRunning" />
+                                    Session Clock
+                                </label>
+                            </td>
+                            <td class="train-inputset-cell-na" title="Always sin/cos-encoded, already bounded -- no Raw alternative">&#8212;</td>
+                            <td class="train-inputset-cell-na" title="Derived from the current tick's own timestamp -- no history needed">&#8212;</td>
+                            <td class="train-inputset-cell-na" title="Fixed 4 values (time-of-day sin/cos, day-of-week sin/cos), no bucketing">&#8212;</td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <label class="train-brainrow-field"
+                                       title="Current Bid/Ask spread plus a short trailing Average True Range -- how expensive trading is right now, and how much price is actually moving">
+                                    <input type="checkbox" @bind="_includeSpreadVolatility" disabled="@Service.IsRunning" />
+                                    Spread + Volatility
+                                </label>
+                            </td>
+                            <td class="train-inputset-cell-na" title="Always fed as literal price-scaled values -- no Raw alternative">&#8212;</td>
+                            <td>
+                                <input class="train-brainrow-input" type="number" min="1" step="1"
+                                       @bind="_spreadVolatilityAtrPeriod" disabled="@(Service.IsRunning || !_includeSpreadVolatility)"
+                                       title="How many trailing bars the Average True Range figure averages over" />
+                            </td>
+                            <td class="train-inputset-cell-na" title="Fixed 2 values (spread, ATR), no bucketing">&#8212;</td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <label class="train-brainrow-field"
                                        title="Always included -- every brain needs to know its own position/capital regardless of market data">
                                     <input type="checkbox" checked="checked" disabled /> Trader State
                                 </label>
