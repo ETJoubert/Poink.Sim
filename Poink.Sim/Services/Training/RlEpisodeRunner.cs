@@ -98,6 +98,13 @@ internal static class RlEpisodeRunner
         var allBarInputs = new List<IReadOnlyList<RlInputFeature>>();
         var allBarEquity = new List<double>();
 
+        // Index-aligned 1:1 with allBarInputs/allBarEquity/allBarOutputs (same
+        // WarmupBars offset), but populated for every brain -- action taken plus
+        // whatever position was open right after it, unlike those three which are
+        // IPolicyGradientBrain-only. Feeds the Train page's episode replay action
+        // markers and current-position SL/TP lines (see RlBarAction's doc comment).
+        var allBarActions = new List<RlBarAction>();
+
         // Index-aligned 1:1 with allBarInputs -- the same decision's full
         // output distribution (see RlOutputFeature's doc comment), captured
         // straight from RecordStep's own DecideWithLogProbability call rather
@@ -111,6 +118,7 @@ internal static class RlEpisodeRunner
         // Trader state before its first tick (see Trader's constructor).
         CapitalState previousCapital = new(startingCash, 0, 0, 0, null);
         Position? previousPosition = null;
+        Position? positionAfterDecision = null;
         int completedBars = 0;
         int warmupRemaining = warmupBars;
         SimulationObservation? lastObservation = null;
@@ -165,10 +173,30 @@ internal static class RlEpisodeRunner
                     // sizing, which fetches enough extra ticks up front to cover this).
                     if (warmupRemaining > 0) { warmupRemaining--; continue; }
 
-                    (previousCapital, lastObservation, lastOutputs) = RecordStep(
+                    (previousCapital, lastObservation, lastOutputs, positionAfterDecision) = RecordStep(
                         brain, trader, tick.Timestamp, completed.Value.Bar.Close, tick.Bid, tick.Ask, maintenance.Capital,
                         recentBars, Array.Empty<Tick>(), recentBarHistograms, steps, previousCapital, previousPosition, effectiveRewardPolicy);
+                    // The observation's own Position is captured BEFORE this decision's
+                    // Apply (see RecordStep) -- exactly "was a position already open when
+                    // this decision was made". positionAfterDecision (captured post-Apply,
+                    // above) is the one that should drive the chart's entry/SL/TP overlay --
+                    // using the pre-Apply position there would lag one bar behind on the
+                    // exact bar a position opens/closes.
                     previousPosition = lastObservation.Value.Position;
+                    // Mirrors Trader.Apply's own no-op guards exactly: EnterLong/EnterShort
+                    // no-ops (via Trader.EnterOrQueue) if a position was already open;
+                    // Close no-ops (falls through to CancelPendingOrder instead of Close)
+                    // if there was no position open to close.
+                    bool blocked = steps[^1].Action switch
+                    {
+                        SimulationAction.EnterLong or SimulationAction.EnterShort => previousPosition is not null,
+                        SimulationAction.Close => previousPosition is null,
+                        _ => false,
+                    };
+                    allBarActions.Add(new RlBarAction(
+                        steps[^1].Action, positionAfterDecision?.EntryPrice,
+                        positionAfterDecision is { } p ? p.Direction == PositionDirection.Long : null,
+                        positionAfterDecision?.StopLossPrice, positionAfterDecision?.TakeProfitPrice, blocked));
                     if (describableBrain is not null)
                     {
                         allBarInputs.Add(describableBrain.DescribeInputs(lastObservation.Value));
@@ -188,7 +216,7 @@ internal static class RlEpisodeRunner
                 // rather than bars since this branch has no bar aggregator.
                 if (warmupRemaining > 0) { warmupRemaining--; continue; }
 
-                (previousCapital, lastObservation, lastOutputs) = RecordStep(
+                (previousCapital, lastObservation, lastOutputs, positionAfterDecision) = RecordStep(
                     brain, trader, tick.Timestamp, price, tick.Bid, tick.Ask, maintenance.Capital,
                     Array.Empty<HlocAvdtBar>(), recentTicks, Array.Empty<BarPriceHistogram>(), steps, previousCapital, previousPosition, effectiveRewardPolicy);
                 previousPosition = lastObservation.Value.Position;
@@ -228,16 +256,18 @@ internal static class RlEpisodeRunner
 
         return new RlEpisode(
             steps, trader.Snapshot(lastBid, lastAsk), lastInputs, lastOutputs, trader.TradeLog, trader.MaxEquity, trader.MaxDrawdown,
-            windowStart, windowEnd, allBars, allBarHistograms, allBarInputs, allBarEquity, allBarOutputs, actualWarmupBars);
+            windowStart, windowEnd, allBars, allBarHistograms, allBarInputs, allBarEquity, allBarOutputs, actualWarmupBars, allBarActions);
     }
 
     // Returns the post-decision capital snapshot (threaded in as the next call's
     // previousCapital), the observation this step decided from (so the caller can
     // describe the episode's final inputs once the loop ends, and derive the next
-    // call's previousPosition), and -- only for an IPolicyGradientBrain -- that
-    // decision's full output distribution (null otherwise). capitalNow is this
-    // tick's already-computed Advance result, so Trader.Snapshot isn't called twice.
-    private static (CapitalState Capital, SimulationObservation Observation, IReadOnlyList<RlOutputFeature>? Outputs) RecordStep(
+    // call's previousPosition), -- only for an IPolicyGradientBrain -- that
+    // decision's full output distribution (null otherwise), and the position left
+    // open once Apply has run (null while flat) -- distinct from Observation.Position,
+    // which is captured BEFORE Apply (see RlEpisodeRunner.Run's blockedByOpenPosition
+    // check, which needs exactly that pre-Apply value instead).
+    private static (CapitalState Capital, SimulationObservation Observation, IReadOnlyList<RlOutputFeature>? Outputs, Position? PositionAfter) RecordStep(
         ISimulationBrain brain, Trader.ITrader trader, DateTime timestamp, double price, double bid, double ask, CapitalState capitalNow,
         IReadOnlyList<HlocAvdtBar> bars, IReadOnlyList<Tick> ticks, IReadOnlyList<BarPriceHistogram> barHistograms,
         List<RlStep> steps, CapitalState previousCapital, Position? previousPosition, IRewardPolicy rewardPolicy)
@@ -286,6 +316,6 @@ internal static class RlEpisodeRunner
         // step, Run drops it instead of training on that placeholder. Entropy, unlike
         // Reward, is final as recorded -- see RlStep's doc comment.
         steps.Add(new RlStep(decision.Action, logProbability, 0.0, entropy));
-        return (capitalAfter, observation, outputs);
+        return (capitalAfter, observation, outputs, trader.CurrentPosition);
     }
 }

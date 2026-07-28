@@ -81,7 +81,8 @@ namespace Poink.Sim.Components.Training
             IReadOnlyList<RlOutputFeature>? LatestOutputs,
             IReadOnlyList<double> LatestEpisodeBarEquity,
             IReadOnlyList<IReadOnlyList<RlInputFeature>> LatestEpisodeBarInputs,
-            IReadOnlyList<IReadOnlyList<RlOutputFeature>> LatestEpisodeBarOutputs);
+            IReadOnlyList<IReadOnlyList<RlOutputFeature>> LatestEpisodeBarOutputs,
+            IReadOnlyList<RlBarAction> LatestEpisodeBarActions);
 
         private void ToggleLiveFeedback()
         {
@@ -96,7 +97,8 @@ namespace Poink.Sim.Components.Training
                 Service.RecentEpisodes, Service.RecentEpisodeTrades, Service.ActionCounts,
                 Service.LatestEpisodeBars, Service.LatestEpisodeBarHistograms, Service.LatestEpisodeWarmupBars,
                 Service.LatestEpisodeTrades, Service.LatestInputs, Service.LatestOutputs,
-                Service.LatestEpisodeBarEquity, Service.LatestEpisodeBarInputs, Service.LatestEpisodeBarOutputs);
+                Service.LatestEpisodeBarEquity, Service.LatestEpisodeBarInputs, Service.LatestEpisodeBarOutputs,
+                Service.LatestEpisodeBarActions);
             _liveFeedbackPaused = true;
         }
 
@@ -113,6 +115,7 @@ namespace Poink.Sim.Components.Training
         private IReadOnlyList<double> SourceEpisodeBarEquity => _liveFeedbackSnapshot?.LatestEpisodeBarEquity ?? Service.LatestEpisodeBarEquity;
         private IReadOnlyList<IReadOnlyList<RlInputFeature>> SourceEpisodeBarInputs => _liveFeedbackSnapshot?.LatestEpisodeBarInputs ?? Service.LatestEpisodeBarInputs;
         private IReadOnlyList<IReadOnlyList<RlOutputFeature>> SourceEpisodeBarOutputs => _liveFeedbackSnapshot?.LatestEpisodeBarOutputs ?? Service.LatestEpisodeBarOutputs;
+        private IReadOnlyList<RlBarAction> SourceEpisodeBarActions => _liveFeedbackSnapshot?.LatestEpisodeBarActions ?? Service.LatestEpisodeBarActions;
 
         // ── Current episode: bar chart + volume/price profiles ──
         // Same mapping SimulationPage.ToBarRows uses for its live OhlcvChart --
@@ -166,6 +169,7 @@ namespace Poink.Sim.Components.Training
         private List<IReadOnlyList<RlInputFeature>>? _replayBarInputs;
         private List<double>? _replayBarEquity;
         private List<IReadOnlyList<RlOutputFeature>>? _replayBarOutputs;
+        private List<RlBarAction>? _replayBarActions;
 
         // How many of _replayBars' leading entries are warm-up (no decision) --
         // snapshotted at Play alongside the other _replay* fields so a paused/
@@ -192,27 +196,94 @@ namespace Poink.Sim.Components.Training
         private List<CTraderBarRow> DisplayedEpisodeBars =>
             _replayBars is not null ? _replayBars.Take(_revealedBarCount).ToList() : EpisodeBarRows;
 
-        // Closed trades whose exit has been "revealed" yet -- entry-to-exit
-        // diagonal lines, colored by realized P&L sign (see the win/loss groups
-        // added to drawableOhlcvChart.js's groupColors for this).
-        private List<ChartDiagonalLine> DisplayedTradeLines
+        // Closed trades whose exit has been "revealed" yet -- the frozen replay
+        // snapshot up to _revealedBarCount, or every closed trade so far for the
+        // live/idle episode (nothing left to reveal). Feeds both DisplayedTradeLines
+        // (entry-to-exit chart lines) and DisplayedTraderStats (live trader-stats
+        // readout next to the playback controls) below.
+        private List<Trade> DisplayedRevealedTrades
         {
             get
             {
                 var trades = _replayBars is not null ? _replayTrades ?? new List<Trade>() : SourceEpisodeTrades;
-                if (trades.Count == 0) return new List<ChartDiagonalLine>();
+                if (trades.Count == 0) return new List<Trade>();
 
                 var visibleUntil = _replayBars is null
                     ? DateTime.MaxValue
                     : _revealedBarCount > 0 ? _replayBars[_revealedBarCount - 1].TimeUtc : DateTime.MinValue;
 
-                return trades
-                    .Where(t => t.ExitTime <= visibleUntil)
-                    .Select(t => new ChartDiagonalLine(
-                        t.EntryTime, t.EntryPrice, t.ExitTime, t.ExitPrice, ColorGroup: t.RealizedPnl >= 0 ? "win" : "loss"))
-                    .ToList();
+                return trades.Where(t => t.ExitTime <= visibleUntil).ToList();
             }
         }
+
+        // Entry-to-exit diagonal lines for DisplayedRevealedTrades, colored by
+        // realized P&L sign (see the win/loss groups added to drawableOhlcvChart.js's
+        // groupColors for this).
+        private List<ChartDiagonalLine> DisplayedTradeLines =>
+            DisplayedRevealedTrades
+                .Select(t => new ChartDiagonalLine(
+                    t.EntryTime, t.EntryPrice, t.ExitTime, t.ExitPrice, ColorGroup: t.RealizedPnl >= 0 ? "win" : "loss"))
+                .ToList();
+
+        // Same WinCount/LossCount/BuyCount/SellCount TradeStatistics.From already
+        // computes for the TRADER/SESSION tabs below (see EpisodeTraderStatsRows),
+        // "replicated" here scoped to only DisplayedRevealedTrades so this readout
+        // updates in step with the replay instead of only ever showing the finished
+        // episode's totals. MaxEquity/MaxDrawdown aren't meaningful for a partial
+        // reveal (Trader tracks those over the whole episode, not derivable from just
+        // the trades revealed so far), so 0/0 is passed and those two fields go
+        // unused by this readout (DisplayedEquity covers the live equity number).
+        private TradeStatistics DisplayedTraderStats => TradeStatistics.From(DisplayedRevealedTrades, 0, 0);
+
+        // "Dud" decisions revealed so far (see RlBarAction.Blocked) -- same
+        // revealed-so-far scoping as DisplayedActionMarkers' decision half (walks
+        // DisplayedBarActionsSource up to however many decision bars DisplayedEpisodeBars
+        // has revealed), split by attempted action so the live readout matches what
+        // the ✗L/✗S/✗C chart markers are showing.
+        private (int Longs, int Shorts, int Closes) DisplayedBlockedCounts
+        {
+            get
+            {
+                var bars = DisplayedEpisodeBars;
+                var actions = DisplayedBarActionsSource;
+                int warmupBars = DisplayedWarmupBars;
+                if (actions.Count == 0 || bars.Count <= warmupBars) return (0, 0, 0);
+
+                int revealedDecisions = Math.Min(actions.Count, bars.Count - warmupBars);
+                int longs = 0, shorts = 0, closes = 0;
+                for (int i = 0; i < revealedDecisions; i++)
+                {
+                    if (!actions[i].Blocked) continue;
+                    if (actions[i].Action == SimulationAction.EnterLong) longs++;
+                    else if (actions[i].Action == SimulationAction.EnterShort) shorts++;
+                    else if (actions[i].Action == SimulationAction.Close) closes++;
+                }
+                return (longs, shorts, closes);
+            }
+        }
+
+        // Label/colour for whichever action was taken/is being replayed on the
+        // currently-displayed bar (see DisplayedBarAction below, defined further
+        // down) -- reuses the ACTION DISTRIBUTION panel's own hold/long/short/close
+        // colour classes so the same action always reads the same colour everywhere
+        // on this page. "—" / no colour while flat or before the first decision.
+        private static string DecisionLabel(SimulationAction? action) => action switch
+        {
+            SimulationAction.Hold => "HOLD",
+            SimulationAction.EnterLong => "LONG",
+            SimulationAction.EnterShort => "SHORT",
+            SimulationAction.Close => "CLOSE",
+            _ => "—",
+        };
+
+        private static string DecisionClass(SimulationAction? action) => action switch
+        {
+            SimulationAction.Hold => "action-dist-hold",
+            SimulationAction.EnterLong => "action-dist-long",
+            SimulationAction.EnterShort => "action-dist-short",
+            SimulationAction.Close => "action-dist-close",
+            _ => "",
+        };
 
         // How many of DisplayedEpisodeBars' leading entries are warm-up (no
         // decision) -- the replay's own frozen snapshot while one's loaded
@@ -297,6 +368,158 @@ namespace Poink.Sim.Components.Training
             }
         }
 
+        // BarActions source for whichever bars are currently displayed -- the frozen
+        // replay snapshot while one's loaded, else whatever the live/idle episode's is
+        // (see SourceEpisodeBarActions), same split as DisplayedTradeLines above.
+        private IReadOnlyList<RlBarAction> DisplayedBarActionsSource =>
+            _replayBars is not null ? (_replayBarActions ?? new List<RlBarAction>()) : SourceEpisodeBarActions;
+
+        // Maps a decision bar to how it should mark the chart -- Hold isn't included
+        // (it's the majority of decision bars for any brain that isn't trading
+        // constantly, so marking it would just be visual noise); EnterLong/
+        // EnterShort/Close each get a distinct shape+colour+short label. 'win'/'loss'
+        // colour groups are reused here for direction (green=long, red=short) rather
+        // than trade outcome, same red/green association DisplayedTradeLines already
+        // uses for realized P&L.
+        //
+        // Blocked (a "dud" -- the decision picked a direction/close but Trader.Apply
+        // silently no-op'd it, see RlBarAction's doc comment) overrides the normal
+        // styling for EnterLong/EnterShort/Close with its own: EnterLong/EnterShort
+        // keep their direction colouring but switch to 'circle' (not 'arrowUp'/
+        // 'arrowDown', which would misleadingly read as a real entry); a blocked
+        // Close gets its own 'shapes' (warning/amber) colour, distinct from a real
+        // Close's neutral 'charts' accent, since it has no long/short direction to
+        // colour by. All three carry an "✗" glyph baked into the text, since this
+        // vendored lightweight-charts build has no built-in X/cross marker shape to
+        // draw a literal red/green/amber X with.
+        private static (string Shape, string ColorGroup, string Text)? ActionMarkerStyle(RlBarAction barAction)
+        {
+            if (barAction.Blocked)
+            {
+                return barAction.Action switch
+                {
+                    SimulationAction.EnterLong => ("circle", "win", "✗L"),
+                    SimulationAction.EnterShort => ("circle", "loss", "✗S"),
+                    SimulationAction.Close => ("circle", "shapes", "✗C"),
+                    _ => null,
+                };
+            }
+
+            return barAction.Action switch
+            {
+                SimulationAction.EnterLong => ("arrowUp", "win", "L"),
+                SimulationAction.EnterShort => ("arrowDown", "loss", "S"),
+                SimulationAction.Close => ("circle", "charts", "C"),
+                _ => null,
+            };
+        }
+
+        // Automatic SL/TP-hit closes never produce a decision-level Close (see
+        // ActionMarkerStyle above) -- Trader.Advance fires them itself, mid-tick,
+        // independent of the brain's own decision for whatever bar they land in
+        // (which is typically still Hold) -- so they need their own marker, sourced
+        // from the closed Trade's CloseReason rather than RlBarAction. Manual/StopOut
+        // aren't marked here: Manual is already covered by ActionMarkerStyle's Close
+        // marker at the same bar; StopOut is out of scope for this readout (see
+        // TradeStatistics, which also only tracks SL/TP hits, not stop-outs).
+        // 'square' keeps these visually distinct from the arrowUp/arrowDown/circle
+        // shapes entries/manual closes use.
+        private static (string Shape, string ColorGroup, string Text)? CloseReasonMarkerStyle(TradeCloseReason reason) => reason switch
+        {
+            TradeCloseReason.StopLoss => ("square", "loss", "SL"),
+            TradeCloseReason.TakeProfit => ("square", "win", "TP"),
+            _ => null,
+        };
+
+        // The last bar in `bars` (ascending order) still open when timeUtc's tick
+        // happened -- i.e. the bar timeUtc falls inside. Trade.ExitTime is an exact
+        // tick timestamp, essentially never equal to a bar's own OpenTime, but
+        // lightweight-charts' native series-markers plugin only resolves a marker
+        // placed on a time matching one of the series' actual data points (unlike
+        // the diagonal-line primitive above, which interpolates continuously via
+        // timeToCoordinate) -- so a marker needs snapping to its containing bar to
+        // render at all. Null only if timeUtc is before every bar (shouldn't happen
+        // for a trade that closed within this episode's own bars).
+        private static DateTime? BarTimeContaining(IReadOnlyList<CTraderBarRow> bars, DateTime timeUtc)
+        {
+            DateTime? match = null;
+            foreach (var b in bars)
+            {
+                if (b.TimeUtc > timeUtc) break;
+                match = b.TimeUtc;
+            }
+            return match;
+        }
+
+        // One marker per EnterLong/EnterShort/Close decision bar currently revealed,
+        // plus one per revealed SL/TP-hit trade exit (see CloseReasonMarkerStyle) --
+        // walks DisplayedEpisodeBars from where decisions start (DisplayedWarmupBars)
+        // so the decision half naturally stops growing mid-replay at whatever's been
+        // revealed so far (DisplayedEpisodeBars itself is already truncated to
+        // _revealedBarCount, see that property), same offset pairing
+        // DisplayedWarmupBoundary/DisplayedInputs use; the SL/TP half reuses
+        // DisplayedRevealedTrades, so it's revealed in step with the same trades
+        // DisplayedTradeLines/DisplayedTraderStats already use.
+        private List<ChartMarker> DisplayedActionMarkers
+        {
+            get
+            {
+                var bars = DisplayedEpisodeBars;
+                var actions = DisplayedBarActionsSource;
+                int warmupBars = DisplayedWarmupBars;
+
+                var markers = new List<ChartMarker>();
+                if (actions.Count > 0 && bars.Count > warmupBars)
+                {
+                    for (int i = warmupBars; i < bars.Count; i++)
+                    {
+                        int decisionIndex = i - warmupBars;
+                        if (decisionIndex >= actions.Count) break;
+                        if (ActionMarkerStyle(actions[decisionIndex]) is not { } style) continue;
+                        markers.Add(new ChartMarker(bars[i].TimeUtc, style.Shape, style.ColorGroup, style.Text));
+                    }
+                }
+
+                foreach (var trade in DisplayedRevealedTrades)
+                {
+                    if (CloseReasonMarkerStyle(trade.CloseReason) is not { } style) continue;
+                    if (BarTimeContaining(bars, trade.ExitTime) is not { } barTime) continue;
+                    markers.Add(new ChartMarker(barTime, style.Shape, style.ColorGroup, style.Text));
+                }
+
+                return markers;
+            }
+        }
+
+        // Whatever position was open as of the currently-displayed bar -- the frozen
+        // replay's own decision point (DisplayedDecisionIndex, negative/out-of-range
+        // while still in warm-up or replay hasn't started) while replaying, else the
+        // live/idle episode's very last decision (same "last one" fallback DisplayedInputs
+        // uses). Null (all fields default) while flat or no decision exists yet.
+        private RlBarAction? DisplayedBarAction
+        {
+            get
+            {
+                if (_replayBars is null)
+                {
+                    var actions = SourceEpisodeBarActions;
+                    return actions.Count > 0 ? actions[^1] : null;
+                }
+                if (_replayBarActions is null) return null;
+                int i = DisplayedDecisionIndex;
+                return i >= 0 && i < _replayBarActions.Count ? _replayBarActions[i] : null;
+            }
+        }
+
+        // Feeds DrawableOhlcvChart's own live-position overlay (entry/SL/TP price
+        // lines, see SimulationPage's identical usage) -- each null independently
+        // hides just that one line, so a flat DisplayedBarAction (or none yet) simply
+        // shows nothing rather than needing its own empty-state handling here.
+        private double? DisplayedEntryPrice => DisplayedBarAction?.EntryPrice;
+        private bool? DisplayedPositionIsLong => DisplayedBarAction?.PositionIsLong;
+        private double? DisplayedStopLossPrice => DisplayedBarAction?.StopLossPrice;
+        private double? DisplayedTakeProfitPrice => DisplayedBarAction?.TakeProfitPrice;
+
         // The currently-displayed bar's own close -- BarWindowEncoder/
         // VolumeProfileEncoder both compute their price-window/offset features
         // as percent-change-from-current-price, and that "current price" is
@@ -353,6 +576,7 @@ namespace Poink.Sim.Components.Training
             _replayBarInputs = SourceEpisodeBarInputs.ToList();
             _replayBarEquity = SourceEpisodeBarEquity.ToList();
             _replayBarOutputs = SourceEpisodeBarOutputs.ToList();
+            _replayBarActions = SourceEpisodeBarActions.ToList();
             _replayWarmupBars = SourceEpisodeWarmupBars;
             _revealedBarCount = 0;
             _isReplaying = true;
@@ -378,6 +602,7 @@ namespace Poink.Sim.Components.Training
             _replayBarInputs = null;
             _replayBarEquity = null;
             _replayBarOutputs = null;
+            _replayBarActions = null;
             _replayWarmupBars = 0;
             _revealedBarCount = 0;
         }
@@ -514,15 +739,26 @@ namespace Poink.Sim.Components.Training
             string Episode, int Won, int Lost, double BiggestWin, double BiggestLoss,
             double AverageWin, double AverageLoss, int Buys, int Sells,
             string TimeInMarket, string TimeInLong, string TimeInShort,
-            double MaxEquity, double MaxDrawdown, int LongestWinStreak, int LongestLossStreak);
+            double MaxEquity, double MaxDrawdown, int LongestWinStreak, int LongestLossStreak,
+            int SlHits, double SlEquity, int TpHits, double TpEquity,
+            int BlockedLongs, int BlockedShorts, int BlockedCloses);
 
         private static string TimeSpanStr(TimeSpan ts) => ts.ToString(@"d\.hh\:mm\:ss");
 
-        private static TraderStatsRow ToTraderStatsRow(string episodeLabel, TradeStatistics s) => new(
+        // blockedLongs/blockedShorts/blockedCloses aren't part of TradeStatistics -- a
+        // blocked (dud) decision never produces a Trade at all (Trader.Apply silently
+        // no-ops it), so there's nothing for TradeStatistics.From to read them off of;
+        // they come from RlEpisodeTrades.BlockedLongs/BlockedShorts/BlockedCloses
+        // instead (see that record's doc comment), passed in alongside whichever
+        // TradeStatistics this row is otherwise built from.
+        private static TraderStatsRow ToTraderStatsRow(
+            string episodeLabel, TradeStatistics s, int blockedLongs, int blockedShorts, int blockedCloses) => new(
             episodeLabel, s.WinCount, s.LossCount, s.BiggestWin, s.BiggestLoss,
             s.AverageWin, s.AverageLoss, s.BuyCount, s.SellCount,
             TimeSpanStr(s.TimeInMarket), TimeSpanStr(s.TimeInLong), TimeSpanStr(s.TimeInShort),
-            s.MaxEquity, s.MaxDrawdown, s.LongestWinStreak, s.LongestLossStreak);
+            s.MaxEquity, s.MaxDrawdown, s.LongestWinStreak, s.LongestLossStreak,
+            s.StopLossHitCount, s.StopLossPnl, s.TakeProfitHitCount, s.TakeProfitPnl,
+            blockedLongs, blockedShorts, blockedCloses);
 
         // Returns the copied DataTable's own scoped color classes (its CSS is isolated to
         // that component). MaxDrawdown/Lost/LongestLossStreak are magnitudes that are never
@@ -539,6 +775,11 @@ namespace Poink.Sim.Components.Training
             nameof(TraderStatsRow.MaxDrawdown) => item.MaxDrawdown > 0 ? "data-table-value-negative" : "",
             nameof(TraderStatsRow.LongestWinStreak) => item.LongestWinStreak > 0 ? "data-table-value-positive" : "",
             nameof(TraderStatsRow.LongestLossStreak) => item.LongestLossStreak > 0 ? "data-table-value-negative" : "",
+            nameof(TraderStatsRow.SlEquity) => DataTablePnlClass(item.SlEquity),
+            nameof(TraderStatsRow.TpEquity) => DataTablePnlClass(item.TpEquity),
+            nameof(TraderStatsRow.BlockedLongs) => item.BlockedLongs > 0 ? "data-table-value-negative" : "",
+            nameof(TraderStatsRow.BlockedShorts) => item.BlockedShorts > 0 ? "data-table-value-negative" : "",
+            nameof(TraderStatsRow.BlockedCloses) => item.BlockedCloses > 0 ? "data-table-value-negative" : "",
             _ => "",
         };
 
@@ -556,7 +797,7 @@ namespace Poink.Sim.Components.Training
             SourceRecentEpisodeTrades
                 .Select(e => ToTraderStatsRow(
                     e.EpisodeNumber.ToString(CultureInfo.InvariantCulture),
-                    TradeStatistics.From(e.Trades, e.MaxEquity, e.MaxDrawdown)))
+                    TradeStatistics.From(e.Trades, e.MaxEquity, e.MaxDrawdown), e.BlockedLongs, e.BlockedShorts, e.BlockedCloses))
                 .Reverse()
                 .ToList();
 
@@ -576,7 +817,11 @@ namespace Poink.Sim.Components.Training
 
                 var trades = episodes.SelectMany(e => e.Trades).ToList();
                 var stats = TradeStatistics.From(trades, episodes.Max(e => e.MaxEquity), episodes.Max(e => e.MaxDrawdown));
-                return new List<TraderStatsRow> { ToTraderStatsRow($"{episodes.Count} episodes", stats) };
+                return new List<TraderStatsRow>
+                {
+                    ToTraderStatsRow($"{episodes.Count} episodes", stats,
+                        episodes.Sum(e => e.BlockedLongs), episodes.Sum(e => e.BlockedShorts), episodes.Sum(e => e.BlockedCloses)),
+                };
             }
         }
     }

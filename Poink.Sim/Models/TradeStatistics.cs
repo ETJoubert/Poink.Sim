@@ -32,12 +32,24 @@ internal sealed class TradeStatistics
     public int LongestWinStreak { get; }
     public int LongestLossStreak { get; }
 
+    // How many closed trades ended via an automatic SL/TP hit (see
+    // TradeCloseReason), plus the net equity those hits produced -- kept
+    // separate from BiggestWin/AverageWin etc. above, which are keyed on
+    // RealizedPnl sign, not on why the trade closed. A trade closed manually
+    // right at a level that happens to match its SL/TP price isn't counted
+    // here -- only Trader.Advance's own automatic breach check sets CloseReason.
+    public int StopLossHitCount { get; }
+    public double StopLossPnl { get; }
+    public int TakeProfitHitCount { get; }
+    public double TakeProfitPnl { get; }
+
     private TradeStatistics(
         int winCount, int lossCount, double biggestWin, double biggestLoss,
         double averageWin, double averageLoss, double totalCommission, int buyCount, int sellCount,
         TimeSpan timeInMarket, TimeSpan timeInLong, TimeSpan timeInShort,
         TimeSpan averageTimeInLong, TimeSpan averageTimeInShort,
-        double maxEquity, double maxDrawdown, int longestWinStreak, int longestLossStreak)
+        double maxEquity, double maxDrawdown, int longestWinStreak, int longestLossStreak,
+        int stopLossHitCount, double stopLossPnl, int takeProfitHitCount, double takeProfitPnl)
     {
         WinCount = winCount;
         LossCount = lossCount;
@@ -57,6 +69,10 @@ internal sealed class TradeStatistics
         MaxDrawdown = maxDrawdown;
         LongestWinStreak = longestWinStreak;
         LongestLossStreak = longestLossStreak;
+        StopLossHitCount = stopLossHitCount;
+        StopLossPnl = stopLossPnl;
+        TakeProfitHitCount = takeProfitHitCount;
+        TakeProfitPnl = takeProfitPnl;
     }
 
     public static TradeStatistics From(IReadOnlyList<Trade> trades, double maxEquity, double maxDrawdown)
@@ -65,6 +81,8 @@ internal sealed class TradeStatistics
         var losses = trades.Where(t => t.RealizedPnl < 0).ToList();
         var longs = trades.Where(t => t.Direction == PositionDirection.Long).ToList();
         var shorts = trades.Where(t => t.Direction == PositionDirection.Short).ToList();
+        var stopLossHits = trades.Where(t => t.CloseReason == TradeCloseReason.StopLoss).ToList();
+        var takeProfitHits = trades.Where(t => t.CloseReason == TradeCloseReason.TakeProfit).ToList();
 
         int longestWin = 0, longestLoss = 0, curWin = 0, curLoss = 0;
         foreach (var t in trades)
@@ -95,11 +113,25 @@ internal sealed class TradeStatistics
             Sum(trades), Sum(longs), Sum(shorts),
             Average(longs), Average(shorts),
             maxEquity, maxDrawdown,
-            longestWin, longestLoss);
+            longestWin, longestLoss,
+            stopLossHits.Count, stopLossHits.Sum(t => t.RealizedPnl),
+            takeProfitHits.Count, takeProfitHits.Sum(t => t.RealizedPnl));
     }
 
     private static string Money(double v) => v.ToString("N2");
     private static string TimeSpanStr(TimeSpan ts) => ts.ToString(@"d\.hh\:mm\:ss");
+
+    // Unlike BiggestWin/BiggestLoss (whose sign is guaranteed by construction --
+    // one's a max of wins, the other a min of losses), StopLossPnl/TakeProfitPnl
+    // sum whatever RealizedPnl those hits actually produced, which commission or
+    // slippage-at-the-trigger-price could in principle push either way -- so
+    // their emphasis is read off the actual value instead of assumed.
+    private static StatEmphasis EmphasisFor(double v) => v switch
+    {
+        > 0 => StatEmphasis.Positive,
+        < 0 => StatEmphasis.Negative,
+        _ => StatEmphasis.None,
+    };
 
     // Categorized view of the metrics above -- StatisticsPanel renders one
     // labeled section per group instead of a single flat table.
@@ -118,6 +150,13 @@ internal sealed class TradeStatistics
         {
             new StatItem("Buys (long entries)", BuyCount.ToString("N0")),
             new StatItem("Sells (short entries)", SellCount.ToString("N0")),
+        }),
+        new StatGroup("Stop-Loss / Take-Profit", new[]
+        {
+            new StatItem("Stop-loss hits", StopLossHitCount.ToString("N0")),
+            new StatItem("Stop-loss equity", Money(StopLossPnl), EmphasisFor(StopLossPnl)),
+            new StatItem("Take-profit hits", TakeProfitHitCount.ToString("N0")),
+            new StatItem("Take-profit equity", Money(TakeProfitPnl), EmphasisFor(TakeProfitPnl)),
         }),
         new StatGroup("Costs", new[]
         {

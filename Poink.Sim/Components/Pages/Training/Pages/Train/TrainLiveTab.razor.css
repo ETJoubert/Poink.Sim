@@ -348,6 +348,26 @@
     font-variant-numeric: tabular-nums;
 }
 
+.train-episode-decision {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    padding: 4px 10px;
+    border-radius: var(--border-radius-sm);
+    border: 1px solid currentColor;
+    background: color-mix(in srgb, currentColor 12%, transparent);
+    color: var(--color-muted);
+}
+
+.train-episode-live-stats {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    padding-left: 4px;
+    border-left: 1px solid rgba(255, 255, 255, 0.12);
+}
+
 .train-episode-row {
     display: flex;
     align-items: stretch;

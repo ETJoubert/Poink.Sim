@@ -11,6 +11,14 @@ namespace Poink.Sim.Models;
 
 internal enum PositionDirection { Long, Short }
 
+// Why a Trade closed -- Manual covers both a brain-driven Close decision and a
+// user's SubmitManualDecision on SimulationPage; StopLoss/TakeProfit/StopOut
+// are the three automatic closes Trader.Advance's maintenance pass can fire
+// (see its SL/TP/stop-out check order). Distinguishing these lets
+// TradeStatistics.From count/sum SL and TP hits separately instead of every
+// consumer having to string-match Trade.Reason's free-text message.
+internal enum TradeCloseReason { Manual, StopLoss, TakeProfit, StopOut }
+
 // StopLossPrice/TakeProfitPrice are auto-close trigger levels, acted on every
 // tick by Trader.Advance (checked at exit-side price -- see UnrealizedPnl).
 // TicksHeld/CumulativeDistance are running stats Trader.Advance updates every
@@ -45,7 +53,8 @@ internal readonly record struct CapitalState(double Cash, double RealizedPnl, do
 // what TradeStatistics win/loss should read.
 internal sealed record Trade(
     int Id, PositionDirection Direction, double Size, double EntryPrice, DateTime EntryTime,
-    double ExitPrice, DateTime ExitTime, double RealizedPnl, double Commission, string? Reason);
+    double ExitPrice, DateTime ExitTime, double RealizedPnl, double Commission, string? Reason,
+    TradeCloseReason CloseReason = TradeCloseReason.Manual);
 
 // What Trader.Apply/Advance hands back for a fill (open or close, brain-driven
 // or automatic) -- lets the decision log show structured columns instead of a

@@ -167,12 +167,46 @@ else
                     {
                         <span class="train-episode-progress">bar @_revealedBarCount / @_replayBars.Count</span>
                     }
+                    <span class="train-episode-decision @DecisionClass(DisplayedBarAction?.Action)"
+                          title="The action taken on the currently displayed bar (live, or wherever the replay is currently revealed)">
+                        DECISION: @DecisionLabel(DisplayedBarAction?.Action)
+                    </span>
+                    <div class="train-episode-live-stats"
+                         title="Trader stats for the trades revealed so far (live, or up to wherever the replay is currently revealed)">
+                        <div class="train-stat">
+                            <span class="train-stat-label">won</span>
+                            <span class="train-stat-value">@DisplayedTraderStats.WinCount</span>
+                        </div>
+                        <div class="train-stat">
+                            <span class="train-stat-label">lost</span>
+                            <span class="train-stat-value">@DisplayedTraderStats.LossCount</span>
+                        </div>
+                        <div class="train-stat">
+                            <span class="train-stat-label">buys</span>
+                            <span class="train-stat-value">@DisplayedTraderStats.BuyCount</span>
+                        </div>
+                        <div class="train-stat">
+                            <span class="train-stat-label">sells</span>
+                            <span class="train-stat-value">@DisplayedTraderStats.SellCount</span>
+                        </div>
+                        <div class="train-stat">
+                            <span class="train-stat-label">equity</span>
+                            <span class="train-stat-value">@(DisplayedEquity?.ToString("N2") ?? "—")</span>
+                        </div>
+                        <div class="train-stat"
+                             title="@($"Decisions blocked because they couldn't execute -- {DisplayedBlockedCounts.Longs} enter-long (already in a position), {DisplayedBlockedCounts.Shorts} enter-short (already in a position), {DisplayedBlockedCounts.Closes} close (no position open) -- see the ✗L/✗S/✗C chart markers")">
+                            <span class="train-stat-label">blocked</span>
+                            <span class="train-stat-value">@(DisplayedBlockedCounts.Longs + DisplayedBlockedCounts.Shorts + DisplayedBlockedCounts.Closes)</span>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="train-episode-row">
                     <div class="train-episode-main">
                         <DrawableOhlcvChart Bars="DisplayedEpisodeBars" DiagonalLines="DisplayedTradeLines" RangeFills="DisplayedWindowRange"
-                                            VerticalLines="DisplayedWarmupBoundary" />
+                                            VerticalLines="DisplayedWarmupBoundary" Markers="DisplayedActionMarkers"
+                                            EntryPrice="DisplayedEntryPrice" PositionIsLong="DisplayedPositionIsLong"
+                                            StopLossPrice="DisplayedStopLossPrice" TakeProfitPrice="DisplayedTakeProfitPrice" />
                     </div>
                     <div class="train-episode-side">
                         <TickVolumeProfileChart WeightedSamples="EpisodeVolumeProfileSamples" CurrentPrice="EpisodeLastPrice" />

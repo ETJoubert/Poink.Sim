@@ -22,6 +22,27 @@ namespace Poink.Sim.Training;
 // needs no such shift.
 internal sealed record RlStep(SimulationAction Action, Tensor? LogProbability, double Reward, Tensor? Entropy);
 
+// One decision bar's action plus whatever position was open immediately after
+// it (null fields while flat) -- unlike RlStep (trimmed by one entry, training-
+// only, see RlEpisodeRunner.Run's doc comment), this is captured unconditionally
+// for every brain type and never trimmed, index-aligned 1:1 with BarInputs/
+// BarEquity/BarOutputs (same WarmupBars offset from Bars -- see RlEpisode's
+// doc comment). Feeds the Train page's episode replay: action markers (see
+// TrainLiveTab.DisplayedActionMarkers) and the currently-open position's
+// entry/SL/TP lines (see TrainLiveTab.DisplayedPositionLevels), both synced to
+// whichever bar is currently revealed rather than only the episode's last one.
+//
+// Blocked is true when this decision picked a direction/close but Trader.Apply
+// silently no-op'd it -- EnterLong/EnterShort while a position was already open
+// (Trader.EnterOrQueue's guard), or Close while flat (Trader.Apply's Close
+// branch falls through to CancelPendingOrder instead, since there's no open
+// position to close). Always false for Hold, which never executes anything to
+// begin with. See TrainLiveTab's dud markers/BlockedLongs/BlockedShorts/
+// BlockedCloses stats.
+internal readonly record struct RlBarAction(
+    SimulationAction Action, double? EntryPrice, bool? PositionIsLong, double? StopLossPrice, double? TakeProfitPrice,
+    bool Blocked = false);
+
 // LastInputs is null for any ISimulationBrain that isn't an IPolicyGradientBrain
 // (nothing to describe), and otherwise a labeled snapshot of what fed the network
 // on the episode's final decision -- not every tick, since that's "aggregated"
@@ -78,13 +99,22 @@ internal sealed record RlEpisode(
     IReadOnlyList<RlOutputFeature>? LastOutputs, IReadOnlyList<Trade> Trades, double MaxEquity, double MaxDrawdown,
     DateTime WindowStart, DateTime WindowEnd, IReadOnlyList<HlocAvdtBar> Bars, IReadOnlyList<BarPriceHistogram> BarHistograms,
     IReadOnlyList<IReadOnlyList<RlInputFeature>> BarInputs, IReadOnlyList<double> BarEquity,
-    IReadOnlyList<IReadOnlyList<RlOutputFeature>> BarOutputs, int WarmupBars);
+    IReadOnlyList<IReadOnlyList<RlOutputFeature>> BarOutputs, int WarmupBars, IReadOnlyList<RlBarAction> BarActions);
 
 // One completed episode's trade log/equity extremes, paired with its episode
 // number -- retained by RlTrainingService (same bounded window as
 // RlEpisodeMetric) so the Train page can derive TradeStatistics per episode,
 // or pooled across the whole retained window as a "session" rollup.
-internal sealed record RlEpisodeTrades(int EpisodeNumber, IReadOnlyList<Trade> Trades, double MaxEquity, double MaxDrawdown);
+//
+// BlockedLongs/BlockedShorts/BlockedCloses are this episode's RlBarAction.Blocked
+// tally (see that field's doc comment), split by attempted action -- summed
+// from the full episode's BarActions once at episode-completion (see
+// RlTrainingService.TryStartTraining's loop), not retained as the full
+// per-bar list itself (unlike Trades above, which the chart/replay need bar-
+// by-bar) since only the count is meaningful once an episode's done.
+internal sealed record RlEpisodeTrades(
+    int EpisodeNumber, IReadOnlyList<Trade> Trades, double MaxEquity, double MaxDrawdown,
+    int BlockedLongs, int BlockedShorts, int BlockedCloses);
 
 // One row of RlTrainingService's rolling metrics log -- the "visual feedback"
 // the Train page shows while a run is in progress, so training can actually

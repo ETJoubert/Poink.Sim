@@ -265,6 +265,13 @@ internal sealed class RlTrainingService
     // doc comment).
     public IReadOnlyList<IReadOnlyList<RlOutputFeature>> LatestEpisodeBarOutputs { get; private set; } = Array.Empty<IReadOnlyList<RlOutputFeature>>();
 
+    // Same episode as LatestEpisodeBars above, index-aligned 1:1 with
+    // LatestEpisodeBarInputs (same LatestEpisodeWarmupBars offset) -- but
+    // populated for every brain, not just an IPolicyGradientBrain (see
+    // RlBarAction's doc comment). Feeds the Train page's episode replay action
+    // markers and current-position SL/TP lines.
+    public IReadOnlyList<RlBarAction> LatestEpisodeBarActions { get; private set; } = Array.Empty<RlBarAction>();
+
     // Bounded log of every completed episode this run -- the toggleable
     // "visual feedback" the Train page renders as a table, most-recent-first.
     public IReadOnlyList<RlEpisodeMetric> RecentEpisodes
@@ -367,6 +374,7 @@ internal sealed class RlTrainingService
             LatestEpisodeBarInputs = Array.Empty<IReadOnlyList<RlInputFeature>>();
             LatestEpisodeBarEquity = Array.Empty<double>();
             LatestEpisodeBarOutputs = Array.Empty<IReadOnlyList<RlOutputFeature>>();
+            LatestEpisodeBarActions = Array.Empty<RlBarAction>();
             _episodeMetrics.Clear();
             _episodeTrades.Clear();
             _episodeWindows.Clear();
@@ -459,9 +467,14 @@ internal sealed class RlTrainingService
                         LatestEpisodeBarInputs = result.BarInputs;
                         LatestEpisodeBarEquity = result.BarEquity;
                         LatestEpisodeBarOutputs = result.BarOutputs;
+                        LatestEpisodeBarActions = result.BarActions;
                         _episodeMetrics.Add(new RlEpisodeMetric(episode + 1, reward, result.FinalCapital.Equity));
                         if (_episodeMetrics.Count > MaxMetricsLog) _episodeMetrics.RemoveAt(0);
-                        _episodeTrades.Add(new RlEpisodeTrades(episode + 1, result.Trades, result.MaxEquity, result.MaxDrawdown));
+                        int blockedLongs = result.BarActions.Count(a => a.Action == SimulationAction.EnterLong && a.Blocked);
+                        int blockedShorts = result.BarActions.Count(a => a.Action == SimulationAction.EnterShort && a.Blocked);
+                        int blockedCloses = result.BarActions.Count(a => a.Action == SimulationAction.Close && a.Blocked);
+                        _episodeTrades.Add(new RlEpisodeTrades(
+                            episode + 1, result.Trades, result.MaxEquity, result.MaxDrawdown, blockedLongs, blockedShorts, blockedCloses));
                         if (_episodeTrades.Count > MaxMetricsLog) _episodeTrades.RemoveAt(0);
                         if (historicRange is not null)
                         {

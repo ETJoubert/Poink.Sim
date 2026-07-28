@@ -603,6 +603,12 @@ export function create(container, minimapContainer, dotNetRef) {
         loss: style.getPropertyValue('--color-error').trim() || accentColor,
     };
 
+    // Trade-action markers (see DrawableOhlcvChart.razor.cs's Markers parameter) --
+    // lightweight-charts' own native series-markers plugin (v5+) rather than a
+    // hand-rolled primitive like the lines above, since arrows/circles pinned to a
+    // bar's own OHLC position are exactly what it's built for.
+    const actionMarkers = LightweightCharts.createSeriesMarkers(candleSeries, []);
+
     const verticalLines = createVerticalLinesPrimitive();
     candleSeries.attachPrimitive(verticalLines);
     const diagonalLines = createDiagonalLinesPrimitive();
@@ -620,7 +626,7 @@ export function create(container, minimapContainer, dotNetRef) {
 
     const id = crypto.randomUUID();
     const entry = {
-        chart, candleSeries, volumeSeries, vwapSeries, tooltip, verticalLines, diagonalLines, rangeFills, accentColor, groupColors,
+        chart, candleSeries, volumeSeries, vwapSeries, tooltip, verticalLines, diagonalLines, rangeFills, actionMarkers, accentColor, groupColors,
         horizontalLineObjs: [], dotNetRef, hasData: false, pendingLoadMore: false,
         drawMode: null, drawClicks: [], bars: [], minimap: null,
         windowLine, slColor, tpColor, entryColor: accentColor,
@@ -867,6 +873,32 @@ export function setLines(id, horizontalLines, verticalLines, diagonalLines, rang
         { time1: l.time1, price1: l.price1, time2: l.time2, price2: l.price2, color: colorFor(entry, l.colorGroup) })));
     entry.rangeFills.setFills((rangeFills || []).map(f => (
         { time1: f.time1, time2: f.time2, label: f.label, color: colorFor(entry, f.colorGroup) })));
+}
+
+// markers: [{ time, shape, colorGroup, text }] -- shape is a lightweight-charts
+// series-marker shape ('arrowUp'/'arrowDown'/'circle'/...), position is derived
+// from it here (arrowUp sits belowBar so it points up *at* the bar, arrowDown
+// sits aboveBar, everything else sits inBar) rather than being caller-supplied,
+// since every current shape maps to exactly one sensible placement. Same
+// clear-and-redraw-all approach as setLines -- one episode's worth of decision
+// markers is a small, bounded count.
+function markerPosition(shape) {
+    if (shape === 'arrowUp') return 'belowBar';
+    if (shape === 'arrowDown') return 'aboveBar';
+    return 'inBar';
+}
+
+export function setActionMarkers(id, markers) {
+    const entry = instances.get(id);
+    if (!entry) return;
+
+    entry.actionMarkers.setMarkers((markers || []).map(m => ({
+        time: m.time,
+        position: markerPosition(m.shape),
+        shape: m.shape,
+        color: colorFor(entry, m.colorGroup),
+        text: m.text || '',
+    })));
 }
 
 // Releases the pendingLoadMore guard set in create()'s subscribeVisibleLogicalRangeChange

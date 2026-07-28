@@ -52,6 +52,14 @@ namespace Poink.Sim.Components.Charts
     // click-to-draw tools use.
     public readonly record struct ChartLinePoint(DateTime TimeUtc, double Price);
 
+    // One trade-action marker drawn on the candle it happened on -- Shape/ColorGroup
+    // are lightweight-charts series-marker primitives ("arrowUp"/"arrowDown"/"circle",
+    // see drawableOhlcvChart.js's setActionMarkers), Text is the short label shown
+    // under/over the marker ("L"/"S"/"C"). See TrainLiveTab's episode replay, which is
+    // the only current producer -- one per EnterLong/EnterShort/Close decision bar
+    // (Hold isn't marked, it's the majority of bars and would just be clutter).
+    public readonly record struct ChartMarker(DateTime TimeUtc, string Shape, string ColorGroup, string? Text = null);
+
     // Candlestick + volume chart with click-to-draw annotations -- horizontal price
     // lines, vertical time lines, diagonal trend lines, plus T-Range/P-Range/Rectangle
     // (built from placing 2 or 2+2 of the single-axis lines in one go, see DrawMode) --
@@ -101,6 +109,12 @@ namespace Poink.Sim.Components.Charts
         [Parameter] public IReadOnlyList<ChartVerticalLine> VerticalLines { get; set; } = Array.Empty<ChartVerticalLine>();
         [Parameter] public IReadOnlyList<ChartDiagonalLine> DiagonalLines { get; set; } = Array.Empty<ChartDiagonalLine>();
         [Parameter] public IReadOnlyList<ChartRangeFill> RangeFills { get; set; } = Array.Empty<ChartRangeFill>();
+
+        // Trade-action markers drawn directly on the candles (see ChartMarker) --
+        // its own parameter rather than folded into DiagonalLines/HorizontalLines
+        // since it renders through lightweight-charts' native series-markers plugin,
+        // not the hand-rolled canvas primitives those use.
+        [Parameter] public IReadOnlyList<ChartMarker> Markers { get; set; } = Array.Empty<ChartMarker>();
 
         // A computed overlay line (e.g. VWAP) drawn across the same time axis as Bars --
         // not a user-drawn annotation, so it has no OnXxxDrawn callback of its own; the
@@ -198,6 +212,7 @@ namespace Poink.Sim.Components.Charts
         private IReadOnlyList<ChartVerticalLine>? _renderedVerticalLines;
         private IReadOnlyList<ChartDiagonalLine>? _renderedDiagonalLines;
         private IReadOnlyList<ChartRangeFill>? _renderedRangeFills;
+        private IReadOnlyList<ChartMarker>? _renderedMarkers;
         private IReadOnlyList<ChartLinePoint>? _renderedVwapLine;
         private double? _renderedBid;
         private double? _renderedAsk;
@@ -342,6 +357,21 @@ namespace Poink.Sim.Components.Charts
                     });
 
                     await _module.InvokeVoidAsync("setLines", _chartId, hLines, vLines, dLines, fills);
+                }
+
+                if (_disposed) return;
+
+                if (_module is not null && _chartId is not null && !ReferenceEquals(_renderedMarkers, Markers))
+                {
+                    _renderedMarkers = Markers;
+                    var markers = Markers.Select(m => new
+                    {
+                        time = new DateTimeOffset(m.TimeUtc, TimeSpan.Zero).ToUnixTimeSeconds(),
+                        shape = m.Shape,
+                        colorGroup = m.ColorGroup,
+                        text = m.Text,
+                    });
+                    await _module.InvokeVoidAsync("setActionMarkers", _chartId, markers);
                 }
 
                 if (_disposed) return;

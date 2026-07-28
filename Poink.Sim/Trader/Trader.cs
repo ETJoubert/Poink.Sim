@@ -114,9 +114,9 @@ internal sealed class Trader : ITrader
             double exitPrice = position.Direction == PositionDirection.Long ? bid : ask;
             TradeExecution? autoClose =
                 position.StopLossPrice is { } sl && StopLossBreached(position.Direction, exitPrice, sl)
-                    ? Close(bid, ask, timestamp, $"stop-loss hit @ {exitPrice:F5}")
+                    ? Close(bid, ask, timestamp, $"stop-loss hit @ {exitPrice:F5}", TradeCloseReason.StopLoss)
                     : position.TakeProfitPrice is { } tp && TakeProfitBreached(position.Direction, exitPrice, tp)
-                        ? Close(bid, ask, timestamp, $"take-profit hit @ {exitPrice:F5}")
+                        ? Close(bid, ask, timestamp, $"take-profit hit @ {exitPrice:F5}", TradeCloseReason.TakeProfit)
                         : null;
             if (autoClose is { } fill) (fills ??= new List<TradeExecution>()).Add(fill);
         }
@@ -130,7 +130,7 @@ internal sealed class Trader : ITrader
             if (marginLevel < _settings.StopOutLevelPercent)
             {
                 var stopOut = Close(bid, ask, timestamp,
-                    $"stop-out: margin level {marginLevel:F1}% < {_settings.StopOutLevelPercent:F1}%");
+                    $"stop-out: margin level {marginLevel:F1}% < {_settings.StopOutLevelPercent:F1}%", TradeCloseReason.StopOut);
                 if (stopOut is { } fill) (fills ??= new List<TradeExecution>()).Add(fill);
             }
         }
@@ -155,7 +155,7 @@ internal sealed class Trader : ITrader
         {
             SimulationAction.Hold => null,
             SimulationAction.Close => CurrentPosition is not null
-                ? Close(bid, ask, timestamp, decision.Reason)
+                ? Close(bid, ask, timestamp, decision.Reason, TradeCloseReason.Manual)
                 : CancelPendingOrder(),
             SimulationAction.EnterLong => EnterOrQueue(PositionDirection.Long, decision, bid, ask, timestamp),
             SimulationAction.EnterShort => EnterOrQueue(PositionDirection.Short, decision, bid, ask, timestamp),
@@ -213,7 +213,7 @@ internal sealed class Trader : ITrader
         return new TradeExecution(action, direction, size, null, commission, reason);
     }
 
-    private TradeExecution? Close(double bid, double ask, DateTime time, string? reason)
+    private TradeExecution? Close(double bid, double ask, DateTime time, string? reason, TradeCloseReason closeReason)
     {
         if (CurrentPosition is not { } position) return null;
 
@@ -226,7 +226,7 @@ internal sealed class Trader : ITrader
         Cash += netPnl;
         RealizedPnl += netPnl;
         _trades.Add(new Trade(_nextTradeId++, position.Direction, position.Size, position.EntryPrice,
-            position.EntryTime, exitPrice, time, grossPnl - totalCommission, totalCommission, reason));
+            position.EntryTime, exitPrice, time, grossPnl - totalCommission, totalCommission, reason, closeReason));
         CurrentPosition = null;
         _openCommissionCharge = 0;
         return new TradeExecution(SimulationAction.Close, position.Direction, position.Size, grossPnl - totalCommission, totalCommission, reason);

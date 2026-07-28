@@ -100,7 +100,13 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
 - **Stop-loss / take-profit (SL/TP)** — `Position`/`SimulationDecision` carry
   `StopLossPrice`/`TakeProfitPrice`; `Trader.Advance` checks them every raw tick
   (at exit-side price) and force-closes the position on breach, SL taking priority
-  if both breach the same tick. `Trader/Trader.cs`
+  if both breach the same tick. Each automatic breach closes with `TradeCloseReason.
+  StopLoss`/`.TakeProfit` on the resulting `Trade` (vs. `.Manual` for a brain/user-
+  driven Close, `.StopOut` for a margin call) -- see **Trade** and **`TradeStatistics`**
+  for how that's counted/summed, and `TrainLiveTab.CloseReasonMarkerStyle` for how
+  it's drawn on the episode replay chart (a `square` marker, red for SL / green for
+  TP, snapped to the bar the exit tick fell in since `Trade.ExitTime` itself rarely
+  lands exactly on a bar's own `OpenTime`). `Trader/Trader.cs`
 - **Stop-out / Margin call** — `Trader.Advance` force-closes the open position when
   Margin Level drops below `TraderSettings.StopOutLevelPercent` (default 50%).
   Checked after the SL/TP check, only while a position remains open.
@@ -127,10 +133,16 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   math (`TimeProfileAnalysis`, the seconds-weighted counterpart to
   `VolumeProfileAnalysis`) into a fixed-width network input instead of a chart.
 - **Trade** — One closed round-trip: `record Trade(Id, Direction, Size, EntryPrice,
-  EntryTime, ExitPrice, ExitTime, RealizedPnl, Commission, Reason)`, appended to
-  `Trader.TradeLog` on Close. `RealizedPnl` is net of `Commission` (the round-trip
-  total across both the open and close leg) -- what `TradeStatistics` win/loss
-  reads. `Models/SimulationAccount.cs`
+  EntryTime, ExitPrice, ExitTime, RealizedPnl, Commission, Reason, CloseReason)`,
+  appended to `Trader.TradeLog` on Close. `RealizedPnl` is net of `Commission` (the
+  round-trip total across both the open and close leg) -- what `TradeStatistics`
+  win/loss reads. `Reason` is a free-text message (a brain-supplied string for a
+  manual close, or a generated `"stop-loss hit @ ..."`/`"take-profit hit @ ..."`/
+  `"stop-out: ..."` message for an automatic one); `CloseReason` (`TradeCloseReason`:
+  `Manual`/`StopLoss`/`TakeProfit`/`StopOut`) is the same distinction but structured,
+  set by whichever of `Trader.Close`'s four call sites fired -- see
+  **Stop-loss / take-profit (SL/TP)** and **`TradeStatistics`**.
+  `Models/SimulationAccount.cs`
 - **TickVolume / Volume** — In this app, "volume" is a tick count, not a
   traded-contract count (raw ticks carry no trade-volume field). `HlocAvdtBar.Volume`
   is literally the number of ticks in the bar.
@@ -926,10 +938,18 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   LONG/SHORT entry-price line plus dashed SL/TP price lines (each null independently
   hides that one line -- flat, or a position missing that field), and a "window start"
   marker showing how far back the volume-profile window reaches for Simulation's.
-  `TrainLiveTab` reuses it as-is for its generic `DiagonalLines` parameter
-  (closed-trade entry-to-exit markers) -- its drawing toolbar/minimap render there too
-  even though nothing wires their callbacks, a deliberate reuse-over-building-a-
-  second-chart tradeoff. `Components/Charts/DrawableOhlcvChart/`
+  `TrainLiveTab` reuses the entry/SL/TP overlay too, fed from whatever position was
+  open as of the currently displayed bar (live or mid-replay -- see
+  `RlBarAction`/`TrainLiveTab.DisplayedBarAction`), plus its own `DiagonalLines`
+  (closed-trade entry-to-exit lines). A `Markers` parameter (`ChartMarker`: time,
+  lightweight-charts shape, color group, short text) draws one marker per
+  EnterLong/EnterShort/Close decision bar via lightweight-charts' native series-
+  markers plugin (`createSeriesMarkers`, see `setActionMarkers` in
+  `drawableOhlcvChart.js`) -- Hold isn't marked (the majority of decision bars, would
+  just be clutter); see `TrainLiveTab.DisplayedActionMarkers`. Its drawing toolbar/
+  minimap render on `TrainLiveTab` too even though nothing wires their callbacks, a
+  deliberate reuse-over-building-a-second-chart tradeoff.
+  `Components/Charts/DrawableOhlcvChart/`
 - **`EpisodeCoverageTimeline`** — Data-coverage heatmap at the top of `TrainPage`'s
   `train-content`: one block per `bars/episode`-length slice of the selected Data
   Range, shaded darker the more completed episodes (`RlTrainingService.
@@ -1050,6 +1070,81 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   `DrawableOhlcvChart`'s `profile` color group) over the trailing bars feeding
   the current decision — "what range the trader sees" — sized from
   `RlTrainingService.GetWarmupBars`.
+
+  Each decision bar also carries an `RlBarAction` (action taken, whatever
+  position was left open once that decision's `Trader.Apply` ran -- captured
+  unconditionally in `RlEpisodeRunner.Run`, unlike `BarInputs`/`BarOutputs`
+  which are `IPolicyGradientBrain`-only, so this works for heuristic brains
+  too -- plus `Blocked`, see below) threaded through
+  `RlTrainingService.LatestEpisodeBarActions` and, during a replay, a
+  `_replayBarActions` snapshot the same way `_replayBarInputs` works.
+  `RlEpisodeRunner.RecordStep` returns this post-`Apply` position as its own
+  tuple member (`PositionAfter`) distinct from `SimulationObservation.Position`
+  (captured *before* `Apply`, which reward computation needs as its baseline) --
+  using the pre-`Apply` value for `RlBarAction` would show the chart's entry/SL/TP
+  overlay one bar behind on the exact bar a position opens or closes.
+  `TrainLiveTab.DisplayedActionMarkers` turns each EnterLong/EnterShort/Close
+  decision bar (not Hold — the majority of bars, would just be clutter) into a
+  `DrawableOhlcvChart` `Markers` entry (up/down arrow or circle, colored via the
+  `win`/`loss`/`charts` groups), synced to whichever bar is currently revealed.
+  `TrainLiveTab.DisplayedBarAction` (the currently displayed bar's own
+  `RlBarAction`) also feeds the chart's entry/SL/TP price-line overlay
+  (`EntryPrice`/`PositionIsLong`/`StopLossPrice`/`TakeProfitPrice` — the same
+  parameters `SimulationPage` feeds from its selected trader's live position),
+  so the currently open position's stop-loss/take-profit levels draw and move as
+  replay reveals bars or as training advances live.
+
+  `DisplayedActionMarkers` also draws one `square` marker per revealed SL/TP-hit
+  trade exit (`CloseReasonMarkerStyle`, red for a `TradeCloseReason.StopLoss`
+  close / green for `.TakeProfit`) -- these can't come from `RlBarAction` like the
+  EnterLong/EnterShort/Close markers above, since `Trader.Advance` fires an
+  automatic SL/TP close mid-tick, independent of whatever the brain's own decision
+  for that bar was (typically still Hold), so they're read off
+  `DisplayedRevealedTrades`' `Trade.CloseReason` instead. Snapped to the bar the
+  exit tick fell inside (`BarTimeContaining`) since lightweight-charts' native
+  series-markers plugin only resolves a marker whose time matches one of the
+  series' own data points, unlike the diagonal-line primitive `DisplayedTradeLines`
+  uses (continuous interpolation, tolerates `Trade.ExitTime`'s exact tick timestamp
+  as-is).
+
+  `RlBarAction.Blocked` flags a "dud": the decision picked EnterLong/EnterShort/
+  Close but `Trader.Apply` silently no-op'd it -- EnterLong/EnterShort while a
+  position was already open (`Trader.EnterOrQueue`'s `CurrentPosition is not
+  null` guard), or Close while flat (its branch falls through to
+  `CancelPendingOrder` instead of `Close` when there's nothing open) -- no fill,
+  no `Trade`, despite an action being chosen. `RlEpisodeRunner.Run` mirrors
+  those exact two guards to compute it, rather than inferring from the
+  resulting `Trade`/position state. `DisplayedActionMarkers` overrides the
+  normal styling for these: EnterLong/EnterShort keep their win/loss direction
+  colors but switch to `circle` (not `arrowUp`/`arrowDown`, which would read as
+  a real entry); a blocked Close gets its own `shapes` (warning/amber) color
+  instead of a real Close's neutral `charts` accent, since it has no direction
+  to color by. All three carry an "✗L"/"✗S"/"✗C" text glyph, since this
+  vendored lightweight-charts build has no built-in X/cross marker shape.
+  `TrainLiveTab.DisplayedBlockedCounts` tallies these live, scoped to whatever's
+  currently revealed (same bound as `DisplayedActionMarkers`); the session-wide
+  counts live on `RlEpisodeTrades.BlockedLongs`/`.BlockedShorts`/`.BlockedCloses`,
+  summed once per completed episode from that episode's `RlEpisode.BarActions` in
+  `RlTrainingService.TryStartTraining`'s loop (a `Trade`-keyed stat like
+  `TradeStatistics` can't hold this, since a dud never produces a `Trade`).
+
+  The playback controls row also shows a **DECISION** badge (`DecisionLabel`/
+  `DecisionClass`, reusing ACTION DISTRIBUTION's hold/long/short/close colors)
+  for the currently displayed bar's action, plus a compact **live trader stats**
+  readout (won/lost/buys/sells/equity/blocked) — won/lost/buys/sells/equity are
+  the same `TradeStatistics.From` computation the TRADER/SESSION tabs use below,
+  scoped to `DisplayedRevealedTrades` (trades whose exit bar has been revealed so
+  far); blocked is `DisplayedBlockedCounts` (above) — both update in step with
+  the replay instead of only ever showing the finished episode's totals. The
+  TRADER/SESSION `TraderStatsRow` table itself carries seven more columns:
+  `SlHits`/`SlEquity`/`TpHits`/`TpEquity` from the same `TradeStatistics` object
+  (`TradeStatistics.StopLossHitCount`/`.StopLossPnl`/`.TakeProfitHitCount`/
+  `.TakeProfitPnl`) -- `StatisticsPanel`'s "Stop-Loss / Take-Profit" `StatGroup`
+  surfaces the same four numbers on `SimulationPage`'s Statistics tab, since both
+  read off the same `TradeStatistics.From` computation -- plus `BlockedLongs`/
+  `BlockedShorts`/`BlockedCloses` from `RlEpisodeTrades` (passed into
+  `ToTraderStatsRow` alongside whichever `TradeStatistics` the row is otherwise
+  built from, since they aren't part of that object).
 
   The **INPUTS panel** (`PriceWindowFeatures`/`ScalarFeatures` split from
   `RlInputFeature.Label`) is synced to the same revealed bar as the chart during
