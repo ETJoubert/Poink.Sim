@@ -195,6 +195,18 @@ internal static class RlEpisodeRunner
             }
         }
 
+        // The last-added step never gets its reward backfilled by RecordStep -- this
+        // Run loop stops consuming ticks the instant episodeBars completes (see this
+        // file's doc comment on why, for lazy sources), so there's no further tick to
+        // measure the final action's own drift against. Drop it rather than training
+        // on its 0.0 placeholder, which would otherwise inject a bogus zero-return
+        // sample into PolicyGradientTrainingStrategy's mean/std normalization. This
+        // only trims the training-facing Steps list -- allBars/allBarInputs/
+        // allBarEquity/allBarOutputs below still include that last decision, so the
+        // Train page can still show what the network saw and chose on it.
+        if (steps.Count > 0)
+            steps.RemoveAt(steps.Count - 1);
+
         // Aggregated/labeled snapshot of "what goes in" -- the final decision
         // point's own inputs, not a per-tick stream (see RlEpisode's doc comment).
         // Same value as allBarInputs' last entry when aggregating; recomputed
@@ -233,6 +245,19 @@ internal static class RlEpisodeRunner
         var positionNow = trader.CurrentPosition;
         double reward = rewardPolicy.ComputeReward(new RewardContext(
             previousCapital, capitalNow, previousPosition, positionNow, timestamp, price, bars, barHistograms));
+
+        // This reward is the drift the PREVIOUS decision's action caused (from its
+        // post-Apply capital up to just before this decision's own Apply) -- it belongs
+        // on the step already recorded for that action, not the one about to be added
+        // below for this decision. Backfilling here (instead of storing reward against
+        // the current step, as before) is what lets each RlStep's LogProbability pair
+        // with the reward its own action actually produced, one decision point later,
+        // rather than crediting it with the outcome already in flight when it was
+        // chosen. See RlEpisodeRunner.Run's doc comment for the trailing step this
+        // leaves un-rewarded at episode end.
+        if (steps.Count > 0)
+            steps[^1] = steps[^1] with { Reward = reward };
+
         var observation = new SimulationObservation(
             timestamp, price, bars, ticks, barHistograms, capitalNow, positionNow);
 
@@ -253,7 +278,11 @@ internal static class RlEpisodeRunner
 
         trader.Apply(decision, bid, ask, timestamp);
         var capitalAfter = trader.Snapshot(bid, ask);
-        steps.Add(new RlStep(decision.Action, logProbability, reward));
+        // Reward 0 is a placeholder -- this step's real reward isn't known until the
+        // *next* decision point measures the drift this action causes, at which point
+        // the block above backfills it. If this turns out to be the episode's last
+        // step, Run drops it instead of training on that placeholder.
+        steps.Add(new RlStep(decision.Action, logProbability, 0.0));
         return (capitalAfter, observation, outputs);
     }
 }

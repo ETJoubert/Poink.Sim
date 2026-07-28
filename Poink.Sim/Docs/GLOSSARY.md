@@ -185,7 +185,15 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   The default (`EquityDriftRewardPolicy`) is the trader's raw equity drift since the
   previous decision point (mark-to-market P&L from price movement while holding, plus
   whatever a Close realizes); `TradingRulesRewardPolicy` shapes that same base figure
-  with loss-aversion/anti-churn/max-holding-time terms. `Services/Training/RlEpisodeRunner.cs`
+  with loss-aversion/anti-churn/max-holding-time terms. `RlEpisodeRunner.RecordStep`
+  computes this drift at the *next* decision point (it's the outcome of the action
+  just taken, not the one about to be), so it's backfilled onto the previously
+  recorded `RlStep` rather than the one being added -- pairing each step's
+  `LogProbability` with the reward its own action actually produced, one decision
+  point later. The episode's final decision never gets this backfill (no further
+  tick to measure it against, since `Run` stops consuming ticks the instant
+  `episodeBars` completes) and is dropped from `RlEpisode.Steps` rather than trained
+  on a placeholder. `Services/Training/RlEpisodeRunner.cs`
 - **Reward-to-go** — Per-step discounted sum of all future rewards in an episode,
   computed backward from the episode's end.
   `Services/Training/PolicyGradientTrainingStrategy.cs` (`TrainEpisode`)

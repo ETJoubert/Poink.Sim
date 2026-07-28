@@ -55,7 +55,11 @@ possible.
 
 **Reward** is computed once per decision point by whichever `IRewardPolicy`
 the run is configured with (dense — available every step, not just at
-episode end).
+episode end), then backfilled onto the *previous* decision's `RlStep` — it's
+the drift that action caused, not the one about to be taken, so this is what
+pairs each step's log-probability with the reward its own action actually
+produced. The episode's last decision has no later tick to measure its own
+drift against, so it's dropped rather than trained on an empty reward.
 
 ## Reward policies
 
