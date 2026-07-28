@@ -149,15 +149,22 @@ internal interface IPolicyGradientBrain : ISimulationBrain
     // library's own reflection-ish traversal) to describe its shape for the
     // Train page's Network Activity animation, instead of a shape hand-
     // maintained per brain -- a differently-shaped future brain draws itself
-    // correctly here with zero changes. The first Linear/LSTM encountered
-    // also contributes its input width, so the very first visualized layer
-    // shows "what feeds in", not just "what comes out of the first op".
+    // correctly here with zero changes, as long as it's built from a module
+    // type already handled below. The first Linear/Conv1d/LSTM encountered
+    // also contributes its input width/channels, so the very first
+    // visualized layer shows "what feeds in", not just "what comes out of
+    // the first op". Conv1d's out_channels stands in for a conv layer's
+    // "width" the same way Linear's out_features does -- CnnPolicyNetwork's
+    // _convStack is a Sequential, so named_modules() walks straight into its
+    // individual Conv1d children with no extra case needed for the
+    // Sequential wrapper itself.
     //
     // LSTM specifically needs real System.Reflection on top of that: unlike
-    // Linear (which exposes in_features/out_features publicly), TorchSharp's
-    // LSTM only stores hidden_size/num_layers in private fields with no
-    // public accessor -- ReadLstmHiddenSize below is the one place this
-    // interface reaches past TorchSharp's public API.
+    // Linear/Conv1d (which expose in_features/out_features and
+    // in_channels/out_channels publicly), TorchSharp's LSTM only stores
+    // hidden_size/num_layers in private fields with no public accessor --
+    // ReadLstmHiddenSize below is the one place this interface reaches past
+    // TorchSharp's public API.
     IReadOnlyList<NetworkLayerShape> DescribeNetworkShape()
     {
         var shapes = new List<NetworkLayerShape>();
@@ -169,6 +176,11 @@ internal interface IPolicyGradientBrain : ISimulationBrain
                     if (shapes.Count == 0)
                         shapes.Add(new NetworkLayerShape((int)linear.in_features, IsRecurrent: false));
                     shapes.Add(new NetworkLayerShape((int)linear.out_features, IsRecurrent: false));
+                    break;
+                case Conv1d conv1d:
+                    if (shapes.Count == 0)
+                        shapes.Add(new NetworkLayerShape((int)conv1d.in_channels, IsRecurrent: false));
+                    shapes.Add(new NetworkLayerShape((int)conv1d.out_channels, IsRecurrent: false));
                     break;
                 case LSTM lstm:
                     shapes.Add(new NetworkLayerShape(ReadLstmHiddenSize(lstm), IsRecurrent: true));

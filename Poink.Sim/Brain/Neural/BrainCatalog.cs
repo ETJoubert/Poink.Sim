@@ -12,6 +12,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Poink.Sim.Models;
 
 namespace Poink.Sim.Brain.Neural;
@@ -23,7 +24,7 @@ namespace Poink.Sim.Brain.Neural;
 // with a less-accessible type than the component itself).
 public enum EncoderKind { BarWindow, VolumeProfile, TimeProfile }
 
-public enum ArchitectureKind { Mlp, Lstm }
+public enum ArchitectureKind { Mlp, Lstm, Cnn }
 
 // How a pickable encoder feeds its raw quantities to the network -- Normalized
 // is each encoder's original convention (fraction-of-total / percent-offset-
@@ -131,15 +132,19 @@ internal static class BrainCatalog
         };
     }
 
-    // hiddenSizes is the MLP's variable-length hidden-layer list for Mlp, or
-    // exactly [hiddenSize, numLayers] for Lstm -- the Train page builds this
-    // list in whichever shape matches the architecture the user picked.
+    // hiddenSizes is the MLP's variable-length hidden-layer list for Mlp,
+    // exactly [hiddenSize, numLayers] for Lstm, or [kernelSize, channel1,
+    // channel2, ...] for Cnn -- the Train page builds this list in whichever
+    // shape matches the architecture the user picked.
     public static INetworkArchitecture CreateArchitecture(ArchitectureKind kind, IReadOnlyList<int> hiddenSizes) => kind switch
     {
         ArchitectureKind.Mlp => new MlpArchitecture([.. hiddenSizes]),
         ArchitectureKind.Lstm => new LstmArchitecture(
             hiddenSize: hiddenSizes.Count > 0 ? hiddenSizes[0] : 64,
             numLayers: hiddenSizes.Count > 1 ? hiddenSizes[1] : 2),
+        ArchitectureKind.Cnn => new CnnArchitecture(
+            kernelSize: hiddenSizes.Count > 0 ? hiddenSizes[0] : 3,
+            channels: hiddenSizes.Count > 1 ? [.. hiddenSizes.Skip(1)] : [16, 32]),
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
     };
 

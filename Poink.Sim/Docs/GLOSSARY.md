@@ -395,6 +395,16 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   `COUNT(*)` for progress bars; `ListTickTables`/`RefreshTickTableStats` manage a
   cached `tick_table_stats` registry table so full-table scans only happen on an
   explicit "Recount," not every page load. `Repository/ITickRepository.cs`
+- **`CnnArchitecture`** — `INetworkArchitecture` implementation: a Conv1d
+  stack (kernel size + per-layer channel counts, "same" padding) over a
+  leading sequence slice plus trailing scalars, sibling to
+  `LstmArchitecture` with the same sequence-slice/scalars contract, via the
+  hand-written `CnnPolicyNetwork` (last-timestep + mean-over-time pooling
+  feeds a small MLP head, the same pooling `Poink.ML`'s `VolTcnPatternBrain`
+  uses for its own dilated-conv stack). Not a standalone brain class -- built
+  and named only through the Train page's Build Brain panel (`ArchitectureKind.
+  Cnn`), unlike `MlpArchitecture`/`LstmArchitecture` which also back a fixed
+  `Program.cs` brain each. `Brain/Neural/Architectures/CnnArchitecture.cs`
 - **`LstmArchitecture`** — `INetworkArchitecture` implementation: an LSTM
   (hidden size 64, 2 layers by default) over a leading sequence slice plus
   trailing scalars, via the hand-written `LstmPolicyNetwork` (LSTM's
@@ -594,8 +604,8 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   known, accepted gap for a solo-dev project rather than a migration shim.
   `Brain/Neural/BrainCatalog.cs`. The Structure card's header warns (via
   `TrainPage`'s `FirstLayerTooSmall`) when the first hidden layer -- an MLP's
-  Layer 1, or an LSTM's hidden size -- is narrower than `TotalInputCount`, a
-  common accidental bottleneck.
+  Layer 1, an LSTM's hidden size, or a CNN's first conv layer's channel count
+  -- is narrower than `TotalInputCount`, a common accidental bottleneck.
 - **`CapitalState`** — Read-only snapshot handed to the Brain/UI: `(Cash,
   RealizedPnl, UnrealizedPnl, MarginUsed, MarginLevel)`, with `Equity => Cash +
   UnrealizedPnl` and `MarginFree => Equity - MarginUsed`. Every field (plus
@@ -613,9 +623,9 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   same tick) 2 entries; callers log each one the same way they log a brain-driven
   `Apply` fill. `Models/SimulationAccount.cs`
 - **`NetworkLayerShape`** — One "layer" description for `NetworkEmulator`'s animation:
-  a real magnitude (Linear's `out_features` or LSTM's hidden size), not a literal
-  one-dot-per-unit count; `IsRecurrent` flags an LSTM so the animation can draw it
-  differently. `Brain/Neural/IPolicyGradientBrain.cs`
+  a real magnitude (Linear's `out_features`, Conv1d's `out_channels`, or LSTM's
+  hidden size), not a literal one-dot-per-unit count; `IsRecurrent` flags an LSTM
+  so the animation can draw it differently. `Brain/Neural/IPolicyGradientBrain.cs`
 - **`PendingOrder`** — A resting Limit/Stop entry order, not yet filled:
   `(Direction, OrderType, TriggerPrice, CapitalFraction, StopLossPrice?,
   TakeProfitPrice?, CreatedTime, Reason?)`. `OrderType` is always `Limit` or
@@ -1038,8 +1048,9 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   why the optimizer is created once per training run, not per episode.
 - **Auto Name convention** — `{Architecture}_{Layers}_{Data}`, e.g.
   `MLP_L32-L16_dBW-dVP-dTP-dAS`: the Build Brain section's auto-generated name.
-  Layers are `L<size>` per MLP hidden layer or `H<hiddenSize>-N<numLayers>` for
-  LSTM; Data is `d` + each included encoder's initials (`BW`=Bar Window,
+  Layers are `L<size>` per MLP hidden layer, `H<hiddenSize>-N<numLayers>` for
+  LSTM, or `K<kernelSize>-C<channels>` per CNN conv layer; Data is `d` + each
+  included encoder's initials (`BW`=Bar Window,
   `VP`=Volume Profile, `TP`=Time Profile, `VPR`=Volume Profile Raw,
   `TPR`=Time Profile Raw, `AS`=Trader State, always present). Toggled off via
   the "Auto Name" checkbox to type a custom name instead.
@@ -1049,6 +1060,8 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   (lives outside this project, referenced only in comments).
 - **CFD** — Contract for Difference; the account style this simulator models (cash
   P&L, first-class shorting, no borrowing).
+- **CNN** — Convolutional Neural Network; `CnnArchitecture`'s network shape (a
+  Conv1d stack), pickable in the Build Brain panel's Structure card.
 - **CUDA** — The GPU compute backend (`TorchSharp-cuda-windows` package);
   `IPolicyGradientBrain.MoveToTrainingDevice` picks CUDA if `cuda.is_available()`,
   else CPU.

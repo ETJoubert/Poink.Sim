@@ -1,6 +1,6 @@
 # Brain — pluggable trading-decision brains
 
-> Doc version: **v1.3** — see "Changelog" at the bottom for what changed.
+> Doc version: **v1.4** — see "Changelog" at the bottom for what changed.
 > See [../Docs/README.md](../Docs/README.md) for documentation standards.
 
 This documents the **current, as-built state** of this folder — it is
@@ -42,7 +42,7 @@ A brain's "shape" is two independent choices, wired together by
 |---|---|---|
 | **Encoder** — observation → feature vector | `IObservationEncoder` (`FeatureCount`, `SequenceLength`, `Features`, `Encode`) | `BarWindowEncoder` (20-bar price window), `VolumeProfileEncoder` (20-bucket volume histogram + POC/value-area summary), `TimeProfileEncoder` (20-bucket time-weighted histogram + POC/value-area summary), `TraderStateEncoder` (12 exact trader/account fields). The first three each take a `NormalizationKind` (`Normalized`/`Raw`) picking which normalizer pair they're built with, plus (for the two profiles) their own fixed `lookbackBars` (default 50) |
 | **Normalizer** — raw quantity → network-ready value (and back, for display) | `IFeatureNormalizer` (`Normalize`, `Denormalize`, `Format`) | `PriceOffsetNormalizer` (percent-change-from-current-price), `EquityRatioNormalizer` (ratio-over-equity, available for injection), `FractionNormalizer` (passthrough for an already-`[0,1]` histogram share), `DirectionNormalizer` (passthrough for a categorical `-1/0/1`), `RawPriceNormalizer`/`RawValueNormalizer` (passthrough for an already-real price/quantity) |
-| **Architecture** — feature vector → action logits | `INetworkArchitecture` (`Build(featureCount, sequenceLength)`) | `MlpArchitecture` (flat `Linear→Tanh` stack, any hidden-layer sizes), `LstmArchitecture` (LSTM over a leading sequence slice + trailing scalars, via `LstmPolicyNetwork`) |
+| **Architecture** — feature vector → action logits | `INetworkArchitecture` (`Build(featureCount, sequenceLength)`) | `MlpArchitecture` (flat `Linear→Tanh` stack, any hidden-layer sizes), `LstmArchitecture` (LSTM over a leading sequence slice + trailing scalars, via `LstmPolicyNetwork`), `CnnArchitecture` (Conv1d stack over a leading sequence slice + trailing scalars, via `CnnPolicyNetwork`) |
 | **Combine multiple encoders** | `CompositeEncoder` | Concatenates parts in order; enforces that any sequence-bearing part (`SequenceLength > 0`) is listed **first**, so a recurrent architecture narrow()s the right slice |
 | **The brain itself** | `ComposedPolicyBrain` | Holds one `IObservationEncoder` + the `Module<Tensor,Tensor>` an architecture built from it; owns the one shared `Decide`/sampling/decision-mapping logic every composed brain uses |
 
@@ -138,6 +138,8 @@ persist, via the existing Save Model flow, keyed by the brain's `Name`.
 | `Neural/Architectures/MlpArchitecture.cs` | Architecture: flat `Linear→Tanh` stack, any hidden-layer sizes |
 | `Neural/Architectures/LstmArchitecture.cs` | Architecture: LSTM over a leading sequence slice + trailing scalars |
 | `Neural/Architectures/LstmPolicyNetwork.cs` | The hand-written `Module<Tensor,Tensor>` `LstmArchitecture` builds (LSTM's tuple-returning `forward` doesn't fit `Sequential`) |
+| `Neural/Architectures/CnnArchitecture.cs` | Architecture: Conv1d stack over a leading sequence slice + trailing scalars, any kernel size/per-layer channel counts |
+| `Neural/Architectures/CnnPolicyNetwork.cs` | The hand-written `Module<Tensor,Tensor>` `CnnArchitecture` builds (a `Sequential` Conv1d+Tanh stack, then last-timestep + mean-over-time pooling feeds a small MLP head) |
 | `Neural/ActionOutputs/IActionOutputHead.cs` | Optional-decision contract (`Kind`, `OutputWidth`, `Sample`) for a non-direction network output (Volume/StopLoss/TakeProfit) |
 | `Neural/ActionOutputs/DiscretizedLevelsActionHead.cs` | The v1 (and only) `IActionOutputHead` implementation: a small independent categorical head per enabled kind |
 
@@ -157,6 +159,15 @@ persist, via the existing Save Model flow, keyed by the brain's `Name`.
 
 ## Changelog
 
+- **v1.4** — 2026-07-28 — Added `CnnArchitecture`/`CnnPolicyNetwork`: a third
+  `ArchitectureKind` (`Cnn`, alongside `Mlp`/`Lstm`) pickable in the Build
+  Brain panel's Structure card -- a Conv1d stack (configurable kernel size +
+  per-layer channel counts) over the same leading-sequence-slice/trailing-
+  scalars contract `LstmArchitecture` already established, requiring Bar
+  Window the same way LSTM does. `IPolicyGradientBrain.DescribeNetworkShape`
+  gained a `Conv1d` case so a CNN brain's Network Activity animation draws its
+  conv layers (`out_channels` as each layer's "width", same treatment as
+  Linear's `out_features`).
 - **v1.3** — 2026-07-28 — `VolumeProfileEncoder`/`TimeProfileEncoder` absorbed
   their former `*RawEncoder` counterparts (deleted) behind a new
   `NormalizationKind` (`Normalized`/`Raw`) build option, and `BarWindowEncoder`

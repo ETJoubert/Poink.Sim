@@ -81,6 +81,15 @@ namespace Poink.Sim.Components.Training
         private int _lstmHiddenSize = 64;
         private int _lstmNumLayers = 2;
 
+        // Cnn's own knobs -- kernelSize applies to every conv layer (odd
+        // sizes keep exact "same" padding, see CnnPolicyNetwork), _cnnChannels
+        // is each conv layer's output channel count, in network order --
+        // same add/remove-layer editor shape as _mlpHiddenSizes, just widening
+        // (doubling) by default instead of narrowing since deeper conv stacks
+        // conventionally grow channel depth as they go.
+        private int _cnnKernelSize = 3;
+        private List<int> _cnnChannels = [16, 32];
+
         // Which extra (non-direction) decisions the built brain's network
         // also makes -- see ActionOutputKind. All optional (unlike the
         // encoder checkboxes, at least one of which is required).
@@ -141,14 +150,41 @@ namespace Poink.Sim.Components.Training
             if (int.TryParse(e.Value?.ToString(), out int size)) _mlpHiddenSizes[index] = size;
         }
 
-        // LSTM needs a sequence-bearing part (Bar Window) to narrow() a
-        // sequence out of -- see LstmArchitecture's doc comment; mirrored here
-        // so the Create button disables instead of only failing after a click.
+        // Mirrors EffectiveMlpHiddenSizes -- a channel count cleared to 0 (or
+        // left blank) drops that conv layer out rather than building a
+        // zero-channel one.
+        private IReadOnlyList<int> EffectiveCnnChannels => _cnnChannels.Where(n => n > 0).ToList();
+
+        // New layer defaults to double the last layer's channel count --
+        // unlike AddHiddenLayer's narrowing taper, a deeper conv stack
+        // conventionally grows channel depth as it goes.
+        private void AddCnnChannelLayer() => _cnnChannels.Add(_cnnChannels[^1] * 2);
+
+        // Layer 1 can't be dropped below one entry, same floor as
+        // RemoveHiddenLayer -- a CNN needs at least one conv layer.
+        private void RemoveCnnChannelLayer(int index)
+        {
+            if (_cnnChannels.Count <= 1) return;
+            _cnnChannels.RemoveAt(index);
+        }
+
+        private bool CanRemoveCnnChannelLayer => _cnnChannels.Count > 1;
+
+        private void OnCnnChannelSizeChanged(int index, ChangeEventArgs e)
+        {
+            if (int.TryParse(e.Value?.ToString(), out int size)) _cnnChannels[index] = size;
+        }
+
+        // LSTM/Cnn both need a sequence-bearing part (Bar Window) to narrow()
+        // a sequence out of -- see LstmArchitecture's/CnnArchitecture's doc
+        // comments; mirrored here so the Create button disables instead of
+        // only failing after a click.
         private bool CanCreateBrain =>
             !string.IsNullOrWhiteSpace(EffectiveBuildBrainName)
             && (_includeBarWindow || _includeVolumeProfile || _includeTimeProfile)
             && (_includeHold || _includeEnterLong || _includeEnterShort || _includeClose)
-            && (_architectureKind != ArchitectureKind.Lstm || _includeBarWindow)
+            && (_architectureKind is not (ArchitectureKind.Lstm or ArchitectureKind.Cnn) || _includeBarWindow)
+            && (_architectureKind != ArchitectureKind.Cnn || (_cnnKernelSize >= 1 && EffectiveCnnChannels.Count > 0))
             && (!_includeBarWindow || _barWindowSize >= 1)
             && (!_includeVolumeProfile || (_volumeProfileBucketCount >= 1 && _volumeProfileLookbackBars >= 1))
             && (!_includeTimeProfile || (_timeProfileBucketCount >= 1 && _timeProfileLookbackBars >= 1));
@@ -200,11 +236,15 @@ namespace Poink.Sim.Components.Training
             new TraderStateEncoder().FeatureCount
             + SelectedEncoderKinds.Sum(k => BrainCatalog.CreateEncoder(k, CurrentEncoderSizeOptions).FeatureCount);
 
-        // First hidden layer's width -- null for an MLP trimmed down to zero
-        // layers (a linear model, so there's no first layer to flag).
-        private int? FirstHiddenLayerSize => _architectureKind == ArchitectureKind.Mlp
-            ? (EffectiveMlpHiddenSizes.Count > 0 ? EffectiveMlpHiddenSizes[0] : null)
-            : _lstmHiddenSize;
+        // First hidden/conv layer's width -- null for an MLP or Cnn trimmed
+        // down to zero layers (a linear model / no conv layers, so there's no
+        // first layer to flag).
+        private int? FirstHiddenLayerSize => _architectureKind switch
+        {
+            ArchitectureKind.Mlp => EffectiveMlpHiddenSizes.Count > 0 ? EffectiveMlpHiddenSizes[0] : null,
+            ArchitectureKind.Cnn => EffectiveCnnChannels.Count > 0 ? EffectiveCnnChannels[0] : null,
+            _ => _lstmHiddenSize,
+        };
 
         // Flags a first layer narrower than the inputs feeding it -- not
         // necessarily wrong, but a common accidental bottleneck worth
@@ -300,9 +340,12 @@ namespace Poink.Sim.Components.Training
                     _ => _architectureKind.ToString().ToUpperInvariant(),
                 };
 
-                string layers = _architectureKind == ArchitectureKind.Mlp
-                    ? string.Join("-", EffectiveMlpHiddenSizes.Select(n => $"L{n}"))
-                    : $"H{_lstmHiddenSize}-N{_lstmNumLayers}";
+                string layers = _architectureKind switch
+                {
+                    ArchitectureKind.Mlp => string.Join("-", EffectiveMlpHiddenSizes.Select(n => $"L{n}")),
+                    ArchitectureKind.Cnn => $"K{_cnnKernelSize}-" + string.Join("-", EffectiveCnnChannels.Select(n => $"C{n}")),
+                    _ => $"H{_lstmHiddenSize}-N{_lstmNumLayers}",
+                };
 
                 var dataParts = new List<string>();
                 if (_includeBarWindow) dataParts.Add(_barWindowNormalization == NormalizationKind.Raw ? "dBWR" : "dBW");
@@ -347,9 +390,12 @@ namespace Poink.Sim.Components.Training
             var name = EffectiveBuildBrainName;
             var encoderKinds = SelectedEncoderKinds;
 
-            IReadOnlyList<int> hiddenSizes = _architectureKind == ArchitectureKind.Mlp
-                ? EffectiveMlpHiddenSizes
-                : [_lstmHiddenSize, _lstmNumLayers];
+            IReadOnlyList<int> hiddenSizes = _architectureKind switch
+            {
+                ArchitectureKind.Mlp => EffectiveMlpHiddenSizes,
+                ArchitectureKind.Cnn => [_cnnKernelSize, .. EffectiveCnnChannels],
+                _ => [_lstmHiddenSize, _lstmNumLayers],
+            };
 
             var actionOutputKinds = new List<ActionOutputKind>();
             if (_includeVolumeOutput) actionOutputKinds.Add(ActionOutputKind.Volume);

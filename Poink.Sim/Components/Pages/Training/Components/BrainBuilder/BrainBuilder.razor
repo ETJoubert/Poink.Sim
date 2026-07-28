@@ -157,6 +157,7 @@
                                 @onchange="OnArchitectureKindChanged" disabled="@Service.IsRunning">
                             <option value="Mlp">MLP</option>
                             <option value="Lstm">LSTM</option>
+                            <option value="Cnn">CNN</option>
                         </select>
                     </label>
                     @if (_architectureKind == ArchitectureKind.Mlp)
@@ -193,7 +194,7 @@
                             </button>
                         </div>
                     }
-                    else
+                    else if (_architectureKind == ArchitectureKind.Lstm)
                     {
                         <label class="train-brainrow-field" title="LSTM hidden state size">
                             Hidden size
@@ -208,6 +209,44 @@
                         @if (!_includeBarWindow)
                         {
                             <span class="train-brainrow-error">LSTM needs Bar Window for its sequence</span>
+                        }
+                    }
+                    else
+                    {
+                        <label class="train-brainrow-field" title="Convolution kernel width applied to every conv layer -- odd sizes (3, 5, 7, ...) keep the window's time length unchanged through each layer">
+                            Kernel size
+                            <input class="train-brainrow-input train-brainrow-input-right" type="number" min="1" step="2"
+                                   @bind="_cnnKernelSize" disabled="@Service.IsRunning" />
+                        </label>
+                        <div class="train-hiddenlayers">
+                            @for (int i = 0; i < _cnnChannels.Count; i++)
+                            {
+                                var index = i;
+                                <label class="train-brainrow-field" title="@($"Output channel count of conv layer {index + 1}")">
+                                    Layer @(index + 1)
+                                    <span class="train-hiddenlayer-controls">
+                                        <input class="train-brainrow-input train-brainrow-input-right" type="number"
+                                               min="1" step="1" value="@_cnnChannels[index]"
+                                               @oninput="e => OnCnnChannelSizeChanged(index, e)"
+                                               disabled="@Service.IsRunning" />
+                                        <button type="button" class="train-btn-remove-layer"
+                                                @onclick="() => RemoveCnnChannelLayer(index)"
+                                                disabled="@(Service.IsRunning || !CanRemoveCnnChannelLayer)"
+                                                title="@(CanRemoveCnnChannelLayer ? "Remove this layer" : "At least one conv layer is required")">
+                                            &#215;
+                                        </button>
+                                    </span>
+                                </label>
+                            }
+                            <button type="button" class="train-btn-toggle" @onclick="AddCnnChannelLayer"
+                                    disabled="@Service.IsRunning"
+                                    title="Add another conv layer, stacked after the ones above -- defaults to double the last layer's channel count">
+                                + ADD LAYER
+                            </button>
+                        </div>
+                        @if (!_includeBarWindow)
+                        {
+                            <span class="train-brainrow-error">CNN needs Bar Window for its sequence</span>
                         }
                     }
                 </div>
