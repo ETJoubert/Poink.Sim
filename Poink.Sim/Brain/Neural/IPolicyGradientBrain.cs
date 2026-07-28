@@ -91,7 +91,13 @@ internal interface IPolicyGradientBrain : ISimulationBrain
     // produces it before sampling collapses it to one index), so the Train
     // page's "what the network decided" panel doesn't need a second forward
     // pass (and re-sampling via a second call would risk a different action).
-    (SimulationDecision Decision, Tensor ActionLogProbability, IReadOnlyList<RlOutputFeature> Outputs) DecideWithLogProbability(
+    // Entropy is the direction distribution's own entropy (-sum(p*log p)),
+    // computed from the same log_softmax output before sampling -- unlike
+    // ActionLogProbability, it's a direct differentiable function of the
+    // logits (no sampled index involved), which is what lets a training
+    // strategy add an entropy bonus to its loss to discourage the policy
+    // collapsing onto one action before it's found real signal.
+    (SimulationDecision Decision, Tensor ActionLogProbability, Tensor Entropy, IReadOnlyList<RlOutputFeature> Outputs) DecideWithLogProbability(
         SimulationObservation observation);
 
     // Labeled breakdown of Encode(observation) -- each brain knows its own

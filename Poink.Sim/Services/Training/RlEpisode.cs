@@ -1,9 +1,9 @@
 // ── Recorded RL trajectory shapes ────────────────────────────────────────
 //  Produced by RlEpisodeRunner, consumed by an IRlTrainingStrategy. Kept
-//  brain/strategy-agnostic: LogProbability is null for any ISimulationBrain
-//  that isn't an IPolicyGradientBrain, so RlEpisodeRunner also works as a
-//  reward-only evaluator for the existing heuristic brains (no training,
-//  just "how did this brain do").
+//  brain/strategy-agnostic: LogProbability/Entropy are null for any
+//  ISimulationBrain that isn't an IPolicyGradientBrain, so RlEpisodeRunner
+//  also works as a reward-only evaluator for the existing heuristic brains
+//  (no training, just "how did this brain do").
 // ─────────────────────────────────────────────────────────────────────────
 using System;
 using System.Collections.Generic;
@@ -14,7 +14,13 @@ using static TorchSharp.torch;
 
 namespace Poink.Sim.Training;
 
-internal sealed record RlStep(SimulationAction Action, Tensor? LogProbability, double Reward);
+// Entropy is the same decision's direction-distribution entropy (see
+// IPolicyGradientBrain.DecideWithLogProbability), captured alongside
+// LogProbability with no lag -- unlike Reward (which RlEpisodeRunner
+// backfills from the *next* decision point, since it measures this action's
+// outcome), entropy is intrinsic to what the network chose right now, so it
+// needs no such shift.
+internal sealed record RlStep(SimulationAction Action, Tensor? LogProbability, double Reward, Tensor? Entropy);
 
 // LastInputs is null for any ISimulationBrain that isn't an IPolicyGradientBrain
 // (nothing to describe), and otherwise a labeled snapshot of what fed the network

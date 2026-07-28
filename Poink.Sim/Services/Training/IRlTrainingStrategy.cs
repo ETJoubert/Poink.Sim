@@ -23,6 +23,10 @@ internal interface IRlTrainingStrategy
     optim.Optimizer CreateOptimizer(ISimulationBrain brain, double learningRate);
 
     // Turns one recorded episode into one gradient step. Returns a metric
-    // (total episode reward) for progress reporting.
-    double TrainEpisode(ISimulationBrain brain, optim.Optimizer optimizer, RlEpisode episode);
+    // (total episode reward) for progress reporting. progress is how far
+    // through the whole training run this episode is (0 at the first
+    // episode, 1 at the last) -- for a strategy that anneals a hyperparameter
+    // over the run (e.g. PolicyGradientTrainingStrategy's entropy-bonus
+    // coefficient); a strategy with nothing to anneal just ignores it.
+    double TrainEpisode(ISimulationBrain brain, optim.Optimizer optimizer, RlEpisode episode, double progress);
 }

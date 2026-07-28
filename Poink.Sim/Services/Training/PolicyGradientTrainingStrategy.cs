@@ -2,8 +2,14 @@
 //  Discounted reward-to-go per step (gamma = 0.99), mean-centered and
 //  std-normalized across the episode as a simple variance-reduction
 //  baseline (no separate value network needed for a first setup). Loss is
-//  -mean(logProb_t * normalizedReturn_t): minimizing this is gradient ascent
-//  on expected return, the standard REINFORCE update.
+//  -mean(logProb_t * normalizedReturn_t) - beta * meanEntropy: the first
+//  term is the standard REINFORCE update (minimizing it is gradient ascent
+//  on expected return); the second is an entropy bonus that discourages the
+//  policy collapsing onto one action (e.g. all-Hold, a strong local optimum
+//  on spread-bearing data) before it's found real signal. beta anneals
+//  linearly from InitialEntropyCoefficient to 0 over the run (see
+//  TrainEpisode's progress parameter) so late training can still sharpen
+//  into a confident policy instead of staying noisy forever.
 // ─────────────────────────────────────────────────────────────────────────
 using System;
 using System.Linq;
@@ -17,6 +23,7 @@ namespace Poink.Sim.Training;
 internal sealed class PolicyGradientTrainingStrategy : IRlTrainingStrategy
 {
     private const double DiscountFactor = 0.99;
+    private const double InitialEntropyCoefficient = 0.01;
 
     public string Name => "Policy Gradient (REINFORCE)";
 
@@ -29,7 +36,7 @@ internal sealed class PolicyGradientTrainingStrategy : IRlTrainingStrategy
         return optim.Adam(policyBrain.Network.parameters(), lr: learningRate);
     }
 
-    public double TrainEpisode(ISimulationBrain brain, optim.Optimizer optimizer, RlEpisode episode)
+    public double TrainEpisode(ISimulationBrain brain, optim.Optimizer optimizer, RlEpisode episode, double progress)
     {
         if (brain is not IPolicyGradientBrain)
             throw new InvalidOperationException($"{Name} cannot train brain '{brain.Name}'");
@@ -54,11 +61,18 @@ internal sealed class PolicyGradientTrainingStrategy : IRlTrainingStrategy
             .Select(s => s.LogProbability ?? throw new InvalidOperationException(
                 "policy-gradient episode step missing a log-probability -- RlEpisodeRunner should always attach one for an IPolicyGradientBrain"))
             .ToArray();
+        var entropies = episode.Steps
+            .Select(s => s.Entropy ?? throw new InvalidOperationException(
+                "policy-gradient episode step missing an entropy -- RlEpisodeRunner should always attach one for an IPolicyGradientBrain"))
+            .ToArray();
 
         var normalizedReturns = tensor(returns.Select(r => (float)((r - mean) / (std + 1e-8))).ToArray())
             .to(logProbs[0].device);
 
-        var loss = -(stack(logProbs) * normalizedReturns).mean();
+        double entropyCoefficient = InitialEntropyCoefficient * (1.0 - Math.Clamp(progress, 0.0, 1.0));
+        var meanEntropy = stack(entropies).mean();
+
+        var loss = -(stack(logProbs) * normalizedReturns).mean() - meanEntropy * entropyCoefficient;
 
         optimizer.zero_grad();
         loss.backward();
@@ -66,6 +80,8 @@ internal sealed class PolicyGradientTrainingStrategy : IRlTrainingStrategy
 
         foreach (var logProb in logProbs)
             logProb.Dispose();
+        foreach (var entropy in entropies)
+            entropy.Dispose();
 
         return totalReward;
     }

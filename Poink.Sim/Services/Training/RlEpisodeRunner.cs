@@ -263,12 +263,14 @@ internal static class RlEpisodeRunner
 
         SimulationDecision decision;
         Tensor? logProbability = null;
+        Tensor? entropy = null;
         IReadOnlyList<RlOutputFeature>? outputs = null;
         if (brain is IPolicyGradientBrain policyBrain)
         {
-            var (decidedAction, actionLogProbability, decisionOutputs) = policyBrain.DecideWithLogProbability(observation);
+            var (decidedAction, actionLogProbability, decisionEntropy, decisionOutputs) = policyBrain.DecideWithLogProbability(observation);
             decision = decidedAction;
             logProbability = actionLogProbability;
+            entropy = decisionEntropy;
             outputs = decisionOutputs;
         }
         else
@@ -281,8 +283,9 @@ internal static class RlEpisodeRunner
         // Reward 0 is a placeholder -- this step's real reward isn't known until the
         // *next* decision point measures the drift this action causes, at which point
         // the block above backfills it. If this turns out to be the episode's last
-        // step, Run drops it instead of training on that placeholder.
-        steps.Add(new RlStep(decision.Action, logProbability, 0.0));
+        // step, Run drops it instead of training on that placeholder. Entropy, unlike
+        // Reward, is final as recorded -- see RlStep's doc comment.
+        steps.Add(new RlStep(decision.Action, logProbability, 0.0, entropy));
         return (capitalAfter, observation, outputs);
     }
 }

@@ -175,8 +175,15 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   weights to increase the probability of actions that led to higher reward.
 - **REINFORCE** — The concrete RL algorithm implemented by
   `PolicyGradientTrainingStrategy`: discounted reward-to-go with a mean-centered/
-  std-normalized baseline; loss = `-mean(logProb_t * normalizedReturn_t)`.
-  `Services/Training/PolicyGradientTrainingStrategy.cs`
+  std-normalized baseline; loss = `-mean(logProb_t * normalizedReturn_t) - beta *
+  meanEntropy`. The entropy term (see `IPolicyGradientBrain`'s `Entropy`) is an
+  exploration bonus against premature collapse to a degenerate policy (all-Hold,
+  all-Long -- the most common failure mode on spread-bearing data, where all-Hold is
+  a strong local optimum); `beta` starts at `InitialEntropyCoefficient` (0.01) and
+  anneals linearly to 0 over the run via `TrainEpisode`'s `progress` parameter, so
+  late training can still sharpen into a confident policy. Watch `RlActionCounts`
+  during a run -- a healthy one keeps all four actions alive well past the first
+  few episodes. `Services/Training/PolicyGradientTrainingStrategy.cs`
 - **Reinforcement learning (RL)** — Training paradigm where a Brain (policy) plays
   simulated trading episodes and learns from its own trading outcomes rather than
   labeled historical data (contrast with Poink.ML's supervised training elsewhere).
@@ -352,7 +359,10 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   `DecideWithLogProbability` also returns `Outputs` (the same forward pass's full
   labeled `RlOutputFeature` distribution, not just the sampled action's log-prob) --
   free to include since `log_softmax` already computes it before sampling collapses
-  it to one index (see `ComposedPolicyBrain.DescribeOutputs`).
+  it to one index (see `ComposedPolicyBrain.DescribeOutputs`) -- and `Entropy`, the
+  direction distribution's own entropy (`-sum(p*log p)`), a direct differentiable
+  function of the logits (no sampled index involved, unlike `ActionLogProbability`)
+  that `PolicyGradientTrainingStrategy` adds to its loss as an exploration bonus.
   `Brain/Neural/IPolicyGradientBrain.cs`
 - **`IRewardPolicy`** — `{ Name, OnEpisodeStart(), ComputeReward(RewardContext) }`: the
   piece that used to be a single hardcoded line inside `RlEpisodeRunner.RecordStep`
@@ -392,7 +402,11 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
 - **`IRlTrainingStrategy`** — The "coach" abstraction: `Name`/`CanTrain`/
   `CreateOptimizer`/`TrainEpisode`. Kept stateless like Poink.ML's brain interfaces;
   `RlTrainingService` owns the optimizer's lifetime across a whole run so Adam's
-  momentum persists correctly across episodes. `Services/Training/IRlTrainingStrategy.cs`
+  momentum persists correctly across episodes. `TrainEpisode` also takes `progress`
+  (0 at the run's first episode, 1 at its last, computed by `RlTrainingService` from
+  `episode`/`episodeCount`) for a strategy that anneals a hyperparameter over the
+  run -- `PolicyGradientTrainingStrategy`'s only current use is its entropy-bonus
+  coefficient (see `REINFORCE`). `Services/Training/IRlTrainingStrategy.cs`
 - **`ISimulationBrain`** — Minimal trading-decision contract: `Name`,
   `Decide(observation)`, `Reset()`. Deliberately excludes `Build`/`BuildInput`/
   TorchSharp `Module` so a stateless heuristic brain has nothing extra to carry.

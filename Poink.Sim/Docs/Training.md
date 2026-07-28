@@ -87,6 +87,15 @@ discounted reward-to-go, `γ = 0.99`, and a mean-centered baseline) owns
 turning whichever policy's raw per-step reward is into the actual loss —
 the reward policy only decides *what* the number is.
 
+**Entropy bonus.** The loss also subtracts `β * meanEntropy` (mean of each
+step's direction-distribution entropy, from `IPolicyGradientBrain`'s
+`Entropy`) to discourage collapsing onto a degenerate policy (all-Hold,
+all-Long) before real signal is found — on spread-bearing data, all-Hold is
+a strong local optimum. `β` starts at 0.01 and anneals linearly to 0 across
+the run. `RlActionCounts` (the Live tab's action-distribution bars) is the
+place to watch this: a healthy run keeps all four actions alive well past
+the first few episodes rather than collapsing early.
+
 ## `RlTrainingService`
 
 Background training orchestrator DI singleton — same `_lock`/`IsRunning`/

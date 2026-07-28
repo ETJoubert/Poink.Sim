@@ -603,7 +603,7 @@ internal sealed class SimulationEngine : IDisposable
             SimulationDecision decision;
             if (_activeBrain is IPolicyGradientBrain policyBrain && session.Id == _selectedTraderIdForIo)
             {
-                var (decidedAction, _, outputs) = policyBrain.DecideWithLogProbability(observation);
+                var (decidedAction, _, _, outputs) = policyBrain.DecideWithLogProbability(observation);
                 session.LatestInputs = policyBrain.DescribeInputs(observation);
                 session.LatestOutputs = outputs;
                 decision = decidedAction;

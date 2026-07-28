@@ -397,7 +397,11 @@ internal sealed class RlTrainingService
                     var result = RlEpisodeRunner.Run(
                         brain, episodeTicks, startingCash, episodeBars, barWidth, _traderFactory,
                         settings: traderSettings, warmupBars: warmupBars, rewardPolicy: rewardPolicy);
-                    double reward = strategy.TrainEpisode(brain, optimizer, result);
+                    // Reaches exactly 1.0 on the run's last episode (not just approaching
+                    // it) so an annealed hyperparameter (see TrainEpisode's progress doc
+                    // comment) finishes fully annealed rather than asymptotically close.
+                    double progress = episodeCount > 1 ? (double)episode / (episodeCount - 1) : 1.0;
+                    double reward = strategy.TrainEpisode(brain, optimizer, result, progress);
 
                     recentRewards.Enqueue(reward);
                     if (recentRewards.Count > RecentRewardWindow) recentRewards.Dequeue();

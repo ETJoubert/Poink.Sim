@@ -125,7 +125,7 @@ internal sealed class ComposedPolicyBrain : IPolicyGradientBrain
         }
     }
 
-    public (SimulationDecision Decision, Tensor ActionLogProbability, IReadOnlyList<RlOutputFeature> Outputs) DecideWithLogProbability(
+    public (SimulationDecision Decision, Tensor ActionLogProbability, Tensor Entropy, IReadOnlyList<RlOutputFeature> Outputs) DecideWithLogProbability(
         SimulationObservation observation)
     {
         lock (_forwardLock)
@@ -136,6 +136,11 @@ internal sealed class ComposedPolicyBrain : IPolicyGradientBrain
             var directionLogits = logits.narrow(1, 0, _enabledDirections.Count);
             var directionLogProbs = functional.log_softmax(directionLogits, dim: 1);
             var directionProbabilities = exp(directionLogProbs);
+            // Direction-only -- the enabled directions are what a degenerate policy
+            // (all-Hold, all-Long) collapses onto, so this is the entropy an
+            // entropy-bonus loss term needs to keep alive; the action-output heads
+            // below (Volume/StopLoss/TakeProfit) don't factor in.
+            var entropy = -(directionProbabilities * directionLogProbs).sum();
             int actionIndex = CategoricalSampling.SampleIndex(directionProbabilities);
             var actionLogProbability = directionLogProbs[0, actionIndex];
             var outputs = new List<RlOutputFeature>(DescribeOutputs(directionProbabilities, actionIndex));
@@ -152,7 +157,7 @@ internal sealed class ComposedPolicyBrain : IPolicyGradientBrain
                 offset += head.OutputWidth;
             }
 
-            return (BuildDecision(_enabledDirections[actionIndex], headValues, observation.CurrentPrice), actionLogProbability, outputs);
+            return (BuildDecision(_enabledDirections[actionIndex], headValues, observation.CurrentPrice), actionLogProbability, entropy, outputs);
         }
     }
 
