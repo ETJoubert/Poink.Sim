@@ -28,9 +28,12 @@ For simulation the Profile Bars slider should be included.
 - A collapse button should be placed left of the Play button that would collapse the Data Range selector and the brain/Trader options
 
 3. Brain builder settings retention | Training | UI
--TODO
-- I need a way to retain, just in current session memory, a configured brains settings. If it is retained, then I need a way to load them
-to prepopulate the configs. Everytime I go back I need to reset the settings which is anoying. Especially when I am trying to tune
+- Done
+- `BrainBuilder` now has a Preset row (Name row above) backed by a new `brain_presets`
+table (`IBrainPresetRepository`/`BrainPresetRepository`, same "Poink.Sim" Postgres database
+as saved brains). SAVE PRESET/UPDATE/DELETE give full CRUD over named, weight-less configs
+(encoders/architecture/actions, as a `BrainRecipe`) -- pick one from the dropdown to reload
+it into the panel while tuning, independently of ever building or training a brain from it.
 
 4. Validation loop 
 - TODO

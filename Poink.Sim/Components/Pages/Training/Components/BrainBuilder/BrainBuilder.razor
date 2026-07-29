@@ -6,6 +6,39 @@
     <div class="train-buildbrain">
         <div class="train-card-fields-row train-buildbrain-name-row">
             <label class="train-brainrow-field train-brainrow-field-grow"
+                   title="Load a saved config (encoders/architecture/actions) to prepopulate the panel below -- independent of any actually-built or trained brain">
+                Preset
+                <select class="train-brainrow-select train-brainrow-input-full" value="@_selectedPresetId"
+                        @onchange="OnPresetSelected" title="Pick a saved preset to load its config">
+                    <option value="">-- none --</option>
+                    @foreach (var preset in Service.BrainPresets)
+                    {
+                        <option value="@preset.Id">@preset.Name</option>
+                    }
+                </select>
+            </label>
+            <input class="train-brainrow-input" type="text" value="@_presetName" @oninput="OnPresetNameInput"
+                   placeholder="preset name" title="Name to save/update this config's preset under" />
+            <button class="train-btn-toggle" @onclick="SavePresetAsNew" disabled="@(!CanSavePresetAsNew)"
+                    title="Saves the panel's current config as a new preset under the name above">
+                SAVE PRESET
+            </button>
+            <button class="train-btn-toggle" @onclick="UpdateSelectedPreset" disabled="@(!CanUpdateSelectedPreset)"
+                    title="Overwrites the selected preset with the panel's current config and name">
+                UPDATE
+            </button>
+            <button class="train-btn-toggle train-btn-toggle-warn" @onclick="DeleteSelectedPreset"
+                    disabled="@(!CanDeleteSelectedPreset)" title="Deletes the selected preset -- does not affect any brain built from it">
+                DELETE
+            </button>
+            @if (Service.PresetStatus is not null)
+            {
+                <span class="train-preset-status">@Service.PresetStatus</span>
+            }
+        </div>
+
+        <div class="train-card-fields-row train-buildbrain-name-row">
+            <label class="train-brainrow-field train-brainrow-field-grow"
                    title="Unique name for this brain -- must not match an existing one">
                 Name
                 <input class="train-brainrow-input train-brainrow-input-full" type="text"

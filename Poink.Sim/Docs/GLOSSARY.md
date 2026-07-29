@@ -354,6 +354,19 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   EXISTS` pattern as the older `dataset` column) -- a row saved before this feature
   existed just has no recipe (can't be auto-rebuilt after a restart wipes it from
   `BrainRegistry`) and an unknown trained status. `Repository/IBrainRepository.cs`
+- **`IBrainPresetRepository` / `BrainPresetRepository`** — Persists a named,
+  weight-less `BrainBuilder` config (just a `BrainRecipe` -- encoders/
+  architecture/hidden sizes/actions, no weights) so it can be saved, listed,
+  edited in place, and deleted independently of ever building or training a
+  brain from it -- the CRUD `BrainBuilder`'s Preset row exposes. Own
+  `brain_presets` table in the same "Poink.Sim" database as `IBrainRepository`
+  (a preset is a config, not market data, so it belongs alongside
+  `trained_brains` rather than in its own database). Unlike `SaveBrain`'s
+  always-insert (snapshot-per-save history), `UpdatePreset` overwrites a row in
+  place -- a preset is one mutable config someone is actively tuning, not a
+  history to browse. `RlTrainingService` caches the list (`BrainPresets`,
+  refreshed via `RefreshBrainPresets`) the same way it caches `SavedBrains`.
+  `Repository/IBrainPresetRepository.cs`
 - **`IFeatureNormalizer`** — `{ Normalize(rawValue, observation), Denormalize(normalizedValue,
   anchors), Format(rawValue) }`: the half of feature engineering split out of
   `IObservationEncoder` -- an encoder decides *which* raw quantity feeds a feature
@@ -919,8 +932,18 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   Action Decoding card's Decoding Mode selector (`_decisionDecoding`, defaults
   to `Softmax`) is the one `DecisionDecodingKind` choice for the whole brain --
   each row's `@DecodingLabel` reflects it live (e.g. "4-way hardmax"), and
-  `CreateBrain` threads it into `TryBuildBrain`.
-  `Components/Pages/Training/Components/BrainBuilder/`
+  `CreateBrain` threads it into `TryBuildBrain`. A Preset row above the Name
+  row lets the panel's config be saved/reloaded/edited/deleted by name,
+  independently of ever building or training a brain from it -- `CurrentRecipe`
+  packs the panel's current fields into a `BrainRecipe` (same shape
+  `SavedBrainSummary.Recipe` uses), `LoadPreset(recipe)` is its exact inverse,
+  and SAVE PRESET/UPDATE/DELETE drive `RlTrainingService.SaveBrainPreset`/
+  `UpdateBrainPreset`/`DeleteBrainPreset` (`IBrainPresetRepository`, its own
+  `brain_presets` table in the "Poink.Sim" database -- see that interface's
+  doc comment). Selecting a preset from the dropdown (`OnPresetSelected`) calls
+  `LoadPreset` immediately; SAVE PRESET always inserts a new row (a preset is a
+  single mutable config, not a snapshot history like `SavedBrains`), UPDATE
+  overwrites the selected one in place. `Components/Pages/Training/Components/BrainBuilder/`
 - **`BrainInfoCard`** — Shows "what's actually running" for a live brain (name,
   NN-or-not, and its `ActiveSnapshot` if the live weights match a saved one) on
   `SimulationPage`'s BRAIN tab. `Components/Pages/Training/Components/BrainInfoCard/`

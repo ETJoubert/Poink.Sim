@@ -61,6 +61,7 @@ internal sealed class RlTrainingService
     private readonly List<RlEpisodeWindow> _episodeWindows = new();
     private readonly RingBuffer<RlTrainingLogEntry> _trainingLog = new(MaxLogEntries);
     private readonly IBrainRepository _brainRepository;
+    private readonly IBrainPresetRepository _brainPresetRepository;
     private readonly ITickRepository _tickRepository;
     private readonly Trader.ITraderFactory _traderFactory;
     private readonly ILogger<RlTrainingService> _logger;
@@ -110,13 +111,14 @@ internal sealed class RlTrainingService
 
     public RlTrainingService(
         BrainRegistry brainRegistry, IEnumerable<IRlTrainingStrategy> strategies, IEnumerable<IRewardPolicy> rewardPolicies,
-        IBrainRepository brainRepository, ITickRepository tickRepository, Trader.ITraderFactory traderFactory,
-        ILogger<RlTrainingService> logger)
+        IBrainRepository brainRepository, IBrainPresetRepository brainPresetRepository, ITickRepository tickRepository,
+        Trader.ITraderFactory traderFactory, ILogger<RlTrainingService> logger)
     {
         _brainRegistry = brainRegistry;
         _strategies = strategies.ToList();
         _rewardPolicies = rewardPolicies.ToList();
         _brainRepository = brainRepository;
+        _brainPresetRepository = brainPresetRepository;
         _tickRepository = tickRepository;
         _traderFactory = traderFactory;
         _logger = logger;
@@ -155,6 +157,15 @@ internal sealed class RlTrainingService
             {
                 _logger.LogWarning(ex, "Failed to restore saved brain weights for {BrainName}; continuing with untrained brain", latest.BrainName);
             }
+        }
+
+        try
+        {
+            BrainPresets = _brainPresetRepository.ListPresets();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to list brain presets at startup; continuing with none");
         }
     }
 
@@ -196,6 +207,17 @@ internal sealed class RlTrainingService
     // Cached, not re-queried on every render -- refreshed explicitly after a
     // save/delete (see RefreshSavedBrains) and once here at startup.
     public IReadOnlyList<SavedBrainSummary> SavedBrains { get; private set; } = [];
+
+    // Named, weight-less BrainBuilder configs -- browsable/editable/deletable
+    // independently of ever building or training a brain from one (see
+    // BrainPresetSummary's doc comment). Same caching/refresh treatment as
+    // SavedBrains above.
+    public IReadOnlyList<BrainPresetSummary> BrainPresets { get; private set; } = [];
+
+    // Feedback for the Preset picker's Save/Update/Delete actions -- same role
+    // as SaveStatus below, just its own status line since presets and trained
+    // snapshots are saved from different, independent UI actions.
+    public string? PresetStatus { get; private set; }
 
     public bool IsRunning { get; private set; }
     public bool IsPaused { get; private set; }
@@ -730,6 +752,90 @@ internal sealed class RlTrainingService
             _logger.LogWarning(ex, "Failed to refresh saved brains list");
         }
         OnChanged?.Invoke();
+    }
+
+    public void RefreshBrainPresets()
+    {
+        try
+        {
+            BrainPresets = _brainPresetRepository.ListPresets();
+        }
+        catch (Exception ex)
+        {
+            PresetStatus = $"couldn't list presets: {ex.Message}";
+            _logger.LogWarning(ex, "Failed to refresh brain presets list");
+        }
+        OnChanged?.Invoke();
+    }
+
+    // Always an insert -- unlike SaveBrain's snapshot-per-save history, a
+    // preset is a single mutable config, so re-saving under an existing name
+    // is a distinct new preset rather than an update (see UpdateBrainPreset
+    // for editing one in place).
+    public bool SaveBrainPreset(string name, BrainRecipe recipe)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            PresetStatus = "enter a name to save the preset under";
+            OnChanged?.Invoke();
+            return false;
+        }
+
+        try
+        {
+            _brainPresetRepository.SavePreset(name, recipe);
+            PresetStatus = $"saved preset '{name}'";
+            RefreshBrainPresets();
+            return true;
+        }
+        catch (Exception ex)
+        {
+            PresetStatus = $"save preset failed: {ex.Message}";
+            OnChanged?.Invoke();
+            _logger.LogWarning(ex, "Failed to save brain preset '{Name}'", name);
+            return false;
+        }
+    }
+
+    public bool UpdateBrainPreset(long id, string name, BrainRecipe recipe)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            PresetStatus = "enter a name to save the preset under";
+            OnChanged?.Invoke();
+            return false;
+        }
+
+        try
+        {
+            _brainPresetRepository.UpdatePreset(id, name, recipe);
+            PresetStatus = $"updated preset '{name}'";
+            RefreshBrainPresets();
+            return true;
+        }
+        catch (Exception ex)
+        {
+            PresetStatus = $"update preset failed: {ex.Message}";
+            OnChanged?.Invoke();
+            _logger.LogWarning(ex, "Failed to update brain preset id {Id}", id);
+            return false;
+        }
+    }
+
+    public void DeleteBrainPreset(long id)
+    {
+        try
+        {
+            _brainPresetRepository.DeletePreset(id);
+            PresetStatus = "preset deleted";
+            RefreshBrainPresets();
+        }
+        catch (Exception ex)
+        {
+            PresetStatus = $"delete preset failed: {ex.Message}";
+            OnChanged?.Invoke();
+            _logger.LogWarning(ex, "Failed to delete brain preset id {Id}", id);
+        }
     }
 
     // Imports a saved snapshot's weights into the live brain of the matching

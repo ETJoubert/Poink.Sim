@@ -61,6 +61,7 @@ builder.Host.UseSerilog((context, configuration) => configuration
 // chunk-pruned range/window queries), never materializing a full range in memory.
 builder.Services.AddSingleton<ITickRepository, TickRepository>();
 builder.Services.AddSingleton<IBrainRepository, BrainRepository>();
+builder.Services.AddSingleton<IBrainPresetRepository, BrainPresetRepository>();
 builder.Services.AddSingleton<ITRangeChartRepository, TRangeChartRepository>();
 builder.Services.AddSingleton<ITRangeReferenceChartRepository, TRangeReferenceChartRepository>();
 builder.Services.AddSingleton<ISimulationBrain, MomentumThresholdBrain>();

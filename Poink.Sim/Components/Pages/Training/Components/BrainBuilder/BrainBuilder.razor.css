@@ -121,6 +121,20 @@
     cursor: not-allowed;
 }
 
+.train-btn-toggle-warn {
+    border-color: color-mix(in srgb, var(--color-error, #ff5f56) 40%, transparent);
+    color: var(--color-error, #ff5f56);
+}
+
+.train-btn-toggle-warn:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-error, #ff5f56) 14%, transparent);
+}
+
+.train-preset-status {
+    font-size: 0.72rem;
+    color: var(--color-secondary);
+}
+
 .train-buildbrain {
     display: flex;
     flex-direction: column;
