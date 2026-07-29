@@ -253,7 +253,16 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   `NormalizationKind` (`Normalized`/`Raw`, see `EncoderSizeOptions`) is an
   orthogonal per-set build option, not a separate `EncoderKind` value -- a
   future normalization strategy is a new `NormalizationKind` case handled
-  inside each affected encoder, not a new pickable kind. See
+  inside each affected encoder, not a new pickable kind.
+  `DecisionDecodingKind` (`Softmax`/`HardMax`) is another orthogonal build
+  option, applied uniformly to the direction pick and every enabled
+  `ActionOutputKind`: `Softmax` samples stochastically (today's original
+  behavior, needed for training exploration); `HardMax` always collapses to
+  the highest-probability/highest-logit index, deterministically, for
+  evaluating the policy the network actually learned. Threaded through
+  `ComposedPolicyBrain.Create` and `CreateActionOutputHead` (which passes it
+  to `DiscretizedLevelsActionHead`'s constructor), and persisted on
+  `BrainRecipe`. See
   [Brain/README.md](Brain/README.md) ("Where brains come from") for the full
   picture. `Brain/Neural/BrainCatalog.cs`
 - **`BarMinutesOptions`** — The doubling choice list backing `BarMinutesSelect`:
@@ -282,15 +291,24 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   `pow`), both triggered by an ordinary near-one-hot probability vector (e.g. a
   confident policy). Reading out a handful of floats and walking a cumulative sum
   in managed code sidesteps that native op entirely -- cheap and exact for the
-  small (<10-way) category counts every caller has. `Brain/Neural/CategoricalSampling.cs`
+  small (<10-way) category counts every caller has. `ArgmaxIndex(probabilities)`
+  is `DecisionDecodingKind.HardMax`'s deterministic counterpart -- always the
+  highest-probability index via TorchSharp's own `argmax` (no crash risk for a
+  plain reduction, unlike `multinomial`). `Brain/Neural/CategoricalSampling.cs`
 - **`ComposedPolicyBrain`** — The one generic trained-brain class: pairs one
   `IObservationEncoder` (optionally a `CompositeEncoder` of several) with a
   `Module<Tensor,Tensor>` an `INetworkArchitecture` built from it, and owns the
   shared `Decide`/sampling/decision-mapping logic every composed brain uses.
   `ComposedPolicyBrain.Create` is the factory both the fixed `Program.cs`
-  brains and the Train page's Build Brain panel go through. Full composition
-  model (encoders + normalizers + architectures) documented in
-  [Brain/README.md](Brain/README.md), not duplicated here.
+  brains and the Train page's Build Brain panel go through. Also takes a
+  `DecisionDecodingKind` (defaulting to `Softmax`), stored and used by
+  `DecideWithLogProbability` to pick the direction index via
+  `CategoricalSampling.SampleIndex` (stochastic) or `.ArgmaxIndex`
+  (`HardMax`, deterministic) -- either way the chosen index's log-
+  probability/entropy still come from the same softmax distribution, so
+  REINFORCE training is unaffected by which mode a brain was built with.
+  Full composition model (encoders + normalizers + architectures) documented
+  in [Brain/README.md](Brain/README.md), not duplicated here.
   `Brain/Neural/ComposedPolicyBrain.cs`
 - **`DummyTickGenerator`** — Static generator of synthetic even-interval random-walk
   ticks with a fixed small spread; shared by "Load Dummy Data" (Simulation) and
@@ -319,8 +337,10 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   (and only) implementation: each enabled kind gets its own small independent
   categorical head (`Volume`: 25/50/75/100% of cash; `StopLoss`/`TakeProfit`:
   None/Tight/Medium/Wide, with Medium matching `RandomBrain`'s existing fixed
-  0.003/0.006 defaults), sampled via `CategoricalSampling` -- the same manual
-  sampler the direction pick uses. `Brain/Neural/ActionOutputs/IActionOutputHead.cs`,
+  0.003/0.006 defaults), decoded via `CategoricalSampling` -- the same
+  sampler/argmax pair the direction pick uses, per its own
+  `DecisionDecodingKind` (constructor parameter, defaulting to `Softmax`) --
+  see `BrainCatalog`'s doc comment. `Brain/Neural/ActionOutputs/IActionOutputHead.cs`,
   `Brain/Neural/ActionOutputs/DiscretizedLevelsActionHead.cs`,
   `Brain/Neural/BrainCatalog.cs`
 - **`IBrainRepository` / `BrainRepository`** — Persists an `IPolicyGradientBrain`'s
@@ -593,9 +613,9 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   (see `EncoderSizeOptions`), not something a training run configures.
   `Repository/IBrainRepository.cs`
 - **`BrainRecipe`** — `{ EncoderKinds, ArchitectureKind, HiddenSizes, ActionOutputKinds,
-  ActionOutputEncodingKind, EnabledDirections, EncoderSizes }`: a runtime-built
-  brain's exact shape, as picked in the Train page's Build Brain panel (now
-  organized as four cards -- Input/Structure/Actions/Action Decoding).
+  ActionOutputEncodingKind, EnabledDirections, EncoderSizes, DecisionDecoding }`:
+  a runtime-built brain's exact shape, as picked in the Train page's Build Brain
+  panel (now organized as four cards -- Input/Structure/Actions/Action Decoding).
   `ActionOutputKinds` (default null, treated as
   empty -- see `IActionOutputHead`) and `ActionOutputEncodingKind` (default
   `DiscretizedLevels`) round out the shape with which extra decisions the network
@@ -605,7 +625,11 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   Close is individually optional per brain in the Actions card, not just the
   added Volume/StopLoss/TakeProfit heads. `EncoderSizes` (default null, treated
   as `EncoderSizeOptions`' own defaults -- see that entry) records each
-  selected encoder's own build options. Populated by `RlTrainingService.TryBuildBrain`, persisted alongside
+  selected encoder's own build options. `DecisionDecoding` (default `Softmax`,
+  today's original -- and, before `HardMax` existed, only -- behavior) records
+  the Action Decoding card's Decoding Mode selector: whether the direction pick
+  and every enabled action-output head sample stochastically or collapse to
+  their argmax (see `DecisionDecodingKind`). Populated by `RlTrainingService.TryBuildBrain`, persisted alongside
   a saved snapshot (null for the four Program.cs-fixed brains, which reconstruct via
   their own source code every restart instead), and read back by `LoadSavedBrain`
   to rebuild a runtime brain that's been wiped from `BrainRegistry` by a restart
@@ -733,7 +757,11 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
 - **`RlOutputFeature`** — One choice's probability out of one output head's full
   distribution for one decision, mirroring `RlInputFeature` but for what the
   network decided rather than what fed it. Record `(Label, Probability, IsChosen,
-  Group = "Direction")` -- probabilities *within one `Group`* sum to ~1, not
+  Logit, Group = "Direction")` -- `Logit` is this same choice's pre-softmax raw
+  network output, carried alongside `Probability` so `BrainIoPanel` can show both
+  and a decision method other than softmax sampling (argmax, temperature scaling,
+  epsilon-greedy) can be evaluated against the raw values -- probabilities
+  *within one `Group`* sum to ~1, not
   across the whole list: a brain always has one `"Direction"` group (`Label` the
   `SimulationAction` member name "Hold"/"EnterLong"/"EnterShort"/"Close" -- one
   row per direction the brain was built with, not always 4, see that enum's doc
@@ -887,7 +915,11 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   panel being collapsed and reopened via `TrainPage`'s "+/- BUILD BRAIN" toggle,
   which still lives on `TrainPage` alongside `BrainSelect`. Reports a successful
   `RlTrainingService.TryBuildBrain` back via `OnBrainCreated`, which `TrainPage`
-  uses to point `BrainSelect` at the new brain and collapse the panel.
+  uses to point `BrainSelect` at the new brain and collapse the panel. The
+  Action Decoding card's Decoding Mode selector (`_decisionDecoding`, defaults
+  to `Softmax`) is the one `DecisionDecodingKind` choice for the whole brain --
+  each row's `@DecodingLabel` reflects it live (e.g. "4-way hardmax"), and
+  `CreateBrain` threads it into `TryBuildBrain`.
   `Components/Pages/Training/Components/BrainBuilder/`
 - **`BrainInfoCard`** — Shows "what's actually running" for a live brain (name,
   NN-or-not, and its `ActiveSnapshot` if the live weights match a saved one) on
@@ -1161,7 +1193,11 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   styling) per `RlOutputFeature`, grouped by `Group` -- the `SimulationAction`
   direction pick plus one bar-set per `IActionOutputHead` the brain was built
   with -- with `.action-dist-row-chosen` highlighting whichever one
-  `RlOutputFeature.IsChosen` flags in each group.
+  `RlOutputFeature.IsChosen` flags in each group. Each row also shows
+  `RlOutputFeature.Logit` (`FormatLogit`, `.action-dist-raw`) next to the
+  softmax percentage -- the same raw pre-softmax value whether the row came
+  from the live episode or a frozen replay, since both flow through the same
+  `RlOutputFeature`.
 - **`TrendLineChart`** — Generic rolling-window trend line, reused by `TrainLiveTab`
   for the MEDIAN REWARD, REWARD STD DEV, and WIN RATE panels alongside `RewardChart`.
   Takes an `Aggregate` delegate (`Func<IReadOnlyList<RlEpisodeMetric>, double>`) so it

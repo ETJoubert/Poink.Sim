@@ -54,6 +54,20 @@ public enum ActionOutputKind { Volume, StopLoss, TakeProfit }
 // RlTrainingService, or persistence at all.
 public enum ActionOutputEncodingKind { DiscretizedLevels }
 
+// How a categorical distribution (the direction pick, and every enabled
+// ActionOutputKind's own levels) collapses to one chosen index. Softmax
+// samples stochastically, weighted by probability -- today's original
+// behavior, and what training needs for exploration. HardMax instead always
+// picks the highest-probability (equivalently highest-logit) index, for
+// evaluating a deterministic policy against what the network actually
+// learned. One brain-wide build-time choice, applied uniformly to the
+// direction pick and every action-output head -- see ComposedPolicyBrain.
+// DecideWithLogProbability and DiscretizedLevelsActionHead.Sample. Either way
+// the chosen index's log-probability/entropy still come from the same
+// softmax distribution, so REINFORCE training is unaffected by which mode a
+// brain was built with.
+public enum DecisionDecodingKind { Softmax, HardMax }
+
 // Every pickable set's build-time options -- structural width (window/bucket
 // count) plus, now, its NormalizationKind and (for the two profiles) its
 // merge-window length ("Window" in the Brain Builder's Input table). All of
@@ -102,21 +116,26 @@ public sealed record EncoderSizeOptions(
 // null (equivalent to EncoderSizeOptions' own defaults -- a record type
 // can't itself be a default parameter value, only null can), same
 // deserialization-tolerance reasoning as the other optional properties here.
+// DecisionDecoding defaults to Softmax, today's original (and only, before
+// HardMax existed) behavior, for the same old-recipe-tolerance reason.
 public sealed record BrainRecipe(
     IReadOnlyList<EncoderKind> EncoderKinds, ArchitectureKind ArchitectureKind, IReadOnlyList<int> HiddenSizes,
     IReadOnlyList<ActionOutputKind>? ActionOutputKinds = null,
     ActionOutputEncodingKind ActionOutputEncodingKind = ActionOutputEncodingKind.DiscretizedLevels,
     IReadOnlyList<SimulationAction>? EnabledDirections = null,
-    EncoderSizeOptions? EncoderSizes = null)
+    EncoderSizeOptions? EncoderSizes = null,
+    DecisionDecodingKind DecisionDecoding = DecisionDecodingKind.Softmax)
 {
     public override string ToString()
     {
         string baseDescription = $"{ArchitectureKind}[{string.Join(",", HiddenSizes)}] {string.Join("+", EncoderKinds)}";
         if (EnabledDirections is { Count: > 0 } directions)
             baseDescription += $" [{string.Join(",", directions)}]";
-        return ActionOutputKinds is { Count: > 0 }
-            ? $"{baseDescription} +{string.Join("+", ActionOutputKinds)}"
-            : baseDescription;
+        if (ActionOutputKinds is { Count: > 0 })
+            baseDescription += $" +{string.Join("+", ActionOutputKinds)}";
+        if (DecisionDecoding == DecisionDecodingKind.HardMax)
+            baseDescription += " [HardMax]";
+        return baseDescription;
     }
 }
 
@@ -154,9 +173,10 @@ internal static class BrainCatalog
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
     };
 
-    public static IActionOutputHead CreateActionOutputHead(ActionOutputKind kind, ActionOutputEncodingKind encodingKind) => encodingKind switch
+    public static IActionOutputHead CreateActionOutputHead(
+        ActionOutputKind kind, ActionOutputEncodingKind encodingKind, DecisionDecodingKind decoding = DecisionDecodingKind.Softmax) => encodingKind switch
     {
-        ActionOutputEncodingKind.DiscretizedLevels => new DiscretizedLevelsActionHead(kind),
+        ActionOutputEncodingKind.DiscretizedLevels => new DiscretizedLevelsActionHead(kind, decoding),
         _ => throw new ArgumentOutOfRangeException(nameof(encodingKind), encodingKind, null),
     };
 }

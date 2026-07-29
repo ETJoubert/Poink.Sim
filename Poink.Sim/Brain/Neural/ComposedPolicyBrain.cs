@@ -45,16 +45,19 @@ internal sealed class ComposedPolicyBrain : IPolicyGradientBrain
     private readonly IObservationEncoder _encoder;
     private readonly IReadOnlyList<IActionOutputHead> _actionOutputHeads;
     private readonly IReadOnlyList<SimulationAction> _enabledDirections;
+    private readonly DecisionDecodingKind _decisionDecoding;
 
     private ComposedPolicyBrain(
         string name, IObservationEncoder encoder, Module<Tensor, Tensor> network,
-        IReadOnlyList<IActionOutputHead> actionOutputHeads, IReadOnlyList<SimulationAction> enabledDirections)
+        IReadOnlyList<IActionOutputHead> actionOutputHeads, IReadOnlyList<SimulationAction> enabledDirections,
+        DecisionDecodingKind decisionDecoding)
     {
         Name = name;
         _encoder = encoder;
         Network = network;
         _actionOutputHeads = actionOutputHeads;
         _enabledDirections = enabledDirections;
+        _decisionDecoding = decisionDecoding;
     }
 
     // Builds a brain from an architecture plus one or more encoder parts
@@ -68,10 +71,20 @@ internal sealed class ComposedPolicyBrain : IPolicyGradientBrain
     // per brain (see SimulationAction's doc comment), not just the added
     // heads; defaults to AllDirections (today's original always-4 behavior)
     // so a direction-only brain (e.g. Program.cs's fixed brains) doesn't need
-    // to pass anything.
+    // to pass anything. decisionDecoding: how the direction pick's own
+    // distribution collapses to one index (see DecisionDecodingKind) --
+    // defaults to Softmax, today's original behavior; each actionOutputHead
+    // passed in already carries its own copy of this same choice (see
+    // BrainCatalog.CreateActionOutputHead), so it stays in lock-step with the
+    // direction pick without ComposedPolicyBrain reaching into each head.
     public static IPolicyGradientBrain Create(
         string name, INetworkArchitecture architecture, IReadOnlyList<IActionOutputHead> actionOutputHeads,
-        IReadOnlyList<SimulationAction> enabledDirections, params IObservationEncoder[] parts)
+        IReadOnlyList<SimulationAction> enabledDirections, params IObservationEncoder[] parts) =>
+        Create(name, architecture, actionOutputHeads, enabledDirections, DecisionDecodingKind.Softmax, parts);
+
+    public static IPolicyGradientBrain Create(
+        string name, INetworkArchitecture architecture, IReadOnlyList<IActionOutputHead> actionOutputHeads,
+        IReadOnlyList<SimulationAction> enabledDirections, DecisionDecodingKind decisionDecoding, params IObservationEncoder[] parts)
     {
         if (enabledDirections.Count == 0)
             throw new ArgumentException("a brain needs at least one enabled direction (Hold/EnterLong/EnterShort/Close)", nameof(enabledDirections));
@@ -80,7 +93,7 @@ internal sealed class ComposedPolicyBrain : IPolicyGradientBrain
         int extraOutputWidth = actionOutputHeads.Sum(h => h.OutputWidth);
         var network = architecture.Build(encoder.FeatureCount, encoder.SequenceLength, enabledDirections.Count + extraOutputWidth);
 
-        return new ComposedPolicyBrain(name, encoder, network, actionOutputHeads, enabledDirections);
+        return new ComposedPolicyBrain(name, encoder, network, actionOutputHeads, enabledDirections, decisionDecoding);
     }
 
     public static IPolicyGradientBrain Create(
@@ -141,9 +154,11 @@ internal sealed class ComposedPolicyBrain : IPolicyGradientBrain
             // entropy-bonus loss term needs to keep alive; the action-output heads
             // below (Volume/StopLoss/TakeProfit) don't factor in.
             var entropy = -(directionProbabilities * directionLogProbs).sum();
-            int actionIndex = CategoricalSampling.SampleIndex(directionProbabilities);
+            int actionIndex = _decisionDecoding == DecisionDecodingKind.HardMax
+                ? CategoricalSampling.ArgmaxIndex(directionProbabilities)
+                : CategoricalSampling.SampleIndex(directionProbabilities);
             var actionLogProbability = directionLogProbs[0, actionIndex];
-            var outputs = new List<RlOutputFeature>(DescribeOutputs(directionProbabilities, actionIndex));
+            var outputs = new List<RlOutputFeature>(DescribeOutputs(directionLogits, directionProbabilities, actionIndex));
 
             var headValues = new Dictionary<ActionOutputKind, double?>();
             int offset = _enabledDirections.Count;
@@ -161,11 +176,13 @@ internal sealed class ComposedPolicyBrain : IPolicyGradientBrain
         }
     }
 
-    private IReadOnlyList<RlOutputFeature> DescribeOutputs(Tensor actionProbabilities, int chosenIndex)
+    private IReadOnlyList<RlOutputFeature> DescribeOutputs(Tensor actionLogits, Tensor actionProbabilities, int chosenIndex)
     {
         var outputs = new List<RlOutputFeature>(_enabledDirections.Count);
         for (int i = 0; i < _enabledDirections.Count; i++)
-            outputs.Add(new RlOutputFeature(_enabledDirections[i].ToString(), actionProbabilities[0, i].item<float>(), i == chosenIndex, Group: "Direction"));
+            outputs.Add(new RlOutputFeature(
+                _enabledDirections[i].ToString(), actionProbabilities[0, i].item<float>(), i == chosenIndex,
+                actionLogits[0, i].item<float>(), Group: "Direction"));
         return outputs;
     }
 

@@ -104,6 +104,10 @@ public partial class BrainIoPanel : ComponentBase
     // card's fixed-width column than Pct's "0.##" would.
     private static string FormatProbabilityPct(double probability) => (probability * 100).ToString("N1", CultureInfo.InvariantCulture);
 
+    // Signed (unlike FormatProbabilityPct) since a logit is unbounded and its
+    // sign is meaningful on its own, unlike a probability.
+    private static string FormatLogit(double logit) => logit.ToString("+0.00;-0.00;0.00", CultureInfo.InvariantCulture);
+
     // Maps an RlOutputFeature.Label (a SimulationAction member name) onto a
     // short display label and CSS suffix -- only meaningful for the
     // "Direction" group; every other group (Volume/StopLoss/TakeProfit)

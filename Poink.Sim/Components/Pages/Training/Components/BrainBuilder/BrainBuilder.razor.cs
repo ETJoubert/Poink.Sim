@@ -109,10 +109,19 @@ namespace Poink.Sim.Components.Training
         private bool _includeEnterLong = true;
         private bool _includeEnterShort = true;
         private bool _includeClose = true;
+
+        // How the direction pick and every enabled action-output head's own
+        // distribution collapses to one chosen index -- see
+        // DecisionDecodingKind. One brain-wide choice (not per-group), unlike
+        // the per-group softmax widths shown alongside it.
+        private DecisionDecodingKind _decisionDecoding = DecisionDecodingKind.Softmax;
         private string? _buildBrainStatus;
 
         private void OnArchitectureKindChanged(ChangeEventArgs e) =>
             _architectureKind = Enum.Parse<ArchitectureKind>(e.Value?.ToString() ?? nameof(ArchitectureKind.Mlp));
+
+        private void OnDecisionDecodingKindChanged(ChangeEventArgs e) =>
+            _decisionDecoding = Enum.Parse<DecisionDecodingKind>(e.Value?.ToString() ?? nameof(DecisionDecodingKind.Softmax));
 
         private void OnBarWindowNormalizationChanged(ChangeEventArgs e) =>
             _barWindowNormalization = Enum.Parse<NormalizationKind>(e.Value?.ToString() ?? nameof(NormalizationKind.Normalized));
@@ -330,6 +339,12 @@ namespace Poink.Sim.Components.Training
             + (_includeStopLossOutput ? StopLossOutputWidth : 0)
             + (_includeTakeProfitOutput ? TakeProfitOutputWidth : 0);
 
+        // Per-row decoding label, reflecting the brain-wide _decisionDecoding
+        // choice -- "N-way softmax" (today's original text) under Softmax,
+        // "N-way hardmax" under HardMax, so the Action Decoding card's rows
+        // stay accurate to what CreateBrain will actually do.
+        private string DecodingLabel => _decisionDecoding == DecisionDecodingKind.HardMax ? "hardmax" : "softmax";
+
         // {Architecture}_{Layers}_{Data}, e.g. MLP_L32-L16_dBW-dVP-dTP-dAS -- mirrors
         // CreateBrain's own encoder/architecture choices below, so the generated
         // name always describes exactly what CREATE BRAIN is about to build.
@@ -376,6 +391,7 @@ namespace Poink.Sim.Components.Training
                 if (_includeVolumeOutput) actionParts.Add("aVOL");
                 if (_includeStopLossOutput) actionParts.Add("aSL");
                 if (_includeTakeProfitOutput) actionParts.Add("aTP");
+                if (_decisionDecoding == DecisionDecodingKind.HardMax) actionParts.Add("hardmax");
                 return actionParts.Count == 0 ? name : $"{name}_{string.Join("-", actionParts)}";
             }
         }
@@ -419,7 +435,7 @@ namespace Poink.Sim.Components.Training
             if (_includeEnterShort) enabledDirections.Add(SimulationAction.EnterShort);
             if (_includeClose) enabledDirections.Add(SimulationAction.Close);
 
-            if (Service.TryBuildBrain(name, encoderKinds, _architectureKind, hiddenSizes, actionOutputKinds, enabledDirections, CurrentEncoderSizeOptions))
+            if (Service.TryBuildBrain(name, encoderKinds, _architectureKind, hiddenSizes, actionOutputKinds, enabledDirections, CurrentEncoderSizeOptions, _decisionDecoding))
             {
                 _buildBrainStatus = $"built '{name}' -- pick it above to train it";
                 _buildBrainName = "";

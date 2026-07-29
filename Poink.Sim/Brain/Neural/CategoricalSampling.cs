@@ -45,4 +45,13 @@ internal static class CategoricalSampling
         }
         return count - 1; // float-rounding safety net -- cumulative sum landed just under threshold
     }
+
+    // DecisionDecodingKind.HardMax's deterministic counterpart to SampleIndex
+    // above -- always the highest-probability index rather than a weighted
+    // draw. Argmax over probabilities and over the pre-softmax logits agree
+    // (softmax is monotonic), so callers with only one or the other on hand
+    // can pass either. torch's own argmax is used directly here (unlike
+    // SampleIndex's manual cumulative sum) since it's a plain reduction with
+    // no reported crash risk, unlike multinomial.
+    public static int ArgmaxIndex(Tensor probabilities) => (int)probabilities.argmax(dim: 1).item<long>();
 }

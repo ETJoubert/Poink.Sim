@@ -332,24 +332,35 @@
             <div class="train-card">
                 <div class="train-card-title-row">
                     <div class="train-card-title"
-                         title="How the network's raw output logits become each enabled decision above -- every group below is sampled independently via its own softmax, not one joint choice across all of them">
+                         title="How the network's raw output logits become each enabled decision above -- every group below is decoded independently via its own softmax distribution, not one joint choice across all of them">
                         Action Decoding</div>
                     <span class="train-card-badge"
                           title="Total network output width: every enabled group's softmax width, summed">
                         @TotalOutputWidth</span>
                 </div>
+                <div class="train-buildbrain-card-fields">
+                    <label class="train-brainrow-field"
+                           title="Softmax always samples stochastically, weighted by probability -- what training needs for exploration. HardMax instead always picks the highest-probability choice, deterministically -- for evaluating the policy the network actually learned. Applies to every group below.">
+                        Decoding Mode
+                        <select class="train-brainrow-select" value="@_decisionDecoding"
+                                @onchange="OnDecisionDecodingKindChanged" disabled="@Service.IsRunning">
+                            <option value="Softmax">Softmax (stochastic)</option>
+                            <option value="HardMax">HardMax (argmax)</option>
+                        </select>
+                    </label>
+                </div>
                 <div class="train-buildbrain-card-fields train-buildbrain-card-fields-end">
                     <label class="train-brainrow-field"
                            title="@($"Softmax over the {DirectionCount} enabled direction(s): {string.Join(" / ", EnabledDirectionLabels)}")">
                         Direction
-                        <span class="train-decoding-value">@DirectionCount-way softmax</span>
+                        <span class="train-decoding-value">@DirectionCount-way @DecodingLabel</span>
                     </label>
                     @if (_includeVolumeOutput)
                     {
                         <label class="train-brainrow-field"
                                title="Softmax over 4 capital-fraction levels: 25% / 50% / 75% / 100%">
                             Volume
-                            <span class="train-decoding-value">@VolumeOutputWidth-way softmax</span>
+                            <span class="train-decoding-value">@VolumeOutputWidth-way @DecodingLabel</span>
                         </label>
                     }
                     @if (_includeStopLossOutput)
@@ -357,7 +368,7 @@
                         <label class="train-brainrow-field"
                                title="Softmax over 4 stop-loss distances: None / Tight / Medium / Wide">
                             Stop Loss
-                            <span class="train-decoding-value">@StopLossOutputWidth-way softmax</span>
+                            <span class="train-decoding-value">@StopLossOutputWidth-way @DecodingLabel</span>
                         </label>
                     }
                     @if (_includeTakeProfitOutput)
@@ -365,7 +376,7 @@
                         <label class="train-brainrow-field"
                                title="Softmax over 4 take-profit distances: None / Tight / Medium / Wide">
                             Take Profit
-                            <span class="train-decoding-value">@TakeProfitOutputWidth-way softmax</span>
+                            <span class="train-decoding-value">@TakeProfitOutputWidth-way @DecodingLabel</span>
                         </label>
                     }
                 </div>

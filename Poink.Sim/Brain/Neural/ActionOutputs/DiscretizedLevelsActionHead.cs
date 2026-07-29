@@ -27,11 +27,13 @@ internal sealed class DiscretizedLevelsActionHead : IActionOutputHead
         };
 
     private readonly (string Label, double? Value)[] _levels;
+    private readonly DecisionDecodingKind _decoding;
 
-    public DiscretizedLevelsActionHead(ActionOutputKind kind)
+    public DiscretizedLevelsActionHead(ActionOutputKind kind, DecisionDecodingKind decoding = DecisionDecodingKind.Softmax)
     {
         Kind = kind;
         _levels = LevelsByKind[kind];
+        _decoding = decoding;
     }
 
     public ActionOutputKind Kind { get; }
@@ -42,11 +44,15 @@ internal sealed class DiscretizedLevelsActionHead : IActionOutputHead
     {
         var logProbs = functional.log_softmax(rawSlice, dim: 1);
         var probabilities = exp(logProbs);
-        int levelIndex = CategoricalSampling.SampleIndex(probabilities);
+        int levelIndex = _decoding == DecisionDecodingKind.HardMax
+            ? CategoricalSampling.ArgmaxIndex(probabilities)
+            : CategoricalSampling.SampleIndex(probabilities);
 
         var outputs = new List<RlOutputFeature>(_levels.Length);
         for (int i = 0; i < _levels.Length; i++)
-            outputs.Add(new RlOutputFeature(_levels[i].Label, probabilities[0, i].item<float>(), i == levelIndex, Group: Kind.ToString()));
+            outputs.Add(new RlOutputFeature(
+                _levels[i].Label, probabilities[0, i].item<float>(), i == levelIndex,
+                rawSlice[0, i].item<float>(), Group: Kind.ToString()));
 
         return (_levels[levelIndex].Value, logProbs[0, levelIndex], outputs);
     }

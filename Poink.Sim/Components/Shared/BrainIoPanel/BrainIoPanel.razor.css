@@ -267,3 +267,17 @@
     color: var(--color-primary);
     font-weight: 700;
 }
+
+.action-dist-raw {
+    font-size: 0.62rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--color-secondary);
+    opacity: 0.6;
+    width: 48px;
+    text-align: right;
+    flex-shrink: 0;
+}
+
+.action-dist-row-chosen .action-dist-raw {
+    opacity: 0.85;
+}

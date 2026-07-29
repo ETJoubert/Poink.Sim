@@ -49,8 +49,13 @@ public sealed record RlInputFeature(string Label, double Value, IFeatureDisplayN
 // necessarily the one taken. Label is the SimulationAction member name
 // ("Hold"/"EnterLong"/"EnterShort"/"Close") for the Direction group, or a
 // DiscretizedLevelsActionHead level label ("25%"/"Tight"/...) for the
-// others. Public for the same BrainIoPanel reason as RlInputFeature above.
-public sealed record RlOutputFeature(string Label, double Probability, bool IsChosen, string Group = "Direction");
+// others. Logit is this same choice's pre-softmax network output (unbounded,
+// real-valued) -- Probability is derived from it via softmax, but the raw
+// value is kept alongside it so a decision method other than softmax
+// sampling (argmax, temperature scaling, epsilon-greedy, ...) can be
+// evaluated against what the network actually produced. Public for the same
+// BrainIoPanel reason as RlInputFeature above.
+public sealed record RlOutputFeature(string Label, double Probability, bool IsChosen, double Logit, string Group = "Direction");
 
 // One "layer" in the Train page's ambient Network Activity animation. Units
 // is a real magnitude (a Linear's out_features, or an LSTM's hidden size),
