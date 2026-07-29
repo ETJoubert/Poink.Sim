@@ -65,7 +65,8 @@ public enum ActionOutputEncodingKind { DiscretizedLevels }
 // DecideWithLogProbability and DiscretizedLevelsActionHead.Sample. Either way
 // the chosen index's log-probability/entropy still come from the same
 // softmax distribution, so REINFORCE training is unaffected by which mode a
-// brain was built with.
+// brain was built with. See BrainRecipe.DecisionTemperature for the dial
+// between these two extremes.
 public enum DecisionDecodingKind { Softmax, HardMax }
 
 // Every pickable set's build-time options -- structural width (window/bucket
@@ -118,13 +119,22 @@ public sealed record EncoderSizeOptions(
 // deserialization-tolerance reasoning as the other optional properties here.
 // DecisionDecoding defaults to Softmax, today's original (and only, before
 // HardMax existed) behavior, for the same old-recipe-tolerance reason.
+// DecisionTemperature defaults to 1.0 (today's original, unscaled softmax),
+// same reasoning -- only meaningful under Softmax (dividing HardMax's logits
+// by a positive temperature before taking argmax can't change which index is
+// largest, so ComposedPolicyBrain/DiscretizedLevelsActionHead skip it under
+// HardMax); values below 1 sharpen the distribution toward its argmax
+// (fewer, more confident choices explored), above 1 flatten it toward
+// uniform (more exploration) -- a dial between Softmax's and HardMax's two
+// extremes rather than a third decoding mode, so it composes with either.
 public sealed record BrainRecipe(
     IReadOnlyList<EncoderKind> EncoderKinds, ArchitectureKind ArchitectureKind, IReadOnlyList<int> HiddenSizes,
     IReadOnlyList<ActionOutputKind>? ActionOutputKinds = null,
     ActionOutputEncodingKind ActionOutputEncodingKind = ActionOutputEncodingKind.DiscretizedLevels,
     IReadOnlyList<SimulationAction>? EnabledDirections = null,
     EncoderSizeOptions? EncoderSizes = null,
-    DecisionDecodingKind DecisionDecoding = DecisionDecodingKind.Softmax)
+    DecisionDecodingKind DecisionDecoding = DecisionDecodingKind.Softmax,
+    double DecisionTemperature = 1.0)
 {
     public override string ToString()
     {
@@ -135,6 +145,8 @@ public sealed record BrainRecipe(
             baseDescription += $" +{string.Join("+", ActionOutputKinds)}";
         if (DecisionDecoding == DecisionDecodingKind.HardMax)
             baseDescription += " [HardMax]";
+        else if (DecisionTemperature != 1.0)
+            baseDescription += $" [T={DecisionTemperature:0.##}]";
         return baseDescription;
     }
 }
@@ -174,9 +186,10 @@ internal static class BrainCatalog
     };
 
     public static IActionOutputHead CreateActionOutputHead(
-        ActionOutputKind kind, ActionOutputEncodingKind encodingKind, DecisionDecodingKind decoding = DecisionDecodingKind.Softmax) => encodingKind switch
+        ActionOutputKind kind, ActionOutputEncodingKind encodingKind,
+        DecisionDecodingKind decoding = DecisionDecodingKind.Softmax, double temperature = 1.0) => encodingKind switch
     {
-        ActionOutputEncodingKind.DiscretizedLevels => new DiscretizedLevelsActionHead(kind, decoding),
+        ActionOutputEncodingKind.DiscretizedLevels => new DiscretizedLevelsActionHead(kind, decoding, temperature),
         _ => throw new ArgumentOutOfRangeException(nameof(encodingKind), encodingKind, null),
     };
 }

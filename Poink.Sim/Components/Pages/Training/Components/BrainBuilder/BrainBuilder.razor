@@ -381,6 +381,12 @@
                             <option value="HardMax">HardMax (argmax)</option>
                         </select>
                     </label>
+                    <label class="train-brainrow-field"
+                           title="Divides each group's raw logits before Softmax -- below 1 sharpens the distribution toward its highest choice (less exploration, closer to HardMax); above 1 flattens it toward uniform (more exploration). 1 is unscaled (today's original behavior). No effect under HardMax, which always takes the highest choice regardless.">
+                        Temperature
+                        <input class="train-brainrow-input" type="number" min="0.01" step="0.1"
+                               @bind="_decisionTemperature" disabled="@(Service.IsRunning || _decisionDecoding == DecisionDecodingKind.HardMax)" />
+                    </label>
                 </div>
                 <div class="train-buildbrain-card-fields train-buildbrain-card-fields-end">
                     <label class="train-brainrow-field"

@@ -627,7 +627,8 @@ internal sealed class RlTrainingService
     public bool TryBuildBrain(
         string name, IReadOnlyList<EncoderKind> encoderKinds, ArchitectureKind architectureKind, IReadOnlyList<int> hiddenSizes,
         IReadOnlyList<ActionOutputKind>? actionOutputKinds = null, IReadOnlyList<SimulationAction>? enabledDirections = null,
-        EncoderSizeOptions? encoderSizes = null, DecisionDecodingKind decisionDecoding = DecisionDecodingKind.Softmax)
+        EncoderSizeOptions? encoderSizes = null, DecisionDecodingKind decisionDecoding = DecisionDecodingKind.Softmax,
+        double decisionTemperature = 1.0)
     {
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -659,14 +660,14 @@ internal sealed class RlTrainingService
             var parts = encoderKinds.Select(k => BrainCatalog.CreateEncoder(k, encoderSizes)).Append(new TraderStateEncoder()).ToArray();
             var architecture = BrainCatalog.CreateArchitecture(architectureKind, hiddenSizes);
             var actionOutputHeads = (actionOutputKinds ?? [])
-                .Select(k => BrainCatalog.CreateActionOutputHead(k, ActionOutputEncodingKind.DiscretizedLevels, decisionDecoding)).ToList();
+                .Select(k => BrainCatalog.CreateActionOutputHead(k, ActionOutputEncodingKind.DiscretizedLevels, decisionDecoding, decisionTemperature)).ToList();
             var directions = enabledDirections ?? ComposedPolicyBrain.AllDirections;
-            var brain = ComposedPolicyBrain.Create(name, architecture, actionOutputHeads, directions, decisionDecoding, parts);
+            var brain = ComposedPolicyBrain.Create(name, architecture, actionOutputHeads, directions, decisionDecoding, decisionTemperature, parts);
             _brainRegistry.Register(brain);
             _brainRecipes[name] = new BrainRecipe(
                 encoderKinds.ToList(), architectureKind, hiddenSizes.ToList(),
                 actionOutputKinds?.ToList(), ActionOutputEncodingKind.DiscretizedLevels, enabledDirections?.ToList(), encoderSizes,
-                decisionDecoding);
+                decisionDecoding, decisionTemperature);
             Error = null;
             OnChanged?.Invoke();
             _logger.LogInformation("Built new brain: name={Name}, encoders={Encoders}, architecture={Architecture}",
@@ -874,9 +875,10 @@ internal sealed class RlTrainingService
                 var parts = recipe.EncoderKinds.Select(k => BrainCatalog.CreateEncoder(k, recipe.EncoderSizes)).Append(new TraderStateEncoder()).ToArray();
                 var architecture = BrainCatalog.CreateArchitecture(recipe.ArchitectureKind, recipe.HiddenSizes);
                 var actionOutputHeads = (recipe.ActionOutputKinds ?? [])
-                    .Select(k => BrainCatalog.CreateActionOutputHead(k, recipe.ActionOutputEncodingKind, recipe.DecisionDecoding)).ToList();
+                    .Select(k => BrainCatalog.CreateActionOutputHead(k, recipe.ActionOutputEncodingKind, recipe.DecisionDecoding, recipe.DecisionTemperature)).ToList();
                 var directions = recipe.EnabledDirections ?? ComposedPolicyBrain.AllDirections;
-                brain = ComposedPolicyBrain.Create(summary.BrainName, architecture, actionOutputHeads, directions, recipe.DecisionDecoding, parts);
+                brain = ComposedPolicyBrain.Create(
+                    summary.BrainName, architecture, actionOutputHeads, directions, recipe.DecisionDecoding, recipe.DecisionTemperature, parts);
                 _brainRegistry.Register(brain);
                 _brainRecipes[summary.BrainName] = recipe;
                 _logger.LogInformation("Rebuilt brain {BrainName} from saved recipe for id {Id}", summary.BrainName, id);

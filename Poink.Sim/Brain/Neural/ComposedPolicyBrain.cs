@@ -46,11 +46,12 @@ internal sealed class ComposedPolicyBrain : IPolicyGradientBrain
     private readonly IReadOnlyList<IActionOutputHead> _actionOutputHeads;
     private readonly IReadOnlyList<SimulationAction> _enabledDirections;
     private readonly DecisionDecodingKind _decisionDecoding;
+    private readonly double _decisionTemperature;
 
     private ComposedPolicyBrain(
         string name, IObservationEncoder encoder, Module<Tensor, Tensor> network,
         IReadOnlyList<IActionOutputHead> actionOutputHeads, IReadOnlyList<SimulationAction> enabledDirections,
-        DecisionDecodingKind decisionDecoding)
+        DecisionDecodingKind decisionDecoding, double decisionTemperature)
     {
         Name = name;
         _encoder = encoder;
@@ -58,6 +59,7 @@ internal sealed class ComposedPolicyBrain : IPolicyGradientBrain
         _actionOutputHeads = actionOutputHeads;
         _enabledDirections = enabledDirections;
         _decisionDecoding = decisionDecoding;
+        _decisionTemperature = decisionTemperature;
     }
 
     // Builds a brain from an architecture plus one or more encoder parts
@@ -77,14 +79,23 @@ internal sealed class ComposedPolicyBrain : IPolicyGradientBrain
     // passed in already carries its own copy of this same choice (see
     // BrainCatalog.CreateActionOutputHead), so it stays in lock-step with the
     // direction pick without ComposedPolicyBrain reaching into each head.
+    // decisionTemperature: Softmax's own sharpen/flatten dial (see
+    // BrainRecipe.DecisionTemperature) -- defaults to 1.0 (unscaled, today's
+    // original behavior); ignored under HardMax.
     public static IPolicyGradientBrain Create(
         string name, INetworkArchitecture architecture, IReadOnlyList<IActionOutputHead> actionOutputHeads,
         IReadOnlyList<SimulationAction> enabledDirections, params IObservationEncoder[] parts) =>
-        Create(name, architecture, actionOutputHeads, enabledDirections, DecisionDecodingKind.Softmax, parts);
+        Create(name, architecture, actionOutputHeads, enabledDirections, DecisionDecodingKind.Softmax, 1.0, parts);
 
     public static IPolicyGradientBrain Create(
         string name, INetworkArchitecture architecture, IReadOnlyList<IActionOutputHead> actionOutputHeads,
-        IReadOnlyList<SimulationAction> enabledDirections, DecisionDecodingKind decisionDecoding, params IObservationEncoder[] parts)
+        IReadOnlyList<SimulationAction> enabledDirections, DecisionDecodingKind decisionDecoding, params IObservationEncoder[] parts) =>
+        Create(name, architecture, actionOutputHeads, enabledDirections, decisionDecoding, 1.0, parts);
+
+    public static IPolicyGradientBrain Create(
+        string name, INetworkArchitecture architecture, IReadOnlyList<IActionOutputHead> actionOutputHeads,
+        IReadOnlyList<SimulationAction> enabledDirections, DecisionDecodingKind decisionDecoding, double decisionTemperature,
+        params IObservationEncoder[] parts)
     {
         if (enabledDirections.Count == 0)
             throw new ArgumentException("a brain needs at least one enabled direction (Hold/EnterLong/EnterShort/Close)", nameof(enabledDirections));
@@ -93,7 +104,7 @@ internal sealed class ComposedPolicyBrain : IPolicyGradientBrain
         int extraOutputWidth = actionOutputHeads.Sum(h => h.OutputWidth);
         var network = architecture.Build(encoder.FeatureCount, encoder.SequenceLength, enabledDirections.Count + extraOutputWidth);
 
-        return new ComposedPolicyBrain(name, encoder, network, actionOutputHeads, enabledDirections, decisionDecoding);
+        return new ComposedPolicyBrain(name, encoder, network, actionOutputHeads, enabledDirections, decisionDecoding, decisionTemperature);
     }
 
     public static IPolicyGradientBrain Create(
@@ -147,7 +158,13 @@ internal sealed class ComposedPolicyBrain : IPolicyGradientBrain
             var logits = Network.forward(input);
 
             var directionLogits = logits.narrow(1, 0, _enabledDirections.Count);
-            var directionLogProbs = functional.log_softmax(directionLogits, dim: 1);
+            // Temperature only reshapes the Softmax branch's distribution --
+            // dividing HardMax's logits by a positive temperature before
+            // argmax can't change which index is largest, so it's skipped
+            // there (see BrainRecipe.DecisionTemperature's doc comment).
+            var scaledDirectionLogits = _decisionDecoding == DecisionDecodingKind.HardMax
+                ? directionLogits : directionLogits / _decisionTemperature;
+            var directionLogProbs = functional.log_softmax(scaledDirectionLogits, dim: 1);
             var directionProbabilities = exp(directionLogProbs);
             // Direction-only -- the enabled directions are what a degenerate policy
             // (all-Hold, all-Long) collapses onto, so this is the entropy an

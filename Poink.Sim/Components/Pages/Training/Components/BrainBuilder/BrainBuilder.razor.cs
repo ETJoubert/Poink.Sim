@@ -116,6 +116,11 @@ namespace Poink.Sim.Components.Training
         // DecisionDecodingKind. One brain-wide choice (not per-group), unlike
         // the per-group softmax widths shown alongside it.
         private DecisionDecodingKind _decisionDecoding = DecisionDecodingKind.Softmax;
+
+        // Softmax's own sharpen/flatten dial -- see BrainRecipe.
+        // DecisionTemperature. Only editable (and only affects anything)
+        // under Softmax; disabled in the UI under HardMax.
+        private double _decisionTemperature = 1.0;
         private string? _buildBrainStatus;
 
         private void OnArchitectureKindChanged(ChangeEventArgs e) =>
@@ -201,7 +206,8 @@ namespace Poink.Sim.Components.Training
             && (!_includeBarWindow || _barWindowSize >= 1)
             && (!_includeVolumeProfile || (_volumeProfileBucketCount >= 1 && _volumeProfileLookbackBars >= 1))
             && (!_includeTimeProfile || (_timeProfileBucketCount >= 1 && _timeProfileLookbackBars >= 1))
-            && (!_includeSpreadVolatility || _spreadVolatilityAtrPeriod >= 1);
+            && (!_includeSpreadVolatility || _spreadVolatilityAtrPeriod >= 1)
+            && _decisionTemperature > 0;
 
         // Canonical part order (Bar Window before Volume Profile before Time
         // Profile) regardless of checkbox click order -- CompositeEncoder
@@ -341,10 +347,17 @@ namespace Poink.Sim.Components.Training
             + (_includeTakeProfitOutput ? TakeProfitOutputWidth : 0);
 
         // Per-row decoding label, reflecting the brain-wide _decisionDecoding
-        // choice -- "N-way softmax" (today's original text) under Softmax,
+        // (and, under Softmax, _decisionTemperature) choice -- "N-way
+        // softmax" (today's original text) under Softmax at the default
+        // temperature, "N-way softmax @ T" under a non-default temperature,
         // "N-way hardmax" under HardMax, so the Action Decoding card's rows
         // stay accurate to what CreateBrain will actually do.
-        private string DecodingLabel => _decisionDecoding == DecisionDecodingKind.HardMax ? "hardmax" : "softmax";
+        private string DecodingLabel => _decisionDecoding switch
+        {
+            DecisionDecodingKind.HardMax => "hardmax",
+            _ when _decisionTemperature != 1.0 => $"softmax @ T={_decisionTemperature:0.##}",
+            _ => "softmax",
+        };
 
         // {Architecture}_{Layers}_{Data}, e.g. MLP_L32-L16_dBW-dVP-dTP-dAS -- mirrors
         // CreateBrain's own encoder/architecture choices below, so the generated
@@ -393,6 +406,7 @@ namespace Poink.Sim.Components.Training
                 if (_includeStopLossOutput) actionParts.Add("aSL");
                 if (_includeTakeProfitOutput) actionParts.Add("aTP");
                 if (_decisionDecoding == DecisionDecodingKind.HardMax) actionParts.Add("hardmax");
+                else if (_decisionTemperature != 1.0) actionParts.Add($"T{_decisionTemperature:0.##}");
                 return actionParts.Count == 0 ? name : $"{name}_{string.Join("-", actionParts)}";
             }
         }
@@ -456,7 +470,8 @@ namespace Poink.Sim.Components.Training
         private BrainRecipe CurrentRecipe => new(
             SelectedEncoderKinds.ToList(), _architectureKind, CurrentHiddenSizes.ToList(),
             SelectedActionOutputKinds.Count > 0 ? SelectedActionOutputKinds : null, ActionOutputEncodingKind.DiscretizedLevels,
-            SelectedEnabledDirections.Count > 0 ? SelectedEnabledDirections : null, CurrentEncoderSizeOptions, _decisionDecoding);
+            SelectedEnabledDirections.Count > 0 ? SelectedEnabledDirections : null, CurrentEncoderSizeOptions,
+            _decisionDecoding, _decisionTemperature);
 
         private void CreateBrain()
         {
@@ -464,7 +479,8 @@ namespace Poink.Sim.Components.Training
 
             if (Service.TryBuildBrain(
                     name, SelectedEncoderKinds, _architectureKind, CurrentHiddenSizes,
-                    SelectedActionOutputKinds, SelectedEnabledDirections, CurrentEncoderSizeOptions, _decisionDecoding))
+                    SelectedActionOutputKinds, SelectedEnabledDirections, CurrentEncoderSizeOptions,
+                    _decisionDecoding, _decisionTemperature))
             {
                 _buildBrainStatus = $"built '{name}' -- pick it above to train it";
                 _buildBrainName = "";
@@ -540,6 +556,7 @@ namespace Poink.Sim.Components.Training
             _includeTakeProfitOutput = actionOutputs.Contains(ActionOutputKind.TakeProfit);
 
             _decisionDecoding = recipe.DecisionDecoding;
+            _decisionTemperature = recipe.DecisionTemperature;
         }
 
         // Bound to the Preset picker's <select> -- "" (the "-- none --"

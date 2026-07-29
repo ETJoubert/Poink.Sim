@@ -259,8 +259,12 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   `ActionOutputKind`: `Softmax` samples stochastically (today's original
   behavior, needed for training exploration); `HardMax` always collapses to
   the highest-probability/highest-logit index, deterministically, for
-  evaluating the policy the network actually learned. Threaded through
-  `ComposedPolicyBrain.Create` and `CreateActionOutputHead` (which passes it
+  evaluating the policy the network actually learned. A same-scale
+  `DecisionTemperature` (`double`, default `1.0`) rides alongside it -- the
+  dial between those two extremes, dividing every raw logit before Softmax
+  (below 1 sharpens toward the argmax; above 1 flattens toward uniform), with
+  no effect under `HardMax`. Both threaded through
+  `ComposedPolicyBrain.Create` and `CreateActionOutputHead` (which passes them
   to `DiscretizedLevelsActionHead`'s constructor), and persisted on
   `BrainRecipe`. See
   [Brain/README.md](Brain/README.md) ("Where brains come from") for the full
@@ -301,13 +305,18 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   shared `Decide`/sampling/decision-mapping logic every composed brain uses.
   `ComposedPolicyBrain.Create` is the factory both the fixed `Program.cs`
   brains and the Train page's Build Brain panel go through. Also takes a
-  `DecisionDecodingKind` (defaulting to `Softmax`), stored and used by
-  `DecideWithLogProbability` to pick the direction index via
-  `CategoricalSampling.SampleIndex` (stochastic) or `.ArgmaxIndex`
-  (`HardMax`, deterministic) -- either way the chosen index's log-
-  probability/entropy still come from the same softmax distribution, so
-  REINFORCE training is unaffected by which mode a brain was built with.
-  Full composition model (encoders + normalizers + architectures) documented
+  `DecisionDecodingKind` (defaulting to `Softmax`) and a `DecisionTemperature`
+  (defaulting to `1.0`), stored and used by `DecideWithLogProbability`: the
+  direction logits are divided by the temperature (skipped under `HardMax`,
+  where it can't change the result) before `log_softmax`, then the direction
+  index is picked via `CategoricalSampling.SampleIndex` (stochastic) or
+  `.ArgmaxIndex` (`HardMax`, deterministic) -- either way the chosen index's
+  log-probability/entropy still come from that same (possibly temperature-
+  scaled) distribution, so REINFORCE training is unaffected by which mode a
+  brain was built with. `RlOutputFeature.Logit` still reports the unscaled
+  raw network output regardless, so temperature only changes decision-making,
+  never what's displayed as "raw". Full composition model (encoders +
+  normalizers + architectures) documented
   in [Brain/README.md](Brain/README.md), not duplicated here.
   `Brain/Neural/ComposedPolicyBrain.cs`
 - **`DummyTickGenerator`** — Static generator of synthetic even-interval random-walk
@@ -339,8 +348,9 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   None/Tight/Medium/Wide, with Medium matching `RandomBrain`'s existing fixed
   0.003/0.006 defaults), decoded via `CategoricalSampling` -- the same
   sampler/argmax pair the direction pick uses, per its own
-  `DecisionDecodingKind` (constructor parameter, defaulting to `Softmax`) --
-  see `BrainCatalog`'s doc comment. `Brain/Neural/ActionOutputs/IActionOutputHead.cs`,
+  `DecisionDecodingKind`/`DecisionTemperature` (constructor parameters,
+  defaulting to `Softmax`/`1.0`) -- see `BrainCatalog`'s doc comment.
+  `Brain/Neural/ActionOutputs/IActionOutputHead.cs`,
   `Brain/Neural/ActionOutputs/DiscretizedLevelsActionHead.cs`,
   `Brain/Neural/BrainCatalog.cs`
 - **`IBrainRepository` / `BrainRepository`** — Persists an `IPolicyGradientBrain`'s
@@ -626,7 +636,8 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   (see `EncoderSizeOptions`), not something a training run configures.
   `Repository/IBrainRepository.cs`
 - **`BrainRecipe`** — `{ EncoderKinds, ArchitectureKind, HiddenSizes, ActionOutputKinds,
-  ActionOutputEncodingKind, EnabledDirections, EncoderSizes, DecisionDecoding }`:
+  ActionOutputEncodingKind, EnabledDirections, EncoderSizes, DecisionDecoding,
+  DecisionTemperature }`:
   a runtime-built brain's exact shape, as picked in the Train page's Build Brain
   panel (now organized as four cards -- Input/Structure/Actions/Action Decoding).
   `ActionOutputKinds` (default null, treated as
@@ -642,7 +653,12 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   today's original -- and, before `HardMax` existed, only -- behavior) records
   the Action Decoding card's Decoding Mode selector: whether the direction pick
   and every enabled action-output head sample stochastically or collapse to
-  their argmax (see `DecisionDecodingKind`). Populated by `RlTrainingService.TryBuildBrain`, persisted alongside
+  their argmax (see `DecisionDecodingKind`). `DecisionTemperature` (default
+  `1.0`, unscaled) records the Temperature field beside it -- divides every
+  group's raw logits before Softmax (below 1 sharpens toward the argmax, above
+  1 flattens toward uniform), disabled in the UI and ignored by
+  `ComposedPolicyBrain`/`DiscretizedLevelsActionHead` under `HardMax` (dividing
+  by a positive number can't change which index is largest). Populated by `RlTrainingService.TryBuildBrain`, persisted alongside
   a saved snapshot (null for the four Program.cs-fixed brains, which reconstruct via
   their own source code every restart instead), and read back by `LoadSavedBrain`
   to rebuild a runtime brain that's been wiped from `BrainRegistry` by a restart
@@ -930,9 +946,11 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   `RlTrainingService.TryBuildBrain` back via `OnBrainCreated`, which `TrainPage`
   uses to point `BrainSelect` at the new brain and collapse the panel. The
   Action Decoding card's Decoding Mode selector (`_decisionDecoding`, defaults
-  to `Softmax`) is the one `DecisionDecodingKind` choice for the whole brain --
-  each row's `@DecodingLabel` reflects it live (e.g. "4-way hardmax"), and
-  `CreateBrain` threads it into `TryBuildBrain`. A Preset row above the Name
+  to `Softmax`) is the one `DecisionDecodingKind` choice for the whole brain,
+  alongside a Temperature number field (`_decisionTemperature`, defaults to
+  `1.0`, disabled under `HardMax`) -- each row's `@DecodingLabel` reflects
+  both live (e.g. "4-way hardmax", "4-way softmax @ T=0.5"), and `CreateBrain`
+  threads them into `TryBuildBrain`. A Preset row above the Name
   row lets the panel's config be saved/reloaded/edited/deleted by name,
   independently of ever building or training a brain from it -- `CurrentRecipe`
   packs the panel's current fields into a `BrainRecipe` (same shape

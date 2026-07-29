@@ -28,12 +28,15 @@ internal sealed class DiscretizedLevelsActionHead : IActionOutputHead
 
     private readonly (string Label, double? Value)[] _levels;
     private readonly DecisionDecodingKind _decoding;
+    private readonly double _temperature;
 
-    public DiscretizedLevelsActionHead(ActionOutputKind kind, DecisionDecodingKind decoding = DecisionDecodingKind.Softmax)
+    public DiscretizedLevelsActionHead(
+        ActionOutputKind kind, DecisionDecodingKind decoding = DecisionDecodingKind.Softmax, double temperature = 1.0)
     {
         Kind = kind;
         _levels = LevelsByKind[kind];
         _decoding = decoding;
+        _temperature = temperature;
     }
 
     public ActionOutputKind Kind { get; }
@@ -42,7 +45,12 @@ internal sealed class DiscretizedLevelsActionHead : IActionOutputHead
 
     public (double? Value, Tensor LogProbability, IReadOnlyList<RlOutputFeature> Outputs) Sample(Tensor rawSlice)
     {
-        var logProbs = functional.log_softmax(rawSlice, dim: 1);
+        // Temperature only reshapes the Softmax branch's distribution --
+        // dividing HardMax's logits by a positive temperature before argmax
+        // can't change which index is largest, so it's skipped there (see
+        // BrainRecipe.DecisionTemperature's doc comment).
+        var scaledSlice = _decoding == DecisionDecodingKind.HardMax ? rawSlice : rawSlice / _temperature;
+        var logProbs = functional.log_softmax(scaledSlice, dim: 1);
         var probabilities = exp(logProbs);
         int levelIndex = _decoding == DecisionDecodingKind.HardMax
             ? CategoricalSampling.ArgmaxIndex(probabilities)
