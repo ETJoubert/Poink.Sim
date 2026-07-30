@@ -65,7 +65,7 @@ start/end/bar count for a Reference Chart) — not a bar/line snapshot. It's
 redrawn later by re-querying that symbol's ticks for the same window via
 `ProfilerService.LoadAsync`, the same aggregation the live chart used when
 the range was first drawn. Both repositories write into the same Postgres
-database as `IBrainRepository` (`Poink.Sim`, not the tick database), since
+database as `IModelRepository` (`Poink.Sim`, not the tick database), since
 neither is market data. `SavedTRangeCharts`/`SavedTRangeReferenceCharts`
 panels (below the chart, next to the Drawings panel) list, redraw, and
 delete saved entries via a shared `DataTable`.

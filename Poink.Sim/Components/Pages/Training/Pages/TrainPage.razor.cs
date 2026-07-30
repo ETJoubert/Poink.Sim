@@ -18,6 +18,9 @@ namespace Poink.Sim.Components.Pages
     {
         [Inject] private RlTrainingService Service { get; set; } = default!;
 
+        // Brain Type's list of existing brains -- see TrainableBrainOptions.
+        [Inject] private NetworkService NetworkService { get; set; } = default!;
+
         // ── Data Range Controls ──
         // Mirrors SimulationPage's table-select pattern -- the picked symbol+
         // range is what Start Training uses: each episode streams its own
@@ -88,14 +91,18 @@ namespace Poink.Sim.Components.Pages
             if (Service.RewardPolicyNames.Count > 0) _rewardPolicyName = Service.RewardPolicyNames[0];
         }
 
-        // Heuristic brains (MomentumThresholdBrain, RandomBrain) have no trainable
-        // weights -- IRlTrainingStrategy.CanTrain rejects anything but
-        // IPolicyGradientBrain, so this page's picker only ever offers the ones
-        // that can actually run here. BrainSelect still shows its NEURAL NETWORK/
-        // HEURISTIC split generically (SimulationPage passes it the full,
-        // unfiltered Service.BrainOptions for playback of either kind).
+        // Every existing brain, whether or not it currently has a live
+        // BrainRegistry instance -- picking one that isn't live yet (e.g.
+        // right after a restart) lazily rebuilds and registers it from its
+        // saved recipe the moment training actually starts (see
+        // RlTrainingService.TryStartTraining). No hardcoded brains exist
+        // anymore; NetworkService.Networks is the single source
+        // of "which brains exist" now. Heuristic brains (MomentumThresholdBrain,
+        // RandomBrain) have no trainable weights and never appear here --
+        // IRlTrainingStrategy.CanTrain rejects anything but IPolicyGradientBrain
+        // regardless, so this page's picker has no reason to offer them.
         private IReadOnlyList<BrainOption> TrainableBrainOptions =>
-            Service.BrainOptions.Where(b => b.IsNeuralNetwork).ToList();
+            NetworkService.Networks.Select(n => new BrainOption(n.Name, true)).ToList();
 
         private void HandleServiceChanged() => _ = InvokeAsync(StateHasChanged);
 
@@ -145,7 +152,7 @@ namespace Poink.Sim.Components.Pages
         // the brain/trader currently being viewed. Null for a heuristic brain,
         // or a neural brain whose weights were never saved / were trained
         // further since.
-        private SavedBrainSummary? CurrentActiveSnapshot =>
+        private TrainedModelSummary? CurrentActiveSnapshot =>
             string.IsNullOrWhiteSpace(_brainName) ? null : Service.GetActiveSnapshot(_brainName);
 
         private bool ValidateCommonStartParams()
@@ -240,7 +247,7 @@ namespace Poink.Sim.Components.Pages
         }
 
         // Just a reference string, not a link back to actual tick data (see
-        // SavedBrainSummary's doc comment). Reflects the live Data Range form
+        // TrainedModelSummary's doc comment). Reflects the live Data Range form
         // state, not necessarily what the last completed run actually used
         // (SaveModel is fine to click after tweaking the form since -- see its
         // own doc comment).

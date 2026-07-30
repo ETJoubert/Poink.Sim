@@ -463,10 +463,9 @@ namespace Poink.Sim.Components.Training
         }
 
         // The panel's current config as a BrainRecipe -- what CreateBrain
-        // threads into TryBuildBrain, and what the Preset controls below
-        // save/update into IBrainPresetRepository. A preset never carries
-        // EffectiveBuildBrainName -- that's the name of an actual built brain,
-        // a separate concern from a preset's own Name.
+        // threads into Service.TryBuildBrain, which both registers the live
+        // brain and persists it as a network under this same
+        // EffectiveBuildBrainName (see that method's doc comment).
         private BrainRecipe CurrentRecipe => new(
             SelectedEncoderKinds.ToList(), _architectureKind, CurrentHiddenSizes.ToList(),
             SelectedActionOutputKinds.Count > 0 ? SelectedActionOutputKinds : null, ActionOutputEncodingKind.DiscretizedLevels,
@@ -491,120 +490,6 @@ namespace Poink.Sim.Components.Training
             {
                 _buildBrainStatus = Service.Error;
             }
-        }
-
-        // ── Presets (IBrainPresetRepository-backed, via RlTrainingService) ──
-        // Lets the current panel config be saved/reloaded/edited/deleted by
-        // name, independently of ever building or training a brain from it --
-        // the CRUD the Brain Builder settings-retention TODO asked for.
-        private long? _selectedPresetId;
-        private string _presetName = "";
-
-        private bool CanSavePresetAsNew => !string.IsNullOrWhiteSpace(_presetName);
-        private bool CanUpdateSelectedPreset => _selectedPresetId is not null && !string.IsNullOrWhiteSpace(_presetName);
-        private bool CanDeleteSelectedPreset => _selectedPresetId is not null;
-
-        // Populates every builder field from a preset's saved BrainRecipe --
-        // the exact inverse of CurrentRecipe above. Null EncoderSizes/
-        // ActionOutputKinds/EnabledDirections (older or minimal recipes) fall
-        // back to each field's own default, same tolerance BrainRecipe's own
-        // doc comment describes for LoadSavedBrain.
-        private void LoadPreset(BrainRecipe recipe)
-        {
-            _includeBarWindow = recipe.EncoderKinds.Contains(EncoderKind.BarWindow);
-            _includeVolumeProfile = recipe.EncoderKinds.Contains(EncoderKind.VolumeProfile);
-            _includeTimeProfile = recipe.EncoderKinds.Contains(EncoderKind.TimeProfile);
-            _includeSessionClock = recipe.EncoderKinds.Contains(EncoderKind.SessionClock);
-            _includeSpreadVolatility = recipe.EncoderKinds.Contains(EncoderKind.SpreadVolatility);
-
-            var sizes = recipe.EncoderSizes ?? new EncoderSizeOptions();
-            _barWindowSize = sizes.BarWindowSize;
-            _volumeProfileBucketCount = sizes.VolumeProfileBucketCount;
-            _timeProfileBucketCount = sizes.TimeProfileBucketCount;
-            _volumeProfileLookbackBars = sizes.VolumeProfileLookbackBars;
-            _timeProfileLookbackBars = sizes.TimeProfileLookbackBars;
-            _barWindowNormalization = sizes.BarWindowNormalization;
-            _volumeProfileNormalization = sizes.VolumeProfileNormalization;
-            _timeProfileNormalization = sizes.TimeProfileNormalization;
-            _spreadVolatilityAtrPeriod = sizes.SpreadVolatilityAtrPeriod;
-
-            _architectureKind = recipe.ArchitectureKind;
-            switch (recipe.ArchitectureKind)
-            {
-                case ArchitectureKind.Mlp:
-                    _mlpHiddenSizes = recipe.HiddenSizes.Count > 0 ? [.. recipe.HiddenSizes] : [64];
-                    break;
-                case ArchitectureKind.Lstm:
-                    _lstmHiddenSize = recipe.HiddenSizes.Count > 0 ? recipe.HiddenSizes[0] : 64;
-                    _lstmNumLayers = recipe.HiddenSizes.Count > 1 ? recipe.HiddenSizes[1] : 2;
-                    break;
-                case ArchitectureKind.Cnn:
-                    _cnnKernelSize = recipe.HiddenSizes.Count > 0 ? recipe.HiddenSizes[0] : 3;
-                    _cnnChannels = recipe.HiddenSizes.Count > 1 ? [.. recipe.HiddenSizes.Skip(1)] : [16, 32];
-                    break;
-            }
-
-            var directions = recipe.EnabledDirections ?? ComposedPolicyBrain.AllDirections;
-            _includeHold = directions.Contains(SimulationAction.Hold);
-            _includeEnterLong = directions.Contains(SimulationAction.EnterLong);
-            _includeEnterShort = directions.Contains(SimulationAction.EnterShort);
-            _includeClose = directions.Contains(SimulationAction.Close);
-
-            var actionOutputs = recipe.ActionOutputKinds ?? [];
-            _includeVolumeOutput = actionOutputs.Contains(ActionOutputKind.Volume);
-            _includeStopLossOutput = actionOutputs.Contains(ActionOutputKind.StopLoss);
-            _includeTakeProfitOutput = actionOutputs.Contains(ActionOutputKind.TakeProfit);
-
-            _decisionDecoding = recipe.DecisionDecoding;
-            _decisionTemperature = recipe.DecisionTemperature;
-        }
-
-        // Bound to the Preset picker's <select> -- "" (the "-- none --"
-        // option) clears the selection without touching the panel's current
-        // fields, picking an id loads that preset's recipe straight in.
-        private void OnPresetSelected(ChangeEventArgs e)
-        {
-            var raw = e.Value?.ToString();
-            if (string.IsNullOrEmpty(raw) || !long.TryParse(raw, out var id))
-            {
-                _selectedPresetId = null;
-                return;
-            }
-
-            var preset = Service.BrainPresets.FirstOrDefault(p => p.Id == id);
-            if (preset is null) return;
-
-            LoadPreset(preset.Recipe);
-            _selectedPresetId = preset.Id;
-            _presetName = preset.Name;
-        }
-
-        private void OnPresetNameInput(ChangeEventArgs e) => _presetName = e.Value?.ToString() ?? "";
-
-        // Always inserts a new row (see RlTrainingService.SaveBrainPreset's
-        // doc comment) -- selects the freshly saved preset afterward so
-        // Update/Delete immediately target it.
-        private void SavePresetAsNew()
-        {
-            if (Service.SaveBrainPreset(_presetName, CurrentRecipe))
-                _selectedPresetId = Service.BrainPresets
-                    .Where(p => p.Name == _presetName)
-                    .OrderByDescending(p => p.SavedAt)
-                    .FirstOrDefault()?.Id;
-        }
-
-        private void UpdateSelectedPreset()
-        {
-            if (_selectedPresetId is not { } id) return;
-            Service.UpdateBrainPreset(id, _presetName, CurrentRecipe);
-        }
-
-        private void DeleteSelectedPreset()
-        {
-            if (_selectedPresetId is not { } id) return;
-            Service.DeleteBrainPreset(id);
-            _selectedPresetId = null;
-            _presetName = "";
         }
     }
 }

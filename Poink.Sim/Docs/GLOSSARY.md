@@ -353,30 +353,40 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   `Brain/Neural/ActionOutputs/IActionOutputHead.cs`,
   `Brain/Neural/ActionOutputs/DiscretizedLevelsActionHead.cs`,
   `Brain/Neural/BrainCatalog.cs`
-- **`IBrainRepository` / `BrainRepository`** — Persists an `IPolicyGradientBrain`'s
-  exported weights (TorchSharp state-dict bytes) plus the training run's
-  strategy/reward-policy/parameters/metrics, and (for a runtime-built brain) the
-  `BrainRecipe` needed to reconstruct its exact shape, into its own Postgres
-  database (`Poink.Sim`, separate from the `Poink.MarketData` tick database). Every
-  save inserts a new snapshot row (never upserts), so training history stays
-  browsable. `recipe`/`trained_at` columns are nullable, additive migrations (see
-  `BrainRepository.Sql.AddRecipeColumn`/`AddTrainedAtColumn`, same `ADD COLUMN IF NOT
-  EXISTS` pattern as the older `dataset` column) -- a row saved before this feature
-  existed just has no recipe (can't be auto-rebuilt after a restart wipes it from
-  `BrainRegistry`) and an unknown trained status. `Repository/IBrainRepository.cs`
-- **`IBrainPresetRepository` / `BrainPresetRepository`** — Persists a named,
-  weight-less `BrainBuilder` config (just a `BrainRecipe` -- encoders/
-  architecture/hidden sizes/actions, no weights) so it can be saved, listed,
-  edited in place, and deleted independently of ever building or training a
-  brain from it -- the CRUD `BrainBuilder`'s Preset row exposes. Own
-  `brain_presets` table in the same "Poink.Sim" database as `IBrainRepository`
-  (a preset is a config, not market data, so it belongs alongside
-  `trained_brains` rather than in its own database). Unlike `SaveBrain`'s
-  always-insert (snapshot-per-save history), `UpdatePreset` overwrites a row in
-  place -- a preset is one mutable config someone is actively tuning, not a
-  history to browse. `RlTrainingService` caches the list (`BrainPresets`,
-  refreshed via `RefreshBrainPresets`) the same way it caches `SavedBrains`.
-  `Repository/IBrainPresetRepository.cs`
+- **`IModelRepository` / `ModelRepository` / `ModelService`** — Persists an
+  `IPolicyGradientBrain`'s exported weights (TorchSharp state-dict bytes) plus
+  the training run's strategy/reward-policy/parameters/metrics, and (for a
+  runtime-built brain) the `BrainRecipe` needed to reconstruct its exact
+  shape, into its own Postgres database (`Poink.Sim`, separate from the
+  `Poink.MarketData` tick database). Every save inserts a new snapshot row
+  (never upserts), so training history stays browsable. `recipe`/`trained_at`
+  columns are nullable, additive migrations (see
+  `ModelRepository.Sql.AddRecipeColumn`/`AddTrainedAtColumn`, same `ADD COLUMN
+  IF NOT EXISTS` pattern as the older `dataset` column) -- a row saved before
+  this feature existed just has no recipe and an unknown trained status.
+  `ModelService` is the thin persistence-only CRUD wrapper `RlTrainingService`
+  (weight save/load/restore) and `SimulationPage` (browsing/deleting saved
+  models, and sourcing the Simulation brain picker's trained-model options)
+  both inject directly, rather than going through `RlTrainingService` for
+  those concerns. `Repository/IModelRepository.cs`,
+  `Services/Training/ModelService.cs`
+- **`INetworkRepository` / `NetworkRepository` / `NetworkService`** —
+  Persists a named, weight-less `BrainBuilder` config (just a `BrainRecipe` --
+  encoders/architecture/hidden sizes/actions, no weights), called a "network",
+  so it can be saved, listed, edited in place, and deleted independently of
+  ever building or training a brain from it. Own `networks` table in the same
+  "Poink.Sim" database as `IModelRepository` (a network is a config, not
+  market data, so it belongs alongside `trained_models` rather than in its
+  own database). `UpdateNetwork` overwrites a row in place -- a network is one
+  mutable config someone is actively tuning, not a history to browse (unlike
+  `ModelRepository.SaveModel`'s always-insert). `NetworkService` is the thin
+  persistence-only CRUD wrapper `BrainBuilder` injects directly for Save
+  Network/Update/Delete, and that `RlTrainingService.TryBuildBrain`/
+  `TryStartTraining` also use: every built brain is persisted as a network
+  under its own name (so it survives a restart and shows up in Brain Type
+  immediately), and a network with no live `BrainRegistry` instance yet is
+  lazily rebuilt from its saved recipe the moment training starts.
+  `Repository/INetworkRepository.cs`, `Services/Training/NetworkService.cs`
 - **`IFeatureNormalizer`** — `{ Normalize(rawValue, observation), Denormalize(normalizedValue,
   anchors), Format(rawValue) }`: the half of feature engineering split out of
   `IObservationEncoder` -- an encoder decides *which* raw quantity feeds a feature
@@ -539,7 +549,7 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   same `_lock`/`IsRunning`/`Error`/`OnChanged` shape as `SimulationEngine` and every
   Poink.ML `*TrainingService`. Drives `RlEpisodeRunner` in a tight loop, keeps a
   bounded rolling log (`RecentEpisodes`, last 500) and restores/persists brain weights
-  via `IBrainRepository`. `RecentLog` is a separate, UI-visible `RingBuffer<
+  via `ModelService`. `RecentLog` is a separate, UI-visible `RingBuffer<
   RlTrainingLogEntry>` (last 200) of run events -- start/pause/resume/step/stop/
   save/load and throttled per-episode lines -- mirroring `SimulationEngine.
   RecentLog`; consumed by `TrainDashboard`'s training-log panel. `StepTraining` (the Train page's STEP button) reopens the
@@ -622,7 +632,7 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   (`VolumeProfileEncoder`/`TimeProfileEncoder`, in either their Normalized or Raw
   `NormalizationKind`) depending on the caller.
   `Models/BarPriceHistogram.cs`
-- **`BrainTrainingParameters`** — Free-form training-run parameters (`EpisodeCount`,
+- **`ModelTrainingParameters`** — Free-form training-run parameters (`EpisodeCount`,
   `EpisodeBars`, `BarWidthMinutes`, `StartingCash`, `LearningRate`, `LookbackBars`,
   `Leverage`, `StopOutLevelPercent`, `CommissionRatePercent`) saved alongside a
   brain snapshot; plain settable properties (not a record) so old JSON blobs still
@@ -634,7 +644,7 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   windowed brain, not just Volume/Time Profile ones) rather than a user-supplied
   run parameter -- an audit figure only, since Window is a build-time choice now
   (see `EncoderSizeOptions`), not something a training run configures.
-  `Repository/IBrainRepository.cs`
+  `Repository/IModelRepository.cs`
 - **`BrainRecipe`** — `{ EncoderKinds, ArchitectureKind, HiddenSizes, ActionOutputKinds,
   ActionOutputEncodingKind, EnabledDirections, EncoderSizes, DecisionDecoding,
   DecisionTemperature }`:
@@ -658,12 +668,14 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   group's raw logits before Softmax (below 1 sharpens toward the argmax, above
   1 flattens toward uniform), disabled in the UI and ignored by
   `ComposedPolicyBrain`/`DiscretizedLevelsActionHead` under `HardMax` (dividing
-  by a positive number can't change which index is largest). Populated by `RlTrainingService.TryBuildBrain`, persisted alongside
-  a saved snapshot (null for the four Program.cs-fixed brains, which reconstruct via
-  their own source code every restart instead), and read back by `LoadSavedBrain`
-  to rebuild a runtime brain that's been wiped from `BrainRegistry` by a restart
-  before importing its weights. Public (like `EncoderKind`/`ArchitectureKind`,
-  elevated from `internal` for this) because it travels on `SavedBrainSummary`.
+  by a positive number can't change which index is largest). Populated by
+  `RlTrainingService.TryBuildBrain`, which persists it as a `NetworkService`
+  network under the brain's own name (every neural brain is a network now --
+  there are no more hardcoded fixed brains), and read back by `LoadSavedBrain`/
+  `TryStartTraining` to rebuild a runtime brain that's been wiped from
+  `BrainRegistry` by a restart, before importing its weights. Public (like
+  `EncoderKind`/`ArchitectureKind`, elevated from `internal` for this) because
+  it travels on `TrainedModelSummary`/`NetworkSummary`.
   `Brain/Neural/BrainCatalog.cs`
 - **`EncoderSizeOptions`** — `{ BarWindowSize, VolumeProfileBucketCount,
   TimeProfileBucketCount, VolumeProfileLookbackBars, TimeProfileLookbackBars,
@@ -694,7 +706,7 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   pre-redesign Volume/Time Profile brain that was trained at a *non-default*
   lookback silently reverts to 50 if it's ever rebuilt from its recipe after a
   restart, since that old value was tracked as a training-run parameter
-  (`BrainTrainingParameters.LookbackBars`), not on the recipe itself -- a
+  (`ModelTrainingParameters.LookbackBars`), not on the recipe itself -- a
   known, accepted gap for a solo-dev project rather than a migration shim.
   `Brain/Neural/BrainCatalog.cs`. The Structure card's header warns (via
   `TrainPage`'s `FirstLayerTooSmall`) when the first hidden layer -- an MLP's
@@ -818,15 +830,16 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   training run events. `Level` is `"info"` or `"error"`, same two-level
   scheme as `SimulationEngine`'s equivalent log entry. `Services/Training/
   RlTrainingService.cs`
-- **`SavedBrainSummary`** — Metadata-only view of one saved brain snapshot (everything
-  except the weight bytes themselves), used to populate `SavedBrainsTable` without
-  pulling megabytes of weights per row. `RewardPolicyName` records which
-  `IRewardPolicy` shaped this brain's training, same treatment as `StrategyName`.
-  `Recipe` (nullable `BrainRecipe`) and `TrainedAt` (nullable, distinct from
-  `SavedAt`) are null for a snapshot saved before this feature existed, or (for
-  `TrainedAt`) one saved before any training episode actually completed --
-  `SavedBrainsTable` renders that as a "Structure"/"Untrained" row rather than
-  assuming every saved brain was genuinely trained. `Repository/IBrainRepository.cs`
+- **`TrainedModelSummary`** — Metadata-only view of one saved model snapshot
+  (everything except the weight bytes themselves), used to populate
+  `SavedBrainsTable` and Simulation's brain picker without pulling megabytes
+  of weights per row. `RewardPolicyName` records which `IRewardPolicy` shaped
+  this brain's training, same treatment as `StrategyName`. `Recipe` (nullable
+  `BrainRecipe`) and `TrainedAt` (nullable, distinct from `SavedAt`) are null
+  for a snapshot saved before this feature existed, or (for `TrainedAt`) one
+  saved before any training episode actually completed -- `SavedBrainsTable`
+  renders that as a "Structure"/"Untrained" row rather than assuming every
+  saved model was genuinely trained. `Repository/IModelRepository.cs`
 - **`SimulationProgress`** — Cheap sibling of `SimulationSnapshot`: just
   cursor/total/timestamp/range, published far more often during an uncapped Max run
   so a lightweight component (`SimTimeline`) can track live progress without paying
@@ -950,18 +963,12 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   alongside a Temperature number field (`_decisionTemperature`, defaults to
   `1.0`, disabled under `HardMax`) -- each row's `@DecodingLabel` reflects
   both live (e.g. "4-way hardmax", "4-way softmax @ T=0.5"), and `CreateBrain`
-  threads them into `TryBuildBrain`. A Preset row above the Name
-  row lets the panel's config be saved/reloaded/edited/deleted by name,
-  independently of ever building or training a brain from it -- `CurrentRecipe`
-  packs the panel's current fields into a `BrainRecipe` (same shape
-  `SavedBrainSummary.Recipe` uses), `LoadPreset(recipe)` is its exact inverse,
-  and SAVE PRESET/UPDATE/DELETE drive `RlTrainingService.SaveBrainPreset`/
-  `UpdateBrainPreset`/`DeleteBrainPreset` (`IBrainPresetRepository`, its own
-  `brain_presets` table in the "Poink.Sim" database -- see that interface's
-  doc comment). Selecting a preset from the dropdown (`OnPresetSelected`) calls
-  `LoadPreset` immediately; SAVE PRESET always inserts a new row (a preset is a
-  single mutable config, not a snapshot history like `SavedBrains`), UPDATE
-  overwrites the selected one in place. `Components/Pages/Training/Components/BrainBuilder/`
+  threads them into `TryBuildBrain`, which both registers the live brain and
+  persists it as a `NetworkService` network under the same name -- there's no
+  separate load-existing-config picker in this panel anymore; `TrainPage`'s
+  `BrainSelect` (sourced from `NetworkService.Networks`) is the one place an
+  existing brain is picked, whether to train it further or (implicitly, via
+  `TryStartTraining`'s lazy rebuild) to run it. `Components/Pages/Training/Components/BrainBuilder/`
 - **`BrainInfoCard`** — Shows "what's actually running" for a live brain (name,
   NN-or-not, and its `ActiveSnapshot` if the live weights match a saved one) on
   `SimulationPage`'s BRAIN tab. `Components/Pages/Training/Components/BrainInfoCard/`
@@ -1256,6 +1263,9 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   TimescaleDB hypertable chunks overlapping the range, instead of the whole table —
   what makes `CountTicks`/`ReadWindow` cheap regardless of table size (e.g. 161.8M
   rows for `ticks__usndaq100`).
+- **`networks` table** — Postgres table (in the `Poink.Sim` database) storing
+  saved `BrainRecipe` configs -- name, JSON recipe, saved/updated timestamps --
+  no weights. See `INetworkRepository`.
 - **Streaming tick reads** — Architectural pattern replacing a full-range in-memory
   `List<Tick>` preload with a live, forward-only `ITickRepository.ReadTicks` reader
   for Simulation, and a per-episode `ReadWindow` call for Training. See
@@ -1269,10 +1279,10 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
 - **TimescaleDB / hypertable** — The Postgres extension that turns `ticks_*` tables
   into chunked hypertables, making bounded/range queries cheap without materializing
   the whole table. See `TODO/2026-07-21-streaming-tick-reads.md`.
-- **`trained_brains` table** — Postgres table (in the separate `Poink.Sim` database)
-  storing saved brain snapshots: name, brain/strategy names, dataset description,
+- **`trained_models` table** — Postgres table (in the separate `Poink.Sim` database)
+  storing saved model snapshots: name, brain/strategy names, dataset description,
   JSON training parameters, weight count, average reward, and the
-  TorchSharp-serialized weights (`bytea`).
+  TorchSharp-serialized weights (`bytea`). See `IModelRepository`.
 
 ## Acronyms & Abbreviations
 

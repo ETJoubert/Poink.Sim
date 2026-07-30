@@ -64,18 +64,20 @@ UI state — each is its own page(s) and its own DI-registered service(s).
 
 - **`Repository/`** — Postgres access: `ITickRepository` (streamed, chunk-
   pruned tick reads, shared by all three data-consuming areas),
-  `IBrainRepository` (trained brain snapshots), `ITRangeChartRepository` /
+  `INetworkRepository` (saved brain topology, no weights), `IModelRepository`
+  (trained model snapshots -- weights + run metadata), `ITRangeChartRepository` /
   `ITRangeReferenceChartRepository` (Profiler's saved chart annotations).
 - **`Models/`** — Domain and read-model shapes shared across areas
   (`HlocAvdtBar`, `BarPriceHistogram`, `SimulationAccount`,
   `SimulationDecision`, `SimulationSnapshot`, `VolumeProfileAnalysis`,
   `TimeProfileAnalysis`).
 - **`Program.cs`** — DI wiring for all four areas: `ITickRepository`/
-  `IBrainRepository`/chart repositories and the fixed heuristic + composed
-  Brain instances are singletons shared process-wide; `SimulationEngine`/
-  `RlTrainingService` are singletons holding one shared in-memory "current
-  run" each; `ProfilerService` is scoped (stateless per call, nothing to
-  share across circuits).
+  `INetworkRepository`/`IModelRepository`/chart repositories and the two fixed
+  heuristic Brain instances are singletons shared process-wide (every neural
+  Brain instead comes from a saved network, built on demand -- see
+  `NetworkService`); `SimulationEngine`/`RlTrainingService` are singletons
+  holding one shared in-memory "current run" each; `ProfilerService` is
+  scoped (stateless per call, nothing to share across circuits).
 
 ## Using it
 

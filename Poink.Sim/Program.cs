@@ -17,7 +17,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Poink.Sim.Brain;
-using Poink.Sim.Brain.Neural;
 using Poink.Sim.Diagnostics;
 using Poink.Sim.Profiler;
 using Poink.Sim.Repository;
@@ -60,31 +59,23 @@ builder.Host.UseSerilog((context, configuration) => configuration
 // SimulationEngine/RlTrainingService both read ticks straight from it (streamed,
 // chunk-pruned range/window queries), never materializing a full range in memory.
 builder.Services.AddSingleton<ITickRepository, TickRepository>();
-builder.Services.AddSingleton<IBrainRepository, BrainRepository>();
-builder.Services.AddSingleton<IBrainPresetRepository, BrainPresetRepository>();
+// Brain Builder CRUD (topology-only "networks") -- see NetworkService/
+// INetworkRepository's doc comments.
+builder.Services.AddSingleton<INetworkRepository, NetworkRepository>();
+builder.Services.AddSingleton<NetworkService>();
+// Trained-model CRUD (weights + run metadata) -- see ModelService/
+// IModelRepository's doc comments.
+builder.Services.AddSingleton<IModelRepository, ModelRepository>();
+builder.Services.AddSingleton<ModelService>();
 builder.Services.AddSingleton<ITRangeChartRepository, TRangeChartRepository>();
 builder.Services.AddSingleton<ITRangeReferenceChartRepository, TRangeReferenceChartRepository>();
 builder.Services.AddSingleton<ISimulationBrain, MomentumThresholdBrain>();
 builder.Services.AddSingleton<ISimulationBrain, RandomBrain>();
-// Registered as ISimulationBrain (not just IPolicyGradientBrain) so it shows up in
-// the existing simulation setup screen's Brain dropdown immediately -- untrained
-// at first, improving as RlTrainingService trains this same singleton instance.
-// Each is composed from small, reusable encoder/architecture pieces (see
-// Brain/Neural/ComposedPolicyBrain.cs) instead of a hardwired concrete class --
-// the names below are the only thing every other lookup (RlTrainingService,
-// SimulationEngine, IBrainRepository) keys off, so they must stay stable.
-builder.Services.AddSingleton<ISimulationBrain>(_ => ComposedPolicyBrain.Create(
-    "MLP Policy", new MlpArchitecture(32, 16),
-    new BarWindowEncoder(), new TraderStateEncoder()));
-builder.Services.AddSingleton<ISimulationBrain>(_ => ComposedPolicyBrain.Create(
-    "LSTM Policy", new LstmArchitecture(hiddenSize: 64, numLayers: 2),
-    new BarWindowEncoder(), new TraderStateEncoder()));
-builder.Services.AddSingleton<ISimulationBrain>(_ => ComposedPolicyBrain.Create(
-    "Volume Profile Policy", new MlpArchitecture(32, 16),
-    new VolumeProfileEncoder(), new TraderStateEncoder()));
-builder.Services.AddSingleton<ISimulationBrain>(_ => ComposedPolicyBrain.Create(
-    "Volume Profile + Bars Policy", new MlpArchitecture(64, 32, 16),
-    new BarWindowEncoder(), new VolumeProfileEncoder(), new TraderStateEncoder()));
+// No hardcoded neural ISimulationBrain registrations here anymore -- every
+// neural brain now comes from a saved NetworkService network, either built
+// live via BrainBuilder (RlTrainingService.TryBuildBrain, which persists it
+// as a network too) or lazily rebuilt into BrainRegistry from a saved
+// network's recipe the first time TryStartTraining is asked to train it.
 builder.Services.AddSingleton<BrainRegistry>();
 // Stateless, no reason for a shorter lifetime -- Create is a pure passthrough
 // to `new Trader.Trader(...)`.

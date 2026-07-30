@@ -19,9 +19,10 @@ namespace Poink.Sim.Brain.Neural;
 
 // Public (not internal like most of this file) because BrainRecipe below
 // exposes both as public properties, and BrainRecipe itself must be public
-// since it travels on SavedBrainSummary (see that record's doc comment on
-// why it's public -- a Razor component's [Parameter] property can't be typed
-// with a less-accessible type than the component itself).
+// since it travels on TrainedModelSummary/NetworkSummary (see those records'
+// doc comments on why they're public -- a Razor component's [Parameter]
+// property can't be typed with a less-accessible type than the component
+// itself).
 public enum EncoderKind { BarWindow, VolumeProfile, TimeProfile, SessionClock, SpreadVolatility }
 
 public enum ArchitectureKind { Mlp, Lstm, Cnn }
@@ -100,12 +101,12 @@ public sealed record EncoderSizeOptions(
     NormalizationKind TimeProfileNormalization = NormalizationKind.Normalized,
     int SpreadVolatilityAtrPeriod = 14);
 
-// A runtime-built brain's exact shape -- what LoadSavedBrain needs to
-// reconstruct an identical encoder/architecture/action composition after a
-// restart wipes it from BrainRegistry (see RlTrainingService.TryBuildBrain).
-// Null on a SavedBrainSummary for anything not built through TryBuildBrain --
-// the four Program.cs-fixed brains reconstruct via their own source code
-// every restart instead, so they never need one.
+// A runtime-built brain's exact shape -- what LoadSavedBrain/TryStartTraining
+// need to reconstruct an identical encoder/architecture/action composition
+// after a restart wipes it from BrainRegistry (see RlTrainingService.
+// TryBuildBrain). Every neural brain is built through TryBuildBrain and
+// persisted as a NetworkService network under its own name now -- there are
+// no hardcoded brains that skip this.
 // ActionOutputKinds defaults to null (equivalent to empty -- no extra heads)
 // so a brain built before Volume/StopLoss/TakeProfit existed still
 // deserializes; ActionOutputEncodingKind defaults to DiscretizedLevels,

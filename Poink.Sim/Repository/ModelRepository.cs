@@ -11,7 +11,7 @@ using Poink.Sim.Brain.Neural;
 
 namespace Poink.Sim.Repository;
 
-internal sealed class BrainRepository : IBrainRepository
+internal sealed class ModelRepository : IModelRepository
 {
     // Recipe's EncoderKinds/ArchitectureKind serialize as names, not ordinal
     // ints -- safe if BrainCatalog's enums ever gain a value in the middle
@@ -19,19 +19,19 @@ internal sealed class BrainRepository : IBrainRepository
     private static readonly JsonSerializerOptions RecipeJsonOptions = new() { Converters = { new JsonStringEnumConverter() } };
 
     // Own database, separate from TickRepository's Poink.MarketData -- see
-    // IBrainRepository's doc comment. "postgres" is Postgres's always-present
+    // IModelRepository's doc comment. "postgres" is Postgres's always-present
     // maintenance db, used only to CREATE DATABASE this one if it's missing
     // (Postgres has no CREATE DATABASE IF NOT EXISTS, so pg_database is
     // checked first -- same idea as EnsureRegistryTable in TickRepository,
     // one level up).
     const string DatabaseName = "Poink.Sim";
-    const string TableName = "trained_brains";
+    const string TableName = "trained_models";
 
-    private readonly ILogger<BrainRepository> _logger;
+    private readonly ILogger<ModelRepository> _logger;
     private readonly string _maintenanceConnectionString;
     private readonly string _connectionString;
 
-    public BrainRepository(ILogger<BrainRepository> logger, IConfiguration configuration)
+    public ModelRepository(ILogger<ModelRepository> logger, IConfiguration configuration)
     {
         _logger = logger;
         _maintenanceConnectionString = configuration.GetConnectionString("PoinkSimMaintenance")
@@ -44,9 +44,9 @@ internal sealed class BrainRepository : IBrainRepository
                 "to appsettings, appsettings.Secrets.json, or environment variables.");
     }
 
-    public long SaveBrain(
+    public long SaveModel(
         string name, string brainName, string strategyName, string rewardPolicyName, string dataset,
-        BrainTrainingParameters parameters, BrainRecipe? recipe, DateTime? trainedAt,
+        ModelTrainingParameters parameters, BrainRecipe? recipe, DateTime? trainedAt,
         long weightCount, double avgReward, byte[] weights)
     {
         EnsureDatabaseExists();
@@ -56,29 +56,29 @@ internal sealed class BrainRepository : IBrainRepository
 
         string parametersJson = JsonSerializer.Serialize(parameters);
         string? recipeJson = recipe is null ? null : JsonSerializer.Serialize(recipe, RecipeJsonOptions);
-        long id = conn.ExecuteScalar<long>(Sql.InsertBrain, new
+        long id = conn.ExecuteScalar<long>(Sql.InsertModel, new
         {
             name, brainName, strategyName, rewardPolicyName, dataset, parametersJson, recipeJson, trainedAt, weightCount, avgReward, weights
         });
-        _logger.LogInformation("Saved brain {Name} ({BrainName}/{StrategyName}) as id {Id}", name, brainName, strategyName, id);
+        _logger.LogInformation("Saved model {Name} ({BrainName}/{StrategyName}) as id {Id}", name, brainName, strategyName, id);
         return id;
     }
 
-    public List<SavedBrainSummary> ListBrains()
+    public List<TrainedModelSummary> ListModels()
     {
         EnsureDatabaseExists();
         using var conn = new NpgsqlConnection(_connectionString);
         conn.Open();
         EnsureTable(conn);
 
-        var result = conn.Query<BrainRow>(Sql.SelectBrainRows)
-            .Select(r => new SavedBrainSummary(
+        var result = conn.Query<ModelRow>(Sql.SelectModelRows)
+            .Select(r => new TrainedModelSummary(
                 r.Id, r.Name, r.BrainName, r.StrategyName, r.RewardPolicyName, r.Dataset,
-                JsonSerializer.Deserialize<BrainTrainingParameters>(r.ParametersJson) ?? new BrainTrainingParameters(),
+                JsonSerializer.Deserialize<ModelTrainingParameters>(r.ParametersJson) ?? new ModelTrainingParameters(),
                 r.RecipeJson is null ? null : JsonSerializer.Deserialize<BrainRecipe>(r.RecipeJson, RecipeJsonOptions),
                 r.TrainedAt, r.WeightCount, r.AvgReward, r.SavedAt))
             .ToList();
-        _logger.LogInformation("Listed {BrainCount} saved brains", result.Count);
+        _logger.LogInformation("Listed {ModelCount} models", result.Count);
         return result;
     }
 
@@ -90,20 +90,20 @@ internal sealed class BrainRepository : IBrainRepository
         EnsureTable(conn);
         var weights = conn.QuerySingleOrDefault<byte[]>(Sql.SelectWeights, new { id });
         if (weights is null)
-            _logger.LogWarning("No weights found for brain id {Id}", id);
+            _logger.LogWarning("No weights found for model id {Id}", id);
         else
-            _logger.LogInformation("Loaded weights for brain id {Id} ({ByteCount} bytes)", id, weights.Length);
+            _logger.LogInformation("Loaded weights for model id {Id} ({ByteCount} bytes)", id, weights.Length);
         return weights;
     }
 
-    public void DeleteBrain(long id)
+    public void DeleteModel(long id)
     {
         EnsureDatabaseExists();
         using var conn = new NpgsqlConnection(_connectionString);
         conn.Open();
         EnsureTable(conn);
-        conn.Execute(Sql.DeleteBrain, new { id });
-        _logger.LogInformation("Deleted brain id {Id}", id);
+        conn.Execute(Sql.DeleteModel, new { id });
+        _logger.LogInformation("Deleted model id {Id}", id);
     }
 
     private void EnsureDatabaseExists()
@@ -118,12 +118,14 @@ internal sealed class BrainRepository : IBrainRepository
         }
     }
 
-    // The very first prototype of this table used brain_name as its primary
-    // key (one upserted row per architecture, no history). An install still
-    // carrying that shape is safe to drop and rebuild -- it could only ever
-    // have held one row per architecture, and nothing shipped against it.
-    // Later additive columns (like "dataset") instead migrate in place via
-    // ADD COLUMN IF NOT EXISTS, since by then real saved brains can exist.
+    // The very first prototype of BrainRepository's own trained_brains table
+    // used brain_name as its primary key (one upserted row per architecture,
+    // no history) -- replicated here for the same reasoning, even though a
+    // fresh trained_models table never carries that shape: an install still
+    // carrying it is safe to drop and rebuild, since it could only ever have
+    // held one row per architecture. Later additive columns instead migrate
+    // in place via ADD COLUMN IF NOT EXISTS, since by then real saved models
+    // can exist.
     private void EnsureTable(NpgsqlConnection conn)
     {
         bool hasOldShape = conn.ExecuteScalar<bool>(Sql.OldShapeExists);
@@ -140,14 +142,14 @@ internal sealed class BrainRepository : IBrainRepository
         conn.Execute(Sql.AddRewardPolicyNameColumn);
     }
 
-    // Parameter order must match SelectBrainRows' column order exactly --
+    // Parameter order must match SelectModelRows' column order exactly --
     // Dapper's record-constructor materialization matches positionally, not
     // by name, and mismatched order here throws "no matching constructor" at
     // read time even though every name/type lines up.
-    private sealed record BrainRow(
+    private sealed record ModelRow(
         long Id, string Name, string BrainName, string StrategyName, string RewardPolicyName, string Dataset,
         string ParametersJson, string? RecipeJson, long WeightCount, double AvgReward,
-        System.DateTime SavedAt, System.DateTime? TrainedAt);
+        DateTime SavedAt, DateTime? TrainedAt);
 
     // ── SQL ──
     private static class Sql
@@ -188,23 +190,23 @@ internal sealed class BrainRepository : IBrainRepository
             $@"ALTER TABLE ""{TableName}"" ADD COLUMN IF NOT EXISTS ""dataset"" TEXT NOT NULL DEFAULT ''";
 
         // Recipe (encoders/architecture/hidden sizes) -- null for anything not
-        // built through RlTrainingService.TryBuildBrain (see BrainRecipe's doc
-        // comment), and for any row saved before this column existed.
+        // built from a saved BrainRecipe, and for any row saved before this
+        // column existed.
         public const string AddRecipeColumn =
             $@"ALTER TABLE ""{TableName}"" ADD COLUMN IF NOT EXISTS ""recipe"" JSONB NULL";
 
         // Null for a row saved before this column existed, or for a brain
-        // saved before it ever completed a training episode (see
-        // RlTrainingService's _lastTrainedAt) -- distinct from saved_at.
+        // saved before it ever completed a training episode -- distinct from
+        // saved_at.
         public const string AddTrainedAtColumn =
             $@"ALTER TABLE ""{TableName}"" ADD COLUMN IF NOT EXISTS ""trained_at"" TIMESTAMPTZ NULL";
 
-        // Which IRewardPolicy shaped this brain's training -- same treatment
+        // Which reward policy shaped this brain's training -- same treatment
         // as strategy_name, added later so existing rows backfill to ''.
         public const string AddRewardPolicyNameColumn =
             $@"ALTER TABLE ""{TableName}"" ADD COLUMN IF NOT EXISTS ""reward_policy_name"" TEXT NOT NULL DEFAULT ''";
 
-        public const string InsertBrain =
+        public const string InsertModel =
             $@"INSERT INTO ""{TableName}""
                    (""name"", ""brain_name"", ""strategy_name"", ""reward_policy_name"", ""dataset"", ""parameters"", ""recipe"",
                     ""weight_count"", ""avg_reward"", ""weights"", ""saved_at"", ""trained_at"")
@@ -213,7 +215,7 @@ internal sealed class BrainRepository : IBrainRepository
                     @weightCount, @avgReward, @weights, now(), @trainedAt)
                RETURNING ""id""";
 
-        public const string SelectBrainRows =
+        public const string SelectModelRows =
             $@"SELECT ""id"" AS ""Id"", ""name"" AS ""Name"", ""brain_name"" AS ""BrainName"", ""strategy_name"" AS ""StrategyName"",
                       ""reward_policy_name"" AS ""RewardPolicyName"", ""dataset"" AS ""Dataset"", ""parameters""::text AS ""ParametersJson"",
                       ""recipe""::text AS ""RecipeJson"", ""weight_count"" AS ""WeightCount"", ""avg_reward"" AS ""AvgReward"",
@@ -222,6 +224,6 @@ internal sealed class BrainRepository : IBrainRepository
 
         public const string SelectWeights = $@"SELECT ""weights"" FROM ""{TableName}"" WHERE ""id"" = @id";
 
-        public const string DeleteBrain = $@"DELETE FROM ""{TableName}"" WHERE ""id"" = @id";
+        public const string DeleteModel = $@"DELETE FROM ""{TableName}"" WHERE ""id"" = @id";
     }
 }

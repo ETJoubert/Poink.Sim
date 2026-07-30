@@ -30,7 +30,7 @@ internal sealed class BrainRegistry
 
     // Adds a brain built at runtime (e.g. the Train page's Brain Builder) --
     // Name is the only identity key across RlTrainingService/SimulationEngine/
-    // IBrainRepository (a brain_name column), so a collision would silently
+    // IModelRepository (a brain_name column), so a collision would silently
     // shadow lookups against whichever brain the caller actually meant.
     public void Register(ISimulationBrain brain)
     {

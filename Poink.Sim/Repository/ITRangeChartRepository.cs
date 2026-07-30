@@ -6,7 +6,7 @@
 //  ticks for the same window (see ProfilerService.LoadAsync, called with
 //  beforeUtc=EndTimeUtc and count=BarCount to get exactly this many bars
 //  back -- the same aggregation the live chart itself used when the range
-//  was first drawn). Same Postgres database as IBrainRepository ("Poink.Sim",
+//  was first drawn). Same Postgres database as IModelRepository ("Poink.Sim",
 //  not "Poink.MarketData") since neither is market data.
 // ─────────────────────────────────────────────────────────────────────────
 using System;

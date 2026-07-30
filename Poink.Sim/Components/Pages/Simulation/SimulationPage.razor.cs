@@ -25,6 +25,12 @@ namespace Poink.Sim.Components.Pages
         // for anything training-related.
         [Inject] private RlTrainingService TrainingService { get; set; } = default!;
 
+        // Trained-model browse/delete (see SavedBrainsTable) now goes straight
+        // through ModelService -- TrainingService.LoadSavedBrain is still the
+        // one that actually imports weights into the live BrainRegistry
+        // instance, since only TrainingService has access to that registry.
+        [Inject] private ModelService ModelService { get; set; } = default!;
+
         // ── Setup form state ──
 
         private string _table = "";
@@ -33,6 +39,14 @@ namespace Poink.Sim.Components.Pages
         private bool _aggregate = true;
         private int _barMinutes = 1;
         private string _brainName = "";
+
+        // Which trained model (if any) the brain picker below currently has
+        // selected -- null for a heuristic strategy, which has no model.
+        // Loaded (via TrainingService.LoadSavedBrain) the moment it's picked,
+        // not deferred to Load Simulation, so "select a model" and "use its
+        // weights" are the same action -- see OnSimulationBrainChanged.
+        private long? _modelId;
+
         private double _startingCash = 10_000;
         private int _traderCount = 1;
 
@@ -152,6 +166,43 @@ namespace Poink.Sim.Components.Pages
 
         private enum LogTab { Decisions, Positions, Traders, Brain, InputsOutputs, Statistics }
 
+        // ── Brain picker (heuristic strategies + trained models only -- see
+        // ModelService) ──
+        // A raw untrained/freshly-built neural brain never appears here: only
+        // a heuristic (ModelId null, nothing to train) or a specific trained
+        // snapshot (ModelId set) is selectable, unlike TrainPage's BrainSelect
+        // which lists every existing brain regardless of training state.
+        private sealed record SimulationBrainOption(string DisplayName, string BrainName, long? ModelId);
+
+        private IReadOnlyList<SimulationBrainOption> SimulationBrainOptions =>
+            ModelService.Models
+                .Select(m => new SimulationBrainOption($"{m.Name} ({m.BrainName})", m.BrainName, m.Id))
+                .Concat(TrainingService.BrainOptions.Where(b => !b.IsNeuralNetwork).Select(b => new SimulationBrainOption(b.Name, b.Name, null)))
+                .ToList();
+
+        // A <select>'s value has to be one flat string -- encodes an option's
+        // identity as its ModelId (trained models) or BrainName (heuristics,
+        // which have no id) rather than DisplayName, which isn't guaranteed
+        // unique across models saved under the same name.
+        private static string OptionKey(SimulationBrainOption option) =>
+            option.ModelId is { } id ? $"model:{id}" : $"heuristic:{option.BrainName}";
+
+        private string SelectedOptionKey =>
+            SimulationBrainOptions.FirstOrDefault(o => o.BrainName == _brainName && o.ModelId == _modelId) is { } selected
+                ? OptionKey(selected)
+                : "";
+
+        private void OnSimulationBrainChanged(ChangeEventArgs e)
+        {
+            var option = SimulationBrainOptions.FirstOrDefault(o => OptionKey(o) == (e.Value?.ToString() ?? ""));
+            if (option is null) return;
+
+            _brainName = option.BrainName;
+            _modelId = option.ModelId;
+            if (option.ModelId is { } modelId)
+                TrainingService.LoadSavedBrain(modelId);
+        }
+
         // The brain actually driving the loaded run (s.Config.BrainName) --
         // deliberately not the Setup form's _brainName, which the user may
         // have since changed to something not in use by this run.
@@ -203,8 +254,14 @@ namespace Poink.Sim.Components.Pages
             Service.OnChanged += HandleServiceChanged;
             ApplyServiceState();
 
-            if (TrainingService.BrainOptions.Count > 0)
-                _brainName = TrainingService.BrainOptions[0].Name;
+            if (SimulationBrainOptions.Count > 0)
+            {
+                var first = SimulationBrainOptions[0];
+                _brainName = first.BrainName;
+                _modelId = first.ModelId;
+                if (first.ModelId is { } modelId)
+                    TrainingService.LoadSavedBrain(modelId);
+            }
         }
 
         private void HandleServiceChanged() => _ = InvokeAsync(() =>
@@ -331,13 +388,16 @@ namespace Poink.Sim.Components.Pages
         // Loading also selects the snapshot's architecture as this page's brain,
         // matching what the old plain <select> let you do directly -- picking a
         // saved brain here is both "load these weights" and "use this brain".
-        private void UseSavedBrain(SavedBrainSummary summary)
+        private void UseSavedBrain(TrainedModelSummary summary)
         {
             if (TrainingService.LoadSavedBrain(summary.Id))
+            {
                 _brainName = summary.BrainName;
+                _modelId = summary.Id;
+            }
         }
 
-        private void DeleteSavedBrainSnapshot(SavedBrainSummary summary) => TrainingService.DeleteSavedBrain(summary.Id);
+        private void DeleteSavedBrainSnapshot(TrainedModelSummary summary) => ModelService.DeleteModel(summary.Id);
 
         // ── Setup actions ──
 

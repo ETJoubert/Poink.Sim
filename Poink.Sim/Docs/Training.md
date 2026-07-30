@@ -110,13 +110,17 @@ across episodes.
   so a paused run can be advanced one episode at a time.
 - **Brain Builder** (`TryBuildBrain`) — builds a runtime `ComposedPolicyBrain`
   from the Train page's Build Brain panel (encoders + architecture +
-  hidden sizes + optional action-output heads + enabled directions) and
-  registers it into the shared `BrainRegistry`, immediately visible to both
-  Training and Simulation. The exact shape is kept as a `BrainRecipe` so it
-  can be rebuilt after a process restart wipes it from `BrainRegistry`.
+  hidden sizes + optional action-output heads + enabled directions), registers
+  it into the shared `BrainRegistry` (immediately visible to both Training and
+  Simulation), and persists its `BrainRecipe` as a `NetworkService` network
+  under the same name -- every neural brain in the app starts life this way
+  now, so it survives a process restart and shows up in the Brain Type picker
+  even before it's ever been trained. A network with no live `BrainRegistry`
+  instance yet is rebuilt from its saved recipe the moment `TryStartTraining`
+  is asked to train it.
 - **Save/Load** (`SaveBrain`/`LoadSavedBrain`) — persists a trained brain's
   exported weights plus its strategy/reward-policy/parameters/recipe via
-  `IBrainRepository` into its own Postgres database (`Poink.Sim`, separate
+  `ModelService` into its own Postgres database (`Poink.Sim`, separate
   from the tick database). Every save inserts a new snapshot row, so
   training history stays browsable (`SavedBrainsTable`, shared with
   Simulation's brain picker). Loading a snapshot whose live brain no longer
@@ -166,7 +170,9 @@ progress bar:
 | `Services/Training/` | `IRlTrainingStrategy.cs`, `PolicyGradientTrainingStrategy.cs` | The "coach" contract + REINFORCE implementation |
 | `Services/Training/` | `RlTrainingService.cs` | Background training orchestrator singleton |
 | `Services/Training/RewardPolicies/` | `IRewardPolicy.cs` + 4 implementations | The "scorecard" contract + concrete policies (see "Reward policies" above) |
-| `Repository/` | `IBrainRepository.cs`, `BrainRepository.cs` | Saved brain snapshot storage (weights + parameters + recipe) |
+| `Repository/` | `IModelRepository.cs`, `ModelRepository.cs` | Saved model snapshot storage (weights + parameters + recipe) |
+| `Repository/` | `INetworkRepository.cs`, `NetworkRepository.cs` | Saved brain topology storage (`BrainRecipe`, no weights) |
+| `Services/Training/` | `ModelService.cs`, `NetworkService.cs` | Thin CRUD wrappers over the two repositories above |
 | `Components/Pages/Training/Pages/` | `TrainPage.razor(.cs/.css)` | The `/train` page (Setup/Live tabs, Build Brain panel) |
 | `Components/Pages/Training/Pages/Train/` | `TrainLiveTab.razor(.cs/.css)` | The Live tab's full content (see "Live training visuals") |
 | `Components/Pages/Training/Components/` | `EpisodeGrid/`, `RewardChart/`, `NetworkEmulator/`, `EpisodeCoverageTimeline/`, `BrainSelect/`, `BrainInfoCard/`, `SavedBrainsTable/` | The Live tab's building blocks, each its own component folder |

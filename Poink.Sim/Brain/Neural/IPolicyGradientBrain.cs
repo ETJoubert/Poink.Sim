@@ -113,7 +113,7 @@ internal interface IPolicyGradientBrain : ISimulationBrain
 
     // Serializes this brain's live weights via TorchSharp's own state-dict
     // binary format (Module.save/load's Stream overloads -- no temp file
-    // needed) so a caller (IBrainRepository) can persist/restore them as a
+    // needed) so a caller (IModelRepository) can persist/restore them as a
     // Postgres bytea column. Default implementation, not brain-specific:
     // every IPolicyGradientBrain already exposes Network, and that's all
     // save/load need.
@@ -131,7 +131,7 @@ internal interface IPolicyGradientBrain : ISimulationBrain
     }
 
     // Total scalar count across every parameter tensor -- shown alongside a
-    // saved brain (see IBrainRepository) so "how big is this network" is
+    // saved model (see IModelRepository) so "how big is this network" is
     // visible without deserializing its weights.
     long WeightCount() => Network.parameters().Sum(p => p.numel());
 

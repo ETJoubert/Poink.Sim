@@ -16,10 +16,10 @@ namespace Poink.Sim.Components.Training
     // same live singleton brains by name.
     public partial class SavedBrainsTable : ComponentBase
     {
-        [Parameter, EditorRequired] public IReadOnlyList<SavedBrainSummary> SavedBrains { get; set; } = [];
+        [Parameter, EditorRequired] public IReadOnlyList<TrainedModelSummary> SavedBrains { get; set; } = [];
 
-        [Parameter] public EventCallback<SavedBrainSummary> OnUse { get; set; }
-        [Parameter] public EventCallback<SavedBrainSummary> OnDelete { get; set; }
+        [Parameter] public EventCallback<TrainedModelSummary> OnUse { get; set; }
+        [Parameter] public EventCallback<TrainedModelSummary> OnDelete { get; set; }
 
         [Parameter] public string Title { get; set; } = "Saved brains";
         [Parameter] public string UseTitle { get; set; } = "Loads these weights into the brain's live weights";
@@ -35,16 +35,16 @@ namespace Poink.Sim.Components.Training
         private void HandleDelete(SavedBrainRow row) =>
             OnDelete.InvokeAsync(SavedBrains.FirstOrDefault(b => b.Id == row.Id));
 
-        // Flattens SavedBrainSummary into a DataTable-friendly shape -- the
+        // Flattens TrainedModelSummary into a DataTable-friendly shape -- the
         // generic DataTable<TItem> reflects over public properties directly
         // (see its View/Card rendering), so Parameters needs to already be a
-        // display string rather than the nested BrainTrainingParameters object.
+        // display string rather than the nested ModelTrainingParameters object.
         // Structure (not "Brain") -- this is the composed architecture/name
         // string (e.g. "MLP_L64-L32-L16_dBW-dVPR-dTPR-dAS"), a shape
         // identifier, not a reference to a Brain entity. Status/TrainedAt are
-        // derived from SavedBrainSummary.TrainedAt -- null means this snapshot
-        // was saved before any training episode actually completed for it
-        // (see RlTrainingService's _lastTrainedAt), distinct from SavedAt.
+        // derived from TrainedModelSummary.TrainedAt -- null means this
+        // snapshot was saved before any training episode actually completed
+        // for it, distinct from SavedAt.
         private sealed record SavedBrainRow(
             long Id, string Name, string Structure, string Strategy, string RewardPolicy, string Dataset,
             long WeightCount, string Parameters, double AvgReward, string Status, DateTime? TrainedAt, DateTime SavedAt);

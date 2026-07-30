@@ -11,23 +11,23 @@ using Poink.Sim.Brain.Neural;
 
 namespace Poink.Sim.Repository;
 
-internal sealed class BrainPresetRepository : IBrainPresetRepository
+internal sealed class NetworkRepository : INetworkRepository
 {
     // Recipe's EncoderKinds/ArchitectureKind serialize as names, not ordinal
-    // ints -- same reasoning as BrainRepository's own copy of this option set.
+    // ints -- same reasoning as ModelRepository's own copy of this option set.
     private static readonly JsonSerializerOptions RecipeJsonOptions = new() { Converters = { new JsonStringEnumConverter() } };
 
-    // Same "Poink.Sim" database as BrainRepository -- a preset is just a
-    // config, not market data, and belongs alongside trained_brains rather
+    // Same "Poink.Sim" database as ModelRepository -- a network is just a
+    // config, not market data, and belongs alongside trained_models rather
     // than in its own database.
     const string DatabaseName = "Poink.Sim";
-    const string TableName = "brain_presets";
+    const string TableName = "networks";
 
-    private readonly ILogger<BrainPresetRepository> _logger;
+    private readonly ILogger<NetworkRepository> _logger;
     private readonly string _maintenanceConnectionString;
     private readonly string _connectionString;
 
-    public BrainPresetRepository(ILogger<BrainPresetRepository> logger, IConfiguration configuration)
+    public NetworkRepository(ILogger<NetworkRepository> logger, IConfiguration configuration)
     {
         _logger = logger;
         _maintenanceConnectionString = configuration.GetConnectionString("PoinkSimMaintenance")
@@ -40,7 +40,7 @@ internal sealed class BrainPresetRepository : IBrainPresetRepository
                 "to appsettings, appsettings.Secrets.json, or environment variables.");
     }
 
-    public long SavePreset(string name, BrainRecipe recipe)
+    public long SaveNetwork(string name, BrainRecipe recipe)
     {
         EnsureDatabaseExists();
         using var conn = new NpgsqlConnection(_connectionString);
@@ -48,28 +48,28 @@ internal sealed class BrainPresetRepository : IBrainPresetRepository
         EnsureTable(conn);
 
         string recipeJson = JsonSerializer.Serialize(recipe, RecipeJsonOptions);
-        long id = conn.ExecuteScalar<long>(Sql.InsertPreset, new { name, recipeJson });
-        _logger.LogInformation("Saved brain preset '{Name}' as id {Id}", name, id);
+        long id = conn.ExecuteScalar<long>(Sql.InsertNetwork, new { name, recipeJson });
+        _logger.LogInformation("Saved network '{Name}' as id {Id}", name, id);
         return id;
     }
 
-    public List<BrainPresetSummary> ListPresets()
+    public List<NetworkSummary> ListNetworks()
     {
         EnsureDatabaseExists();
         using var conn = new NpgsqlConnection(_connectionString);
         conn.Open();
         EnsureTable(conn);
 
-        var result = conn.Query<PresetRow>(Sql.SelectPresetRows)
-            .Select(r => new BrainPresetSummary(
+        var result = conn.Query<NetworkRow>(Sql.SelectNetworkRows)
+            .Select(r => new NetworkSummary(
                 r.Id, r.Name, JsonSerializer.Deserialize<BrainRecipe>(r.RecipeJson, RecipeJsonOptions) ?? new BrainRecipe([], ArchitectureKind.Mlp, []),
                 r.SavedAt, r.UpdatedAt))
             .ToList();
-        _logger.LogInformation("Listed {PresetCount} brain presets", result.Count);
+        _logger.LogInformation("Listed {NetworkCount} networks", result.Count);
         return result;
     }
 
-    public void UpdatePreset(long id, string name, BrainRecipe recipe)
+    public void UpdateNetwork(long id, string name, BrainRecipe recipe)
     {
         EnsureDatabaseExists();
         using var conn = new NpgsqlConnection(_connectionString);
@@ -77,18 +77,18 @@ internal sealed class BrainPresetRepository : IBrainPresetRepository
         EnsureTable(conn);
 
         string recipeJson = JsonSerializer.Serialize(recipe, RecipeJsonOptions);
-        conn.Execute(Sql.UpdatePreset, new { id, name, recipeJson });
-        _logger.LogInformation("Updated brain preset id {Id} ('{Name}')", id, name);
+        conn.Execute(Sql.UpdateNetwork, new { id, name, recipeJson });
+        _logger.LogInformation("Updated network id {Id} ('{Name}')", id, name);
     }
 
-    public void DeletePreset(long id)
+    public void DeleteNetwork(long id)
     {
         EnsureDatabaseExists();
         using var conn = new NpgsqlConnection(_connectionString);
         conn.Open();
         EnsureTable(conn);
-        conn.Execute(Sql.DeletePreset, new { id });
-        _logger.LogInformation("Deleted brain preset id {Id}", id);
+        conn.Execute(Sql.DeleteNetwork, new { id });
+        _logger.LogInformation("Deleted network id {Id}", id);
     }
 
     private void EnsureDatabaseExists()
@@ -105,10 +105,10 @@ internal sealed class BrainPresetRepository : IBrainPresetRepository
 
     private void EnsureTable(NpgsqlConnection conn) => conn.Execute(Sql.CreateTable);
 
-    // Parameter order must match SelectPresetRows' column order exactly --
+    // Parameter order must match SelectNetworkRows' column order exactly --
     // Dapper's record-constructor materialization matches positionally, not
     // by name, same caveat as BrainRepository.BrainRow.
-    private sealed record PresetRow(long Id, string Name, string RecipeJson, DateTime SavedAt, DateTime UpdatedAt);
+    private sealed record NetworkRow(long Id, string Name, string RecipeJson, DateTime SavedAt, DateTime UpdatedAt);
 
     // ── SQL ──
     private static class Sql
@@ -129,20 +129,20 @@ internal sealed class BrainPresetRepository : IBrainPresetRepository
                    ""updated_at"" TIMESTAMPTZ NOT NULL DEFAULT now()
                );";
 
-        public const string InsertPreset =
+        public const string InsertNetwork =
             $@"INSERT INTO ""{TableName}"" (""name"", ""recipe"", ""saved_at"", ""updated_at"")
                VALUES (@name, @recipeJson::jsonb, now(), now())
                RETURNING ""id""";
 
-        public const string SelectPresetRows =
+        public const string SelectNetworkRows =
             $@"SELECT ""id"" AS ""Id"", ""name"" AS ""Name"", ""recipe""::text AS ""RecipeJson"",
                       ""saved_at"" AS ""SavedAt"", ""updated_at"" AS ""UpdatedAt""
                FROM ""{TableName}"" ORDER BY ""name""";
 
-        public const string UpdatePreset =
+        public const string UpdateNetwork =
             $@"UPDATE ""{TableName}"" SET ""name"" = @name, ""recipe"" = @recipeJson::jsonb, ""updated_at"" = now()
                WHERE ""id"" = @id";
 
-        public const string DeletePreset = $@"DELETE FROM ""{TableName}"" WHERE ""id"" = @id";
+        public const string DeleteNetwork = $@"DELETE FROM ""{TableName}"" WHERE ""id"" = @id";
     }
 }

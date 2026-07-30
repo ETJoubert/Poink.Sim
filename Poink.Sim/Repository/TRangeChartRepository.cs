@@ -10,9 +10,9 @@ namespace Poink.Sim.Repository;
 
 internal sealed class TRangeChartRepository : ITRangeChartRepository
 {
-    // Same "Poink.Sim" database as BrainRepository (see ITRangeChartRepository's
+    // Same "Poink.Sim" database as ModelRepository (see ITRangeChartRepository's
     // doc comment) -- own table within it, so EnsureDatabaseExists/CREATE
-    // DATABASE duplicates BrainRepository's rather than sharing it, matching
+    // DATABASE duplicates ModelRepository's rather than sharing it, matching
     // this codebase's existing per-repository self-containment (see
     // TickRepository's separate "Poink.MarketData" database for the same
     // reasoning taken further).
@@ -91,7 +91,7 @@ internal sealed class TRangeChartRepository : ITRangeChartRepository
 
         // DatabaseName/TableName are compile-time constants, never user input, so
         // interpolating them as identifiers here is safe (same reasoning as
-        // BrainRepository.Sql/TickRepository.Sql.SelectTableStats).
+        // ModelRepository.Sql/TickRepository.Sql.SelectTableStats).
         public const string CreateDatabase = $"CREATE DATABASE \"{DatabaseName}\"";
 
         public const string CreateTable =
