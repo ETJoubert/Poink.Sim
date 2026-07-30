@@ -72,6 +72,11 @@
                                     <input type="checkbox" @bind="_includeVolumeProfile" disabled="@Service.IsRunning" />
                                     Volume Profile
                                 </label>
+                                <label class="train-brainrow-field train-brainrow-field-sub"
+                                       title="Split each bucket's volume into up-tick/down-tick totals plus their diff, instead of one plain total -- mirrors the Volume Profile chart's own Split up/down toggle">
+                                    <input type="checkbox" @bind="_volumeProfileSplitUpDown" disabled="@(Service.IsRunning || !_includeVolumeProfile)" />
+                                    Split Up/Down
+                                </label>
                             </td>
                             <td>
                                 <select class="train-brainrow-select" value="@_volumeProfileNormalization"
@@ -98,6 +103,11 @@
                                        title="Time-weighted histogram + point-of-control/value-area summary (seconds spent at each price level), merged from its Window's trailing bars">
                                     <input type="checkbox" @bind="_includeTimeProfile" disabled="@Service.IsRunning" />
                                     Time Profile
+                                </label>
+                                <label class="train-brainrow-field train-brainrow-field-sub"
+                                       title="Split each bucket's seconds into up-tick/down-tick totals plus their diff, instead of one plain total -- mirrors the Volume Profile chart's own Split up/down toggle">
+                                    <input type="checkbox" @bind="_timeProfileSplitUpDown" disabled="@(Service.IsRunning || !_includeTimeProfile)" />
+                                    Split Up/Down
                                 </label>
                             </td>
                             <td>

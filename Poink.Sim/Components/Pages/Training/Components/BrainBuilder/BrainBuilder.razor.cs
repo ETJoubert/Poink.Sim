@@ -61,6 +61,15 @@ namespace Poink.Sim.Components.Training
         private NormalizationKind _volumeProfileNormalization = NormalizationKind.Normalized;
         private NormalizationKind _timeProfileNormalization = NormalizationKind.Normalized;
 
+        // Volume/Time Profile's own split options -- mirror
+        // TickVolumeProfileChart's "Split up/down" toggle: off feeds one plain
+        // value per bucket, on feeds up-tick/down-tick volume (or seconds)
+        // separately plus their Diff instead (see VolumeProfileEncoder's/
+        // TimeProfileEncoder's doc comments). Orthogonal to Normalization,
+        // same as the chart's own toggle is orthogonal to its bucket count.
+        private bool _volumeProfileSplitUpDown;
+        private bool _timeProfileSplitUpDown;
+
         // Per-set structural width -- independent of each other, and now
         // build-time-only for Volume/Time Profile's lookback too (see
         // EncoderSizeOptions's doc comment): every one of these is baked into
@@ -239,15 +248,27 @@ namespace Poink.Sim.Components.Training
             BarWindowNormalization: _barWindowNormalization,
             VolumeProfileNormalization: _volumeProfileNormalization,
             TimeProfileNormalization: _timeProfileNormalization,
-            SpreadVolatilityAtrPeriod: _spreadVolatilityAtrPeriod);
+            SpreadVolatilityAtrPeriod: _spreadVolatilityAtrPeriod,
+            VolumeProfileSplitUpDown: _volumeProfileSplitUpDown,
+            TimeProfileSplitUpDown: _timeProfileSplitUpDown);
 
-        private string VolumeProfileBucketsTooltip => _volumeProfileNormalization == NormalizationKind.Raw
-            ? "How many histogram buckets Volume Profile rebins its merged bars into -- each bucket feeds price and volume under Raw, so its input count is this times 2 plus 3 summary values"
-            : "How many histogram buckets Volume Profile rebins its merged bars into -- its input count is this plus 3 summary values";
+        private string VolumeProfileBucketsTooltip =>
+            (_volumeProfileNormalization == NormalizationKind.Raw, _volumeProfileSplitUpDown) switch
+            {
+                (true, true) => "How many histogram buckets Volume Profile rebins its merged bars into -- each bucket feeds price, up-volume, down-volume, and their diff under Raw+Split, so its input count is this times 4 plus 3 summary values",
+                (true, false) => "How many histogram buckets Volume Profile rebins its merged bars into -- each bucket feeds price and volume under Raw, so its input count is this times 2 plus 3 summary values",
+                (false, true) => "How many histogram buckets Volume Profile rebins its merged bars into -- each bucket feeds up-volume, down-volume, and their diff under Split, so its input count is this times 3 plus 3 summary values",
+                (false, false) => "How many histogram buckets Volume Profile rebins its merged bars into -- its input count is this plus 3 summary values",
+            };
 
-        private string TimeProfileBucketsTooltip => _timeProfileNormalization == NormalizationKind.Raw
-            ? "How many histogram buckets Time Profile rebins its merged bars into -- each bucket feeds price and seconds under Raw, so its input count is this times 2 plus 3 summary values"
-            : "How many histogram buckets Time Profile rebins its merged bars into -- its input count is this plus 3 summary values";
+        private string TimeProfileBucketsTooltip =>
+            (_timeProfileNormalization == NormalizationKind.Raw, _timeProfileSplitUpDown) switch
+            {
+                (true, true) => "How many histogram buckets Time Profile rebins its merged bars into -- each bucket feeds price, up-seconds, down-seconds, and their diff under Raw+Split, so its input count is this times 4 plus 3 summary values",
+                (true, false) => "How many histogram buckets Time Profile rebins its merged bars into -- each bucket feeds price and seconds under Raw, so its input count is this times 2 plus 3 summary values",
+                (false, true) => "How many histogram buckets Time Profile rebins its merged bars into -- each bucket feeds up-seconds, down-seconds, and their diff under Split, so its input count is this times 3 plus 3 summary values",
+                (false, false) => "How many histogram buckets Time Profile rebins its merged bars into -- its input count is this plus 3 summary values",
+            };
 
         // Live input-count readout for the Input card -- reuses
         // BrainCatalog.CreateEncoder (the same factory CreateBrain itself
@@ -385,8 +406,16 @@ namespace Poink.Sim.Components.Training
 
                 var dataParts = new List<string>();
                 if (_includeBarWindow) dataParts.Add(_barWindowNormalization == NormalizationKind.Raw ? "dBWR" : "dBW");
-                if (_includeVolumeProfile) dataParts.Add(_volumeProfileNormalization == NormalizationKind.Raw ? "dVPR" : "dVP");
-                if (_includeTimeProfile) dataParts.Add(_timeProfileNormalization == NormalizationKind.Raw ? "dTPR" : "dTP");
+                if (_includeVolumeProfile)
+                {
+                    string vpTag = _volumeProfileNormalization == NormalizationKind.Raw ? "dVPR" : "dVP";
+                    dataParts.Add(_volumeProfileSplitUpDown ? $"{vpTag}-split" : vpTag);
+                }
+                if (_includeTimeProfile)
+                {
+                    string tpTag = _timeProfileNormalization == NormalizationKind.Raw ? "dTPR" : "dTP";
+                    dataParts.Add(_timeProfileSplitUpDown ? $"{tpTag}-split" : tpTag);
+                }
                 if (_includeSessionClock) dataParts.Add("dSC");
                 if (_includeSpreadVolatility) dataParts.Add("dSV");
                 dataParts.Add("dAS");

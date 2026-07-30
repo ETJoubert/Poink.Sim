@@ -28,7 +28,14 @@ internal static class VolumeProfileAnalysis
     // need to know *where* a bucket sits, not just how much is in it (see
     // BuildRawHistogram), resolve bucket i's price as binMin + (i + 0.5) *
     // binSize.
-    private static long[]? RebinCounts(
+    // Split counterpart to RebinCounts -- same rebin, but also carries each
+    // bin's up/down totals through (source buckets already track these, see
+    // BarPriceHistogram.Add), for a caller (VolumeProfileEncoder's SplitUpDown
+    // option) that wants up/down/diff per bucket instead of one plain total,
+    // same convention as TickVolumeProfileChart's own "Split up/down" toggle.
+    // RebinCounts below is now just this with the up/down totals discarded,
+    // rather than a second, separately-maintained binning pass.
+    private static (long[] Counts, long[] UpCounts, long[] DownCounts)? RebinSplit(
         IReadOnlyList<(double Price, int Count, int UpCount, int DownCount)> buckets, int bucketCount,
         out long totalCount, out double binMin, out double binSize)
     {
@@ -41,6 +48,8 @@ internal static class VolumeProfileAnalysis
         if (totalCount == 0) return null;
 
         var counts = new long[bucketCount];
+        var upCounts = new long[bucketCount];
+        var downCounts = new long[bucketCount];
         double min = buckets.Min(b => b.Price), max = buckets.Max(b => b.Price);
         binMin = min;
         if (max <= min)
@@ -50,8 +59,11 @@ internal static class VolumeProfileAnalysis
             // bin rather than degenerating a divide-by-zero bucket width;
             // binSize stays 0, which correctly resolves every bucket's price
             // to binMin since there's genuinely only one price level here.
-            counts[bucketCount / 2] = totalCount;
-            return counts;
+            int mid = bucketCount / 2;
+            counts[mid] = totalCount;
+            upCounts[mid] = buckets.Sum(b => (long)b.UpCount);
+            downCounts[mid] = buckets.Sum(b => (long)b.DownCount);
+            return (counts, upCounts, downCounts);
         }
 
         binSize = (max - min) / bucketCount;
@@ -59,9 +71,16 @@ internal static class VolumeProfileAnalysis
         {
             int idx = Math.Clamp((int)((bucket.Price - min) / binSize), 0, bucketCount - 1);
             counts[idx] += bucket.Count;
+            upCounts[idx] += bucket.UpCount;
+            downCounts[idx] += bucket.DownCount;
         }
-        return counts;
+        return (counts, upCounts, downCounts);
     }
+
+    private static long[]? RebinCounts(
+        IReadOnlyList<(double Price, int Count, int UpCount, int DownCount)> buckets, int bucketCount,
+        out long totalCount, out double binMin, out double binSize) =>
+        RebinSplit(buckets, bucketCount, out totalCount, out binMin, out binSize)?.Counts;
 
     // Re-bins the merged buckets into a fixed-width histogram of volume
     // fraction-of-total, ascending by price. Empty/zero-volume input -> all
@@ -105,6 +124,54 @@ internal static class VolumeProfileAnalysis
             pricesOut[i] = (float)(binMin + (i + 0.5) * binSize);
         }
         return (countsOut, pricesOut);
+    }
+
+    // Split counterpart to BuildRelativeHistogram -- same fixed-width
+    // rebinning and fraction-of-total convention, but each bucket's up-tick
+    // and down-tick volume are reported separately instead of summed into
+    // one total, plus their Diff (Up - Down, so it can read negative when a
+    // bucket's ticks skewed down) -- the histogram counterpart to
+    // TickVolumeProfileChart's "Split up/down" toggle. Empty/zero-volume
+    // input -> all zeros, same neutral convention as BuildRelativeHistogram.
+    public static (float[] Up, float[] Down, float[] Diff) BuildRelativeSplitHistogram(
+        IReadOnlyList<(double Price, int Count, int UpCount, int DownCount)> buckets, int bucketCount)
+    {
+        var up = new float[bucketCount];
+        var down = new float[bucketCount];
+        var diff = new float[bucketCount];
+        if (RebinSplit(buckets, bucketCount, out var totalCount, out _, out _) is not { } split) return (up, down, diff);
+
+        for (int i = 0; i < bucketCount; i++)
+        {
+            up[i] = (float)(split.UpCounts[i] / (double)totalCount);
+            down[i] = (float)(split.DownCounts[i] / (double)totalCount);
+            diff[i] = up[i] - down[i];
+        }
+        return (up, down, diff);
+    }
+
+    // Raw-value counterpart to BuildRelativeSplitHistogram -- same up/down/
+    // diff split, but literal tick counts (Diff can be negative) paired with
+    // each bucket's exact price, same reasoning as BuildRawHistogram on why
+    // the price has to travel alongside the counts. Empty/zero-volume input
+    // -> all zeros, same neutral convention as BuildRawHistogram.
+    public static (float[] Up, float[] Down, float[] Diff, float[] Prices) BuildRawSplitHistogram(
+        IReadOnlyList<(double Price, int Count, int UpCount, int DownCount)> buckets, int bucketCount)
+    {
+        var up = new float[bucketCount];
+        var down = new float[bucketCount];
+        var diff = new float[bucketCount];
+        var prices = new float[bucketCount];
+        if (RebinSplit(buckets, bucketCount, out _, out var binMin, out var binSize) is not { } split) return (up, down, diff, prices);
+
+        for (int i = 0; i < bucketCount; i++)
+        {
+            up[i] = split.UpCounts[i];
+            down[i] = split.DownCounts[i];
+            diff[i] = up[i] - down[i];
+            prices[i] = (float)(binMin + (i + 0.5) * binSize);
+        }
+        return (up, down, diff, prices);
     }
 
     // Standard Market-Profile value-area-expansion algorithm: start at the

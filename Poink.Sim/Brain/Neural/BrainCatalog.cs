@@ -90,6 +90,11 @@ public enum DecisionDecodingKind { Softmax, HardMax }
 // SpreadVolatilityAtrPeriod is the newest such property, same treatment:
 // defaults to 14 (SpreadVolatilityEncoder's own hardcoded default) so a
 // recipe saved before that encoder existed still deserializes.
+// VolumeProfileSplitUpDown/TimeProfileSplitUpDown are the newest such
+// properties, same treatment: default to false (Total, each encoder's own
+// original behavior) so a recipe saved before the split option existed still
+// deserializes -- see VolumeProfileEncoder's/TimeProfileEncoder's doc
+// comments on what turning one on changes.
 public sealed record EncoderSizeOptions(
     int BarWindowSize = 20,
     int VolumeProfileBucketCount = 20,
@@ -99,7 +104,9 @@ public sealed record EncoderSizeOptions(
     NormalizationKind BarWindowNormalization = NormalizationKind.Normalized,
     NormalizationKind VolumeProfileNormalization = NormalizationKind.Normalized,
     NormalizationKind TimeProfileNormalization = NormalizationKind.Normalized,
-    int SpreadVolatilityAtrPeriod = 14);
+    int SpreadVolatilityAtrPeriod = 14,
+    bool VolumeProfileSplitUpDown = false,
+    bool TimeProfileSplitUpDown = false);
 
 // A runtime-built brain's exact shape -- what LoadSavedBrain/TryStartTraining
 // need to reconstruct an identical encoder/architecture/action composition
@@ -161,9 +168,11 @@ internal static class BrainCatalog
         {
             EncoderKind.BarWindow => new BarWindowEncoder(windowSize: sizes.BarWindowSize, normalization: sizes.BarWindowNormalization),
             EncoderKind.VolumeProfile => new VolumeProfileEncoder(
-                bucketCount: sizes.VolumeProfileBucketCount, lookbackBars: sizes.VolumeProfileLookbackBars, normalization: sizes.VolumeProfileNormalization),
+                bucketCount: sizes.VolumeProfileBucketCount, lookbackBars: sizes.VolumeProfileLookbackBars, normalization: sizes.VolumeProfileNormalization,
+                splitUpDown: sizes.VolumeProfileSplitUpDown),
             EncoderKind.TimeProfile => new TimeProfileEncoder(
-                bucketCount: sizes.TimeProfileBucketCount, lookbackBars: sizes.TimeProfileLookbackBars, normalization: sizes.TimeProfileNormalization),
+                bucketCount: sizes.TimeProfileBucketCount, lookbackBars: sizes.TimeProfileLookbackBars, normalization: sizes.TimeProfileNormalization,
+                splitUpDown: sizes.TimeProfileSplitUpDown),
             EncoderKind.SessionClock => new SessionClockEncoder(),
             EncoderKind.SpreadVolatility => new SpreadVolatilityEncoder(atrPeriod: sizes.SpreadVolatilityAtrPeriod),
             _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),

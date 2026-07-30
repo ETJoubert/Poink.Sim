@@ -90,6 +90,12 @@
     flex: 1;
 }
 
+.train-brainrow-field-sub {
+    margin-left: 20px;
+    margin-top: 4px;
+    opacity: 0.85;
+}
+
 .train-brainrow-input-full {
     flex: 1;
     width: 100%;

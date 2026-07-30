@@ -23,7 +23,14 @@ internal static class TimeProfileAnalysis
     // time input so each caller applies its own neutral convention. binMin/
     // binSize are the rebin's own bucket edges -- see VolumeProfileAnalysis.
     // RebinCounts' doc comment.
-    private static double[]? RebinSeconds(
+    // Split counterpart to RebinSeconds -- same rebin, but also carries each
+    // bin's up/down seconds through (source buckets already track these, see
+    // BarPriceHistogram.MergeTime), for a caller (TimeProfileEncoder's
+    // SplitUpDown option) that wants up/down/diff per bucket instead of one
+    // plain total, mirroring VolumeProfileAnalysis.RebinSplit. RebinSeconds
+    // below is now just this with the up/down totals discarded, rather than
+    // a second, separately-maintained binning pass.
+    private static (double[] Seconds, double[] UpSeconds, double[] DownSeconds)? RebinSecondsSplit(
         IReadOnlyList<(double Price, int Count, double Seconds, double UpSeconds, double DownSeconds)> buckets, int bucketCount,
         out double totalSeconds, out double binMin, out double binSize)
     {
@@ -36,6 +43,8 @@ internal static class TimeProfileAnalysis
         if (totalSeconds <= 0) return null;
 
         var seconds = new double[bucketCount];
+        var upSeconds = new double[bucketCount];
+        var downSeconds = new double[bucketCount];
         double min = buckets.Min(b => b.Price), max = buckets.Max(b => b.Price);
         binMin = min;
         if (max <= min)
@@ -43,8 +52,11 @@ internal static class TimeProfileAnalysis
             // Every sample landed in one price bucket -- no range to spread
             // across, park it all in the middle bin (same convention as
             // VolumeProfileAnalysis).
-            seconds[bucketCount / 2] = totalSeconds;
-            return seconds;
+            int mid = bucketCount / 2;
+            seconds[mid] = totalSeconds;
+            upSeconds[mid] = buckets.Sum(b => b.UpSeconds);
+            downSeconds[mid] = buckets.Sum(b => b.DownSeconds);
+            return (seconds, upSeconds, downSeconds);
         }
 
         binSize = (max - min) / bucketCount;
@@ -52,9 +64,16 @@ internal static class TimeProfileAnalysis
         {
             int idx = Math.Clamp((int)((bucket.Price - min) / binSize), 0, bucketCount - 1);
             seconds[idx] += bucket.Seconds;
+            upSeconds[idx] += bucket.UpSeconds;
+            downSeconds[idx] += bucket.DownSeconds;
         }
-        return seconds;
+        return (seconds, upSeconds, downSeconds);
     }
+
+    private static double[]? RebinSeconds(
+        IReadOnlyList<(double Price, int Count, double Seconds, double UpSeconds, double DownSeconds)> buckets, int bucketCount,
+        out double totalSeconds, out double binMin, out double binSize) =>
+        RebinSecondsSplit(buckets, bucketCount, out totalSeconds, out binMin, out binSize)?.Seconds;
 
     // Re-bins the merged buckets into a fixed-width histogram of seconds
     // fraction-of-total, ascending by price. Empty/zero-time input -> all
@@ -92,6 +111,54 @@ internal static class TimeProfileAnalysis
             pricesOut[i] = (float)(binMin + (i + 0.5) * binSize);
         }
         return (secondsOut, pricesOut);
+    }
+
+    // Split counterpart to BuildRelativeHistogram -- same fixed-width
+    // rebinning and fraction-of-total convention, but each bucket's up-tick
+    // and down-tick seconds are reported separately instead of summed into
+    // one total, plus their Diff (Up - Down, so it can read negative when a
+    // bucket's dwell time skewed down) -- mirrors
+    // VolumeProfileAnalysis.BuildRelativeSplitHistogram. Empty/zero-time
+    // input -> all zeros, same neutral convention as BuildRelativeHistogram.
+    public static (float[] Up, float[] Down, float[] Diff) BuildRelativeSplitHistogram(
+        IReadOnlyList<(double Price, int Count, double Seconds, double UpSeconds, double DownSeconds)> buckets, int bucketCount)
+    {
+        var up = new float[bucketCount];
+        var down = new float[bucketCount];
+        var diff = new float[bucketCount];
+        if (RebinSecondsSplit(buckets, bucketCount, out var totalSeconds, out _, out _) is not { } split) return (up, down, diff);
+
+        for (int i = 0; i < bucketCount; i++)
+        {
+            up[i] = (float)(split.UpSeconds[i] / totalSeconds);
+            down[i] = (float)(split.DownSeconds[i] / totalSeconds);
+            diff[i] = up[i] - down[i];
+        }
+        return (up, down, diff);
+    }
+
+    // Raw-value counterpart to BuildRelativeSplitHistogram -- same up/down/
+    // diff split, but literal seconds (Diff can be negative) paired with each
+    // bucket's exact price, same reasoning as BuildRawHistogram on why the
+    // price has to travel alongside the seconds. Empty/zero-time input ->
+    // all zeros, same neutral convention as BuildRawHistogram.
+    public static (float[] Up, float[] Down, float[] Diff, float[] Prices) BuildRawSplitHistogram(
+        IReadOnlyList<(double Price, int Count, double Seconds, double UpSeconds, double DownSeconds)> buckets, int bucketCount)
+    {
+        var up = new float[bucketCount];
+        var down = new float[bucketCount];
+        var diff = new float[bucketCount];
+        var prices = new float[bucketCount];
+        if (RebinSecondsSplit(buckets, bucketCount, out _, out var binMin, out var binSize) is not { } split) return (up, down, diff, prices);
+
+        for (int i = 0; i < bucketCount; i++)
+        {
+            up[i] = (float)split.UpSeconds[i];
+            down[i] = (float)split.DownSeconds[i];
+            diff[i] = up[i] - down[i];
+            prices[i] = (float)(binMin + (i + 0.5) * binSize);
+        }
+        return (up, down, diff, prices);
     }
 
     // Same value-area-expansion algorithm as VolumeProfileAnalysis.ComputeSummary,
