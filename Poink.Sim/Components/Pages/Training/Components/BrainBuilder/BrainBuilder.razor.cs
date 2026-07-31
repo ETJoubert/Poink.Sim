@@ -10,29 +10,16 @@ using Poink.Sim.Training;
 
 namespace Poink.Sim.Components.Training
 {
-    // Split out of TrainPage so the Brain Type card's "+ BUILD BRAIN" toggle
-    // stays there while everything about assembling a brain from encoder/
-    // architecture parts lives here instead. Visible is purely presentational
-    // (TrainPage still owns _showBuildBrain and the toggle button) rather than
-    // an @if around this whole component, so a build left mid-configuration
-    // survives the panel being collapsed and reopened, same as before the split.
     public partial class BrainBuilder : ComponentBase
     {
         [Inject] private RlTrainingService Service { get; set; } = default!;
 
         [Parameter] public bool Visible { get; set; }
 
-        // Fired once TryBuildBrain succeeds, with the new brain's name --
-        // TrainPage responds by pointing Brain Type at it and collapsing this
-        // panel (see TrainPage.HandleBrainCreated).
         [Parameter] public EventCallback<string> OnBrainCreated { get; set; }
 
         private bool _wasVisible;
 
-        // Clears any previous build's status message the moment this panel is
-        // reopened -- mirrors TrainPage's old ToggleBuildBrain, which cleared
-        // it on every toggle; checking the visibility transition instead of
-        // just Visible avoids re-clearing on every unrelated re-render.
         protected override void OnParametersSet()
         {
             if (Visible && !_wasVisible) _buildBrainStatus = null;
@@ -41,10 +28,6 @@ namespace Poink.Sim.Components.Training
 
         private string _buildBrainName = "";
 
-        // While on, the Name field tracks AutoBuildBrainName below instead of
-        // _buildBrainName -- flips off the moment the user edits the field
-        // directly (OnBuildBrainNameInput), and back on once a brain is
-        // created, so the next build starts auto-named again.
         private bool _buildBrainNameAuto = true;
         private bool _includeBarWindow = true;
         private bool _includeVolumeProfile;
@@ -52,29 +35,13 @@ namespace Poink.Sim.Components.Training
         private bool _includeSessionClock;
         private bool _includeSpreadVolatility;
 
-        // Normalized feeds fraction-of-total/percent-offset values (each
-        // set's original convention); Raw feeds exact tick counts/seconds and
-        // exact price levels instead -- see NormalizationKind's doc comment.
-        // A per-set build option, orthogonal to which EncoderKind a set maps
-        // to (see SelectedEncoderKinds/CurrentEncoderSizeOptions below).
         private NormalizationKind _barWindowNormalization = NormalizationKind.Normalized;
         private NormalizationKind _volumeProfileNormalization = NormalizationKind.Normalized;
         private NormalizationKind _timeProfileNormalization = NormalizationKind.Normalized;
 
-        // Volume/Time Profile's own split options -- mirror
-        // TickVolumeProfileChart's "Split up/down" toggle: off feeds one plain
-        // value per bucket, on feeds up-tick/down-tick volume (or seconds)
-        // separately plus their Diff instead (see VolumeProfileEncoder's/
-        // TimeProfileEncoder's doc comments). Orthogonal to Normalization,
-        // same as the chart's own toggle is orthogonal to its bucket count.
         private bool _volumeProfileSplitUpDown;
         private bool _timeProfileSplitUpDown;
 
-        // Per-set structural width -- independent of each other, and now
-        // build-time-only for Volume/Time Profile's lookback too (see
-        // EncoderSizeOptions's doc comment): every one of these is baked into
-        // the encoder once at construction, same treatment bucket count
-        // always had. Defaults match EncoderSizeOptions' own defaults.
         private int _barWindowSize = 20;
         private int _volumeProfileBucketCount = 20;
         private int _timeProfileBucketCount = 20;
@@ -84,51 +51,24 @@ namespace Poink.Sim.Components.Training
 
         private ArchitectureKind _architectureKind = ArchitectureKind.Mlp;
 
-        // One entry per MLP hidden layer, in network order -- edited via the
-        // Structure card's per-layer number inputs (+ ADD LAYER/remove ×)
-        // instead of a single comma-delimited text field. Starts as a single
-        // layer that RemoveHiddenLayer refuses to drop below -- unlike the old
-        // comma-delimited text field, a linear (zero-layer) model is no longer
-        // reachable through the UI.
         private List<int> _mlpHiddenSizes = [64];
         private int _lstmHiddenSize = 64;
         private int _lstmNumLayers = 2;
 
-        // Cnn's own knobs -- kernelSize applies to every conv layer (odd
-        // sizes keep exact "same" padding, see CnnPolicyNetwork), _cnnChannels
-        // is each conv layer's output channel count, in network order --
-        // same add/remove-layer editor shape as _mlpHiddenSizes, just widening
-        // (doubling) by default instead of narrowing since deeper conv stacks
-        // conventionally grow channel depth as they go.
         private int _cnnKernelSize = 3;
         private List<int> _cnnChannels = [16, 32];
 
-        // Which extra (non-direction) decisions the built brain's network
-        // also makes -- see ActionOutputKind. All optional (unlike the
-        // encoder checkboxes, at least one of which is required).
         private bool _includeVolumeOutput;
         private bool _includeStopLossOutput;
         private bool _includeTakeProfitOutput;
 
-        // Which of Hold/EnterLong/EnterShort/Close the built brain's
-        // direction pick is narrowed to -- default all 4 (today's original
-        // behavior), but every one is individually optional, same as the
-        // action-output checkboxes above (see SimulationAction's doc
-        // comment); CanCreateBrain requires at least one stay checked.
         private bool _includeHold = true;
         private bool _includeEnterLong = true;
         private bool _includeEnterShort = true;
         private bool _includeClose = true;
 
-        // How the direction pick and every enabled action-output head's own
-        // distribution collapses to one chosen index -- see
-        // DecisionDecodingKind. One brain-wide choice (not per-group), unlike
-        // the per-group softmax widths shown alongside it.
         private DecisionDecodingKind _decisionDecoding = DecisionDecodingKind.Softmax;
 
-        // Softmax's own sharpen/flatten dial -- see BrainRecipe.
-        // DecisionTemperature. Only editable (and only affects anything)
-        // under Softmax; disabled in the UI under HardMax.
         private double _decisionTemperature = 1.0;
         private string? _buildBrainStatus;
 
@@ -147,23 +87,12 @@ namespace Poink.Sim.Components.Training
         private void OnTimeProfileNormalizationChanged(ChangeEventArgs e) =>
             _timeProfileNormalization = Enum.Parse<NormalizationKind>(e.Value?.ToString() ?? nameof(NormalizationKind.Normalized));
 
-        // Mirrors the old ParseHiddenSizes(text)'s n > 0 filter -- a layer
-        // cleared to 0 (or left blank) drops out rather than building a
-        // zero-width layer.
         private IReadOnlyList<int> EffectiveMlpHiddenSizes => _mlpHiddenSizes.Where(n => n > 0).ToList();
 
-        // New layer defaults to half the layer it's stacked after -- an MLP
-        // narrows toward its output, so this continues that taper instead of
-        // reintroducing a flat 16 every time.
         private void AddHiddenLayer() => _mlpHiddenSizes.Add(Math.Max(1, _mlpHiddenSizes[^1] / 2));
 
-        // New layer defaults to double layer 1 -- the inverse taper of
-        // AddHiddenLayer above, widening back out as layers are stacked
-        // before the existing first one.
         private void AddHiddenLayerOnTop() => _mlpHiddenSizes.Insert(0, _mlpHiddenSizes[0] * 2);
 
-        // Layer 1 can't be dropped below one entry -- an empty list reads as
-        // a linear model, which the UI no longer offers a way back into.
         private void RemoveHiddenLayer(int index)
         {
             if (_mlpHiddenSizes.Count <= 1) return;
@@ -177,18 +106,10 @@ namespace Poink.Sim.Components.Training
             if (int.TryParse(e.Value?.ToString(), out int size)) _mlpHiddenSizes[index] = size;
         }
 
-        // Mirrors EffectiveMlpHiddenSizes -- a channel count cleared to 0 (or
-        // left blank) drops that conv layer out rather than building a
-        // zero-channel one.
         private IReadOnlyList<int> EffectiveCnnChannels => _cnnChannels.Where(n => n > 0).ToList();
 
-        // New layer defaults to double the last layer's channel count --
-        // unlike AddHiddenLayer's narrowing taper, a deeper conv stack
-        // conventionally grows channel depth as it goes.
         private void AddCnnChannelLayer() => _cnnChannels.Add(_cnnChannels[^1] * 2);
 
-        // Layer 1 can't be dropped below one entry, same floor as
-        // RemoveHiddenLayer -- a CNN needs at least one conv layer.
         private void RemoveCnnChannelLayer(int index)
         {
             if (_cnnChannels.Count <= 1) return;
@@ -202,10 +123,6 @@ namespace Poink.Sim.Components.Training
             if (int.TryParse(e.Value?.ToString(), out int size)) _cnnChannels[index] = size;
         }
 
-        // LSTM/Cnn both need a sequence-bearing part (Bar Window) to narrow()
-        // a sequence out of -- see LstmArchitecture's/CnnArchitecture's doc
-        // comments; mirrored here so the Create button disables instead of
-        // only failing after a click.
         private bool CanCreateBrain =>
             !string.IsNullOrWhiteSpace(EffectiveBuildBrainName)
             && (_includeBarWindow || _includeVolumeProfile || _includeTimeProfile || _includeSessionClock || _includeSpreadVolatility)
@@ -218,13 +135,6 @@ namespace Poink.Sim.Components.Training
             && (!_includeSpreadVolatility || _spreadVolatilityAtrPeriod >= 1)
             && _decisionTemperature > 0;
 
-        // Canonical part order (Bar Window before Volume Profile before Time
-        // Profile) regardless of checkbox click order -- CompositeEncoder
-        // requires any sequence-bearing part to be listed first (see its doc
-        // comment). Shared by CreateBrain and TotalInputCount so the two never
-        // drift apart. EncoderKind no longer encodes Normalization (see
-        // CurrentEncoderSizeOptions below) -- picking Raw never changes which
-        // kind gets added here, only how CreateEncoder builds it.
         private IReadOnlyList<EncoderKind> SelectedEncoderKinds
         {
             get
@@ -270,19 +180,10 @@ namespace Poink.Sim.Components.Training
                 (false, false) => "How many histogram buckets Time Profile rebins its merged bars into -- its input count is this plus 3 summary values",
             };
 
-        // Live input-count readout for the Input card -- reuses
-        // BrainCatalog.CreateEncoder (the same factory CreateBrain itself
-        // calls into via Service.TryBuildBrain) as the single source of truth
-        // for each encoder's FeatureCount, instead of duplicating that
-        // arithmetic here. Trader State is always included (see BrainCatalog's
-        // doc comment on why it's not a pickable EncoderKind).
         private int TotalInputCount =>
             new TraderStateEncoder().FeatureCount
             + SelectedEncoderKinds.Sum(k => BrainCatalog.CreateEncoder(k, CurrentEncoderSizeOptions).FeatureCount);
 
-        // First hidden/conv layer's width -- null for an MLP or Cnn trimmed
-        // down to zero layers (a linear model / no conv layers, so there's no
-        // first layer to flag).
         private int? FirstHiddenLayerSize => _architectureKind switch
         {
             ArchitectureKind.Mlp => EffectiveMlpHiddenSizes.Count > 0 ? EffectiveMlpHiddenSizes[0] : null,
@@ -290,14 +191,8 @@ namespace Poink.Sim.Components.Training
             _ => _lstmHiddenSize,
         };
 
-        // Flags a first layer narrower than the inputs feeding it -- not
-        // necessarily wrong, but a common accidental bottleneck worth
-        // surfacing in the Structure card header.
         private bool FirstLayerTooSmall => FirstHiddenLayerSize is int size && size < TotalInputCount;
 
-        // Total selectable action decisions -- the 4 directions plus the 3
-        // optional output heads below -- shared by the Actions card's badge
-        // and its Select All checkbox.
         private const int TotalActionOptionCount = 7;
 
         private int SelectedActionCount =>
@@ -306,10 +201,6 @@ namespace Poink.Sim.Components.Training
             + (_includeStopLossOutput ? 1 : 0)
             + (_includeTakeProfitOutput ? 1 : 0);
 
-        // Bound directly to the Actions card's Select All checkbox -- reading
-        // it reports whether every option is already on (so the checkbox
-        // shows checked once the user gets there by hand too), setting it
-        // flips all 7 at once.
         private bool AllActionsSelected
         {
             get => SelectedActionCount == TotalActionOptionCount;
@@ -325,10 +216,6 @@ namespace Poink.Sim.Components.Training
             }
         }
 
-        // Enabled direction labels, in ComposedPolicyBrain.AllDirections'
-        // canonical order -- mirrors CreateBrain's own enabledDirections
-        // build, feeds both DirectionCount and the Action Decoding card's
-        // per-row tooltip below.
         private IReadOnlyList<string> EnabledDirectionLabels
         {
             get
@@ -344,10 +231,6 @@ namespace Poink.Sim.Components.Training
 
         private int DirectionCount => EnabledDirectionLabels.Count;
 
-        // Live output widths for the Action Decoding card -- reuses
-        // BrainCatalog.CreateActionOutputHead (the same factory CreateBrain
-        // itself calls into) as the single source of truth for each head's
-        // OutputWidth, mirroring TotalInputCount's use of CreateEncoder above.
         private int VolumeOutputWidth =>
             BrainCatalog.CreateActionOutputHead(ActionOutputKind.Volume, ActionOutputEncodingKind.DiscretizedLevels).OutputWidth;
 
@@ -357,22 +240,12 @@ namespace Poink.Sim.Components.Training
         private int TakeProfitOutputWidth =>
             BrainCatalog.CreateActionOutputHead(ActionOutputKind.TakeProfit, ActionOutputEncodingKind.DiscretizedLevels).OutputWidth;
 
-        // Total network output width: the direction head's softmax (one
-        // logit per enabled direction) plus every enabled extra head's own
-        // independent softmax width -- mirrors ComposedPolicyBrain.Create's
-        // own enabledDirections.Count + extraOutputWidth sizing.
         private int TotalOutputWidth =>
             DirectionCount
             + (_includeVolumeOutput ? VolumeOutputWidth : 0)
             + (_includeStopLossOutput ? StopLossOutputWidth : 0)
             + (_includeTakeProfitOutput ? TakeProfitOutputWidth : 0);
 
-        // Per-row decoding label, reflecting the brain-wide _decisionDecoding
-        // (and, under Softmax, _decisionTemperature) choice -- "N-way
-        // softmax" (today's original text) under Softmax at the default
-        // temperature, "N-way softmax @ T" under a non-default temperature,
-        // "N-way hardmax" under HardMax, so the Action Decoding card's rows
-        // stay accurate to what CreateBrain will actually do.
         private string DecodingLabel => _decisionDecoding switch
         {
             DecisionDecodingKind.HardMax => "hardmax",
@@ -380,12 +253,6 @@ namespace Poink.Sim.Components.Training
             _ => "softmax",
         };
 
-        // {Architecture}_{Layers}_{Data}, e.g. MLP_L32-L16_dBW-dVP-dTP-dAS -- mirrors
-        // CreateBrain's own encoder/architecture choices below, so the generated
-        // name always describes exactly what CREATE BRAIN is about to build.
-        // Trader State has no checkbox (always included) but still gets a
-        // "dAS" tag here for the same reason it gets a disabled-checked
-        // checkbox above: visible parity with the other data sources.
         private string AutoBuildBrainName
         {
             get
@@ -423,9 +290,6 @@ namespace Poink.Sim.Components.Training
 
                 string name = string.IsNullOrEmpty(layers) ? $"{arch}_{data}" : $"{arch}_{layers}_{data}";
 
-                // Excluded (not included) directions are called out here --
-                // shorter than listing all the ones still enabled, and the
-                // common case (all 4) needs no tag at all.
                 var actionParts = new List<string>();
                 if (!_includeHold) actionParts.Add("noHOLD");
                 if (!_includeEnterLong) actionParts.Add("noLONG");
@@ -454,9 +318,6 @@ namespace Poink.Sim.Components.Training
             if (!_buildBrainNameAuto) _buildBrainName = AutoBuildBrainName;
         }
 
-        // hiddenSizes in whichever shape BrainCatalog.CreateArchitecture expects
-        // for the current architecture -- shared by CreateBrain and
-        // CurrentRecipe so the two never drift apart.
         private IReadOnlyList<int> CurrentHiddenSizes => _architectureKind switch
         {
             ArchitectureKind.Mlp => EffectiveMlpHiddenSizes,
@@ -476,8 +337,6 @@ namespace Poink.Sim.Components.Training
             }
         }
 
-        // Canonical order (matches ComposedPolicyBrain.AllDirections)
-        // regardless of checkbox click order.
         private List<SimulationAction> SelectedEnabledDirections
         {
             get
@@ -491,10 +350,6 @@ namespace Poink.Sim.Components.Training
             }
         }
 
-        // The panel's current config as a BrainRecipe -- what CreateBrain
-        // threads into Service.TryBuildBrain, which both registers the live
-        // brain and persists it as a network under this same
-        // EffectiveBuildBrainName (see that method's doc comment).
         private BrainRecipe CurrentRecipe => new(
             SelectedEncoderKinds.ToList(), _architectureKind, CurrentHiddenSizes.ToList(),
             SelectedActionOutputKinds.Count > 0 ? SelectedActionOutputKinds : null, ActionOutputEncodingKind.DiscretizedLevels,
