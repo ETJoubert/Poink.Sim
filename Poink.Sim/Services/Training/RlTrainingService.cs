@@ -161,6 +161,15 @@ internal sealed class RlTrainingService
     public TrainedModelSummary? GetActiveSnapshot(string brainName) =>
         _activeSnapshotId.TryGetValue(brainName, out var id) ? _modelService.Models.FirstOrDefault(m => m.Id == id) : null;
 
+    // The encoder/architecture/action recipe behind a brain name, checked
+    // live-first (freshest, for a brain built/rebuilt this process) then
+    // falling back to its saved network row (survives a restart) -- read by
+    // BrainBuilder.razor.cs to pre-fill its panel from the Brain Type picker's
+    // current selection. Null for a heuristic brain, or a neural one wiped
+    // from BrainRegistry and never persisted as a network.
+    public BrainRecipe? GetRecipe(string brainName) =>
+        _brainRecipes.TryGetValue(brainName, out var recipe) ? recipe : _brainService.Brains.FirstOrDefault(b => b.Name == brainName)?.Recipe;
+
     // Empty for an unknown or non-neural brain name -- see
     // IPolicyGradientBrain.DescribeNetworkShape for what feeds the Train
     // page's Network Activity animation.

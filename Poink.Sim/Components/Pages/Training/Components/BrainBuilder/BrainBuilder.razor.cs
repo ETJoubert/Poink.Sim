@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Poink.Sim.Brain.Neural;
@@ -14,16 +15,162 @@ namespace Poink.Sim.Components.Training
     {
         [Inject] private RlTrainingService Service { get; set; } = default!;
 
-        [Parameter] public bool Visible { get; set; }
+        [Inject] private BrainService BrainService { get; set; } = default!;
 
         [Parameter] public EventCallback<string> OnBrainCreated { get; set; }
 
-        private bool _wasVisible;
+        // Brain Type picker's current selection -- two-way bound from
+        // TrainPage (which still owns it for Start Training/Save Model) --
+        // Brain Builder mirrors its saved/live recipe into this panel's
+        // fields whenever it changes (see LoadRecipe), so opening the build
+        // panel after picking an existing brain shows what it's actually
+        // built from instead of stale defaults.
+        [Parameter] public string BrainName { get; set; } = "";
+        [Parameter] public EventCallback<string> BrainNameChanged { get; set; }
+
+        [Parameter] public string StrategyName { get; set; } = "";
+        [Parameter] public EventCallback<string> StrategyNameChanged { get; set; }
+
+        [Parameter] public string RewardPolicyName { get; set; } = "";
+        [Parameter] public EventCallback<string> RewardPolicyNameChanged { get; set; }
+
+        [Parameter] public double LearningRate { get; set; }
+        [Parameter] public EventCallback<double> LearningRateChanged { get; set; }
+
+        private string? _lastBrainName;
+
+        // Same source TrainPage used to build its own copy of this list
+        // before Brain Type moved into this panel -- every saved network,
+        // all treated as neural (heuristic brains have no trainable weights
+        // so they're never saved as one -- see BrainService's doc comment).
+        private IReadOnlyList<BrainOption> TrainableBrainOptions =>
+            BrainService.Brains.Select(n => new BrainOption(n.Name, true)).ToList();
+
+        protected override void OnInitialized()
+        {
+            if (string.IsNullOrEmpty(BrainName) && TrainableBrainOptions.Count > 0)
+                _ = BrainNameChanged.InvokeAsync(TrainableBrainOptions[0].Name);
+            if (string.IsNullOrEmpty(StrategyName) && Service.StrategyNames.Count > 0)
+                _ = StrategyNameChanged.InvokeAsync(Service.StrategyNames[0]);
+            if (string.IsNullOrEmpty(RewardPolicyName) && Service.RewardPolicyNames.Count > 0)
+                _ = RewardPolicyNameChanged.InvokeAsync(Service.RewardPolicyNames[0]);
+        }
 
         protected override void OnParametersSet()
         {
-            if (Visible && !_wasVisible) _buildBrainStatus = null;
-            _wasVisible = Visible;
+            if (BrainName != _lastBrainName)
+            {
+                _lastBrainName = BrainName;
+                if (!string.IsNullOrEmpty(BrainName) && Service.GetRecipe(BrainName) is { } recipe)
+                    LoadRecipe(recipe);
+            }
+        }
+
+        private bool _showBuildPanel;
+
+        private void ToggleBuildPanel()
+        {
+            _showBuildPanel = !_showBuildPanel;
+            if (_showBuildPanel) _buildBrainStatus = null;
+        }
+
+        private bool _showDeleteConfirm;
+        private string? _deleteStatus;
+
+        private void CancelDeleteBrain() => _showDeleteConfirm = false;
+
+        // Deletes the currently selected brain's saved network config (not
+        // its trained weights -- see BrainService's doc comment: this is
+        // just the encoder/architecture/action recipe, distinct from any
+        // ModelService snapshot saved under the same brain name) and moves
+        // the Brain Type picker to whatever's left, since the deleted name
+        // no longer exists to select.
+        private void ConfirmDeleteBrain()
+        {
+            _showDeleteConfirm = false;
+            var toDelete = BrainService.Brains.FirstOrDefault(b => b.Name == BrainName);
+            if (toDelete is null)
+            {
+                _deleteStatus = "brain no longer exists";
+                return;
+            }
+
+            if (BrainService.DeleteNetwork(toDelete.Id))
+            {
+                _deleteStatus = $"deleted '{toDelete.Name}'";
+                _ = BrainNameChanged.InvokeAsync(TrainableBrainOptions.FirstOrDefault()?.Name ?? "");
+            }
+            else
+            {
+                _deleteStatus = BrainService.Status;
+            }
+        }
+
+        private Task OnBrainNameChanged(string name) => BrainNameChanged.InvokeAsync(name);
+
+        private Task OnStrategyChanged(ChangeEventArgs e) => StrategyNameChanged.InvokeAsync(e.Value?.ToString() ?? "");
+
+        private Task OnRewardPolicyChanged(ChangeEventArgs e) => RewardPolicyNameChanged.InvokeAsync(e.Value?.ToString() ?? "");
+
+        private Task OnLearningRateChanged(ChangeEventArgs e) =>
+            double.TryParse(e.Value?.ToString(), out var rate) ? LearningRateChanged.InvokeAsync(rate) : Task.CompletedTask;
+
+        // Populates every Brain Builder field from a saved/live recipe --
+        // the inverse of CurrentRecipe. Leaves the Name field alone (its own
+        // Auto/manual toggle keeps working against whatever's now loaded)
+        // and clears any stale build status from a previous attempt.
+        private void LoadRecipe(BrainRecipe recipe)
+        {
+            _includeBarWindow = recipe.EncoderKinds.Contains(EncoderKind.BarWindow);
+            _includeVolumeProfile = recipe.EncoderKinds.Contains(EncoderKind.VolumeProfile);
+            _includeTimeProfile = recipe.EncoderKinds.Contains(EncoderKind.TimeProfile);
+            _includeSessionClock = recipe.EncoderKinds.Contains(EncoderKind.SessionClock);
+            _includeSpreadVolatility = recipe.EncoderKinds.Contains(EncoderKind.SpreadVolatility);
+
+            var sizes = recipe.EncoderSizes ?? new EncoderSizeOptions();
+            _barWindowNormalization = sizes.BarWindowNormalization;
+            _volumeProfileNormalization = sizes.VolumeProfileNormalization;
+            _timeProfileNormalization = sizes.TimeProfileNormalization;
+            _volumeProfileSplitUpDown = sizes.VolumeProfileSplitUpDown;
+            _timeProfileSplitUpDown = sizes.TimeProfileSplitUpDown;
+            _barWindowSize = sizes.BarWindowSize;
+            _volumeProfileBucketCount = sizes.VolumeProfileBucketCount;
+            _timeProfileBucketCount = sizes.TimeProfileBucketCount;
+            _volumeProfileLookbackBars = sizes.VolumeProfileLookbackBars;
+            _timeProfileLookbackBars = sizes.TimeProfileLookbackBars;
+            _spreadVolatilityAtrPeriod = sizes.SpreadVolatilityAtrPeriod;
+
+            _architectureKind = recipe.ArchitectureKind;
+            switch (recipe.ArchitectureKind)
+            {
+                case ArchitectureKind.Cnn:
+                    _cnnKernelSize = recipe.HiddenSizes.Count > 0 ? recipe.HiddenSizes[0] : 3;
+                    _cnnChannels = recipe.HiddenSizes.Count > 1 ? recipe.HiddenSizes.Skip(1).ToList() : [16, 32];
+                    break;
+                case ArchitectureKind.Lstm:
+                    _lstmHiddenSize = recipe.HiddenSizes.Count > 0 ? recipe.HiddenSizes[0] : 64;
+                    _lstmNumLayers = recipe.HiddenSizes.Count > 1 ? recipe.HiddenSizes[1] : 2;
+                    break;
+                default:
+                    _mlpHiddenSizes = recipe.HiddenSizes.Count > 0 ? recipe.HiddenSizes.ToList() : [64];
+                    break;
+            }
+
+            var actionKinds = recipe.ActionOutputKinds ?? [];
+            _includeVolumeOutput = actionKinds.Contains(ActionOutputKind.Volume);
+            _includeStopLossOutput = actionKinds.Contains(ActionOutputKind.StopLoss);
+            _includeTakeProfitOutput = actionKinds.Contains(ActionOutputKind.TakeProfit);
+
+            var directions = recipe.EnabledDirections ?? ComposedPolicyBrain.AllDirections;
+            _includeHold = directions.Contains(SimulationAction.Hold);
+            _includeEnterLong = directions.Contains(SimulationAction.EnterLong);
+            _includeEnterShort = directions.Contains(SimulationAction.EnterShort);
+            _includeClose = directions.Contains(SimulationAction.Close);
+
+            _decisionDecoding = recipe.DecisionDecoding;
+            _decisionTemperature = recipe.DecisionTemperature;
+
+            _buildBrainStatus = null;
         }
 
         private string _buildBrainName = "";
@@ -368,6 +515,7 @@ namespace Poink.Sim.Components.Training
                 _buildBrainStatus = $"built '{name}' -- pick it above to train it";
                 _buildBrainName = "";
                 _buildBrainNameAuto = true;
+                _showBuildPanel = false;
                 _ = OnBrainCreated.InvokeAsync(name);
             }
             else

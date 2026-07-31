@@ -1,6 +1,4 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Poink.Sim.Repository;
@@ -14,15 +12,11 @@ namespace Poink.Sim.Components.Pages
     {
         [Inject] private RlTrainingService Service { get; set; } = default!;
 
-        [Inject] private BrainService BrainService { get; set; } = default!;
-
         private string _table = "";
         private DateTime _from = DateTime.UtcNow.AddDays(-1);
         private DateTime _to = DateTime.UtcNow;
 
         private string _brainName = "";
-
-        private bool _showBuildBrain;
 
         private int _barWidthMinutes = 1;
 
@@ -48,33 +42,13 @@ namespace Poink.Sim.Components.Pages
         protected override void OnInitialized()
         {
             Service.OnChanged += HandleServiceChanged;
-
-            if (TrainableBrainOptions.Count > 0)
-                _brainName = TrainableBrainOptions[0].Name;
-            if (Service.StrategyNames.Count > 0)
-                _strategyName = Service.StrategyNames[0];
-            if (Service.RewardPolicyNames.Count > 0)
-                _rewardPolicyName = Service.RewardPolicyNames[0];
         }
-
-        private IReadOnlyList<BrainOption> TrainableBrainOptions =>
-            BrainService.Brains.Select(n => new BrainOption(n.Name, true)).ToList();
 
         private void HandleServiceChanged() => _ = InvokeAsync(StateHasChanged);
 
-        private void OnStrategyChanged(ChangeEventArgs e) => _strategyName = e.Value?.ToString() ?? "";
-
-        private void OnRewardPolicyChanged(ChangeEventArgs e) => _rewardPolicyName = e.Value?.ToString() ?? "";
-
         public void Dispose() => Service.OnChanged -= HandleServiceChanged;
 
-        private void ToggleBuildBrain() => _showBuildBrain = !_showBuildBrain;
-
-        private void HandleBrainCreated(string name)
-        {
-            _brainName = name;
-            _showBuildBrain = false;
-        }
+        private void HandleBrainCreated(string name) => _brainName = name;
 
         private void ToggleControls() => _controlsCollapsed = !_controlsCollapsed;
 
