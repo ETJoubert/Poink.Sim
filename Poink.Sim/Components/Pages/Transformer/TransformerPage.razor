@@ -1,0 +1,115 @@
+@page "/transformer"
+@namespace Poink.Sim.Components.Pages
+@using Poink.Sim.Components.Charts
+@using Poink.Sim.Components.Shared.BarMinutesSelect
+@using Poink.Sim.Components.Shared.TickDataSource
+@using Poink.Shared.Client.Components.Pages.CTrader
+
+<div class="trf-page">
+
+    <div class="trf-topbar">
+        <header class="trf-header">
+            <div class="trf-header-title">
+                <span class="trf-header-symbol">TRANSFORMER</span>
+                @if (_config is not null)
+                {
+                    <span class="trf-header-mode">@_config.Table</span>
+                    <span class="trf-header-mode">@($"{_config.BarSize.TotalMinutes:0}m bars")</span>
+                    <span class="trf-header-mode">
+                        @_bars.Count.ToString("N0") bars / @_tickCount.ToString("N0") ticks
+                        @(_reachedStart ? " (full range loaded)" : " (more history available)")
+                    </span>
+                }
+                <span class="trf-header-state @StateClass()" title="Current transformer state">
+                    @(_isLoading ? "LOADING" : HasData ? "READY" : "SETUP")
+                </span>
+            </div>
+        </header>
+
+        <div class="trf-datarow">
+            <div class="trf-datarow-field trf-datarow-data">
+                <TickDataSource @bind-Table="_table" @bind-From="_from" @bind-To="_to" Disabled="_isLoading" />
+            </div>
+            <BarMinutesSelect @bind-Value="_barMinutes" Disabled="@_isLoading" />
+            <div class="trf-datarow-actions">
+                <button class="trf-ctrl-btn trf-ctrl-btn-play" @onclick="Load"
+                        disabled="@(_isLoading || _isLoadingMore)"
+                        title="Load a recent slice of the selected range -- older history backfills automatically as you pan the chart">
+                    @(_isLoading ? "LOADING..." : "LOAD")
+                </button>
+                @if (HasData && !_reachedStart)
+                {
+                    <button class="trf-ctrl-btn" @onclick="LoadMore" disabled="@(_isLoading || _isLoadingMore)"
+                            title="Fetch the next older chunk of history -- same as panning the chart back to its earliest bar">
+                        @(_isLoadingMore ? "LOADING OLDER..." : "LOAD OLDER")
+                    </button>
+                }
+                @if (_error is not null)
+                {
+                    <span class="trf-error-inline" title="@_error">@_error</span>
+                }
+            </div>
+        </div>
+    </div>
+
+    @if (HasData)
+    {
+        <div class="trf-overlay-toggles"
+             title="Toggle the computed chart overlays driven by the Volume Range tool below -- POC/Value Area and VWAP">
+            <span class="trf-overlay-toggles-label">CHART OVERLAYS</span>
+            <label class="trf-overlay-toggle"
+                   title="Highlight the Point of Control (most-traded price) and Value Area rows inside the volume profile panel">
+                <input type="checkbox" @bind="_showProfilePanelLevels" />
+                <span>POC/VA in profile</span>
+            </label>
+            <label class="trf-overlay-toggle"
+                   title="Project the Point of Control/Value Area High/Low as three dashed lines on the main chart">
+                <input type="checkbox" @bind="_showProfileChartLines" />
+                <span>POC/VAH/VAL lines</span>
+            </label>
+            <label class="trf-overlay-toggle"
+                   title="Show a cumulative volume-weighted average price line on the main chart, narrowed to the Volume Range selection if one is active">
+                <input type="checkbox" @bind="_showVwap" />
+                <span>VWAP line</span>
+            </label>
+        </div>
+        <div class="trf-chart">
+            <div class="trf-chart-main"
+                 title="OHLC bar chart -- pan left to backfill older history, or use the toolbar's VOLUME RANGE tool to select the window the profile panels/overlays are built from">
+                <DrawableOhlcvChart Bars="ToBarRows()" KeepView="_keepView" OnNearStart="LoadMore"
+                                    ShowAnnotationTools="false" HorizontalLines="ProfileLevelLines()"
+                                    RangeFills="VolumeRangeFill()" VwapLine="VwapPoints()"
+                                    OnVolumeRangeDrawn="SetVolumeRange" HasVolumeRange="_volumeRangeStart is not null"
+                                    OnVolumeRangeCleared="ClearVolumeRange" />
+            </div>
+            <div class="trf-chart-divider" @ref="_chartDividerRef" data-min-width="200" data-max-width="320"
+                 title="Drag to resize"></div>
+            <div class="trf-chart-side">
+                <div class="trf-vp"
+                     title="@((VolumeRangeLabel() is { } label
+                                                     ? $"Volume profile for the selected Volume Range ({label}) -- use the toolbar's CLEAR VOLUME RANGE button to go back to every loaded bar"
+                                                     : "Volume profile across every bar loaded so far -- use the toolbar's VOLUME RANGE tool to narrow it to a specific time window")
+                                                     + ". POC/Value Area are highlighted below and projected onto the main chart as POC/VAH/VAL lines")">
+                    <TickVolumeProfileChart WeightedSamples="MergedSamples()" CurrentPrice="LastClose"
+                                            ShowLevels="_showProfilePanelLevels" />
+                </div>
+            </div>
+            <div class="trf-chart-divider" @ref="_chartDividerRef2" data-min-width="200" data-max-width="320"
+                 title="Drag to resize"></div>
+            <div class="trf-chart-side">
+                <div class="trf-vp"
+                     title="@((VolumeRangeLabel() is { } timeLabel
+                                                     ? $"Time profile for the selected Volume Range ({timeLabel}) -- use the toolbar's CLEAR VOLUME RANGE button to go back to every loaded bar"
+                                                     : "Time profile across every bar loaded so far -- use the toolbar's VOLUME RANGE tool to narrow it to a specific time window")
+                                                     + ". Measures dwell time (seconds) per price level instead of tick count")">
+                    <TickTimeProfileChart WeightedSamples="MergedTimeSamples()" CurrentPrice="LastClose" />
+                </div>
+            </div>
+        </div>
+    }
+    else if (!_isLoading)
+    {
+        <p class="trf-empty">Pick a symbol and date range above, then LOAD to view its bar chart and profiles.</p>
+    }
+
+</div>

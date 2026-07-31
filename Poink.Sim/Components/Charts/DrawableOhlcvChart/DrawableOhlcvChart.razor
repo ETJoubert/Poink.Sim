@@ -2,58 +2,61 @@
 
 <div class="doc-wrapper @(_expanded ? "expanded" : "")">
     <div class="doc-toolbar">
-        <!-- Lines: single/two-point shapes with no area of their own. -->
-        <div class="doc-tool-group doc-tool-group-lines">
-            <button type="button" class="doc-tool-btn doc-tool-btn-lines @(_mode == DrawMode.Horizontal ? "active" : "")"
-                    @onclick="() => ToggleMode(DrawMode.Horizontal)"
-                    title="Click a point on the chart to add a horizontal price line">
-                H-LINE
-            </button>
-            <button type="button" class="doc-tool-btn doc-tool-btn-lines @(_mode == DrawMode.Vertical ? "active" : "")"
-                    @onclick="() => ToggleMode(DrawMode.Vertical)"
-                    title="Click a point on the chart to add a vertical time line">
-                V-LINE
-            </button>
-            <button type="button" class="doc-tool-btn doc-tool-btn-lines @(_mode == DrawMode.Diagonal ? "active" : "")"
-                    @onclick="() => ToggleMode(DrawMode.Diagonal)"
-                    title="Click a start point, then an end point, to draw a diagonal trend line">
-                D-LINE
-            </button>
-        </div>
-        <!-- Ranges: a pair of same-axis lines bounding a span. -->
-        <div class="doc-tool-group doc-tool-group-ranges">
-            <button type="button" class="doc-tool-btn doc-tool-btn-ranges @(_mode == DrawMode.TRange ? "active" : "")"
-                    @onclick="() => ToggleMode(DrawMode.TRange)"
-                    title="Click two points to add a pair of vertical lines marking a time range">
-                T-RANGE
-            </button>
-            <button type="button" class="doc-tool-btn doc-tool-btn-ranges @(_mode == DrawMode.PRange ? "active" : "")"
-                    @onclick="() => ToggleMode(DrawMode.PRange)"
-                    title="Click two points to add a pair of horizontal lines marking a price range">
-                P-RANGE
-            </button>
-        </div>
-        <!-- Shapes: bounded areas built from more than one axis of lines. -->
-        <div class="doc-tool-group doc-tool-group-shapes">
-            <button type="button" class="doc-tool-btn doc-tool-btn-shapes @(_mode == DrawMode.Rectangle ? "active" : "")"
-                    @onclick="() => ToggleMode(DrawMode.Rectangle)"
-                    title="Click four points (two time, two price) to add a rectangle's vertical and horizontal bounds">
-                RECT
-            </button>
-        </div>
-        <!-- Charts: a range selection that also renders its own mini chart. -->
-        <div class="doc-tool-group doc-tool-group-charts">
-            <button type="button" class="doc-tool-btn doc-tool-btn-charts @(_mode == DrawMode.TRangeChart ? "active" : "")"
-                    @onclick="() => ToggleMode(DrawMode.TRangeChart)"
-                    title="Click two points to mark a time range AND render a small candlestick chart of the bars inside it">
-                T-RANGE CHART
-            </button>
-            <button type="button" class="doc-tool-btn doc-tool-btn-charts @(_mode == DrawMode.TRangeReferenceChart ? "active" : "")"
-                    @onclick="() => ToggleMode(DrawMode.TRangeReferenceChart)"
-                    title="Click two points like T-Range Chart, then a third point before the earlier of the two to mark a reference window">
-                T-RANGE REF CHART
-            </button>
-        </div>
+        @if (ShowAnnotationTools)
+        {
+            <!-- Lines: single/two-point shapes with no area of their own. -->
+            <div class="doc-tool-group doc-tool-group-lines">
+                <button type="button" class="doc-tool-btn doc-tool-btn-lines @(_mode == DrawMode.Horizontal ? "active" : "")"
+                        @onclick="() => ToggleMode(DrawMode.Horizontal)"
+                        title="Click a point on the chart to add a horizontal price line">
+                    H-LINE
+                </button>
+                <button type="button" class="doc-tool-btn doc-tool-btn-lines @(_mode == DrawMode.Vertical ? "active" : "")"
+                        @onclick="() => ToggleMode(DrawMode.Vertical)"
+                        title="Click a point on the chart to add a vertical time line">
+                    V-LINE
+                </button>
+                <button type="button" class="doc-tool-btn doc-tool-btn-lines @(_mode == DrawMode.Diagonal ? "active" : "")"
+                        @onclick="() => ToggleMode(DrawMode.Diagonal)"
+                        title="Click a start point, then an end point, to draw a diagonal trend line">
+                    D-LINE
+                </button>
+            </div>
+            <!-- Ranges: a pair of same-axis lines bounding a span. -->
+            <div class="doc-tool-group doc-tool-group-ranges">
+                <button type="button" class="doc-tool-btn doc-tool-btn-ranges @(_mode == DrawMode.TRange ? "active" : "")"
+                        @onclick="() => ToggleMode(DrawMode.TRange)"
+                        title="Click two points to add a pair of vertical lines marking a time range">
+                    T-RANGE
+                </button>
+                <button type="button" class="doc-tool-btn doc-tool-btn-ranges @(_mode == DrawMode.PRange ? "active" : "")"
+                        @onclick="() => ToggleMode(DrawMode.PRange)"
+                        title="Click two points to add a pair of horizontal lines marking a price range">
+                    P-RANGE
+                </button>
+            </div>
+            <!-- Shapes: bounded areas built from more than one axis of lines. -->
+            <div class="doc-tool-group doc-tool-group-shapes">
+                <button type="button" class="doc-tool-btn doc-tool-btn-shapes @(_mode == DrawMode.Rectangle ? "active" : "")"
+                        @onclick="() => ToggleMode(DrawMode.Rectangle)"
+                        title="Click four points (two time, two price) to add a rectangle's vertical and horizontal bounds">
+                    RECT
+                </button>
+            </div>
+            <!-- Charts: a range selection that also renders its own mini chart. -->
+            <div class="doc-tool-group doc-tool-group-charts">
+                <button type="button" class="doc-tool-btn doc-tool-btn-charts @(_mode == DrawMode.TRangeChart ? "active" : "")"
+                        @onclick="() => ToggleMode(DrawMode.TRangeChart)"
+                        title="Click two points to mark a time range AND render a small candlestick chart of the bars inside it">
+                    T-RANGE CHART
+                </button>
+                <button type="button" class="doc-tool-btn doc-tool-btn-charts @(_mode == DrawMode.TRangeReferenceChart ? "active" : "")"
+                        @onclick="() => ToggleMode(DrawMode.TRangeReferenceChart)"
+                        title="Click two points like T-Range Chart, then a third point before the earlier of the two to mark a reference window">
+                    T-RANGE REF CHART
+                </button>
+            </div>
+        }
         <!-- Volume: a standalone time-range selector that drives the volume profile
              panel beside the chart -- not an annotation like the groups above, it has
              no persistent card of its own (see ProfilerPage's SetVolumeRange). Its

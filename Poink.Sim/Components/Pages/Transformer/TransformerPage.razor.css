@@ -1,0 +1,274 @@
+.trf-page {
+    display: flex;
+    flex-direction: column;
+    min-height: 100%;
+}
+
+.trf-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: var(--color-bg-terminal);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+}
+
+.trf-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 5px 24px 5px;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+.trf-header-title {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.trf-header-symbol {
+    font-family: var(--font-heading);
+    font-size: 1.15rem;
+    font-weight: bold;
+    letter-spacing: 0.08em;
+    color: var(--color-accent);
+    text-shadow: var(--shadow-glow-accent);
+}
+
+.trf-header-mode {
+    font-size: 0.78rem;
+    color: var(--color-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.trf-header-state {
+    font-size: 0.68rem;
+    font-weight: bold;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 3px 10px;
+    border-radius: 999px;
+    border: 1px solid currentColor;
+}
+
+.trf-state-setup {
+    color: var(--color-secondary);
+}
+
+.trf-state-loading {
+    color: var(--color-warning);
+    animation: trf-pulse 1.6s ease-in-out infinite;
+}
+
+.trf-state-ready {
+    color: var(--color-success);
+    text-shadow: 0 0 8px color-mix(in srgb, var(--color-success) 60%, transparent);
+}
+
+@keyframes trf-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.55; }
+}
+
+.trf-datarow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 28px;
+    padding: 10px 24px;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+.trf-datarow-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.trf-datarow-data {
+    flex: 1;
+    min-width: 320px;
+}
+
+.trf-datarow-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-left: auto;
+}
+
+.trf-error-inline {
+    color: var(--color-error, #ff5f56);
+    font-size: 0.72rem;
+}
+
+.trf-ctrl-btn {
+    font-family: var(--font-body);
+    font-weight: bold;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 7px 14px;
+    border-radius: var(--border-radius-sm);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 45%, transparent);
+    background: transparent;
+    color: var(--color-primary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.trf-ctrl-btn:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+    border-color: var(--color-primary);
+}
+
+.trf-ctrl-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.trf-ctrl-btn-play {
+    border: 1px solid var(--color-success);
+    color: var(--color-success);
+    background: color-mix(in srgb, var(--color-success) 14%, transparent);
+    font-size: 13px;
+    padding: 7px 22px;
+    text-shadow: 0 0 8px color-mix(in srgb, var(--color-success) 50%, transparent);
+}
+
+.trf-ctrl-btn-play:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-success) 24%, transparent);
+    box-shadow: 0 0 14px color-mix(in srgb, var(--color-success) 45%, transparent);
+}
+
+.trf-overlay-toggles {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    padding: 5px 10px;
+    margin: 18px 24px 0;
+    background: color-mix(in srgb, var(--color-highlight) 6%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-highlight) 30%, transparent);
+    border-radius: var(--border-radius-sm);
+}
+
+.trf-overlay-toggles-label {
+    font-size: 0.6rem;
+    font-weight: bold;
+    letter-spacing: 0.1em;
+    color: var(--color-highlight);
+    opacity: 0.9;
+}
+
+.trf-overlay-toggle {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.68rem;
+    color: var(--color-secondary);
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.trf-overlay-toggle input {
+    accent-color: var(--color-highlight);
+    cursor: pointer;
+}
+
+.trf-chart {
+    display: flex;
+    flex-shrink: 0;
+    align-items: stretch;
+    gap: 16px;
+    padding: 18px 24px 24px;
+    height: 60vh;
+    min-height: 200px;
+    max-height: 80vh;
+}
+
+.trf-chart-main {
+    flex: 1;
+    min-width: 0;
+}
+
+.trf-chart-side {
+    display: flex;
+    flex-direction: column;
+    flex: 0 0 auto;
+    width: 260px;
+    min-width: 200px;
+    max-width: 320px;
+    overflow-y: auto;
+}
+
+.trf-vp {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.trf-chart-divider {
+    position: relative;
+    flex: 0 0 6px;
+    align-self: stretch;
+    margin: 0 -10px;
+    cursor: col-resize;
+    touch-action: none;
+    user-select: none;
+    border-radius: 3px;
+}
+
+.trf-chart-divider::before {
+    content: "";
+    position: absolute;
+    top: 15%;
+    bottom: 15%;
+    left: 50%;
+    width: 1px;
+    transform: translateX(-50%);
+    background: color-mix(in srgb, var(--color-primary) 20%, transparent);
+    transition: background 0.2s ease;
+}
+
+.trf-chart-divider:hover,
+.trf-chart-divider.trf-chart-divider-active {
+    background: color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+.trf-chart-divider:hover::before,
+.trf-chart-divider.trf-chart-divider-active::before {
+    background: var(--color-primary);
+}
+
+@media (max-width: 900px) {
+    .trf-chart {
+        flex-direction: column;
+        height: auto;
+    }
+
+    .trf-chart-main {
+        height: 400px;
+    }
+
+    .trf-chart-side {
+        flex-basis: auto;
+        width: 100%;
+        max-width: none;
+        max-height: 240px;
+    }
+
+    .trf-chart-divider {
+        display: none;
+    }
+}
+
+.trf-empty {
+    padding: 24px;
+    color: var(--color-secondary);
+    opacity: 0.8;
+}

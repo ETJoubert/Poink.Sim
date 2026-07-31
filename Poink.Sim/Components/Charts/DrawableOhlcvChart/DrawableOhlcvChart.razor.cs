@@ -78,6 +78,13 @@ namespace Poink.Sim.Components.Charts
 
         [Parameter] public List<CTraderBarRow> Bars { get; set; } = new();
 
+        // Hides the Lines/Ranges/Shapes/Charts toolbar groups (H-Line, V-Line, D-Line,
+        // T-Range, P-Range, Rectangle, T-Range Chart, T-Range Reference Chart), leaving
+        // only the Volume Range tool -- see TransformerPage, which offers no annotation
+        // list/save UI of its own to hang those drawings off of. Defaults true (every
+        // group shown) so ProfilerPage/SimulationPage are unaffected.
+        [Parameter] public bool ShowAnnotationTools { get; set; } = true;
+
         // Live bid/ask, as horizontal price lines pinned to the right axis -- see
         // SimulationPage's sim-header price readout, which drives these every tick.
         [Parameter] public double? CurrentBid { get; set; }

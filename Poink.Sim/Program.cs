@@ -23,6 +23,7 @@ using Poink.Sim.Repository;
 using Poink.Sim.Simulation;
 using Poink.Sim.Trader;
 using Poink.Sim.Training;
+using Poink.Sim.Transformer;
 using Serilog;
 using Serilog.Events;
 using System.IO;
@@ -85,6 +86,10 @@ builder.Services.AddSingleton<SimulationEngine>();
 // "current run" state of its own -- each LoadAsync call is a self-contained batch
 // read, so there's nothing that needs to be shared process-wide across circuits.
 builder.Services.AddScoped<ProfilerService>();
+// Same reasoning as ProfilerService above -- TransformerService is TransformerPage's
+// own copy of the same batch-load pattern, registered through ITransformerService
+// (unlike ProfilerService) for DI/testability.
+builder.Services.AddScoped<ITransformerService, TransformerService>();
 builder.Services.AddSingleton<IRlTrainingStrategy, PolicyGradientTrainingStrategy>();
 // Order matters: RewardPolicyNames[0] (this first registration) is what
 // TrainPage.razor.cs's OnInitialized preselects, so the baseline/unshaped
