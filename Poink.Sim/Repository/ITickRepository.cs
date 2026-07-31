@@ -42,6 +42,12 @@ internal interface ITickRepository
     // the whole bounded window in hand (e.g. RlEpisodeRunner.Run).
     List<Tick> ReadWindow(string table, DateTime start, int count);
 
+    // Backward counterpart to ReadWindow -- the last `count` ticks at or before
+    // `beforeUtc`, still returned in ascending (chronological) order. Same
+    // chunk-pruned-by-LIMIT cheapness as ReadWindow, just walking the other
+    // direction (see TransformerPage's tick-delta chart, the only current caller).
+    List<Tick> ReadRecentTicks(string table, DateTime beforeUtc, int count);
+
     // Cheap COUNT(*) over a chunk-pruned range -- used for progress bars
     // instead of materializing the range just to know its length.
     long CountTicks(string table, DateTime from, DateTime to);

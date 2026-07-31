@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Poink.Sim.Models;
+using Poink.Sim.Repository;
 
 namespace Poink.Sim.Transformer;
 
@@ -13,4 +15,10 @@ internal interface ITransformerService
     // chunk covers ticks strictly before it), matching ITickRepository.ReadTicks'
     // own [from, to) semantics.
     Task<TransformerChunk> LoadAsync(TransformerConfig config, DateTime beforeUtc, int barCount);
+
+    // The last maxTicks raw ticks at or before beforeUtc (clamped to config.From), in
+    // ascending order -- feeds TransformerPage's tick-delta chart (see
+    // TickDeltaTransform), which needs individual tick prices rather than the
+    // bar/histogram aggregates LoadAsync produces.
+    Task<IReadOnlyList<Tick>> LoadRecentTicksAsync(TransformerConfig config, DateTime beforeUtc, int maxTicks);
 }

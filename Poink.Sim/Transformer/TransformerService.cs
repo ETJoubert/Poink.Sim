@@ -109,4 +109,20 @@ internal sealed class TransformerService : ITransformerService
 
         return new TransformerChunk(bars, histograms, to, tickCount, reachedStart);
     });
+
+    public Task<IReadOnlyList<Tick>> LoadRecentTicksAsync(TransformerConfig config, DateTime beforeUtc, int maxTicks) => Task.Run(() =>
+    {
+        var before = beforeUtc < config.To ? beforeUtc : config.To;
+        var ticks = _tickRepository.ReadRecentTicks(config.Table, before, maxTicks);
+        // ReadRecentTicks only bounds the upper edge (beforeUtc) -- trim anything below
+        // config.From client-side rather than adding a lower-bound SQL parameter, since
+        // a short selected range plus a dense table is the only case this ever trims.
+        ticks.RemoveAll(t => t.Timestamp < config.From);
+
+        _logger.LogInformation(
+            "Transformer recent ticks: table={Table}, before={Before}, requested={Requested}, returned={Returned}",
+            config.Table, before, maxTicks, ticks.Count);
+
+        return (IReadOnlyList<Tick>)ticks;
+    });
 }

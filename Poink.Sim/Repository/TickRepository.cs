@@ -119,6 +119,22 @@ internal sealed class TickRepository : ITickRepository
         return conn.Query<Tick>(sql, new { start, count }).ToList();
     }
 
+    // Backward window -- last `count` ticks at or before `beforeUtc`. Queried
+    // DESC (so Timescale/the index can satisfy the LIMIT without scanning past
+    // it), then reversed back to ascending order before returning, since every
+    // caller (SimulationBarAggregator.Feed, TickDeltaTransform) expects
+    // chronological order same as ReadTicks/ReadWindow.
+    public List<Tick> ReadRecentTicks(string table, DateTime beforeUtc, int count)
+    {
+        using var conn = new NpgsqlConnection(_connectionString);
+        conn.Open();
+
+        var sql = Sql.SelectRecentTicks(table);
+        var rows = conn.Query<Tick>(sql, new { beforeUtc, count }).ToList();
+        rows.Reverse();
+        return rows;
+    }
+
     // Chunk-pruned COUNT(*) over a bounded range -- for progress bars, not
     // a full-table scan.
     public long CountTicks(string table, DateTime from, DateTime to)
@@ -185,6 +201,9 @@ internal sealed class TickRepository : ITickRepository
 
         public static string SelectWindow(string table) =>
             $"SELECT \"timestamp\", \"bid\", \"ask\" FROM \"{table}\" WHERE \"timestamp\" >= @start ORDER BY \"timestamp\" LIMIT @count";
+
+        public static string SelectRecentTicks(string table) =>
+            $"SELECT \"timestamp\", \"bid\", \"ask\" FROM \"{table}\" WHERE \"timestamp\" <= @beforeUtc ORDER BY \"timestamp\" DESC LIMIT @count";
 
         public static string CountTicks(string table) =>
             $"SELECT COUNT(*) FROM \"{table}\" WHERE \"timestamp\" >= @from AND \"timestamp\" < @to";

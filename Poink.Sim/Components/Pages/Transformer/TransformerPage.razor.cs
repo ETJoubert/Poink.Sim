@@ -6,6 +6,8 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 using Poink.Sim.Components.Charts;
 using Poink.Sim.Models;
+using Poink.Sim.Repository;
+using Poink.Sim.Simulation;
 using Poink.Sim.Transformer;
 using Poink.Shared.Client.Components.Pages.CTrader;
 
@@ -66,12 +68,49 @@ namespace Poink.Sim.Components.Pages
         private bool _showProfileChartLines = true;
         private bool _showVwap = true;
 
+        // Raw ticks backing the tick-delta chart (see TickDeltaTransform) -- matches
+        // SimulationEngine.MaxRecentTicks/SimulationPage.MaxTickWindow's own cap on how
+        // many raw ticks are ever held in memory/rendered at once. (Re)loaded by
+        // RefreshDeltaTicksAsync, both on a fresh Load and whenever the Volume Range
+        // selection changes -- LoadMore's older backfill is the only thing that doesn't
+        // touch it, since backfilling older bars changes neither the active selection
+        // nor (when there isn't one) config.To.
+        private const int MaxDeltaTicks = 5000;
+
+        // Unused in practice (BuildDeltaBars never reads bar histograms), but
+        // SimulationBarAggregator's constructor always takes one -- matches
+        // TransformerService's own DefaultPriceBucketWidth.
+        private const double DeltaBucketWidth = 0.01;
+
+        private List<Tick> _deltaTicks = new();
+        private int _deltaTicksPerBar = 50;
+        private int _zScoreWindowSize = 50;
+        private int _globalZScoreTicksPerBar = 50;
+        private int _driftTicksPerBar = 50;
+        private DriftMode _driftMode = DriftMode.Percentage;
+
+        private bool HasDeltaData => _deltaTicks.Count >= 2;
+
+        // Which of the four derived-series tabs is showing -- same tabbed-panel pattern
+        // as ProfilerPage's own DRAWINGS/SAVED tabs, just this page's own copy (and its
+        // own tabs) since neither page shares code-behind.
+        private DataTab _activeDataTab;
+
+        // LocalZScore/GlobalZScore exist side by side deliberately, not as a
+        // toggle/replacement of one another -- see LocalWindowZScoreTransform vs
+        // GlobalWindowZScoreTransform's doc comments for how their "window" scope
+        // differs (many small independently-normalized sub-windows vs. one mean/stddev
+        // over the whole selection).
+        private enum DataTab { TickDelta, LocalZScore, GlobalZScore, Drift }
+
         // Chart/volume-profile divider and volume-profile/time-profile divider (drag to
-        // resize their .trf-chart-side panels) -- same pattern as ProfilerPage's own
+        // resize their .trf-chart-side panels), plus the chart-row/delta-chart divider
+        // (drag to resize .trf-chart's height) -- same pattern as ProfilerPage's own
         // dividers, just this page's own copy since none of the three pages share
         // code-behind.
         private ElementReference _chartDividerRef;
         private ElementReference _chartDividerRef2;
+        private ElementReference _chartHDividerRef;
         private IJSObjectReference? _dividerResizeInstance;
 
         private const string ChartDividerScript = """
@@ -106,7 +145,38 @@ namespace Poink.Sim.Components.Pages
                         divider.addEventListener('pointerup', onUp);
                     });
                 }
-                return { bind: bind };
+                function bindHeight(divider) {
+                    if (!divider || divider.dataset.bound) return;
+                    divider.dataset.bound = '1';
+                    var minHeight = parseInt(divider.dataset.minHeight, 10) || 160;
+                    var maxHeightVh = parseInt(divider.dataset.maxHeightVh, 10) || 80;
+                    divider.addEventListener('pointerdown', function(e) {
+                        e.preventDefault();
+                        var target = divider.previousElementSibling;
+                        if (!target) return;
+                        var startY = e.clientY;
+                        var startHeight = target.getBoundingClientRect().height;
+                        var maxHeight = (maxHeightVh / 100) * window.innerHeight;
+                        divider.setPointerCapture(e.pointerId);
+                        divider.classList.add('trf-chart-hdivider-active');
+
+                        function clamp(ev) {
+                            return Math.min(maxHeight, Math.max(minHeight, startHeight + (ev.clientY - startY)));
+                        }
+                        function onMove(ev) {
+                            target.style.height = clamp(ev) + 'px';
+                        }
+                        function onUp(ev) {
+                            divider.releasePointerCapture(e.pointerId);
+                            divider.removeEventListener('pointermove', onMove);
+                            divider.removeEventListener('pointerup', onUp);
+                            divider.classList.remove('trf-chart-hdivider-active');
+                        }
+                        divider.addEventListener('pointermove', onMove);
+                        divider.addEventListener('pointerup', onUp);
+                    });
+                }
+                return { bind: bind, bindHeight: bindHeight };
             })()
             """;
 
@@ -119,6 +189,8 @@ namespace Poink.Sim.Components.Pages
             {
                 await _dividerResizeInstance.InvokeVoidAsync("bind", _chartDividerRef);
                 await _dividerResizeInstance.InvokeVoidAsync("bind", _chartDividerRef2);
+                if (HasDeltaData)
+                    await _dividerResizeInstance.InvokeVoidAsync("bindHeight", _chartHDividerRef);
             }
         }
 
@@ -154,6 +226,7 @@ namespace Poink.Sim.Components.Pages
             _reachedStart = false;
             _volumeRangeStart = null;
             _volumeRangeEnd = null;
+            _deltaTicks = new();
 
             try
             {
@@ -167,6 +240,7 @@ namespace Poink.Sim.Components.Pages
                 {
                     _config = config;
                     ApplyChunk(chunk);
+                    await RefreshDeltaTicksAsync();
                 }
             }
             catch (Exception ex)
@@ -220,20 +294,50 @@ namespace Poink.Sim.Components.Pages
 
         // Wired to DrawableOhlcvChart's OnVolumeRangeDrawn -- its two clicks just replace
         // the active selection outright, which is what MergedSamples()/MergedTimeSamples()
-        // filter _bars/_barHistograms by. ClearVolumeRange is the only other way these
-        // change.
-        private void SetVolumeRange(ChartTimeRange range)
+        // filter _bars/_barHistograms by, and (via RefreshDeltaTicksAsync) which raw ticks
+        // the tick-delta chart's "latest tick n" is drawn from. ClearVolumeRange is the
+        // only other way these change.
+        private async Task SetVolumeRange(ChartTimeRange range)
         {
             _volumeRangeStart = range.TimeUtc1 <= range.TimeUtc2 ? range.TimeUtc1 : range.TimeUtc2;
             _volumeRangeEnd = range.TimeUtc1 <= range.TimeUtc2 ? range.TimeUtc2 : range.TimeUtc1;
+            await RefreshDeltaTicksAsync();
         }
 
         // Wired to DrawableOhlcvChart's CLEAR VOLUME RANGE button -- drops back to
-        // MergedSamples()/MergedTimeSamples()'s default of every loaded bar.
-        private void ClearVolumeRange()
+        // MergedSamples()/MergedTimeSamples()'s (and RefreshDeltaTicksAsync's) default of
+        // every loaded bar/the latest ticks overall.
+        private async Task ClearVolumeRange()
         {
             _volumeRangeStart = null;
             _volumeRangeEnd = null;
+            await RefreshDeltaTicksAsync();
+        }
+
+        // Refetches the tick-delta chart's raw ticks -- the last MaxDeltaTicks ticks
+        // ending at the active Volume Range's end (or config.To if no selection is
+        // active), then trimmed to that selection's start if one is active. Re-run
+        // whenever the Volume Range selection changes (see SetVolumeRange/
+        // ClearVolumeRange above) as well as on a fresh Load, so the tick-delta chart's
+        // "latest tick n" always tracks whatever window the volume/time profile panels
+        // are currently built from.
+        private async Task RefreshDeltaTicksAsync()
+        {
+            if (_config is null) { _deltaTicks = new(); return; }
+
+            var rangeEnd = _volumeRangeEnd ?? _config.To;
+
+            try
+            {
+                var ticks = await Service.LoadRecentTicksAsync(_config, rangeEnd, MaxDeltaTicks);
+                _deltaTicks = _volumeRangeStart is { } start
+                    ? ticks.Where(t => t.Timestamp >= start).ToList()
+                    : ticks.ToList();
+            }
+            catch (Exception ex)
+            {
+                _error = ex.Message;
+            }
         }
 
         // Bar count and span of the active Volume Range selection, for both profile
@@ -338,6 +442,62 @@ namespace Poink.Sim.Components.Pages
             { TotalMinutes: >= 1 } => $"{(int)span.TotalMinutes}m",
             _ => $"{(int)span.TotalSeconds}s",
         };
+
+        // Runs a synthetic tick series (TickDeltaTransform/LocalWindowZScoreTransform's
+        // output -- already in tick-count order, not wall-clock time) through the same
+        // SimulationBarAggregator every other bar chart on this page uses, bucketed by
+        // the given tick-count bar size rather than a wall-clock one.
+        private static List<HlocAvdtBar> AggregateSyntheticSeries(List<Tick> series, int barSizeInTicks)
+        {
+            if (series.Count == 0) return new();
+
+            var barSize = TimeSpan.FromSeconds(Math.Max(1, barSizeInTicks));
+            var aggregator = new SimulationBarAggregator(barSize, DeltaBucketWidth);
+            var bars = new List<HlocAvdtBar>();
+            foreach (var tick in series)
+            {
+                if (aggregator.Feed(tick) is { } completed)
+                    bars.Add(completed.Bar);
+            }
+            if (aggregator.CurrentPartialBar is { } partial) bars.Add(partial);
+            return bars;
+        }
+
+        private static List<CTraderBarRow> ToBarRows(List<HlocAvdtBar> bars) =>
+            bars.Select(b => new CTraderBarRow(
+                b.OpenTime, b.Open, b.High, b.Low, b.Close, b.Volume, b.UpVolume, b.DownVolume, b.Distance)).ToList();
+
+        private List<CTraderBarRow> DeltaBarRows() =>
+            ToBarRows(AggregateSyntheticSeries(TickDeltaTransform.BuildDeltaSeries(_deltaTicks), _deltaTicksPerBar));
+
+        // Local Z-Score's window size doubles as the aggregator's own bar size (see
+        // LocalWindowZScoreTransform's doc comment on why those must match) -- each
+        // resulting bar is exactly one sub-window's own normalization.
+        private List<CTraderBarRow> ZScoreBarRows() =>
+            ToBarRows(AggregateSyntheticSeries(
+                LocalWindowZScoreTransform.BuildZScoreSeries(_deltaTicks, Math.Max(1, _zScoreWindowSize)), _zScoreWindowSize));
+
+        // Global Z-Score has only one window (the whole of _deltaTicks -- see
+        // GlobalWindowZScoreTransform), so _globalZScoreTicksPerBar is purely a charting
+        // bucket size, unrelated to (and not required to match) anything about how the
+        // normalization itself was computed.
+        private List<CTraderBarRow> GlobalZScoreBarRows() =>
+            ToBarRows(AggregateSyntheticSeries(
+                GlobalWindowZScoreTransform.BuildZScoreSeries(_deltaTicks), _globalZScoreTicksPerBar));
+
+        private List<CTraderBarRow> DriftBarRows() =>
+            ToBarRows(AggregateSyntheticSeries(
+                DriftFromCurrentPriceTransform.BuildDriftSeries(_deltaTicks, _driftMode), _driftTicksPerBar));
+
+        // Reference line at 0 -- shared by the Tick Delta chart (above it means price back
+        // then was higher than the latest tick/price has fallen to reach now, below it
+        // means price back then was lower/price has risen) and the Drift chart (above it
+        // means price back then was higher than the anchor, below it means lower -- 0
+        // itself is the anchor price, whether expressed as a fraction or a log ratio).
+        // Its own single-element list rather than a static constant so DrawableOhlcvChart
+        // still sees a fresh instance every render, same as every other HorizontalLines
+        // producer on this page.
+        private static List<ChartHorizontalLine> ZeroLine() => new() { new ChartHorizontalLine(0, "ZERO") };
 
         private double? LastClose => _bars.Count > 0 ? _bars[^1].Close : null;
     }

@@ -139,6 +139,25 @@ function createRangeFillsPrimitive() {
                     ctx.fillStyle = fill.color;
                     ctx.fillRect(left, 0, width, scope.mediaSize.height);
                     ctx.restore();
+
+                    // Dashed edge lines at time1/time2 -- same dash convention as
+                    // createVerticalLinesPrimitive's own lines -- marks the band's
+                    // boundaries (for the volume-range fill, the same edges
+                    // attachRangeFillDragInteractions' resize-left/resize-right grab
+                    // zones are centered on) more clearly than the translucent fill alone.
+                    ctx.save();
+                    ctx.globalAlpha = 0.7;
+                    ctx.strokeStyle = fill.color;
+                    ctx.lineWidth = 1;
+                    ctx.setLineDash([4, 4]);
+                    ctx.beginPath();
+                    ctx.moveTo(x1 + 0.5, 0);
+                    ctx.lineTo(x1 + 0.5, scope.mediaSize.height);
+                    ctx.moveTo(x2 + 0.5, 0);
+                    ctx.lineTo(x2 + 0.5, scope.mediaSize.height);
+                    ctx.stroke();
+                    ctx.restore();
+
                     if (fill.label) {
                         ctx.save();
                         ctx.font = 'bold 10px monospace';
@@ -166,6 +185,153 @@ function createRangeFillsPrimitive() {
             if (requestUpdate) requestUpdate();
         },
     };
+}
+
+// Volume Range band drag-to-reposition/resize -- lets the user grab the placed band
+// (the one RangeFill with colorGroup 'volume', see setLines below; TransformerPage/
+// ProfilerPage's VolumeRangeFill are its only producers, so that colorGroup is
+// exclusive to it), either sliding the whole thing left/right or dragging just one
+// edge to shrink/extend it, instead of clearing and re-placing both clicks. Reuses
+// OnVolumeRangeClickedAsync (the same callback the initial two clicks dispatch
+// through) on drop, since "the range is now these two times" is identical whether it
+// came from placing, moving, or resizing.
+function volumeRangeFillBounds(entry) {
+    if (!entry.volumeRangeFill) return null;
+    const ts = entry.chart.timeScale();
+    const x1 = ts.timeToCoordinate(entry.volumeRangeFill.time1);
+    const x2 = ts.timeToCoordinate(entry.volumeRangeFill.time2);
+    if (x1 === null || x2 === null) return null;
+    return { left: Math.min(x1, x2), right: Math.max(x1, x2) };
+}
+
+// How close (in px) a press has to land to the band's left/right edge to grab that
+// edge for resizing rather than the body for moving -- same idea as the minimap's own
+// minimapEdgeZonePx.
+const rangeFillEdgeZonePx = 6;
+
+// Minimum on-screen gap (in px) kept between a resized edge and the anchored other
+// edge, so dragging an edge past its opposite one can't collapse or invert the band.
+const rangeFillMinGapPx = 4;
+
+function rangeFillHitTest(bounds, xCss) {
+    if (!bounds) return null;
+    if (Math.abs(xCss - bounds.left) <= rangeFillEdgeZonePx) return 'resize-left';
+    if (Math.abs(xCss - bounds.right) <= rangeFillEdgeZonePx) return 'resize-right';
+    if (xCss > bounds.left && xCss < bounds.right) return 'move';
+    return null;
+}
+
+function attachRangeFillDragInteractions(entry, container) {
+    let drag = null;
+
+    // Redraws the band at its dragged/resized position (preview only -- the
+    // authoritative change is committed via OnVolumeRangeClickedAsync once the drag
+    // ends, which round-trips back down through setLines with the real new fill).
+    function previewFill(t1, t2) {
+        entry.rangeFills.setFills(entry.rangeFillsRaw.map(f => (f.colorGroup === 'volume'
+            ? { time1: t1, time2: t2, label: f.label, color: colorFor(entry, f.colorGroup) }
+            : { time1: f.time1, time2: f.time2, label: f.label, color: colorFor(entry, f.colorGroup) })));
+    }
+
+    // Returns the new {t1, t2} pair for the current drag at this pointer offset, or
+    // null if the cursor has been dragged past where the time scale can resolve a
+    // time (e.g. off the loaded edge) -- callers just leave the last valid frame up.
+    function renderDrag(deltaPx) {
+        const ts = entry.chart.timeScale();
+
+        if (drag.mode === 'move') {
+            const x1 = ts.timeToCoordinate(drag.time1);
+            const x2 = ts.timeToCoordinate(drag.time2);
+            if (x1 === null || x2 === null) return null;
+            const t1 = ts.coordinateToTime(x1 + deltaPx);
+            const t2 = ts.coordinateToTime(x2 + deltaPx);
+            if (t1 === null || t2 === null) return null;
+            previewFill(t1, t2);
+            return { t1, t2 };
+        }
+
+        // resize-left / resize-right: only the grabbed edge moves, clamped so it can't
+        // cross the anchored other edge.
+        const anchorCoord = ts.timeToCoordinate(drag.anchorTime);
+        const movingCoord0 = ts.timeToCoordinate(drag.movingTime);
+        if (anchorCoord === null || movingCoord0 === null) return null;
+        let movingCoord = movingCoord0 + deltaPx;
+        movingCoord = drag.mode === 'resize-left'
+            ? Math.min(movingCoord, anchorCoord - rangeFillMinGapPx)
+            : Math.max(movingCoord, anchorCoord + rangeFillMinGapPx);
+        const movingTime = ts.coordinateToTime(movingCoord);
+        if (movingTime === null) return null;
+
+        const t1 = drag.movingIsTime1 ? movingTime : drag.anchorTime;
+        const t2 = drag.movingIsTime1 ? drag.anchorTime : movingTime;
+        previewFill(t1, t2);
+        return { t1, t2 };
+    }
+
+    // Capture phase + stopPropagation so a press that lands on the band is claimed here
+    // before lightweight-charts' own canvas handlers see it and start a pan/crosshair
+    // drag instead. Only claims the event when a volume-range band exists, no draw tool
+    // is currently armed (placing a new line takes priority), and the press actually
+    // landed within (or on the edge of) the band's horizontal bounds.
+    container.addEventListener('pointerdown', e => {
+        if (entry.drawMode || !entry.volumeRangeFill) return;
+        const bounds = volumeRangeFillBounds(entry);
+        const rect = container.getBoundingClientRect();
+        const xCss = e.clientX - rect.left;
+        const hit = rangeFillHitTest(bounds, xCss);
+        if (!hit) return;
+
+        e.stopPropagation();
+        e.preventDefault();
+
+        if (hit === 'move') {
+            drag = { mode: 'move', time1: entry.volumeRangeFill.time1, time2: entry.volumeRangeFill.time2, startClientX: e.clientX };
+        } else {
+            const ts = entry.chart.timeScale();
+            const time1IsLeft = ts.timeToCoordinate(entry.volumeRangeFill.time1) <= ts.timeToCoordinate(entry.volumeRangeFill.time2);
+            const movingIsTime1 = (hit === 'resize-left') === time1IsLeft;
+            drag = {
+                mode: hit,
+                movingIsTime1,
+                movingTime: movingIsTime1 ? entry.volumeRangeFill.time1 : entry.volumeRangeFill.time2,
+                anchorTime: movingIsTime1 ? entry.volumeRangeFill.time2 : entry.volumeRangeFill.time1,
+                startClientX: e.clientX,
+            };
+        }
+        entry.chart.applyOptions({ handleScroll: false, handleScale: false });
+        container.style.cursor = hit === 'move' ? 'grabbing' : 'ew-resize';
+
+        const onMove = moveEvt => renderDrag(moveEvt.clientX - drag.startClientX);
+
+        const onUp = upEvt => {
+            window.removeEventListener('pointermove', onMove);
+            window.removeEventListener('pointerup', onUp);
+            entry.chart.applyOptions({ handleScroll: true, handleScale: true });
+            container.style.cursor = '';
+
+            const result = renderDrag(upEvt.clientX - drag.startClientX);
+            drag = null;
+            if (result && entry.dotNetRef) {
+                entry.dotNetRef.invokeMethodAsync('OnVolumeRangeClickedAsync', result.t1, result.t2);
+            }
+        };
+
+        window.addEventListener('pointermove', onMove);
+        window.addEventListener('pointerup', onUp);
+    }, { capture: true });
+
+    // Hover-only cursor feedback (no active drag) so the band reads as grabbable/
+    // resizable -- reset back to the default cursor once a draw tool arms or the band
+    // is cleared, rather than leaving a stale grab/resize cursor showing.
+    container.addEventListener('pointermove', e => {
+        if (drag) return;
+        if (entry.drawMode || !entry.volumeRangeFill) { container.style.cursor = ''; return; }
+        const bounds = volumeRangeFillBounds(entry);
+        const rect = container.getBoundingClientRect();
+        const xCss = e.clientX - rect.left;
+        const hit = rangeFillHitTest(bounds, xCss);
+        container.style.cursor = hit === 'move' ? 'grab' : hit ? 'ew-resize' : '';
+    });
 }
 
 // How many chart clicks each draw mode needs before it's complete and dispatched to
@@ -624,6 +790,16 @@ export function create(container, minimapContainer, dotNetRef) {
     const slColor = style.getPropertyValue('--color-error').trim() || downColor;
     const tpColor = style.getPropertyValue('--color-success').trim() || upColor;
 
+    // Volume Range's own first-click preview -- same createWindowLinePrimitive single-
+    // line primitive as windowLine above, shown the instant the first of Volume Range's
+    // two clicks lands (see subscribeClick's 'volumerange' case) so it reads the same as
+    // vertical/T-Range's own first click, which already renders immediately via
+    // OnVerticalLineClickedAsync. Kept purely client-side (its own primitive, not folded
+    // into verticalLines) since Volume Range's clicks deliberately never dispatch
+    // OnVerticalLineDrawn -- see OnVolumeRangeDrawn's doc comment on the .NET side.
+    const volumeRangePreviewLine = createWindowLinePrimitive(groupColors.volume);
+    candleSeries.attachPrimitive(volumeRangePreviewLine);
+
     const id = crypto.randomUUID();
     const entry = {
         chart, candleSeries, volumeSeries, vwapSeries, tooltip, verticalLines, diagonalLines, rangeFills, actionMarkers, accentColor, groupColors,
@@ -631,8 +807,11 @@ export function create(container, minimapContainer, dotNetRef) {
         drawMode: null, drawClicks: [], bars: [], minimap: null,
         windowLine, slColor, tpColor, entryColor: accentColor,
         bidLine: null, askLine: null, slLine: null, tpLine: null, entryLine: null,
+        rangeFillsRaw: [], volumeRangeFill: null, volumeRangePreviewLine,
     };
     instances.set(id, entry);
+
+    attachRangeFillDragInteractions(entry, container);
 
     entry.minimap = createMinimap(minimapContainer);
     attachMinimapInteractions(entry);
@@ -721,8 +900,11 @@ export function create(container, minimapContainer, dotNetRef) {
                 break;
             case 'volumerange':
                 // Never dispatches a generic vertical line -- see OnVolumeRangeDrawn's
-                // doc comment on the .NET side. Nothing to do until both clicks are in
-                // (dispatched as one bundled range below).
+                // doc comment on the .NET side. The first click still renders immediately
+                // though, same as vertical/trange's own first line, via its own
+                // client-side-only preview primitive (cleared once both clicks land,
+                // below, or the mode is cancelled/changed -- see setDrawMode).
+                if (clickIndex === 1) entry.volumeRangePreviewLine.setTime(time);
                 break;
         }
 
@@ -741,6 +923,7 @@ export function create(container, minimapContainer, dotNetRef) {
             ref.invokeMethodAsync('OnTRangeChartClickedAsync', clicks[0].time, clicks[1].time);
         } else if (mode === 'volumerange') {
             const clicks = entry.drawClicks;
+            entry.volumeRangePreviewLine.setTime(null);
             ref.invokeMethodAsync('OnVolumeRangeClickedAsync', clicks[0].time, clicks[1].time);
         }
 
@@ -839,6 +1022,7 @@ export function setDrawMode(id, mode) {
     if (!entry) return;
     entry.drawMode = mode || null;
     entry.drawClicks = [];
+    entry.volumeRangePreviewLine.setTime(null);
     if (entry.dotNetRef) {
         entry.dotNetRef.invokeMethodAsync('OnDrawHintAsync', entry.drawMode ? drawHint(entry.drawMode, 0) : null);
     }
@@ -871,7 +1055,9 @@ export function setLines(id, horizontalLines, verticalLines, diagonalLines, rang
     entry.verticalLines.setLines(verticalLines.map(l => ({ time: l.time, color: colorFor(entry, l.colorGroup) })));
     entry.diagonalLines.setLines((diagonalLines || []).map(l => (
         { time1: l.time1, price1: l.price1, time2: l.time2, price2: l.price2, color: colorFor(entry, l.colorGroup) })));
-    entry.rangeFills.setFills((rangeFills || []).map(f => (
+    entry.rangeFillsRaw = rangeFills || [];
+    entry.volumeRangeFill = entry.rangeFillsRaw.find(f => f.colorGroup === 'volume') || null;
+    entry.rangeFills.setFills(entry.rangeFillsRaw.map(f => (
         { time1: f.time1, time2: f.time2, label: f.label, color: colorFor(entry, f.colorGroup) })));
 }
 

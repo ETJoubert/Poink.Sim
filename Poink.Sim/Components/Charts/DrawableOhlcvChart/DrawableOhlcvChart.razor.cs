@@ -158,12 +158,15 @@ namespace Poink.Sim.Components.Charts
         // always a valid reference point.
         [Parameter] public EventCallback<DateTime> OnReferenceLineDrawn { get; set; }
 
-        // Fired once Volume Range's two time clicks have both landed. Deliberately does
-        // NOT also fire OnVerticalLineDrawn for either click (unlike TRange/TRangeChart) --
-        // this range isn't a chart annotation the caller should fold into its own
-        // drawings list, it's a standalone selection whose only job is telling the caller
-        // (ProfilerPage) which time window to build the volume profile panel from instead
-        // of every bar loaded so far.
+        // Fired once Volume Range's two time clicks have both landed, and again whenever
+        // the placed band is moved or resized by its edges (see drawableOhlcvChart.js's
+        // attachRangeFillDragInteractions) -- all three are just "the range is now these
+        // two times", so they share this one callback. Deliberately does NOT also fire
+        // OnVerticalLineDrawn for either click (unlike TRange/TRangeChart) -- this range
+        // isn't a chart annotation the caller should fold into its own drawings list, it's
+        // a standalone selection whose only job is telling the caller (ProfilerPage) which
+        // time window to build the volume profile panel from instead of every bar loaded
+        // so far.
         [Parameter] public EventCallback<ChartTimeRange> OnVolumeRangeDrawn { get; set; }
 
         // True once the caller has a Volume Range selection set (see OnVolumeRangeDrawn) --
@@ -469,9 +472,10 @@ namespace Poink.Sim.Components.Charts
         public Task OnReferenceLineClickedAsync(double unixSeconds) =>
             InvokeIfBound(OnReferenceLineDrawn, FromUnixSeconds(unixSeconds));
 
-        // Invoked once Volume Range's two time clicks have both landed -- see
-        // OnVolumeRangeDrawn's doc comment for why this stays independent of
-        // OnVerticalLineClickedAsync/OnTRangeChartClickedAsync.
+        // Invoked once Volume Range's two time clicks have both landed, or once a move/
+        // resize drag of the already-placed band ends -- see OnVolumeRangeDrawn's doc
+        // comment for both why these share this one method and why it stays independent
+        // of OnVerticalLineClickedAsync/OnTRangeChartClickedAsync.
         [JSInvokable]
         public Task OnVolumeRangeClickedAsync(double unixSeconds1, double unixSeconds2) =>
             InvokeIfBound(OnVolumeRangeDrawn, new ChartTimeRange(FromUnixSeconds(unixSeconds1), FromUnixSeconds(unixSeconds2)));

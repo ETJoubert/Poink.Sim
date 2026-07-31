@@ -3,6 +3,7 @@
 @using Poink.Sim.Components.Charts
 @using Poink.Sim.Components.Shared.BarMinutesSelect
 @using Poink.Sim.Components.Shared.TickDataSource
+@using Poink.Sim.Transformer
 @using Poink.Shared.Client.Components.Pages.CTrader
 
 <div class="trf-page">
@@ -106,6 +107,128 @@
                 </div>
             </div>
         </div>
+
+        @if (HasDeltaData)
+        {
+            <div class="trf-chart-hdivider" @ref="_chartHDividerRef" data-min-height="200" data-max-height-vh="80"
+                 title="Drag to resize"></div>
+
+            <div class="trf-log-panel">
+                <div class="trf-log-tabs">
+                    <button class="trf-tab-btn @(_activeDataTab == DataTab.TickDelta ? "active" : "")"
+                            @onclick="() => _activeDataTab = DataTab.TickDelta">TICK DELTA CHART</button>
+                    <button class="trf-tab-btn @(_activeDataTab == DataTab.LocalZScore ? "active" : "")"
+                            @onclick="() => _activeDataTab = DataTab.LocalZScore">LOCAL Z-SCORE CHART</button>
+                    <button class="trf-tab-btn @(_activeDataTab == DataTab.GlobalZScore ? "active" : "")"
+                            @onclick="() => _activeDataTab = DataTab.GlobalZScore">GLOBAL Z-SCORE CHART</button>
+                    <button class="trf-tab-btn @(_activeDataTab == DataTab.Drift ? "active" : "")"
+                            @onclick="() => _activeDataTab = DataTab.Drift">DRIFT CHART</button>
+                </div>
+                <div class="trf-log-content">
+                    @if (_activeDataTab == DataTab.TickDelta)
+                    {
+                        <div class="trf-delta-header">
+                            <label class="trf-delta-control"
+                                   title="How many synthetic ticks (in tick-count order, not wall-clock time) are grouped into each bar below">
+                                <span>Ticks per bar</span>
+                                <input type="number" min="1" max="1000" @bind="_deltaTicksPerBar" @bind:event="oninput" />
+                            </label>
+                            <span class="trf-header-mode">
+                                @_deltaTicks.Count.ToString("N0") ticks
+                                @(_volumeRangeStart is not null ? "from the selected Volume Range" : "from the latest loaded")@(":")
+                                each differenced against the last tick in that window
+                            </span>
+                        </div>
+                        <div class="trf-delta-chart"
+                             title="@("Every earlier tick's difference from the latest tick (price(tick) - price(latest)) " +
+                                      (_volumeRangeStart is not null
+                                          ? "within the selected Volume Range"
+                                          : "across the latest loaded ticks") +
+                                      ", re-indexed by tick count instead of wall-clock time so real time gaps don't distort the aggregation, then bucketed into OHLC bars -- use the main chart's VOLUME RANGE tool to change which ticks this is built from")">
+                            <DrawableOhlcvChart Bars="DeltaBarRows()" ShowAnnotationTools="false" HorizontalLines="ZeroLine()" />
+                        </div>
+                    }
+                    else if (_activeDataTab == DataTab.LocalZScore)
+                    {
+                        <div class="trf-delta-header">
+                            <label class="trf-delta-control"
+                                   title="How many consecutive ticks each local mean/standard-deviation (and each resulting bar) is computed over">
+                                <span>Window size</span>
+                                <input type="number" min="1" max="1000" @bind="_zScoreWindowSize" @bind:event="oninput" />
+                            </label>
+                            <span class="trf-header-mode">
+                                @_deltaTicks.Count.ToString("N0") ticks
+                                @(_volumeRangeStart is not null ? "from the selected Volume Range" : "from the latest loaded")@(":")
+                                partitioned into independent windows, each normalized against its own mean/standard deviation
+                            </span>
+                        </div>
+                        <div class="trf-delta-chart"
+                             title="@("Every tick re-expressed as (price - window mean) / window standard deviation, computed independently per "
+                                      + _zScoreWindowSize + "-tick sub-window "
+                                      + (_volumeRangeStart is not null ? "within the selected Volume Range" : "across the latest loaded ticks")
+                                      + " -- zero-mean/unit-variance per sub-window, so geometric shape reads independently of macro trend or price level. Contrast with GLOBAL Z-SCORE, which normalizes the whole selection as one window")">
+                            <DrawableOhlcvChart Bars="ZScoreBarRows()" ShowAnnotationTools="false" />
+                        </div>
+                    }
+                    else if (_activeDataTab == DataTab.GlobalZScore)
+                    {
+                        <div class="trf-delta-header">
+                            <label class="trf-delta-control"
+                                   title="How many synthetic ticks (in tick-count order, not wall-clock time) are grouped into each bar below -- purely a charting bucket size, unrelated to the normalization itself">
+                                <span>Ticks per bar</span>
+                                <input type="number" min="1" max="1000" @bind="_globalZScoreTicksPerBar" @bind:event="oninput" />
+                            </label>
+                            <span class="trf-header-mode">
+                                @_deltaTicks.Count.ToString("N0") ticks
+                                @(_volumeRangeStart is not null ? "from the selected Volume Range" : "from the latest loaded")@(":")
+                                all normalized against one shared mean/standard deviation
+                            </span>
+                        </div>
+                        <div class="trf-delta-chart"
+                             title="@("Every tick re-expressed as (price - mean) / standard deviation, computed once over the entire selection "
+                                      + "(" + (_volumeRangeStart is not null ? "the selected Volume Range" : "the latest loaded ticks") + ") "
+                                      + "rather than per sub-window -- zero-mean/unit-variance across the whole lookback. Contrast with LOCAL Z-SCORE, which re-normalizes every window-size chunk independently")">
+                            <DrawableOhlcvChart Bars="GlobalZScoreBarRows()" ShowAnnotationTools="false" />
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="trf-delta-header">
+                            <div class="trf-delta-control" title="Whether drift is expressed as a fraction of the anchor price or as a log ratio -- log makes an equal-magnitude rally and selloff symmetric, plain percentage does not">
+                                <span>Mode</span>
+                                <label title="d = (price - anchor) / anchor">
+                                    <input type="radio" name="driftMode" checked="@(_driftMode == DriftMode.Percentage)"
+                                           @onchange="() => _driftMode = DriftMode.Percentage" />
+                                    Percentage
+                                </label>
+                                <label title="d = ln(price / anchor)">
+                                    <input type="radio" name="driftMode" checked="@(_driftMode == DriftMode.Log)"
+                                           @onchange="() => _driftMode = DriftMode.Log" />
+                                    Log
+                                </label>
+                            </div>
+                            <label class="trf-delta-control"
+                                   title="How many synthetic ticks (in tick-count order, not wall-clock time) are grouped into each bar below">
+                                <span>Ticks per bar</span>
+                                <input type="number" min="1" max="1000" @bind="_driftTicksPerBar" @bind:event="oninput" />
+                            </label>
+                            <span class="trf-header-mode">
+                                @_deltaTicks.Count.ToString("N0") ticks
+                                @(_volumeRangeStart is not null ? "from the selected Volume Range" : "from the latest loaded")@(":")
+                                each expressed as drift from the anchor (latest) price
+                            </span>
+                        </div>
+                        <div class="trf-delta-chart"
+                             title="@("Every earlier tick's " + (_driftMode == DriftMode.Log ? "log ratio to" : "fractional drift from") +
+                                      " the latest (anchor) price, re-indexed by tick count instead of wall-clock time "
+                                      + (_volumeRangeStart is not null ? "within the selected Volume Range" : "across the latest loaded ticks")
+                                      + ", then bucketed into OHLC bars -- a 2% move reads the same regardless of the asset's absolute price level")">
+                            <DrawableOhlcvChart Bars="DriftBarRows()" ShowAnnotationTools="false" HorizontalLines="ZeroLine()" />
+                        </div>
+                    }
+                </div>
+            </div>
+        }
     }
     else if (!_isLoading)
     {
