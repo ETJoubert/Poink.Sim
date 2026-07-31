@@ -17,27 +17,27 @@ namespace Poink.Sim.Training;
 
 internal sealed class BrainService
 {
-    private readonly IBrainRepository _networkRepository;
+    private readonly IBrainRepository _brainRepository;
     private readonly ILogger<BrainService> _logger;
 
     public BrainService(IBrainRepository networkRepository, ILogger<BrainService> logger)
     {
-        _networkRepository = networkRepository;
+        _brainRepository = networkRepository;
         _logger = logger;
 
         try
         {
-            Networks = _networkRepository.ListBrains();
+            Brains = _brainRepository.ListBrains();
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to list networks at startup; continuing with none");
+            _logger.LogWarning(ex, "Failed to list brains at startup; continuing with none");
         }
     }
 
     // Cached, not re-queried on every render -- refreshed explicitly after a
     // create/update/delete (see Refresh) and once here at startup.
-    public IReadOnlyList<BrainSummary> Networks { get; private set; } = [];
+    public IReadOnlyList<BrainSummary> Brains { get; private set; } = [];
 
     // Feedback for the last Create/Update/Delete action -- read by whichever
     // Brain Builder UI ends up consuming this service.
@@ -60,7 +60,7 @@ internal sealed class BrainService
 
         try
         {
-            _networkRepository.SaveBrain(name, recipe);
+            _brainRepository.SaveBrain(name, recipe);
             Status = $"saved '{name}'";
             Refresh();
             return true;
@@ -85,7 +85,7 @@ internal sealed class BrainService
 
         try
         {
-            _networkRepository.UpdateBrain(id, name, recipe);
+            _brainRepository.UpdateBrain(id, name, recipe);
             Status = $"updated '{name}'";
             Refresh();
             return true;
@@ -103,7 +103,7 @@ internal sealed class BrainService
     {
         try
         {
-            _networkRepository.DeleteBrain(id);
+            _brainRepository.DeleteBrain(id);
             Status = "network deleted";
             Refresh();
             return true;
@@ -121,12 +121,12 @@ internal sealed class BrainService
     {
         try
         {
-            Networks = _networkRepository.ListBrains();
+            Brains = _brainRepository.ListBrains();
         }
         catch (Exception ex)
         {
-            Status = $"couldn't list networks: {ex.Message}";
-            _logger.LogWarning(ex, "Failed to refresh networks list");
+            Status = $"couldn't list brains: {ex.Message}";
+            _logger.LogWarning(ex, "Failed to refresh brains list");
         }
         OnChanged?.Invoke();
     }

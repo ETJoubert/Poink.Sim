@@ -14,7 +14,7 @@ namespace Poink.Sim.Components.Pages
     {
         [Inject] private RlTrainingService Service { get; set; } = default!;
 
-        [Inject] private BrainService NetworkService { get; set; } = default!;
+        [Inject] private BrainService BrainService { get; set; } = default!;
 
         private string _table = "";
         private DateTime _from = DateTime.UtcNow.AddDays(-1);
@@ -28,8 +28,8 @@ namespace Poink.Sim.Components.Pages
 
         private string _strategyName = "";
         private string _rewardPolicyName = "";
-        private int _episodeCount = 100;
-        private int _episodeBars = 200;
+        private int _episodeCount = 1000;
+        private int _episodeBars = 20;
         private double _learningRate = 0.001;
 
         private double _startingCash = 10_000;
@@ -58,7 +58,7 @@ namespace Poink.Sim.Components.Pages
         }
 
         private IReadOnlyList<BrainOption> TrainableBrainOptions =>
-            NetworkService.Networks.Select(n => new BrainOption(n.Name, true)).ToList();
+            BrainService.Brains.Select(n => new BrainOption(n.Name, true)).ToList();
 
         private void HandleServiceChanged() => _ = InvokeAsync(StateHasChanged);
 

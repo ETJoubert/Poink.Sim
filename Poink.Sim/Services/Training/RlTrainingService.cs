@@ -61,7 +61,7 @@ internal sealed class RlTrainingService
     private readonly List<RlEpisodeWindow> _episodeWindows = new();
     private readonly RingBuffer<RlTrainingLogEntry> _trainingLog = new(MaxLogEntries);
     private readonly ModelService _modelService;
-    private readonly BrainService _networkService;
+    private readonly BrainService _brainService;
     private readonly ITickRepository _tickRepository;
     private readonly Trader.ITraderFactory _traderFactory;
     private readonly ILogger<RlTrainingService> _logger;
@@ -111,14 +111,14 @@ internal sealed class RlTrainingService
 
     public RlTrainingService(
         BrainRegistry brainRegistry, IEnumerable<IRlTrainingStrategy> strategies, IEnumerable<IRewardPolicy> rewardPolicies,
-        ModelService modelService, BrainService networkService, ITickRepository tickRepository,
+        ModelService modelService, BrainService brainService, ITickRepository tickRepository,
         Trader.ITraderFactory traderFactory, ILogger<RlTrainingService> logger)
     {
         _brainRegistry = brainRegistry;
         _strategies = strategies.ToList();
         _rewardPolicies = rewardPolicies.ToList();
         _modelService = modelService;
-        _networkService = networkService;
+        _brainService = brainService;
         _tickRepository = tickRepository;
         _traderFactory = traderFactory;
         _logger = logger;
@@ -344,7 +344,7 @@ internal sealed class RlTrainingService
         // register one from the saved recipe on demand rather than failing.
         if (brain is null)
         {
-            var network = _networkService.Networks.FirstOrDefault(n => n.Name == brainName);
+            var network = _brainService.Brains.FirstOrDefault(n => n.Name == brainName);
             if (network is not null)
             {
                 try
@@ -708,8 +708,8 @@ internal sealed class RlTrainingService
             // regardless, so a Postgres hiccup here shouldn't block using it
             // this session, just its availability in the Brain Type picker
             // after a restart.
-            if (!_networkService.CreateNetwork(name, recipe))
-                _logger.LogWarning("Failed to persist built brain '{Name}' as a network: {Status}", name, _networkService.Status);
+            if (!_brainService.CreateNetwork(name, recipe))
+                _logger.LogWarning("Failed to persist built brain '{Name}' as a network: {Status}", name, _brainService.Status);
 
             return true;
         }

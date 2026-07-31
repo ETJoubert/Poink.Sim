@@ -4,7 +4,7 @@
 //  metrics of the run that produced them). Deliberately independent of
 //  RlTrainingService's live BrainRegistry/training concerns -- this is just
 //  CRUD over saved snapshots, same cached-list/status-message/OnChanged
-//  shape NetworkService and every other service here uses. No Update: like
+//  shape brainservice and every other service here uses. No Update: like
 //  IModelRepository/BrainRepository before it, every save is its own
 //  snapshot rather than an in-place edit (see IModelRepository's doc
 //  comment on why).
