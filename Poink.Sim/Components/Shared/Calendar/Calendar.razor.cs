@@ -3,13 +3,14 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Web;
 
 namespace Poink.Sim.Components.Shared.Calendar;
 
-// Pure month-grid date picker -- no popover/backdrop of its own, that's the
-// caller's responsibility (see DateRangeSlider, which opens one of these in a
-// dropdown per from/to label). Selecting a day keeps Value's existing
-// time-of-day and only changes the date part.
+// Pure month-grid date+time picker -- no popover/backdrop of its own, that's
+// the caller's responsibility (see DateRangeSlider, which opens one of these
+// in a dropdown per from/to label and only closes it on an outside click --
+// picking a day or nudging the time here never closes the popover itself).
 public partial class Calendar : ComponentBase
 {
     [Parameter] public DateTime Value { get; set; }
@@ -25,6 +26,8 @@ public partial class Calendar : ComponentBase
 
     private DateTime _displayedMonth;
     private CalendarView _view = CalendarView.Days;
+    private int _hour;
+    private int _minute;
 
     // Set once per instance (not OnParametersSet) so browsing months isn't
     // reset by parent re-renders while the popover stays open -- DateRangeSlider
@@ -33,6 +36,8 @@ public partial class Calendar : ComponentBase
     protected override void OnInitialized()
     {
         _displayedMonth = new DateTime(Value.Year, Value.Month, 1);
+        _hour = Value.Hour;
+        _minute = Value.Minute;
     }
 
     private string MonthLabel => _displayedMonth.ToString("MMMM yyyy", CultureInfo.InvariantCulture);
@@ -167,7 +172,47 @@ public partial class Calendar : ComponentBase
     private Task SelectDay(DayCell cell)
     {
         if (cell.IsDisabled) return Task.CompletedTask;
-        return ValueChanged.InvokeAsync(cell.Date.Date + Value.TimeOfDay);
+        return ValueChanged.InvokeAsync(ClampToBounds(cell.Date.Date.AddHours(_hour).AddMinutes(_minute)));
+    }
+
+    // Hour/minute inputs live alongside the day grid -- changing them retimes
+    // the currently selected date immediately, independent of picking a new
+    // day. Day selection above reads the same _hour/_minute so the two stay
+    // in sync no matter which is edited first.
+    private Task OnHourChanged(ChangeEventArgs e)
+    {
+        if (!int.TryParse(e.Value?.ToString(), out var hour)) return Task.CompletedTask;
+        return ApplyTime(Math.Clamp(hour, 0, 23), _minute);
+    }
+
+    private Task OnMinuteChanged(ChangeEventArgs e)
+    {
+        if (!int.TryParse(e.Value?.ToString(), out var minute)) return Task.CompletedTask;
+        return ApplyTime(_hour, Math.Clamp(minute, 0, 59));
+    }
+
+    // Mouse-wheel nudging, one hour/minute per notch, wrapping around at the
+    // day boundary rather than clamping -- scrolling past 23 or 59 should keep
+    // moving, not get stuck at the edge.
+    private Task OnHourWheel(WheelEventArgs e) => ApplyTime(((_hour + (e.DeltaY < 0 ? 1 : -1)) % 24 + 24) % 24, _minute);
+
+    private Task OnMinuteWheel(WheelEventArgs e) => ApplyTime(_hour, ((_minute + (e.DeltaY < 0 ? 1 : -1)) % 60 + 60) % 60);
+
+    private Task ApplyTime(int hour, int minute)
+    {
+        _hour = hour;
+        _minute = minute;
+        return ValueChanged.InvokeAsync(ClampToBounds(Value.Date.AddHours(_hour).AddMinutes(_minute)));
+    }
+
+    // Day-level Min/Max only gate which dates are pickable; the exact minute
+    // within a boundary day still needs clamping (e.g. Min is 14:00 on a day
+    // that itself isn't disabled).
+    private DateTime ClampToBounds(DateTime dt)
+    {
+        if (Min is not null && dt < Min.Value) return Min.Value;
+        if (Max is not null && dt > Max.Value) return Max.Value;
+        return dt;
     }
 
     // Full-year overlay: a 4x3 grid of mini month calendars for one year, with

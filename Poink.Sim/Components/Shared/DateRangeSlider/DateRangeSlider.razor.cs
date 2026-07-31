@@ -84,14 +84,12 @@ public partial class DateRangeSlider : ComponentBase
     private async Task OnFromDateSelected(DateTime date)
     {
         _fromMinutes = Math.Clamp((int)(date - Min).TotalMinutes, 0, Math.Max(0, _toMinutes - 1));
-        _showFromCalendar = false;
         await FromChanged.InvokeAsync(Min.AddMinutes(_fromMinutes));
     }
 
     private async Task OnToDateSelected(DateTime date)
     {
         _toMinutes = Math.Clamp((int)(date - Min).TotalMinutes, Math.Min(_spanMinutes, _fromMinutes + 1), _spanMinutes);
-        _showToCalendar = false;
         await ToChanged.InvokeAsync(Min.AddMinutes(_toMinutes));
     }
 

@@ -4,8 +4,9 @@
    no JS interop needed. Week gridlines along the rail are a visual reference
    only (not independently clickable). The "full range" reset lives on
    TickDataSource's toolbar row now, not here -- see TickDataSource.razor.
-   From/To labels double as buttons that open a Calendar popover (date only --
-   the slider thumbs still own time-of-day precision). *@
+   From/To labels double as buttons that open a Calendar popover, which owns
+   both date and minute-level time; the popover only closes on an outside
+   click (the backdrop below), never from picking a day or nudging the time. *@
 @using Poink.Sim.Components.Shared.Calendar
 
 <div class="drs @(Disabled ? "drs-disabled" : "")">

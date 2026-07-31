@@ -111,6 +111,45 @@
     font-weight: 700;
 }
 
+.cal-time {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    padding-top: 6px;
+    border-top: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+.cal-time-label {
+    font-size: 0.64rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--color-muted);
+}
+
+.cal-time-input {
+    width: 48px;
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
+    color: var(--color-primary);
+    font-size: 0.9rem;
+    text-align: center;
+    padding: 5px 3px;
+    border-radius: var(--border-radius-sm);
+}
+
+.cal-time-input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+}
+
+.cal-time-sep {
+    color: var(--color-muted);
+    font-weight: 700;
+    font-size: 0.9rem;
+}
+
 .cal-months {
     display: grid;
     grid-template-columns: repeat(4, 1fr);

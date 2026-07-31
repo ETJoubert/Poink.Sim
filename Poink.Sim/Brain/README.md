@@ -82,15 +82,6 @@ option set in the Train page's Build Brain panel (see `EncoderSizeOptions`).
 
 ## Where brains come from
 
-**Fixed at startup** (`Program.cs`) — four named combinations, each one
-`ComposedPolicyBrain.Create` call:
-
-| Name | Encoders | Architecture |
-|---|---|---|
-| `MLP Policy` | Bar Window + Trader State | MLP (32, 16) |
-| `LSTM Policy` | Bar Window + Trader State | LSTM (hidden 64, 2 layers) |
-| `Volume Profile Policy` | Volume Profile + Trader State | MLP (32, 16) |
-| `Volume Profile + Bars Policy` | Bar Window + Volume Profile + Trader State | MLP (64, 32, 16) |
 
 **Built at runtime** — the Train page's "+ BUILD BRAIN" panel
 (`Components/Pages/Training/Pages/TrainPage.razor`) lets a user pick any

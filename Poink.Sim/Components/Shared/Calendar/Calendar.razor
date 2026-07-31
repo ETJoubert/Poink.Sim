@@ -104,5 +104,15 @@
                 </button>
             }
         </div>
+        <div class="cal-time">
+            <span class="cal-time-label" title="Time of day for the selected date">Time</span>
+            <input type="number" class="cal-time-input" min="0" max="23" step="1" value="@_hour.ToString("00")"
+                   @onchange="OnHourChanged" @onwheel="OnHourWheel" @onwheel:preventDefault="true"
+                   title="Hour (0-23) -- scroll to adjust" aria-label="Hour" />
+            <span class="cal-time-sep">:</span>
+            <input type="number" class="cal-time-input" min="0" max="59" step="1" value="@_minute.ToString("00")"
+                   @onchange="OnMinuteChanged" @onwheel="OnMinuteWheel" @onwheel:preventDefault="true"
+                   title="Minute (0-59) -- scroll to adjust" aria-label="Minute" />
+        </div>
     }
 </div>
