@@ -356,6 +356,12 @@
     white-space: nowrap;
 }
 
+.train-progress-rate {
+    font-size: 0.75rem;
+    color: var(--color-muted);
+    white-space: nowrap;
+}
+
 .train-help {
     border-left: 3px solid var(--color-secondary);
     background: rgba(255, 255, 255, 0.03);

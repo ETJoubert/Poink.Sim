@@ -8,8 +8,10 @@
 // ─────────────────────────────────────────────────────────────────────────
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
+using System.Threading.Channels;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Poink.Sim.Brain;
@@ -46,6 +48,13 @@ internal sealed class RlTrainingService
     // safety margin so the aggregator reliably completes the *last* requested
     // bar even when the fetch window ends right at its boundary.
     private const int EpisodeSpanBufferBars = 1;
+
+    // How many episodes' ticks the background prefetch producer is allowed to
+    // stage ahead of the training loop -- bounds memory to at most this many
+    // episodes' fetchSpan windows (never the historicRange as a whole) while
+    // giving the DB read enough slack to ride out an occasionally slow fetch
+    // without stalling the loop. Postgres has plenty of headroom for this.
+    private const int PrefetchDepth = 3;
 
     // Synthetic episodes have no real tick density to match -- 1 tick/sec is
     // "good enough to exercise playback/aggregation/brain wiring" (see
@@ -207,6 +216,11 @@ internal sealed class RlTrainingService
     public double RecentAverageReward { get; private set; }
     public double BestReward { get; private set; }
     public double WorstReward { get; private set; }
+
+    // Rolling rate over the last RecentRewardWindow episodes (same window as
+    // RecentAverageReward), not a whole-run average -- timing starts fresh
+    // after each pause/resume/step, so a paused run doesn't drag this down.
+    public double EpisodesPerSecond { get; private set; }
     public RlActionCounts ActionCounts { get; private set; } = RlActionCounts.Empty;
 
     // Labeled snapshot of the most recent episode's final decision inputs --
@@ -397,6 +411,7 @@ internal sealed class RlTrainingService
             RecentAverageReward = 0;
             BestReward = 0;
             WorstReward = 0;
+            EpisodesPerSecond = 0;
             ActionCounts = RlActionCounts.Empty;
             LatestInputs = null;
             LatestOutputs = null;
@@ -443,6 +458,12 @@ internal sealed class RlTrainingService
         // warmupBars doc comment) -- never zero-padded/undersized history.
         var fetchSpan = barWidth * (episodeBars + warmupBars + EpisodeSpanBufferBars);
 
+        // Guards the prefetch producer/channel below -- declared outside the try so the
+        // finally block can always reach them, even if the range-length check throws
+        // before either is ever assigned.
+        CancellationTokenSource? prefetchCts = null;
+        Task? prefetchProducerTask = null;
+
         _ = Task.Run(() =>
         {
             try
@@ -458,18 +479,57 @@ internal sealed class RlTrainingService
 
                 var optimizer = strategy.CreateOptimizer(brain, learningRate);
                 var recentRewards = new Queue<double>();
+                // Same RecentRewardWindow-sized rolling window as recentRewards above,
+                // but of wall-clock seconds per episode -- restarted right after the
+                // resume gate opens, so a pause/step's wait time never counts.
+                var recentEpisodeDurations = new Queue<double>();
+                var episodeStopwatch = new Stopwatch();
                 var rng = new Random();
                 int syntheticTickCount = Math.Max(2, (int)(fetchSpan.TotalSeconds / SyntheticTickIntervalSeconds));
+
+                // Bounded queue of PrefetchDepth episodes' worth of ticks -- the producer
+                // below keeps it topped up on a ThreadPool thread while the loop trains,
+                // so the loop only ever blocks on a fetch if the DB genuinely can't keep
+                // up with PrefetchDepth episodes of slack. `rng` is only ever touched from
+                // this one producer loop (never from the consumer below), so its
+                // not-thread-safe state stays safe despite the two running concurrently.
+                var episodeQueue = Channel.CreateBounded<List<Tick>>(
+                    new BoundedChannelOptions(PrefetchDepth) { SingleReader = true, SingleWriter = true });
+                prefetchCts = new CancellationTokenSource();
+                prefetchProducerTask = Task.Run(async () =>
+                {
+                    try
+                    {
+                        for (int i = 0; i < episodeCount; i++)
+                        {
+                            var ticks = historicRange is { } episodeRange
+                                ? RandomEpisodeWindow(episodeRange.Table, episodeRange.From, episodeRange.To, fetchSpan, rng).ToList()
+                                : DummyTickGenerator.Generate(DateTime.UtcNow - fetchSpan, DateTime.UtcNow, syntheticTickCount).ToList();
+                            await episodeQueue.Writer.WriteAsync(ticks, prefetchCts.Token);
+                        }
+                        episodeQueue.Writer.Complete();
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        // Training loop stopped/errored before consuming everything it
+                        // asked for -- nothing left to feed it, so just stop producing.
+                    }
+                    catch (Exception ex)
+                    {
+                        // Surfaces on the consumer's next ReadAsync below, same as if the
+                        // fetch had failed synchronously in the old non-prefetching code.
+                        episodeQueue.Writer.TryComplete(ex);
+                    }
+                });
 
                 for (int episode = 0; episode < episodeCount; episode++)
                 {
                     _resumeSignal.Wait();
                     if (_stopRequested)
                         break;
+                    episodeStopwatch.Restart();
 
-                    var episodeTicks = historicRange is { } episodeRange
-                        ? RandomEpisodeWindow(episodeRange.Table, episodeRange.From, episodeRange.To, fetchSpan, rng)
-                        : DummyTickGenerator.Generate(DateTime.UtcNow - fetchSpan, DateTime.UtcNow, syntheticTickCount);
+                    var episodeTicks = episodeQueue.Reader.ReadAsync().AsTask().GetAwaiter().GetResult();
 
                     var result = RlEpisodeRunner.Run(
                         brain, episodeTicks, startingCash, episodeBars, barWidth, _traderFactory,
@@ -484,12 +544,18 @@ internal sealed class RlTrainingService
                     if (recentRewards.Count > RecentRewardWindow)
                         recentRewards.Dequeue();
 
+                    recentEpisodeDurations.Enqueue(episodeStopwatch.Elapsed.TotalSeconds);
+                    if (recentEpisodeDurations.Count > RecentRewardWindow)
+                        recentEpisodeDurations.Dequeue();
+
                     lock (_lock)
                     {
                         EpisodesCompleted = episode + 1;
                         _episodesTrainedByBrain[brainName] = episode + 1;
                         _lastTrainedAt[brainName] = DateTime.UtcNow;
                         RecentAverageReward = recentRewards.Average();
+                        double durationSum = recentEpisodeDurations.Sum();
+                        EpisodesPerSecond = durationSum > 0 ? recentEpisodeDurations.Count / durationSum : 0;
                         BestReward = EpisodesCompleted == 1 ? reward : Math.Max(BestReward, reward);
                         WorstReward = EpisodesCompleted == 1 ? reward : Math.Min(WorstReward, reward);
                         ActionCounts = result.Steps.Aggregate(ActionCounts, (counts, step) => counts.Add(step.Action));
@@ -567,6 +633,18 @@ internal sealed class RlTrainingService
             }
             finally
             {
+                // Stop the prefetch producer and wait for it to actually unwind before
+                // this Task.Run returns -- otherwise a stop/error here would leave it
+                // running in the background against a channel nobody's reading anymore,
+                // and its exception (if any) would go unobserved.
+                if (prefetchCts is not null)
+                {
+                    prefetchCts.Cancel();
+                    try { prefetchProducerTask?.GetAwaiter().GetResult(); }
+                    catch { /* already surfaced above, or a clean cancellation -- either way nothing more to do */ }
+                    prefetchCts.Dispose();
+                }
+
                 lock (_lock)
                 { IsRunning = false; IsPaused = false; }
                 OnChanged?.Invoke();

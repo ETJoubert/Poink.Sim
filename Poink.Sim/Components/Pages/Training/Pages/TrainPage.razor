@@ -187,6 +187,9 @@
                                 <span class="train-progress-text">
                                     @Service.EpisodesCompleted / @Service.TotalEpisodes episodes (@ProgressPercent%)
                                 </span>
+                                <span class="train-progress-rate" title="Rolling episodes/sec over the most recent episodes -- pause/step time isn't counted">
+                                    @Service.EpisodesPerSecond.ToString("N2") eps
+                                </span>
                             </div>
                         }
                     </div>
