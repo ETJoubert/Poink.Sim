@@ -99,6 +99,17 @@
                                             ShowLevels="_showProfilePanelLevels" />
                 </div>
             </div>
+            <div class="prof-chart-divider" @ref="_chartDividerRef2" data-min-width="200" data-max-width="320"
+                 title="Drag to resize"></div>
+            <div class="prof-chart-side">
+                <div class="prof-vp"
+                     title="@((VolumeRangeLabel() is { } timeLabel
+                                                     ? $"Time profile for the selected Volume Range ({timeLabel}) -- use the toolbar's CLEAR VOLUME RANGE button to go back to every loaded bar"
+                                                     : "Time profile across every bar loaded so far -- use the toolbar's VOLUME RANGE tool to narrow it to a specific time window")
+                                                     + ". Measures dwell time (seconds) per price level instead of tick count")">
+                    <TickTimeProfileChart WeightedSamples="MergedTimeSamples()" CurrentPrice="LastClose" />
+                </div>
+            </div>
         </div>
 
         <div class="prof-chart-hdivider" @ref="_chartHDividerRef" data-min-height="200" data-max-height-vh="80"

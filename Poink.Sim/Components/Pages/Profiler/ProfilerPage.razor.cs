@@ -202,6 +202,7 @@ namespace Poink.Sim.Components.Pages
         // nothing here round-trips back into .NET state, so no [JSInvokable]/
         // DotNetObjectReference is needed, just eval + dispose. ────────────────────
         private ElementReference _chartDividerRef;
+        private ElementReference _chartDividerRef2;
         private ElementReference _chartHDividerRef;
         private IJSObjectReference? _dividerResizeInstance;
 
@@ -286,6 +287,7 @@ namespace Poink.Sim.Components.Pages
             if (HasData && _dividerResizeInstance is not null)
             {
                 await _dividerResizeInstance.InvokeVoidAsync("bind", _chartDividerRef);
+                await _dividerResizeInstance.InvokeVoidAsync("bind", _chartDividerRef2);
                 await _dividerResizeInstance.InvokeVoidAsync("bindHeight", _chartHDividerRef);
             }
         }
@@ -791,6 +793,30 @@ namespace Poink.Sim.Components.Pages
 
             return BarPriceHistogram.Merge(histograms, histograms.Count)
                 .Select(t => new WeightedPriceSample(t.Price, t.Count, t.UpCount, t.DownCount))
+                .ToList();
+        }
+
+        // Time-profile counterpart to MergedSamples() above, for TickTimeProfileChart --
+        // same Volume Range filtering (falls back to every loaded bar when no selection is
+        // active), but through BarPriceHistogram.MergeTime instead of Merge since dwell
+        // time needs each bar's own OpenTime/CloseTime/Volume alongside its histogram, not
+        // just the histogram's bucket counts.
+        private List<WeightedTimeSample> MergedTimeSamples()
+        {
+            var bars = _bars;
+            var histograms = _barHistograms;
+            if (_volumeRangeStart is { } start && _volumeRangeEnd is { } end)
+            {
+                var filtered = _bars
+                    .Zip(_barHistograms, (bar, histogram) => (bar, histogram))
+                    .Where(t => t.bar.OpenTime >= start && t.bar.OpenTime <= end)
+                    .ToList();
+                bars = filtered.Select(t => t.bar).ToList();
+                histograms = filtered.Select(t => t.histogram).ToList();
+            }
+
+            return BarPriceHistogram.MergeTime(bars, histograms, histograms.Count)
+                .Select(t => new WeightedTimeSample(t.Price, t.Count, t.Seconds, t.UpSeconds, t.DownSeconds))
                 .ToList();
         }
 
