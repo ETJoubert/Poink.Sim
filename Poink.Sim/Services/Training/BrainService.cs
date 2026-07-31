@@ -15,19 +15,19 @@ using Poink.Sim.Repository;
 
 namespace Poink.Sim.Training;
 
-internal sealed class NetworkService
+internal sealed class BrainService
 {
-    private readonly INetworkRepository _networkRepository;
-    private readonly ILogger<NetworkService> _logger;
+    private readonly IBrainRepository _networkRepository;
+    private readonly ILogger<BrainService> _logger;
 
-    public NetworkService(INetworkRepository networkRepository, ILogger<NetworkService> logger)
+    public BrainService(IBrainRepository networkRepository, ILogger<BrainService> logger)
     {
         _networkRepository = networkRepository;
         _logger = logger;
 
         try
         {
-            Networks = _networkRepository.ListNetworks();
+            Networks = _networkRepository.ListBrains();
         }
         catch (Exception ex)
         {
@@ -37,7 +37,7 @@ internal sealed class NetworkService
 
     // Cached, not re-queried on every render -- refreshed explicitly after a
     // create/update/delete (see Refresh) and once here at startup.
-    public IReadOnlyList<NetworkSummary> Networks { get; private set; } = [];
+    public IReadOnlyList<BrainSummary> Networks { get; private set; } = [];
 
     // Feedback for the last Create/Update/Delete action -- read by whichever
     // Brain Builder UI ends up consuming this service.
@@ -60,7 +60,7 @@ internal sealed class NetworkService
 
         try
         {
-            _networkRepository.SaveNetwork(name, recipe);
+            _networkRepository.SaveBrain(name, recipe);
             Status = $"saved '{name}'";
             Refresh();
             return true;
@@ -85,7 +85,7 @@ internal sealed class NetworkService
 
         try
         {
-            _networkRepository.UpdateNetwork(id, name, recipe);
+            _networkRepository.UpdateBrain(id, name, recipe);
             Status = $"updated '{name}'";
             Refresh();
             return true;
@@ -103,7 +103,7 @@ internal sealed class NetworkService
     {
         try
         {
-            _networkRepository.DeleteNetwork(id);
+            _networkRepository.DeleteBrain(id);
             Status = "network deleted";
             Refresh();
             return true;
@@ -121,7 +121,7 @@ internal sealed class NetworkService
     {
         try
         {
-            Networks = _networkRepository.ListNetworks();
+            Networks = _networkRepository.ListBrains();
         }
         catch (Exception ex)
         {

@@ -11,7 +11,7 @@ using Poink.Sim.Brain.Neural;
 
 namespace Poink.Sim.Repository;
 
-internal sealed class NetworkRepository : INetworkRepository
+internal sealed class NetworkRepository : IBrainRepository
 {
     // Recipe's EncoderKinds/ArchitectureKind serialize as names, not ordinal
     // ints -- same reasoning as ModelRepository's own copy of this option set.
@@ -21,7 +21,7 @@ internal sealed class NetworkRepository : INetworkRepository
     // config, not market data, and belongs alongside trained_models rather
     // than in its own database.
     const string DatabaseName = "Poink.Sim";
-    const string TableName = "networks";
+    const string TableName = "brains";
 
     private readonly ILogger<NetworkRepository> _logger;
     private readonly string _maintenanceConnectionString;
@@ -40,7 +40,7 @@ internal sealed class NetworkRepository : INetworkRepository
                 "to appsettings, appsettings.Secrets.json, or environment variables.");
     }
 
-    public long SaveNetwork(string name, BrainRecipe recipe)
+    public long SaveBrain(string name, BrainRecipe recipe)
     {
         EnsureDatabaseExists();
         using var conn = new NpgsqlConnection(_connectionString);
@@ -53,7 +53,7 @@ internal sealed class NetworkRepository : INetworkRepository
         return id;
     }
 
-    public List<NetworkSummary> ListNetworks()
+    public List<BrainSummary> ListBrains()
     {
         EnsureDatabaseExists();
         using var conn = new NpgsqlConnection(_connectionString);
@@ -61,15 +61,15 @@ internal sealed class NetworkRepository : INetworkRepository
         EnsureTable(conn);
 
         var result = conn.Query<NetworkRow>(Sql.SelectNetworkRows)
-            .Select(r => new NetworkSummary(
+            .Select(r => new BrainSummary(
                 r.Id, r.Name, JsonSerializer.Deserialize<BrainRecipe>(r.RecipeJson, RecipeJsonOptions) ?? new BrainRecipe([], ArchitectureKind.Mlp, []),
                 r.SavedAt, r.UpdatedAt))
             .ToList();
-        _logger.LogInformation("Listed {NetworkCount} networks", result.Count);
+        _logger.LogInformation("Listed {NetworkCount} brains", result.Count);
         return result;
     }
 
-    public void UpdateNetwork(long id, string name, BrainRecipe recipe)
+    public void UpdateBrain(long id, string name, BrainRecipe recipe)
     {
         EnsureDatabaseExists();
         using var conn = new NpgsqlConnection(_connectionString);
@@ -81,7 +81,7 @@ internal sealed class NetworkRepository : INetworkRepository
         _logger.LogInformation("Updated network id {Id} ('{Name}')", id, name);
     }
 
-    public void DeleteNetwork(long id)
+    public void DeleteBrain(long id)
     {
         EnsureDatabaseExists();
         using var conn = new NpgsqlConnection(_connectionString);

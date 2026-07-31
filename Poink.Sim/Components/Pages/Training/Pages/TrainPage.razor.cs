@@ -14,7 +14,7 @@ namespace Poink.Sim.Components.Pages
     {
         [Inject] private RlTrainingService Service { get; set; } = default!;
 
-        [Inject] private NetworkService NetworkService { get; set; } = default!;
+        [Inject] private BrainService NetworkService { get; set; } = default!;
 
         private string _table = "";
         private DateTime _from = DateTime.UtcNow.AddDays(-1);
@@ -49,9 +49,12 @@ namespace Poink.Sim.Components.Pages
         {
             Service.OnChanged += HandleServiceChanged;
 
-            if (TrainableBrainOptions.Count > 0) _brainName = TrainableBrainOptions[0].Name;
-            if (Service.StrategyNames.Count > 0) _strategyName = Service.StrategyNames[0];
-            if (Service.RewardPolicyNames.Count > 0) _rewardPolicyName = Service.RewardPolicyNames[0];
+            if (TrainableBrainOptions.Count > 0)
+                _brainName = TrainableBrainOptions[0].Name;
+            if (Service.StrategyNames.Count > 0)
+                _strategyName = Service.StrategyNames[0];
+            if (Service.RewardPolicyNames.Count > 0)
+                _rewardPolicyName = Service.RewardPolicyNames[0];
         }
 
         private IReadOnlyList<BrainOption> TrainableBrainOptions =>
@@ -89,16 +92,26 @@ namespace Poink.Sim.Components.Pages
 
         private bool ValidateCommonStartParams()
         {
-            if (string.IsNullOrWhiteSpace(_brainName)) { _startError = "pick a brain"; return false; }
-            if (string.IsNullOrWhiteSpace(_strategyName)) { _startError = "pick a strategy"; return false; }
-            if (string.IsNullOrWhiteSpace(_rewardPolicyName)) { _startError = "pick a reward policy"; return false; }
-            if (_episodeCount < 1) { _startError = "episode count must be positive"; return false; }
-            if (_episodeBars < 1) { _startError = "bars per episode must be at least 1"; return false; }
-            if (_startingCash <= 0) { _startError = "starting cash must be positive"; return false; }
-            if (_learningRate <= 0) { _startError = "learning rate must be positive"; return false; }
-            if (_leverage < 1) { _startError = "leverage must be at least 1"; return false; }
-            if (_commissionRatePercent < 0) { _startError = "commission rate can't be negative"; return false; }
-            if (_stopOutLevelPercent <= 0 || _stopOutLevelPercent > 100) { _startError = "stop-out level must be between 0 and 100%"; return false; }
+            if (string.IsNullOrWhiteSpace(_brainName))
+            { _startError = "pick a brain"; return false; }
+            if (string.IsNullOrWhiteSpace(_strategyName))
+            { _startError = "pick a strategy"; return false; }
+            if (string.IsNullOrWhiteSpace(_rewardPolicyName))
+            { _startError = "pick a reward policy"; return false; }
+            if (_episodeCount < 1)
+            { _startError = "episode count must be positive"; return false; }
+            if (_episodeBars < 1)
+            { _startError = "bars per episode must be at least 1"; return false; }
+            if (_startingCash <= 0)
+            { _startError = "starting cash must be positive"; return false; }
+            if (_learningRate <= 0)
+            { _startError = "learning rate must be positive"; return false; }
+            if (_leverage < 1)
+            { _startError = "leverage must be at least 1"; return false; }
+            if (_commissionRatePercent < 0)
+            { _startError = "commission rate can't be negative"; return false; }
+            if (_stopOutLevelPercent <= 0 || _stopOutLevelPercent > 100)
+            { _startError = "stop-out level must be between 0 and 100%"; return false; }
             return true;
         }
 
@@ -108,21 +121,26 @@ namespace Poink.Sim.Components.Pages
         private void StartTraining()
         {
             StartTrainingCore(pauseAfterFirstEpisode: false);
-            if (_startError is null) _controlsCollapsed = true;
+            if (_startError is null)
+                _controlsCollapsed = true;
         }
 
         private void StepTraining()
         {
-            if (Service.IsRunning) { Service.StepTraining(); return; }
+            if (Service.IsRunning)
+            { Service.StepTraining(); return; }
             StartTrainingCore(pauseAfterFirstEpisode: true);
         }
 
         private void StartTrainingCore(bool pauseAfterFirstEpisode)
         {
             _startError = null;
-            if (!ValidateCommonStartParams()) return;
-            if (string.IsNullOrWhiteSpace(_table)) { _startError = "pick a symbol"; return; }
-            if (_to <= _from) { _startError = "To must be after From"; return; }
+            if (!ValidateCommonStartParams())
+                return;
+            if (string.IsNullOrWhiteSpace(_table))
+            { _startError = "pick a symbol"; return; }
+            if (_to <= _from)
+            { _startError = "To must be after From"; return; }
 
             if (!Service.TryStartTraining(
                     _brainName, _strategyName, _rewardPolicyName, _episodeCount, _episodeBars, _barWidthMinutes, _startingCash, _learningRate,
@@ -138,7 +156,8 @@ namespace Poink.Sim.Components.Pages
 
         private void SaveModel()
         {
-            if (string.IsNullOrWhiteSpace(_saveName)) return;
+            if (string.IsNullOrWhiteSpace(_saveName))
+                return;
 
             if (Service.SaveBrain(_saveName, _brainName, _strategyName, _rewardPolicyName, CurrentDatasetDescription,
                     _episodeBars, _barWidthMinutes, _startingCash, _learningRate,
@@ -159,8 +178,10 @@ namespace Poink.Sim.Components.Pages
 
         private void OnSaveNameKeyDown(KeyboardEventArgs e)
         {
-            if (e.Key == "Enter") SaveModel();
-            else if (e.Key == "Escape") CancelSaveModel();
+            if (e.Key == "Enter")
+                SaveModel();
+            else if (e.Key == "Escape")
+                CancelSaveModel();
         }
 
         private string CurrentDatasetDescription => $"{_table} ({_from:yyyy-MM-dd HH:mm} to {_to:yyyy-MM-dd HH:mm})";

@@ -61,8 +61,8 @@ builder.Host.UseSerilog((context, configuration) => configuration
 builder.Services.AddSingleton<ITickRepository, TickRepository>();
 // Brain Builder CRUD (topology-only "networks") -- see NetworkService/
 // INetworkRepository's doc comments.
-builder.Services.AddSingleton<INetworkRepository, NetworkRepository>();
-builder.Services.AddSingleton<NetworkService>();
+builder.Services.AddSingleton<IBrainRepository, NetworkRepository>();
+builder.Services.AddSingleton<BrainService>();
 // Trained-model CRUD (weights + run metadata) -- see ModelService/
 // IModelRepository's doc comments.
 builder.Services.AddSingleton<IModelRepository, ModelRepository>();

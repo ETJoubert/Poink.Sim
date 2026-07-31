@@ -16,15 +16,15 @@ namespace Poink.Sim.Repository;
 // SavedAt is when this network was first created, UpdatedAt when it (or its
 // name) was last edited -- distinct the same way TrainedModelSummary
 // distinguishes SavedAt from TrainedAt.
-public sealed record NetworkSummary(long Id, string Name, BrainRecipe Recipe, DateTime SavedAt, DateTime UpdatedAt);
+public sealed record BrainSummary(long Id, string Name, BrainRecipe Recipe, DateTime SavedAt, DateTime UpdatedAt);
 
-internal interface INetworkRepository
+internal interface IBrainRepository
 {
-    long SaveNetwork(string name, BrainRecipe recipe);
+    long SaveBrain(string name, BrainRecipe recipe);
 
-    List<NetworkSummary> ListNetworks();
+    List<BrainSummary> ListBrains();
 
-    void UpdateNetwork(long id, string name, BrainRecipe recipe);
+    void UpdateBrain(long id, string name, BrainRecipe recipe);
 
-    void DeleteNetwork(long id);
+    void DeleteBrain(long id);
 }
