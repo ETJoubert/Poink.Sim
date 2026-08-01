@@ -52,7 +52,6 @@
 
 .coverage-timeline-vertical .coverage-timeline-track {
     flex-direction: column;
-    width: 40px;
     height: 600px;
 }
 
@@ -65,4 +64,25 @@
 
 .coverage-timeline-vertical .coverage-timeline-block:last-child {
     border-bottom: none;
+}
+
+.coverage-timeline-track-wrap {
+    position: relative;
+}
+
+.coverage-timeline-highlight {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    border: 1.5px solid var(--color-accent);
+    background: color-mix(in srgb, var(--color-accent) 25%, transparent);
+    border-radius: var(--border-radius-sm);
+    box-sizing: border-box;
+}
+
+.coverage-timeline-vertical .coverage-timeline-highlight {
+    top: auto;
+    bottom: auto;
+    left: 0;
+    right: 0;
 }

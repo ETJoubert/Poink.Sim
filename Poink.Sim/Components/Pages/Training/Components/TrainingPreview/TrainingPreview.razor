@@ -4,92 +4,128 @@
     <div class="tp-title"
          title="Live summary of the brain that Start/Step will train -- updates as the selected/built brain changes">
         Training Preview</div>
-        <div class="tp-columns">
-            <div class="tp-column">
-                <div class="tp-column-title">Training</div>
-                @foreach (var item in TrainingItems)
-                {
-                    <div class="tp-row">@item</div>
-                }
-            </div>
-            <div class="tp-column">
-                <div class="tp-column-title">Data</div>
-                @foreach (var item in DataItems)
-                {
-                    <div class="tp-row">@item</div>
-                }
-                <EpisodeCoverageTimeline From="From" To="To" BlockSpan="BlockSpan" EpisodeWindows="EpisodeWindows"
-                                         Vertical="true" Compact="true" />
-            </div>
+    <div class="tp-columns">
+        <div class="tp-column">
+            <div class="tp-column-title">Training</div>
+            @foreach (var item in TrainingItems)
+            {
+                <div class="tp-row">@item</div>
+            }
+        </div>
+        <div class="tp-column">
+            <div class="tp-column-title">Data</div>
+            @foreach (var item in DataItems)
+            {
+                <div class="tp-row">@item</div>
+            }
+            <EpisodeCoverageTimeline From="From" To="To" BlockSpan="BlockSpan" EpisodeWindows="EpisodeWindows"
+                                     HighlightStart="_episodeWindowStart" HighlightEnd="_episodeWindowEnd" Vertical="true" Compact="true" />
+        </div>
 
-            <div class="tp-column">
-                <div class="tp-column-title">Episode</div>
+        <div class="tp-column">
+            <div class="tp-column-title"
+                 title="One randomly-sampled bars/episode-length window of the selected data, re-rolled whenever the data range, bars/episode, or bar width changes">
+                Episode</div>
+            @if (_loadingEpisode)
+            {
+                <div class="tp-row tp-row-empty">loading…</div>
+            }
+            else if (_episodeError is not null)
+            {
+                <div class="tp-row tp-row-empty" title="@_episodeError">error -- see tooltip</div>
+            }
+            else if (EpisodeBarShapes.Count == 0)
+            {
+                <div class="tp-row tp-row-empty">no data</div>
+            }
+            else
+            {
+                <svg viewBox="0 0 120 140" preserveAspectRatio="none" class="tp-episode-chart">
+                    @foreach (var bar in EpisodeBarShapes)
+                    {
+                        <rect x="@bar.X" y="@bar.Y" width="@bar.Width" height="@bar.Height"
+                              class="tp-episode-bar @(bar.IsUp ? "tp-episode-bar-up" : "tp-episode-bar-down")">
+                            <title>@bar.Tooltip</title>
+                        </rect>
+                    }
+                </svg>
+            }
+        </div>
 
-            </div>
-
-            <div class="tp-column">
-                <div class="tp-column-title">Source</div>
-                @if (SourceRows.Count == 0)
+        <div class="tp-column">
+            <div class="tp-column-title">Source</div>
+            @if (SourceRows.Count == 0)
+            {
+                <div class="tp-row tp-row-empty">none selected</div>
+            }
+            @foreach (var row in SourceRows)
+            {
+                <div class="tp-source-card @SourceColorClass(row.Source)">
+                    <div class="tp-source-card-title">@row.Source</div>
+                    <div class="tp-source-card-field">Inputs: @row.Inputs</div>
+                    <div class="tp-source-card-field">Window: @row.Window</div>
+                    <div class="tp-source-card-field">Bucket: @row.Bucket</div>
+                    @if (row.RawPrices.Count > 0)
+                    {
+                        <div class="tp-source-card-values" title="Trailing close prices this row's episode sample feeds Bar Window, before normalization">
+                            @foreach (var value in row.RawPrices)
+                            {
+                                <span class="tp-source-card-value">@value</span>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+        <div class="tp-column">
+            <div class="tp-column-title">Normalization</div>
+            @foreach (var row in SourceRows)
+            {
+                @if (row.NormalizedValues.Count > 0)
                 {
-                    <div class="tp-row tp-row-empty">none selected</div>
+                    <div class="tp-source-card @SourceColorClass(row.Source)">
+                        <div class="tp-source-card-title">
+                            @row.Source <span class="tp-source-card-title-sub">@row.Normalization</span>
+                        </div>
+                        <div class="tp-source-card-values"
+                             title="Same trailing prices as Source's card, transformed to match this row's Normalization -- exactly what the network sees">
+                            @foreach (var value in row.NormalizedValues)
+                            {
+                                <span class="tp-source-card-value">@value</span>
+                            }
+                        </div>
+                    </div>
                 }
-                @foreach (var row in SourceRows)
-                {
-                    <div class="tp-row">@row.Source</div>
-                }
-            </div>
-            <div class="tp-column">
-                <div class="tp-column-title">Inputs</div>
-                @foreach (var row in SourceRows)
-                {
-                    <div class="tp-row">@row.Inputs</div>
-                }
-            </div>
-            <div class="tp-column">
-                <div class="tp-column-title">Normalization</div>
-                @foreach (var row in SourceRows)
+                else
                 {
                     <div class="tp-row">@row.Normalization</div>
                 }
-            </div>
-            <div class="tp-column">
-                <div class="tp-column-title">Window</div>
-                @foreach (var row in SourceRows)
-                {
-                    <div class="tp-row">@row.Window</div>
-                }
-            </div>
-            <div class="tp-column">
-                <div class="tp-column-title">Bucket</div>
-                @foreach (var row in SourceRows)
-                {
-                    <div class="tp-row">@row.Bucket</div>
-                }
-            </div>
-            <div class="tp-column">
-                <div class="tp-column-title">Structure</div>
-                @foreach (var item in StructureItems)
-                {
-                    <div class="tp-row">@item</div>
-                }
-            </div>
-            <div class="tp-column">
-                <div class="tp-column-title">Action</div>
-                @if (ActionItems.Count == 0)
-                {
-                    <div class="tp-row tp-row-empty">none selected</div>
-                }
-                @foreach (var item in ActionItems)
-                {
-                    <div class="tp-row">@item</div>
-                }
-            </div>
-            <div class="tp-column">
-                <div class="tp-column-title">Decoded Action</div>
-                @foreach (var item in DecodedActionItems)
-                {
-                    <div class="tp-row">@item</div>
-                }
-            </div>
+            }
+        </div>
+        <div class="tp-column">
+            <div class="tp-column-title">Structure</div>
+            @foreach (var item in StructureItems)
+            {
+                <div class="tp-row">@item</div>
+            }
+        </div>
+        <div class="tp-column">
+            <div class="tp-column-title">Action</div>
+            @if (ActionItems.Count == 0)
+            {
+                <div class="tp-row tp-row-empty">none selected</div>
+            }
+            @foreach (var item in ActionItems)
+            {
+                <div class="tp-row">@item</div>
+            }
+        </div>
+        <div class="tp-column">
+            <div class="tp-column-title">Decoded Action</div>
+            @foreach (var item in DecodedActionItems)
+            {
+                <div class="tp-row">@item</div>
+            }
         </div>
     </div>
+</div>

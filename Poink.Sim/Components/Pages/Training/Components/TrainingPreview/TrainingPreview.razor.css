@@ -18,7 +18,7 @@
 
 .tp-columns {
     display: grid;
-    grid-template-columns: repeat(10, minmax(110px, 1fr));
+    grid-template-columns: repeat(8, minmax(110px, 1fr));
     gap: 14px;
     overflow-x: auto;
 }
@@ -55,4 +55,80 @@
 .tp-row-empty {
     opacity: 0.5;
     font-style: italic;
+}
+
+/* Source column -- one colored card per included input set (see
+   SourceColorClass); --tp-source-color is set by the tp-source-badge-*
+   modifier and read by every rule below, so each card only needs the one
+   modifier class to look distinct. */
+
+.tp-source-card {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px 8px;
+    border-left: 3px solid var(--tp-source-color, var(--color-primary));
+    border-radius: var(--border-radius-sm);
+    background: color-mix(in srgb, var(--tp-source-color, var(--color-primary)) 10%, transparent);
+}
+
+.tp-source-card-title {
+    font-size: 0.68rem;
+    font-weight: bold;
+    color: var(--tp-source-color, var(--color-primary));
+}
+
+.tp-source-card-title-sub {
+    font-size: 0.6rem;
+    font-weight: normal;
+    color: var(--color-secondary);
+    opacity: 0.8;
+}
+
+.tp-source-card-field {
+    font-size: 0.62rem;
+    color: var(--color-secondary);
+    opacity: 0.85;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tp-source-card-values {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 6px;
+    margin-top: 3px;
+}
+
+.tp-source-card-value {
+    font-size: 0.56rem;
+    color: var(--color-secondary);
+    font-variant-numeric: tabular-nums;
+    opacity: 0.8;
+}
+
+.tp-source-badge-1 { --tp-source-color: var(--color-badge-1); }
+.tp-source-badge-2 { --tp-source-color: var(--color-badge-2); }
+.tp-source-badge-3 { --tp-source-color: var(--color-badge-3); }
+.tp-source-badge-4 { --tp-source-color: var(--color-badge-4); }
+.tp-source-badge-5 { --tp-source-color: var(--color-badge-5); }
+.tp-source-badge-neutral { --tp-source-color: var(--color-neutral); }
+
+.tp-episode-chart {
+    width: 100%;
+    height: 140px;
+    display: block;
+}
+
+.tp-episode-bar {
+    opacity: 0.9;
+}
+
+.tp-episode-bar-up {
+    fill: var(--color-success);
+}
+
+.tp-episode-bar-down {
+    fill: var(--color-error, #ff5f56);
 }

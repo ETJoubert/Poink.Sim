@@ -1,9 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 using Poink.Sim.Brain.Neural;
 using Poink.Sim.Models;
+using Poink.Sim.Repository;
+using Poink.Sim.Simulation;
 using Poink.Sim.Training;
 
 namespace Poink.Sim.Components.Training
@@ -17,6 +21,18 @@ namespace Poink.Sim.Components.Training
     // concern yet.
     public partial class TrainingPreview : ComponentBase
     {
+        // Matches RlEpisodeRunner's own PriceBucketWidth -- irrelevant here
+        // (the per-bar histogram this produces is discarded, see
+        // FetchRandomEpisodeBars), just kept consistent with the app's other
+        // SimulationBarAggregator call sites rather than an arbitrary value.
+        private const double PriceBucketWidth = 0.01;
+
+        private const double ChartViewWidth = 120;
+        private const double ChartViewHeight = 140;
+        private const double ChartPad = 4;
+
+        [Inject] private ITickRepository TickRepository { get; set; } = default!;
+
         [Parameter] public BrainRecipe? Recipe { get; set; }
         [Parameter] public IReadOnlyList<string> DataItems { get; set; } = [];
         [Parameter] public IReadOnlyList<string> TrainingItems { get; set; } = [];
@@ -29,10 +45,223 @@ namespace Poink.Sim.Components.Training
         [Parameter] public TimeSpan BlockSpan { get; set; }
         [Parameter] public IReadOnlyList<RlEpisodeWindow> EpisodeWindows { get; set; } = [];
 
-        private IReadOnlyList<TrainingPreviewSourceRow> SourceRows => BuildSourceRows(Recipe);
+        // Table + BlockSpan (bars/episode * bar width) together pick the
+        // random episode window the Episode column charts -- same table and
+        // span an actual training run would sample from.
+        [Parameter] public string Table { get; set; } = "";
+        [Parameter] public int BarWidthMinutes { get; set; }
+
+        // Random ticks_* windows routinely land on a gap (FX markets close
+        // over weekends -- see SessionClockEncoder), so one empty attempt
+        // doesn't mean the table has no data at all -- worth a few retries
+        // before giving up and showing "no data".
+        private const int MaxRandomEpisodeAttempts = 8;
+
+        private string? _lastEpisodeFetchKey;
+        private bool _loadingEpisode;
+        private string? _episodeError;
+        private List<HlocAvdtBar> _episodeBars = [];
+
+        // The picked window's own [Start, End) -- feeds the Data column's
+        // vertical timeline so it can highlight exactly where this Episode
+        // chart's sample came from (see TrainingPreview.razor).
+        private DateTime? _episodeWindowStart;
+        private DateTime? _episodeWindowEnd;
+
+        private IReadOnlyList<TrainingPreviewSourceRow> SourceRows => BuildSourceRows(Recipe, _episodeBars);
         private IReadOnlyList<string> StructureItems => BuildStructureItems(Recipe);
         private IReadOnlyList<string> ActionItems => BuildActionItems(Recipe);
         private IReadOnlyList<string> DecodedActionItems => BuildDecodedActionItems(Recipe);
+        private List<EpisodeBarShape> EpisodeBarShapes => BuildEpisodeBarShapes(_episodeBars);
+
+        // Which CSS modifier colors a source's card -- one badge color per
+        // optional input set (see .tp-source-badge-* in TrainingPreview.razor.css),
+        // Trader State gets its own neutral color since it's always-on rather
+        // than one of the selectable sources.
+        private static string SourceColorClass(string source) => source switch
+        {
+            "Bar Window" => "tp-source-badge-1",
+            "Volume Profile" => "tp-source-badge-2",
+            "Time Profile" => "tp-source-badge-3",
+            "Session Clock" => "tp-source-badge-4",
+            "Spread + Volatility" => "tp-source-badge-5",
+            _ => "tp-source-badge-neutral",
+        };
+
+        // Re-rolls a random episode only when the inputs that actually change
+        // its window (table/range/span/bar size) change -- TrainPage
+        // re-renders this component constantly while training runs (see
+        // Service.OnChanged), and re-querying Postgres on every one of those
+        // frames would be wasteful and would make the chart flicker.
+        protected override void OnParametersSet()
+        {
+            var key = $"{Table}|{From:o}|{To:o}|{BlockSpan}|{BarWidthMinutes}";
+            if (key == _lastEpisodeFetchKey) return;
+            _lastEpisodeFetchKey = key;
+
+            _episodeBars = [];
+            _episodeWindowStart = null;
+            _episodeWindowEnd = null;
+            if (!string.IsNullOrEmpty(Table) && To > From && BlockSpan > TimeSpan.Zero && BarWidthMinutes > 0)
+                _ = LoadRandomEpisode(Table, From, To, BlockSpan, TimeSpan.FromMinutes(BarWidthMinutes));
+        }
+
+        private async Task LoadRandomEpisode(string table, DateTime from, DateTime to, TimeSpan span, TimeSpan barSize)
+        {
+            _loadingEpisode = true;
+            _episodeError = null;
+            StateHasChanged();
+            try
+            {
+                var result = await Task.Run(() => FetchRandomEpisode(table, from, to, span, barSize));
+                _episodeBars = result?.Bars ?? [];
+                _episodeWindowStart = result?.Start;
+                _episodeWindowEnd = result?.End;
+            }
+            catch (Exception ex)
+            {
+                _episodeBars = [];
+                _episodeWindowStart = null;
+                _episodeWindowEnd = null;
+                _episodeError = ex.Message;
+            }
+            finally
+            {
+                _loadingEpisode = false;
+                StateHasChanged();
+            }
+        }
+
+        private sealed record RandomEpisodeResult(List<HlocAvdtBar> Bars, DateTime Start, DateTime End);
+
+        // Picks a random BlockSpan-length window inside [from, to) and
+        // aggregates its ticks into bars, the same tick-by-tick aggregation
+        // RlEpisodeRunner uses live during training -- so this preview is
+        // built from one plausible real episode, not synthetic data. Retries
+        // a few times if a window comes back with zero ticks (see
+        // MaxRandomEpisodeAttempts) before giving up.
+        private RandomEpisodeResult? FetchRandomEpisode(string table, DateTime from, DateTime to, TimeSpan span, TimeSpan barSize)
+        {
+            if (to - from < span) return null;
+
+            for (int attempt = 0; attempt < MaxRandomEpisodeAttempts; attempt++)
+            {
+                var result = FetchEpisode(table, from, to, span, barSize);
+                if (result.Bars.Count > 0) return result;
+            }
+            return null;
+        }
+
+        // Aggregates one randomly-picked window's ticks into bars, including
+        // the trailing partial bar (if any) so a window that doesn't divide
+        // evenly into whole bars still shows its last bit of data.
+        private RandomEpisodeResult FetchEpisode(string table, DateTime from, DateTime to, TimeSpan span, TimeSpan barSize)
+        {
+            double maxOffsetSeconds = (to - from - span).TotalSeconds;
+            var start = from.AddSeconds(Random.Shared.NextDouble() * maxOffsetSeconds);
+            var end = start + span;
+
+            var aggregator = new SimulationBarAggregator(barSize, PriceBucketWidth);
+            var bars = new List<HlocAvdtBar>();
+            foreach (var tick in TickRepository.ReadTicks(table, start, end))
+            {
+                if (aggregator.Feed(tick) is { } completed) bars.Add(completed.Bar);
+            }
+            if (aggregator.CurrentPartialBar is { } partial) bars.Add(partial);
+            return new RandomEpisodeResult(bars, start, end);
+        }
+
+        // Vertical High/Low range bar per aggregated bar -- a simplified OHLC
+        // bar chart (range only, no open/close ticks), colored by whether
+        // that bar closed up or down.
+        private sealed record EpisodeBarShape(string X, string Y, string Width, string Height, bool IsUp, string Tooltip);
+
+        private static List<EpisodeBarShape> BuildEpisodeBarShapes(List<HlocAvdtBar> bars)
+        {
+            if (bars.Count == 0) return [];
+
+            double min = bars.Min(b => b.Low);
+            double max = bars.Max(b => b.High);
+            if (max - min < 1e-9) { min -= 0.01; max += 0.01; }
+
+            double plotWidth = ChartViewWidth - ChartPad * 2;
+            double plotHeight = ChartViewHeight - ChartPad * 2;
+            double barSlot = plotWidth / bars.Count;
+            double barWidth = Math.Max(1, barSlot * 0.6);
+
+            double MapY(double price) => ChartPad + (1 - (price - min) / (max - min)) * plotHeight;
+
+            var shapes = new List<EpisodeBarShape>(bars.Count);
+            for (int i = 0; i < bars.Count; i++)
+            {
+                var bar = bars[i];
+                double x = ChartPad + i * barSlot + (barSlot - barWidth) / 2;
+                double yHigh = MapY(bar.High);
+                double yLow = MapY(bar.Low);
+                shapes.Add(new EpisodeBarShape(
+                    FormatCoord(x), FormatCoord(yHigh), FormatCoord(barWidth), FormatCoord(Math.Max(1, yLow - yHigh)),
+                    bar.Close >= bar.Open,
+                    $"{bar.OpenTime:HH:mm} O:{bar.Open:0.####} H:{bar.High:0.####} L:{bar.Low:0.####} C:{bar.Close:0.####}"));
+            }
+            return shapes;
+        }
+
+        // SVG geometry attributes always need '.' regardless of host locale --
+        // same reasoning as RewardChart/TrendLineChart.
+        private static string FormatCoord(double v) => v.ToString("0.##", CultureInfo.InvariantCulture);
+
+        // Bar Window's own encoder feeds the trailing BarWindowSize bars'
+        // Close prices, most-recent-last -- reuses the same random episode
+        // the Episode column already sampled. Always the literal prices,
+        // regardless of Normalization -- feeds the Source column's card (see
+        // TrainingPreview.razor), which shows the original data the encoder
+        // starts from either way.
+        private static IReadOnlyList<string> BuildBarWindowRawPrices(List<HlocAvdtBar> episodeBars, int barWindowSize)
+        {
+            if (episodeBars.Count == 0) return [];
+            return episodeBars.TakeLast(barWindowSize).Select(b => b.Close.ToString("0.####", CultureInfo.InvariantCulture)).ToList();
+        }
+
+        // Same trailing prices, but transformed the way BarWindowEncoder.Encode
+        // itself would for the configured Normalization -- Raw mode leaves them
+        // unchanged (same as BuildBarWindowRawPrices); every other mode applies
+        // percent-offset from the most recent price, or a Local/Global Z-Score
+        // against the window's own prices (see ZScoreNormalization). Feeds the
+        // Normalization column's own Bar Window card, so what the network would
+        // actually see is visible alongside the raw values in Source.
+        private static IReadOnlyList<string> BuildBarWindowNormalizedValues(
+            List<HlocAvdtBar> episodeBars, NormalizationKind normalization, int barWindowSize, int zScoreSubWindowSize)
+        {
+            if (episodeBars.Count == 0) return [];
+
+            var prices = episodeBars.TakeLast(barWindowSize).Select(b => b.Close).ToList();
+            if (prices.Count == 0) return [];
+
+            return normalization switch
+            {
+                NormalizationKind.Raw =>
+                    prices.Select(p => p.ToString("0.####", CultureInfo.InvariantCulture)).ToList(),
+                NormalizationKind.LocalZScore =>
+                    ZScoreNormalization.Local(prices, zScoreSubWindowSize).Select(FormatZScore).ToList(),
+                NormalizationKind.GlobalZScore =>
+                    ZScoreNormalization.Global(prices).Select(FormatZScore).ToList(),
+                _ => BuildPercentOffsets(prices),
+            };
+        }
+
+        // Normalized mode's percent-change-from-current-price -- the anchor
+        // is the window's own most recent (last) price, the same
+        // observation.CurrentPrice a live decision would use at that instant.
+        private static List<string> BuildPercentOffsets(List<double> prices)
+        {
+            double currentPrice = prices[^1];
+            return prices
+                .Select(p => currentPrice == 0 ? 0 : (p - currentPrice) / currentPrice)
+                .Select(offset => (offset * 100).ToString("+0.00;-0.00;0.00", CultureInfo.InvariantCulture) + "%")
+                .ToList();
+        }
+
+        private static string FormatZScore(float z) => z.ToString("+0.00;-0.00;0.00", CultureInfo.InvariantCulture);
 
         private static string NormalizationLabel(NormalizationKind kind) => kind switch
         {
@@ -45,7 +274,7 @@ namespace Poink.Sim.Components.Training
         // One row per included input set, in the same order as Brain
         // Builder's own input table, always ending with the always-on
         // Trader State.
-        private static IReadOnlyList<TrainingPreviewSourceRow> BuildSourceRows(BrainRecipe? recipe)
+        private static IReadOnlyList<TrainingPreviewSourceRow> BuildSourceRows(BrainRecipe? recipe, List<HlocAvdtBar> episodeBars)
         {
             var rows = new List<TrainingPreviewSourceRow>();
             if (recipe is null) return rows;
@@ -55,7 +284,10 @@ namespace Poink.Sim.Components.Training
             {
                 var count = BrainCatalog.CreateEncoder(EncoderKind.BarWindow, sizes).FeatureCount;
                 rows.Add(new("Bar Window", count.ToString(), NormalizationLabel(sizes.BarWindowNormalization),
-                    $"{sizes.BarWindowSize} bars", "—"));
+                    $"{sizes.BarWindowSize} bars", "—",
+                    RawPrices: BuildBarWindowRawPrices(episodeBars, sizes.BarWindowSize),
+                    NormalizedValues: BuildBarWindowNormalizedValues(
+                        episodeBars, sizes.BarWindowNormalization, sizes.BarWindowSize, sizes.BarWindowZScoreSubWindowSize)));
             }
             if (recipe.EncoderKinds.Contains(EncoderKind.VolumeProfile))
             {
@@ -167,5 +399,17 @@ namespace Poink.Sim.Components.Training
     // One row of the Source/Inputs/Normalization/Window/Bucket columns --
     // Normalization/Window/Bucket are "--" where a source has no such concept
     // (e.g. Session Clock has no window, Bar Window has no bucketing).
-    public sealed record TrainingPreviewSourceRow(string Source, string Inputs, string Normalization, string Window, string Bucket);
+    // RawPrices/NormalizedValues are only populated for Bar Window (see
+    // BuildBarWindowRawPrices/BuildBarWindowNormalizedValues) -- RawPrices
+    // feeds a card under Source (always the literal prices), NormalizedValues
+    // feeds a matching card under Normalization (raw or transformed, to match
+    // this row's own Normalization), so both what the encoder starts from and
+    // what the network actually sees are visible side by side.
+    public sealed record TrainingPreviewSourceRow(
+        string Source, string Inputs, string Normalization, string Window, string Bucket,
+        IReadOnlyList<string>? RawPrices = null, IReadOnlyList<string>? NormalizedValues = null)
+    {
+        public IReadOnlyList<string> RawPrices { get; init; } = RawPrices ?? [];
+        public IReadOnlyList<string> NormalizedValues { get; init; } = NormalizedValues ?? [];
+    }
 }

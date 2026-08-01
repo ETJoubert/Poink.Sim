@@ -34,11 +34,29 @@ namespace Poink.Sim.Components.Training
         // alongside text that already states the range (see TrainingPreview).
         [Parameter] public bool Compact { get; set; }
 
+        // Optional single window to mark on top of the block grid -- doesn't
+        // need to align to a block boundary (a randomly-picked episode
+        // usually won't), so it's drawn as its own absolutely-positioned
+        // overlay rather than folded into the per-block heatmap.
+        [Parameter] public DateTime? HighlightStart { get; set; }
+        [Parameter] public DateTime? HighlightEnd { get; set; }
+
         private sealed record Block(DateTime Start, DateTime End, double WidthPercent, int Count, double Intensity);
 
         // Empty (renders nothing) until a usable range/block size is set --
         // see EpisodeCoverageTimeline.razor.
         private bool HasRange => To > From && BlockSpan > TimeSpan.Zero;
+
+        private bool HasHighlight => HasRange && HighlightStart is not null && HighlightEnd is not null && HighlightEnd > HighlightStart;
+
+        // Percent offset/size along the track, clamped into [From, To] --
+        // a highlight computed before a From/To edit could otherwise briefly
+        // poke outside the track until TrainingPreview re-rolls it.
+        private double HighlightOffsetPercent =>
+            Math.Clamp((HighlightStart!.Value - From).TotalSeconds / (To - From).TotalSeconds * 100.0, 0, 100);
+
+        private double HighlightSizePercent =>
+            Math.Clamp((HighlightEnd!.Value - HighlightStart!.Value).TotalSeconds / (To - From).TotalSeconds * 100.0, 0, 100 - HighlightOffsetPercent);
 
         // One block per BlockSpan slice of [From, To) -- the final block is
         // clipped to To (and rendered narrower via WidthPercent) rather than

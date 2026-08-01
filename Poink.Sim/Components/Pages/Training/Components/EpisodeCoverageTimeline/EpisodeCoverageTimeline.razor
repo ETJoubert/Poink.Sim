@@ -13,12 +13,21 @@
                 <span class="coverage-timeline-range">@From.ToString("yyyy-MM-dd HH:mm") &rarr; @To.ToString("yyyy-MM-dd HH:mm")</span>
             </div>
         }
-        <div class="coverage-timeline-track">
-            @foreach (var b in Blocks)
+        <div class="coverage-timeline-track-wrap">
+            <div class="coverage-timeline-track">
+                @foreach (var b in Blocks)
+                {
+                    <div class="coverage-timeline-block @(b.Count == 0 ? "coverage-timeline-block-unused" : "")"
+                         style="@(Vertical ? "height" : "width"): @(Pct(b.WidthPercent))%; @(b.Count > 0 ? $"background-color: color-mix(in srgb, var(--color-secondary) {Pct(b.Intensity * 80 + 20)}%, transparent);" : "")"
+                         title="@(b.Start.ToString("yyyy-MM-dd HH:mm")) – @(b.End.ToString("yyyy-MM-dd HH:mm")): used @b.Count episode@(b.Count == 1 ? "" : "s")">
+                    </div>
+                }
+            </div>
+            @if (HasHighlight)
             {
-                <div class="coverage-timeline-block @(b.Count == 0 ? "coverage-timeline-block-unused" : "")"
-                     style="@(Vertical ? "height" : "width"): @(Pct(b.WidthPercent))%; @(b.Count > 0 ? $"background-color: color-mix(in srgb, var(--color-secondary) {Pct(b.Intensity * 80 + 20)}%, transparent);" : "")"
-                     title="@(b.Start.ToString("yyyy-MM-dd HH:mm")) – @(b.End.ToString("yyyy-MM-dd HH:mm")): used @b.Count episode@(b.Count == 1 ? "" : "s")">
+                <div class="coverage-timeline-highlight"
+                     style="@(Vertical ? "top" : "left"): @(Pct(HighlightOffsetPercent))%; @(Vertical ? "height" : "width"): @(Pct(HighlightSizePercent))%;"
+                     title="@("previewed episode: " + HighlightStart!.Value.ToString("yyyy-MM-dd HH:mm") + " – " + HighlightEnd!.Value.ToString("yyyy-MM-dd HH:mm"))">
                 </div>
             }
         </div>
