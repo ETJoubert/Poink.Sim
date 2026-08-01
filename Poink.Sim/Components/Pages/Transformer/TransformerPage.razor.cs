@@ -477,6 +477,19 @@ namespace Poink.Sim.Components.Pages
             ToBarRows(AggregateSyntheticSeries(
                 LocalWindowZScoreTransform.BuildZScoreSeries(_deltaTicks, Math.Max(1, _zScoreWindowSize)), _zScoreWindowSize));
 
+        // Same per-window-normalized series the Local Z-Score chart's bars are built
+        // from (see ZScoreBarRows above), fed to TickVolumeProfileChart the same raw
+        // per-tick way GlobalZScoreProfileValues feeds the Global Z-Score profile --
+        // see that method's own comment for why no bar-histogram merging is needed here.
+        private List<double> LocalZScoreProfileValues() =>
+            LocalWindowZScoreTransform.BuildZScoreSeries(_deltaTicks, Math.Max(1, _zScoreWindowSize)).Select(t => t.Bid).ToList();
+
+        private double? LocalZScoreCurrentValue()
+        {
+            var series = LocalWindowZScoreTransform.BuildZScoreSeries(_deltaTicks, Math.Max(1, _zScoreWindowSize));
+            return series.Count > 0 ? series[^1].Bid : null;
+        }
+
         // Global Z-Score has only one window (the whole of _deltaTicks -- see
         // GlobalWindowZScoreTransform), so _globalZScoreTicksPerBar is purely a charting
         // bucket size, unrelated to (and not required to match) anything about how the
@@ -485,9 +498,40 @@ namespace Poink.Sim.Components.Pages
             ToBarRows(AggregateSyntheticSeries(
                 GlobalWindowZScoreTransform.BuildZScoreSeries(_deltaTicks), _globalZScoreTicksPerBar));
 
+        // Same z-score series the Global Z-Score chart's bars are built from (see
+        // GlobalZScoreBarRows above), fed to TickVolumeProfileChart as raw per-tick
+        // values instead of merged bar histograms -- GlobalWindowZScoreTransform has no
+        // bar-level histogram of its own, and the series is already capped at
+        // MaxDeltaTicks, well under TickVolumeProfileChart's own MaxWindow, so nothing
+        // here needs bucket-summing the way MergedSamples does.
+        private List<double> GlobalZScoreProfileValues() =>
+            GlobalWindowZScoreTransform.BuildZScoreSeries(_deltaTicks).Select(t => t.Bid).ToList();
+
+        // The latest tick's own z-score, so the profile panel can highlight "where the
+        // current normalized value sits" the same way the other profile panels highlight
+        // CurrentPrice.
+        private double? GlobalZScoreCurrentValue()
+        {
+            var series = GlobalWindowZScoreTransform.BuildZScoreSeries(_deltaTicks);
+            return series.Count > 0 ? series[^1].Bid : null;
+        }
+
         private List<CTraderBarRow> DriftBarRows() =>
             ToBarRows(AggregateSyntheticSeries(
                 DriftFromCurrentPriceTransform.BuildDriftSeries(_deltaTicks, _driftMode), _driftTicksPerBar));
+
+        // Same drift series the Drift chart's bars are built from (see DriftBarRows
+        // above), fed to TickVolumeProfileChart the same raw per-tick way
+        // GlobalZScoreProfileValues feeds the Global Z-Score profile -- see that
+        // method's own comment for why no bar-histogram merging is needed here.
+        private List<double> DriftProfileValues() =>
+            DriftFromCurrentPriceTransform.BuildDriftSeries(_deltaTicks, _driftMode).Select(t => t.Bid).ToList();
+
+        private double? DriftCurrentValue()
+        {
+            var series = DriftFromCurrentPriceTransform.BuildDriftSeries(_deltaTicks, _driftMode);
+            return series.Count > 0 ? series[^1].Bid : null;
+        }
 
         // Reference line at 0 -- shared by the Tick Delta chart (above it means price back
         // then was higher than the latest tick/price has fallen to reach now, below it

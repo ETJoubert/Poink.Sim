@@ -390,10 +390,35 @@
 }
 
 .trf-delta-chart {
-    flex-shrink: 0;
+    flex: 1 1 auto;
+    min-width: 0;
     height: 40vh;
     min-height: 160px;
     max-height: 60vh;
+}
+
+.trf-delta-row {
+    display: flex;
+    align-items: stretch;
+    gap: 16px;
+}
+
+.trf-delta-row .trf-chart-side {
+    height: 40vh;
+    min-height: 160px;
+    max-height: 60vh;
+}
+
+@media (max-width: 900px) {
+    .trf-delta-row {
+        flex-direction: column;
+    }
+
+    .trf-delta-row .trf-chart-side {
+        width: 100%;
+        max-width: none;
+        height: 240px;
+    }
 }
 
 .trf-empty {

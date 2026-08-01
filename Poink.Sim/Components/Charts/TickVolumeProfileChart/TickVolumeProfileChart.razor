@@ -12,29 +12,33 @@
     </div>
 
     <div class="tvp-controls">
-        <label class="tvp-control">
-            <span>Buckets</span>
-            <input type="number" min="2" max="100" @bind="_bucketCount" @bind:event="oninput" />
-        </label>
-        @if (buckets.Count > 0)
-        {
-            <span class="tvp-control tvp-control-static" title="Price span per bucket">
-                <span>Width</span>
-                <span class="tvp-control-value">@((buckets[0].High - buckets[0].Low).ToString("0.#####", CultureInfo.InvariantCulture))</span>
-            </span>
-        }
+        <div class="tvp-controls-row">
+            <label class="tvp-control">
+                <span>Buckets</span>
+                <input type="number" min="2" max="100" @bind="_bucketCount" @bind:event="oninput" />
+            </label>
+            @if (buckets.Count > 0)
+            {
+                <span class="tvp-control tvp-control-static" title="Price span per bucket">
+                    <span>Width</span>
+                    <span class="tvp-control-value">@((buckets[0].High - buckets[0].Low).ToString("0.#####", CultureInfo.InvariantCulture))</span>
+                </span>
+            }
+        </div>
         @if (Levels is { } levels)
         {
-            <span class="tvp-control tvp-control-static tvp-control-poc"
-                  title="Point of Control -- the price level with the most volume in this profile">
-                <span>POC</span>
-                <span class="tvp-control-value">@levels.Poc.ToString("F5")</span>
-            </span>
-            <span class="tvp-control tvp-control-static tvp-control-va"
-                  title="Value Area -- the tightest price band holding 70% of this profile's volume">
-                <span>VA</span>
-                <span class="tvp-control-value">@levels.ValueAreaLow.ToString("F5") - @levels.ValueAreaHigh.ToString("F5")</span>
-            </span>
+            <div class="tvp-controls-row">
+                <span class="tvp-control tvp-control-static tvp-control-poc"
+                      title="Point of Control -- the price level with the most volume in this profile">
+                    <span>POC</span>
+                    <span class="tvp-control-value">@levels.Poc.ToString("F5")</span>
+                </span>
+                <span class="tvp-control tvp-control-static tvp-control-va"
+                      title="Value Area -- the tightest price band holding 70% of this profile's volume">
+                    <span>VA</span>
+                    <span class="tvp-control-value">@levels.ValueAreaLow.ToString("F5") - @levels.ValueAreaHigh.ToString("F5")</span>
+                </span>
+            </div>
         }
     </div>
 

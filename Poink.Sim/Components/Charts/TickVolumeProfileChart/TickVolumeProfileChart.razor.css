@@ -28,11 +28,17 @@
 
 .tvp-controls {
     display: flex;
-    align-items: center;
-    gap: 12px;
+    flex-direction: column;
+    gap: 4px;
     padding: 5px 8px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     flex: 0 0 auto;
+}
+
+.tvp-controls-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
 }
 
 .tvp-control {

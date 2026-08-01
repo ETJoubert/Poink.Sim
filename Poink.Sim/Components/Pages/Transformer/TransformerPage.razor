@@ -162,12 +162,21 @@
                                 partitioned into independent windows, each normalized against its own mean/standard deviation
                             </span>
                         </div>
-                        <div class="trf-delta-chart"
-                             title="@("Every tick re-expressed as (price - window mean) / window standard deviation, computed independently per "
-                                      + _zScoreWindowSize + "-tick sub-window "
-                                      + (_volumeRangeStart is not null ? "within the selected Volume Range" : "across the latest loaded ticks")
-                                      + " -- zero-mean/unit-variance per sub-window, so geometric shape reads independently of macro trend or price level. Contrast with GLOBAL Z-SCORE, which normalizes the whole selection as one window")">
-                            <DrawableOhlcvChart Bars="ZScoreBarRows()" ShowAnnotationTools="false" />
+                        <div class="trf-delta-row">
+                            <div class="trf-delta-chart"
+                                 title="@("Every tick re-expressed as (price - window mean) / window standard deviation, computed independently per "
+                                          + _zScoreWindowSize + "-tick sub-window "
+                                          + (_volumeRangeStart is not null ? "within the selected Volume Range" : "across the latest loaded ticks")
+                                          + " -- zero-mean/unit-variance per sub-window, so geometric shape reads independently of macro trend or price level. Contrast with GLOBAL Z-SCORE, which normalizes the whole selection as one window")">
+                                <DrawableOhlcvChart Bars="ZScoreBarRows()" ShowAnnotationTools="false" />
+                            </div>
+                            <div class="trf-chart-side">
+                                <div class="trf-vp"
+                                     title="Volume profile of the Local Z-Score series itself -- which normalized (z-score) level accumulated the most ticks across every sub-window, not price. POC/Value Area here describe the z-score distribution's own center of mass">
+                                    <TickVolumeProfileChart Prices="LocalZScoreProfileValues()" WindowSize="LocalZScoreProfileValues().Count"
+                                                            CurrentPrice="LocalZScoreCurrentValue()" />
+                                </div>
+                            </div>
                         </div>
                     }
                     else if (_activeDataTab == DataTab.GlobalZScore)
@@ -184,11 +193,20 @@
                                 all normalized against one shared mean/standard deviation
                             </span>
                         </div>
-                        <div class="trf-delta-chart"
-                             title="@("Every tick re-expressed as (price - mean) / standard deviation, computed once over the entire selection "
-                                      + "(" + (_volumeRangeStart is not null ? "the selected Volume Range" : "the latest loaded ticks") + ") "
-                                      + "rather than per sub-window -- zero-mean/unit-variance across the whole lookback. Contrast with LOCAL Z-SCORE, which re-normalizes every window-size chunk independently")">
-                            <DrawableOhlcvChart Bars="GlobalZScoreBarRows()" ShowAnnotationTools="false" />
+                        <div class="trf-delta-row">
+                            <div class="trf-delta-chart"
+                                 title="@("Every tick re-expressed as (price - mean) / standard deviation, computed once over the entire selection "
+                                          + "(" + (_volumeRangeStart is not null ? "the selected Volume Range" : "the latest loaded ticks") + ") "
+                                          + "rather than per sub-window -- zero-mean/unit-variance across the whole lookback. Contrast with LOCAL Z-SCORE, which re-normalizes every window-size chunk independently")">
+                                <DrawableOhlcvChart Bars="GlobalZScoreBarRows()" ShowAnnotationTools="false" />
+                            </div>
+                            <div class="trf-chart-side">
+                                <div class="trf-vp"
+                                     title="Volume profile of the Global Z-Score series itself -- which normalized (z-score) level accumulated the most ticks, not price. POC/Value Area here describe the z-score distribution's own center of mass">
+                                    <TickVolumeProfileChart Prices="GlobalZScoreProfileValues()" WindowSize="GlobalZScoreProfileValues().Count"
+                                                            CurrentPrice="GlobalZScoreCurrentValue()" />
+                                </div>
+                            </div>
                         </div>
                     }
                     else
@@ -218,12 +236,21 @@
                                 each expressed as drift from the anchor (latest) price
                             </span>
                         </div>
-                        <div class="trf-delta-chart"
-                             title="@("Every earlier tick's " + (_driftMode == DriftMode.Log ? "log ratio to" : "fractional drift from") +
-                                      " the latest (anchor) price, re-indexed by tick count instead of wall-clock time "
-                                      + (_volumeRangeStart is not null ? "within the selected Volume Range" : "across the latest loaded ticks")
-                                      + ", then bucketed into OHLC bars -- a 2% move reads the same regardless of the asset's absolute price level")">
-                            <DrawableOhlcvChart Bars="DriftBarRows()" ShowAnnotationTools="false" HorizontalLines="ZeroLine()" />
+                        <div class="trf-delta-row">
+                            <div class="trf-delta-chart"
+                                 title="@("Every earlier tick's " + (_driftMode == DriftMode.Log ? "log ratio to" : "fractional drift from") +
+                                          " the latest (anchor) price, re-indexed by tick count instead of wall-clock time "
+                                          + (_volumeRangeStart is not null ? "within the selected Volume Range" : "across the latest loaded ticks")
+                                          + ", then bucketed into OHLC bars -- a 2% move reads the same regardless of the asset's absolute price level")">
+                                <DrawableOhlcvChart Bars="DriftBarRows()" ShowAnnotationTools="false" HorizontalLines="ZeroLine()" />
+                            </div>
+                            <div class="trf-chart-side">
+                                <div class="trf-vp"
+                                     title="Volume profile of the Drift series itself -- which drift level (fraction or log-ratio from the anchor price) accumulated the most ticks, not price. POC/Value Area here describe the drift distribution's own center of mass">
+                                    <TickVolumeProfileChart Prices="DriftProfileValues()" WindowSize="DriftProfileValues().Count"
+                                                            CurrentPrice="DriftCurrentValue()" />
+                                </div>
+                            </div>
                         </div>
                     }
                 </div>
