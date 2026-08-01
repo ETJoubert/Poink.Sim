@@ -71,7 +71,8 @@ namespace Poink.Sim.Components.Training
         private void ToggleBuildPanel()
         {
             _showBuildPanel = !_showBuildPanel;
-            if (_showBuildPanel) _buildBrainStatus = null;
+            if (_showBuildPanel)
+                _buildBrainStatus = null;
         }
 
         private bool _showDeleteConfirm;
@@ -251,7 +252,8 @@ namespace Poink.Sim.Components.Training
 
         private void RemoveHiddenLayer(int index)
         {
-            if (_mlpHiddenSizes.Count <= 1) return;
+            if (_mlpHiddenSizes.Count <= 1)
+                return;
             _mlpHiddenSizes.RemoveAt(index);
         }
 
@@ -259,7 +261,8 @@ namespace Poink.Sim.Components.Training
 
         private void OnHiddenLayerSizeChanged(int index, ChangeEventArgs e)
         {
-            if (int.TryParse(e.Value?.ToString(), out int size)) _mlpHiddenSizes[index] = size;
+            if (int.TryParse(e.Value?.ToString(), out int size))
+                _mlpHiddenSizes[index] = size;
         }
 
         private IReadOnlyList<int> EffectiveCnnChannels => _cnnChannels.Where(n => n > 0).ToList();
@@ -268,7 +271,8 @@ namespace Poink.Sim.Components.Training
 
         private void RemoveCnnChannelLayer(int index)
         {
-            if (_cnnChannels.Count <= 1) return;
+            if (_cnnChannels.Count <= 1)
+                return;
             _cnnChannels.RemoveAt(index);
         }
 
@@ -276,7 +280,8 @@ namespace Poink.Sim.Components.Training
 
         private void OnCnnChannelSizeChanged(int index, ChangeEventArgs e)
         {
-            if (int.TryParse(e.Value?.ToString(), out int size)) _cnnChannels[index] = size;
+            if (int.TryParse(e.Value?.ToString(), out int size))
+                _cnnChannels[index] = size;
         }
 
         // Which input set the current architecture needs as its sequence-
@@ -307,11 +312,16 @@ namespace Poink.Sim.Components.Training
             get
             {
                 var kinds = new List<EncoderKind>();
-                if (_includeBarWindow) kinds.Add(EncoderKind.BarWindow);
-                if (_includeVolumeProfile) kinds.Add(EncoderKind.VolumeProfile);
-                if (_includeTimeProfile) kinds.Add(EncoderKind.TimeProfile);
-                if (_includeSessionClock) kinds.Add(EncoderKind.SessionClock);
-                if (_includeSpreadVolatility) kinds.Add(EncoderKind.SpreadVolatility);
+                if (_includeBarWindow)
+                    kinds.Add(EncoderKind.BarWindow);
+                if (_includeVolumeProfile)
+                    kinds.Add(EncoderKind.VolumeProfile);
+                if (_includeTimeProfile)
+                    kinds.Add(EncoderKind.TimeProfile);
+                if (_includeSessionClock)
+                    kinds.Add(EncoderKind.SessionClock);
+                if (_includeSpreadVolatility)
+                    kinds.Add(EncoderKind.SpreadVolatility);
                 return kinds;
             }
         }
@@ -390,10 +400,14 @@ namespace Poink.Sim.Components.Training
             get
             {
                 var labels = new List<string>();
-                if (_includeHold) labels.Add("Hold");
-                if (_includeEnterLong) labels.Add("Enter Long");
-                if (_includeEnterShort) labels.Add("Enter Short");
-                if (_includeClose) labels.Add("Close");
+                if (_includeHold)
+                    labels.Add("Hold");
+                if (_includeEnterLong)
+                    labels.Add("Enter Long");
+                if (_includeEnterShort)
+                    labels.Add("Enter Short");
+                if (_includeClose)
+                    labels.Add("Close");
                 return labels;
             }
         }
@@ -442,7 +456,8 @@ namespace Poink.Sim.Components.Training
                 };
 
                 var dataParts = new List<string>();
-                if (_includeBarWindow) dataParts.Add(NormalizationTag(_barWindowNormalization, "BW"));
+                if (_includeBarWindow)
+                    dataParts.Add(NormalizationTag(_barWindowNormalization, "BW"));
                 if (_includeVolumeProfile)
                 {
                     string vpTag = NormalizationTag(_volumeProfileNormalization, "VP");
@@ -453,23 +468,34 @@ namespace Poink.Sim.Components.Training
                     string tpTag = _timeProfileNormalization == NormalizationKind.Raw ? "dTPR" : "dTP";
                     dataParts.Add(_timeProfileSplitUpDown ? $"{tpTag}-split" : tpTag);
                 }
-                if (_includeSessionClock) dataParts.Add("dSC");
-                if (_includeSpreadVolatility) dataParts.Add("dSV");
+                if (_includeSessionClock)
+                    dataParts.Add("dSC");
+                if (_includeSpreadVolatility)
+                    dataParts.Add("dSV");
                 dataParts.Add("dAS");
                 string data = string.Join("-", dataParts);
 
                 string name = string.IsNullOrEmpty(layers) ? $"{arch}_{data}" : $"{arch}_{layers}_{data}";
 
                 var actionParts = new List<string>();
-                if (!_includeHold) actionParts.Add("noHOLD");
-                if (!_includeEnterLong) actionParts.Add("noLONG");
-                if (!_includeEnterShort) actionParts.Add("noSHORT");
-                if (!_includeClose) actionParts.Add("noCLOSE");
-                if (_includeVolumeOutput) actionParts.Add("aVOL");
-                if (_includeStopLossOutput) actionParts.Add("aSL");
-                if (_includeTakeProfitOutput) actionParts.Add("aTP");
-                if (_decisionDecoding == DecisionDecodingKind.HardMax) actionParts.Add("hardmax");
-                else if (_decisionTemperature != 1.0) actionParts.Add($"T{_decisionTemperature:0.##}");
+                if (!_includeHold)
+                    actionParts.Add("noHOLD");
+                if (!_includeEnterLong)
+                    actionParts.Add("noLONG");
+                if (!_includeEnterShort)
+                    actionParts.Add("noSHORT");
+                if (!_includeClose)
+                    actionParts.Add("noCLOSE");
+                if (_includeVolumeOutput)
+                    actionParts.Add("aVOL");
+                if (_includeStopLossOutput)
+                    actionParts.Add("aSL");
+                if (_includeTakeProfitOutput)
+                    actionParts.Add("aTP");
+                if (_decisionDecoding == DecisionDecodingKind.HardMax)
+                    actionParts.Add("hardmax");
+                else if (_decisionTemperature != 1.0)
+                    actionParts.Add($"T{_decisionTemperature:0.##}");
                 return actionParts.Count == 0 ? name : $"{name}_{string.Join("-", actionParts)}";
             }
         }
@@ -496,7 +522,8 @@ namespace Poink.Sim.Components.Training
         private void OnToggleAutoBuildBrainName(ChangeEventArgs e)
         {
             _buildBrainNameAuto = e.Value is bool isAuto && isAuto;
-            if (!_buildBrainNameAuto) _buildBrainName = AutoBuildBrainName;
+            if (!_buildBrainNameAuto)
+                _buildBrainName = AutoBuildBrainName;
         }
 
         private IReadOnlyList<int> CurrentHiddenSizes => _architectureKind switch
@@ -511,9 +538,12 @@ namespace Poink.Sim.Components.Training
             get
             {
                 var kinds = new List<ActionOutputKind>();
-                if (_includeVolumeOutput) kinds.Add(ActionOutputKind.Volume);
-                if (_includeStopLossOutput) kinds.Add(ActionOutputKind.StopLoss);
-                if (_includeTakeProfitOutput) kinds.Add(ActionOutputKind.TakeProfit);
+                if (_includeVolumeOutput)
+                    kinds.Add(ActionOutputKind.Volume);
+                if (_includeStopLossOutput)
+                    kinds.Add(ActionOutputKind.StopLoss);
+                if (_includeTakeProfitOutput)
+                    kinds.Add(ActionOutputKind.TakeProfit);
                 return kinds;
             }
         }
@@ -523,10 +553,14 @@ namespace Poink.Sim.Components.Training
             get
             {
                 var directions = new List<SimulationAction>();
-                if (_includeHold) directions.Add(SimulationAction.Hold);
-                if (_includeEnterLong) directions.Add(SimulationAction.EnterLong);
-                if (_includeEnterShort) directions.Add(SimulationAction.EnterShort);
-                if (_includeClose) directions.Add(SimulationAction.Close);
+                if (_includeHold)
+                    directions.Add(SimulationAction.Hold);
+                if (_includeEnterLong)
+                    directions.Add(SimulationAction.EnterLong);
+                if (_includeEnterShort)
+                    directions.Add(SimulationAction.EnterShort);
+                if (_includeClose)
+                    directions.Add(SimulationAction.Close);
                 return directions;
             }
         }

@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
+using Poink.Sim.Brain.Neural;
 using Poink.Sim.Repository;
 using Poink.Sim.Trader;
 using Poink.Sim.Trader.Commission;
@@ -49,6 +51,27 @@ namespace Poink.Sim.Components.Pages
         public void Dispose() => Service.OnChanged -= HandleServiceChanged;
 
         private void HandleBrainCreated(string name) => _brainName = name;
+
+        // Feeds TrainingPreview -- the recipe Start/Step will actually train
+        // against, or null before a brain's picked/built.
+        private BrainRecipe? CurrentBrainRecipe =>
+            string.IsNullOrEmpty(_brainName) ? null : Service.GetRecipe(_brainName);
+
+        // Feeds TrainingPreview's Data column -- mirrors the Data Range card's TickDataSource fields.
+        private IReadOnlyList<string> PreviewDataItems =>
+        [
+            $"Symbol: {(string.IsNullOrEmpty(_table) ? "(none)" : _table)}",
+            $"From: {_from:yyyy-MM-dd HH:mm}",
+            $"To: {_to:yyyy-MM-dd HH:mm}",
+        ];
+
+        // Feeds TrainingPreview's Training column -- mirrors the Training card's episode/bar fields.
+        private IReadOnlyList<string> PreviewTrainingItems =>
+        [
+            $"Episodes: {_episodeCount}",
+            $"Bars/episode: {_episodeBars}",
+            $"Bar width: {_barWidthMinutes} min",
+        ];
 
         private void ToggleControls() => _controlsCollapsed = !_controlsCollapsed;
 

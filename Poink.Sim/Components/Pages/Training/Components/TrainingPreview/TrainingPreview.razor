@@ -1,0 +1,88 @@
+@namespace Poink.Sim.Components.Training
+
+<div class="tp-card">
+    <div class="tp-title"
+         title="Live summary of the brain that Start/Step will train -- updates as the selected/built brain changes">
+        Training Preview</div>
+        <div class="tp-columns">
+            <div class="tp-column">
+                <div class="tp-column-title">Training</div>
+                @foreach (var item in TrainingItems)
+                {
+                    <div class="tp-row">@item</div>
+                }
+            </div>
+            <div class="tp-column">
+                <div class="tp-column-title">Data</div>
+                @foreach (var item in DataItems)
+                {
+                    <div class="tp-row">@item</div>
+                }
+            </div>
+
+            <div class="tp-column">
+                <div class="tp-column-title">Source</div>
+                @if (SourceRows.Count == 0)
+                {
+                    <div class="tp-row tp-row-empty">none selected</div>
+                }
+                @foreach (var row in SourceRows)
+                {
+                    <div class="tp-row">@row.Source</div>
+                }
+            </div>
+            <div class="tp-column">
+                <div class="tp-column-title">Inputs</div>
+                @foreach (var row in SourceRows)
+                {
+                    <div class="tp-row">@row.Inputs</div>
+                }
+            </div>
+            <div class="tp-column">
+                <div class="tp-column-title">Normalization</div>
+                @foreach (var row in SourceRows)
+                {
+                    <div class="tp-row">@row.Normalization</div>
+                }
+            </div>
+            <div class="tp-column">
+                <div class="tp-column-title">Window</div>
+                @foreach (var row in SourceRows)
+                {
+                    <div class="tp-row">@row.Window</div>
+                }
+            </div>
+            <div class="tp-column">
+                <div class="tp-column-title">Bucket</div>
+                @foreach (var row in SourceRows)
+                {
+                    <div class="tp-row">@row.Bucket</div>
+                }
+            </div>
+            <div class="tp-column">
+                <div class="tp-column-title">Structure</div>
+                @foreach (var item in StructureItems)
+                {
+                    <div class="tp-row">@item</div>
+                }
+            </div>
+            <div class="tp-column">
+                <div class="tp-column-title">Action</div>
+                @if (ActionItems.Count == 0)
+                {
+                    <div class="tp-row tp-row-empty">none selected</div>
+                }
+                @foreach (var item in ActionItems)
+                {
+                    <div class="tp-row">@item</div>
+                }
+            </div>
+            <div class="tp-column">
+                <div class="tp-column-title">Decoded Action</div>
+                @foreach (var item in DecodedActionItems)
+                {
+                    <div class="tp-row">@item</div>
+                }
+            </div>
+        </div>
+    </div>
