@@ -34,12 +34,13 @@ public enum ArchitectureKind { Mlp, Lstm, Cnn }
 // RawPriceNormalizer instead. A per-set build option (see EncoderSizeOptions),
 // orthogonal to EncoderKind -- picking this never changes which EncoderKind a
 // set maps to, only which normalizer pair its encoder is constructed with.
-// Deliberately just two members today, but the whole point of splitting this
-// out from EncoderKind is that a future strategy (log-returns, z-score, ...
-// see TODO/2026-07-26-normalization-strategies.md) is one new member handled
-// inside each encoder's existing normalization branch, not a new EncoderKind
-// value plus a whole new duplicate encoder class per set.
-public enum NormalizationKind { Normalized, Raw }
+// LocalZScore/GlobalZScore are only meaningful for BarWindow (across its
+// trailing price window) and VolumeProfile (across its bucket volumes) --
+// see ZScoreNormalization, BarWindowEncoder, and VolumeProfileEncoder's doc
+// comments for the Local (partitioned into sub-windows) vs Global (whole
+// series as one window) distinction, mirrored from TransformerPage's
+// LocalWindowZScoreTransform/GlobalWindowZScoreTransform.
+public enum NormalizationKind { Normalized, Raw, LocalZScore, GlobalZScore }
 
 // Which extra (non-direction) decisions a brain's network makes, on top of
 // the fixed Hold/EnterLong/EnterShort/Close pick -- see IActionOutputHead.
@@ -70,6 +71,15 @@ public enum ActionOutputEncodingKind { DiscretizedLevels }
 // between these two extremes.
 public enum DecisionDecodingKind { Softmax, HardMax }
 
+// Which encoder's own ordered slice a Cnn-architecture brain's kernel
+// convolves over -- BarWindow (default, today's original behavior: the
+// trailing price window, always the composite's leading slice) or
+// VolumeProfile (its price-ordered histogram buckets instead, wherever they
+// sit in the composite -- see ICnnSweepable and ComposedPolicyBrain.Create's
+// FindCnnSweepRange). Only meaningful when ArchitectureKind is Cnn; ignored
+// otherwise, same tolerance treatment as DecisionTemperature under HardMax.
+public enum CnnKernelSweepSource { BarWindow, VolumeProfile }
+
 // Every pickable set's build-time options -- structural width (window/bucket
 // count) plus, now, its NormalizationKind and (for the two profiles) its
 // merge-window length ("Window" in the Brain Builder's Input table). All of
@@ -95,6 +105,12 @@ public enum DecisionDecodingKind { Softmax, HardMax }
 // original behavior) so a recipe saved before the split option existed still
 // deserializes -- see VolumeProfileEncoder's/TimeProfileEncoder's doc
 // comments on what turning one on changes.
+// BarWindowZScoreSubWindowSize/VolumeProfileZScoreSubWindowSize are the
+// newest such properties, same treatment: only consulted when their set's
+// Normalization is LocalZScore (see ZScoreNormalization) -- default to 5 (an
+// arbitrary but reasonable sub-window default, never exercised by a recipe
+// saved before LocalZScore/GlobalZScore existed since those recipes are
+// pinned to Normalized/Raw).
 public sealed record EncoderSizeOptions(
     int BarWindowSize = 20,
     int VolumeProfileBucketCount = 20,
@@ -106,7 +122,9 @@ public sealed record EncoderSizeOptions(
     NormalizationKind TimeProfileNormalization = NormalizationKind.Normalized,
     int SpreadVolatilityAtrPeriod = 14,
     bool VolumeProfileSplitUpDown = false,
-    bool TimeProfileSplitUpDown = false);
+    bool TimeProfileSplitUpDown = false,
+    int BarWindowZScoreSubWindowSize = 5,
+    int VolumeProfileZScoreSubWindowSize = 5);
 
 // A runtime-built brain's exact shape -- what LoadSavedBrain/TryStartTraining
 // need to reconstruct an identical encoder/architecture/action composition
@@ -142,11 +160,14 @@ public sealed record BrainRecipe(
     IReadOnlyList<SimulationAction>? EnabledDirections = null,
     EncoderSizeOptions? EncoderSizes = null,
     DecisionDecodingKind DecisionDecoding = DecisionDecodingKind.Softmax,
-    double DecisionTemperature = 1.0)
+    double DecisionTemperature = 1.0,
+    CnnKernelSweepSource CnnKernelSweepSource = CnnKernelSweepSource.BarWindow)
 {
     public override string ToString()
     {
         string baseDescription = $"{ArchitectureKind}[{string.Join(",", HiddenSizes)}] {string.Join("+", EncoderKinds)}";
+        if (ArchitectureKind == ArchitectureKind.Cnn && CnnKernelSweepSource != CnnKernelSweepSource.BarWindow)
+            baseDescription += $" [sweep={CnnKernelSweepSource}]";
         if (EnabledDirections is { Count: > 0 } directions)
             baseDescription += $" [{string.Join(",", directions)}]";
         if (ActionOutputKinds is { Count: > 0 })
@@ -166,10 +187,12 @@ internal static class BrainCatalog
         var sizes = sizeOptions ?? new EncoderSizeOptions();
         return kind switch
         {
-            EncoderKind.BarWindow => new BarWindowEncoder(windowSize: sizes.BarWindowSize, normalization: sizes.BarWindowNormalization),
+            EncoderKind.BarWindow => new BarWindowEncoder(
+                windowSize: sizes.BarWindowSize, normalization: sizes.BarWindowNormalization,
+                zScoreSubWindowSize: sizes.BarWindowZScoreSubWindowSize),
             EncoderKind.VolumeProfile => new VolumeProfileEncoder(
                 bucketCount: sizes.VolumeProfileBucketCount, lookbackBars: sizes.VolumeProfileLookbackBars, normalization: sizes.VolumeProfileNormalization,
-                splitUpDown: sizes.VolumeProfileSplitUpDown),
+                splitUpDown: sizes.VolumeProfileSplitUpDown, zScoreSubWindowSize: sizes.VolumeProfileZScoreSubWindowSize),
             EncoderKind.TimeProfile => new TimeProfileEncoder(
                 bucketCount: sizes.TimeProfileBucketCount, lookbackBars: sizes.TimeProfileLookbackBars, normalization: sizes.TimeProfileNormalization,
                 splitUpDown: sizes.TimeProfileSplitUpDown),

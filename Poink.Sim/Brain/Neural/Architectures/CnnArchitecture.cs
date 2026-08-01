@@ -37,4 +37,21 @@ internal sealed class CnnArchitecture : INetworkArchitecture
             "cnn_policy", sequenceLength: sequenceLength, scalarCount: featureCount - sequenceLength,
             channels: _channels, kernelSize: _kernelSize, actionCount: outputWidth);
     }
+
+    // CNN-only alternate entry point (see ICnnSweepable): sweeps a slice
+    // that isn't necessarily the composite's leading one -- sweepOffset/
+    // sweepLength come from ComposedPolicyBrain.Create locating whichever
+    // part a BrainRecipe.CnnKernelSweepSource of VolumeProfile resolves to,
+    // rather than always assuming offset 0 like Build above.
+    public Module<Tensor, Tensor> BuildWithSweep(int featureCount, int sweepOffset, int sweepLength, int outputWidth)
+    {
+        if (sweepLength <= 0)
+            throw new InvalidOperationException(
+                "CnnArchitecture requires a sweep source with a positive SweepLength -- " +
+                "pair it with an encoder like VolumeProfileEncoder that implements ICnnSweepable");
+
+        return new CnnPolicyNetwork(
+            "cnn_policy", sequenceLength: sweepLength, scalarCount: featureCount - sweepLength,
+            channels: _channels, kernelSize: _kernelSize, actionCount: outputWidth, sequenceOffset: sweepOffset);
+    }
 }

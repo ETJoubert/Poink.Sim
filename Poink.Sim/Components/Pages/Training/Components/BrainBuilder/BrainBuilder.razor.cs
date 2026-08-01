@@ -139,6 +139,8 @@ namespace Poink.Sim.Components.Training
             _volumeProfileLookbackBars = sizes.VolumeProfileLookbackBars;
             _timeProfileLookbackBars = sizes.TimeProfileLookbackBars;
             _spreadVolatilityAtrPeriod = sizes.SpreadVolatilityAtrPeriod;
+            _barWindowZScoreSubWindowSize = sizes.BarWindowZScoreSubWindowSize;
+            _volumeProfileZScoreSubWindowSize = sizes.VolumeProfileZScoreSubWindowSize;
 
             _architectureKind = recipe.ArchitectureKind;
             switch (recipe.ArchitectureKind)
@@ -146,6 +148,7 @@ namespace Poink.Sim.Components.Training
                 case ArchitectureKind.Cnn:
                     _cnnKernelSize = recipe.HiddenSizes.Count > 0 ? recipe.HiddenSizes[0] : 3;
                     _cnnChannels = recipe.HiddenSizes.Count > 1 ? recipe.HiddenSizes.Skip(1).ToList() : [16, 32];
+                    _cnnKernelSweepSource = recipe.CnnKernelSweepSource;
                     break;
                 case ArchitectureKind.Lstm:
                     _lstmHiddenSize = recipe.HiddenSizes.Count > 0 ? recipe.HiddenSizes[0] : 64;
@@ -195,6 +198,8 @@ namespace Poink.Sim.Components.Training
         private int _volumeProfileLookbackBars = 50;
         private int _timeProfileLookbackBars = 50;
         private int _spreadVolatilityAtrPeriod = 14;
+        private int _barWindowZScoreSubWindowSize = 5;
+        private int _volumeProfileZScoreSubWindowSize = 5;
 
         private ArchitectureKind _architectureKind = ArchitectureKind.Mlp;
 
@@ -204,6 +209,7 @@ namespace Poink.Sim.Components.Training
 
         private int _cnnKernelSize = 3;
         private List<int> _cnnChannels = [16, 32];
+        private CnnKernelSweepSource _cnnKernelSweepSource = CnnKernelSweepSource.BarWindow;
 
         private bool _includeVolumeOutput;
         private bool _includeStopLossOutput;
@@ -221,6 +227,9 @@ namespace Poink.Sim.Components.Training
 
         private void OnArchitectureKindChanged(ChangeEventArgs e) =>
             _architectureKind = Enum.Parse<ArchitectureKind>(e.Value?.ToString() ?? nameof(ArchitectureKind.Mlp));
+
+        private void OnCnnKernelSweepSourceChanged(ChangeEventArgs e) =>
+            _cnnKernelSweepSource = Enum.Parse<CnnKernelSweepSource>(e.Value?.ToString() ?? nameof(CnnKernelSweepSource.BarWindow));
 
         private void OnDecisionDecodingKindChanged(ChangeEventArgs e) =>
             _decisionDecoding = Enum.Parse<DecisionDecodingKind>(e.Value?.ToString() ?? nameof(DecisionDecodingKind.Softmax));
@@ -270,16 +279,27 @@ namespace Poink.Sim.Components.Training
             if (int.TryParse(e.Value?.ToString(), out int size)) _cnnChannels[index] = size;
         }
 
+        // Which input set the current architecture needs as its sequence-
+        // bearing encoder -- LSTM always needs Bar Window (its own leading-
+        // slice contract, see LstmArchitecture); CNN needs whichever set
+        // _cnnKernelSweepSource picked instead (BarWindow's trailing price
+        // window, or VolumeProfile's price-ordered buckets -- see
+        // ICnnSweepable/ComposedPolicyBrain.Create).
+        private bool CnnSweepSourceIncluded =>
+            _cnnKernelSweepSource == CnnKernelSweepSource.VolumeProfile ? _includeVolumeProfile : _includeBarWindow;
+
         private bool CanCreateBrain =>
             !string.IsNullOrWhiteSpace(EffectiveBuildBrainName)
             && (_includeBarWindow || _includeVolumeProfile || _includeTimeProfile || _includeSessionClock || _includeSpreadVolatility)
             && (_includeHold || _includeEnterLong || _includeEnterShort || _includeClose)
-            && (_architectureKind is not (ArchitectureKind.Lstm or ArchitectureKind.Cnn) || _includeBarWindow)
-            && (_architectureKind != ArchitectureKind.Cnn || (_cnnKernelSize >= 1 && EffectiveCnnChannels.Count > 0))
+            && (_architectureKind != ArchitectureKind.Lstm || _includeBarWindow)
+            && (_architectureKind != ArchitectureKind.Cnn || (CnnSweepSourceIncluded && _cnnKernelSize >= 1 && EffectiveCnnChannels.Count > 0))
             && (!_includeBarWindow || _barWindowSize >= 1)
             && (!_includeVolumeProfile || (_volumeProfileBucketCount >= 1 && _volumeProfileLookbackBars >= 1))
             && (!_includeTimeProfile || (_timeProfileBucketCount >= 1 && _timeProfileLookbackBars >= 1))
             && (!_includeSpreadVolatility || _spreadVolatilityAtrPeriod >= 1)
+            && (_barWindowNormalization != NormalizationKind.LocalZScore || _barWindowZScoreSubWindowSize >= 1)
+            && (_volumeProfileNormalization != NormalizationKind.LocalZScore || _volumeProfileZScoreSubWindowSize >= 1)
             && _decisionTemperature > 0;
 
         private IReadOnlyList<EncoderKind> SelectedEncoderKinds
@@ -307,7 +327,9 @@ namespace Poink.Sim.Components.Training
             TimeProfileNormalization: _timeProfileNormalization,
             SpreadVolatilityAtrPeriod: _spreadVolatilityAtrPeriod,
             VolumeProfileSplitUpDown: _volumeProfileSplitUpDown,
-            TimeProfileSplitUpDown: _timeProfileSplitUpDown);
+            TimeProfileSplitUpDown: _timeProfileSplitUpDown,
+            BarWindowZScoreSubWindowSize: _barWindowZScoreSubWindowSize,
+            VolumeProfileZScoreSubWindowSize: _volumeProfileZScoreSubWindowSize);
 
         private string VolumeProfileBucketsTooltip =>
             (_volumeProfileNormalization == NormalizationKind.Raw, _volumeProfileSplitUpDown) switch
@@ -414,15 +436,16 @@ namespace Poink.Sim.Components.Training
                 string layers = _architectureKind switch
                 {
                     ArchitectureKind.Mlp => string.Join("-", EffectiveMlpHiddenSizes.Select(n => $"L{n}")),
-                    ArchitectureKind.Cnn => $"K{_cnnKernelSize}-" + string.Join("-", EffectiveCnnChannels.Select(n => $"C{n}")),
+                    ArchitectureKind.Cnn => $"K{_cnnKernelSize}-" + string.Join("-", EffectiveCnnChannels.Select(n => $"C{n}"))
+                        + (_cnnKernelSweepSource == CnnKernelSweepSource.VolumeProfile ? "-sweepVP" : ""),
                     _ => $"H{_lstmHiddenSize}-N{_lstmNumLayers}",
                 };
 
                 var dataParts = new List<string>();
-                if (_includeBarWindow) dataParts.Add(_barWindowNormalization == NormalizationKind.Raw ? "dBWR" : "dBW");
+                if (_includeBarWindow) dataParts.Add(NormalizationTag(_barWindowNormalization, "BW"));
                 if (_includeVolumeProfile)
                 {
-                    string vpTag = _volumeProfileNormalization == NormalizationKind.Raw ? "dVPR" : "dVP";
+                    string vpTag = NormalizationTag(_volumeProfileNormalization, "VP");
                     dataParts.Add(_volumeProfileSplitUpDown ? $"{vpTag}-split" : vpTag);
                 }
                 if (_includeTimeProfile)
@@ -450,6 +473,17 @@ namespace Poink.Sim.Components.Training
                 return actionParts.Count == 0 ? name : $"{name}_{string.Join("-", actionParts)}";
             }
         }
+
+        // Short auto-name tag for a data set's NormalizationKind -- "d" + set
+        // prefix is the base (Normalized), with a single extra letter/suffix
+        // per alternative mode so AutoBuildBrainName stays compact.
+        private static string NormalizationTag(NormalizationKind kind, string setPrefix) => kind switch
+        {
+            NormalizationKind.Raw => $"d{setPrefix}R",
+            NormalizationKind.LocalZScore => $"d{setPrefix}ZL",
+            NormalizationKind.GlobalZScore => $"d{setPrefix}ZG",
+            _ => $"d{setPrefix}",
+        };
 
         private string EffectiveBuildBrainName => _buildBrainNameAuto ? AutoBuildBrainName : _buildBrainName;
 
@@ -501,7 +535,7 @@ namespace Poink.Sim.Components.Training
             SelectedEncoderKinds.ToList(), _architectureKind, CurrentHiddenSizes.ToList(),
             SelectedActionOutputKinds.Count > 0 ? SelectedActionOutputKinds : null, ActionOutputEncodingKind.DiscretizedLevels,
             SelectedEnabledDirections.Count > 0 ? SelectedEnabledDirections : null, CurrentEncoderSizeOptions,
-            _decisionDecoding, _decisionTemperature);
+            _decisionDecoding, _decisionTemperature, _cnnKernelSweepSource);
 
         private void CreateBrain()
         {
@@ -510,7 +544,7 @@ namespace Poink.Sim.Components.Training
             if (Service.TryBuildBrain(
                     name, SelectedEncoderKinds, _architectureKind, CurrentHiddenSizes,
                     SelectedActionOutputKinds, SelectedEnabledDirections, CurrentEncoderSizeOptions,
-                    _decisionDecoding, _decisionTemperature))
+                    _decisionDecoding, _decisionTemperature, _cnnKernelSweepSource))
             {
                 _buildBrainStatus = $"built '{name}' -- pick it above to train it";
                 _buildBrainName = "";

@@ -95,16 +95,50 @@ internal sealed class ComposedPolicyBrain : IPolicyGradientBrain
     public static IPolicyGradientBrain Create(
         string name, INetworkArchitecture architecture, IReadOnlyList<IActionOutputHead> actionOutputHeads,
         IReadOnlyList<SimulationAction> enabledDirections, DecisionDecodingKind decisionDecoding, double decisionTemperature,
-        params IObservationEncoder[] parts)
+        CnnKernelSweepSource cnnKernelSweepSource, params IObservationEncoder[] parts)
     {
         if (enabledDirections.Count == 0)
             throw new ArgumentException("a brain needs at least one enabled direction (Hold/EnterLong/EnterShort/Close)", nameof(enabledDirections));
 
         var encoder = CompositeEncoder.Create(parts);
         int extraOutputWidth = actionOutputHeads.Sum(h => h.OutputWidth);
-        var network = architecture.Build(encoder.FeatureCount, encoder.SequenceLength, enabledDirections.Count + extraOutputWidth);
+        int outputWidth = enabledDirections.Count + extraOutputWidth;
+
+        // BarWindow (default) reuses architecture.Build exactly as before --
+        // every existing brain's shape is untouched. VolumeProfile instead
+        // routes through CnnArchitecture's own sweep-aware entry point (see
+        // ICnnSweepable/BuildWithSweep), locating whichever part supplies
+        // the sweep rather than always assuming the composite's leading slice.
+        var network = architecture is CnnArchitecture cnnArchitecture && cnnKernelSweepSource == CnnKernelSweepSource.VolumeProfile
+            ? BuildCnnSweepNetwork(cnnArchitecture, parts, encoder.FeatureCount, outputWidth)
+            : architecture.Build(encoder.FeatureCount, encoder.SequenceLength, outputWidth);
 
         return new ComposedPolicyBrain(name, encoder, network, actionOutputHeads, enabledDirections, decisionDecoding, decisionTemperature);
+    }
+
+    public static IPolicyGradientBrain Create(
+        string name, INetworkArchitecture architecture, IReadOnlyList<IActionOutputHead> actionOutputHeads,
+        IReadOnlyList<SimulationAction> enabledDirections, DecisionDecodingKind decisionDecoding, double decisionTemperature,
+        params IObservationEncoder[] parts) =>
+        Create(name, architecture, actionOutputHeads, enabledDirections, decisionDecoding, decisionTemperature, CnnKernelSweepSource.BarWindow, parts);
+
+    // Finds the first ICnnSweepable part (today, only VolumeProfileEncoder)
+    // and sums the FeatureCounts of whatever comes before it in the
+    // composite, so the kernel sweeps the right slice regardless of where
+    // that part sits among BarWindow/TraderState/etc.
+    private static Module<Tensor, Tensor> BuildCnnSweepNetwork(
+        CnnArchitecture architecture, IReadOnlyList<IObservationEncoder> parts, int featureCount, int outputWidth)
+    {
+        int offset = 0;
+        foreach (var part in parts)
+        {
+            if (part is ICnnSweepable sweepable)
+                return architecture.BuildWithSweep(featureCount, offset, sweepable.SweepLength, outputWidth);
+            offset += part.FeatureCount;
+        }
+
+        throw new InvalidOperationException(
+            "CnnKernelSweepSource.VolumeProfile requires an ICnnSweepable encoder (e.g. VolumeProfileEncoder) in the brain's encoder list");
     }
 
     public static IPolicyGradientBrain Create(

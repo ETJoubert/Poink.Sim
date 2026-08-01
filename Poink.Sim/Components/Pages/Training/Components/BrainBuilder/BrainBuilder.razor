@@ -108,12 +108,14 @@
                     <thead>
                         <tr>
                             <th title="Which market/account data feeds this brain -- check a set to include it">Any input set</th>
-                            <th title="Normalized feeds a fraction-of-total/percent-offset from current price; Raw feeds the literal quantity (price, tick count, or seconds) instead">
+                            <th title="Normalized feeds a fraction-of-total/percent-offset from current price; Raw feeds the literal quantity (price, tick count, or seconds); Local/Global Z-Score feed a z-score against a sub-window's/the whole set's own mean and standard deviation instead">
                                 Normalization</th>
                             <th title="How much trailing bar history this set uses -- a fixed count of bars for Bar Window, merged into one profile for Volume/Time Profile">
                                 Window</th>
                             <th title="How many histogram buckets Volume/Time Profile rebins its merged bars into -- not applicable to Bar Window or Trader State">
                                 Bucket</th>
+                            <th title="Only used by Local Z-Score -- how many entries (bars for Bar Window, buckets for Volume Profile) each independently-normalized sub-window covers">
+                                Z Sub-Window</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -127,9 +129,11 @@
                             <td>
                                 <select class="train-brainrow-select" value="@_barWindowNormalization"
                                         @onchange="OnBarWindowNormalizationChanged" disabled="@(Service.IsRunning || !_includeBarWindow)"
-                                        title="Normalized feeds percent-change-from-current-price; Raw feeds the literal price instead">
+                                        title="Normalized feeds percent-change-from-current-price; Raw feeds the literal price; Local/Global Z-Score feed each bar's z-score against a sub-window's/the whole window's own mean and standard deviation instead">
                                     <option value="Normalized">Normalized</option>
                                     <option value="Raw">Raw</option>
+                                    <option value="LocalZScore">Local Z-Score</option>
+                                    <option value="GlobalZScore">Global Z-Score</option>
                                 </select>
                             </td>
                             <td>
@@ -138,6 +142,18 @@
                                        title="How many trailing bars Bar Window feeds the network -- also its input count, 1 input per bar" />
                             </td>
                             <td class="train-inputset-cell-na" title="Bar Window has no bucketing -- one input per bar">&#8212;</td>
+                            <td>
+                                @if (_barWindowNormalization == NormalizationKind.LocalZScore)
+                                {
+                                    <input class="train-brainrow-input" type="number" min="1" step="1"
+                                           @bind="_barWindowZScoreSubWindowSize" disabled="@(Service.IsRunning || !_includeBarWindow)"
+                                           title="How many trailing bars each independently-normalized Local Z-Score sub-window covers" />
+                                }
+                                else
+                                {
+                                    <span class="train-inputset-cell-na" title="Only used by Local Z-Score">&#8212;</span>
+                                }
+                            </td>
                         </tr>
                         <tr>
                             <td>
@@ -155,9 +171,11 @@
                             <td>
                                 <select class="train-brainrow-select" value="@_volumeProfileNormalization"
                                         @onchange="OnVolumeProfileNormalizationChanged" disabled="@(Service.IsRunning || !_includeVolumeProfile)"
-                                        title="Normalized feeds a fraction-of-total/percent-offset from current price; Raw feeds exact tick counts and exact price levels instead">
+                                        title="Normalized feeds a fraction-of-total/percent-offset from current price; Raw feeds exact tick counts and exact price levels; Local/Global Z-Score feed each bucket's volume as a z-score against a sub-window's/the whole profile's own mean and standard deviation instead">
                                     <option value="Normalized">Normalized</option>
                                     <option value="Raw">Raw</option>
+                                    <option value="LocalZScore">Local Z-Score</option>
+                                    <option value="GlobalZScore">Global Z-Score</option>
                                 </select>
                             </td>
                             <td>
@@ -169,6 +187,18 @@
                                 <input class="train-brainrow-input" type="number" min="1" step="1"
                                        @bind="_volumeProfileBucketCount" disabled="@(Service.IsRunning || !_includeVolumeProfile)"
                                        title="@VolumeProfileBucketsTooltip" />
+                            </td>
+                            <td>
+                                @if (_volumeProfileNormalization == NormalizationKind.LocalZScore)
+                                {
+                                    <input class="train-brainrow-input" type="number" min="1" step="1"
+                                           @bind="_volumeProfileZScoreSubWindowSize" disabled="@(Service.IsRunning || !_includeVolumeProfile)"
+                                           title="How many buckets each independently-normalized Local Z-Score sub-window covers" />
+                                }
+                                else
+                                {
+                                    <span class="train-inputset-cell-na" title="Only used by Local Z-Score">&#8212;</span>
+                                }
                             </td>
                         </tr>
                         <tr>
@@ -202,6 +232,7 @@
                                        @bind="_timeProfileBucketCount" disabled="@(Service.IsRunning || !_includeTimeProfile)"
                                        title="@TimeProfileBucketsTooltip" />
                             </td>
+                            <td class="train-inputset-cell-na" title="Local/Global Z-Score not offered for Time Profile">&#8212;</td>
                         </tr>
                         <tr>
                             <td>
@@ -214,6 +245,7 @@
                             <td class="train-inputset-cell-na" title="Always sin/cos-encoded, already bounded -- no Raw alternative">&#8212;</td>
                             <td class="train-inputset-cell-na" title="Derived from the current tick's own timestamp -- no history needed">&#8212;</td>
                             <td class="train-inputset-cell-na" title="Fixed 4 values (time-of-day sin/cos, day-of-week sin/cos), no bucketing">&#8212;</td>
+                            <td class="train-inputset-cell-na" title="Local/Global Z-Score not offered for Session Clock">&#8212;</td>
                         </tr>
                         <tr>
                             <td>
@@ -230,6 +262,7 @@
                                        title="How many trailing bars the Average True Range figure averages over" />
                             </td>
                             <td class="train-inputset-cell-na" title="Fixed 2 values (spread, ATR), no bucketing">&#8212;</td>
+                            <td class="train-inputset-cell-na" title="Local/Global Z-Score not offered for Spread + Volatility">&#8212;</td>
                         </tr>
                         <tr>
                             <td>
@@ -246,6 +279,7 @@
                             </td>
                             <td class="train-inputset-cell-na" title="Meaningful from the first tick -- no windowing">&#8212;</td>
                             <td class="train-inputset-cell-na" title="Fixed 12 fields, no bucketing">&#8212;</td>
+                            <td class="train-inputset-cell-na" title="Local/Global Z-Score not offered for Trader State">&#8212;</td>
                         </tr>
                     </tbody>
                 </table>
@@ -325,6 +359,15 @@
                     }
                     else
                     {
+                        <label class="train-brainrow-field"
+                               title="Which selected input set the convolution kernel actually sweeps over -- Bar Window (default) slides over the trailing price window; Volume Profile instead slides over its price-ordered histogram buckets, with everything else (including Bar Window if also selected) fed as plain scalars alongside the pooled conv output">
+                            Kernel sweeps
+                            <select class="train-brainrow-select" value="@_cnnKernelSweepSource"
+                                    @onchange="OnCnnKernelSweepSourceChanged" disabled="@Service.IsRunning">
+                                <option value="BarWindow">Bar Window</option>
+                                <option value="VolumeProfile">Volume Profile</option>
+                            </select>
+                        </label>
                         <label class="train-brainrow-field" title="Convolution kernel width applied to every conv layer -- odd sizes (3, 5, 7, ...) keep the window's time length unchanged through each layer">
                             Kernel size
                             <input class="train-brainrow-input train-brainrow-input-right" type="number" min="1" step="2"
@@ -356,9 +399,11 @@
                                 + ADD LAYER
                             </button>
                         </div>
-                        @if (!_includeBarWindow)
+                        @if (!CnnSweepSourceIncluded)
                         {
-                            <span class="train-brainrow-error">CNN needs Bar Window for its sequence</span>
+                            <span class="train-brainrow-error">
+                                CNN needs @(_cnnKernelSweepSource == CnnKernelSweepSource.VolumeProfile ? "Volume Profile" : "Bar Window") for its sequence
+                            </span>
                         }
                     }
                 </div>

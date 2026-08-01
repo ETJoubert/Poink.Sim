@@ -13,9 +13,13 @@
 //
 //  Normalization picks the feature convention: Normalized (default) feeds
 //  percent-change-from-current-price via PriceOffsetNormalizer; Raw feeds
-//  the literal price via RawPriceNormalizer instead. Same "t-N" labels
-//  either way -- the two modes are alternatives, never combined in one
-//  brain, so there's no collision to avoid by splitting the prefix.
+//  the literal price via RawPriceNormalizer instead; LocalZScore/GlobalZScore
+//  feed each price's z-score (see ZScoreNormalization) against its own
+//  sub-window's (Local) or the whole trailing window's (Global) mean/stddev,
+//  computed over the window's real prices only -- zero-padding entries are
+//  excluded from the mean/stddev and left at their neutral 0. Same "t-N"
+//  labels regardless of mode -- these are alternatives, never combined in
+//  one brain, so there's no collision to avoid by splitting the prefix.
 //
 //  SequenceLength == FeatureCount (the whole output is one contiguous
 //  sequence) -- this is the one encoder in this codebase meant to be listed
@@ -33,15 +37,27 @@ internal sealed class BarWindowEncoder : IObservationEncoder
 {
     private const int DefaultWindowSize = 20;
 
+    private const int DefaultZScoreSubWindowSize = 5;
+
     private readonly int _windowSize;
+    private readonly NormalizationKind _normalization;
+    private readonly int _zScoreSubWindowSize;
     private readonly IFeatureNormalizer _normalizer;
     private readonly IReadOnlyList<FeatureDescriptor> _features;
 
     public BarWindowEncoder(
-        int windowSize = DefaultWindowSize, NormalizationKind normalization = NormalizationKind.Normalized, IFeatureNormalizer? normalizer = null)
+        int windowSize = DefaultWindowSize, NormalizationKind normalization = NormalizationKind.Normalized,
+        int zScoreSubWindowSize = DefaultZScoreSubWindowSize, IFeatureNormalizer? normalizer = null)
     {
         _windowSize = windowSize;
-        _normalizer = normalizer ?? (normalization == NormalizationKind.Raw ? new RawPriceNormalizer() : new PriceOffsetNormalizer());
+        _normalization = normalization;
+        _zScoreSubWindowSize = zScoreSubWindowSize;
+        _normalizer = normalizer ?? (normalization switch
+        {
+            NormalizationKind.Raw => new RawPriceNormalizer(),
+            NormalizationKind.LocalZScore or NormalizationKind.GlobalZScore => new ZScoreNormalizer(),
+            _ => new PriceOffsetNormalizer(),
+        });
         _features = Enumerable.Range(1, _windowSize)
             .Select(i => new FeatureDescriptor($"t-{_windowSize - i + 1}", _normalizer))
             .ToList();
@@ -64,13 +80,26 @@ internal sealed class BarWindowEncoder : IObservationEncoder
 
         int available = Math.Min(_windowSize, sourceCount);
         int padding = _windowSize - available;
+
+        var prices = new double[available];
         for (int i = 0; i < available; i++)
         {
             int sourceIndex = sourceCount - available + i;
-            double price = useBars
+            prices[i] = useBars
                 ? observation.RecentBars[sourceIndex].Close
                 : (observation.RecentTicks[sourceIndex].Bid + observation.RecentTicks[sourceIndex].Ask) / 2.0;
-            features[padding + i] = _normalizer.Normalize(price, observation);
+        }
+
+        if (_normalization is NormalizationKind.LocalZScore or NormalizationKind.GlobalZScore)
+        {
+            var z = _normalization == NormalizationKind.GlobalZScore
+                ? ZScoreNormalization.Global(prices)
+                : ZScoreNormalization.Local(prices, _zScoreSubWindowSize);
+            for (int i = 0; i < available; i++) features[padding + i] = _normalizer.Normalize(z[i], observation);
+        }
+        else
+        {
+            for (int i = 0; i < available; i++) features[padding + i] = _normalizer.Normalize(prices[i], observation);
         }
 
         return features;

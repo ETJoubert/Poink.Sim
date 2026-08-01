@@ -732,7 +732,8 @@ internal sealed class RlTrainingService
         var actionOutputHeads = (recipe.ActionOutputKinds ?? [])
             .Select(k => BrainCatalog.CreateActionOutputHead(k, recipe.ActionOutputEncodingKind, recipe.DecisionDecoding, recipe.DecisionTemperature)).ToList();
         var directions = recipe.EnabledDirections ?? ComposedPolicyBrain.AllDirections;
-        return ComposedPolicyBrain.Create(name, architecture, actionOutputHeads, directions, recipe.DecisionDecoding, recipe.DecisionTemperature, parts);
+        return ComposedPolicyBrain.Create(
+            name, architecture, actionOutputHeads, directions, recipe.DecisionDecoding, recipe.DecisionTemperature, recipe.CnnKernelSweepSource, parts);
     }
 
     // Builds a new ComposedPolicyBrain from the Train page's Brain Builder
@@ -749,7 +750,7 @@ internal sealed class RlTrainingService
         string name, IReadOnlyList<EncoderKind> encoderKinds, ArchitectureKind architectureKind, IReadOnlyList<int> hiddenSizes,
         IReadOnlyList<ActionOutputKind>? actionOutputKinds = null, IReadOnlyList<SimulationAction>? enabledDirections = null,
         EncoderSizeOptions? encoderSizes = null, DecisionDecodingKind decisionDecoding = DecisionDecodingKind.Softmax,
-        double decisionTemperature = 1.0)
+        double decisionTemperature = 1.0, CnnKernelSweepSource cnnKernelSweepSource = CnnKernelSweepSource.BarWindow)
     {
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -779,7 +780,7 @@ internal sealed class RlTrainingService
         var recipe = new BrainRecipe(
             encoderKinds.ToList(), architectureKind, hiddenSizes.ToList(),
             actionOutputKinds?.ToList(), ActionOutputEncodingKind.DiscretizedLevels, enabledDirections?.ToList(), encoderSizes,
-            decisionDecoding, decisionTemperature);
+            decisionDecoding, decisionTemperature, cnnKernelSweepSource);
 
         try
         {

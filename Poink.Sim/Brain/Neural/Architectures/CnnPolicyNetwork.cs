@@ -33,14 +33,23 @@ namespace Poink.Sim.Brain.Neural;
 
 internal sealed class CnnPolicyNetwork : Module<Tensor, Tensor>
 {
+    private readonly long _sequenceOffset;
     private readonly long _sequenceLength;
     private readonly Module<Tensor, Tensor> _convStack;
     private readonly Linear _head1;
     private readonly Linear _head2;
 
-    public CnnPolicyNetwork(string name, long sequenceLength, long scalarCount, int[] channels, int kernelSize, long actionCount)
+    // sequenceOffset: where the swept slice starts in the flat feature
+    // vector -- 0 (default) is every existing caller's BarWindow-at-the-front
+    // case; CnnArchitecture.BuildWithSweep passes a nonzero offset when the
+    // recipe's CnnKernelSweepSource points at a part sitting elsewhere in the
+    // composite (see ICnnSweepable). Scalars then become whatever sits
+    // before AND after the swept slice, not just a single trailing block.
+    public CnnPolicyNetwork(
+        string name, long sequenceLength, long scalarCount, int[] channels, int kernelSize, long actionCount, long sequenceOffset = 0)
         : base(name)
     {
+        _sequenceOffset = sequenceOffset;
         _sequenceLength = sequenceLength;
         _convStack = BuildConvStack(channels, kernelSize);
 
@@ -73,8 +82,17 @@ internal sealed class CnnPolicyNetwork : Module<Tensor, Tensor>
 
     public override Tensor forward(Tensor input)
     {
-        var window = input.narrow(1, 0, _sequenceLength).unsqueeze(1); // (batch, 1, sequenceLength)
-        var scalars = input.narrow(1, _sequenceLength, input.shape[1] - _sequenceLength); // (batch, scalarCount)
+        var window = input.narrow(1, _sequenceOffset, _sequenceLength).unsqueeze(1); // (batch, 1, sequenceLength)
+
+        // Scalars are whatever sits outside the swept slice -- a single
+        // trailing block when _sequenceOffset is 0 (every non-sweep caller),
+        // or the before+after halves either side of it when a sweep source
+        // sits elsewhere in the composite (see ICnnSweepable).
+        long afterStart = _sequenceOffset + _sequenceLength;
+        long afterLength = input.shape[1] - afterStart;
+        var scalars = _sequenceOffset == 0
+            ? input.narrow(1, afterStart, afterLength)
+            : cat(new[] { input.narrow(1, 0, _sequenceOffset), input.narrow(1, afterStart, afterLength) }, dim: 1);
 
         var mapped = _convStack.forward(window); // (batch, channels, actualLength)
 
