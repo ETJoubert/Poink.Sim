@@ -25,6 +25,15 @@ namespace Poink.Sim.Components.Training
         [Parameter] public TimeSpan BlockSpan { get; set; }
         [Parameter] public IReadOnlyList<RlEpisodeWindow> EpisodeWindows { get; set; } = Array.Empty<RlEpisodeWindow>();
 
+        // Stacks blocks top-to-bottom (each sized by height%) instead of
+        // left-to-right (width%) -- for narrow layouts like TrainingPreview's
+        // Data column, where a horizontal bar wouldn't fit.
+        [Parameter] public bool Vertical { get; set; }
+
+        // Hides the DATA COVERAGE/date-range header -- for embedding
+        // alongside text that already states the range (see TrainingPreview).
+        [Parameter] public bool Compact { get; set; }
+
         private sealed record Block(DateTime Start, DateTime End, double WidthPercent, int Count, double Intensity);
 
         // Empty (renders nothing) until a usable range/block size is set --

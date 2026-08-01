@@ -45,3 +45,24 @@
 .coverage-timeline-block-unused {
     background: transparent;
 }
+
+.coverage-timeline-vertical {
+    margin-bottom: 0;
+}
+
+.coverage-timeline-vertical .coverage-timeline-track {
+    flex-direction: column;
+    width: 40px;
+    height: 600px;
+}
+
+.coverage-timeline-vertical .coverage-timeline-block {
+    width: 100%;
+    height: auto;
+    border-right: none;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-bg-terminal) 70%, transparent);
+}
+
+.coverage-timeline-vertical .coverage-timeline-block:last-child {
+    border-bottom: none;
+}

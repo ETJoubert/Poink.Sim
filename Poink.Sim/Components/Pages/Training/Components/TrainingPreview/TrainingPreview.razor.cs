@@ -1,8 +1,10 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.AspNetCore.Components;
 using Poink.Sim.Brain.Neural;
 using Poink.Sim.Models;
+using Poink.Sim.Training;
 
 namespace Poink.Sim.Components.Training
 {
@@ -18,6 +20,14 @@ namespace Poink.Sim.Components.Training
         [Parameter] public BrainRecipe? Recipe { get; set; }
         [Parameter] public IReadOnlyList<string> DataItems { get; set; } = [];
         [Parameter] public IReadOnlyList<string> TrainingItems { get; set; } = [];
+
+        // Feeds the vertical Data-coverage timeline -- same From/To/BlockSpan/
+        // EpisodeWindows EpisodeCoverageTimeline already takes elsewhere on
+        // TrainPage, so the slice boundaries here match that one exactly.
+        [Parameter] public DateTime From { get; set; }
+        [Parameter] public DateTime To { get; set; }
+        [Parameter] public TimeSpan BlockSpan { get; set; }
+        [Parameter] public IReadOnlyList<RlEpisodeWindow> EpisodeWindows { get; set; } = [];
 
         private IReadOnlyList<TrainingPreviewSourceRow> SourceRows => BuildSourceRows(Recipe);
         private IReadOnlyList<string> StructureItems => BuildStructureItems(Recipe);

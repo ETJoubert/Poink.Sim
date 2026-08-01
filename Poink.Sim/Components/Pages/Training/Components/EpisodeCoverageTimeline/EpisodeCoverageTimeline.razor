@@ -2,19 +2,22 @@
 
 @if (HasRange)
 {
-    <div class="coverage-timeline">
-        <div class="coverage-timeline-header">
-            <span class="coverage-timeline-title"
-                  title="Each block covers one bars/episode-length slice of the selected data range -- darker means more completed episodes sampled from it">
-                DATA COVERAGE
-            </span>
-            <span class="coverage-timeline-range">@From.ToString("yyyy-MM-dd HH:mm") &rarr; @To.ToString("yyyy-MM-dd HH:mm")</span>
-        </div>
+    <div class="coverage-timeline @(Vertical ? "coverage-timeline-vertical" : "")">
+        @if (!Compact)
+        {
+            <div class="coverage-timeline-header">
+                <span class="coverage-timeline-title"
+                      title="Each block covers one bars/episode-length slice of the selected data range -- darker means more completed episodes sampled from it">
+                    DATA COVERAGE
+                </span>
+                <span class="coverage-timeline-range">@From.ToString("yyyy-MM-dd HH:mm") &rarr; @To.ToString("yyyy-MM-dd HH:mm")</span>
+            </div>
+        }
         <div class="coverage-timeline-track">
             @foreach (var b in Blocks)
             {
                 <div class="coverage-timeline-block @(b.Count == 0 ? "coverage-timeline-block-unused" : "")"
-                     style="width: @(Pct(b.WidthPercent))%; @(b.Count > 0 ? $"background-color: color-mix(in srgb, var(--color-secondary) {Pct(b.Intensity * 80 + 20)}%, transparent);" : "")"
+                     style="@(Vertical ? "height" : "width"): @(Pct(b.WidthPercent))%; @(b.Count > 0 ? $"background-color: color-mix(in srgb, var(--color-secondary) {Pct(b.Intensity * 80 + 20)}%, transparent);" : "")"
                      title="@(b.Start.ToString("yyyy-MM-dd HH:mm")) – @(b.End.ToString("yyyy-MM-dd HH:mm")): used @b.Count episode@(b.Count == 1 ? "" : "s")">
                 </div>
             }
