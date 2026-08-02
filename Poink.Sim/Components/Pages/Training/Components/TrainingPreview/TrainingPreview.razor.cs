@@ -123,19 +123,20 @@ namespace Poink.Sim.Components.Training
         private DateTime? DataHighlightStart => EpisodeWindows.Count > 0 ? EpisodeWindows[^1].Start : _episodeWindowStart;
         private DateTime? DataHighlightEnd => EpisodeWindows.Count > 0 ? EpisodeWindows[^1].End : _episodeWindowEnd;
 
-        // Episode column's own "prefer the real run" switch -- once training
-        // has completed at least one episode, its own bars/histograms (same
-        // episode DataHighlightStart/End now highlights) replace this
-        // preview's random draw, so the chart/profile cards track whichever
-        // episode the run is actually using instead of a stale/misleading
-        // guess. Falls back to the random draw before training has produced
-        // an episode yet.
+        // Episode and Source columns' shared "prefer the real run" switch --
+        // once training has completed at least one episode, its own bars/
+        // histograms (same episode DataHighlightStart/End now highlights)
+        // replace this preview's random draw, so the Episode chart/profile
+        // cards and Source's per-row raw/normalized values all track
+        // whichever episode the run is actually using instead of a stale/
+        // misleading guess. Falls back to the random draw before training
+        // has produced an episode yet.
         private IReadOnlyList<HlocAvdtBar> EffectiveEpisodeBars =>
             Service.LatestEpisodeBars.Count > 0 ? Service.LatestEpisodeBars : _episodeBars;
         private IReadOnlyList<BarPriceHistogram> EffectiveEpisodeHistograms =>
             Service.LatestEpisodeBars.Count > 0 ? Service.LatestEpisodeBarHistograms : _episodeHistograms;
 
-        private IReadOnlyList<TrainingPreviewSourceRow> SourceRows => BuildSourceRows(Recipe, _episodeBars, _episodeHistograms, StartingCash);
+        private IReadOnlyList<TrainingPreviewSourceRow> SourceRows => BuildSourceRows(Recipe, EffectiveEpisodeBars, EffectiveEpisodeHistograms, StartingCash);
         private IReadOnlyList<string> NeuralNetworkItems => BuildNeuralNetworkItems(Recipe);
         private List<StackSegment> InputBarSegments => BuildInputBarSegments(SourceRows);
         private IReadOnlyList<string> HiddenLayerItems => BuildHiddenLayerItems(Recipe);
@@ -374,7 +375,7 @@ namespace Poink.Sim.Components.Training
         // input vector itself is in, see VolumeProfileAnalysis.BuildRawHistogram)
         // -- feeds the Source column's card, uncapped (unlike
         // BuildVolumeProfileRows' chart, which caps rows for readability).
-        private static IReadOnlyList<string> BuildVolumeProfileRawValues(BrainRecipe? recipe, List<BarPriceHistogram> episodeHistograms)
+        private static IReadOnlyList<string> BuildVolumeProfileRawValues(BrainRecipe? recipe, IReadOnlyList<BarPriceHistogram> episodeHistograms)
         {
             if (recipe is null || episodeHistograms.Count == 0)
                 return [];
@@ -391,7 +392,7 @@ namespace Poink.Sim.Components.Training
         // Time Profile counterpart to BuildVolumeProfileRawValues -- literal
         // seconds spent per rebinned bucket instead of tick count.
         private static IReadOnlyList<string> BuildTimeProfileRawValues(
-            BrainRecipe? recipe, List<HlocAvdtBar> episodeBars, List<BarPriceHistogram> episodeHistograms)
+            BrainRecipe? recipe, IReadOnlyList<HlocAvdtBar> episodeBars, IReadOnlyList<BarPriceHistogram> episodeHistograms)
         {
             if (recipe is null || episodeHistograms.Count == 0)
                 return [];
@@ -412,7 +413,7 @@ namespace Poink.Sim.Components.Training
         // z-scores that same fraction array across buckets (see
         // VolumeProfileEncoder's own ApplyZScore). Feeds the Normalization
         // column's Volume Profile card.
-        private static IReadOnlyList<string> BuildVolumeProfileNormalizedValues(BrainRecipe? recipe, List<BarPriceHistogram> episodeHistograms)
+        private static IReadOnlyList<string> BuildVolumeProfileNormalizedValues(BrainRecipe? recipe, IReadOnlyList<BarPriceHistogram> episodeHistograms)
         {
             if (recipe is null || episodeHistograms.Count == 0)
                 return [];
@@ -440,7 +441,7 @@ namespace Poink.Sim.Components.Training
         // (TimeProfileEncoder doesn't offer Local/GlobalZScore -- see
         // BrainBuilder's input table -- so no z-score branch here).
         private static IReadOnlyList<string> BuildTimeProfileNormalizedValues(
-            BrainRecipe? recipe, List<HlocAvdtBar> episodeBars, List<BarPriceHistogram> episodeHistograms)
+            BrainRecipe? recipe, IReadOnlyList<HlocAvdtBar> episodeBars, IReadOnlyList<BarPriceHistogram> episodeHistograms)
         {
             if (recipe is null || episodeHistograms.Count == 0)
                 return [];
@@ -469,12 +470,12 @@ namespace Poink.Sim.Components.Training
         private static string FormatFraction(float f) => (f * 100).ToString("0.00", CultureInfo.InvariantCulture) + "%";
 
         // Bar Window's own encoder feeds the trailing BarWindowSize bars'
-        // Close prices, most-recent-last -- reuses the same random episode
-        // the Episode column already sampled. Always the literal prices,
-        // regardless of Normalization -- feeds the Source column's card (see
-        // TrainingPreview.razor), which shows the original data the encoder
-        // starts from either way.
-        private static IReadOnlyList<string> BuildBarWindowRawValues(List<HlocAvdtBar> episodeBars, int barWindowSize)
+        // Close prices, most-recent-last -- reuses the same episode
+        // (EffectiveEpisodeBars) the Episode column charts. Always the
+        // literal prices, regardless of Normalization -- feeds the Source
+        // column's card (see TrainingPreview.razor), which shows the
+        // original data the encoder starts from either way.
+        private static IReadOnlyList<string> BuildBarWindowRawValues(IReadOnlyList<HlocAvdtBar> episodeBars, int barWindowSize)
         {
             if (episodeBars.Count == 0)
                 return [];
@@ -489,7 +490,7 @@ namespace Poink.Sim.Components.Training
         // Normalization column's own Bar Window card, so what the network would
         // actually see is visible alongside the raw values in Source.
         private static IReadOnlyList<string> BuildBarWindowNormalizedValues(
-            List<HlocAvdtBar> episodeBars, NormalizationKind normalization, int barWindowSize, int zScoreSubWindowSize)
+            IReadOnlyList<HlocAvdtBar> episodeBars, NormalizationKind normalization, int barWindowSize, int zScoreSubWindowSize)
         {
             if (episodeBars.Count == 0)
                 return [];
@@ -534,7 +535,7 @@ namespace Poink.Sim.Components.Training
         // Feeds both RawValues and NormalizedValues identically -- every
         // TraderStateEncoder normalizer is a passthrough (see that class's
         // doc comment), so there's nothing separate to show "normalized".
-        private static IReadOnlyList<(string Value, string Tooltip)> BuildTraderStateValues(List<HlocAvdtBar> episodeBars, double startingCash)
+        private static IReadOnlyList<(string Value, string Tooltip)> BuildTraderStateValues(IReadOnlyList<HlocAvdtBar> episodeBars, double startingCash)
         {
             if (episodeBars.Count == 0)
                 return [];
@@ -566,7 +567,7 @@ namespace Poink.Sim.Components.Training
         // Builder's own input table, always ending with the always-on
         // Trader State.
         private static IReadOnlyList<TrainingPreviewSourceRow> BuildSourceRows(
-            BrainRecipe? recipe, List<HlocAvdtBar> episodeBars, List<BarPriceHistogram> episodeHistograms, double startingCash)
+            BrainRecipe? recipe, IReadOnlyList<HlocAvdtBar> episodeBars, IReadOnlyList<BarPriceHistogram> episodeHistograms, double startingCash)
         {
             var rows = new List<TrainingPreviewSourceRow>();
             if (recipe is null)
