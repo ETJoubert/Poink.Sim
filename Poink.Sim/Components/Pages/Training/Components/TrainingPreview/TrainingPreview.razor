@@ -163,7 +163,7 @@
                                         </div>
                                     }
                                 </div>
-                                <div class="tp-source-card tp-nn-card">
+                                <div class="tp-source-card tp-nn-card tp-nn-hidden-card">
                                     <div class="tp-source-card-title">Hidden</div>
                                     @if (HiddenLayerBars.Count == 0)
                                     {
@@ -174,10 +174,12 @@
                                         <div class="tp-hidden-bars">
                                             @foreach (var bar in HiddenLayerBars)
                                             {
-                                                <div class="tp-hidden-bar-col" title="@($"{bar.Label}: {bar.Size}")">
-                                                    <span class="tp-hidden-bar-label">@bar.Label</span>
+                                                <div class="tp-source-card tp-hidden-bar-card" title="@($"{bar.Label}: {bar.Size}")">
+                                                    <div class="tp-source-card-title">@bar.Label</div>
                                                     <span class="tp-hidden-bar-count">@bar.Size</span>
-                                                    <div class="tp-hidden-bar" style="height: @(bar.HeightPercent)%"></div>
+                                                    <div class="tp-hidden-bar-track">
+                                                        <div class="tp-hidden-bar" style="height: @(bar.HeightPercent)%"></div>
+                                                    </div>
                                                 </div>
                                             }
                                         </div>

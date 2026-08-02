@@ -221,7 +221,12 @@
 }
 
 .tp-nn-card {
-    flex: 1 1 0;
+    flex: 0 0 auto;
+    min-width: 0;
+}
+
+.tp-nn-hidden-card {
+    flex: 1 1 auto;
     min-width: 0;
 }
 
@@ -268,21 +273,16 @@
 
 .tp-hidden-bars {
     display: flex;
-    flex-wrap: wrap;
-    align-items: flex-end;
+    align-items: stretch;
     gap: 6px;
     flex: 1;
     min-height: 60px;
     margin-top: 4px;
 }
 
-.tp-hidden-bar-col {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: flex-end;
-    height: 100%;
-    gap: 2px;
+.tp-hidden-bar-card {
+    flex: 1 1 0;
+    min-width: 0;
 }
 
 .tp-hidden-bar-count {
@@ -292,18 +292,19 @@
     opacity: 0.85;
 }
 
-.tp-hidden-bar {
-    width: 10px;
-    min-height: 2px;
-    border-radius: 2px 2px 0 0;
-    background: var(--color-primary);
+.tp-hidden-bar-track {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    min-height: 0;
+    margin-top: 2px;
 }
 
-.tp-hidden-bar-label {
-    font-size: 0.5rem;
-    color: var(--color-secondary);
-    opacity: 0.7;
-    white-space: nowrap;
+.tp-hidden-bar {
+    width: 100%;
+    min-height: 2px;
+    border-radius: 2px;
+    background: var(--tp-source-color, var(--color-primary));
 }
 
 /* Action Decoder -- one collapse funnel per decoded group, flowing left to

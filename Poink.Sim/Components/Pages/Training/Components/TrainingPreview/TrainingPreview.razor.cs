@@ -691,7 +691,7 @@ namespace Poink.Sim.Components.Training
                     items.Add($"Layers: {(hiddenSizes.Count > 1 ? hiddenSizes[1] : 2)}");
                     break;
                 case ArchitectureKind.Cnn:
-                    items.Add($"Kernel: {(hiddenSizes.Count > 0 ? hiddenSizes[0] : 3)}");
+                    items.Add($"K: {(hiddenSizes.Count > 0 ? hiddenSizes[0] : 3)}");
                     var channels = hiddenSizes.Count > 1 ? hiddenSizes.Skip(1).ToList() : [16, 32];
                     for (int i = 0; i < channels.Count; i++)
                         items.Add($"C{i + 1}: {channels[i]}");
