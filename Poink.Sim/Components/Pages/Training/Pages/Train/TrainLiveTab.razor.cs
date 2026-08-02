@@ -28,7 +28,8 @@ namespace Poink.Sim.Components.Training
         private void HandleServiceChanged()
         {
             bool isAdvancing = Service.IsRunning && !Service.IsPaused;
-            if (isAdvancing && !_trainingWasAdvancing) StopAndResetReplay();
+            if (isAdvancing && !_trainingWasAdvancing)
+                StopAndResetReplay();
             _trainingWasAdvancing = isAdvancing;
 
             _ = InvokeAsync(StateHasChanged);
@@ -129,7 +130,8 @@ namespace Poink.Sim.Components.Training
             get
             {
                 var trades = _replayBars is not null ? _replayTrades ?? new List<Trade>() : SourceEpisodeTrades;
-                if (trades.Count == 0) return new List<Trade>();
+                if (trades.Count == 0)
+                    return new List<Trade>();
 
                 var visibleUntil = _replayBars is null
                     ? DateTime.MaxValue
@@ -154,16 +156,21 @@ namespace Poink.Sim.Components.Training
                 var bars = DisplayedEpisodeBars;
                 var actions = DisplayedBarActionsSource;
                 int warmupBars = DisplayedWarmupBars;
-                if (actions.Count == 0 || bars.Count <= warmupBars) return (0, 0, 0);
+                if (actions.Count == 0 || bars.Count <= warmupBars)
+                    return (0, 0, 0);
 
                 int revealedDecisions = Math.Min(actions.Count, bars.Count - warmupBars);
                 int longs = 0, shorts = 0, closes = 0;
                 for (int i = 0; i < revealedDecisions; i++)
                 {
-                    if (!actions[i].Blocked) continue;
-                    if (actions[i].Action == SimulationAction.EnterLong) longs++;
-                    else if (actions[i].Action == SimulationAction.EnterShort) shorts++;
-                    else if (actions[i].Action == SimulationAction.Close) closes++;
+                    if (!actions[i].Blocked)
+                        continue;
+                    if (actions[i].Action == SimulationAction.EnterLong)
+                        longs++;
+                    else if (actions[i].Action == SimulationAction.EnterShort)
+                        shorts++;
+                    else if (actions[i].Action == SimulationAction.Close)
+                        closes++;
                 }
                 return (longs, shorts, closes);
             }
@@ -200,7 +207,8 @@ namespace Poink.Sim.Components.Training
                     var latest = SourceEpisodeBarEquity;
                     return latest.Count > 0 ? latest[^1] : null;
                 }
-                if (_replayBarEquity is null) return null;
+                if (_replayBarEquity is null)
+                    return null;
                 int i = DisplayedDecisionIndex;
                 return i >= 0 && i < _replayBarEquity.Count ? _replayBarEquity[i] : null;
             }
@@ -255,7 +263,8 @@ namespace Poink.Sim.Components.Training
             DateTime? match = null;
             foreach (var b in bars)
             {
-                if (b.TimeUtc > timeUtc) break;
+                if (b.TimeUtc > timeUtc)
+                    break;
                 match = b.TimeUtc;
             }
             return match;
@@ -275,16 +284,20 @@ namespace Poink.Sim.Components.Training
                     for (int i = warmupBars; i < bars.Count; i++)
                     {
                         int decisionIndex = i - warmupBars;
-                        if (decisionIndex >= actions.Count) break;
-                        if (ActionMarkerStyle(actions[decisionIndex]) is not { } style) continue;
+                        if (decisionIndex >= actions.Count)
+                            break;
+                        if (ActionMarkerStyle(actions[decisionIndex]) is not { } style)
+                            continue;
                         markers.Add(new ChartMarker(bars[i].TimeUtc, style.Shape, style.ColorGroup, style.Text));
                     }
                 }
 
                 foreach (var trade in DisplayedRevealedTrades)
                 {
-                    if (CloseReasonMarkerStyle(trade.CloseReason) is not { } style) continue;
-                    if (BarTimeContaining(bars, trade.ExitTime) is not { } barTime) continue;
+                    if (CloseReasonMarkerStyle(trade.CloseReason) is not { } style)
+                        continue;
+                    if (BarTimeContaining(bars, trade.ExitTime) is not { } barTime)
+                        continue;
                     markers.Add(new ChartMarker(barTime, style.Shape, style.ColorGroup, style.Text));
                 }
 
@@ -301,7 +314,8 @@ namespace Poink.Sim.Components.Training
                     var actions = SourceEpisodeBarActions;
                     return actions.Count > 0 ? actions[^1] : null;
                 }
-                if (_replayBarActions is null) return null;
+                if (_replayBarActions is null)
+                    return null;
                 int i = DisplayedDecisionIndex;
                 return i >= 0 && i < _replayBarActions.Count ? _replayBarActions[i] : null;
             }
@@ -320,7 +334,8 @@ namespace Poink.Sim.Components.Training
             {
                 var bars = DisplayedEpisodeBars;
                 int windowSize = DisplayedWindowBarCount;
-                if (bars.Count == 0 || windowSize <= 0) return [];
+                if (bars.Count == 0 || windowSize <= 0)
+                    return [];
 
                 int endIndex = bars.Count - 1;
                 int startIndex = Math.Max(0, endIndex - windowSize + 1);
@@ -337,7 +352,8 @@ namespace Poink.Sim.Components.Training
                 return;
             }
 
-            if (!CanReplay) return;
+            if (!CanReplay)
+                return;
             _replayBars = EpisodeBarRows;
             _replayTrades = SourceEpisodeTrades.ToList();
             _replayBarEquity = SourceEpisodeBarEquity.ToList();
@@ -374,11 +390,14 @@ namespace Poink.Sim.Components.Training
 
         private void RevealNextBar()
         {
-            if (_replayBars is null) return;
+            if (_replayBars is null)
+                return;
 
             _revealedBarCount = Math.Min(_replayBars.Count, _revealedBarCount + 1);
-            if (_revealedBarCount >= _replayBars.Count) _isReplaying = false;
-            else if (_isReplaying) ScheduleNextReveal();
+            if (_revealedBarCount >= _replayBars.Count)
+                _isReplaying = false;
+            else if (_isReplaying)
+                ScheduleNextReveal();
 
             _ = InvokeAsync(StateHasChanged);
         }
@@ -428,7 +447,7 @@ namespace Poink.Sim.Components.Training
 
         private static string Pct(double v) => v.ToString("0.##", CultureInfo.InvariantCulture);
 
-        private enum StatsTab { Episode, Trader, Session }
+        private enum StatsTab { Session, Trader }
         private StatsTab _activeStatsTab;
 
         private sealed record MetricsRow(int Episode, double Reward, double FinalEquity);
@@ -500,7 +519,8 @@ namespace Poink.Sim.Components.Training
             get
             {
                 var episodes = SourceRecentEpisodeTrades;
-                if (episodes.Count == 0) return new List<TraderStatsRow>();
+                if (episodes.Count == 0)
+                    return new List<TraderStatsRow>();
 
                 var trades = episodes.SelectMany(e => e.Trades).ToList();
                 var stats = TradeStatistics.From(trades, episodes.Max(e => e.MaxEquity), episodes.Max(e => e.MaxDrawdown));

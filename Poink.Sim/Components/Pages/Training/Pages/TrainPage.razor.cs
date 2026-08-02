@@ -7,6 +7,7 @@ using Poink.Sim.Repository;
 using Poink.Sim.Trader;
 using Poink.Sim.Trader.Commission;
 using Poink.Sim.Training;
+using System.Linq;
 
 namespace Poink.Sim.Components.Pages
 {
@@ -188,5 +189,28 @@ namespace Poink.Sim.Components.Pages
         }
 
         private string CurrentDatasetDescription => $"{_table} ({_from:yyyy-MM-dd HH:mm} to {_to:yyyy-MM-dd HH:mm})";
+
+        private double WinRatePercent
+        {
+            get
+            {
+                var episodes = Service.RecentEpisodes;
+                return episodes.Count == 0 ? 0 : episodes.Count(e => e.Reward > 0) * 100.0 / episodes.Count;
+            }
+        }
+
+        private double RewardSpread => Service.BestReward - Service.WorstReward;
+
+        private (double StdDev, double Median) RewardDistribution
+        {
+            get
+            {
+                var episodes = Service.RecentEpisodes;
+                return episodes.Count == 0
+                    ? (0, 0)
+                    : (RlEpisodeMetricStats.StdDev(episodes), RlEpisodeMetricStats.Median(episodes));
+            }
+        }
+
     }
 }

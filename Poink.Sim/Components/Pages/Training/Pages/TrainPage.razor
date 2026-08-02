@@ -61,19 +61,19 @@
             </div>
             @if (!_controlsCollapsed)
             {
-            <div class="train-config-cards">
-                <div class="train-card train-card-full">
-                    <div class="train-card-title"
-                         title="Which symbol and time range the Start button samples episodes from">Data Range</div>
-                    <div class="train-card-fields-row">
-                        <TickDataSource @bind-Table="_table" @bind-From="_from" @bind-To="_to"
-                                        Disabled="Service.IsRunning" />
+                <div class="train-config-cards">
+                    <div class="train-card train-card-full">
+                        <div class="train-card-title"
+                             title="Which symbol and time range the Start button samples episodes from">Data Range</div>
+                        <div class="train-card-fields-row">
+                            <TickDataSource @bind-Table="_table" @bind-From="_from" @bind-To="_to"
+                                            Disabled="Service.IsRunning" />
+                        </div>
                     </div>
-                </div>
 
-                <BrainBuilder @bind-BrainName="_brainName" @bind-StrategyName="_strategyName"
-                              @bind-RewardPolicyName="_rewardPolicyName" @bind-LearningRate="_learningRate"
-                              OnBrainCreated="HandleBrainCreated" />
+                    <BrainBuilder @bind-BrainName="_brainName" @bind-StrategyName="_strategyName"
+                                  @bind-RewardPolicyName="_rewardPolicyName" @bind-LearningRate="_learningRate"
+                                  OnBrainCreated="HandleBrainCreated" />
 
                     <div class="train-card">
                         <div class="train-card-title" title="How much data each episode/run consists of">Training</div>
@@ -96,7 +96,8 @@
                     </div>
 
                     <div class="train-card">
-                        <div class="train-card-title" title="Starting capital the simulated Trader begins each episode with">
+                        <div class="train-card-title"
+                             title="Starting capital the simulated Trader begins each episode with">
                             Trader</div>
                             <div class="train-card-fields-row">
                                 <label class="train-brainrow-field">
@@ -125,107 +126,135 @@
                             </div>
                         </div>
                     </div>
-            }
-        </div>
+                }
+            </div>
 
-                <TrainingPreview Recipe="CurrentBrainRecipe" DataItems="PreviewDataItems" TrainingItems="PreviewTrainingItems"
-                                 From="_from" To="_to" BlockSpan="EpisodeBlockSpan" EpisodeWindows="Service.RecentEpisodeWindows"
-                                 Table="@_table" BarWidthMinutes="_barWidthMinutes" StartingCash="_startingCash" />
 
-                <div class="train-toolbar">
-                    <div class="train-controls">
-                        <button class="train-ctrl-btn train-ctrl-btn-collapse" @onclick="ToggleDashboardView"
-                                title="@(_dashboardView
-                                                                                                           ? "Switch back to the detailed view -- full-size charts, episode replay, inputs/outputs and stats tables"
-                                                                                                           : "Switch to the compact dashboard -- gauges, charts, metrics and the training log, all on one screen")">
-                            <Icon Name="@(_dashboardView ? "list-ul" : "speedometer2")" Class="train-ctrl-icon" />
+
+            <div class="train-toolbar">
+                <div class="train-controls">
+                    <button class="train-ctrl-btn train-ctrl-btn-collapse" @onclick="ToggleDashboardView"
+                            title="@(_dashboardView
+                                                                                                                                                                                                                                                                                   ? "Switch back to the detailed view -- full-size charts, episode replay, inputs/outputs and stats tables"
+                                                                                                                                                                                                                                                                                   : "Switch to the compact dashboard -- gauges, charts, metrics and the training log, all on one screen")">
+                        <Icon Name="@(_dashboardView ? "list-ul" : "speedometer2")" Class="train-ctrl-icon" />
+                    </button>
+
+                    @if (!Service.IsRunning)
+                    {
+                        <button class="train-ctrl-btn train-ctrl-btn-play" @onclick="StartTraining"
+                                title="Trains on the symbol/range picked above -- each episode streams its own random window straight from Postgres">
+                            <Icon Name="play-fill" Class="train-ctrl-icon" />
+                            START
                         </button>
+                        <button class="train-ctrl-btn" @onclick="StepTraining"
+                                title="Runs exactly one episode on the symbol/range picked above, then pauses -- lets you step through training one episode at a time from the start">
+                            <Icon Name="skip-end-fill" Class="train-ctrl-icon" />
+                            STEP
+                        </button>
+                        <button class="train-ctrl-btn" @onclick="ResetRun"
+                                title="Clears this run's episodes/metrics/charts -- Data Range/Brain/Training/Trader setup stays as configured">
+                            <Icon Name="arrow-clockwise" Class="train-ctrl-icon" />
+                            RESET
+                        </button>
+                    }
+                    else if (Service.IsPaused)
+                    {
+                        <button class="train-ctrl-btn train-ctrl-btn-play" @onclick="ResumeTraining"
+                                title="Resume training from where it paused">
+                            <Icon Name="play-fill" Class="train-ctrl-icon" />
+                            RESUME
+                        </button>
+                        <button class="train-ctrl-btn" @onclick="StepTraining"
+                                title="Runs exactly one more episode, then pauses again -- lets you step through training one episode at a time">
+                            <Icon Name="skip-end-fill" Class="train-ctrl-icon" />
+                            STEP
+                        </button>
+                        <button class="train-ctrl-btn train-ctrl-btn-warn" @onclick="StopTraining"
+                                title="Stop training once the in-flight episode finishes">
+                            STOP
+                        </button>
+                    }
+                    else
+                    {
+                        <button class="train-ctrl-btn train-ctrl-btn-play" @onclick="PauseTraining"
+                                title="Pause training once the in-flight episode finishes">
+                            <Icon Name="pause-fill" Class="train-ctrl-icon" />
+                            PAUSE
+                        </button>
+                        <button class="train-ctrl-btn train-ctrl-btn-warn" @onclick="StopTraining"
+                                title="Stop training once the in-flight episode finishes">
+                            STOP
+                        </button>
+                    }
+                    @if (_startError is not null)
+                    {
+                        <span class="train-brainrow-error">@_startError</span>
+                    }
 
-                        @if (!Service.IsRunning)
-                        {
-                            <button class="train-ctrl-btn train-ctrl-btn-play" @onclick="StartTraining"
-                                    title="Trains on the symbol/range picked above -- each episode streams its own random window straight from Postgres">
-                                <Icon Name="play-fill" Class="train-ctrl-icon" />
-                                START
-                            </button>
-                            <button class="train-ctrl-btn" @onclick="StepTraining"
-                                    title="Runs exactly one episode on the symbol/range picked above, then pauses -- lets you step through training one episode at a time from the start">
-                                <Icon Name="skip-end-fill" Class="train-ctrl-icon" />
-                                STEP
-                            </button>
-                            <button class="train-ctrl-btn" @onclick="ResetRun"
-                                    title="Clears this run's episodes/metrics/charts -- Data Range/Brain/Training/Trader setup stays as configured">
-                                <Icon Name="arrow-clockwise" Class="train-ctrl-icon" />
-                                RESET
-                            </button>
-                        }
-                        else if (Service.IsPaused)
-                        {
-                            <button class="train-ctrl-btn train-ctrl-btn-play" @onclick="ResumeTraining"
-                                    title="Resume training from where it paused">
-                                <Icon Name="play-fill" Class="train-ctrl-icon" />
-                                RESUME
-                            </button>
-                            <button class="train-ctrl-btn" @onclick="StepTraining"
-                                    title="Runs exactly one more episode, then pauses again -- lets you step through training one episode at a time">
-                                <Icon Name="skip-end-fill" Class="train-ctrl-icon" />
-                                STEP
-                            </button>
-                            <button class="train-ctrl-btn train-ctrl-btn-warn" @onclick="StopTraining"
-                                    title="Stop training once the in-flight episode finishes">
-                                STOP
-                            </button>
-                        }
-                        else
-                        {
-                            <button class="train-ctrl-btn train-ctrl-btn-play" @onclick="PauseTraining"
-                                    title="Pause training once the in-flight episode finishes">
-                                <Icon Name="pause-fill" Class="train-ctrl-icon" />
-                                PAUSE
-                            </button>
-                            <button class="train-ctrl-btn train-ctrl-btn-warn" @onclick="StopTraining"
-                                    title="Stop training once the in-flight episode finishes">
-                                STOP
-                            </button>
-                        }
-                        @if (_startError is not null)
-                        {
-                            <span class="train-brainrow-error">@_startError</span>
-                        }
-
-                        @if (Service.TotalEpisodes > 0)
-                        {
-                            <div class="train-progress">
-                                <div class="train-progress-bar">
-                                    <div class="train-progress-fill" style="width: @(ProgressPercent)%"></div>
-                                </div>
-                                <span class="train-progress-text">
-                                    @Service.EpisodesCompleted / @Service.TotalEpisodes episodes (@ProgressPercent%)
-                                </span>
-                                <span class="train-progress-rate" title="Rolling episodes/sec over the most recent episodes -- pause/step time isn't counted">
-                                    @Service.EpisodesPerSecond.ToString("N2") eps
-                                </span>
+                    @if (Service.TotalEpisodes > 0)
+                    {
+                        <div class="train-progress">
+                            <div class="train-progress-bar">
+                                <div class="train-progress-fill" style="width: @(ProgressPercent)%"></div>
                             </div>
-                        }
-                    </div>
+                            <span class="train-progress-text">
+                                @Service.EpisodesCompleted / @Service.TotalEpisodes episodes (@ProgressPercent%)
+                            </span>
+                            <span class="train-progress-rate"
+                                  title="Rolling episodes/sec over the most recent episodes -- pause/step time isn't counted">
+                                @Service.EpisodesPerSecond.ToString("N2") eps
+                            </span>
+                        </div>
+                    }
                 </div>
             </div>
+        </div>
 
-            <div class="train-content @(_dashboardView ? "train-content-dashboard" : "")">
-                @if (_dashboardView)
-                {
-                    <TrainDashboard BrainName="_brainName" />
-                }
-                else
-                {
-                    <EpisodeCoverageTimeline From="_from" To="_to" BlockSpan="EpisodeBlockSpan"
-                                             EpisodeWindows="Service.RecentEpisodeWindows" />
-                    <TrainLiveTab BrainName="_brainName" />
-                }
-
-                @if (Service.Error is not null)
-                {
-                    <p class="train-error">@Service.Error</p>
-                }
+        <div class="train-stats">
+            <div class="train-stat">
+                <span class="train-stat-label">recent avg reward</span>
+                <span class="train-stat-value">@Service.RecentAverageReward.ToString("N2")</span>
+            </div>
+            <div class="train-stat">
+                <span class="train-stat-label">best episode</span>
+                <span class="train-stat-value">@Service.BestReward.ToString("N2")</span>
+            </div>
+            <div class="train-stat">
+                <span class="train-stat-label">worst episode</span>
+                <span class="train-stat-value">@Service.WorstReward.ToString("N2")</span>
+            </div>
+            <div class="train-stat">
+                <span class="train-stat-label">win rate</span>
+                <span class="train-stat-value">@WinRatePercent.ToString("N0")%</span>
+            </div>
+            <div class="train-stat">
+                <span class="train-stat-label">median reward</span>
+                <span class="train-stat-value">@RewardDistribution.Median.ToString("N2")</span>
+            </div>
+            <div class="train-stat">
+                <span class="train-stat-label">reward std dev</span>
+                <span class="train-stat-value">@RewardDistribution.StdDev.ToString("N2")</span>
+            </div>
+            <div class="train-stat">
+                <span class="train-stat-label">reward spread</span>
+                <span class="train-stat-value">@RewardSpread.ToString("N2")</span>
             </div>
         </div>
+
+        <TrainingPreview Recipe="CurrentBrainRecipe" DataItems="PreviewDataItems" TrainingItems="PreviewTrainingItems"
+                         From="_from" To="_to" BlockSpan="EpisodeBlockSpan" EpisodeWindows="Service.RecentEpisodeWindows" Table="@_table"
+                         BarWidthMinutes="_barWidthMinutes" StartingCash="_startingCash" />
+
+        <div class="train-content">
+
+
+            <TrainLiveTab BrainName="_brainName" />
+
+
+            @if (Service.Error is not null)
+            {
+                <p class="train-error">@Service.Error</p>
+            }
+        </div>
+    </div>

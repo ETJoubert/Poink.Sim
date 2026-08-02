@@ -434,3 +434,29 @@
     color: var(--color-error, #ff5f56);
     margin: 12px 0 0;
 }
+
+.train-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 18px;
+    row-gap: 10px;
+    margin-top: 14px;
+}
+.train-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.train-stat-label {
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-secondary);
+    opacity: 0.8;
+}
+
+.train-stat-value {
+    font-size: 0.92rem;
+    font-weight: 600;
+}

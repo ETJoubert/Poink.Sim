@@ -9,47 +9,13 @@
 else
 {
 
-    <div class="train-live-panel">
-        <div class="train-panel-title">EPISODES</div>
-        <EpisodeGrid Episodes="Service.RecentEpisodes" IsRunning="Service.IsRunning" />
-    </div>
 
-    <div class="train-stats">
-        <div class="train-stat">
-            <span class="train-stat-label">recent avg reward</span>
-            <span class="train-stat-value">@Service.RecentAverageReward.ToString("N2")</span>
-        </div>
-        <div class="train-stat">
-            <span class="train-stat-label">best episode</span>
-            <span class="train-stat-value">@Service.BestReward.ToString("N2")</span>
-        </div>
-        <div class="train-stat">
-            <span class="train-stat-label">worst episode</span>
-            <span class="train-stat-value">@Service.WorstReward.ToString("N2")</span>
-        </div>
-        <div class="train-stat">
-            <span class="train-stat-label">win rate</span>
-            <span class="train-stat-value">@WinRatePercent.ToString("N0")%</span>
-        </div>
-        <div class="train-stat">
-            <span class="train-stat-label">median reward</span>
-            <span class="train-stat-value">@RewardDistribution.Median.ToString("N2")</span>
-        </div>
-        <div class="train-stat">
-            <span class="train-stat-label">reward std dev</span>
-            <span class="train-stat-value">@RewardDistribution.StdDev.ToString("N2")</span>
-        </div>
-        <div class="train-stat">
-            <span class="train-stat-label">reward spread</span>
-            <span class="train-stat-value">@RewardSpread.ToString("N2")</span>
-        </div>
-    </div>
 
     <div class="train-live-toggle">
         <button class="train-live-toggle-btn @(_liveFeedbackPaused ? "paused" : "")" @onclick="ToggleLiveFeedback"
                 title="@(_liveFeedbackPaused
-                           ? "Resume live updates for the charts, current-episode panel, inputs/outputs and stats tables below -- training keeps running in the background either way"
-                           : "Freeze the charts, current-episode panel, inputs/outputs and stats tables below at their current values -- Episodes and the stat tiles above keep updating live")">
+                                                                                           ? "Resume live updates for the charts, current-episode panel, inputs/outputs and stats tables below -- training keeps running in the background either way"
+                                                                                           : "Freeze the charts, current-episode panel, inputs/outputs and stats tables below at their current values -- Episodes and the stat tiles above keep updating live")">
             <Icon Name="@(_liveFeedbackPaused ? "play-fill" : "pause-fill")" Class="train-live-toggle-icon" />
             @(_liveFeedbackPaused ? "RESUME LIVE VIEW" : "PAUSE LIVE VIEW")
         </button>
@@ -60,47 +26,11 @@ else
     </div>
 
     <div class="train-live-grid">
-        <div class="train-live-panel">
-            <div class="train-panel-title">ACTION DISTRIBUTION</div>
-            <div class="action-dist">
-                <div class="action-dist-row">
-                    <span class="action-dist-label action-dist-hold">HOLD</span>
-                    <div class="action-dist-track">
-                        <div class="action-dist-fill action-dist-fill-hold" style="width: @(Pct(ActionPercents.Hold))%">
-                        </div>
-                    </div>
-                    <span class="action-dist-pct">@ActionPercents.Hold.ToString("N0")%</span>
-                </div>
-                <div class="action-dist-row">
-                    <span class="action-dist-label action-dist-long">LONG</span>
-                    <div class="action-dist-track">
-                        <div class="action-dist-fill action-dist-fill-long"
-                             style="width: @(Pct(ActionPercents.EnterLong))%"></div>
-                    </div>
-                    <span class="action-dist-pct">@ActionPercents.EnterLong.ToString("N0")%</span>
-                </div>
-                <div class="action-dist-row">
-                    <span class="action-dist-label action-dist-short">SHORT</span>
-                    <div class="action-dist-track">
-                        <div class="action-dist-fill action-dist-fill-short"
-                             style="width: @(Pct(ActionPercents.EnterShort))%"></div>
-                    </div>
-                    <span class="action-dist-pct">@ActionPercents.EnterShort.ToString("N0")%</span>
-                </div>
-                <div class="action-dist-row">
-                    <span class="action-dist-label action-dist-close">CLOSE</span>
-                    <div class="action-dist-track">
-                        <div class="action-dist-fill action-dist-fill-close" style="width: @(Pct(ActionPercents.Close))%">
-                        </div>
-                    </div>
-                    <span class="action-dist-pct">@ActionPercents.Close.ToString("N0")%</span>
-                </div>
-            </div>
-        </div>
 
         <div class="train-live-panel train-live-panel-wide">
             <div class="train-panel-title">
-                CURRENT EPISODE <span class="train-panel-subtitle">(bars, volume profile and price profile of the most recently completed episode)</span>
+                CURRENT EPISODE <span class="train-panel-subtitle">(bars, volume profile and price profile of the most
+                recently completed episode)</span>
             </div>
             @if (EpisodeBarRows.Count == 0)
             {
@@ -120,8 +50,8 @@ else
                     {
                         <button class="train-episode-btn train-episode-btn-play" @onclick="PlayEpisode" disabled="@(!CanReplay)"
                                 title="@(ReplayHasPausedProgress
-                                           ? "Resume watching the trader trade through this episode, bar by bar"
-                                           : "Replay this episode from the start, bar by bar, so you can watch the trader trade")">
+                                                                                                                                                                           ? "Resume watching the trader trade through this episode, bar by bar"
+                                                                                                                                                                           : "Replay this episode from the start, bar by bar, so you can watch the trader trade")">
                             <Icon Name="play-fill" Class="train-episode-icon" />
                             @(ReplayHasPausedProgress ? "RESUME" : "PLAY")
                         </button>
@@ -166,58 +96,53 @@ else
                         <div class="train-stat"
                              title="@($"Decisions blocked because they couldn't execute -- {DisplayedBlockedCounts.Longs} enter-long (already in a position), {DisplayedBlockedCounts.Shorts} enter-short (already in a position), {DisplayedBlockedCounts.Closes} close (no position open) -- see the ✗L/✗S/✗C chart markers")">
                             <span class="train-stat-label">blocked</span>
-                            <span class="train-stat-value">@(DisplayedBlockedCounts.Longs + DisplayedBlockedCounts.Shorts + DisplayedBlockedCounts.Closes)</span>
+                            <span class="train-stat-value">@(DisplayedBlockedCounts.Longs + DisplayedBlockedCounts.Shorts +
+                                                                                                                                                        DisplayedBlockedCounts.Closes)</span>
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                <div class="train-episode-row">
-                    <div class="train-episode-main">
-                        <DrawableOhlcvChart Bars="DisplayedEpisodeBars" DiagonalLines="DisplayedTradeLines" RangeFills="DisplayedWindowRange"
-                                            VerticalLines="DisplayedWarmupBoundary" Markers="DisplayedActionMarkers"
-                                            EntryPrice="DisplayedEntryPrice" PositionIsLong="DisplayedPositionIsLong"
-                                            StopLossPrice="DisplayedStopLossPrice" TakeProfitPrice="DisplayedTakeProfitPrice" />
+                    <div class="train-episode-row">
+                        <div class="train-episode-main">
+                            <DrawableOhlcvChart Bars="DisplayedEpisodeBars" DiagonalLines="DisplayedTradeLines"
+                                                RangeFills="DisplayedWindowRange" VerticalLines="DisplayedWarmupBoundary"
+                                                Markers="DisplayedActionMarkers" EntryPrice="DisplayedEntryPrice"
+                                                PositionIsLong="DisplayedPositionIsLong" StopLossPrice="DisplayedStopLossPrice"
+                                                TakeProfitPrice="DisplayedTakeProfitPrice" />
+                        </div>
+                        <div class="train-episode-side">
+                            <TickVolumeProfileChart WeightedSamples="EpisodeVolumeProfileSamples" CurrentPrice="EpisodeLastPrice" />
+                        </div>
+                        <div class="train-episode-side">
+                            <TickTimeProfileChart WeightedSamples="EpisodeTimeProfileSamples" CurrentPrice="EpisodeLastPrice" />
+                        </div>
                     </div>
-                    <div class="train-episode-side">
-                        <TickVolumeProfileChart WeightedSamples="EpisodeVolumeProfileSamples" CurrentPrice="EpisodeLastPrice" />
-                    </div>
-                    <div class="train-episode-side">
-                        <TickTimeProfileChart WeightedSamples="EpisodeTimeProfileSamples" CurrentPrice="EpisodeLastPrice" />
-                    </div>
-                </div>
-            }
+                }
+            </div>
+
         </div>
 
-    </div>
+        <div class="train-stats-panel">
+            <div class="train-stats-tabs">
+                <button class="train-tab-btn @(_activeStatsTab == StatsTab.Session ? "active" : "")"
+                        @onclick="() => _activeStatsTab = StatsTab.Session"
+                        title="Trader statistics pooled across every retained episode this training run">SESSION</button>
+                <button class="train-tab-btn @(_activeStatsTab == StatsTab.Trader ? "active" : "")"
+                        @onclick="() => _activeStatsTab = StatsTab.Trader"
+                        title="Full trader statistics (wins/losses, streaks, time in market) for each completed episode">TRADER</button>
 
-    <div class="train-stats-panel">
-        <div class="train-stats-tabs">
-            <button class="train-tab-btn @(_activeStatsTab == StatsTab.Episode ? "active" : "")"
-                    @onclick="() => _activeStatsTab = StatsTab.Episode"
-                    title="Reward and final equity for each completed episode">EPISODE</button>
-            <button class="train-tab-btn @(_activeStatsTab == StatsTab.Trader ? "active" : "")"
-                    @onclick="() => _activeStatsTab = StatsTab.Trader"
-                    title="Full trader statistics (wins/losses, streaks, time in market) for each completed episode">TRADER</button>
-            <button class="train-tab-btn @(_activeStatsTab == StatsTab.Session ? "active" : "")"
-                    @onclick="() => _activeStatsTab = StatsTab.Session"
-                    title="Trader statistics pooled across every retained episode this training run">SESSION</button>
+            </div>
+            <div class="train-stats-content">
+                @if (_activeStatsTab == StatsTab.Trader)
+                {
+                    <DataTable TItem="TraderStatsRow" Items="EpisodeTraderStatsRows" ShowRowNumbers="false" ShowActions="false"
+                               CellClass="TraderStatsCellClass" EmptyMessage="no trades yet" />
+                }
+                else
+                {
+                    <DataTable TItem="TraderStatsRow" Items="SessionTraderStatsRows" ShowRowNumbers="false" ShowActions="false"
+                               CellClass="TraderStatsCellClass" EmptyMessage="no trades yet" />
+                }
+            </div>
         </div>
-        <div class="train-stats-content">
-            @if (_activeStatsTab == StatsTab.Episode)
-            {
-                <DataTable TItem="MetricsRow" Items="MetricsRows" ShowRowNumbers="false" ShowActions="false"
-                           CellClass="MetricsCellClass" EmptyMessage="no episodes yet" />
-            }
-            else if (_activeStatsTab == StatsTab.Trader)
-            {
-                <DataTable TItem="TraderStatsRow" Items="EpisodeTraderStatsRows" ShowRowNumbers="false" ShowActions="false"
-                           CellClass="TraderStatsCellClass" EmptyMessage="no trades yet" />
-            }
-            else
-            {
-                <DataTable TItem="TraderStatsRow" Items="SessionTraderStatsRows" ShowRowNumbers="false" ShowActions="false"
-                           CellClass="TraderStatsCellClass" EmptyMessage="no trades yet" />
-            }
-        </div>
-    </div>
-}
+    }
