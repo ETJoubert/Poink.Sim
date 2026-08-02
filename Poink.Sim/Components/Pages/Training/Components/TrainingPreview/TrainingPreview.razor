@@ -1,131 +1,273 @@
 @namespace Poink.Sim.Components.Training
 
 <div class="tp-card">
-    <div class="tp-title"
-         title="Live summary of the brain that Start/Step will train -- updates as the selected/built brain changes">
-        Training Preview</div>
-    <div class="tp-columns">
-        <div class="tp-column">
-            <div class="tp-column-title">Training</div>
-            @foreach (var item in TrainingItems)
-            {
-                <div class="tp-row">@item</div>
-            }
+    <div class="tp-header">
+        <button type="button" class="tp-collapse-btn" @onclick="ToggleCollapsed"
+                title="@(_collapsed ? "Expand Training Preview" : "Collapse Training Preview")"
+                aria-expanded="@(!_collapsed)">
+            <span class="tp-collapse-icon @(_collapsed ? "tp-collapse-icon-collapsed" : "")">▾</span>
+        </button>
+        <div class="tp-title"
+             title="Live summary of the brain that Start/Step will train -- updates as the selected/built brain changes">
+            Training Preview</div>
         </div>
-        <div class="tp-column">
-            <div class="tp-column-title">Data</div>
-            @foreach (var item in DataItems)
-            {
-                <div class="tp-row">@item</div>
-            }
-            <EpisodeCoverageTimeline From="From" To="To" BlockSpan="BlockSpan" EpisodeWindows="EpisodeWindows"
-                                     HighlightStart="_episodeWindowStart" HighlightEnd="_episodeWindowEnd" Vertical="true" Compact="true" />
-        </div>
-
-        <div class="tp-column">
-            <div class="tp-column-title"
-                 title="One randomly-sampled bars/episode-length window of the selected data, re-rolled whenever the data range, bars/episode, or bar width changes">
-                Episode</div>
-            @if (_loadingEpisode)
-            {
-                <div class="tp-row tp-row-empty">loading…</div>
-            }
-            else if (_episodeError is not null)
-            {
-                <div class="tp-row tp-row-empty" title="@_episodeError">error -- see tooltip</div>
-            }
-            else if (EpisodeBarShapes.Count == 0)
-            {
-                <div class="tp-row tp-row-empty">no data</div>
-            }
-            else
-            {
-                <svg viewBox="0 0 120 140" preserveAspectRatio="none" class="tp-episode-chart">
-                    @foreach (var bar in EpisodeBarShapes)
+        @if (!_collapsed)
+        {
+            <div class="tp-columns">
+                <div class="tp-column">
+                    <div class="tp-column-title">Training</div>
+                    @foreach (var item in TrainingItems)
                     {
-                        <rect x="@bar.X" y="@bar.Y" width="@bar.Width" height="@bar.Height"
-                              class="tp-episode-bar @(bar.IsUp ? "tp-episode-bar-up" : "tp-episode-bar-down")">
-                            <title>@bar.Tooltip</title>
-                        </rect>
-                    }
-                </svg>
-            }
-        </div>
-
-        <div class="tp-column">
-            <div class="tp-column-title">Source</div>
-            @if (SourceRows.Count == 0)
-            {
-                <div class="tp-row tp-row-empty">none selected</div>
-            }
-            @foreach (var row in SourceRows)
-            {
-                <div class="tp-source-card @SourceColorClass(row.Source)">
-                    <div class="tp-source-card-title">@row.Source</div>
-                    <div class="tp-source-card-field">Inputs: @row.Inputs</div>
-                    <div class="tp-source-card-field">Window: @row.Window</div>
-                    <div class="tp-source-card-field">Bucket: @row.Bucket</div>
-                    @if (row.RawPrices.Count > 0)
-                    {
-                        <div class="tp-source-card-values" title="Trailing close prices this row's episode sample feeds Bar Window, before normalization">
-                            @foreach (var value in row.RawPrices)
-                            {
-                                <span class="tp-source-card-value">@value</span>
-                            }
-                        </div>
+                        <div class="tp-row">@item</div>
                     }
                 </div>
-            }
-        </div>
-        <div class="tp-column">
-            <div class="tp-column-title">Normalization</div>
-            @foreach (var row in SourceRows)
-            {
-                @if (row.NormalizedValues.Count > 0)
-                {
-                    <div class="tp-source-card @SourceColorClass(row.Source)">
-                        <div class="tp-source-card-title">
-                            @row.Source <span class="tp-source-card-title-sub">@row.Normalization</span>
-                        </div>
-                        <div class="tp-source-card-values"
-                             title="Same trailing prices as Source's card, transformed to match this row's Normalization -- exactly what the network sees">
-                            @foreach (var value in row.NormalizedValues)
-                            {
-                                <span class="tp-source-card-value">@value</span>
-                            }
-                        </div>
+                <div class="tp-column">
+                    <div class="tp-column-title">Data</div>
+                    @foreach (var item in DataItems)
+                    {
+                        <div class="tp-row">@item</div>
+                    }
+                    <EpisodeCoverageTimeline From="From" To="To" BlockSpan="BlockSpan" EpisodeWindows="EpisodeWindows"
+                                             HighlightStart="_episodeWindowStart" HighlightEnd="_episodeWindowEnd" Vertical="true" Compact="true" />
+                </div>
+
+                <div class="tp-column">
+                    <div class="tp-column-title"
+                         title="One randomly-sampled bars/episode-length window of the selected data, re-rolled whenever the data range, bars/episode, or bar width changes">
+                        Episode</div>
+                        @if (_loadingEpisode)
+                        {
+                            <div class="tp-row tp-row-empty">loading…</div>
+                        }
+                        else if (_episodeError is not null)
+                        {
+                            <div class="tp-row tp-row-empty" title="@_episodeError">error -- see tooltip</div>
+                        }
+                        else if (EpisodeBarShapes.Count == 0)
+                        {
+                            <div class="tp-row tp-row-empty">no data</div>
+                        }
+                        else
+                        {
+                            <svg viewBox="0 0 120 140" preserveAspectRatio="none" class="tp-episode-chart">
+                                @foreach (var bar in EpisodeBarShapes)
+                                {
+                                    <rect x="@bar.X" y="@bar.Y" width="@bar.Width" height="@bar.Height"
+                                          class="tp-episode-bar @(bar.IsUp ? "tp-episode-bar-up" : "tp-episode-bar-down")">
+                                        <title>@bar.Tooltip</title>
+                                    </rect>
+                                }
+                            </svg>
+                        }
+                        @if (VolumeProfileRows.Count > 0)
+                        {
+                            <div class="tp-profile"
+                                 title="Volume Profile -- merged/rebinned exactly like VolumeProfileEncoder, from this same episode sample">
+                                <div class="tp-profile-title">Volume Profile</div>
+                                @foreach (var row in VolumeProfileRows)
+                                {
+                                    <div class="tp-profile-row" title="@row.Tooltip">
+                                        <div class="tp-profile-bar" style="width: @(row.WidthPercent)%"></div>
+                                    </div>
+                                }
+                            </div>
+                        }
+                        @if (TimeProfileRows.Count > 0)
+                        {
+                            <div class="tp-profile"
+                                 title="Time Profile -- merged/rebinned exactly like TimeProfileEncoder, from this same episode sample">
+                                <div class="tp-profile-title">Time Profile</div>
+                                @foreach (var row in TimeProfileRows)
+                                {
+                                    <div class="tp-profile-row" title="@row.Tooltip">
+                                        <div class="tp-profile-bar" style="width: @(row.WidthPercent)%"></div>
+                                    </div>
+                                }
+                            </div>
+                        }
                     </div>
-                }
-                else
-                {
-                    <div class="tp-row">@row.Normalization</div>
-                }
-            }
-        </div>
-        <div class="tp-column">
-            <div class="tp-column-title">Structure</div>
-            @foreach (var item in StructureItems)
-            {
-                <div class="tp-row">@item</div>
-            }
-        </div>
-        <div class="tp-column">
-            <div class="tp-column-title">Action</div>
-            @if (ActionItems.Count == 0)
-            {
-                <div class="tp-row tp-row-empty">none selected</div>
-            }
-            @foreach (var item in ActionItems)
-            {
-                <div class="tp-row">@item</div>
-            }
-        </div>
-        <div class="tp-column">
-            <div class="tp-column-title">Decoded Action</div>
-            @foreach (var item in DecodedActionItems)
-            {
-                <div class="tp-row">@item</div>
-            }
-        </div>
-    </div>
-</div>
+
+                    <div class="tp-column">
+                        <div class="tp-column-title">Source</div>
+                        @if (SourceRows.Count == 0)
+                        {
+                            <div class="tp-row tp-row-empty">none selected</div>
+                        }
+                        @foreach (var row in SourceRows)
+                        {
+                            <div class="tp-source-card @SourceColorClass(row.Source)">
+                                <div class="tp-source-card-title">@row.Source</div>
+                                <div class="tp-source-card-field">Inputs: @row.Inputs</div>
+                                <div class="tp-source-card-field">Window: @row.Window</div>
+                                <div class="tp-source-card-field">Bucket: @row.Bucket</div>
+                                @if (row.RawValues.Count > 0)
+                                {
+                                    <div class="tp-source-card-values"
+                                         title="What this row's episode sample feeds the network, before normalization">
+                                        @foreach (var value in row.RawValues)
+                                        {
+                                            <span class="tp-source-card-value">@value</span>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                    <div class="tp-column">
+                        <div class="tp-column-title">Normalization</div>
+                        @foreach (var row in SourceRows)
+                        {
+                            @if (row.NormalizedValues.Count > 0)
+                            {
+                                <div class="tp-source-card @SourceColorClass(row.Source)">
+                                    <div class="tp-source-card-title">
+                                        @row.Source <span class="tp-source-card-title-sub">@row.Normalization</span>
+                                    </div>
+                                    <div class="tp-source-card-values"
+                                         title="Same values as Source's card, transformed to match this row's Normalization -- exactly what the network sees">
+                                        @foreach (var value in row.NormalizedValues)
+                                        {
+                                            <span class="tp-source-card-value">@value</span>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="tp-row">@row.Normalization</div>
+                            }
+                        }
+                    </div>
+                    <div class="tp-column tp-column-wide">
+                        <div class="tp-column-title">Neural Network</div>
+                        @foreach (var item in NeuralNetworkItems)
+                        {
+                            <div class="tp-row">@item</div>
+                        }
+
+                        <div class="tp-nn-cards">
+                            <div class="tp-source-card tp-nn-card">
+                                <div class="tp-source-card-title"
+                                     title="Each included source's share of the total input width, colored to match its card in Source/Normalization above">
+                                    Input</div>
+                                    @if (InputBarSegments.Count == 0)
+                                    {
+                                        <div class="tp-row tp-row-empty">none selected</div>
+                                    }
+                                    else
+                                    {
+                                        <div class="tp-stack">
+                                            @foreach (var seg in InputBarSegments)
+                                            {
+                                                <div class="tp-stack-segment @seg.ColorClass" style="height: @(seg.HeightPercent)%"
+                                                     title="@($"{seg.Label}: {seg.Value} inputs")">
+                                                    <span class="tp-stack-segment-count">@seg.Value</span>
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                                <div class="tp-source-card tp-nn-card">
+                                    <div class="tp-source-card-title">Hidden</div>
+                                    @if (HiddenLayerBars.Count == 0)
+                                    {
+                                        <div class="tp-row tp-row-empty">n/a</div>
+                                    }
+                                    else
+                                    {
+                                        <div class="tp-hidden-bars">
+                                            @foreach (var bar in HiddenLayerBars)
+                                            {
+                                                <div class="tp-hidden-bar-col" title="@($"{bar.Label}: {bar.Size}")">
+                                                    <span class="tp-hidden-bar-label">@bar.Label</span>
+                                                    <span class="tp-hidden-bar-count">@bar.Size</span>
+                                                    <div class="tp-hidden-bar" style="height: @(bar.HeightPercent)%"></div>
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                                <div class="tp-source-card tp-nn-card">
+                                    <div class="tp-source-card-title"
+                                         title="Each decoded action group's share of the total output width -- Direction always present, Volume/Stop Loss/Take Profit only when enabled">
+                                        Output</div>
+                                        @if (OutputBarSegments.Count == 0)
+                                        {
+                                            <div class="tp-row tp-row-empty">none selected</div>
+                                        }
+                                        else
+                                        {
+                                            <div class="tp-stack">
+                                                @foreach (var seg in OutputBarSegments)
+                                                {
+                                                    <div class="tp-stack-segment @seg.ColorClass" style="height: @(seg.HeightPercent)%"
+                                                         title="@($"{seg.Label}: {seg.Value}-way")">
+                                                        <span class="tp-stack-segment-count">@seg.Value</span>
+                                                    </div>
+                                                }
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="tp-column">
+                                <div class="tp-column-title"
+                                     title="How each decoded group's raw N-way logits collapse to one chosen action -- circles are the raw logits, the badge is the decode rule, the highlighted option is where that collapses to">
+                                    Action Decoder</div>
+                                    @if (ActionDecoderGroups.Count == 0)
+                                    {
+                                        <div class="tp-row tp-row-empty">none selected</div>
+                                    }
+                                    else
+                                    {
+                                        <div class="tp-decoder-groups">
+                                            @foreach (var group in ActionDecoderGroups)
+                                            {
+                                                <div class="tp-source-card tp-decoder-card @group.ColorClass">
+                                                    <div class="tp-source-card-title">@group.Label</div>
+                                                    <div class="tp-decoder-row">
+                                                        <svg viewBox="0 0 94 56" preserveAspectRatio="xMidYMid meet" class="tp-decoder-svg">
+                                                            @foreach (var line in group.FunnelLines)
+                                                            {
+                                                                <line x1="@line.X1" y1="@line.Y1" x2="@line.X2" y2="@line.Y2"
+                                                                      class="tp-decoder-line @group.ColorClass" />
+                                                            }
+                                                            @foreach (var c in group.Circles)
+                                                            {
+                                                                <circle cx="@c.Cx" cy="@c.Cy" r="4" class="tp-decoder-circle @group.ColorClass" />
+                                                            }
+                                                            <line x1="@group.StemLine.X1" y1="@group.StemLine.Y1" x2="@group.StemLine.X2"
+                                                                  y2="@group.StemLine.Y2"
+                                                                  class="tp-decoder-line tp-decoder-line-stem @group.ColorClass" />
+                                                            <rect x="@group.BadgeX" y="@group.BadgeY" width="@group.BadgeWidth"
+                                                                  height="@group.BadgeHeight" rx="3" class="tp-decoder-badge @group.ColorClass">
+                                                                <title>@group.DecodeTooltip</title>
+                                                            </rect>
+                                                            <text x="@group.BadgeCx" y="@group.BadgeCy" text-anchor="middle" dominant-baseline="middle"
+                                                                  class="tp-decoder-badge-text">@group.DecodeLabel</text>
+                                                        </svg>
+                                                        <div class="tp-decoder-actions">
+                                                            @for (int i = 0; i < group.ActionLabels.Count; i++)
+                                                            {
+                                                                var isFirst = i == 0;
+                                                                <span
+                                                                    class="tp-decoder-action-badge @group.ColorClass @(isFirst ? "tp-decoder-action-first" : "")"
+                                                                    title="@(isFirst ? $"Where {group.Label}'s {group.DecodeLabel} collapses to, out of {group.ActionLabels.Count} options" : $"Another {group.Label} option")">
+                                                                    @group.ActionLabels[i]
+                                                                </span>
+                                                            }
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+
+
+                        }
+                    </div>
+
+
+

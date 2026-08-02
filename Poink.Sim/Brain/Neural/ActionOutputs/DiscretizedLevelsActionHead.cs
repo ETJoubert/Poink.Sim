@@ -7,6 +7,7 @@
 //  entries.
 // ─────────────────────────────────────────────────────────────────────────
 using System.Collections.Generic;
+using System.Linq;
 using TorchSharp;
 using static TorchSharp.torch;
 using static TorchSharp.torch.nn;
@@ -42,6 +43,13 @@ internal sealed class DiscretizedLevelsActionHead : IActionOutputHead
     public ActionOutputKind Kind { get; }
 
     public int OutputWidth => _levels.Length;
+
+    // Exposes each kind's fixed level labels without needing a Sample() call
+    // (which requires an actual output tensor) -- lets read-only previews
+    // (see TrainingPreview's Action Decoder column) show the same option set
+    // a live decode would collapse to.
+    public static IReadOnlyList<string> GetLevelLabels(ActionOutputKind kind) =>
+        LevelsByKind[kind].Select(l => l.Label).ToList();
 
     public (double? Value, Tensor LogProbability, IReadOnlyList<RlOutputFeature> Outputs) Sample(Tensor rawSlice)
     {

@@ -50,8 +50,17 @@
             </div>
         </header>
 
-        @if (!_controlsCollapsed)
-        {
+        <div class="train-config-group">
+            <div class="train-config-group-header">
+                <button type="button" class="train-config-collapse-btn" @onclick="ToggleControls"
+                        title="Show/hide the Data Range/Brain Type/.../Trader cards below -- collapse them once a run's parameters are set, to give the panels below more room"
+                        aria-expanded="@(!_controlsCollapsed)">
+                    <Icon Name="@(_controlsCollapsed ? "chevron-right" : "chevron-down")" Class="train-ctrl-icon" />
+                </button>
+                <span class="train-config-group-title">Run Setup</span>
+            </div>
+            @if (!_controlsCollapsed)
+            {
             <div class="train-config-cards">
                 <div class="train-card train-card-full">
                     <div class="train-card-title"
@@ -116,7 +125,8 @@
                             </div>
                         </div>
                     </div>
-                }
+            }
+        </div>
 
                 <TrainingPreview Recipe="CurrentBrainRecipe" DataItems="PreviewDataItems" TrainingItems="PreviewTrainingItems"
                                  From="_from" To="_to" BlockSpan="EpisodeBlockSpan" EpisodeWindows="Service.RecentEpisodeWindows"
@@ -124,10 +134,6 @@
 
                 <div class="train-toolbar">
                     <div class="train-controls">
-                        <button class="train-ctrl-btn train-ctrl-btn-collapse" @onclick="ToggleControls"
-                                title="Show/hide the Data Range/Brain Type/.../Trader cards above -- collapse them once a run's parameters are set, to give the panels below more room">
-                            <Icon Name="@(_controlsCollapsed ? "chevron-right" : "chevron-down")" Class="train-ctrl-icon" />
-                        </button>
                         <button class="train-ctrl-btn train-ctrl-btn-collapse" @onclick="ToggleDashboardView"
                                 title="@(_dashboardView
                                                                                                            ? "Switch back to the detailed view -- full-size charts, episode replay, inputs/outputs and stats tables"
