@@ -288,6 +288,62 @@
     text-shadow: 0 0 3px rgba(255, 255, 255, 0.8);
 }
 
+/* Neural Network signal-flow animation -- purely decorative (see TrainingPreview.razor
+   comment on this column: unlike every other column, real per-neuron activation
+   can't be pulled out of training). Two pieces: a glow-pulse on the Hidden bars only,
+   and a progress bar above Input/Hidden/Output with two chasing lights -- a forward
+   pass followed by a trailing light standing in for the weight update that follows it. */
+
+.tp-nn-progress {
+    position: relative;
+    height: 4px;
+    margin-top: 4px;
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.tp-nn-progress-track {
+    position: absolute;
+    inset: 0;
+    background: color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+.tp-nn-progress-light {
+    position: absolute;
+    top: 0;
+    left: -8%;
+    width: 8%;
+    height: 100%;
+    border-radius: 2px;
+    animation: tp-nn-progress-move 2.4s cubic-bezier(0.96, -0.09, 0.01, 1.16) infinite;
+}
+
+.tp-nn-progress-light-forward {
+    background: linear-gradient(90deg, transparent, var(--color-accent), transparent);
+    box-shadow: 0 0 6px 1px var(--color-accent);
+    animation-delay: 0s;
+}
+
+.tp-nn-progress-light-update {
+    background: linear-gradient(90deg, transparent, var(--color-warning), transparent);
+    box-shadow: 0 0 6px 1px var(--color-warning);
+    animation-delay: 0.4s;
+}
+
+@keyframes tp-nn-progress-move {
+    0% { left: -8%; }
+    100% { left: 100%; }
+}
+
+@keyframes tp-nn-node-pulse {
+    0%, 100% { filter: brightness(1); box-shadow: none; }
+    50% { filter: brightness(1.35); box-shadow: 0 0 6px 1px var(--tp-source-color, var(--color-primary)); }
+}
+
+.tp-nn-cards > .tp-nn-hidden-card .tp-hidden-bar {
+    animation: tp-nn-node-pulse 2.4s ease-in-out infinite;
+}
+
 /* Hidden sub-card -- one bar per layer/channel/kernel entry, height relative
    to whichever entry is largest (unlike Input's stacked bar, these are
    independent quantities, not parts of one whole -- see HiddenLayerBar). */
