@@ -344,7 +344,30 @@
 
 .tp-decoder-circle {
     fill: var(--tp-source-color, var(--color-primary));
-    opacity: 0.85;
+    opacity: 0.6;
+    stroke: var(--color-bg-terminal);
+    stroke-width: 0.5;
+}
+
+/* The network's actual chosen option (or, before any real decision exists,
+   the first option shown as an illustrative placeholder -- see
+   TrainingPreview.BuildActionDecoderGroup) -- full opacity plus a bright
+   ring so it reads as "lit up" against its dimmer siblings. */
+.tp-decoder-circle-chosen {
+    opacity: 1;
+    stroke: var(--tp-source-color, var(--color-primary));
+    stroke-width: 1.5;
+}
+
+/* RawValue label centered inside its own circle (see ActionDecoderOption) --
+   pointer-events: none so hovering still reaches the circle underneath for
+   its own title tooltip. */
+.tp-decoder-circle-text {
+    font-size: 4.5px;
+    font-weight: bold;
+    fill: #000;
+    text-shadow: 0 0 2px rgba(255, 255, 255, 0.85);
+    pointer-events: none;
 }
 
 .tp-decoder-line {
@@ -379,6 +402,10 @@
 }
 
 .tp-decoder-action-badge {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 3px;
     font-size: 0.56rem;
     text-align: center;
     padding: 1px 4px;
@@ -391,10 +418,21 @@
     text-overflow: ellipsis;
 }
 
-.tp-decoder-action-first {
+/* The network's actual chosen option (or the illustrative placeholder --
+   same fallback as .tp-decoder-circle-chosen, they always agree since both
+   read the same ActionDecoderOption.IsChosen). */
+.tp-decoder-action-chosen {
     opacity: 1;
     font-weight: bold;
     background: color-mix(in srgb, var(--tp-source-color, var(--color-primary)) 18%, transparent);
     border-color: var(--tp-source-color, var(--color-primary));
     color: var(--tp-source-color, var(--color-primary));
+}
+
+/* This option's own decoded probability -- blank (see BuildActionDecoderGroup)
+   until a real decision exists. */
+.tp-decoder-action-pct {
+    font-size: 0.5rem;
+    opacity: 0.75;
+    font-weight: normal;
 }

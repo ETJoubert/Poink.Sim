@@ -234,9 +234,16 @@
                                                                 <line x1="@line.X1" y1="@line.Y1" x2="@line.X2" y2="@line.Y2"
                                                                       class="tp-decoder-line @group.ColorClass" />
                                                             }
-                                                            @foreach (var c in group.Circles)
+                                                            @foreach (var opt in group.Options)
                                                             {
-                                                                <circle cx="@c.Cx" cy="@c.Cy" r="4" class="tp-decoder-circle @group.ColorClass" />
+                                                                <g>
+                                                                    <circle cx="@opt.Cx" cy="@opt.Cy" r="7"
+                                                                            class="tp-decoder-circle @group.ColorClass @(opt.IsChosen ? "tp-decoder-circle-chosen" : "")">
+                                                                        <title>@opt.CircleTooltip</title>
+                                                                    </circle>
+                                                                    <text x="@opt.Cx" y="@opt.Cy" text-anchor="middle" dominant-baseline="middle"
+                                                                          class="tp-decoder-circle-text">@opt.RawValue</text>
+                                                                </g>
                                                             }
                                                             <line x1="@group.StemLine.X1" y1="@group.StemLine.Y1" x2="@group.StemLine.X2"
                                                                   y2="@group.StemLine.Y2"
@@ -249,13 +256,16 @@
                                                                   class="tp-decoder-badge-text">@group.DecodeLabel</text>
                                                         </svg>
                                                         <div class="tp-decoder-actions">
-                                                            @for (int i = 0; i < group.ActionLabels.Count; i++)
+                                                            @foreach (var opt in group.Options)
                                                             {
-                                                                var isFirst = i == 0;
                                                                 <span
-                                                                    class="tp-decoder-action-badge @group.ColorClass @(isFirst ? "tp-decoder-action-first" : "")"
-                                                                    title="@(isFirst ? $"Where {group.Label}'s {group.DecodeLabel} collapses to, out of {group.ActionLabels.Count} options" : $"Another {group.Label} option")">
-                                                                    @group.ActionLabels[i]
+                                                                    class="tp-decoder-action-badge @group.ColorClass @(opt.IsChosen ? "tp-decoder-action-chosen" : "")"
+                                                                    title="@opt.BadgeTooltip">
+                                                                    @opt.Label
+                                                                    @if (!string.IsNullOrEmpty(opt.Percentage))
+                                                                    {
+                                                                        <span class="tp-decoder-action-pct">@opt.Percentage</span>
+                                                                    }
                                                                 </span>
                                                             }
                                                         </div>
