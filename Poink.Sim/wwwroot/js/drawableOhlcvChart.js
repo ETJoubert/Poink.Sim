@@ -664,16 +664,21 @@ function attachMinimapInteractions(entry) {
 // minimapContainer: DrawableOhlcvChart.razor's .doc-minimap div -- the canvas
 // itself is created here (not in .razor markup) since it needs no Blazor-side
 // state, same reasoning as the tooltip element below.
-function createMinimap(minimapContainer) {
+function createMinimap(minimapContainer, interactive) {
     const canvas = document.createElement('canvas');
-    canvas.style.cssText = 'display:block;width:100%;height:100%;';
+    // pointer-events:none as a belt-and-suspenders alongside skipping
+    // attachMinimapInteractions below -- non-interactive callers get a purely visual
+    // sparkline with no drag-to-pan/resize-to-zoom surface at all.
+    canvas.style.cssText = interactive === false
+        ? 'display:block;width:100%;height:100%;pointer-events:none;'
+        : 'display:block;width:100%;height:100%;';
     minimapContainer.appendChild(canvas);
 
     const minimap = { canvas, container: minimapContainer, dragMode: null, dragStartX: 0, dragStartRange: null };
     return minimap;
 }
 
-export function create(container, minimapContainer, dotNetRef) {
+export function create(container, minimapContainer, dotNetRef, interactive) {
     const chart = LightweightCharts.createChart(container, {
         layout: {
             background: { type: 'solid', color: 'transparent' }, textColor: '#c9c9c9',
@@ -685,11 +690,26 @@ export function create(container, minimapContainer, dotNetRef) {
         },
         rightPriceScale: { borderColor: 'rgba(255,255,255,0.15)' },
         timeScale: { borderColor: 'rgba(255,255,255,0.15)', timeVisible: true, secondsVisible: false, rightOffset: 10 },
-        crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+        // Non-interactive callers (TrainLiveTab's live episode chart) get a fixed, read-
+        // only view -- no scroll/pinch/drag pan-zoom and no crosshair, since letting the
+        // user drag the view around while Bars keeps changing underneath them is what
+        // crashes lightweight-charts internally (see DrawableOhlcvChart.razor.cs's
+        // Interactive parameter doc comment).
+        handleScroll: interactive !== false,
+        handleScale: interactive !== false,
+        crosshair: { mode: interactive === false ? LightweightCharts.CrosshairMode.Hidden : LightweightCharts.CrosshairMode.Normal },
         // Reacts to the container's own size (via ResizeObserver) so the expand/collapse
         // toggle in DrawableOhlcvChart.razor.cs needs no explicit resize call from .NET.
         autoSize: true,
     });
+
+    // handleScroll/handleScale/CrosshairMode.Hidden above stop lightweight-charts from
+    // acting on mouse input, but the library still tracks hover position internally for
+    // its own hit-testing (crosshair/marker layout) and that bookkeeping is what crashed
+    // mid setData() -- the mouse was hovering a point that no longer resolved once Bars
+    // changed underneath it. pointer-events:none stops the DOM from ever delivering a
+    // mouse/touch event to the chart at all, so none of that internal state exists.
+    if (interactive === false) container.style.pointerEvents = 'none';
 
     const candleSeries = chart.addSeries(LightweightCharts.CandlestickSeries, {
         upColor, downColor, borderVisible: false, wickUpColor: upColor, wickDownColor: downColor,
@@ -721,6 +741,7 @@ export function create(container, minimapContainer, dotNetRef) {
     container.appendChild(tooltip);
 
     chart.subscribeCrosshairMove(param => {
+        if (interactive === false) return;
         const bar = param.time ? param.seriesData.get(candleSeries) : undefined;
         if (!param.point || param.point.x < 0 || param.point.y < 0 || !bar) {
             tooltip.style.display = 'none';
@@ -811,10 +832,10 @@ export function create(container, minimapContainer, dotNetRef) {
     };
     instances.set(id, entry);
 
-    attachRangeFillDragInteractions(entry, container);
+    if (interactive !== false) attachRangeFillDragInteractions(entry, container);
 
-    entry.minimap = createMinimap(minimapContainer);
-    attachMinimapInteractions(entry);
+    entry.minimap = createMinimap(minimapContainer, interactive);
+    if (interactive !== false) attachMinimapInteractions(entry);
     const minimapResizeObserver = new ResizeObserver(() => resizeMinimapCanvas(entry));
     minimapResizeObserver.observe(minimapContainer);
     entry.minimap.resizeObserver = minimapResizeObserver;

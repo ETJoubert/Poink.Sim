@@ -1,6 +1,8 @@
 @namespace Poink.Sim.Components.Charts
 
 <div class="doc-wrapper @(_expanded ? "expanded" : "")">
+    @if (Interactive)
+    {
     <div class="doc-toolbar">
         @if (ShowAnnotationTools)
         {
@@ -81,6 +83,7 @@
             @(_expanded ? "✕" : "⤢")
         </button>
     </div>
+    }
     <div class="doc-chart-container" @ref="_containerRef"></div>
     <div class="doc-minimap" @ref="_minimapRef"
          title="Visible-data window -- drag the highlighted box to scroll through loaded bars, or drag its edges to zoom"></div>

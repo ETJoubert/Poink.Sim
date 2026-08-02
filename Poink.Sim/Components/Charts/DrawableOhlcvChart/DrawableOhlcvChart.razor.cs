@@ -40,6 +40,11 @@ namespace Poink.Sim.Components.Charts
         // Hides the Lines/Ranges/Shapes/Charts toolbar groups, leaving only Volume Range -- see TransformerPage.
         [Parameter] public bool ShowAnnotationTools { get; set; } = true;
 
+        // False hides the whole toolbar and disables pan/zoom/scroll/minimap-drag -- for read-only,
+        // frequently-updating views like TrainLiveTab's live episode chart, where letting the user
+        // interact while Bars keeps changing underneath them can crash lightweight-charts internally.
+        [Parameter] public bool Interactive { get; set; } = true;
+
         // Live bid/ask pinned to the right axis -- see SimulationPage's sim-header price readout.
         [Parameter] public double? CurrentBid { get; set; }
         [Parameter] public double? CurrentAsk { get; set; }
@@ -177,7 +182,7 @@ namespace Poink.Sim.Components.Charts
                     _module = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/drawableOhlcvChart.js");
                     if (_disposed) return;
                     _dotNetRef = DotNetObjectReference.Create(this);
-                    _chartId = await _module.InvokeAsync<string>("create", _containerRef, _minimapRef, _dotNetRef);
+                    _chartId = await _module.InvokeAsync<string>("create", _containerRef, _minimapRef, _dotNetRef, Interactive);
                 }
 
                 if (_disposed) return;

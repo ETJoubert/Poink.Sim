@@ -135,8 +135,8 @@
                 <div class="train-controls">
                     <button class="train-ctrl-btn train-ctrl-btn-collapse" @onclick="ToggleDashboardView"
                             title="@(_dashboardView
-                                                                                                                                                                                                                                                                                   ? "Switch back to the detailed view -- full-size charts, episode replay, inputs/outputs and stats tables"
-                                                                                                                                                                                                                                                                                   : "Switch to the compact dashboard -- gauges, charts, metrics and the training log, all on one screen")">
+                                                                                                                                                                                                                                                                                                               ? "Switch back to the detailed view -- full-size charts, episode replay, inputs/outputs and stats tables"
+                                                                                                                                                                                                                                                                                                               : "Switch to the compact dashboard -- gauges, charts, metrics and the training log, all on one screen")">
                         <Icon Name="@(_dashboardView ? "list-ul" : "speedometer2")" Class="train-ctrl-icon" />
                     </button>
 
@@ -210,35 +210,36 @@
                 </div>
             </div>
         </div>
-
-        <div class="train-stats">
-            <div class="train-stat">
-                <span class="train-stat-label">recent avg reward</span>
-                <span class="train-stat-value">@Service.RecentAverageReward.ToString("N2")</span>
-            </div>
-            <div class="train-stat">
-                <span class="train-stat-label">best episode</span>
-                <span class="train-stat-value">@Service.BestReward.ToString("N2")</span>
-            </div>
-            <div class="train-stat">
-                <span class="train-stat-label">worst episode</span>
-                <span class="train-stat-value">@Service.WorstReward.ToString("N2")</span>
-            </div>
-            <div class="train-stat">
-                <span class="train-stat-label">win rate</span>
-                <span class="train-stat-value">@WinRatePercent.ToString("N0")%</span>
-            </div>
-            <div class="train-stat">
-                <span class="train-stat-label">median reward</span>
-                <span class="train-stat-value">@RewardDistribution.Median.ToString("N2")</span>
-            </div>
-            <div class="train-stat">
-                <span class="train-stat-label">reward std dev</span>
-                <span class="train-stat-value">@RewardDistribution.StdDev.ToString("N2")</span>
-            </div>
-            <div class="train-stat">
-                <span class="train-stat-label">reward spread</span>
-                <span class="train-stat-value">@RewardSpread.ToString("N2")</span>
+        <div class="train-content">
+            <div class="train-stats">
+                <div class="train-stat">
+                    <span class="train-stat-label">recent avg reward</span>
+                    <span class="train-stat-value">@Service.RecentAverageReward.ToString("N2")</span>
+                </div>
+                <div class="train-stat">
+                    <span class="train-stat-label">best episode</span>
+                    <span class="train-stat-value">@Service.BestReward.ToString("N2")</span>
+                </div>
+                <div class="train-stat">
+                    <span class="train-stat-label">worst episode</span>
+                    <span class="train-stat-value">@Service.WorstReward.ToString("N2")</span>
+                </div>
+                <div class="train-stat">
+                    <span class="train-stat-label">win rate</span>
+                    <span class="train-stat-value">@WinRatePercent.ToString("N0")%</span>
+                </div>
+                <div class="train-stat">
+                    <span class="train-stat-label">median reward</span>
+                    <span class="train-stat-value">@RewardDistribution.Median.ToString("N2")</span>
+                </div>
+                <div class="train-stat">
+                    <span class="train-stat-label">reward std dev</span>
+                    <span class="train-stat-value">@RewardDistribution.StdDev.ToString("N2")</span>
+                </div>
+                <div class="train-stat">
+                    <span class="train-stat-label">reward spread</span>
+                    <span class="train-stat-value">@RewardSpread.ToString("N2")</span>
+                </div>
             </div>
         </div>
 
