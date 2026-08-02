@@ -4,7 +4,6 @@ using System.Globalization;
 using System.Linq;
 using System.Threading;
 using Microsoft.AspNetCore.Components;
-using Poink.Sim.Brain.Neural;
 using Poink.Sim.Components.Charts;
 using Poink.Sim.Models;
 using Poink.Sim.Training;
@@ -52,11 +51,7 @@ namespace Poink.Sim.Components.Training
             IReadOnlyList<BarPriceHistogram> LatestEpisodeBarHistograms,
             int LatestEpisodeWarmupBars,
             IReadOnlyList<Trade> LatestEpisodeTrades,
-            IReadOnlyList<RlInputFeature>? LatestInputs,
-            IReadOnlyList<RlOutputFeature>? LatestOutputs,
             IReadOnlyList<double> LatestEpisodeBarEquity,
-            IReadOnlyList<IReadOnlyList<RlInputFeature>> LatestEpisodeBarInputs,
-            IReadOnlyList<IReadOnlyList<RlOutputFeature>> LatestEpisodeBarOutputs,
             IReadOnlyList<RlBarAction> LatestEpisodeBarActions);
 
         private void ToggleLiveFeedback()
@@ -71,9 +66,7 @@ namespace Poink.Sim.Components.Training
             _liveFeedbackSnapshot = new LiveFeedbackSnapshot(
                 Service.RecentEpisodes, Service.RecentEpisodeTrades, Service.ActionCounts,
                 Service.LatestEpisodeBars, Service.LatestEpisodeBarHistograms, Service.LatestEpisodeWarmupBars,
-                Service.LatestEpisodeTrades, Service.LatestInputs, Service.LatestOutputs,
-                Service.LatestEpisodeBarEquity, Service.LatestEpisodeBarInputs, Service.LatestEpisodeBarOutputs,
-                Service.LatestEpisodeBarActions);
+                Service.LatestEpisodeTrades, Service.LatestEpisodeBarEquity, Service.LatestEpisodeBarActions);
             _liveFeedbackPaused = true;
         }
 
@@ -85,11 +78,7 @@ namespace Poink.Sim.Components.Training
         private IReadOnlyList<BarPriceHistogram> SourceEpisodeBarHistograms => _liveFeedbackSnapshot?.LatestEpisodeBarHistograms ?? Service.LatestEpisodeBarHistograms;
         private int SourceEpisodeWarmupBars => _liveFeedbackSnapshot?.LatestEpisodeWarmupBars ?? Service.LatestEpisodeWarmupBars;
         private IReadOnlyList<Trade> SourceEpisodeTrades => _liveFeedbackSnapshot?.LatestEpisodeTrades ?? Service.LatestEpisodeTrades;
-        private IReadOnlyList<RlInputFeature>? SourceInputs => _liveFeedbackSnapshot?.LatestInputs ?? Service.LatestInputs;
-        private IReadOnlyList<RlOutputFeature>? SourceOutputs => _liveFeedbackSnapshot?.LatestOutputs ?? Service.LatestOutputs;
         private IReadOnlyList<double> SourceEpisodeBarEquity => _liveFeedbackSnapshot?.LatestEpisodeBarEquity ?? Service.LatestEpisodeBarEquity;
-        private IReadOnlyList<IReadOnlyList<RlInputFeature>> SourceEpisodeBarInputs => _liveFeedbackSnapshot?.LatestEpisodeBarInputs ?? Service.LatestEpisodeBarInputs;
-        private IReadOnlyList<IReadOnlyList<RlOutputFeature>> SourceEpisodeBarOutputs => _liveFeedbackSnapshot?.LatestEpisodeBarOutputs ?? Service.LatestEpisodeBarOutputs;
         private IReadOnlyList<RlBarAction> SourceEpisodeBarActions => _liveFeedbackSnapshot?.LatestEpisodeBarActions ?? Service.LatestEpisodeBarActions;
 
         private List<CTraderBarRow> EpisodeBarRows =>
@@ -117,9 +106,7 @@ namespace Poink.Sim.Components.Training
         private int _replaySpeedIndex = 2;
         private List<CTraderBarRow>? _replayBars;
         private List<Trade>? _replayTrades;
-        private List<IReadOnlyList<RlInputFeature>>? _replayBarInputs;
         private List<double>? _replayBarEquity;
-        private List<IReadOnlyList<RlOutputFeature>>? _replayBarOutputs;
         private List<RlBarAction>? _replayBarActions;
 
         private int _replayWarmupBars;
@@ -203,28 +190,6 @@ namespace Poink.Sim.Components.Training
         private int DisplayedWarmupBars => _replayBars is not null ? _replayWarmupBars : SourceEpisodeWarmupBars;
 
         private int DisplayedDecisionIndex => _revealedBarCount - 1 - DisplayedWarmupBars;
-
-        private IReadOnlyList<RlInputFeature>? DisplayedInputs
-        {
-            get
-            {
-                if (_replayBars is null) return SourceInputs;
-                if (_replayBarInputs is null) return null;
-                int i = DisplayedDecisionIndex;
-                return i >= 0 && i < _replayBarInputs.Count ? _replayBarInputs[i] : null;
-            }
-        }
-
-        private IReadOnlyList<RlOutputFeature>? DisplayedOutputs
-        {
-            get
-            {
-                if (_replayBars is null) return SourceOutputs;
-                if (_replayBarOutputs is null) return null;
-                int i = DisplayedDecisionIndex;
-                return i >= 0 && i < _replayBarOutputs.Count ? _replayBarOutputs[i] : null;
-            }
-        }
 
         private double? DisplayedEquity
         {
@@ -347,9 +312,6 @@ namespace Poink.Sim.Components.Training
         private double? DisplayedStopLossPrice => DisplayedBarAction?.StopLossPrice;
         private double? DisplayedTakeProfitPrice => DisplayedBarAction?.TakeProfitPrice;
 
-        private double? DisplayedCurrentPrice =>
-            DisplayedEpisodeBars.Count > 0 ? DisplayedEpisodeBars[^1].Close : null;
-
         private int DisplayedWindowBarCount => Service.GetWarmupBars(BrainName);
 
         private List<ChartRangeFill> DisplayedWindowRange
@@ -378,9 +340,7 @@ namespace Poink.Sim.Components.Training
             if (!CanReplay) return;
             _replayBars = EpisodeBarRows;
             _replayTrades = SourceEpisodeTrades.ToList();
-            _replayBarInputs = SourceEpisodeBarInputs.ToList();
             _replayBarEquity = SourceEpisodeBarEquity.ToList();
-            _replayBarOutputs = SourceEpisodeBarOutputs.ToList();
             _replayBarActions = SourceEpisodeBarActions.ToList();
             _replayWarmupBars = SourceEpisodeWarmupBars;
             _revealedBarCount = 0;
@@ -400,9 +360,7 @@ namespace Poink.Sim.Components.Training
             _replayTimer?.Change(Timeout.Infinite, Timeout.Infinite);
             _replayBars = null;
             _replayTrades = null;
-            _replayBarInputs = null;
             _replayBarEquity = null;
-            _replayBarOutputs = null;
             _replayBarActions = null;
             _replayWarmupBars = 0;
             _revealedBarCount = 0;

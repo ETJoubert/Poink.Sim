@@ -140,7 +140,8 @@ namespace Poink.Sim.Components.Training
         private IReadOnlyList<BarPriceHistogram> EffectiveEpisodeHistograms =>
             Service.LatestEpisodeBars.Count > 0 ? Service.LatestEpisodeBarHistograms : _episodeHistograms;
 
-        private IReadOnlyList<TrainingPreviewSourceRow> SourceRows => BuildSourceRows(Recipe, EffectiveEpisodeBars, EffectiveEpisodeHistograms, StartingCash);
+        private IReadOnlyList<TrainingPreviewSourceRow> SourceRows =>
+            BuildSourceRows(Recipe, EffectiveEpisodeBars, EffectiveEpisodeHistograms, StartingCash, Service.LatestInputs);
         private IReadOnlyList<string> NeuralNetworkItems => BuildNeuralNetworkItems(Recipe);
         private List<StackSegment> InputBarSegments => BuildInputBarSegments(SourceRows);
         private IReadOnlyList<string> HiddenLayerItems => BuildHiddenLayerItems(Recipe);
@@ -529,18 +530,41 @@ namespace Poink.Sim.Components.Training
 
         private static string FormatZScore(float z) => z.ToString("+0.00;-0.00;0.00", CultureInfo.InvariantCulture);
 
-        // One value per TraderStateEncoder feature, from a flat trader sitting
-        // at this episode's own last close with StartingCash on hand and no
-        // realized/unrealized P&L yet -- the same state a live run's Trader
-        // begins each episode from, so the Source column's Trader State card
-        // shows real numbers instead of "--". Tooltip is that feature's own
-        // name (see TraderStateEncoder.Features) since values like "FLAT" or
-        // "10000.00" aren't self-explanatory the way Bar Window's prices are.
-        // Feeds both RawValues and NormalizedValues identically -- every
-        // TraderStateEncoder normalizer is a passthrough (see that class's
-        // doc comment), so there's nothing separate to show "normalized".
-        private static IReadOnlyList<(string Value, string Tooltip)> BuildTraderStateValues(IReadOnlyList<HlocAvdtBar> episodeBars, double startingCash)
+        // One value per TraderStateEncoder feature -- prefers Service.LatestInputs
+        // (the same live-decision values Live Training's own BrainIoPanel
+        // TRADER STATE card shows, matched by Label since TraderStateEncoder's
+        // labels are plain and unique, see BrainIoPanel.TraderStateFeatures'
+        // equivalent exclusion-based filter) so this card shows real numbers
+        // once training has produced a decision. Before that, falls back to a
+        // flat trader sitting at this episode's own last close with
+        // StartingCash on hand and no realized/unrealized P&L yet -- the same
+        // state a live run's Trader begins each episode from. Tooltip is that
+        // feature's own name (see TraderStateEncoder.Features) since values
+        // like "FLAT" or "10000.00" aren't self-explanatory the way Bar
+        // Window's prices are. Feeds both RawValues and NormalizedValues
+        // identically -- every TraderStateEncoder normalizer is a passthrough
+        // (see that class's doc comment), so there's nothing separate to show
+        // "normalized".
+        private static IReadOnlyList<(string Value, string Tooltip)> BuildTraderStateValues(
+            IReadOnlyList<HlocAvdtBar> episodeBars, double startingCash, IReadOnlyList<RlInputFeature>? liveInputs)
         {
+            var encoder = new TraderStateEncoder();
+            var features = encoder.Features;
+
+            if (liveInputs is not null)
+            {
+                var liveValues = new List<(string, string)>(features.Count);
+                bool anyMatch = false;
+                foreach (var f in features)
+                {
+                    var match = liveInputs.FirstOrDefault(i => i.Label == f.Label);
+                    anyMatch |= match is not null;
+                    liveValues.Add((match is not null ? match.Normalizer.Format(match.Value) : "—", f.Label));
+                }
+                if (anyMatch)
+                    return liveValues;
+            }
+
             if (episodeBars.Count == 0)
                 return [];
 
@@ -549,10 +573,7 @@ namespace Poink.Sim.Components.Training
             var observation = new SimulationObservation(
                 episodeBars[^1].OpenTime, currentPrice, [], [], [], capital, Position: null, currentPrice, currentPrice);
 
-            var encoder = new TraderStateEncoder();
             var raw = encoder.Encode(observation);
-            var features = encoder.Features;
-
             var values = new List<(string, string)>(features.Count);
             for (int i = 0; i < features.Count; i++)
                 values.Add((features[i].Normalizer.Format(raw[i]), features[i].Label));
@@ -571,7 +592,8 @@ namespace Poink.Sim.Components.Training
         // Builder's own input table, always ending with the always-on
         // Trader State.
         private static IReadOnlyList<TrainingPreviewSourceRow> BuildSourceRows(
-            BrainRecipe? recipe, IReadOnlyList<HlocAvdtBar> episodeBars, IReadOnlyList<BarPriceHistogram> episodeHistograms, double startingCash)
+            BrainRecipe? recipe, IReadOnlyList<HlocAvdtBar> episodeBars, IReadOnlyList<BarPriceHistogram> episodeHistograms,
+            double startingCash, IReadOnlyList<RlInputFeature>? liveInputs)
         {
             var rows = new List<TrainingPreviewSourceRow>();
             if (recipe is null)
@@ -615,7 +637,7 @@ namespace Poink.Sim.Components.Training
                 var count = BrainCatalog.CreateEncoder(EncoderKind.SpreadVolatility, sizes).FeatureCount;
                 rows.Add(new("Spread + Volatility", count.ToString(), "—", $"{sizes.SpreadVolatilityAtrPeriod} bars", "—"));
             }
-            var traderStateValues = BuildTraderStateValues(episodeBars, startingCash);
+            var traderStateValues = BuildTraderStateValues(episodeBars, startingCash, liveInputs);
             rows.Add(new("Trader State", new TraderStateEncoder().FeatureCount.ToString(), "Raw", "—", "—",
                 RawValues: traderStateValues.Select(v => v.Value).ToList(),
                 NormalizedValues: traderStateValues.Select(v => v.Value).ToList(),

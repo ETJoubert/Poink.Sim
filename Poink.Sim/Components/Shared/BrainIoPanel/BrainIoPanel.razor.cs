@@ -20,11 +20,6 @@ public partial class BrainIoPanel : ComponentBase
     [Parameter] public double? CurrentPrice { get; set; }
     [Parameter] public double? Equity { get; set; }
 
-    // Hides the OUTPUTS section -- TrainLiveTab sets this false since its own
-    // Action Decoder/Outputs charts in TrainingPreview now cover the same
-    // ground; SimulationPage's INPUTS/OUTPUTS tab still wants both sections.
-    [Parameter] public bool ShowOutputs { get; set; } = true;
-
     // Toggles the INPUTS card between the network's own normalized (bounded
     // ratio) values and their de-normalized real-world units.
     private bool _showDenormalizedInputs;
