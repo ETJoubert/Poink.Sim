@@ -76,6 +76,16 @@ namespace Poink.Sim.Components.Training
         // Trader begins each episode with (see TrainPage's Trader card).
         [Parameter] public double StartingCash { get; set; }
 
+        // Read directly (rather than via [Parameter]) so the Episode column
+        // can prefer the actively-training run's own most-recent episode
+        // (LatestEpisodeBars/LatestEpisodeBarHistograms) over this preview's
+        // random draw once one exists -- HlocAvdtBar/BarPriceHistogram are
+        // internal, so they can only cross a public [Parameter] boundary via
+        // a public wrapper (see RlEpisodeWindow for EpisodeWindows above);
+        // injecting Service directly avoids needing one, same as
+        // TrainLiveTab's own [Inject] Service.
+        [Inject] private RlTrainingService Service { get; set; } = default!;
+
         // Random ticks_* windows routinely land on a gap (FX markets close
         // over weekends -- see SessionClockEncoder), so one empty attempt
         // doesn't mean the table has no data at all -- worth a few retries
@@ -93,11 +103,37 @@ namespace Poink.Sim.Components.Training
         // dwell-time math) to build the Volume/Time Profile mini charts.
         private List<BarPriceHistogram> _episodeHistograms = [];
 
-        // The picked window's own [Start, End) -- feeds the Data column's
-        // vertical timeline so it can highlight exactly where this Episode
-        // chart's sample came from (see TrainingPreview.razor).
+        // The picked window's own [Start, End) -- this preview's own random
+        // draw (see FetchEpisode), re-rolled independently of whether
+        // training is running. Feeds the Episode column's chart/profile
+        // cards and the Data column's highlight only as a fallback, before
+        // training has produced a real episode of its own (see
+        // EffectiveEpisodeBars/DataHighlightStart/End below).
         private DateTime? _episodeWindowStart;
         private DateTime? _episodeWindowEnd;
+
+        // Data column's timeline highlight -- once training has completed at
+        // least one episode, tracks that run's own most-recently-used window
+        // (the last entry EpisodeWindows' owner appends is always the latest
+        // episode, see RlTrainingService.RecentEpisodeWindows) instead of this
+        // preview's random draw, so the highlight moves episode-to-episode
+        // with the actual run instead of sitting on a stale/misleading guess.
+        // Falls back to the random draw before training has produced any
+        // window yet (e.g. while still configuring Run Setup).
+        private DateTime? DataHighlightStart => EpisodeWindows.Count > 0 ? EpisodeWindows[^1].Start : _episodeWindowStart;
+        private DateTime? DataHighlightEnd => EpisodeWindows.Count > 0 ? EpisodeWindows[^1].End : _episodeWindowEnd;
+
+        // Episode column's own "prefer the real run" switch -- once training
+        // has completed at least one episode, its own bars/histograms (same
+        // episode DataHighlightStart/End now highlights) replace this
+        // preview's random draw, so the chart/profile cards track whichever
+        // episode the run is actually using instead of a stale/misleading
+        // guess. Falls back to the random draw before training has produced
+        // an episode yet.
+        private IReadOnlyList<HlocAvdtBar> EffectiveEpisodeBars =>
+            Service.LatestEpisodeBars.Count > 0 ? Service.LatestEpisodeBars : _episodeBars;
+        private IReadOnlyList<BarPriceHistogram> EffectiveEpisodeHistograms =>
+            Service.LatestEpisodeBars.Count > 0 ? Service.LatestEpisodeBarHistograms : _episodeHistograms;
 
         private IReadOnlyList<TrainingPreviewSourceRow> SourceRows => BuildSourceRows(Recipe, _episodeBars, _episodeHistograms, StartingCash);
         private IReadOnlyList<string> NeuralNetworkItems => BuildNeuralNetworkItems(Recipe);
@@ -106,10 +142,10 @@ namespace Poink.Sim.Components.Training
         private List<HiddenLayerBar> HiddenLayerBars => BuildHiddenLayerBars(HiddenLayerItems);
         private List<StackSegment> OutputBarSegments => BuildOutputBarSegments(Recipe);
         private List<ActionDecoderGroup> ActionDecoderGroups => BuildActionDecoderGroups(Recipe);
-        private List<EpisodeBarShape> EpisodeBarShapes => BuildEpisodeBarShapes(_episodeBars);
+        private List<EpisodeBarShape> EpisodeBarShapes => BuildEpisodeBarShapes(EffectiveEpisodeBars);
 
-        private List<ProfileBarRow> VolumeProfileRows => BuildVolumeProfileRows(Recipe, _episodeHistograms);
-        private List<ProfileBarRow> TimeProfileRows => BuildTimeProfileRows(Recipe, _episodeBars, _episodeHistograms);
+        private List<ProfileBarRow> VolumeProfileRows => BuildVolumeProfileRows(Recipe, EffectiveEpisodeHistograms);
+        private List<ProfileBarRow> TimeProfileRows => BuildTimeProfileRows(Recipe, EffectiveEpisodeBars, EffectiveEpisodeHistograms);
 
         public void ToggleCollapsed()
         {
@@ -232,7 +268,7 @@ namespace Poink.Sim.Components.Training
         // that bar closed up or down.
         private sealed record EpisodeBarShape(string X, string Y, string Width, string Height, bool IsUp, string Tooltip);
 
-        private static List<EpisodeBarShape> BuildEpisodeBarShapes(List<HlocAvdtBar> bars)
+        private static List<EpisodeBarShape> BuildEpisodeBarShapes(IReadOnlyList<HlocAvdtBar> bars)
         {
             if (bars.Count == 0)
                 return [];
@@ -279,7 +315,7 @@ namespace Poink.Sim.Components.Training
         // VolumeProfileEncoder) -- reused here verbatim so the mini chart matches
         // exactly what the network would be fed, just capped to ProfileMaxRows
         // rows so it stays readable in the Episode column.
-        private static List<ProfileBarRow> BuildVolumeProfileRows(BrainRecipe? recipe, List<BarPriceHistogram> episodeHistograms)
+        private static List<ProfileBarRow> BuildVolumeProfileRows(BrainRecipe? recipe, IReadOnlyList<BarPriceHistogram> episodeHistograms)
         {
             if (recipe is null || !recipe.EncoderKinds.Contains(EncoderKind.VolumeProfile) || episodeHistograms.Count == 0)
                 return [];
@@ -308,7 +344,7 @@ namespace Poink.Sim.Components.Training
         // rebin recipe as TimeProfileEncoder, weighted by seconds spent at
         // each price level instead of tick count (see BarPriceHistogram.MergeTime).
         private static List<ProfileBarRow> BuildTimeProfileRows(
-            BrainRecipe? recipe, List<HlocAvdtBar> episodeBars, List<BarPriceHistogram> episodeHistograms)
+            BrainRecipe? recipe, IReadOnlyList<HlocAvdtBar> episodeBars, IReadOnlyList<BarPriceHistogram> episodeHistograms)
         {
             if (recipe is null || !recipe.EncoderKinds.Contains(EncoderKind.TimeProfile) || episodeHistograms.Count == 0)
                 return [];
