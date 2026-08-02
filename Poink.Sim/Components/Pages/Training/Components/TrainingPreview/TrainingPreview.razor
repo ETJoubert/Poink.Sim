@@ -275,8 +275,39 @@
                                         </div>
                                     }
                                 </div>
+                            <div class="tp-column">
+                                <div class="tp-column-title"
+                                     title="Same probabilities as Action Decoder's badges, as bar-length charts -- one bar-set per decoded group">
+                                    Outputs</div>
+                                    @if (ActionDecoderGroups.Count == 0)
+                                    {
+                                        <div class="tp-row tp-row-empty">none selected</div>
+                                    }
+                                    else
+                                    {
+                                        <div class="tp-output-charts">
+                                            @foreach (var group in ActionDecoderGroups)
+                                            {
+                                                <div class="tp-source-card tp-decoder-card @group.ColorClass">
+                                                    <div class="tp-source-card-title">@group.Label</div>
+                                                    <div class="tp-output-chart">
+                                                        @foreach (var opt in group.Options)
+                                                        {
+                                                            <div class="tp-output-chart-row @(opt.IsChosen ? "tp-output-chart-row-chosen" : "")"
+                                                                 title="@opt.BadgeTooltip">
+                                                                <span class="tp-output-chart-label">@opt.Label</span>
+                                                                <div class="tp-output-chart-track">
+                                                                    <div class="tp-output-chart-fill" style="width: @(opt.WidthPercent)%"></div>
+                                                                </div>
+                                                            </div>
+                                                        }
+                                                    </div>
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                </div>
                             </div>
-
 
                         }
                     </div>

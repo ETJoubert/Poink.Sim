@@ -55,7 +55,7 @@
 
 .tp-columns {
     display: grid;
-    grid-template-columns: repeat(8, minmax(100px, 1fr));
+    grid-template-columns: repeat(9, minmax(100px, 1fr));
     gap: 14px;
     overflow-x: auto;
 }
@@ -435,4 +435,67 @@
     font-size: 0.5rem;
     opacity: 0.75;
     font-weight: normal;
+}
+
+/* Outputs column -- the same per-group probabilities Action Decoder's own
+   badges show, as plain bar-length charts (moved here, without the raw-logit/
+   percent text Action Decoder already carries, so the two columns don't just
+   repeat each other -- see TrainingPreview.razor's Outputs column and
+   ActionDecoderOption.WidthPercent). Reuses .tp-source-card/.tp-decoder-card
+   for the same card-per-group look as Action Decoder. */
+.tp-output-charts {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.tp-output-chart {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.tp-output-chart-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.tp-output-chart-label {
+    flex: 0 0 auto;
+    width: 52px;
+    font-size: 0.58rem;
+    color: var(--color-secondary);
+    opacity: 0.7;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tp-output-chart-track {
+    flex: 1 1 auto;
+    height: 8px;
+    border-radius: var(--border-radius-sm);
+    background: color-mix(in srgb, var(--tp-source-color, var(--color-primary)) 12%, transparent);
+    overflow: hidden;
+}
+
+.tp-output-chart-fill {
+    height: 100%;
+    background: var(--tp-source-color, var(--color-primary));
+    opacity: 0.6;
+}
+
+/* The network's actual chosen option (or the illustrative placeholder --
+   same fallback as .tp-decoder-action-chosen, they always agree since both
+   read the same ActionDecoderOption.IsChosen). */
+.tp-output-chart-row-chosen .tp-output-chart-label {
+    font-weight: bold;
+    opacity: 1;
+    color: var(--tp-source-color, var(--color-primary));
+}
+
+.tp-output-chart-row-chosen .tp-output-chart-fill {
+    opacity: 1;
 }

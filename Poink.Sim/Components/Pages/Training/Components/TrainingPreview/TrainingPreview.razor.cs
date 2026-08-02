@@ -862,6 +862,7 @@ namespace Poink.Sim.Components.Training
                 bool isChosen = hasLiveData ? match?.IsChosen ?? false : i == 0;
                 string rawValue = match is not null ? FormatLogit(match.Logit) : "";
                 string percentage = match is not null ? FormatDecoderPercent(match.Probability) : "";
+                string widthPercent = match is not null ? FormatCoord(match.Probability * 100) : "0";
                 string display = options[i].Display;
 
                 string circleTooltip = display
@@ -873,7 +874,7 @@ namespace Poink.Sim.Components.Training
                     + (isChosen ? $" -- where {label}'s {decodeLabel} collapsed to" : "");
 
                 decoderOptions.Add(new ActionDecoderOption(
-                    FormatCoord(DecoderCircleX), FormatCoord(y), rawValue, display, percentage, isChosen, circleTooltip, badgeTooltip));
+                    FormatCoord(DecoderCircleX), FormatCoord(y), rawValue, display, percentage, widthPercent, isChosen, circleTooltip, badgeTooltip));
                 funnelLines.Add(new ActionDecoderLine(FormatCoord(DecoderCircleX), FormatCoord(y), FormatCoord(DecoderBadgeX), FormatCoord(DecoderCenterY)));
             }
 
@@ -905,12 +906,14 @@ namespace Poink.Sim.Components.Training
     // own decoded logit, blank until a real decision exists) and its badge
     // to the funnel's right (Label/Percentage/IsChosen -- IsChosen is what
     // lights the badge and circle up, see TrainingPreview.BuildActionDecoderGroup).
+    // WidthPercent is that same probability as a 0-100 bar-fill width, for
+    // the Outputs column's chart (0 before a real decision exists).
     // CircleTooltip/BadgeTooltip are pre-formatted (rather than built inline
     // in TrainingPreview.razor) since a multi-line @(...) expression nested
     // in an SVG <title> confuses the Razor parser into misreading the
     // sibling <text> element that follows as a code-block transition tag.
     public sealed record ActionDecoderOption(
-        string Cx, string Cy, string RawValue, string Label, string Percentage, bool IsChosen,
+        string Cx, string Cy, string RawValue, string Label, string Percentage, string WidthPercent, bool IsChosen,
         string CircleTooltip, string BadgeTooltip);
 
     // One straight connector in an Action Decoder funnel, either a circle-

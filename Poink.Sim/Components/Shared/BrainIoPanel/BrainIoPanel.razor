@@ -142,40 +142,43 @@
     }
 </div>
 
-<div class="brain-io-section">
-    <div class="brain-io-title">
-        OUTPUTS <span class="brain-io-badge" title="Number of possible choices across every decision the network makes">@(Outputs?.Count ?? 0)</span>
-        <span class="brain-io-subtitle">(what the network decided for this decision)</span>
-    </div>
-    @if (Outputs is null)
-    {
-        <span class="reward-chart-empty">no data yet</span>
-    }
-    else
-    {
-        @foreach (var group in OutputGroups)
+@if (ShowOutputs)
+{
+    <div class="brain-io-section">
+        <div class="brain-io-title">
+            OUTPUTS <span class="brain-io-badge" title="Number of possible choices across every decision the network makes">@(Outputs?.Count ?? 0)</span>
+            <span class="brain-io-subtitle">(what the network decided for this decision)</span>
+        </div>
+        @if (Outputs is null)
         {
-            <div class="action-dist-group">
-                @if (group.Key != "Direction")
-                {
-                    <div class="action-dist-group-label">@group.Key</div>
-                }
-                <div class="action-dist">
-                    @foreach (var o in group)
-                    {
-                        <div class="action-dist-row @(o.IsChosen ? "action-dist-row-chosen" : "")"
-                             title="@(o.IsChosen ? "What the network actually decided" : "")">
-                            <span class="action-dist-label action-dist-@(ActionCssSuffix(o))">@ActionShortLabel(o)</span>
-                            <div class="action-dist-track">
-                                <div class="action-dist-fill action-dist-fill-@(ActionCssSuffix(o))"
-                                     style="width: @(Pct(o.Probability * 100))%"></div>
-                            </div>
-                            <span class="action-dist-pct">@(FormatProbabilityPct(o.Probability))%</span>
-                            <span class="action-dist-raw" title="Raw network output before softmax (logit) -- for evaluating decision methods other than softmax sampling">@(FormatLogit(o.Logit))</span>
-                        </div>
-                    }
-                </div>
-            </div>
+            <span class="reward-chart-empty">no data yet</span>
         }
-    }
-</div>
+        else
+        {
+            @foreach (var group in OutputGroups)
+            {
+                <div class="action-dist-group">
+                    @if (group.Key != "Direction")
+                    {
+                        <div class="action-dist-group-label">@group.Key</div>
+                    }
+                    <div class="action-dist">
+                        @foreach (var o in group)
+                        {
+                            <div class="action-dist-row @(o.IsChosen ? "action-dist-row-chosen" : "")"
+                                 title="@(o.IsChosen ? "What the network actually decided" : "")">
+                                <span class="action-dist-label action-dist-@(ActionCssSuffix(o))">@ActionShortLabel(o)</span>
+                                <div class="action-dist-track">
+                                    <div class="action-dist-fill action-dist-fill-@(ActionCssSuffix(o))"
+                                         style="width: @(Pct(o.Probability * 100))%"></div>
+                                </div>
+                                <span class="action-dist-pct">@(FormatProbabilityPct(o.Probability))%</span>
+                                <span class="action-dist-raw" title="Raw network output before softmax (logit) -- for evaluating decision methods other than softmax sampling">@(FormatLogit(o.Logit))</span>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+        }
+    </div>
+}
