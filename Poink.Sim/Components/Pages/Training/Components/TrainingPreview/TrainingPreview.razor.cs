@@ -557,21 +557,8 @@ namespace Poink.Sim.Components.Training
             IReadOnlyList<HlocAvdtBar> episodeBars, double startingCash, IReadOnlyList<RlInputFeature>? liveInputs)
         {
             var encoder = new TraderStateEncoder();
-            var features = encoder.Features;
-
-            if (liveInputs is not null)
-            {
-                var liveValues = new List<(string, string)>(features.Count);
-                bool anyMatch = false;
-                foreach (var f in features)
-                {
-                    var match = liveInputs.FirstOrDefault(i => i.Label == f.Label);
-                    anyMatch |= match is not null;
-                    liveValues.Add((match is not null ? match.Normalizer.Format(match.Value) : "—", f.Label));
-                }
-                if (anyMatch)
-                    return liveValues;
-            }
+            if (TryBuildLiveValues(encoder.Features, liveInputs, out var liveValues))
+                return liveValues;
 
             if (episodeBars.Count == 0)
                 return [];
@@ -581,7 +568,92 @@ namespace Poink.Sim.Components.Training
             var observation = new SimulationObservation(
                 episodeBars[^1].OpenTime, currentPrice, [], [], [], capital, Position: null, currentPrice, currentPrice);
 
-            var raw = encoder.Encode(observation);
+            return FormatEncoded(encoder.Features, encoder.Encode(observation));
+        }
+
+        // Session Clock counterpart to BuildTraderStateValues -- same live-
+        // preferred pattern (see TryBuildLiveValues), falling back to the
+        // picked episode's own last bar's OpenTime so the fallback numbers
+        // are a real moment inside this preview's episode rather than "now".
+        // The rest of the fallback observation is unused by
+        // SessionClockEncoder (only TimestampUtc matters -- see that class),
+        // so it's filled with neutral/empty placeholders same as
+        // BuildTraderStateValues' own Position/RecentBars fallback.
+        private static IReadOnlyList<(string Value, string Tooltip)> BuildSessionClockValues(
+            IReadOnlyList<HlocAvdtBar> episodeBars, IReadOnlyList<RlInputFeature>? liveInputs)
+        {
+            var encoder = new SessionClockEncoder();
+            if (TryBuildLiveValues(encoder.Features, liveInputs, out var liveValues))
+                return liveValues;
+
+            if (episodeBars.Count == 0)
+                return [];
+
+            double currentPrice = episodeBars[^1].Close;
+            var observation = new SimulationObservation(
+                episodeBars[^1].OpenTime, currentPrice, [], [], [],
+                new CapitalState(0, 0, 0, 0, null), Position: null, currentPrice, currentPrice);
+
+            return FormatEncoded(encoder.Features, encoder.Encode(observation));
+        }
+
+        // Spread + Volatility counterpart to BuildTraderStateValues -- same
+        // live-preferred pattern (see TryBuildLiveValues). Fallback ATR is
+        // computed for real from the picked episode's own trailing bars;
+        // fallback spread is 0 since historical bars carry no Bid/Ask of
+        // their own (see HlocAvdtBar) -- same "no false signal" convention
+        // SpreadVolatilityEncoder's own ATR warm-up already uses (see that
+        // class's doc comment), applied here to spread instead since this
+        // preview has no live tick to read it from.
+        private static IReadOnlyList<(string Value, string Tooltip)> BuildSpreadVolatilityValues(
+            IReadOnlyList<HlocAvdtBar> episodeBars, int atrPeriod, IReadOnlyList<RlInputFeature>? liveInputs)
+        {
+            var encoder = new SpreadVolatilityEncoder(atrPeriod);
+            if (TryBuildLiveValues(encoder.Features, liveInputs, out var liveValues))
+                return liveValues;
+
+            if (episodeBars.Count == 0)
+                return [];
+
+            double currentPrice = episodeBars[^1].Close;
+            var observation = new SimulationObservation(
+                episodeBars[^1].OpenTime, currentPrice, episodeBars, [], [],
+                new CapitalState(0, 0, 0, 0, null), Position: null, currentPrice, currentPrice);
+
+            return FormatEncoded(encoder.Features, encoder.Encode(observation));
+        }
+
+        // Tries this decision's own live per-decision inputs
+        // (Service.LatestInputs) before the caller falls back to computing
+        // directly from this preview's own picked episode -- shared by
+        // BuildTraderStateValues/BuildSessionClockValues/
+        // BuildSpreadVolatilityValues, which differ only in which encoder and
+        // fallback SimulationObservation they use. Matched by
+        // FeatureDescriptor label, since RlInputFeature.Label is that same
+        // encoder-owned string (see ComposedPolicyBrain.DescribeInputs).
+        private static bool TryBuildLiveValues(
+            IReadOnlyList<FeatureDescriptor> features, IReadOnlyList<RlInputFeature>? liveInputs,
+            out List<(string Value, string Tooltip)> values)
+        {
+            values = new List<(string, string)>(features.Count);
+            if (liveInputs is null)
+                return false;
+
+            bool anyMatch = false;
+            foreach (var f in features)
+            {
+                var match = liveInputs.FirstOrDefault(i => i.Label == f.Label);
+                anyMatch |= match is not null;
+                values.Add((match is not null ? match.Normalizer.Format(match.Value) : "—", f.Label));
+            }
+            return anyMatch;
+        }
+
+        // Formats an encoder's already-computed Encode() output against its
+        // own Features, index-aligned -- the fallback half of the
+        // live/fallback split TryBuildLiveValues starts.
+        private static List<(string Value, string Tooltip)> FormatEncoded(IReadOnlyList<FeatureDescriptor> features, float[] raw)
+        {
             var values = new List<(string, string)>(features.Count);
             for (int i = 0; i < features.Count; i++)
                 values.Add((features[i].Normalizer.Format(raw[i]), features[i].Label));
@@ -638,12 +710,20 @@ namespace Poink.Sim.Components.Training
             if (recipe.EncoderKinds.Contains(EncoderKind.SessionClock))
             {
                 var count = BrainCatalog.CreateEncoder(EncoderKind.SessionClock, sizes).FeatureCount;
-                rows.Add(new("Session Clock", count.ToString(), "—", "—", "—"));
+                var sessionClockValues = BuildSessionClockValues(episodeBars, liveInputs);
+                rows.Add(new("Session Clock", count.ToString(), "Raw", "—", "—",
+                    RawValues: sessionClockValues.Select(v => v.Value).ToList(),
+                    NormalizedValues: sessionClockValues.Select(v => v.Value).ToList(),
+                    ValueTooltips: sessionClockValues.Select(v => v.Tooltip).ToList()));
             }
             if (recipe.EncoderKinds.Contains(EncoderKind.SpreadVolatility))
             {
                 var count = BrainCatalog.CreateEncoder(EncoderKind.SpreadVolatility, sizes).FeatureCount;
-                rows.Add(new("Spread + Volatility", count.ToString(), "—", $"{sizes.SpreadVolatilityAtrPeriod} bars", "—"));
+                var spreadVolatilityValues = BuildSpreadVolatilityValues(episodeBars, sizes.SpreadVolatilityAtrPeriod, liveInputs);
+                rows.Add(new("Spread + Volatility", count.ToString(), "Raw", $"{sizes.SpreadVolatilityAtrPeriod} bars", "—",
+                    RawValues: spreadVolatilityValues.Select(v => v.Value).ToList(),
+                    NormalizedValues: spreadVolatilityValues.Select(v => v.Value).ToList(),
+                    ValueTooltips: spreadVolatilityValues.Select(v => v.Tooltip).ToList()));
             }
             var traderStateValues = BuildTraderStateValues(episodeBars, startingCash, liveInputs);
             rows.Add(new("Trader State", new TraderStateEncoder().FeatureCount.ToString(), "Raw", "—", "—",

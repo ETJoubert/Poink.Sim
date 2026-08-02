@@ -57,6 +57,7 @@
     display: grid;
     grid-template-columns: repeat(9, minmax(100px, 1fr));
     gap: 14px;
+    height: 70vh;
     overflow-x: auto;
 }
 
@@ -69,6 +70,7 @@
     border: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
     border-radius: var(--border-radius-sm);
     background: color-mix(in srgb, var(--color-primary) 2%, transparent);
+    overflow-y: auto;
 }
 
 .tp-column-title {
@@ -87,6 +89,21 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+/* Let each column's main content grow to fill the column's full height
+   instead of leaving empty space below it -- all columns in a row are
+   already the same height via CSS Grid's default item stretch, so these
+   just need to consume that height instead of sitting at natural size. */
+
+.tp-column > .tp-source-card {
+    flex: 1 1 0;
+    min-height: 0;
+}
+
+.tp-column ::deep .coverage-timeline-vertical {
+    flex: 1;
+    min-height: 0;
 }
 
 .tp-row-empty {
@@ -160,7 +177,8 @@
 
 .tp-episode-chart {
     width: 100%;
-    height: 140px;
+    flex: 1;
+    min-height: 0;
     display: block;
 }
 
@@ -214,10 +232,12 @@
 /* Neural Network's Input/Hidden/Output sub-cards, side by side -- reuses
    .tp-source-card's own box styling (no badge modifier, so it falls back to
    --color-primary) rather than a second, near-identical card style. */
-.tp-nn-cards {
+.tp-column > .tp-nn-cards {
     display: flex;
     gap: 8px;
     margin-top: 4px;
+    flex: 1 1 0;
+    min-height: 0;
 }
 
 .tp-nn-card {
@@ -240,7 +260,8 @@
     display: flex;
     flex-direction: column;
     width: 100%;
-    height: 600px;
+    flex: 1;
+    min-height: 0;
     margin-top: 4px;
     border-radius: var(--border-radius-sm);
     overflow: hidden;
@@ -314,11 +335,18 @@
    same as Output's stacked bar above. Groups themselves stack top to
    bottom. */
 
-.tp-decoder-groups {
+.tp-column > .tp-decoder-groups {
     display: flex;
     flex-direction: column;
     gap: 8px;
     margin-top: 4px;
+    flex: 1 1 0;
+    min-height: 0;
+}
+
+.tp-decoder-groups > .tp-decoder-card {
+    flex: 1 1 0;
+    min-height: 0;
 }
 
 /* Reuses .tp-source-card's own box + title styling (see Source column
@@ -334,6 +362,8 @@
     flex-wrap: wrap;
     align-items: center;
     gap: 4px;
+    flex: 1;
+    min-height: 0;
 }
 
 .tp-decoder-svg {
@@ -444,17 +474,26 @@
    repeat each other -- see TrainingPreview.razor's Outputs column and
    ActionDecoderOption.WidthPercent). Reuses .tp-source-card/.tp-decoder-card
    for the same card-per-group look as Action Decoder. */
-.tp-output-charts {
+.tp-column > .tp-output-charts {
     display: flex;
     flex-direction: column;
     gap: 8px;
     margin-top: 4px;
+    flex: 1 1 0;
+    min-height: 0;
+}
+
+.tp-output-charts > .tp-decoder-card {
+    flex: 1 1 0;
+    min-height: 0;
 }
 
 .tp-output-chart {
     display: flex;
     flex-direction: column;
     gap: 3px;
+    flex: 1;
+    justify-content: center;
 }
 
 .tp-output-chart-row {
@@ -505,15 +544,19 @@
    RewardChart/TrendLineChart components Live Training's own Live tab uses
    (see TrainingPreview.ResultsEpisodes/ResultsIsRunning), stacked instead of
    side by side since this column is narrower than that tab's grid. */
-.tp-results-charts {
+.tp-column > .tp-results-charts {
     display: flex;
     flex-direction: column;
     gap: 10px;
     margin-top: 4px;
+    flex: 1 1 0;
+    min-height: 0;
 }
 
-.tp-results-chart {
+.tp-results-charts > .tp-results-chart {
     display: flex;
     flex-direction: column;
     gap: 2px;
+    flex: 1 1 0;
+    min-height: 0;
 }

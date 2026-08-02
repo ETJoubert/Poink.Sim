@@ -2,6 +2,8 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
+    flex: 1;
+    min-height: 0;
 }
 
 .reward-chart-empty {
@@ -12,7 +14,8 @@
 
 .reward-chart-svg {
     width: 100%;
-    height: 160px;
+    flex: 1;
+    min-height: 80px;
     display: block;
 }
 

@@ -52,7 +52,7 @@
 
 .coverage-timeline-vertical .coverage-timeline-track {
     flex-direction: column;
-    height: 600px;
+    height: 100%;
 }
 
 .coverage-timeline-vertical .coverage-timeline-block {
@@ -68,6 +68,11 @@
 
 .coverage-timeline-track-wrap {
     position: relative;
+}
+
+.coverage-timeline-vertical .coverage-timeline-track-wrap {
+    flex: 1;
+    min-height: 0;
 }
 
 .coverage-timeline-highlight {
