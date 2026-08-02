@@ -499,3 +499,20 @@
 .tp-output-chart-row-chosen .tp-output-chart-fill {
     opacity: 1;
 }
+
+/* Results column -- Reward/Median Reward/Reward Std Dev/Win Rate, the same
+   RewardChart/TrendLineChart components Live Training's own Live tab uses
+   (see TrainingPreview.ResultsEpisodes/ResultsIsRunning), stacked instead of
+   side by side since this column is narrower than that tab's grid. */
+.tp-results-charts {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 4px;
+}
+
+.tp-results-chart {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}

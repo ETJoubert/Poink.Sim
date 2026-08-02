@@ -153,6 +153,14 @@ namespace Poink.Sim.Components.Training
         private List<ProfileBarRow> VolumeProfileRows => BuildVolumeProfileRows(Recipe, EffectiveEpisodeHistograms);
         private List<ProfileBarRow> TimeProfileRows => BuildTimeProfileRows(Recipe, EffectiveEpisodeBars, EffectiveEpisodeHistograms);
 
+        // Feeds the Results column's Reward/Median Reward/Reward Std Dev/Win
+        // Rate charts -- same RecentEpisodes/IsRunning Live Training's own
+        // Live tab charts read (see TrainLiveTab.SourceChartEpisodes), just
+        // without that tab's pause/snapshot freeze since this preview has no
+        // such control.
+        private IReadOnlyList<RlEpisodeMetric> ResultsEpisodes => Service.RecentEpisodes;
+        private bool ResultsIsRunning => Service.IsRunning;
+
         public void ToggleCollapsed()
         {
             _collapsed = !_collapsed;

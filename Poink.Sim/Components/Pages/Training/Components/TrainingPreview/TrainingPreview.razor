@@ -1,4 +1,5 @@
 @namespace Poink.Sim.Components.Training
+@using Poink.Sim.Training
 
 <div class="tp-card">
     <div class="tp-header">
@@ -14,13 +15,6 @@
         @if (!_collapsed)
         {
             <div class="tp-columns">
-                <div class="tp-column">
-                    <div class="tp-column-title">Training</div>
-                    @foreach (var item in TrainingItems)
-                    {
-                        <div class="tp-row">@item</div>
-                    }
-                </div>
                 <div class="tp-column">
                     <div class="tp-column-title">Data</div>
                     @foreach (var item in DataItems)
@@ -275,42 +269,72 @@
                                         </div>
                                     }
                                 </div>
-                            <div class="tp-column">
-                                <div class="tp-column-title"
-                                     title="Same probabilities as Action Decoder's badges, as bar-length charts -- one bar-set per decoded group">
-                                    Outputs</div>
-                                    @if (ActionDecoderGroups.Count == 0)
-                                    {
-                                        <div class="tp-row tp-row-empty">none selected</div>
-                                    }
-                                    else
-                                    {
-                                        <div class="tp-output-charts">
-                                            @foreach (var group in ActionDecoderGroups)
-                                            {
-                                                <div class="tp-source-card tp-decoder-card @group.ColorClass">
-                                                    <div class="tp-source-card-title">@group.Label</div>
-                                                    <div class="tp-output-chart">
-                                                        @foreach (var opt in group.Options)
-                                                        {
-                                                            <div class="tp-output-chart-row @(opt.IsChosen ? "tp-output-chart-row-chosen" : "")"
-                                                                 title="@opt.BadgeTooltip">
-                                                                <span class="tp-output-chart-label">@opt.Label</span>
-                                                                <div class="tp-output-chart-track">
-                                                                    <div class="tp-output-chart-fill" style="width: @(opt.WidthPercent)%"></div>
+                                <div class="tp-column">
+                                    <div class="tp-column-title"
+                                         title="Same probabilities as Action Decoder's badges, as bar-length charts -- one bar-set per decoded group">
+                                        Outputs</div>
+                                        @if (ActionDecoderGroups.Count == 0)
+                                        {
+                                            <div class="tp-row tp-row-empty">none selected</div>
+                                        }
+                                        else
+                                        {
+                                            <div class="tp-output-charts">
+                                                @foreach (var group in ActionDecoderGroups)
+                                                {
+                                                    <div class="tp-source-card tp-decoder-card @group.ColorClass">
+                                                        <div class="tp-source-card-title">@group.Label</div>
+                                                        <div class="tp-output-chart">
+                                                            @foreach (var opt in group.Options)
+                                                            {
+                                                                <div class="tp-output-chart-row @(opt.IsChosen ? "tp-output-chart-row-chosen" : "")"
+                                                                     title="@opt.BadgeTooltip">
+                                                                    <span class="tp-output-chart-label">@opt.Label</span>
+                                                                    <div class="tp-output-chart-track">
+                                                                        <div class="tp-output-chart-fill" style="width: @(opt.WidthPercent)%"></div>
+                                                                    </div>
                                                                 </div>
+                                                            }
+                                                        </div>
+                                                    </div>
+                                                }
+                                            </div>
+                                        }
+                                    </div>
+                                    <div class="tp-column">
+                                        <div class="tp-column-title"
+                                             title="Reward, median reward, reward std dev and win rate across the run's retained episodes -- same charts as Live Training's own Live tab">
+                                            Results</div>
+                                            <div class="tp-results-charts">
+                                                <div class="tp-results-chart">
+                                                    <div class="tp-profile-title">Reward</div>
+                                                    <RewardChart Episodes="ResultsEpisodes" IsRunning="ResultsIsRunning" />
+                                                </div>
+                                                <div class="tp-results-chart">
+                                                    <div class="tp-profile-title" title="Rolling-window median -- less noisy than raw reward">
+                                                        Median Reward</div>
+                                                        <TrendLineChart Episodes="ResultsEpisodes" IsRunning="ResultsIsRunning"
+                                                                        Aggregate="@RlEpisodeMetricStats.Median" ColorVariant="median" />
+                                                    </div>
+                                                    <div class="tp-results-chart">
+                                                        <div class="tp-profile-title"
+                                                             title="Rolling-window spread -- falling means training is stabilizing">
+                                                            Reward Std Dev</div>
+                                                            <TrendLineChart Episodes="ResultsEpisodes" IsRunning="ResultsIsRunning"
+                                                                            Aggregate="@RlEpisodeMetricStats.StdDev" ColorVariant="stddev" />
+                                                        </div>
+                                                        <div class="tp-results-chart">
+                                                            <div class="tp-profile-title" title="Rolling-window % of episodes with positive reward">
+                                                                Win Rate</div>
+                                                                <TrendLineChart Episodes="ResultsEpisodes" IsRunning="ResultsIsRunning"
+                                                                                Aggregate="@RlEpisodeMetricStats.WinRate" ColorVariant="winrate" ValueFormat="N0"
+                                                                                ValueSuffix="%" />
                                                             </div>
-                                                        }
+                                                        </div>
                                                     </div>
                                                 </div>
                                             }
                                         </div>
-                                    }
-                                </div>
-                            </div>
-
-                        }
-                    </div>
 
 
 

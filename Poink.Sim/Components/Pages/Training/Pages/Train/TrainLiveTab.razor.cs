@@ -409,27 +409,11 @@ namespace Poink.Sim.Components.Training
             get
             {
                 var episodes = Service.RecentEpisodes;
-                return episodes.Count == 0 ? (0, 0) : (RewardStdDev(episodes), MedianReward(episodes));
+                return episodes.Count == 0
+                    ? (0, 0)
+                    : (RlEpisodeMetricStats.StdDev(episodes), RlEpisodeMetricStats.Median(episodes));
             }
         }
-
-        private static double MedianReward(IReadOnlyList<RlEpisodeMetric> episodes)
-        {
-            var sorted = episodes.Select(e => e.Reward).OrderBy(r => r).ToList();
-            int mid = sorted.Count / 2;
-            return sorted.Count % 2 == 0 ? (sorted[mid - 1] + sorted[mid]) / 2.0 : sorted[mid];
-        }
-
-        private static double RewardStdDev(IReadOnlyList<RlEpisodeMetric> episodes)
-        {
-            var rewards = episodes.Select(e => e.Reward).ToList();
-            double mean = rewards.Average();
-            double variance = rewards.Sum(r => (r - mean) * (r - mean)) / rewards.Count;
-            return Math.Sqrt(variance);
-        }
-
-        private static double WinRate(IReadOnlyList<RlEpisodeMetric> episodes) =>
-            episodes.Count(e => e.Reward > 0) * 100.0 / episodes.Count;
 
         private (double Hold, double EnterLong, double EnterShort, double Close) ActionPercents
         {

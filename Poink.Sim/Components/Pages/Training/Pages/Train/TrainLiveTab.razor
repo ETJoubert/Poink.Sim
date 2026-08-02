@@ -61,35 +61,6 @@ else
 
     <div class="train-live-grid">
         <div class="train-live-panel">
-            <div class="train-panel-title">REWARD</div>
-            <RewardChart Episodes="SourceChartEpisodes" IsRunning="SourceIsRunning" />
-        </div>
-
-        <div class="train-live-panel">
-            <div class="train-panel-title">
-                MEDIAN REWARD <span class="train-panel-subtitle">(rolling-window median -- less noisy than raw reward)</span>
-            </div>
-            <TrendLineChart Episodes="SourceChartEpisodes" IsRunning="SourceIsRunning" Aggregate="@MedianReward"
-                             ColorVariant="median" />
-        </div>
-
-        <div class="train-live-panel">
-            <div class="train-panel-title">
-                REWARD STD DEV <span class="train-panel-subtitle">(rolling-window spread -- falling means training is stabilizing)</span>
-            </div>
-            <TrendLineChart Episodes="SourceChartEpisodes" IsRunning="SourceIsRunning" Aggregate="@RewardStdDev"
-                             ColorVariant="stddev" />
-        </div>
-
-        <div class="train-live-panel">
-            <div class="train-panel-title">
-                WIN RATE <span class="train-panel-subtitle">(rolling-window % of episodes with positive reward)</span>
-            </div>
-            <TrendLineChart Episodes="SourceChartEpisodes" IsRunning="SourceIsRunning" Aggregate="@WinRate"
-                             ColorVariant="winrate" ValueFormat="N0" ValueSuffix="%" />
-        </div>
-
-        <div class="train-live-panel">
             <div class="train-panel-title">ACTION DISTRIBUTION</div>
             <div class="action-dist">
                 <div class="action-dist-row">

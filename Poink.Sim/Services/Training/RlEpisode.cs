@@ -7,6 +7,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Poink.Sim.Brain.Neural;
 using Poink.Sim.Models;
 using TorchSharp;
@@ -124,6 +125,32 @@ internal sealed record RlEpisodeTrades(
 // partial class is always public -- a public parameter can't be typed with a
 // less-accessible type.
 public sealed record RlEpisodeMetric(int EpisodeNumber, double Reward, double FinalEquity);
+
+// Shared per-episode reward aggregates -- used both for a whole-run readout
+// (see TrainLiveTab's median reward/reward std dev stat tiles) and, fed a
+// trailing window instead of the full list, as TrendLineChart's own
+// Aggregate callback (see TrainLiveTab/TrainingPreview's Results charts) --
+// kept in one place so both call sites agree on the exact same math.
+public static class RlEpisodeMetricStats
+{
+    public static double Median(IReadOnlyList<RlEpisodeMetric> episodes)
+    {
+        var sorted = episodes.Select(e => e.Reward).OrderBy(r => r).ToList();
+        int mid = sorted.Count / 2;
+        return sorted.Count % 2 == 0 ? (sorted[mid - 1] + sorted[mid]) / 2.0 : sorted[mid];
+    }
+
+    public static double StdDev(IReadOnlyList<RlEpisodeMetric> episodes)
+    {
+        var rewards = episodes.Select(e => e.Reward).ToList();
+        double mean = rewards.Average();
+        double variance = rewards.Sum(r => (r - mean) * (r - mean)) / rewards.Count;
+        return Math.Sqrt(variance);
+    }
+
+    public static double WinRate(IReadOnlyList<RlEpisodeMetric> episodes) =>
+        episodes.Count(e => e.Reward > 0) * 100.0 / episodes.Count;
+}
 
 // One historic episode's actual sampled window (see RlEpisode's WindowStart/
 // WindowEnd doc comment) -- only recorded when training samples from a real
