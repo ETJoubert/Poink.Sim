@@ -210,8 +210,8 @@
                             </div>
                             <div class="tp-column">
                                 <div class="tp-column-title"
-                                     title="How each decoded group's raw N-way logits collapse to one chosen action -- circles are the raw logits, the badge is the decode rule, the highlighted option is where that collapses to">
-                                    Action Decoder</div>
+                                     title="How each decoded group's raw N-way logits collapse to one chosen action -- logit, action, and probability bar per option, the top badge is the decode rule, the highlighted row is where that collapses to">
+                                    Actions</div>
                                     @if (ActionDecoderGroups.Count == 0)
                                     {
                                         <div class="tp-row tp-row-empty">none selected</div>
@@ -223,87 +223,13 @@
                                             {
                                                 <div class="tp-source-card tp-decoder-card @group.ColorClass">
                                                     <div class="tp-source-card-title">@group.Label</div>
-                                                    <div class="tp-decoder-row">
-                                                        <svg viewBox="0 0 94 56" preserveAspectRatio="xMidYMid meet" class="tp-decoder-svg">
-                                                            @foreach (var line in group.FunnelLines)
-                                                            {
-                                                                <line x1="@line.X1" y1="@line.Y1" x2="@line.X2" y2="@line.Y2"
-                                                                      class="tp-decoder-line @group.ColorClass" />
-                                                            }
-                                                            @foreach (var opt in group.Options)
-                                                            {
-                                                                <g>
-                                                                    <circle cx="@opt.Cx" cy="@opt.Cy" r="7"
-                                                                            class="tp-decoder-circle @group.ColorClass @(opt.IsChosen ? "tp-decoder-circle-chosen" : "")">
-                                                                        <title>@opt.CircleTooltip</title>
-                                                                    </circle>
-                                                                    <text x="@opt.Cx" y="@opt.Cy" text-anchor="middle" dominant-baseline="middle"
-                                                                          class="tp-decoder-circle-text">@opt.RawValue</text>
-                                                                </g>
-                                                            }
-                                                            <line x1="@group.StemLine.X1" y1="@group.StemLine.Y1" x2="@group.StemLine.X2"
-                                                                  y2="@group.StemLine.Y2"
-                                                                  class="tp-decoder-line tp-decoder-line-stem @group.ColorClass" />
-                                                            <rect x="@group.BadgeX" y="@group.BadgeY" width="@group.BadgeWidth"
-                                                                  height="@group.BadgeHeight" rx="3" class="tp-decoder-badge @group.ColorClass">
-                                                                <title>@group.DecodeTooltip</title>
-                                                            </rect>
-                                                            <text x="@group.BadgeCx" y="@group.BadgeCy" text-anchor="middle" dominant-baseline="middle"
-                                                                  class="tp-decoder-badge-text">@group.DecodeLabel</text>
-                                                        </svg>
-                                                        <div class="tp-decoder-actions">
-                                                            @foreach (var opt in group.Options)
-                                                            {
-                                                                <span
-                                                                    class="tp-decoder-action-badge @group.ColorClass @(opt.IsChosen ? "tp-decoder-action-chosen" : "")"
-                                                                    title="@opt.BadgeTooltip">
-                                                                    @opt.Label
-                                                                    @if (!string.IsNullOrEmpty(opt.Percentage))
-                                                                    {
-                                                                        <span class="tp-decoder-action-pct">@opt.Percentage</span>
-                                                                    }
-                                                                </span>
-                                                            }
-                                                        </div>
-                                                    </div>
+                                                    <ActionSetDecoder Group="group" />
                                                 </div>
                                             }
                                         </div>
                                     }
                                 </div>
                                 <div class="tp-column">
-                                    <div class="tp-column-title"
-                                         title="Same probabilities as Action Decoder's badges, as bar-length charts -- one bar-set per decoded group">
-                                        Outputs</div>
-                                        @if (ActionDecoderGroups.Count == 0)
-                                        {
-                                            <div class="tp-row tp-row-empty">none selected</div>
-                                        }
-                                        else
-                                        {
-                                            <div class="tp-output-charts">
-                                                @foreach (var group in ActionDecoderGroups)
-                                                {
-                                                    <div class="tp-source-card tp-decoder-card @group.ColorClass">
-                                                        <div class="tp-source-card-title">@group.Label</div>
-                                                        <div class="tp-output-chart">
-                                                            @foreach (var opt in group.Options)
-                                                            {
-                                                                <div class="tp-output-chart-row @(opt.IsChosen ? "tp-output-chart-row-chosen" : "")"
-                                                                     title="@opt.BadgeTooltip">
-                                                                    <span class="tp-output-chart-label">@opt.Label</span>
-                                                                    <div class="tp-output-chart-track">
-                                                                        <div class="tp-output-chart-fill" style="width: @(opt.WidthPercent)%"></div>
-                                                                    </div>
-                                                                </div>
-                                                            }
-                                                        </div>
-                                                    </div>
-                                                }
-                                            </div>
-                                        }
-                                    </div>
-                                    <div class="tp-column">
                                         <div class="tp-column-title"
                                              title="Reward, median reward, reward std dev and win rate across the run's retained episodes -- same charts as Live Training's own Live tab">
                                             Results</div>

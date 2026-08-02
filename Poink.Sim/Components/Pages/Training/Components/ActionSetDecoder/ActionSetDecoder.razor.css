@@ -1,0 +1,91 @@
+/* Grid of logit / action-label / percentage / bar cells, one row per
+   option, with a top badge spanning all columns for the decode rule
+   (softmax/argmax). --tp-source-color is set by the parent tp-source-card's
+   own tp-source-badge-* modifier class (see TrainingPreview.razor) and
+   inherits down into this component regardless of Blazor's CSS scoping,
+   since custom properties cascade through the DOM tree unaffected by it. */
+
+.asd-grid {
+    display: grid;
+    grid-template-columns: auto 1fr auto 2fr;
+    align-items: center;
+    gap: 3px 6px;
+    flex: 1;
+    min-height: 0;
+    margin-top: 4px;
+}
+
+.asd-decode-badge {
+    grid-column: 1 / -1;
+    justify-self: start;
+    font-size: 0.58rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 1px 6px;
+    border-radius: var(--border-radius-sm);
+    background: color-mix(in srgb, var(--tp-source-color, var(--color-primary)) 22%, var(--color-bg-terminal));
+    color: var(--tp-source-color, var(--color-primary));
+    margin-bottom: 2px;
+}
+
+.asd-cell {
+    font-size: 0.6rem;
+    color: var(--color-secondary);
+    opacity: 0.6;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.asd-cell-logit {
+    min-width: 20px;
+    padding: 1px 4px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+    border-radius: var(--border-radius-sm);
+    background: color-mix(in srgb, var(--tp-source-color, var(--color-primary)) 12%, transparent);
+}
+
+.asd-cell-label {
+    min-width: 0;
+}
+
+.asd-cell-pct {
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.asd-cell-bar {
+    min-width: 24px;
+}
+
+.asd-bar-track {
+    height: 8px;
+    border-radius: var(--border-radius-sm);
+    background: color-mix(in srgb, var(--tp-source-color, var(--color-primary)) 12%, transparent);
+    overflow: hidden;
+}
+
+.asd-bar-fill {
+    height: 100%;
+    background: var(--tp-source-color, var(--color-primary));
+    opacity: 0.6;
+}
+
+/* The network's actual chosen option (or, before any real decision exists,
+   the first option shown as an illustrative placeholder -- see
+   TrainingPreview.BuildActionDecoderGroup). */
+.asd-cell-chosen {
+    opacity: 1;
+    font-weight: bold;
+    color: var(--tp-source-color, var(--color-primary));
+}
+
+.asd-cell-logit.asd-cell-chosen {
+    background: color-mix(in srgb, var(--tp-source-color, var(--color-primary)) 30%, transparent);
+}
+
+.asd-cell-bar.asd-cell-chosen .asd-bar-fill {
+    opacity: 1;
+}

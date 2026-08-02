@@ -36,26 +36,6 @@ namespace Poink.Sim.Components.Training
         // keeps them readable in the Episode column's narrow width.
         private const int ProfileMaxRows = 20;
 
-        // Action Decoder diagram geometry -- one funnel per decoded group,
-        // flowing left to right: circles (raw N-way logits) on the left
-        // converge through a decode badge into a stem that points at the
-        // group's action-set list rendered in HTML to the right of the svg
-        // (see BuildActionDecoderGroup). Fixed viewBox -- only the circles'
-        // vertical spread depends on a group's own way-count.
-        private const string DecoderViewBox = "0 0 94 56";
-        private const double DecoderViewBoxHeight = 56;
-        private const double DecoderCircleX = 8;
-
-        // Big enough to hold a short raw-logit string (e.g. "+1.2") at
-        // DecoderCircleRadius-scaled font size -- see .tp-decoder-circle-text.
-        private const double DecoderCircleRadius = 7;
-        private const double DecoderCirclePadY = 8;
-        private const double DecoderCenterY = DecoderViewBoxHeight / 2;
-        private const double DecoderBadgeX = 34;
-        private const double DecoderBadgeWidth = 50;
-        private const double DecoderBadgeHeight = 13;
-        private const double DecoderStemLength = 10;
-
         [Inject] private ITickRepository TickRepository { get; set; } = default!;
 
         [Parameter] public BrainRecipe? Recipe { get; set; }
@@ -945,29 +925,23 @@ namespace Poink.Sim.Components.Training
         private static List<(string RawKey, string Display)> LevelOptions(ActionOutputKind kind) =>
             DiscretizedLevelsActionHead.GetLevelLabels(kind).Select(l => (l, l)).ToList();
 
-        // Lays out one group's funnel left to right: one circle per
-        // action-set option spread evenly down the diagram's left edge,
-        // each with a FunnelLine converging on the decode badge's
-        // left-center, and a StemLine from the badge's right-center
-        // pointing at the action-set list rendered in HTML to the right of
-        // the svg (see TrainingPreview.razor). outputGroupKey matches
-        // RlOutputFeature.Group (e.g. "StopLoss", not "Stop Loss") so
-        // liveOutputs -- Service.LatestOutputs, unfiltered -- can be
-        // narrowed to this group's own options and matched by RawKey.
+        // Builds one group's option rows for the ActionSetDecoder grid
+        // (logit / label / percentage / bar per option, see that
+        // component). outputGroupKey matches RlOutputFeature.Group (e.g.
+        // "StopLoss", not "Stop Loss") so liveOutputs -- Service.LatestOutputs,
+        // unfiltered -- can be narrowed to this group's own options and
+        // matched by RawKey.
         private static ActionDecoderGroup BuildActionDecoderGroup(
             string label, string colorClass, string decodeLabel, string decodeTooltip,
             string outputGroupKey, IReadOnlyList<(string RawKey, string Display)> options,
             IReadOnlyList<RlOutputFeature>? liveOutputs)
         {
-            int ways = options.Count;
             var groupOutputs = liveOutputs?.Where(o => o.Group == outputGroupKey).ToList();
             bool hasLiveData = groupOutputs is { Count: > 0 };
 
-            var decoderOptions = new List<ActionDecoderOption>(ways);
-            var funnelLines = new List<ActionDecoderLine>(ways);
-            for (int i = 0; i < ways; i++)
+            var decoderOptions = new List<ActionDecoderOption>(options.Count);
+            for (int i = 0; i < options.Count; i++)
             {
-                double y = ways <= 1 ? DecoderCenterY : DecoderCirclePadY + i * (DecoderViewBoxHeight - 2 * DecoderCirclePadY) / (ways - 1);
                 var match = groupOutputs?.FirstOrDefault(o => o.Label == options[i].RawKey);
                 bool isChosen = hasLiveData ? match?.IsChosen ?? false : i == 0;
                 string rawValue = match is not null ? FormatLogit(match.Logit) : "";
@@ -975,34 +949,19 @@ namespace Poink.Sim.Components.Training
                 string widthPercent = match is not null ? FormatCoord(match.Probability * 100) : "0";
                 string display = options[i].Display;
 
-                string circleTooltip = display
+                string tooltip = display
                     + (rawValue.Length == 0 ? "" : $": {rawValue} raw logit")
                     + (percentage.Length == 0 ? "" : $", {percentage} chance")
-                    + (isChosen ? " -- chosen" : "");
-                string badgeTooltip = display
-                    + (percentage.Length == 0 ? "" : $": {percentage} chance")
                     + (isChosen ? $" -- where {label}'s {decodeLabel} collapsed to" : "");
 
-                decoderOptions.Add(new ActionDecoderOption(
-                    FormatCoord(DecoderCircleX), FormatCoord(y), rawValue, display, percentage, widthPercent, isChosen, circleTooltip, badgeTooltip));
-                funnelLines.Add(new ActionDecoderLine(FormatCoord(DecoderCircleX), FormatCoord(y), FormatCoord(DecoderBadgeX), FormatCoord(DecoderCenterY)));
+                decoderOptions.Add(new ActionDecoderOption(rawValue, display, percentage, widthPercent, isChosen, tooltip));
             }
 
-            double badgeY = DecoderCenterY - DecoderBadgeHeight / 2;
-            double badgeRightX = DecoderBadgeX + DecoderBadgeWidth;
-            double stemEndX = badgeRightX + DecoderStemLength;
-            var stemLine = new ActionDecoderLine(FormatCoord(badgeRightX), FormatCoord(DecoderCenterY), FormatCoord(stemEndX), FormatCoord(DecoderCenterY));
-
-            return new ActionDecoderGroup(
-                label, colorClass, decodeLabel, decodeTooltip, decoderOptions, funnelLines,
-                FormatCoord(DecoderBadgeX), FormatCoord(badgeY), FormatCoord(DecoderBadgeWidth), FormatCoord(DecoderBadgeHeight),
-                FormatCoord(DecoderBadgeX + DecoderBadgeWidth / 2), FormatCoord(DecoderCenterY),
-                stemLine);
+            return new ActionDecoderGroup(label, colorClass, decodeLabel, decodeTooltip, decoderOptions);
         }
 
-        // Compact signed one-decimal logit -- fits inside a DecoderCircleRadius
-        // circle at .tp-decoder-circle-text's font size; full precision is
-        // in the circle's own hover tooltip (see TrainingPreview.razor).
+        // Compact signed one-decimal logit -- keeps the logit block narrow;
+        // full precision is in that block's own hover tooltip.
         private static string FormatLogit(double logit) => logit.ToString("+0.0;-0.0;0.0", CultureInfo.InvariantCulture);
 
         // Whole-percent (unlike FormatFraction's two decimals) -- same
@@ -1011,34 +970,22 @@ namespace Poink.Sim.Components.Training
         private static string FormatDecoderPercent(double probability) => (probability * 100).ToString("N0", CultureInfo.InvariantCulture) + "%";
     }
 
-    // One action-set option in an Action Decoder funnel, both its circle on
-    // the diagram's left edge (Cx/Cy, labeled with RawValue -- that option's
-    // own decoded logit, blank until a real decision exists) and its badge
-    // to the funnel's right (Label/Percentage/IsChosen -- IsChosen is what
-    // lights the badge and circle up, see TrainingPreview.BuildActionDecoderGroup).
-    // WidthPercent is that same probability as a 0-100 bar-fill width, for
-    // the Outputs column's chart (0 before a real decision exists).
-    // CircleTooltip/BadgeTooltip are pre-formatted (rather than built inline
-    // in TrainingPreview.razor) since a multi-line @(...) expression nested
-    // in an SVG <title> confuses the Razor parser into misreading the
-    // sibling <text> element that follows as a code-block transition tag.
+    // One action-set option as one row of the ActionSetDecoder grid --
+    // RawValue is that option's own decoded logit (blank until a real
+    // decision exists), WidthPercent is its probability as a 0-100 bar-fill
+    // width, IsChosen is what highlights the row (see
+    // TrainingPreview.BuildActionDecoderGroup). Tooltip is pre-formatted
+    // (rather than built inline in ActionSetDecoder.razor) since it's shared
+    // across that row's several cells.
     public sealed record ActionDecoderOption(
-        string Cx, string Cy, string RawValue, string Label, string Percentage, string WidthPercent, bool IsChosen,
-        string CircleTooltip, string BadgeTooltip);
+        string RawValue, string Label, string Percentage, string WidthPercent, bool IsChosen, string Tooltip);
 
-    // One straight connector in an Action Decoder funnel, either a circle-
-    // to-badge FunnelLine or the badge-to-actions StemLine.
-    public sealed record ActionDecoderLine(string X1, string Y1, string X2, string Y2);
-
-    // One decoded group's full collapse funnel, left to right -- Options/
-    // FunnelLines/Badge*/StemLine are svg geometry within the fixed
-    // TrainingPreview.DecoderViewBox, Options in the same order the StemLine
-    // points at (see ActionDecoderOption.IsChosen for which one it lands on).
+    // One decoded group's full option grid -- see ActionSetDecoder, which
+    // renders DecodeLabel/DecodeTooltip as a top badge (softmax/argmax) and
+    // Options as the logit/label/percentage/bar rows beneath it.
     public sealed record ActionDecoderGroup(
         string Label, string ColorClass, string DecodeLabel, string DecodeTooltip,
-        IReadOnlyList<ActionDecoderOption> Options, IReadOnlyList<ActionDecoderLine> FunnelLines,
-        string BadgeX, string BadgeY, string BadgeWidth, string BadgeHeight, string BadgeCx, string BadgeCy,
-        ActionDecoderLine StemLine);
+        IReadOnlyList<ActionDecoderOption> Options);
 
     // One row of the Source/Inputs/Normalization/Window/Bucket columns --
     // Normalization/Window/Bucket are "--" where a source has no such concept

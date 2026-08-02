@@ -1,0 +1,16 @@
+@namespace Poink.Sim.Components.Training
+
+<div class="asd-grid">
+    <div class="asd-decode-badge" title="@Group.DecodeTooltip">@Group.DecodeLabel</div>
+    @foreach (var opt in Group.Options)
+    {
+        <div class="asd-cell asd-cell-logit @(opt.IsChosen ? "asd-cell-chosen" : "")" title="@opt.Tooltip">@opt.RawValue</div>
+        <div class="asd-cell asd-cell-label @(opt.IsChosen ? "asd-cell-chosen" : "")" title="@opt.Tooltip">@opt.Label</div>
+        <div class="asd-cell asd-cell-pct @(opt.IsChosen ? "asd-cell-chosen" : "")" title="@opt.Tooltip">@opt.Percentage</div>
+        <div class="asd-cell asd-cell-bar @(opt.IsChosen ? "asd-cell-chosen" : "")" title="@opt.Tooltip">
+            <div class="asd-bar-track">
+                <div class="asd-bar-fill" style="width: @(opt.WidthPercent)%"></div>
+            </div>
+        </div>
+    }
+</div>

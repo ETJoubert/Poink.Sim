@@ -55,7 +55,7 @@
 
 .tp-columns {
     display: grid;
-    grid-template-columns: repeat(9, minmax(100px, 1fr));
+    grid-template-columns: repeat(8, minmax(100px, 1fr));
     gap: 14px;
     height: 70vh;
     overflow-x: auto;
@@ -328,12 +328,11 @@
     background: var(--tp-source-color, var(--color-primary));
 }
 
-/* Action Decoder -- one collapse funnel per decoded group, flowing left to
-   right: circles (that group's raw N-way logits) converge through a decode
-   badge (softmax/argmax) into a stem pointing at the group's action-set
-   list to the right, colored via tp-source-badge-* through OutputColorClass,
-   same as Output's stacked bar above. Groups themselves stack top to
-   bottom. */
+/* Actions column -- one card per decoded group, each rendering its own
+   logit/label/percentage/bar grid via the ActionSetDecoder component (see
+   TrainingPreview.razor and ActionSetDecoder.razor.css), colored via
+   tp-source-badge-* through OutputColorClass, same as Output's stacked bar
+   above. Groups themselves stack top to bottom. */
 
 .tp-column > .tp-decoder-groups {
     display: flex;
@@ -351,193 +350,9 @@
 
 /* Reuses .tp-source-card's own box + title styling (see Source column
    above) so each group reads as a card, badge-colored to match Output's
-   stacked bar via OutputColorClass -- .tp-decoder-card only adds what's
-   specific to this diagram. */
+   stacked bar via OutputColorClass. */
 .tp-decoder-card {
     gap: 4px;
-}
-
-.tp-decoder-row {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 4px;
-    flex: 1;
-    min-height: 0;
-}
-
-.tp-decoder-svg {
-    flex: 0 0 94px;
-    width: 94px;
-    height: 56px;
-    display: block;
-}
-
-.tp-decoder-circle {
-    fill: var(--tp-source-color, var(--color-primary));
-    opacity: 0.6;
-    stroke: var(--color-bg-terminal);
-    stroke-width: 0.5;
-}
-
-/* The network's actual chosen option (or, before any real decision exists,
-   the first option shown as an illustrative placeholder -- see
-   TrainingPreview.BuildActionDecoderGroup) -- full opacity plus a bright
-   ring so it reads as "lit up" against its dimmer siblings. */
-.tp-decoder-circle-chosen {
-    opacity: 1;
-    stroke: var(--tp-source-color, var(--color-primary));
-    stroke-width: 1.5;
-}
-
-/* RawValue label centered inside its own circle (see ActionDecoderOption) --
-   pointer-events: none so hovering still reaches the circle underneath for
-   its own title tooltip. */
-.tp-decoder-circle-text {
-    font-size: 4.5px;
-    font-weight: bold;
-    fill: #000;
-    text-shadow: 0 0 2px rgba(255, 255, 255, 0.85);
-    pointer-events: none;
-}
-
-.tp-decoder-line {
-    stroke: var(--tp-source-color, var(--color-primary));
-    stroke-width: 0.75;
-    opacity: 0.5;
-}
-
-.tp-decoder-line-stem {
-    stroke-width: 1.25;
-    opacity: 0.85;
-}
-
-.tp-decoder-badge {
-    fill: color-mix(in srgb, var(--tp-source-color, var(--color-primary)) 22%, var(--color-bg-terminal));
-    stroke: var(--tp-source-color, var(--color-primary));
-    stroke-width: 0.75;
-}
-
-.tp-decoder-badge-text {
-    font-size: 6px;
-    font-weight: bold;
-    fill: var(--color-secondary);
-}
-
-.tp-decoder-actions {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    flex: 1 1 70px;
-    min-width: 70px;
-}
-
-.tp-decoder-action-badge {
-    display: flex;
-    align-items: baseline;
-    justify-content: center;
-    gap: 3px;
-    font-size: 0.56rem;
-    text-align: center;
-    padding: 1px 4px;
-    border-radius: var(--border-radius-sm);
-    border: 1px solid color-mix(in srgb, var(--tp-source-color, var(--color-primary)) 35%, transparent);
-    color: var(--color-secondary);
-    opacity: 0.45;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-/* The network's actual chosen option (or the illustrative placeholder --
-   same fallback as .tp-decoder-circle-chosen, they always agree since both
-   read the same ActionDecoderOption.IsChosen). */
-.tp-decoder-action-chosen {
-    opacity: 1;
-    font-weight: bold;
-    background: color-mix(in srgb, var(--tp-source-color, var(--color-primary)) 18%, transparent);
-    border-color: var(--tp-source-color, var(--color-primary));
-    color: var(--tp-source-color, var(--color-primary));
-}
-
-/* This option's own decoded probability -- blank (see BuildActionDecoderGroup)
-   until a real decision exists. */
-.tp-decoder-action-pct {
-    font-size: 0.5rem;
-    opacity: 0.75;
-    font-weight: normal;
-}
-
-/* Outputs column -- the same per-group probabilities Action Decoder's own
-   badges show, as plain bar-length charts (moved here, without the raw-logit/
-   percent text Action Decoder already carries, so the two columns don't just
-   repeat each other -- see TrainingPreview.razor's Outputs column and
-   ActionDecoderOption.WidthPercent). Reuses .tp-source-card/.tp-decoder-card
-   for the same card-per-group look as Action Decoder. */
-.tp-column > .tp-output-charts {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    margin-top: 4px;
-    flex: 1 1 0;
-    min-height: 0;
-}
-
-.tp-output-charts > .tp-decoder-card {
-    flex: 1 1 0;
-    min-height: 0;
-}
-
-.tp-output-chart {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    flex: 1;
-    justify-content: center;
-}
-
-.tp-output-chart-row {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.tp-output-chart-label {
-    flex: 0 0 auto;
-    width: 52px;
-    font-size: 0.58rem;
-    color: var(--color-secondary);
-    opacity: 0.7;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.tp-output-chart-track {
-    flex: 1 1 auto;
-    height: 8px;
-    border-radius: var(--border-radius-sm);
-    background: color-mix(in srgb, var(--tp-source-color, var(--color-primary)) 12%, transparent);
-    overflow: hidden;
-}
-
-.tp-output-chart-fill {
-    height: 100%;
-    background: var(--tp-source-color, var(--color-primary));
-    opacity: 0.6;
-}
-
-/* The network's actual chosen option (or the illustrative placeholder --
-   same fallback as .tp-decoder-action-chosen, they always agree since both
-   read the same ActionDecoderOption.IsChosen). */
-.tp-output-chart-row-chosen .tp-output-chart-label {
-    font-weight: bold;
-    opacity: 1;
-    color: var(--tp-source-color, var(--color-primary));
-}
-
-.tp-output-chart-row-chosen .tp-output-chart-fill {
-    opacity: 1;
 }
 
 /* Results column -- Reward/Median Reward/Reward Std Dev/Win Rate, the same
