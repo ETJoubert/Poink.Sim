@@ -130,7 +130,7 @@
 
                 <TrainingPreview Recipe="CurrentBrainRecipe" DataItems="PreviewDataItems" TrainingItems="PreviewTrainingItems"
                                  From="_from" To="_to" BlockSpan="EpisodeBlockSpan" EpisodeWindows="Service.RecentEpisodeWindows"
-                                 Table="@_table" BarWidthMinutes="_barWidthMinutes" />
+                                 Table="@_table" BarWidthMinutes="_barWidthMinutes" StartingCash="_startingCash" />
 
                 <div class="train-toolbar">
                     <div class="train-controls">
@@ -152,6 +152,11 @@
                                     title="Runs exactly one episode on the symbol/range picked above, then pauses -- lets you step through training one episode at a time from the start">
                                 <Icon Name="skip-end-fill" Class="train-ctrl-icon" />
                                 STEP
+                            </button>
+                            <button class="train-ctrl-btn" @onclick="ResetRun"
+                                    title="Clears this run's episodes/metrics/charts -- Data Range/Brain/Training/Trader setup stays as configured">
+                                <Icon Name="arrow-clockwise" Class="train-ctrl-icon" />
+                                RESET
                             </button>
                         }
                         else if (Service.IsPaused)

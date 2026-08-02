@@ -151,6 +151,12 @@ namespace Poink.Sim.Components.Pages
 
         private void StopTraining() => Service.StopTraining();
 
+        // Only reachable once training's finished/stopped (see the Reset button's
+        // guard in the .razor) -- clears this run's episodes/metrics/charts back
+        // to a blank slate, leaving Run Setup (Data Range/Brain/Training/Trader)
+        // untouched so the same config can be run again.
+        private void ResetRun() => Service.ResetRun();
+
         private void SaveModel()
         {
             if (string.IsNullOrWhiteSpace(_saveName))

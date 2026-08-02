@@ -104,9 +104,10 @@
                                 {
                                     <div class="tp-source-card-values"
                                          title="What this row's episode sample feeds the network, before normalization">
-                                        @foreach (var value in row.RawValues)
+                                        @for (int i = 0; i < row.RawValues.Count; i++)
                                         {
-                                            <span class="tp-source-card-value">@value</span>
+                                            var tooltip = i < row.ValueTooltips.Count ? row.ValueTooltips[i] : null;
+                                            <span class="tp-source-card-value" title="@tooltip">@row.RawValues[i]</span>
                                         }
                                     </div>
                                 }
@@ -125,9 +126,10 @@
                                     </div>
                                     <div class="tp-source-card-values"
                                          title="Same values as Source's card, transformed to match this row's Normalization -- exactly what the network sees">
-                                        @foreach (var value in row.NormalizedValues)
+                                        @for (int i = 0; i < row.NormalizedValues.Count; i++)
                                         {
-                                            <span class="tp-source-card-value">@value</span>
+                                            var tooltip = i < row.ValueTooltips.Count ? row.ValueTooltips[i] : null;
+                                            <span class="tp-source-card-value" title="@tooltip">@row.NormalizedValues[i]</span>
                                         }
                                     </div>
                                 </div>

@@ -654,6 +654,46 @@ internal sealed class RlTrainingService
         return true;
     }
 
+    // Clears this run's episodes/metrics/charts back to a blank slate --
+    // same fields TryStartTraining zeroes before a new run, but callable on
+    // its own so the Train page's Reset button can wipe a finished/stopped
+    // run's results without kicking off another one. No-op (returns false)
+    // while a run is still in progress -- there's nothing to reset until the
+    // loop's finally block flips IsRunning back off.
+    public bool ResetRun()
+    {
+        lock (_lock)
+        {
+            if (IsRunning)
+                return false;
+
+            EpisodesCompleted = 0;
+            TotalEpisodes = 0;
+            RecentAverageReward = 0;
+            BestReward = 0;
+            WorstReward = 0;
+            EpisodesPerSecond = 0;
+            ActionCounts = RlActionCounts.Empty;
+            LatestInputs = null;
+            LatestOutputs = null;
+            LatestEpisodeBars = Array.Empty<HlocAvdtBar>();
+            LatestEpisodeBarHistograms = Array.Empty<BarPriceHistogram>();
+            LatestEpisodeWarmupBars = 0;
+            LatestEpisodeTrades = Array.Empty<Trade>();
+            LatestEpisodeBarInputs = Array.Empty<IReadOnlyList<RlInputFeature>>();
+            LatestEpisodeBarEquity = Array.Empty<double>();
+            LatestEpisodeBarOutputs = Array.Empty<IReadOnlyList<RlOutputFeature>>();
+            LatestEpisodeBarActions = Array.Empty<RlBarAction>();
+            _episodeMetrics.Clear();
+            _episodeTrades.Clear();
+            _episodeWindows.Clear();
+            Error = null;
+            AppendLog("info", "run reset");
+        }
+        OnChanged?.Invoke();
+        return true;
+    }
+
     // Closes the resume gate so the loop above blocks before starting its
     // next episode. No-op if nothing is running or it's already paused.
     public void PauseTraining()
