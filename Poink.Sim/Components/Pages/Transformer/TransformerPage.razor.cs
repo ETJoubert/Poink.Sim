@@ -89,11 +89,26 @@ namespace Poink.Sim.Components.Pages
         private int _driftTicksPerBar = 50;
         private DriftMode _driftMode = DriftMode.Percentage;
 
+        // Subchart tab's own tick source -- deliberately separate from _deltaTicks
+        // (which is capped at MaxDeltaTicks and anchored to config.To/rangeEnd): this
+        // holds every raw tick in the active Volume Range, uncapped, via
+        // RefreshSubchartTicksAsync. Empty (and the tab shows a prompt instead of a
+        // chart) whenever no Volume Range is selected -- "all ticks in the range" has
+        // no meaning without one.
+        private List<Tick> _subchartTicks = new();
+
+        // Aggregation for the Subchart tab -- the same BarMinutesSelect control (and
+        // real wall-clock TimeSpan.FromMinutes bucketing) the main chart's own bar size
+        // uses, not the other tabs' "ticks per bar" numeric inputs.
+        private int _subchartBarMinutes = 1;
+
         private bool HasDeltaData => _deltaTicks.Count >= 2;
 
-        // Which of the four derived-series tabs is showing -- same tabbed-panel pattern
-        // as ProfilerPage's own DRAWINGS/SAVED tabs, just this page's own copy (and its
-        // own tabs) since neither page shares code-behind.
+        // Which of the five tabs is showing -- same tabbed-panel pattern as
+        // ProfilerPage's own DRAWINGS/SAVED tabs, just this page's own copy (and its
+        // own tabs) since neither page shares code-behind. Subchart is the odd one out:
+        // an ordinary OHLC chart of the selected ticks, not a derived series like the
+        // other four.
         private DataTab _activeDataTab;
 
         // LocalZScore/GlobalZScore exist side by side deliberately, not as a
@@ -101,7 +116,7 @@ namespace Poink.Sim.Components.Pages
         // GlobalWindowZScoreTransform's doc comments for how their "window" scope
         // differs (many small independently-normalized sub-windows vs. one mean/stddev
         // over the whole selection).
-        private enum DataTab { TickDelta, LocalZScore, GlobalZScore, Drift }
+        private enum DataTab { TickDelta, LocalZScore, GlobalZScore, Drift, Subchart }
 
         // Chart/volume-profile divider and volume-profile/time-profile divider (drag to
         // resize their .trf-chart-side panels), plus the chart-row/delta-chart divider
@@ -227,6 +242,7 @@ namespace Poink.Sim.Components.Pages
             _volumeRangeStart = null;
             _volumeRangeEnd = null;
             _deltaTicks = new();
+            _subchartTicks = new();
 
             try
             {
@@ -241,6 +257,7 @@ namespace Poink.Sim.Components.Pages
                     _config = config;
                     ApplyChunk(chunk);
                     await RefreshDeltaTicksAsync();
+                    await RefreshSubchartTicksAsync();
                 }
             }
             catch (Exception ex)
@@ -294,24 +311,28 @@ namespace Poink.Sim.Components.Pages
 
         // Wired to DrawableOhlcvChart's OnVolumeRangeDrawn -- its two clicks just replace
         // the active selection outright, which is what MergedSamples()/MergedTimeSamples()
-        // filter _bars/_barHistograms by, and (via RefreshDeltaTicksAsync) which raw ticks
-        // the tick-delta chart's "latest tick n" is drawn from. ClearVolumeRange is the
-        // only other way these change.
+        // filter _bars/_barHistograms by, and (via RefreshDeltaTicksAsync/
+        // RefreshSubchartTicksAsync) which raw ticks the tick-delta chart's "latest tick
+        // n" and the Subchart tab are drawn from. ClearVolumeRange is the only other way
+        // these change.
         private async Task SetVolumeRange(ChartTimeRange range)
         {
             _volumeRangeStart = range.TimeUtc1 <= range.TimeUtc2 ? range.TimeUtc1 : range.TimeUtc2;
             _volumeRangeEnd = range.TimeUtc1 <= range.TimeUtc2 ? range.TimeUtc2 : range.TimeUtc1;
             await RefreshDeltaTicksAsync();
+            await RefreshSubchartTicksAsync();
         }
 
         // Wired to DrawableOhlcvChart's CLEAR VOLUME RANGE button -- drops back to
         // MergedSamples()/MergedTimeSamples()'s (and RefreshDeltaTicksAsync's) default of
-        // every loaded bar/the latest ticks overall.
+        // every loaded bar/the latest ticks overall, and empties out the Subchart tab
+        // (see RefreshSubchartTicksAsync -- it has no "every loaded tick" fallback).
         private async Task ClearVolumeRange()
         {
             _volumeRangeStart = null;
             _volumeRangeEnd = null;
             await RefreshDeltaTicksAsync();
+            await RefreshSubchartTicksAsync();
         }
 
         // Refetches the tick-delta chart's raw ticks -- the last MaxDeltaTicks ticks
@@ -333,6 +354,31 @@ namespace Poink.Sim.Components.Pages
                 _deltaTicks = _volumeRangeStart is { } start
                     ? ticks.Where(t => t.Timestamp >= start).ToList()
                     : ticks.ToList();
+            }
+            catch (Exception ex)
+            {
+                _error = ex.Message;
+            }
+        }
+
+        // Refetches the Subchart tab's raw ticks -- every tick in [start, end) of the
+        // active Volume Range, uncapped (unlike RefreshDeltaTicksAsync's MaxDeltaTicks
+        // window). No selection means no well-defined range to fetch, so this just
+        // clears the list -- Subchart shows a prompt instead of a chart in that case.
+        // Re-run whenever the Volume Range selection changes (see SetVolumeRange/
+        // ClearVolumeRange above) as well as on a fresh Load.
+        private async Task RefreshSubchartTicksAsync()
+        {
+            if (_config is null || _volumeRangeStart is not { } start || _volumeRangeEnd is not { } end)
+            {
+                _subchartTicks = new();
+                return;
+            }
+
+            try
+            {
+                var ticks = await Service.LoadTicksInRangeAsync(_config, start, end);
+                _subchartTicks = ticks.ToList();
             }
             catch (Exception ex)
             {
@@ -531,6 +577,25 @@ namespace Poink.Sim.Components.Pages
         {
             var series = DriftFromCurrentPriceTransform.BuildDriftSeries(_deltaTicks, _driftMode);
             return series.Count > 0 ? series[^1].Bid : null;
+        }
+
+        // Subchart's bars -- every raw tick in the active Volume Range (_subchartTicks,
+        // see RefreshSubchartTicksAsync), aggregated by real wall-clock time at
+        // _subchartBarMinutes the same way the main chart's own bars are (TimeSpan.
+        // FromMinutes through SimulationBarAggregator), not through AggregateSyntheticSeries'
+        // tick-count-indexed bucketing the other tabs use.
+        private List<CTraderBarRow> SubchartBarRows()
+        {
+            if (_subchartTicks.Count == 0) return new();
+
+            var aggregator = new SimulationBarAggregator(TimeSpan.FromMinutes(Math.Max(1, _subchartBarMinutes)), DeltaBucketWidth);
+            var bars = new List<HlocAvdtBar>();
+            foreach (var tick in _subchartTicks)
+            {
+                if (aggregator.Feed(tick) is { } completed) bars.Add(completed.Bar);
+            }
+            if (aggregator.CurrentPartialBar is { } partial) bars.Add(partial);
+            return ToBarRows(bars);
         }
 
         // Reference line at 0 -- shared by the Tick Delta chart (above it means price back

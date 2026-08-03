@@ -10,6 +10,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Poink.Sim.Models;
@@ -122,6 +123,17 @@ internal sealed class TransformerService : ITransformerService
         _logger.LogInformation(
             "Transformer recent ticks: table={Table}, before={Before}, requested={Requested}, returned={Returned}",
             config.Table, before, maxTicks, ticks.Count);
+
+        return (IReadOnlyList<Tick>)ticks;
+    });
+
+    public Task<IReadOnlyList<Tick>> LoadTicksInRangeAsync(TransformerConfig config, DateTime fromUtc, DateTime toUtc) => Task.Run(() =>
+    {
+        var ticks = _tickRepository.ReadTicks(config.Table, fromUtc, toUtc).ToList();
+
+        _logger.LogInformation(
+            "Transformer ticks in range: table={Table}, from={From}, to={To}, returned={Returned}",
+            config.Table, fromUtc, toUtc, ticks.Count);
 
         return (IReadOnlyList<Tick>)ticks;
     });

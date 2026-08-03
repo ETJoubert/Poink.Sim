@@ -21,4 +21,9 @@ internal interface ITransformerService
     // TickDeltaTransform), which needs individual tick prices rather than the
     // bar/histogram aggregates LoadAsync produces.
     Task<IReadOnlyList<Tick>> LoadRecentTicksAsync(TransformerConfig config, DateTime beforeUtc, int maxTicks);
+
+    // Every raw tick in [fromUtc, toUtc), uncapped, in ascending order -- feeds
+    // TransformerPage's Subchart tab, which (unlike LoadRecentTicksAsync's callers)
+    // needs the full selected Volume Range rather than a bounded "last N ticks" window.
+    Task<IReadOnlyList<Tick>> LoadTicksInRangeAsync(TransformerConfig config, DateTime fromUtc, DateTime toUtc);
 }

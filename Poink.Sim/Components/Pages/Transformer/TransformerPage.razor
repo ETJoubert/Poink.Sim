@@ -123,6 +123,8 @@
                             @onclick="() => _activeDataTab = DataTab.GlobalZScore">GLOBAL Z-SCORE CHART</button>
                     <button class="trf-tab-btn @(_activeDataTab == DataTab.Drift ? "active" : "")"
                             @onclick="() => _activeDataTab = DataTab.Drift">DRIFT CHART</button>
+                    <button class="trf-tab-btn @(_activeDataTab == DataTab.Subchart ? "active" : "")"
+                            @onclick="() => _activeDataTab = DataTab.Subchart">SUBCHART</button>
                 </div>
                 <div class="trf-log-content">
                     @if (_activeDataTab == DataTab.TickDelta)
@@ -209,7 +211,7 @@
                             </div>
                         </div>
                     }
-                    else
+                    else if (_activeDataTab == DataTab.Drift)
                     {
                         <div class="trf-delta-header">
                             <div class="trf-delta-control" title="Whether drift is expressed as a fraction of the anchor price or as a log ratio -- log makes an equal-magnitude rally and selloff symmetric, plain percentage does not">
@@ -251,6 +253,25 @@
                                                             CurrentPrice="DriftCurrentValue()" />
                                 </div>
                             </div>
+                        </div>
+                    }
+                    else if (_volumeRangeStart is null)
+                    {
+                        <p class="trf-empty">Use the main chart's VOLUME RANGE tool to select a window -- this chart plots every tick in that selection.</p>
+                    }
+                    else
+                    {
+                        <div class="trf-delta-header">
+                            <BarMinutesSelect @bind-Value="_subchartBarMinutes"
+                                               Title="Size of each candle on this chart, in minutes -- every tick in the selected Volume Range is re-aggregated at this size" />
+                            <span class="trf-header-mode">
+                                @_subchartTicks.Count.ToString("N0") ticks from the selected Volume Range (@VolumeRangeLabel()):
+                                re-aggregated into ordinary OHLC bars at the chosen bar size
+                            </span>
+                        </div>
+                        <div class="trf-delta-chart"
+                             title="Ordinary OHLC bars built from every tick in the selected Volume Range -- unlike the other tabs here, no delta/z-score/drift transform is applied, and unlike them this isn't capped to the latest few thousand ticks. Use the main chart's VOLUME RANGE tool to change the selection">
+                            <DrawableOhlcvChart Bars="SubchartBarRows()" ShowAnnotationTools="false" />
                         </div>
                     }
                 </div>

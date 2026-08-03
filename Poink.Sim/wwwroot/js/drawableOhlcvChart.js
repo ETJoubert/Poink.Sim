@@ -224,6 +224,34 @@ function rangeFillHitTest(bounds, xCss) {
 function attachRangeFillDragInteractions(entry, container) {
     let drag = null;
 
+    // rAF-throttled live commit while dragging -- pointermove can fire far faster than
+    // Blazor Server's SignalR round trip (each OnVolumeRangeClickedAsync call re-filters
+    // the loaded bars and re-renders both profile charts), so onMove only records the
+    // latest frame and this ticks it to .NET at most once per animation frame instead of
+    // once per event. onUp cancels any pending frame and always sends one final commit
+    // itself, so the drop position is never lost to a frame that got superseded.
+    let rafHandle = null;
+    let latestResult = null;
+
+    function scheduleLiveCommit(result) {
+        latestResult = result;
+        if (rafHandle !== null) return;
+        rafHandle = requestAnimationFrame(() => {
+            rafHandle = null;
+            if (latestResult && entry.dotNetRef) {
+                entry.dotNetRef.invokeMethodAsync('OnVolumeRangeClickedAsync', latestResult.t1, latestResult.t2);
+            }
+        });
+    }
+
+    function cancelLiveCommit() {
+        if (rafHandle !== null) {
+            cancelAnimationFrame(rafHandle);
+            rafHandle = null;
+        }
+        latestResult = null;
+    }
+
     // Redraws the band at its dragged/resized position (preview only -- the
     // authoritative change is committed via OnVolumeRangeClickedAsync once the drag
     // ends, which round-trips back down through setLines with the real new fill).
@@ -301,7 +329,10 @@ function attachRangeFillDragInteractions(entry, container) {
         entry.chart.applyOptions({ handleScroll: false, handleScale: false });
         container.style.cursor = hit === 'move' ? 'grabbing' : 'ew-resize';
 
-        const onMove = moveEvt => renderDrag(moveEvt.clientX - drag.startClientX);
+        const onMove = moveEvt => {
+            const result = renderDrag(moveEvt.clientX - drag.startClientX);
+            if (result) scheduleLiveCommit(result);
+        };
 
         const onUp = upEvt => {
             window.removeEventListener('pointermove', onMove);
@@ -309,6 +340,7 @@ function attachRangeFillDragInteractions(entry, container) {
             entry.chart.applyOptions({ handleScroll: true, handleScale: true });
             container.style.cursor = '';
 
+            cancelLiveCommit();
             const result = renderDrag(upEvt.clientX - drag.startClientX);
             drag = null;
             if (result && entry.dotNetRef) {
