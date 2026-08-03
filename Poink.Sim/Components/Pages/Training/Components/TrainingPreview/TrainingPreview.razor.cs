@@ -56,6 +56,14 @@ namespace Poink.Sim.Components.Training
         [Parameter] public string Table { get; set; } = "";
         [Parameter] public int BarWidthMinutes { get; set; }
 
+        // Same weekday/session filter TrainPage's Episode Timing card edits --
+        // when Enabled, this preview's own random draw (FetchRandomEpisode)
+        // anchors to one randomly chosen eligible day's SessionStart (via the
+        // shared EpisodeWindowSampler.EligibleDays) instead of a plain random
+        // offset across the whole Data Range, so the preview always shows a
+        // day/session the real run could actually land on.
+        [Parameter] public EpisodeTimeConstraint TimeConstraint { get; set; } = EpisodeTimeConstraint.None;
+
         // Feeds BuildTraderStateValues -- same starting cash a live run's
         // Trader begins each episode with (see TrainPage's Trader card).
         [Parameter] public double StartingCash { get; set; }
@@ -133,6 +141,35 @@ namespace Poink.Sim.Components.Training
         private List<ProfileBarRow> VolumeProfileRows => BuildVolumeProfileRows(Recipe, EffectiveEpisodeHistograms);
         private List<ProfileBarRow> TimeProfileRows => BuildTimeProfileRows(Recipe, EffectiveEpisodeBars, EffectiveEpisodeHistograms);
 
+        // Start/End/Bars/Ticks for whichever episode EffectiveEpisodeBars is
+        // currently showing (the real run's latest episode once one exists,
+        // else this preview's own random draw) -- read straight off the bars
+        // themselves (first bar's OpenTime, last bar's CloseTime, bar Volume
+        // summed) rather than _episodeWindowStart/End/EpisodeWindows, so these
+        // labels always match exactly what the chart below is rendering,
+        // including the synthetic-run case where EpisodeWindows never gets an
+        // entry (see RlTrainingService.TryStartTraining's historicRange-only
+        // guard). Volume on HlocAvdtBar is a tick count, not a financial
+        // quantity -- see HlocAvdtBar's own doc comment.
+        private IReadOnlyList<string> EpisodeSummaryItems
+        {
+            get
+            {
+                var bars = EffectiveEpisodeBars;
+                if (bars.Count == 0)
+                    return [];
+                long tickCount = bars.Sum(b => (long)b.Volume);
+                return
+                [
+                    $"Start: {bars[0].OpenTime:yyyy-MM-dd HH:mm}",
+                    $"End: {bars[^1].CloseTime:yyyy-MM-dd HH:mm}",
+                    $"Bars: {bars.Count}",
+                    $"Bar width: {BarWidthMinutes} min",
+                    $"Ticks: {tickCount:N0}",
+                ];
+            }
+        }
+
         // Feeds the Results column's Reward/Median Reward/Reward Std Dev/Win
         // Rate charts -- same RecentEpisodes/IsRunning Live Training's own
         // Live tab charts read (see TrainLiveTab.SourceChartEpisodes), just
@@ -166,26 +203,35 @@ namespace Poink.Sim.Components.Training
         // frames would be wasteful and would make the chart flicker.
         protected override void OnParametersSet()
         {
-            var key = $"{Table}|{From:o}|{To:o}|{BlockSpan}|{BarWidthMinutes}";
+            var weekdays = string.Join(",", TimeConstraint.AllowedWeekdays.OrderBy(d => d));
+            var key = $"{Table}|{From:o}|{To:o}|{BlockSpan}|{BarWidthMinutes}|{TimeConstraint.Enabled}|{weekdays}|{TimeConstraint.SessionStart}|{TimeConstraint.SessionEnd}";
             if (key == _lastEpisodeFetchKey)
                 return;
             _lastEpisodeFetchKey = key;
 
+            // Cleared together -- BuildTimeProfileRows/BuildVolumeProfileRows only
+            // bail out when _episodeHistograms is empty, so leaving it stale here
+            // while _episodeBars is reset (Blazor re-renders synchronously right
+            // after this method returns, before LoadRandomEpisode's await below
+            // completes) mismatches their lengths and crashes MergeTime/Merge's
+            // index-aligned reads with an out-of-range exception.
             _episodeBars = [];
+            _episodeHistograms = [];
             _episodeWindowStart = null;
             _episodeWindowEnd = null;
             if (!string.IsNullOrEmpty(Table) && To > From && BlockSpan > TimeSpan.Zero && BarWidthMinutes > 0)
-                _ = LoadRandomEpisode(Table, From, To, BlockSpan, TimeSpan.FromMinutes(BarWidthMinutes));
+                _ = LoadRandomEpisode(Table, From, To, BlockSpan, TimeSpan.FromMinutes(BarWidthMinutes), TimeConstraint);
         }
 
-        private async Task LoadRandomEpisode(string table, DateTime from, DateTime to, TimeSpan span, TimeSpan barSize)
+        private async Task LoadRandomEpisode(
+            string table, DateTime from, DateTime to, TimeSpan span, TimeSpan barSize, EpisodeTimeConstraint constraint)
         {
             _loadingEpisode = true;
             _episodeError = null;
             StateHasChanged();
             try
             {
-                var result = await Task.Run(() => FetchRandomEpisode(table, from, to, span, barSize));
+                var result = await Task.Run(() => FetchRandomEpisode(table, from, to, span, barSize, constraint));
                 _episodeBars = result?.Bars ?? [];
                 _episodeHistograms = result?.Histograms ?? [];
                 _episodeWindowStart = result?.Start;
@@ -209,35 +255,64 @@ namespace Poink.Sim.Components.Training
         // Histograms is index-aligned 1:1 with Bars -- see _episodeHistograms.
         private sealed record RandomEpisodeResult(List<HlocAvdtBar> Bars, List<BarPriceHistogram> Histograms, DateTime Start, DateTime End);
 
-        // Picks a random BlockSpan-length window inside [from, to) and
-        // aggregates its ticks into bars, the same tick-by-tick aggregation
-        // RlEpisodeRunner uses live during training -- so this preview is
-        // built from one plausible real episode, not synthetic data. Retries
-        // a few times if a window comes back with zero ticks (see
-        // MaxRandomEpisodeAttempts) before giving up.
-        private RandomEpisodeResult? FetchRandomEpisode(string table, DateTime from, DateTime to, TimeSpan span, TimeSpan barSize)
+        // Picks a random BlockSpan-length window and aggregates its ticks into
+        // bars, the same tick-by-tick aggregation RlEpisodeRunner uses live
+        // during training -- so this preview is built from one plausible real
+        // episode, not synthetic data. constraint.Enabled routes to
+        // FetchConstrainedRandomEpisode instead, so a restricted Episode Timing
+        // config previews a day/session the real run could actually land on
+        // rather than a plain random offset across the whole Data Range.
+        private RandomEpisodeResult? FetchRandomEpisode(
+            string table, DateTime from, DateTime to, TimeSpan span, TimeSpan barSize, EpisodeTimeConstraint constraint)
         {
+            if (constraint.Enabled)
+                return FetchConstrainedRandomEpisode(table, from, to, span, barSize, constraint);
+
             if (to - from < span)
                 return null;
 
             for (int attempt = 0; attempt < MaxRandomEpisodeAttempts; attempt++)
             {
-                var result = FetchEpisode(table, from, to, span, barSize);
+                double maxOffsetSeconds = (to - from - span).TotalSeconds;
+                var start = from.AddSeconds(Random.Shared.NextDouble() * maxOffsetSeconds);
+                var result = FetchEpisode(table, start, start + span, barSize);
                 if (result.Bars.Count > 0)
                     return result;
             }
             return null;
         }
 
-        // Aggregates one randomly-picked window's ticks into bars, including
-        // the trailing partial bar (if any) so a window that doesn't divide
-        // evenly into whole bars still shows its last bit of data.
-        private RandomEpisodeResult FetchEpisode(string table, DateTime from, DateTime to, TimeSpan span, TimeSpan barSize)
+        // Constrained counterpart to FetchRandomEpisode above -- picks a random
+        // eligible day (EpisodeWindowSampler.EligibleDays, the same weekday/
+        // session filter RlTrainingService's actual training sampling uses) and
+        // anchors the fetch to exactly that day's SessionStart, instead of a
+        // random offset across the whole Data Range. Unlike
+        // RlTrainingService.RandomConstrainedEpisodeWindow, there's no warm-up
+        // lookback to reach backward for -- this preview has no encoder/warm-up
+        // concept of its own -- so the fetch starts right at SessionStart.
+        private RandomEpisodeResult? FetchConstrainedRandomEpisode(
+            string table, DateTime from, DateTime to, TimeSpan span, TimeSpan barSize, EpisodeTimeConstraint constraint)
         {
-            double maxOffsetSeconds = (to - from - span).TotalSeconds;
-            var start = from.AddSeconds(Random.Shared.NextDouble() * maxOffsetSeconds);
-            var end = start + span;
+            var eligibleDays = EpisodeWindowSampler.EligibleDays(from, to, constraint).ToList();
+            if (eligibleDays.Count == 0)
+                return null;
 
+            for (int attempt = 0; attempt < MaxRandomEpisodeAttempts; attempt++)
+            {
+                var day = eligibleDays[Random.Shared.Next(eligibleDays.Count)];
+                var start = day + constraint.SessionStart;
+                var result = FetchEpisode(table, start, start + span, barSize);
+                if (result.Bars.Count > 0)
+                    return result;
+            }
+            return null;
+        }
+
+        // Aggregates one [start, end) window's ticks into bars, including the
+        // trailing partial bar (if any) so a window that doesn't divide evenly
+        // into whole bars still shows its last bit of data.
+        private RandomEpisodeResult FetchEpisode(string table, DateTime start, DateTime end, TimeSpan barSize)
+        {
             var aggregator = new SimulationBarAggregator(barSize, PriceBucketWidth);
             var bars = new List<HlocAvdtBar>();
             var histograms = new List<BarPriceHistogram>();

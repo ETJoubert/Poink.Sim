@@ -29,6 +29,23 @@ namespace Poink.Sim.Components.Pages
         private int _episodeBars = 20;
         private double _learningRate = 0.001;
 
+        // Episode Timing card -- off by default, so an episode may start anywhere
+        // in the Data Range above (including across midnight), exactly like
+        // before this feature existed. Weekday/session are independent,
+        // combinable filters (see EpisodeTimeConstraint's doc comment): "Days" is
+        // just every weekday with the full 00:00-24:00 session; narrowing either
+        // one is what turns it into "Weeks" or "Sessions".
+        private bool _restrictEpisodeTiming;
+        private readonly HashSet<DayOfWeek> _allowedWeekdays = [.. Enum.GetValues<DayOfWeek>()];
+        private TimeSpan _sessionStart = TimeSpan.Zero;
+        private TimeSpan _sessionEnd = TimeSpan.FromHours(24);
+
+        private static readonly DayOfWeek[] WeekdayDisplayOrder =
+        [
+            DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday,
+            DayOfWeek.Friday, DayOfWeek.Saturday, DayOfWeek.Sunday,
+        ];
+
         private double _startingCash = 10_000;
         private double _leverage = 1;
         private double _commissionRatePercent = 0;
@@ -66,13 +83,88 @@ namespace Poink.Sim.Components.Pages
             $"To: {_to:yyyy-MM-dd HH:mm}",
         ];
 
-        // Feeds TrainingPreview's Training column -- mirrors the Training card's episode/bar fields.
+        // Feeds TrainingPreview's Training column -- mirrors the Episode Timing card's fields.
         private IReadOnlyList<string> PreviewTrainingItems =>
         [
             $"Episodes: {_episodeCount}",
-            $"Bars/episode: {_episodeBars}",
+            $"Bars/episode: {EffectiveEpisodeBars}",
             $"Bar width: {_barWidthMinutes} min",
+            $"Timing: {EpisodeTimingSummary}",
         ];
+
+        // When Episode Timing is restricted, Bars/episode is derived from the
+        // session length / bar width rather than picked independently -- an
+        // episode's decisions are meant to span exactly the configured day/session
+        // (see RlTrainingService.RandomConstrainedEpisodeWindow), not some shorter
+        // random slice inside it. 0 (not clamped to 1) when the session is too
+        // short for even one bar, so ValidateCommonStartParams's "at least 1"
+        // check still catches it instead of silently rounding up.
+        private int EffectiveEpisodeBars => _restrictEpisodeTiming
+            ? (int)((_sessionEnd - _sessionStart).TotalMinutes / _barWidthMinutes)
+            : _episodeBars;
+
+        // "unrestricted", or e.g. "Mo,Tu,We,Th,Fr 13:00-17:00" -- read by
+        // PreviewTrainingItems above, same weekday/session state the Episode
+        // Timing card's controls edit.
+        private string EpisodeTimingSummary
+        {
+            get
+            {
+                if (!_restrictEpisodeTiming)
+                    return "unrestricted";
+                string weekdays = string.Join(",", WeekdayDisplayOrder.Where(_allowedWeekdays.Contains).Select(WeekdayAbbreviation));
+                return $"{weekdays} {SessionStartText}-{SessionEndText}";
+            }
+        }
+
+        private void ToggleRestrictEpisodeTiming(ChangeEventArgs e) => _restrictEpisodeTiming = (bool)e.Value!;
+
+        private void ToggleWeekday(DayOfWeek day)
+        {
+            if (!_allowedWeekdays.Remove(day))
+                _allowedWeekdays.Add(day);
+        }
+
+        private static string WeekdayAbbreviation(DayOfWeek day) => day switch
+        {
+            DayOfWeek.Monday => "Mo",
+            DayOfWeek.Tuesday => "Tu",
+            DayOfWeek.Wednesday => "We",
+            DayOfWeek.Thursday => "Th",
+            DayOfWeek.Friday => "Fr",
+            DayOfWeek.Saturday => "Sa",
+            DayOfWeek.Sunday => "Su",
+            _ => day.ToString(),
+        };
+
+        // "HH:mm" (plus the literal "24:00" for end-of-day) <-> TimeSpan bridge for
+        // the session range's plain-text inputs -- a native <input type="time">
+        // can't represent 24:00, which the full-day default needs, so this uses
+        // text inputs instead. Invalid text is silently ignored (keeps the last
+        // valid value) rather than surfacing a parse error on every keystroke.
+        private string SessionStartText
+        {
+            get => EpisodeTimeConstraint.FormatClock(_sessionStart);
+            set { if (TimeSpan.TryParse(value, out var parsed)) _sessionStart = parsed; }
+        }
+
+        private string SessionEndText
+        {
+            get => EpisodeTimeConstraint.FormatClock(_sessionEnd);
+            set
+            {
+                if (value.Trim() is "24:00" or "24:00:00" or "24")
+                { _sessionEnd = TimeSpan.FromHours(24); return; }
+                if (TimeSpan.TryParse(value, out var parsed))
+                    _sessionEnd = parsed;
+            }
+        }
+
+        // Feeds TryStartTraining -- EpisodeTimeConstraint.None (unrestricted,
+        // every weekday/full session) unless the Episode Timing card's toggle is on.
+        private EpisodeTimeConstraint CurrentEpisodeTimeConstraint => _restrictEpisodeTiming
+            ? new EpisodeTimeConstraint(true, _allowedWeekdays, _sessionStart, _sessionEnd)
+            : EpisodeTimeConstraint.None;
 
         private void ToggleControls() => _controlsCollapsed = !_controlsCollapsed;
 
@@ -80,7 +172,7 @@ namespace Poink.Sim.Components.Pages
 
         private void ToggleDashboardView() => _dashboardView = !_dashboardView;
 
-        private TimeSpan EpisodeBlockSpan => TimeSpan.FromMinutes(_barWidthMinutes) * _episodeBars;
+        private TimeSpan EpisodeBlockSpan => TimeSpan.FromMinutes(_barWidthMinutes) * EffectiveEpisodeBars;
 
         private int ProgressPercent =>
             Service.TotalEpisodes <= 0 ? 0 : (int)Math.Round(Service.EpisodesCompleted * 100.0 / Service.TotalEpisodes);
@@ -98,8 +190,8 @@ namespace Poink.Sim.Components.Pages
             { _startError = "pick a reward policy"; return false; }
             if (_episodeCount < 1)
             { _startError = "episode count must be positive"; return false; }
-            if (_episodeBars < 1)
-            { _startError = "bars per episode must be at least 1"; return false; }
+            if (EffectiveEpisodeBars < 1)
+            { _startError = _restrictEpisodeTiming ? "session is too short for even one bar at this bar width" : "bars per episode must be at least 1"; return false; }
             if (_startingCash <= 0)
             { _startError = "starting cash must be positive"; return false; }
             if (_learningRate <= 0)
@@ -139,10 +231,14 @@ namespace Poink.Sim.Components.Pages
             { _startError = "pick a symbol"; return; }
             if (_to <= _from)
             { _startError = "To must be after From"; return; }
+            if (_restrictEpisodeTiming && _allowedWeekdays.Count == 0)
+            { _startError = "episode timing: pick at least one weekday"; return; }
+            if (_restrictEpisodeTiming && _sessionEnd <= _sessionStart)
+            { _startError = "episode timing: session end must be after session start"; return; }
 
             if (!Service.TryStartTraining(
-                    _brainName, _strategyName, _rewardPolicyName, _episodeCount, _episodeBars, _barWidthMinutes, _startingCash, _learningRate,
-                    (_table, _from, _to), CurrentTraderSettings, pauseAfterFirstEpisode))
+                    _brainName, _strategyName, _rewardPolicyName, _episodeCount, EffectiveEpisodeBars, _barWidthMinutes, _startingCash, _learningRate,
+                    (_table, _from, _to), CurrentTraderSettings, pauseAfterFirstEpisode, CurrentEpisodeTimeConstraint))
                 _startError = Service.Error ?? "a training run is already in progress";
         }
 
@@ -164,7 +260,7 @@ namespace Poink.Sim.Components.Pages
                 return;
 
             if (Service.SaveBrain(_saveName, _brainName, _strategyName, _rewardPolicyName, CurrentDatasetDescription,
-                    _episodeBars, _barWidthMinutes, _startingCash, _learningRate,
+                    EffectiveEpisodeBars, _barWidthMinutes, _startingCash, _learningRate,
                     CurrentTraderSettings))
             {
                 _saveName = "";

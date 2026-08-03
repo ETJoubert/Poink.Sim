@@ -356,8 +356,10 @@ internal sealed class RlTrainingService
     public bool TryStartTraining(
         string brainName, string strategyName, string rewardPolicyName, int episodeCount, int episodeBars, int barWidthMinutes, double startingCash,
         double learningRate, (string Table, DateTime From, DateTime To)? historicRange,
-        Trader.TraderSettings? traderSettings = null, bool pauseAfterFirstEpisode = false)
+        Trader.TraderSettings? traderSettings = null, bool pauseAfterFirstEpisode = false,
+        EpisodeTimeConstraint? episodeTimeConstraint = null)
     {
+        var timeConstraint = episodeTimeConstraint ?? EpisodeTimeConstraint.None;
         var brain = _brainRegistry.All.FirstOrDefault(b => b.Name == brainName);
 
         // No hardcoded neural brains exist anymore -- the Brain Type picker
@@ -446,17 +448,27 @@ internal sealed class RlTrainingService
         OnChanged?.Invoke();
 
         string source = historicRange is { } r ? r.Table : "dummy";
+        string timing = timeConstraint.Enabled
+            ? $"weekdays={string.Join(",", timeConstraint.AllowedWeekdays.OrderBy(d => d))}, " +
+              $"session={EpisodeTimeConstraint.FormatClock(timeConstraint.SessionStart)}-{EpisodeTimeConstraint.FormatClock(timeConstraint.SessionEnd)}"
+            : "unrestricted";
         _logger.LogInformation(
-            "Training started: brain={Brain}, strategy={Strategy}, rewardPolicy={RewardPolicy}, episodes={EpisodeCount}, episodeBars={EpisodeBars}, warmupBars={WarmupBars}, barWidthMinutes={BarWidthMinutes}, source={Source}",
-            brainName, strategyName, rewardPolicyName, episodeCount, episodeBars, warmupBars, barWidthMinutes, source);
+            "Training started: brain={Brain}, strategy={Strategy}, rewardPolicy={RewardPolicy}, episodes={EpisodeCount}, episodeBars={EpisodeBars}, warmupBars={WarmupBars}, barWidthMinutes={BarWidthMinutes}, source={Source}, timing={Timing}",
+            brainName, strategyName, rewardPolicyName, episodeCount, episodeBars, warmupBars, barWidthMinutes, source, timing);
         AppendLog("info",
-            $"start: brain={brainName}, strategy={strategyName}, policy={rewardPolicyName}, {episodeCount} episodes x {episodeBars} bars @ {barWidthMinutes}m, lr={learningRate:N4}, cash={startingCash:N0}, source={source}");
+            $"start: brain={brainName}, strategy={strategyName}, policy={rewardPolicyName}, {episodeCount} episodes x {episodeBars} bars @ {barWidthMinutes}m, lr={learningRate:N4}, cash={startingCash:N0}, source={source}, timing={timing}");
 
         var barWidth = TimeSpan.FromMinutes(barWidthMinutes);
         // +warmupBars so the brain's lookback window is full of real episode
         // data by the time its first decision happens (see RlEpisodeRunner's
         // warmupBars doc comment) -- never zero-padded/undersized history.
         var fetchSpan = barWidth * (episodeBars + warmupBars + EpisodeSpanBufferBars);
+        // How far before an episode's decisions begin the fetch needs to reach for
+        // warm-up context -- see RandomConstrainedEpisodeWindow, which anchors a
+        // constrained episode's decisions to exactly SessionStart, so this is what
+        // it reads backward from there (may dip before the session's own day,
+        // same tolerated imperfection as an unrestricted run starting near `from`).
+        var warmupSpan = barWidth * warmupBars;
 
         // Guards the prefetch producer/channel below -- declared outside the try so the
         // finally block can always reach them, even if the range-length check throws
@@ -475,6 +487,18 @@ internal sealed class RlTrainingService
                             $"selected range only spans {(range.To - range.From).TotalMinutes:N0} min, need at least " +
                             $"{fetchSpan.TotalMinutes:N0} min for a {episodeBars}-bar episode at {barWidthMinutes}m bars" +
                             (warmupBars > 0 ? $" (plus {warmupBars} warm-up bars)" : ""));
+
+                    if (timeConstraint.Enabled)
+                    {
+                        if (timeConstraint.AllowedWeekdays.Count == 0)
+                            throw new InvalidOperationException("episode timing: pick at least one weekday");
+                        if (timeConstraint.SessionLength <= TimeSpan.Zero)
+                            throw new InvalidOperationException("episode timing: session end must be after session start");
+                        if (!EpisodeWindowSampler.EligibleDays(range.From, range.To, timeConstraint).Any())
+                            throw new InvalidOperationException(
+                                "episode timing: no day in the selected range has its full session window inside the range " +
+                                "(narrow the weekday/session filters, or widen the Data Range)");
+                    }
                 }
 
                 var optimizer = strategy.CreateOptimizer(brain, learningRate);
@@ -503,7 +527,7 @@ internal sealed class RlTrainingService
                         for (int i = 0; i < episodeCount; i++)
                         {
                             var ticks = historicRange is { } episodeRange
-                                ? RandomEpisodeWindow(episodeRange.Table, episodeRange.From, episodeRange.To, fetchSpan, rng).ToList()
+                                ? RandomEpisodeWindow(episodeRange.Table, episodeRange.From, episodeRange.To, fetchSpan, warmupSpan, rng, timeConstraint).ToList()
                                 : DummyTickGenerator.Generate(DateTime.UtcNow - fetchSpan, DateTime.UtcNow, syntheticTickCount).ToList();
                             await episodeQueue.Writer.WriteAsync(ticks, prefetchCts.Token);
                         }
@@ -1015,6 +1039,17 @@ internal sealed class RlTrainingService
     // already pulled the whole (possibly much larger, for a dense table)
     // fetchSpan window into memory only to use a fraction of it.
     //
+    // constraint.Enabled routes to RandomConstrainedEpisodeWindow instead --
+    // this unrestricted path is unchanged from before that feature existed,
+    // so a caller that never opts in (constraint == EpisodeTimeConstraint.None)
+    // sees exactly the same sampling as always. warmupSpan is only meaningful
+    // on the constrained path (see RandomConstrainedEpisodeWindow).
+    private IEnumerable<Tick> RandomEpisodeWindow(
+        string table, DateTime from, DateTime to, TimeSpan fetchSpan, TimeSpan warmupSpan, Random rng, EpisodeTimeConstraint constraint) =>
+        constraint.Enabled
+            ? RandomConstrainedEpisodeWindow(table, from, to, fetchSpan, warmupSpan, rng, constraint)
+            : RandomUnrestrictedEpisodeWindow(table, from, to, fetchSpan, rng);
+
     // The gap check below (.Any()) costs one extra cheap, chunk-pruned round
     // trip per attempt -- negligible next to what materializing the full
     // window used to cost -- so successive episodes still train against
@@ -1025,7 +1060,7 @@ internal sealed class RlTrainingService
     // upfront duration check already guarantees has at least `fetchSpan` of
     // range ahead of it... other than gaps, so this fallback can still
     // legitimately come up short near a gap-heavy `to`.
-    private IEnumerable<Tick> RandomEpisodeWindow(string table, DateTime from, DateTime to, TimeSpan fetchSpan, Random rng)
+    private IEnumerable<Tick> RandomUnrestrictedEpisodeWindow(string table, DateTime from, DateTime to, TimeSpan fetchSpan, Random rng)
     {
         var latestStart = to - fetchSpan;
         for (int attempt = 0; attempt < 5; attempt++)
@@ -1039,4 +1074,44 @@ internal sealed class RlTrainingService
             table, from);
         return _tickRepository.ReadTicks(table, from, from + fetchSpan);
     }
+
+    // Unlike RandomUnrestrictedEpisodeWindow's random offset within its window,
+    // a constrained episode's decisions are anchored to exactly SessionStart on
+    // one randomly chosen eligible day (see EpisodeWindowSampler.EligibleDays) --
+    // the whole point of "episode timing" is that the episode's decisions span
+    // exactly the configured day/session, not some shorter random slice inside
+    // it (see TrainPage's EffectiveEpisodeBars, which derives episodeBars from
+    // the same session length so it fits exactly). warmupSpan reaches backward
+    // from SessionStart purely for lookback context -- it may dip before the
+    // day's own start (even into the previous eligible day or earlier), same as
+    // an unrestricted run starting near `from` can come up short on warm-up;
+    // it's never counted as part of the episode's own decisions (see
+    // RlEpisodeRunner.Run's warmupBars doc comment). TryStartTraining's upfront
+    // check already guarantees at least one eligible day exists before this loop
+    // ever runs.
+    private IEnumerable<Tick> RandomConstrainedEpisodeWindow(
+        string table, DateTime from, DateTime to, TimeSpan fetchSpan, TimeSpan warmupSpan, Random rng, EpisodeTimeConstraint constraint)
+    {
+        var eligibleDays = EpisodeWindowSampler.EligibleDays(from, to, constraint).ToList();
+        if (eligibleDays.Count == 0)
+        {
+            _logger.LogWarning(
+                "RandomConstrainedEpisodeWindow: no eligible day in {Table} for the configured weekday/session filters", table);
+            return Array.Empty<Tick>();
+        }
+
+        for (int attempt = 0; attempt < 5; attempt++)
+        {
+            var day = eligibleDays[rng.Next(eligibleDays.Count)];
+            var start = day + constraint.SessionStart - warmupSpan;
+            if (_tickRepository.ReadTicks(table, start, start + fetchSpan).Any())
+                return _tickRepository.ReadTicks(table, start, start + fetchSpan);
+        }
+        _logger.LogWarning(
+            "RandomConstrainedEpisodeWindow: 5 random starts in {Table} landed in empty windows; falling back to the first eligible day's session",
+            table);
+        var fallbackStart = eligibleDays[0] + constraint.SessionStart - warmupSpan;
+        return _tickRepository.ReadTicks(table, fallbackStart, fallbackStart + fetchSpan);
+    }
+
 }

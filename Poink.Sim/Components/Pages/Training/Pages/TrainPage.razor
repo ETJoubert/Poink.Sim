@@ -62,7 +62,7 @@
             @if (!_controlsCollapsed)
             {
                 <div class="train-config-cards">
-                    <div class="train-card train-card-full">
+                    <div class="train-card train-card-full train-card-datarange">
                         <div class="train-card-title"
                              title="Which symbol and time range the Start button samples episodes from">Data Range</div>
                         <div class="train-card-fields-row">
@@ -75,24 +75,69 @@
                                   @bind-RewardPolicyName="_rewardPolicyName" @bind-LearningRate="_learningRate"
                                   OnBrainCreated="HandleBrainCreated" />
 
-                    <div class="train-card">
-                        <div class="train-card-title" title="How much data each episode/run consists of">Training</div>
+                    <div class="train-card train-card-full">
+                        <div class="train-card-title"
+                             title="How much data each episode/run consists of, and optionally which days/times of day an episode's start may fall in">
+                            Episode Timing</div>
                         <div class="train-card-fields-row">
                             <label class="train-brainrow-field">
                                 Episodes
                                 <input class="train-brainrow-input train-brainrow-input-narrow" type="number" min="1"
                                        @bind="_episodeCount" disabled="@Service.IsRunning" />
                             </label>
-                            <label class="train-brainrow-field"
-                                   title="How many bars one episode runs for (E) -- ticks are fetched to cover this many bars, then the episode stops once the last one completes, regardless of tick density">
-                                Bars/episode
-                                <input class="train-brainrow-input" type="number" min="1" @bind="_episodeBars"
-                                       disabled="@Service.IsRunning" />
-                            </label>
+                            @if (_restrictEpisodeTiming)
+                            {
+                                <label class="train-brainrow-field"
+                                       title="Derived from the session length ÷ bar width while timing is restricted -- an episode's decisions span exactly the configured day/session, so this isn't picked independently">
+                                    Bars/episode
+                                    <span class="train-brainrow-readonly">@EffectiveEpisodeBars</span>
+                                </label>
+                            }
+                            else
+                            {
+                                <label class="train-brainrow-field"
+                                       title="How many bars one episode runs for (E) -- ticks are fetched to cover this many bars, then the episode stops once the last one completes, regardless of tick density">
+                                    Bars/episode
+                                    <input class="train-brainrow-input" type="number" min="1" @bind="_episodeBars"
+                                           disabled="@Service.IsRunning" />
+                                </label>
+                            }
                             <BarMinutesSelect @bind-Value="_barWidthMinutes" Disabled="@Service.IsRunning"
                                               Label="Bar width (min)"
                                               Title="Time span of one bar (M), in minutes -- also determines how much wall-clock time an episode's fetched ticks need to cover" />
+                            <label class="train-brainrow-field train-timing-toggle"
+                                   title="Turn on to restrict episodes to specific weekdays and/or a daily time-of-day session -- off means an episode may start anywhere in the Data Range above, including across midnight">
+                                <input type="checkbox" checked="@_restrictEpisodeTiming" @onchange="ToggleRestrictEpisodeTiming"
+                                       disabled="@Service.IsRunning" />
+                                Restrict timing
+                            </label>
                         </div>
+                        @if (_restrictEpisodeTiming)
+                        {
+                            <div class="train-card-fields-row train-timing-filters">
+                                <div class="train-brainrow-field" title="Which days of the week an episode may start on">
+                                    Weekdays
+                                    <div class="train-weekday-row">
+                                        @foreach (var day in WeekdayDisplayOrder)
+                                        {
+                                            <button type="button" class="train-btn-toggle @(_allowedWeekdays.Contains(day) ? "train-btn-toggle-active" : "")"
+                                                    @onclick="@(() => ToggleWeekday(day))" disabled="@Service.IsRunning" title="@day.ToString()">
+                                                @WeekdayAbbreviation(day)
+                                            </button>
+                                        }
+                                    </div>
+                                </div>
+                                <label class="train-brainrow-field"
+                                       title="Time-of-day window an episode's decisions span, on each eligible day -- 24:00 means end of day">
+                                    Session
+                                    <input class="train-brainrow-input train-brainrow-input-narrow" type="text" placeholder="00:00"
+                                           @bind="SessionStartText" disabled="@Service.IsRunning" />
+                                    to
+                                    <input class="train-brainrow-input train-brainrow-input-narrow" type="text" placeholder="24:00"
+                                           @bind="SessionEndText" disabled="@Service.IsRunning" />
+                                </label>
+                            </div>
+                        }
                     </div>
 
                     <div class="train-card">
@@ -245,7 +290,7 @@
 
         <TrainingPreview Recipe="CurrentBrainRecipe" DataItems="PreviewDataItems" TrainingItems="PreviewTrainingItems"
                          From="_from" To="_to" BlockSpan="EpisodeBlockSpan" EpisodeWindows="Service.RecentEpisodeWindows" Table="@_table"
-                         BarWidthMinutes="_barWidthMinutes" StartingCash="_startingCash" />
+                         BarWidthMinutes="_barWidthMinutes" StartingCash="_startingCash" TimeConstraint="CurrentEpisodeTimeConstraint" />
 
         <div class="train-content">
 

@@ -29,6 +29,10 @@
                     <div class="tp-column-title"
                          title="One randomly-sampled bars/episode-length window of the selected data, re-rolled whenever the data range, bars/episode, or bar width changes">
                         Episode</div>
+                        @foreach (var item in EpisodeSummaryItems)
+                        {
+                            <div class="tp-row">@item</div>
+                        }
                         @if (_loadingEpisode)
                         {
                             <div class="tp-row tp-row-empty">loading…</div>

@@ -45,6 +45,20 @@ full range), so successive episodes train against different real market
 windows without materializing more than one episode's worth of ticks at a
 time.
 
+**Episode timing.** The Train page's Episode Timing card can restrict episodes
+to specific weekdays and/or a daily time-of-day session, via
+`EpisodeTimeConstraint` (weekday set + a `SessionStart..SessionEnd` window,
+both off/full-day by default). Off, episodes may start anywhere in the Data
+Range and cross midnight, and Bars/episode is picked independently, exactly as
+before this feature existed. On, an episode's decisions span *exactly* one
+eligible day's session -- Bars/episode is no longer a free input; it's derived
+as `SessionLength / barWidth` (`TrainPage.EffectiveEpisodeBars`), and
+`RandomConstrainedEpisodeWindow` anchors the fetch to that day's `SessionStart`
+(reaching back only far enough for warm-up context, never as part of the
+episode itself) instead of placing it randomly inside a larger window. Pure
+weekday narrowing is "Weeks", pure session narrowing is "Sessions", and the
+untouched full-day/every-weekday default is "Days".
+
 **Warm-up bars.** A windowed encoder (e.g. `VolumeProfileEncoder`'s
 lookback) needs real history before its first decision, not zero-padding.
 `RlEpisodeRunner.Run` consumes `WarmupBars` worth of bars purely to fill the

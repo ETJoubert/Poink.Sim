@@ -191,7 +191,11 @@
     flex-wrap: nowrap;
 }
 
-.train-card-full .train-card-fields-row {
+/* Scoped to the Data Range card specifically (not every train-card-full) --
+   it holds only TickDataSource, which lays out its own internal row, so its
+   wrapper doesn't need flex. Episode Timing also uses train-card-full (for
+   width) but needs its fields-row to stay flex -- see .train-card-fields-row. */
+.train-card-datarange .train-card-fields-row {
     display: block;
 }
 
@@ -276,6 +280,34 @@
 .train-btn-toggle:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+}
+
+.train-btn-toggle-active {
+    background: color-mix(in srgb, var(--color-primary) 22%, transparent);
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+}
+
+.train-timing-toggle {
+    margin-left: auto;
+    padding-left: 12px;
+    border-left: 1px solid color-mix(in srgb, var(--color-primary) 20%, transparent);
+}
+
+.train-timing-filters {
+    margin-top: 4px;
+    padding-top: 10px;
+    border-top: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+.train-weekday-row {
+    display: flex;
+    gap: 4px;
+}
+
+.train-weekday-row .train-btn-toggle {
+    padding: 5px 7px;
+    min-width: 26px;
 }
 
 .train-brainrow-select:focus,
