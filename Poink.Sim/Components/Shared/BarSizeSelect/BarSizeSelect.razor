@@ -1,0 +1,13 @@
+@namespace Poink.Sim.Components.Shared.BarSizeSelect
+@using Poink.Sim.Helpers
+
+<label class="bar-size-select" title="@Title">
+    @Label
+    <select class="bar-size-select-input" value="@Value" @onchange="OnChanged"
+            disabled="@Disabled" title="@Title">
+        @foreach (var seconds in BarSizeOptions.Values)
+        {
+            <option value="@seconds">@BarSizeOptions.Label(seconds)</option>
+        }
+    </select>
+</label>

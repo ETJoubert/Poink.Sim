@@ -37,7 +37,7 @@ namespace Poink.Sim.Components.Pages
         private DateTime _from = DateTime.UtcNow.AddDays(-1);
         private DateTime _to = DateTime.UtcNow;
         private bool _aggregate = true;
-        private int _barMinutes = 1;
+        private int _barSizeSeconds = 60;
         private string _brainName = "";
 
         // Which trained model (if any) the brain picker below currently has
@@ -419,7 +419,7 @@ namespace Poink.Sim.Components.Pages
                 _traderCount = 1;
 
             var config = new SimulationConfig(
-                _table, _from, _to, _aggregate, TimeSpan.FromMinutes(_barMinutes), _brainName, _startingCash, _traderCount,
+                _table, _from, _to, _aggregate, TimeSpan.FromSeconds(_barSizeSeconds), _brainName, _startingCash, _traderCount,
                 _leverage, _stopOutLevelPercent, _commissionRatePercent);
 
             if (!Service.TryLoad(config))
@@ -444,7 +444,7 @@ namespace Poink.Sim.Components.Pages
         // (before a sim is loaded, where it just leaves the fields for LoadSimulation/
         // LoadDummySimulation to read) and live. Service.SetAggregation no-ops and
         // returns false when nothing is loaded yet, so one handler covers both states.
-        private void OnAggregationSettingChanged() => Service.SetAggregation(_aggregate, TimeSpan.FromMinutes(_barMinutes));
+        private void OnAggregationSettingChanged() => Service.SetAggregation(_aggregate, TimeSpan.FromSeconds(_barSizeSeconds));
 
         // Skips Postgres entirely (synthetic random-walk ticks) so the playback UI
         // can be exercised without a running database -- no symbol/date-range
@@ -467,7 +467,7 @@ namespace Poink.Sim.Components.Pages
             var table = string.IsNullOrWhiteSpace(_table) ? "DUMMY" : _table;
 
             var config = new SimulationConfig(
-                table, from, to, _aggregate, TimeSpan.FromMinutes(_barMinutes), _brainName, _startingCash, _traderCount,
+                table, from, to, _aggregate, TimeSpan.FromSeconds(_barSizeSeconds), _brainName, _startingCash, _traderCount,
                 _leverage, _stopOutLevelPercent, _commissionRatePercent);
 
             if (!Service.TryLoadDummy(config))

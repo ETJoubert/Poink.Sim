@@ -16,6 +16,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Poink.Sim.Brain;
 using Poink.Sim.Brain.Neural;
+using Poink.Sim.Helpers;
 using Poink.Sim.Models;
 using Poink.Sim.Repository;
 using Poink.Sim.Simulation;
@@ -354,7 +355,7 @@ internal sealed class RlTrainingService
     // StepTraining) -- lets a user step through from episode 1 without first
     // running a normal Start.
     public bool TryStartTraining(
-        string brainName, string strategyName, string rewardPolicyName, int episodeCount, int episodeBars, int barWidthMinutes, double startingCash,
+        string brainName, string strategyName, string rewardPolicyName, int episodeCount, int episodeBars, int barWidthSeconds, double startingCash,
         double learningRate, (string Table, DateTime From, DateTime To)? historicRange,
         Trader.TraderSettings? traderSettings = null, bool pauseAfterFirstEpisode = false,
         EpisodeTimeConstraint? episodeTimeConstraint = null)
@@ -453,12 +454,12 @@ internal sealed class RlTrainingService
               $"session={EpisodeTimeConstraint.FormatClock(timeConstraint.SessionStart)}-{EpisodeTimeConstraint.FormatClock(timeConstraint.SessionEnd)}"
             : "unrestricted";
         _logger.LogInformation(
-            "Training started: brain={Brain}, strategy={Strategy}, rewardPolicy={RewardPolicy}, episodes={EpisodeCount}, episodeBars={EpisodeBars}, warmupBars={WarmupBars}, barWidthMinutes={BarWidthMinutes}, source={Source}, timing={Timing}",
-            brainName, strategyName, rewardPolicyName, episodeCount, episodeBars, warmupBars, barWidthMinutes, source, timing);
+            "Training started: brain={Brain}, strategy={Strategy}, rewardPolicy={RewardPolicy}, episodes={EpisodeCount}, episodeBars={EpisodeBars}, warmupBars={WarmupBars}, barWidthSeconds={BarWidthSeconds}, source={Source}, timing={Timing}",
+            brainName, strategyName, rewardPolicyName, episodeCount, episodeBars, warmupBars, barWidthSeconds, source, timing);
         AppendLog("info",
-            $"start: brain={brainName}, strategy={strategyName}, policy={rewardPolicyName}, {episodeCount} episodes x {episodeBars} bars @ {barWidthMinutes}m, lr={learningRate:N4}, cash={startingCash:N0}, source={source}, timing={timing}");
+            $"start: brain={brainName}, strategy={strategyName}, policy={rewardPolicyName}, {episodeCount} episodes x {episodeBars} bars @ {BarSizeOptions.Label(barWidthSeconds)}, lr={learningRate:N4}, cash={startingCash:N0}, source={source}, timing={timing}");
 
-        var barWidth = TimeSpan.FromMinutes(barWidthMinutes);
+        var barWidth = TimeSpan.FromSeconds(barWidthSeconds);
         // +warmupBars so the brain's lookback window is full of real episode
         // data by the time its first decision happens (see RlEpisodeRunner's
         // warmupBars doc comment) -- never zero-padded/undersized history.
@@ -485,7 +486,7 @@ internal sealed class RlTrainingService
                     if (range.To - range.From < fetchSpan)
                         throw new InvalidOperationException(
                             $"selected range only spans {(range.To - range.From).TotalMinutes:N0} min, need at least " +
-                            $"{fetchSpan.TotalMinutes:N0} min for a {episodeBars}-bar episode at {barWidthMinutes}m bars" +
+                            $"{fetchSpan.TotalMinutes:N0} min for a {episodeBars}-bar episode at {BarSizeOptions.Label(barWidthSeconds)} bars" +
                             (warmupBars > 0 ? $" (plus {warmupBars} warm-up bars)" : ""));
 
                     if (timeConstraint.Enabled)
@@ -881,7 +882,7 @@ internal sealed class RlTrainingService
     // what's serialized, so nothing here needs the training loop's lock.
     public bool SaveBrain(
         string savedName, string brainName, string strategyName, string rewardPolicyName, string dataset,
-        int episodeBars, int barWidthMinutes, double startingCash, double learningRate,
+        int episodeBars, int barWidthSeconds, double startingCash, double learningRate,
         Trader.TraderSettings? traderSettings = null)
     {
         var brain = _brainRegistry.All.OfType<IPolicyGradientBrain>().FirstOrDefault(b => b.Name == brainName);
@@ -906,7 +907,7 @@ internal sealed class RlTrainingService
             {
                 EpisodeCount = _episodesTrainedByBrain.GetValueOrDefault(brainName),
                 EpisodeBars = episodeBars,
-                BarWidthMinutes = barWidthMinutes,
+                BarWidthSeconds = barWidthSeconds,
                 StartingCash = startingCash,
                 LearningRate = learningRate,
                 LookbackBars = brain.WarmupBars > 0 ? brain.WarmupBars : null,

@@ -1,8 +1,9 @@
 @page "/transformer"
 @namespace Poink.Sim.Components.Pages
 @using Poink.Sim.Components.Charts
-@using Poink.Sim.Components.Shared.BarMinutesSelect
+@using Poink.Sim.Components.Shared.BarSizeSelect
 @using Poink.Sim.Components.Shared.TickDataSource
+@using Poink.Sim.Helpers
 @using Poink.Sim.Transformer
 @using Poink.Shared.Client.Components.Pages.CTrader
 
@@ -15,7 +16,7 @@
                 @if (_config is not null)
                 {
                     <span class="trf-header-mode">@_config.Table</span>
-                    <span class="trf-header-mode">@($"{_config.BarSize.TotalMinutes:0}m bars")</span>
+                    <span class="trf-header-mode">@($"{BarSizeOptions.Label((int)_config.BarSize.TotalSeconds)} bars")</span>
                     <span class="trf-header-mode">
                         @_bars.Count.ToString("N0") bars / @_tickCount.ToString("N0") ticks
                         @(_reachedStart ? " (full range loaded)" : " (more history available)")
@@ -31,7 +32,7 @@
             <div class="trf-datarow-field trf-datarow-data">
                 <TickDataSource @bind-Table="_table" @bind-From="_from" @bind-To="_to" Disabled="_isLoading" />
             </div>
-            <BarMinutesSelect @bind-Value="_barMinutes" Disabled="@_isLoading" />
+            <BarSizeSelect @bind-Value="_barSizeSeconds" Disabled="@_isLoading" />
             <div class="trf-datarow-actions">
                 <button class="trf-ctrl-btn trf-ctrl-btn-play" @onclick="Load"
                         disabled="@(_isLoading || _isLoadingMore)"
@@ -262,8 +263,8 @@
                     else
                     {
                         <div class="trf-delta-header">
-                            <BarMinutesSelect @bind-Value="_subchartBarMinutes"
-                                               Title="Size of each candle on this chart, in minutes -- every tick in the selected Volume Range is re-aggregated at this size" />
+                            <BarSizeSelect @bind-Value="_subchartBarSizeSeconds"
+                                           Title="Size of each candle on this chart -- every tick in the selected Volume Range is re-aggregated at this size" />
                             <span class="trf-header-mode">
                                 @_subchartTicks.Count.ToString("N0") ticks from the selected Volume Range (@VolumeRangeLabel()):
                                 re-aggregated into ordinary OHLC bars at the chosen bar size

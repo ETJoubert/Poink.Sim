@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Poink.Sim.Brain.Neural;
+using Poink.Sim.Helpers;
 using Poink.Sim.Repository;
 using Poink.Sim.Trader;
 using Poink.Sim.Trader.Commission;
@@ -21,7 +22,7 @@ namespace Poink.Sim.Components.Pages
 
         private string _brainName = "";
 
-        private int _barWidthMinutes = 1;
+        private int _barWidthSeconds = 60;
 
         private string _strategyName = "";
         private string _rewardPolicyName = "";
@@ -88,7 +89,7 @@ namespace Poink.Sim.Components.Pages
         [
             $"Episodes: {_episodeCount}",
             $"Bars/episode: {EffectiveEpisodeBars}",
-            $"Bar width: {_barWidthMinutes} min",
+            $"Bar width: {BarSizeOptions.Label(_barWidthSeconds)}",
             $"Timing: {EpisodeTimingSummary}",
         ];
 
@@ -100,7 +101,7 @@ namespace Poink.Sim.Components.Pages
         // short for even one bar, so ValidateCommonStartParams's "at least 1"
         // check still catches it instead of silently rounding up.
         private int EffectiveEpisodeBars => _restrictEpisodeTiming
-            ? (int)((_sessionEnd - _sessionStart).TotalMinutes / _barWidthMinutes)
+            ? (int)((_sessionEnd - _sessionStart).TotalSeconds / _barWidthSeconds)
             : _episodeBars;
 
         // "unrestricted", or e.g. "Mo,Tu,We,Th,Fr 13:00-17:00" -- read by
@@ -172,7 +173,7 @@ namespace Poink.Sim.Components.Pages
 
         private void ToggleDashboardView() => _dashboardView = !_dashboardView;
 
-        private TimeSpan EpisodeBlockSpan => TimeSpan.FromMinutes(_barWidthMinutes) * EffectiveEpisodeBars;
+        private TimeSpan EpisodeBlockSpan => TimeSpan.FromSeconds(_barWidthSeconds) * EffectiveEpisodeBars;
 
         private int ProgressPercent =>
             Service.TotalEpisodes <= 0 ? 0 : (int)Math.Round(Service.EpisodesCompleted * 100.0 / Service.TotalEpisodes);
@@ -237,7 +238,7 @@ namespace Poink.Sim.Components.Pages
             { _startError = "episode timing: session end must be after session start"; return; }
 
             if (!Service.TryStartTraining(
-                    _brainName, _strategyName, _rewardPolicyName, _episodeCount, EffectiveEpisodeBars, _barWidthMinutes, _startingCash, _learningRate,
+                    _brainName, _strategyName, _rewardPolicyName, _episodeCount, EffectiveEpisodeBars, _barWidthSeconds, _startingCash, _learningRate,
                     (_table, _from, _to), CurrentTraderSettings, pauseAfterFirstEpisode, CurrentEpisodeTimeConstraint))
                 _startError = Service.Error ?? "a training run is already in progress";
         }
@@ -260,7 +261,7 @@ namespace Poink.Sim.Components.Pages
                 return;
 
             if (Service.SaveBrain(_saveName, _brainName, _strategyName, _rewardPolicyName, CurrentDatasetDescription,
-                    EffectiveEpisodeBars, _barWidthMinutes, _startingCash, _learningRate,
+                    EffectiveEpisodeBars, _barWidthSeconds, _startingCash, _learningRate,
                     CurrentTraderSettings))
             {
                 _saveName = "";

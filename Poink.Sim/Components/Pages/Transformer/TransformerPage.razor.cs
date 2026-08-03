@@ -35,7 +35,7 @@ namespace Poink.Sim.Components.Pages
         private string _table = "";
         private DateTime _from = DateTime.UtcNow.AddDays(-1);
         private DateTime _to = DateTime.UtcNow;
-        private int _barMinutes = 1;
+        private int _barSizeSeconds = 60;
 
         private bool _isLoading;
         private bool _isLoadingMore;
@@ -97,10 +97,10 @@ namespace Poink.Sim.Components.Pages
         // no meaning without one.
         private List<Tick> _subchartTicks = new();
 
-        // Aggregation for the Subchart tab -- the same BarMinutesSelect control (and
-        // real wall-clock TimeSpan.FromMinutes bucketing) the main chart's own bar size
+        // Aggregation for the Subchart tab -- the same BarSizeSelect control (and real
+        // wall-clock TimeSpan.FromSeconds bucketing) the main chart's own bar size
         // uses, not the other tabs' "ticks per bar" numeric inputs.
-        private int _subchartBarMinutes = 1;
+        private int _subchartBarSizeSeconds = 60;
 
         private bool HasDeltaData => _deltaTicks.Count >= 2;
 
@@ -246,7 +246,7 @@ namespace Poink.Sim.Components.Pages
 
             try
             {
-                var config = new TransformerConfig(_table, _from, _to, TimeSpan.FromMinutes(_barMinutes));
+                var config = new TransformerConfig(_table, _from, _to, TimeSpan.FromSeconds(_barSizeSeconds));
                 var chunk = await Service.LoadAsync(config, config.To, BarsPerFetch);
                 if (chunk.Bars.Count == 0 && chunk.ReachedStart)
                 {
@@ -581,14 +581,14 @@ namespace Poink.Sim.Components.Pages
 
         // Subchart's bars -- every raw tick in the active Volume Range (_subchartTicks,
         // see RefreshSubchartTicksAsync), aggregated by real wall-clock time at
-        // _subchartBarMinutes the same way the main chart's own bars are (TimeSpan.
-        // FromMinutes through SimulationBarAggregator), not through AggregateSyntheticSeries'
+        // _subchartBarSizeSeconds the same way the main chart's own bars are (TimeSpan.
+        // FromSeconds through SimulationBarAggregator), not through AggregateSyntheticSeries'
         // tick-count-indexed bucketing the other tabs use.
         private List<CTraderBarRow> SubchartBarRows()
         {
             if (_subchartTicks.Count == 0) return new();
 
-            var aggregator = new SimulationBarAggregator(TimeSpan.FromMinutes(Math.Max(1, _subchartBarMinutes)), DeltaBucketWidth);
+            var aggregator = new SimulationBarAggregator(TimeSpan.FromSeconds(Math.Max(1, _subchartBarSizeSeconds)), DeltaBucketWidth);
             var bars = new List<HlocAvdtBar>();
             foreach (var tick in _subchartTicks)
             {

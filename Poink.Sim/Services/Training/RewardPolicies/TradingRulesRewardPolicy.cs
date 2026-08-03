@@ -34,7 +34,7 @@
 //
 //  All constants are starting points, not tuned values -- in particular,
 //  size MaxHoldingDuration relative to whatever episodeBars *
-//  barWidthMinutes a given training run actually uses.
+//  barWidthSeconds a given training run actually uses.
 // ─────────────────────────────────────────────────────────────────────────
 using System;
 

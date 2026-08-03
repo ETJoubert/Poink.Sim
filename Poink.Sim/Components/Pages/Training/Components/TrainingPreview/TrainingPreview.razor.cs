@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 using Poink.Sim.Brain.Neural;
+using Poink.Sim.Helpers;
 using Poink.Sim.Models;
 using Poink.Sim.Repository;
 using Poink.Sim.Simulation;
@@ -54,7 +55,7 @@ namespace Poink.Sim.Components.Training
         // random episode window the Episode column charts -- same table and
         // span an actual training run would sample from.
         [Parameter] public string Table { get; set; } = "";
-        [Parameter] public int BarWidthMinutes { get; set; }
+        [Parameter] public int BarWidthSeconds { get; set; }
 
         // Same weekday/session filter TrainPage's Episode Timing card edits --
         // when Enabled, this preview's own random draw (FetchRandomEpisode)
@@ -164,7 +165,7 @@ namespace Poink.Sim.Components.Training
                     $"Start: {bars[0].OpenTime:yyyy-MM-dd HH:mm}",
                     $"End: {bars[^1].CloseTime:yyyy-MM-dd HH:mm}",
                     $"Bars: {bars.Count}",
-                    $"Bar width: {BarWidthMinutes} min",
+                    $"Bar width: {BarSizeOptions.Label(BarWidthSeconds)}",
                     $"Ticks: {tickCount:N0}",
                 ];
             }
@@ -204,7 +205,7 @@ namespace Poink.Sim.Components.Training
         protected override void OnParametersSet()
         {
             var weekdays = string.Join(",", TimeConstraint.AllowedWeekdays.OrderBy(d => d));
-            var key = $"{Table}|{From:o}|{To:o}|{BlockSpan}|{BarWidthMinutes}|{TimeConstraint.Enabled}|{weekdays}|{TimeConstraint.SessionStart}|{TimeConstraint.SessionEnd}";
+            var key = $"{Table}|{From:o}|{To:o}|{BlockSpan}|{BarWidthSeconds}|{TimeConstraint.Enabled}|{weekdays}|{TimeConstraint.SessionStart}|{TimeConstraint.SessionEnd}";
             if (key == _lastEpisodeFetchKey)
                 return;
             _lastEpisodeFetchKey = key;
@@ -219,8 +220,8 @@ namespace Poink.Sim.Components.Training
             _episodeHistograms = [];
             _episodeWindowStart = null;
             _episodeWindowEnd = null;
-            if (!string.IsNullOrEmpty(Table) && To > From && BlockSpan > TimeSpan.Zero && BarWidthMinutes > 0)
-                _ = LoadRandomEpisode(Table, From, To, BlockSpan, TimeSpan.FromMinutes(BarWidthMinutes), TimeConstraint);
+            if (!string.IsNullOrEmpty(Table) && To > From && BlockSpan > TimeSpan.Zero && BarWidthSeconds > 0)
+                _ = LoadRandomEpisode(Table, From, To, BlockSpan, TimeSpan.FromSeconds(BarWidthSeconds), TimeConstraint);
         }
 
         private async Task LoadRandomEpisode(

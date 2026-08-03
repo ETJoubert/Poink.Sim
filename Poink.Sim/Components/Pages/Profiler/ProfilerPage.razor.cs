@@ -35,7 +35,7 @@ namespace Poink.Sim.Components.Pages
         private string _table = "";
         private DateTime _from = DateTime.UtcNow.AddDays(-1);
         private DateTime _to = DateTime.UtcNow;
-        private int _barMinutes = 1;
+        private int _barSizeSeconds = 60;
 
         private bool _isLoading;
         private bool _isLoadingMore;
@@ -333,7 +333,7 @@ namespace Poink.Sim.Components.Pages
 
             try
             {
-                var config = new ProfilerConfig(_table, _from, _to, TimeSpan.FromMinutes(_barMinutes));
+                var config = new ProfilerConfig(_table, _from, _to, TimeSpan.FromSeconds(_barSizeSeconds));
                 var chunk = await Service.LoadAsync(config, config.To, BarsPerFetch);
                 if (chunk.Bars.Count == 0 && chunk.ReachedStart)
                 {

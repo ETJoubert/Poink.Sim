@@ -1,7 +1,7 @@
 @page "/train"
 @namespace Poink.Sim.Components.Pages
 @using Poink.Sim.Components.Training
-@using Poink.Sim.Components.Shared.BarMinutesSelect
+@using Poink.Sim.Components.Shared.BarSizeSelect
 @using Poink.Sim.Components.Shared.TickDataSource
 @using Poink.Shared.Client.Components.Shared.Icon
 
@@ -102,9 +102,9 @@
                                            disabled="@Service.IsRunning" />
                                 </label>
                             }
-                            <BarMinutesSelect @bind-Value="_barWidthMinutes" Disabled="@Service.IsRunning"
-                                              Label="Bar width (min)"
-                                              Title="Time span of one bar (M), in minutes -- also determines how much wall-clock time an episode's fetched ticks need to cover" />
+                            <BarSizeSelect @bind-Value="_barWidthSeconds" Disabled="@Service.IsRunning"
+                                           Label="Bar width"
+                                           Title="Time span of one bar (M) -- also determines how much wall-clock time an episode's fetched ticks need to cover" />
                             <label class="train-brainrow-field train-timing-toggle"
                                    title="Turn on to restrict episodes to specific weekdays and/or a daily time-of-day session -- off means an episode may start anywhere in the Data Range above, including across midnight">
                                 <input type="checkbox" checked="@_restrictEpisodeTiming" @onchange="ToggleRestrictEpisodeTiming"
@@ -290,7 +290,7 @@
 
         <TrainingPreview Recipe="CurrentBrainRecipe" DataItems="PreviewDataItems" TrainingItems="PreviewTrainingItems"
                          From="_from" To="_to" BlockSpan="EpisodeBlockSpan" EpisodeWindows="Service.RecentEpisodeWindows" Table="@_table"
-                         BarWidthMinutes="_barWidthMinutes" StartingCash="_startingCash" TimeConstraint="CurrentEpisodeTimeConstraint" />
+                         BarWidthSeconds="_barWidthSeconds" StartingCash="_startingCash" TimeConstraint="CurrentEpisodeTimeConstraint" />
 
         <div class="train-content">
 

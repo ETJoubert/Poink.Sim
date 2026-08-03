@@ -1,9 +1,10 @@
 @page "/profiler"
 @namespace Poink.Sim.Components.Pages
 @using Poink.Sim.Components.Charts
-@using Poink.Sim.Components.Shared.BarMinutesSelect
+@using Poink.Sim.Components.Shared.BarSizeSelect
 @using Poink.Sim.Components.Shared.DataTable
 @using Poink.Sim.Components.Shared.TickDataSource
+@using Poink.Sim.Helpers
 @using Poink.Sim.Repository
 @using Poink.Shared.Client.Components.Pages.CTrader
 
@@ -16,7 +17,7 @@
                 @if (_config is not null)
                 {
                     <span class="prof-header-mode">@_config.Table</span>
-                    <span class="prof-header-mode">@($"{_config.BarSize.TotalMinutes:0}m bars")</span>
+                    <span class="prof-header-mode">@($"{BarSizeOptions.Label((int)_config.BarSize.TotalSeconds)} bars")</span>
                     <span class="prof-header-mode">
                         @_bars.Count.ToString("N0") bars / @_tickCount.ToString("N0") ticks
                         @(_reachedStart ? " (full range loaded)" : " (more history available)")
@@ -32,7 +33,7 @@
             <div class="prof-datarow-field prof-datarow-data">
                 <TickDataSource @bind-Table="_table" @bind-From="_from" @bind-To="_to" Disabled="_isLoading" />
             </div>
-            <BarMinutesSelect @bind-Value="_barMinutes" Disabled="@_isLoading" />
+            <BarSizeSelect @bind-Value="_barSizeSeconds" Disabled="@_isLoading" />
             <div class="prof-datarow-actions">
                 <button class="prof-ctrl-btn prof-ctrl-btn-play" @onclick="Load"
                         disabled="@(_isLoading || _isLoadingMore)"

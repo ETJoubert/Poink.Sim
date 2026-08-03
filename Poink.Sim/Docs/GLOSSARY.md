@@ -172,7 +172,7 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   learned value network. `Services/Training/PolicyGradientTrainingStrategy.cs`
 - **Discount factor (γ)** — `DiscountFactor = 0.99`; weights how much future reward
   counts toward a step's discounted return. `Services/Training/PolicyGradientTrainingStrategy.cs`
-- **Episode** — One bounded practice run of `episodeBars` bars (each `barWidthMinutes`
+- **Episode** — One bounded practice run of `episodeBars` bars (each `barWidthSeconds`
   wide) through one Trader, recorded as an `RlEpisode` (list of `RlStep`s plus final
   capital state, plus every bar this episode processed -- including leading
   **warm-up bars** (see that entry) -- as `HlocAvdtBar`/`BarPriceHistogram`, plus,
@@ -269,16 +269,18 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   `BrainRecipe`. See
   [Brain/README.md](Brain/README.md) ("Where brains come from") for the full
   picture. `Brain/Neural/BrainCatalog.cs`
-- **`BarMinutesOptions`** — The doubling choice list backing `BarMinutesSelect`:
-  1 minute up to 1024, plus a 1440 (1-day) cap on top since it's a meaningful
-  bar size a pure power-of-two wouldn't reach. `Label(minutes)` formats each
-  choice (e.g. `"64m (~1h)"`, `"1440m (1d)"`). `Helpers/BarMinutesOptions.cs`
-- **`BarMinutesSelect`** — Shared "Bar minutes"/"Bar width (min)" dropdown
-  component (`@bind-Value` + `Disabled`/`Label`/`Title` parameters), backed by
-  `BarMinutesOptions`; used by `ProfilerPage`, `SimulationPage` (only while its
-  Aggregate toggle is on), and `TrainPage`'s Training card, so all three pick
-  bar size the same way instead of each repeating its own numeric input/`<select>`
-  markup. `Components/Shared/BarMinutesSelect/BarMinutesSelect.razor`
+- **`BarSizeOptions`** — The doubling choice list backing `BarSizeSelect`, in
+  seconds: 1 second up to 32, then 1 minute up to 1024 minutes, plus a 1440-minute
+  (1-day) cap on top since it's a meaningful bar size a pure power-of-two wouldn't
+  reach. `Label(seconds)` formats each choice (e.g. `"4s"`, `"64m (~1h)"`,
+  `"1440m (1d)"`). `Helpers/BarSizeOptions.cs`
+- **`BarSizeSelect`** — Shared "Bar size"/"Bar width" dropdown component
+  (`@bind-Value` + `Disabled`/`Label`/`Title` parameters), backed by
+  `BarSizeOptions`; used by `TransformerPage` (main chart and its Subchart tab),
+  `ProfilerPage`, `SimulationPage` (only while its Aggregate toggle is on), and
+  `TrainPage`'s Training card, so all of them pick bar size the same way instead
+  of each repeating its own numeric input/`<select>` markup. Value is in seconds.
+  `Components/Shared/BarSizeSelect/BarSizeSelect.razor`
 - **`BrainOption`** — One entry in the brain picker: `(Name, IsNeuralNetwork)`, lets
   the UI separate trained/trainable brains from stateless heuristic ones without
   knowing about `IPolicyGradientBrain`. `Services/Training/RlTrainingService.cs`
@@ -529,7 +531,7 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   the chart's SL/TP lines end-to-end. `Brain/Heuristic/RandomBrain.cs`
 - **`RandomEpisodeWindow`** — Picks a random start timestamp within a
   table's known range and streams the ticks spanning `fetchSpan`
-  (`barWidthMinutes × (episodeBars + warmupBars + 1)` -- see **Warm-up
+  (`barWidthSeconds × (episodeBars + warmupBars + 1)` -- see **Warm-up
   bars**) from there per training episode via `ITickRepository.ReadTicks`
   (still a lazy, chunk-pruned read -- nothing here materializes more than
   one episode's window), so successive episodes train against different
@@ -633,10 +635,13 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   `NormalizationKind`) depending on the caller.
   `Models/BarPriceHistogram.cs`
 - **`ModelTrainingParameters`** — Free-form training-run parameters (`EpisodeCount`,
-  `EpisodeBars`, `BarWidthMinutes`, `StartingCash`, `LearningRate`, `LookbackBars`,
+  `EpisodeBars`, `BarWidthSeconds`, `StartingCash`, `LearningRate`, `LookbackBars`,
   `Leverage`, `StopOutLevelPercent`, `CommissionRatePercent`) saved alongside a
   brain snapshot; plain settable properties (not a record) so old JSON blobs still
-  deserialize after new fields are added. `EpisodeCount` is the brain's actual
+  deserialize after new fields are added -- including `BarWidthSeconds` itself,
+  renamed from the old minutes-based `BarWidthMinutes` key, so a pre-rename row
+  deserializes it to 0 (shown as "?" by `ToString`) rather than silently
+  misinterpreting an old minutes value as seconds. `EpisodeCount` is the brain's actual
   completed-episode count in this process (`RlTrainingService._episodesTrainedByBrain`),
   not the Train page form's configured target -- saving the target made an
   untrained, just-built brain indistinguishable from a properly trained one.

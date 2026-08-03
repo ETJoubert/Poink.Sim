@@ -17,6 +17,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using Poink.Sim.Brain.Neural;
+using Poink.Sim.Helpers;
 
 namespace Poink.Sim.Repository;
 
@@ -31,7 +32,14 @@ public sealed class ModelTrainingParameters
 {
     public int EpisodeCount { get; set; }
     public int EpisodeBars { get; set; }
-    public int BarWidthMinutes { get; set; }
+
+    // Seconds, not minutes despite older saved snapshots' JSON key having been named
+    // "BarWidthMinutes" -- renamed when sub-minute bar sizes were added (see
+    // BarSizeOptions). A row saved under the old key deserializes this to 0 (same
+    // missing-key tolerance as every other field here), which ToString below shows as
+    // "?" rather than a misleadingly precise-looking (but wrong-unit) value.
+    public int BarWidthSeconds { get; set; }
+
     public double StartingCash { get; set; }
     public double LearningRate { get; set; }
 
@@ -55,7 +63,7 @@ public sealed class ModelTrainingParameters
     // same concern) -- "cash=1,000" must never render as "cash=1 000".
     public override string ToString() =>
         string.Create(CultureInfo.InvariantCulture,
-            $"episodes={EpisodeCount} bars={EpisodeBars}@{BarWidthMinutes}m cash={StartingCash:N0} lr={LearningRate:G3}" +
+            $"episodes={EpisodeCount} bars={EpisodeBars}@{(BarWidthSeconds > 0 ? BarSizeOptions.Label(BarWidthSeconds) : "?")} cash={StartingCash:N0} lr={LearningRate:G3}" +
             $" lev={Leverage:G3}x commission={CommissionRatePercent:G3}%{(LookbackBars is { } lookback ? $" lookback={lookback}" : "")}");
 }
 
