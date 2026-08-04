@@ -90,6 +90,14 @@ internal sealed class RlTrainingService
     // need reconstruction, so SaveBrain persists null for them.
     private readonly Dictionary<string, BrainRecipe> _brainRecipes = new();
 
+    // Names of brains registered live by TryBuildDraftBrain but never
+    // persisted via TryBuildBrain ("Save Brain") -- lets a Build panel tweak
+    // rebuild-and-replace under the same name freely (see
+    // TryBuildDraftBrain), while a name collision with anything else still
+    // fails the same way it always has. Cleared for a name the moment it's
+    // saved.
+    private readonly HashSet<string> _draftBrainNames = new();
+
     // Actual completed episodes for this brain in this process -- keyed by
     // brain Name, NOT the Train page form's configured target episode count
     // (that's just what a run was asked to do, not what happened; saving it
@@ -198,6 +206,12 @@ internal sealed class RlTrainingService
         (_brainRegistry.All.OfType<IPolicyGradientBrain>().FirstOrDefault(b => b.Name == brainName))?.WarmupBars ?? 0;
 
     public IReadOnlyList<string> BrainNames => _brainRegistry.All.Select(b => b.Name).ToList();
+
+    // Live but not-yet-saved Build panel drafts -- read by BrainBuilder to
+    // fold into its Brain Type picker alongside BrainService's saved
+    // networks, so a brain trained straight off an unsaved config (see
+    // TryBuildDraftBrain) is still selectable/inspectable from the picker.
+    public IReadOnlyList<string> DraftBrainNames => _draftBrainNames.ToList();
 
     // NN vs non-NN is just "does this brain have trainable weights" --
     // IPolicyGradientBrain is the only family that does today (see that
@@ -804,45 +818,46 @@ internal sealed class RlTrainingService
             name, architecture, actionOutputHeads, directions, recipe.DecisionDecoding, recipe.DecisionTemperature, recipe.CnnKernelSweepSource, parts);
     }
 
-    // Builds a new ComposedPolicyBrain from the Train page's Brain Builder
-    // panel, adds it to the shared BrainRegistry, and persists it as a
-    // NetworkService network under the same name -- so it's immediately
-    // selectable from the Brain Type picker (which lists saved networks, not
-    // just whatever's currently live) and survives a process restart even
-    // before it's ever been trained/saved as a model. The caller
-    // (TrainPage.razor.cs) is responsible for listing encoderKinds in
-    // canonical order (BarWindow before VolumeProfile/TimeProfile) so
-    // CompositeEncoder's sequence-first guard is satisfied.
-    public bool TryBuildBrain(
+    // Shared validation for TryBuildBrain/TryBuildDraftBrain -- doesn't
+    // reject a name collision by itself: both callers treat an existing
+    // live brain under the requested name as theirs to reuse/replace, since
+    // Brain Builder only ever asks for a name the user explicitly chose
+    // (typed, or picked from the identity it just loaded). The one name a
+    // collision still blocks is one of Program.cs's fixed brains -- never
+    // IPolicyGradientBrain, the only kind either caller ever builds -- so a
+    // stray name clash with a built-in brain can't silently shadow it.
+    private bool ValidateBuildRequest(string name, IReadOnlyList<EncoderKind> encoderKinds, IReadOnlyList<SimulationAction>? enabledDirections)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        { Error = "enter a name for the new brain"; OnChanged?.Invoke(); return false; }
+        if (encoderKinds.Count == 0)
+        { Error = "pick at least one encoder"; OnChanged?.Invoke(); return false; }
+        if (enabledDirections is { Count: 0 })
+        { Error = "pick at least one action"; OnChanged?.Invoke(); return false; }
+        if (_brainRegistry.All.Any(b => b.Name == name && b is not IPolicyGradientBrain))
+        { Error = $"'{name}' is already used by a built-in brain"; OnChanged?.Invoke(); return false; }
+        return true;
+    }
+
+    // Builds a live-only brain from the Brain Builder panel's current config
+    // and registers it for immediate use -- never persisted to storage (see
+    // TryBuildBrain, which "Save Brain" calls instead). Called automatically
+    // right before a training run starts whenever the current config
+    // doesn't match what's saved (see BrainBuilder.PrepareBrainForTraining),
+    // so tweaking parameters between runs never requires committing
+    // anything to the database. Rebuilding under a name that's already live
+    // -- whether an earlier draft or a previously-saved brain being tweaked
+    // further -- discards its current weights and starts fresh: every Start
+    // Training click while the config is unsaved trains exactly what's
+    // currently configured, never leftovers from before.
+    public bool TryBuildDraftBrain(
         string name, IReadOnlyList<EncoderKind> encoderKinds, ArchitectureKind architectureKind, IReadOnlyList<int> hiddenSizes,
         IReadOnlyList<ActionOutputKind>? actionOutputKinds = null, IReadOnlyList<SimulationAction>? enabledDirections = null,
         EncoderSizeOptions? encoderSizes = null, DecisionDecodingKind decisionDecoding = DecisionDecodingKind.Softmax,
         double decisionTemperature = 1.0, CnnKernelSweepSource cnnKernelSweepSource = CnnKernelSweepSource.BarWindow)
     {
-        if (string.IsNullOrWhiteSpace(name))
-        {
-            Error = "enter a name for the new brain";
-            OnChanged?.Invoke();
+        if (!ValidateBuildRequest(name, encoderKinds, enabledDirections))
             return false;
-        }
-        if (_brainRegistry.All.Any(b => b.Name == name))
-        {
-            Error = $"a brain named '{name}' already exists";
-            OnChanged?.Invoke();
-            return false;
-        }
-        if (encoderKinds.Count == 0)
-        {
-            Error = "pick at least one encoder";
-            OnChanged?.Invoke();
-            return false;
-        }
-        if (enabledDirections is { Count: 0 })
-        {
-            Error = "pick at least one action";
-            OnChanged?.Invoke();
-            return false;
-        }
 
         var recipe = new BrainRecipe(
             encoderKinds.ToList(), architectureKind, hiddenSizes.ToList(),
@@ -852,20 +867,91 @@ internal sealed class RlTrainingService
         try
         {
             var brain = BuildFromRecipe(name, recipe);
+            if (_brainRegistry.All.Any(b => b.Name == name))
+            {
+                // Replacing whatever's currently live under this name -- its
+                // weights and training history belong to an instance that no
+                // longer exists, so every stat keyed by this name is stale too.
+                _brainRegistry.Unregister(name);
+                _episodesTrainedByBrain.Remove(name);
+                _lastTrainedAt.Remove(name);
+                _activeSnapshotId.Remove(name);
+            }
             _brainRegistry.Register(brain);
             _brainRecipes[name] = recipe;
+            _draftBrainNames.Add(name);
             Error = null;
             OnChanged?.Invoke();
-            _logger.LogInformation("Built new brain: name={Name}, encoders={Encoders}, architecture={Architecture}",
+            _logger.LogInformation("Built draft brain (not saved): name={Name}, encoders={Encoders}, architecture={Architecture}",
                 name, string.Join(",", encoderKinds), architectureKind);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Error = $"couldn't build brain: {ex.Message}";
+            OnChanged?.Invoke();
+            _logger.LogWarning(ex, "Failed to build draft brain: name={Name}", name);
+            return false;
+        }
+    }
 
-            // Best-effort -- the live brain is already built and registered
-            // regardless, so a Postgres hiccup here shouldn't block using it
-            // this session, just its availability in the Brain Type picker
-            // after a restart.
-            if (!_brainService.CreateNetwork(name, recipe))
+    // Persists the Brain Builder panel's current config to storage as a
+    // saved network -- what "Save Brain" commits. If a live brain already
+    // exists under this exact name (an earlier draft, or a previously-saved
+    // brain being re-saved after further tweaks -- see TryBuildDraftBrain),
+    // its current weights are left untouched: only the recipe is written to
+    // storage and the name stops being treated as a disposable draft.
+    // Otherwise this builds and registers a brand-new, untrained brain, same
+    // as before drafts existed. The caller (BrainBuilder.razor.cs) is
+    // responsible for listing encoderKinds in canonical order (BarWindow
+    // before VolumeProfile/TimeProfile) so CompositeEncoder's sequence-first
+    // guard is satisfied.
+    public bool TryBuildBrain(
+        string name, IReadOnlyList<EncoderKind> encoderKinds, ArchitectureKind architectureKind, IReadOnlyList<int> hiddenSizes,
+        IReadOnlyList<ActionOutputKind>? actionOutputKinds = null, IReadOnlyList<SimulationAction>? enabledDirections = null,
+        EncoderSizeOptions? encoderSizes = null, DecisionDecodingKind decisionDecoding = DecisionDecodingKind.Softmax,
+        double decisionTemperature = 1.0, CnnKernelSweepSource cnnKernelSweepSource = CnnKernelSweepSource.BarWindow)
+    {
+        if (!ValidateBuildRequest(name, encoderKinds, enabledDirections))
+            return false;
+
+        var recipe = new BrainRecipe(
+            encoderKinds.ToList(), architectureKind, hiddenSizes.ToList(),
+            actionOutputKinds?.ToList(), ActionOutputEncodingKind.DiscretizedLevels, enabledDirections?.ToList(), encoderSizes,
+            decisionDecoding, decisionTemperature, cnnKernelSweepSource);
+
+        try
+        {
+            bool alreadyLive = _brainRegistry.All.Any(b => b.Name == name);
+            if (!alreadyLive)
+            {
+                var brain = BuildFromRecipe(name, recipe);
+                _brainRegistry.Register(brain);
+                _logger.LogInformation("Built new brain: name={Name}, encoders={Encoders}, architecture={Architecture}",
+                    name, string.Join(",", encoderKinds), architectureKind);
+            }
+            _brainRecipes[name] = recipe;
+            _draftBrainNames.Remove(name);
+            Error = null;
+
+            // Update the existing row in place if this name's already saved
+            // (e.g. re-saving after another tweak) -- BrainService.SaveBrain
+            // always inserts, so calling it again under a name that's
+            // already persisted would leave two rows behind instead of one
+            // up to date row.
+            var existing = _brainService.Brains.FirstOrDefault(b => b.Name == name);
+            bool persisted = existing is not null
+                ? _brainService.UpdateNetwork(existing.Id, name, recipe)
+                : _brainService.CreateNetwork(name, recipe);
+            if (!persisted)
+            {
+                Error = $"built '{name}' live, but couldn't save it to storage: {_brainService.Status}";
+                OnChanged?.Invoke();
                 _logger.LogWarning("Failed to persist built brain '{Name}' as a network: {Status}", name, _brainService.Status);
+                return false;
+            }
 
+            OnChanged?.Invoke();
             return true;
         }
         catch (Exception ex)

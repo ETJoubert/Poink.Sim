@@ -39,12 +39,16 @@ namespace Poink.Sim.Components.Training
 
         private string? _lastBrainName;
 
-        // Same source TrainPage used to build its own copy of this list
-        // before Brain Type moved into this panel -- every saved network,
-        // all treated as neural (heuristic brains have no trainable weights
-        // so they're never saved as one -- see BrainService's doc comment).
+        // Every saved network, plus any currently-live Build panel draft not
+        // yet saved (see RlTrainingService.TryBuildDraftBrain) -- both
+        // treated as neural (heuristic brains have no trainable weights so
+        // they're never built this way -- see BrainService's doc comment).
         private IReadOnlyList<BrainOption> TrainableBrainOptions =>
-            BrainService.Brains.Select(n => new BrainOption(n.Name, true)).ToList();
+            BrainService.Brains.Select(n => n.Name)
+                .Concat(Service.DraftBrainNames)
+                .Distinct()
+                .Select(name => new BrainOption(name, true))
+                .ToList();
 
         protected override void OnInitialized()
         {
@@ -62,9 +66,36 @@ namespace Poink.Sim.Components.Training
             {
                 _lastBrainName = BrainName;
                 if (!string.IsNullOrEmpty(BrainName) && Service.GetRecipe(BrainName) is { } recipe)
-                    LoadRecipe(recipe);
+                    LoadRecipe(BrainName, recipe);
             }
         }
+
+        // True when this identity is either not persisted at all, or is
+        // persisted but no longer matches the fields below -- BrainRecipe's
+        // record equality is reference-based on every IReadOnlyList<T>
+        // property (records don't deep-compare collections), so this reads
+        // straight off BrainService.Brains every time rather than caching a
+        // "loaded" baseline that could drift stale. Drives the DRAFT badge
+        // in BrainBuilder.razor and tells PrepareBrainForTraining whether
+        // Start Training needs to rebuild a fresh live instance.
+        private bool IsDraft => PersistedRecipeForCurrentName is not { } persisted || !RecipesEqual(persisted, CurrentRecipe);
+
+        private BrainRecipe? PersistedRecipeForCurrentName =>
+            BrainService.Brains.FirstOrDefault(b => b.Name == EffectiveBuildBrainName)?.Recipe;
+
+        private bool BrainNameIsPersisted => BrainService.Brains.Any(b => b.Name == BrainName);
+
+        private static bool RecipesEqual(BrainRecipe a, BrainRecipe b) =>
+            a.ArchitectureKind == b.ArchitectureKind
+            && a.ActionOutputEncodingKind == b.ActionOutputEncodingKind
+            && a.DecisionDecoding == b.DecisionDecoding
+            && a.DecisionTemperature == b.DecisionTemperature
+            && a.CnnKernelSweepSource == b.CnnKernelSweepSource
+            && Equals(a.EncoderSizes, b.EncoderSizes)
+            && a.EncoderKinds.SequenceEqual(b.EncoderKinds)
+            && a.HiddenSizes.SequenceEqual(b.HiddenSizes)
+            && (a.ActionOutputKinds ?? []).SequenceEqual(b.ActionOutputKinds ?? [])
+            && (a.EnabledDirections ?? ComposedPolicyBrain.AllDirections).SequenceEqual(b.EnabledDirections ?? ComposedPolicyBrain.AllDirections);
 
         private bool _showBuildPanel;
 
@@ -117,11 +148,18 @@ namespace Poink.Sim.Components.Training
             double.TryParse(e.Value?.ToString(), out var rate) ? LearningRateChanged.InvokeAsync(rate) : Task.CompletedTask;
 
         // Populates every Brain Builder field from a saved/live recipe --
-        // the inverse of CurrentRecipe. Leaves the Name field alone (its own
-        // Auto/manual toggle keeps working against whatever's now loaded)
-        // and clears any stale build status from a previous attempt.
-        private void LoadRecipe(BrainRecipe recipe)
+        // the inverse of CurrentRecipe. Also takes over the Name field
+        // (Auto Name off, set to this exact name) so the loaded config's
+        // identity matches what's selected above -- IsDraft compares
+        // against BrainService.Brains by EffectiveBuildBrainName, so a
+        // mismatched name here would show a freshly-picked, unmodified
+        // brain as a draft. Clears any stale build status from a previous
+        // attempt.
+        private void LoadRecipe(string name, BrainRecipe recipe)
         {
+            _buildBrainName = name;
+            _buildBrainNameAuto = false;
+
             _includeBarWindow = recipe.EncoderKinds.Contains(EncoderKind.BarWindow);
             _includeVolumeProfile = recipe.EncoderKinds.Contains(EncoderKind.VolumeProfile);
             _includeTimeProfile = recipe.EncoderKinds.Contains(EncoderKind.TimeProfile);
@@ -575,7 +613,20 @@ namespace Poink.Sim.Components.Training
             SelectedEnabledDirections.Count > 0 ? SelectedEnabledDirections : null, CurrentEncoderSizeOptions,
             _decisionDecoding, _decisionTemperature, _cnnKernelSweepSource);
 
-        private void CreateBrain()
+        // What's actually in memory right now, regardless of whether it's
+        // been saved -- read by TrainPage for the Training Preview panel, so
+        // it always reflects live tweaks instead of lagging behind until a
+        // draft gets built (see PrepareBrainForTraining) or saved.
+        public BrainRecipe CurrentConfigRecipe => CurrentRecipe;
+
+        // Commits the current config to storage under its name -- "SAVE
+        // BRAIN" in the top row. Updates the existing row in place if this
+        // name is already persisted (never a second row under the same
+        // name), otherwise inserts a new one -- see RlTrainingService.
+        // TryBuildBrain. If Start Training already drafted a live brain
+        // under this same name, its trained weights are left alone; only
+        // the recipe gets persisted.
+        private void SaveBrain()
         {
             var name = EffectiveBuildBrainName;
 
@@ -584,16 +635,66 @@ namespace Poink.Sim.Components.Training
                     SelectedActionOutputKinds, SelectedEnabledDirections, CurrentEncoderSizeOptions,
                     _decisionDecoding, _decisionTemperature, _cnnKernelSweepSource))
             {
-                _buildBrainStatus = $"built '{name}' -- pick it above to train it";
-                _buildBrainName = "";
-                _buildBrainNameAuto = true;
-                _showBuildPanel = false;
+                _buildBrainStatus = $"saved '{name}' to storage";
                 _ = OnBrainCreated.InvokeAsync(name);
             }
             else
             {
                 _buildBrainStatus = Service.Error;
             }
+        }
+
+        // Builds (or refreshes) a live-only draft brain from the current
+        // fields and registers it -- never written to storage, see
+        // RlTrainingService.TryBuildDraftBrain. Shared by SET and
+        // PrepareBrainForTraining: this raises Service.OnChanged on success,
+        // which is what actually gets TrainPage to re-render and show the
+        // update in Training Preview -- Blazor doesn't re-render a parent
+        // just because a child's own fields changed, so without this (or
+        // Start Training, which calls it automatically) the preview can
+        // otherwise sit stale until something else triggers a render.
+        private bool TryDraftCurrentConfig()
+        {
+            if (!CanCreateBrain)
+            {
+                _buildBrainStatus = "fix the build panel before using this config";
+                return false;
+            }
+
+            if (!Service.TryBuildDraftBrain(
+                    EffectiveBuildBrainName, SelectedEncoderKinds, _architectureKind, CurrentHiddenSizes,
+                    SelectedActionOutputKinds, SelectedEnabledDirections, CurrentEncoderSizeOptions,
+                    _decisionDecoding, _decisionTemperature, _cnnKernelSweepSource))
+            {
+                _buildBrainStatus = Service.Error;
+                return false;
+            }
+
+            _buildBrainStatus = null;
+            return true;
+        }
+
+        // "SET" in the top row -- only enabled while a draft is active (see
+        // IsDraft). Manually applies it live so Training Preview can show
+        // what a run would actually train without needing to start one.
+        private void SetConfig() => TryDraftCurrentConfig();
+
+        // Called by TrainPage (via @ref) right before a run starts. The
+        // config held in this panel's fields is always what's used -- not
+        // gated on whether the panel happens to be expanded. If it's clean
+        // (matches what's persisted, or nothing's been touched since an
+        // existing brain was picked -- see IsDraft), this just echoes back
+        // the already-selected/registered BrainName untouched, so any
+        // weights it's accumulated this session keep training. Otherwise it
+        // drafts a live-only brain from the current fields via
+        // TryDraftCurrentConfig, so tweaking parameters between runs never
+        // requires saving first. Returns null (with _buildBrainStatus set)
+        // only when the config is currently invalid.
+        public string? PrepareBrainForTraining()
+        {
+            if (!IsDraft)
+                return BrainName;
+            return TryDraftCurrentConfig() ? EffectiveBuildBrainName : null;
         }
     }
 }

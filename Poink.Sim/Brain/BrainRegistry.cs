@@ -41,4 +41,15 @@ internal sealed class BrainRegistry
             _brains.Add(brain);
         }
     }
+
+    // Removes a previously-registered brain by name -- used only to replace an
+    // unsaved Brain Builder draft with a freshly rebuilt one (see
+    // RlTrainingService.TryBuildDraftBrain) right before its identity is
+    // reused; every other brain's identity is permanent for the process
+    // lifetime.
+    public void Unregister(string name)
+    {
+        lock (_lock)
+        { _brains.RemoveAll(b => b.Name == name); }
+    }
 }

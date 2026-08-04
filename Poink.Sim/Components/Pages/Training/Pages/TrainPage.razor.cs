@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Poink.Sim.Brain.Neural;
+using Poink.Sim.Components.Training;
 using Poink.Sim.Helpers;
 using Poink.Sim.Repository;
 using Poink.Sim.Trader;
@@ -15,6 +16,11 @@ namespace Poink.Sim.Components.Pages
     public partial class TrainPage : ComponentBase, IDisposable
     {
         [Inject] private RlTrainingService Service { get; set; } = default!;
+
+        // Set via @ref on the Build panel -- StartTrainingCore asks it to
+        // draft a live, unsaved brain from its current fields right before a
+        // run starts (see BrainBuilder.PrepareBrainForTraining).
+        private BrainBuilder? _brainBuilder;
 
         private string _table = "";
         private DateTime _from = DateTime.UtcNow.AddDays(-1);
@@ -71,10 +77,11 @@ namespace Poink.Sim.Components.Pages
 
         private void HandleBrainCreated(string name) => _brainName = name;
 
-        // Feeds TrainingPreview -- the recipe Start/Step will actually train
-        // against, or null before a brain's picked/built.
-        private BrainRecipe? CurrentBrainRecipe =>
-            string.IsNullOrEmpty(_brainName) ? null : Service.GetRecipe(_brainName);
+        // Feeds TrainingPreview -- whatever's currently held in the Build
+        // panel's fields, live, whether or not it's been saved (see
+        // BrainBuilder.CurrentConfigRecipe) -- so the preview never lags
+        // behind an unsaved tweak.
+        private BrainRecipe? CurrentBrainRecipe => _brainBuilder?.CurrentConfigRecipe;
 
         // Feeds TrainingPreview's Data column -- mirrors the Data Range card's TickDataSource fields.
         private IReadOnlyList<string> PreviewDataItems =>
@@ -226,6 +233,21 @@ namespace Poink.Sim.Components.Pages
         private void StartTrainingCore(bool pauseAfterFirstEpisode)
         {
             _startError = null;
+
+            // The Build panel's fields are always the source of truth for
+            // what trains, regardless of whether the panel is expanded. If
+            // they don't match what's saved under their name, this drafts
+            // (or refreshes) a live, unsaved brain from them, so tweaking
+            // parameters between runs never needs saving first (see
+            // BrainBuilder.PrepareBrainForTraining). If they already match,
+            // this just echoes _brainName back untouched, so any weights
+            // already trained this session keep going.
+            var brainName = _brainBuilder?.PrepareBrainForTraining();
+            if (_brainBuilder is not null && brainName is null)
+            { _startError = "fix the build panel before starting training"; return; }
+            if (brainName is not null)
+                _brainName = brainName;
+
             if (!ValidateCommonStartParams())
                 return;
             if (string.IsNullOrWhiteSpace(_table))
