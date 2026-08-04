@@ -131,6 +131,10 @@ namespace Poink.Sim.Components.Training
 
         private IReadOnlyList<TrainingPreviewSourceRow> SourceRows =>
             BuildSourceRows(Recipe, EffectiveEpisodeBars, EffectiveEpisodeHistograms, StartingCash, Service.LatestInputs);
+        // Sum of every included set's own Inputs count -- feeds the Source
+        // column header's "total inputs" badge, alongside SourceRows.Count
+        // for its "total sets" badge.
+        private int TotalSourceInputCount => SourceRows.Sum(r => int.TryParse(r.Inputs, out var n) ? n : 0);
         private IReadOnlyList<string> NeuralNetworkItems => BuildNeuralNetworkItems(Recipe);
         private List<StackSegment> InputBarSegments => BuildInputBarSegments(SourceRows);
         private IReadOnlyList<string> HiddenLayerItems => BuildHiddenLayerItems(Recipe);
@@ -501,6 +505,8 @@ namespace Poink.Sim.Components.Training
             var fractions = VolumeProfileAnalysis.BuildRelativeHistogram(merged, sizes.VolumeProfileBucketCount);
             if (sizes.VolumeProfileNormalization is NormalizationKind.LocalZScore or NormalizationKind.GlobalZScore)
                 return ApplyZScore(fractions, sizes.VolumeProfileNormalization, sizes.VolumeProfileZScoreSubWindowSize).Select(FormatZScore).ToList();
+            if (sizes.VolumeProfileNormalization == NormalizationKind.Binary)
+                return BinaryNormalization.Compute(Array.ConvertAll(fractions, v => (double)v)).Select(FormatBinary).ToList();
             return fractions.Select(FormatFraction).ToList();
         }
 
@@ -576,6 +582,8 @@ namespace Poink.Sim.Components.Training
                     ZScoreNormalization.Local(prices, zScoreSubWindowSize).Select(FormatZScore).ToList(),
                 NormalizationKind.GlobalZScore =>
                     ZScoreNormalization.Global(prices).Select(FormatZScore).ToList(),
+                NormalizationKind.Binary =>
+                    BinaryNormalization.Compute(prices).Select(FormatBinary).ToList(),
                 _ => BuildPercentOffsets(prices),
             };
         }
@@ -593,6 +601,8 @@ namespace Poink.Sim.Components.Training
         }
 
         private static string FormatZScore(float z) => z.ToString("+0.00;-0.00;0.00", CultureInfo.InvariantCulture);
+
+        private static string FormatBinary(float b) => b.ToString("0", CultureInfo.InvariantCulture);
 
         // One value per TraderStateEncoder feature -- prefers Service.LatestInputs
         // (the same live-decision values Live Training's own BrainIoPanel
@@ -721,6 +731,7 @@ namespace Poink.Sim.Components.Training
             NormalizationKind.Raw => "Raw",
             NormalizationKind.LocalZScore => "Local Z-Score",
             NormalizationKind.GlobalZScore => "Global Z-Score",
+            NormalizationKind.Binary => "Binary",
             _ => "Normalized",
         };
 
@@ -781,11 +792,14 @@ namespace Poink.Sim.Components.Training
                     NormalizedValues: spreadVolatilityValues.Select(v => v.Value).ToList(),
                     ValueTooltips: spreadVolatilityValues.Select(v => v.Tooltip).ToList()));
             }
-            var traderStateValues = BuildTraderStateValues(episodeBars, startingCash, liveInputs);
-            rows.Add(new("Trader State", new TraderStateEncoder().FeatureCount.ToString(), "Raw", "—", "—",
-                RawValues: traderStateValues.Select(v => v.Value).ToList(),
-                NormalizedValues: traderStateValues.Select(v => v.Value).ToList(),
-                ValueTooltips: traderStateValues.Select(v => v.Tooltip).ToList()));
+            if (recipe.EncoderKinds.Contains(EncoderKind.TraderState))
+            {
+                var traderStateValues = BuildTraderStateValues(episodeBars, startingCash, liveInputs);
+                rows.Add(new("Trader State", new TraderStateEncoder().FeatureCount.ToString(), "Raw", "—", "—",
+                    RawValues: traderStateValues.Select(v => v.Value).ToList(),
+                    NormalizedValues: traderStateValues.Select(v => v.Value).ToList(),
+                    ValueTooltips: traderStateValues.Select(v => v.Tooltip).ToList()));
+            }
             return rows;
         }
 

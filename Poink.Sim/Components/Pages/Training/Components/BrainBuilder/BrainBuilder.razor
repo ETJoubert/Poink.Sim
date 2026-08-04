@@ -101,14 +101,14 @@
                          title="Which market/account data feeds this brain -- check a set, then pick its normalization and input structure">
                         Input</div>
                     <span class="train-card-badge"
-                          title="Total network input width: every selected set's input count below, plus Trader State's fixed 12">
+                          title="Total network input width: every selected set's input count below">
                         @TotalInputCount</span>
                 </div>
                 <table class="train-inputset-table">
                     <thead>
                         <tr>
                             <th title="Which market/account data feeds this brain -- check a set to include it">Any input set</th>
-                            <th title="Normalized feeds a fraction-of-total/percent-offset from current price; Raw feeds the literal quantity (price, tick count, or seconds); Local/Global Z-Score feed a z-score against a sub-window's/the whole set's own mean and standard deviation instead">
+                            <th title="Normalized feeds a fraction-of-total/percent-offset from current price; Raw feeds the literal quantity (price, tick count, or seconds); Local/Global Z-Score feed a z-score against a sub-window's/the whole set's own mean and standard deviation instead; Binary feeds 1 if an entry is higher than the one before it, 0 if lower or equal">
                                 Normalization</th>
                             <th title="How much trailing bar history this set uses -- a fixed count of bars for Bar Window, merged into one profile for Volume/Time Profile">
                                 Window</th>
@@ -129,11 +129,12 @@
                             <td>
                                 <select class="train-brainrow-select" value="@_barWindowNormalization"
                                         @onchange="OnBarWindowNormalizationChanged" disabled="@(Service.IsRunning || !_includeBarWindow)"
-                                        title="Normalized feeds percent-change-from-current-price; Raw feeds the literal price; Local/Global Z-Score feed each bar's z-score against a sub-window's/the whole window's own mean and standard deviation instead">
+                                        title="Normalized feeds percent-change-from-current-price; Raw feeds the literal price; Local/Global Z-Score feed each bar's z-score against a sub-window's/the whole window's own mean and standard deviation instead; Binary feeds 1 if a bar's price is higher than the one before it, 0 if lower or equal">
                                     <option value="Normalized">Normalized</option>
                                     <option value="Raw">Raw</option>
                                     <option value="LocalZScore">Local Z-Score</option>
                                     <option value="GlobalZScore">Global Z-Score</option>
+                                    <option value="Binary">Binary</option>
                                 </select>
                             </td>
                             <td>
@@ -171,11 +172,12 @@
                             <td>
                                 <select class="train-brainrow-select" value="@_volumeProfileNormalization"
                                         @onchange="OnVolumeProfileNormalizationChanged" disabled="@(Service.IsRunning || !_includeVolumeProfile)"
-                                        title="Normalized feeds a fraction-of-total/percent-offset from current price; Raw feeds exact tick counts and exact price levels; Local/Global Z-Score feed each bucket's volume as a z-score against a sub-window's/the whole profile's own mean and standard deviation instead">
+                                        title="Normalized feeds a fraction-of-total/percent-offset from current price; Raw feeds exact tick counts and exact price levels; Local/Global Z-Score feed each bucket's volume as a z-score against a sub-window's/the whole profile's own mean and standard deviation instead; Binary feeds 1 if a bucket's volume is higher than the bucket before it, 0 if lower or equal">
                                     <option value="Normalized">Normalized</option>
                                     <option value="Raw">Raw</option>
                                     <option value="LocalZScore">Local Z-Score</option>
                                     <option value="GlobalZScore">Global Z-Score</option>
+                                    <option value="Binary">Binary</option>
                                 </select>
                             </td>
                             <td>
@@ -267,8 +269,9 @@
                         <tr>
                             <td>
                                 <label class="train-brainrow-field"
-                                       title="Always included -- every brain needs to know its own position/capital regardless of market data">
-                                    <input type="checkbox" checked="checked" disabled /> Trader State
+                                       title="Own position/capital state -- opt-in, unchecked by default; check it if this brain needs to know whether it already holds a position">
+                                    <input type="checkbox" @bind="_includeTraderState" disabled="@Service.IsRunning" />
+                                    Trader State
                                 </label>
                             </td>
                             <td>

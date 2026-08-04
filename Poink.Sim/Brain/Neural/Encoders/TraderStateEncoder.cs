@@ -4,11 +4,9 @@
 //  value exactly as Trader/CapitalState report it (RawValueNormalizer/
 //  RawPriceNormalizer passthrough), not scaled against equity, so the
 //  network sees the trader's real position/cash/margin state directly.
-//  Every composed brain includes this regardless of how its market data is
-//  represented (see RlTrainingService.TryBuildBrain, which appends it
-//  unconditionally rather than exposing it as a pickable EncoderKind -- an
-//  agent that doesn't know whether it already holds a position isn't a
-//  meaningful brain to build).
+//  A pickable EncoderKind like any other (see BrainCatalog.CreateEncoder) --
+//  BrainBuilder defaults it unchecked (opt-in), so a brain only sees whether
+//  it already holds a position if that's deliberately selected.
 //
 //  position-price is the open position's exact EntryPrice (0 while flat) --
 //  same reasoning as VolumeProfileEncoder's Raw mode pairing each bucket's

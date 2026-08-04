@@ -5,10 +5,9 @@
 //  encoders/architectures is small and changes rarely; adding a new one here
 //  plus a new enum case is the whole cost of making it pickable in the UI.
 //
-//  TraderStateEncoder is deliberately NOT an EncoderKind option -- every
-//  built brain needs account state regardless of how its market data is
-//  represented, so RlTrainingService.TryBuildBrain appends it unconditionally
-//  rather than letting a user omit it.
+//  TraderStateEncoder is a pickable EncoderKind like any other -- BrainBuilder
+//  defaults it unchecked (opt-in), so a brain only sees its own position/
+//  capital state if that's deliberately selected.
 // ─────────────────────────────────────────────────────────────────────────
 using System;
 using System.Collections.Generic;
@@ -23,7 +22,7 @@ namespace Poink.Sim.Brain.Neural;
 // doc comments on why they're public -- a Razor component's [Parameter]
 // property can't be typed with a less-accessible type than the component
 // itself).
-public enum EncoderKind { BarWindow, VolumeProfile, TimeProfile, SessionClock, SpreadVolatility }
+public enum EncoderKind { BarWindow, VolumeProfile, TimeProfile, SessionClock, SpreadVolatility, TraderState }
 
 public enum ArchitectureKind { Mlp, Lstm, Cnn }
 
@@ -39,8 +38,11 @@ public enum ArchitectureKind { Mlp, Lstm, Cnn }
 // see ZScoreNormalization, BarWindowEncoder, and VolumeProfileEncoder's doc
 // comments for the Local (partitioned into sub-windows) vs Global (whole
 // series as one window) distinction, mirrored from TransformerPage's
-// LocalWindowZScoreTransform/GlobalWindowZScoreTransform.
-public enum NormalizationKind { Normalized, Raw, LocalZScore, GlobalZScore }
+// LocalWindowZScoreTransform/GlobalWindowZScoreTransform. Binary is also
+// only meaningful for those same two -- each entry becomes 1 or 0 against
+// its own immediate predecessor, no windowing involved (see
+// BinaryNormalization).
+public enum NormalizationKind { Normalized, Raw, LocalZScore, GlobalZScore, Binary }
 
 // Which extra (non-direction) decisions a brain's network makes, on top of
 // the fixed Hold/EnterLong/EnterShort/Close pick -- see IActionOutputHead.
@@ -198,6 +200,7 @@ internal static class BrainCatalog
                 splitUpDown: sizes.TimeProfileSplitUpDown),
             EncoderKind.SessionClock => new SessionClockEncoder(),
             EncoderKind.SpreadVolatility => new SpreadVolatilityEncoder(atrPeriod: sizes.SpreadVolatilityAtrPeriod),
+            EncoderKind.TraderState => new TraderStateEncoder(),
             _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
         };
     }

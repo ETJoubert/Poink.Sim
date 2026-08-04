@@ -111,6 +111,43 @@
     font-style: italic;
 }
 
+/* Source column header (sets/inputs totals) and per-card (this set's own
+   input count) badges -- both reuse .tp-badge, picking up --tp-source-color
+   when nested inside a colored .tp-source-card so a card's badge matches its
+   own accent, falling back to the neutral accent color at header level. */
+
+.tp-column-title-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 6px;
+}
+
+.tp-column-title-badges {
+    display: flex;
+    gap: 4px;
+}
+
+.tp-source-card-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+}
+
+.tp-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 6px;
+    border-radius: 999px;
+    font-size: 0.56rem;
+    font-weight: bold;
+    line-height: 1.4;
+    white-space: nowrap;
+    background: color-mix(in srgb, var(--tp-source-color, var(--color-primary)) 18%, transparent);
+    color: var(--tp-source-color, var(--color-accent));
+}
+
 /* Neural Network spans two grid tracks -- it holds three side-by-side
    sub-cards (Input/Hidden/Output), which don't fit one narrow track. */
 .tp-column-wide {
@@ -130,6 +167,7 @@
     border-left: 3px solid var(--tp-source-color, var(--color-primary));
     border-radius: var(--border-radius-sm);
     background: color-mix(in srgb, var(--tp-source-color, var(--color-primary)) 10%, transparent);
+    overflow: hidden;
 }
 
 .tp-source-card-title {

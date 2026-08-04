@@ -17,9 +17,13 @@
 //  feed each price's z-score (see ZScoreNormalization) against its own
 //  sub-window's (Local) or the whole trailing window's (Global) mean/stddev,
 //  computed over the window's real prices only -- zero-padding entries are
-//  excluded from the mean/stddev and left at their neutral 0. Same "t-N"
-//  labels regardless of mode -- these are alternatives, never combined in
-//  one brain, so there's no collision to avoid by splitting the prefix.
+//  excluded from the mean/stddev and left at their neutral 0. Binary feeds
+//  1 if a price is higher than the price immediately before it, 0 if lower
+//  or equal (see BinaryNormalization) -- the window's first real price has
+//  no in-window predecessor, so it lands on the same neutral 0 as a
+//  zero-padding entry. Same "t-N" labels regardless of mode -- these are
+//  alternatives, never combined in one brain, so there's no collision to
+//  avoid by splitting the prefix.
 //
 //  SequenceLength == FeatureCount (the whole output is one contiguous
 //  sequence) -- this is the one encoder in this codebase meant to be listed
@@ -56,6 +60,7 @@ internal sealed class BarWindowEncoder : IObservationEncoder
         {
             NormalizationKind.Raw => new RawPriceNormalizer(),
             NormalizationKind.LocalZScore or NormalizationKind.GlobalZScore => new ZScoreNormalizer(),
+            NormalizationKind.Binary => new BinaryNormalizer(),
             _ => new PriceOffsetNormalizer(),
         });
         _features = Enumerable.Range(1, _windowSize)
@@ -96,6 +101,11 @@ internal sealed class BarWindowEncoder : IObservationEncoder
                 ? ZScoreNormalization.Global(prices)
                 : ZScoreNormalization.Local(prices, _zScoreSubWindowSize);
             for (int i = 0; i < available; i++) features[padding + i] = _normalizer.Normalize(z[i], observation);
+        }
+        else if (_normalization == NormalizationKind.Binary)
+        {
+            var b = BinaryNormalization.Compute(prices);
+            for (int i = 0; i < available; i++) features[padding + i] = _normalizer.Normalize(b[i], observation);
         }
         else
         {

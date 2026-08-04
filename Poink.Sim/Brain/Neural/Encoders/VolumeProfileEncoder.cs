@@ -39,6 +39,13 @@
 //  they keep PriceOffsetNormalizer's percent-offset scaling same as
 //  Normalized mode.
 //
+//  Binary (non-Raw, same labels/FeatureCount as Normalized): each bucket's
+//  relative-histogram value becomes 1 or 0 against the bucket immediately
+//  before it in price order, no windowing involved (see
+//  BinaryNormalization) -- SplitUpDown's Up/Down/Diff arrays are each
+//  binary-encoded independently. Summary scalars are unaffected, same as
+//  LocalZScore/GlobalZScore.
+//
 //  SplitUpDown (default off, orthogonal to Normalization): instead of one
 //  plain volume value per bucket, reports its up-tick and down-tick volume
 //  separately plus their Diff (Up - Down) -- the histogram counterpart to
@@ -97,6 +104,7 @@ internal sealed class VolumeProfileEncoder : IObservationEncoder, ICnnSweepable
         {
             NormalizationKind.Raw => new RawValueNormalizer(),
             NormalizationKind.LocalZScore or NormalizationKind.GlobalZScore => new ZScoreNormalizer(),
+            NormalizationKind.Binary => new BinaryNormalizer(),
             _ => new FractionNormalizer(),
         });
         _priceNormalizer = priceNormalizer ?? (normalization == NormalizationKind.Raw ? new RawPriceNormalizer() : new PriceOffsetNormalizer());
@@ -197,6 +205,12 @@ internal sealed class VolumeProfileEncoder : IObservationEncoder, ICnnSweepable
                 down = ApplyZScore(down);
                 diff = ApplyZScore(diff);
             }
+            else if (_normalization == NormalizationKind.Binary)
+            {
+                up = ApplyBinary(up);
+                down = ApplyBinary(down);
+                diff = ApplyBinary(diff);
+            }
             for (int i = 0; i < _bucketCount; i++)
             {
                 features[i * 3] = _bucketNormalizer.Normalize(up[i], observation);
@@ -209,6 +223,8 @@ internal sealed class VolumeProfileEncoder : IObservationEncoder, ICnnSweepable
             var histogram = VolumeProfileAnalysis.BuildRelativeHistogram(merged, _bucketCount);
             if (_normalization is NormalizationKind.LocalZScore or NormalizationKind.GlobalZScore)
                 histogram = ApplyZScore(histogram);
+            else if (_normalization == NormalizationKind.Binary)
+                histogram = ApplyBinary(histogram);
             for (int i = 0; i < _bucketCount; i++)
                 features[i] = _bucketNormalizer.Normalize(histogram[i], observation);
         }
@@ -235,4 +251,10 @@ internal sealed class VolumeProfileEncoder : IObservationEncoder, ICnnSweepable
         _normalization == NormalizationKind.GlobalZScore
             ? ZScoreNormalization.Global(Array.ConvertAll(values, v => (double)v))
             : ZScoreNormalization.Local(Array.ConvertAll(values, v => (double)v), _zScoreSubWindowSize);
+
+    // Binary-encodes the bucket array in price order -- each bucket becomes
+    // 1 or 0 against the bucket immediately before it, no windowing/sub-
+    // window setting involved (see BinaryNormalization). Shared by both the
+    // plain and SplitUpDown branches above, same as ApplyZScore.
+    private static float[] ApplyBinary(float[] values) => BinaryNormalization.Compute(Array.ConvertAll(values, v => (double)v));
 }

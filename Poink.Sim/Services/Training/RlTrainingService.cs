@@ -788,11 +788,14 @@ internal sealed class RlTrainingService
     // action choices -- the single construction path shared by TryBuildBrain,
     // LoadSavedBrain's rebuild-from-recipe path, and TryStartTraining's
     // lazy-build-from-saved-network path, so all three can never drift apart.
-    // TraderStateEncoder is always appended regardless of EncoderKinds (see
-    // BrainCatalog's doc comment).
+    // TraderStateEncoder is just whichever EncoderKind the recipe picked (see
+    // BrainCatalog's doc comment) -- no longer force-appended. Breaking change
+    // for any brain saved before this: its recipe never listed TraderState
+    // (it wasn't a pickable EncoderKind yet), so it now loads one encoder
+    // narrower than what its saved weights expect -- rebuild/retrain needed.
     private static IPolicyGradientBrain BuildFromRecipe(string name, BrainRecipe recipe)
     {
-        var parts = recipe.EncoderKinds.Select(k => BrainCatalog.CreateEncoder(k, recipe.EncoderSizes)).Append(new TraderStateEncoder()).ToArray();
+        var parts = recipe.EncoderKinds.Select(k => BrainCatalog.CreateEncoder(k, recipe.EncoderSizes)).ToArray();
         var architecture = BrainCatalog.CreateArchitecture(recipe.ArchitectureKind, recipe.HiddenSizes);
         var actionOutputHeads = (recipe.ActionOutputKinds ?? [])
             .Select(k => BrainCatalog.CreateActionOutputHead(k, recipe.ActionOutputEncodingKind, recipe.DecisionDecoding, recipe.DecisionTemperature)).ToList();
@@ -806,11 +809,10 @@ internal sealed class RlTrainingService
     // NetworkService network under the same name -- so it's immediately
     // selectable from the Brain Type picker (which lists saved networks, not
     // just whatever's currently live) and survives a process restart even
-    // before it's ever been trained/saved as a model. TraderStateEncoder is
-    // always appended regardless of encoderKinds (see BrainCatalog's doc
-    // comment); the caller (TrainPage.razor.cs) is responsible for listing
-    // encoderKinds in canonical order (BarWindow before VolumeProfile/
-    // TimeProfile) so CompositeEncoder's sequence-first guard is satisfied.
+    // before it's ever been trained/saved as a model. The caller
+    // (TrainPage.razor.cs) is responsible for listing encoderKinds in
+    // canonical order (BarWindow before VolumeProfile/TimeProfile) so
+    // CompositeEncoder's sequence-first guard is satisfied.
     public bool TryBuildBrain(
         string name, IReadOnlyList<EncoderKind> encoderKinds, ArchitectureKind architectureKind, IReadOnlyList<int> hiddenSizes,
         IReadOnlyList<ActionOutputKind>? actionOutputKinds = null, IReadOnlyList<SimulationAction>? enabledDirections = null,

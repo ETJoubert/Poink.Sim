@@ -86,159 +86,169 @@
                     </div>
 
                     <div class="tp-column">
-                        <div class="tp-column-title">Source</div>
-                        @if (SourceRows.Count == 0)
-                        {
-                            <div class="tp-row tp-row-empty">none selected</div>
-                        }
-                        @foreach (var row in SourceRows)
-                        {
-                            <div class="tp-source-card @SourceColorClass(row.Source)">
-                                <div class="tp-source-card-title">@row.Source</div>
-                                <div class="tp-source-card-field">Inputs: @row.Inputs</div>
-                                <div class="tp-source-card-field">Window: @row.Window</div>
-                                <div class="tp-source-card-field">Bucket: @row.Bucket</div>
-                                @if (row.RawValues.Count > 0)
-                                {
-                                    <div class="tp-source-card-values"
-                                         title="What this row's episode sample feeds the network, before normalization">
-                                        @for (int i = 0; i < row.RawValues.Count; i++)
-                                        {
-                                            var tooltip = i < row.ValueTooltips.Count ? row.ValueTooltips[i] : null;
-                                            <span class="tp-source-card-value" title="@tooltip">@row.RawValues[i]</span>
-                                        }
-                                    </div>
-                                }
+                        <div class="tp-column-title tp-column-title-row">
+                            <span>Source</span>
+                            <span class="tp-column-title-badges">
+                                <span class="tp-badge" title="Number of included input sets">@SourceRows.Count sets</span>
+                                <span class="tp-badge" title="Total inputs across all included sets">@TotalSourceInputCount
+                                    inputs</span>
+                                </span>
                             </div>
-                        }
-                    </div>
-                    <div class="tp-column">
-                        <div class="tp-column-title">Normalization</div>
-                        @foreach (var row in SourceRows)
-                        {
-                            @if (row.NormalizedValues.Count > 0)
+                            @if (SourceRows.Count == 0)
+                            {
+                                <div class="tp-row tp-row-empty">none selected</div>
+                            }
+                            @foreach (var row in SourceRows)
                             {
                                 <div class="tp-source-card @SourceColorClass(row.Source)">
-                                    <div class="tp-source-card-title">
-                                        @row.Source <span class="tp-source-card-title-sub">@row.Normalization</span>
+                                    <div class="tp-source-card-title tp-source-card-title-row">
+                                        <span>@row.Source</span>
+                                        <span class="tp-badge" title="Inputs contributed by this set">@row.Inputs</span>
                                     </div>
-                                    <div class="tp-source-card-values"
-                                         title="Same values as Source's card, transformed to match this row's Normalization -- exactly what the network sees">
-                                        @for (int i = 0; i < row.NormalizedValues.Count; i++)
-                                        {
-                                            var tooltip = i < row.ValueTooltips.Count ? row.ValueTooltips[i] : null;
-                                            <span class="tp-source-card-value" title="@tooltip">@row.NormalizedValues[i]</span>
-                                        }
-                                    </div>
+                                    <div class="tp-source-card-field">Window: @row.Window</div>
+                                    <div class="tp-source-card-field">Bucket: @row.Bucket</div>
+                                    @if (row.RawValues.Count > 0)
+                                    {
+                                        <div class="tp-source-card-values"
+                                             title="What this row's episode sample feeds the network, before normalization">
+                                            @for (int i = 0; i < row.RawValues.Count; i++)
+                                            {
+                                                var tooltip = i < row.ValueTooltips.Count ? row.ValueTooltips[i] : null;
+                                                <span class="tp-source-card-value" title="@tooltip">@row.RawValues[i]</span>
+                                            }
+                                        </div>
+                                    }
                                 </div>
                             }
-                            else
-                            {
-                                <div class="tp-row">@row.Normalization</div>
-                            }
-                        }
-                    </div>
-                    <div class="tp-column tp-column-wide">
-                        <div class="tp-column-title">Neural Network</div>
-                        @foreach (var item in NeuralNetworkItems)
-                        {
-                            <div class="tp-row">@item</div>
-                        }
-
-                        <div class="tp-nn-progress" title="Signal flow (decorative -- live per-neuron activation can't be pulled from training)">
-                            <div class="tp-nn-progress-track"></div>
-                            <div class="tp-nn-progress-light tp-nn-progress-light-forward"></div>
-                            <div class="tp-nn-progress-light tp-nn-progress-light-update"></div>
                         </div>
-                        <div class="tp-nn-cards">
-                            <div class="tp-source-card tp-nn-card">
-                                <div class="tp-source-card-title"
-                                     title="Each included source's share of the total input width, colored to match its card in Source/Normalization above">
-                                    Input</div>
-                                    @if (InputBarSegments.Count == 0)
-                                    {
-                                        <div class="tp-row tp-row-empty">none selected</div>
-                                    }
-                                    else
-                                    {
-                                        <div class="tp-stack">
-                                            @foreach (var seg in InputBarSegments)
+                        <div class="tp-column">
+                            <div class="tp-column-title">Normalization</div>
+                            @foreach (var row in SourceRows)
+                            {
+                                @if (row.NormalizedValues.Count > 0)
+                                {
+                                    <div class="tp-source-card @SourceColorClass(row.Source)">
+                                        <div class="tp-source-card-title">
+                                            @row.Source <span class="tp-source-card-title-sub">@row.Normalization</span>
+                                        </div>
+                                        <div class="tp-source-card-values"
+                                             title="Same values as Source's card, transformed to match this row's Normalization -- exactly what the network sees">
+                                            @for (int i = 0; i < row.NormalizedValues.Count; i++)
                                             {
-                                                <div class="tp-stack-segment @seg.ColorClass" style="height: @(seg.HeightPercent)%"
-                                                     title="@($"{seg.Label}: {seg.Value} inputs")">
-                                                    <span class="tp-stack-segment-count">@seg.Value</span>
-                                                </div>
+                                                var tooltip = i < row.ValueTooltips.Count ? row.ValueTooltips[i] : null;
+                                                <span class="tp-source-card-value" title="@tooltip">@row.NormalizedValues[i]</span>
                                             }
                                         </div>
-                                    }
-                                </div>
-                                <div class="tp-source-card tp-nn-card tp-nn-hidden-card">
-                                    <div class="tp-source-card-title">Hidden</div>
-                                    @if (HiddenLayerBars.Count == 0)
-                                    {
-                                        <div class="tp-row tp-row-empty">n/a</div>
-                                    }
-                                    else
-                                    {
-                                        <div class="tp-hidden-bars">
-                                            @foreach (var bar in HiddenLayerBars)
-                                            {
-                                                <div class="tp-source-card tp-hidden-bar-card" title="@($"{bar.Label}: {bar.Size}")">
-                                                    <div class="tp-source-card-title">@bar.Label</div>
-                                                    <span class="tp-hidden-bar-count">@bar.Size</span>
-                                                    <div class="tp-hidden-bar-track">
-                                                        <div class="tp-hidden-bar" style="height: @(bar.HeightPercent)%"></div>
-                                                    </div>
-                                                </div>
-                                            }
-                                        </div>
-                                    }
-                                </div>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="tp-row">@row.Normalization</div>
+                                }
+                            }
+                        </div>
+                        <div class="tp-column tp-column-wide">
+                            <div class="tp-column-title">Neural Network</div>
+                            @foreach (var item in NeuralNetworkItems)
+                            {
+                                <div class="tp-row">@item</div>
+                            }
+
+                            <div class="tp-nn-progress"
+                                 title="Signal flow (decorative -- live per-neuron activation can't be pulled from training)">
+                                <div class="tp-nn-progress-track"></div>
+                                <div class="tp-nn-progress-light tp-nn-progress-light-forward"></div>
+                                <div class="tp-nn-progress-light tp-nn-progress-light-update"></div>
+                            </div>
+                            <div class="tp-nn-cards">
                                 <div class="tp-source-card tp-nn-card">
                                     <div class="tp-source-card-title"
-                                         title="Each decoded action group's share of the total output width -- Direction always present, Volume/Stop Loss/Take Profit only when enabled">
-                                        Output</div>
-                                        @if (OutputBarSegments.Count == 0)
+                                         title="Each included source's share of the total input width, colored to match its card in Source/Normalization above">
+                                        Input</div>
+                                        @if (InputBarSegments.Count == 0)
                                         {
                                             <div class="tp-row tp-row-empty">none selected</div>
                                         }
                                         else
                                         {
                                             <div class="tp-stack">
-                                                @foreach (var seg in OutputBarSegments)
+                                                @foreach (var seg in InputBarSegments)
                                                 {
                                                     <div class="tp-stack-segment @seg.ColorClass" style="height: @(seg.HeightPercent)%"
-                                                         title="@($"{seg.Label}: {seg.Value}-way")">
+                                                         title="@($"{seg.Label}: {seg.Value} inputs")">
                                                         <span class="tp-stack-segment-count">@seg.Value</span>
                                                     </div>
                                                 }
                                             </div>
                                         }
                                     </div>
-                                </div>
-                            </div>
-                            <div class="tp-column">
-                                <div class="tp-column-title"
-                                     title="How each decoded group's raw N-way logits collapse to one chosen action -- logit, action, and probability bar per option, the top badge is the decode rule, the highlighted row is where that collapses to">
-                                    Actions</div>
-                                    @if (ActionDecoderGroups.Count == 0)
-                                    {
-                                        <div class="tp-row tp-row-empty">none selected</div>
-                                    }
-                                    else
-                                    {
-                                        <div class="tp-decoder-groups">
-                                            @foreach (var group in ActionDecoderGroups)
+                                    <div class="tp-source-card tp-nn-card tp-nn-hidden-card">
+                                        <div class="tp-source-card-title">Hidden</div>
+                                        @if (HiddenLayerBars.Count == 0)
+                                        {
+                                            <div class="tp-row tp-row-empty">n/a</div>
+                                        }
+                                        else
+                                        {
+                                            <div class="tp-hidden-bars">
+                                                @foreach (var bar in HiddenLayerBars)
+                                                {
+                                                    <div class="tp-source-card tp-hidden-bar-card" title="@($"{bar.Label}: {bar.Size}")">
+                                                        <div class="tp-source-card-title">@bar.Label</div>
+                                                        <span class="tp-hidden-bar-count">@bar.Size</span>
+                                                        <div class="tp-hidden-bar-track">
+                                                            <div class="tp-hidden-bar" style="height: @(bar.HeightPercent)%"></div>
+                                                        </div>
+                                                    </div>
+                                                }
+                                            </div>
+                                        }
+                                    </div>
+                                    <div class="tp-source-card tp-nn-card">
+                                        <div class="tp-source-card-title"
+                                             title="Each decoded action group's share of the total output width -- Direction always present, Volume/Stop Loss/Take Profit only when enabled">
+                                            Output</div>
+                                            @if (OutputBarSegments.Count == 0)
                                             {
-                                                <div class="tp-source-card tp-decoder-card @group.ColorClass">
-                                                    <div class="tp-source-card-title">@group.Label</div>
-                                                    <ActionSetDecoder Group="group" />
+                                                <div class="tp-row tp-row-empty">none selected</div>
+                                            }
+                                            else
+                                            {
+                                                <div class="tp-stack">
+                                                    @foreach (var seg in OutputBarSegments)
+                                                    {
+                                                        <div class="tp-stack-segment @seg.ColorClass" style="height: @(seg.HeightPercent)%"
+                                                             title="@($"{seg.Label}: {seg.Value}-way")">
+                                                            <span class="tp-stack-segment-count">@seg.Value</span>
+                                                        </div>
+                                                    }
                                                 </div>
                                             }
                                         </div>
-                                    }
+                                    </div>
                                 </div>
                                 <div class="tp-column">
+                                    <div class="tp-column-title"
+                                         title="How each decoded group's raw N-way logits collapse to one chosen action -- logit, action, and probability bar per option, the top badge is the decode rule, the highlighted row is where that collapses to">
+                                        Actions</div>
+                                        @if (ActionDecoderGroups.Count == 0)
+                                        {
+                                            <div class="tp-row tp-row-empty">none selected</div>
+                                        }
+                                        else
+                                        {
+                                            <div class="tp-decoder-groups">
+                                                @foreach (var group in ActionDecoderGroups)
+                                                {
+                                                    <div class="tp-source-card tp-decoder-card @group.ColorClass">
+                                                        <div class="tp-source-card-title">@group.Label</div>
+                                                        <ActionSetDecoder Group="group" />
+                                                    </div>
+                                                }
+                                            </div>
+                                        }
+                                    </div>
+                                    <div class="tp-column">
                                         <div class="tp-column-title"
                                              title="Reward, median reward, reward std dev and win rate across the run's retained episodes -- same charts as Live Training's own Live tab">
                                             Results</div>

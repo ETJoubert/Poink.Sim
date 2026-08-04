@@ -185,6 +185,7 @@ namespace Poink.Sim.Components.Training
         private bool _includeTimeProfile;
         private bool _includeSessionClock;
         private bool _includeSpreadVolatility;
+        private bool _includeTraderState;
 
         private NormalizationKind _barWindowNormalization = NormalizationKind.Normalized;
         private NormalizationKind _volumeProfileNormalization = NormalizationKind.Normalized;
@@ -295,7 +296,7 @@ namespace Poink.Sim.Components.Training
 
         private bool CanCreateBrain =>
             !string.IsNullOrWhiteSpace(EffectiveBuildBrainName)
-            && (_includeBarWindow || _includeVolumeProfile || _includeTimeProfile || _includeSessionClock || _includeSpreadVolatility)
+            && (_includeBarWindow || _includeVolumeProfile || _includeTimeProfile || _includeSessionClock || _includeSpreadVolatility || _includeTraderState)
             && (_includeHold || _includeEnterLong || _includeEnterShort || _includeClose)
             && (_architectureKind != ArchitectureKind.Lstm || _includeBarWindow)
             && (_architectureKind != ArchitectureKind.Cnn || (CnnSweepSourceIncluded && _cnnKernelSize >= 1 && EffectiveCnnChannels.Count > 0))
@@ -322,6 +323,8 @@ namespace Poink.Sim.Components.Training
                     kinds.Add(EncoderKind.SessionClock);
                 if (_includeSpreadVolatility)
                     kinds.Add(EncoderKind.SpreadVolatility);
+                if (_includeTraderState)
+                    kinds.Add(EncoderKind.TraderState);
                 return kinds;
             }
         }
@@ -360,8 +363,7 @@ namespace Poink.Sim.Components.Training
             };
 
         private int TotalInputCount =>
-            new TraderStateEncoder().FeatureCount
-            + SelectedEncoderKinds.Sum(k => BrainCatalog.CreateEncoder(k, CurrentEncoderSizeOptions).FeatureCount);
+            SelectedEncoderKinds.Sum(k => BrainCatalog.CreateEncoder(k, CurrentEncoderSizeOptions).FeatureCount);
 
         private int? FirstHiddenLayerSize => _architectureKind switch
         {
@@ -472,7 +474,8 @@ namespace Poink.Sim.Components.Training
                     dataParts.Add("dSC");
                 if (_includeSpreadVolatility)
                     dataParts.Add("dSV");
-                dataParts.Add("dAS");
+                if (_includeTraderState)
+                    dataParts.Add("dAS");
                 string data = string.Join("-", dataParts);
 
                 string name = string.IsNullOrEmpty(layers) ? $"{arch}_{data}" : $"{arch}_{layers}_{data}";
@@ -508,6 +511,7 @@ namespace Poink.Sim.Components.Training
             NormalizationKind.Raw => $"d{setPrefix}R",
             NormalizationKind.LocalZScore => $"d{setPrefix}ZL",
             NormalizationKind.GlobalZScore => $"d{setPrefix}ZG",
+            NormalizationKind.Binary => $"d{setPrefix}B",
             _ => $"d{setPrefix}",
         };
 
