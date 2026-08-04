@@ -113,8 +113,9 @@
                                              title="What this row's episode sample feeds the network, before normalization">
                                             @for (int i = 0; i < row.RawValues.Count; i++)
                                             {
-                                                var tooltip = i < row.ValueTooltips.Count ? row.ValueTooltips[i] : null;
-                                                <span class="tp-source-card-value" title="@tooltip">@row.RawValues[i]</span>
+                                                var tooltip = i < row.RawValueTooltips.Count ? row.RawValueTooltips[i] : null;
+                                                var kind = i < row.RawValueKinds.Count ? row.RawValueKinds[i] : null;
+                                                <span class="tp-source-card-value @ValueKindClass(kind)" title="@tooltip">@row.RawValues[i]</span>
                                             }
                                         </div>
                                     }
@@ -143,8 +144,9 @@
                                              title="Same values as Source's card, transformed to match this row's Normalization -- exactly what the network sees">
                                             @for (int i = 0; i < row.NormalizedValues.Count; i++)
                                             {
-                                                var tooltip = i < row.ValueTooltips.Count ? row.ValueTooltips[i] : null;
-                                                <span class="tp-source-card-value" title="@tooltip">@row.NormalizedValues[i]</span>
+                                                var tooltip = i < row.NormalizedValueTooltips.Count ? row.NormalizedValueTooltips[i] : null;
+                                                var kind = i < row.NormalizedValueKinds.Count ? row.NormalizedValueKinds[i] : null;
+                                                <span class="tp-source-card-value @ValueKindClass(kind)" title="@tooltip">@row.NormalizedValues[i]</span>
                                             }
                                         </div>
                                     </div>

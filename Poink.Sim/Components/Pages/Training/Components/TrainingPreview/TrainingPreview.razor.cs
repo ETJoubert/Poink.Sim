@@ -201,6 +201,23 @@ namespace Poink.Sim.Components.Training
             _ => "tp-source-badge-neutral",
         };
 
+        // Which CSS modifier colors a single Source/Normalization value --
+        // one color per kind of number a row's RawValueKinds/
+        // NormalizedValueKinds can tag a value with (see ProfileValue and
+        // TrainingPreviewSourceRow), so Volume/Time Profile's mixed price/
+        // up/down/diff/summary values read apart at a glance instead of
+        // blending into one undifferentiated list. Unknown/empty kind (every
+        // row besides the profiles) falls back to no color override.
+        private static string ValueKindClass(string? kind) => kind switch
+        {
+            "price" => "tp-value-price",
+            "up" => "tp-value-up",
+            "down" => "tp-value-down",
+            "diff" => "tp-value-diff",
+            "summary" => "tp-value-summary",
+            _ => "",
+        };
+
         // Re-rolls a random episode only when the inputs that actually change
         // its window (table/range/span/bar size) change -- TrainPage
         // re-renders this component constantly while training runs (see
@@ -443,96 +460,303 @@ namespace Poink.Sim.Components.Training
             return rows;
         }
 
-        // Volume Profile's own encoder's Raw mode -- literal tick count per
-        // rebinned bucket, ascending by price (the same order the network's
-        // input vector itself is in, see VolumeProfileAnalysis.BuildRawHistogram)
-        // -- feeds the Source column's card, uncapped (unlike
-        // BuildVolumeProfileRows' chart, which caps rows for readability).
-        private static IReadOnlyList<string> BuildVolumeProfileRawValues(BrainRecipe? recipe, IReadOnlyList<BarPriceHistogram> episodeHistograms)
+        // One built Source/Normalization card value alongside its own type
+        // tag (see ValueKindClass) and tooltip -- shared return shape for
+        // Volume/Time Profile's raw and normalized value builders below,
+        // which (unlike Bar Window/Trader State/etc.) mix several distinct
+        // kinds of number -- price, up/down/diff ticks or seconds, POC/
+        // value-area summary levels -- in one row.
+        private sealed record ProfileValue(string Text, string Kind, string Tooltip);
+
+        private static string FormatCount(float v) => v.ToString("0", CultureInfo.InvariantCulture);
+        private static string FormatSeconds(double v) => v.ToString("0.#", CultureInfo.InvariantCulture);
+        private static string FormatPrice(double v) => v.ToString("0.####", CultureInfo.InvariantCulture);
+
+        // POC/value-area summary levels' Normalized-column counterpart to
+        // BuildPercentOffsets -- same percent-offset-from-current-price
+        // convention as PriceOffsetNormalizer, single value instead of a
+        // whole array.
+        private static string FormatOffsetPercent(double price, double currentPrice) =>
+            ((currentPrice == 0 ? 0 : (price - currentPrice) / currentPrice) * 100)
+                .ToString("+0.00;-0.00;0.00", CultureInfo.InvariantCulture) + "%";
+
+        // Volume Profile's own encoder's literal per-bucket ticks, ascending
+        // by price -- independent of the row's selected Normalization
+        // (Source always shows what SplitUpDown alone changes about the
+        // encoder's un-normalized inputs, see VolumeProfileEncoder's
+        // SplitUpDown branches), plus the profile's own POC/value-area
+        // summary levels (VolumeProfileEncoder.FeatureCount's trailing
+        // SummaryScalarCount) as their literal prices, since Source never
+        // reflects the chosen Normalization. Feeds the Source column's card,
+        // uncapped (unlike BuildVolumeProfileRows' chart, which caps rows
+        // for readability).
+        private static List<ProfileValue> BuildVolumeProfileRawValues(BrainRecipe? recipe, IReadOnlyList<BarPriceHistogram> episodeHistograms)
         {
+            var values = new List<ProfileValue>();
             if (recipe is null || episodeHistograms.Count == 0)
-                return [];
+                return values;
 
             var sizes = recipe.EncoderSizes ?? new EncoderSizeOptions();
             var merged = BarPriceHistogram.Merge(episodeHistograms, sizes.VolumeProfileLookbackBars);
             if (merged.Count == 0)
-                return [];
+                return values;
 
-            var (counts, _) = VolumeProfileAnalysis.BuildRawHistogram(merged, sizes.VolumeProfileBucketCount);
-            return counts.Select(c => c.ToString("0", CultureInfo.InvariantCulture)).ToList();
+            int bucketCount = sizes.VolumeProfileBucketCount;
+            if (sizes.VolumeProfileSplitUpDown)
+            {
+                var (up, down, diff, _) = VolumeProfileAnalysis.BuildRawSplitHistogram(merged, bucketCount);
+                for (int i = 0; i < bucketCount; i++)
+                {
+                    values.Add(new(FormatCount(up[i]), "up", $"Bucket {i} up ticks"));
+                    values.Add(new(FormatCount(down[i]), "down", $"Bucket {i} down ticks"));
+                    values.Add(new(FormatCount(diff[i]), "diff", $"Bucket {i} up-down diff"));
+                }
+            }
+            else
+            {
+                var (counts, _) = VolumeProfileAnalysis.BuildRawHistogram(merged, bucketCount);
+                for (int i = 0; i < bucketCount; i++)
+                    values.Add(new(FormatCount(counts[i]), "volume", $"Bucket {i} ticks"));
+            }
+
+            if (VolumeProfileAnalysis.ComputeSummary(merged, episodeHistograms[^1].BucketWidth) is { } summary)
+            {
+                values.Add(new(FormatPrice(summary.PointOfControl), "summary", "Point of Control"));
+                values.Add(new(FormatPrice(summary.ValueAreaHigh), "summary", "Value Area High"));
+                values.Add(new(FormatPrice(summary.ValueAreaLow), "summary", "Value Area Low"));
+            }
+            return values;
         }
 
         // Time Profile counterpart to BuildVolumeProfileRawValues -- literal
         // seconds spent per rebinned bucket instead of tick count.
-        private static IReadOnlyList<string> BuildTimeProfileRawValues(
+        private static List<ProfileValue> BuildTimeProfileRawValues(
             BrainRecipe? recipe, IReadOnlyList<HlocAvdtBar> episodeBars, IReadOnlyList<BarPriceHistogram> episodeHistograms)
         {
+            var values = new List<ProfileValue>();
             if (recipe is null || episodeHistograms.Count == 0)
-                return [];
+                return values;
 
             var sizes = recipe.EncoderSizes ?? new EncoderSizeOptions();
             var merged = BarPriceHistogram.MergeTime(episodeBars, episodeHistograms, sizes.TimeProfileLookbackBars);
             if (merged.Count == 0)
-                return [];
+                return values;
 
-            var (seconds, _) = TimeProfileAnalysis.BuildRawHistogram(merged, sizes.TimeProfileBucketCount);
-            return seconds.Select(s => s.ToString("0.#", CultureInfo.InvariantCulture)).ToList();
+            int bucketCount = sizes.TimeProfileBucketCount;
+            if (sizes.TimeProfileSplitUpDown)
+            {
+                var (up, down, diff, _) = TimeProfileAnalysis.BuildRawSplitHistogram(merged, bucketCount);
+                for (int i = 0; i < bucketCount; i++)
+                {
+                    values.Add(new(FormatSeconds(up[i]), "up", $"Bucket {i} up seconds"));
+                    values.Add(new(FormatSeconds(down[i]), "down", $"Bucket {i} down seconds"));
+                    values.Add(new(FormatSeconds(diff[i]), "diff", $"Bucket {i} up-down diff"));
+                }
+            }
+            else
+            {
+                var (seconds, _) = TimeProfileAnalysis.BuildRawHistogram(merged, bucketCount);
+                for (int i = 0; i < bucketCount; i++)
+                    values.Add(new(FormatSeconds(seconds[i]), "seconds", $"Bucket {i} seconds"));
+            }
+
+            if (TimeProfileAnalysis.ComputeSummary(merged, episodeHistograms[^1].BucketWidth) is { } summary)
+            {
+                values.Add(new(FormatPrice(summary.PointOfControl), "summary", "Point of Control"));
+                values.Add(new(FormatPrice(summary.ValueAreaHigh), "summary", "Value Area High"));
+                values.Add(new(FormatPrice(summary.ValueAreaLow), "summary", "Value Area Low"));
+            }
+            return values;
         }
 
         // Same trailing buckets, but transformed the way VolumeProfileEncoder.Encode
-        // itself would for the configured Normalization -- Raw leaves them the
-        // literal tick counts (same as BuildVolumeProfileRawValues); Normalized
-        // reports each bucket's fraction-of-total volume; Local/GlobalZScore
-        // z-scores that same fraction array across buckets (see
-        // VolumeProfileEncoder's own ApplyZScore). Feeds the Normalization
-        // column's Volume Profile card.
-        private static IReadOnlyList<string> BuildVolumeProfileNormalizedValues(BrainRecipe? recipe, IReadOnlyList<BarPriceHistogram> episodeHistograms)
+        // itself would for the row's configured Normalization -- Raw includes
+        // each bucket's own literal price alongside its ticks (kind "price",
+        // same as the encoder's own vpr-price-{i} feature); Normalized/Local-
+        // GlobalZScore/Binary report each bucket's fraction-of-total volume,
+        // optionally z-scored or binarized (see VolumeProfileEncoder's own
+        // ApplyZScore/BinaryNormalization). SplitUpDown reports Up/Down/Diff
+        // instead of one plain value in every case, exactly mirroring
+        // VolumeProfileEncoder's own SplitUpDown branches. POC/value-area
+        // summary levels ride the same Raw-vs-offset split as Bar Window's
+        // own prices -- literal in Raw, percent-offset-from-current-price
+        // otherwise. Feeds the Normalization column's Volume Profile card.
+        private static List<ProfileValue> BuildVolumeProfileNormalizedValues(
+            BrainRecipe? recipe, IReadOnlyList<HlocAvdtBar> episodeBars, IReadOnlyList<BarPriceHistogram> episodeHistograms)
         {
-            if (recipe is null || episodeHistograms.Count == 0)
-                return [];
+            var values = new List<ProfileValue>();
+            if (recipe is null || episodeHistograms.Count == 0 || episodeBars.Count == 0)
+                return values;
 
             var sizes = recipe.EncoderSizes ?? new EncoderSizeOptions();
             var merged = BarPriceHistogram.Merge(episodeHistograms, sizes.VolumeProfileLookbackBars);
             if (merged.Count == 0)
-                return [];
+                return values;
 
-            if (sizes.VolumeProfileNormalization == NormalizationKind.Raw)
+            int bucketCount = sizes.VolumeProfileBucketCount;
+            bool isRaw = sizes.VolumeProfileNormalization == NormalizationKind.Raw;
+            double currentPrice = episodeBars[^1].Close;
+
+            if (isRaw && sizes.VolumeProfileSplitUpDown)
             {
-                var (counts, _) = VolumeProfileAnalysis.BuildRawHistogram(merged, sizes.VolumeProfileBucketCount);
-                return counts.Select(c => c.ToString("0", CultureInfo.InvariantCulture)).ToList();
+                var (up, down, diff, prices) = VolumeProfileAnalysis.BuildRawSplitHistogram(merged, bucketCount);
+                for (int i = 0; i < bucketCount; i++)
+                {
+                    values.Add(new(FormatPrice(prices[i]), "price", $"Bucket {i} price"));
+                    values.Add(new(FormatCount(up[i]), "up", $"Bucket {i} up ticks"));
+                    values.Add(new(FormatCount(down[i]), "down", $"Bucket {i} down ticks"));
+                    values.Add(new(FormatCount(diff[i]), "diff", $"Bucket {i} up-down diff"));
+                }
+            }
+            else if (isRaw)
+            {
+                var (counts, prices) = VolumeProfileAnalysis.BuildRawHistogram(merged, bucketCount);
+                for (int i = 0; i < bucketCount; i++)
+                {
+                    values.Add(new(FormatPrice(prices[i]), "price", $"Bucket {i} price"));
+                    values.Add(new(FormatCount(counts[i]), "volume", $"Bucket {i} ticks"));
+                }
+            }
+            else if (sizes.VolumeProfileSplitUpDown)
+            {
+                var (up, down, diff) = VolumeProfileAnalysis.BuildRelativeSplitHistogram(merged, bucketCount);
+                if (sizes.VolumeProfileNormalization is NormalizationKind.LocalZScore or NormalizationKind.GlobalZScore)
+                {
+                    up = ApplyZScore(up, sizes.VolumeProfileNormalization, sizes.VolumeProfileZScoreSubWindowSize);
+                    down = ApplyZScore(down, sizes.VolumeProfileNormalization, sizes.VolumeProfileZScoreSubWindowSize);
+                    diff = ApplyZScore(diff, sizes.VolumeProfileNormalization, sizes.VolumeProfileZScoreSubWindowSize);
+                    for (int i = 0; i < bucketCount; i++)
+                    {
+                        values.Add(new(FormatZScore(up[i]), "up", $"Bucket {i} up"));
+                        values.Add(new(FormatZScore(down[i]), "down", $"Bucket {i} down"));
+                        values.Add(new(FormatZScore(diff[i]), "diff", $"Bucket {i} diff"));
+                    }
+                }
+                else if (sizes.VolumeProfileNormalization == NormalizationKind.Binary)
+                {
+                    var upB = BinaryNormalization.Compute(Array.ConvertAll(up, v => (double)v));
+                    var downB = BinaryNormalization.Compute(Array.ConvertAll(down, v => (double)v));
+                    var diffB = BinaryNormalization.Compute(Array.ConvertAll(diff, v => (double)v));
+                    for (int i = 0; i < bucketCount; i++)
+                    {
+                        values.Add(new(FormatBinary(upB[i]), "up", $"Bucket {i} up"));
+                        values.Add(new(FormatBinary(downB[i]), "down", $"Bucket {i} down"));
+                        values.Add(new(FormatBinary(diffB[i]), "diff", $"Bucket {i} diff"));
+                    }
+                }
+                else
+                {
+                    for (int i = 0; i < bucketCount; i++)
+                    {
+                        values.Add(new(FormatFraction(up[i]), "up", $"Bucket {i} up"));
+                        values.Add(new(FormatFraction(down[i]), "down", $"Bucket {i} down"));
+                        values.Add(new(FormatFraction(diff[i]), "diff", $"Bucket {i} diff"));
+                    }
+                }
+            }
+            else
+            {
+                var fractions = VolumeProfileAnalysis.BuildRelativeHistogram(merged, bucketCount);
+                if (sizes.VolumeProfileNormalization is NormalizationKind.LocalZScore or NormalizationKind.GlobalZScore)
+                {
+                    var z = ApplyZScore(fractions, sizes.VolumeProfileNormalization, sizes.VolumeProfileZScoreSubWindowSize);
+                    for (int i = 0; i < bucketCount; i++)
+                        values.Add(new(FormatZScore(z[i]), "volume", $"Bucket {i}"));
+                }
+                else if (sizes.VolumeProfileNormalization == NormalizationKind.Binary)
+                {
+                    var b = BinaryNormalization.Compute(Array.ConvertAll(fractions, v => (double)v));
+                    for (int i = 0; i < bucketCount; i++)
+                        values.Add(new(FormatBinary(b[i]), "volume", $"Bucket {i}"));
+                }
+                else
+                {
+                    for (int i = 0; i < bucketCount; i++)
+                        values.Add(new(FormatFraction(fractions[i]), "volume", $"Bucket {i}"));
+                }
             }
 
-            var fractions = VolumeProfileAnalysis.BuildRelativeHistogram(merged, sizes.VolumeProfileBucketCount);
-            if (sizes.VolumeProfileNormalization is NormalizationKind.LocalZScore or NormalizationKind.GlobalZScore)
-                return ApplyZScore(fractions, sizes.VolumeProfileNormalization, sizes.VolumeProfileZScoreSubWindowSize).Select(FormatZScore).ToList();
-            if (sizes.VolumeProfileNormalization == NormalizationKind.Binary)
-                return BinaryNormalization.Compute(Array.ConvertAll(fractions, v => (double)v)).Select(FormatBinary).ToList();
-            return fractions.Select(FormatFraction).ToList();
+            if (VolumeProfileAnalysis.ComputeSummary(merged, episodeHistograms[^1].BucketWidth) is { } summary)
+            {
+                string Fmt(double p) => isRaw ? FormatPrice(p) : FormatOffsetPercent(p, currentPrice);
+                values.Add(new(Fmt(summary.PointOfControl), "summary", "Point of Control"));
+                values.Add(new(Fmt(summary.ValueAreaHigh), "summary", "Value Area High"));
+                values.Add(new(Fmt(summary.ValueAreaLow), "summary", "Value Area Low"));
+            }
+            return values;
         }
 
-        // Time Profile counterpart to BuildVolumeProfileNormalizedValues -- Raw
-        // leaves the literal seconds-spent (same as BuildTimeProfileRawValues);
+        // Time Profile counterpart to BuildVolumeProfileNormalizedValues --
+        // Raw includes each bucket's own literal price alongside its
+        // seconds-spent (kind "price", same as BuildTimeProfileRawValues);
         // every other mode reports each bucket's fraction-of-total seconds
-        // (TimeProfileEncoder doesn't offer Local/GlobalZScore -- see
-        // BrainBuilder's input table -- so no z-score branch here).
-        private static IReadOnlyList<string> BuildTimeProfileNormalizedValues(
+        // (TimeProfileEncoder doesn't apply Local/GlobalZScore or Binary to
+        // its buckets -- see that class's own _bucketNormalizer selection --
+        // so, unlike Volume Profile, there's no z-score/binary branch here).
+        // SplitUpDown reports Up/Down/Diff instead of one plain value in
+        // every case. POC/value-area summary levels ride the same Raw-vs-
+        // offset split as Volume Profile's own summary values.
+        private static List<ProfileValue> BuildTimeProfileNormalizedValues(
             BrainRecipe? recipe, IReadOnlyList<HlocAvdtBar> episodeBars, IReadOnlyList<BarPriceHistogram> episodeHistograms)
         {
-            if (recipe is null || episodeHistograms.Count == 0)
-                return [];
+            var values = new List<ProfileValue>();
+            if (recipe is null || episodeHistograms.Count == 0 || episodeBars.Count == 0)
+                return values;
 
             var sizes = recipe.EncoderSizes ?? new EncoderSizeOptions();
             var merged = BarPriceHistogram.MergeTime(episodeBars, episodeHistograms, sizes.TimeProfileLookbackBars);
             if (merged.Count == 0)
-                return [];
+                return values;
 
-            if (sizes.TimeProfileNormalization == NormalizationKind.Raw)
+            int bucketCount = sizes.TimeProfileBucketCount;
+            bool isRaw = sizes.TimeProfileNormalization == NormalizationKind.Raw;
+            double currentPrice = episodeBars[^1].Close;
+
+            if (isRaw && sizes.TimeProfileSplitUpDown)
             {
-                var (seconds, _) = TimeProfileAnalysis.BuildRawHistogram(merged, sizes.TimeProfileBucketCount);
-                return seconds.Select(s => s.ToString("0.#", CultureInfo.InvariantCulture)).ToList();
+                var (up, down, diff, prices) = TimeProfileAnalysis.BuildRawSplitHistogram(merged, bucketCount);
+                for (int i = 0; i < bucketCount; i++)
+                {
+                    values.Add(new(FormatPrice(prices[i]), "price", $"Bucket {i} price"));
+                    values.Add(new(FormatSeconds(up[i]), "up", $"Bucket {i} up seconds"));
+                    values.Add(new(FormatSeconds(down[i]), "down", $"Bucket {i} down seconds"));
+                    values.Add(new(FormatSeconds(diff[i]), "diff", $"Bucket {i} up-down diff"));
+                }
+            }
+            else if (isRaw)
+            {
+                var (seconds, prices) = TimeProfileAnalysis.BuildRawHistogram(merged, bucketCount);
+                for (int i = 0; i < bucketCount; i++)
+                {
+                    values.Add(new(FormatPrice(prices[i]), "price", $"Bucket {i} price"));
+                    values.Add(new(FormatSeconds(seconds[i]), "seconds", $"Bucket {i} seconds"));
+                }
+            }
+            else if (sizes.TimeProfileSplitUpDown)
+            {
+                var (up, down, diff) = TimeProfileAnalysis.BuildRelativeSplitHistogram(merged, bucketCount);
+                for (int i = 0; i < bucketCount; i++)
+                {
+                    values.Add(new(FormatFraction(up[i]), "up", $"Bucket {i} up"));
+                    values.Add(new(FormatFraction(down[i]), "down", $"Bucket {i} down"));
+                    values.Add(new(FormatFraction(diff[i]), "diff", $"Bucket {i} diff"));
+                }
+            }
+            else
+            {
+                var fractions = TimeProfileAnalysis.BuildRelativeHistogram(merged, bucketCount);
+                for (int i = 0; i < bucketCount; i++)
+                    values.Add(new(FormatFraction(fractions[i]), "seconds", $"Bucket {i}"));
             }
 
-            return TimeProfileAnalysis.BuildRelativeHistogram(merged, sizes.TimeProfileBucketCount).Select(FormatFraction).ToList();
+            if (TimeProfileAnalysis.ComputeSummary(merged, episodeHistograms[^1].BucketWidth) is { } summary)
+            {
+                string Fmt(double p) => isRaw ? FormatPrice(p) : FormatOffsetPercent(p, currentPrice);
+                values.Add(new(Fmt(summary.PointOfControl), "summary", "Point of Control"));
+                values.Add(new(Fmt(summary.ValueAreaHigh), "summary", "Value Area High"));
+                values.Add(new(Fmt(summary.ValueAreaLow), "summary", "Value Area Low"));
+            }
+            return values;
         }
 
         // Feeds BuildVolumeProfileNormalizedValues' LocalZScore/GlobalZScore
@@ -760,19 +984,31 @@ namespace Poink.Sim.Components.Training
             {
                 var count = BrainCatalog.CreateEncoder(EncoderKind.VolumeProfile, sizes).FeatureCount;
                 var normalization = NormalizationLabel(sizes.VolumeProfileNormalization) + (sizes.VolumeProfileSplitUpDown ? " (split)" : "");
+                var raw = BuildVolumeProfileRawValues(recipe, episodeHistograms);
+                var normalized = BuildVolumeProfileNormalizedValues(recipe, episodeBars, episodeHistograms);
                 rows.Add(new("Volume Profile", count.ToString(), normalization,
                     $"{sizes.VolumeProfileLookbackBars} bars", sizes.VolumeProfileBucketCount.ToString(),
-                    RawValues: BuildVolumeProfileRawValues(recipe, episodeHistograms),
-                    NormalizedValues: BuildVolumeProfileNormalizedValues(recipe, episodeHistograms)));
+                    RawValues: raw.Select(v => v.Text).ToList(),
+                    NormalizedValues: normalized.Select(v => v.Text).ToList(),
+                    RawValueKinds: raw.Select(v => v.Kind).ToList(),
+                    NormalizedValueKinds: normalized.Select(v => v.Kind).ToList(),
+                    RawValueTooltips: raw.Select(v => v.Tooltip).ToList(),
+                    NormalizedValueTooltips: normalized.Select(v => v.Tooltip).ToList()));
             }
             if (recipe.EncoderKinds.Contains(EncoderKind.TimeProfile))
             {
                 var count = BrainCatalog.CreateEncoder(EncoderKind.TimeProfile, sizes).FeatureCount;
                 var normalization = NormalizationLabel(sizes.TimeProfileNormalization) + (sizes.TimeProfileSplitUpDown ? " (split)" : "");
+                var raw = BuildTimeProfileRawValues(recipe, episodeBars, episodeHistograms);
+                var normalized = BuildTimeProfileNormalizedValues(recipe, episodeBars, episodeHistograms);
                 rows.Add(new("Time Profile", count.ToString(), normalization,
                     $"{sizes.TimeProfileLookbackBars} bars", sizes.TimeProfileBucketCount.ToString(),
-                    RawValues: BuildTimeProfileRawValues(recipe, episodeBars, episodeHistograms),
-                    NormalizedValues: BuildTimeProfileNormalizedValues(recipe, episodeBars, episodeHistograms)));
+                    RawValues: raw.Select(v => v.Text).ToList(),
+                    NormalizedValues: normalized.Select(v => v.Text).ToList(),
+                    RawValueKinds: raw.Select(v => v.Kind).ToList(),
+                    NormalizedValueKinds: normalized.Select(v => v.Kind).ToList(),
+                    RawValueTooltips: raw.Select(v => v.Tooltip).ToList(),
+                    NormalizedValueTooltips: normalized.Select(v => v.Tooltip).ToList()));
             }
             if (recipe.EncoderKinds.Contains(EncoderKind.SessionClock))
             {
@@ -781,7 +1017,8 @@ namespace Poink.Sim.Components.Training
                 rows.Add(new("Session Clock", count.ToString(), "Raw", "—", "—",
                     RawValues: sessionClockValues.Select(v => v.Value).ToList(),
                     NormalizedValues: sessionClockValues.Select(v => v.Value).ToList(),
-                    ValueTooltips: sessionClockValues.Select(v => v.Tooltip).ToList()));
+                    RawValueTooltips: sessionClockValues.Select(v => v.Tooltip).ToList(),
+                    NormalizedValueTooltips: sessionClockValues.Select(v => v.Tooltip).ToList()));
             }
             if (recipe.EncoderKinds.Contains(EncoderKind.SpreadVolatility))
             {
@@ -790,7 +1027,8 @@ namespace Poink.Sim.Components.Training
                 rows.Add(new("Spread + Volatility", count.ToString(), "Raw", $"{sizes.SpreadVolatilityAtrPeriod} bars", "—",
                     RawValues: spreadVolatilityValues.Select(v => v.Value).ToList(),
                     NormalizedValues: spreadVolatilityValues.Select(v => v.Value).ToList(),
-                    ValueTooltips: spreadVolatilityValues.Select(v => v.Tooltip).ToList()));
+                    RawValueTooltips: spreadVolatilityValues.Select(v => v.Tooltip).ToList(),
+                    NormalizedValueTooltips: spreadVolatilityValues.Select(v => v.Tooltip).ToList()));
             }
             if (recipe.EncoderKinds.Contains(EncoderKind.TraderState))
             {
@@ -798,7 +1036,8 @@ namespace Poink.Sim.Components.Training
                 rows.Add(new("Trader State", new TraderStateEncoder().FeatureCount.ToString(), "Raw", "—", "—",
                     RawValues: traderStateValues.Select(v => v.Value).ToList(),
                     NormalizedValues: traderStateValues.Select(v => v.Value).ToList(),
-                    ValueTooltips: traderStateValues.Select(v => v.Tooltip).ToList()));
+                    RawValueTooltips: traderStateValues.Select(v => v.Tooltip).ToList(),
+                    NormalizedValueTooltips: traderStateValues.Select(v => v.Tooltip).ToList()));
             }
             return rows;
         }
@@ -1085,18 +1324,33 @@ namespace Poink.Sim.Components.Training
     // feeds a card under Source (always the literal prices), NormalizedValues
     // feeds a matching card under Normalization (raw or transformed, to match
     // this row's own Normalization), so both what the encoder starts from and
-    // what the network actually sees are visible side by side. ValueTooltips,
-    // when non-empty, is index-aligned with both -- each value's own field
-    // name (see BuildTraderStateValues), for sources whose values aren't
-    // self-explanatory the way Bar Window's prices are.
+    // what the network actually sees are visible side by side. RawValueTooltips/
+    // NormalizedValueTooltips, when non-empty, are each index-aligned with
+    // their own values list -- each value's own field name (see
+    // BuildTraderStateValues) or bucket description (see
+    // BuildVolumeProfileRawValues), for sources whose values aren't self-
+    // explanatory the way Bar Window's prices are. RawValueKinds/
+    // NormalizedValueKinds are the same shape, but a short type tag (see
+    // ValueKindClass) instead of prose, for rows like Volume/Time Profile
+    // whose values mix several distinct kinds of number in one row.
     public sealed record TrainingPreviewSourceRow(
         string Source, string Inputs, string Normalization, string Window, string Bucket,
         IReadOnlyList<string>? RawValues = null, IReadOnlyList<string>? NormalizedValues = null,
-        IReadOnlyList<string>? ValueTooltips = null)
+        IReadOnlyList<string>? RawValueKinds = null, IReadOnlyList<string>? NormalizedValueKinds = null,
+        IReadOnlyList<string>? RawValueTooltips = null, IReadOnlyList<string>? NormalizedValueTooltips = null)
     {
         public IReadOnlyList<string> RawValues { get; init; } = RawValues ?? [];
         public IReadOnlyList<string> NormalizedValues { get; init; } = NormalizedValues ?? [];
-        public IReadOnlyList<string> ValueTooltips { get; init; } = ValueTooltips ?? [];
+        // Index-aligned with RawValues/NormalizedValues respectively -- which
+        // kind of number each value is (see TrainingPreview.ValueKindClass),
+        // so Volume/Time Profile's mixed price/up/down/diff/summary values
+        // can be colored apart in the UI. Empty for rows whose values are all
+        // one kind (Bar Window, Trader State, ...), which render with no
+        // color override.
+        public IReadOnlyList<string> RawValueKinds { get; init; } = RawValueKinds ?? [];
+        public IReadOnlyList<string> NormalizedValueKinds { get; init; } = NormalizedValueKinds ?? [];
+        public IReadOnlyList<string> RawValueTooltips { get; init; } = RawValueTooltips ?? [];
+        public IReadOnlyList<string> NormalizedValueTooltips { get; init; } = NormalizedValueTooltips ?? [];
     }
 
 

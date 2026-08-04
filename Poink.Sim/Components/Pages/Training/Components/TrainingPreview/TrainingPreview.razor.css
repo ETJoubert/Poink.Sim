@@ -96,9 +96,14 @@
    already the same height via CSS Grid's default item stretch, so these
    just need to consume that height instead of sitting at natural size. */
 
+/* min-height: min-content (not the default 0/auto) so a card whose values
+   wrap onto many lines (e.g. Volume/Time Profile with a high bucket count)
+   grows past its even flex share instead of being clipped by
+   .tp-source-card's own overflow: hidden -- the column's own overflow-y:
+   auto (see .tp-column above) is what actually shows the rest via scroll. */
 .tp-column > .tp-source-card {
     flex: 1 1 0;
-    min-height: 0;
+    min-height: min-content;
 }
 
 .tp-column ::deep .coverage-timeline-vertical {
@@ -205,6 +210,18 @@
     font-variant-numeric: tabular-nums;
     opacity: 0.8;
 }
+
+/* Per-value type coloring (see TrainingPreview.ValueKindClass) -- Volume/
+   Time Profile rows mix several distinct kinds of number (a bucket's price,
+   its up/down tick split, their diff, and the profile's own POC/value-area
+   summary levels) in one card, so each kind gets its own color instead of
+   reading as one undifferentiated list. Every other row's values carry no
+   kind and keep .tp-source-card-value's plain neutral styling above. */
+.tp-value-price { color: var(--color-info); opacity: 1; }
+.tp-value-up { color: var(--color-success); opacity: 1; }
+.tp-value-down { color: var(--color-error); opacity: 1; }
+.tp-value-diff { color: var(--color-warning); opacity: 1; }
+.tp-value-summary { color: var(--color-accent); opacity: 1; font-weight: bold; }
 
 .tp-source-badge-1 { --tp-source-color: var(--color-badge-1); }
 .tp-source-badge-2 { --tp-source-color: var(--color-badge-2); }
