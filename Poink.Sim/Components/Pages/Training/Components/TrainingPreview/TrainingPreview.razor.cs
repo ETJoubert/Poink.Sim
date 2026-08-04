@@ -844,9 +844,9 @@ namespace Poink.Sim.Components.Training
         // (see that class's doc comment), so there's nothing separate to show
         // "normalized".
         private static IReadOnlyList<(string Value, string Tooltip)> BuildTraderStateValues(
-            IReadOnlyList<HlocAvdtBar> episodeBars, double startingCash, IReadOnlyList<RlInputFeature>? liveInputs)
+            IReadOnlyList<HlocAvdtBar> episodeBars, double startingCash, EncoderSizeOptions sizes, IReadOnlyList<RlInputFeature>? liveInputs)
         {
-            var encoder = new TraderStateEncoder();
+            var encoder = (TraderStateEncoder)BrainCatalog.CreateEncoder(EncoderKind.TraderState, sizes);
             if (TryBuildLiveValues(encoder.Features, liveInputs, out var liveValues))
                 return liveValues;
 
@@ -856,7 +856,7 @@ namespace Poink.Sim.Components.Training
             double currentPrice = episodeBars[^1].Close;
             var capital = new CapitalState(startingCash, RealizedPnl: 0, UnrealizedPnl: 0, MarginUsed: 0, MarginLevel: null);
             var observation = new SimulationObservation(
-                episodeBars[^1].OpenTime, currentPrice, [], [], [], capital, Position: null, currentPrice, currentPrice);
+                episodeBars[^1].OpenTime, currentPrice, [], [], [], capital, Position: null, RecentTrades: [], currentPrice, currentPrice);
 
             return FormatEncoded(encoder.Features, encoder.Encode(observation));
         }
@@ -882,7 +882,7 @@ namespace Poink.Sim.Components.Training
             double currentPrice = episodeBars[^1].Close;
             var observation = new SimulationObservation(
                 episodeBars[^1].OpenTime, currentPrice, [], [], [],
-                new CapitalState(0, 0, 0, 0, null), Position: null, currentPrice, currentPrice);
+                new CapitalState(0, 0, 0, 0, null), Position: null, RecentTrades: [], currentPrice, currentPrice);
 
             return FormatEncoded(encoder.Features, encoder.Encode(observation));
         }
@@ -908,7 +908,7 @@ namespace Poink.Sim.Components.Training
             double currentPrice = episodeBars[^1].Close;
             var observation = new SimulationObservation(
                 episodeBars[^1].OpenTime, currentPrice, episodeBars, [], [],
-                new CapitalState(0, 0, 0, 0, null), Position: null, currentPrice, currentPrice);
+                new CapitalState(0, 0, 0, 0, null), Position: null, RecentTrades: [], currentPrice, currentPrice);
 
             return FormatEncoded(encoder.Features, encoder.Encode(observation));
         }
@@ -948,6 +948,18 @@ namespace Poink.Sim.Components.Training
             for (int i = 0; i < features.Count; i++)
                 values.Add((features[i].Normalizer.Format(raw[i]), features[i].Label));
             return values;
+        }
+
+        // Summarizes Trader State's 3 optional trade-history/price-level list
+        // lengths into one Window-column string -- "—" when none are enabled
+        // (today's original fixed-12-fields shape).
+        private static string TraderStateListLengthsLabel(EncoderSizeOptions sizes)
+        {
+            var parts = new List<string>();
+            if (sizes.TraderStateTradeOutcomeListLength > 0) parts.Add($"outcomes:{sizes.TraderStateTradeOutcomeListLength}");
+            if (sizes.TraderStatePositionLevelListLength > 0) parts.Add($"level:{sizes.TraderStatePositionLevelListLength}");
+            if (sizes.TraderStateDirectionListLength > 0) parts.Add($"direction:{sizes.TraderStateDirectionListLength}");
+            return parts.Count > 0 ? string.Join(" ", parts) : "—";
         }
 
         private static string NormalizationLabel(NormalizationKind kind) => kind switch
@@ -1032,8 +1044,9 @@ namespace Poink.Sim.Components.Training
             }
             if (recipe.EncoderKinds.Contains(EncoderKind.TraderState))
             {
-                var traderStateValues = BuildTraderStateValues(episodeBars, startingCash, liveInputs);
-                rows.Add(new("Trader State", new TraderStateEncoder().FeatureCount.ToString(), "Raw", "—", "—",
+                var count = BrainCatalog.CreateEncoder(EncoderKind.TraderState, sizes).FeatureCount;
+                var traderStateValues = BuildTraderStateValues(episodeBars, startingCash, sizes, liveInputs);
+                rows.Add(new("Trader State", count.ToString(), "Raw", TraderStateListLengthsLabel(sizes), "—",
                     RawValues: traderStateValues.Select(v => v.Value).ToList(),
                     NormalizedValues: traderStateValues.Select(v => v.Value).ToList(),
                     RawValueTooltips: traderStateValues.Select(v => v.Tooltip).ToList(),

@@ -589,7 +589,7 @@ internal sealed class SimulationEngine : IDisposable
                 useBars ? _recentBars : Array.Empty<HlocAvdtBar>(),
                 useBars ? Array.Empty<Tick>() : _recentTicks,
                 useBars ? _recentBarHistograms : Array.Empty<BarPriceHistogram>(),
-                capital, session.Trader.CurrentPosition, bid, ask);
+                capital, session.Trader.CurrentPosition, session.Trader.TradeLog, bid, ask);
 
             // Capturing Inputs/Outputs for every session on every decision would
             // multiply the extra DescribeInputs/DecideWithLogProbability cost by

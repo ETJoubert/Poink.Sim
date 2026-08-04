@@ -134,7 +134,7 @@
                                                     title="Normalized feeds a fraction-of-total/percent-offset from current price; Raw feeds the literal quantity (price, tick count, or seconds); Local/Global Z-Score feed a z-score against a sub-window's/the whole set's own mean and standard deviation instead; Binary feeds 1 if an entry is higher than the one before it, 0 if lower or equal">
                                                     Normalization</th>
                                                     <th
-                                                        title="How much trailing bar history this set uses -- a fixed count of bars for Bar Window, merged into one profile for Volume/Time Profile">
+                                                        title="How much trailing bar history this set uses -- a fixed count of bars for Bar Window, merged into one profile for Volume/Time Profile, or (for Trader State) its 3 optional trailing-list lengths">
                                                         Window</th>
                                                         <th
                                                             title="How many histogram buckets Volume/Time Profile rebins its merged bars into -- not applicable to Bar Window or Trader State">
@@ -330,9 +330,30 @@
                                                                                 <option>Raw</option>
                                                                             </select>
                                                                         </td>
-                                                                        <td class="train-inputset-cell-na" title="Meaningful from the first tick -- no windowing">
-                                                                            &#8212;</td>
-                                                                            <td class="train-inputset-cell-na" title="Fixed 12 fields, no bucketing">&#8212;</td>
+                                                                        <td>
+                                                                            <label class="train-brainrow-field"
+                                                                                   title="How many of the most recent closed trades' win(1)/loss(0) outcome Trader State feeds, most-recent-last, zero-padded if fewer trades have closed yet -- 0 disables this list">
+                                                                                Outcomes
+                                                                                <input class="train-brainrow-input" type="number" min="0" step="1"
+                                                                                       @bind="_traderStateTradeOutcomeListLength"
+                                                                                       disabled="@(Service.IsRunning || !_includeTraderState)" />
+                                                                            </label>
+                                                                            <label class="train-brainrow-field train-brainrow-field-sub"
+                                                                                   title="How many trailing price records since the open position's own entry time Trader State compares against entry price (1 above, 0 at-or-below), most-recent-last, zero-padded -- flat (no position) or 0 disables this list">
+                                                                                Level
+                                                                                <input class="train-brainrow-input" type="number" min="0" step="1"
+                                                                                       @bind="_traderStatePositionLevelListLength"
+                                                                                       disabled="@(Service.IsRunning || !_includeTraderState)" />
+                                                                            </label>
+                                                                            <label class="train-brainrow-field train-brainrow-field-sub"
+                                                                                   title="How many of the most recent closed trades' direction (1=Long, 0=Short) Trader State feeds, index-aligned with Outcomes -- 0 disables this list">
+                                                                                Direction
+                                                                                <input class="train-brainrow-input" type="number" min="0" step="1"
+                                                                                       @bind="_traderStateDirectionListLength"
+                                                                                       disabled="@(Service.IsRunning || !_includeTraderState)" />
+                                                                            </label>
+                                                                        </td>
+                                                                            <td class="train-inputset-cell-na" title="Fixed 12 base fields, no bucketing -- Outcomes/Level/Direction list lengths (Window column) add to that count instead">&#8212;</td>
                                                                             <td class="train-inputset-cell-na"
                                                                                 title="Local/Global Z-Score not offered for Trader State">&#8212;</td>
                                                                         </tr>

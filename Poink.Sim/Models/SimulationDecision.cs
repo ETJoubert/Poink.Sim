@@ -51,7 +51,12 @@ internal readonly record struct SimulationDecision(
 // mode has no bars, so no per-bar histograms either) -- a brain that reads it
 // merges down to whatever window it needs itself (see BarPriceHistogram.Merge),
 // the same way a brain slices its own trailing window out of RecentBars.
-// Capital/Position are read-only Trader snapshots. Bid/Ask are this decision's
+// Capital/Position are read-only Trader snapshots. RecentTrades is this
+// trader's full closed-trade log, oldest-first (see Trader.TradeLog) --
+// unlike RecentBars/RecentTicks it isn't ring-buffer-bounded, since a round-
+// trip count naturally stays far smaller than a tick/bar count; fed for
+// TraderStateEncoder's optional trade-history list features (win/loss and
+// direction of the last N closed trades). Bid/Ask are this decision's
 // exact current-tick quote -- CurrentPrice is already their mid (or a bar's
 // Close, itself built from mid-price ticks), so neither aggregation mode lets
 // a brain recover the spread from CurrentPrice alone; carried separately so
@@ -63,4 +68,5 @@ internal readonly record struct SimulationObservation(
     IReadOnlyList<Tick> RecentTicks,
     IReadOnlyList<BarPriceHistogram> RecentBarHistograms,
     CapitalState Capital, Position? Position,
+    IReadOnlyList<Trade> RecentTrades,
     double Bid, double Ask);

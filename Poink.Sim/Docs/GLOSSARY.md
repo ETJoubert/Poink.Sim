@@ -782,7 +782,12 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   `TraderStateEncoder` emits `position`
   (`DirectionNormalizer`), `position-price`/`position-distance`/`current-price`
   (`RawPriceNormalizer`), `position-ticks`/`cash`/`realized`/`unrealized`/
-  `equity`/`margin`/`margin-level`/`position-count` (`RawValueNormalizer`);
+  `equity`/`margin`/`margin-level`/`position-count` (`RawValueNormalizer`),
+  plus 3 optional trailing lists (`BinaryNormalizer`, each 0 length/absent by
+  default): `trade-outcome-t-N` (win=1/loss=0 per closed trade), `direction-t-N`
+  (Long=1/Short=0, same trade history index-aligned with `trade-outcome-t-N`),
+  and `position-level-t-N` (1 if a price record since the open position's own
+  entry is above its entry price, else 0);
   `SessionClockEncoder` emits `session-tod-sin`/`session-tod-cos`/
   `session-dow-sin`/`session-dow-cos` (`RawValueNormalizer` -- already bounded
   `[-1,1]`, no scaling needed), fixed regardless of `EncoderSizeOptions`;
@@ -945,19 +950,23 @@ Each entry: **Term** — definition. `File path(s)` where the concept is defined
   Trader State, columns Any input set
   (checkbox) / Normalization (`NormalizationKind`: Normalized vs Raw, see
   `EncoderSizeOptions`' doc comment) / Window (bar count -- Bar Window's fixed
-  window, Volume/Time Profile's independent lookback, or Spread + Volatility's
-  ATR period) / Bucket (histogram bucket count, Volume/Time Profile only).
+  window, Volume/Time Profile's independent lookback, Spread + Volatility's
+  ATR period, or Trader State's 3 independent trailing-list lengths --
+  Outcomes/Level/Direction, see `TraderStateEncoder`'s doc comment) / Bucket
+  (histogram bucket count, Volume/Time Profile only).
   Every row's controls stay mounted
   and just go `disabled` when unchecked, so the table's shape never jumps as
   sets toggle; cells that don't apply to a set (Bar Window's Bucket, Trader
-  State's Window/Bucket, Session Clock's/Spread + Volatility's Normalization,
+  State's Bucket, Session Clock's/Spread + Volatility's Normalization,
   Session Clock's Window) show a plain "—" instead -- neither Session Clock
   nor Spread + Volatility has a Raw/Normalized choice, since neither has an
   alternative representation of its already-scale-free (sin/cos) or already
-  price-scaled (spread/ATR) values. Trader State stays a fixed
-  always-on row with a disabled, non-configurable Normalization cell (every
-  field is fed to the network exactly as reported -- may become selectable in
-  the future). `Visible` is a plain `[Parameter]` rather than an `@if`
+  price-scaled (spread/ATR) values. Trader State has a disabled,
+  non-configurable Normalization cell (every field is fed to the network
+  exactly as reported -- may become selectable in the future); its Window
+  cell instead holds 3 number inputs (each 0 by default -- absent, today's
+  original fixed-12-fields shape), not a single value like every other row's
+  Window cell. `Visible` is a plain `[Parameter]` rather than an `@if`
   around the whole component, so a build left mid-configuration survives the
   panel being collapsed and reopened via `TrainPage`'s "+/- BUILD BRAIN" toggle,
   which still lives on `TrainPage` alongside `BrainSelect`. Reports a successful

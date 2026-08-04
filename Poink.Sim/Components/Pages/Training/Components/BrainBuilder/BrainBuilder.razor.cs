@@ -180,6 +180,9 @@ namespace Poink.Sim.Components.Training
             _spreadVolatilityAtrPeriod = sizes.SpreadVolatilityAtrPeriod;
             _barWindowZScoreSubWindowSize = sizes.BarWindowZScoreSubWindowSize;
             _volumeProfileZScoreSubWindowSize = sizes.VolumeProfileZScoreSubWindowSize;
+            _traderStateTradeOutcomeListLength = sizes.TraderStateTradeOutcomeListLength;
+            _traderStatePositionLevelListLength = sizes.TraderStatePositionLevelListLength;
+            _traderStateDirectionListLength = sizes.TraderStateDirectionListLength;
 
             _architectureKind = recipe.ArchitectureKind;
             switch (recipe.ArchitectureKind)
@@ -240,6 +243,10 @@ namespace Poink.Sim.Components.Training
         private int _spreadVolatilityAtrPeriod = 14;
         private int _barWindowZScoreSubWindowSize = 5;
         private int _volumeProfileZScoreSubWindowSize = 5;
+
+        private int _traderStateTradeOutcomeListLength;
+        private int _traderStatePositionLevelListLength;
+        private int _traderStateDirectionListLength;
 
         private ArchitectureKind _architectureKind = ArchitectureKind.Mlp;
 
@@ -344,6 +351,7 @@ namespace Poink.Sim.Components.Training
             && (!_includeSpreadVolatility || _spreadVolatilityAtrPeriod >= 1)
             && (_barWindowNormalization != NormalizationKind.LocalZScore || _barWindowZScoreSubWindowSize >= 1)
             && (_volumeProfileNormalization != NormalizationKind.LocalZScore || _volumeProfileZScoreSubWindowSize >= 1)
+            && (!_includeTraderState || (_traderStateTradeOutcomeListLength >= 0 && _traderStatePositionLevelListLength >= 0 && _traderStateDirectionListLength >= 0))
             && _decisionTemperature > 0;
 
         private IReadOnlyList<EncoderKind> SelectedEncoderKinds
@@ -380,7 +388,10 @@ namespace Poink.Sim.Components.Training
             VolumeProfileSplitUpDown: _volumeProfileSplitUpDown,
             TimeProfileSplitUpDown: _timeProfileSplitUpDown,
             BarWindowZScoreSubWindowSize: _barWindowZScoreSubWindowSize,
-            VolumeProfileZScoreSubWindowSize: _volumeProfileZScoreSubWindowSize);
+            VolumeProfileZScoreSubWindowSize: _volumeProfileZScoreSubWindowSize,
+            TraderStateTradeOutcomeListLength: _traderStateTradeOutcomeListLength,
+            TraderStatePositionLevelListLength: _traderStatePositionLevelListLength,
+            TraderStateDirectionListLength: _traderStateDirectionListLength);
 
         private string VolumeProfileBucketsTooltip =>
             (_volumeProfileNormalization == NormalizationKind.Raw, _volumeProfileSplitUpDown) switch

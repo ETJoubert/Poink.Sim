@@ -113,6 +113,12 @@ public enum CnnKernelSweepSource { BarWindow, VolumeProfile }
 // arbitrary but reasonable sub-window default, never exercised by a recipe
 // saved before LocalZScore/GlobalZScore existed since those recipes are
 // pinned to Normalized/Raw).
+// TraderStateTradeOutcomeListLength/TraderStatePositionLevelListLength/
+// TraderStateDirectionListLength are the newest such properties, same
+// treatment: default to 0 (absent -- TraderStateEncoder's original fixed 12
+// fields) so a recipe saved before these lists existed still deserializes to
+// the same FeatureCount/shape its weights were trained with. See
+// TraderStateEncoder's doc comment for what each list actually feeds.
 public sealed record EncoderSizeOptions(
     int BarWindowSize = 20,
     int VolumeProfileBucketCount = 20,
@@ -126,7 +132,10 @@ public sealed record EncoderSizeOptions(
     bool VolumeProfileSplitUpDown = false,
     bool TimeProfileSplitUpDown = false,
     int BarWindowZScoreSubWindowSize = 5,
-    int VolumeProfileZScoreSubWindowSize = 5);
+    int VolumeProfileZScoreSubWindowSize = 5,
+    int TraderStateTradeOutcomeListLength = 0,
+    int TraderStatePositionLevelListLength = 0,
+    int TraderStateDirectionListLength = 0);
 
 // A runtime-built brain's exact shape -- what LoadSavedBrain/TryStartTraining
 // need to reconstruct an identical encoder/architecture/action composition
@@ -200,7 +209,10 @@ internal static class BrainCatalog
                 splitUpDown: sizes.TimeProfileSplitUpDown),
             EncoderKind.SessionClock => new SessionClockEncoder(),
             EncoderKind.SpreadVolatility => new SpreadVolatilityEncoder(atrPeriod: sizes.SpreadVolatilityAtrPeriod),
-            EncoderKind.TraderState => new TraderStateEncoder(),
+            EncoderKind.TraderState => new TraderStateEncoder(
+                tradeOutcomeListLength: sizes.TraderStateTradeOutcomeListLength,
+                positionLevelListLength: sizes.TraderStatePositionLevelListLength,
+                directionListLength: sizes.TraderStateDirectionListLength),
             _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
         };
     }
