@@ -12,7 +12,7 @@ namespace OpenAPI.Net.Helpers
         /// <param name="payloadType">The ProtoMessage message payload type</param>
         /// <param name="clientMessageId">The client message ID for ProtoMessage</param>
         /// <returns>ProtoMessage</returns>
-        public static ProtoMessage GetMessage<T>(this T message, ProtoPayloadType payloadType, string clientMessageId = null)
+        public static ProtoMessage GetMessage<T>(this T message, ProtoPayloadType payloadType, string? clientMessageId = null)
             where T : IMessage
         {
             return GetMessage((uint)payloadType, message.ToByteString(), clientMessageId);
@@ -27,7 +27,7 @@ namespace OpenAPI.Net.Helpers
         /// <param name="clientMessageId">The client message ID for ProtoMessage</param>
         /// <returns>ProtoMessage</returns>
         public static ProtoMessage GetMessage<T>(this T message, ProtoOAPayloadType payloadType,
-            string clientMessageId = null) where T : IMessage
+            string? clientMessageId = null) where T : IMessage
         {
             return GetMessage((uint)payloadType, message.ToByteString(), clientMessageId);
         }
@@ -37,7 +37,7 @@ namespace OpenAPI.Net.Helpers
         /// </summary>
         /// <param name="protoMessage">The ProtoMessage</param>
         /// <returns>IMessage</returns>
-        public static IMessage GetMessage(ProtoMessage protoMessage)
+        public static IMessage? GetMessage(ProtoMessage protoMessage)
         {
             var payload = protoMessage.Payload;
             
@@ -144,7 +144,7 @@ namespace OpenAPI.Net.Helpers
         /// <param name="payload">The message payload as a ByteString</param>
         /// <param name="clientMessageId">The client message ID for ProtoMessage</param>
         /// <returns>ProtoMessage</returns>
-        public static ProtoMessage GetMessage(uint payloadType, ByteString payload, string clientMessageId = null)
+        public static ProtoMessage GetMessage(uint payloadType, ByteString payload, string? clientMessageId = null)
         {
             var message = new ProtoMessage
             {

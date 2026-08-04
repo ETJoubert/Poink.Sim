@@ -110,7 +110,7 @@ namespace OpenAPI.Net.Auth
         /// <exception cref="JsonException"></exception>
         public static Token DeserializeToken(string json)
         {
-            var token = JsonSerializer.Deserialize<Token>(json);
+            var token = JsonSerializer.Deserialize<Token>(json) ?? throw new JsonException("Token could not be deserialized");
 
             if (string.IsNullOrWhiteSpace(token.ErrorCode))
             {

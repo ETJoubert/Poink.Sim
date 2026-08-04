@@ -16,7 +16,7 @@ namespace OpenAPI.Net.Helpers
             {
                 if (string.IsNullOrWhiteSpace(key)) continue;
 
-                string[] values = collection.GetValues(key);
+                string[]? values = collection.GetValues(key);
 
                 if (values == null) continue;
 

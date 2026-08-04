@@ -31,17 +31,17 @@ namespace OpenAPI.Net
 
         private readonly TimeSpan _requestDelay;
 
-        private TcpClient _tcpClient;
+        private TcpClient? _tcpClient;
 
-        private WebsocketClient _websocketClient;
+        private WebsocketClient? _websocketClient;
 
-        private SslStream _sslStream;
+        private SslStream? _sslStream;
 
-        private IDisposable _heartbeatDisposable;
+        private IDisposable? _heartbeatDisposable;
 
-        private IDisposable _webSocketDisconnectionHappenedDisposable;
+        private IDisposable? _webSocketDisconnectionHappenedDisposable;
 
-        private IDisposable _webSocketMessageReceivedDisposable;
+        private IDisposable? _webSocketMessageReceivedDisposable;
 
         /// <summary>
         /// Creates an instance of OpenClient which is not connected yet
@@ -171,7 +171,7 @@ namespace OpenAPI.Net
         /// <param name="clientMsgId">The client message ID (optional)</param>
         /// <exception cref="InvalidOperationException">If getting message payload type fails</exception>
         /// <returns>Task</returns>
-        public async Task SendMessage<T>(T message, string clientMsgId = null) where T : IMessage
+        public async Task SendMessage<T>(T message, string? clientMsgId = null) where T : IMessage
         {
             var protoMessage = MessageFactory.GetMessage(message.GetPayloadType(), message.ToByteString(), clientMsgId);
 
@@ -186,7 +186,7 @@ namespace OpenAPI.Net
         /// <param name="payloadType">Message Payload Type (ProtoPayloadType)</param>
         /// <param name="clientMsgId">The client message ID (optional)</param>
         /// <returns>Task</returns>
-        public async Task SendMessage<T>(T message, ProtoPayloadType payloadType, string clientMsgId = null) where T : IMessage
+        public async Task SendMessage<T>(T message, ProtoPayloadType payloadType, string? clientMsgId = null) where T : IMessage
         {
             var protoMessage = MessageFactory.GetMessage(message, payloadType, clientMsgId);
 
@@ -201,7 +201,7 @@ namespace OpenAPI.Net
         /// <param name="payloadType">Message Payload Type (ProtoOAPayloadType)</param>
         /// <param name="clientMsgId">The client message ID (optional)</param>
         /// <returns>Task</returns>
-        public async Task SendMessage<T>(T message, ProtoOAPayloadType payloadType, string clientMsgId = null) where T : IMessage
+        public async Task SendMessage<T>(T message, ProtoOAPayloadType payloadType, string? clientMsgId = null) where T : IMessage
         {
             var protoMessage = MessageFactory.GetMessage(message, payloadType, clientMsgId);
 
@@ -239,7 +239,7 @@ namespace OpenAPI.Net
 
                 if (IsUsingWebSocket)
                 {
-                    _websocketClient.Send(messageByte);
+                    _websocketClient!.Send(messageByte);
                 }
                 else
                 {
@@ -379,7 +379,7 @@ namespace OpenAPI.Net
         private async void ReadTcp(CancellationToken cancellationToken)
         {
             var dataLength = new byte[4];
-            byte[] data = null;
+            byte[]? data = null;
 
             try
             {
@@ -391,7 +391,7 @@ namespace OpenAPI.Net
                     {
                         var count = dataLength.Length - readBytes;
 
-                        readBytes += await _sslStream.ReadAsync(dataLength, readBytes, count, cancellationToken).ConfigureAwait(false);
+                        readBytes += await _sslStream!.ReadAsync(dataLength, readBytes, count, cancellationToken).ConfigureAwait(false);
 
                         if (readBytes == 0) throw new InvalidOperationException("Remote host closed the connection");
                     }
@@ -409,7 +409,7 @@ namespace OpenAPI.Net
                     {
                         var count = length - readBytes;
 
-                        readBytes += await _sslStream.ReadAsync(data, readBytes, count, cancellationToken).ConfigureAwait(false);
+                        readBytes += await _sslStream!.ReadAsync(data, readBytes, count, cancellationToken).ConfigureAwait(false);
 
                         if (readBytes == 0) throw new InvalidOperationException("Remote host closed the connection");
                     }
@@ -456,7 +456,7 @@ namespace OpenAPI.Net
         {
             var data = BitConverter.GetBytes(messageByte.Length).Reverse().Concat(messageByte).ToArray();
 
-            await _sslStream.WriteAsync(data, 0, data.Length, cancellationToken).ConfigureAwait(false);
+            await _sslStream!.WriteAsync(data, 0, data.Length, cancellationToken).ConfigureAwait(false);
 
             await _sslStream.FlushAsync(cancellationToken).ConfigureAwait(false);
         }
@@ -488,7 +488,7 @@ namespace OpenAPI.Net
         {
             disconnectionInfo.CancelReconnection = true;
 
-            OnError(disconnectionInfo.Exception);
+            OnError(disconnectionInfo.Exception!);
         }
 
         /// <summary>

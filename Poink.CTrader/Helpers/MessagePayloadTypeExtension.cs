@@ -15,7 +15,7 @@ namespace OpenAPI.Net.Helpers
         /// <exception cref="InvalidOperationException"></exception>
         public static uint GetPayloadType<T>(this T message) where T : IMessage
         {
-            PropertyInfo property;
+            PropertyInfo? property;
 
             try
             {
@@ -24,6 +24,11 @@ namespace OpenAPI.Net.Helpers
             catch (Exception ex) when (ex is AmbiguousMatchException || ex is ArgumentNullException)
             {
                 throw new InvalidOperationException($"Couldn't get the PayloadType of the message {message}", ex);
+            }
+
+            if (property is null)
+            {
+                throw new InvalidOperationException($"Couldn't get the PayloadType of the message {message}");
             }
 
             return Convert.ToUInt32(property.GetValue(message));
