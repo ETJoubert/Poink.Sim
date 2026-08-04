@@ -122,14 +122,22 @@
                             }
                         </div>
                         <div class="tp-column">
-                            <div class="tp-column-title">Normalization</div>
-                            @foreach (var row in SourceRows)
+                            <div class="tp-column-title tp-column-title-row">
+                                <span>Normalization</span>
+                                <span class="tp-column-title-badges">
+                                    <span class="tp-badge" title="Number of included input sets">@SourceRows.Count sets</span>
+                                    <span class="tp-badge" title="Total inputs across all included sets">@TotalSourceInputCount
+                                        inputs</span>
+                                    </span>
+                                </div>
+                                @foreach (var row in SourceRows)
                             {
                                 @if (row.NormalizedValues.Count > 0)
                                 {
                                     <div class="tp-source-card @SourceColorClass(row.Source)">
-                                        <div class="tp-source-card-title">
-                                            @row.Source <span class="tp-source-card-title-sub">@row.Normalization</span>
+                                        <div class="tp-source-card-title tp-source-card-title-row">
+                                            <span>@row.Source <span class="tp-source-card-title-sub">@row.Normalization</span></span>
+                                            <span class="tp-badge" title="Inputs contributed by this set">@row.Inputs</span>
                                         </div>
                                         <div class="tp-source-card-values"
                                              title="Same values as Source's card, transformed to match this row's Normalization -- exactly what the network sees">
