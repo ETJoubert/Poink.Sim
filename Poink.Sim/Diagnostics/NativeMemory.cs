@@ -2,9 +2,7 @@ using System.Runtime.InteropServices;
 
 namespace Poink.Sim.Diagnostics;
 
-// GlobalMemoryStatusEx over a PerformanceCounter for RAM: it's a single
-// synchronous call with no counter-category warm-up, and reports physical
-// totals directly instead of needing "_Total"/"Available MBytes" pairing.
+
 internal static class NativeMemory
 {
     [StructLayout(LayoutKind.Sequential)]

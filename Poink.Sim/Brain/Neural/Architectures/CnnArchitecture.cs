@@ -1,11 +1,4 @@
-// ── Architecture: 1D convolution over a leading sequence slice + trailing scalars ──
-//  Sibling to LstmArchitecture -- same leading-sequence-slice/trailing-scalars
-//  contract (see that file and IObservationEncoder's doc comment), a stack of
-//  Conv1d layers instead of an LSTM. channels/kernelSize are this
-//  architecture's knobs; sequenceLength (the window width) and scalarCount
-//  come from whichever IObservationEncoder it's paired with at Build time,
-//  same as LstmArchitecture.
-// ─────────────────────────────────────────────────────────────────────────
+
 using System;
 using TorchSharp;
 using static TorchSharp.torch;
@@ -38,11 +31,6 @@ internal sealed class CnnArchitecture : INetworkArchitecture
             channels: _channels, kernelSize: _kernelSize, actionCount: outputWidth);
     }
 
-    // CNN-only alternate entry point (see ICnnSweepable): sweeps a slice
-    // that isn't necessarily the composite's leading one -- sweepOffset/
-    // sweepLength come from ComposedPolicyBrain.Create locating whichever
-    // part a BrainRecipe.CnnKernelSweepSource of VolumeProfile resolves to,
-    // rather than always assuming offset 0 like Build above.
     public Module<Tensor, Tensor> BuildWithSweep(int featureCount, int sweepOffset, int sweepLength, int outputWidth)
     {
         if (sweepLength <= 0)

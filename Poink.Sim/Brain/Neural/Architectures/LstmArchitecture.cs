@@ -1,10 +1,4 @@
-// ── Architecture: LSTM over a leading sequence slice + trailing scalars ──
-//  Generalizes the hand-written LstmPolicyNetwork wiring the now-deleted
-//  LstmPolicyBrain used to hardcode (windowSize=20, hiddenSize=64,
-//  numLayers=2) -- hiddenSize/numLayers are this architecture's knobs;
-//  windowSize (the sequence slice width) and scalarCount come from whichever
-//  IObservationEncoder it's paired with at Build time.
-// ─────────────────────────────────────────────────────────────────────────
+
 using System;
 using TorchSharp;
 using static TorchSharp.torch;

@@ -13,17 +13,10 @@ namespace Poink.Sim.Repository;
 
 internal sealed class ModelRepository : IModelRepository
 {
-    // Recipe's EncoderKinds/ArchitectureKind serialize as names, not ordinal
-    // ints -- safe if BrainCatalog's enums ever gain a value in the middle
-    // rather than only at the end.
+
     private static readonly JsonSerializerOptions RecipeJsonOptions = new() { Converters = { new JsonStringEnumConverter() } };
 
-    // Own database, separate from TickRepository's Poink.MarketData -- see
-    // IModelRepository's doc comment. "postgres" is Postgres's always-present
-    // maintenance db, used only to CREATE DATABASE this one if it's missing
-    // (Postgres has no CREATE DATABASE IF NOT EXISTS, so pg_database is
-    // checked first -- same idea as EnsureRegistryTable in TickRepository,
-    // one level up).
+
     const string DatabaseName = "Poink.Sim";
     const string TableName = "trained_models";
 
@@ -58,7 +51,17 @@ internal sealed class ModelRepository : IModelRepository
         string? recipeJson = recipe is null ? null : JsonSerializer.Serialize(recipe, RecipeJsonOptions);
         long id = conn.ExecuteScalar<long>(Sql.InsertModel, new
         {
-            name, brainName, strategyName, rewardPolicyName, dataset, parametersJson, recipeJson, trainedAt, weightCount, avgReward, weights
+            name,
+            brainName,
+            strategyName,
+            rewardPolicyName,
+            dataset,
+            parametersJson,
+            recipeJson,
+            trainedAt,
+            weightCount,
+            avgReward,
+            weights
         });
         _logger.LogInformation("Saved model {Name} ({BrainName}/{StrategyName}) as id {Id}", name, brainName, strategyName, id);
         return id;
@@ -118,14 +121,7 @@ internal sealed class ModelRepository : IModelRepository
         }
     }
 
-    // The very first prototype of BrainRepository's own trained_brains table
-    // used brain_name as its primary key (one upserted row per architecture,
-    // no history) -- replicated here for the same reasoning, even though a
-    // fresh trained_models table never carries that shape: an install still
-    // carrying it is safe to drop and rebuild, since it could only ever have
-    // held one row per architecture. Later additive columns instead migrate
-    // in place via ADD COLUMN IF NOT EXISTS, since by then real saved models
-    // can exist.
+
     private void EnsureTable(NpgsqlConnection conn)
     {
         bool hasOldShape = conn.ExecuteScalar<bool>(Sql.OldShapeExists);
@@ -142,10 +138,6 @@ internal sealed class ModelRepository : IModelRepository
         conn.Execute(Sql.AddRewardPolicyNameColumn);
     }
 
-    // Parameter order must match SelectModelRows' column order exactly --
-    // Dapper's record-constructor materialization matches positionally, not
-    // by name, and mismatched order here throws "no matching constructor" at
-    // read time even though every name/type lines up.
     private sealed record ModelRow(
         long Id, string Name, string BrainName, string StrategyName, string RewardPolicyName, string Dataset,
         string ParametersJson, string? RecipeJson, long WeightCount, double AvgReward,
@@ -156,9 +148,7 @@ internal sealed class ModelRepository : IModelRepository
     {
         public const string DatabaseExists = "SELECT EXISTS(SELECT 1 FROM pg_database WHERE datname = @name)";
 
-        // DatabaseName/TableName are compile-time constants, never user input,
-        // so interpolating them as identifiers here is safe (same reasoning as
-        // TickRepository.Sql.SelectTableStats).
+
         public const string CreateDatabase = $"CREATE DATABASE \"{DatabaseName}\"";
 
         public const string OldShapeExists =

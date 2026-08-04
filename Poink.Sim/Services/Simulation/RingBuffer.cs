@@ -1,11 +1,4 @@
-// ── Fixed-capacity circular buffer, most-recent-last ─────────────────────
-//  Drop-in IReadOnlyList<T> replacement for the "List<T>, RemoveAt(0) once
-//  over capacity" pattern SimulationEngine used for its recent-ticks/bars/log
-//  buffers. RemoveAt(0) on a List shifts every remaining element -- O(capacity)
-//  -- so once the buffer filled up, every single Append paid for a full-buffer
-//  shift. Add() here is O(1) instead: once full it just overwrites the oldest
-//  slot and advances the start pointer.
-// ─────────────────────────────────────────────────────────────────────────
+
 using System;
 using System.Collections;
 using System.Collections.Generic;

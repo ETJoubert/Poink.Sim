@@ -91,16 +91,7 @@
     text-overflow: ellipsis;
 }
 
-/* Let each column's main content grow to fill the column's full height
-   instead of leaving empty space below it -- all columns in a row are
-   already the same height via CSS Grid's default item stretch, so these
-   just need to consume that height instead of sitting at natural size. */
 
-/* min-height: min-content (not the default 0/auto) so a card whose values
-   wrap onto many lines (e.g. Volume/Time Profile with a high bucket count)
-   grows past its even flex share instead of being clipped by
-   .tp-source-card's own overflow: hidden -- the column's own overflow-y:
-   auto (see .tp-column above) is what actually shows the rest via scroll. */
 .tp-column > .tp-source-card {
     flex: 1 1 0;
     min-height: min-content;
@@ -116,10 +107,7 @@
     font-style: italic;
 }
 
-/* Source column header (sets/inputs totals) and per-card (this set's own
-   input count) badges -- both reuse .tp-badge, picking up --tp-source-color
-   when nested inside a colored .tp-source-card so a card's badge matches its
-   own accent, falling back to the neutral accent color at header level. */
+
 
 .tp-column-title-row {
     display: flex;
@@ -153,16 +141,12 @@
     color: var(--tp-source-color, var(--color-accent));
 }
 
-/* Neural Network spans two grid tracks -- it holds three side-by-side
-   sub-cards (Input/Hidden/Output), which don't fit one narrow track. */
+
 .tp-column-wide {
     grid-column: span 2;
 }
 
-/* Source column -- one colored card per included input set (see
-   SourceColorClass); --tp-source-color is set by the tp-source-badge-*
-   modifier and read by every rule below, so each card only needs the one
-   modifier class to look distinct. */
+
 
 .tp-source-card {
     display: flex;
@@ -211,12 +195,7 @@
     opacity: 0.8;
 }
 
-/* Per-value type coloring (see TrainingPreview.ValueKindClass) -- Volume/
-   Time Profile rows mix several distinct kinds of number (a bucket's price,
-   its up/down tick split, their diff, and the profile's own POC/value-area
-   summary levels) in one card, so each kind gets its own color instead of
-   reading as one undifferentiated list. Every other row's values carry no
-   kind and keep .tp-source-card-value's plain neutral styling above. */
+
 .tp-value-price { color: var(--color-info); opacity: 1; }
 .tp-value-up { color: var(--color-success); opacity: 1; }
 .tp-value-down { color: var(--color-error); opacity: 1; }
@@ -249,10 +228,7 @@
     fill: var(--color-error, #ff5f56);
 }
 
-/* Volume/Time Profile mini charts -- stacked under the Episode OHLC chart
-   (see TickVolumeProfileChart/TickTimeProfileChart for the full-featured,
-   same-idea panels this mirrors at a much smaller size: no price labels or
-   controls, just max-relative horizontal bars, high price first). */
+
 
 .tp-profile {
     display: flex;
@@ -284,9 +260,7 @@
     border-radius: 1px;
 }
 
-/* Neural Network's Input/Hidden/Output sub-cards, side by side -- reuses
-   .tp-source-card's own box styling (no badge modifier, so it falls back to
-   --color-primary) rather than a second, near-identical card style. */
+
 .tp-column > .tp-nn-cards {
     display: flex;
     gap: 8px;
@@ -305,11 +279,7 @@
     min-width: 0;
 }
 
-/* Input/Output sub-cards -- one stacked vertical bar each, segmented by each
-   part's share of that bar's total (segments sum to 100% of the bar's
-   height), colored via tp-source-badge-* (Input, matching Source/
-   Normalization's cards) or its own OutputColorClass mapping (Output), with
-   each segment's own count labeled inside it. */
+
 
 .tp-stack {
     display: flex;
@@ -343,11 +313,7 @@
     text-shadow: 0 0 3px rgba(255, 255, 255, 0.8);
 }
 
-/* Neural Network signal-flow animation -- purely decorative (see TrainingPreview.razor
-   comment on this column: unlike every other column, real per-neuron activation
-   can't be pulled out of training). Two pieces: a glow-pulse on the Hidden bars only,
-   and a progress bar above Input/Hidden/Output with two chasing lights -- a forward
-   pass followed by a trailing light standing in for the weight update that follows it. */
+
 
 .tp-nn-progress {
     position: relative;
@@ -399,9 +365,7 @@
     animation: tp-nn-node-pulse 2.4s ease-in-out infinite;
 }
 
-/* Hidden sub-card -- one bar per layer/channel/kernel entry, height relative
-   to whichever entry is largest (unlike Input's stacked bar, these are
-   independent quantities, not parts of one whole -- see HiddenLayerBar). */
+
 
 .tp-hidden-bars {
     display: flex;
@@ -439,11 +403,7 @@
     background: var(--tp-source-color, var(--color-primary));
 }
 
-/* Actions column -- one card per decoded group, each rendering its own
-   logit/label/percentage/bar grid via the ActionSetDecoder component (see
-   TrainingPreview.razor and ActionSetDecoder.razor.css), colored via
-   tp-source-badge-* through OutputColorClass, same as Output's stacked bar
-   above. Groups themselves stack top to bottom. */
+
 
 .tp-column > .tp-decoder-groups {
     display: flex;
@@ -459,17 +419,11 @@
     min-height: 0;
 }
 
-/* Reuses .tp-source-card's own box + title styling (see Source column
-   above) so each group reads as a card, badge-colored to match Output's
-   stacked bar via OutputColorClass. */
+
 .tp-decoder-card {
     gap: 4px;
 }
 
-/* Results column -- Reward/Median Reward/Reward Std Dev/Win Rate, the same
-   RewardChart/TrendLineChart components Live Training's own Live tab uses
-   (see TrainingPreview.ResultsEpisodes/ResultsIsRunning), stacked instead of
-   side by side since this column is narrower than that tab's grid. */
 .tp-column > .tp-results-charts {
     display: flex;
     flex-direction: column;

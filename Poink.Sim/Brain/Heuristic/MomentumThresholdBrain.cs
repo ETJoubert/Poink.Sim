@@ -1,11 +1,4 @@
-// ── Heuristic placeholder brain ──────────────────────────────────────────
-//  Rule-based (no training, no weights): compares the current price to the
-//  price Lookback observations ago. A move beyond +/-ThresholdPercent opens
-//  (or holds) a position in that direction; a move that fades back toward
-//  flat closes an open position. This exists to prove the MarketSim/Trader/
-//  Brain loop end-to-end -- swap in a trained ISimulationBrain later without
-//  touching the interface (see ISimulationBrain.cs).
-// ─────────────────────────────────────────────────────────────────────────
+
 using System;
 using Poink.Sim.Models;
 
@@ -70,12 +63,11 @@ internal sealed class MomentumThresholdBrain : ISimulationBrain
         return new SimulationDecision(SimulationAction.Hold);
     }
 
-    // Reads a single price at the lookback point directly off the source buffer
-    // instead of copying the whole (up to 5000-tick) window just to index into
-    // it -- priceAt is only ever invoked once.
+
     private double? LookbackPrice(int count, Func<int, double> priceAt)
     {
-        if (count < 2) return null;
+        if (count < 2)
+            return null;
         int index = Math.Max(0, count - 1 - _lookback);
         return priceAt(index);
     }

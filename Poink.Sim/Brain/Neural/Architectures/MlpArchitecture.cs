@@ -1,11 +1,4 @@
-// ── Architecture: plain feedforward MLP ──────────────────────────────────
-//  Generalizes the Linear->Tanh stack every non-recurrent brain used to
-//  hardcode in its own constructor (see e.g. the now-deleted MlpPolicyBrain/
-//  VolumeProfilePolicyBrain/VolumeProfileBarsPolicyBrain) into one
-//  parametrized class -- hiddenSizes is this architecture's only knob.
-//  Array-to-Sequential is the same idiom Poink.ML's SpiralBasics.BuildModel
-//  already uses.
-// ─────────────────────────────────────────────────────────────────────────
+
 using System.Collections.Generic;
 using TorchSharp;
 using static TorchSharp.torch;

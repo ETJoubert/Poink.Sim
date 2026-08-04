@@ -1,28 +1,4 @@
-// ── Convolutional network: Conv1d stack over a leading sequence slice + trailing scalars ──
-//  Built by CnnArchitecture (see that file) from whatever IObservationEncoder
-//  it's paired with, via sequenceLength/scalarCount rather than a
-//  brain-specific constant -- same shape LstmPolicyNetwork takes for its
-//  LSTM. Conv1d+Tanh stack (BuildConvStack, the same Array-to-Sequential
-//  idiom MlpArchitecture uses for its Linear+Tanh stack) reduces the window
-//  to one feature map, then the final timestep ("recent state") and the
-//  mean over time ("overall regime") are pooled and concatenated with the
-//  trailing scalar slice before a small MLP head produces one logit per
-//  SimulationAction -- same last+mean pooling Poink.ML's VolTcnPatternBrain
-//  uses for its own dilated-conv stack (that one uses ReLU/GELU since it's a
-//  supervised-regression brain trained over many epochs, not a from-scratch
-//  RL policy -- Tanh here instead, matching MlpArchitecture/
-//  LstmPolicyNetwork's own heads, keeps every layer's output bounded to
-//  [-1,1] so a freshly-initialized policy's logits stay modest and its
-//  softmax starts reasonably spread instead of already saturated on
-//  whichever action randomly got the largest pre-activation -- an unbounded
-//  ReLU stack compounds layer over layer and pins the softmax hard on one
-//  action from the very first tick, before training ever gets a chance to
-//  explore). "Same" padding (kernelSize / 2) keeps the time length through
-//  every conv for an odd kernel size; the pooling step reads the conv
-//  stack's actual output length rather than assuming it, so an even kernel
-//  size (off by one under this padding scheme) still narrows correctly
-//  instead of throwing.
-// ─────────────────────────────────────────────────────────────────────────
+
 using System.Collections.Generic;
 using TorchSharp;
 using TorchSharp.Modules;
@@ -39,12 +15,6 @@ internal sealed class CnnPolicyNetwork : Module<Tensor, Tensor>
     private readonly Linear _head1;
     private readonly Linear _head2;
 
-    // sequenceOffset: where the swept slice starts in the flat feature
-    // vector -- 0 (default) is every existing caller's BarWindow-at-the-front
-    // case; CnnArchitecture.BuildWithSweep passes a nonzero offset when the
-    // recipe's CnnKernelSweepSource points at a part sitting elsewhere in the
-    // composite (see ICnnSweepable). Scalars then become whatever sits
-    // before AND after the swept slice, not just a single trailing block.
     public CnnPolicyNetwork(
         string name, long sequenceLength, long scalarCount, int[] channels, int kernelSize, long actionCount, long sequenceOffset = 0)
         : base(name)
@@ -57,13 +27,7 @@ internal sealed class CnnPolicyNetwork : Module<Tensor, Tensor>
         _head1 = Linear(lastChannels * 2 + scalarCount, 32);
         _head2 = Linear(32, actionCount);
 
-        // TorchSharp's equivalent of PyTorch's automatic submodule discovery
-        // via self.foo = ... in __init__ -- required for this module's own
-        // .parameters()/.to()/.save()/.load() to traverse _convStack's own
-        // Conv1d layers plus _head1/_head2 (that's what makes
-        // MoveToTrainingDevice/ExportWeights/etc. on IPolicyGradientBrain
-        // work unmodified for this brain, and DescribeNetworkShape's
-        // named_modules() walk find every Conv1d inside _convStack).
+
         RegisterComponents();
     }
 
@@ -84,10 +48,6 @@ internal sealed class CnnPolicyNetwork : Module<Tensor, Tensor>
     {
         var window = input.narrow(1, _sequenceOffset, _sequenceLength).unsqueeze(1); // (batch, 1, sequenceLength)
 
-        // Scalars are whatever sits outside the swept slice -- a single
-        // trailing block when _sequenceOffset is 0 (every non-sweep caller),
-        // or the before+after halves either side of it when a sweep source
-        // sits elsewhere in the composite (see ICnnSweepable).
         long afterStart = _sequenceOffset + _sequenceLength;
         long afterLength = input.shape[1] - afterStart;
         var scalars = _sequenceOffset == 0

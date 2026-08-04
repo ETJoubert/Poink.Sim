@@ -1,12 +1,3 @@
-@* Dual-handle range slider replacing two datetime-local inputs for picking a
-   From/To span within [Min, Max]. Two overlapping native <input type=range>
-   thumbs (pointer-events trick, see .razor.css) so dragging is fully native --
-   no JS interop needed. Week gridlines along the rail are a visual reference
-   only (not independently clickable). The "full range" reset lives on
-   TickDataSource's toolbar row now, not here -- see TickDataSource.razor.
-   From/To labels double as buttons that open a Calendar popover, which owns
-   both date and minute-level time; the popover only closes on an outside
-   click (the backdrop below), never from picking a day or nudging the time. *@
 @using Poink.Sim.Components.Shared.Calendar
 
 <div class="drs @(Disabled ? "drs-disabled" : "")">
@@ -61,10 +52,7 @@
 
         <span class="drs-span-badge">@SpanLabel</span>
     </div>
-    @* <div class="drs-bounds">
-        <span>@Min.ToString("yyyy-MM-dd")</span>
-        <span>@Max.ToString("yyyy-MM-dd")</span>
-    </div> *@
+
 
 
 </div>

@@ -1,14 +1,4 @@
-// ── Recurrent network: LSTM over a leading sequence slice + trailing scalars ──
-//  Moved out of the now-deleted LstmPolicyBrain.cs unchanged -- built by
-//  LstmArchitecture (see that file) from whatever IObservationEncoder it's
-//  paired with, via windowSize/scalarCount rather than a brain-specific
-//  constant. LSTM over the sequence slice of a ComposedPolicyBrain's flat
-//  feature vector; its final hidden state (top layer) is concatenated with
-//  the trailing scalar slice and passed through a small MLP head to produce
-//  one logit per SimulationAction. Hand-written (not Sequential) since
-//  LSTM.forward returns a tuple, not a single Tensor Sequential can chain
-//  through.
-// ─────────────────────────────────────────────────────────────────────────
+
 using TorchSharp;
 using TorchSharp.Modules;
 using static TorchSharp.torch;
@@ -31,13 +21,6 @@ internal sealed class LstmPolicyNetwork : Module<Tensor, Tensor>
         _head1 = nn.Linear(hiddenSize + scalarCount, 32);
         _head2 = nn.Linear(32, actionCount);
 
-        // TorchSharp's equivalent of PyTorch's automatic submodule discovery
-        // via self.foo = ... in __init__ -- required for this module's own
-        // .parameters()/.to()/.save()/.load() to traverse _lstm/_head1/_head2
-        // (that's what makes MoveToTrainingDevice/ExportWeights/etc. on
-        // IPolicyGradientBrain work unmodified for this brain). Field
-        // declaration order here also drives DescribeNetworkShape's
-        // named_modules() traversal order -- don't reorder these three.
         RegisterComponents();
     }
 

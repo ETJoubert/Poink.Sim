@@ -1,11 +1,4 @@
-// ── v1 IActionOutputHead: sample one of a small fixed set of levels ─────
-//  Each enabled ActionOutputKind gets its own small independent categorical
-//  head (levels below), picked via CategoricalSampling -- the same manual
-//  cumulative-sum sampler ComposedPolicyBrain's direction pick uses, reused
-//  here rather than duplicated. Level tables mirror RandomBrain's existing
-//  fixed stop-loss/take-profit percentages (0.003/0.006) as their "Medium"
-//  entries.
-// ─────────────────────────────────────────────────────────────────────────
+
 using System.Collections.Generic;
 using System.Linq;
 using TorchSharp;
@@ -16,9 +9,7 @@ namespace Poink.Sim.Brain.Neural;
 
 internal sealed class DiscretizedLevelsActionHead : IActionOutputHead
 {
-    // Value: real units already (capital fraction 0..1 for Volume, percent-
-    // distance-from-price for StopLoss/TakeProfit); null = "don't set it"
-    // -- only meaningful for StopLoss/TakeProfit's "None" level.
+
     private static readonly IReadOnlyDictionary<ActionOutputKind, (string Label, double? Value)[]> LevelsByKind =
         new Dictionary<ActionOutputKind, (string, double?)[]>
         {
@@ -44,19 +35,13 @@ internal sealed class DiscretizedLevelsActionHead : IActionOutputHead
 
     public int OutputWidth => _levels.Length;
 
-    // Exposes each kind's fixed level labels without needing a Sample() call
-    // (which requires an actual output tensor) -- lets read-only previews
-    // (see TrainingPreview's Action Decoder column) show the same option set
-    // a live decode would collapse to.
+
     public static IReadOnlyList<string> GetLevelLabels(ActionOutputKind kind) =>
         LevelsByKind[kind].Select(l => l.Label).ToList();
 
     public (double? Value, Tensor LogProbability, IReadOnlyList<RlOutputFeature> Outputs) Sample(Tensor rawSlice)
     {
-        // Temperature only reshapes the Softmax branch's distribution --
-        // dividing HardMax's logits by a positive temperature before argmax
-        // can't change which index is largest, so it's skipped there (see
-        // BrainRecipe.DecisionTemperature's doc comment).
+
         var scaledSlice = _decoding == DecisionDecodingKind.HardMax ? rawSlice : rawSlice / _temperature;
         var logProbs = functional.log_softmax(scaledSlice, dim: 1);
         var probabilities = exp(logProbs);

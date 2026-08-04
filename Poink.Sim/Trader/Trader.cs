@@ -1,19 +1,4 @@
-// ── Trade execution + P&L: leveraged CFD account ─────────────────────────
-//  Applies Brain decisions to Capital/Position under real CFD mechanics:
-//  leveraged margin sizing, spread-correct fills (buy at Ask, sell at Bid),
-//  pluggable commission, and automatic SL/TP/margin-stop-out closes. Cash
-//  only moves on realized P&L and commission -- opening a position locks
-//  MarginUsed against Equity, it never withdraws from Cash (real broker
-//  Balance semantics). v1 requires an explicit Close before reversing
-//  direction; only one open position and at most one resting pending
-//  order at a time.
-//
-//  Two entry points per tick: Advance (unconditional, every raw tick --
-//  mark-to-market plus the SL/TP/stop-out/pending-order trigger checks,
-//  which all need real intrabar precision, not just decision-point
-//  precision) and Apply (once per Brain decision point -- market fills,
-//  queuing a Limit/Stop pending order, or closing/cancelling).
-// ─────────────────────────────────────────────────────────────────────────
+
 using System;
 using System.Collections.Generic;
 using Poink.Sim.Models;
@@ -30,10 +15,6 @@ internal sealed class Trader : ITrader
     private PendingOrder? _pendingOrder;
     private double _openCommissionCharge;
 
-    // Last tick's mid-price, updated unconditionally every Advance call --
-    // the reference point Advance diffs the new tick's mid against to grow
-    // CurrentPosition's CumulativeDistance. Null only before the very first
-    // tick this Trader has ever seen.
     private double? _lastMidPrice;
 
     public Trader(double startingCash, TraderSettings? settings = null)
@@ -53,13 +34,9 @@ internal sealed class Trader : ITrader
     public double Leverage => _settings.Leverage;
     public double StopOutLevelPercent => _settings.StopOutLevelPercent;
 
-    // Margin-at-entry convention: locked at Position.Size*EntryPrice/Leverage
-    // when opened, held static for the life of the position (not re-priced as
-    // the market moves), matching how real brokers report "used margin."
     public double MarginUsed => CurrentPosition is { } p ? p.Size * p.EntryPrice / _settings.Leverage : 0;
 
-    // Tracked incrementally off every Snapshot() call, rather than from a
-    // stored equity curve, so this stays O(1) memory for arbitrarily long runs.
+
     public double MaxEquity { get; private set; }
     public double MaxDrawdown { get; private set; }
 
@@ -73,28 +50,20 @@ internal sealed class Trader : ITrader
         double? marginLevel = marginUsed > 0 ? equity / marginUsed * 100.0 : null;
 
         var state = new CapitalState(Cash, RealizedPnl, unrealized, marginUsed, marginLevel);
-        if (state.Equity > _peakEquity) _peakEquity = state.Equity;
-        if (_peakEquity > MaxEquity) MaxEquity = _peakEquity;
+        if (state.Equity > _peakEquity)
+            _peakEquity = state.Equity;
+        if (_peakEquity > MaxEquity)
+            MaxEquity = _peakEquity;
         double drawdown = _peakEquity - state.Equity;
-        if (drawdown > MaxDrawdown) MaxDrawdown = drawdown;
+        if (drawdown > MaxDrawdown)
+            MaxDrawdown = drawdown;
         return state;
     }
 
-    // Per-tick maintenance, unconditional (called every raw tick regardless of
-    // the aggregation toggle -- see SimulationEngine/RlEpisodeRunner) so a
-    // resting order or a breached SL/TP/stop-out fires the instant price
-    // crosses it, not just at the next Brain decision point. Order: SL/TP
-    // first (an intended exit; SL wins if both breach the same tick), then
-    // stop-out (only relevant if still open), then a pending-order trigger
-    // (only relevant once flat).
+
     public MaintenanceResult Advance(double bid, double ask, DateTime timestamp)
     {
-        // Grows the still-open position's TicksHeld/CumulativeDistance by this
-        // tick before any SL/TP/stop-out check below -- the position experienced
-        // this tick's move whether or not it's what ends up closing it.
-        // _lastMidPrice updates unconditionally (position open or not) so
-        // whenever a position next opens, the following tick already has a real
-        // "last" price to diff against instead of degenerating to 0.
+
         double mid = (bid + ask) / 2.0;
         if (CurrentPosition is { } openPosition)
         {
@@ -118,7 +87,8 @@ internal sealed class Trader : ITrader
                     : position.TakeProfitPrice is { } tp && TakeProfitBreached(position.Direction, exitPrice, tp)
                         ? Close(bid, ask, timestamp, $"take-profit hit @ {exitPrice:F5}", TradeCloseReason.TakeProfit)
                         : null;
-            if (autoClose is { } fill) (fills ??= new List<TradeExecution>()).Add(fill);
+            if (autoClose is { } fill)
+                (fills ??= new List<TradeExecution>()).Add(fill);
         }
 
         if (CurrentPosition is { } stillOpen)
@@ -131,7 +101,8 @@ internal sealed class Trader : ITrader
             {
                 var stopOut = Close(bid, ask, timestamp,
                     $"stop-out: margin level {marginLevel:F1}% < {_settings.StopOutLevelPercent:F1}%", TradeCloseReason.StopOut);
-                if (stopOut is { } fill) (fills ??= new List<TradeExecution>()).Add(fill);
+                if (stopOut is { } fill)
+                    (fills ??= new List<TradeExecution>()).Add(fill);
             }
         }
 
@@ -140,15 +111,14 @@ internal sealed class Trader : ITrader
             _pendingOrder = null;
             var triggered = Open(pending.Direction, pending.CapitalFraction, pending.StopLossPrice,
                 pending.TakeProfitPrice, bid, ask, timestamp, pending.Reason);
-            if (triggered is { } fill) (fills ??= new List<TradeExecution>()).Add(fill);
+            if (triggered is { } fill)
+                (fills ??= new List<TradeExecution>()).Add(fill);
         }
 
         return new MaintenanceResult(Snapshot(bid, ask), (IReadOnlyList<TradeExecution>?)fills ?? Array.Empty<TradeExecution>());
     }
 
-    // Applies one Brain decision at the given tick's real Bid/Ask. Returns the
-    // fill's structured details (for the decision log), or null for a no-op
-    // (Hold, a queued pending order, or cancelling a pending order).
+
     public TradeExecution? Apply(SimulationDecision decision, double bid, double ask, DateTime timestamp)
     {
         return decision.Action switch
@@ -163,9 +133,7 @@ internal sealed class Trader : ITrader
         };
     }
 
-    // Close doing double duty as "cancel the resting pending order" (rather
-    // than a dedicated CancelPending action) keeps SimulationAction at its
-    // current 4 members -- see OrderType's doc comment on why that matters.
+
     private TradeExecution? CancelPendingOrder()
     {
         _pendingOrder = null;
@@ -174,13 +142,15 @@ internal sealed class Trader : ITrader
 
     private TradeExecution? EnterOrQueue(PositionDirection direction, SimulationDecision decision, double bid, double ask, DateTime time)
     {
-        if (CurrentPosition is not null || _pendingOrder is not null) return null;
+        if (CurrentPosition is not null || _pendingOrder is not null)
+            return null;
 
         var orderType = decision.OrderType ?? OrderType.Market;
         if (orderType == OrderType.Market)
             return Open(direction, decision.CapitalFraction, decision.StopLossPrice, decision.TakeProfitPrice, bid, ask, time, decision.Reason);
 
-        if (decision.TriggerPrice is not { } triggerPrice) return null; // Limit/Stop requires a trigger price
+        if (decision.TriggerPrice is not { } triggerPrice)
+            return null; // Limit/Stop requires a trigger price
 
         _pendingOrder = new PendingOrder(direction, orderType, triggerPrice, decision.CapitalFraction,
             decision.StopLossPrice, decision.TakeProfitPrice, time, decision.Reason);
@@ -191,14 +161,13 @@ internal sealed class Trader : ITrader
         double? takeProfitPrice, double bid, double ask, DateTime time, string? reason)
     {
         double fillPrice = direction == PositionDirection.Long ? ask : bid;
-        if (fillPrice <= 0) return null;
+        if (fillPrice <= 0)
+            return null;
 
-        // CapitalFraction is the fraction of Cash committed as margin, not
-        // notional -- notional scales up by Leverage from there. At Leverage=1
-        // this reproduces today's pre-CFD sizing exactly.
         double fraction = Math.Clamp(capitalFraction, 0, 1);
         double committed = fraction * Cash;
-        if (committed <= 0) return null;
+        if (committed <= 0)
+            return null;
 
         double notional = committed * _settings.Leverage;
         double size = notional / fillPrice;
@@ -215,7 +184,8 @@ internal sealed class Trader : ITrader
 
     private TradeExecution? Close(double bid, double ask, DateTime time, string? reason, TradeCloseReason closeReason)
     {
-        if (CurrentPosition is not { } position) return null;
+        if (CurrentPosition is not { } position)
+            return null;
 
         double exitPrice = position.Direction == PositionDirection.Long ? bid : ask;
         double grossPnl = position.UnrealizedPnl(bid, ask);
@@ -238,8 +208,7 @@ internal sealed class Trader : ITrader
     private static bool TakeProfitBreached(PositionDirection direction, double exitPrice, double takeProfitPrice) =>
         direction == PositionDirection.Long ? exitPrice >= takeProfitPrice : exitPrice <= takeProfitPrice;
 
-    // Standard FX/CFD trigger convention. Fills at the actual Bid/Ask (not the
-    // trigger price itself), so a gap-through produces realistic slippage.
+
     private static bool IsTriggered(PendingOrder order, double bid, double ask) => (order.Direction, order.OrderType) switch
     {
         (PositionDirection.Long, OrderType.Limit) => ask <= order.TriggerPrice,

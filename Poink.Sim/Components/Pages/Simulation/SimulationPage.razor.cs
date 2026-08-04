@@ -19,16 +19,10 @@ namespace Poink.Sim.Components.Pages
         [Inject] private SimulationEngine Service { get; set; } = default!;
         [Inject] private IJSRuntime JS { get; set; } = default!;
 
-        // RlTrainingService owns the same live ISimulationBrain singletons this
-        // page's SimulationEngine drives -- injected only for its brain
-        // metadata (BrainOptions/GetActiveSnapshot) to feed the BRAIN tab, not
-        // for anything training-related.
+
         [Inject] private RlTrainingService TrainingService { get; set; } = default!;
 
-        // Trained-model browse/delete (see SavedBrainsTable) now goes straight
-        // through ModelService -- TrainingService.LoadSavedBrain is still the
-        // one that actually imports weights into the live BrainRegistry
-        // instance, since only TrainingService has access to that registry.
+
         [Inject] private ModelService ModelService { get; set; } = default!;
 
         // ── Setup form state ──
@@ -40,11 +34,6 @@ namespace Poink.Sim.Components.Pages
         private int _barSizeSeconds = 60;
         private string _brainName = "";
 
-        // Which trained model (if any) the brain picker below currently has
-        // selected -- null for a heuristic strategy, which has no model.
-        // Loaded (via TrainingService.LoadSavedBrain) the moment it's picked,
-        // not deferred to Load Simulation, so "select a model" and "use its
-        // weights" are the same action -- see OnSimulationBrainChanged.
         private long? _modelId;
 
         private double _startingCash = 10_000;
@@ -67,60 +56,41 @@ namespace Poink.Sim.Components.Pages
         private int? _selectedTraderId;
         private LogTab _activeLogTab;
 
-        // Shared "how many of the most recent ticks" control -- drives both the
-        // TickVolumeProfileChart panel and the window-start marker on DrawableOhlcvChart,
-        // so it lives here rather than inside either chart component (see their [Parameter]s).
-        // Two selectors share this role depending on Config.Aggregate: bar-mode runs use
-        // a bar count (below), raw-tick runs fall back to this literal tick count since
-        // there are no bars to derive one from (SimulationEngine.RecentBars stays empty
-        // when Aggregate is off).
+
         private const int MaxTickWindow = 5000; // matches SimulationEngine.MaxRecentTicks
         private int _tickWindowSize = 200;
         private int ClampedTickWindow => Math.Clamp(_tickWindowSize, 2, MaxTickWindow);
         private double TickWindowFillPercent => ClampedTickWindow * 100.0 / MaxTickWindow;
 
-        // Bar-mode counterpart to the tick-count fallback above -- counts bars back
-        // from now rather than ticks. The volume profile itself is fed by merging
-        // these bars' own price histograms, see MergedBarSamples below.
+
         private const int MaxBarWindow = 300; // matches SimulationEngine.MaxRecentBars
         private int _barWindowSize = 50;
         private int ClampedBarWindow => Math.Clamp(_barWindowSize, 1, MaxBarWindow);
         private double BarWindowFillPercent => ClampedBarWindow * 100.0 / MaxBarWindow;
 
-        // Independent on/off switches for the three computed (non-Drawing) chart
-        // overlays -- same split and reasoning as ProfilerPage's own CHART OVERLAYS
-        // toggles (POC/VA has two separate places it renders: the profile panel
-        // itself vs. the projected chart lines). Aggregate-mode only, so no reset
-        // path is needed for raw-tick runs.
+
         private bool _showProfilePanelLevels = true;
         private bool _showProfileChartLines = true;
         private bool _showVwap = true;
 
-        // Merges the last ClampedBarWindow bars' price histograms into one weighted-sample
-        // list for TickVolumeProfileChart -- see BarPriceHistogram.Merge for how bars
-        // sharing one BucketWidth get summed bucket-for-bucket instead of needing the
-        // original per-tick prices back.
+
         private List<WeightedPriceSample> MergedBarSamples(SimulationSnapshot s) =>
             BarPriceHistogram.Merge(s.RecentBarHistograms, ClampedBarWindow)
                 .Select(t => new WeightedPriceSample(t.Price, t.Count, t.UpCount, t.DownCount))
                 .ToList();
 
-        // Bar-mode counterpart for TickTimeProfileChart -- see BarPriceHistogram.MergeTime
-        // for how each bucket's seconds are approximated from its bar's average tick
-        // interval, since bar mode retains no per-tick timestamps to measure directly.
+
         private List<WeightedTimeSample> MergedBarTimeSamples(SimulationSnapshot s) =>
             BarPriceHistogram.MergeTime(s.RecentBars, s.RecentBarHistograms, ClampedBarWindow)
                 .Select(t => new WeightedTimeSample(t.Price, t.Count, t.Seconds, t.UpSeconds, t.DownSeconds))
                 .ToList();
 
-        // Point of Control/Value Area over the same bar window MergedBarSamples above
-        // builds the volume profile panel from -- projected onto the main chart so they
-        // read directly against price action, not just inside the profile panel. See
-        // ProfilerPage.ProfileLevelLines for the same idea against its own window.
         private List<ChartHorizontalLine> ProfileLevelLines(SimulationSnapshot s)
         {
-            if (!_showProfileChartLines) return new();
-            if (VolumeProfileStats.Compute(MergedBarSamples(s)) is not { } levels) return new();
+            if (!_showProfileChartLines)
+                return new();
+            if (VolumeProfileStats.Compute(MergedBarSamples(s)) is not { } levels)
+                return new();
             return new()
             {
                 new ChartHorizontalLine(levels.Poc, "POC", "profile"),
@@ -129,13 +99,11 @@ namespace Poink.Sim.Components.Pages
             };
         }
 
-        // Cumulative volume-weighted average price over the last ClampedBarWindow bars --
-        // same window ProfileLevelLines above uses. HlocAvdtBar.Average/Volume already
-        // carry the tick-weighted mean price and tick count each bar needs, so this needs
-        // no histogram data at all (see ProfilerPage.VwapPoints for the same computation).
+
         private List<ChartLinePoint> VwapPoints(SimulationSnapshot s)
         {
-            if (!_showVwap) return new();
+            if (!_showVwap)
+                return new();
 
             var bars = s.RecentBars;
             var windowBars = bars.Count > ClampedBarWindow ? bars.Skip(bars.Count - ClampedBarWindow) : bars;
@@ -152,11 +120,6 @@ namespace Poink.Sim.Components.Pages
             return points;
         }
 
-        // Timestamp of the bar that starts the current window -- null once the window
-        // covers the whole buffer, so DrawableOhlcvChart knows to hide the marker rather
-        // than drawing it at the very first bar. Bars' own OpenTime is already a valid point
-        // on the chart's time axis (unlike an arbitrary tick timestamp), so no snapping
-        // is needed here the way the old tick-based version required.
         private DateTime? WindowStartUtc(IReadOnlyList<HlocAvdtBar> bars)
         {
             if (bars.Count <= ClampedBarWindow)
@@ -166,12 +129,7 @@ namespace Poink.Sim.Components.Pages
 
         private enum LogTab { Decisions, Positions, Traders, Brain, InputsOutputs, Statistics }
 
-        // ── Brain picker (heuristic strategies + trained models only -- see
-        // ModelService) ──
-        // A raw untrained/freshly-built neural brain never appears here: only
-        // a heuristic (ModelId null, nothing to train) or a specific trained
-        // snapshot (ModelId set) is selectable, unlike TrainPage's BrainSelect
-        // which lists every existing brain regardless of training state.
+
         private sealed record SimulationBrainOption(string DisplayName, string BrainName, long? ModelId);
 
         private IReadOnlyList<SimulationBrainOption> SimulationBrainOptions =>
@@ -180,10 +138,7 @@ namespace Poink.Sim.Components.Pages
                 .Concat(TrainingService.BrainOptions.Where(b => !b.IsNeuralNetwork).Select(b => new SimulationBrainOption(b.Name, b.Name, null)))
                 .ToList();
 
-        // A <select>'s value has to be one flat string -- encodes an option's
-        // identity as its ModelId (trained models) or BrainName (heuristics,
-        // which have no id) rather than DisplayName, which isn't guaranteed
-        // unique across models saved under the same name.
+
         private static string OptionKey(SimulationBrainOption option) =>
             option.ModelId is { } id ? $"model:{id}" : $"heuristic:{option.BrainName}";
 
@@ -195,7 +150,8 @@ namespace Poink.Sim.Components.Pages
         private void OnSimulationBrainChanged(ChangeEventArgs e)
         {
             var option = SimulationBrainOptions.FirstOrDefault(o => OptionKey(o) == (e.Value?.ToString() ?? ""));
-            if (option is null) return;
+            if (option is null)
+                return;
 
             _brainName = option.BrainName;
             _modelId = option.ModelId;
@@ -203,15 +159,11 @@ namespace Poink.Sim.Components.Pages
                 TrainingService.LoadSavedBrain(modelId);
         }
 
-        // The brain actually driving the loaded run (s.Config.BrainName) --
-        // deliberately not the Setup form's _brainName, which the user may
-        // have since changed to something not in use by this run.
+
         private bool CurrentBrainIsNeuralNetwork(string brainName) =>
             TrainingService.BrainOptions.FirstOrDefault(b => b.Name == brainName)?.IsNeuralNetwork ?? false;
 
-        // Falls back to the first trader whenever the selected id doesn't match
-        // (no snapshot yet, or a fresh load/reset restarted ids at 1) -- no explicit
-        // reset needed across load/reset/unload.
+
         private TraderSnapshot? SelectedTrader =>
             _snapshot is null
                 ? null
@@ -223,8 +175,7 @@ namespace Poink.Sim.Components.Pages
             Service.SelectTraderForIo(id);
         }
 
-        // null while flat -- distinguishes the chart's entry-price line's LONG/SHORT
-        // label (DrawableOhlcvChart doesn't otherwise depend on Poink.Sim.Models' PositionDirection).
+
         private bool? SelectedPositionIsLong => SelectedTrader?.Position?.Direction switch
         {
             PositionDirection.Long => true,
@@ -232,10 +183,7 @@ namespace Poink.Sim.Components.Pages
             null => null,
         };
 
-        // TraderControlsPanel takes plain primitives rather than TraderSnapshot
-        // (which is internal, like most of Poink.Sim's domain model, and the
-        // component has to stay public -- see TraderControlsPanel.razor.cs) --
-        // these translate SelectedTrader into that shape.
+
         private string SelectedTraderLabel => SelectedTrader?.Label ?? "";
         private bool SelectedTraderIsManual => SelectedTrader?.Mode == TraderControlMode.Manual;
 
@@ -282,12 +230,7 @@ namespace Poink.Sim.Components.Pages
             Service.OnChanged -= HandleServiceChanged;
         }
 
-        // ── Chart/volume-profile divider (drag to resize .sim-chart-side), and
-        // chart-row/log-panel divider (drag to resize .sim-chart's height) ──
 
-        // Purely a client-side layout preference -- nothing here round-trips back
-        // into .NET state, so no [JSInvokable]/DotNetObjectReference is needed,
-        // just eval + dispose.
         private ElementReference _chartDividerRef;
         private ElementReference _chartDividerRef2;
         private ElementReference _chartHDividerRef;
@@ -385,9 +328,7 @@ namespace Poink.Sim.Components.Pages
 
         // ── Saved brains (setup-only picker, see SavedBrainsTable) ──
 
-        // Loading also selects the snapshot's architecture as this page's brain,
-        // matching what the old plain <select> let you do directly -- picking a
-        // saved brain here is both "load these weights" and "use this brain".
+
         private void UseSavedBrain(TrainedModelSummary summary)
         {
             if (TrainingService.LoadSavedBrain(summary.Id))
@@ -426,9 +367,7 @@ namespace Poink.Sim.Components.Pages
                 _loadError = "a load is already in progress";
         }
 
-        // Shared by LoadSimulation/LoadDummySimulation -- sets _loadError itself
-        // (matching those callers' own inline-validation style) so both can just
-        // early-return on false.
+
         private bool ValidateTraderAccountParams()
         {
             if (_leverage < 1)
@@ -440,15 +379,10 @@ namespace Poink.Sim.Components.Pages
             return true;
         }
 
-        // Fires after the Bars checkbox or bar-size select changes, both in Setup
-        // (before a sim is loaded, where it just leaves the fields for LoadSimulation/
-        // LoadDummySimulation to read) and live. Service.SetAggregation no-ops and
-        // returns false when nothing is loaded yet, so one handler covers both states.
+
         private void OnAggregationSettingChanged() => Service.SetAggregation(_aggregate, TimeSpan.FromSeconds(_barSizeSeconds));
 
-        // Skips Postgres entirely (synthetic random-walk ticks) so the playback UI
-        // can be exercised without a running database -- no symbol/date-range
-        // validation, since neither is actually read from disk in this path.
+
         private void LoadDummySimulation()
         {
             _loadError = null;
@@ -488,14 +422,10 @@ namespace Poink.Sim.Components.Pages
 
         private void SetSpeed(double multiplier) => Service.SetSpeed(multiplier);
 
-        // Bounded speed presets the +/- stepper cycles through -- separate from
-        // Max, which is an uncapped mode the engine treats entirely differently
-        // (see SimulationEngine.SetMaxSpeed).
+
         private static readonly double[] Speeds = [0.1, 1.0, 10.0, 100.0, 1000.0, 10000.0];
 
-        // Falls back to the 1x slot when the engine's current multiplier doesn't
-        // land on a preset (e.g. right after loading) or while Max is active and
-        // holding the pre-Max value.
+
         private static int SpeedIndex(SimulationSnapshot s)
         {
             var i = Array.FindIndex(Speeds, sp => Math.Abs(sp - s.SpeedMultiplier) < 0.001);
@@ -508,9 +438,7 @@ namespace Poink.Sim.Components.Pages
 
         private static string FormatSpeed(double v) => (v < 1 ? v.ToString("0.#", CultureInfo.InvariantCulture) : v.ToString("0", CultureInfo.InvariantCulture)) + "x";
 
-        // Max: uncapped backend throughput (replaces the old separate Turbo
-        // button -- hiding the chart for faster high-speed rendering is now just
-        // the existing Hide Chart toggle, used independently of speed).
+
         private void SetMax() => Service.SetMaxSpeed();
 
         private void ToggleHideChart() => _hideChart = !_hideChart;
@@ -558,8 +486,7 @@ namespace Poink.Sim.Components.Pages
                     .Reverse()
                     .ToList();
 
-        // Plain doubles (not pre-formatted strings) so the copied DataTable's own
-        // N2 formatting applies -- CellClass below colors Realized/Unrealized by sign.
+
         private sealed record TraderCardItem(
             int Id, string Trader, double Cash, double Realized, double Unrealized, double Equity,
             double MarginUsed, double? MarginLevel, string Position, int Trades);
@@ -574,8 +501,6 @@ namespace Poink.Sim.Components.Pages
                         t.Position is null ? "flat" : t.Position.Value.Direction.ToString(), t.TradeCount))
                     .ToList();
 
-        // Returns DataTable's own scoped color classes (its CSS is isolated to that
-        // component, so SimulationPage's sim-pnl-* classes wouldn't apply here).
         private static string TraderCellClass(TraderCardItem item, string propName) => propName switch
         {
             nameof(TraderCardItem.Realized) => DataTablePnlClass(item.Realized),
@@ -590,9 +515,7 @@ namespace Poink.Sim.Components.Pages
             _ => "",
         };
 
-        // Plain nullable double (not a pre-formatted string) for RealizedPnl so the copied
-        // DataTable's own N2 formatting applies -- DecisionLogCellClass below colors it by
-        // sign, same pattern as TraderCardItem/TraderCellClass above.
+
         private sealed record DecisionLogRow(
             string Time, string Action, string Direction, string Size, string Price, double? RealizedPnl, double Commission, string Reason);
 
@@ -620,13 +543,7 @@ namespace Poink.Sim.Components.Pages
             _ => "",
         };
 
-        // v1 (Trader.cs) only ever holds one open Position at a time, so this is
-        // 0-or-1 rows today; the table shape is what lets multi-position support
-        // slot in later as "more rows" instead of a UI rework.
-        //
-        // UnrealizedPnl stays a plain nullable double (not a pre-formatted string) so the
-        // copied DataTable's own N2 formatting applies -- PositionCellClass below colors it
-        // by sign, same pattern as TraderCardItem/TraderCellClass above.
+
         private sealed record OpenPositionRow(string Direction, string Size, string EntryPrice, string EntryTime, double? UnrealizedPnl);
 
         private static string PositionCellClass(OpenPositionRow item, string propName) => propName switch
@@ -635,9 +552,7 @@ namespace Poink.Sim.Components.Pages
             _ => "",
         };
 
-        // Derived once per render from the selected trader's full closed-trade log
-        // (TraderSnapshot.Trades) plus the equity extremes Trader tracks incrementally.
-        // See TradeStatistics for the metrics themselves and their category grouping.
+
         private TradeStatistics? Stats =>
             SelectedTrader is not { } trader
                 ? null

@@ -1,11 +1,4 @@
-// ── Headless RL training orchestrator ────────────────────────────────────
-//  Same shape as every *TrainingService in Poink.ML (_lock/IsRunning/Error/
-//  OnChanged, kicked off via fire-and-forget Task.Run) and as SimulationEngine
-//  here, but drives RlEpisodeRunner in a tight loop instead of a UI-paced
-//  Timer -- training needs to blast through many episodes fast. One
-//  optimizer is created for the whole run (not per episode) so Adam's
-//  momentum/variance state persists correctly across episodes.
-// ─────────────────────────────────────────────────────────────────────────
+
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -23,15 +16,8 @@ using Poink.Sim.Simulation;
 
 namespace Poink.Sim.Training;
 
-// One entry in the Brain picker -- IsNeuralNetwork is what lets the UI (see
-// BrainSelect) visually separate trained/trainable brains from stateless
-// heuristic ones, without the picker needing to know about
-// IPolicyGradientBrain itself. Public because it's passed as a [Parameter]
-// into that Razor component (see RlEpisodeMetric's doc comment for why).
 public sealed record BrainOption(string Name, bool IsNeuralNetwork);
 
-// One row of RlTrainingService.RecentLog -- Level is "info" or "error", same
-// two-level scheme SimulationEngine's SimulationLogEntry uses.
 internal sealed record RlTrainingLogEntry(DateTime TimestampUtc, string Level, string Message);
 
 internal sealed class RlTrainingService
@@ -40,26 +26,15 @@ internal sealed class RlTrainingService
     private const int MaxMetricsLog = 500;
     private const int MaxLogEntries = 200;
 
-    // Per-episode progress lines would spam a 200-entry log within one run --
-    // only every Nth episode (plus the first) gets a line; pause/resume/step/
-    // stop/save/load/error lines are unthrottled since they're user-driven.
+
     private const int EpisodeLogInterval = 10;
 
-    // How many extra bars' worth of ticks to fetch beyond episodeBars -- a
-    // safety margin so the aggregator reliably completes the *last* requested
-    // bar even when the fetch window ends right at its boundary.
+
     private const int EpisodeSpanBufferBars = 1;
 
-    // How many episodes' ticks the background prefetch producer is allowed to
-    // stage ahead of the training loop -- bounds memory to at most this many
-    // episodes' fetchSpan windows (never the historicRange as a whole) while
-    // giving the DB read enough slack to ride out an occasionally slow fetch
-    // without stalling the loop. Postgres has plenty of headroom for this.
+
     private const int PrefetchDepth = 3;
 
-    // Synthetic episodes have no real tick density to match -- 1 tick/sec is
-    // "good enough to exercise playback/aggregation/brain wiring" (see
-    // DummyTickGenerator's own doc comment) without an unreasonably large list.
     private const double SyntheticTickIntervalSeconds = 1.0;
 
     private readonly object _lock = new();
@@ -76,55 +51,25 @@ internal sealed class RlTrainingService
     private readonly Trader.ITraderFactory _traderFactory;
     private readonly ILogger<RlTrainingService> _logger;
 
-    // Which saved snapshot (if any) a live brain's current weights actually
-    // match -- keyed by brain architecture name. Set on load/save, cleared the
-    // moment that brain starts training again (its weights immediately diverge
-    // from whatever was last saved). Read by SimulationPage's Brain info card.
+
     private readonly Dictionary<string, long> _activeSnapshotId = new();
 
-    // The exact encoders/architecture/hidden sizes a runtime-built brain was
-    // constructed from -- keyed by brain Name, populated by TryBuildBrain and
-    // read back by SaveBrain/LoadSavedBrain so a brain can be reconstructed
-    // after a restart wipes it from BrainRegistry (see BrainRecipe's doc
-    // comment). No entry for the four Program.cs-fixed brains -- they never
-    // need reconstruction, so SaveBrain persists null for them.
+
     private readonly Dictionary<string, BrainRecipe> _brainRecipes = new();
 
-    // Names of brains registered live by TryBuildDraftBrain but never
-    // persisted via TryBuildBrain ("Save Brain") -- lets a Build panel tweak
-    // rebuild-and-replace under the same name freely (see
-    // TryBuildDraftBrain), while a name collision with anything else still
-    // fails the same way it always has. Cleared for a name the moment it's
-    // saved.
+
     private readonly HashSet<string> _draftBrainNames = new();
 
-    // Actual completed episodes for this brain in this process -- keyed by
-    // brain Name, NOT the Train page form's configured target episode count
-    // (that's just what a run was asked to do, not what happened; saving it
-    // made an untrained, just-built brain indistinguishable from a properly
-    // trained one). Updated every episode by TryStartTraining's loop.
+
     private readonly Dictionary<string, int> _episodesTrainedByBrain = new();
 
-    // When this brain last completed a training episode -- keyed by brain
-    // Name, distinct from a saved snapshot's SavedAt (which is just when Save
-    // Model was clicked). Absent means never trained in this process.
     private readonly Dictionary<string, DateTime> _lastTrainedAt = new();
 
-    // Pause/Stop signaling for the training loop below -- checked only between
-    // episodes (there's no per-step checkpoint to interrupt mid-episode), so
-    // both take effect once the in-flight episode finishes. Starts signaled
-    // (open gate) so a fresh run never blocks; Pause closes the gate, Resume
-    // or Stop reopens it so a paused loop can observe _stopRequested and exit
-    // cleanly instead of blocking forever.
+
     private readonly ManualResetEventSlim _resumeSignal = new(true);
     private volatile bool _stopRequested;
 
-    // Set for exactly one upcoming episode -- the training loop below checks
-    // this right after that episode completes and, if set, auto-pauses (same
-    // effect as PauseTraining) instead of continuing straight into the next
-    // one. Drives StepTraining (advance one episode from an already-paused
-    // run) and TryStartTraining's pauseAfterFirstEpisode (start a run already
-    // stepped, for stepping through from the very first episode).
+
     private volatile bool _pauseAfterNextEpisode;
 
     public RlTrainingService(
@@ -141,15 +86,7 @@ internal sealed class RlTrainingService
         _traderFactory = traderFactory;
         _logger = logger;
 
-        // ModelService already loaded its own cache at its own construction
-        // (with its own try/catch -- Postgres being unreachable at startup, or
-        // nothing ever having been saved, shouldn't stop the app from coming
-        // up untrained) -- read straight off it rather than keeping a second,
-        // separately-refreshed copy here.
-        //
-        // Per-brain try/catch -- one stale/incompatible saved snapshot (e.g. from
-        // before an encoder's feature shape changed) must not abort restoring
-        // every other brain too; each brain's restore stands on its own.
+
         foreach (var latest in _modelService.Models.GroupBy(m => m.BrainName).Select(g => g.OrderByDescending(m => m.SavedAt).First()))
         {
             var brain = _brainRegistry.All.OfType<IPolicyGradientBrain>().FirstOrDefault(b => b.Name == latest.BrainName);
@@ -173,49 +110,27 @@ internal sealed class RlTrainingService
         }
     }
 
-    // Null if this brain's live weights don't (or no longer) match any saved
-    // snapshot -- e.g. it's never been saved, or it's been trained further
-    // since the last save/load.
     public TrainedModelSummary? GetActiveSnapshot(string brainName) =>
         _activeSnapshotId.TryGetValue(brainName, out var id) ? _modelService.Models.FirstOrDefault(m => m.Id == id) : null;
 
-    // The encoder/architecture/action recipe behind a brain name, checked
-    // live-first (freshest, for a brain built/rebuilt this process) then
-    // falling back to its saved network row (survives a restart) -- read by
-    // BrainBuilder.razor.cs to pre-fill its panel from the Brain Type picker's
-    // current selection. Null for a heuristic brain, or a neural one wiped
-    // from BrainRegistry and never persisted as a network.
+
     public BrainRecipe? GetRecipe(string brainName) =>
         _brainRecipes.TryGetValue(brainName, out var recipe) ? recipe : _brainService.Brains.FirstOrDefault(b => b.Name == brainName)?.Recipe;
 
-    // Empty for an unknown or non-neural brain name -- see
-    // IPolicyGradientBrain.DescribeNetworkShape for what feeds the Train
-    // page's Network Activity animation.
+
     public IReadOnlyList<NetworkLayerShape> DescribeNetworkShape(string brainName) =>
         _brainRegistry.All.OfType<IPolicyGradientBrain>().FirstOrDefault(b => b.Name == brainName)?.DescribeNetworkShape() ?? [];
 
-    // How far back this brain looks, in bars -- 0 for an unknown name or a
-    // non-policy-gradient brain. Every windowed encoder already defines its
-    // own WarmupBars as exactly its window/lookback (see BarWindowEncoder/
-    // VolumeProfileEncoder/TimeProfileEncoder), and CompositeEncoder.WarmupBars
-    // is the Max across whichever of them a brain was built with -- so this
-    // is a single generic source covering every brain shape, unlike the old
-    // profile-only GetLookbackBars it replaces. Read by the Train page's
-    // episode replay to size its "what range the trader sees" chart marker.
+
     public int GetWarmupBars(string brainName) =>
         (_brainRegistry.All.OfType<IPolicyGradientBrain>().FirstOrDefault(b => b.Name == brainName))?.WarmupBars ?? 0;
 
     public IReadOnlyList<string> BrainNames => _brainRegistry.All.Select(b => b.Name).ToList();
 
-    // Live but not-yet-saved Build panel drafts -- read by BrainBuilder to
-    // fold into its Brain Type picker alongside BrainService's saved
-    // networks, so a brain trained straight off an unsaved config (see
-    // TryBuildDraftBrain) is still selectable/inspectable from the picker.
+
     public IReadOnlyList<string> DraftBrainNames => _draftBrainNames.ToList();
 
-    // NN vs non-NN is just "does this brain have trainable weights" --
-    // IPolicyGradientBrain is the only family that does today (see that
-    // interface's doc comment on why a heuristic brain never implements it).
+
     public IReadOnlyList<BrainOption> BrainOptions =>
         _brainRegistry.All.Select(b => new BrainOption(b.Name, b is IPolicyGradientBrain)).ToList();
 
@@ -232,115 +147,58 @@ internal sealed class RlTrainingService
     public double BestReward { get; private set; }
     public double WorstReward { get; private set; }
 
-    // Rolling rate over the last RecentRewardWindow episodes (same window as
-    // RecentAverageReward), not a whole-run average -- timing starts fresh
-    // after each pause/resume/step, so a paused run doesn't drag this down.
+
     public double EpisodesPerSecond { get; private set; }
     public RlActionCounts ActionCounts { get; private set; } = RlActionCounts.Empty;
 
-    // Labeled snapshot of the most recent episode's final decision inputs --
-    // null until the first episode with a describable (IPolicyGradientBrain)
-    // brain completes. See RlEpisode's doc comment for why this is per-episode
-    // rather than a per-tick stream.
+
     public IReadOnlyList<RlInputFeature>? LatestInputs { get; private set; }
 
-    // Same episode/decision as LatestInputs above -- what the network decided
-    // from those inputs (see RlOutputFeature's doc comment), for the Train
-    // page's "what the network decided" panel.
+
     public IReadOnlyList<RlOutputFeature>? LatestOutputs { get; private set; }
 
-    // The most recently completed episode's full bar/histogram sequence --
-    // overwritten every episode (unlike RecentEpisodes/RecentEpisodeTrades,
-    // there's no bounded history of many episodes' worth here, just the
-    // latest one) so the Train page's "current episode" bar chart and
-    // volume/price profiles have something to show, paired well with the
-    // STEP control for pausing on exactly one episode at a time.
+
     public IReadOnlyList<HlocAvdtBar> LatestEpisodeBars { get; private set; } = Array.Empty<HlocAvdtBar>();
     public IReadOnlyList<BarPriceHistogram> LatestEpisodeBarHistograms { get; private set; } = Array.Empty<BarPriceHistogram>();
 
-    // How many of LatestEpisodeBars' leading entries are warm-up (history-
-    // building, no decision -- see RlEpisode.WarmupBars) -- LatestEpisodeBars
-    // [LatestEpisodeWarmupBars] is the first bar a decision was actually made
-    // on. LatestEpisodeBarInputs/BarEquity/BarOutputs below cover only that
-    // decision segment, so a caller indexing across both (e.g. TrainLiveTab's
-    // episode replay) must offset by this. 0 for a brain with no windowed
-    // encoder.
+
     public int LatestEpisodeWarmupBars { get; private set; }
 
-    // Same episode as LatestEpisodeBars above (set together, every episode) --
-    // its closed-trade log, for the Train page's episode replay to draw as
-    // entry-to-exit lines on the bar chart as playback reveals each trade's
-    // exit bar.
+
     public IReadOnlyList<Trade> LatestEpisodeTrades { get; private set; } = Array.Empty<Trade>();
 
-    // Same episode as LatestEpisodeBars above, but only its decision bars --
-    // index-aligned 1:1 with LatestEpisodeBars[LatestEpisodeWarmupBars..], not
-    // LatestEpisodeBars itself (see LatestEpisodeWarmupBars above). Each entry
-    // is what DescribeInputs saw as of that bar's decision, so the Train
-    // page's episode replay can show "what the network saw" synced to
-    // whichever decision bar is currently revealed, not just the episode's
-    // last one (see LatestInputs above, which this doesn't replace).
+
     public IReadOnlyList<IReadOnlyList<RlInputFeature>> LatestEpisodeBarInputs { get; private set; } = Array.Empty<IReadOnlyList<RlInputFeature>>();
 
-    // Index-aligned 1:1 with LatestEpisodeBarInputs (not LatestEpisodeBars --
-    // both share the same IPolicyGradientBrain gate and LatestEpisodeWarmupBars
-    // offset) -- each entry is that decision's pre-Apply equity, one of the
-    // two anchors the Train page's de-normalized inputs toggle can invert a
-    // feature against (see RlEpisode.BarEquity's doc comment).
+
     public IReadOnlyList<double> LatestEpisodeBarEquity { get; private set; } = Array.Empty<double>();
 
-    // Same episode as LatestEpisodeBars above, index-aligned 1:1 with
-    // LatestEpisodeBarInputs (same LatestEpisodeWarmupBars offset) -- each
-    // entry is what the network decided as of that bar's decision (see
-    // LatestOutputs above, which this doesn't replace, and RlOutputFeature's
-    // doc comment).
     public IReadOnlyList<IReadOnlyList<RlOutputFeature>> LatestEpisodeBarOutputs { get; private set; } = Array.Empty<IReadOnlyList<RlOutputFeature>>();
 
-    // Same episode as LatestEpisodeBars above, index-aligned 1:1 with
-    // LatestEpisodeBarInputs (same LatestEpisodeWarmupBars offset) -- but
-    // populated for every brain, not just an IPolicyGradientBrain (see
-    // RlBarAction's doc comment). Feeds the Train page's episode replay action
-    // markers and current-position SL/TP lines.
+
     public IReadOnlyList<RlBarAction> LatestEpisodeBarActions { get; private set; } = Array.Empty<RlBarAction>();
 
-    // Bounded log of every completed episode this run -- the toggleable
-    // "visual feedback" the Train page renders as a table, most-recent-first.
+
     public IReadOnlyList<RlEpisodeMetric> RecentEpisodes
     {
         get { lock (_lock) { return _episodeMetrics.ToList(); } }
     }
 
-    // Same bounded window as RecentEpisodes above, pairing each entry's full
-    // trade log/equity extremes with its episode number -- lets the Train page
-    // derive TradeStatistics per episode, or pooled across this whole window
-    // as a "session" rollup (see TrainLiveTab's EpisodeTraderStatsRows/
-    // SessionTraderStatsRows).
+
     public IReadOnlyList<RlEpisodeTrades> RecentEpisodeTrades
     {
         get { lock (_lock) { return _episodeTrades.ToList(); } }
     }
 
-    // Same bounded window as RecentEpisodes above, but only populated for a
-    // historic run (see TryStartTraining's loop below) -- a synthetic/dummy
-    // run has no real data range to plot against, so this stays empty for
-    // one. Feeds the Train page's data-coverage timeline (see
-    // EpisodeCoverageTimeline), which shades each bars/episode-length block
-    // of the selected range by how many of these windows overlap it.
+
     public IReadOnlyList<RlEpisodeWindow> RecentEpisodeWindows
     {
         get { lock (_lock) { return _episodeWindows.ToList(); } }
     }
 
-    // Set by SaveBrain(); read by the Train page to show what happened after
-    // clicking "Save Model". Separate from Error, which is only ever set by a
-    // training run itself.
     public string? SaveStatus { get; private set; }
 
-    // Bounded, chronological (oldest-first) UI-visible log for the whole
-    // service lifetime -- not cleared on start, so a fresh run's "start:"
-    // line stays visible alongside the previous run's outcome. Mirrors
-    // SimulationEngine.RecentLog's RingBuffer<T> pattern; the Train
-    // dashboard reverses this for most-recent-first display.
+
     public IReadOnlyList<RlTrainingLogEntry> RecentLog
     {
         get { lock (_lock) { return _trainingLog.ToList(); } }
@@ -348,26 +206,14 @@ internal sealed class RlTrainingService
 
     public event Action? OnChanged;
 
-    // Takes _lock itself (Monitor is reentrant, so this is safe to call from
-    // inside an existing lock block too) -- RingBuffer<T> isn't thread-safe,
-    // and this is written from the background training-loop thread while
-    // RecentLog is read from Blazor's render thread. Deliberately doesn't
-    // raise OnChanged -- every call site sits right next to an existing
-    // OnChanged?.Invoke(), so the log rides that same render cadence instead
-    // of forcing an extra re-render.
+
     private void AppendLog(string level, string message)
     {
         lock (_lock)
         { _trainingLog.Add(new RlTrainingLogEntry(DateTime.UtcNow, level, message)); }
     }
 
-    // historicRange identifies a table + time range to sample from -- each
-    // episode pulls its own bounded window straight from Postgres via
-    // ITickRepository.ReadTicks (chunk-pruned by Timescale), so nothing here
-    // ever materializes the full range. Null means synthetic random-walk
-    // episodes. pauseAfterFirstEpisode starts the run already stepped (see
-    // StepTraining) -- lets a user step through from episode 1 without first
-    // running a normal Start.
+
     public bool TryStartTraining(
         string brainName, string strategyName, string rewardPolicyName, int episodeCount, int episodeBars, int barWidthSeconds, double startingCash,
         double learningRate, (string Table, DateTime From, DateTime To)? historicRange,
@@ -377,11 +223,7 @@ internal sealed class RlTrainingService
         var timeConstraint = episodeTimeConstraint ?? EpisodeTimeConstraint.None;
         var brain = _brainRegistry.All.FirstOrDefault(b => b.Name == brainName);
 
-        // No hardcoded neural brains exist anymore -- the Brain Type picker
-        // lists saved networks (see NetworkService), which may not have a
-        // live BrainRegistry instance yet if they've never been built or
-        // trained this process (e.g. right after a restart). Build and
-        // register one from the saved recipe on demand rather than failing.
+
         if (brain is null)
         {
             var network = _brainService.Brains.FirstOrDefault(n => n.Name == brainName);
@@ -447,17 +289,11 @@ internal sealed class RlTrainingService
             _activeSnapshotId.Remove(brain.Name);
         }
 
-        // See IPolicyGradientBrain's device-placement doc comment -- safe here
-        // because IsRunning above already rejects a second concurrent run on
-        // this same brain, and this app's usage is train-then-simulate, never
-        // simulating this brain while it's mid-training.
+
         if (brain is IPolicyGradientBrain trainableBrain)
             trainableBrain.MoveToTrainingDevice();
 
-        // Every windowed encoder's lookback/window is baked in at brain-build
-        // time now (see EncoderSizeOptions), so WarmupBars just reads
-        // straight off the brain -- 0 for a brain with no windowed encoder
-        // (e.g. a bare TraderStateEncoder brain) or a non-policy-gradient brain.
+
         int warmupBars = brain is IPolicyGradientBrain warmupAwareBrain ? warmupAwareBrain.WarmupBars : 0;
 
         OnChanged?.Invoke();
@@ -474,20 +310,12 @@ internal sealed class RlTrainingService
             $"start: brain={brainName}, strategy={strategyName}, policy={rewardPolicyName}, {episodeCount} episodes x {episodeBars} bars @ {BarSizeOptions.Label(barWidthSeconds)}, lr={learningRate:N4}, cash={startingCash:N0}, source={source}, timing={timing}");
 
         var barWidth = TimeSpan.FromSeconds(barWidthSeconds);
-        // +warmupBars so the brain's lookback window is full of real episode
-        // data by the time its first decision happens (see RlEpisodeRunner's
-        // warmupBars doc comment) -- never zero-padded/undersized history.
+
         var fetchSpan = barWidth * (episodeBars + warmupBars + EpisodeSpanBufferBars);
-        // How far before an episode's decisions begin the fetch needs to reach for
-        // warm-up context -- see RandomConstrainedEpisodeWindow, which anchors a
-        // constrained episode's decisions to exactly SessionStart, so this is what
-        // it reads backward from there (may dip before the session's own day,
-        // same tolerated imperfection as an unrestricted run starting near `from`).
+
         var warmupSpan = barWidth * warmupBars;
 
-        // Guards the prefetch producer/channel below -- declared outside the try so the
-        // finally block can always reach them, even if the range-length check throws
-        // before either is ever assigned.
+
         CancellationTokenSource? prefetchCts = null;
         Task? prefetchProducerTask = null;
 
@@ -518,20 +346,12 @@ internal sealed class RlTrainingService
 
                 var optimizer = strategy.CreateOptimizer(brain, learningRate);
                 var recentRewards = new Queue<double>();
-                // Same RecentRewardWindow-sized rolling window as recentRewards above,
-                // but of wall-clock seconds per episode -- restarted right after the
-                // resume gate opens, so a pause/step's wait time never counts.
+
                 var recentEpisodeDurations = new Queue<double>();
                 var episodeStopwatch = new Stopwatch();
                 var rng = new Random();
                 int syntheticTickCount = Math.Max(2, (int)(fetchSpan.TotalSeconds / SyntheticTickIntervalSeconds));
 
-                // Bounded queue of PrefetchDepth episodes' worth of ticks -- the producer
-                // below keeps it topped up on a ThreadPool thread while the loop trains,
-                // so the loop only ever blocks on a fetch if the DB genuinely can't keep
-                // up with PrefetchDepth episodes of slack. `rng` is only ever touched from
-                // this one producer loop (never from the consumer below), so its
-                // not-thread-safe state stays safe despite the two running concurrently.
                 var episodeQueue = Channel.CreateBounded<List<Tick>>(
                     new BoundedChannelOptions(PrefetchDepth) { SingleReader = true, SingleWriter = true });
                 prefetchCts = new CancellationTokenSource();
@@ -573,9 +393,7 @@ internal sealed class RlTrainingService
                     var result = RlEpisodeRunner.Run(
                         brain, episodeTicks, startingCash, episodeBars, barWidth, _traderFactory,
                         settings: traderSettings, warmupBars: warmupBars, rewardPolicy: rewardPolicy);
-                    // Reaches exactly 1.0 on the run's last episode (not just approaching
-                    // it) so an annealed hyperparameter (see TrainEpisode's progress doc
-                    // comment) finishes fully annealed rather than asymptotically close.
+
                     double progress = episodeCount > 1 ? (double)episode / (episodeCount - 1) : 1.0;
                     double reward = strategy.TrainEpisode(brain, optimizer, result, progress);
 
@@ -631,10 +449,7 @@ internal sealed class RlTrainingService
                         AppendLog("info", $"episode {EpisodesCompleted}/{episodeCount}: reward={reward:N2}, equity={result.FinalCapital.Equity:N2}, avg={RecentAverageReward:N2}");
                     OnChanged?.Invoke();
 
-                    // Consume the one-shot step flag right after the episode it
-                    // was requested for -- same effect as PauseTraining, so the
-                    // loop's next _resumeSignal.Wait() blocks until Resume or
-                    // another StepTraining call reopens the gate.
+
                     if (_pauseAfterNextEpisode)
                     {
                         _pauseAfterNextEpisode = false;
@@ -672,14 +487,12 @@ internal sealed class RlTrainingService
             }
             finally
             {
-                // Stop the prefetch producer and wait for it to actually unwind before
-                // this Task.Run returns -- otherwise a stop/error here would leave it
-                // running in the background against a channel nobody's reading anymore,
-                // and its exception (if any) would go unobserved.
+
                 if (prefetchCts is not null)
                 {
                     prefetchCts.Cancel();
-                    try { prefetchProducerTask?.GetAwaiter().GetResult(); }
+                    try
+                    { prefetchProducerTask?.GetAwaiter().GetResult(); }
                     catch { /* already surfaced above, or a clean cancellation -- either way nothing more to do */ }
                     prefetchCts.Dispose();
                 }
@@ -693,12 +506,6 @@ internal sealed class RlTrainingService
         return true;
     }
 
-    // Clears this run's episodes/metrics/charts back to a blank slate --
-    // same fields TryStartTraining zeroes before a new run, but callable on
-    // its own so the Train page's Reset button can wipe a finished/stopped
-    // run's results without kicking off another one. No-op (returns false)
-    // while a run is still in progress -- there's nothing to reset until the
-    // loop's finally block flips IsRunning back off.
     public bool ResetRun()
     {
         lock (_lock)
@@ -733,8 +540,7 @@ internal sealed class RlTrainingService
         return true;
     }
 
-    // Closes the resume gate so the loop above blocks before starting its
-    // next episode. No-op if nothing is running or it's already paused.
+
     public void PauseTraining()
     {
         lock (_lock)
@@ -761,11 +567,6 @@ internal sealed class RlTrainingService
         OnChanged?.Invoke();
     }
 
-    // Reopens the gate for exactly one episode, then the training loop's own
-    // _pauseAfterNextEpisode check re-closes it -- lets a user advance a
-    // paused run one episode at a time instead of Resume's free-run. No-op
-    // unless a run is currently paused (see TryStartTraining's
-    // pauseAfterFirstEpisode for stepping from a not-yet-started run).
     public void StepTraining()
     {
         lock (_lock)
@@ -780,10 +581,6 @@ internal sealed class RlTrainingService
         OnChanged?.Invoke();
     }
 
-    // Reopens the resume gate (in case it was paused, so the loop can
-    // actually observe _stopRequested instead of blocking forever) and asks
-    // the loop to exit after its in-flight episode -- IsRunning only flips
-    // back to false once that happens, via the loop's own finally block.
     public void StopTraining()
     {
         lock (_lock)
@@ -798,15 +595,7 @@ internal sealed class RlTrainingService
         OnChanged?.Invoke();
     }
 
-    // Assembles a ComposedPolicyBrain from a BrainRecipe's encoder/architecture/
-    // action choices -- the single construction path shared by TryBuildBrain,
-    // LoadSavedBrain's rebuild-from-recipe path, and TryStartTraining's
-    // lazy-build-from-saved-network path, so all three can never drift apart.
-    // TraderStateEncoder is just whichever EncoderKind the recipe picked (see
-    // BrainCatalog's doc comment) -- no longer force-appended. Breaking change
-    // for any brain saved before this: its recipe never listed TraderState
-    // (it wasn't a pickable EncoderKind yet), so it now loads one encoder
-    // narrower than what its saved weights expect -- rebuild/retrain needed.
+
     private static IPolicyGradientBrain BuildFromRecipe(string name, BrainRecipe recipe)
     {
         var parts = recipe.EncoderKinds.Select(k => BrainCatalog.CreateEncoder(k, recipe.EncoderSizes)).ToArray();
@@ -818,14 +607,7 @@ internal sealed class RlTrainingService
             name, architecture, actionOutputHeads, directions, recipe.DecisionDecoding, recipe.DecisionTemperature, recipe.CnnKernelSweepSource, parts);
     }
 
-    // Shared validation for TryBuildBrain/TryBuildDraftBrain -- doesn't
-    // reject a name collision by itself: both callers treat an existing
-    // live brain under the requested name as theirs to reuse/replace, since
-    // Brain Builder only ever asks for a name the user explicitly chose
-    // (typed, or picked from the identity it just loaded). The one name a
-    // collision still blocks is one of Program.cs's fixed brains -- never
-    // IPolicyGradientBrain, the only kind either caller ever builds -- so a
-    // stray name clash with a built-in brain can't silently shadow it.
+
     private bool ValidateBuildRequest(string name, IReadOnlyList<EncoderKind> encoderKinds, IReadOnlyList<SimulationAction>? enabledDirections)
     {
         if (string.IsNullOrWhiteSpace(name))
@@ -839,22 +621,11 @@ internal sealed class RlTrainingService
         return true;
     }
 
-    // Builds a live-only brain from the Brain Builder panel's current config
-    // and registers it for immediate use -- never persisted to storage (see
-    // TryBuildBrain, which "Save Brain" calls instead). Called automatically
-    // right before a training run starts whenever the current config
-    // doesn't match what's saved (see BrainBuilder.PrepareBrainForTraining),
-    // so tweaking parameters between runs never requires committing
-    // anything to the database. Rebuilding under a name that's already live
-    // -- whether an earlier draft or a previously-saved brain being tweaked
-    // further -- discards its current weights and starts fresh: every Start
-    // Training click while the config is unsaved trains exactly what's
-    // currently configured, never leftovers from before.
     public bool TryBuildDraftBrain(
-        string name, IReadOnlyList<EncoderKind> encoderKinds, ArchitectureKind architectureKind, IReadOnlyList<int> hiddenSizes,
-        IReadOnlyList<ActionOutputKind>? actionOutputKinds = null, IReadOnlyList<SimulationAction>? enabledDirections = null,
-        EncoderSizeOptions? encoderSizes = null, DecisionDecodingKind decisionDecoding = DecisionDecodingKind.Softmax,
-        double decisionTemperature = 1.0, CnnKernelSweepSource cnnKernelSweepSource = CnnKernelSweepSource.BarWindow)
+      string name, IReadOnlyList<EncoderKind> encoderKinds, ArchitectureKind architectureKind, IReadOnlyList<int> hiddenSizes,
+      IReadOnlyList<ActionOutputKind>? actionOutputKinds = null, IReadOnlyList<SimulationAction>? enabledDirections = null,
+      EncoderSizeOptions? encoderSizes = null, DecisionDecodingKind decisionDecoding = DecisionDecodingKind.Softmax,
+      double decisionTemperature = 1.0, CnnKernelSweepSource cnnKernelSweepSource = CnnKernelSweepSource.BarWindow)
     {
         if (!ValidateBuildRequest(name, encoderKinds, enabledDirections))
             return false;
@@ -869,9 +640,7 @@ internal sealed class RlTrainingService
             var brain = BuildFromRecipe(name, recipe);
             if (_brainRegistry.All.Any(b => b.Name == name))
             {
-                // Replacing whatever's currently live under this name -- its
-                // weights and training history belong to an instance that no
-                // longer exists, so every stat keyed by this name is stale too.
+
                 _brainRegistry.Unregister(name);
                 _episodesTrainedByBrain.Remove(name);
                 _lastTrainedAt.Remove(name);
@@ -895,17 +664,7 @@ internal sealed class RlTrainingService
         }
     }
 
-    // Persists the Brain Builder panel's current config to storage as a
-    // saved network -- what "Save Brain" commits. If a live brain already
-    // exists under this exact name (an earlier draft, or a previously-saved
-    // brain being re-saved after further tweaks -- see TryBuildDraftBrain),
-    // its current weights are left untouched: only the recipe is written to
-    // storage and the name stops being treated as a disposable draft.
-    // Otherwise this builds and registers a brand-new, untrained brain, same
-    // as before drafts existed. The caller (BrainBuilder.razor.cs) is
-    // responsible for listing encoderKinds in canonical order (BarWindow
-    // before VolumeProfile/TimeProfile) so CompositeEncoder's sequence-first
-    // guard is satisfied.
+
     public bool TryBuildBrain(
         string name, IReadOnlyList<EncoderKind> encoderKinds, ArchitectureKind architectureKind, IReadOnlyList<int> hiddenSizes,
         IReadOnlyList<ActionOutputKind>? actionOutputKinds = null, IReadOnlyList<SimulationAction>? enabledDirections = null,
@@ -934,11 +693,7 @@ internal sealed class RlTrainingService
             _draftBrainNames.Remove(name);
             Error = null;
 
-            // Update the existing row in place if this name's already saved
-            // (e.g. re-saving after another tweak) -- BrainService.SaveBrain
-            // always inserts, so calling it again under a name that's
-            // already persisted would leave two rows behind instead of one
-            // up to date row.
+
             var existing = _brainService.Brains.FirstOrDefault(b => b.Name == name);
             bool persisted = existing is not null
                 ? _brainService.UpdateNetwork(existing.Id, name, recipe)
@@ -963,11 +718,7 @@ internal sealed class RlTrainingService
         }
     }
 
-    // Exports the named brain's live weights and inserts a new snapshot row
-    // (name/strategy/parameters travel with it -- see IModelRepository's doc
-    // comment on why this is always an insert, never an upsert). Safe to call
-    // while a run isn't in progress -- reading the brain's own Network is
-    // what's serialized, so nothing here needs the training loop's lock.
+
     public bool SaveBrain(
         string savedName, string brainName, string strategyName, string rewardPolicyName, string dataset,
         int episodeBars, int barWidthSeconds, double startingCash, double learningRate,
@@ -1017,11 +768,7 @@ internal sealed class RlTrainingService
                 return false;
             }
 
-            // ModelService.SaveModel always inserts (see IModelRepository's doc
-            // comment), so the just-saved row is whichever one under this exact
-            // name/brain pairing has the newest SavedAt -- same "look it up after
-            // refresh" pattern BrainBuilder.razor.cs's SavePresetAsNew already
-            // uses for presets, since neither service returns the new row's id.
+
             var savedId = _modelService.Models
                 .Where(m => m.Name == savedName && m.BrainName == brainName)
                 .OrderByDescending(m => m.SavedAt)
@@ -1043,15 +790,7 @@ internal sealed class RlTrainingService
         }
     }
 
-    // Imports a saved snapshot's weights into the live brain of the matching
-    // architecture (see IPolicyGradientBrain's doc comment on why weights are
-    // mutated in place rather than swapping in a new instance) -- this is
-    // also how a saved brain gets used for Simulation: SimulationPage/
-    // SimulationEngine already pick brains by this same live-singleton name.
-    // If no live brain of that name exists (e.g. a runtime-built brain wiped
-    // from BrainRegistry by a restart -- see BrainRecipe's doc comment), and
-    // this snapshot has a saved recipe, it's rebuilt here first rather than
-    // failing outright.
+
     public bool LoadSavedBrain(long id)
     {
         var summary = _modelService.Models.FirstOrDefault(m => m.Id == id);
@@ -1119,36 +858,13 @@ internal sealed class RlTrainingService
         }
     }
 
-    // Picks a random start timestamp within [from, to - fetchSpan] and returns
-    // a still-lazy stream over that fetchSpan window (chunk-pruned, see
-    // ITickRepository.ReadTicks) -- deliberately NOT materialized here.
-    // RlEpisodeRunner.Run stops enumerating as soon as episodeBars bars
-    // complete, and since ReadTicks is a lazy Dapper query (buffered: false),
-    // stopping early actually cuts the Postgres read short instead of having
-    // already pulled the whole (possibly much larger, for a dense table)
-    // fetchSpan window into memory only to use a fraction of it.
-    //
-    // constraint.Enabled routes to RandomConstrainedEpisodeWindow instead --
-    // this unrestricted path is unchanged from before that feature existed,
-    // so a caller that never opts in (constraint == EpisodeTimeConstraint.None)
-    // sees exactly the same sampling as always. warmupSpan is only meaningful
-    // on the constrained path (see RandomConstrainedEpisodeWindow).
+
     private IEnumerable<Tick> RandomEpisodeWindow(
         string table, DateTime from, DateTime to, TimeSpan fetchSpan, TimeSpan warmupSpan, Random rng, EpisodeTimeConstraint constraint) =>
         constraint.Enabled
             ? RandomConstrainedEpisodeWindow(table, from, to, fetchSpan, warmupSpan, rng, constraint)
             : RandomUnrestrictedEpisodeWindow(table, from, to, fetchSpan, rng);
 
-    // The gap check below (.Any()) costs one extra cheap, chunk-pruned round
-    // trip per attempt -- negligible next to what materializing the full
-    // window used to cost -- so successive episodes still train against
-    // different (but real) market windows without ever holding a full range,
-    // or even a full fetchSpan window, in memory. Retries a few times if the
-    // random start lands in a gap with no ticks (e.g. a weekend) before
-    // falling back to reading from the range start, which TryStartTraining's
-    // upfront duration check already guarantees has at least `fetchSpan` of
-    // range ahead of it... other than gaps, so this fallback can still
-    // legitimately come up short near a gap-heavy `to`.
     private IEnumerable<Tick> RandomUnrestrictedEpisodeWindow(string table, DateTime from, DateTime to, TimeSpan fetchSpan, Random rng)
     {
         var latestStart = to - fetchSpan;
@@ -1164,20 +880,7 @@ internal sealed class RlTrainingService
         return _tickRepository.ReadTicks(table, from, from + fetchSpan);
     }
 
-    // Unlike RandomUnrestrictedEpisodeWindow's random offset within its window,
-    // a constrained episode's decisions are anchored to exactly SessionStart on
-    // one randomly chosen eligible day (see EpisodeWindowSampler.EligibleDays) --
-    // the whole point of "episode timing" is that the episode's decisions span
-    // exactly the configured day/session, not some shorter random slice inside
-    // it (see TrainPage's EffectiveEpisodeBars, which derives episodeBars from
-    // the same session length so it fits exactly). warmupSpan reaches backward
-    // from SessionStart purely for lookback context -- it may dip before the
-    // day's own start (even into the previous eligible day or earlier), same as
-    // an unrestricted run starting near `from` can come up short on warm-up;
-    // it's never counted as part of the episode's own decisions (see
-    // RlEpisodeRunner.Run's warmupBars doc comment). TryStartTraining's upfront
-    // check already guarantees at least one eligible day exists before this loop
-    // ever runs.
+
     private IEnumerable<Tick> RandomConstrainedEpisodeWindow(
         string table, DateTime from, DateTime to, TimeSpan fetchSpan, TimeSpan warmupSpan, Random rng, EpisodeTimeConstraint constraint)
     {

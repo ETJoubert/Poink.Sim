@@ -1,17 +1,4 @@
-// ── Concatenates N encoders into one ─────────────────────────────────────
-//  How multiple IObservationEncoder parts combine into the one flat feature
-//  vector a ComposedPolicyBrain's Network actually sees -- FeatureCount/
-//  SequenceLength are sums, Features/Encode are straight concatenations
-//  in the order the caller lists parts.
-//
-//  Ordering constraint: if any part is sequence-bearing (SequenceLength > 0,
-//  e.g. BarWindowEncoder), it must be parts[0] -- a recurrent architecture
-//  (see LstmArchitecture) narrow()s the LEADING slice of the flat vector as
-//  its sequence, so a sequence-bearing part anywhere else would silently
-//  feed the wrong slice through the LSTM instead of failing loudly. Create
-//  enforces this at construction time rather than leaving it as a documented
-//  assumption someone can violate by accident.
-// ─────────────────────────────────────────────────────────────────────────
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -49,14 +36,7 @@ internal sealed class CompositeEncoder : IObservationEncoder
 
     public int SequenceLength { get; }
 
-    // Max, not sum -- every part reads from the same shared recentBars/
-    // recentBarHistograms tail independently (not disjoint slices), so once
-    // the deepest part's requirement is met, every shallower part's is too.
-    // Computed on demand rather than cached alongside FeatureCount/
-    // SequenceLength above -- no invalidation to track, and this is the one
-    // aggregate view of "how far back does this brain look" other callers
-    // (RlTrainingService.GetWarmupBars, TrainLiveTab's chart shading) read
-    // generically off any composed brain, windowed or not.
+
     public int WarmupBars => _parts.Count == 0 ? 0 : _parts.Max(p => p.WarmupBars);
 
     public IReadOnlyList<FeatureDescriptor> Features { get; }

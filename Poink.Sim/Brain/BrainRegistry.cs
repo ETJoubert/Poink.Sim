@@ -1,15 +1,4 @@
-// ── Shared, mutable source of truth for every registered brain ──────────
-//  RlTrainingService and SimulationEngine each used to snapshot
-//  IEnumerable<ISimulationBrain> into their own private list once at DI
-//  construction -- fine while every brain was fixed at startup, but the
-//  Train page's Brain Builder panel (see RlTrainingService.TryBuildBrain)
-//  constructs new ComposedPolicyBrain instances at runtime, and both
-//  services need to see those immediately. This singleton is seeded from the
-//  same DI-registered ISimulationBrain collection (Program.cs) and adds
-//  Register for anything built afterward -- All is read fresh on every call
-//  rather than cached, so a brain registered mid-session is visible to
-//  whichever service asks next.
-// ─────────────────────────────────────────────────────────────────────────
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -28,10 +17,6 @@ internal sealed class BrainRegistry
         get { lock (_lock) { return _brains.ToList(); } }
     }
 
-    // Adds a brain built at runtime (e.g. the Train page's Brain Builder) --
-    // Name is the only identity key across RlTrainingService/SimulationEngine/
-    // IModelRepository (a brain_name column), so a collision would silently
-    // shadow lookups against whichever brain the caller actually meant.
     public void Register(ISimulationBrain brain)
     {
         lock (_lock)
@@ -42,11 +27,6 @@ internal sealed class BrainRegistry
         }
     }
 
-    // Removes a previously-registered brain by name -- used only to replace an
-    // unsaved Brain Builder draft with a freshly rebuilt one (see
-    // RlTrainingService.TryBuildDraftBrain) right before its identity is
-    // reused; every other brain's identity is permanent for the process
-    // lifetime.
     public void Unregister(string name)
     {
         lock (_lock)

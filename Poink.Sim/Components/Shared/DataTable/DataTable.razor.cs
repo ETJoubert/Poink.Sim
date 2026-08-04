@@ -10,8 +10,7 @@ using System.Reflection;
 
 namespace Poink.Sim.Components.Shared.DataTable;
 
-// Copied from Poink.Shared.Client.Components.Shared.DataTable so Poink.Sim can extend it
-// (CellClass below) without touching the shared component other projects depend on.
+
 public partial class DataTable<TItem> : IAsyncDisposable
 {
     /// <summary>Used when binding a plain list (non-paged). Ignored when <see cref="PagedData"/> is set.</summary>
@@ -445,7 +444,8 @@ public partial class DataTable<TItem> : IAsyncDisposable
 
     private static bool IsImageProperty(PropertyInfo prop)
     {
-        if (prop.PropertyType != typeof(string)) return false;
+        if (prop.PropertyType != typeof(string))
+            return false;
         var name = prop.Name.ToLowerInvariant();
         return name.Contains("image") || name.Contains("img") || name.Contains("photo")
             || name.Contains("avatar") || name.Contains("thumbnail") || name.Contains("picture");

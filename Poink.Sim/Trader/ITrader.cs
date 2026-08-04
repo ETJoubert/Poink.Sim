@@ -1,10 +1,4 @@
-// ── Trader's public contract ──────────────────────────────────────────────
-//  Extracted so callers (SimulationEngine, RlEpisodeRunner) can depend on this
-//  instead of the concrete class -- decouples Trader for direct unit testing
-//  and lets a test substitute a fake/mock ITrader without touching the real
-//  execution engine. Construction goes through ITraderFactory at every call
-//  site, so an orchestration-level test can substitute a fake factory too.
-// ─────────────────────────────────────────────────────────────────────────
+
 using System;
 using System.Collections.Generic;
 using Poink.Sim.Models;

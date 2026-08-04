@@ -1,25 +1,4 @@
-// ── The one generic policy-gradient brain: encoder + architecture ───────
-//  Replaces what used to be 4 separate classes (MlpPolicyBrain,
-//  LstmPolicyBrain, VolumeProfilePolicyBrain, VolumeProfileBarsPolicyBrain),
-//  each duplicating the same Decide/DecideWithLogProbability/
-//  SampleActionIndex/BuildDecision boilerplate around its own hardwired
-//  Encode+Network pair. A ComposedPolicyBrain instead holds an
-//  IObservationEncoder (built from one or more parts via CompositeEncoder)
-//  and a Network built by an INetworkArchitecture from that encoder's
-//  FeatureCount/SequenceLength -- see Create below, and Program.cs for how
-//  the 4 original brains are now expressed as one line each.
-//
-//  Encode wraps Encoder.Encode's plain float[] into a Tensor here (the one
-//  place device placement happens) -- encoders themselves never touch
-//  TorchSharp/autograd/device at all.
-//
-//  DescribeInputs is a trivial zip of Encoder.Features with
-//  Encoder.Encode(observation) -- deliberately NOT wrapped in a lock/
-//  no_grad/NewDisposeScope like the 4 originals' DescribeInputs were, since
-//  it never touches Network or autograd (encoding alone never builds a
-//  graph). This is a simplification enabled by moving Encode off Tensor,
-//  not an oversight.
-// ─────────────────────────────────────────────────────────────────────────
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -34,10 +13,6 @@ internal sealed class ComposedPolicyBrain : IPolicyGradientBrain
 {
     private const double CapitalFraction = 0.5;
 
-    // Canonical order + default (every direction enabled, today's original
-    // behavior) -- BuildDecision/DescribeOutputs iterate whatever subset a
-    // brain was built with in this same fixed order, so e.g. a brain missing
-    // Hold still lists EnterLong/EnterShort/Close in this relative order.
     public static readonly IReadOnlyList<SimulationAction> AllDirections =
         [SimulationAction.Hold, SimulationAction.EnterLong, SimulationAction.EnterShort, SimulationAction.Close];
 
@@ -62,26 +37,7 @@ internal sealed class ComposedPolicyBrain : IPolicyGradientBrain
         _decisionTemperature = decisionTemperature;
     }
 
-    // Builds a brain from an architecture plus one or more encoder parts
-    // (concatenated via CompositeEncoder, see that class's ordering
-    // constraint).
-    //
-    // actionOutputHeads: zero or more extra (non-direction) decisions this
-    // brain's network also makes -- see IActionOutputHead. enabledDirections:
-    // which of Hold/EnterLong/EnterShort/Close this brain's direction pick is
-    // narrowed to -- like actionOutputHeads, every one of these is optional
-    // per brain (see SimulationAction's doc comment), not just the added
-    // heads; defaults to AllDirections (today's original always-4 behavior)
-    // so a direction-only brain (e.g. Program.cs's fixed brains) doesn't need
-    // to pass anything. decisionDecoding: how the direction pick's own
-    // distribution collapses to one index (see DecisionDecodingKind) --
-    // defaults to Softmax, today's original behavior; each actionOutputHead
-    // passed in already carries its own copy of this same choice (see
-    // BrainCatalog.CreateActionOutputHead), so it stays in lock-step with the
-    // direction pick without ComposedPolicyBrain reaching into each head.
-    // decisionTemperature: Softmax's own sharpen/flatten dial (see
-    // BrainRecipe.DecisionTemperature) -- defaults to 1.0 (unscaled, today's
-    // original behavior); ignored under HardMax.
+
     public static IPolicyGradientBrain Create(
         string name, INetworkArchitecture architecture, IReadOnlyList<IActionOutputHead> actionOutputHeads,
         IReadOnlyList<SimulationAction> enabledDirections, params IObservationEncoder[] parts) =>
@@ -104,11 +60,7 @@ internal sealed class ComposedPolicyBrain : IPolicyGradientBrain
         int extraOutputWidth = actionOutputHeads.Sum(h => h.OutputWidth);
         int outputWidth = enabledDirections.Count + extraOutputWidth;
 
-        // BarWindow (default) reuses architecture.Build exactly as before --
-        // every existing brain's shape is untouched. VolumeProfile instead
-        // routes through CnnArchitecture's own sweep-aware entry point (see
-        // ICnnSweepable/BuildWithSweep), locating whichever part supplies
-        // the sweep rather than always assuming the composite's leading slice.
+
         var network = architecture is CnnArchitecture cnnArchitecture && cnnKernelSweepSource == CnnKernelSweepSource.VolumeProfile
             ? BuildCnnSweepNetwork(cnnArchitecture, parts, encoder.FeatureCount, outputWidth)
             : architecture.Build(encoder.FeatureCount, encoder.SequenceLength, outputWidth);
@@ -122,10 +74,7 @@ internal sealed class ComposedPolicyBrain : IPolicyGradientBrain
         params IObservationEncoder[] parts) =>
         Create(name, architecture, actionOutputHeads, enabledDirections, decisionDecoding, decisionTemperature, CnnKernelSweepSource.BarWindow, parts);
 
-    // Finds the first ICnnSweepable part (today, only VolumeProfileEncoder)
-    // and sums the FeatureCounts of whatever comes before it in the
-    // composite, so the kernel sweeps the right slice regardless of where
-    // that part sits among BarWindow/TraderState/etc.
+
     private static Module<Tensor, Tensor> BuildCnnSweepNetwork(
         CnnArchitecture architecture, IReadOnlyList<IObservationEncoder> parts, int featureCount, int outputWidth)
     {
@@ -156,8 +105,7 @@ internal sealed class ComposedPolicyBrain : IPolicyGradientBrain
 
     private Device CurrentDevice => Network.parameters().First().device;
 
-    // Weights persist across runs deliberately -- resetting on every run
-    // would undo whatever training has accumulated.
+
     public void Reset() { }
 
     public Tensor Encode(SimulationObservation observation) =>
@@ -192,18 +140,12 @@ internal sealed class ComposedPolicyBrain : IPolicyGradientBrain
             var logits = Network.forward(input);
 
             var directionLogits = logits.narrow(1, 0, _enabledDirections.Count);
-            // Temperature only reshapes the Softmax branch's distribution --
-            // dividing HardMax's logits by a positive temperature before
-            // argmax can't change which index is largest, so it's skipped
-            // there (see BrainRecipe.DecisionTemperature's doc comment).
+
             var scaledDirectionLogits = _decisionDecoding == DecisionDecodingKind.HardMax
                 ? directionLogits : directionLogits / _decisionTemperature;
             var directionLogProbs = functional.log_softmax(scaledDirectionLogits, dim: 1);
             var directionProbabilities = exp(directionLogProbs);
-            // Direction-only -- the enabled directions are what a degenerate policy
-            // (all-Hold, all-Long) collapses onto, so this is the entropy an
-            // entropy-bonus loss term needs to keep alive; the action-output heads
-            // below (Volume/StopLoss/TakeProfit) don't factor in.
+
             var entropy = -(directionProbabilities * directionLogProbs).sum();
             int actionIndex = _decisionDecoding == DecisionDecodingKind.HardMax
                 ? CategoricalSampling.ArgmaxIndex(directionProbabilities)
@@ -237,17 +179,7 @@ internal sealed class ComposedPolicyBrain : IPolicyGradientBrain
         return outputs;
     }
 
-    // headValues holds this decision's sampled Volume/StopLoss/TakeProfit
-    // values (real units -- capital fraction 0..1, percent-distance-from-
-    // price) for whichever ActionOutputKinds this brain was built with;
-    // absent for any kind the brain wasn't built with, in which case the
-    // fixed CapitalFraction/no-SL-TP fallback below applies -- same
-    // treatment a direction-only brain has always had. StopLoss/TakeProfit
-    // percent-distances convert to absolute prices the same way
-    // RandomBrain.Decide already does. action is whichever SimulationAction
-    // _enabledDirections[actionIndex] resolved to -- switching on the actual
-    // enum value rather than a raw index, since a brain missing e.g. Hold
-    // no longer has index 0 mean Hold.
+
     private static SimulationDecision BuildDecision(SimulationAction action, IReadOnlyDictionary<ActionOutputKind, double?> headValues, double currentPrice)
     {
         double capitalFraction = headValues.TryGetValue(ActionOutputKind.Volume, out var volume) && volume is { } v ? v : CapitalFraction;

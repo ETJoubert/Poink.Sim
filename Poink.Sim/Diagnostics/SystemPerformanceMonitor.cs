@@ -6,24 +6,11 @@ using System.Threading;
 
 namespace Poink.Sim.Diagnostics
 {
-    // Singleton, DI-owned: one shared 1s-cadence Timer sampling the *host
-    // machine's* CPU/RAM/GPU. This is Blazor Server (see Program.cs), so
-    // "host" is the box the always-on trader dashboard itself runs on --
-    // there's no client to measure separately. Mirrors SimulationEngine's
-    // Timer + "event Action? OnChanged" + component-subscribes-in-
-    // OnInitialized/unsubscribes-in-Dispose pattern.
-    //
-    // PerformanceCounter/PerformanceCounterCategory are Windows-only, same as
-    // this project's TorchSharp-cuda-windows package and NativeMemory's
-    // GlobalMemoryStatusEx P/Invoke -- the app already assumes a Windows host.
+
     [SupportedOSPlatform("windows")]
     public sealed class SystemPerformanceMonitor : IDisposable
     {
-        // GPU Engine/GPU Adapter Memory instance names churn as processes open
-        // and close GPU contexts, so they're re-enumerated periodically rather
-        // than once at startup -- but not every tick, since a freshly created
-        // rate counter's first NextValue() is a throwaway 0 (no prior sample to
-        // delta against), which would otherwise glitch the reading every refresh.
+
         private static readonly TimeSpan GpuCounterRefreshInterval = TimeSpan.FromSeconds(10);
 
         private readonly Timer _timer;
@@ -44,7 +31,7 @@ namespace Poink.Sim.Diagnostics
             }
             catch
             {
-                // Counter category unavailable (e.g. locked-down environment) -- CPU% just won't show.
+
                 _cpuCounter = null;
             }
 
@@ -71,7 +58,8 @@ namespace Poink.Sim.Diagnostics
             try
             {
                 RefreshGpuCountersIfNeeded();
-                if (_gpuUtilCounters.Length == 0) return (null, null);
+                if (_gpuUtilCounters.Length == 0)
+                    return (null, null);
 
                 var percent = Math.Clamp(_gpuUtilCounters.Sum(SafeNextValue), 0, 100);
                 var memGb = _gpuMemCounters.Sum(SafeNextValue) / 1024.0 / 1024.0 / 1024.0;
@@ -86,7 +74,8 @@ namespace Poink.Sim.Diagnostics
 
         private void RefreshGpuCountersIfNeeded()
         {
-            if (DateTime.UtcNow - _gpuCountersRefreshedAt < GpuCounterRefreshInterval) return;
+            if (DateTime.UtcNow - _gpuCountersRefreshedAt < GpuCounterRefreshInterval)
+                return;
             _gpuCountersRefreshedAt = DateTime.UtcNow;
 
             // "engtype_3D" is the engine Task Manager's GPU graph tracks by default;
@@ -112,19 +101,22 @@ namespace Poink.Sim.Diagnostics
 
         private static PerformanceCounter? TryCreateCounter(string category, string counter, string instance)
         {
-            try { return new PerformanceCounter(category, counter, instance, readOnly: true); }
+            try
+            { return new PerformanceCounter(category, counter, instance, readOnly: true); }
             catch { return null; }
         }
 
         private static double SafeNextValue(PerformanceCounter? counter)
         {
-            try { return counter?.NextValue() ?? 0; }
+            try
+            { return counter?.NextValue() ?? 0; }
             catch { return 0; }
         }
 
         private static void DisposeAll(PerformanceCounter[] counters)
         {
-            foreach (var c in counters) c.Dispose();
+            foreach (var c in counters)
+                c.Dispose();
         }
 
         public void Dispose()

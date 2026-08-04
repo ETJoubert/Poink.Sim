@@ -7,10 +7,7 @@ using Poink.Sim.Training;
 
 namespace Poink.Sim.Components.Training
 {
-    // The Brain-only half of BrainStrategyPicker's picker row, split out so any
-    // page that needs a NN-vs-heuristic brain picker (currently TrainPage via
-    // BrainStrategyPicker, and SimulationPage directly) can reuse the same
-    // <select>+badge without dragging a StrategyName along.
+
     public partial class BrainSelect : ComponentBase
     {
         [Parameter, EditorRequired] public IReadOnlyList<BrainOption> BrainOptions { get; set; } = [];

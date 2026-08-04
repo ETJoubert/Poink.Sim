@@ -11,27 +11,16 @@ namespace Poink.Sim.Repository;
 
 internal sealed class TickRepository : ITickRepository
 {
-    // Ticks live in the separate Poink.MarketData database (written by the
-    // Poink.Trader cAlgo robot, which creates one "ticks_<symbol>" table per
-    // symbol with an identical (timestamp, bid, ask) shape -- see
-    // Poink.Trader.cs, left untouched). Table names are only known at runtime,
-    // so Dapper (SQL text + row mapping) is used instead of a static EF model.
+
     private readonly string _connectionString;
 
-    // Postgres-side cache of table stats -- COUNT(*)/MIN/MAX over a ticks_*
-    // table is a full scan and too slow to run on every read (see
-    // SimulationPage.razor.cs's OnInitialized comment). RefreshTickTableStats()
-    // is the only thing that ever rescans and writes here.
+
     const string RegistryTable = "tick_table_stats";
 
     private sealed record TickTableStats(long Rows, DateTime? MinTime, DateTime? MaxTime);
     private sealed record TickTableStatsRow(string TableName, long RowCount, DateTime? MinTimestamp, DateTime? MaxTimestamp);
 
-    // In-process cache of the last ListTickTables()/RefreshTickTableStats() result.
-    // TickRepository is registered as a singleton (see Program.cs), so this is
-    // shared by every page/circuit in the process -- once one page loads or
-    // recounts the table list, every other page can reuse it via CachedTables
-    // instead of hitting Postgres again on its own OnInitialized.
+
     private readonly Lock _cacheLock = new();
     private List<(string Table, long Rows, DateTime? MinTime, DateTime? MaxTime)>? _cachedTables;
 
@@ -81,19 +70,14 @@ internal sealed class TickRepository : ITickRepository
             conn.Execute(Sql.UpsertRegistryRow, new { table, rows = stats.Rows, min = stats.MinTime, max = stats.MaxTime });
         }
 
-        // Drop registry rows for tables that no longer exist -- `<> ALL(@names)`
-        // is vacuously true for every row when tableNames is empty, so this also
-        // correctly empties the registry if every ticks_* table has been dropped.
+
         conn.Execute(Sql.DeleteStaleRegistryRows, new { names = tableNames.ToArray() });
 
         _logger.LogInformation("Refreshed tick table stats for {TableCount} tables", tableNames.Count);
         return ListTickTables();
     }
 
-    // Streams ticks in chronological order for a given table (and optional time range).
-    // Kept as a lazy iterator (Dapper's buffered: false) -- the connection stays open
-    // only while a caller is actually enumerating, and is closed via `using` once the
-    // iterator is disposed/exhausted (see README.md's "Playback design" section).
+
     public IEnumerable<Tick> ReadTicks(string table, DateTime? from = null, DateTime? to = null)
     {
         using var conn = new NpgsqlConnection(_connectionString);
@@ -107,9 +91,7 @@ internal sealed class TickRepository : ITickRepository
         }
     }
 
-    // Bounded window for one training episode -- LIMIT keeps this cheap
-    // regardless of table size; Timescale prunes to the chunks overlapping
-    // @start before the LIMIT even applies.
+
     public List<Tick> ReadWindow(string table, DateTime start, int count)
     {
         using var conn = new NpgsqlConnection(_connectionString);
@@ -119,11 +101,6 @@ internal sealed class TickRepository : ITickRepository
         return conn.Query<Tick>(sql, new { start, count }).ToList();
     }
 
-    // Backward window -- last `count` ticks at or before `beforeUtc`. Queried
-    // DESC (so Timescale/the index can satisfy the LIMIT without scanning past
-    // it), then reversed back to ascending order before returning, since every
-    // caller (SimulationBarAggregator.Feed, TickDeltaTransform) expects
-    // chronological order same as ReadTicks/ReadWindow.
     public List<Tick> ReadRecentTicks(string table, DateTime beforeUtc, int count)
     {
         using var conn = new NpgsqlConnection(_connectionString);
@@ -135,8 +112,7 @@ internal sealed class TickRepository : ITickRepository
         return rows;
     }
 
-    // Chunk-pruned COUNT(*) over a bounded range -- for progress bars, not
-    // a full-table scan.
+
     public long CountTicks(string table, DateTime from, DateTime to)
     {
         using var conn = new NpgsqlConnection(_connectionString);

@@ -1,10 +1,4 @@
-// ── Synthetic random-walk tick generator ─────────────────────────────────
-//  Even-interval random walk with a fixed small spread -- good enough to
-//  exercise playback/aggregation/brain wiring without a real tick shape or a
-//  running Postgres. Shared by SimulationEngine's "LOAD DUMMY DATA" path and
-//  Training/RlEpisodeRunner (headless RL episodes need ticks too, with no DB
-//  dependency).
-// ─────────────────────────────────────────────────────────────────────────
+
 using System;
 using System.Collections.Generic;
 using Poink.Sim.Repository;
@@ -15,8 +9,10 @@ internal static class DummyTickGenerator
 {
     public static List<Tick> Generate(DateTime from, DateTime to, int count)
     {
-        if (to <= from) to = from.AddHours(4);
-        if (count < 2) count = 2;
+        if (to <= from)
+            to = from.AddHours(4);
+        if (count < 2)
+            count = 2;
 
         var interval = (to - from) / count;
         var rng = Random.Shared;

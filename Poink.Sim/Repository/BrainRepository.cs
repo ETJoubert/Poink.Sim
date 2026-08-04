@@ -13,13 +13,10 @@ namespace Poink.Sim.Repository;
 
 internal sealed class NetworkRepository : IBrainRepository
 {
-    // Recipe's EncoderKinds/ArchitectureKind serialize as names, not ordinal
-    // ints -- same reasoning as ModelRepository's own copy of this option set.
+
     private static readonly JsonSerializerOptions RecipeJsonOptions = new() { Converters = { new JsonStringEnumConverter() } };
 
-    // Same "Poink.Sim" database as ModelRepository -- a network is just a
-    // config, not market data, and belongs alongside trained_models rather
-    // than in its own database.
+
     const string DatabaseName = "Poink.Sim";
     const string TableName = "brains";
 

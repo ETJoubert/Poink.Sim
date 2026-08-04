@@ -1,10 +1,4 @@
-// ── Derived trade-performance metrics for the Statistics tab ─────────────
-//  Computed once per render (see SimulationPage.Stats) from a trader's full
-//  closed-trade log plus the equity extremes Trader tracks incrementally --
-//  "win"/"loss" split on RealizedPnl sign; a zero-pnl trade counts as
-//  neither and also breaks a streak. Groups categorizes the raw numbers for
-//  StatisticsPanel instead of handing it one flat list.
-// ─────────────────────────────────────────────────────────────────────────
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -31,13 +25,6 @@ internal sealed class TradeStatistics
     public double MaxDrawdown { get; }
     public int LongestWinStreak { get; }
     public int LongestLossStreak { get; }
-
-    // How many closed trades ended via an automatic SL/TP hit (see
-    // TradeCloseReason), plus the net equity those hits produced -- kept
-    // separate from BiggestWin/AverageWin etc. above, which are keyed on
-    // RealizedPnl sign, not on why the trade closed. A trade closed manually
-    // right at a level that happens to match its SL/TP price isn't counted
-    // here -- only Trader.Advance's own automatic breach check sets CloseReason.
     public int StopLossHitCount { get; }
     public double StopLossPnl { get; }
     public int TakeProfitHitCount { get; }
@@ -121,20 +108,12 @@ internal sealed class TradeStatistics
     private static string Money(double v) => v.ToString("N2");
     private static string TimeSpanStr(TimeSpan ts) => ts.ToString(@"d\.hh\:mm\:ss");
 
-    // Unlike BiggestWin/BiggestLoss (whose sign is guaranteed by construction --
-    // one's a max of wins, the other a min of losses), StopLossPnl/TakeProfitPnl
-    // sum whatever RealizedPnl those hits actually produced, which commission or
-    // slippage-at-the-trigger-price could in principle push either way -- so
-    // their emphasis is read off the actual value instead of assumed.
     private static StatEmphasis EmphasisFor(double v) => v switch
     {
         > 0 => StatEmphasis.Positive,
         < 0 => StatEmphasis.Negative,
         _ => StatEmphasis.None,
     };
-
-    // Categorized view of the metrics above -- StatisticsPanel renders one
-    // labeled section per group instead of a single flat table.
     public IReadOnlyList<StatGroup> Groups => new[]
     {
         new StatGroup("Trade Outcomes", new[]

@@ -1,11 +1,4 @@
-// ── Random placeholder brain ─────────────────────────────────────────────
-//  No signal, no state: each decision point independently rolls whether to
-//  act at all, then rolls a direction (or closes if already in a position).
-//  Exists as a trivial baseline to compare a real strategy against -- and
-//  since it's the only brain with any randomness, it's also the one where
-//  multiple traders sharing this single instance actually diverge from each
-//  other (MomentumThresholdBrain is deterministic given identical inputs).
-// ─────────────────────────────────────────────────────────────────────────
+
 using System;
 using Poink.Sim.Models;
 
@@ -18,11 +11,7 @@ internal sealed class RandomBrain : ISimulationBrain
     private readonly double _stopLossPercent;
     private readonly double _takeProfitPercent;
 
-    // stopLossPercent/takeProfitPercent: distance from entry as a fraction of price
-    // (0.003 = 0.3%) -- set on every random entry so Trader.Advance's SL/TP hook
-    // (and the chart's SL/TP lines) have something to act on/show. Approximate:
-    // computed off CurrentPrice (mid) at decision time, not the actual spread-
-    // adjusted fill price Trader.Open uses.
+
     public RandomBrain(double actionProbability = 0.05, double capitalFraction = 0.5,
         double stopLossPercent = 0.003, double takeProfitPercent = 0.006)
     {

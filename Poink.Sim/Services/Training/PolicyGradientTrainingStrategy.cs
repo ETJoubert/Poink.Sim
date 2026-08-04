@@ -1,16 +1,4 @@
-// ── v1 concrete strategy: REINFORCE with a mean-centered baseline ────────
-//  Discounted reward-to-go per step (gamma = 0.99), mean-centered and
-//  std-normalized across the episode as a simple variance-reduction
-//  baseline (no separate value network needed for a first setup). Loss is
-//  -mean(logProb_t * normalizedReturn_t) - beta * meanEntropy: the first
-//  term is the standard REINFORCE update (minimizing it is gradient ascent
-//  on expected return); the second is an entropy bonus that discourages the
-//  policy collapsing onto one action (e.g. all-Hold, a strong local optimum
-//  on spread-bearing data) before it's found real signal. beta anneals
-//  linearly from InitialEntropyCoefficient to 0 over the run (see
-//  TrainEpisode's progress parameter) so late training can still sharpen
-//  into a confident policy instead of staying noisy forever.
-// ─────────────────────────────────────────────────────────────────────────
+
 using System;
 using System.Linq;
 using Poink.Sim.Brain;

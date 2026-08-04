@@ -1,16 +1,4 @@
-// ── Encoder: recurring session-clock signal ──────────────────────────────
-//  Time-of-day and day-of-week, each as a sin/cos pair rather than a raw
-//  fraction -- a cyclical quantity needs both components to stay unambiguous
-//  across the wrap-around point (23:59 and 00:00 are a heartbeat apart in
-//  real time, but a single fraction-of-day feature would put them at
-//  opposite ends of [0,1]). FX session structure (Sydney/Tokyo/London/New
-//  York open-close, weekend closure) is one of the strongest recurring
-//  regularities in tick data, and this is the cheapest way to hand the
-//  network what it needs to learn it.
-//
-//  Both derived straight from SimulationObservation.TimestampUtc -- no
-//  history, no windowing, meaningful from the very first decision.
-// ─────────────────────────────────────────────────────────────────────────
+
 using System;
 using System.Collections.Generic;
 using Poink.Sim.Models;
@@ -28,8 +16,7 @@ internal sealed class SessionClockEncoder : IObservationEncoder
 
     public SessionClockEncoder(IFeatureNormalizer? normalizer = null)
     {
-        // Already bounded [-1, 1] and unitless -- nothing to scale, same
-        // passthrough treatment DirectionNormalizer gives a categorical flag.
+
         _normalizer = normalizer ?? new RawValueNormalizer();
         _features =
         [

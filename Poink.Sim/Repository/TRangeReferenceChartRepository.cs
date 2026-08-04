@@ -10,11 +10,7 @@ namespace Poink.Sim.Repository;
 
 internal sealed class TRangeReferenceChartRepository : ITRangeReferenceChartRepository
 {
-    // Same "Poink.Sim" database as TRangeChartRepository (see
-    // ITRangeReferenceChartRepository's doc comment) -- own table within it, so
-    // EnsureDatabaseExists/CREATE DATABASE duplicates TRangeChartRepository's
-    // rather than sharing it, matching this codebase's existing per-repository
-    // self-containment.
+
     const string DatabaseName = "Poink.Sim";
     const string TableName = "trange_reference_charts";
 
@@ -46,8 +42,15 @@ internal sealed class TRangeReferenceChartRepository : ITRangeReferenceChartRepo
 
         long id = conn.ExecuteScalar<long>(Sql.InsertChart, new
         {
-            label, symbol, startTimeUtc, endTimeUtc, barMinutes, barCount,
-            referenceStartTimeUtc, referenceEndTimeUtc, referenceBarCount,
+            label,
+            symbol,
+            startTimeUtc,
+            endTimeUtc,
+            barMinutes,
+            barCount,
+            referenceStartTimeUtc,
+            referenceEndTimeUtc,
+            referenceBarCount,
         });
         _logger.LogInformation(
             "Saved T-Range Reference Chart on {Symbol} [{Start} - {End}] (reference [{RefStart} - {RefEnd}]) as id {Id} labeled {Label}",
@@ -96,9 +99,7 @@ internal sealed class TRangeReferenceChartRepository : ITRangeReferenceChartRepo
     {
         public const string DatabaseExists = "SELECT EXISTS(SELECT 1 FROM pg_database WHERE datname = @name)";
 
-        // DatabaseName/TableName are compile-time constants, never user input, so
-        // interpolating them as identifiers here is safe (same reasoning as
-        // TRangeChartRepository.Sql).
+
         public const string CreateDatabase = $"CREATE DATABASE \"{DatabaseName}\"";
 
         public const string CreateTable =

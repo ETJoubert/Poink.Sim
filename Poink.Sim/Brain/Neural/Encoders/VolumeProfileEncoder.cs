@@ -1,70 +1,4 @@
-// ── Encoder: volume profile histogram + summary ──────────────────────────
-//  Merges this encoder's own trailing LookbackBars completed bars' price
-//  histograms (see BarPriceHistogram.Merge) into a fixed-width volume
-//  profile plus point-of-control/value-area summary scalars (see
-//  VolumeProfileAnalysis). LookbackBars is a fixed, build-time value
-//  (constructor-supplied, defaulting to 50) baked in at construction --
-//  same treatment BucketCount always had -- not a runtime-mutable setting;
-//  the network's input width stays fixed regardless (FeatureCount never
-//  changes after construction).
-//
-//  Normalization picks the feature convention:
-//  - Normalized (default): each bucket is a fraction-of-total-volume
-//    (FractionNormalizer), summary scalars are percent-offset-from-current-
-//    price (PriceOffsetNormalizer) -- "vp-{i}"/"poc-offset"/"va-*-offset"
-//    labels, FeatureCount = bucketCount + 3.
-//  - Raw: each bucket emits its exact price *and* its exact volume, not
-//    volume alone -- a bucket's price isn't recoverable from its index,
-//    since the rebin's own [min, max] price range shifts with whatever the
-//    lookback window happens to span, so bucket i sits at a different real
-//    price every decision. Without the price alongside the count, the
-//    network (which sees the actual current price via TraderStateEncoder)
-//    has no way to tell whether current price falls inside this
-//    distribution at all, let alone which bucket -- "vpr-price-{i}"/
-//    "vpr-vol-{i}"/"vpr-poc"/"vpr-va-*" labels (RawPriceNormalizer/
-//    RawValueNormalizer), FeatureCount = bucketCount*2 + 3. Kept as a
-//    distinct label prefix (not reused from Normalized mode) purely so a
-//    de-normalized display can tell at a glance which convention produced
-//    a given feature; the two modes are never selected simultaneously in
-//    one brain, so there's no actual collision to avoid.
-//
-//  LocalZScore/GlobalZScore (non-Raw, same labels/FeatureCount as
-//  Normalized): each bucket's relative-histogram value (the same
-//  fraction-of-total FractionNormalizer would otherwise pass through
-//  unchanged) is instead z-scored against its own sub-window's (Local) or
-//  the whole profile's (Global) mean/stddev across buckets -- see
-//  ZScoreNormalization. SplitUpDown's Up/Down/Diff arrays are each z-scored
-//  independently. Summary scalars (POC/value-area) are unaffected -- there's
-//  only one of each per profile, no distribution to z-score against, so
-//  they keep PriceOffsetNormalizer's percent-offset scaling same as
-//  Normalized mode.
-//
-//  Binary (non-Raw, same labels/FeatureCount as Normalized): each bucket's
-//  relative-histogram value becomes 1 or 0 against the bucket immediately
-//  before it in price order, no windowing involved (see
-//  BinaryNormalization) -- SplitUpDown's Up/Down/Diff arrays are each
-//  binary-encoded independently. Summary scalars are unaffected, same as
-//  LocalZScore/GlobalZScore.
-//
-//  SplitUpDown (default off, orthogonal to Normalization): instead of one
-//  plain volume value per bucket, reports its up-tick and down-tick volume
-//  separately plus their Diff (Up - Down) -- the histogram counterpart to
-//  TickVolumeProfileChart's own "Split up/down" toggle, letting the network
-//  see which side of each price level actually traded rather than just how
-//  much. Triples each bucket's slot count (Normalized: "vp-up-{i}"/
-//  "vp-down-{i}"/"vp-diff-{i}"; Raw: "vpr-price-{i}"/"vpr-up-{i}"/
-//  "vpr-down-{i}"/"vpr-diff-{i}", price still one slot since it locates all
-//  three counts at once) -- FeatureCount = bucketCount*3 + 3 (Normalized) or
-//  bucketCount*4 + 3 (Raw). Diff can read negative (down-skewed bucket), so
-//  it rides the same normalizer as Up/Down (FractionNormalizer/
-//  RawValueNormalizer are both plain float casts -- neither clamps to
-//  non-negative) rather than needing one of its own.
-//
-//  SequenceLength = 0 -- the histogram buckets are price-ordered but this
-//  encoder doesn't expose that as a recurrent-architecture sequence today;
-//  if paired with LstmArchitecture it must not be listed first (see
-//  CompositeEncoder's ordering guard).
-// ─────────────────────────────────────────────────────────────────────────
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -154,15 +88,9 @@ internal sealed class VolumeProfileEncoder : IObservationEncoder, ICnnSweepable
 
     public int SequenceLength => 0;
 
-    // ICnnSweepable -- the bucket array only (excludes the 3 trailing
-    // POC/value-area summary scalars, which stay plain scalars either way).
-    // See that interface's doc comment for why this is separate from
-    // SequenceLength above (which stays 0, preserving every existing
-    // BarWindow+VolumeProfile combination's current ordering/behavior).
     public int SweepLength => _bucketFeatureCount;
 
-    // Same number as LookbackBars -- this encoder's own trailing-merge
-    // window IS its warm-up requirement (see IObservationEncoder.WarmupBars).
+
     public int WarmupBars => _lookbackBars;
 
     public IReadOnlyList<FeatureDescriptor> Features => _features;
@@ -229,9 +157,6 @@ internal sealed class VolumeProfileEncoder : IObservationEncoder, ICnnSweepable
                 features[i] = _bucketNormalizer.Normalize(histogram[i], observation);
         }
 
-        // No summary (empty/zero-volume window) leaves these three at their
-        // array-initialized 0f -- neutral, same "no false signal" convention
-        // BuildRelativeHistogram/BuildRawHistogram's own empty-input case uses.
         if (VolumeProfileAnalysis.ComputeSummary(merged, bucketWidth, ValueAreaFraction) is { } summary)
         {
             features[_bucketFeatureCount + 0] = _priceNormalizer.Normalize(summary.PointOfControl, observation);
@@ -242,19 +167,12 @@ internal sealed class VolumeProfileEncoder : IObservationEncoder, ICnnSweepable
         return features;
     }
 
-    // Global z-scores the whole bucket array as one window; Local partitions
-    // it into consecutive sub-windows of _zScoreSubWindowSize buckets each,
-    // normalized independently -- see ZScoreNormalization's doc comment.
-    // Shared by both the plain and SplitUpDown branches above (SplitUpDown
-    // calls this once per Up/Down/Diff array, each z-scored independently).
+
     private float[] ApplyZScore(float[] values) =>
         _normalization == NormalizationKind.GlobalZScore
             ? ZScoreNormalization.Global(Array.ConvertAll(values, v => (double)v))
             : ZScoreNormalization.Local(Array.ConvertAll(values, v => (double)v), _zScoreSubWindowSize);
 
-    // Binary-encodes the bucket array in price order -- each bucket becomes
-    // 1 or 0 against the bucket immediately before it, no windowing/sub-
-    // window setting involved (see BinaryNormalization). Shared by both the
-    // plain and SplitUpDown branches above, same as ApplyZScore.
+
     private static float[] ApplyBinary(float[] values) => BinaryNormalization.Compute(Array.ConvertAll(values, v => (double)v));
 }

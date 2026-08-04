@@ -4,10 +4,7 @@ using Microsoft.AspNetCore.Components.Web;
 
 namespace Poink.Sim.Components.Shared.BarSizeSelect;
 
-// Bar-size dropdown shared by ProfilerPage/SimulationPage/TrainPage/TransformerPage --
-// the doubling choice list itself lives in BarSizeOptions; this just wires it up as
-// one reusable @bind-Value control instead of each page repeating the same
-// <select>+foreach markup. Value is in seconds (see BarSizeOptions).
+
 public partial class BarSizeSelect : ComponentBase
 {
     [Parameter, EditorRequired] public int Value { get; set; }

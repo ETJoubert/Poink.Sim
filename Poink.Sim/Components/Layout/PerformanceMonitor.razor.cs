@@ -5,8 +5,7 @@ using Poink.Sim.Diagnostics;
 
 namespace Poink.Sim.Components.Layout
 {
-    // Only ever rendered from MainLayout on this Windows-only app; see
-    // SystemPerformanceMonitor for why the Windows-only attribute applies here too.
+
     [SupportedOSPlatform("windows")]
     public partial class PerformanceMonitor : ComponentBase, System.IDisposable
     {
@@ -20,8 +19,7 @@ namespace Poink.Sim.Components.Layout
 
         private void HandleChanged() => _ = InvokeAsync(StateHasChanged);
 
-        // CSS width percentages must use '.' regardless of host locale -- see
-        // DateRangeSlider's Pct for the same concern.
+
         private static string Pct(double v) => v.ToString("0.#", Culture);
 
         private static string LevelClass(double percent) => percent switch
