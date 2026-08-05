@@ -1,0 +1,165 @@
+.cfc-viewport {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 12px;
+  background:
+    radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--color-primary) 12%, transparent) 1px, transparent 0)
+    0 0 / 28px 28px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-primary) transparent;
+}
+
+.cfc-viewport::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.cfc-viewport::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--color-primary) 60%, transparent);
+  border-radius: 4px;
+}
+
+.cfc-space {
+  position: relative;
+}
+
+.cfc-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+}
+
+.cfc-edges {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.cfc-node {
+  position: absolute;
+  z-index: 2;
+}
+
+.cfc-node-hidden {
+  display: none;
+}
+
+.cfc-edge-path {
+  fill: none;
+  stroke-width: 1.4;
+  transition: opacity 0.15s ease, stroke-width 0.15s ease;
+}
+
+.cfc-edge-label {
+  font-family: var(--font-body);
+  font-size: 9px;
+  letter-spacing: 0.02em;
+  text-anchor: middle;
+  fill: rgba(255, 255, 255, 0.62);
+  transition: opacity 0.15s ease;
+}
+
+.cfc-edge-label-bg {
+  fill: var(--color-bg-dark);
+  stroke: rgba(255, 255, 255, 0.08);
+  stroke-width: 1;
+  transition: opacity 0.15s ease;
+}
+
+.cfc-edge-flow .cfc-edge-path {
+  stroke-dasharray: none;
+}
+
+.cfc-edge-feedback .cfc-edge-path {
+  stroke: var(--color-accent);
+  stroke-width: 1.8;
+  stroke-dasharray: 7 5;
+}
+
+.cfc-edge-feedback .cfc-edge-label {
+  fill: color-mix(in srgb, var(--color-accent) 85%, white);
+}
+
+.cfc-edge-drives .cfc-edge-path {
+  stroke: rgba(255, 255, 255, 0.28);
+  stroke-width: 1;
+  stroke-dasharray: 2 4;
+}
+
+.cfc-edge-drives .cfc-edge-label {
+  fill: rgba(255, 255, 255, 0.38);
+  font-size: 8px;
+}
+
+.cfc-edge-config .cfc-edge-path {
+  stroke: #9fb2c9;
+  stroke-width: 1.1;
+  stroke-dasharray: 5 4;
+  opacity: 0.75;
+}
+
+.cfc-animated .cfc-edge-config .cfc-edge-path {
+  animation: cfc-pulse-config 1.4s linear infinite;
+}
+
+@keyframes cfc-pulse-config {
+  from { stroke-dashoffset: 0; }
+  to { stroke-dashoffset: -9; }
+}
+
+.cfc-edge-flow.cfc-source-data .cfc-edge-path { stroke: var(--color-secondary); }
+.cfc-edge-flow.cfc-source-inputs .cfc-edge-path { stroke: var(--color-primary); }
+.cfc-edge-flow.cfc-source-network .cfc-edge-path { stroke: var(--color-accent); }
+.cfc-edge-flow.cfc-source-outputs .cfc-edge-path { stroke: var(--color-warning); }
+.cfc-edge-flow.cfc-source-actions .cfc-edge-path { stroke: var(--color-secondary); }
+.cfc-edge-flow.cfc-source-trader .cfc-edge-path { stroke: var(--color-primary); }
+.cfc-edge-flow.cfc-source-simulation .cfc-edge-path { stroke: var(--color-error); }
+.cfc-edge-flow.cfc-source-rewards .cfc-edge-path { stroke: var(--color-accent); }
+
+.cfc-animated .cfc-edge-flow .cfc-edge-path {
+  stroke-dasharray: 7 7;
+  animation: cfc-pulse-flow 0.85s linear infinite;
+}
+
+.cfc-animated .cfc-edge-feedback .cfc-edge-path {
+  animation: cfc-pulse-feedback 0.7s linear infinite;
+}
+
+.cfc-animated .cfc-edge-drives .cfc-edge-path {
+  animation: cfc-pulse-drives 0.9s linear infinite;
+}
+
+@keyframes cfc-pulse-flow {
+  from { stroke-dashoffset: 0; }
+  to { stroke-dashoffset: -14; }
+}
+
+@keyframes cfc-pulse-feedback {
+  from { stroke-dashoffset: 0; }
+  to { stroke-dashoffset: -12; }
+}
+
+@keyframes cfc-pulse-drives {
+  from { stroke-dashoffset: 0; }
+  to { stroke-dashoffset: -6; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cfc-animated .cfc-edge-path {
+    animation: none;
+  }
+}
+
+.cfc-dimmed {
+  opacity: 0.12;
+}
+
+.cfc-edge-hidden {
+  display: none;
+}

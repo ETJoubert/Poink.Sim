@@ -1,0 +1,83 @@
+@page "/code"
+@namespace Poink.Sim.Components.Pages
+@using Poink.Sim.Components.Code
+@using Poink.Sim.Components.Pages.Code.Models
+
+<div class="code-page">
+
+    <div class="code-topbar">
+        <header class="code-header">
+            <div class="code-header-title">
+                <span class="code-header-symbol">CODE</span>
+                <span class="code-header-mode" title="Objects drawn on the canvas">@_graph.Nodes.Count objects</span>
+                <span class="code-header-mode" title="Named input and output ports across all objects">@PortCount ports</span>
+                <span class="code-header-mode" title="Wires connecting an output port to an input port">@_graph.Edges.Count wires</span>
+                <span class="code-header-state @StateClass" title="Whether the diagram is showing live values from the running services">
+                    @StateLabel
+                </span>
+            </div>
+
+            <div class="code-header-tools">
+                <button type="button"
+                        class="code-tool-btn code-tool-btn-wide @(_animate ? "code-tool-btn-on" : "")"
+                        title="@AnimateTooltip"
+                        @onclick="ToggleAnimation">
+                    <span class="code-tool-pip @(_animate ? "code-tool-pip-on" : "")"></span>
+                    ANIMATE
+                </button>
+                <button type="button" class="code-tool-btn" title="Zoom out" @onclick="ZoomOut" disabled="@(_zoom <= MinZoom)">&minus;</button>
+                <span class="code-zoom-value" title="Current zoom level">@ZoomLabel</span>
+                <button type="button" class="code-tool-btn" title="Zoom in" @onclick="ZoomIn" disabled="@(_zoom >= MaxZoom)">+</button>
+                <button type="button" class="code-tool-btn code-tool-btn-wide" title="@ResetTooltip" @onclick="ResetView">RESET</button>
+            </div>
+        </header>
+
+        <div class="code-legend">
+            @foreach (var concept in AllConcepts)
+            {
+                <button type="button"
+                        class="code-legend-item code-legend-@(concept.ToString().ToLowerInvariant()) @(IsConceptVisible(concept) ? "code-legend-on" : "code-legend-off")"
+                        title="@LegendTooltip(concept)"
+                        @onclick="() => ToggleConcept(concept)">
+                    <span class="code-legend-swatch"></span>
+                    <span class="code-legend-label">@concept.ToString().ToUpperInvariant()</span>
+                </button>
+            }
+
+            <span class="code-legend-spacer"></span>
+
+            <span class="code-legend-key" title="Solid arrows carry data forward through the pipeline">
+                <span class="code-legend-line code-legend-line-flow"></span> DATA FLOW
+            </span>
+            <span class="code-legend-key" title="The dashed arrow is the learning feedback: the optimizer writes gradients back into the network weights">
+                <span class="code-legend-line code-legend-line-feedback"></span> LEARNING FEEDBACK
+            </span>
+            <span class="code-legend-key" title="Dotted arrows show which orchestrator drives a component rather than data moving between them">
+                <span class="code-legend-line code-legend-line-drives"></span> DRIVES
+            </span>
+            <span class="code-legend-key" title="Dashed grey arrows carry configuration you set, not data the loop computes. Their source cards have a dashed border.">
+                <span class="code-legend-line code-legend-line-config"></span> CONFIG
+            </span>
+            <span class="code-legend-key" title="Hollow ports are inputs and filled ports are outputs. Hover a port on a card to see exactly what moves through it.">
+                <span class="code-legend-port code-legend-port-in"></span>IN
+                <span class="code-legend-port code-legend-port-out"></span>OUT
+            </span>
+        </div>
+    </div>
+
+    <div class="code-body">
+        <CodeFlowCanvas Graph="_graph"
+                        SelectedId="_selectedId"
+                        HighlightedNodeIds="_highlighted"
+                        VisibleConcepts="_visibleConcepts"
+                        Zoom="_zoom"
+                        Animated="_animate"
+                        OnNodeSelected="SelectNode"
+                        OnBackgroundClicked="ClearSelection" />
+
+        <CodeDetailDrawer Graph="_graph"
+                          Node="SelectedNode"
+                          OnSelect="SelectNode"
+                          OnClose="ClearSelection" />
+    </div>
+</div>

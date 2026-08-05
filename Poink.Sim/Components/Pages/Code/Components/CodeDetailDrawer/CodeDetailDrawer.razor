@@ -1,0 +1,128 @@
+@namespace Poink.Sim.Components.Code
+@using Poink.Sim.Components.Pages.Code.Models
+
+<aside class="cdd-drawer @(Node is null ? "cdd-closed" : "cdd-open") @ConceptClass"
+       @onclick:stopPropagation="true">
+
+    @if (Node is not null)
+    {
+        <header class="cdd-header">
+            <div class="cdd-heading">
+                <span class="cdd-concept">@Node.Concept.ToString().ToUpperInvariant()</span>
+                <span class="cdd-title">@Node.Title</span>
+            </div>
+            <button type="button"
+                    class="cdd-close"
+                    title="Close the detail panel and clear the highlighted signal path"
+                    @onclick="RaiseClose">&times;</button>
+        </header>
+
+        <div class="cdd-body">
+            <p class="cdd-summary">@Node.Summary</p>
+
+            @if (Node.Settings.Count > 0)
+            {
+                <section class="cdd-section">
+                    <h3 class="cdd-section-title" title="The values this config object carries. A dot marks a value read live from the running services.">Settings</h3>
+                    <div class="cdd-live">
+                        @foreach (var setting in Node.Settings)
+                        {
+                            <div class="cdd-live-row @(setting.IsLive ? "cdd-live-row-on" : "")"
+                                 title="@(setting.IsLive ? $"{setting.Name}: {setting.Value} (live)" : $"{setting.Name}: {setting.Value} (declared default)")">
+                                <span class="cdd-live-label">@setting.Name</span>
+                                <span class="cdd-live-value">@setting.Value</span>
+                            </div>
+                        }
+                    </div>
+                </section>
+            }
+
+            <section class="cdd-section">
+                <h3 class="cdd-section-title" title="Named signals entering this object and where each comes from">In</h3>
+                <div class="cdd-wires">
+                    @foreach (var wire in Incoming)
+                    {
+                        <div class="cdd-wire cdd-wire-in">
+                            <span class="cdd-wire-dot cdd-wire-dot-in"></span>
+                            <span class="cdd-wire-label" title="Signal name: @wire.Port">@wire.Port</span>
+                            @if (wire.Peers.Count > 0)
+                            {
+                                <span class="cdd-wire-peers">
+                                    @foreach (var peer in wire.Peers)
+                                    {
+                                        <button type="button"
+                                                class="cdd-peer"
+                                                title="Jump to @peer.Title, which drives this port"
+                                                @onclick="() => RaiseSelect(peer.Id)">@peer.Title</button>
+                                    }
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="cdd-wire-open" title="Supplied from outside this diagram">external</span>
+                            }
+                        </div>
+                    }
+                </div>
+            </section>
+
+            <section class="cdd-section">
+                <h3 class="cdd-section-title" title="Named signals leaving this object and where each goes">Out</h3>
+                <div class="cdd-wires">
+                    @foreach (var wire in Outgoing)
+                    {
+                        <div class="cdd-wire cdd-wire-out">
+                            <span class="cdd-wire-dot cdd-wire-dot-out"></span>
+                            <span class="cdd-wire-label" title="Signal name: @wire.Port">@wire.Port</span>
+                            @if (wire.Peers.Count > 0)
+                            {
+                                <span class="cdd-wire-peers">
+                                    @foreach (var peer in wire.Peers)
+                                    {
+                                        <button type="button"
+                                                class="cdd-peer"
+                                                title="Jump to @peer.Title, which consumes this port"
+                                                @onclick="() => RaiseSelect(peer.Id)">@peer.Title</button>
+                                    }
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="cdd-wire-open" title="Consumed outside this diagram">external</span>
+                            }
+                        </div>
+                    }
+                </div>
+            </section>
+
+            @if (Node.Badges.Count > 0)
+            {
+                <section class="cdd-section">
+                    <h3 class="cdd-section-title" title="Live values read from the running services">Live</h3>
+                    <div class="cdd-live">
+                        @foreach (var badge in Node.Badges)
+                        {
+                            <div class="cdd-live-row cdd-live-row-on" title="@badge.Label: @badge.Value">
+                                <span class="cdd-live-label">@badge.Label</span>
+                                <span class="cdd-live-value">@badge.Value</span>
+                            </div>
+                        }
+                    </div>
+                </section>
+            }
+
+            <section class="cdd-section">
+                <h3 class="cdd-section-title" title="The C# types that implement this object">Types</h3>
+                <ul class="cdd-types">
+                    @foreach (var type in Node.Types)
+                    {
+                        <li class="cdd-type" title="@type.Name defined under Poink.Sim/@type.Path">
+                            <span class="cdd-type-name">@type.Name</span>
+                            <span class="cdd-type-path">@type.Path</span>
+                        </li>
+                    }
+                </ul>
+            </section>
+        </div>
+    }
+</aside>

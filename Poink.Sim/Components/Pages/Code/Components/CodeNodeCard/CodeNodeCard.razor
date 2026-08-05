@@ -1,0 +1,50 @@
+@namespace Poink.Sim.Components.Code
+@using Poink.Sim.Components.Pages.Code.Models
+
+<div class="cnc-card @ConceptClass @StateClass"
+     title="@Tooltip"
+     role="button"
+     tabindex="0"
+     @onclick="RaiseSelected"
+     @onclick:stopPropagation="true"
+     @onkeydown="HandleKeyDown">
+
+    <div class="cnc-head">
+        <span class="cnc-title">@Node.Title</span>
+        <span class="cnc-concept">@Node.Concept.ToString().ToUpperInvariant()</span>
+    </div>
+
+    <div class="cnc-foot">
+        <div class="cnc-types" title="@PrimaryTypesTooltip">@PrimaryTypes</div>
+        @if (Node.Badges.Count > 0)
+        {
+            <div class="cnc-badges">
+                @foreach (var badge in Node.Badges)
+                {
+                    <span class="cnc-badge" title="@badge.Label: @badge.Value">
+                        <span class="cnc-badge-label">@badge.Label</span>
+                        <span class="cnc-badge-value">@badge.Value</span>
+                    </span>
+                }
+            </div>
+        }
+    </div>
+
+    @foreach (var setting in Settings)
+    {
+        <div class="cnc-setting @(setting.IsLive ? "cnc-setting-live" : "")"
+             style="@SettingStyle(setting)"
+             title="@SettingTooltip(setting)">
+            <span class="cnc-setting-name">@setting.Name</span>
+            <span class="cnc-setting-value">@setting.Value</span>
+        </div>
+    }
+
+    @foreach (var port in Ports)
+    {
+        <div class="@PortClass(port)" style="@PortStyle(port)" title="@port.Tooltip">
+            <span class="cnc-port-dot"></span>
+            <span class="cnc-port-label">@port.Label</span>
+        </div>
+    }
+</div>

@@ -1,0 +1,51 @@
+@namespace Poink.Sim.Components.Code
+@using Poink.Sim.Components.Pages.Code.Models
+
+<div class="cfc-viewport" title="Poink.Sim signal graph. Click a card to trace it, click empty space to clear." @onclick="RaiseBackgroundClicked">
+    <div class="cfc-space" style="@SpaceStyle">
+        <div class="@CanvasClass" style="@CanvasStyle">
+
+            <svg class="cfc-edges" viewBox="@ViewBox" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <marker id="cfc-arrow-flow" viewBox="0 0 10 10" refX="9" refY="5"
+                            markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                        <path d="M 0 1 L 10 5 L 0 9 z" fill="context-stroke" />
+                    </marker>
+                    <marker id="cfc-arrow-feedback" viewBox="0 0 10 10" refX="9" refY="5"
+                            markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                        <path d="M 0 1 L 10 5 L 0 9 z" fill="context-stroke" />
+                    </marker>
+                    <marker id="cfc-arrow-drives" viewBox="0 0 10 10" refX="9" refY="5"
+                            markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+                        <path d="M 0 1 L 10 5 L 0 9 z" fill="context-stroke" />
+                    </marker>
+                    <marker id="cfc-arrow-config" viewBox="0 0 10 10" refX="9" refY="5"
+                            markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+                        <path d="M 0 1 L 10 5 L 0 9 z" fill="context-stroke" />
+                    </marker>
+                </defs>
+
+                @foreach (var edge in _edges)
+                {
+                    <g class="@EdgeClass(edge)">
+                        <title>@EdgeTooltip(edge)</title>
+                        <path class="cfc-edge-path" d="@edge.Path" marker-end="url(#@MarkerId(edge.Edge.Kind))" />
+                    </g>
+                }
+            </svg>
+
+            @foreach (var node in _nodes)
+            {
+                <div class="@NodeWrapperClass(node)" style="@NodeStyle(node)">
+                    <CodeNodeCard Node="node.Node"
+                                  Ports="node.Ports"
+                                  Settings="node.Settings"
+                                  Animated="Animated"
+                                  IsSelected="@(SelectedId == node.Node.Id)"
+                                  IsDimmed="@IsDimmed(node.Node.Id)"
+                                  OnSelected="RaiseNodeSelected" />
+                </div>
+            }
+        </div>
+    </div>
+</div>

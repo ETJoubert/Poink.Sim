@@ -1,0 +1,266 @@
+.cdd-drawer {
+  --cdd-color: var(--color-primary);
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  width: 330px;
+  min-height: 0;
+  background: var(--color-bg-terminal);
+  border-left: 1px solid color-mix(in srgb, var(--cdd-color) 30%, transparent);
+  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+  transition: width 0.2s ease, opacity 0.2s ease;
+}
+
+.cdd-closed {
+  width: 0;
+  border-left-width: 0;
+  opacity: 0;
+}
+
+.cdd-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px 9px;
+  border-bottom: 1px solid color-mix(in srgb, var(--cdd-color) 22%, transparent);
+}
+
+.cdd-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cdd-concept {
+  font-family: var(--font-body);
+  font-size: 8px;
+  font-weight: bold;
+  letter-spacing: 0.14em;
+  color: color-mix(in srgb, var(--cdd-color) 70%, transparent);
+}
+
+.cdd-title {
+  font-family: var(--font-heading);
+  font-size: 1.05rem;
+  font-weight: bold;
+  letter-spacing: 0.06em;
+  color: var(--cdd-color);
+  text-shadow: 0 0 10px color-mix(in srgb, var(--cdd-color) 40%, transparent);
+}
+
+.cdd-close {
+  flex-shrink: 0;
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--cdd-color) 30%, transparent);
+  border-radius: var(--border-radius-sm);
+  color: var(--color-secondary);
+  font-size: 15px;
+  line-height: 1;
+  padding: 2px 7px 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.cdd-close:hover {
+  color: var(--color-error);
+  border-color: var(--color-error);
+}
+
+.cdd-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--cdd-color) transparent;
+}
+
+.cdd-summary {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 11px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.cdd-section {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.cdd-section-title {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 9px;
+  font-weight: bold;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--cdd-color) 75%, transparent);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  padding-bottom: 3px;
+}
+
+.cdd-wires {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cdd-wire {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 3px 6px;
+  background: rgba(0, 0, 0, 0.28);
+  border-radius: var(--border-radius-sm);
+}
+
+.cdd-wire-dot {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  box-sizing: border-box;
+  border-radius: 50%;
+}
+
+.cdd-wire-dot-in {
+  background: var(--color-bg-dark);
+  border: 1.5px solid var(--cdd-color);
+}
+
+.cdd-wire-dot-out {
+  background: var(--cdd-color);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--cdd-color) 60%, transparent);
+}
+
+.cdd-wire-label {
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: bold;
+  color: var(--color-secondary);
+  word-break: break-word;
+}
+
+.cdd-wire-peers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-left: auto;
+}
+
+.cdd-peer {
+  padding: 1px 6px 2px;
+  background: var(--color-bg-tab);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  font-family: var(--font-body);
+  font-size: 8.5px;
+  color: var(--color-primary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.cdd-peer:hover {
+  border-color: var(--cdd-color);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--cdd-color) 30%, transparent);
+}
+
+.cdd-wire-open {
+  margin-left: auto;
+  font-family: var(--font-body);
+  font-size: 8.5px;
+  font-style: italic;
+  color: rgba(255, 255, 255, 0.32);
+}
+
+.cdd-live {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.cdd-live-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-family: var(--font-body);
+  font-size: 10px;
+}
+
+.cdd-live-label {
+  color: rgba(255, 255, 255, 0.42);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 8px;
+}
+
+.cdd-live-value {
+  color: rgba(255, 255, 255, 0.55);
+  font-weight: bold;
+  text-align: right;
+  word-break: break-word;
+}
+
+.cdd-live-row-on .cdd-live-value {
+  color: var(--cdd-color);
+}
+
+.cdd-live-row-on .cdd-live-label::after {
+  content: "\2022";
+  margin-left: 4px;
+  color: var(--cdd-color);
+}
+
+.cdd-types {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cdd-type {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 4px 7px;
+  background: rgba(0, 0, 0, 0.28);
+  border-left: 2px solid color-mix(in srgb, var(--cdd-color) 45%, transparent);
+  border-radius: var(--border-radius-sm);
+}
+
+.cdd-type-name {
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: bold;
+  color: var(--color-secondary);
+}
+
+.cdd-type-path {
+  font-family: var(--font-body);
+  font-size: 8.5px;
+  color: rgba(255, 255, 255, 0.35);
+  word-break: break-all;
+}
+
+.cdd-config { --cdd-color: #9fb2c9; }
+.cdd-data { --cdd-color: var(--color-secondary); }
+.cdd-inputs { --cdd-color: var(--color-primary); }
+.cdd-network { --cdd-color: var(--color-accent); }
+.cdd-outputs { --cdd-color: var(--color-warning); }
+.cdd-actions { --cdd-color: var(--color-secondary); }
+.cdd-trader { --cdd-color: var(--color-primary); }
+.cdd-simulation { --cdd-color: var(--color-error); }
+.cdd-rewards { --cdd-color: var(--color-accent); }
