@@ -140,7 +140,8 @@ internal static class RlEpisodeRunner
         }
 
 
-        steps.RemoveAt(steps.Count - 1);
+        if (steps.Count > 0)
+            steps.RemoveAt(steps.Count - 1);
 
 
         var lastInputs = describableBrain is not null && lastObservation is { } observation
