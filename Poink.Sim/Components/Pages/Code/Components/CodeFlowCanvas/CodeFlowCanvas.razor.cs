@@ -5,12 +5,15 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
+using Microsoft.JSInterop;
 using Poink.Sim.Components.Pages.Code.Models;
 
 namespace Poink.Sim.Components.Code;
 
-public partial class CodeFlowCanvas : ComponentBase
+public partial class CodeFlowCanvas : ComponentBase, IAsyncDisposable
 {
+    [Inject] private IJSRuntime JS { get; set; } = default!;
+
     [Parameter, EditorRequired] public CodeGraph Graph { get; set; } = default!;
 
     [Parameter] public string? SelectedId { get; set; }
@@ -58,7 +61,80 @@ public partial class CodeFlowCanvas : ComponentBase
     private double _canvasWidth;
     private double _canvasHeight;
 
+    private ElementReference _viewportRef;
+    private IJSObjectReference? _panInstance;
+
+    private const string ViewportPanScript = """
+        (function() {
+            function bind(viewport) {
+                if (!viewport || viewport.dataset.panBound) return;
+                viewport.dataset.panBound = '1';
+
+                viewport.addEventListener('pointerdown', function(e) {
+                    if (e.button !== 0 || e.target.closest('.cnc-card')) return;
+
+                    var startX = e.clientX;
+                    var startY = e.clientY;
+                    var startScrollLeft = viewport.scrollLeft;
+                    var startScrollTop = viewport.scrollTop;
+                    var dragged = false;
+                    viewport.setPointerCapture(e.pointerId);
+
+                    function onMove(ev) {
+                        var dx = ev.clientX - startX;
+                        var dy = ev.clientY - startY;
+                        if (!dragged && (Math.abs(dx) > 3 || Math.abs(dy) > 3)) {
+                            dragged = true;
+                            viewport.classList.add('cfc-panning');
+                        }
+                        if (dragged) {
+                            viewport.scrollLeft = startScrollLeft - dx;
+                            viewport.scrollTop = startScrollTop - dy;
+                        }
+                    }
+                    function onUp(ev) {
+                        viewport.releasePointerCapture(e.pointerId);
+                        viewport.removeEventListener('pointermove', onMove);
+                        viewport.removeEventListener('pointerup', onUp);
+                        viewport.classList.remove('cfc-panning');
+                        if (dragged) viewport.dataset.suppressClick = '1';
+                    }
+                    viewport.addEventListener('pointermove', onMove);
+                    viewport.addEventListener('pointerup', onUp);
+                });
+
+                viewport.addEventListener('click', function(e) {
+                    if (viewport.dataset.suppressClick === '1') {
+                        delete viewport.dataset.suppressClick;
+                        e.stopPropagation();
+                        e.preventDefault();
+                    }
+                });
+            }
+            return { bind: bind };
+        })()
+        """;
+
     protected override void OnParametersSet() => BuildLayout();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+            _panInstance = await JS.InvokeAsync<IJSObjectReference>("eval", ViewportPanScript);
+
+        if (_panInstance is not null)
+            await _panInstance.InvokeVoidAsync("bind", _viewportRef);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_panInstance is not null)
+        {
+            try
+            { await _panInstance.DisposeAsync(); }
+            catch (JSDisconnectedException) { }
+        }
+    }
 
     private void BuildLayout()
     {

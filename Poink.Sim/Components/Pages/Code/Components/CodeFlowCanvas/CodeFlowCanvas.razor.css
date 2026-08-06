@@ -3,11 +3,17 @@
   min-height: 0;
   overflow: auto;
   padding: 12px;
+  cursor: grab;
   background:
     radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--color-primary) 12%, transparent) 1px, transparent 0)
     0 0 / 28px 28px;
   scrollbar-width: thin;
   scrollbar-color: var(--color-primary) transparent;
+}
+
+.cfc-viewport.cfc-panning {
+  cursor: grabbing;
+  user-select: none;
 }
 
 .cfc-viewport::-webkit-scrollbar {
