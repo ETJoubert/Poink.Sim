@@ -172,6 +172,13 @@
     overflow-y: auto;
 }
 
+.prof-chart-side.prof-chart-side-collapsed {
+    width: 22px;
+    min-width: 22px;
+    max-width: 22px;
+    overflow: hidden;
+}
+
 .prof-vp {
     flex: 1 1 auto;
     min-height: 0;

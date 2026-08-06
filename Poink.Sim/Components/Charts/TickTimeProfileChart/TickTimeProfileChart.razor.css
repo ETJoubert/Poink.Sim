@@ -19,11 +19,39 @@
     flex: 0 0 auto;
 }
 
+.ttp-header-collapsed {
+    justify-content: center;
+}
+
 .ttp-title {
     font-size: 0.6rem;
     letter-spacing: 0.1em;
     color: var(--color-secondary);
     opacity: 0.85;
+}
+
+.ttp-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.ttp-collapse-btn {
+    flex: 0 0 auto;
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
+    color: var(--color-secondary);
+    font-size: 11px;
+    line-height: 1;
+    padding: 3px 4px;
+    border-radius: var(--border-radius-sm);
+    cursor: pointer;
+    transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.ttp-collapse-btn:hover {
+    color: var(--color-primary);
+    border-color: var(--color-primary);
 }
 
 .ttp-controls {

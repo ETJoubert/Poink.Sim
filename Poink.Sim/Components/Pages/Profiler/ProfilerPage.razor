@@ -100,25 +100,25 @@
             </div>
             <div class="prof-chart-divider" @ref="_chartDividerRef" data-min-width="200" data-max-width="320"
                  title="Drag to resize"></div>
-            <div class="prof-chart-side">
+            <div class="prof-chart-side @(_volumeProfileCollapsed ? "prof-chart-side-collapsed" : "")">
                 <div class="prof-vp"
                      title="@((VolumeRangeLabel() is { } label
                                                      ? $"Volume profile for the selected Volume Range ({label}) -- use the toolbar's CLEAR VOLUME RANGE button to go back to every loaded bar"
                                                      : "Volume profile across every bar loaded so far -- use the toolbar's VOLUME RANGE tool to narrow it to a specific time window")
                                                      + ". POC/Value Area are highlighted below and projected onto the main chart as POC/VAH/VAL lines")">
                     <TickVolumeProfileChart WeightedSamples="MergedSamples()" CurrentPrice="LastClose"
-                                            ShowLevels="_showProfilePanelLevels" />
+                                            ShowLevels="_showProfilePanelLevels" @bind-Collapsed="_volumeProfileCollapsed" />
                 </div>
             </div>
             <div class="prof-chart-divider" @ref="_chartDividerRef2" data-min-width="200" data-max-width="320"
                  title="Drag to resize"></div>
-            <div class="prof-chart-side">
+            <div class="prof-chart-side @(_timeProfileCollapsed ? "prof-chart-side-collapsed" : "")">
                 <div class="prof-vp"
                      title="@((VolumeRangeLabel() is { } timeLabel
                                                      ? $"Time profile for the selected Volume Range ({timeLabel}) -- use the toolbar's CLEAR VOLUME RANGE button to go back to every loaded bar"
                                                      : "Time profile across every bar loaded so far -- use the toolbar's VOLUME RANGE tool to narrow it to a specific time window")
                                                      + ". Measures dwell time (seconds) per price level instead of tick count")">
-                    <TickTimeProfileChart WeightedSamples="MergedTimeSamples()" CurrentPrice="LastClose" />
+                    <TickTimeProfileChart WeightedSamples="MergedTimeSamples()" CurrentPrice="LastClose" @bind-Collapsed="_timeProfileCollapsed" />
                 </div>
             </div>
         </div>

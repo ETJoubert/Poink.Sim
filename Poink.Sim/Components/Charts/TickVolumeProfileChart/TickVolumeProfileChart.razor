@@ -1,81 +1,96 @@
 @namespace Poink.Sim.Components.Charts
 @using System.Globalization
 
-<div class="tvp-wrapper">
+<div class="tvp-wrapper @(Collapsed ? "tvp-wrapper-collapsed" : "")">
     @{ var buckets = Buckets; }
-    <div class="tvp-header">
-        <span class="tvp-title">VOLUME PROFILE</span>
-        <label class="tvp-control tvp-control-toggle">
-            <input type="checkbox" @bind="_splitUpDown" />
-            <span>Split up/down</span>
-        </label>
+    <div class="tvp-header @(Collapsed ? "tvp-header-collapsed" : "")">
+        @if (!Collapsed)
+        {
+            <span class="tvp-title">VOLUME PROFILE</span>
+        }
+        <div class="tvp-header-actions">
+            @if (!Collapsed)
+            {
+                <label class="tvp-control tvp-control-toggle">
+                    <input type="checkbox" @bind="_splitUpDown" />
+                    <span>Split up/down</span>
+                </label>
+            }
+            <button class="tvp-collapse-btn" @onclick="ToggleCollapsed"
+                    title="@(Collapsed ? "Expand the Volume Profile panel" : "Collapse the Volume Profile panel to a thin column")">
+                @(Collapsed ? "◂" : "▸")
+            </button>
+        </div>
     </div>
 
-    <div class="tvp-controls">
-        <div class="tvp-controls-row">
-            <label class="tvp-control">
-                <span>Buckets</span>
-                <input type="number" min="2" max="100" @bind="_bucketCount" @bind:event="oninput" />
-            </label>
-            @if (buckets.Count > 0)
+    @if (!Collapsed)
+    {
+        <div class="tvp-controls">
+            <div class="tvp-controls-row">
+                <label class="tvp-control">
+                    <span>Buckets</span>
+                    <input type="number" min="2" max="100" @bind="_bucketCount" @bind:event="oninput" />
+                </label>
+                @if (buckets.Count > 0)
+                {
+                    <span class="tvp-control tvp-control-static" title="Price span per bucket">
+                        <span>Width</span>
+                        <span class="tvp-control-value">@((buckets[0].High - buckets[0].Low).ToString("0.#####", CultureInfo.InvariantCulture))</span>
+                    </span>
+                }
+            </div>
+            @if (Levels is { } levels)
             {
-                <span class="tvp-control tvp-control-static" title="Price span per bucket">
-                    <span>Width</span>
-                    <span class="tvp-control-value">@((buckets[0].High - buckets[0].Low).ToString("0.#####", CultureInfo.InvariantCulture))</span>
-                </span>
+                <div class="tvp-controls-row">
+                    <span class="tvp-control tvp-control-static tvp-control-poc"
+                          title="Point of Control -- the price level with the most volume in this profile">
+                        <span>POC</span>
+                        <span class="tvp-control-value">@levels.Poc.ToString("F5")</span>
+                    </span>
+                    <span class="tvp-control tvp-control-static tvp-control-va"
+                          title="Value Area -- the tightest price band holding 70% of this profile's volume">
+                        <span>VA</span>
+                        <span class="tvp-control-value">@levels.ValueAreaLow.ToString("F5") - @levels.ValueAreaHigh.ToString("F5")</span>
+                    </span>
+                </div>
             }
         </div>
-        @if (Levels is { } levels)
-        {
-            <div class="tvp-controls-row">
-                <span class="tvp-control tvp-control-static tvp-control-poc"
-                      title="Point of Control -- the price level with the most volume in this profile">
-                    <span>POC</span>
-                    <span class="tvp-control-value">@levels.Poc.ToString("F5")</span>
-                </span>
-                <span class="tvp-control tvp-control-static tvp-control-va"
-                      title="Value Area -- the tightest price band holding 70% of this profile's volume">
-                    <span>VA</span>
-                    <span class="tvp-control-value">@levels.ValueAreaLow.ToString("F5") - @levels.ValueAreaHigh.ToString("F5")</span>
-                </span>
-            </div>
-        }
-    </div>
 
-    <div class="tvp-body">
-        @if (buckets.Count == 0)
-        {
-            <div class="tvp-empty">not enough tick data</div>
-        }
-        else
-        {
-            @foreach (var b in buckets)
+        <div class="tvp-body">
+            @if (buckets.Count == 0)
             {
-                @if (_splitUpDown)
+                <div class="tvp-empty">not enough tick data</div>
+            }
+            else
+            {
+                @foreach (var b in buckets)
                 {
-                    <div class="tvp-row @RowClass(b)" title="@($"{b.Low:F5} - {b.High:F5}: {b.UpCount} up / {b.DownCount} down")">
-                        <span class="tvp-row-label">@b.Low.ToString("F5")</span>
-                        <div class="tvp-row-track tvp-row-track-split">
-                            <div class="tvp-row-bar tvp-row-bar-up" style="width: @(b.UpPercent.ToString("0.##", CultureInfo.InvariantCulture))%"></div>
-                            <div class="tvp-row-bar tvp-row-bar-down" style="width: @(b.DownPercent.ToString("0.##", CultureInfo.InvariantCulture))%"></div>
+                    @if (_splitUpDown)
+                    {
+                        <div class="tvp-row @RowClass(b)" title="@($"{b.Low:F5} - {b.High:F5}: {b.UpCount} up / {b.DownCount} down")">
+                            <span class="tvp-row-label">@b.Low.ToString("F5")</span>
+                            <div class="tvp-row-track tvp-row-track-split">
+                                <div class="tvp-row-bar tvp-row-bar-up" style="width: @(b.UpPercent.ToString("0.##", CultureInfo.InvariantCulture))%"></div>
+                                <div class="tvp-row-bar tvp-row-bar-down" style="width: @(b.DownPercent.ToString("0.##", CultureInfo.InvariantCulture))%"></div>
+                            </div>
+                            <span class="tvp-row-count tvp-row-count-split">
+                                <span class="tvp-row-count-up">@b.UpCount</span>/<span class="tvp-row-count-down">@b.DownCount</span>
+                                <span class="tvp-row-count-diff @(DiffClass(b.Diff))">(@(b.Diff.ToString("+0;-0;0", CultureInfo.InvariantCulture)))</span>
+                            </span>
                         </div>
-                        <span class="tvp-row-count tvp-row-count-split">
-                            <span class="tvp-row-count-up">@b.UpCount</span>/<span class="tvp-row-count-down">@b.DownCount</span>
-                            <span class="tvp-row-count-diff @(DiffClass(b.Diff))">(@(b.Diff.ToString("+0;-0;0", CultureInfo.InvariantCulture)))</span>
-                        </span>
-                    </div>
-                }
-                else
-                {
-                    <div class="tvp-row @RowClass(b)" title="@($"{b.Low:F5} - {b.High:F5}: {b.Count} ticks")">
-                        <span class="tvp-row-label">@b.Low.ToString("F5")</span>
-                        <div class="tvp-row-track">
-                            <div class="tvp-row-bar" style="width: @(b.Percent.ToString("0.##", CultureInfo.InvariantCulture))%"></div>
+                    }
+                    else
+                    {
+                        <div class="tvp-row @RowClass(b)" title="@($"{b.Low:F5} - {b.High:F5}: {b.Count} ticks")">
+                            <span class="tvp-row-label">@b.Low.ToString("F5")</span>
+                            <div class="tvp-row-track">
+                                <div class="tvp-row-bar" style="width: @(b.Percent.ToString("0.##", CultureInfo.InvariantCulture))%"></div>
+                            </div>
+                            <span class="tvp-row-count">@b.Count</span>
                         </div>
-                        <span class="tvp-row-count">@b.Count</span>
-                    </div>
+                    }
                 }
             }
-        }
-    </div>
+        </div>
+    }
 </div>

@@ -98,6 +98,9 @@ namespace Poink.Sim.Components.Pages
         private bool _showAverageLine = true;
         private bool _showMedianLine = true;
 
+        private bool _volumeProfileCollapsed;
+        private bool _timeProfileCollapsed;
+
 
 
         private HashSet<int> _selectedDrawingIds = new();
