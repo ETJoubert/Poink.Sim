@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using System.Threading;
 using Microsoft.AspNetCore.Components;
+using Poink.Sim.Brain.Neural;
 using Poink.Sim.Components.Charts;
 using Poink.Sim.Models;
 using Poink.Sim.Training;
@@ -11,11 +12,13 @@ using Poink.Shared.Client.Components.Pages.CTrader;
 
 namespace Poink.Sim.Components.Training
 {
-    public partial class TrainLiveTab : ComponentBase, IDisposable
+    public partial class EpisodePlayback : ComponentBase, IDisposable
     {
         [Inject] private RlTrainingService Service { get; set; } = default!;
 
         [Parameter] public string BrainName { get; set; } = "";
+
+        private BrainRecipe? Recipe => Service.GetRecipe(BrainName);
 
         private bool _trainingWasAdvancing;
 
@@ -53,7 +56,8 @@ namespace Poink.Sim.Components.Training
             int LatestEpisodeWarmupBars,
             IReadOnlyList<Trade> LatestEpisodeTrades,
             IReadOnlyList<double> LatestEpisodeBarEquity,
-            IReadOnlyList<RlBarAction> LatestEpisodeBarActions);
+            IReadOnlyList<RlBarAction> LatestEpisodeBarActions,
+            IReadOnlyList<IReadOnlyList<RlInputFeature>> LatestEpisodeBarInputs);
 
         private void ToggleLiveFeedback()
         {
@@ -67,7 +71,8 @@ namespace Poink.Sim.Components.Training
             _liveFeedbackSnapshot = new LiveFeedbackSnapshot(
                 Service.RecentEpisodes, Service.RecentEpisodeTrades, Service.ActionCounts,
                 Service.LatestEpisodeBars, Service.LatestEpisodeBarHistograms, Service.LatestEpisodeWarmupBars,
-                Service.LatestEpisodeTrades, Service.LatestEpisodeBarEquity, Service.LatestEpisodeBarActions);
+                Service.LatestEpisodeTrades, Service.LatestEpisodeBarEquity, Service.LatestEpisodeBarActions,
+                Service.LatestEpisodeBarInputs);
             _liveFeedbackPaused = true;
         }
 
@@ -81,24 +86,48 @@ namespace Poink.Sim.Components.Training
         private IReadOnlyList<Trade> SourceEpisodeTrades => _liveFeedbackSnapshot?.LatestEpisodeTrades ?? Service.LatestEpisodeTrades;
         private IReadOnlyList<double> SourceEpisodeBarEquity => _liveFeedbackSnapshot?.LatestEpisodeBarEquity ?? Service.LatestEpisodeBarEquity;
         private IReadOnlyList<RlBarAction> SourceEpisodeBarActions => _liveFeedbackSnapshot?.LatestEpisodeBarActions ?? Service.LatestEpisodeBarActions;
+        private IReadOnlyList<IReadOnlyList<RlInputFeature>> SourceEpisodeBarInputs => _liveFeedbackSnapshot?.LatestEpisodeBarInputs ?? Service.LatestEpisodeBarInputs;
 
         private List<CTraderBarRow> EpisodeBarRows =>
             SourceEpisodeBars
                 .Select(b => new CTraderBarRow(b.OpenTime, b.Open, b.High, b.Low, b.Close, b.Volume, b.UpVolume, b.DownVolume, b.Distance))
                 .ToList();
 
+        private IReadOnlyList<HlocAvdtBar> DisplayedEpisodeBarsRaw =>
+            _replayRawBars is not null ? _replayRawBars.Take(_revealedBarCount).ToList() : SourceEpisodeBars;
+
+        private IReadOnlyList<BarPriceHistogram> DisplayedEpisodeBarHistograms =>
+            _replayHistograms is not null ? _replayHistograms.Take(_revealedBarCount).ToList() : SourceEpisodeBarHistograms;
+
+        private EncoderSizeOptions EncoderSizes => Recipe?.EncoderSizes ?? new EncoderSizeOptions();
+
         private double? EpisodeLastPrice =>
-            SourceEpisodeBars.Count > 0 ? SourceEpisodeBars[^1].Close : null;
+            DisplayedEpisodeBarsRaw.Count > 0 ? DisplayedEpisodeBarsRaw[^1].Close : null;
 
-        private List<WeightedPriceSample> EpisodeVolumeProfileSamples =>
-            BarPriceHistogram.Merge(SourceEpisodeBarHistograms, SourceEpisodeBarHistograms.Count)
-                .Select(t => new WeightedPriceSample(t.Price, t.Count, t.UpCount, t.DownCount))
-                .ToList();
+        private List<WeightedPriceSample> EpisodeVolumeProfileSamples
+        {
+            get
+            {
+                var histograms = DisplayedEpisodeBarHistograms;
+                int window = EncoderSizes.VolumeProfileLookbackBars > 0 ? EncoderSizes.VolumeProfileLookbackBars : histograms.Count;
+                return BarPriceHistogram.Merge(histograms, window)
+                    .Select(t => new WeightedPriceSample(t.Price, t.Count, t.UpCount, t.DownCount))
+                    .ToList();
+            }
+        }
 
-        private List<WeightedTimeSample> EpisodeTimeProfileSamples =>
-            BarPriceHistogram.MergeTime(SourceEpisodeBars, SourceEpisodeBarHistograms, SourceEpisodeBarHistograms.Count)
-                .Select(t => new WeightedTimeSample(t.Price, t.Count, t.Seconds, t.UpSeconds, t.DownSeconds))
-                .ToList();
+        private List<WeightedTimeSample> EpisodeTimeProfileSamples
+        {
+            get
+            {
+                var bars = DisplayedEpisodeBarsRaw;
+                var histograms = DisplayedEpisodeBarHistograms;
+                int window = EncoderSizes.TimeProfileLookbackBars > 0 ? EncoderSizes.TimeProfileLookbackBars : histograms.Count;
+                return BarPriceHistogram.MergeTime(bars, histograms, window)
+                    .Select(t => new WeightedTimeSample(t.Price, t.Count, t.Seconds, t.UpSeconds, t.DownSeconds))
+                    .ToList();
+            }
+        }
 
         private static readonly double[] ReplaySpeedOptions = { 0.25, 0.5, 1, 2, 5, 10, 25 };
 
@@ -109,6 +138,9 @@ namespace Poink.Sim.Components.Training
         private List<Trade>? _replayTrades;
         private List<double>? _replayBarEquity;
         private List<RlBarAction>? _replayBarActions;
+        private List<HlocAvdtBar>? _replayRawBars;
+        private List<BarPriceHistogram>? _replayHistograms;
+        private List<IReadOnlyList<RlInputFeature>>? _replayBarInputs;
 
         private int _replayWarmupBars;
         private int _revealedBarCount;
@@ -321,6 +353,90 @@ namespace Poink.Sim.Components.Training
             }
         }
 
+        private IReadOnlyList<RlInputFeature>? DisplayedBarInputs
+        {
+            get
+            {
+                if (_replayBars is null)
+                {
+                    var inputs = SourceEpisodeBarInputs;
+                    return inputs.Count > 0 ? inputs[^1] : null;
+                }
+                if (_replayBarInputs is null)
+                    return null;
+                int i = DisplayedDecisionIndex;
+                return i >= 0 && i < _replayBarInputs.Count ? _replayBarInputs[i] : null;
+            }
+        }
+
+        private sealed record InputGroup(string Source, string ColorClass, IReadOnlyList<(string Label, string Value)> Values);
+
+        private static string EncoderSourceLabel(EncoderKind kind) => kind switch
+        {
+            EncoderKind.BarWindow => "Bar Window",
+            EncoderKind.VolumeProfile => "Volume Profile",
+            EncoderKind.TimeProfile => "Time Profile",
+            EncoderKind.SessionClock => "Session Clock",
+            EncoderKind.SpreadVolatility => "Spread + Volatility",
+            EncoderKind.TraderState => "Trader State",
+            _ => kind.ToString(),
+        };
+
+        private static string InputSourceColorClass(string source) => source switch
+        {
+            "Bar Window" => "train-inputs-card-1",
+            "Volume Profile" => "train-inputs-card-2",
+            "Time Profile" => "train-inputs-card-3",
+            "Session Clock" => "train-inputs-card-4",
+            "Spread + Volatility" => "train-inputs-card-5",
+            _ => "train-inputs-card-neutral",
+        };
+
+        private List<InputGroup> DisplayedInputGroups
+        {
+            get
+            {
+                var recipe = Recipe;
+                var inputs = DisplayedBarInputs;
+                if (recipe is null || inputs is null || inputs.Count == 0)
+                    return [];
+
+                var sizes = EncoderSizes;
+                var groups = new List<InputGroup>(recipe.EncoderKinds.Count);
+                int offset = 0;
+                foreach (var kind in recipe.EncoderKinds)
+                {
+                    int count = BrainCatalog.CreateEncoder(kind, sizes).FeatureCount;
+                    if (offset + count > inputs.Count)
+                        break;
+
+                    var values = inputs.Skip(offset).Take(count)
+                        .Select(f => (f.Label, f.Normalizer.Format(f.Value)))
+                        .ToList();
+                    var source = EncoderSourceLabel(kind);
+                    groups.Add(new InputGroup(source, InputSourceColorClass(source), values));
+                    offset += count;
+                }
+                return groups;
+            }
+        }
+
+        private string NetworkInputsEmptyReason
+        {
+            get
+            {
+                var recipe = Recipe;
+                if (recipe is null)
+                    return $"no recipe found for '{BrainName}' -- built-in/fixed brains, and brains never saved as a network, carry no encoder breakdown";
+                var inputs = DisplayedBarInputs;
+                if (inputs is null)
+                    return "no decision has been made yet at the currently displayed bar";
+                if (inputs.Count == 0)
+                    return "the network's recorded input vector is empty";
+                return $"recipe encoders ({string.Join("+", recipe.EncoderKinds)}) don't add up to the recorded {inputs.Count} inputs -- rebuild the brain to resync";
+            }
+        }
+
         private double? DisplayedEntryPrice => DisplayedBarAction?.EntryPrice;
         private bool? DisplayedPositionIsLong => DisplayedBarAction?.PositionIsLong;
         private double? DisplayedStopLossPrice => DisplayedBarAction?.StopLossPrice;
@@ -358,6 +474,9 @@ namespace Poink.Sim.Components.Training
             _replayTrades = SourceEpisodeTrades.ToList();
             _replayBarEquity = SourceEpisodeBarEquity.ToList();
             _replayBarActions = SourceEpisodeBarActions.ToList();
+            _replayRawBars = SourceEpisodeBars.ToList();
+            _replayHistograms = SourceEpisodeBarHistograms.ToList();
+            _replayBarInputs = SourceEpisodeBarInputs.ToList();
             _replayWarmupBars = SourceEpisodeWarmupBars;
             _revealedBarCount = 0;
             _isReplaying = true;
@@ -378,6 +497,9 @@ namespace Poink.Sim.Components.Training
             _replayTrades = null;
             _replayBarEquity = null;
             _replayBarActions = null;
+            _replayRawBars = null;
+            _replayHistograms = null;
+            _replayBarInputs = null;
             _replayWarmupBars = 0;
             _revealedBarCount = 0;
         }

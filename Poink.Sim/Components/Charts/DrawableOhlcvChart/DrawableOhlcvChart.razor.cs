@@ -41,7 +41,7 @@ namespace Poink.Sim.Components.Charts
         [Parameter] public bool ShowAnnotationTools { get; set; } = true;
 
         // False hides the whole toolbar and disables pan/zoom/scroll/minimap-drag -- for read-only,
-        // frequently-updating views like TrainLiveTab's live episode chart, where letting the user
+        // frequently-updating views like EpisodePlayback's live episode chart, where letting the user
         // interact while Bars keeps changing underneath them can crash lightweight-charts internally.
         [Parameter] public bool Interactive { get; set; } = true;
 

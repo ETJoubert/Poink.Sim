@@ -122,6 +122,35 @@ else
 
         </div>
 
+        <div class="train-live-panel train-live-panel-wide">
+            <div class="train-panel-title">
+                NETWORK INPUTS <span class="train-panel-subtitle">(exact values the network received for its decision on the
+                    currently displayed bar -- tracks the replay position)</span>
+            </div>
+            @if (DisplayedInputGroups.Count == 0)
+            {
+                <span class="train-episode-empty">@NetworkInputsEmptyReason</span>
+            }
+            else
+            {
+                <div class="train-inputs-groups">
+                    @foreach (var group in DisplayedInputGroups)
+                    {
+                        <div class="train-inputs-card @group.ColorClass"
+                             title="@($"{group.Source}: {group.Values.Count} inputs")">
+                            <div class="train-inputs-card-title">@group.Source</div>
+                            <div class="train-inputs-card-values">
+                                @foreach (var v in group.Values)
+                                {
+                                    <span class="train-inputs-value" title="@v.Label">@v.Value</span>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+
         <div class="train-stats-panel">
             <div class="train-stats-tabs">
                 <button class="train-tab-btn @(_activeStatsTab == StatsTab.Session ? "active" : "")"

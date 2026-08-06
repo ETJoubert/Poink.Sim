@@ -1,4 +1,4 @@
-// Candlestick + volume chart shared by ProfilerPage/TrainLiveTab and SimulationPage:
+// Candlestick + volume chart shared by ProfilerPage/EpisodePlayback and SimulationPage:
 // click-to-draw horizontal/vertical/diagonal lines (plus T-Range/P-Range/Rectangle,
 // built from placing 2 or 2+2 of the single-axis lines -- see modeClickCounts), pan-
 // triggered history backfill, and Simulation's live bid/ask/position/window-start
@@ -722,7 +722,7 @@ export function create(container, minimapContainer, dotNetRef, interactive) {
         },
         rightPriceScale: { borderColor: 'rgba(255,255,255,0.15)' },
         timeScale: { borderColor: 'rgba(255,255,255,0.15)', timeVisible: true, secondsVisible: false, rightOffset: 10 },
-        // Non-interactive callers (TrainLiveTab's live episode chart) get a fixed, read-
+        // Non-interactive callers (EpisodePlayback's live episode chart) get a fixed, read-
         // only view -- no scroll/pinch/drag pan-zoom and no crosshair, since letting the
         // user drag the view around while Bars keeps changing underneath them is what
         // crashes lightweight-charts internally (see DrawableOhlcvChart.razor.cs's
@@ -816,7 +816,7 @@ export function create(container, minimapContainer, dotNetRef, interactive) {
         // ProfileLevelLines. Its own colour, distinct from every drawn-tool group above.
         profile: style.getPropertyValue('--color-highlight').trim() || accentColor,
         // Closed-trade diagonal lines (entry -> exit), computed not user-drawn -- see
-        // TrainLiveTab's episode replay, which colours each trade by its realized P&L
+        // EpisodePlayback's episode replay, which colours each trade by its realized P&L
         // sign rather than by draw tool.
         win: style.getPropertyValue('--color-success').trim() || accentColor,
         loss: style.getPropertyValue('--color-error').trim() || accentColor,
