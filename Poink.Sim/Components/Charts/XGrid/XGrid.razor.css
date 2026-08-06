@@ -1,0 +1,227 @@
+.xgrid-wrapper {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: var(--border-radius-sm);
+    background: rgba(255, 255, 255, 0.015);
+    overflow: hidden;
+}
+
+.xgrid-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    flex: 0 0 auto;
+}
+
+.xgrid-title {
+    font-size: 0.6rem;
+    letter-spacing: 0.1em;
+    color: var(--color-secondary);
+    opacity: 0.85;
+}
+
+.xgrid-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.xgrid-control {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.62rem;
+    color: var(--color-secondary);
+    opacity: 0.85;
+    white-space: nowrap;
+}
+
+.xgrid-control input[type="number"] {
+    width: 42px;
+    background: var(--color-bg-terminal);
+    border: 1px solid color-mix(in srgb, var(--color-secondary) 40%, transparent);
+    color: var(--color-secondary);
+    padding: 2px 4px;
+    border-radius: var(--border-radius-sm);
+    font-family: var(--font-body);
+    font-size: 0.62rem;
+}
+
+.xgrid-control input[type="number"]:focus {
+    outline: none;
+    border-color: var(--color-secondary);
+    box-shadow: 0 0 6px color-mix(in srgb, var(--color-secondary) 45%, transparent);
+}
+
+.xgrid-overlay-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    flex: 0 0 auto;
+}
+
+.xgrid-overlay-label {
+    font-size: 0.56rem;
+    color: var(--color-warning);
+    opacity: 0.85;
+    white-space: nowrap;
+}
+
+.xgrid-sweep-toggle {
+    display: flex;
+    gap: 1px;
+}
+
+.xgrid-sweep-toggle button {
+    font-family: var(--font-body);
+    font-size: 0.54rem;
+    letter-spacing: 0.02em;
+    color: var(--color-warning);
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--color-warning) 35%, transparent);
+    padding: 1px 5px;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.xgrid-sweep-toggle button:not(:first-child) {
+    border-left: none;
+}
+
+.xgrid-sweep-toggle button:first-child {
+    border-radius: var(--border-radius-sm) 0 0 var(--border-radius-sm);
+}
+
+.xgrid-sweep-toggle button:last-child {
+    border-radius: 0 var(--border-radius-sm) var(--border-radius-sm) 0;
+}
+
+.xgrid-sweep-toggle button:hover {
+    background: color-mix(in srgb, var(--color-warning) 15%, transparent);
+}
+
+.xgrid-sweep-toggle button.active {
+    background: var(--color-warning);
+    color: var(--color-bg-dark);
+    font-weight: bold;
+}
+
+.xgrid-levels-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 2px 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    flex: 0 0 auto;
+    flex-wrap: wrap;
+}
+
+.xgrid-level-toggle {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 0.54rem;
+    opacity: 0.9;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.xgrid-level-toggle input {
+    cursor: pointer;
+}
+
+.xgrid-level-toggle-vah,
+.xgrid-level-toggle-val {
+    color: var(--color-highlight);
+}
+
+.xgrid-level-toggle-vah input,
+.xgrid-level-toggle-val input {
+    accent-color: var(--color-highlight);
+}
+
+.xgrid-level-toggle-vwap {
+    color: var(--color-tertiary);
+}
+
+.xgrid-level-toggle-vwap input {
+    accent-color: var(--color-tertiary);
+}
+
+.xgrid-level-toggle-avg {
+    color: var(--color-badge-2);
+}
+
+.xgrid-level-toggle-avg input {
+    accent-color: var(--color-badge-2);
+}
+
+.xgrid-level-toggle-med {
+    color: var(--color-neutral);
+}
+
+.xgrid-level-toggle-med input {
+    accent-color: var(--color-neutral);
+}
+
+.xgrid-empty {
+    margin: auto;
+    font-size: 0.75rem;
+    color: var(--color-secondary);
+    opacity: 0.7;
+}
+
+.xgrid-scroll {
+    flex: 1;
+    min-height: 0;
+    padding: 4px 8px;
+}
+
+.xgrid-rows {
+    display: grid;
+    width: 100%;
+    height: 100%;
+    gap: 1px;
+}
+
+.xgrid-cell {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.xgrid-row-overlay {
+    mix-blend-mode: screen;
+}
+
+.xgrid-level-marker {
+    pointer-events: none;
+    box-sizing: border-box;
+}
+
+.xgrid-level-marker-vah,
+.xgrid-level-marker-val {
+    border-top: 1px dashed var(--color-highlight);
+    border-bottom: 1px dashed var(--color-highlight);
+}
+
+.xgrid-level-marker-vwap {
+    border-top: 1px dashed var(--color-tertiary);
+    border-bottom: 1px dashed var(--color-tertiary);
+}
+
+.xgrid-level-marker-avg {
+    border-top: 1px dashed var(--color-badge-2);
+    border-bottom: 1px dashed var(--color-badge-2);
+}
+
+.xgrid-level-marker-med {
+    border-top: 1px dashed var(--color-neutral);
+    border-bottom: 1px dashed var(--color-neutral);
+}

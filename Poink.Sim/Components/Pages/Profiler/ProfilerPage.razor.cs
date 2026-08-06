@@ -126,6 +126,7 @@ namespace Poink.Sim.Components.Pages
         private IEnumerable<Drawing> AllDrawings() => _drawings.Append(_pending);
 
 
+        private ElementReference _chartDividerRefXGrid;
         private ElementReference _chartDividerRef;
         private ElementReference _chartDividerRef2;
         private ElementReference _chartHDividerRef;
@@ -137,7 +138,7 @@ namespace Poink.Sim.Components.Pages
                     if (!divider || divider.dataset.bound) return;
                     divider.dataset.bound = '1';
                     var minWidth = parseInt(divider.dataset.minWidth, 10) || 200;
-                    var maxWidth = parseInt(divider.dataset.maxWidth, 10) || 320;
+                    var maxWidth = parseInt(divider.dataset.maxWidth, 10) || Infinity;
                     divider.addEventListener('pointerdown', function(e) {
                         e.preventDefault();
                         var side = divider.nextElementSibling;
@@ -211,6 +212,7 @@ namespace Poink.Sim.Components.Pages
 
             if (HasData && _dividerResizeInstance is not null)
             {
+                await _dividerResizeInstance.InvokeVoidAsync("bind", _chartDividerRefXGrid);
                 await _dividerResizeInstance.InvokeVoidAsync("bind", _chartDividerRef);
                 await _dividerResizeInstance.InvokeVoidAsync("bind", _chartDividerRef2);
                 await _dividerResizeInstance.InvokeVoidAsync("bindHeight", _chartHDividerRef);
@@ -681,5 +683,14 @@ namespace Poink.Sim.Components.Pages
         }
 
         private double? LastClose => _bars.Count > 0 ? _bars[^1].Close : null;
+
+
+        private int _xgridRowCount = 20;
+        private int _xgridColCount = 20;
+
+        private XGridResult? ComputeXGrid() =>
+            _volumeRangeStart is { } start && _volumeRangeEnd is { } end
+                ? XGridStats.Compute(_bars, _barHistograms, MergedSamples(), start, end, _xgridRowCount, _xgridColCount)
+                : null;
     }
 }

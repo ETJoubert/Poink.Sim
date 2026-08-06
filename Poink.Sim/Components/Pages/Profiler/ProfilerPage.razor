@@ -98,7 +98,17 @@
                                     HasVolumeRange="_volumeRangeStart is not null" OnVolumeRangeCleared="ClearVolumeRange"
                                     OnDrawFinished="FinishDrawing" />
             </div>
-            <div class="prof-chart-divider" @ref="_chartDividerRef" data-min-width="200" data-max-width="320"
+            <div class="prof-chart-divider" @ref="_chartDividerRefXGrid" data-min-width="200"
+                 title="Drag to resize"></div>
+            <div class="prof-chart-side">
+                <div class="prof-vp"
+                     title="@(VolumeRangeLabel() is { } xgridLabel
+                                                     ? $"Footprint grid for the selected Volume Range ({xgridLabel}) -- rows are price buckets, columns are bars"
+                                                     : "Select a Volume Range on the chart to build the footprint grid -- rows are price buckets, columns are bars")">
+                    <XGrid Grid="ComputeXGrid()" @bind-RowCount="_xgridRowCount" @bind-ColCount="_xgridColCount" />
+                </div>
+            </div>
+            <div class="prof-chart-divider" @ref="_chartDividerRef" data-min-width="200"
                  title="Drag to resize"></div>
             <div class="prof-chart-side @(_volumeProfileCollapsed ? "prof-chart-side-collapsed" : "")">
                 <div class="prof-vp"
@@ -110,7 +120,7 @@
                                             ShowLevels="_showProfilePanelLevels" @bind-Collapsed="_volumeProfileCollapsed" />
                 </div>
             </div>
-            <div class="prof-chart-divider" @ref="_chartDividerRef2" data-min-width="200" data-max-width="320"
+            <div class="prof-chart-divider" @ref="_chartDividerRef2" data-min-width="200"
                  title="Drag to resize"></div>
             <div class="prof-chart-side @(_timeProfileCollapsed ? "prof-chart-side-collapsed" : "")">
                 <div class="prof-vp"

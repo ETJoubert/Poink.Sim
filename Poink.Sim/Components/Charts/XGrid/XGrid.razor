@@ -1,0 +1,111 @@
+@namespace Poink.Sim.Components.Charts
+@using System.Globalization
+
+<div class="xgrid-wrapper">
+    <div class="xgrid-header">
+        <span class="xgrid-title">X GRID</span>
+        <div class="xgrid-header-actions">
+            <label class="xgrid-control" title="Number of price buckets (rows)">
+                <span>Rows</span>
+                <input type="number" min="1" max="200" @bind:get="RowCount" @bind:set="SetRowCount" @bind:event="oninput" />
+            </label>
+            <label class="xgrid-control" title="Number of bar groups (columns) -- bars are merged evenly when the selection holds more than this">
+                <span>Cols</span>
+                <input type="number" min="1" max="500" @bind:get="ColCount" @bind:set="SetColCount" @bind:event="oninput" />
+            </label>
+        </div>
+    </div>
+    <div class="xgrid-overlay-row">
+        <span class="xgrid-overlay-label" title="Shades each price row by how many times it was the POC while dragging the Volume Range's near border across every bar position. L->R pins the far border at the range's right edge; R->L pins it at the left edge; Sum combines both.">Sweep</span>
+        <div class="xgrid-sweep-toggle">
+            <button class="@(_sweepMode == SweepMode.None ? "active" : "")" @onclick="() => _sweepMode = SweepMode.None"
+                    title="Don't shade the grid by sweep occurrences">None</button>
+            <button class="@(_sweepMode == SweepMode.LeftToRight ? "active" : "")" @onclick="() => _sweepMode = SweepMode.LeftToRight"
+                    title="Shade by POC occurrences while sweeping the Volume Range's left border rightward, right border pinned">L-&gt;R</button>
+            <button class="@(_sweepMode == SweepMode.RightToLeft ? "active" : "")" @onclick="() => _sweepMode = SweepMode.RightToLeft"
+                    title="Shade by POC occurrences while sweeping the Volume Range's right border leftward, left border pinned">R-&gt;L</button>
+            <button class="@(_sweepMode == SweepMode.Sum ? "active" : "")" @onclick="() => _sweepMode = SweepMode.Sum"
+                    title="Shade by the combined L->R and R->L occurrence counts">Sum</button>
+        </div>
+    </div>
+    <div class="xgrid-levels-row">
+        <label class="xgrid-level-toggle xgrid-level-toggle-vah" title="Highlight the row containing Value Area High">
+            <input type="checkbox" @bind="_showVah" /><span>VAH</span>
+        </label>
+        <label class="xgrid-level-toggle xgrid-level-toggle-val" title="Highlight the row containing Value Area Low">
+            <input type="checkbox" @bind="_showVal" /><span>VAL</span>
+        </label>
+        <label class="xgrid-level-toggle xgrid-level-toggle-vwap" title="Highlight the row containing the range's volume-weighted average price">
+            <input type="checkbox" @bind="_showVwap" /><span>VWAP</span>
+        </label>
+        <label class="xgrid-level-toggle xgrid-level-toggle-avg" title="Highlight the row containing the range's mean price">
+            <input type="checkbox" @bind="_showAverage" /><span>AVG</span>
+        </label>
+        <label class="xgrid-level-toggle xgrid-level-toggle-med" title="Highlight the row containing the range's median price">
+            <input type="checkbox" @bind="_showMedian" /><span>MED</span>
+        </label>
+    </div>
+    @if (Grid is not { } grid)
+    {
+        <div class="xgrid-empty">select a Volume Range to build the grid</div>
+    }
+    else
+    {
+        <div class="xgrid-scroll">
+            <div class="xgrid-rows"
+                 style="grid-template-rows: repeat(@(grid.RowLow.Count), 1fr); grid-template-columns: repeat(@(grid.Columns.Count), 1fr);">
+                @for (var r = 0; r < grid.RowLow.Count; r++)
+                {
+                    var row = r;
+                    @for (var c = 0; c < grid.Columns.Count; c++)
+                    {
+                        var col = c;
+                        var cell = grid.Columns[col].Cells[row];
+                        var intensity = CellIntensity(grid, row, col);
+                        <div class="xgrid-cell"
+                             style="grid-row: @(row + 1); grid-column: @(col + 1); background: color-mix(in srgb, var(--color-info) @((intensity * 100).ToString("0", CultureInfo.InvariantCulture))%, transparent);"
+                             title="@($"{grid.RowLow[row]:F5} - {grid.RowHigh[row]:F5} @ {grid.Columns[col].OpenTime:HH:mm}: {cell.Count} ticks ({cell.UpCount} up / {cell.DownCount} down)")">
+                        </div>
+                    }
+                }
+                @if (_sweepMode != SweepMode.None)
+                {
+                    @for (var r = 0; r < grid.RowLow.Count; r++)
+                    {
+                        var row = r;
+                        var sweepIntensity = RowSweepIntensity(grid, row);
+                        <div class="xgrid-row-overlay"
+                             style="grid-row: @(row + 1); grid-column: 1 / -1; background: color-mix(in srgb, var(--color-warning) @((sweepIntensity * 100).ToString("0", CultureInfo.InvariantCulture))%, transparent);"
+                             title="@($"{grid.RowLow[row]:F5} - {grid.RowHigh[row]:F5}: POC on {RowSweepValue(grid, row):0} sweep steps")">
+                        </div>
+                    }
+                }
+                @if (_showVah && grid.Vah is { } vah)
+                {
+                    <div class="xgrid-level-marker xgrid-level-marker-vah" style="grid-row: @(vah.Row + 1); grid-column: 1 / -1;"
+                         title="@($"VAH: {vah.Price:F5}")"></div>
+                }
+                @if (_showVal && grid.Val is { } val)
+                {
+                    <div class="xgrid-level-marker xgrid-level-marker-val" style="grid-row: @(val.Row + 1); grid-column: 1 / -1;"
+                         title="@($"VAL: {val.Price:F5}")"></div>
+                }
+                @if (_showVwap && grid.Vwap is { } vwap)
+                {
+                    <div class="xgrid-level-marker xgrid-level-marker-vwap" style="grid-row: @(vwap.Row + 1); grid-column: 1 / -1;"
+                         title="@($"VWAP: {vwap.Price:F5}")"></div>
+                }
+                @if (_showAverage && grid.Average is { } average)
+                {
+                    <div class="xgrid-level-marker xgrid-level-marker-avg" style="grid-row: @(average.Row + 1); grid-column: 1 / -1;"
+                         title="@($"AVG: {average.Price:F5}")"></div>
+                }
+                @if (_showMedian && grid.Median is { } median)
+                {
+                    <div class="xgrid-level-marker xgrid-level-marker-med" style="grid-row: @(median.Row + 1); grid-column: 1 / -1;"
+                         title="@($"MED: {median.Price:F5}")"></div>
+                }
+            </div>
+        </div>
+    }
+</div>
