@@ -815,6 +815,13 @@ export function create(container, minimapContainer, dotNetRef, interactive) {
         // POC/VAH/VAL price lines, computed (not user-drawn) -- see ProfilerPage's
         // ProfileLevelLines. Its own colour, distinct from every drawn-tool group above.
         profile: style.getPropertyValue('--color-highlight').trim() || accentColor,
+        // Average/Median price lines, computed (not user-drawn) -- see ProfilerPage's
+        // AverageMedianLines. --color-tertiary is already vwapColor's line above, so
+        // average pulls from the --color-badge-* set instead (a wider, already-themed
+        // palette meant for exactly this "another mutually-distinct swatch" need).
+        // median's --color-neutral is otherwise unclaimed by any chart element.
+        average: style.getPropertyValue('--color-badge-2').trim() || accentColor,
+        median: style.getPropertyValue('--color-neutral').trim() || accentColor,
         // Closed-trade diagonal lines (entry -> exit), computed not user-drawn -- see
         // EpisodePlayback's episode replay, which colours each trade by its realized P&L
         // sign rather than by draw tool.

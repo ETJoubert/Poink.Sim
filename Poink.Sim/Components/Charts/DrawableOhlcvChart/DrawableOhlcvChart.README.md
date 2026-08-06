@@ -158,7 +158,9 @@ added on top of an already-wired-up T-Range Reference Chart):
 | `charts` | `--color-accent` | T-Range Chart / T-Range Reference Chart (main range) |
 | `reference` | `--color-error` | T-Range Reference Chart's reference window |
 | `volume` | `--color-info` | Volume Range (drives the volume profile panel, not a chart annotation) |
-| *(free)* | `--color-success` | — pick this for the next new group |
+| `average` | `--color-badge-2` | Average price line (`--color-tertiary` is already `vwapColor`) |
+| `median` | `--color-neutral` | Median price line |
+| *(free)* | `--color-disabled` | — last unclaimed `--color-*` var; low-contrast by design (UI-disabled colour), so check readability against `--color-bg-dark` before using it for a line |
 
 Adding a group only needs the `groupColors` entry above — no CSS file changes are
 needed unless the new tool's *toolbar button* doesn't fit an existing

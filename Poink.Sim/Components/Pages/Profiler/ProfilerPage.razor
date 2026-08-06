@@ -75,10 +75,20 @@
                 <input type="checkbox" @bind="_showVwap" />
                 <span>VWAP line</span>
             </label>
+            <label class="prof-overlay-toggle"
+                   title="Project the mean price as a dashed line on the main chart, narrowed to the Volume Range selection if one is active">
+                <input type="checkbox" @bind="_showAverageLine" />
+                <span>Average line</span>
+            </label>
+            <label class="prof-overlay-toggle"
+                   title="Project the median price as a dashed line on the main chart, narrowed to the Volume Range selection if one is active">
+                <input type="checkbox" @bind="_showMedianLine" />
+                <span>Median line</span>
+            </label>
         </div>
         <div class="prof-chart">
             <div class="prof-chart-main"
-                 title="OHLC bar chart -- pan left to backfill older history, or use the toolbar to draw H-Line/V-Line/D-Line/T-Range/P-Range/Rectangle/T-Range Chart/T-Range Reference Chart/Volume Range. POC/VAH/VAL and a cumulative VWAP line are shown automatically for whatever window the volume profile panel is built from">
+                 title="OHLC bar chart -- pan left to backfill older history, or use the toolbar to draw H-Line/V-Line/D-Line/T-Range/P-Range/Rectangle/T-Range Chart/T-Range Reference Chart/Volume Range. POC/VAH/VAL, a cumulative VWAP line, and Average/Median lines are shown automatically for whatever window the volume profile panel is built from">
                 <DrawableOhlcvChart Bars="ToBarRows()" KeepView="_keepView" OnNearStart="LoadMore"
                                     HorizontalLines="AllHorizontalLines()" VerticalLines="AllVerticalLines()"
                                     DiagonalLines="AllDiagonalLines()" RangeFills="AllRangeFills()" VwapLine="VwapPoints()"

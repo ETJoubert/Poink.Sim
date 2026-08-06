@@ -95,6 +95,8 @@ namespace Poink.Sim.Components.Pages
         private bool _showProfilePanelLevels = true;
         private bool _showProfileChartLines = true;
         private bool _showVwap = true;
+        private bool _showAverageLine = true;
+        private bool _showMedianLine = true;
 
 
 
@@ -531,7 +533,23 @@ namespace Poink.Sim.Components.Pages
         private List<ChartHorizontalLine> AllHorizontalLines() =>
             AllDrawings().SelectMany(d => d.HorizontalLines.Select(l => l with { ColorGroup = d.ColorGroup }))
                 .Concat(ProfileLevelLines())
+                .Concat(AverageMedianLines())
                 .ToList();
+
+
+        private List<ChartHorizontalLine> AverageMedianLines()
+        {
+            var lines = new List<ChartHorizontalLine>();
+            if (!_showAverageLine && !_showMedianLine)
+                return lines;
+
+            var samples = MergedSamples();
+            if (_showAverageLine && VolumeProfileStats.ComputeAverage(samples) is { } average)
+                lines.Add(new ChartHorizontalLine(average, "AVG", "average"));
+            if (_showMedianLine && VolumeProfileStats.ComputeMedian(samples) is { } median)
+                lines.Add(new ChartHorizontalLine(median, "MED", "median"));
+            return lines;
+        }
 
 
         private List<ChartHorizontalLine> ProfileLevelLines()

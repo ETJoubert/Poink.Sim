@@ -67,4 +67,28 @@ internal static class VolumeProfileStats
 
         return new VolumeProfileLevels(min + size * (pocIndex + 0.5), min + size * (highIndex + 1), min + size * lowIndex);
     }
+
+    // Exact (unbucketed) mean price, weighted by each sample's tick count.
+    public static double? ComputeAverage(IReadOnlyList<WeightedPriceSample> samples)
+    {
+        var totalCount = samples.Sum(s => s.Count);
+        return totalCount == 0 ? null : samples.Sum(s => s.Price * (double)s.Count) / totalCount;
+    }
+
+    // Exact (unbucketed) median price -- the sample where cumulative count first
+    // reaches half of the total, walking samples in ascending price order.
+    public static double? ComputeMedian(IReadOnlyList<WeightedPriceSample> samples)
+    {
+        var totalCount = samples.Sum(s => s.Count);
+        if (totalCount == 0) return null;
+
+        var half = totalCount / 2.0;
+        long cumulative = 0;
+        foreach (var s in samples.OrderBy(s => s.Price))
+        {
+            cumulative += s.Count;
+            if (cumulative >= half) return s.Price;
+        }
+        return samples.Max(s => s.Price);
+    }
 }
