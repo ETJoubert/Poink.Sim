@@ -57,11 +57,12 @@ internal sealed class SimulationBarAggregator
             _upVolume = 0;
             _downVolume = 0;
             _histogram = new BarPriceHistogram(_bucketWidth);
-            _histogram.Add(mid, 0);
+            _histogram.Add(mid, 0, 0);
         }
         else
         {
             int direction = mid > _prevMid ? 1 : mid < _prevMid ? -1 : 0;
+            double move = Math.Abs(mid - _prevMid);
             if (mid > _high)
             { _high = mid; _highTime = tick.Timestamp; }
             if (mid < _low)
@@ -73,10 +74,11 @@ internal sealed class SimulationBarAggregator
             _close = mid;
             _closeTime = tick.Timestamp;
             _sum += mid;
-            _distance += Math.Abs(mid - _prevMid);
+            _distance += move;
+            double origin = _prevMid;
             _prevMid = mid;
             _count++;
-            _histogram.Add(mid, direction);
+            _histogram.Add(origin, direction, move);
         }
 
         return completed;

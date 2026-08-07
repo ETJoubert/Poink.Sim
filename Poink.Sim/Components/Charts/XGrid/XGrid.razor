@@ -39,8 +39,16 @@
             <button class="@(_sweepMode == SweepMode.Sum ? "active" : "")" @onclick="() => _sweepMode = SweepMode.Sum"
                     title="Shade by the combined L->R and R->L occurrence counts">Sum</button>
         </div>
+        <span class="xgrid-delta-label" title="Shade each block by its up-minus-down tick balance instead of its raw tick count.">Delta</span>
+        <button class="xgrid-delta-toggle @(_shadeDelta ? "active" : "")" @onclick="() => _shadeDelta = !_shadeDelta"
+                title="Shade each block green when up ticks lead, red when down ticks lead, brighter with a larger imbalance. Replaces the tick-count shading while active.">Up/Dn</button>
+        <button class="xgrid-delta-toggle @(_distanceWeighted ? "active" : "")" @onclick="() => _distanceWeighted = !_distanceWeighted"
+                title="Weight each tick by the price distance it moved instead of counting it as one. Applies to whichever shading mode is active.">&times;Dist</button>
     </div>
     <div class="xgrid-levels-row">
+        <label class="xgrid-level-toggle xgrid-level-toggle-poc" title="Highlight the Point of Control row -- the price with the most volume in the range">
+            <input type="checkbox" @bind="_showPoc" /><span>POC</span>
+        </label>
         <label class="xgrid-level-toggle xgrid-level-toggle-vah" title="Highlight the row containing Value Area High">
             <input type="checkbox" @bind="_showVah" /><span>VAH</span>
         </label>
@@ -63,6 +71,22 @@
     }
     else
     {
+        <div class="xgrid-totals-row">
+            <span class="xgrid-total xgrid-total-up" title="SBuy -- sum of the price before every up tick across the range">SBuy @grid.SBuy.ToString("F5", CultureInfo.InvariantCulture)</span>
+            <span class="xgrid-total xgrid-total-down" title="SSell -- sum of the price before every down tick across the range">SSell @grid.SSell.ToString("F5", CultureInfo.InvariantCulture)</span>
+            <span class="xgrid-total xgrid-total-net" title="Net = SBuy minus SSell">Net @((grid.SBuy - grid.SSell).ToString("F5", CultureInfo.InvariantCulture))</span>
+            <button class="xgrid-total-toggle @(_showNetGraph ? "active" : "")" @onclick="() => _showNetGraph = !_showNetGraph"
+                    title="Plot cumulative Net (SBuy - SSell) across the range as a line graph">Graph</button>
+        </div>
+        @if (_showNetGraph)
+        {
+            <div class="xgrid-netgraph" title="Cumulative Net across the range, left to right in time; dashed line marks zero">
+                <svg viewBox="0 0 100 100" preserveAspectRatio="none">
+                    <line class="xgrid-netgraph-zero" x1="0" y1="@NetGraphZeroY(grid)" x2="100" y2="@NetGraphZeroY(grid)" />
+                    <polyline class="xgrid-netgraph-line" points="@NetGraphPoints(grid)" />
+                </svg>
+            </div>
+        }
         <div class="xgrid-scroll">
             <div class="xgrid-rows"
                  style="grid-template-rows: repeat(@(grid.RowLow.Count), 1fr); grid-template-columns: repeat(@(grid.Columns.Count), 1fr);">
@@ -73,9 +97,8 @@
                     {
                         var col = c;
                         var cell = grid.Columns[col].Cells[row];
-                        var intensity = CellIntensity(grid, row, col);
                         <div class="xgrid-cell"
-                             style="grid-row: @(row + 1); grid-column: @(col + 1); background: color-mix(in srgb, var(--color-info) @((intensity * 100).ToString("0", CultureInfo.InvariantCulture))%, transparent);"
+                             style="grid-row: @(row + 1); grid-column: @(col + 1); background: @CellBackground(grid, row, col);"
                              title="@($"{grid.RowLow[row]:F5} - {grid.RowHigh[row]:F5} @ {grid.Columns[col].OpenTime:HH:mm}: {cell.Count} ticks ({cell.UpCount} up / {cell.DownCount} down)")">
                         </div>
                     }
@@ -91,6 +114,11 @@
                              title="@($"{grid.RowLow[row]:F5} - {grid.RowHigh[row]:F5}: POC on {RowSweepValue(grid, row):0} sweep steps")">
                         </div>
                     }
+                }
+                @if (_showPoc && grid.Poc is { } poc)
+                {
+                    <div class="xgrid-level-marker xgrid-level-marker-poc" style="grid-row: @(poc.Row + 1); grid-column: 1 / -1;"
+                         title="@($"POC: {poc.Price:F5}")"></div>
                 }
                 @if (_showVah && grid.Vah is { } vah)
                 {

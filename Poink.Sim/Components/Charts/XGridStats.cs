@@ -9,7 +9,8 @@ namespace Poink.Sim.Components.Charts;
 // UpCount/DownCount ride along so a future X can be computed without reshaping the grid.
 // Public (not internal) since XGrid.razor.cs's [Parameter] Grid exposes it -- same reason
 // TickVolumeProfileChart's WeightedPriceSample is public rather than internal.
-public readonly record struct XGridCell(int Count, int UpCount, int DownCount, double Value);
+public readonly record struct XGridCell(
+    int Count, int UpCount, int DownCount, double UpDistance, double DownDistance, double Value);
 
 // One bar's column -- Cells is row-ordered high-to-low, matching XGridResult's RowLow/RowHigh.
 public readonly record struct XGridColumn(DateTime OpenTime, IReadOnlyList<XGridCell> Cells);
@@ -29,11 +30,17 @@ public readonly record struct XGridLevel(double Price, int Row);
 // on the main chart (see ProfileLevelLines/VwapPoints/AverageMedianLines) -- null when
 // there isn't enough data for that particular level, same as those. Current is the range's
 // latest bar close (its right-most price), pinned to whichever row holds it.
+//
+// NetByColumn is the running cumulative SBuy - SSell after each column, so its last element
+// equals the SBuy - SSell readout -- one point per column, left to right in time.
 public readonly record struct XGridResult(
     IReadOnlyList<double> RowLow, IReadOnlyList<double> RowHigh, IReadOnlyList<XGridColumn> Columns, double MaxValue,
+    int MaxAbsDelta, double MaxDistanceValue, double MaxAbsDeltaDistance,
+    double SBuy, double SSell, IReadOnlyList<double> NetByColumn,
     IReadOnlyList<double> SweepLeftToRight, IReadOnlyList<double> SweepRightToLeft, IReadOnlyList<double> SweepSum,
     double MaxSweepValue,
-    XGridLevel? Vah, XGridLevel? Val, XGridLevel? Vwap, XGridLevel? Average, XGridLevel? Median, XGridLevel? Current);
+    XGridLevel? Poc, XGridLevel? Vah, XGridLevel? Val, XGridLevel? Vwap, XGridLevel? Average, XGridLevel? Median,
+    XGridLevel? Current);
 
 // Footprint-style price/bar matrix -- rows are price buckets (shared across every column,
 // same bucketing approach as VolumeProfileStats), columns are the bars inside ProfilerPage's
@@ -81,6 +88,12 @@ internal static class XGridStats
 
         var columns = new List<XGridColumn>(colCount);
         var maxValue = 0.0;
+        var maxAbsDelta = 0;
+        var maxDistanceValue = 0.0;
+        var maxAbsDeltaDistance = 0.0;
+        var sBuy = 0.0;
+        var sSell = 0.0;
+        var netByColumn = new List<double>(colCount);
         for (var g = 0; g < colCount; g++)
         {
             // Splits indices into colCount contiguous groups as evenly as integer division
@@ -92,6 +105,8 @@ internal static class XGridStats
             var counts = new int[rowCount];
             var upCounts = new int[rowCount];
             var downCounts = new int[rowCount];
+            var upDistances = new double[rowCount];
+            var downDistances = new double[rowCount];
             for (var gi = groupStart; gi < groupEnd; gi++)
             {
                 var hist = histograms[indices[gi]];
@@ -103,6 +118,10 @@ internal static class XGridStats
                     counts[row] += c.Count;
                     upCounts[row] += c.UpCount;
                     downCounts[row] += c.DownCount;
+                    upDistances[row] += c.UpDistance;
+                    downDistances[row] += c.DownDistance;
+                    sBuy += c.UpPriceSum;
+                    sSell += c.DownPriceSum;
                 }
             }
 
@@ -111,8 +130,15 @@ internal static class XGridStats
             {
                 double value = counts[r];
                 if (value > maxValue) maxValue = value;
-                cells.Add(new XGridCell(counts[r], upCounts[r], downCounts[r], value));
+                var absDelta = Math.Abs(upCounts[r] - downCounts[r]);
+                if (absDelta > maxAbsDelta) maxAbsDelta = absDelta;
+                var distanceValue = upDistances[r] + downDistances[r];
+                if (distanceValue > maxDistanceValue) maxDistanceValue = distanceValue;
+                var absDeltaDistance = Math.Abs(upDistances[r] - downDistances[r]);
+                if (absDeltaDistance > maxAbsDeltaDistance) maxAbsDeltaDistance = absDeltaDistance;
+                cells.Add(new XGridCell(counts[r], upCounts[r], downCounts[r], upDistances[r], downDistances[r], value));
             }
+            netByColumn.Add(sBuy - sSell);
             columns.Add(new XGridColumn(bars[indices[groupStart]].OpenTime, cells));
         }
 
@@ -123,6 +149,7 @@ internal static class XGridStats
             : null;
 
         var profileLevels = VolumeProfileStats.Compute(samples);
+        var poc = ToLevel(profileLevels?.Poc);
         var vah = ToLevel(profileLevels?.ValueAreaHigh);
         var val = ToLevel(profileLevels?.ValueAreaLow);
         var average = ToLevel(VolumeProfileStats.ComputeAverage(samples));
@@ -138,8 +165,10 @@ internal static class XGridStats
         var current = ToLevel(bars[indices[^1]].Close);
 
         return new XGridResult(
-            rowLow, rowHigh, columns, maxValue, sweepLtr, sweepRtl, sweepSum, maxSweepValue,
-            vah, val, vwap, average, median, current);
+            rowLow, rowHigh, columns, maxValue, maxAbsDelta, maxDistanceValue, maxAbsDeltaDistance,
+            sBuy, sSell, netByColumn,
+            sweepLtr, sweepRtl, sweepSum, maxSweepValue,
+            poc, vah, val, vwap, average, median, current);
     }
 
     // Walks every possible position of the Volume Range's near border, one raw bar at a

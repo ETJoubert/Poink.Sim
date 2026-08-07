@@ -4,7 +4,9 @@ using System.Collections.Generic;
 
 namespace Poink.Sim.Models;
 
-internal readonly record struct PriceBucketCounts(int Count, int UpCount, int DownCount);
+internal readonly record struct PriceBucketCounts(
+    int Count, int UpCount, int DownCount, double UpDistance, double DownDistance,
+    double UpPriceSum, double DownPriceSum);
 
 internal sealed class BarPriceHistogram
 {
@@ -16,14 +18,22 @@ internal sealed class BarPriceHistogram
 
     public IReadOnlyDictionary<long, PriceBucketCounts> Buckets => _buckets;
 
-    public void Add(double price, int direction)
+    // The tick's count, move distance, and the origin price itself all book to the origin
+    // bucket -- the cell the tick left, not the cell it arrived in. UpPriceSum/DownPriceSum
+    // accumulate that origin price so SBuy/SSell (see XGridStats) sum the price before each
+    // up/down move exactly, not at bucket resolution.
+    public void Add(double originPrice, int direction, double distance)
     {
-        long key = (long)Math.Floor(price / BucketWidth);
+        long key = (long)Math.Floor(originPrice / BucketWidth);
         _buckets.TryGetValue(key, out var existing);
         _buckets[key] = new PriceBucketCounts(
             existing.Count + 1,
             existing.UpCount + (direction > 0 ? 1 : 0),
-            existing.DownCount + (direction < 0 ? 1 : 0));
+            existing.DownCount + (direction < 0 ? 1 : 0),
+            existing.UpDistance + (direction > 0 ? distance : 0),
+            existing.DownDistance + (direction < 0 ? distance : 0),
+            existing.UpPriceSum + (direction > 0 ? originPrice : 0),
+            existing.DownPriceSum + (direction < 0 ? originPrice : 0));
     }
 
     public static List<(double Price, int Count, int UpCount, int DownCount)> Merge(
@@ -40,7 +50,9 @@ internal sealed class BarPriceHistogram
             {
                 merged.TryGetValue(key, out var existing);
                 merged[key] = new PriceBucketCounts(
-                    existing.Count + c.Count, existing.UpCount + c.UpCount, existing.DownCount + c.DownCount);
+                    existing.Count + c.Count, existing.UpCount + c.UpCount, existing.DownCount + c.DownCount,
+                    existing.UpDistance + c.UpDistance, existing.DownDistance + c.DownDistance,
+                    existing.UpPriceSum + c.UpPriceSum, existing.DownPriceSum + c.DownPriceSum);
             }
         }
 

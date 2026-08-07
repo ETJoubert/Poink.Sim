@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 
@@ -38,16 +41,88 @@ namespace Poink.Sim.Components.Charts
 
         private SweepMode _sweepMode = SweepMode.None;
 
-        // Vah/Val/Vwap/Average/Median are independently toggleable, same "each gets its
-        // own checkbox" convention as ProfilerPage's own CHART OVERLAYS panel.
-        private bool _showVah = true;
-        private bool _showVal = true;
-        private bool _showVwap = true;
-        private bool _showAverage = true;
-        private bool _showMedian = true;
+        // Opt-in delta shading -- recolours each cell by its up-minus-down tick balance
+        // instead of its raw tick count, same "display choice sitting on data already on
+        // Grid" rationale as _sweepMode.
+        private bool _shadeDelta;
 
-        private double CellIntensity(XGridResult grid, int row, int col) =>
-            grid.MaxValue <= 0 ? 0 : grid.Columns[col].Cells[row].Value / grid.MaxValue;
+        // Weights each tick by the price distance it moved instead of counting it as one --
+        // modifies whichever shading is active (count or delta), same opt-in display-only
+        // rationale as _sweepMode/_shadeDelta.
+        private bool _distanceWeighted;
+
+        // Opt-in line graph of NetByColumn under the totals row -- default off like every
+        // other overlay.
+        private bool _showNetGraph;
+
+        // Poc/Vah/Val/Vwap/Average/Median are independently toggleable, same "each gets its
+        // own checkbox" convention as ProfilerPage's own CHART OVERLAYS panel. Every overlay
+        // starts off so the grid opens unshaded and unmarked.
+        private bool _showPoc;
+        private bool _showVah;
+        private bool _showVal;
+        private bool _showVwap;
+        private bool _showAverage;
+        private bool _showMedian;
+
+        // Delta mode swaps the tick-count fill for an up/down balance fill: green when up
+        // ticks lead, red when down ticks lead, opacity scaled by the imbalance relative to
+        // the grid's largest imbalance so the strongest cell reads at full colour. The
+        // distance multiplier swaps each tick's weight of one for the price distance it
+        // moved, so both fill and ceiling switch to the matching distance totals.
+        private string CellBackground(XGridResult grid, int row, int col)
+        {
+            XGridCell cell = grid.Columns[col].Cells[row];
+            if (_shadeDelta)
+            {
+                double delta = _distanceWeighted ? cell.UpDistance - cell.DownDistance : cell.UpCount - cell.DownCount;
+                double ceiling = _distanceWeighted ? grid.MaxAbsDeltaDistance : grid.MaxAbsDelta;
+                string color = delta >= 0 ? "var(--color-success)" : "var(--color-error)";
+                return Fill(color, ceiling <= 0 ? 0 : Math.Abs(delta) / ceiling);
+            }
+
+            double value = _distanceWeighted ? cell.UpDistance + cell.DownDistance : cell.Value;
+            double maxValue = _distanceWeighted ? grid.MaxDistanceValue : grid.MaxValue;
+            return Fill("var(--color-info)", maxValue <= 0 ? 0 : value / maxValue);
+        }
+
+        private static string Fill(string color, double intensity) =>
+            $"color-mix(in srgb, {color} {(intensity * 100).ToString("0", CultureInfo.InvariantCulture)}%, transparent)";
+
+        // Maps the cumulative Net series onto a 0..100 viewBox, stretched to fill width and
+        // flipped so higher Net sits higher. Zero is always inside the range since the span
+        // is seeded from zero (see NetGraphSpan), letting the baseline share the same mapping.
+        private static string NetGraphPoints(XGridResult grid)
+        {
+            var series = grid.NetByColumn;
+            var (min, range) = NetGraphSpan(series);
+            var points = new string[series.Count];
+            for (var i = 0; i < series.Count; i++)
+            {
+                double x = series.Count <= 1 ? 0 : (double)i / (series.Count - 1) * 100;
+                double y = range <= 0 ? 50 : 100 - (series[i] - min) / range * 100;
+                points[i] = $"{x.ToString("0.##", CultureInfo.InvariantCulture)},{y.ToString("0.##", CultureInfo.InvariantCulture)}";
+            }
+            return string.Join(" ", points);
+        }
+
+        private static string NetGraphZeroY(XGridResult grid)
+        {
+            var (min, range) = NetGraphSpan(grid.NetByColumn);
+            double y = range <= 0 ? 50 : 100 - (0 - min) / range * 100;
+            return y.ToString("0.##", CultureInfo.InvariantCulture);
+        }
+
+        private static (double Min, double Range) NetGraphSpan(IReadOnlyList<double> series)
+        {
+            double min = 0, max = 0;
+            foreach (var v in series)
+            {
+                if (v < min) min = v;
+                if (v > max) max = v;
+            }
+            return (min, max - min);
+        }
 
         // Row-uniform -- the sweep metric has no per-column dimension (see
         // XGridStats.ComputeSweeps), so the whole row shades the same regardless of column.
