@@ -626,6 +626,13 @@
     min-height: 0;
 }
 
+.sim-chart-side.sim-chart-side-collapsed {
+    width: 22px;
+    min-width: 22px;
+    max-width: 22px;
+    overflow: hidden;
+}
+
 .sim-chart-divider {
     position: relative;
     flex: 0 0 6px;

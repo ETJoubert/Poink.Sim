@@ -301,7 +301,8 @@
                             <div class="sim-chart-main">
                                 @if (s.Config.Aggregate)
                                 {
-                                    <DrawableOhlcvChart Bars="ToBarRows(s.RecentBars)" CurrentBid="s.CurrentBid"
+                                    <DrawableOhlcvChart Bars="ToBarRows(s.RecentBars)" KeepView="_keepChartView"
+                                                        CurrentBid="s.CurrentBid"
                                                         CurrentAsk="s.CurrentAsk" EntryPrice="SelectedTrader?.Position?.EntryPrice"
                                                         PositionIsLong="SelectedPositionIsLong" StopLossPrice="SelectedTrader?.Position?.StopLossPrice"
                                                         TakeProfitPrice="SelectedTrader?.Position?.TakeProfitPrice"
@@ -313,31 +314,42 @@
                                     <ViewDatatable Items="TickRows" Title="RECENT TICKS" />
                                 }
                             </div>
+                            @if (s.Config.Aggregate)
+                            {
+                                <div class="sim-chart-divider" @ref="_chartDividerRefXGrid" data-min-width="160"
+                                     data-max-width="480" title="Drag to resize"></div>
+                                <div class="sim-chart-side @(_xgridCollapsed ? "sim-chart-side-collapsed" : "")"
+                                     title="Footprint grid over the current profile-bar window -- rows are price buckets, columns are bars">
+                                    <XGrid Grid="ComputeXGrid(s)" @bind-RowCount="_xgridRowCount" @bind-ColCount="_xgridColCount"
+                                           @bind-Collapsed="_xgridCollapsed" />
+                                </div>
+                            }
                             <div class="sim-chart-divider" @ref="_chartDividerRef" data-min-width="160" data-max-width="480"
                                  title="Drag to resize"></div>
-                            <div class="sim-chart-side">
+                            <div class="sim-chart-side @(_volumeProfileCollapsed ? "sim-chart-side-collapsed" : "")">
                                 @if (s.Config.Aggregate)
                                 {
                                     <TickVolumeProfileChart WeightedSamples="MergedBarSamples(s)" CurrentPrice="s.CurrentPrice"
-                                                            ShowLevels="_showProfilePanelLevels" />
+                                                            ShowLevels="_showProfilePanelLevels" @bind-Collapsed="_volumeProfileCollapsed" />
                                 }
                                 else
                                 {
                                     <TickVolumeProfileChart Prices="ToMidPrices(s.RecentTicks)" CurrentPrice="s.CurrentPrice"
-                                                            WindowSize="ClampedTickWindow" />
+                                                            WindowSize="ClampedTickWindow" @bind-Collapsed="_volumeProfileCollapsed" />
                                 }
                             </div>
                             <div class="sim-chart-divider" @ref="_chartDividerRef2" data-min-width="160" data-max-width="480"
                                  title="Drag to resize"></div>
-                            <div class="sim-chart-side">
+                            <div class="sim-chart-side @(_timeProfileCollapsed ? "sim-chart-side-collapsed" : "")">
                                 @if (s.Config.Aggregate)
                                 {
-                                    <TickTimeProfileChart WeightedSamples="MergedBarTimeSamples(s)" CurrentPrice="s.CurrentPrice" />
+                                    <TickTimeProfileChart WeightedSamples="MergedBarTimeSamples(s)" CurrentPrice="s.CurrentPrice"
+                                                          @bind-Collapsed="_timeProfileCollapsed" />
                                 }
                                 else
                                 {
                                     <TickTimeProfileChart Ticks="ToTimedMidPrices(s.RecentTicks)" CurrentPrice="s.CurrentPrice"
-                                                          WindowSize="ClampedTickWindow" />
+                                                          WindowSize="ClampedTickWindow" @bind-Collapsed="_timeProfileCollapsed" />
                                 }
                             </div>
                         </div>

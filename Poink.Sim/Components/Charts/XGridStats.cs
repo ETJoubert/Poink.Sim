@@ -27,12 +27,13 @@ public readonly record struct XGridLevel(double Price, int Row);
 //
 // Vah/Val/Vwap/Average/Median mirror the same-named overlays ProfilerPage already draws
 // on the main chart (see ProfileLevelLines/VwapPoints/AverageMedianLines) -- null when
-// there isn't enough data for that particular level, same as those.
+// there isn't enough data for that particular level, same as those. Current is the range's
+// latest bar close (its right-most price), pinned to whichever row holds it.
 public readonly record struct XGridResult(
     IReadOnlyList<double> RowLow, IReadOnlyList<double> RowHigh, IReadOnlyList<XGridColumn> Columns, double MaxValue,
     IReadOnlyList<double> SweepLeftToRight, IReadOnlyList<double> SweepRightToLeft, IReadOnlyList<double> SweepSum,
     double MaxSweepValue,
-    XGridLevel? Vah, XGridLevel? Val, XGridLevel? Vwap, XGridLevel? Average, XGridLevel? Median);
+    XGridLevel? Vah, XGridLevel? Val, XGridLevel? Vwap, XGridLevel? Average, XGridLevel? Median, XGridLevel? Current);
 
 // Footprint-style price/bar matrix -- rows are price buckets (shared across every column,
 // same bucketing approach as VolumeProfileStats), columns are the bars inside ProfilerPage's
@@ -134,10 +135,11 @@ internal static class XGridStats
             totalVolume += bars[i].Volume;
         }
         var vwap = ToLevel(totalVolume > 0 ? (double?)(totalPriceVolume / totalVolume) : null);
+        var current = ToLevel(bars[indices[^1]].Close);
 
         return new XGridResult(
             rowLow, rowHigh, columns, maxValue, sweepLtr, sweepRtl, sweepSum, maxSweepValue,
-            vah, val, vwap, average, median);
+            vah, val, vwap, average, median, current);
     }
 
     // Walks every possible position of the Volume Range's near border, one raw bar at a

@@ -26,10 +26,32 @@
     opacity: 0.85;
 }
 
+.xgrid-header-collapsed {
+    justify-content: center;
+}
+
 .xgrid-header-actions {
     display: flex;
     align-items: center;
     gap: 10px;
+}
+
+.xgrid-collapse-btn {
+    flex: 0 0 auto;
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
+    color: var(--color-secondary);
+    font-size: 11px;
+    line-height: 1;
+    padding: 3px 4px;
+    border-radius: var(--border-radius-sm);
+    cursor: pointer;
+    transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.xgrid-collapse-btn:hover {
+    color: var(--color-primary);
+    border-color: var(--color-primary);
 }
 
 .xgrid-control {
@@ -224,4 +246,16 @@
 .xgrid-level-marker-med {
     border-top: 1px dashed var(--color-neutral);
     border-bottom: 1px dashed var(--color-neutral);
+}
+
+.xgrid-current-marker {
+    align-self: center;
+    justify-self: end;
+    width: 0;
+    height: 0;
+    border-top: 5px solid transparent;
+    border-bottom: 5px solid transparent;
+    border-right: 6px solid var(--color-accent);
+    transform: translateX(100%);
+    filter: drop-shadow(0 0 3px color-mix(in srgb, var(--color-accent) 60%, transparent));
 }

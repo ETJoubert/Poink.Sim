@@ -23,6 +23,13 @@ namespace Poink.Sim.Components.Charts
         private Task SetRowCount(int value) => RowCountChanged.InvokeAsync(RowCount = value);
         private Task SetColCount(int value) => ColCountChanged.InvokeAsync(ColCount = value);
 
+        // Two-way bound so the parent shrinks its own layout column around this panel, same
+        // ownership split as TickVolumeProfileChart/TickTimeProfileChart's Collapsed.
+        [Parameter] public bool Collapsed { get; set; }
+        [Parameter] public EventCallback<bool> CollapsedChanged { get; set; }
+
+        private Task ToggleCollapsed() => CollapsedChanged.InvokeAsync(Collapsed = !Collapsed);
+
         // Which sweep metric shades on top of the base tick-count grid -- purely a display
         // choice (all three are already sitting on Grid), so it stays local, unbound state
         // rather than a two-way parameter like RowCount/ColCount, which do drive a

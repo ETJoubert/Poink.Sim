@@ -100,12 +100,13 @@
             </div>
             <div class="prof-chart-divider" @ref="_chartDividerRefXGrid" data-min-width="200"
                  title="Drag to resize"></div>
-            <div class="prof-chart-side">
+            <div class="prof-chart-side @(_xgridCollapsed ? "prof-chart-side-collapsed" : "")">
                 <div class="prof-vp"
                      title="@(VolumeRangeLabel() is { } xgridLabel
                                                      ? $"Footprint grid for the selected Volume Range ({xgridLabel}) -- rows are price buckets, columns are bars"
                                                      : "Select a Volume Range on the chart to build the footprint grid -- rows are price buckets, columns are bars")">
-                    <XGrid Grid="ComputeXGrid()" @bind-RowCount="_xgridRowCount" @bind-ColCount="_xgridColCount" />
+                    <XGrid Grid="ComputeXGrid()" @bind-RowCount="_xgridRowCount" @bind-ColCount="_xgridColCount"
+                           @bind-Collapsed="_xgridCollapsed" />
                 </div>
             </div>
             <div class="prof-chart-divider" @ref="_chartDividerRef" data-min-width="200"

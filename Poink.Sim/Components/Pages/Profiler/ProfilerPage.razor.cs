@@ -100,6 +100,7 @@ namespace Poink.Sim.Components.Pages
 
         private bool _volumeProfileCollapsed;
         private bool _timeProfileCollapsed;
+        private bool _xgridCollapsed;
 
 
 

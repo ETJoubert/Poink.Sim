@@ -52,6 +52,11 @@ namespace Poink.Sim.Components.Pages
         private bool _isLoading;
         private string? _error;
         private bool _hideChart;
+
+        // Fits the chart once on a fresh run, then latches true so live ticks preserve the
+        // user's own pan/zoom instead of refitting every tick. See DrawableOhlcvChart.KeepView.
+        private bool _keepChartView;
+
         private bool _traderPanelCollapsed;
         private int? _selectedTraderId;
         private LogTab _activeLogTab;
@@ -72,6 +77,26 @@ namespace Poink.Sim.Components.Pages
         private bool _showProfilePanelLevels = true;
         private bool _showProfileChartLines = true;
         private bool _showVwap = true;
+
+        private bool _volumeProfileCollapsed;
+        private bool _timeProfileCollapsed;
+
+        private int _xgridRowCount = 20;
+        private int _xgridColCount = 20;
+        private bool _xgridCollapsed;
+
+        // Sources the grid's range from the profile-bar window rather than a drawn Volume
+        // Range, which Simulation has no chart tool for -- see ProfilerPage.ComputeXGrid.
+        private XGridResult? ComputeXGrid(SimulationSnapshot s)
+        {
+            if (!s.Config.Aggregate || s.RecentBars.Count == 0)
+                return null;
+            var window = Math.Min(ClampedBarWindow, s.RecentBars.Count);
+            var start = s.RecentBars[s.RecentBars.Count - window].OpenTime;
+            var end = s.RecentBars[^1].OpenTime;
+            return XGridStats.Compute(
+                s.RecentBars, s.RecentBarHistograms, MergedBarSamples(s), start, end, _xgridRowCount, _xgridColCount);
+        }
 
 
         private List<WeightedPriceSample> MergedBarSamples(SimulationSnapshot s) =>
@@ -231,6 +256,7 @@ namespace Poink.Sim.Components.Pages
         }
 
 
+        private ElementReference _chartDividerRefXGrid;
         private ElementReference _chartDividerRef;
         private ElementReference _chartDividerRef2;
         private ElementReference _chartHDividerRef;
@@ -310,10 +336,15 @@ namespace Poink.Sim.Components.Pages
 
             if (_snapshot is not null && !_hideChart && _dividerResizeInstance is not null)
             {
+                if (_snapshot.Config.Aggregate)
+                    await _dividerResizeInstance.InvokeVoidAsync("bind", _chartDividerRefXGrid);
                 await _dividerResizeInstance.InvokeVoidAsync("bind", _chartDividerRef);
                 await _dividerResizeInstance.InvokeVoidAsync("bind", _chartDividerRef2);
                 await _dividerResizeInstance.InvokeVoidAsync("bindHeight", _chartHDividerRef);
             }
+
+            if (!_keepChartView && _snapshot is { Config.Aggregate: true } snap && !_hideChart && snap.RecentBars.Count > 0)
+                _keepChartView = true;
         }
 
         public async ValueTask DisposeAsync()
@@ -363,6 +394,7 @@ namespace Poink.Sim.Components.Pages
                 _table, _from, _to, _aggregate, TimeSpan.FromSeconds(_barSizeSeconds), _brainName, _startingCash, _traderCount,
                 _leverage, _stopOutLevelPercent, _commissionRatePercent);
 
+            _keepChartView = false;
             if (!Service.TryLoad(config))
                 _loadError = "a load is already in progress";
         }
@@ -404,6 +436,7 @@ namespace Poink.Sim.Components.Pages
                 table, from, to, _aggregate, TimeSpan.FromSeconds(_barSizeSeconds), _brainName, _startingCash, _traderCount,
                 _leverage, _stopOutLevelPercent, _commissionRatePercent);
 
+            _keepChartView = false;
             if (!Service.TryLoadDummy(config))
                 _loadError = "a load is already in progress";
         }
@@ -445,9 +478,17 @@ namespace Poink.Sim.Components.Pages
 
         private void ToggleTraderPanel() => _traderPanelCollapsed = !_traderPanelCollapsed;
 
-        private void ResetSim() => Service.Reset();
+        private void ResetSim()
+        {
+            _keepChartView = false;
+            Service.Reset();
+        }
 
-        private void UnloadSim() => Service.Unload();
+        private void UnloadSim()
+        {
+            _keepChartView = false;
+            Service.Unload();
+        }
 
         // ── Rendering helpers ──
 
