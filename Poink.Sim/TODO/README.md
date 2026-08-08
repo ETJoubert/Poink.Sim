@@ -19,7 +19,7 @@ TODO List for Poink.SIM project
 
 1. Move Charts into a resizeable card that will fill screen. Simulation, Trainer, Profile pages | UI
 - TODO
-- For Simulation and profile there are charts built that has `DrawableOhlcvChart`, Volume Profile, Time Profile, and Chart overlay.
+- For Simulation and profile there are charts built that has `MarketChart`, Volume Profile, Time Profile, and Chart overlay.
 It is fine for it to be a seperate components but there should be a control to maximize these elements to fill the screen.
 For simulation the Profile Bars slider should be included.
 

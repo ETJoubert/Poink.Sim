@@ -8,7 +8,7 @@ using Poink.Shared.Client.Components.Pages.CTrader;
 
 namespace Poink.Sim.Components.Charts
 {
-    // ColorGroup keys drawableOhlcvChart.js's own groupColors map; null/unrecognized falls back to the plain accent colour.
+    // ColorGroup keys marketChart.js's own groupColors map; null/unrecognized falls back to the plain accent colour.
     public readonly record struct ChartHorizontalLine(double Price, string? Label = null, string? ColorGroup = null);
 
     public readonly record struct ChartVerticalLine(DateTime TimeUtc, string? Label = null, string? ColorGroup = null);
@@ -31,7 +31,7 @@ namespace Poink.Sim.Components.Charts
     public readonly record struct ChartMarker(DateTime TimeUtc, string Shape, string ColorGroup, string? Text = null);
 
     // Candlestick + volume chart with click-to-draw annotations, shared by ProfilerPage and SimulationPage's live overlay.
-    public partial class DrawableOhlcvChart : ComponentBase, IAsyncDisposable
+    public partial class MarketChart : ComponentBase, IAsyncDisposable
     {
         [Inject] private IJSRuntime JSRuntime { get; set; } = null!;
 
@@ -99,14 +99,14 @@ namespace Poink.Sim.Components.Charts
         private enum DrawMode { None, Horizontal, Vertical, Diagonal, TRange, PRange, Rectangle, TRangeChart, TRangeReferenceChart, VolumeRange }
         private DrawMode _mode;
 
-        // Kept up to date by drawableOhlcvChart.js, which owns the click state machine. Null while no mode is armed.
+        // Kept up to date by marketChart.js, which owns the click state machine. Null while no mode is armed.
         private string? _drawHint;
 
         private ElementReference _containerRef;
         private ElementReference _minimapRef;
         private IJSObjectReference? _module;
         private string? _chartId;
-        private DotNetObjectReference<DrawableOhlcvChart>? _dotNetRef;
+        private DotNetObjectReference<MarketChart>? _dotNetRef;
         private List<CTraderBarRow>? _renderedBars;
         private IReadOnlyList<ChartHorizontalLine>? _renderedHorizontalLines;
         private IReadOnlyList<ChartVerticalLine>? _renderedVerticalLines;
@@ -179,7 +179,7 @@ namespace Poink.Sim.Components.Charts
             {
                 if (firstRender)
                 {
-                    _module = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/drawableOhlcvChart.js");
+                    _module = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/marketChart.js");
                     if (_disposed) return;
                     _dotNetRef = DotNetObjectReference.Create(this);
                     _chartId = await _module.InvokeAsync<string>("create", _containerRef, _minimapRef, _dotNetRef, Interactive);

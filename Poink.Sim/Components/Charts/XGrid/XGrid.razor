@@ -1,7 +1,7 @@
 @namespace Poink.Sim.Components.Charts
 @using System.Globalization
 
-<div class="xgrid-wrapper @(Collapsed ? "xgrid-wrapper-collapsed" : "")">
+<div class="xgrid-wrapper @(Collapsed ? "xgrid-wrapper-collapsed" : "") @(_expanded ? "expanded" : "")">
     <div class="xgrid-header @(Collapsed ? "xgrid-header-collapsed" : "")">
         @if (!Collapsed)
         {
@@ -19,12 +19,25 @@
                     <input type="number" min="1" max="500" @bind:get="ColCount" @bind:set="SetColCount" @bind:event="oninput" />
                 </label>
             }
+            @if (!Collapsed)
+            {
+                <button class="xgrid-expand-btn" @onclick="ToggleExpanded"
+                        title="@(_expanded ? "Shrink the X Grid back into its panel" : "Expand the X Grid to a large overlay")">
+                    @(_expanded ? "✕" : "⤢")
+                </button>
+            }
             <button class="xgrid-collapse-btn" @onclick="ToggleCollapsed"
                     title="@(Collapsed ? "Expand the X Grid panel" : "Collapse the X Grid panel to a thin column")">
                 @(Collapsed ? "◂" : "▸")
             </button>
         </div>
     </div>
+    @if (_expanded && ExpandedControls is not null)
+    {
+        <div class="xgrid-expanded-bar">
+            @ExpandedControls
+        </div>
+    }
     @if (!Collapsed)
     {
     <div class="xgrid-overlay-row">
@@ -80,77 +93,24 @@
         </div>
         @if (_showNetGraph)
         {
-            <div class="xgrid-netgraph" title="Cumulative Net across the range, left to right in time; dashed line marks zero">
+            <div class="xgrid-netgraph" title="Cumulative Net per column as bars, one bar per grid column; green above zero, red below; solid line marks zero, vertical lines mark where Net crosses zero">
                 <svg viewBox="0 0 100 100" preserveAspectRatio="none">
+                    @foreach (var bar in NetGraphBars(grid))
+                    {
+                        <rect class="@(bar.Positive ? "xgrid-netgraph-bar-up" : "xgrid-netgraph-bar-down")"
+                              x="@bar.X" y="@bar.Y" width="@bar.Width" height="@bar.Height" />
+                    }
                     <line class="xgrid-netgraph-zero" x1="0" y1="@NetGraphZeroY(grid)" x2="100" y2="@NetGraphZeroY(grid)" />
-                    <polyline class="xgrid-netgraph-line" points="@NetGraphPoints(grid)" />
+                    @foreach (var x in NetGraphZeroCrossings(grid))
+                    {
+                        <line class="xgrid-netgraph-cross" x1="@x" y1="0" x2="@x" y2="100" />
+                    }
                 </svg>
             </div>
         }
         <div class="xgrid-scroll">
-            <div class="xgrid-rows"
-                 style="grid-template-rows: repeat(@(grid.RowLow.Count), 1fr); grid-template-columns: repeat(@(grid.Columns.Count), 1fr);">
-                @for (var r = 0; r < grid.RowLow.Count; r++)
-                {
-                    var row = r;
-                    @for (var c = 0; c < grid.Columns.Count; c++)
-                    {
-                        var col = c;
-                        var cell = grid.Columns[col].Cells[row];
-                        <div class="xgrid-cell"
-                             style="grid-row: @(row + 1); grid-column: @(col + 1); background: @CellBackground(grid, row, col);"
-                             title="@($"{grid.RowLow[row]:F5} - {grid.RowHigh[row]:F5} @ {grid.Columns[col].OpenTime:HH:mm}: {cell.Count} ticks ({cell.UpCount} up / {cell.DownCount} down)")">
-                        </div>
-                    }
-                }
-                @if (_sweepMode != SweepMode.None)
-                {
-                    @for (var r = 0; r < grid.RowLow.Count; r++)
-                    {
-                        var row = r;
-                        var sweepIntensity = RowSweepIntensity(grid, row);
-                        <div class="xgrid-row-overlay"
-                             style="grid-row: @(row + 1); grid-column: 1 / -1; background: color-mix(in srgb, var(--color-warning) @((sweepIntensity * 100).ToString("0", CultureInfo.InvariantCulture))%, transparent);"
-                             title="@($"{grid.RowLow[row]:F5} - {grid.RowHigh[row]:F5}: POC on {RowSweepValue(grid, row):0} sweep steps")">
-                        </div>
-                    }
-                }
-                @if (_showPoc && grid.Poc is { } poc)
-                {
-                    <div class="xgrid-level-marker xgrid-level-marker-poc" style="grid-row: @(poc.Row + 1); grid-column: 1 / -1;"
-                         title="@($"POC: {poc.Price:F5}")"></div>
-                }
-                @if (_showVah && grid.Vah is { } vah)
-                {
-                    <div class="xgrid-level-marker xgrid-level-marker-vah" style="grid-row: @(vah.Row + 1); grid-column: 1 / -1;"
-                         title="@($"VAH: {vah.Price:F5}")"></div>
-                }
-                @if (_showVal && grid.Val is { } val)
-                {
-                    <div class="xgrid-level-marker xgrid-level-marker-val" style="grid-row: @(val.Row + 1); grid-column: 1 / -1;"
-                         title="@($"VAL: {val.Price:F5}")"></div>
-                }
-                @if (_showVwap && grid.Vwap is { } vwap)
-                {
-                    <div class="xgrid-level-marker xgrid-level-marker-vwap" style="grid-row: @(vwap.Row + 1); grid-column: 1 / -1;"
-                         title="@($"VWAP: {vwap.Price:F5}")"></div>
-                }
-                @if (_showAverage && grid.Average is { } average)
-                {
-                    <div class="xgrid-level-marker xgrid-level-marker-avg" style="grid-row: @(average.Row + 1); grid-column: 1 / -1;"
-                         title="@($"AVG: {average.Price:F5}")"></div>
-                }
-                @if (_showMedian && grid.Median is { } median)
-                {
-                    <div class="xgrid-level-marker xgrid-level-marker-med" style="grid-row: @(median.Row + 1); grid-column: 1 / -1;"
-                         title="@($"MED: {median.Price:F5}")"></div>
-                }
-                @if (grid.Current is { } current)
-                {
-                    <div class="xgrid-current-marker" style="grid-row: @(current.Row + 1); grid-column: 1 / -1;"
-                         title="@($"Current price: {current.Price:F5}")"></div>
-                }
-            </div>
+            <canvas class="xgrid-canvas" @ref="_canvasRef"></canvas>
+            <div class="xgrid-cell-tip"></div>
         </div>
     }
     }

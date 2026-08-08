@@ -301,7 +301,7 @@
                             <div class="sim-chart-main">
                                 @if (s.Config.Aggregate)
                                 {
-                                    <DrawableOhlcvChart Bars="ToBarRows(s.RecentBars)" KeepView="_keepChartView"
+                                    <MarketChart Bars="ToBarRows(s.RecentBars)" KeepView="_keepChartView"
                                                         CurrentBid="s.CurrentBid"
                                                         CurrentAsk="s.CurrentAsk" EntryPrice="SelectedTrader?.Position?.EntryPrice"
                                                         PositionIsLong="SelectedPositionIsLong" StopLossPrice="SelectedTrader?.Position?.StopLossPrice"
@@ -321,7 +321,37 @@
                                 <div class="sim-chart-side @(_xgridCollapsed ? "sim-chart-side-collapsed" : "")"
                                      title="Footprint grid over the current profile-bar window -- rows are price buckets, columns are bars">
                                     <XGrid Grid="ComputeXGrid(s)" @bind-RowCount="_xgridRowCount" @bind-ColCount="_xgridColCount"
-                                           @bind-Collapsed="_xgridCollapsed" />
+                                           @bind-Collapsed="_xgridCollapsed">
+                                        <ExpandedControls>
+                                            <button class="sim-ctrl-btn sim-ctrl-btn-play" @onclick="TogglePlayPause" disabled="@s.IsFinished"
+                                                    title="@(s.IsPlaying ? "Pause playback" : "Resume playback")">
+                                                <Icon Name="@(s.IsPlaying ? "pause-fill" : "play-fill")" Class="sim-ctrl-icon" />
+                                                @(s.IsPlaying ? "PAUSE" : "PLAY")
+                                            </button>
+                                            <button class="sim-ctrl-btn" @onclick="StepOnce" disabled="@(s.IsPlaying || s.IsFinished)"
+                                                    title="Advance a single step">
+                                                <Icon Name="skip-end-fill" Class="sim-ctrl-icon" />
+                                                STEP
+                                            </button>
+                                            <div class="sim-speed-stepper @(s.IsUncapped ? "sim-speed-stepper-inactive" : "")"
+                                                 title="Playback speed">
+                                                <button class="sim-ctrl-btn sim-speed-step" @onclick="() => DecreaseSpeed(s)"
+                                                        disabled="@(SpeedIndex(s) == 0)" title="Slower">−</button>
+                                                <span class="sim-speed-value">@FormatSpeed(s.SpeedMultiplier)</span>
+                                                <button class="sim-ctrl-btn sim-speed-step" @onclick="() => IncreaseSpeed(s)"
+                                                        disabled="@(SpeedIndex(s) == Speeds.Length - 1)" title="Faster">+</button>
+                                            </div>
+                                            <button class="sim-ctrl-btn sim-ctrl-btn-max @(s.IsUncapped ? "active" : "")" @onclick="SetMax"
+                                                    title="Uncapped backend speed">MAX</button>
+                                            @if (s.Config.Aggregate)
+                                            {
+                                                <span class="sim-window-title">PROFILE BARS</span>
+                                                <input class="sim-window-input" type="number" min="1" max="@MaxBarWindow"
+                                                       @bind="_barWindowSize" @bind:event="oninput"
+                                                       title="Bars back from now -- their price histograms drive the volume profile window" />
+                                            }
+                                        </ExpandedControls>
+                                    </XGrid>
                                 </div>
                             }
                             <div class="sim-chart-divider" @ref="_chartDividerRef" data-min-width="160" data-max-width="480"

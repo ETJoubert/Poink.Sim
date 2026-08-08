@@ -78,7 +78,7 @@
         <div class="trf-chart">
             <div class="trf-chart-main"
                  title="OHLC bar chart -- pan left to backfill older history, or use the toolbar's VOLUME RANGE tool to select the window the profile panels/overlays are built from">
-                <DrawableOhlcvChart Bars="ToBarRows()" KeepView="_keepView" OnNearStart="LoadMore"
+                <MarketChart Bars="ToBarRows()" KeepView="_keepView" OnNearStart="LoadMore"
                                     ShowAnnotationTools="false" HorizontalLines="ProfileLevelLines()"
                                     RangeFills="VolumeRangeFill()" VwapLine="VwapPoints()"
                                     OnVolumeRangeDrawn="SetVolumeRange" HasVolumeRange="_volumeRangeStart is not null"
@@ -148,7 +148,7 @@
                                           ? "within the selected Volume Range"
                                           : "across the latest loaded ticks") +
                                       ", re-indexed by tick count instead of wall-clock time so real time gaps don't distort the aggregation, then bucketed into OHLC bars -- use the main chart's VOLUME RANGE tool to change which ticks this is built from")">
-                            <DrawableOhlcvChart Bars="DeltaBarRows()" ShowAnnotationTools="false" HorizontalLines="ZeroLine()" />
+                            <MarketChart Bars="DeltaBarRows()" ShowAnnotationTools="false" HorizontalLines="ZeroLine()" />
                         </div>
                     }
                     else if (_activeDataTab == DataTab.LocalZScore)
@@ -171,7 +171,7 @@
                                           + _zScoreWindowSize + "-tick sub-window "
                                           + (_volumeRangeStart is not null ? "within the selected Volume Range" : "across the latest loaded ticks")
                                           + " -- zero-mean/unit-variance per sub-window, so geometric shape reads independently of macro trend or price level. Contrast with GLOBAL Z-SCORE, which normalizes the whole selection as one window")">
-                                <DrawableOhlcvChart Bars="ZScoreBarRows()" ShowAnnotationTools="false" />
+                                <MarketChart Bars="ZScoreBarRows()" ShowAnnotationTools="false" />
                             </div>
                             <div class="trf-chart-side">
                                 <div class="trf-vp"
@@ -201,7 +201,7 @@
                                  title="@("Every tick re-expressed as (price - mean) / standard deviation, computed once over the entire selection "
                                           + "(" + (_volumeRangeStart is not null ? "the selected Volume Range" : "the latest loaded ticks") + ") "
                                           + "rather than per sub-window -- zero-mean/unit-variance across the whole lookback. Contrast with LOCAL Z-SCORE, which re-normalizes every window-size chunk independently")">
-                                <DrawableOhlcvChart Bars="GlobalZScoreBarRows()" ShowAnnotationTools="false" />
+                                <MarketChart Bars="GlobalZScoreBarRows()" ShowAnnotationTools="false" />
                             </div>
                             <div class="trf-chart-side">
                                 <div class="trf-vp"
@@ -245,7 +245,7 @@
                                           " the latest (anchor) price, re-indexed by tick count instead of wall-clock time "
                                           + (_volumeRangeStart is not null ? "within the selected Volume Range" : "across the latest loaded ticks")
                                           + ", then bucketed into OHLC bars -- a 2% move reads the same regardless of the asset's absolute price level")">
-                                <DrawableOhlcvChart Bars="DriftBarRows()" ShowAnnotationTools="false" HorizontalLines="ZeroLine()" />
+                                <MarketChart Bars="DriftBarRows()" ShowAnnotationTools="false" HorizontalLines="ZeroLine()" />
                             </div>
                             <div class="trf-chart-side">
                                 <div class="trf-vp"
@@ -272,7 +272,7 @@
                         </div>
                         <div class="trf-delta-chart"
                              title="Ordinary OHLC bars built from every tick in the selected Volume Range -- unlike the other tabs here, no delta/z-score/drift transform is applied, and unlike them this isn't capped to the latest few thousand ticks. Use the main chart's VOLUME RANGE tool to change the selection">
-                            <DrawableOhlcvChart Bars="SubchartBarRows()" ShowAnnotationTools="false" />
+                            <MarketChart Bars="SubchartBarRows()" ShowAnnotationTools="false" />
                         </div>
                     }
                 </div>

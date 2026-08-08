@@ -689,9 +689,24 @@ namespace Poink.Sim.Components.Pages
         private int _xgridRowCount = 20;
         private int _xgridColCount = 20;
 
-        private XGridResult? ComputeXGrid() =>
-            _volumeRangeStart is { } start && _volumeRangeEnd is { } end
-                ? XGridStats.Compute(_bars, _barHistograms, MergedSamples(), start, end, _xgridRowCount, _xgridColCount)
-                : null;
+        private XGridResult? _xgridCache;
+        private (int Rows, int Cols, DateTime Start, DateTime End, int Count, double LastClose)? _xgridKey;
+
+        // Memoised: the loaded data is static, so only the volume range, resolution, or a
+        // fresh load changes the footprint -- the key catches all three, so annotation draws
+        // and unrelated re-renders reuse the last result instead of re-bucketing every bar.
+        private XGridResult? ComputeXGrid()
+        {
+            if (_volumeRangeStart is not { } start || _volumeRangeEnd is not { } end)
+                return null;
+
+            var key = (_xgridRowCount, _xgridColCount, start, end, _bars.Count, _bars.Count > 0 ? _bars[^1].Close : 0);
+            if (_xgridKey == key && _xgridCache is not null)
+                return _xgridCache;
+
+            _xgridKey = key;
+            _xgridCache = XGridStats.Compute(_bars, _barHistograms, MergedSamples(), start, end, _xgridRowCount, _xgridColCount);
+            return _xgridCache;
+        }
     }
 }

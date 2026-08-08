@@ -10,6 +10,30 @@
     overflow: hidden;
 }
 
+.xgrid-wrapper.expanded {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    bottom: 16px;
+    left: 16px;
+    z-index: 1000;
+    width: auto;
+    height: auto;
+    background: var(--color-bg-terminal);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+}
+
+.xgrid-expanded-bar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 4px 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    flex: 0 0 auto;
+}
+
 .xgrid-header {
     display: flex;
     align-items: center;
@@ -36,7 +60,8 @@
     gap: 10px;
 }
 
-.xgrid-collapse-btn {
+.xgrid-collapse-btn,
+.xgrid-expand-btn {
     flex: 0 0 auto;
     background: transparent;
     border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
@@ -49,7 +74,8 @@
     transition: color 0.15s ease, border-color 0.15s ease;
 }
 
-.xgrid-collapse-btn:hover {
+.xgrid-collapse-btn:hover,
+.xgrid-expand-btn:hover {
     color: var(--color-primary);
     border-color: var(--color-primary);
 }
@@ -299,18 +325,26 @@
     overflow: visible;
 }
 
-.xgrid-netgraph-line {
-    fill: none;
-    stroke: var(--color-accent);
-    stroke-width: 1.5;
-    vector-effect: non-scaling-stroke;
+.xgrid-netgraph-bar-up {
+    fill: var(--color-success);
+}
+
+.xgrid-netgraph-bar-down {
+    fill: var(--color-error);
 }
 
 .xgrid-netgraph-zero {
-    stroke: rgba(255, 255, 255, 0.2);
+    stroke: color-mix(in srgb, var(--color-secondary) 75%, transparent);
+    stroke-width: 1.25;
+    vector-effect: non-scaling-stroke;
+}
+
+.xgrid-netgraph-cross {
+    stroke: var(--color-highlight);
     stroke-width: 1;
     vector-effect: non-scaling-stroke;
     stroke-dasharray: 2 2;
+    opacity: 0.8;
 }
 
 .xgrid-empty {
@@ -324,62 +358,31 @@
     flex: 1;
     min-height: 0;
     padding: 4px 8px;
+    position: relative;
 }
 
-.xgrid-rows {
-    display: grid;
+.xgrid-canvas {
+    display: block;
     width: 100%;
     height: 100%;
-    gap: 1px;
 }
 
-.xgrid-cell {
-    background: rgba(255, 255, 255, 0.03);
-}
-
-.xgrid-row-overlay {
-    mix-blend-mode: screen;
-}
-
-.xgrid-level-marker {
+.xgrid-cell-tip {
+    position: absolute;
+    z-index: 6;
     pointer-events: none;
-    box-sizing: border-box;
-}
-
-.xgrid-level-marker-poc {
-    border-top: 1px solid var(--color-primary);
-    border-bottom: 1px solid var(--color-primary);
-}
-
-.xgrid-level-marker-vah,
-.xgrid-level-marker-val {
-    border-top: 1px dashed var(--color-highlight);
-    border-bottom: 1px dashed var(--color-highlight);
-}
-
-.xgrid-level-marker-vwap {
-    border-top: 1px dashed var(--color-tertiary);
-    border-bottom: 1px dashed var(--color-tertiary);
-}
-
-.xgrid-level-marker-avg {
-    border-top: 1px dashed var(--color-badge-2);
-    border-bottom: 1px dashed var(--color-badge-2);
-}
-
-.xgrid-level-marker-med {
-    border-top: 1px dashed var(--color-neutral);
-    border-bottom: 1px dashed var(--color-neutral);
-}
-
-.xgrid-current-marker {
-    align-self: center;
-    justify-self: end;
-    width: 0;
-    height: 0;
-    border-top: 5px solid transparent;
-    border-bottom: 5px solid transparent;
-    border-right: 6px solid var(--color-accent);
-    transform: translateX(100%);
-    filter: drop-shadow(0 0 3px color-mix(in srgb, var(--color-accent) 60%, transparent));
+    display: none;
+    left: 0;
+    top: 0;
+    transform: translate(12px, 12px);
+    max-width: 260px;
+    background: var(--color-bg-terminal);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: var(--border-radius-sm);
+    padding: 4px 8px;
+    font-size: 0.6rem;
+    line-height: 1.35;
+    color: var(--color-secondary);
+    white-space: nowrap;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
 }

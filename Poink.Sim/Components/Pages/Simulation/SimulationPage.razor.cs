@@ -54,7 +54,7 @@ namespace Poink.Sim.Components.Pages
         private bool _hideChart;
 
         // Fits the chart once on a fresh run, then latches true so live ticks preserve the
-        // user's own pan/zoom instead of refitting every tick. See DrawableOhlcvChart.KeepView.
+        // user's own pan/zoom instead of refitting every tick. See MarketChart.KeepView.
         private bool _keepChartView;
 
         private bool _traderPanelCollapsed;
@@ -85,17 +85,30 @@ namespace Poink.Sim.Components.Pages
         private int _xgridColCount = 20;
         private bool _xgridCollapsed;
 
+        private XGridResult? _xgridCache;
+        private (int Rows, int Cols, int Window, int Count, DateTime LastOpen, double LastClose, double LastVolume)? _xgridKey;
+
         // Sources the grid's range from the profile-bar window rather than a drawn Volume
         // Range, which Simulation has no chart tool for -- see ProfilerPage.ComputeXGrid.
+        // Memoised: the parent re-renders every tick, but the footprint only changes when the
+        // window, resolution, or the latest bar's price/volume moves -- the key catches all
+        // three, so hovers and unrelated re-renders reuse the last result.
         private XGridResult? ComputeXGrid(SimulationSnapshot s)
         {
             if (!s.Config.Aggregate || s.RecentBars.Count == 0)
                 return null;
             var window = Math.Min(ClampedBarWindow, s.RecentBars.Count);
+            var last = s.RecentBars[^1];
+            var key = (_xgridRowCount, _xgridColCount, window, s.RecentBars.Count, last.OpenTime, last.Close, (double)last.Volume);
+            if (_xgridKey == key && _xgridCache is not null)
+                return _xgridCache;
+
             var start = s.RecentBars[s.RecentBars.Count - window].OpenTime;
-            var end = s.RecentBars[^1].OpenTime;
-            return XGridStats.Compute(
+            var end = last.OpenTime;
+            _xgridKey = key;
+            _xgridCache = XGridStats.Compute(
                 s.RecentBars, s.RecentBarHistograms, MergedBarSamples(s), start, end, _xgridRowCount, _xgridColCount);
+            return _xgridCache;
         }
 
 

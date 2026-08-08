@@ -47,7 +47,7 @@ public readonly record struct XGridResult(
 // Volume Range selection, grouped down to colCount columns when the selection holds more
 // bars than that (each column then merges its group's histograms, same "sum the per-bucket
 // counts" reduction BarPriceHistogram.Merge already does across a whole window). Kept
-// separate from XGrid.razor so the component stays render-only (see DrawableOhlcvChart.
+// separate from XGrid.razor so the component stays render-only (see MarketChart.
 // README's three-layer split for the same reasoning applied to draw tools).
 internal static class XGridStats
 {

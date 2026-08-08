@@ -2,7 +2,7 @@
 // click-to-draw horizontal/vertical/diagonal lines (plus T-Range/P-Range/Rectangle,
 // built from placing 2 or 2+2 of the single-axis lines -- see modeClickCounts), pan-
 // triggered history backfill, and Simulation's live bid/ask/position/window-start
-// overlay (see DrawableOhlcvChart.razor.cs's class comment).
+// overlay (see MarketChart.razor.cs's class comment).
 const instances = new Map();
 
 const upColor = '#4dff88';
@@ -693,7 +693,7 @@ function attachMinimapInteractions(entry) {
     canvas.addEventListener('pointercancel', endDrag);
 }
 
-// minimapContainer: DrawableOhlcvChart.razor's .doc-minimap div -- the canvas
+// minimapContainer: MarketChart.razor's .doc-minimap div -- the canvas
 // itself is created here (not in .razor markup) since it needs no Blazor-side
 // state, same reasoning as the tooltip element below.
 function createMinimap(minimapContainer, interactive) {
@@ -725,13 +725,13 @@ export function create(container, minimapContainer, dotNetRef, interactive) {
         // Non-interactive callers (EpisodePlayback's live episode chart) get a fixed, read-
         // only view -- no scroll/pinch/drag pan-zoom and no crosshair, since letting the
         // user drag the view around while Bars keeps changing underneath them is what
-        // crashes lightweight-charts internally (see DrawableOhlcvChart.razor.cs's
+        // crashes lightweight-charts internally (see MarketChart.razor.cs's
         // Interactive parameter doc comment).
         handleScroll: interactive !== false,
         handleScale: interactive !== false,
         crosshair: { mode: interactive === false ? LightweightCharts.CrosshairMode.Hidden : LightweightCharts.CrosshairMode.Normal },
         // Reacts to the container's own size (via ResizeObserver) so the expand/collapse
-        // toggle in DrawableOhlcvChart.razor.cs needs no explicit resize call from .NET.
+        // toggle in MarketChart.razor.cs needs no explicit resize call from .NET.
         autoSize: true,
     });
 
@@ -757,7 +757,7 @@ export function create(container, minimapContainer, dotNetRef, interactive) {
     // VWAP overlay -- a plain native LineSeries rather than one of the hand-rolled
     // primitives below, since lightweight-charts already renders a time-indexed price
     // series on its own; ProfilerPage recomputes the points from its own loaded bars
-    // (see DrawableOhlcvChart.razor.cs's VwapLine parameter) and this just displays them.
+    // (see MarketChart.razor.cs's VwapLine parameter) and this just displays them.
     const vwapColor = getComputedStyle(container).getPropertyValue('--color-tertiary').trim() || '#bd00ff';
     const vwapSeries = chart.addSeries(LightweightCharts.LineSeries, {
         color: vwapColor, lineWidth: 2, priceLineVisible: false, lastValueVisible: true,
@@ -795,7 +795,7 @@ export function create(container, minimapContainer, dotNetRef, interactive) {
         tooltip.style.top = `${Math.max(param.point.y - 12, 8)}px`;
     });
 
-    // Same custom properties DrawableOhlcvChart.razor.css's .doc-tool-btn-* group
+    // Same custom properties MarketChart.razor.css's .doc-tool-btn-* group
     // modifiers use (base.css defines each --color-* per theme) -- read once here so
     // drawn shapes are colour-coded by the same Lines/Ranges/Shapes/Charts
     // classification as the toolbar buttons that place them (see setLines' colorFor).
@@ -810,7 +810,7 @@ export function create(container, minimapContainer, dotNetRef, interactive) {
         // its own colour, distinct from charts' accentColor, per "should also have some
         // colour but different".
         reference: style.getPropertyValue('--color-error').trim() || accentColor,
-        // Volume Range's own fill -- see DrawableOhlcvChart.razor.css's .doc-tool-btn-profile.
+        // Volume Range's own fill -- see MarketChart.razor.css's .doc-tool-btn-profile.
         volume: style.getPropertyValue('--color-info').trim() || accentColor,
         // POC/VAH/VAL price lines, computed (not user-drawn) -- see ProfilerPage's
         // ProfileLevelLines. Its own colour, distinct from every drawn-tool group above.
@@ -829,7 +829,7 @@ export function create(container, minimapContainer, dotNetRef, interactive) {
         loss: style.getPropertyValue('--color-error').trim() || accentColor,
     };
 
-    // Trade-action markers (see DrawableOhlcvChart.razor.cs's Markers parameter) --
+    // Trade-action markers (see MarketChart.razor.cs's Markers parameter) --
     // lightweight-charts' own native series-markers plugin (v5+) rather than a
     // hand-rolled primitive like the lines above, since arrows/circles pinned to a
     // bar's own OHLC position are exactly what it's built for.
@@ -882,7 +882,7 @@ export function create(container, minimapContainer, dotNetRef, interactive) {
 
     // Infinite-history backfill: once the visible range gets within
     // nearStartThreshold bars of the oldest loaded bar, ask .NET (ProfilerPage, via
-    // DrawableOhlcvChart.OnNearStartAsync) for the next older chunk. pendingLoadMore
+    // MarketChart.OnNearStartAsync) for the next older chunk. pendingLoadMore
     // guards against re-firing on every pan-tick while that round trip is in flight
     // or if the caller has no more data to give -- cleared by resumeLoadMore() once
     // the round trip finishes either way. Also keeps the minimap's window box in
@@ -1013,7 +1013,7 @@ export function setData(id, bars, resetView) {
     drawMinimap(entry);
 }
 
-// points: [{ time, price }] -- see DrawableOhlcvChart.razor.cs's VwapLine parameter.
+// points: [{ time, price }] -- see MarketChart.razor.cs's VwapLine parameter.
 export function setVwapLine(id, points) {
     const entry = instances.get(id);
     if (!entry) return;
@@ -1039,7 +1039,7 @@ function updatePriceLine(series, line, price, color, title, lineStyle = Lightwei
 
 // Live bid/ask as horizontal price lines pinned to the right axis -- updated in place
 // via applyOptions rather than remove+recreate, since this fires on every tick (see
-// DrawableOhlcvChart.razor.cs's CurrentBid/CurrentAsk parameters).
+// MarketChart.razor.cs's CurrentBid/CurrentAsk parameters).
 export function setCurrentPrices(id, bid, ask) {
     const entry = instances.get(id);
     if (!entry) return;
@@ -1148,7 +1148,7 @@ export function setActionMarkers(id, markers) {
 }
 
 // Releases the pendingLoadMore guard set in create()'s subscribeVisibleLogicalRangeChange
-// handler -- called by DrawableOhlcvChart.OnNearStartAsync once its round trip to .NET
+// handler -- called by MarketChart.OnNearStartAsync once its round trip to .NET
 // finishes, whether or not that actually resulted in a setData call.
 export function resumeLoadMore(id) {
     const entry = instances.get(id);

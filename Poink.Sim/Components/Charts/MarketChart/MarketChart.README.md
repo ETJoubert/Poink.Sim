@@ -1,4 +1,4 @@
-# Adding a draw tool to DrawableOhlcvChart
+# Adding a draw tool to MarketChart
 
 Cheat sheet for adding a new click-to-draw tool (like T-Range Chart, Rectangle, or
 T-Range Reference Chart). Follow the checklist in order — each step depends on the
@@ -9,20 +9,20 @@ identifier/name chosen in the step before it.
 Three layers, each with its **own copy** of "what draw modes exist" — there is no
 shared enum/codegen, so every new tool touches all three by hand:
 
-1. **`DrawableOhlcvChart.razor(.cs)`** — the C# `DrawMode` enum, the toolbar buttons,
+1. **`MarketChart.razor(.cs)`** — the C# `DrawMode` enum, the toolbar buttons,
    and the `[JSInvokable]`/`EventCallback` plumbing that turns chart clicks into
    strongly-typed callbacks.
-2. **`wwwroot/js/drawableOhlcvChart.js`** — the actual click state machine
+2. **`wwwroot/js/marketChart.js`** — the actual click state machine
    (`entry.drawClicks`), which mode needs how many clicks (`modeClickCounts`), and
    what each click dispatches to .NET.
 3. **The consuming page** (e.g. `ProfilerPage.razor(.cs)`) — owns the real `Drawing`
    model, decides a completed drawing's `Kind`/`ColorGroup`, and renders the
-   side-panel card. `DrawableOhlcvChart` itself has no notion of "a drawing", only
+   side-panel card. `MarketChart` itself has no notion of "a drawing", only
    individual horizontal/vertical/diagonal lines and range fills.
 
 ## Checklist
 
-### 1. `DrawableOhlcvChart.razor.cs`
+### 1. `MarketChart.razor.cs`
 - Add a member to the `DrawMode` enum.
 - Map it to a lowercase JS string in `JsDrawMode()`.
 - Decide: does the tool's data reduce to existing horizontal/vertical/diagonal line
@@ -35,13 +35,13 @@ shared enum/codegen, so every new tool touches all three by hand:
     - if `T` is a new shape, a `public readonly record struct ChartXxx(...)` next to
       `ChartHorizontalLine`/`ChartVerticalLine`/`ChartDiagonalLine`/`ChartTimeRange`/`ChartRangeFill`.
 
-### 2. `DrawableOhlcvChart.razor`
+### 2. `MarketChart.razor`
 - Add a `<button>` inside the matching `.doc-tool-group-*` div (Lines / Ranges /
   Shapes / Charts), or a new group if it genuinely doesn't fit one.
 - Always give it a `title` tooltip describing the full click sequence (project rule:
   every control needs a tooltip).
 
-### 3. `wwwroot/js/drawableOhlcvChart.js`
+### 3. `wwwroot/js/marketChart.js`
 - `modeClickCounts`: add `<mode>: <total clicks>`.
 - `subscribeClick`'s `switch (mode)`: add a case. For a multi-phase tool, branch on
   `clickIndex` (see `rectangle`'s "first 2 are time, last 2 are price" or
@@ -82,7 +82,7 @@ shared enum/codegen, so every new tool touches all three by hand:
   rather than through `Drawing.ColorGroup`, which colours a whole drawing uniformly.
 
 ### 5. The consuming page's markup (e.g. `ProfilerPage.razor`)
-- Wire `OnXxxDrawn="AddXxx"` onto the `<DrawableOhlcvChart>` tag.
+- Wire `OnXxxDrawn="AddXxx"` onto the `<MarketChart>` tag.
 - Update the two "list of tool names" strings (the chart container's `title`, and
   the empty-state message) to mention the new tool.
 - If the new data has its own per-item label, add a `@foreach` rendering it in the
@@ -117,7 +117,7 @@ added on top of an already-wired-up T-Range Reference Chart):
   stored as numbers?** `CandlestickChart` (`Poink.Shared.Client`) takes an optional
   `ReferenceBarCount` parameter: it shades that many of `Bars`' *leading* entries
   (translucent band + dashed boundary, same colour convention as
-  `DrawableOhlcvChart`'s own range fills) instead of drawing them as indistinguishable
+  `MarketChart`'s own range fills) instead of drawing them as indistinguishable
   extra candles. To use it: extend the bar slice (e.g. `AddTRangeChart`) to include the
   extra window's bars too, and store the split index as its own field on `Drawing`
   (computed once in `FinishDrawing`, same way as `RangeBarCount`) so both the live card
@@ -143,12 +143,12 @@ added on top of an already-wired-up T-Range Reference Chart):
   `.csproj`'s `CompileTypeScript` target: `tsc --project ts/tsconfig.json`, running
   `BeforeTargets="Build"`). `CandlestickChart` and friends live in
   `Poink.Shared.Client/ts/*.ts`, not directly in `wwwroot/js/*.js` —
-  `drawableOhlcvChart.js` itself (in `Poink.Sim`, no `.ts` source) is the exception.
+  `marketChart.js` itself (in `Poink.Sim`, no `.ts` source) is the exception.
   Edit the `.js` directly in `Poink.Shared.Client` and the next `dotnet build` silently
   overwrites it back to whatever the `.ts` source says. Check for a same-named `.ts`
   file before hand-editing any `wwwroot/js/*.js`.
 
-## Colour groups (`groupColors` in drawableOhlcvChart.js)
+## Colour groups (`groupColors` in marketChart.js)
 
 | Group | CSS var (base.css) | Used by |
 |---|---|---|
@@ -164,4 +164,4 @@ added on top of an already-wired-up T-Range Reference Chart):
 
 Adding a group only needs the `groupColors` entry above — no CSS file changes are
 needed unless the new tool's *toolbar button* doesn't fit an existing
-`.doc-tool-group-*`/`.doc-tool-btn-*` (see `DrawableOhlcvChart.razor.css`).
+`.doc-tool-group-*`/`.doc-tool-btn-*` (see `MarketChart.razor.css`).

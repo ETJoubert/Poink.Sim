@@ -31,7 +31,7 @@
   <ItemGroup>
     <!-- Used for the ViewDatatable/Icon/PageNav shared components and CSS/theme
          static assets served under "serve", plus CTraderBarRow for the
-         DrawableOhlcvChart component. -->
+         MarketChart component. -->
     <ProjectReference Include="..\Poink.Shared.Client\Poink.Shared.Client.csproj" />
   </ItemGroup>
 </Project>
