@@ -259,6 +259,48 @@
     accent-color: var(--color-neutral);
 }
 
+.xgrid-draw-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    flex: 0 0 auto;
+}
+
+.xgrid-draw-label {
+    font-size: 0.56rem;
+    color: var(--color-secondary);
+    opacity: 0.85;
+    white-space: nowrap;
+}
+
+.xgrid-draw-toggle,
+.xgrid-draw-clear {
+    font-family: var(--font-body);
+    font-size: 0.54rem;
+    letter-spacing: 0.02em;
+    color: var(--color-secondary);
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--color-secondary) 35%, transparent);
+    padding: 1px 6px;
+    border-radius: var(--border-radius-sm);
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.xgrid-draw-toggle:hover,
+.xgrid-draw-clear:hover {
+    background: color-mix(in srgb, var(--color-secondary) 15%, transparent);
+}
+
+.xgrid-draw-toggle.active {
+    background: var(--color-accent);
+    color: var(--color-bg-dark);
+    border-color: var(--color-accent);
+    font-weight: bold;
+}
+
 .xgrid-totals-row {
     display: flex;
     align-items: center;
@@ -358,13 +400,64 @@
     flex: 1;
     min-height: 0;
     padding: 4px 8px;
+    display: flex;
+    gap: 6px;
+}
+
+.xgrid-canvas-wrap {
     position: relative;
+    flex: 1;
+    min-width: 0;
 }
 
 .xgrid-canvas {
     display: block;
     width: 100%;
     height: 100%;
+}
+
+.xgrid-price-axis {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: flex-end;
+    padding: 1px 0;
+    font-size: 0.54rem;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+}
+
+.xgrid-price-high {
+    color: var(--color-success);
+}
+
+.xgrid-price-low {
+    color: var(--color-error);
+}
+
+.xgrid-price-current {
+    color: var(--color-accent);
+    font-weight: bold;
+}
+
+.xgrid-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 2px 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    flex: 0 0 auto;
+    font-size: 0.54rem;
+    letter-spacing: 0.02em;
+    color: var(--color-secondary);
+    opacity: 0.85;
+    white-space: nowrap;
+}
+
+.xgrid-footer-span {
+    color: var(--color-primary);
 }
 
 .xgrid-cell-tip {
@@ -375,7 +468,8 @@
     left: 0;
     top: 0;
     transform: translate(12px, 12px);
-    max-width: 260px;
+    width: max-content;
+    max-width: 340px;
     background: var(--color-bg-terminal);
     border: 1px solid rgba(255, 255, 255, 0.15);
     border-radius: var(--border-radius-sm);
@@ -383,6 +477,7 @@
     font-size: 0.6rem;
     line-height: 1.35;
     color: var(--color-secondary);
-    white-space: nowrap;
+    white-space: normal;
+    overflow-wrap: anywhere;
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
 }

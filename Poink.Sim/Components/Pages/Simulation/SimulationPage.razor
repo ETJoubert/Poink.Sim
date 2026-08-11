@@ -84,6 +84,16 @@
                 }
             </header>
 
+            <div class="sim-setup">
+                <button class="sim-setup-toggle" @onclick="ToggleSetupPanel"
+                        title="@(_setupCollapsed ? "Expand the data range, brain and trader options" : "Collapse the data range, brain and trader options")">
+                    <Icon Name="@(_setupCollapsed ? "chevron-right" : "chevron-down")" Class="sim-setup-toggle-icon" />
+                </button>
+
+                @if (!_setupCollapsed)
+                {
+                <div class="sim-setup-rows">
+
             <div class="sim-datarow">
                 <div class="sim-datarow-field sim-datarow-data">
                     <TickDataSource @bind-Table="_table" @bind-From="_from" @bind-To="_to"
@@ -185,6 +195,10 @@
                 }
             </div>
 
+                </div>
+                }
+            </div>
+
             @if (_snapshot is not null)
             {
                 var s = _snapshot;
@@ -274,52 +288,82 @@
                             }
                         </div>
 
-                        @if (s.Config.Aggregate)
-                        {
-                            <div class="sim-overlay-toggles"
-                                 title="Toggle the computed chart overlays alongside the volume profile -- Point of Control/Value Area and a cumulative VWAP line">
-                                <span class="sim-overlay-toggles-label">CHART OVERLAYS</span>
+                        <div class="sim-chart-toolbar">
+                            @if (s.Config.Aggregate)
+                            {
+                                <div class="sim-overlay-toggles"
+                                     title="Toggle the computed chart overlays alongside the volume profile -- Point of Control/Value Area and a cumulative VWAP line">
+                                    <span class="sim-overlay-toggles-label">CHART OVERLAYS</span>
+                                    <label class="sim-overlay-toggle"
+                                           title="Highlight the Point of Control (most-traded price) and Value Area rows inside the volume profile panel">
+                                        <input type="checkbox" @bind="_showProfilePanelLevels" />
+                                        <span>POC/VA in profile</span>
+                                    </label>
+                                    <label class="sim-overlay-toggle"
+                                           title="Project the Point of Control/Value Area High/Low as three dashed lines on the main chart">
+                                        <input type="checkbox" @bind="_showProfileChartLines" />
+                                        <span>POC/VAH/VAL lines</span>
+                                    </label>
+                                    <label class="sim-overlay-toggle"
+                                           title="Show a cumulative volume-weighted average price line on the main chart, over the same bar window as the volume profile">
+                                        <input type="checkbox" @bind="_showVwap" />
+                                        <span>VWAP line</span>
+                                    </label>
+                                </div>
+                            }
+                            <div class="sim-profile-toggles"
+                                 title="Show or hide the chart and profile panels">
+                                <span class="sim-overlay-toggles-label">PANELS</span>
                                 <label class="sim-overlay-toggle"
-                                       title="Highlight the Point of Control (most-traded price) and Value Area rows inside the volume profile panel">
-                                    <input type="checkbox" @bind="_showProfilePanelLevels" />
-                                    <span>POC/VA in profile</span>
+                                       title="Show or hide the main price chart">
+                                    <input type="checkbox" @bind="_showMainChart" />
+                                    <span>Chart</span>
                                 </label>
-                                <label class="sim-overlay-toggle"
-                                       title="Project the Point of Control/Value Area High/Low as three dashed lines on the main chart">
-                                    <input type="checkbox" @bind="_showProfileChartLines" />
-                                    <span>POC/VAH/VAL lines</span>
-                                </label>
-                                <label class="sim-overlay-toggle"
-                                       title="Show a cumulative volume-weighted average price line on the main chart, over the same bar window as the volume profile">
-                                    <input type="checkbox" @bind="_showVwap" />
-                                    <span>VWAP line</span>
-                                </label>
-                            </div>
-                        }
-
-                        <div class="sim-chart">
-                            <div class="sim-chart-main">
                                 @if (s.Config.Aggregate)
                                 {
-                                    <MarketChart Bars="ToBarRows(s.RecentBars)" KeepView="_keepChartView"
-                                                        CurrentBid="s.CurrentBid"
-                                                        CurrentAsk="s.CurrentAsk" EntryPrice="SelectedTrader?.Position?.EntryPrice"
-                                                        PositionIsLong="SelectedPositionIsLong" StopLossPrice="SelectedTrader?.Position?.StopLossPrice"
-                                                        TakeProfitPrice="SelectedTrader?.Position?.TakeProfitPrice"
-                                                        WindowStartUtc="WindowStartUtc(s.RecentBars)" HorizontalLines="ProfileLevelLines(s)"
-                                                        VwapLine="VwapPoints(s)" />
+                                    <label class="sim-overlay-toggle">
+                                        <input type="checkbox" @bind="_showXGrid" />
+                                        <span>XGrid</span>
+                                    </label>
                                 }
-                                else
-                                {
-                                    <ViewDatatable Items="TickRows" Title="RECENT TICKS" />
-                                }
+                                <label class="sim-overlay-toggle"
+                                       title="Volume-at-price histogram over the current window">
+                                    <input type="checkbox" @bind="_showVolumeProfile" />
+                                    <span>Volume profile</span>
+                                </label>
+                                <label class="sim-overlay-toggle"
+                                       title="Time-at-price histogram over the current window">
+                                    <input type="checkbox" @bind="_showTimeProfile" />
+                                    <span>Time profile</span>
+                                </label>
                             </div>
-                            @if (s.Config.Aggregate)
+                        </div>
+
+                        <div class="sim-chart">
+                            @if (_showMainChart)
+                            {
+                                <div class="sim-chart-main">
+                                    @if (s.Config.Aggregate)
+                                    {
+                                        <MarketChart Bars="ToBarRows(s.RecentBars)" KeepView="_keepChartView"
+                                                            CurrentBid="s.CurrentBid"
+                                                            CurrentAsk="s.CurrentAsk" EntryPrice="SelectedTrader?.Position?.EntryPrice"
+                                                            PositionIsLong="SelectedPositionIsLong" StopLossPrice="SelectedTrader?.Position?.StopLossPrice"
+                                                            TakeProfitPrice="SelectedTrader?.Position?.TakeProfitPrice"
+                                                            WindowStartUtc="WindowStartUtc(s.RecentBars)" HorizontalLines="ProfileLevelLines(s)"
+                                                            VwapLine="VwapPoints(s)" />
+                                    }
+                                    else
+                                    {
+                                        <ViewDatatable Items="TickRows" Title="RECENT TICKS" />
+                                    }
+                                </div>
+                            }
+                            @if (s.Config.Aggregate && _showXGrid)
                             {
                                 <div class="sim-chart-divider" @ref="_chartDividerRefXGrid" data-min-width="160"
                                      data-max-width="480" title="Drag to resize"></div>
-                                <div class="sim-chart-side @(_xgridCollapsed ? "sim-chart-side-collapsed" : "")"
-                                     title="Footprint grid over the current profile-bar window -- rows are price buckets, columns are bars">
+                                <div class="sim-chart-side @(_xgridCollapsed ? "sim-chart-side-collapsed" : "")">
                                     <XGrid Grid="ComputeXGrid(s)" @bind-RowCount="_xgridRowCount" @bind-ColCount="_xgridColCount"
                                            @bind-Collapsed="_xgridCollapsed">
                                         <ExpandedControls>
@@ -354,34 +398,40 @@
                                     </XGrid>
                                 </div>
                             }
-                            <div class="sim-chart-divider" @ref="_chartDividerRef" data-min-width="160" data-max-width="480"
-                                 title="Drag to resize"></div>
-                            <div class="sim-chart-side @(_volumeProfileCollapsed ? "sim-chart-side-collapsed" : "")">
-                                @if (s.Config.Aggregate)
-                                {
-                                    <TickVolumeProfileChart WeightedSamples="MergedBarSamples(s)" CurrentPrice="s.CurrentPrice"
-                                                            ShowLevels="_showProfilePanelLevels" @bind-Collapsed="_volumeProfileCollapsed" />
-                                }
-                                else
-                                {
-                                    <TickVolumeProfileChart Prices="ToMidPrices(s.RecentTicks)" CurrentPrice="s.CurrentPrice"
-                                                            WindowSize="ClampedTickWindow" @bind-Collapsed="_volumeProfileCollapsed" />
-                                }
-                            </div>
-                            <div class="sim-chart-divider" @ref="_chartDividerRef2" data-min-width="160" data-max-width="480"
-                                 title="Drag to resize"></div>
-                            <div class="sim-chart-side @(_timeProfileCollapsed ? "sim-chart-side-collapsed" : "")">
-                                @if (s.Config.Aggregate)
-                                {
-                                    <TickTimeProfileChart WeightedSamples="MergedBarTimeSamples(s)" CurrentPrice="s.CurrentPrice"
-                                                          @bind-Collapsed="_timeProfileCollapsed" />
-                                }
-                                else
-                                {
-                                    <TickTimeProfileChart Ticks="ToTimedMidPrices(s.RecentTicks)" CurrentPrice="s.CurrentPrice"
-                                                          WindowSize="ClampedTickWindow" @bind-Collapsed="_timeProfileCollapsed" />
-                                }
-                            </div>
+                            @if (_showVolumeProfile)
+                            {
+                                <div class="sim-chart-divider" @ref="_chartDividerRef" data-min-width="160" data-max-width="480"
+                                     title="Drag to resize"></div>
+                                <div class="sim-chart-side @(_volumeProfileCollapsed ? "sim-chart-side-collapsed" : "")">
+                                    @if (s.Config.Aggregate)
+                                    {
+                                        <TickVolumeProfileChart WeightedSamples="MergedBarSamples(s)" CurrentPrice="s.CurrentPrice"
+                                                                ShowLevels="_showProfilePanelLevels" @bind-Collapsed="_volumeProfileCollapsed" />
+                                    }
+                                    else
+                                    {
+                                        <TickVolumeProfileChart Prices="ToMidPrices(s.RecentTicks)" CurrentPrice="s.CurrentPrice"
+                                                                WindowSize="ClampedTickWindow" @bind-Collapsed="_volumeProfileCollapsed" />
+                                    }
+                                </div>
+                            }
+                            @if (_showTimeProfile)
+                            {
+                                <div class="sim-chart-divider" @ref="_chartDividerRef2" data-min-width="160" data-max-width="480"
+                                     title="Drag to resize"></div>
+                                <div class="sim-chart-side @(_timeProfileCollapsed ? "sim-chart-side-collapsed" : "")">
+                                    @if (s.Config.Aggregate)
+                                    {
+                                        <TickTimeProfileChart WeightedSamples="MergedBarTimeSamples(s)" CurrentPrice="s.CurrentPrice"
+                                                              @bind-Collapsed="_timeProfileCollapsed" />
+                                    }
+                                    else
+                                    {
+                                        <TickTimeProfileChart Ticks="ToTimedMidPrices(s.RecentTicks)" CurrentPrice="s.CurrentPrice"
+                                                              WindowSize="ClampedTickWindow" @bind-Collapsed="_timeProfileCollapsed" />
+                                    }
+                                </div>
+                            }
                         </div>
 
                         <div class="sim-chart-hdivider" @ref="_chartHDividerRef" data-min-height="160" data-max-height-vh="80"

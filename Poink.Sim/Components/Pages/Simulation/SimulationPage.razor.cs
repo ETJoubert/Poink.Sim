@@ -58,6 +58,7 @@ namespace Poink.Sim.Components.Pages
         private bool _keepChartView;
 
         private bool _traderPanelCollapsed;
+        private bool _setupCollapsed;
         private int? _selectedTraderId;
         private LogTab _activeLogTab;
 
@@ -80,6 +81,11 @@ namespace Poink.Sim.Components.Pages
 
         private bool _volumeProfileCollapsed;
         private bool _timeProfileCollapsed;
+
+        private bool _showMainChart = true;
+        private bool _showXGrid;
+        private bool _showVolumeProfile;
+        private bool _showTimeProfile;
 
         private int _xgridRowCount = 20;
         private int _xgridColCount = 20;
@@ -349,10 +355,12 @@ namespace Poink.Sim.Components.Pages
 
             if (_snapshot is not null && !_hideChart && _dividerResizeInstance is not null)
             {
-                if (_snapshot.Config.Aggregate)
+                if (_snapshot.Config.Aggregate && _showXGrid)
                     await _dividerResizeInstance.InvokeVoidAsync("bind", _chartDividerRefXGrid);
-                await _dividerResizeInstance.InvokeVoidAsync("bind", _chartDividerRef);
-                await _dividerResizeInstance.InvokeVoidAsync("bind", _chartDividerRef2);
+                if (_showVolumeProfile)
+                    await _dividerResizeInstance.InvokeVoidAsync("bind", _chartDividerRef);
+                if (_showTimeProfile)
+                    await _dividerResizeInstance.InvokeVoidAsync("bind", _chartDividerRef2);
                 await _dividerResizeInstance.InvokeVoidAsync("bindHeight", _chartHDividerRef);
             }
 
@@ -490,6 +498,8 @@ namespace Poink.Sim.Components.Pages
         private void ToggleHideChart() => _hideChart = !_hideChart;
 
         private void ToggleTraderPanel() => _traderPanelCollapsed = !_traderPanelCollapsed;
+
+        private void ToggleSetupPanel() => _setupCollapsed = !_setupCollapsed;
 
         private void ResetSim()
         {

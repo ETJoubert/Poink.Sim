@@ -78,6 +78,13 @@
             <input type="checkbox" @bind="_showMedian" /><span>MED</span>
         </label>
     </div>
+    <div class="xgrid-draw-row">
+        <span class="xgrid-draw-label" title="Draw lines over the grid. In Line mode, click a start cell then an end cell to place a segment; the endpoints' borders highlight. Click a bottom-margin cell for a vertical line, a left-margin cell for a horizontal line. Hover a line for its start/end time and price. Right-click a line to remove it.">Draw</span>
+        <button class="xgrid-draw-toggle @(_lineMode ? "active" : "")" @onclick="ToggleLineMode"
+                title="@(_lineMode ? "Exit the line tool -- return to plain hovering" : "Line tool -- click a start cell then an end cell to place a segment")">Line</button>
+        <button class="xgrid-draw-clear" @onclick="ClearLines"
+                title="Remove every line you have drawn -- host-supplied lines are left intact">Clear</button>
+    </div>
     @if (Grid is not { } grid)
     {
         <div class="xgrid-empty">select a Volume Range to build the grid</div>
@@ -109,8 +116,20 @@
             </div>
         }
         <div class="xgrid-scroll">
-            <canvas class="xgrid-canvas" @ref="_canvasRef"></canvas>
-            <div class="xgrid-cell-tip"></div>
+            <div class="xgrid-canvas-wrap">
+                <canvas class="xgrid-canvas" @ref="_canvasRef"></canvas>
+                <div class="xgrid-cell-tip"></div>
+            </div>
+            <div class="xgrid-price-axis">
+                <span class="xgrid-price xgrid-price-high" title="Highest price in the grid range">@(grid.RowHigh.Count > 0 ? grid.RowHigh[0].ToString("F5", CultureInfo.InvariantCulture) : "--")</span>
+                <span class="xgrid-price xgrid-price-current" title="Current price -- the range's latest bar close">@(grid.Current is { } cur ? cur.Price.ToString("F5", CultureInfo.InvariantCulture) : "--")</span>
+                <span class="xgrid-price xgrid-price-low" title="Lowest price in the grid range">@(grid.RowLow.Count > 0 ? grid.RowLow[^1].ToString("F5", CultureInfo.InvariantCulture) : "--")</span>
+            </div>
+        </div>
+        <div class="xgrid-footer">
+            <span class="xgrid-footer-time" title="Oldest bar in the grid range">@(grid.Columns.Count > 0 ? grid.Columns[0].OpenTime.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) : "--")</span>
+            <span class="xgrid-footer-span" title="Time span from the oldest to the latest bar in the grid">@GridTimeSpan(grid) &middot; @GridTickCount(grid).ToString("N0", CultureInfo.InvariantCulture) ticks</span>
+            <span class="xgrid-footer-time" title="Latest bar in the grid range">@(grid.Columns.Count > 0 ? grid.Columns[^1].OpenTime.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) : "--")</span>
         </div>
     }
     }

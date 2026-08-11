@@ -49,6 +49,22 @@ namespace Poink.Sim.Components.Charts
         // design: the host owns the content, so adding controls needs no change here.
         [Parameter] public RenderFragment? ExpandedControls { get; set; }
 
+        // Lines a host process computes and pins over the grid -- rendered alongside the
+        // user's own drawings but owned by the host, so the user's Clear leaves them intact.
+        [Parameter] public IReadOnlyList<XGridLine>? Lines { get; set; }
+
+        // Raised when the user completes a drawing, letting a host record or react to it. The
+        // imperative counterpart is AddLine/ClearLines for hosts holding an @ref.
+        [Parameter] public EventCallback<XGridLine> OnLineDrawn { get; set; }
+
+        private readonly List<XGridLine> _userLines = new();
+
+        // Opt-in segment tool -- while active a click places a start cell, the next a end
+        // cell. Off by default so the grid keeps its plain hover/tooltip behaviour.
+        private bool _lineMode;
+
+        private void ToggleLineMode() => _lineMode = !_lineMode;
+
         // Which sweep metric shades on top of the base tick-count grid -- purely a display
         // choice (all three are already sitting on Grid), so it stays local, unbound state
         // rather than a two-way parameter like RowCount/ColCount, which do drive a
@@ -136,6 +152,29 @@ namespace Poink.Sim.Components.Charts
             Add(_showAverage, grid.Average, "avg");
             Add(_showMedian, grid.Median, "med");
 
+            var lines = new List<object>();
+            var toggledRows = new List<int>();
+            var toggledCols = new List<int>();
+            void Collect(XGridLine line, bool external, int index)
+            {
+                lines.Add(LinePayload(grid, line, external, index));
+                if (line.Kind == XGridLineKind.Horizontal)
+                {
+                    int r = PriceToRow(grid, line.StartPrice);
+                    if (r >= 0) toggledRows.Add(r);
+                }
+                else if (line.Kind == XGridLineKind.Vertical)
+                {
+                    int c = TimeToCol(grid, line.StartTime);
+                    if (c >= 0) toggledCols.Add(c);
+                }
+            }
+            if (Lines is not null)
+                foreach (var line in Lines)
+                    Collect(line, external: true, index: -1);
+            for (var i = 0; i < _userLines.Count; i++)
+                Collect(_userLines[i], external: false, index: i);
+
             return new
             {
                 rows,
@@ -145,8 +184,30 @@ namespace Poink.Sim.Components.Charts
                 sweep,
                 markers,
                 current = grid.Current is { } cur ? (int?)cur.Row : null,
+                lines,
+                toggledRows,
+                toggledCols,
+                margins = true,
+                lineMode = _lineMode,
             };
         }
+
+        private static object LinePayload(XGridResult grid, XGridLine line, bool external, int index) => new
+        {
+            kind = line.Kind switch
+            {
+                XGridLineKind.Vertical => "vertical",
+                XGridLineKind.Horizontal => "horizontal",
+                _ => "segment",
+            },
+            x1 = TimeToColF(grid, line.StartTime),
+            y1 = PriceToRowF(grid, line.StartPrice),
+            x2 = TimeToColF(grid, line.EndTime),
+            y2 = PriceToRowF(grid, line.EndPrice),
+            external,
+            index,
+            tip = LineTip(line),
+        };
 
         // Signed -1..1 (delta) or 0..1 (count), same choice of metric and ceiling the CSS-grid
         // fill used -- distance weighting swaps each tick's weight of one for its moved price.
@@ -196,6 +257,160 @@ namespace Poink.Sim.Components.Charts
             if (levels.Count > 0) text += " | " + string.Join(", ", levels);
 
             return text;
+        }
+
+        [JSInvokable]
+        public async Task AddUserLine(int startRow, int startCol, int endRow, int endCol)
+        {
+            if (Grid is not { } grid) return;
+            if (!InRow(grid, startRow) || !InCol(grid, startCol) || !InRow(grid, endRow) || !InCol(grid, endCol)) return;
+            var line = XGridLine.Segment(
+                grid.Columns[startCol].OpenTime, RowMid(grid, startRow),
+                grid.Columns[endCol].OpenTime, RowMid(grid, endRow));
+            _userLines.Add(line);
+            await OnLineDrawn.InvokeAsync(line);
+            await InvokeAsync(StateHasChanged);
+        }
+
+        [JSInvokable]
+        public Task ToggleVerticalLine(int col)
+        {
+            if (Grid is not { } grid || !InCol(grid, col)) return Task.CompletedTask;
+            return ToggleLine(
+                l => l.Kind == XGridLineKind.Vertical && TimeToCol(grid, l.StartTime) == col,
+                () => XGridLine.Vertical(grid.Columns[col].OpenTime));
+        }
+
+        [JSInvokable]
+        public Task ToggleHorizontalLine(int row)
+        {
+            if (Grid is not { } grid || !InRow(grid, row)) return Task.CompletedTask;
+            return ToggleLine(
+                l => l.Kind == XGridLineKind.Horizontal && PriceToRow(grid, l.StartPrice) == row,
+                () => XGridLine.Horizontal(RowMid(grid, row)));
+        }
+
+        [JSInvokable]
+        public async Task RemoveUserLine(int index)
+        {
+            if (index < 0 || index >= _userLines.Count) return;
+            _userLines.RemoveAt(index);
+            await InvokeAsync(StateHasChanged);
+        }
+
+        public void AddLine(XGridLine line)
+        {
+            _userLines.Add(line);
+            StateHasChanged();
+        }
+
+        public void ClearLines()
+        {
+            _userLines.Clear();
+            StateHasChanged();
+        }
+
+        private async Task ToggleLine(Predicate<XGridLine> match, Func<XGridLine> create)
+        {
+            int existing = _userLines.FindIndex(match);
+            if (existing >= 0)
+            {
+                _userLines.RemoveAt(existing);
+            }
+            else
+            {
+                var line = create();
+                _userLines.Add(line);
+                await OnLineDrawn.InvokeAsync(line);
+            }
+            await InvokeAsync(StateHasChanged);
+        }
+
+        private static bool InRow(XGridResult grid, int row) => row >= 0 && row < grid.RowLow.Count;
+
+        private static bool InCol(XGridResult grid, int col) => col >= 0 && col < grid.Columns.Count;
+
+        private static double RowMid(XGridResult grid, int row) => (grid.RowLow[row] + grid.RowHigh[row]) / 2;
+
+        private static string LineTip(XGridLine line) => line.Kind switch
+        {
+            XGridLineKind.Vertical => $"Vertical @ {FormatTime(line.StartTime)}",
+            XGridLineKind.Horizontal => $"Horizontal @ {FormatPrice(line.StartPrice)}",
+            _ => $"Line: {FormatTime(line.StartTime)} @ {FormatPrice(line.StartPrice)} " +
+                 $"-> {FormatTime(line.EndTime)} @ {FormatPrice(line.EndPrice)}",
+        };
+
+        private static string FormatTime(DateTime time) =>
+            time.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture);
+
+        private static string FormatPrice(double price) =>
+            price.ToString("F5", CultureInfo.InvariantCulture);
+
+        // Rows run high-to-low; the top edge is RowHigh[0], the bottom edge RowLow[last]. The
+        // integer form returns the containing bucket, the fractional form the continuous
+        // position (row r+0 at its high edge, r+1 at its low edge) so a re-mapped line lands
+        // exactly on its price rather than snapping to a cell.
+        private static int PriceToRow(XGridResult grid, double price)
+        {
+            int rows = grid.RowHigh.Count;
+            if (rows == 0) return -1;
+            if (price >= grid.RowHigh[0]) return 0;
+            if (price <= grid.RowLow[rows - 1]) return rows - 1;
+            for (var r = 0; r < rows; r++)
+                if (price <= grid.RowHigh[r] && price >= grid.RowLow[r]) return r;
+            return -1;
+        }
+
+        private static double PriceToRowF(XGridResult grid, double price)
+        {
+            int rows = grid.RowHigh.Count;
+            if (rows == 0) return 0;
+            if (price >= grid.RowHigh[0]) return 0;
+            if (price <= grid.RowLow[rows - 1]) return rows;
+            for (var r = 0; r < rows; r++)
+            {
+                if (price <= grid.RowHigh[r] && price >= grid.RowLow[r])
+                {
+                    double span = grid.RowHigh[r] - grid.RowLow[r];
+                    return r + (span <= 0 ? 0.5 : (grid.RowHigh[r] - price) / span);
+                }
+            }
+            return rows / 2.0;
+        }
+
+        // Columns run left-to-right by OpenTime. The integer form returns the nearest column,
+        // the fractional form the continuous position (column c centred at c+0.5) interpolated
+        // between adjacent open times so a re-mapped line tracks time across a shifting range.
+        private static int TimeToCol(XGridResult grid, DateTime time)
+        {
+            int cols = grid.Columns.Count;
+            if (cols == 0) return -1;
+            if (time <= grid.Columns[0].OpenTime) return 0;
+            if (time >= grid.Columns[cols - 1].OpenTime) return cols - 1;
+            for (var c = 0; c < cols - 1; c++)
+            {
+                DateTime t0 = grid.Columns[c].OpenTime, t1 = grid.Columns[c + 1].OpenTime;
+                if (time >= t0 && time < t1) return (time - t0) <= (t1 - time) ? c : c + 1;
+            }
+            return cols - 1;
+        }
+
+        private static double TimeToColF(XGridResult grid, DateTime time)
+        {
+            int cols = grid.Columns.Count;
+            if (cols == 0) return 0;
+            if (time <= grid.Columns[0].OpenTime) return 0.5;
+            if (time >= grid.Columns[cols - 1].OpenTime) return cols - 0.5;
+            for (var c = 0; c < cols - 1; c++)
+            {
+                DateTime t0 = grid.Columns[c].OpenTime, t1 = grid.Columns[c + 1].OpenTime;
+                if (time >= t0 && time < t1)
+                {
+                    double span = (t1 - t0).TotalSeconds;
+                    return (c + 0.5) + (span <= 0 ? 0 : (time - t0).TotalSeconds / span);
+                }
+            }
+            return cols - 0.5;
         }
 
         public async ValueTask DisposeAsync()
@@ -290,5 +505,24 @@ namespace Poink.Sim.Components.Charts
 
         private double RowSweepIntensity(XGridResult grid, int row) =>
             grid.MaxSweepValue <= 0 ? 0 : RowSweepValue(grid, row) / grid.MaxSweepValue;
+
+        private static int GridTickCount(XGridResult grid)
+        {
+            var total = 0;
+            foreach (var column in grid.Columns)
+                foreach (var cell in column.Cells)
+                    total += cell.Count;
+            return total;
+        }
+
+        private static string GridTimeSpan(XGridResult grid)
+        {
+            if (grid.Columns.Count == 0) return "--";
+            TimeSpan span = grid.Columns[^1].OpenTime - grid.Columns[0].OpenTime;
+            if (span.TotalDays >= 1) return $"{(int)span.TotalDays}d {span.Hours}h";
+            if (span.TotalHours >= 1) return $"{(int)span.TotalHours}h {span.Minutes}m";
+            if (span.TotalMinutes >= 1) return $"{(int)span.TotalMinutes}m {span.Seconds}s";
+            return $"{(int)span.TotalSeconds}s";
+        }
     }
 }
