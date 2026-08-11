@@ -118,6 +118,34 @@ namespace Poink.Sim.Components.Pages
         }
 
 
+        // Feeds the selected trader's open position and window-visible closed trades to XGrid
+        // as price/time-anchored markers -- recomputed each render so live P&L colouring on the
+        // open position stays current. Trades entirely outside the grid's window are dropped to
+        // keep the overlay uncluttered.
+        private List<XGridPosition> XGridPositions(SimulationSnapshot s)
+        {
+            var result = new List<XGridPosition>();
+            if (SelectedTrader is not { } trader) return result;
+
+            var window = Math.Min(ClampedBarWindow, s.RecentBars.Count);
+            if (window == 0) return result;
+            var start = s.RecentBars[s.RecentBars.Count - window].OpenTime;
+            var end = s.RecentBars[^1].OpenTime;
+
+            foreach (var trade in trader.Trades)
+            {
+                if (trade.ExitTime < start || trade.EntryTime > end) continue;
+                result.Add(new XGridPosition(
+                    MapDirection(trade.Direction), trade.EntryTime, trade.EntryPrice, trade.ExitTime, trade.ExitPrice));
+            }
+            if (trader.Position is { } pos)
+                result.Add(new XGridPosition(MapDirection(pos.Direction), pos.EntryTime, pos.EntryPrice));
+            return result;
+        }
+
+        private static XGridPositionDirection MapDirection(PositionDirection direction) =>
+            direction == PositionDirection.Long ? XGridPositionDirection.Long : XGridPositionDirection.Short;
+
         private List<WeightedPriceSample> MergedBarSamples(SimulationSnapshot s) =>
             BarPriceHistogram.Merge(s.RecentBarHistograms, ClampedBarWindow)
                 .Select(t => new WeightedPriceSample(t.Price, t.Count, t.UpCount, t.DownCount))

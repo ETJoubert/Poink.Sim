@@ -36,7 +36,7 @@ function markerVar(kind) {
 export function draw(canvas, dotNetRef, payload) {
     if (!canvas) return;
     if (!canvas.__xgrid) {
-        canvas.__xgrid = { tipKey: null, mouse: null, hover: null, hoverMargin: null, hoverLine: null, pending: null };
+        canvas.__xgrid = { tipKey: null, mouse: null, hover: null, hoverMargin: null, hoverLine: null, hoverPos: null, pending: null };
         canvas.addEventListener('mousemove', e => onMove(canvas, e));
         canvas.addEventListener('mouseleave', () => onLeave(canvas));
         canvas.addEventListener('click', e => onClick(canvas, e));
@@ -69,11 +69,19 @@ function paint(canvas) {
 // leaves exactly one cell of gutter that stays aligned to the grid at any canvas size.
 function layout(p, W, H) {
     const m = p.margins ? 1 : 0;
-    const cw = W / (p.cols + m);
     const ch = H / (p.rows + m);
-    const ml = m ? cw : 0;
-    const mb = m ? ch : 0;
-    return { cw, ch, ml, mb, gBottom: H - mb };
+    if (!m) return { cw: W / p.cols, ch, ml: 0, mr: 0, mb: 0, gRight: W, gBottom: H };
+
+    // Right margin only needs room for the current-price and position markers -- cap it so a
+    // few wide columns don't hand it a full cell's width; the grid reclaims the surplus.
+    const maxRight = 28;
+    let cw = W / (p.cols + 2);
+    let mr = cw;
+    if (mr > maxRight) {
+        mr = maxRight;
+        cw = (W - mr) / (p.cols + 1);
+    }
+    return { cw, ch, ml: cw, mr, mb: ch, gRight: W - mr, gBottom: H - ch };
 }
 
 function render(ctx, W, H, p, st) {
@@ -82,11 +90,11 @@ function render(ctx, W, H, p, st) {
     if (rows <= 0 || cols <= 0) return;
 
     const L = layout(p, W, H);
-    const cw = L.cw, ch = L.ch, ml = L.ml, mb = L.mb;
+    const cw = L.cw, ch = L.ch, ml = L.ml, mr = L.mr, mb = L.mb, gRight = L.gRight;
     const gap = (cw > 3 && ch > 3) ? 1 : 0;
 
     ctx.fillStyle = 'rgba(255,255,255,0.03)';
-    ctx.fillRect(ml, 0, W - ml, H - mb);
+    ctx.fillRect(ml, 0, gRight - ml, H - mb);
 
     // cells: byte per cell, 128 = zero; delta mode reads the sign, count mode is >= 128.
     const info = rgb(cssVar('--color-info'));
@@ -114,7 +122,7 @@ function render(ctx, W, H, p, st) {
             const a = p.sweep[r];
             if (a > 0) {
                 ctx.fillStyle = `rgba(${warn},${Math.min(1, a)})`;
-                ctx.fillRect(ml, r * ch, W - ml, ch);
+                ctx.fillRect(ml, r * ch, gRight - ml, ch);
             }
         }
         ctx.restore();
@@ -127,25 +135,29 @@ function render(ctx, W, H, p, st) {
             ctx.strokeStyle = color;
             ctx.lineWidth = 1;
             ctx.setLineDash(m.kind === 'poc' ? [] : [3, 2]);
-            hline(ctx, ml, W, y + 0.5);
-            hline(ctx, ml, W, y + ch - 0.5);
+            hline(ctx, ml, gRight, y + 0.5);
+            hline(ctx, ml, gRight, y + ch - 0.5);
             ctx.setLineDash([]);
         }
     }
 
+    // Current price sits in the right margin as a left-pointing arrow whose tip touches the
+    // grid edge, clear of the footprint it used to overlap.
     if (p.current != null) {
         const y = (p.current + 0.5) * ch;
+        const bw = Math.max(3, Math.min(mr - 1, 8));
         ctx.fillStyle = cssVar('--color-accent');
         ctx.beginPath();
-        ctx.moveTo(W, y - 5);
-        ctx.lineTo(W, y + 5);
-        ctx.lineTo(W - 6, y);
+        ctx.moveTo(gRight, y);
+        ctx.lineTo(gRight + bw, y - 5);
+        ctx.lineTo(gRight + bw, y + 5);
         ctx.closePath();
         ctx.fill();
     }
 
     if (p.margins) drawMargins(ctx, W, H, L, p, st);
     drawLines(ctx, W, H, L, p, st);
+    drawPositions(ctx, W, H, L, p, st);
 
     if (st.pending) strokeCell(ctx, L, st.pending.row, st.pending.col, cssVar('--color-accent'), 1.5, [3, 2]);
 
@@ -155,11 +167,12 @@ function render(ctx, W, H, p, st) {
 }
 
 function drawMargins(ctx, W, H, L, p, st) {
-    const { cw, ch, ml, mb } = L;
+    const { cw, ch, ml, mr, mb, gRight } = L;
     const rows = p.rows, cols = p.cols;
     ctx.fillStyle = 'rgba(255,255,255,0.05)';
     ctx.fillRect(0, 0, ml, H - mb);
-    ctx.fillRect(ml, H - mb, W - ml, mb);
+    ctx.fillRect(gRight, 0, mr, H - mb);
+    ctx.fillRect(ml, H - mb, gRight - ml, mb);
 
     const on = `rgba(${rgb(cssVar('--color-accent'))},0.35)`;
     ctx.fillStyle = on;
@@ -178,9 +191,15 @@ function drawMargins(ctx, W, H, L, p, st) {
     ctx.beginPath();
     ctx.moveTo(ml + 0.5, 0);
     ctx.lineTo(ml + 0.5, H - mb);
+    ctx.moveTo(gRight + 0.5, 0);
+    ctx.lineTo(gRight + 0.5, H - mb);
     ctx.moveTo(ml, H - mb + 0.5);
-    ctx.lineTo(W, H - mb + 0.5);
-    for (let r = 1; r < rows; r++) { const y = r * ch + 0.5; ctx.moveTo(0, y); ctx.lineTo(ml, y); }
+    ctx.lineTo(gRight, H - mb + 0.5);
+    for (let r = 1; r < rows; r++) {
+        const y = r * ch + 0.5;
+        ctx.moveTo(0, y); ctx.lineTo(ml, y);
+        ctx.moveTo(gRight, y); ctx.lineTo(W, y);
+    }
     for (let c = 1; c < cols; c++) { const x = ml + c * cw + 0.5; ctx.moveTo(x, H - mb); ctx.lineTo(x, H); }
     ctx.stroke();
 }
@@ -216,12 +235,84 @@ function linePoints(ln, L, W, H) {
     }
     if (ln.kind === 'horizontal') {
         const y = ln.y1 * L.ch;
-        return [L.ml, y, W, y];
+        return [L.ml, y, L.gRight, y];
     }
     return [
         L.ml + ln.x1 * L.cw, ln.y1 * L.ch,
         L.ml + ln.x2 * L.cw, ln.y2 * L.ch,
     ];
+}
+
+// state 1 = favourable (green), -1 = adverse (red), 0 = flat. Open trades run their line to
+// the current price and carry a right-edge direction marker; closed trades cap it with a
+// diamond at the exit.
+function drawPositions(ctx, W, H, L, p, st) {
+    if (!p.positions) return;
+    const succ = cssVar('--color-success'), err = cssVar('--color-error'), flat = cssVar('--color-secondary');
+    for (let i = 0; i < p.positions.length; i++) {
+        const ps = p.positions[i];
+        const color = ps.state > 0 ? succ : ps.state < 0 ? err : flat;
+        const ox = L.ml + ps.ox * L.cw, oy = ps.oy * L.ch;
+        const cx = L.ml + ps.cx * L.cw, cy = ps.cy * L.ch;
+        const hovered = st.hoverPos && st.hoverPos.pi === i;
+
+        ctx.strokeStyle = color;
+        ctx.lineWidth = hovered ? 2.5 : 1.5;
+        ctx.setLineDash([4, 3]);
+        ctx.beginPath();
+        ctx.moveTo(ox, oy);
+        ctx.lineTo(cx, cy);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        posTriangle(ctx, ox, oy, ps.dir, color, 5);
+        if (!ps.open) diamond(ctx, cx, cy, color, 4);
+        if (ps.open) rightMarker(ctx, L, ps.entryY * L.ch, ps.dir, color);
+    }
+}
+
+function posTriangle(ctx, x, y, dir, color, s) {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    if (dir === 'long') { ctx.moveTo(x, y - s); ctx.lineTo(x - s, y + s); ctx.lineTo(x + s, y + s); }
+    else { ctx.moveTo(x, y + s); ctx.lineTo(x - s, y - s); ctx.lineTo(x + s, y - s); }
+    ctx.closePath();
+    ctx.fill();
+}
+
+function diamond(ctx, x, y, color, s) {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(x, y - s);
+    ctx.lineTo(x + s, y);
+    ctx.lineTo(x, y + s);
+    ctx.lineTo(x - s, y);
+    ctx.closePath();
+    ctx.fill();
+}
+
+function rightMarker(ctx, L, y, dir, color) {
+    const s = 5, x = L.gRight + L.mr / 2;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    if (dir === 'long') { ctx.moveTo(x, y - s); ctx.lineTo(x - s, y + s); ctx.lineTo(x + s, y + s); }
+    else { ctx.moveTo(x, y + s); ctx.lineTo(x - s, y - s); ctx.lineTo(x + s, y - s); }
+    ctx.closePath();
+    ctx.fill();
+}
+
+function hitPosition(p, L, x, y) {
+    if (!p.positions) return null;
+    let best = null, bestD = 6;
+    const rx = L.gRight + L.mr / 2;
+    for (let i = 0; i < p.positions.length; i++) {
+        const ps = p.positions[i];
+        const ox = L.ml + ps.ox * L.cw, oy = ps.oy * L.ch, cx = L.ml + ps.cx * L.cw, cy = ps.cy * L.ch;
+        const d = distToSeg(x, y, ox, oy, cx, cy);
+        if (d < bestD) { bestD = d; best = { pi: i }; }
+        if (ps.open && Math.abs(x - rx) < 8 && Math.abs(y - ps.entryY * L.ch) < 8) { best = { pi: i }; bestD = 0; }
+    }
+    return best;
 }
 
 function strokeCell(ctx, L, row, col, color, width, dash) {
@@ -261,13 +352,13 @@ function hitLine(p, L, W, H, x, y) {
 }
 
 function region(p, L, x, y) {
-    if (x >= L.ml && y < L.gBottom) {
+    if (x >= L.ml && x < L.gRight && y < L.gBottom) {
         const col = Math.floor((x - L.ml) / L.cw), row = Math.floor(y / L.ch);
         if (col >= 0 && row >= 0 && col < p.cols && row < p.rows) return { type: 'cell', row, col };
     } else if (p.margins && x < L.ml && y < L.gBottom) {
         const row = Math.floor(y / L.ch);
         if (row >= 0 && row < p.rows) return { type: 'left', index: row };
-    } else if (p.margins && y >= L.gBottom && x >= L.ml) {
+    } else if (p.margins && y >= L.gBottom && x >= L.ml && x < L.gRight) {
         const col = Math.floor((x - L.ml) / L.cw);
         if (col >= 0 && col < p.cols) return { type: 'bottom', index: col };
     }
@@ -289,20 +380,23 @@ function onMove(canvas, e) {
     const L = layout(p, W, H);
 
     const line = hitLine(p, L, W, H, x, y);
-    const reg = line ? null : region(p, L, x, y);
+    const pos = line ? null : hitPosition(p, L, x, y);
+    const reg = (line || pos) ? null : region(p, L, x, y);
 
     const newLine = line ? { i: line.i } : null;
+    const newPos = pos ? { pi: pos.pi } : null;
     const newCell = reg && reg.type === 'cell' ? { row: reg.row, col: reg.col } : null;
     const newMargin = reg && (reg.type === 'left' || reg.type === 'bottom')
         ? { side: reg.type, index: reg.index } : null;
 
     let changed = false;
     if (sig(st.hoverLine) !== sig(newLine)) { st.hoverLine = newLine; changed = true; }
+    if (sig(st.hoverPos) !== sig(newPos)) { st.hoverPos = newPos; changed = true; }
     if (sig(st.hover) !== sig(newCell)) { st.hover = newCell; changed = true; }
     if (sig(st.hoverMargin) !== sig(newMargin)) { st.hoverMargin = newMargin; changed = true; }
     if (changed) paint(canvas);
 
-    canvas.style.cursor = (newLine || newMargin) ? 'pointer' : (newCell && p.lineMode ? 'crosshair' : 'default');
+    canvas.style.cursor = (newLine || newPos || newMargin) ? 'pointer' : (newCell && p.lineMode ? 'crosshair' : 'default');
 
     const tip = tipEl(canvas);
     if (!tip) return;
@@ -314,6 +408,14 @@ function onMove(canvas, e) {
             tip.style.display = ln.tip ? 'block' : 'none';
         }
         if (ln.tip) positionTip(canvas, tip);
+    } else if (newPos) {
+        const ps = p.positions[newPos.pi];
+        if (st.tipKey !== 'P' + newPos.pi) {
+            st.tipKey = 'P' + newPos.pi;
+            tip.textContent = ps.tip || '';
+            tip.style.display = ps.tip ? 'block' : 'none';
+        }
+        if (ps.tip) positionTip(canvas, tip);
     } else if (newCell) {
         showTip(canvas, tip, newCell.row + 'x' + newCell.col,
             () => st.dotNetRef.invokeMethodAsync('CellTooltip', newCell.row, newCell.col));
@@ -403,6 +505,7 @@ function onContextMenu(canvas, e) {
 
 function sig(h) {
     if (!h) return '';
+    if ('pi' in h) return 'P' + h.pi;
     if ('i' in h) return 'L' + h.i;
     if ('side' in h) return h.side + h.index;
     return h.row + 'x' + h.col;
@@ -422,6 +525,7 @@ function onLeave(canvas) {
     if (st.hover) { st.hover = null; changed = true; }
     if (st.hoverMargin) { st.hoverMargin = null; changed = true; }
     if (st.hoverLine) { st.hoverLine = null; changed = true; }
+    if (st.hoverPos) { st.hoverPos = null; changed = true; }
     if (changed) paint(canvas);
     canvas.style.cursor = 'default';
     hideTip(canvas);

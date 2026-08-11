@@ -57,6 +57,11 @@ namespace Poink.Sim.Components.Charts
         // imperative counterpart is AddLine/ClearLines for hosts holding an @ref.
         [Parameter] public EventCallback<XGridLine> OnLineDrawn { get; set; }
 
+        // Trades a host process pins over the grid -- open/close markers with a connecting
+        // line, plus a right-edge direction marker per open trade coloured by live P&L. Host
+        // owned and recomputed per render, so live price and profit/loss stay current.
+        [Parameter] public IReadOnlyList<XGridPosition>? Positions { get; set; }
+
         private readonly List<XGridLine> _userLines = new();
 
         // Opt-in segment tool -- while active a click places a start cell, the next a end
@@ -175,6 +180,12 @@ namespace Poink.Sim.Components.Charts
             for (var i = 0; i < _userLines.Count; i++)
                 Collect(_userLines[i], external: false, index: i);
 
+            double? currentPrice = grid.Current is { } cur ? cur.Price : null;
+            var positions = new List<object>();
+            if (Positions is not null)
+                foreach (var pos in Positions)
+                    positions.Add(PositionPayload(grid, pos, currentPrice));
+
             return new
             {
                 rows,
@@ -183,13 +194,50 @@ namespace Poink.Sim.Components.Charts
                 cells,
                 sweep,
                 markers,
-                current = grid.Current is { } cur ? (int?)cur.Row : null,
+                current = grid.Current is { } cur2 ? (int?)cur2.Row : null,
                 lines,
                 toggledRows,
                 toggledCols,
+                positions,
                 margins = true,
                 lineMode = _lineMode,
             };
+        }
+
+        private static object PositionPayload(XGridResult grid, XGridPosition pos, double? currentPrice)
+        {
+            bool open = pos.CloseTime is null || pos.ClosePrice is null;
+            double reference = open ? currentPrice ?? pos.OpenPrice : pos.ClosePrice!.Value;
+            double direction = pos.Direction == XGridPositionDirection.Long ? 1 : -1;
+            double favour = (reference - pos.OpenPrice) * direction;
+            int state = favour > 0 ? 1 : favour < 0 ? -1 : 0;
+
+            DateTime nowTime = grid.Columns.Count > 0 ? grid.Columns[^1].OpenTime : pos.OpenTime;
+            DateTime closeTime = open ? nowTime : pos.CloseTime!.Value;
+            double closePrice = open ? reference : pos.ClosePrice!.Value;
+
+            return new
+            {
+                dir = pos.Direction == XGridPositionDirection.Long ? "long" : "short",
+                ox = TimeToColF(grid, pos.OpenTime),
+                oy = PriceToRowF(grid, pos.OpenPrice),
+                cx = TimeToColF(grid, closeTime),
+                cy = PriceToRowF(grid, closePrice),
+                entryY = PriceToRowF(grid, pos.OpenPrice),
+                open,
+                state,
+                tip = PositionTip(pos, reference, state),
+            };
+        }
+
+        private static string PositionTip(XGridPosition pos, double reference, int state)
+        {
+            string dir = pos.Direction == XGridPositionDirection.Long ? "Long" : "Short";
+            string pnl = state > 0 ? "in profit" : state < 0 ? "in loss" : "flat";
+            string close = pos.ClosePrice is { } cp
+                ? $" -> {FormatTime(pos.CloseTime!.Value)} @ {FormatPrice(cp)}"
+                : $" (open, now {FormatPrice(reference)})";
+            return $"{dir} @ {FormatTime(pos.OpenTime)} {FormatPrice(pos.OpenPrice)}{close} | {pnl}";
         }
 
         private static object LinePayload(XGridResult grid, XGridLine line, bool external, int index) => new

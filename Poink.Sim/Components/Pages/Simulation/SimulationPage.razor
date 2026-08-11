@@ -364,7 +364,8 @@
                                 <div class="sim-chart-divider" @ref="_chartDividerRefXGrid" data-min-width="160"
                                      data-max-width="480" title="Drag to resize"></div>
                                 <div class="sim-chart-side @(_xgridCollapsed ? "sim-chart-side-collapsed" : "")">
-                                    <XGrid Grid="ComputeXGrid(s)" @bind-RowCount="_xgridRowCount" @bind-ColCount="_xgridColCount"
+                                    <XGrid Grid="ComputeXGrid(s)" Positions="XGridPositions(s)"
+                                           @bind-RowCount="_xgridRowCount" @bind-ColCount="_xgridColCount"
                                            @bind-Collapsed="_xgridCollapsed">
                                         <ExpandedControls>
                                             <button class="sim-ctrl-btn sim-ctrl-btn-play" @onclick="TogglePlayPause" disabled="@s.IsFinished"
