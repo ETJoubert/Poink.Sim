@@ -36,7 +36,7 @@ function markerVar(kind) {
 export function draw(canvas, dotNetRef, payload) {
     if (!canvas) return;
     if (!canvas.__xgrid) {
-        canvas.__xgrid = { tipKey: null, mouse: null, hover: null, hoverMargin: null, hoverLine: null, hoverPos: null, pending: null };
+        canvas.__xgrid = { tipKey: null, mouse: null, hover: null, hoverMargin: null, hoverLine: null, hoverPos: null, hoverPend: null, pending: null };
         canvas.addEventListener('mousemove', e => onMove(canvas, e));
         canvas.addEventListener('mouseleave', () => onLeave(canvas));
         canvas.addEventListener('click', e => onClick(canvas, e));
@@ -58,8 +58,13 @@ function paint(canvas) {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const W = canvas.clientWidth, H = canvas.clientHeight;
     if (W === 0 || H === 0) return;
-    canvas.width = Math.round(W * dpr);
-    canvas.height = Math.round(H * dpr);
+    // Resize only when the backing store size actually changed -- the pointer crosshair
+    // repaints on every mousemove, and reallocating the buffer each time would be wasteful.
+    const bw = Math.round(W * dpr), bh = Math.round(H * dpr);
+    if (canvas.width !== bw || canvas.height !== bh) {
+        canvas.width = bw;
+        canvas.height = bh;
+    }
     const ctx = canvas.getContext('2d');
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     render(ctx, W, H, p, st);
@@ -72,16 +77,11 @@ function layout(p, W, H) {
     const ch = H / (p.rows + m);
     if (!m) return { cw: W / p.cols, ch, ml: 0, mr: 0, mb: 0, gRight: W, gBottom: H };
 
-    // Right margin only needs room for the current-price and position markers -- cap it so a
-    // few wide columns don't hand it a full cell's width; the grid reclaims the surplus.
-    const maxRight = 28;
-    let cw = W / (p.cols + 2);
-    let mr = cw;
-    if (mr > maxRight) {
-        mr = maxRight;
-        cw = (W - mr) / (p.cols + 1);
-    }
-    return { cw, ch, ml: cw, mr, mb: ch, gRight: W - mr, gBottom: H - ch };
+    // Fixed-width left and right margins for markers and labels -- the grid takes the width
+    // that remains, so both gutters stay a constant size regardless of column count.
+    const margin = 28;
+    const cw = (W - 2 * margin) / p.cols;
+    return { cw, ch, ml: margin, mr: margin, mb: ch, gRight: W - margin, gBottom: H - ch };
 }
 
 function render(ctx, W, H, p, st) {
@@ -112,6 +112,21 @@ function render(ctx, W, H, p, st) {
             ctx.fillStyle = `rgba(${col},${a})`;
             ctx.fillRect(ml + c * cw + gap, y + gap, cw - gap, ch - gap);
         }
+    }
+
+    // Baseline footprint: a faint border around every cell that saw a tick, so balanced and
+    // empty cells stay distinguishable under the count and up/down fills.
+    if (p.present && cw > 4 && ch > 4) {
+        ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+                if (!p.present[r * cols + c]) continue;
+                ctx.rect(ml + c * cw + gap + 0.5, r * ch + gap + 0.5, cw - gap - 1, ch - gap - 1);
+            }
+        }
+        ctx.stroke();
     }
 
     if (p.sweep) {
@@ -158,12 +173,28 @@ function render(ctx, W, H, p, st) {
     if (p.margins) drawMargins(ctx, W, H, L, p, st);
     drawLines(ctx, W, H, L, p, st);
     drawPositions(ctx, W, H, L, p, st);
+    drawPending(ctx, L, p, st);
+    drawDraft(ctx, L, p);
 
     if (st.pending) strokeCell(ctx, L, st.pending.row, st.pending.col, cssVar('--color-accent'), 1.5, [3, 2]);
 
     const hv = st.hover;
     if (hv && hv.row >= 0 && hv.col >= 0 && hv.row < rows && hv.col < cols)
         strokeCell(ctx, L, hv.row, hv.col, cssVar('--color-primary'), 1.5, []);
+
+    if (st.mouse) {
+        const mx = st.mouse.x, my = st.mouse.y;
+        if (mx >= ml && mx <= gRight && my >= 0 && my <= L.gBottom) {
+            ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(Math.round(mx) + 0.5, 0);
+            ctx.lineTo(Math.round(mx) + 0.5, L.gBottom);
+            ctx.moveTo(ml, Math.round(my) + 0.5);
+            ctx.lineTo(gRight, Math.round(my) + 0.5);
+            ctx.stroke();
+        }
+    }
 }
 
 function drawMargins(ctx, W, H, L, p, st) {
@@ -183,6 +214,7 @@ function drawMargins(ctx, W, H, L, p, st) {
     if (hm) {
         ctx.fillStyle = 'rgba(255,255,255,0.14)';
         if (hm.side === 'left') ctx.fillRect(0, hm.index * ch, ml, ch);
+        else if (hm.side === 'right') ctx.fillRect(gRight, hm.index * ch, mr, ch);
         else ctx.fillRect(ml + hm.index * cw, H - mb, cw, mb);
     }
 
@@ -268,7 +300,23 @@ function drawPositions(ctx, W, H, L, p, st) {
         posTriangle(ctx, ox, oy, ps.dir, color, 5);
         if (!ps.open) diamond(ctx, cx, cy, color, 4);
         if (ps.open) rightMarker(ctx, L, ps.entryY * L.ch, ps.dir, color);
+        if (ps.slY != null) levelLine(ctx, L, ps.slY, err);
+        if (ps.tpY != null) levelLine(ctx, L, ps.tpY, succ);
     }
+}
+
+// A held stop-loss / take-profit level: dashed line across the grid, kept while the trade is
+// open so the exit targets stay visible.
+function levelLine(ctx, L, yFrac, color) {
+    const y = yFrac * L.ch;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.25;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath();
+    ctx.moveTo(L.ml, y);
+    ctx.lineTo(L.gRight, y);
+    ctx.stroke();
+    ctx.setLineDash([]);
 }
 
 function posTriangle(ctx, x, y, dir, color, s) {
@@ -313,6 +361,58 @@ function hitPosition(p, L, x, y) {
         if (ps.open && Math.abs(x - rx) < 8 && Math.abs(y - ps.entryY * L.ch) < 8) { best = { pi: i }; bestD = 0; }
     }
     return best;
+}
+
+// Resting orders: a dotted level in the pending colour with a right-edge direction marker,
+// distinct from the green/red of live positions.
+function drawPending(ctx, L, p, st) {
+    if (!p.pending) return;
+    const color = cssVar('--color-warning');
+    for (let i = 0; i < p.pending.length; i++) {
+        const pd = p.pending[i];
+        const y = pd.y * L.ch;
+        const hovered = st.hoverPend && st.hoverPend.qi === i;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = hovered ? 2 : 1.25;
+        ctx.setLineDash([2, 3]);
+        ctx.beginPath();
+        ctx.moveTo(L.ml, y);
+        ctx.lineTo(L.gRight, y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        rightMarker(ctx, L, y, pd.dir, color);
+    }
+}
+
+function hitPending(p, L, x, y) {
+    if (!p.pending) return null;
+    const rx = L.gRight + L.mr / 2;
+    let best = null, bestD = 5;
+    for (let i = 0; i < p.pending.length; i++) {
+        const yy = p.pending[i].y * L.ch;
+        const dy = Math.abs(y - yy);
+        if (x >= L.ml && dy < bestD) { bestD = dy; best = { qi: i }; }
+        if (Math.abs(x - rx) < 8 && dy < 8) { best = { qi: i }; bestD = 0; }
+    }
+    return best;
+}
+
+// Order draft levels drawn across the grid: entry as a solid grey line, stop loss / take
+// profit as dashed red / green lines. Prices are re-mapped each render so they hold position.
+function drawDraft(ctx, L, p) {
+    if (!p.draft || !p.draft.lines) return;
+    for (const dl of p.draft.lines) {
+        const y = dl.y * L.ch;
+        ctx.strokeStyle = dl.kind === 'sl' ? cssVar('--color-error')
+            : dl.kind === 'tp' ? cssVar('--color-success') : 'rgba(200,200,200,0.9)';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash(dl.kind === 'entry' ? [] : [4, 3]);
+        ctx.beginPath();
+        ctx.moveTo(L.ml, y);
+        ctx.lineTo(L.gRight, y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+    }
 }
 
 function strokeCell(ctx, L, row, col, color, width, dash) {
@@ -361,6 +461,9 @@ function region(p, L, x, y) {
     } else if (p.margins && y >= L.gBottom && x >= L.ml && x < L.gRight) {
         const col = Math.floor((x - L.ml) / L.cw);
         if (col >= 0 && col < p.cols) return { type: 'bottom', index: col };
+    } else if (p.margins && x >= L.gRight && y < L.gBottom) {
+        const row = Math.floor(y / L.ch);
+        if (row >= 0 && row < p.rows) return { type: 'right', index: row };
     }
     return null;
 }
@@ -381,22 +484,25 @@ function onMove(canvas, e) {
 
     const line = hitLine(p, L, W, H, x, y);
     const pos = line ? null : hitPosition(p, L, x, y);
-    const reg = (line || pos) ? null : region(p, L, x, y);
+    const pend = (line || pos) ? null : hitPending(p, L, x, y);
+    const reg = (line || pos || pend) ? null : region(p, L, x, y);
 
     const newLine = line ? { i: line.i } : null;
     const newPos = pos ? { pi: pos.pi } : null;
+    const newPend = pend ? { qi: pend.qi } : null;
     const newCell = reg && reg.type === 'cell' ? { row: reg.row, col: reg.col } : null;
-    const newMargin = reg && (reg.type === 'left' || reg.type === 'bottom')
+    const newMargin = reg && (reg.type === 'left' || reg.type === 'bottom' || reg.type === 'right')
         ? { side: reg.type, index: reg.index } : null;
 
-    let changed = false;
-    if (sig(st.hoverLine) !== sig(newLine)) { st.hoverLine = newLine; changed = true; }
-    if (sig(st.hoverPos) !== sig(newPos)) { st.hoverPos = newPos; changed = true; }
-    if (sig(st.hover) !== sig(newCell)) { st.hover = newCell; changed = true; }
-    if (sig(st.hoverMargin) !== sig(newMargin)) { st.hoverMargin = newMargin; changed = true; }
-    if (changed) paint(canvas);
+    st.hoverLine = newLine;
+    st.hoverPos = newPos;
+    st.hoverPend = newPend;
+    st.hover = newCell;
+    st.hoverMargin = newMargin;
+    // Repaint every move so the pointer crosshair tracks the cursor, not only on hover change.
+    paint(canvas);
 
-    canvas.style.cursor = (newLine || newPos || newMargin) ? 'pointer' : (newCell && p.lineMode ? 'crosshair' : 'default');
+    canvas.style.cursor = (newLine || newPos || newPend || newMargin) ? 'pointer' : (newCell && p.lineMode ? 'crosshair' : 'default');
 
     const tip = tipEl(canvas);
     if (!tip) return;
@@ -416,13 +522,25 @@ function onMove(canvas, e) {
             tip.style.display = ps.tip ? 'block' : 'none';
         }
         if (ps.tip) positionTip(canvas, tip);
+    } else if (newPend) {
+        const pd = p.pending[newPend.qi];
+        if (st.tipKey !== 'Q' + newPend.qi) {
+            st.tipKey = 'Q' + newPend.qi;
+            tip.textContent = pd.tip || '';
+            tip.style.display = pd.tip ? 'block' : 'none';
+        }
+        if (pd.tip) positionTip(canvas, tip);
     } else if (newCell) {
         showTip(canvas, tip, newCell.row + 'x' + newCell.col,
             () => st.dotNetRef.invokeMethodAsync('CellTooltip', newCell.row, newCell.col));
     } else if (newMargin) {
         const text = newMargin.side === 'left'
             ? 'Click to draw a horizontal line at this price'
-            : 'Click to draw a vertical line at this time';
+            : newMargin.side === 'bottom'
+                ? 'Click to draw a vertical line at this time'
+                : p.orderArm === 'sl' ? 'Click to set the stop loss at this price'
+                    : p.orderArm === 'tp' ? 'Click to set the take profit at this price'
+                        : 'Click to draft an order at this price';
         if (st.tipKey !== 'M' + newMargin.side + newMargin.index) {
             st.tipKey = 'M' + newMargin.side + newMargin.index;
             tip.textContent = text;
@@ -476,6 +594,10 @@ function onClick(canvas, e) {
         st.dotNetRef.invokeMethodAsync('ToggleVerticalLine', reg.index);
         return;
     }
+    if (reg.type === 'right') {
+        st.dotNetRef.invokeMethodAsync('RightMarginClick', reg.index);
+        return;
+    }
     if (!p.lineMode) return;
     if (!st.pending) {
         st.pending = { row: reg.row, col: reg.col };
@@ -506,6 +628,7 @@ function onContextMenu(canvas, e) {
 function sig(h) {
     if (!h) return '';
     if ('pi' in h) return 'P' + h.pi;
+    if ('qi' in h) return 'Q' + h.qi;
     if ('i' in h) return 'L' + h.i;
     if ('side' in h) return h.side + h.index;
     return h.row + 'x' + h.col;
@@ -521,12 +644,13 @@ function hideTip(canvas) {
 function onLeave(canvas) {
     const st = canvas.__xgrid;
     if (!st) return;
-    let changed = false;
-    if (st.hover) { st.hover = null; changed = true; }
-    if (st.hoverMargin) { st.hoverMargin = null; changed = true; }
-    if (st.hoverLine) { st.hoverLine = null; changed = true; }
-    if (st.hoverPos) { st.hoverPos = null; changed = true; }
-    if (changed) paint(canvas);
+    st.hover = null;
+    st.hoverMargin = null;
+    st.hoverLine = null;
+    st.hoverPos = null;
+    st.hoverPend = null;
+    st.mouse = null;
+    paint(canvas);
     canvas.style.cursor = 'default';
     hideTip(canvas);
 }

@@ -124,6 +124,70 @@
                 <span class="xgrid-price xgrid-price-high" title="Highest price in the grid range">@(grid.RowHigh.Count > 0 ? grid.RowHigh[0].ToString("F5", CultureInfo.InvariantCulture) : "--")</span>
                 <span class="xgrid-price xgrid-price-current" title="Current price -- the range's latest bar close">@(grid.Current is { } cur ? cur.Price.ToString("F5", CultureInfo.InvariantCulture) : "--")</span>
                 <span class="xgrid-price xgrid-price-low" title="Lowest price in the grid range">@(grid.RowLow.Count > 0 ? grid.RowLow[^1].ToString("F5", CultureInfo.InvariantCulture) : "--")</span>
+                @if (_order is { } order)
+                {
+                    <div class="xgrid-order-panel" style="--xgrid-order-top: @OrderPanelTopPercent(grid).ToString("0.##", CultureInfo.InvariantCulture)%">
+                        <div class="xgrid-order-head">
+                            <span class="xgrid-order-tag">@PanelTag</span>
+                            <button class="xgrid-order-close" @onclick="CancelOrder" title="Dismiss this panel without changing the order">&times;</button>
+                        </div>
+                        <span class="xgrid-order-price" title="@(_panelMode == OrderPanelMode.New ? "Entry price -- the middle price of the clicked cell" : _panelMode == OrderPanelMode.Pending ? "Trigger price of the resting order" : "Entry price of the open position")">@order.EntryPrice.ToString("F5", CultureInfo.InvariantCulture)</span>
+
+                        @if (_panelMode == OrderPanelMode.New)
+                        {
+                            <button class="xgrid-order-dir @(order.IsLong ? "long" : "short")" @onclick="ToggleOrderDirection"
+                                    title="Toggle the order direction between long and short">@(order.IsLong ? "LONG" : "SHORT")</button>
+                        }
+                        else
+                        {
+                            <span class="xgrid-order-dir static @(order.IsLong ? "long" : "short")" title="Order direction">@(order.IsLong ? "LONG" : "SHORT")</span>
+                        }
+
+                        @if (_panelMode != OrderPanelMode.Open)
+                        {
+                            <label class="xgrid-order-vol" title="Order volume">
+                                <span>Vol</span>
+                                <input type="number" min="0" step="0.01" @bind="order.Volume" @bind:event="oninput" />
+                            </label>
+                            <div class="xgrid-order-sltp">
+                                <div class="xgrid-order-lvl">
+                                    <button class="xgrid-order-sl @(_orderArm == OrderArm.StopLoss ? "arming" : "") @(order.StopLoss is not null ? "set" : "")" @onclick="ArmStopLoss"
+                                            title="@(order.StopLoss is { } s ? $"Stop loss at {s.ToString("F5", CultureInfo.InvariantCulture)} -- click SL then a right-margin cell to move it" : "Arm stop loss -- then click a right-margin cell to set its price")">SL</button>
+                                    @if (order.StopLoss is not null)
+                                    {
+                                        <button class="xgrid-order-clear" @onclick="ClearStopLoss" title="Clear the stop loss">&times;</button>
+                                    }
+                                </div>
+                                <div class="xgrid-order-lvl">
+                                    <button class="xgrid-order-tp @(_orderArm == OrderArm.TakeProfit ? "arming" : "") @(order.TakeProfit is not null ? "set" : "")" @onclick="ArmTakeProfit"
+                                            title="@(order.TakeProfit is { } t ? $"Take profit at {t.ToString("F5", CultureInfo.InvariantCulture)} -- click TP then a right-margin cell to move it" : "Arm take profit -- then click a right-margin cell to set its price")">TP</button>
+                                    @if (order.TakeProfit is not null)
+                                    {
+                                        <button class="xgrid-order-clear" @onclick="ClearTakeProfit" title="Clear the take profit">&times;</button>
+                                    }
+                                </div>
+                            </div>
+                        }
+
+                        @if (_panelMode == OrderPanelMode.New)
+                        {
+                            <button class="xgrid-order-place" @onclick="PlaceOrder"
+                                    title="Place the order with the current direction, volume, and any stop loss / take profit set">PLACE</button>
+                        }
+                        else if (_panelMode == OrderPanelMode.Pending)
+                        {
+                            <button class="xgrid-order-place" @onclick="ApplyModification"
+                                    title="Apply the changes -- cancels the resting order and re-places it with the new volume and stop loss / take profit">APPLY</button>
+                            <button class="xgrid-order-cancel" @onclick="CancelPending"
+                                    title="Cancel this resting order">CANCEL</button>
+                        }
+                        else
+                        {
+                            <button class="xgrid-order-cancel" @onclick="ClosePosition"
+                                    title="Close this open position at market">CLOSE</button>
+                        }
+                    </div>
+                }
             </div>
         </div>
         <div class="xgrid-footer">

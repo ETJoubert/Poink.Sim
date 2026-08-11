@@ -365,6 +365,9 @@
                                      data-max-width="480" title="Drag to resize"></div>
                                 <div class="sim-chart-side @(_xgridCollapsed ? "sim-chart-side-collapsed" : "")">
                                     <XGrid Grid="ComputeXGrid(s)" Positions="XGridPositions(s)"
+                                           Pending="XGridPending()" OnOrderPlaced="PlaceXGridOrder"
+                                           OnPendingModified="ModifyXGridPending" OnPendingCancelled="CancelXGridPending"
+                                           OnPositionClosed="CloseXGridPosition"
                                            @bind-RowCount="_xgridRowCount" @bind-ColCount="_xgridColCount"
                                            @bind-Collapsed="_xgridCollapsed">
                                         <ExpandedControls>

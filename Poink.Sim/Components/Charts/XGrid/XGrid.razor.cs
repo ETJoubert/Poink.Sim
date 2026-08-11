@@ -62,6 +62,118 @@ namespace Poink.Sim.Components.Charts
         // owned and recomputed per render, so live price and profit/loss stay current.
         [Parameter] public IReadOnlyList<XGridPosition>? Positions { get; set; }
 
+        // Raised when the user presses Place on the right-margin order panel -- the host maps
+        // the absolute prices onto its own order model and executes it.
+        [Parameter] public EventCallback<XGridOrder> OnOrderPlaced { get; set; }
+
+        // Resting orders a host pins at their trigger price -- dotted level plus a right-edge
+        // direction marker, recomputed per render like Positions.
+        [Parameter] public IReadOnlyList<XGridPending>? Pending { get; set; }
+
+        // Raised when the user applies edits to a resting order -- the host cancels the old one
+        // and re-places it, since the engine has no in-place modify.
+        [Parameter] public EventCallback<XGridOrderModification> OnPendingModified { get; set; }
+
+        // Raised with a pending order's Id when the user cancels it.
+        [Parameter] public EventCallback<string> OnPendingCancelled { get; set; }
+
+        // Raised with an open position's Id when the user closes it.
+        [Parameter] public EventCallback<string> OnPositionClosed { get; set; }
+
+        // Working values behind the right-margin panel -- entry price from the clicked cell,
+        // optional SL/TP pinned by a follow-up click while armed. Null when the panel is shut.
+        private sealed class OrderDraft
+        {
+            public double EntryPrice { get; set; }
+            public double Volume { get; set; } = 1;
+            public bool IsLong { get; set; } = true;
+            public double? StopLoss { get; set; }
+            public double? TakeProfit { get; set; }
+        }
+
+        // New drafts a fresh order; Pending/Open bind the panel to an existing order for
+        // modify/cancel or close, addressed by _panelTargetId.
+        private enum OrderPanelMode { New, Pending, Open }
+        private enum OrderArm { None, StopLoss, TakeProfit }
+
+        private OrderDraft? _order;
+        private OrderArm _orderArm;
+        private OrderPanelMode _panelMode = OrderPanelMode.New;
+        private string? _panelTargetId;
+
+        private void ToggleOrderDirection()
+        {
+            if (_panelMode == OrderPanelMode.New && _order is { } order) order.IsLong = !order.IsLong;
+        }
+
+        private void ArmStopLoss() =>
+            _orderArm = _orderArm == OrderArm.StopLoss ? OrderArm.None : OrderArm.StopLoss;
+
+        private void ArmTakeProfit() =>
+            _orderArm = _orderArm == OrderArm.TakeProfit ? OrderArm.None : OrderArm.TakeProfit;
+
+        private void ClearStopLoss()
+        {
+            if (_order is { } order) order.StopLoss = null;
+            if (_orderArm == OrderArm.StopLoss) _orderArm = OrderArm.None;
+        }
+
+        private void ClearTakeProfit()
+        {
+            if (_order is { } order) order.TakeProfit = null;
+            if (_orderArm == OrderArm.TakeProfit) _orderArm = OrderArm.None;
+        }
+
+        private void CancelOrder()
+        {
+            _order = null;
+            _orderArm = OrderArm.None;
+            _panelMode = OrderPanelMode.New;
+            _panelTargetId = null;
+        }
+
+        private async Task PlaceOrder()
+        {
+            if (_order is not { } order) return;
+            await OnOrderPlaced.InvokeAsync(
+                new XGridOrder(order.IsLong, order.EntryPrice, order.Volume, order.StopLoss, order.TakeProfit));
+            CancelOrder();
+        }
+
+        private async Task ApplyModification()
+        {
+            if (_order is not { } order || _panelTargetId is not { } id) return;
+            await OnPendingModified.InvokeAsync(new XGridOrderModification(
+                id, order.IsLong, order.EntryPrice, order.Volume, order.StopLoss, order.TakeProfit));
+            CancelOrder();
+        }
+
+        private async Task CancelPending()
+        {
+            if (_panelTargetId is { } id) await OnPendingCancelled.InvokeAsync(id);
+            CancelOrder();
+        }
+
+        private async Task ClosePosition()
+        {
+            if (_panelTargetId is { } id) await OnPositionClosed.InvokeAsync(id);
+            CancelOrder();
+        }
+
+        private string PanelTag => _panelMode switch
+        {
+            OrderPanelMode.Pending => "PENDING",
+            OrderPanelMode.Open => "OPEN",
+            _ => "NEW",
+        };
+
+        private double OrderPanelTopPercent(XGridResult grid)
+        {
+            if (_order is not { } order) return 0;
+            int rows = grid.RowLow.Count;
+            return rows == 0 ? 0 : PriceToRowF(grid, order.EntryPrice) / (rows + 1) * 100;
+        }
+
         private readonly List<XGridLine> _userLines = new();
 
         // Opt-in segment tool -- while active a click places a start cell, the next a end
@@ -134,9 +246,15 @@ namespace Poink.Sim.Components.Charts
         {
             int rows = grid.RowLow.Count, cols = grid.Columns.Count;
             var cells = new byte[rows * cols];
+            // Tick presence rides separately from intensity: a balanced delta cell encodes to
+            // the same zero byte as an empty one, so the baseline border needs its own signal.
+            var present = new byte[rows * cols];
             for (var r = 0; r < rows; r++)
                 for (var c = 0; c < cols; c++)
+                {
                     cells[r * cols + c] = EncodeIntensity(CellIntensity(grid, r, c));
+                    present[r * cols + c] = grid.Columns[c].Cells[r].Count > 0 ? (byte)1 : (byte)0;
+                }
 
             double[]? sweep = null;
             if (_sweepMode != SweepMode.None)
@@ -186,12 +304,33 @@ namespace Poink.Sim.Components.Charts
                 foreach (var pos in Positions)
                     positions.Add(PositionPayload(grid, pos, currentPrice));
 
+            var pending = new List<object>();
+            if (Pending is not null)
+                foreach (var rest in Pending)
+                    pending.Add(new
+                    {
+                        y = PriceToRowF(grid, rest.TriggerPrice),
+                        dir = rest.IsLong ? "long" : "short",
+                        tip = $"Pending {(rest.IsLong ? "long" : "short")} @ {FormatPrice(rest.TriggerPrice)}",
+                    });
+
+            // Open mode reuses the position's own held lines, so only New/Pending draw a draft.
+            object? draft = null;
+            if (_order is { } order && _panelMode != OrderPanelMode.Open)
+            {
+                var draftLines = new List<object> { new { y = PriceToRowF(grid, order.EntryPrice), kind = "entry" } };
+                if (order.StopLoss is { } slPrice) draftLines.Add(new { y = PriceToRowF(grid, slPrice), kind = "sl" });
+                if (order.TakeProfit is { } tpPrice) draftLines.Add(new { y = PriceToRowF(grid, tpPrice), kind = "tp" });
+                draft = new { lines = draftLines };
+            }
+
             return new
             {
                 rows,
                 cols,
                 mode = _shadeDelta ? "delta" : "count",
                 cells,
+                present,
                 sweep,
                 markers,
                 current = grid.Current is { } cur2 ? (int?)cur2.Row : null,
@@ -199,6 +338,14 @@ namespace Poink.Sim.Components.Charts
                 toggledRows,
                 toggledCols,
                 positions,
+                pending,
+                draft,
+                orderArm = _orderArm switch
+                {
+                    OrderArm.StopLoss => "sl",
+                    OrderArm.TakeProfit => "tp",
+                    _ => "entry",
+                },
                 margins = true,
                 lineMode = _lineMode,
             };
@@ -224,6 +371,8 @@ namespace Poink.Sim.Components.Charts
                 cx = TimeToColF(grid, closeTime),
                 cy = PriceToRowF(grid, closePrice),
                 entryY = PriceToRowF(grid, pos.OpenPrice),
+                slY = open && pos.StopLoss is { } slPrice ? (double?)PriceToRowF(grid, slPrice) : null,
+                tpY = open && pos.TakeProfit is { } tpPrice ? (double?)PriceToRowF(grid, tpPrice) : null,
                 open,
                 state,
                 tip = PositionTip(pos, reference, state),
@@ -305,6 +454,86 @@ namespace Poink.Sim.Components.Charts
             if (levels.Count > 0) text += " | " + string.Join(", ", levels);
 
             return text;
+        }
+
+        [JSInvokable]
+        public async Task RightMarginClick(int row)
+        {
+            if (Grid is not { } grid || !InRow(grid, row)) return;
+            double price = RowMid(grid, row);
+
+            if (_orderArm == OrderArm.StopLoss && _order is { } sl)
+            {
+                sl.StopLoss = price;
+                _orderArm = OrderArm.None;
+            }
+            else if (_orderArm == OrderArm.TakeProfit && _order is { } tp)
+            {
+                tp.TakeProfit = price;
+                _orderArm = OrderArm.None;
+            }
+            else if (FindPendingAt(grid, row) is { } pendingOrder)
+            {
+                OpenPendingPanel(pendingOrder);
+            }
+            else if (FindOpenPositionAt(grid, row) is { } position)
+            {
+                OpenPositionPanel(position);
+            }
+            else
+            {
+                _panelMode = OrderPanelMode.New;
+                _panelTargetId = null;
+                _order ??= new OrderDraft();
+                _order.EntryPrice = price;
+            }
+            await InvokeAsync(StateHasChanged);
+        }
+
+        private XGridPending? FindPendingAt(XGridResult grid, int row)
+        {
+            if (Pending is null) return null;
+            foreach (var rest in Pending)
+                if (PriceToRow(grid, rest.TriggerPrice) == row) return rest;
+            return null;
+        }
+
+        private XGridPosition? FindOpenPositionAt(XGridResult grid, int row)
+        {
+            if (Positions is null) return null;
+            foreach (var pos in Positions)
+                if (pos.CloseTime is null && pos.ClosePrice is null && PriceToRow(grid, pos.OpenPrice) == row)
+                    return pos;
+            return null;
+        }
+
+        private void OpenPendingPanel(XGridPending pendingOrder)
+        {
+            _panelMode = OrderPanelMode.Pending;
+            _panelTargetId = pendingOrder.Id ?? "";
+            _orderArm = OrderArm.None;
+            _order = new OrderDraft
+            {
+                EntryPrice = pendingOrder.TriggerPrice,
+                Volume = pendingOrder.Volume,
+                IsLong = pendingOrder.IsLong,
+                StopLoss = pendingOrder.StopLoss,
+                TakeProfit = pendingOrder.TakeProfit,
+            };
+        }
+
+        private void OpenPositionPanel(XGridPosition position)
+        {
+            _panelMode = OrderPanelMode.Open;
+            _panelTargetId = position.Id ?? "";
+            _orderArm = OrderArm.None;
+            _order = new OrderDraft
+            {
+                EntryPrice = position.OpenPrice,
+                IsLong = position.Direction == XGridPositionDirection.Long,
+                StopLoss = position.StopLoss,
+                TakeProfit = position.TakeProfit,
+            };
         }
 
         [JSInvokable]

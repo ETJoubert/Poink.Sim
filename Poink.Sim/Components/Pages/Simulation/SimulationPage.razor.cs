@@ -139,12 +139,65 @@ namespace Poink.Sim.Components.Pages
                     MapDirection(trade.Direction), trade.EntryTime, trade.EntryPrice, trade.ExitTime, trade.ExitPrice));
             }
             if (trader.Position is { } pos)
-                result.Add(new XGridPosition(MapDirection(pos.Direction), pos.EntryTime, pos.EntryPrice));
+                result.Add(new XGridPosition(
+                    MapDirection(pos.Direction), pos.EntryTime, pos.EntryPrice,
+                    StopLoss: pos.StopLossPrice, TakeProfit: pos.TakeProfitPrice) { Id = "position" });
             return result;
         }
 
         private static XGridPositionDirection MapDirection(PositionDirection direction) =>
             direction == PositionDirection.Long ? XGridPositionDirection.Long : XGridPositionDirection.Short;
+
+        private List<XGridPending> XGridPending()
+        {
+            var result = new List<XGridPending>();
+            if (SelectedTrader?.PendingOrder is { } pending)
+                result.Add(new XGridPending(
+                    pending.Direction == PositionDirection.Long, pending.TriggerPrice, pending.CapitalFraction,
+                    pending.StopLossPrice, pending.TakeProfitPrice) { Id = "pending" });
+            return result;
+        }
+
+        private void CancelXGridPending(string id) => CloseSelectedTrader("xgrid-cancel");
+
+        private void CloseXGridPosition(string id) => CloseSelectedTrader("xgrid-close");
+
+        // Cancel & re-place: the engine has no in-place modify, so the resting order is closed
+        // and a fresh one submitted with the edited values.
+        private void ModifyXGridPending(XGridOrderModification modification)
+        {
+            CloseSelectedTrader("xgrid-modify");
+            PlaceXGridOrder(new XGridOrder(
+                modification.IsLong, modification.TriggerPrice, modification.Volume,
+                modification.StopLoss, modification.TakeProfit));
+        }
+
+        private void CloseSelectedTrader(string reason)
+        {
+            if (SelectedTrader is not { } trader || trader.Mode != TraderControlMode.Manual)
+                return;
+            Service.SubmitManualDecision(trader.Id, new SimulationDecision(SimulationAction.Close, Reason: reason));
+        }
+
+        // Submits an XGrid right-margin order as a manual pending decision for the selected
+        // trader. The entry price becomes a Limit trigger when it sits on the favourable side
+        // of current price, a Stop otherwise; Volume maps onto the engine's capital fraction.
+        private void PlaceXGridOrder(XGridOrder order)
+        {
+            if (SelectedTrader is not { } trader || trader.Mode != TraderControlMode.Manual)
+                return;
+
+            double current = _snapshot?.CurrentPrice ?? order.EntryPrice;
+            var action = order.IsLong ? SimulationAction.EnterLong : SimulationAction.EnterShort;
+            OrderType orderType = order.IsLong
+                ? (order.EntryPrice <= current ? OrderType.Limit : OrderType.Stop)
+                : (order.EntryPrice >= current ? OrderType.Limit : OrderType.Stop);
+            double fraction = Math.Clamp(order.Volume, 0.01, 1.0);
+
+            var decision = new SimulationDecision(
+                action, fraction, order.StopLoss, order.TakeProfit, orderType, order.EntryPrice, Reason: "xgrid");
+            Service.SubmitManualDecision(trader.Id, decision);
+        }
 
         private List<WeightedPriceSample> MergedBarSamples(SimulationSnapshot s) =>
             BarPriceHistogram.Merge(s.RecentBarHistograms, ClampedBarWindow)

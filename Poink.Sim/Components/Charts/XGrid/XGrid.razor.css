@@ -399,7 +399,6 @@
 .xgrid-scroll {
     flex: 1;
     min-height: 0;
-    padding: 4px 8px;
     display: flex;
     gap: 6px;
 }
@@ -417,11 +416,11 @@
 }
 
 .xgrid-price-axis {
-    flex: 0 0 auto;
+    position: relative;
+    flex: 0.01 0 auto;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    align-items: flex-end;
     padding: 1px 0;
     font-size: 0.54rem;
     letter-spacing: 0.02em;
@@ -439,6 +438,194 @@
 .xgrid-price-current {
     color: var(--color-accent);
     font-weight: bold;
+}
+
+.xgrid-order-panel {
+    position: absolute;
+    right: 0;
+    /* Centre on the entry cell (--xgrid-order-top), but clamp so the panel's own half-height
+       never carries it past the top or bottom edge of the plot. */
+    top: clamp(60px, var(--xgrid-order-top, 50%), calc(100% - 60px));
+    transform: translateY(-50%);
+    z-index: 7;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 4px;
+    background: var(--color-bg-terminal);
+    border: 1px solid color-mix(in srgb, var(--color-accent) 45%, transparent);
+    border-radius: var(--border-radius-sm);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+}
+
+.xgrid-order-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+}
+
+.xgrid-order-tag {
+    font-size: 0.5rem;
+    font-weight: bold;
+    letter-spacing: 0.08em;
+    color: var(--color-secondary);
+    opacity: 0.85;
+}
+
+.xgrid-order-price {
+    font-size: 0.54rem;
+    font-weight: bold;
+    color: var(--color-accent);
+    white-space: nowrap;
+    text-align: center;
+}
+
+.xgrid-order-close {
+    flex: 0 0 auto;
+    background: transparent;
+    border: none;
+    color: var(--color-secondary);
+    font-size: 0.7rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 2px;
+}
+
+.xgrid-order-close:hover {
+    color: var(--color-error);
+}
+
+.xgrid-order-dir,
+.xgrid-order-place,
+.xgrid-order-cancel,
+.xgrid-order-sl,
+.xgrid-order-tp {
+    font-family: var(--font-body);
+    font-size: 0.54rem;
+    letter-spacing: 0.02em;
+    border-radius: var(--border-radius-sm);
+    padding: 2px 4px;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.xgrid-order-dir {
+    border: 1px solid currentColor;
+    background: transparent;
+    font-weight: bold;
+    text-align: center;
+}
+
+.xgrid-order-dir.static {
+    cursor: default;
+}
+
+.xgrid-order-dir.long {
+    color: var(--color-success);
+}
+
+.xgrid-order-dir.short {
+    color: var(--color-error);
+}
+
+.xgrid-order-vol {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 0.5rem;
+    color: var(--color-secondary);
+}
+
+.xgrid-order-vol input {
+    width: 100%;
+    min-width: 0;
+    background: var(--color-bg-dark);
+    border: 1px solid color-mix(in srgb, var(--color-secondary) 40%, transparent);
+    color: var(--color-secondary);
+    border-radius: var(--border-radius-sm);
+    padding: 1px 3px;
+    font-family: var(--font-body);
+    font-size: 0.54rem;
+}
+
+.xgrid-order-sltp {
+    display: flex;
+    gap: 3px;
+}
+
+.xgrid-order-lvl {
+    flex: 1;
+    display: flex;
+    gap: 2px;
+    min-width: 0;
+}
+
+.xgrid-order-sl,
+.xgrid-order-tp {
+    flex: 1;
+    min-width: 0;
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--color-secondary) 40%, transparent);
+    color: var(--color-secondary);
+}
+
+.xgrid-order-clear {
+    flex: 0 0 auto;
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--color-secondary) 30%, transparent);
+    border-radius: var(--border-radius-sm);
+    color: var(--color-secondary);
+    font-size: 0.6rem;
+    line-height: 1;
+    padding: 0 3px;
+    cursor: pointer;
+}
+
+.xgrid-order-clear:hover {
+    color: var(--color-error);
+    border-color: var(--color-error);
+}
+
+.xgrid-order-sl.set {
+    border-color: var(--color-error);
+    color: var(--color-error);
+}
+
+.xgrid-order-tp.set {
+    border-color: var(--color-success);
+    color: var(--color-success);
+}
+
+.xgrid-order-sl.arming,
+.xgrid-order-tp.arming {
+    background: var(--color-warning);
+    color: var(--color-bg-dark);
+    font-weight: bold;
+}
+
+.xgrid-order-place {
+    border: 1px solid var(--color-accent);
+    background: color-mix(in srgb, var(--color-accent) 18%, transparent);
+    color: var(--color-accent);
+    font-weight: bold;
+}
+
+.xgrid-order-place:hover {
+    background: var(--color-accent);
+    color: var(--color-bg-dark);
+}
+
+.xgrid-order-cancel {
+    border: 1px solid var(--color-error);
+    background: transparent;
+    color: var(--color-error);
+    font-weight: bold;
+}
+
+.xgrid-order-cancel:hover {
+    background: var(--color-error);
+    color: var(--color-bg-dark);
 }
 
 .xgrid-footer {
