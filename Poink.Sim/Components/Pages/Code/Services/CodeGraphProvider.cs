@@ -452,14 +452,11 @@ internal sealed class CodeGraphProvider : ICodeGraphProvider
             CodeConcept.Rewards,
             Column: 11,
             Row: 1,
-            "Scores the outcome of the previous step from the capital and position change. The chosen policy decides whether the brain is paid for equity drift, risk-adjusted return, rule compliance or market structure.",
+            "Scores the outcome of the previous step from the capital and position change. The chosen policy decides how the brain is paid, currently for equity drift.",
             [
                 new CodeTypeRef("IRewardPolicy", "Services/Training/RewardPolicies/IRewardPolicy.cs"),
                 new CodeTypeRef("RewardContext", "Services/Training/RewardPolicies/IRewardPolicy.cs"),
-                new CodeTypeRef("EquityDriftRewardPolicy", "Services/Training/RewardPolicies/"),
-                new CodeTypeRef("DifferentialSharpeRewardPolicy", "Services/Training/RewardPolicies/"),
-                new CodeTypeRef("TradingRulesRewardPolicy", "Services/Training/RewardPolicies/"),
-                new CodeTypeRef("MarketStructureRewardPolicy", "Services/Training/RewardPolicies/")
+                new CodeTypeRef("EquityDriftRewardPolicy", "Services/Training/RewardPolicies/")
             ],
             [new CodePort(AccountState)],
             [new CodePort(RewardValue)],

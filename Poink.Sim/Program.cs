@@ -96,9 +96,6 @@ builder.Services.AddSingleton<IRlTrainingStrategy, PolicyGradientTrainingStrateg
 // policy -- not Trading Rules -- stays the default a fresh page load starts
 // on.
 builder.Services.AddSingleton<IRewardPolicy, EquityDriftRewardPolicy>();
-builder.Services.AddSingleton<IRewardPolicy, TradingRulesRewardPolicy>();
-builder.Services.AddSingleton<IRewardPolicy, DifferentialSharpeRewardPolicy>();
-builder.Services.AddSingleton<IRewardPolicy, MarketStructureRewardPolicy>();
 builder.Services.AddSingleton<IRlTrainingService, RlTrainingService>();
 builder.Services.AddScoped<ICodeGraphProvider, CodeGraphProvider>();
 #pragma warning disable CA1416 // SystemPerformanceMonitor is Windows-only, same as this app's other host assumptions (see its class comment).
