@@ -16,16 +16,30 @@
     </div>
 
     <div class="riskpolicy-panel-list">
-        @foreach (var policy in Policies)
+        @for (int i = 0; i < Policies.Count; i++)
         {
-            <label class="riskpolicy-item @(policy.Enabled ? "riskpolicy-item-on" : "riskpolicy-item-off")"
-                   title="@policy.Description">
-                <input type="checkbox" checked="@policy.Enabled"
-                       @onchange="e => ToggleRiskPolicy(policy.Name, (bool)e.Value!)"
-                       disabled="@Locked" />
-                <span class="riskpolicy-item-name">@policy.Name</span>
-                <span class="riskpolicy-item-state">@(policy.Enabled ? "on" : "off")</span>
-            </label>
+            var policy = Policies[i];
+            var index = i;
+            <div class="riskpolicy-item @(policy.Enabled ? "riskpolicy-item-on" : "riskpolicy-item-off")"
+                 title="@policy.Description">
+                <span class="riskpolicy-order">
+                    <button type="button" class="riskpolicy-order-btn" @onclick="() => MoveRiskPolicy(policy.Name, -1)"
+                            disabled="@(Locked || index == 0)" title="Run earlier">&#9650;</button>
+                    <button type="button" class="riskpolicy-order-btn" @onclick="() => MoveRiskPolicy(policy.Name, 1)"
+                            disabled="@(Locked || index == Policies.Count - 1)" title="Run later">&#9660;</button>
+                </span>
+                <label class="riskpolicy-item-label">
+                    <input type="checkbox" checked="@policy.Enabled"
+                           @onchange="e => ToggleRiskPolicy(policy.Name, (bool)e.Value!)"
+                           disabled="@Locked" />
+                    <span class="riskpolicy-item-name">@policy.Name</span>
+                    @if (StatusFor(policy.Name) is { } status)
+                    {
+                        <span class="riskpolicy-item-status" title="Live state for the trader you are viewing">@status</span>
+                    }
+                    <span class="riskpolicy-item-state">@(policy.Enabled ? "on" : "off")</span>
+                </label>
+            </div>
         }
     </div>
 </div>

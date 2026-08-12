@@ -10,4 +10,4 @@ internal readonly record struct RiskContext(
     double Cash, double Leverage, DateTime Timestamp,
     IReadOnlyList<Trade> Trades);
 
-internal readonly record struct RiskPolicyInfo(string Name, string Description);
+public readonly record struct RiskPolicyInfo(string Name, string Description);

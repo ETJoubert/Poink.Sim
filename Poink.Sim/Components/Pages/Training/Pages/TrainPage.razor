@@ -2,6 +2,7 @@
 @namespace Poink.Sim.Components.Pages
 @using Poink.Sim.Components.Training
 @using Poink.Sim.Components.Shared.BarSizeSelect
+@using Poink.Sim.Components.Shared.PolicySelector
 @using Poink.Sim.Components.Shared.TickDataSource
 @using Poink.Shared.Client.Components.Shared.Icon
 
@@ -174,16 +175,8 @@
                                 <div class="train-card-fields-row"
                                      title="Risk policies gate every trade action -- permit, deny or resize it -- and supervise open positions during each episode">
                                     <span class="train-brainrow-field">Risk policies</span>
-                                    @foreach (var policy in RiskPolicyRegistry.AvailablePolicies)
-                                    {
-                                        <label class="train-brainrow-field" title="@policy.Description">
-                                            <input type="checkbox"
-                                                   checked="@_selectedRiskPolicies.Contains(policy.Name)"
-                                                   @onchange="e => ToggleRiskPolicy(policy.Name, (bool)e.Value!)"
-                                                   disabled="@Service.IsRunning" />
-                                            @policy.Name
-                                        </label>
-                                    }
+                                    <PolicySelector Available="RiskPolicyRegistry.AvailablePolicies" Selected="_selectedRiskPolicies"
+                                                    Disabled="Service.IsRunning" OnChanged="StateHasChanged" />
                                 </div>
                             }
                         </div>

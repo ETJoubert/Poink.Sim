@@ -42,8 +42,46 @@
     padding: 4px 6px;
     border-radius: var(--border-radius-sm);
     border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
-    cursor: pointer;
     font-size: 0.74rem;
+}
+
+.riskpolicy-order {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.riskpolicy-order-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 18px;
+    background: color-mix(in srgb, var(--color-primary) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
+    border-radius: var(--border-radius-sm);
+    color: var(--color-primary);
+    cursor: pointer;
+    padding: 0;
+    font-size: 0.8rem;
+    line-height: 1;
+}
+
+.riskpolicy-order-btn:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-primary) 18%, transparent);
+}
+
+.riskpolicy-order-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.riskpolicy-item-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    cursor: pointer;
 }
 
 .riskpolicy-item-off {
@@ -52,6 +90,16 @@
 
 .riskpolicy-item-name {
     flex: 1;
+}
+
+.riskpolicy-item-status {
+    font-size: 0.64rem;
+    padding: 1px 6px;
+    border-radius: 999px;
+    white-space: nowrap;
+    color: var(--color-warning);
+    background: color-mix(in srgb, var(--color-warning) 14%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-warning) 40%, transparent);
 }
 
 .riskpolicy-item-state {

@@ -17,7 +17,9 @@ internal sealed class PercentStopLossPolicy : IRiskPolicy
     public string Name => PolicyName;
 
     public string Description =>
-        "Attaches a 2% stop-loss to any entry that has none -- 2% below entry for a long, above for a short. Leaves an entry's existing stop-loss alone.";
+        "Attaches a stop-loss risking 2% of cash to any entry that has none. Leaves an entry's existing stop-loss alone.";
+
+    public string? Status => null;
 
     public IRiskPolicy Fresh() => new PercentStopLossPolicy(_stopFraction);
 
@@ -33,10 +35,14 @@ internal sealed class PercentStopLossPolicy : IRiskPolicy
         if (entryPrice <= 0)
             return RiskReview.Permit(proposed);
 
-        double stopPrice = entryPrice * (1 + (direction == PositionDirection.Long ? -_stopFraction : _stopFraction));
+        double riskAmount = _stopFraction * context.Cash;
+        if (RiskHelper.StopLossPriceForRisk(direction, context.Cash, proposed.CapitalFraction, context.Leverage, entryPrice, riskAmount)
+            is not { } stopPrice)
+            return RiskReview.Permit(proposed);
+
         return RiskReview.Modify(
             proposed with { StopLossPrice = stopPrice },
-            $"attached a {_stopFraction:P1} stop-loss");
+            $"attached a stop-loss risking {_stopFraction:P0} of cash");
     }
 
     public IReadOnlyList<SimulationDecision> Supervise(RiskContext context) => Array.Empty<SimulationDecision>();

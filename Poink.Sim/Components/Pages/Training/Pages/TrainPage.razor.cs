@@ -61,7 +61,7 @@ namespace Poink.Sim.Components.Pages
         private double _commissionRatePercent = 0;
         private double _stopOutLevelPercent = 50;
 
-        private readonly HashSet<string> _selectedRiskPolicies = new();
+        private readonly List<string> _selectedRiskPolicies = new();
 
         private string? _startError;
 
@@ -221,14 +221,6 @@ namespace Poink.Sim.Components.Pages
         private TraderSettings CurrentTraderSettings => new(
             _leverage, _stopOutLevelPercent, new PercentOfNotionalCommission(_commissionRatePercent),
             _selectedRiskPolicies.Count > 0 ? _selectedRiskPolicies.ToList() : null);
-
-        private void ToggleRiskPolicy(string policyName, bool selected)
-        {
-            if (selected)
-                _selectedRiskPolicies.Add(policyName);
-            else
-                _selectedRiskPolicies.Remove(policyName);
-        }
 
         private void StartTraining()
         {

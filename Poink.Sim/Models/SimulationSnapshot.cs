@@ -30,9 +30,12 @@ internal sealed record TraderSnapshot(
     PendingOrder? PendingOrder, int TradeCount,
     IReadOnlyList<SimulationLogEntry> RecentLog, IReadOnlyList<Trade> Trades,
     double MaxEquity, double MaxDrawdown, double Leverage, double StopOutLevelPercent,
-    IReadOnlyList<RlInputFeature>? Inputs, IReadOnlyList<RlOutputFeature>? Outputs);
+    IReadOnlyList<RlInputFeature>? Inputs, IReadOnlyList<RlOutputFeature>? Outputs,
+    IReadOnlyList<RiskPolicyStatus> RiskPolicyStatuses);
 
 public sealed record RiskPolicySnapshot(string Name, string Description, bool Enabled);
+
+public readonly record struct RiskPolicyStatus(string Name, string Status);
 
 
 internal sealed record SimulationSnapshot(

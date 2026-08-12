@@ -1,0 +1,56 @@
+@namespace Poink.Sim.Components.Shared.PolicySelector
+
+<div class="policy-selector">
+    <div class="policy-selector-header">
+        <button type="button" class="policy-selector-btn" @onclick="ToggleOpen"
+                title="@(Disabled ? "View the risk policies (read-only while a run is loaded)" : "Show the risk policies table to enable, disable and order them")">
+            Set Policies (@Selected.Count)
+            <span class="policy-selector-caret">@(_open ? "▲" : "▼")</span>
+        </button>
+        @Actions
+    </div>
+
+    @if (_open)
+    {
+        <table class="policy-table">
+            <thead>
+                <tr>
+                    <th title="Order the policies run in -- earlier policies see and can change what later ones review">Order</th>
+                    <th>Name</th>
+                    <th>Description</th>
+                    <th title="Include this policy in the run">Enabled</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var policy in OrderedRows)
+                {
+                    var enabled = Selected.Contains(policy.Name);
+                    var order = ExecutionOrder(policy.Name);
+                    <tr class="@(enabled ? "policy-row-on" : "policy-row-off")">
+                        <td class="policy-order">
+                            @if (enabled)
+                            {
+                                <span class="policy-order-index">@(order + 1)</span>
+                                <button type="button" class="policy-order-btn" @onclick="() => MoveEarlier(policy.Name)"
+                                        disabled="@(Disabled || order == 0)" title="Run earlier">&#9650;</button>
+                                <button type="button" class="policy-order-btn" @onclick="() => MoveLater(policy.Name)"
+                                        disabled="@(Disabled || order == Selected.Count - 1)" title="Run later">&#9660;</button>
+                            }
+                            else
+                            {
+                                <span class="policy-order-none" title="Not in the run">&mdash;</span>
+                            }
+                        </td>
+                        <td class="policy-name">@policy.Name</td>
+                        <td class="policy-desc">@policy.Description</td>
+                        <td class="policy-enabled">
+                            <input type="checkbox" checked="@enabled" disabled="@Disabled"
+                                   @onchange="e => SetEnabled(policy.Name, (bool)e.Value!)"
+                                   title="@(enabled ? "Remove this policy from the run" : "Add this policy to the run")" />
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>

@@ -28,6 +28,11 @@ internal sealed class LossStreakVolumePolicy : IRiskPolicy
     public string Description =>
         "After 3 consecutive losing trades, halves entry volume until a trade closes without a loss.";
 
+    public string? Status =>
+        _lossStreak == 0 ? null
+        : _lossStreak >= _lossThreshold ? $"halving · {_lossStreak} losses"
+        : $"{_lossStreak}/{_lossThreshold} losses";
+
     public IRiskPolicy Fresh() => new LossStreakVolumePolicy(_lossThreshold, _volumeFactor);
 
     public RiskReview Review(SimulationDecision proposed, RiskContext context)

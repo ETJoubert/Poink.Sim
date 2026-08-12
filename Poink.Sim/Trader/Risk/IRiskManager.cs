@@ -10,4 +10,6 @@ internal interface IRiskManager
     RiskReview Gate(SimulationDecision proposed, double bid, double ask, DateTime timestamp);
 
     IReadOnlyList<SimulationDecision> Supervise(double bid, double ask, DateTime timestamp);
+
+    IReadOnlyList<RiskPolicyStatus> PolicyStatuses();
 }

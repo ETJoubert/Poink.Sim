@@ -1,6 +1,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Poink.Sim.Models;
 
 namespace Poink.Sim.Trader.Risk;
@@ -9,16 +10,26 @@ internal sealed class RiskManager : IRiskManager
 {
     private readonly IPositionManager _position;
     private readonly IReadOnlyList<IRiskPolicy> _policies;
+    private readonly IReadOnlyDictionary<string, IRiskPolicy> _byName;
     private readonly RiskPolicyToggles? _toggles;
 
     public RiskManager(IPositionManager position, IReadOnlyList<IRiskPolicy> policies, RiskPolicyToggles? toggles)
     {
         _position = position;
         _policies = policies;
+        _byName = policies.ToDictionary(policy => policy.Name);
         _toggles = toggles;
     }
 
-    private bool IsActive(IRiskPolicy policy) => _toggles is null || _toggles.IsEnabled(policy.Name);
+    // With toggles present, execution order and enablement are the run's live shared state; without them, the creation order runs in full.
+    private IEnumerable<IRiskPolicy> ActivePolicies()
+    {
+        if (_toggles is null)
+            return _policies;
+        return _toggles.OrderedNames()
+            .Where(name => _toggles.IsEnabled(name) && _byName.ContainsKey(name))
+            .Select(name => _byName[name]);
+    }
 
     // First deny is terminal; a modify feeds the changed decision into the next policy's review.
     public RiskReview Gate(SimulationDecision proposed, double bid, double ask, DateTime timestamp)
@@ -27,11 +38,8 @@ internal sealed class RiskManager : IRiskManager
         var current = proposed;
         var modified = false;
 
-        foreach (var policy in _policies)
+        foreach (var policy in ActivePolicies())
         {
-            if (!IsActive(policy))
-                continue;
-
             var review = policy.Review(current, context);
             if (review.Verdict == RiskVerdict.Deny)
                 return review;
@@ -50,11 +58,8 @@ internal sealed class RiskManager : IRiskManager
         var context = _position.BuildContext(bid, ask, timestamp);
         List<SimulationDecision>? actions = null;
 
-        foreach (var policy in _policies)
+        foreach (var policy in ActivePolicies())
         {
-            if (!IsActive(policy))
-                continue;
-
             var injected = policy.Supervise(context);
             if (injected.Count > 0)
                 (actions ??= new List<SimulationDecision>()).AddRange(injected);
@@ -62,4 +67,10 @@ internal sealed class RiskManager : IRiskManager
 
         return (IReadOnlyList<SimulationDecision>?)actions ?? Array.Empty<SimulationDecision>();
     }
+
+    public IReadOnlyList<RiskPolicyStatus> PolicyStatuses() =>
+        _policies
+            .Where(policy => policy.Status is not null)
+            .Select(policy => new RiskPolicyStatus(policy.Name, policy.Status!))
+            .ToList();
 }

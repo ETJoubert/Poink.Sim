@@ -48,7 +48,7 @@ namespace Poink.Sim.Components.Pages
         private double _stopOutLevelPercent = 50;
         private double _pipSize = 0.01;
 
-        private readonly HashSet<string> _selectedRiskPolicies = new();
+        private readonly List<string> _selectedRiskPolicies = new();
         private bool _lockRiskPolicies;
 
         private string? _loadError;
@@ -526,14 +526,6 @@ namespace Poink.Sim.Components.Pages
             return true;
         }
 
-
-        private void ToggleRiskPolicy(string policyName, bool selected)
-        {
-            if (selected)
-                _selectedRiskPolicies.Add(policyName);
-            else
-                _selectedRiskPolicies.Remove(policyName);
-        }
 
         private IReadOnlyList<string>? SelectedRiskPolicies =>
             _selectedRiskPolicies.Count > 0 ? _selectedRiskPolicies.ToList() : null;

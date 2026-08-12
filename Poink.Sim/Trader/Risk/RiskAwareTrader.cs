@@ -6,7 +6,7 @@ using Poink.Sim.Trader.Orders;
 
 namespace Poink.Sim.Trader.Risk;
 
-internal sealed class RiskAwareTrader : ITrader
+internal sealed class RiskAwareTrader : ITrader, IRiskInspectable
 {
     private readonly ITrader _core;
     private readonly IRiskManager _riskManager;
@@ -16,6 +16,8 @@ internal sealed class RiskAwareTrader : ITrader
         _core = core;
         _riskManager = riskManager;
     }
+
+    public IReadOnlyList<RiskPolicyStatus> PolicyStatuses() => _riskManager.PolicyStatuses();
 
     public double Cash => _core.Cash;
     public double RealizedPnl => _core.RealizedPnl;

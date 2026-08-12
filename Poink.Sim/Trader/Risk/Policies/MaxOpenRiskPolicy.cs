@@ -19,6 +19,8 @@ internal sealed class MaxOpenRiskPolicy : IRiskPolicy
     public string Description =>
         "Rejects any entry without a stop-loss, and shrinks an entry whose stop-loss risk exceeds 2% of equity down to that cap.";
 
+    public string? Status => null;
+
     public IRiskPolicy Fresh() => new MaxOpenRiskPolicy(_maxRiskFraction);
 
     public RiskReview Review(SimulationDecision proposed, RiskContext context)

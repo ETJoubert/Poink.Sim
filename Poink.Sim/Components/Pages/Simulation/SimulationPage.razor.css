@@ -16,7 +16,7 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-start;
     gap: 16px;
     padding: 5px 24px 5px;
     border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
@@ -83,6 +83,7 @@
     display: flex;
     flex-wrap: wrap;
     gap: 18px;
+    margin-left: auto;
 }
 
 .sim-stat {
@@ -141,10 +142,9 @@
     align-items: center;
     justify-content: center;
     background: transparent;
-    border: none;
-    border-right: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
-    border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
-    padding: 0 8px;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
+    border-radius: var(--border-radius-sm);
+    padding: 4px 8px;
     cursor: pointer;
     color: var(--color-secondary);
     transition: color 0.2s ease, background 0.2s ease;
@@ -207,19 +207,36 @@
     white-space: nowrap;
 }
 
-.sim-riskpolicy-options {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 10px;
+.sim-riskrow {
+    flex-basis: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    white-space: normal;
 }
 
-.sim-riskpolicy-option {
+.sim-riskrow-label {
+    color: var(--color-secondary);
+    font-size: 0.72rem;
+}
+
+.sim-locktoggle {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: 6px;
+    padding: 3px 8px;
+    border-radius: var(--border-radius-sm);
+    border: 1px solid color-mix(in srgb, var(--color-highlight) 30%, transparent);
+    background: color-mix(in srgb, var(--color-highlight) 6%, transparent);
+    color: var(--color-secondary);
+    font-size: 0.7rem;
+    white-space: nowrap;
     cursor: pointer;
-    color: var(--color-primary);
+}
+
+.sim-locktoggle input {
+    accent-color: var(--color-highlight);
+    cursor: pointer;
 }
 
 .sim-brainrow-select,

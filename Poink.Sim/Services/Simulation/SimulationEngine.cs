@@ -537,6 +537,19 @@ internal sealed class SimulationEngine : ISimulationEngine
     }
 
 
+    public bool MoveRiskPolicy(string policyName, int delta)
+    {
+        lock (_lock)
+        {
+            if (_config is null || _config.LockRiskPolicies || _riskToggles is null)
+                return false;
+            _riskToggles.Move(policyName, delta);
+        }
+        PublishSnapshot();
+        return true;
+    }
+
+
     public void SelectTraderForIo(int? traderId)
     {
         lock (_lock)
@@ -614,7 +627,8 @@ internal sealed class SimulationEngine : ISimulationEngine
                         ts.Id, ts.Label, ts.Mode, ts.Trader.Snapshot(_lastBid ?? 0, _lastAsk ?? 0), ts.Trader.CurrentPosition,
                         ts.Trader.CurrentPendingOrder, ts.Trader.TradeLog.Count, ts.RecentLog.ToList(), ts.Trader.TradeLog.ToList(),
                         ts.Trader.MaxEquity, ts.Trader.MaxDrawdown, ts.Trader.Leverage, ts.Trader.StopOutLevelPercent,
-                        ts.LatestInputs, ts.LatestOutputs)).ToList(),
+                        ts.LatestInputs, ts.LatestOutputs,
+                        ts.Trader is IRiskInspectable inspectable ? inspectable.PolicyStatuses() : Array.Empty<RiskPolicyStatus>())).ToList(),
                     bars, barHistograms, _recentTicks.ToList(),
                     BuildRiskPolicySnapshotsLocked(), _config.LockRiskPolicies);
         }

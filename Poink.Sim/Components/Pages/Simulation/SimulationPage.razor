@@ -9,6 +9,7 @@
 @using Poink.Sim.Components.Shared.StatisticsPanel
 @using Poink.Sim.Components.Shared.TickDataSource
 @using Poink.Sim.Components.Shared.BarSizeSelect
+@using Poink.Sim.Components.Shared.PolicySelector
 @using Poink.Sim.Components.Simulation
 @using Poink.Sim.Components.Training
 @using Poink.Sim.Helpers
@@ -20,6 +21,10 @@
 
     <div class="sim-topbar">
         <header class="sim-header">
+            <button class="sim-setup-toggle" @onclick="ToggleSetupPanel"
+                    title="@(_setupCollapsed ? "Expand the data range, brain and trader options" : "Collapse the data range, brain and trader options")">
+                <Icon Name="@(_setupCollapsed ? "chevron-right" : "chevron-down")" Class="sim-setup-toggle-icon" />
+            </button>
             @if (_snapshot is null)
             {
                 <div class="sim-header-title">
@@ -85,11 +90,6 @@
             </header>
 
             <div class="sim-setup">
-                <button class="sim-setup-toggle" @onclick="ToggleSetupPanel"
-                        title="@(_setupCollapsed ? "Expand the data range, brain and trader options" : "Collapse the data range, brain and trader options")">
-                    <Icon Name="@(_setupCollapsed ? "chevron-right" : "chevron-down")" Class="sim-setup-toggle-icon" />
-                </button>
-
                 @if (!_setupCollapsed)
                 {
                 <div class="sim-setup-rows">
@@ -181,30 +181,23 @@
 
                 @if (RiskPolicyRegistry.AvailablePolicies.Count > 0)
                 {
-                    <div class="sim-brainrow-field"
+                    <div class="sim-brainrow-field sim-riskrow"
                          title="Risk policies gate every trade action -- permit, deny or resize it -- and supervise open positions, on top of the brain and manual controls">
-                        Risk policies
-                        <div class="sim-riskpolicy-options">
-                            @foreach (var policy in RiskPolicyRegistry.AvailablePolicies)
-                            {
-                                <label class="sim-riskpolicy-option" title="@policy.Description">
-                                    <input type="checkbox"
-                                           checked="@_selectedRiskPolicies.Contains(policy.Name)"
-                                           @onchange="e => ToggleRiskPolicy(policy.Name, (bool)e.Value!)"
-                                           disabled="@(_isLoading || _snapshot is not null)" />
-                                    @policy.Name
-                                </label>
-                            }
-                            @if (_selectedRiskPolicies.Count > 0)
-                            {
-                                <label class="sim-riskpolicy-option"
-                                       title="Opt in to fix these policies for the whole run -- once loaded they cannot be toggled during playback">
-                                    <input type="checkbox" @bind="_lockRiskPolicies"
-                                           disabled="@(_isLoading || _snapshot is not null)" />
-                                    Lock for run
-                                </label>
-                            }
-                        </div>
+                        <span class="sim-riskrow-label">Risk policies</span>
+                        <PolicySelector Available="RiskPolicyRegistry.AvailablePolicies" Selected="_selectedRiskPolicies"
+                                        Disabled="@(_isLoading || _snapshot is not null)" OnChanged="StateHasChanged">
+                            <Actions>
+                                @if (_selectedRiskPolicies.Count > 0)
+                                {
+                                    <label class="sim-locktoggle"
+                                           title="Opt in to fix these policies for the whole run -- once loaded they cannot be toggled during playback">
+                                        <input type="checkbox" @bind="_lockRiskPolicies"
+                                               disabled="@(_isLoading || _snapshot is not null)" />
+                                        Lock for run
+                                    </label>
+                                }
+                            </Actions>
+                        </PolicySelector>
                     </div>
                 }
 
@@ -568,7 +561,8 @@
                 {
                     <div class="sim-sidepanel sim-sidepanel-risk">
                         <div class="sim-sidepanel-content">
-                            <RiskPolicyPanel Policies="_snapshot.RiskPolicies" Locked="_snapshot.RiskPoliciesLocked" />
+                            <RiskPolicyPanel Policies="_snapshot.RiskPolicies" Locked="_snapshot.RiskPoliciesLocked"
+                                             Statuses="SelectedTrader?.RiskPolicyStatuses" />
                         </div>
                     </div>
                 }
