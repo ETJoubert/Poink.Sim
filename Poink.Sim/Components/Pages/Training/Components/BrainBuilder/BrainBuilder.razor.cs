@@ -15,7 +15,7 @@ namespace Poink.Sim.Components.Training
     {
         [Inject] private RlTrainingService Service { get; set; } = default!;
 
-        [Inject] private BrainService BrainService { get; set; } = default!;
+        [Inject] private IBrainService BrainService { get; set; } = default!;
 
         [Parameter] public EventCallback<string> OnBrainCreated { get; set; }
 

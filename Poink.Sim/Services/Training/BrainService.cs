@@ -7,7 +7,7 @@ using Poink.Sim.Repository;
 
 namespace Poink.Sim.Training;
 
-internal sealed class BrainService
+internal sealed class BrainService : IBrainService
 {
     private readonly IBrainRepository _brainRepository;
     private readonly ILogger<BrainService> _logger;
