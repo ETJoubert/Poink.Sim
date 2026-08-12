@@ -16,7 +16,7 @@ namespace Poink.Sim.Components.Pages
 {
     public partial class SimulationPage : ComponentBase, IDisposable, IAsyncDisposable
     {
-        [Inject] private SimulationEngine Service { get; set; } = default!;
+        [Inject] private ISimulationEngine Service { get; set; } = default!;
         [Inject] private IJSRuntime JS { get; set; } = default!;
 
 

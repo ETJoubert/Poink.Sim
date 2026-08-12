@@ -8,7 +8,7 @@ namespace Poink.Sim.Components.Simulation
 
     public partial class TraderControlsPanel : ComponentBase
     {
-        [Inject] private SimulationEngine Service { get; set; } = default!;
+        [Inject] private ISimulationEngine Service { get; set; } = default!;
 
         [Parameter] public int? TraderId { get; set; }
         [Parameter] public string TraderLabel { get; set; } = "";

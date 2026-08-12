@@ -14,7 +14,7 @@ using Poink.Sim.Trader;
 
 namespace Poink.Sim.Simulation;
 
-internal sealed class SimulationEngine : IDisposable
+internal sealed class SimulationEngine : ISimulationEngine
 {
     private const int CallbackIntervalMs = 100;
     private const int BaseUnitsPerCallback = 5;

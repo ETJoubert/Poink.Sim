@@ -9,7 +9,7 @@ namespace Poink.Sim.Components.Shared.SimTimeline;
 
 public partial class SimTimeline : ComponentBase, IDisposable
 {
-    [Inject] private SimulationEngine Service { get; set; } = default!;
+    [Inject] private ISimulationEngine Service { get; set; } = default!;
 
     protected override void OnInitialized() => Service.OnProgress += HandleProgress;
 

@@ -17,7 +17,7 @@ public partial class CodePage : ComponentBase, IDisposable
 
     [Inject] private RlTrainingService Training { get; set; } = default!;
 
-    [Inject] private SimulationEngine Simulation { get; set; } = default!;
+    [Inject] private ISimulationEngine Simulation { get; set; } = default!;
 
     [Inject] private ILogger<CodePage> Logger { get; set; } = default!;
 

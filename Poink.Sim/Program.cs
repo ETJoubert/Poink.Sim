@@ -82,7 +82,7 @@ builder.Services.AddSingleton<BrainRegistry>();
 // Stateless, no reason for a shorter lifetime -- Create is a pure passthrough
 // to `new Trader.Trader(...)`.
 builder.Services.AddSingleton<ITraderFactory, TraderFactory>();
-builder.Services.AddSingleton<SimulationEngine>();
+builder.Services.AddSingleton<ISimulationEngine, SimulationEngine>();
 // Scoped (not Singleton like SimulationEngine): ProfilerService holds no shared
 // "current run" state of its own -- each LoadAsync call is a self-contained batch
 // read, so there's nothing that needs to be shared process-wide across circuits.
