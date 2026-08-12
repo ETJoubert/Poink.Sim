@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Web;
 using Poink.Sim.Models;
 using Poink.Sim.Simulation;
 
@@ -23,7 +24,18 @@ namespace Poink.Sim.Components.Simulation
             return null;
         }
 
-        private void ToggleRiskPolicy(string policyName, bool enabled) => Service.SetRiskPolicyEnabled(policyName, enabled);
+        private void ToggleCard(RiskPolicySnapshot policy)
+        {
+            if (Locked)
+                return;
+            Service.SetRiskPolicyEnabled(policy.Name, !policy.Enabled);
+        }
+
+        private void OnCardKey(KeyboardEventArgs args, RiskPolicySnapshot policy)
+        {
+            if (args.Key is "Enter" or " " or "Spacebar")
+                ToggleCard(policy);
+        }
 
         private void MoveRiskPolicy(string policyName, int delta) => Service.MoveRiskPolicy(policyName, delta);
     }

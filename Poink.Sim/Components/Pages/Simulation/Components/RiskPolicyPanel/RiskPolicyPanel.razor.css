@@ -30,22 +30,62 @@
 }
 
 .riskpolicy-panel-list {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 8px;
 }
 
-.riskpolicy-item {
+.riskpolicy-card {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 4px 6px;
-    border-radius: var(--border-radius-sm);
-    border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: var(--border-radius-md);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 22%, transparent);
+    background: color-mix(in srgb, var(--color-bg-terminal) 60%, transparent);
     font-size: 0.74rem;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
 }
 
-.riskpolicy-order {
+.riskpolicy-card:hover {
+    border-color: color-mix(in srgb, var(--color-primary) 45%, transparent);
+    background: color-mix(in srgb, var(--color-bg-terminal) 80%, transparent);
+}
+
+.riskpolicy-card:focus-visible {
+    outline: 2px solid var(--color-secondary);
+    outline-offset: 2px;
+}
+
+.riskpolicy-card:active {
+    transform: scale(0.99);
+}
+
+.riskpolicy-card-on {
+    border-color: color-mix(in srgb, var(--color-success) 65%, transparent);
+    background: color-mix(in srgb, var(--color-success) 12%, var(--color-bg-terminal));
+    box-shadow: 0 0 12px color-mix(in srgb, var(--color-success) 25%, transparent);
+}
+
+.riskpolicy-card-on:hover {
+    border-color: var(--color-success);
+    background: color-mix(in srgb, var(--color-success) 18%, var(--color-bg-terminal));
+}
+
+.riskpolicy-card-off {
+    opacity: 0.62;
+}
+
+.riskpolicy-card-off:hover {
+    opacity: 0.85;
+}
+
+.riskpolicy-card-locked {
+    cursor: not-allowed;
+}
+
+.riskpolicy-card-order {
     display: flex;
     flex-direction: column;
     gap: 2px;
@@ -76,23 +116,46 @@
     cursor: not-allowed;
 }
 
-.riskpolicy-item-label {
+.riskpolicy-card-indicator {
+    flex: 0 0 auto;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 40%, transparent);
+    background: transparent;
+}
+
+.riskpolicy-card-on .riskpolicy-card-indicator {
+    border-color: var(--color-success);
+    background: var(--color-success);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--color-success) 70%, transparent);
+}
+
+.riskpolicy-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    flex: 1;
+    min-width: 0;
+}
+
+.riskpolicy-card-label {
     display: flex;
     align-items: center;
     gap: 6px;
+    min-width: 0;
+}
+
+.riskpolicy-card-name {
     flex: 1;
-    cursor: pointer;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-.riskpolicy-item-off {
-    opacity: 0.55;
-}
-
-.riskpolicy-item-name {
-    flex: 1;
-}
-
-.riskpolicy-item-status {
+.riskpolicy-card-status {
+    align-self: flex-start;
     font-size: 0.64rem;
     padding: 1px 6px;
     border-radius: 999px;
@@ -102,8 +165,13 @@
     border: 1px solid color-mix(in srgb, var(--color-warning) 40%, transparent);
 }
 
-.riskpolicy-item-state {
-    font-size: 0.66rem;
+.riskpolicy-card-state {
+    font-size: 0.62rem;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--color-secondary);
+}
+
+.riskpolicy-card-on .riskpolicy-card-state {
+    color: var(--color-success);
 }

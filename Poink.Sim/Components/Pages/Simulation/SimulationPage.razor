@@ -31,6 +31,24 @@
                     <span class="sim-header-symbol">TRADER SIMULATION</span>
                     <span class="sim-header-state sim-state-setup">@(_isLoading ? "LOADING" : "SETUP")</span>
                 </div>
+                <div class="sim-header-actions">
+                    <button class="sim-ctrl-btn sim-ctrl-btn-play" @onclick="LoadSimulation" disabled="@_isLoading"
+                            title="Load the selected data range and brain into a live simulation">
+                        @(_isLoading ? "LOADING..." : "LOAD SIMULATION")
+                    </button>
+                    <button class="sim-ctrl-btn" @onclick="LoadDummySimulation" disabled="@_isLoading"
+                            title="Synthetic random-walk ticks -- no Postgres required">
+                        LOAD DUMMY DATA
+                    </button>
+                    @if (_loadError is not null)
+                    {
+                        <span class="sim-brainrow-error">@_loadError</span>
+                    }
+                    @if (_error is not null)
+                    {
+                        <span class="sim-brainrow-error">@_error</span>
+                    }
+                </div>
             }
             else
             {
@@ -178,50 +196,29 @@
                     <input class="sim-brainrow-input sim-brainrow-input-narrow" type="number" min="0" step="0.00001"
                            @bind="_pipSize" disabled="@(_isLoading || _snapshot is not null)" />
                 </label>
-
-                @if (RiskPolicyRegistry.AvailablePolicies.Count > 0)
-                {
-                    <div class="sim-brainrow-field sim-riskrow"
-                         title="Risk policies gate every trade action -- permit, deny or resize it -- and supervise open positions, on top of the brain and manual controls">
-                        <span class="sim-riskrow-label">Risk policies</span>
-                        <PolicySelector Available="RiskPolicyRegistry.AvailablePolicies" Selected="_selectedRiskPolicies"
-                                        Disabled="@(_isLoading || _snapshot is not null)" OnChanged="StateHasChanged">
-                            <Actions>
-                                @if (_selectedRiskPolicies.Count > 0)
-                                {
-                                    <label class="sim-locktoggle"
-                                           title="Opt in to fix these policies for the whole run -- once loaded they cannot be toggled during playback">
-                                        <input type="checkbox" @bind="_lockRiskPolicies"
-                                               disabled="@(_isLoading || _snapshot is not null)" />
-                                        Lock for run
-                                    </label>
-                                }
-                            </Actions>
-                        </PolicySelector>
-                    </div>
-                }
-
-                @if (_snapshot is null)
-                {
-                    <div class="sim-brainrow-actions">
-                        <button class="sim-ctrl-btn sim-ctrl-btn-play" @onclick="LoadSimulation" disabled="@_isLoading">
-                            @(_isLoading ? "LOADING..." : "LOAD SIMULATION")
-                        </button>
-                        <button class="sim-ctrl-btn" @onclick="LoadDummySimulation" disabled="@_isLoading"
-                                title="Synthetic random-walk ticks -- no Postgres required">
-                            LOAD DUMMY DATA
-                        </button>
-                        @if (_loadError is not null)
-                        {
-                            <span class="sim-brainrow-error">@_loadError</span>
-                        }
-                        @if (_error is not null)
-                        {
-                            <span class="sim-brainrow-error">@_error</span>
-                        }
-                    </div>
-                }
             </div>
+
+            @if (RiskPolicyRegistry.AvailablePolicies.Count > 0)
+            {
+                <div class="sim-datarow sim-riskrow"
+                     title="Risk policies gate every trade action -- permit, deny or resize it -- and supervise open positions, on top of the brain and manual controls">
+                    <span class="sim-riskrow-label">Risk Policies</span>
+                    <PolicySelector Available="RiskPolicyRegistry.AvailablePolicies" Selected="_selectedRiskPolicies"
+                                    Disabled="@(_isLoading || _snapshot is not null)" OnChanged="StateHasChanged">
+                        <Actions>
+                            @if (_selectedRiskPolicies.Count > 0)
+                            {
+                                <label class="sim-locktoggle"
+                                       title="Opt in to fix these policies for the whole run -- once loaded they cannot be toggled during playback">
+                                    <input type="checkbox" @bind="_lockRiskPolicies"
+                                           disabled="@(_isLoading || _snapshot is not null)" />
+                                    Lock for run
+                                </label>
+                            }
+                        </Actions>
+                    </PolicySelector>
+                </div>
+            }
 
                 </div>
                 }

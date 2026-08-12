@@ -12,45 +12,43 @@
 
     @if (_open)
     {
-        <table class="policy-table">
-            <thead>
-                <tr>
-                    <th title="Order the policies run in -- earlier policies see and can change what later ones review">Order</th>
-                    <th>Name</th>
-                    <th>Description</th>
-                    <th title="Include this policy in the run">Enabled</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var policy in OrderedRows)
-                {
-                    var enabled = Selected.Contains(policy.Name);
-                    var order = ExecutionOrder(policy.Name);
-                    <tr class="@(enabled ? "policy-row-on" : "policy-row-off")">
-                        <td class="policy-order">
-                            @if (enabled)
-                            {
-                                <span class="policy-order-index">@(order + 1)</span>
-                                <button type="button" class="policy-order-btn" @onclick="() => MoveEarlier(policy.Name)"
-                                        disabled="@(Disabled || order == 0)" title="Run earlier">&#9650;</button>
-                                <button type="button" class="policy-order-btn" @onclick="() => MoveLater(policy.Name)"
-                                        disabled="@(Disabled || order == Selected.Count - 1)" title="Run later">&#9660;</button>
-                            }
-                            else
-                            {
-                                <span class="policy-order-none" title="Not in the run">&mdash;</span>
-                            }
-                        </td>
-                        <td class="policy-name">@policy.Name</td>
-                        <td class="policy-desc">@policy.Description</td>
-                        <td class="policy-enabled">
-                            <input type="checkbox" checked="@enabled" disabled="@Disabled"
-                                   @onchange="e => SetEnabled(policy.Name, (bool)e.Value!)"
-                                   title="@(enabled ? "Remove this policy from the run" : "Add this policy to the run")" />
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
+        <div class="policy-cards">
+            @foreach (var policy in OrderedRows)
+            {
+                var enabled = Selected.Contains(policy.Name);
+                var order = ExecutionOrder(policy.Name);
+                var name = policy.Name;
+                <div class="policy-card @(enabled ? "policy-card-on" : "policy-card-off") @(Disabled ? "policy-card-locked" : null)"
+                     role="button"
+                     tabindex="@(Disabled ? -1 : 0)"
+                     aria-pressed="@enabled"
+                     @onclick="() => SetEnabled(name, !enabled)"
+                     @onkeydown="e => OnCardKey(e, name, enabled)"
+                     title="@(enabled ? "Remove this policy from the run" : "Add this policy to the run")">
+                    <div class="policy-card-order" @onclick:stopPropagation="true">
+                        @if (enabled)
+                        {
+                            <span class="policy-card-index" title="Execution order">@(order + 1)</span>
+                            <button type="button" class="policy-card-order-btn" @onclick="() => MoveEarlier(name)"
+                                    disabled="@(Disabled || order == 0)" title="Run earlier">&#9650;</button>
+                            <button type="button" class="policy-card-order-btn" @onclick="() => MoveLater(name)"
+                                    disabled="@(Disabled || order == Selected.Count - 1)" title="Run later">&#9660;</button>
+                        }
+                        else
+                        {
+                            <span class="policy-card-order-none" title="Not in the run">&mdash;</span>
+                        }
+                    </div>
+                    <span class="policy-card-indicator" title="@(enabled ? "In the run" : "Not in the run")"></span>
+                    <div class="policy-card-body">
+                        <div class="policy-card-head">
+                            <span class="policy-card-name">@policy.Name</span>
+                            <span class="policy-card-state">@(enabled ? "on" : "off")</span>
+                        </div>
+                        <span class="policy-card-desc">@policy.Description</span>
+                    </div>
+                </div>
+            }
+        </div>
     }
 </div>

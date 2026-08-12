@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Web;
 using Poink.Sim.Trader.Risk;
 
 namespace Poink.Sim.Components.Shared.PolicySelector
@@ -28,6 +29,8 @@ namespace Poink.Sim.Components.Shared.PolicySelector
 
         private async Task SetEnabled(string name, bool enabled)
         {
+            if (Disabled)
+                return;
             if (enabled)
             {
                 if (!Selected.Contains(name))
@@ -38,6 +41,12 @@ namespace Poink.Sim.Components.Shared.PolicySelector
                 Selected.Remove(name);
             }
             await OnChanged.InvokeAsync();
+        }
+
+        private async Task OnCardKey(KeyboardEventArgs args, string name, bool enabled)
+        {
+            if (args.Key is "Enter" or " " or "Spacebar")
+                await SetEnabled(name, !enabled);
         }
 
         private async Task MoveEarlier(string name)
