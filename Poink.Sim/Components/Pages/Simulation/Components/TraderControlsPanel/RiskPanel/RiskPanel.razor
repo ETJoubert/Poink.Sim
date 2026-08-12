@@ -1,0 +1,60 @@
+@namespace Poink.Sim.Components.Simulation
+
+<div class="rp-panel">
+    <div class="rp-heading">RISK</div>
+
+    <div class="rp-row" title="Position size in units -- committed margin x leverage, divided by the entry price">
+        <span class="rp-label">Volume</span>
+        <span class="rp-value">@(Volume is { } size ? $"{size:N4}" : "--")</span>
+    </div>
+
+    <div class="rp-row" title="Notional exposure -- volume valued at the entry price">
+        <span class="rp-label">Notional</span>
+        <span class="rp-value">@(Notional is { } notional ? $"{notional:N2}" : "--")</span>
+    </div>
+
+    <div class="rp-row" title="Margin committed against cash -- capital fraction x cash">
+        <span class="rp-label">Margin used</span>
+        <span class="rp-value">@($"{MarginUsed:N2}")</span>
+    </div>
+
+    @if (StopRisk is { } risk)
+    {
+        <div class="rp-row rp-highlight @(risk > 0 ? "loss" : "gain")"
+             title="Money lost if the stop is hit for this volume at this leverage from the entry price">
+            <span class="rp-label">Risk</span>
+            <span class="rp-value">
+                @($"{(risk > 0 ? "-" : "+")}{Math.Abs(risk):N2}")
+                <span class="rp-pct">(@($"{Math.Abs(RiskFractionOf(risk)):P1}") of cash)</span>
+            </span>
+        </div>
+    }
+    else if (StopLossPips is not null)
+    {
+        <div class="rp-row rp-highlight"
+             title="@(IsMarketOrder ? "A market price is needed to project the stop risk -- start playback" : "Enter a trigger price to project the stop risk")">
+            <span class="rp-label">Risk</span>
+            <span class="rp-value">--</span>
+        </div>
+    }
+    else
+    {
+        <div class="rp-row rp-highlight loss"
+             title="@($"No stop set -- max loss before the {StopOutLevelPercent:0.#}% margin stop-out force-closes the position")">
+            <span class="rp-label">Risk (max @@ stop-out @($"{StopOutLevelPercent:0.#}%"))</span>
+            <span class="rp-value">
+                @($"-{MaxRisk:N2}")
+                <span class="rp-pct">(@($"{RiskFractionOf(MaxRisk):P1}") of cash)</span>
+            </span>
+        </div>
+    }
+
+    @if (RewardToRisk is { } ratio)
+    {
+        <div class="rp-row"
+             title="Reward-to-risk ratio -- projected take-profit gain divided by the stop-loss risk">
+            <span class="rp-label">Reward : risk</span>
+            <span class="rp-value">@($"{ratio:N2} : 1")</span>
+        </div>
+    }
+</div>

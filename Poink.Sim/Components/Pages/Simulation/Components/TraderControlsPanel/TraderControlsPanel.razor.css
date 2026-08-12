@@ -53,6 +53,132 @@
     color: var(--color-primary);
 }
 
+.tcp-input-row {
+    display: flex;
+    align-items: stretch;
+    gap: 4px;
+}
+
+.tcp-input-row .tcp-input {
+    flex: 1;
+    min-width: 0;
+}
+
+.tcp-clear {
+    flex: 0 0 auto;
+    width: 26px;
+    font-size: 0.95rem;
+    line-height: 1;
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
+    border-radius: 4px;
+    color: var(--color-secondary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.tcp-clear:hover:not(:disabled) {
+    color: var(--color-error);
+    border-color: color-mix(in srgb, var(--color-error) 50%, transparent);
+    background: color-mix(in srgb, var(--color-error) 12%, transparent);
+}
+
+.tcp-clear:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.tcp-toggle-group {
+    display: flex;
+    gap: 0;
+}
+
+.tcp-toggle {
+    flex: 1;
+    font-family: var(--font-body);
+    font-weight: bold;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 7px 10px;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
+    border-left-width: 0;
+    background: transparent;
+    color: var(--color-secondary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.tcp-toggle:first-child {
+    border-left-width: 1px;
+    border-top-left-radius: var(--border-radius-sm);
+    border-bottom-left-radius: var(--border-radius-sm);
+}
+
+.tcp-toggle:last-child {
+    border-top-right-radius: var(--border-radius-sm);
+    border-bottom-right-radius: var(--border-radius-sm);
+}
+
+.tcp-toggle:hover {
+    color: var(--color-primary);
+    background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+}
+
+.tcp-toggle.active {
+    background: var(--color-primary);
+    color: var(--color-bg-terminal);
+    border-color: var(--color-primary);
+}
+
+.tcp-toggle-buy.active {
+    background: var(--color-success);
+    border-color: var(--color-success);
+}
+
+.tcp-toggle-sell.active {
+    background: var(--color-error);
+    border-color: var(--color-error);
+}
+
+.tcp-risk {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 8px;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 20%, transparent);
+    border-radius: 4px;
+    font-family: var(--font-mono, monospace);
+}
+
+.tcp-risk-label {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-secondary);
+}
+
+.tcp-risk-value {
+    font-size: 0.85rem;
+    font-weight: bold;
+    color: var(--color-primary);
+}
+
+.tcp-risk.loss .tcp-risk-value {
+    color: var(--color-error);
+}
+
+.tcp-risk.gain .tcp-risk-value {
+    color: var(--color-success);
+}
+
+.tcp-risk-pct {
+    font-size: 0.7rem;
+    font-weight: normal;
+    color: var(--color-secondary);
+}
+
 .tcp-actions {
     display: flex;
     flex-wrap: wrap;

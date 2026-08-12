@@ -1,0 +1,57 @@
+.rp-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 6px 8px;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 20%, transparent);
+    border-radius: 4px;
+    font-family: var(--font-mono, monospace);
+}
+
+.rp-heading {
+    font-family: var(--font-heading);
+    font-size: 0.68rem;
+    font-weight: bold;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-secondary);
+    margin-bottom: 2px;
+}
+
+.rp-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.rp-label {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-secondary);
+}
+
+.rp-value {
+    font-size: 0.8rem;
+    color: var(--color-primary);
+}
+
+.rp-highlight .rp-value {
+    font-weight: bold;
+    font-size: 0.85rem;
+}
+
+.rp-row.loss .rp-value {
+    color: var(--color-error);
+}
+
+.rp-row.gain .rp-value {
+    color: var(--color-success);
+}
+
+.rp-pct {
+    font-size: 0.7rem;
+    font-weight: normal;
+    color: var(--color-secondary);
+}

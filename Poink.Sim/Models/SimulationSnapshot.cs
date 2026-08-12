@@ -10,7 +10,8 @@ namespace Poink.Sim.Models;
 internal sealed record SimulationConfig(
     string Table, DateTime From, DateTime To, bool Aggregate, TimeSpan BarSize,
     string BrainName, double StartingCash, int TraderCount,
-    double Leverage = 1.0, double StopOutLevelPercent = 50.0, double CommissionRatePercent = 0.0);
+    double Leverage = 1.0, double StopOutLevelPercent = 50.0, double CommissionRatePercent = 0.0,
+    double PipSize = 0.01);
 
 internal sealed record SimulationLogEntry(
     DateTime TimestampUtc, string Action, double Price, PositionDirection Direction,

@@ -43,6 +43,7 @@ namespace Poink.Sim.Components.Pages
         private double _leverage = 1;
         private double _commissionRatePercent = 0;
         private double _stopOutLevelPercent = 50;
+        private double _pipSize = 0.01;
 
         private string? _loadError;
 
@@ -360,6 +361,7 @@ namespace Poink.Sim.Components.Pages
         private ElementReference _chartDividerRef;
         private ElementReference _chartDividerRef2;
         private ElementReference _chartHDividerRef;
+        private ElementReference _sidePanelDividerRef;
         private IJSObjectReference? _dividerResizeInstance;
 
         private const string ChartDividerScript = """
@@ -445,6 +447,9 @@ namespace Poink.Sim.Components.Pages
                 await _dividerResizeInstance.InvokeVoidAsync("bindHeight", _chartHDividerRef);
             }
 
+            if (_snapshot is not null && !_traderPanelCollapsed && _dividerResizeInstance is not null)
+                await _dividerResizeInstance.InvokeVoidAsync("bind", _sidePanelDividerRef);
+
             if (!_keepChartView && _snapshot is { Config.Aggregate: true } snap && !_hideChart && snap.RecentBars.Count > 0)
                 _keepChartView = true;
         }
@@ -494,7 +499,7 @@ namespace Poink.Sim.Components.Pages
 
             var config = new SimulationConfig(
                 _table, _from, _to, _aggregate, TimeSpan.FromSeconds(_barSizeSeconds), _brainName, _startingCash, _traderCount,
-                _leverage, _stopOutLevelPercent, _commissionRatePercent);
+                _leverage, _stopOutLevelPercent, _commissionRatePercent, _pipSize);
 
             _keepChartView = false;
             if (!Service.TryLoad(config))
@@ -510,6 +515,8 @@ namespace Poink.Sim.Components.Pages
             { _loadError = "commission rate can't be negative"; return false; }
             if (_stopOutLevelPercent <= 0 || _stopOutLevelPercent > 100)
             { _loadError = "stop-out level must be between 0 and 100%"; return false; }
+            if (_pipSize <= 0)
+            { _loadError = "pip size must be positive"; return false; }
             return true;
         }
 
@@ -536,7 +543,7 @@ namespace Poink.Sim.Components.Pages
 
             var config = new SimulationConfig(
                 table, from, to, _aggregate, TimeSpan.FromSeconds(_barSizeSeconds), _brainName, _startingCash, _traderCount,
-                _leverage, _stopOutLevelPercent, _commissionRatePercent);
+                _leverage, _stopOutLevelPercent, _commissionRatePercent, _pipSize);
 
             _keepChartView = false;
             if (!Service.TryLoadDummy(config))

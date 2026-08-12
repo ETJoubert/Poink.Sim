@@ -172,6 +172,12 @@
                     <input class="sim-brainrow-input sim-brainrow-input-narrow" type="number" min="1" max="100" step="1"
                            @bind="_stopOutLevelPercent" disabled="@(_isLoading || _snapshot is not null)" />
                 </label>
+                <label class="sim-brainrow-field"
+                       title="Price value of one pip for this instrument -- stop-loss and take-profit distances are entered in pips and converted through this">
+                    Pip size
+                    <input class="sim-brainrow-input sim-brainrow-input-narrow" type="number" min="0" step="0.00001"
+                           @bind="_pipSize" disabled="@(_isLoading || _snapshot is not null)" />
+                </label>
 
                 @if (_snapshot is null)
                 {
@@ -501,6 +507,12 @@
 
             @if (_snapshot is not null)
             {
+                @if (!_traderPanelCollapsed)
+                {
+                    <div class="sim-chart-divider sim-chart-divider-side" @ref="_sidePanelDividerRef"
+                         data-min-width="220" data-max-width="640"
+                         title="Drag to resize the trader controls panel"></div>
+                }
                 <div class="sim-sidepanel @(_traderPanelCollapsed ? "sim-sidepanel-collapsed" : "")">
                     <button class="sim-sidepanel-toggle" @onclick="ToggleTraderPanel"
                             title="@(_traderPanelCollapsed ? "Expand trader controls" : "Collapse trader controls")">
@@ -512,7 +524,14 @@
                         <div class="sim-sidepanel-content">
                             <TraderControlsPanel TraderId="SelectedTrader?.Id" TraderLabel="SelectedTraderLabel"
                                                  IsManual="SelectedTraderIsManual" PositionSummary="SelectedPositionSummary"
-                                                 PendingSummary="SelectedPendingSummary" />
+                                                 PendingSummary="SelectedPendingSummary"
+                                                 Cash="SelectedTrader?.Capital.Cash ?? 0"
+                                                 Leverage="SelectedTrader?.Leverage ?? 1"
+                                                 StopOutLevelPercent="SelectedTrader?.StopOutLevelPercent ?? 50"
+                                                 PipSize="_snapshot?.Config.PipSize ?? 0.01"
+                                                 CurrentPrice="_snapshot?.CurrentPrice"
+                                                 CurrentBid="_snapshot?.CurrentBid"
+                                                 CurrentAsk="_snapshot?.CurrentAsk" />
                         </div>
                     }
                 </div>

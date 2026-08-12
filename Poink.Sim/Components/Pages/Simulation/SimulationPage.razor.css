@@ -277,15 +277,17 @@
     position: relative;
     display: flex;
     flex-direction: column;
-    flex: 0 0 300px;
+    flex: 0 0 auto;
     width: 300px;
+    min-width: 220px;
     border-left: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
-    transition: flex-basis 0.2s ease, width 0.2s ease;
 }
 
 .sim-sidepanel-collapsed {
-    flex-basis: 40px;
     width: 40px;
+    min-width: 40px;
+    max-width: 40px;
+    overflow: hidden;
 }
 
 .sim-sidepanel-toggle {
@@ -334,6 +336,7 @@
     .sim-sidepanel {
         flex-basis: auto;
         width: 100%;
+        min-width: 0;
         border-left: none;
         border-top: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
     }
@@ -341,6 +344,8 @@
     .sim-sidepanel-collapsed {
         flex-basis: auto;
         width: 100%;
+        min-width: 0;
+        max-width: none;
     }
 }
 
@@ -690,6 +695,11 @@
     touch-action: none;
     user-select: none;
     border-radius: 3px;
+}
+
+.sim-chart-divider-side {
+    flex: 0 0 8px;
+    margin: 0;
 }
 
 .sim-chart-divider::before {
