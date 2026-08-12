@@ -1,0 +1,61 @@
+.riskpolicy-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-family: var(--font-body);
+    color: var(--color-primary);
+}
+
+.riskpolicy-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.riskpolicy-panel-title {
+    font-size: 0.78rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--color-secondary);
+}
+
+.riskpolicy-locked-badge {
+    font-size: 0.68rem;
+    padding: 2px 6px;
+    border-radius: var(--border-radius-sm);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 45%, transparent);
+    color: var(--color-secondary);
+    white-space: nowrap;
+}
+
+.riskpolicy-panel-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.riskpolicy-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 6px;
+    border-radius: var(--border-radius-sm);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
+    cursor: pointer;
+    font-size: 0.74rem;
+}
+
+.riskpolicy-item-off {
+    opacity: 0.55;
+}
+
+.riskpolicy-item-name {
+    flex: 1;
+}
+
+.riskpolicy-item-state {
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    color: var(--color-secondary);
+}

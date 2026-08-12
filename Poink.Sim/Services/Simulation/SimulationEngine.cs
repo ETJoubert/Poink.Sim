@@ -11,6 +11,7 @@ using Poink.Sim.Brain.Neural;
 using Poink.Sim.Models;
 using Poink.Sim.Repository;
 using Poink.Sim.Trader;
+using Poink.Sim.Trader.Risk;
 
 namespace Poink.Sim.Simulation;
 
@@ -62,6 +63,8 @@ internal sealed class SimulationEngine : ISimulationEngine
 
     private int? _selectedTraderIdForIo;
 
+    private RiskPolicyToggles? _riskToggles;
+
     private readonly RingBuffer<HlocAvdtBar> _recentBars = new(MaxRecentBars);
     private readonly RingBuffer<BarPriceHistogram> _recentBarHistograms = new(MaxRecentBars);
     private readonly RingBuffer<Tick> _recentTicks = new(MaxRecentTicks);
@@ -73,14 +76,17 @@ internal sealed class SimulationEngine : ISimulationEngine
 
     private readonly ITickRepository _tickRepository;
     private readonly Trader.ITraderFactory _traderFactory;
+    private readonly IRiskPolicyRegistry _riskPolicyRegistry;
     private readonly ILogger<SimulationEngine> _logger;
 
     public SimulationEngine(
-        BrainRegistry brainRegistry, ITickRepository tickRepository, Trader.ITraderFactory traderFactory, ILogger<SimulationEngine> logger)
+        BrainRegistry brainRegistry, ITickRepository tickRepository, Trader.ITraderFactory traderFactory,
+        IRiskPolicyRegistry riskPolicyRegistry, ILogger<SimulationEngine> logger)
     {
         _brainRegistry = brainRegistry;
         _tickRepository = tickRepository;
         _traderFactory = traderFactory;
+        _riskPolicyRegistry = riskPolicyRegistry;
         _logger = logger;
         _timer = new Timer(TimerCallback, null, Timeout.Infinite, Timeout.Infinite);
     }
@@ -183,7 +189,8 @@ internal sealed class SimulationEngine : ISimulationEngine
             _cursor = 0;
             _totalCount = totalCount;
             _config = config;
-            _traderSessions = CreateSessions(config.TraderCount, config.StartingCash, BuildTraderSettings(config));
+            _riskToggles = config.RiskPolicyNames is { Count: > 0 } riskNames ? new RiskPolicyToggles(riskNames) : null;
+            _traderSessions = CreateSessions(config.TraderCount, config.StartingCash, BuildTraderSettings(config, _riskToggles));
             _selectedTraderIdForIo = _traderSessions.Count > 0 ? _traderSessions[0].Id : null;
             _aggregator = config.Aggregate
                 ? new SimulationBarAggregator(config.BarSize, PriceBucketWidthFor(config.Table))
@@ -211,9 +218,10 @@ internal sealed class SimulationEngine : ISimulationEngine
             .Select(i => new TraderSession { Id = i, Label = $"Trader {i}", Trader = _traderFactory.Create(startingCash, settings) })
             .ToList();
 
-    private static Trader.TraderSettings BuildTraderSettings(SimulationConfig config) => new(
+    private static Trader.TraderSettings BuildTraderSettings(SimulationConfig config, RiskPolicyToggles? toggles) => new(
         config.Leverage, config.StopOutLevelPercent,
-        new Trader.Commission.PercentOfNotionalCommission(config.CommissionRatePercent));
+        new Trader.Commission.PercentOfNotionalCommission(config.CommissionRatePercent),
+        config.RiskPolicyNames, toggles);
 
     public bool Play()
     {
@@ -321,7 +329,7 @@ internal sealed class SimulationEngine : ISimulationEngine
             _reader?.Dispose();
             _reader = _openReader();
             _cursor = 0;
-            _traderSessions = CreateSessions(_config.TraderCount, _config.StartingCash, BuildTraderSettings(_config));
+            _traderSessions = CreateSessions(_config.TraderCount, _config.StartingCash, BuildTraderSettings(_config, _riskToggles));
             _selectedTraderIdForIo = _traderSessions.Count > 0 ? _traderSessions[0].Id : null;
             _aggregator = _config.Aggregate
                 ? new SimulationBarAggregator(_config.BarSize, PriceBucketWidthFor(_config.Table))
@@ -353,6 +361,7 @@ internal sealed class SimulationEngine : ISimulationEngine
             _cursor = 0;
             _totalCount = 0;
             _config = null;
+            _riskToggles = null;
             _traderSessions = new();
             _aggregator = null;
             _activeBrain = null;
@@ -445,8 +454,7 @@ internal sealed class SimulationEngine : ISimulationEngine
             var maintenance = session.Trader.Advance(tick.Bid, tick.Ask, tick.Timestamp);
             capitalStates.Add(maintenance.Capital);
             foreach (var fill in maintenance.AutomaticFills)
-                AppendLog(session, new SimulationLogEntry(
-                    tick.Timestamp, fill.Action.ToString(), price, fill.Direction, fill.Size, fill.RealizedPnl, fill.Commission, fill.Reason));
+                AppendLog(session, LogEntryFor(fill, price, tick.Timestamp));
         }
 
         if (_aggregator is not null)
@@ -496,8 +504,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 
             var execution = session.Trader.Apply(decision, bid, ask, timestamp);
             if (execution is { } exec)
-                AppendLog(session, new SimulationLogEntry(
-                    timestamp, exec.Action.ToString(), price, exec.Direction, exec.Size, exec.RealizedPnl, exec.Commission, exec.Reason));
+                AppendLog(session, LogEntryFor(exec, price, timestamp));
         }
     }
 
@@ -512,6 +519,20 @@ internal sealed class SimulationEngine : ISimulationEngine
             session.Mode = mode;
         }
         PublishSnapshot();
+        return true;
+    }
+
+
+    public bool SetRiskPolicyEnabled(string policyName, bool enabled)
+    {
+        lock (_lock)
+        {
+            if (_config is null || _config.LockRiskPolicies || _riskToggles is null)
+                return false;
+            _riskToggles.Set(policyName, enabled);
+        }
+        PublishSnapshot();
+        _logger.LogInformation("Risk policy {Policy} {State}", policyName, enabled ? "enabled" : "disabled");
         return true;
     }
 
@@ -537,8 +558,7 @@ internal sealed class SimulationEngine : ISimulationEngine
             var timestamp = _lastTimestamp ?? DateTime.UtcNow;
             var execution = session.Trader.Apply(decision, bid, ask, timestamp);
             if (execution is { } exec)
-                AppendLog(session, new SimulationLogEntry(
-                    timestamp, exec.Action.ToString(), (bid + ask) / 2.0, exec.Direction, exec.Size, exec.RealizedPnl, exec.Commission, exec.Reason));
+                AppendLog(session, LogEntryFor(exec, (bid + ask) / 2.0, timestamp));
         }
         PublishSnapshot();
         return true;
@@ -553,6 +573,23 @@ internal sealed class SimulationEngine : ISimulationEngine
     private void AppendTick(Tick tick) => _recentTicks.Add(tick);
 
     private void AppendLog(TraderSession session, SimulationLogEntry entry) => session.RecentLog.Add(entry);
+
+    private static SimulationLogEntry LogEntryFor(TradeExecution execution, double price, DateTime timestamp) =>
+        new(timestamp,
+            execution.Blocked ? $"{execution.Action} (blocked)" : execution.Action.ToString(),
+            price, execution.Direction, execution.Size, execution.RealizedPnl, execution.Commission, execution.Reason);
+
+    private IReadOnlyList<RiskPolicySnapshot> BuildRiskPolicySnapshotsLocked()
+    {
+        if (_riskToggles is null)
+            return Array.Empty<RiskPolicySnapshot>();
+
+        var descriptions = _riskPolicyRegistry.AvailablePolicies.ToDictionary(policy => policy.Name, policy => policy.Description);
+        return _riskToggles.States()
+            .Select(state => new RiskPolicySnapshot(
+                state.Name, descriptions.TryGetValue(state.Name, out var description) ? description : "", state.Enabled))
+            .ToList();
+    }
 
     private void PublishSnapshot()
     {
@@ -578,7 +615,8 @@ internal sealed class SimulationEngine : ISimulationEngine
                         ts.Trader.CurrentPendingOrder, ts.Trader.TradeLog.Count, ts.RecentLog.ToList(), ts.Trader.TradeLog.ToList(),
                         ts.Trader.MaxEquity, ts.Trader.MaxDrawdown, ts.Trader.Leverage, ts.Trader.StopOutLevelPercent,
                         ts.LatestInputs, ts.LatestOutputs)).ToList(),
-                    bars, barHistograms, _recentTicks.ToList());
+                    bars, barHistograms, _recentTicks.ToList(),
+                    BuildRiskPolicySnapshotsLocked(), _config.LockRiskPolicies);
         }
         Snapshot = snapshot;
         Progress = snapshot is null

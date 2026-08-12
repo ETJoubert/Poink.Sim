@@ -8,6 +8,7 @@ using Poink.Sim.Helpers;
 using Poink.Sim.Repository;
 using Poink.Sim.Trader;
 using Poink.Sim.Trader.Commission;
+using Poink.Sim.Trader.Risk;
 using Poink.Sim.Training;
 using System.Linq;
 
@@ -16,6 +17,8 @@ namespace Poink.Sim.Components.Pages
     public partial class TrainPage : ComponentBase, IDisposable
     {
         [Inject] private IRlTrainingService Service { get; set; } = default!;
+
+        [Inject] private IRiskPolicyRegistry RiskPolicyRegistry { get; set; } = default!;
 
         // Set via @ref on the Build panel -- StartTrainingCore asks it to
         // draft a live, unsaved brain from its current fields right before a
@@ -57,6 +60,8 @@ namespace Poink.Sim.Components.Pages
         private double _leverage = 1;
         private double _commissionRatePercent = 0;
         private double _stopOutLevelPercent = 50;
+
+        private readonly HashSet<string> _selectedRiskPolicies = new();
 
         private string? _startError;
 
@@ -214,7 +219,16 @@ namespace Poink.Sim.Components.Pages
         }
 
         private TraderSettings CurrentTraderSettings => new(
-            _leverage, _stopOutLevelPercent, new PercentOfNotionalCommission(_commissionRatePercent));
+            _leverage, _stopOutLevelPercent, new PercentOfNotionalCommission(_commissionRatePercent),
+            _selectedRiskPolicies.Count > 0 ? _selectedRiskPolicies.ToList() : null);
+
+        private void ToggleRiskPolicy(string policyName, bool selected)
+        {
+            if (selected)
+                _selectedRiskPolicies.Add(policyName);
+            else
+                _selectedRiskPolicies.Remove(policyName);
+        }
 
         private void StartTraining()
         {

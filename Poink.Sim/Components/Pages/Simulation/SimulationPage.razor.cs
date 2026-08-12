@@ -9,6 +9,7 @@ using Poink.Sim.Components.Charts;
 using Poink.Sim.Models;
 using Poink.Sim.Repository;
 using Poink.Sim.Simulation;
+using Poink.Sim.Trader.Risk;
 using Poink.Sim.Training;
 using Poink.Shared.Client.Components.Pages.CTrader;
 
@@ -24,6 +25,8 @@ namespace Poink.Sim.Components.Pages
 
 
         [Inject] private IModelService ModelService { get; set; } = default!;
+
+        [Inject] private IRiskPolicyRegistry RiskPolicyRegistry { get; set; } = default!;
 
         // ── Setup form state ──
 
@@ -44,6 +47,9 @@ namespace Poink.Sim.Components.Pages
         private double _commissionRatePercent = 0;
         private double _stopOutLevelPercent = 50;
         private double _pipSize = 0.01;
+
+        private readonly HashSet<string> _selectedRiskPolicies = new();
+        private bool _lockRiskPolicies;
 
         private string? _loadError;
 
@@ -499,7 +505,7 @@ namespace Poink.Sim.Components.Pages
 
             var config = new SimulationConfig(
                 _table, _from, _to, _aggregate, TimeSpan.FromSeconds(_barSizeSeconds), _brainName, _startingCash, _traderCount,
-                _leverage, _stopOutLevelPercent, _commissionRatePercent, _pipSize);
+                _leverage, _stopOutLevelPercent, _commissionRatePercent, _pipSize, SelectedRiskPolicies, _lockRiskPolicies);
 
             _keepChartView = false;
             if (!Service.TryLoad(config))
@@ -519,6 +525,18 @@ namespace Poink.Sim.Components.Pages
             { _loadError = "pip size must be positive"; return false; }
             return true;
         }
+
+
+        private void ToggleRiskPolicy(string policyName, bool selected)
+        {
+            if (selected)
+                _selectedRiskPolicies.Add(policyName);
+            else
+                _selectedRiskPolicies.Remove(policyName);
+        }
+
+        private IReadOnlyList<string>? SelectedRiskPolicies =>
+            _selectedRiskPolicies.Count > 0 ? _selectedRiskPolicies.ToList() : null;
 
 
         private void OnAggregationSettingChanged() => Service.SetAggregation(_aggregate, TimeSpan.FromSeconds(_barSizeSeconds));
@@ -543,7 +561,7 @@ namespace Poink.Sim.Components.Pages
 
             var config = new SimulationConfig(
                 table, from, to, _aggregate, TimeSpan.FromSeconds(_barSizeSeconds), _brainName, _startingCash, _traderCount,
-                _leverage, _stopOutLevelPercent, _commissionRatePercent, _pipSize);
+                _leverage, _stopOutLevelPercent, _commissionRatePercent, _pipSize, SelectedRiskPolicies, _lockRiskPolicies);
 
             _keepChartView = false;
             if (!Service.TryLoadDummy(config))

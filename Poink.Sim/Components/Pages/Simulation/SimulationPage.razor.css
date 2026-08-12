@@ -207,6 +207,21 @@
     white-space: nowrap;
 }
 
+.sim-riskpolicy-options {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
+
+.sim-riskpolicy-option {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    color: var(--color-primary);
+}
+
 .sim-brainrow-select,
 .sim-brainrow-input {
     background: var(--color-bg-terminal);
@@ -288,6 +303,11 @@
     min-width: 40px;
     max-width: 40px;
     overflow: hidden;
+}
+
+.sim-sidepanel-risk {
+    width: 220px;
+    min-width: 180px;
 }
 
 .sim-sidepanel-toggle {

@@ -179,6 +179,35 @@
                            @bind="_pipSize" disabled="@(_isLoading || _snapshot is not null)" />
                 </label>
 
+                @if (RiskPolicyRegistry.AvailablePolicies.Count > 0)
+                {
+                    <div class="sim-brainrow-field"
+                         title="Risk policies gate every trade action -- permit, deny or resize it -- and supervise open positions, on top of the brain and manual controls">
+                        Risk policies
+                        <div class="sim-riskpolicy-options">
+                            @foreach (var policy in RiskPolicyRegistry.AvailablePolicies)
+                            {
+                                <label class="sim-riskpolicy-option" title="@policy.Description">
+                                    <input type="checkbox"
+                                           checked="@_selectedRiskPolicies.Contains(policy.Name)"
+                                           @onchange="e => ToggleRiskPolicy(policy.Name, (bool)e.Value!)"
+                                           disabled="@(_isLoading || _snapshot is not null)" />
+                                    @policy.Name
+                                </label>
+                            }
+                            @if (_selectedRiskPolicies.Count > 0)
+                            {
+                                <label class="sim-riskpolicy-option"
+                                       title="Opt in to fix these policies for the whole run -- once loaded they cannot be toggled during playback">
+                                    <input type="checkbox" @bind="_lockRiskPolicies"
+                                           disabled="@(_isLoading || _snapshot is not null)" />
+                                    Lock for run
+                                </label>
+                            }
+                        </div>
+                    </div>
+                }
+
                 @if (_snapshot is null)
                 {
                     <div class="sim-brainrow-actions">
@@ -535,6 +564,14 @@
                         </div>
                     }
                 </div>
+                @if (_snapshot?.RiskPolicies.Count > 0)
+                {
+                    <div class="sim-sidepanel sim-sidepanel-risk">
+                        <div class="sim-sidepanel-content">
+                            <RiskPolicyPanel Policies="_snapshot.RiskPolicies" Locked="_snapshot.RiskPoliciesLocked" />
+                        </div>
+                    </div>
+                }
             }
         </div>
     </div>

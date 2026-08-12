@@ -27,6 +27,7 @@ internal interface ISimulationEngine : IDisposable
     bool Reset();
     void Unload();
     bool SetTraderMode(int traderId, TraderControlMode mode);
+    bool SetRiskPolicyEnabled(string policyName, bool enabled);
     void SelectTraderForIo(int? traderId);
     bool SubmitManualDecision(int traderId, SimulationDecision decision);
 }

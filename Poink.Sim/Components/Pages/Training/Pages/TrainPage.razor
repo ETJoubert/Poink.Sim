@@ -169,6 +169,23 @@
                                            @bind="_stopOutLevelPercent" disabled="@Service.IsRunning" />
                                 </label>
                             </div>
+                            @if (RiskPolicyRegistry.AvailablePolicies.Count > 0)
+                            {
+                                <div class="train-card-fields-row"
+                                     title="Risk policies gate every trade action -- permit, deny or resize it -- and supervise open positions during each episode">
+                                    <span class="train-brainrow-field">Risk policies</span>
+                                    @foreach (var policy in RiskPolicyRegistry.AvailablePolicies)
+                                    {
+                                        <label class="train-brainrow-field" title="@policy.Description">
+                                            <input type="checkbox"
+                                                   checked="@_selectedRiskPolicies.Contains(policy.Name)"
+                                                   @onchange="e => ToggleRiskPolicy(policy.Name, (bool)e.Value!)"
+                                                   disabled="@Service.IsRunning" />
+                                            @policy.Name
+                                        </label>
+                                    }
+                                </div>
+                            }
                         </div>
                     </div>
                 }

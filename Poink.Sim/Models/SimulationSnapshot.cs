@@ -11,7 +11,7 @@ internal sealed record SimulationConfig(
     string Table, DateTime From, DateTime To, bool Aggregate, TimeSpan BarSize,
     string BrainName, double StartingCash, int TraderCount,
     double Leverage = 1.0, double StopOutLevelPercent = 50.0, double CommissionRatePercent = 0.0,
-    double PipSize = 0.01);
+    double PipSize = 0.01, IReadOnlyList<string>? RiskPolicyNames = null, bool LockRiskPolicies = false);
 
 internal sealed record SimulationLogEntry(
     DateTime TimestampUtc, string Action, double Price, PositionDirection Direction,
@@ -32,10 +32,14 @@ internal sealed record TraderSnapshot(
     double MaxEquity, double MaxDrawdown, double Leverage, double StopOutLevelPercent,
     IReadOnlyList<RlInputFeature>? Inputs, IReadOnlyList<RlOutputFeature>? Outputs);
 
+public sealed record RiskPolicySnapshot(string Name, string Description, bool Enabled);
+
+
 internal sealed record SimulationSnapshot(
     SimulationConfig Config, bool IsPlaying, bool IsFinished, double SpeedMultiplier, bool IsUncapped,
     int CursorIndex, int TotalCount, DateTime? CurrentTimestampUtc, double? CurrentPrice,
     double? CurrentBid, double? CurrentAsk,
     IReadOnlyList<TraderSnapshot> Traders,
     IReadOnlyList<HlocAvdtBar> RecentBars, IReadOnlyList<BarPriceHistogram> RecentBarHistograms,
-    IReadOnlyList<Tick> RecentTicks);
+    IReadOnlyList<Tick> RecentTicks,
+    IReadOnlyList<RiskPolicySnapshot> RiskPolicies, bool RiskPoliciesLocked);

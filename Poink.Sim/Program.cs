@@ -23,6 +23,7 @@ using Poink.Sim.Profiler;
 using Poink.Sim.Repository;
 using Poink.Sim.Simulation;
 using Poink.Sim.Trader;
+using Poink.Sim.Trader.Risk;
 using Poink.Sim.Training;
 using Poink.Sim.Transformer;
 using Serilog;
@@ -49,7 +50,7 @@ builder.Host.UseSerilog((context, configuration) => configuration
     .WriteTo.Console(
         outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {SourceContext}: {Message:lj}{NewLine}{Exception}")
     .WriteTo.File(
-        Path.Combine(context.HostingEnvironment.ContentRootPath, "poink-sim-.log"),
+        Path.Combine(context.HostingEnvironment.ContentRootPath, "logs", "poink-sim-.log"),
         rollingInterval: RollingInterval.Day,
         retainedFileCountLimit: 14,
         outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {SourceContext}: {Message:lj}{NewLine}{Exception}"));
@@ -73,28 +74,18 @@ builder.Services.AddSingleton<ITRangeChartRepository, TRangeChartRepository>();
 builder.Services.AddSingleton<ITRangeReferenceChartRepository, TRangeReferenceChartRepository>();
 builder.Services.AddSingleton<ISimulationBrain, MomentumThresholdBrain>();
 builder.Services.AddSingleton<ISimulationBrain, RandomBrain>();
-// No hardcoded neural ISimulationBrain registrations here anymore -- every
-// neural brain now comes from a saved NetworkService network, either built
-// live via BrainBuilder (RlTrainingService.TryBuildBrain, which persists it
-// as a network too) or lazily rebuilt into BrainRegistry from a saved
-// network's recipe the first time TryStartTraining is asked to train it.
+
 builder.Services.AddSingleton<BrainRegistry>();
-// Stateless, no reason for a shorter lifetime -- Create is a pure passthrough
-// to `new Trader.Trader(...)`.
+
+builder.Services.AddRiskPolicies();
 builder.Services.AddSingleton<ITraderFactory, TraderFactory>();
 builder.Services.AddSingleton<ISimulationEngine, SimulationEngine>();
-// Scoped (not Singleton like SimulationEngine): ProfilerService holds no shared
-// "current run" state of its own -- each LoadAsync call is a self-contained batch
-// read, so there's nothing that needs to be shared process-wide across circuits.
+
 builder.Services.AddScoped<IProfilerService, ProfilerService>();
-// Same reasoning as ProfilerService above -- TransformerService is TransformerPage's
-// own copy of the same batch-load pattern, registered through its interface for DI/testability.
+
 builder.Services.AddScoped<ITransformerService, TransformerService>();
 builder.Services.AddSingleton<IRlTrainingStrategy, PolicyGradientTrainingStrategy>();
-// Order matters: RewardPolicyNames[0] (this first registration) is what
-// TrainPage.razor.cs's OnInitialized preselects, so the baseline/unshaped
-// policy -- not Trading Rules -- stays the default a fresh page load starts
-// on.
+
 builder.Services.AddSingleton<IRewardPolicy, EquityDriftRewardPolicy>();
 builder.Services.AddSingleton<IRlTrainingService, RlTrainingService>();
 builder.Services.AddScoped<ICodeGraphProvider, CodeGraphProvider>();

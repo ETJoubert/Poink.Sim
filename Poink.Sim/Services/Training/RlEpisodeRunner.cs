@@ -99,13 +99,14 @@ internal static class RlEpisodeRunner
                     if (warmupRemaining > 0)
                     { warmupRemaining--; continue; }
 
-                    (previousCapital, lastObservation, lastOutputs, positionAfterDecision) = RecordStep(
+                    bool policyBlocked;
+                    (previousCapital, lastObservation, lastOutputs, positionAfterDecision, policyBlocked) = RecordStep(
                         brain, trader, tick.Timestamp, completed.Value.Bar.Close, tick.Bid, tick.Ask, maintenance.Capital,
                         recentBars, Array.Empty<Tick>(), recentBarHistograms, steps, previousCapital, previousPosition, effectiveRewardPolicy);
 
                     previousPosition = lastObservation.Value.Position;
 
-                    bool blocked = steps[^1].Action switch
+                    bool blocked = policyBlocked || steps[^1].Action switch
                     {
                         SimulationAction.EnterLong or SimulationAction.EnterShort => previousPosition is not null,
                         SimulationAction.Close => previousPosition is null,
@@ -132,7 +133,7 @@ internal static class RlEpisodeRunner
                 if (warmupRemaining > 0)
                 { warmupRemaining--; continue; }
 
-                (previousCapital, lastObservation, lastOutputs, positionAfterDecision) = RecordStep(
+                (previousCapital, lastObservation, lastOutputs, positionAfterDecision, _) = RecordStep(
                     brain, trader, tick.Timestamp, price, tick.Bid, tick.Ask, maintenance.Capital,
                     Array.Empty<HlocAvdtBar>(), recentTicks, Array.Empty<BarPriceHistogram>(), steps, previousCapital, previousPosition, effectiveRewardPolicy);
                 previousPosition = lastObservation.Value.Position;
@@ -157,7 +158,7 @@ internal static class RlEpisodeRunner
     }
 
 
-    private static (CapitalState Capital, SimulationObservation Observation, IReadOnlyList<RlOutputFeature>? Outputs, Position? PositionAfter) RecordStep(
+    private static (CapitalState Capital, SimulationObservation Observation, IReadOnlyList<RlOutputFeature>? Outputs, Position? PositionAfter, bool PolicyBlocked) RecordStep(
         ISimulationBrain brain, Trader.ITrader trader, DateTime timestamp, double price, double bid, double ask, CapitalState capitalNow,
         IReadOnlyList<HlocAvdtBar> bars, IReadOnlyList<Tick> ticks, IReadOnlyList<BarPriceHistogram> barHistograms,
         List<RlStep> steps, CapitalState previousCapital, Position? previousPosition, IRewardPolicy rewardPolicy)
@@ -190,10 +191,10 @@ internal static class RlEpisodeRunner
             decision = brain.Decide(observation);
         }
 
-        trader.Apply(decision, bid, ask, timestamp);
+        var execution = trader.Apply(decision, bid, ask, timestamp);
         var capitalAfter = trader.Snapshot(bid, ask);
 
         steps.Add(new RlStep(decision.Action, logProbability, 0.0, entropy));
-        return (capitalAfter, observation, outputs, trader.CurrentPosition);
+        return (capitalAfter, observation, outputs, trader.CurrentPosition, execution?.Blocked ?? false);
     }
 }

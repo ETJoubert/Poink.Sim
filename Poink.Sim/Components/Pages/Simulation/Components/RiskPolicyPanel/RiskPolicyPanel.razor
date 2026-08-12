@@ -1,0 +1,31 @@
+@namespace Poink.Sim.Components.Simulation
+
+<div class="riskpolicy-panel">
+    <div class="riskpolicy-panel-header">
+        <span class="riskpolicy-panel-title"
+              title="Risk policies gate every trade action -- permit, deny or resize -- and supervise open positions for every trader in this run">
+            Risk Policies
+        </span>
+        @if (Locked)
+        {
+            <span class="riskpolicy-locked-badge"
+                  title="Locked at setup -- these policies are fixed for the whole run and cannot be toggled during playback">
+                🔒 Locked
+            </span>
+        }
+    </div>
+
+    <div class="riskpolicy-panel-list">
+        @foreach (var policy in Policies)
+        {
+            <label class="riskpolicy-item @(policy.Enabled ? "riskpolicy-item-on" : "riskpolicy-item-off")"
+                   title="@policy.Description">
+                <input type="checkbox" checked="@policy.Enabled"
+                       @onchange="e => ToggleRiskPolicy(policy.Name, (bool)e.Value!)"
+                       disabled="@Locked" />
+                <span class="riskpolicy-item-name">@policy.Name</span>
+                <span class="riskpolicy-item-state">@(policy.Enabled ? "on" : "off")</span>
+            </label>
+        }
+    </div>
+</div>
