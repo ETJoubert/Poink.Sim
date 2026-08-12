@@ -47,10 +47,10 @@ internal sealed class CodeGraphProvider : ICodeGraphProvider
 
     private const string SetOnTrainPage = "set on /train";
 
-    private readonly RlTrainingService _training;
+    private readonly IRlTrainingService _training;
     private readonly ISimulationEngine _simulation;
 
-    public CodeGraphProvider(RlTrainingService training, ISimulationEngine simulation)
+    public CodeGraphProvider(IRlTrainingService training, ISimulationEngine simulation)
     {
         _training = training;
         _simulation = simulation;

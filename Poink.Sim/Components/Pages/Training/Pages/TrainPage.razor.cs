@@ -15,7 +15,7 @@ namespace Poink.Sim.Components.Pages
 {
     public partial class TrainPage : ComponentBase, IDisposable
     {
-        [Inject] private RlTrainingService Service { get; set; } = default!;
+        [Inject] private IRlTrainingService Service { get; set; } = default!;
 
         // Set via @ref on the Build panel -- StartTrainingCore asks it to
         // draft a live, unsaved brain from its current fields right before a

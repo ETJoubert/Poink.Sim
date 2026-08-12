@@ -14,7 +14,7 @@ namespace Poink.Sim.Components.Training
 {
     public partial class EpisodePlayback : ComponentBase, IDisposable
     {
-        [Inject] private RlTrainingService Service { get; set; } = default!;
+        [Inject] private IRlTrainingService Service { get; set; } = default!;
 
         [Parameter] public string BrainName { get; set; } = "";
 

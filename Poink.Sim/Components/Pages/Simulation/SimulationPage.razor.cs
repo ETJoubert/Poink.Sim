@@ -20,7 +20,7 @@ namespace Poink.Sim.Components.Pages
         [Inject] private IJSRuntime JS { get; set; } = default!;
 
 
-        [Inject] private RlTrainingService TrainingService { get; set; } = default!;
+        [Inject] private IRlTrainingService TrainingService { get; set; } = default!;
 
 
         [Inject] private IModelService ModelService { get; set; } = default!;

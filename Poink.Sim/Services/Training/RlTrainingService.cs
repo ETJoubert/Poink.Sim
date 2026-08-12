@@ -20,7 +20,7 @@ public sealed record BrainOption(string Name, bool IsNeuralNetwork);
 
 internal sealed record RlTrainingLogEntry(DateTime TimestampUtc, string Level, string Message);
 
-internal sealed class RlTrainingService
+internal sealed class RlTrainingService : IRlTrainingService
 {
     private const int RecentRewardWindow = 20;
     private const int MaxMetricsLog = 500;
