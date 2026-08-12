@@ -9,7 +9,7 @@ using Poink.Sim.Simulation;
 
 namespace Poink.Sim.Profiler;
 
-internal sealed class ProfilerService
+internal sealed class ProfilerService : IProfilerService
 {
 
     private const double DefaultPriceBucketWidth = 0.01;

@@ -16,7 +16,7 @@ namespace Poink.Sim.Components.Pages
 
     public partial class ProfilerPage : ComponentBase, IAsyncDisposable
     {
-        [Inject] private ProfilerService Service { get; set; } = default!;
+        [Inject] private IProfilerService Service { get; set; } = default!;
         [Inject] private IJSRuntime JS { get; set; } = default!;
         [Inject] private ITRangeChartRepository TRangeChartRepository { get; set; } = default!;
         [Inject] private ITRangeReferenceChartRepository TRangeReferenceChartRepository { get; set; } = default!;

@@ -86,10 +86,9 @@ builder.Services.AddSingleton<ISimulationEngine, SimulationEngine>();
 // Scoped (not Singleton like SimulationEngine): ProfilerService holds no shared
 // "current run" state of its own -- each LoadAsync call is a self-contained batch
 // read, so there's nothing that needs to be shared process-wide across circuits.
-builder.Services.AddScoped<ProfilerService>();
+builder.Services.AddScoped<IProfilerService, ProfilerService>();
 // Same reasoning as ProfilerService above -- TransformerService is TransformerPage's
-// own copy of the same batch-load pattern, registered through ITransformerService
-// (unlike ProfilerService) for DI/testability.
+// own copy of the same batch-load pattern, registered through its interface for DI/testability.
 builder.Services.AddScoped<ITransformerService, TransformerService>();
 builder.Services.AddSingleton<IRlTrainingStrategy, PolicyGradientTrainingStrategy>();
 // Order matters: RewardPolicyNames[0] (this first registration) is what
