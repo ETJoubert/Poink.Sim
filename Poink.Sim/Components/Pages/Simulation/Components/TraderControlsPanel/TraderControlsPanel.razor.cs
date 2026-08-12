@@ -26,12 +26,21 @@ namespace Poink.Sim.Components.Simulation
         [Parameter] public double? CurrentAsk { get; set; }
 
 
+        private enum SizingMode { Pips, PercentCash }
+        private enum VolumeMode { Set, PercentCash }
+
         private OrderType _orderType = OrderType.Market;
         private bool _isLong = true;
         private double _triggerPrice;
-        private double _capitalFraction = 0.5;
+        private VolumeMode _volumeMode = VolumeMode.PercentCash;
+        private double? _volumeUnits;
+        private double _capitalPercent = 50;
+        private SizingMode _stopLossMode = SizingMode.Pips;
         private double? _stopLossPips;
+        private double? _stopLossPercent;
+        private SizingMode _takeProfitMode = SizingMode.Pips;
         private double? _takeProfitPips;
+        private double? _takeProfitPercent;
         private string? _error;
 
         private PositionDirection Direction => _isLong ? PositionDirection.Long : PositionDirection.Short;
@@ -42,15 +51,45 @@ namespace Poink.Sim.Components.Simulation
         private double? EntryReferencePrice =>
             _orderType == OrderType.Market ? MarketFillPrice : _triggerPrice > 0 ? _triggerPrice : null;
 
-        private double? StopLossPrice =>
-            _stopLossPips is { } pips && EntryReferencePrice is { } entry && entry > 0
-                ? RiskHelper.StopLossPriceFromPips(Direction, entry, pips, PipSize)
-                : null;
+        private double CapitalFraction => _volumeMode switch
+        {
+            VolumeMode.PercentCash => _capitalPercent / 100.0,
+            VolumeMode.Set => EntryReferencePrice is { } entry && entry > 0 && Cash > 0 && Leverage > 0 && _volumeUnits is { } units
+                ? units * entry / Leverage / Cash
+                : 0,
+            _ => 0,
+        };
 
-        private double? TakeProfitPrice =>
-            _takeProfitPips is { } pips && EntryReferencePrice is { } entry && entry > 0
-                ? RiskHelper.TakeProfitPriceFromPips(Direction, entry, pips, PipSize)
-                : null;
+        private bool HasStopLoss =>
+            _stopLossMode == SizingMode.Pips ? _stopLossPips is not null : _stopLossPercent is not null;
+
+        private double? StopLossPrice
+        {
+            get
+            {
+                if (EntryReferencePrice is not { } entry || entry <= 0)
+                    return null;
+                return _stopLossMode == SizingMode.Pips
+                    ? _stopLossPips is { } pips ? RiskHelper.StopLossPriceFromPips(Direction, entry, pips, PipSize) : null
+                    : _stopLossPercent is { } percent
+                        ? RiskHelper.StopLossPriceForRisk(Direction, Cash, CapitalFraction, Leverage, entry, percent / 100.0 * Cash)
+                        : null;
+            }
+        }
+
+        private double? TakeProfitPrice
+        {
+            get
+            {
+                if (EntryReferencePrice is not { } entry || entry <= 0)
+                    return null;
+                return _takeProfitMode == SizingMode.Pips
+                    ? _takeProfitPips is { } pips ? RiskHelper.TakeProfitPriceFromPips(Direction, entry, pips, PipSize) : null
+                    : _takeProfitPercent is { } percent
+                        ? RiskHelper.TakeProfitPriceForReward(Direction, Cash, CapitalFraction, Leverage, entry, percent / 100.0 * Cash)
+                        : null;
+            }
+        }
 
         private void ToggleManualMode()
         {
@@ -66,8 +105,8 @@ namespace Poink.Sim.Components.Simulation
             { _error = "no trader selected"; return; }
             if (!IsManual)
             { _error = "switch this trader to Manual first"; return; }
-            if (_capitalFraction is <= 0 or > 1)
-            { _error = "capital fraction must be between 0 and 1"; return; }
+            if (CapitalFraction is <= 0 or > 1)
+            { _error = "volume must resolve to between 0 and 100% of cash"; return; }
             if (_orderType != OrderType.Market && _triggerPrice <= 0)
             { _error = "enter a trigger price for a Limit/Stop order"; return; }
 
@@ -75,7 +114,7 @@ namespace Poink.Sim.Components.Simulation
             var orderType = _orderType == OrderType.Market ? (OrderType?)null : _orderType;
             var triggerPrice = _orderType == OrderType.Market ? (double?)null : _triggerPrice;
             var decision = new SimulationDecision(
-                action, _capitalFraction, StopLossPrice, TakeProfitPrice, orderType, triggerPrice, Reason: "manual");
+                action, CapitalFraction, StopLossPrice, TakeProfitPrice, orderType, triggerPrice, Reason: "manual");
 
             if (!Service.SubmitManualDecision(id, decision))
                 _error = "order rejected -- already in a position or an order is already resting";

@@ -88,9 +88,26 @@
     cursor: not-allowed;
 }
 
+.tcp-field-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
 .tcp-toggle-group {
     display: flex;
     gap: 0;
+}
+
+.tcp-toggle-group-sm {
+    flex: 0 0 auto;
+}
+
+.tcp-toggle-group-sm .tcp-toggle {
+    flex: 0 0 auto;
+    padding: 3px 8px;
+    font-size: 10px;
 }
 
 .tcp-toggle {

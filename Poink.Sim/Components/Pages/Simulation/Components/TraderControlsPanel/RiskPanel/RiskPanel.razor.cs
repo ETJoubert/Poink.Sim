@@ -14,26 +14,16 @@ namespace Poink.Sim.Components.Simulation
         [Parameter] public double Cash { get; set; }
         [Parameter] public double CapitalFraction { get; set; }
         [Parameter] public double Leverage { get; set; } = 1.0;
-        [Parameter] public double PipSize { get; set; } = 0.01;
 
         [Parameter] public double? EntryPrice { get; set; }
-        [Parameter] public double? StopLossPips { get; set; }
-        [Parameter] public double? TakeProfitPips { get; set; }
+        [Parameter] public double? StopLossPrice { get; set; }
+        [Parameter] public double? TakeProfitPrice { get; set; }
+        [Parameter] public bool HasStopLoss { get; set; }
         [Parameter] public double StopOutLevelPercent { get; set; } = 50.0;
 
         private PositionDirection Direction => IsLong ? PositionDirection.Long : PositionDirection.Short;
 
         private bool HasEntry => EntryPrice is { } entry && entry > 0;
-
-        private double? StopLossPrice =>
-            StopLossPips is { } pips && HasEntry
-                ? RiskHelper.StopLossPriceFromPips(Direction, EntryPrice!.Value, pips, PipSize)
-                : null;
-
-        private double? TakeProfitPrice =>
-            TakeProfitPips is { } pips && HasEntry
-                ? RiskHelper.TakeProfitPriceFromPips(Direction, EntryPrice!.Value, pips, PipSize)
-                : null;
 
         private double? Volume =>
             HasEntry ? RiskHelper.PositionSize(Cash, CapitalFraction, Leverage, EntryPrice!.Value) : null;

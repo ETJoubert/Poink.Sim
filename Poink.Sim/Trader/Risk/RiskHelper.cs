@@ -91,11 +91,39 @@ internal static class RiskHelper
         entryPrice + (direction == PositionDirection.Long ? -1 : 1) * pips * pipSize;
 
     /// <summary>
+    /// Absolute stop-loss price whose hit costs exactly <paramref name="riskAmount"/> for a capital-fraction
+    /// entry under leverage. Returns null when the entry produces no size to distribute the risk over.
+    /// </summary>
+    public static double? StopLossPriceForRisk(PositionDirection direction, double cash, double capitalFraction,
+        double leverage, double entryPrice, double riskAmount)
+    {
+        double size = PositionSize(cash, capitalFraction, leverage, entryPrice);
+        if (size <= 0)
+            return null;
+        double adverseMove = riskAmount / size;
+        return entryPrice + (direction == PositionDirection.Long ? -1 : 1) * adverseMove;
+    }
+
+    /// <summary>
     /// Absolute take-profit price a pip distance places, on the winning side of the entry:
     /// above entry for a long, below entry for a short.
     /// </summary>
     public static double TakeProfitPriceFromPips(PositionDirection direction, double entryPrice, double pips, double pipSize) =>
         entryPrice + (direction == PositionDirection.Long ? 1 : -1) * pips * pipSize;
+
+    /// <summary>
+    /// Absolute take-profit price whose hit gains exactly <paramref name="rewardAmount"/> for a capital-fraction
+    /// entry under leverage. Returns null when the entry produces no size to distribute the reward over.
+    /// </summary>
+    public static double? TakeProfitPriceForReward(PositionDirection direction, double cash, double capitalFraction,
+        double leverage, double entryPrice, double rewardAmount)
+    {
+        double size = PositionSize(cash, capitalFraction, leverage, entryPrice);
+        if (size <= 0)
+            return null;
+        double favorableMove = rewardAmount / size;
+        return entryPrice + (direction == PositionDirection.Long ? 1 : -1) * favorableMove;
+    }
 
     /// <summary>
     /// Risk as a fraction of equity. Returns 0 when equity is non-positive.
