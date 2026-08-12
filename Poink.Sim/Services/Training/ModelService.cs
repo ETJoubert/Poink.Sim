@@ -7,7 +7,7 @@ using Poink.Sim.Repository;
 
 namespace Poink.Sim.Training;
 
-internal sealed class ModelService
+internal sealed class ModelService : IModelService
 {
     private readonly IModelRepository _modelRepository;
     private readonly ILogger<ModelService> _logger;

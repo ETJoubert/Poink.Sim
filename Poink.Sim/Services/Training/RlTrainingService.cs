@@ -45,7 +45,7 @@ internal sealed class RlTrainingService
     private readonly List<RlEpisodeTrades> _episodeTrades = new();
     private readonly List<RlEpisodeWindow> _episodeWindows = new();
     private readonly RingBuffer<RlTrainingLogEntry> _trainingLog = new(MaxLogEntries);
-    private readonly ModelService _modelService;
+    private readonly IModelService _modelService;
     private readonly IBrainService _brainService;
     private readonly ITickRepository _tickRepository;
     private readonly Trader.ITraderFactory _traderFactory;
@@ -74,7 +74,7 @@ internal sealed class RlTrainingService
 
     public RlTrainingService(
         BrainRegistry brainRegistry, IEnumerable<IRlTrainingStrategy> strategies, IEnumerable<IRewardPolicy> rewardPolicies,
-        ModelService modelService, IBrainService brainService, ITickRepository tickRepository,
+        IModelService modelService, IBrainService brainService, ITickRepository tickRepository,
         Trader.ITraderFactory traderFactory, ILogger<RlTrainingService> logger)
     {
         _brainRegistry = brainRegistry;

@@ -23,7 +23,7 @@ namespace Poink.Sim.Components.Pages
         [Inject] private RlTrainingService TrainingService { get; set; } = default!;
 
 
-        [Inject] private ModelService ModelService { get; set; } = default!;
+        [Inject] private IModelService ModelService { get; set; } = default!;
 
         // ── Setup form state ──
 

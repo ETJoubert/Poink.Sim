@@ -68,7 +68,7 @@ builder.Services.AddSingleton<IBrainService, BrainService>();
 // Trained-model CRUD (weights + run metadata) -- see ModelService/
 // IModelRepository's doc comments.
 builder.Services.AddSingleton<IModelRepository, ModelRepository>();
-builder.Services.AddSingleton<ModelService>();
+builder.Services.AddSingleton<IModelService, ModelService>();
 builder.Services.AddSingleton<ITRangeChartRepository, TRangeChartRepository>();
 builder.Services.AddSingleton<ITRangeReferenceChartRepository, TRangeReferenceChartRepository>();
 builder.Services.AddSingleton<ISimulationBrain, MomentumThresholdBrain>();
