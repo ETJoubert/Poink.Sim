@@ -1,0 +1,60 @@
+@page "/trade"
+@namespace Poink.Sim.Components.Pages.Trade
+@using Poink.Sim.Services.CTrader
+@using Poink.Shared.Client.Components.Shared.Icon
+
+<div class="trade-page">
+
+    <div class="trade-topbar">
+        <header class="trade-header">
+            <div class="trade-header-title">
+                <span class="trade-header-symbol">TRADE</span>
+                @if (Session.State == CTraderConnectionState.Connected)
+                {
+                    <span class="trade-header-mode" title="cTrader environment this session is connected to">
+                        @(Session.UseLiveEnvironment ? "LIVE" : "DEMO")
+                    </span>
+                    <span class="trade-header-mode" title="Trading accounts available on the connected cTrader login">
+                        @Session.Accounts.Count account(s)
+                    </span>
+                }
+                <span class="trade-header-state @StateClass" title="Current cTrader connection state">
+                    @StateLabel
+                </span>
+            </div>
+
+            <div class="trade-header-login">
+                @if (!Session.IsConfigured)
+                {
+                    <span class="trade-login-status trade-login-status-warn"
+                          title="Set CTrader:ClientId, CTrader:ClientSecret and CTrader:RedirectUri (via appsettings.Secrets.json) then restart">
+                        cTrader is not configured.
+                    </span>
+                }
+                else
+                {
+                    <span class="trade-login-status" title="Latest cTrader connection status">@Session.StatusMessage</span>
+
+                    @if (Session.State == CTraderConnectionState.Connected)
+                    {
+                        <button class="trade-ctrl-btn trade-ctrl-btn-warn" @onclick="LogOutAsync"
+                                title="Disconnect the current cTrader account">
+                            <Icon Name="x-lg" Class="trade-ctrl-icon" />
+                            LOG OUT
+                        </button>
+                    }
+                    else
+                    {
+                        <button class="trade-ctrl-btn trade-ctrl-btn-play" @onclick="LogIn"
+                                disabled="@(Session.State == CTraderConnectionState.Connecting)"
+                                title="Open the cTrader login flow and connect an account">
+                            <Icon Name="key-fill" Class="trade-ctrl-icon" />
+                            @(Session.State == CTraderConnectionState.Connecting ? "CONNECTING..." : "LOG IN")
+                        </button>
+                    }
+                }
+            </div>
+        </header>
+    </div>
+
+</div>

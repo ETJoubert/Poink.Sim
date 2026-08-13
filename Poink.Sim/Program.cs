@@ -16,9 +16,11 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Poink.CTrader;
 using Poink.Sim.Brain;
 using Poink.Sim.Components.Pages.Code.Services;
 using Poink.Sim.Diagnostics;
+using Poink.Sim.Services.CTrader;
 using Poink.Sim.Profiler;
 using Poink.Sim.Repository;
 using Poink.Sim.Simulation;
@@ -81,6 +83,13 @@ builder.Services.AddRiskPolicies();
 builder.Services.AddSingleton<ITraderFactory, TraderFactory>();
 builder.Services.AddSingleton<ISimulationEngine, SimulationEngine>();
 
+// cTrader Open API login/connection for the Trade page. Credentials bind from the
+// "CTrader" config section (real values supplied via appsettings.Secrets.json -- see
+// Poink.CTrader/README.md's "Secrets"). The session holds one live connection and its
+// token in memory for this single-user dashboard.
+builder.Services.AddCTraderOpenApi(builder.Configuration);
+builder.Services.AddSingleton<ICTraderSessionService, CTraderSessionService>();
+
 builder.Services.AddScoped<IProfilerService, ProfilerService>();
 
 builder.Services.AddScoped<ITransformerService, TransformerService>();
@@ -109,5 +118,7 @@ app.MapStaticAssets();
 
 app.MapRazorComponents<Poink.Sim.Components.App>()
     .AddInteractiveServerRenderMode();
+
+app.MapCTraderAuthCallback();
 
 app.Run();
