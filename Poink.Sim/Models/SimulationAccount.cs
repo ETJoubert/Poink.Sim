@@ -36,7 +36,7 @@ internal sealed record Trade(
 
 internal readonly record struct TradeExecution(
     SimulationAction Action, PositionDirection Direction, double Size, double? RealizedPnl, double Commission, string? Reason,
-    bool Blocked = false);
+    bool Blocked = false, string? DeniedByPolicy = null);
 
 
 internal readonly record struct MaintenanceResult(CapitalState Capital, IReadOnlyList<TradeExecution> AutomaticFills);

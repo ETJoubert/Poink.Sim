@@ -183,7 +183,7 @@ namespace Poink.Sim.Components.Pages
         {
             if (SelectedTrader is not { } trader || trader.Mode != TraderControlMode.Manual)
                 return;
-            Service.SubmitManualDecision(trader.Id, new SimulationDecision(SimulationAction.Close, Reason: reason));
+            Service.SubmitManualDecision(trader.Id, new SimulationDecision(SimulationAction.Close, Reason: reason), out _);
         }
 
         // Submits an XGrid right-margin order as a manual pending decision for the selected
@@ -203,7 +203,7 @@ namespace Poink.Sim.Components.Pages
 
             var decision = new SimulationDecision(
                 action, fraction, order.StopLoss, order.TakeProfit, orderType, order.EntryPrice, Reason: "xgrid");
-            Service.SubmitManualDecision(trader.Id, decision);
+            Service.SubmitManualDecision(trader.Id, decision, out _);
         }
 
         private List<WeightedPriceSample> MergedBarSamples(SimulationSnapshot s) =>

@@ -30,5 +30,5 @@ internal interface ISimulationEngine : IDisposable
     bool SetRiskPolicyEnabled(string policyName, bool enabled);
     bool MoveRiskPolicy(string policyName, int delta);
     void SelectTraderForIo(int? traderId);
-    bool SubmitManualDecision(int traderId, SimulationDecision decision);
+    bool SubmitManualDecision(int traderId, SimulationDecision decision, out RiskPolicyDenial? denial);
 }

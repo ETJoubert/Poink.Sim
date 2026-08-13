@@ -43,6 +43,7 @@ internal sealed class SimulationEngine : ISimulationEngine
         public required Trader.ITrader Trader;
         public TraderControlMode Mode = TraderControlMode.Auto;
         public readonly RingBuffer<SimulationLogEntry> RecentLog = new(MaxRecentLog);
+        public RiskPolicyDenial? LastDenial;
 
         public IReadOnlyList<RlInputFeature>? LatestInputs;
         public IReadOnlyList<RlOutputFeature>? LatestOutputs;
@@ -557,8 +558,9 @@ internal sealed class SimulationEngine : ISimulationEngine
     }
 
 
-    public bool SubmitManualDecision(int traderId, SimulationDecision decision)
+    public bool SubmitManualDecision(int traderId, SimulationDecision decision, out RiskPolicyDenial? denial)
     {
+        denial = null;
         lock (_lock)
         {
             if (_config is null)
@@ -571,7 +573,13 @@ internal sealed class SimulationEngine : ISimulationEngine
             var timestamp = _lastTimestamp ?? DateTime.UtcNow;
             var execution = session.Trader.Apply(decision, bid, ask, timestamp);
             if (execution is { } exec)
+            {
                 AppendLog(session, LogEntryFor(exec, (bid + ask) / 2.0, timestamp));
+                session.LastDenial = exec.Blocked
+                    ? new RiskPolicyDenial(exec.DeniedByPolicy ?? "risk policy", exec.Reason ?? "denied", timestamp)
+                    : null;
+                denial = session.LastDenial;
+            }
         }
         PublishSnapshot();
         return true;
@@ -628,7 +636,8 @@ internal sealed class SimulationEngine : ISimulationEngine
                         ts.Trader.CurrentPendingOrder, ts.Trader.TradeLog.Count, ts.RecentLog.ToList(), ts.Trader.TradeLog.ToList(),
                         ts.Trader.MaxEquity, ts.Trader.MaxDrawdown, ts.Trader.Leverage, ts.Trader.StopOutLevelPercent,
                         ts.LatestInputs, ts.LatestOutputs,
-                        ts.Trader is IRiskInspectable inspectable ? inspectable.PolicyStatuses() : Array.Empty<RiskPolicyStatus>())).ToList(),
+                        ts.Trader is IRiskInspectable inspectable ? inspectable.PolicyStatuses() : Array.Empty<RiskPolicyStatus>(),
+                        ts.LastDenial)).ToList(),
                     bars, barHistograms, _recentTicks.ToList(),
                     BuildRiskPolicySnapshotsLocked(), _config.LockRiskPolicies);
         }

@@ -20,7 +20,8 @@
         {
             var policy = Policies[i];
             var index = i;
-            <div class="riskpolicy-card @(policy.Enabled ? "riskpolicy-card-on" : "riskpolicy-card-off") @(Locked ? "riskpolicy-card-locked" : null)"
+            var denied = DeniedBy(policy.Name);
+            <div class="riskpolicy-card @(policy.Enabled ? "riskpolicy-card-on" : "riskpolicy-card-off") @(Locked ? "riskpolicy-card-locked" : null) @(denied ? "riskpolicy-card-denied" : null)"
                  role="button"
                  tabindex="@(Locked ? -1 : 0)"
                  aria-pressed="@policy.Enabled"
@@ -34,12 +35,16 @@
                             disabled="@(Locked || index == Policies.Count - 1)" title="Run later">&#9660;</button>
                 </span>
                 <span class="riskpolicy-card-indicator"
-                      title="@(policy.Enabled ? "Active -- click to deactivate" : "Inactive -- click to activate")"></span>
+                      title="@(denied ? $"Denied the last decision: {LastDenial?.Reason}" : policy.Enabled ? "Active -- click to deactivate" : "Inactive -- click to activate")"></span>
                 <span class="riskpolicy-card-body">
                     <span class="riskpolicy-card-label">
                         <span class="riskpolicy-card-name">@policy.Name</span>
                         <span class="riskpolicy-card-state">@(policy.Enabled ? "on" : "off")</span>
                     </span>
+                    @if (denied)
+                    {
+                        <span class="riskpolicy-card-denied-badge" title="@LastDenial?.Reason">denied</span>
+                    }
                     @if (StatusFor(policy.Name) is { } status)
                     {
                         <span class="riskpolicy-card-status" title="Live state for the trader you are viewing">@status</span>

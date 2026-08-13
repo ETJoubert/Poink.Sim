@@ -17,7 +17,7 @@ RiskReview Review(SimulationDecision proposed, RiskContext context);
 IReadOnlyList<SimulationDecision> Supervise(RiskContext context);
 ```
 
-- **Review** gates a proposed action. Return `RiskReview.Permit(proposed)` to allow it, `RiskReview.Deny(proposed, reason)` to block it, or `RiskReview.Modify(changed, reason)` to alter it (resize, attach a stop, ...). Only entries usually need attention; permit `Hold`/`Close` unchanged. A deny is terminal across the policy chain; a modify feeds the next policy.
+- **Review** gates a proposed action. Return `RiskReview.Permit(proposed)` to allow it, `RiskReview.Deny(proposed, reason, Name)` to block it, or `RiskReview.Modify(changed, reason)` to alter it (resize, attach a stop, ...). Only entries usually need attention; permit `Hold`/`Close` unchanged. A deny is terminal across the policy chain; a modify feeds the next policy. The `Name` passed to `Deny` is what the UI keys the denial indicator and place-button notice on.
 - **Supervise** runs every tick on the open position and returns zero or more decisions to inject (trail a stop, time-exit, ...). Return `Array.Empty<SimulationDecision>()` for a gate-only policy. Injected actions are executed directly and do not re-enter the gate.
 
 ## State

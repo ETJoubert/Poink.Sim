@@ -13,6 +13,7 @@ namespace Poink.Sim.Components.Simulation
         [Parameter] public IReadOnlyList<RiskPolicySnapshot> Policies { get; set; } = [];
         [Parameter] public bool Locked { get; set; }
         [Parameter] public IReadOnlyList<RiskPolicyStatus>? Statuses { get; set; }
+        [Parameter] public RiskPolicyDenial? LastDenial { get; set; }
 
         private string? StatusFor(string policyName)
         {
@@ -23,6 +24,8 @@ namespace Poink.Sim.Components.Simulation
                     return status.Status;
             return null;
         }
+
+        private bool DeniedBy(string policyName) => LastDenial?.PolicyName == policyName;
 
         private void ToggleCard(RiskPolicySnapshot policy)
         {

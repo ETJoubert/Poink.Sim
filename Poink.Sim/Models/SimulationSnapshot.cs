@@ -31,11 +31,13 @@ internal sealed record TraderSnapshot(
     IReadOnlyList<SimulationLogEntry> RecentLog, IReadOnlyList<Trade> Trades,
     double MaxEquity, double MaxDrawdown, double Leverage, double StopOutLevelPercent,
     IReadOnlyList<RlInputFeature>? Inputs, IReadOnlyList<RlOutputFeature>? Outputs,
-    IReadOnlyList<RiskPolicyStatus> RiskPolicyStatuses);
+    IReadOnlyList<RiskPolicyStatus> RiskPolicyStatuses, RiskPolicyDenial? LastDenial);
 
 public sealed record RiskPolicySnapshot(string Name, string Description, bool Enabled);
 
 public readonly record struct RiskPolicyStatus(string Name, string Status);
+
+public readonly record struct RiskPolicyDenial(string PolicyName, string Reason, DateTime TimestampUtc);
 
 
 internal sealed record SimulationSnapshot(

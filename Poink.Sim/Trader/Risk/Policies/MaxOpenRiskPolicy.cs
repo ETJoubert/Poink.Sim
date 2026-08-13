@@ -32,7 +32,7 @@ internal sealed class MaxOpenRiskPolicy : IRiskPolicy
         double riskCap = _maxRiskFraction * context.Capital.Equity;
 
         if (proposed.StopLossPrice is not { } stopLoss)
-            return RiskReview.Deny(proposed, $"entry needs a stop-loss to bound risk to {_maxRiskFraction:P1} of equity");
+            return RiskReview.Deny(proposed, $"entry needs a stop-loss to bound risk to {_maxRiskFraction:P1} of equity", Name);
 
         double entryPrice = EntryPrice(proposed, direction, context);
         double projectedRisk = RiskHelper.ProjectedRiskOnStop(
@@ -43,7 +43,7 @@ internal sealed class MaxOpenRiskPolicy : IRiskPolicy
 
         double cappedFraction = RiskHelper.CapitalFractionForRisk(riskCap, context.Cash, context.Leverage, entryPrice, stopLoss);
         if (cappedFraction <= 0)
-            return RiskReview.Deny(proposed, $"cannot size entry within {_maxRiskFraction:P1} risk cap");
+            return RiskReview.Deny(proposed, $"cannot size entry within {_maxRiskFraction:P1} risk cap", Name);
 
         return RiskReview.Modify(
             proposed with { CapitalFraction = cappedFraction },

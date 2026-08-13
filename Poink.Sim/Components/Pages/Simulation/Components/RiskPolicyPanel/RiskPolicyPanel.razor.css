@@ -85,6 +85,21 @@
     cursor: not-allowed;
 }
 
+.riskpolicy-card-denied {
+    border-color: color-mix(in srgb, var(--color-error) 65%, transparent);
+    box-shadow: 0 0 12px color-mix(in srgb, var(--color-error) 30%, transparent);
+}
+
+.riskpolicy-card-denied:hover {
+    border-color: var(--color-error);
+}
+
+.riskpolicy-card-denied .riskpolicy-card-indicator {
+    border-color: var(--color-error);
+    background: var(--color-error);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--color-error) 70%, transparent);
+}
+
 .riskpolicy-card-order {
     display: flex;
     flex-direction: column;
@@ -163,6 +178,19 @@
     color: var(--color-warning);
     background: color-mix(in srgb, var(--color-warning) 14%, transparent);
     border: 1px solid color-mix(in srgb, var(--color-warning) 40%, transparent);
+}
+
+.riskpolicy-card-denied-badge {
+    align-self: flex-start;
+    font-size: 0.64rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 1px 6px;
+    border-radius: 999px;
+    white-space: nowrap;
+    color: var(--color-error);
+    background: color-mix(in srgb, var(--color-error) 14%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-error) 40%, transparent);
 }
 
 .riskpolicy-card-state {

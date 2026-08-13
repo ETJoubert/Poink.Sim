@@ -56,7 +56,7 @@ internal sealed class RiskAwareTrader : ITrader, IRiskInspectable
     {
         var review = _riskManager.Gate(decision, bid, ask, timestamp);
         if (review.Verdict == RiskVerdict.Deny)
-            return new TradeExecution(decision.Action, DirectionFor(decision.Action), 0, null, 0, review.Reason, Blocked: true);
+            return new TradeExecution(decision.Action, DirectionFor(decision.Action), 0, null, 0, review.Reason, Blocked: true, DeniedByPolicy: review.PolicyName);
 
         return _core.Apply(review.Decision, bid, ask, timestamp);
     }

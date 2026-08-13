@@ -116,8 +116,10 @@ namespace Poink.Sim.Components.Simulation
             var decision = new SimulationDecision(
                 action, CapitalFraction, StopLossPrice, TakeProfitPrice, orderType, triggerPrice, Reason: "manual");
 
-            if (!Service.SubmitManualDecision(id, decision))
+            if (!Service.SubmitManualDecision(id, decision, out RiskPolicyDenial? denial))
                 _error = "order rejected -- already in a position or an order is already resting";
+            else if (denial is { } d)
+                _error = $"denied by {d.PolicyName}: {d.Reason}";
         }
 
         private void SubmitCloseOrCancel()
@@ -129,7 +131,8 @@ namespace Poink.Sim.Components.Simulation
             { _error = "switch this trader to Manual first"; return; }
 
             var decision = new SimulationDecision(SimulationAction.Close, Reason: "manual");
-            Service.SubmitManualDecision(id, decision);
+            if (Service.SubmitManualDecision(id, decision, out RiskPolicyDenial? denial) && denial is { } d)
+                _error = $"denied by {d.PolicyName}: {d.Reason}";
         }
     }
 }
