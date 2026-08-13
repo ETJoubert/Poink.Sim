@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Poink.Sim.Data.Entities;
 
+// Migrate dotnet ef migrations add AddCTraderAccountTokens --output-dir Data/Migrations/PoinkSim
 namespace Poink.Sim.Data
 {
     public class PoinkSimContext : DbContext

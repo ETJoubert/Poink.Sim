@@ -35,6 +35,8 @@ namespace Poink.Sim.Services.CTrader
 
         Task CompleteLoginAsync(string authorizationCode, CancellationToken cancellationToken = default);
 
+        Task TryRestoreAsync();
+
         Task LogoutAsync();
 
         bool IsSymbolWatched(long symbolId);

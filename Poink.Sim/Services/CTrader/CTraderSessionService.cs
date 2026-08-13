@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using OpenAPI.Net.Auth;
@@ -23,8 +24,12 @@ namespace Poink.Sim.Services.CTrader
         /// <summary>Span of hourly history a chart request loads, kept within cTrader's per-period max range.</summary>
         private const int HistoryDays = 14;
 
+        /// <summary>Poink.Sim has no user accounts; the single dashboard user's token is keyed by this fixed id.</summary>
+        private static readonly Guid SingleUserId = new("f6a7b8c9-0d1e-2f3a-4b5c-6d7e8f9a0b1c");
+
         private readonly CTraderApp _app;
         private readonly CTraderApiOptions _options;
+        private readonly IServiceScopeFactory _scopeFactory;
         private readonly ILogger<CTraderSessionService> _logger;
         private readonly SemaphoreSlim _gate = new(1, 1);
         private readonly object _quotesLock = new();
@@ -35,10 +40,13 @@ namespace Poink.Sim.Services.CTrader
         private IDisposable? _spotSubscription;
         private long _lastQuoteNotifyTicks;
 
-        public CTraderSessionService(CTraderApp app, IOptions<CTraderApiOptions> options, ILogger<CTraderSessionService> logger)
+        public CTraderSessionService(
+            CTraderApp app, IOptions<CTraderApiOptions> options, IServiceScopeFactory scopeFactory,
+            ILogger<CTraderSessionService> logger)
         {
             _app = app;
             _options = options.Value;
+            _scopeFactory = scopeFactory;
             _logger = logger;
         }
 
@@ -83,31 +91,12 @@ namespace Poink.Sim.Services.CTrader
 
                 SetState(CTraderConnectionState.Connecting, "Exchanging authorization code for a token...");
 
-                _token = await TokenFactory.GetToken(authorizationCode, _app);
+                var token = await TokenFactory.GetToken(authorizationCode, _app);
                 _logger.LogInformation("cTrader: access/refresh token obtained.");
 
-                SetState(CTraderConnectionState.Connecting, $"Connecting ({EnvironmentLabel})...");
+                await SaveTokenAsync(token);
 
-                _client = new CTraderClient(_app, UseLiveEnvironment);
-                await _client.ConnectAsync(cancellationToken);
-                _logger.LogInformation("cTrader: application authorized ({Environment}).", EnvironmentLabel);
-
-                var accounts = await _client.GetAccountsAsync(_token.AccessToken, cancellationToken);
-                Accounts = accounts.CtidTraderAccount
-                    .Select(a => new CTraderAccountInfo((long)a.CtidTraderAccountId, a.TraderLogin, a.IsLive))
-                    .ToList();
-                _logger.LogInformation("cTrader: connected with {AccountCount} account(s).", Accounts.Count);
-
-                if (Accounts.FirstOrDefault() is { } account)
-                {
-                    await AuthorizeAndLoadSymbolsAsync(account.AccountId, cancellationToken);
-                    SetState(CTraderConnectionState.Connected,
-                        $"Connected. {Symbols.Count} symbol(s) on account {account.Login}.");
-                }
-                else
-                {
-                    SetState(CTraderConnectionState.Connected, "Connected, but no trading accounts were returned.");
-                }
+                await ConnectWithTokenAsync(token, cancellationToken);
             }
             catch (Exception ex)
             {
@@ -121,14 +110,52 @@ namespace Poink.Sim.Services.CTrader
             }
         }
 
+        public async Task TryRestoreAsync()
+        {
+            await _gate.WaitAsync();
+            try
+            {
+                if (State == CTraderConnectionState.Connected) return;
+
+                var token = await LoadTokenAsync();
+                if (token is null)
+                {
+                    _logger.LogInformation("cTrader: no saved token to restore.");
+                    return;
+                }
+
+                if (token.ExpiresIn <= DateTimeOffset.UtcNow)
+                {
+                    _logger.LogWarning("cTrader: saved token expired at {ExpiresAt}; a fresh login is required.", token.ExpiresIn);
+                    return;
+                }
+
+                _logger.LogInformation("cTrader: restoring saved session...");
+                SetState(CTraderConnectionState.Connecting, "Restoring saved cTrader session...");
+
+                await ConnectWithTokenAsync(token, CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                await DisconnectAsync();
+                SetState(CTraderConnectionState.Disconnected, "Saved session could not be restored. Log in again.");
+                _logger.LogWarning(ex, "cTrader: failed to restore saved session.");
+            }
+            finally
+            {
+                _gate.Release();
+            }
+        }
+
         public async Task LogoutAsync()
         {
             await _gate.WaitAsync();
             try
             {
                 await DisconnectAsync();
+                await DeleteTokenAsync();
                 SetState(CTraderConnectionState.Disconnected, "Not connected.");
-                _logger.LogInformation("cTrader: account disconnected.");
+                _logger.LogInformation("cTrader: account disconnected and saved token cleared.");
             }
             finally
             {
@@ -238,6 +265,70 @@ namespace Poink.Sim.Services.CTrader
         }
 
         private string EnvironmentLabel => UseLiveEnvironment ? "Live" : "Demo";
+
+        private async Task ConnectWithTokenAsync(Token token, CancellationToken cancellationToken)
+        {
+            _token = token;
+
+            SetState(CTraderConnectionState.Connecting, $"Connecting ({EnvironmentLabel})...");
+
+            _client = new CTraderClient(_app, UseLiveEnvironment);
+            await _client.ConnectAsync(cancellationToken);
+            _logger.LogInformation("cTrader: application authorized ({Environment}).", EnvironmentLabel);
+
+            var accounts = await _client.GetAccountsAsync(token.AccessToken, cancellationToken);
+            Accounts = accounts.CtidTraderAccount
+                .Select(a => new CTraderAccountInfo((long)a.CtidTraderAccountId, a.TraderLogin, a.IsLive))
+                .ToList();
+            _logger.LogInformation("cTrader: connected with {AccountCount} account(s).", Accounts.Count);
+
+            if (Accounts.FirstOrDefault() is { } account)
+            {
+                await AuthorizeAndLoadSymbolsAsync(account.AccountId, cancellationToken);
+                SetState(CTraderConnectionState.Connected,
+                    $"Connected. {Symbols.Count} symbol(s) on account {account.Login}.");
+            }
+            else
+            {
+                SetState(CTraderConnectionState.Connected, "Connected, but no trading accounts were returned.");
+            }
+        }
+
+        private async Task SaveTokenAsync(Token token)
+        {
+            try
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var store = scope.ServiceProvider.GetRequiredService<ICTraderTokenStore>();
+                await store.SaveAsync(SingleUserId, token);
+                _logger.LogInformation("cTrader: token persisted.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "cTrader: failed to persist token; the session continues without persistence.");
+            }
+        }
+
+        private async Task<Token?> LoadTokenAsync()
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var store = scope.ServiceProvider.GetRequiredService<ICTraderTokenStore>();
+            return await store.GetAsync(SingleUserId);
+        }
+
+        private async Task DeleteTokenAsync()
+        {
+            try
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var store = scope.ServiceProvider.GetRequiredService<ICTraderTokenStore>();
+                await store.DeleteAsync(SingleUserId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "cTrader: failed to clear the persisted token.");
+            }
+        }
 
         private async Task AuthorizeAndLoadSymbolsAsync(long accountId, CancellationToken cancellationToken)
         {

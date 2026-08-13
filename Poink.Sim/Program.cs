@@ -16,6 +16,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
 using Poink.CTrader;
 using Poink.Sim.Brain;
@@ -94,6 +95,7 @@ builder.Services.AddDbContext<PoinkSimContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("PoinkSim")));
 builder.Services.AddScoped<ICTraderTokenStore, PostgresCTraderTokenStore>();
 builder.Services.AddSingleton<ICTraderSessionService, CTraderSessionService>();
+builder.Services.AddHostedService<CTraderSessionRestoreService>();
 
 builder.Services.AddScoped<IProfilerService, ProfilerService>();
 
@@ -110,6 +112,13 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 var app = builder.Build();
+
+using (var migrationScope = app.Services.CreateScope())
+{
+    var db = migrationScope.ServiceProvider.GetRequiredService<PoinkSimContext>();
+    db.Database.Migrate();
+    app.Logger.LogInformation("Poink.Sim database migrations applied.");
+}
 
 if (!app.Environment.IsDevelopment())
 {
