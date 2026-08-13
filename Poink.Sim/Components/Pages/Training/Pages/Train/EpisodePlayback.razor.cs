@@ -8,7 +8,7 @@ using Poink.Sim.Brain.Neural;
 using Poink.Sim.Components.Charts;
 using Poink.Sim.Models;
 using Poink.Sim.Training;
-using Poink.Shared.Client.Components.Pages.CTrader;
+
 
 namespace Poink.Sim.Components.Training
 {

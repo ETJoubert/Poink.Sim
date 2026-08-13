@@ -4,10 +4,12 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
-using Poink.Shared.Client.Components.Pages.CTrader;
+using Poink.Sim.Models;
 
 namespace Poink.Sim.Components.Charts
 {
+
+
     // ColorGroup keys marketChart.js's own groupColors map; null/unrecognized falls back to the plain accent colour.
     public readonly record struct ChartHorizontalLine(double Price, string? Label = null, string? ColorGroup = null);
 
@@ -143,7 +145,8 @@ namespace Poink.Sim.Components.Charts
         {
             _mode = _mode == mode ? DrawMode.None : mode;
 
-            if (_module is null || _chartId is null) return;
+            if (_module is null || _chartId is null)
+                return;
             try
             {
                 await _module.InvokeVoidAsync(
@@ -180,12 +183,14 @@ namespace Poink.Sim.Components.Charts
                 if (firstRender)
                 {
                     _module = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/marketChart.js");
-                    if (_disposed) return;
+                    if (_disposed)
+                        return;
                     _dotNetRef = DotNetObjectReference.Create(this);
                     _chartId = await _module.InvokeAsync<string>("create", _containerRef, _minimapRef, _dotNetRef, Interactive);
                 }
 
-                if (_disposed) return;
+                if (_disposed)
+                    return;
 
                 if (_module is not null && _chartId is not null && !ReferenceEquals(_renderedBars, Bars))
                 {
@@ -202,7 +207,8 @@ namespace Poink.Sim.Components.Charts
                     await _module.InvokeVoidAsync("setData", _chartId, payload, !KeepView);
                 }
 
-                if (_disposed) return;
+                if (_disposed)
+                    return;
 
                 if (_module is not null && _chartId is not null && !ReferenceEquals(_renderedVwapLine, VwapLine))
                 {
@@ -212,7 +218,8 @@ namespace Poink.Sim.Components.Charts
                     await _module.InvokeVoidAsync("setVwapLine", _chartId, vwapPoints);
                 }
 
-                if (_disposed) return;
+                if (_disposed)
+                    return;
 
                 if (_module is not null && _chartId is not null &&
                     (!ReferenceEquals(_renderedHorizontalLines, HorizontalLines) ||
@@ -247,7 +254,8 @@ namespace Poink.Sim.Components.Charts
                     await _module.InvokeVoidAsync("setLines", _chartId, hLines, vLines, dLines, fills);
                 }
 
-                if (_disposed) return;
+                if (_disposed)
+                    return;
 
                 if (_module is not null && _chartId is not null && !ReferenceEquals(_renderedMarkers, Markers))
                 {
@@ -262,7 +270,8 @@ namespace Poink.Sim.Components.Charts
                     await _module.InvokeVoidAsync("setActionMarkers", _chartId, markers);
                 }
 
-                if (_disposed) return;
+                if (_disposed)
+                    return;
 
                 // Gated separately from Bars: CurrentBid/Ask moves every tick, Bars only once per completed bar.
                 if (_module is not null && _chartId is not null && (_renderedBid != CurrentBid || _renderedAsk != CurrentAsk))
@@ -272,7 +281,8 @@ namespace Poink.Sim.Components.Charts
                     await _module.InvokeVoidAsync("setCurrentPrices", _chartId, CurrentBid, CurrentAsk);
                 }
 
-                if (_disposed) return;
+                if (_disposed)
+                    return;
 
                 // Only moves when the position opens/closes/changes, not every tick.
                 if (_module is not null && _chartId is not null &&
@@ -286,7 +296,8 @@ namespace Poink.Sim.Components.Charts
                     await _module.InvokeVoidAsync("setPositionLevels", _chartId, EntryPrice, PositionIsLong, StopLossPrice, TakeProfitPrice);
                 }
 
-                if (_disposed) return;
+                if (_disposed)
+                    return;
 
                 if (_module is not null && _chartId is not null && _renderedWindowStart != WindowStartUtc)
                 {
@@ -308,8 +319,10 @@ namespace Poink.Sim.Components.Charts
             if (OnNearStart.HasDelegate)
                 await OnNearStart.InvokeAsync();
 
-            if (_disposed || _module is null || _chartId is null) return;
-            try { await _module.InvokeVoidAsync("resumeLoadMore", _chartId); }
+            if (_disposed || _module is null || _chartId is null)
+                return;
+            try
+            { await _module.InvokeVoidAsync("resumeLoadMore", _chartId); }
             catch (JSDisconnectedException) { }
             catch (ObjectDisposedException) { }
         }
@@ -374,7 +387,8 @@ namespace Poink.Sim.Components.Charts
             {
                 try
                 {
-                    if (_chartId is not null) await _module.InvokeVoidAsync("dispose", _chartId);
+                    if (_chartId is not null)
+                        await _module.InvokeVoidAsync("dispose", _chartId);
                     await _module.DisposeAsync();
                 }
                 catch (JSDisconnectedException) { }

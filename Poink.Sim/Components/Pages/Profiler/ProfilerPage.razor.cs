@@ -9,7 +9,7 @@ using Poink.Sim.Components.Charts;
 using Poink.Sim.Models;
 using Poink.Sim.Profiler;
 using Poink.Sim.Repository;
-using Poink.Shared.Client.Components.Pages.CTrader;
+
 
 namespace Poink.Sim.Components.Pages
 {

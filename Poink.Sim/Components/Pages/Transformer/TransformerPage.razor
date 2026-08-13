@@ -5,7 +5,7 @@
 @using Poink.Sim.Components.Shared.TickDataSource
 @using Poink.Sim.Helpers
 @using Poink.Sim.Transformer
-@using Poink.Shared.Client.Components.Pages.CTrader
+
 
 <div class="trf-page">
 
@@ -78,20 +78,19 @@
         <div class="trf-chart">
             <div class="trf-chart-main"
                  title="OHLC bar chart -- pan left to backfill older history, or use the toolbar's VOLUME RANGE tool to select the window the profile panels/overlays are built from">
-                <MarketChart Bars="ToBarRows()" KeepView="_keepView" OnNearStart="LoadMore"
-                                    ShowAnnotationTools="false" HorizontalLines="ProfileLevelLines()"
-                                    RangeFills="VolumeRangeFill()" VwapLine="VwapPoints()"
-                                    OnVolumeRangeDrawn="SetVolumeRange" HasVolumeRange="_volumeRangeStart is not null"
-                                    OnVolumeRangeCleared="ClearVolumeRange" />
+                <MarketChart Bars="ToBarRows()" KeepView="_keepView" OnNearStart="LoadMore" ShowAnnotationTools="false"
+                             HorizontalLines="ProfileLevelLines()" RangeFills="VolumeRangeFill()" VwapLine="VwapPoints()"
+                             OnVolumeRangeDrawn="SetVolumeRange" HasVolumeRange="_volumeRangeStart is not null"
+                             OnVolumeRangeCleared="ClearVolumeRange" />
             </div>
             <div class="trf-chart-divider" @ref="_chartDividerRef" data-min-width="200" data-max-width="320"
                  title="Drag to resize"></div>
             <div class="trf-chart-side">
                 <div class="trf-vp"
                      title="@((VolumeRangeLabel() is { } label
-                                                     ? $"Volume profile for the selected Volume Range ({label}) -- use the toolbar's CLEAR VOLUME RANGE button to go back to every loaded bar"
-                                                     : "Volume profile across every bar loaded so far -- use the toolbar's VOLUME RANGE tool to narrow it to a specific time window")
-                                                     + ". POC/Value Area are highlighted below and projected onto the main chart as POC/VAH/VAL lines")">
+                                                                          ? $"Volume profile for the selected Volume Range ({label}) -- use the toolbar's CLEAR VOLUME RANGE button to go back to every loaded bar"
+                                                                          : "Volume profile across every bar loaded so far -- use the toolbar's VOLUME RANGE tool to narrow it to a specific time window")
+                                                                          + ". POC/Value Area are highlighted below and projected onto the main chart as POC/VAH/VAL lines")">
                     <TickVolumeProfileChart WeightedSamples="MergedSamples()" CurrentPrice="LastClose"
                                             ShowLevels="_showProfilePanelLevels" />
                 </div>
@@ -101,9 +100,9 @@
             <div class="trf-chart-side">
                 <div class="trf-vp"
                      title="@((VolumeRangeLabel() is { } timeLabel
-                                                     ? $"Time profile for the selected Volume Range ({timeLabel}) -- use the toolbar's CLEAR VOLUME RANGE button to go back to every loaded bar"
-                                                     : "Time profile across every bar loaded so far -- use the toolbar's VOLUME RANGE tool to narrow it to a specific time window")
-                                                     + ". Measures dwell time (seconds) per price level instead of tick count")">
+                                                                          ? $"Time profile for the selected Volume Range ({timeLabel}) -- use the toolbar's CLEAR VOLUME RANGE button to go back to every loaded bar"
+                                                                          : "Time profile across every bar loaded so far -- use the toolbar's VOLUME RANGE tool to narrow it to a specific time window")
+                                                                          + ". Measures dwell time (seconds) per price level instead of tick count")">
                     <TickTimeProfileChart WeightedSamples="MergedTimeSamples()" CurrentPrice="LastClose" />
                 </div>
             </div>
@@ -144,10 +143,10 @@
                         </div>
                         <div class="trf-delta-chart"
                              title="@("Every earlier tick's difference from the latest tick (price(tick) - price(latest)) " +
-                                      (_volumeRangeStart is not null
-                                          ? "within the selected Volume Range"
-                                          : "across the latest loaded ticks") +
-                                      ", re-indexed by tick count instead of wall-clock time so real time gaps don't distort the aggregation, then bucketed into OHLC bars -- use the main chart's VOLUME RANGE tool to change which ticks this is built from")">
+                                                                   (_volumeRangeStart is not null
+                                                                       ? "within the selected Volume Range"
+                                                                       : "across the latest loaded ticks") +
+                                                                   ", re-indexed by tick count instead of wall-clock time so real time gaps don't distort the aggregation, then bucketed into OHLC bars -- use the main chart's VOLUME RANGE tool to change which ticks this is built from")">
                             <MarketChart Bars="DeltaBarRows()" ShowAnnotationTools="false" HorizontalLines="ZeroLine()" />
                         </div>
                     }
@@ -168,16 +167,16 @@
                         <div class="trf-delta-row">
                             <div class="trf-delta-chart"
                                  title="@("Every tick re-expressed as (price - window mean) / window standard deviation, computed independently per "
-                                          + _zScoreWindowSize + "-tick sub-window "
-                                          + (_volumeRangeStart is not null ? "within the selected Volume Range" : "across the latest loaded ticks")
-                                          + " -- zero-mean/unit-variance per sub-window, so geometric shape reads independently of macro trend or price level. Contrast with GLOBAL Z-SCORE, which normalizes the whole selection as one window")">
+                                                                           + _zScoreWindowSize + "-tick sub-window "
+                                                                           + (_volumeRangeStart is not null ? "within the selected Volume Range" : "across the latest loaded ticks")
+                                                                           + " -- zero-mean/unit-variance per sub-window, so geometric shape reads independently of macro trend or price level. Contrast with GLOBAL Z-SCORE, which normalizes the whole selection as one window")">
                                 <MarketChart Bars="ZScoreBarRows()" ShowAnnotationTools="false" />
                             </div>
                             <div class="trf-chart-side">
                                 <div class="trf-vp"
                                      title="Volume profile of the Local Z-Score series itself -- which normalized (z-score) level accumulated the most ticks across every sub-window, not price. POC/Value Area here describe the z-score distribution's own center of mass">
-                                    <TickVolumeProfileChart Prices="LocalZScoreProfileValues()" WindowSize="LocalZScoreProfileValues().Count"
-                                                            CurrentPrice="LocalZScoreCurrentValue()" />
+                                    <TickVolumeProfileChart Prices="LocalZScoreProfileValues()"
+                                                            WindowSize="LocalZScoreProfileValues().Count" CurrentPrice="LocalZScoreCurrentValue()" />
                                 </div>
                             </div>
                         </div>
@@ -199,15 +198,15 @@
                         <div class="trf-delta-row">
                             <div class="trf-delta-chart"
                                  title="@("Every tick re-expressed as (price - mean) / standard deviation, computed once over the entire selection "
-                                          + "(" + (_volumeRangeStart is not null ? "the selected Volume Range" : "the latest loaded ticks") + ") "
-                                          + "rather than per sub-window -- zero-mean/unit-variance across the whole lookback. Contrast with LOCAL Z-SCORE, which re-normalizes every window-size chunk independently")">
+                                                                           + "(" + (_volumeRangeStart is not null ? "the selected Volume Range" : "the latest loaded ticks") + ") "
+                                                                           + "rather than per sub-window -- zero-mean/unit-variance across the whole lookback. Contrast with LOCAL Z-SCORE, which re-normalizes every window-size chunk independently")">
                                 <MarketChart Bars="GlobalZScoreBarRows()" ShowAnnotationTools="false" />
                             </div>
                             <div class="trf-chart-side">
                                 <div class="trf-vp"
                                      title="Volume profile of the Global Z-Score series itself -- which normalized (z-score) level accumulated the most ticks, not price. POC/Value Area here describe the z-score distribution's own center of mass">
-                                    <TickVolumeProfileChart Prices="GlobalZScoreProfileValues()" WindowSize="GlobalZScoreProfileValues().Count"
-                                                            CurrentPrice="GlobalZScoreCurrentValue()" />
+                                    <TickVolumeProfileChart Prices="GlobalZScoreProfileValues()"
+                                                            WindowSize="GlobalZScoreProfileValues().Count" CurrentPrice="GlobalZScoreCurrentValue()" />
                                 </div>
                             </div>
                         </div>
@@ -215,7 +214,8 @@
                     else if (_activeDataTab == DataTab.Drift)
                     {
                         <div class="trf-delta-header">
-                            <div class="trf-delta-control" title="Whether drift is expressed as a fraction of the anchor price or as a log ratio -- log makes an equal-magnitude rally and selloff symmetric, plain percentage does not">
+                            <div class="trf-delta-control"
+                                 title="Whether drift is expressed as a fraction of the anchor price or as a log ratio -- log makes an equal-magnitude rally and selloff symmetric, plain percentage does not">
                                 <span>Mode</span>
                                 <label title="d = (price - anchor) / anchor">
                                     <input type="radio" name="driftMode" checked="@(_driftMode == DriftMode.Percentage)"
@@ -242,9 +242,9 @@
                         <div class="trf-delta-row">
                             <div class="trf-delta-chart"
                                  title="@("Every earlier tick's " + (_driftMode == DriftMode.Log ? "log ratio to" : "fractional drift from") +
-                                          " the latest (anchor) price, re-indexed by tick count instead of wall-clock time "
-                                          + (_volumeRangeStart is not null ? "within the selected Volume Range" : "across the latest loaded ticks")
-                                          + ", then bucketed into OHLC bars -- a 2% move reads the same regardless of the asset's absolute price level")">
+                                                                           " the latest (anchor) price, re-indexed by tick count instead of wall-clock time "
+                                                                           + (_volumeRangeStart is not null ? "within the selected Volume Range" : "across the latest loaded ticks")
+                                                                           + ", then bucketed into OHLC bars -- a 2% move reads the same regardless of the asset's absolute price level")">
                                 <MarketChart Bars="DriftBarRows()" ShowAnnotationTools="false" HorizontalLines="ZeroLine()" />
                             </div>
                             <div class="trf-chart-side">
@@ -258,30 +258,31 @@
                     }
                     else if (_volumeRangeStart is null)
                     {
-                        <p class="trf-empty">Use the main chart's VOLUME RANGE tool to select a window -- this chart plots every tick in that selection.</p>
-                    }
+                        <p class="trf-empty">Use the main chart's VOLUME RANGE tool to select a window -- this chart plots every
+                            tick in that selection.</p>
+                        }
                     else
-                    {
-                        <div class="trf-delta-header">
-                            <BarSizeSelect @bind-Value="_subchartBarSizeSeconds"
-                                           Title="Size of each candle on this chart -- every tick in the selected Volume Range is re-aggregated at this size" />
-                            <span class="trf-header-mode">
-                                @_subchartTicks.Count.ToString("N0") ticks from the selected Volume Range (@VolumeRangeLabel()):
-                                re-aggregated into ordinary OHLC bars at the chosen bar size
-                            </span>
-                        </div>
-                        <div class="trf-delta-chart"
-                             title="Ordinary OHLC bars built from every tick in the selected Volume Range -- unlike the other tabs here, no delta/z-score/drift transform is applied, and unlike them this isn't capped to the latest few thousand ticks. Use the main chart's VOLUME RANGE tool to change the selection">
-                            <MarketChart Bars="SubchartBarRows()" ShowAnnotationTools="false" />
-                        </div>
-                    }
+                        {
+                            <div class="trf-delta-header">
+                                <BarSizeSelect @bind-Value="_subchartBarSizeSeconds"
+                                               Title="Size of each candle on this chart -- every tick in the selected Volume Range is re-aggregated at this size" />
+                                <span class="trf-header-mode">
+                                    @_subchartTicks.Count.ToString("N0") ticks from the selected Volume Range (@VolumeRangeLabel()):
+                                    re-aggregated into ordinary OHLC bars at the chosen bar size
+                                </span>
+                            </div>
+                            <div class="trf-delta-chart"
+                                 title="Ordinary OHLC bars built from every tick in the selected Volume Range -- unlike the other tabs here, no delta/z-score/drift transform is applied, and unlike them this isn't capped to the latest few thousand ticks. Use the main chart's VOLUME RANGE tool to change the selection">
+                                <MarketChart Bars="SubchartBarRows()" ShowAnnotationTools="false" />
+                            </div>
+                        }
+                    </div>
                 </div>
-            </div>
+            }
         }
-    }
-    else if (!_isLoading)
-    {
-        <p class="trf-empty">Pick a symbol and date range above, then LOAD to view its bar chart and profiles.</p>
-    }
+        else if (!_isLoading)
+        {
+            <p class="trf-empty">Pick a symbol and date range above, then LOAD to view its bar chart and profiles.</p>
+        }
 
-</div>
+    </div>

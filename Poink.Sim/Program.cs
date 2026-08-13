@@ -16,9 +16,11 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.EntityFrameworkCore;
 using Poink.CTrader;
 using Poink.Sim.Brain;
 using Poink.Sim.Components.Pages.Code.Services;
+using Poink.Sim.Data;
 using Poink.Sim.Diagnostics;
 using Poink.Sim.Services.CTrader;
 using Poink.Sim.Profiler;
@@ -88,6 +90,9 @@ builder.Services.AddSingleton<ISimulationEngine, SimulationEngine>();
 // Poink.CTrader/README.md's "Secrets"). The session holds one live connection and its
 // token in memory for this single-user dashboard.
 builder.Services.AddCTraderOpenApi(builder.Configuration);
+builder.Services.AddDbContext<PoinkSimContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("PoinkSim")));
+builder.Services.AddScoped<ICTraderTokenStore, PostgresCTraderTokenStore>();
 builder.Services.AddSingleton<ICTraderSessionService, CTraderSessionService>();
 
 builder.Services.AddScoped<IProfilerService, ProfilerService>();

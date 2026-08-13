@@ -11,7 +11,6 @@ using Poink.Sim.Repository;
 using Poink.Sim.Simulation;
 using Poink.Sim.Trader.Risk;
 using Poink.Sim.Training;
-using Poink.Shared.Client.Components.Pages.CTrader;
 
 namespace Poink.Sim.Components.Pages
 {
@@ -132,23 +131,27 @@ namespace Poink.Sim.Components.Pages
         private List<XGridPosition> XGridPositions(SimulationSnapshot s)
         {
             var result = new List<XGridPosition>();
-            if (SelectedTrader is not { } trader) return result;
+            if (SelectedTrader is not { } trader)
+                return result;
 
             var window = Math.Min(ClampedBarWindow, s.RecentBars.Count);
-            if (window == 0) return result;
+            if (window == 0)
+                return result;
             var start = s.RecentBars[s.RecentBars.Count - window].OpenTime;
             var end = s.RecentBars[^1].OpenTime;
 
             foreach (var trade in trader.Trades)
             {
-                if (trade.ExitTime < start || trade.EntryTime > end) continue;
+                if (trade.ExitTime < start || trade.EntryTime > end)
+                    continue;
                 result.Add(new XGridPosition(
                     MapDirection(trade.Direction), trade.EntryTime, trade.EntryPrice, trade.ExitTime, trade.ExitPrice));
             }
             if (trader.Position is { } pos)
                 result.Add(new XGridPosition(
                     MapDirection(pos.Direction), pos.EntryTime, pos.EntryPrice,
-                    StopLoss: pos.StopLossPrice, TakeProfit: pos.TakeProfitPrice) { Id = "position" });
+                    StopLoss: pos.StopLossPrice, TakeProfit: pos.TakeProfitPrice)
+                { Id = "position" });
             return result;
         }
 
@@ -161,7 +164,8 @@ namespace Poink.Sim.Components.Pages
             if (SelectedTrader?.PendingOrder is { } pending)
                 result.Add(new XGridPending(
                     pending.Direction == PositionDirection.Long, pending.TriggerPrice, pending.CapitalFraction,
-                    pending.StopLossPrice, pending.TakeProfitPrice) { Id = "pending" });
+                    pending.StopLossPrice, pending.TakeProfitPrice)
+                { Id = "pending" });
             return result;
         }
 

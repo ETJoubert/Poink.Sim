@@ -1,10 +1,11 @@
 using Microsoft.AspNetCore.Components;
-using Poink.Shared.Client.Components.Pages.CTrader;
+
 using Poink.Sim.Services.CTrader;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Poink.Sim.Models;
 
 namespace Poink.Sim.Components.Pages.Trade
 {
@@ -68,7 +69,8 @@ namespace Poink.Sim.Components.Pages.Trade
 
         private void LogIn()
         {
-            if (Session.BuildAuthorizationUri() is not { } authUri) return;
+            if (Session.BuildAuthorizationUri() is not { } authUri)
+                return;
 
             Navigation.NavigateTo(authUri.ToString(), forceLoad: true);
         }
@@ -95,7 +97,8 @@ namespace Poink.Sim.Components.Pages.Trade
                     .Select(b => new CTraderBarRow(b.TimeUtc, b.Open, b.High, b.Low, b.Close, b.Volume))
                     .ToList();
 
-                if (_chartBars.Count == 0) _chartError = "No history returned for this symbol.";
+                if (_chartBars.Count == 0)
+                    _chartError = "No history returned for this symbol.";
             }
             catch (Exception ex)
             {

@@ -6,7 +6,7 @@
 @using Poink.Sim.Components.Shared.TickDataSource
 @using Poink.Sim.Helpers
 @using Poink.Sim.Repository
-@using Poink.Shared.Client.Components.Pages.CTrader
+@using Poink.Sim.Models
 
 <div class="prof-page">
 
@@ -90,46 +90,44 @@
             <div class="prof-chart-main"
                  title="OHLC bar chart -- pan left to backfill older history, or use the toolbar to draw H-Line/V-Line/D-Line/T-Range/P-Range/Rectangle/T-Range Chart/T-Range Reference Chart/Volume Range. POC/VAH/VAL, a cumulative VWAP line, and Average/Median lines are shown automatically for whatever window the volume profile panel is built from">
                 <MarketChart Bars="ToBarRows()" KeepView="_keepView" OnNearStart="LoadMore"
-                                    HorizontalLines="AllHorizontalLines()" VerticalLines="AllVerticalLines()"
-                                    DiagonalLines="AllDiagonalLines()" RangeFills="AllRangeFills()" VwapLine="VwapPoints()"
-                                    OnHorizontalLineDrawn="AddHorizontalLine" OnVerticalLineDrawn="AddVerticalLine"
-                                    OnDiagonalLineDrawn="AddDiagonalLine" OnTRangeChartDrawn="AddTRangeChart"
-                                    OnReferenceLineDrawn="AddReferenceLine" OnVolumeRangeDrawn="SetVolumeRange"
-                                    HasVolumeRange="_volumeRangeStart is not null" OnVolumeRangeCleared="ClearVolumeRange"
-                                    OnDrawFinished="FinishDrawing" />
+                             HorizontalLines="AllHorizontalLines()" VerticalLines="AllVerticalLines()"
+                             DiagonalLines="AllDiagonalLines()" RangeFills="AllRangeFills()" VwapLine="VwapPoints()"
+                             OnHorizontalLineDrawn="AddHorizontalLine" OnVerticalLineDrawn="AddVerticalLine"
+                             OnDiagonalLineDrawn="AddDiagonalLine" OnTRangeChartDrawn="AddTRangeChart"
+                             OnReferenceLineDrawn="AddReferenceLine" OnVolumeRangeDrawn="SetVolumeRange"
+                             HasVolumeRange="_volumeRangeStart is not null" OnVolumeRangeCleared="ClearVolumeRange"
+                             OnDrawFinished="FinishDrawing" />
             </div>
-            <div class="prof-chart-divider" @ref="_chartDividerRefXGrid" data-min-width="200"
-                 title="Drag to resize"></div>
+            <div class="prof-chart-divider" @ref="_chartDividerRefXGrid" data-min-width="200" title="Drag to resize"></div>
             <div class="prof-chart-side @(_xgridCollapsed ? "prof-chart-side-collapsed" : "")">
                 <div class="prof-vp"
                      title="@(VolumeRangeLabel() is { } xgridLabel
-                                                     ? $"Footprint grid for the selected Volume Range ({xgridLabel}) -- rows are price buckets, columns are bars"
-                                                     : "Select a Volume Range on the chart to build the footprint grid -- rows are price buckets, columns are bars")">
+                                                                          ? $"Footprint grid for the selected Volume Range ({xgridLabel}) -- rows are price buckets, columns are bars"
+                                                                          : "Select a Volume Range on the chart to build the footprint grid -- rows are price buckets, columns are bars")">
                     <XGrid Grid="ComputeXGrid()" @bind-RowCount="_xgridRowCount" @bind-ColCount="_xgridColCount"
                            @bind-Collapsed="_xgridCollapsed" />
                 </div>
             </div>
-            <div class="prof-chart-divider" @ref="_chartDividerRef" data-min-width="200"
-                 title="Drag to resize"></div>
+            <div class="prof-chart-divider" @ref="_chartDividerRef" data-min-width="200" title="Drag to resize"></div>
             <div class="prof-chart-side @(_volumeProfileCollapsed ? "prof-chart-side-collapsed" : "")">
                 <div class="prof-vp"
                      title="@((VolumeRangeLabel() is { } label
-                                                     ? $"Volume profile for the selected Volume Range ({label}) -- use the toolbar's CLEAR VOLUME RANGE button to go back to every loaded bar"
-                                                     : "Volume profile across every bar loaded so far -- use the toolbar's VOLUME RANGE tool to narrow it to a specific time window")
-                                                     + ". POC/Value Area are highlighted below and projected onto the main chart as POC/VAH/VAL lines")">
+                                                                          ? $"Volume profile for the selected Volume Range ({label}) -- use the toolbar's CLEAR VOLUME RANGE button to go back to every loaded bar"
+                                                                          : "Volume profile across every bar loaded so far -- use the toolbar's VOLUME RANGE tool to narrow it to a specific time window")
+                                                                          + ". POC/Value Area are highlighted below and projected onto the main chart as POC/VAH/VAL lines")">
                     <TickVolumeProfileChart WeightedSamples="MergedSamples()" CurrentPrice="LastClose"
                                             ShowLevels="_showProfilePanelLevels" @bind-Collapsed="_volumeProfileCollapsed" />
                 </div>
             </div>
-            <div class="prof-chart-divider" @ref="_chartDividerRef2" data-min-width="200"
-                 title="Drag to resize"></div>
+            <div class="prof-chart-divider" @ref="_chartDividerRef2" data-min-width="200" title="Drag to resize"></div>
             <div class="prof-chart-side @(_timeProfileCollapsed ? "prof-chart-side-collapsed" : "")">
                 <div class="prof-vp"
                      title="@((VolumeRangeLabel() is { } timeLabel
-                                                     ? $"Time profile for the selected Volume Range ({timeLabel}) -- use the toolbar's CLEAR VOLUME RANGE button to go back to every loaded bar"
-                                                     : "Time profile across every bar loaded so far -- use the toolbar's VOLUME RANGE tool to narrow it to a specific time window")
-                                                     + ". Measures dwell time (seconds) per price level instead of tick count")">
-                    <TickTimeProfileChart WeightedSamples="MergedTimeSamples()" CurrentPrice="LastClose" @bind-Collapsed="_timeProfileCollapsed" />
+                                                                          ? $"Time profile for the selected Volume Range ({timeLabel}) -- use the toolbar's CLEAR VOLUME RANGE button to go back to every loaded bar"
+                                                                          : "Time profile across every bar loaded so far -- use the toolbar's VOLUME RANGE tool to narrow it to a specific time window")
+                                                                          + ". Measures dwell time (seconds) per price level instead of tick count")">
+                    <TickTimeProfileChart WeightedSamples="MergedTimeSamples()" CurrentPrice="LastClose"
+                                          @bind-Collapsed="_timeProfileCollapsed" />
                 </div>
             </div>
         </div>

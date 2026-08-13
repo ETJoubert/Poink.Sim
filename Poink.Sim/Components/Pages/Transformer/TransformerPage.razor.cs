@@ -9,7 +9,6 @@ using Poink.Sim.Models;
 using Poink.Sim.Repository;
 using Poink.Sim.Simulation;
 using Poink.Sim.Transformer;
-using Poink.Shared.Client.Components.Pages.CTrader;
 
 namespace Poink.Sim.Components.Pages
 {
