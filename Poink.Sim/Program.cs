@@ -24,6 +24,7 @@ using Poink.Sim.Components.Pages.Code.Services;
 using Poink.Sim.Data;
 using Poink.Sim.Diagnostics;
 using Poink.Sim.Services.CTrader;
+using Poink.Sim.Services.MarketData;
 using Poink.Sim.Profiler;
 using Poink.Sim.Repository;
 using Poink.Sim.Simulation;
@@ -94,8 +95,18 @@ builder.Services.AddCTraderOpenApi(builder.Configuration);
 builder.Services.AddDbContext<PoinkSimContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("PoinkSim")));
 builder.Services.AddScoped<ICTraderTokenStore, PostgresCTraderTokenStore>();
-builder.Services.AddSingleton<ICTraderSessionService, CTraderSessionService>();
+builder.Services.AddSingleton<CTraderSessionService>();
+builder.Services.AddSingleton<ICTraderSessionService>(sp => sp.GetRequiredService<CTraderSessionService>());
+builder.Services.AddSingleton<ICTraderHistory>(sp => sp.GetRequiredService<CTraderSessionService>());
 builder.Services.AddHostedService<CTraderSessionRestoreService>();
+
+// Tick backfill: single-writer worker that persists live cTrader ticks into the
+// PoinkMarketData ticks_<symbol> tables and fills the pre-stream gap from ProtoOAGetTickData.
+builder.Services.AddSingleton<ITickIngest, TickIngest>();
+builder.Services.AddSingleton<IHistoricalTickSource, CTraderHistoricalTickSource>();
+builder.Services.AddSingleton<TickBackfillWorker>();
+builder.Services.AddSingleton<ITickBackfillController>(sp => sp.GetRequiredService<TickBackfillWorker>());
+builder.Services.AddHostedService(sp => sp.GetRequiredService<TickBackfillWorker>());
 
 builder.Services.AddScoped<IProfilerService, ProfilerService>();
 

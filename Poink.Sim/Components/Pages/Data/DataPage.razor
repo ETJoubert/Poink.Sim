@@ -1,0 +1,268 @@
+@page "/data"
+@namespace Poink.Sim.Components.Pages.Data
+@using Poink.Sim.Services.CTrader
+@using Poink.Sim.Services.MarketData
+@using Poink.Shared.Client.Components.Shared.Icon
+
+<div class="data-page">
+
+    <div class="data-topbar">
+        <header class="data-header">
+            <div class="data-header-title">
+                <span class="data-header-symbol">DATA — TICK INGEST</span>
+                <span class="data-header-state @(Backfill.IsPaused ? "data-state-idle" : "data-state-live")"
+                      title="Backfill worker run state">
+                    @(Backfill.IsPaused ? "PAUSED" : "RUNNING")
+                </span>
+            </div>
+            <div class="data-header-actions">
+                @if (!IsConnected)
+                {
+                    <span class="data-hint" title="Ticks only stream and backfill while the cTrader session is connected">
+                        Not connected — log in on the Trade page.
+                    </span>
+                }
+                <button class="data-btn @(Backfill.IsPaused ? "data-btn-play" : "data-btn-warn")" @onclick="TogglePause"
+                        title="@(Backfill.IsPaused ? "Resume the backfill worker" : "Pause the backfill worker (buffering continues in memory)")">
+                    <Icon Name="@(Backfill.IsPaused ? "play-fill" : "pause-fill")" Class="data-btn-icon" />
+                    @(Backfill.IsPaused ? "RESUME" : "PAUSE")
+                </button>
+            </div>
+        </header>
+        <div class="data-tabs">
+            <button class="data-tab @(_activeTab == Tab.Ingest ? "active" : "")" @onclick="() => SwitchTab(Tab.Ingest)">INGEST</button>
+            <button class="data-tab @(_activeTab == Tab.Registry ? "active" : "")" @onclick="() => SwitchTab(Tab.Registry)">REGISTRY</button>
+            <button class="data-tab @(_activeTab == Tab.Log ? "active" : "")" @onclick="() => SwitchTab(Tab.Log)">LOG</button>
+        </div>
+    </div>
+
+    <div class="data-body">
+
+        @if (_activeTab == Tab.Ingest)
+        {
+            <section class="data-panel">
+                <div class="data-panel-header">
+                    <span class="data-panel-title">TRACKED SYMBOLS</span>
+                    <span class="data-panel-count">@Statuses.Count</span>
+                </div>
+
+                @if (Statuses.Count == 0)
+                {
+                    <p class="data-empty">No symbols tracked. Search below and track one to start persisting its ticks.</p>
+                }
+                else
+                {
+                    <div class="data-table-scroll">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Symbol</th>
+                                    <th>Table</th>
+                                    <th>State</th>
+                                    <th class="data-num">Rows</th>
+                                    <th>DB max (UTC)</th>
+                                    <th class="data-num">Lag</th>
+                                    <th class="data-num">Buffered</th>
+                                    <th class="data-num">Written</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var s in Statuses)
+                                {
+                                    <tr>
+                                        <td class="data-sym">@s.SymbolName</td>
+                                        <td class="data-mono">@s.Table</td>
+                                        <td><span class="data-state-pill @StateClass(s.State)" title="@(s.LastError ?? StateLabel(s.State))">@StateLabel(s.State)</span></td>
+                                        <td class="data-num data-mono">@Count(s.RowsInDb)</td>
+                                        <td class="data-mono">@Time(s.MaxUtc)</td>
+                                        <td class="data-num data-mono">@Lag(s.LagSeconds)</td>
+                                        <td class="data-num data-mono">@Count(s.Buffered)</td>
+                                        <td class="data-num data-mono">@Count(s.WrittenThisSession)</td>
+                                        <td class="data-row-actions">
+                                            <button class="data-icon-btn" @onclick="() => ForceFlush(s.SymbolId)"
+                                                    title="Flush this symbol's buffer to the database now">
+                                                <Icon Name="cloud-upload" Class="data-btn-icon" />
+                                            </button>
+                                            <button class="data-icon-btn data-icon-btn-warn" @onclick="() => StopTrackingAsync(s)"
+                                                    title="Stop tracking @s.SymbolName (discards its unflushed buffer)">
+                                                <Icon Name="x-lg" Class="data-btn-icon" />
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </section>
+
+            <section class="data-panel">
+                <div class="data-panel-header">
+                    <span class="data-panel-title">TRACK A SYMBOL</span>
+                </div>
+
+                @if (Session.Symbols.Count == 0)
+                {
+                    <p class="data-empty">No symbols loaded. Log in on the Trade page first — the account's symbols load on connect.</p>
+                }
+                else
+                {
+                    <div class="data-track-controls">
+                        <input type="text" class="data-search" placeholder="Search symbols..."
+                               value="@_symbolFilter" @oninput="e => _symbolFilter = e.Value?.ToString() ?? string.Empty"
+                               title="Filter the account's symbols by name" />
+                        <label class="data-checkbox"
+                               title="Create the ticks_<symbol> table if it does not exist yet (explicit opt-in)">
+                            <input type="checkbox" @bind="_createTable" />
+                            Create table if missing
+                        </label>
+                    </div>
+
+                    <ul class="data-symbol-list">
+                        @foreach (var symbol in FilteredSymbols)
+                        {
+                            var tracked = IsTracked(symbol.SymbolId);
+                            <li class="data-symbol-row">
+                                <span class="data-symbol-name">@symbol.SymbolName</span>
+                                @if (tracked)
+                                {
+                                    <span class="data-symbol-tracked">tracked</span>
+                                }
+                                else
+                                {
+                                    <button class="data-btn data-btn-play" @onclick="() => TrackAndStreamAsync(symbol)"
+                                            title="Track @symbol.SymbolName and start streaming its ticks into the database">
+                                        <Icon Name="cloud-download" Class="data-btn-icon" />
+                                        TRACK &amp; STREAM
+                                    </button>
+                                }
+                            </li>
+                        }
+                    </ul>
+                }
+            </section>
+        }
+        else if (_activeTab == Tab.Registry)
+        {
+            <section class="data-panel">
+                <div class="data-panel-header">
+                    <span class="data-panel-title">tick_table_stats</span>
+                    <span class="data-panel-count">@_registry.Count</span>
+                </div>
+                <p class="data-empty">
+                    Load Historic fetches ticks older than a table's earliest row via ProtoOAGetTickData and stores
+                    them. Requires a connected session and the table's symbol to resolve against the account's
+                    symbol list.
+                </p>
+                @if (_registry.Count == 0)
+                {
+                    <p class="data-empty">No registry rows.</p>
+                }
+                else
+                {
+                    <div class="data-table-scroll">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Table</th>
+                                    <th>Symbol</th>
+                                    <th class="data-num">Rows</th>
+                                    <th>Min (UTC)</th>
+                                    <th>Max (UTC)</th>
+                                    <th>Refreshed (UTC)</th>
+                                    <th>Load Historic</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var r in _registry)
+                                {
+                                    var state = GetHistoricState(r.Table);
+                                    var canLoad = IsConnected && r.MinUtc is not null && ResolveSymbol(r.Symbol) is not null && !state.Busy;
+                                    <tr>
+                                        <td class="data-mono">@r.Table</td>
+                                        <td class="data-sym">@(r.Symbol ?? "—")</td>
+                                        <td class="data-num data-mono">@Count(r.Rows)</td>
+                                        <td class="data-mono">@Time(r.MinUtc)</td>
+                                        <td class="data-mono">@Time(r.MaxUtc)</td>
+                                        <td class="data-mono">@Time(r.RefreshedAt)</td>
+                                        <td class="data-row-actions">
+                                            <input type="number" min="1" class="data-days-input"
+                                                   value="@state.Days"
+                                                   @oninput="e => state.Days = int.TryParse(e.Value?.ToString(), out var d) && d > 0 ? d : state.Days"
+                                                   title="Days of history to fetch before this table's earliest tick (@Time(r.MinUtc))" />
+                                            <button class="data-icon-btn" @onclick="() => LoadHistoricAsync(r)"
+                                                    disabled="@(!canLoad)"
+                                                    title="@(state.Result ?? $"Fetch {state.Days} day(s) of ticks before {Time(r.MinUtc)}")">
+                                                <Icon Name="cloud-download" Class="data-btn-icon" />
+                                            </button>
+                                            <span class="data-state-pill @HistoricStateClass(state)"
+                                                  title="@(state.Result ?? "Not run yet")">@HistoricStateLabel(state)</span>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </section>
+        }
+        else
+        {
+            <section class="data-panel">
+                <div class="data-panel-header">
+                    <span class="data-panel-title">tick_backfill_log</span>
+                    <span class="data-panel-count">@FilteredLog.Count</span>
+                </div>
+
+                <div class="data-track-controls">
+                    <input type="text" class="data-search" placeholder="Filter by symbol..."
+                           value="@_logSymbolFilter" @oninput="e => _logSymbolFilter = e.Value?.ToString() ?? string.Empty"
+                           title="Filter the backfill log by symbol name" />
+                </div>
+
+                @if (FilteredLog.Count == 0)
+                {
+                    <p class="data-empty">No backfill log rows@(string.IsNullOrWhiteSpace(_logSymbolFilter) ? "" : $" matching '{_logSymbolFilter}'").</p>
+                }
+                else
+                {
+                    <div class="data-table-scroll">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Table</th>
+                                    <th>Symbol</th>
+                                    <th>From (UTC)</th>
+                                    <th>To (UTC)</th>
+                                    <th class="data-num">Records</th>
+                                    <th>Trigger</th>
+                                    <th>Triggered (UTC)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var e in FilteredLog)
+                                {
+                                    <tr>
+                                        <td class="data-mono">@e.TickTableName</td>
+                                        <td class="data-sym">@e.SymbolName</td>
+                                        <td class="data-mono">@Time(e.BackfillFrom)</td>
+                                        <td class="data-mono">@Time(e.BackfillTo)</td>
+                                        <td class="data-num data-mono">@Count(e.RecordCount)</td>
+                                        <td>
+                                            <span class="data-state-pill @(e.TriggerEntity == BackfillTrigger.User ? "data-state-live" : "data-state-idle")"
+                                                  title="Triggered by @e.TriggerEntity">@e.TriggerEntity.ToString().ToUpperInvariant()</span>
+                                        </td>
+                                        <td class="data-mono">@Time(e.TriggeredAtUtc)</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </section>
+        }
+
+    </div>
+
+</div>

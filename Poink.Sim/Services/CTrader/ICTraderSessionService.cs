@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Poink.Sim.Services.MarketData;
 
 namespace Poink.Sim.Services.CTrader
 {
@@ -30,6 +31,9 @@ namespace Poink.Sim.Services.CTrader
         bool IsConfigured { get; }
 
         event Action? Changed;
+
+        /// <summary>Fires for every watched symbol's merged bid/ask quote, feeding the tick backfill worker.</summary>
+        event Action<MarketTick>? TickReceived;
 
         Uri? BuildAuthorizationUri();
 

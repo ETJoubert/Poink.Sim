@@ -90,6 +90,16 @@ namespace Poink.CTrader
                 ToTimestamp = to.ToUnixTimeMilliseconds()
             }, cancellationToken);
 
+        public Task<ProtoOAGetTickDataRes> GetTickDataAsync(long ctidTraderAccountId, long symbolId, ProtoOAQuoteType type, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken = default) =>
+            SendAndWaitAsync<ProtoOAGetTickDataRes>(new ProtoOAGetTickDataReq
+            {
+                CtidTraderAccountId = ctidTraderAccountId,
+                SymbolId = symbolId,
+                Type = type,
+                FromTimestamp = from.ToUnixTimeMilliseconds(),
+                ToTimestamp = to.ToUnixTimeMilliseconds()
+            }, cancellationToken);
+
         private async Task<TRes> SendAndWaitAsync<TRes>(IMessage request, CancellationToken cancellationToken) where TRes : IMessage
         {
             if (_client is null) throw new InvalidOperationException("Not connected yet - call ConnectAsync first.");

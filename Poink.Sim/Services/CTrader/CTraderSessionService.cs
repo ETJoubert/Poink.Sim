@@ -3,6 +3,8 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using OpenAPI.Net.Auth;
 using Poink.CTrader;
+using Poink.Sim.Repository;
+using Poink.Sim.Services.MarketData;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,7 +15,7 @@ using CTraderApp = OpenAPI.Net.Auth.App;
 
 namespace Poink.Sim.Services.CTrader
 {
-    public sealed class CTraderSessionService : ICTraderSessionService, IAsyncDisposable
+    public sealed class CTraderSessionService : ICTraderSessionService, ICTraderHistory, IAsyncDisposable
     {
         /// <summary>cTrader sends prices as integers scaled by 1/100_000 of a unit (e.g. 1.23 -> 123000).</summary>
         private const double PriceScale = 100_000.0;
@@ -24,6 +26,15 @@ namespace Poink.Sim.Services.CTrader
         /// <summary>Span of hourly history a chart request loads, kept within cTrader's per-period max range.</summary>
         private const int HistoryDays = 14;
 
+        /// <summary>Upper bound on paged ProtoOAGetTickData requests per side, so one fetch cannot hammer the API unbounded.</summary>
+        private const int MaxTickPages = 200;
+
+        /// <summary>
+        /// Minimum spacing between historical requests. cTrader caps historical data requests (trendbars and
+        /// tick data) at 5 per second per connection; 220ms keeps every such call under that shared budget.
+        /// </summary>
+        private static readonly TimeSpan HistoricalRequestInterval = TimeSpan.FromMilliseconds(220);
+
         /// <summary>Poink.Sim has no user accounts; the single dashboard user's token is keyed by this fixed id.</summary>
         private static readonly Guid SingleUserId = new("f6a7b8c9-0d1e-2f3a-4b5c-6d7e8f9a0b1c");
 
@@ -32,7 +43,11 @@ namespace Poink.Sim.Services.CTrader
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly ILogger<CTraderSessionService> _logger;
         private readonly SemaphoreSlim _gate = new(1, 1);
+        private readonly SemaphoreSlim _historyGate = new(1, 1);
+        private readonly SemaphoreSlim _historyRateGate = new(1, 1);
         private readonly object _quotesLock = new();
+
+        private DateTime _lastHistoricalRequestUtc = DateTime.MinValue;
         private readonly Dictionary<long, CTraderSymbolQuote> _quotes = new();
 
         private CTraderClient? _client;
@@ -79,6 +94,8 @@ namespace Poink.Sim.Services.CTrader
             && !string.IsNullOrWhiteSpace(_app.RedirectUri);
 
         public event Action? Changed;
+
+        public event Action<MarketTick>? TickReceived;
 
         public Uri? BuildAuthorizationUri() => IsConfigured ? _app.GetAuthUri() : null;
 
@@ -234,6 +251,7 @@ namespace Poink.Sim.Services.CTrader
             var to = DateTimeOffset.UtcNow;
             var from = to.AddDays(-HistoryDays);
 
+            await ThrottleHistoricalAsync(cancellationToken);
             var result = await _client.GetTrendbarsAsync(
                 SelectedAccountId.Value, symbolId, ProtoOATrendbarPeriod.H1, from, to, cancellationToken);
 
@@ -258,10 +276,83 @@ namespace Poink.Sim.Services.CTrader
             return bars;
         }
 
+        public bool CanFetchHistory => _client is not null && SelectedAccountId is not null;
+
+        async Task<IReadOnlyList<Tick>> ICTraderHistory.GetHistoricalTicksAsync(
+            long symbolId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken)
+        {
+            if (_client is null || SelectedAccountId is null || toUtc <= fromUtc)
+                return Array.Empty<Tick>();
+
+            await _historyGate.WaitAsync(cancellationToken);
+            try
+            {
+                var bid = await FetchSideAsync(symbolId, ProtoOAQuoteType.Bid, fromUtc, toUtc, cancellationToken);
+                var ask = await FetchSideAsync(symbolId, ProtoOAQuoteType.Ask, fromUtc, toUtc, cancellationToken);
+                var ticks = TickDataDecoder.Merge(bid, ask);
+
+                _logger.LogInformation(
+                    "cTrader: fetched {TickCount} historical tick(s) for symbol {SymbolId} ({From:u}..{To:u}).",
+                    ticks.Count, symbolId, fromUtc, toUtc);
+
+                return ticks;
+            }
+            finally
+            {
+                _historyGate.Release();
+            }
+        }
+
+        private async Task<List<PricePoint>> FetchSideAsync(
+            long symbolId, ProtoOAQuoteType type, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken)
+        {
+            var points = new List<PricePoint>();
+            var windowTo = toUtc;
+
+            for (var page = 0; page < MaxTickPages; page++)
+            {
+                if (_client is null) break;
+
+                await ThrottleHistoricalAsync(cancellationToken);
+                var response = await _client.GetTickDataAsync(SelectedAccountId!.Value, symbolId, type, fromUtc, windowTo, cancellationToken);
+                if (response.TickData.Count == 0) break;
+
+                var decoded = TickDataDecoder.Decode(response.TickData);
+                points.AddRange(decoded);
+
+                var oldest = decoded[0].TimestampUtc;
+                if (!response.HasMore || oldest <= fromUtc) break;
+
+                windowTo = oldest.AddMilliseconds(-1);
+            }
+
+            points.Sort((a, b) => a.TimestampUtc.CompareTo(b.TimestampUtc));
+            return points;
+        }
+
+        private async Task ThrottleHistoricalAsync(CancellationToken cancellationToken)
+        {
+            await _historyRateGate.WaitAsync(cancellationToken);
+            try
+            {
+                var elapsed = DateTime.UtcNow - _lastHistoricalRequestUtc;
+                if (elapsed < HistoricalRequestInterval)
+                    await Task.Delay(HistoricalRequestInterval - elapsed, cancellationToken);
+
+                _lastHistoricalRequestUtc = DateTime.UtcNow;
+            }
+            finally
+            {
+                _historyRateGate.Release();
+            }
+        }
+
         public async ValueTask DisposeAsync()
         {
             await DisconnectAsync();
             _gate.Dispose();
+            _historyGate.Dispose();
+            _historyRateGate.Dispose();
         }
 
         private string EnvironmentLabel => UseLiveEnvironment ? "Live" : "Demo";
@@ -352,21 +443,32 @@ namespace Poink.Sim.Services.CTrader
         private void OnSpotEvent(ProtoOASpotEvent spot)
         {
             bool updated = false;
+            MarketTick? tick = null;
 
             lock (_quotesLock)
             {
                 if (_quotes.TryGetValue(spot.SymbolId, out var quote))
                 {
-                    _quotes[spot.SymbolId] = quote with
+                    var next = quote with
                     {
                         Bid = spot.HasBid ? spot.Bid / PriceScale : quote.Bid,
                         Ask = spot.HasAsk ? spot.Ask / PriceScale : quote.Ask,
                         UpdatedAt = DateTime.Now
                     };
+                    _quotes[spot.SymbolId] = next;
                     updated = true;
+
+                    if (next.Bid is { } bid && next.Ask is { } ask)
+                    {
+                        var timestampUtc = spot.HasTimestamp
+                            ? DateTimeOffset.FromUnixTimeMilliseconds(spot.Timestamp).UtcDateTime
+                            : DateTime.UtcNow;
+                        tick = new MarketTick(spot.SymbolId, next.SymbolName, timestampUtc, bid, ask);
+                    }
                 }
             }
 
+            if (tick is { } t) TickReceived?.Invoke(t);
             if (updated) NotifyQuotesThrottled();
         }
 
