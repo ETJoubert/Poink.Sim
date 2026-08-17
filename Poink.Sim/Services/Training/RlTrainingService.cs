@@ -40,7 +40,7 @@ internal sealed class RlTrainingService : IRlTrainingService
     private readonly object _lock = new();
     private readonly BrainRegistry _brainRegistry;
     private readonly List<IRlTrainingStrategy> _strategies;
-    private readonly List<IRewardPolicy> _rewardPolicies;
+    private readonly IRewardPolicyService _rewardPolicyService;
     private readonly List<RlEpisodeMetric> _episodeMetrics = new();
     private readonly List<RlEpisodeTrades> _episodeTrades = new();
     private readonly List<RlEpisodeWindow> _episodeWindows = new();
@@ -73,13 +73,13 @@ internal sealed class RlTrainingService : IRlTrainingService
     private volatile bool _pauseAfterNextEpisode;
 
     public RlTrainingService(
-        BrainRegistry brainRegistry, IEnumerable<IRlTrainingStrategy> strategies, IEnumerable<IRewardPolicy> rewardPolicies,
+        BrainRegistry brainRegistry, IEnumerable<IRlTrainingStrategy> strategies, IRewardPolicyService rewardPolicyService,
         IModelService modelService, IBrainService brainService, ITickRepository tickRepository,
         Trader.ITraderFactory traderFactory, ILogger<RlTrainingService> logger)
     {
         _brainRegistry = brainRegistry;
         _strategies = strategies.ToList();
-        _rewardPolicies = rewardPolicies.ToList();
+        _rewardPolicyService = rewardPolicyService;
         _modelService = modelService;
         _brainService = brainService;
         _tickRepository = tickRepository;
@@ -135,8 +135,6 @@ internal sealed class RlTrainingService : IRlTrainingService
         _brainRegistry.All.Select(b => new BrainOption(b.Name, b is IPolicyGradientBrain)).ToList();
 
     public IReadOnlyList<string> StrategyNames => _strategies.Select(s => s.Name).ToList();
-
-    public IReadOnlyList<string> RewardPolicyNames => _rewardPolicies.Select(p => p.Name).ToList();
 
     public bool IsRunning { get; private set; }
     public bool IsPaused { get; private set; }
@@ -215,7 +213,7 @@ internal sealed class RlTrainingService : IRlTrainingService
 
 
     public bool TryStartTraining(
-        string brainName, string strategyName, string rewardPolicyName, int episodeCount, int episodeBars, int barWidthSeconds, double startingCash,
+        string brainName, string strategyName, int episodeCount, int episodeBars, int barWidthSeconds, double startingCash,
         double learningRate, (string Table, DateTime From, DateTime To)? historicRange,
         Trader.TraderSettings? traderSettings = null, bool pauseAfterFirstEpisode = false,
         EpisodeTimeConstraint? episodeTimeConstraint = null)
@@ -244,7 +242,7 @@ internal sealed class RlTrainingService : IRlTrainingService
         }
 
         var strategy = _strategies.FirstOrDefault(s => s.Name == strategyName);
-        var rewardPolicy = _rewardPolicies.FirstOrDefault(p => p.Name == rewardPolicyName);
+        var rewardPolicy = _rewardPolicyService.SelectedPolicy;
 
         lock (_lock)
         {
@@ -255,8 +253,6 @@ internal sealed class RlTrainingService : IRlTrainingService
             { Error = $"no brain named '{brainName}'"; return false; }
             if (strategy is null)
             { Error = $"no training strategy named '{strategyName}'"; return false; }
-            if (rewardPolicy is null)
-            { Error = $"no reward policy named '{rewardPolicyName}'"; return false; }
             if (!strategy.CanTrain(brain))
             { Error = $"'{strategy.Name}' cannot train '{brain.Name}'"; return false; }
 
@@ -305,9 +301,9 @@ internal sealed class RlTrainingService : IRlTrainingService
             : "unrestricted";
         _logger.LogInformation(
             "Training started: brain={Brain}, strategy={Strategy}, rewardPolicy={RewardPolicy}, episodes={EpisodeCount}, episodeBars={EpisodeBars}, warmupBars={WarmupBars}, barWidthSeconds={BarWidthSeconds}, source={Source}, timing={Timing}",
-            brainName, strategyName, rewardPolicyName, episodeCount, episodeBars, warmupBars, barWidthSeconds, source, timing);
+            brainName, strategyName, rewardPolicy.Name, episodeCount, episodeBars, warmupBars, barWidthSeconds, source, timing);
         AppendLog("info",
-            $"start: brain={brainName}, strategy={strategyName}, policy={rewardPolicyName}, {episodeCount} episodes x {episodeBars} bars @ {BarSizeOptions.Label(barWidthSeconds)}, lr={learningRate:N4}, cash={startingCash:N0}, source={source}, timing={timing}");
+            $"start: brain={brainName}, strategy={strategyName}, policy={rewardPolicy.Name}, {episodeCount} episodes x {episodeBars} bars @ {BarSizeOptions.Label(barWidthSeconds)}, lr={learningRate:N4}, cash={startingCash:N0}, source={source}, timing={timing}");
 
         var barWidth = TimeSpan.FromSeconds(barWidthSeconds);
 
@@ -720,7 +716,7 @@ internal sealed class RlTrainingService : IRlTrainingService
 
 
     public bool SaveBrain(
-        string savedName, string brainName, string strategyName, string rewardPolicyName, string dataset,
+        string savedName, string brainName, string strategyName, string dataset,
         int episodeBars, int barWidthSeconds, double startingCash, double learningRate,
         Trader.TraderSettings? traderSettings = null)
     {
@@ -758,7 +754,7 @@ internal sealed class RlTrainingService : IRlTrainingService
             _brainRecipes.TryGetValue(brainName, out var recipe); // null for the 4 fixed Program.cs brains
 
             if (!_modelService.SaveModel(
-                    savedName, brainName, strategyName, rewardPolicyName, dataset, parameters, recipe, trainedAt,
+                    savedName, brainName, strategyName, _rewardPolicyService.SelectedPolicyName, dataset, parameters, recipe, trainedAt,
                     brain.WeightCount(), RecentAverageReward, weights))
             {
                 SaveStatus = $"save failed: {_modelService.Status}";

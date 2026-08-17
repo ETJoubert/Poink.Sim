@@ -116,7 +116,7 @@ builder.Services.AddScoped<IProfilerService, ProfilerService>();
 builder.Services.AddScoped<ITransformerService, TransformerService>();
 builder.Services.AddSingleton<IRlTrainingStrategy, PolicyGradientTrainingStrategy>();
 
-builder.Services.AddSingleton<IRewardPolicy, EquityDriftRewardPolicy>();
+builder.Services.AddSingleton<IRewardPolicyService, RewardPolicyService>();
 builder.Services.AddSingleton<IRlTrainingService, RlTrainingService>();
 builder.Services.AddSingleton<ICodeSourceIndex, CodeSourceIndex>();
 builder.Services.AddScoped<ICodeGraphProvider, CodeGraphProvider>();

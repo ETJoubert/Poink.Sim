@@ -51,12 +51,15 @@ internal sealed class CodeGraphProvider : ICodeGraphProvider
     private const string SetOnTrainPage = "set on /train";
 
     private readonly IRlTrainingService _training;
+    private readonly IRewardPolicyService _rewardPolicies;
     private readonly ISimulationEngine _simulation;
     private readonly ICodeSourceIndex _sourceIndex;
 
-    public CodeGraphProvider(IRlTrainingService training, ISimulationEngine simulation, ICodeSourceIndex sourceIndex)
+    public CodeGraphProvider(
+        IRlTrainingService training, IRewardPolicyService rewardPolicies, ISimulationEngine simulation, ICodeSourceIndex sourceIndex)
     {
         _training = training;
+        _rewardPolicies = rewardPolicies;
         _simulation = simulation;
         _sourceIndex = sourceIndex;
     }
@@ -617,7 +620,7 @@ internal sealed class CodeGraphProvider : ICodeGraphProvider
         [
             episodes,
             new CodeSetting("Strategy", _training.StrategyNames.FirstOrDefault() ?? SetOnTrainPage),
-            new CodeSetting("Reward policy", _training.RewardPolicyNames.FirstOrDefault() ?? SetOnTrainPage),
+            new CodeSetting("Reward policy", _rewardPolicies.SelectedPolicyName),
             new CodeSetting("Bars / episode", SetOnTrainPage),
             new CodeSetting("Learn rate", SetOnTrainPage)
         ];
@@ -775,7 +778,7 @@ internal sealed class CodeGraphProvider : ICodeGraphProvider
     }
 
     private IReadOnlyList<CodeBadge> RewardBadges() =>
-        [new CodeBadge("policies", _training.RewardPolicyNames.Count.ToString(CultureInfo.InvariantCulture))];
+        [new CodeBadge("policies", _rewardPolicies.PolicyNames.Count.ToString(CultureInfo.InvariantCulture))];
 
     private IReadOnlyList<CodeBadge> StrategyBadges() =>
         [new CodeBadge("strategies", _training.StrategyNames.Count.ToString(CultureInfo.InvariantCulture))];

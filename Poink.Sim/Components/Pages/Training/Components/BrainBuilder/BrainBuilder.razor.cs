@@ -15,6 +15,8 @@ namespace Poink.Sim.Components.Training
     {
         [Inject] private IRlTrainingService Service { get; set; } = default!;
 
+        [Inject] private IRewardPolicyService RewardPolicyService { get; set; } = default!;
+
         [Inject] private IBrainService BrainService { get; set; } = default!;
 
         [Parameter] public EventCallback<string> OnBrainCreated { get; set; }
@@ -25,9 +27,6 @@ namespace Poink.Sim.Components.Training
 
         [Parameter] public string StrategyName { get; set; } = "";
         [Parameter] public EventCallback<string> StrategyNameChanged { get; set; }
-
-        [Parameter] public string RewardPolicyName { get; set; } = "";
-        [Parameter] public EventCallback<string> RewardPolicyNameChanged { get; set; }
 
         [Parameter] public double LearningRate { get; set; }
         [Parameter] public EventCallback<double> LearningRateChanged { get; set; }
@@ -47,8 +46,6 @@ namespace Poink.Sim.Components.Training
                 _ = BrainNameChanged.InvokeAsync(TrainableBrainOptions[0].Name);
             if (string.IsNullOrEmpty(StrategyName) && Service.StrategyNames.Count > 0)
                 _ = StrategyNameChanged.InvokeAsync(Service.StrategyNames[0]);
-            if (string.IsNullOrEmpty(RewardPolicyName) && Service.RewardPolicyNames.Count > 0)
-                _ = RewardPolicyNameChanged.InvokeAsync(Service.RewardPolicyNames[0]);
         }
 
         protected override void OnParametersSet()
@@ -121,7 +118,7 @@ namespace Poink.Sim.Components.Training
 
         private Task OnStrategyChanged(ChangeEventArgs e) => StrategyNameChanged.InvokeAsync(e.Value?.ToString() ?? "");
 
-        private Task OnRewardPolicyChanged(ChangeEventArgs e) => RewardPolicyNameChanged.InvokeAsync(e.Value?.ToString() ?? "");
+        private void OnRewardPolicyChanged(ChangeEventArgs e) => RewardPolicyService.SelectPolicy(e.Value?.ToString() ?? "");
 
         private Task OnLearningRateChanged(ChangeEventArgs e) =>
             double.TryParse(e.Value?.ToString(), out var rate) ? LearningRateChanged.InvokeAsync(rate) : Task.CompletedTask;

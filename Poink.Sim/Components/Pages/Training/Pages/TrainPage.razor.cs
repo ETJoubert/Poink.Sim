@@ -34,7 +34,6 @@ namespace Poink.Sim.Components.Pages
         private int _barWidthSeconds = 60;
 
         private string _strategyName = "";
-        private string _rewardPolicyName = "";
         private int _episodeCount = 1000;
         private int _episodeBars = 20;
         private double _learningRate = 0.001;
@@ -199,8 +198,6 @@ namespace Poink.Sim.Components.Pages
             { _startError = "pick a brain"; return false; }
             if (string.IsNullOrWhiteSpace(_strategyName))
             { _startError = "pick a strategy"; return false; }
-            if (string.IsNullOrWhiteSpace(_rewardPolicyName))
-            { _startError = "pick a reward policy"; return false; }
             if (_episodeCount < 1)
             { _startError = "episode count must be positive"; return false; }
             if (EffectiveEpisodeBars < 1)
@@ -266,7 +263,7 @@ namespace Poink.Sim.Components.Pages
             { _startError = "episode timing: session end must be after session start"; return; }
 
             if (!Service.TryStartTraining(
-                    _brainName, _strategyName, _rewardPolicyName, _episodeCount, EffectiveEpisodeBars, _barWidthSeconds, _startingCash, _learningRate,
+                    _brainName, _strategyName, _episodeCount, EffectiveEpisodeBars, _barWidthSeconds, _startingCash, _learningRate,
                     (_table, _from, _to), CurrentTraderSettings, pauseAfterFirstEpisode, CurrentEpisodeTimeConstraint))
                 _startError = Service.Error ?? "a training run is already in progress";
         }
@@ -288,7 +285,7 @@ namespace Poink.Sim.Components.Pages
             if (string.IsNullOrWhiteSpace(_saveName))
                 return;
 
-            if (Service.SaveBrain(_saveName, _brainName, _strategyName, _rewardPolicyName, CurrentDatasetDescription,
+            if (Service.SaveBrain(_saveName, _brainName, _strategyName, CurrentDatasetDescription,
                     EffectiveEpisodeBars, _barWidthSeconds, _startingCash, _learningRate,
                     CurrentTraderSettings))
             {

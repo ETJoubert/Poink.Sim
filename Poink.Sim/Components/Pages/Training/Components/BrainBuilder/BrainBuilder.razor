@@ -81,9 +81,9 @@
             <label class="train-brainrow-field"
                    title="Which rules shape the per-decision reward -- Equity Drift is the raw, unshaped baseline; Trading Rules adds loss-aversion, an anti-churn entry cost, and a max-holding-time penalty on top of it">
                 Reward Policy
-                <select class="train-brainrow-select" value="@RewardPolicyName" @onchange="OnRewardPolicyChanged"
+                <select class="train-brainrow-select" value="@RewardPolicyService.SelectedPolicyName" @onchange="OnRewardPolicyChanged"
                         disabled="@Service.IsRunning">
-                    @foreach (var name in Service.RewardPolicyNames)
+                    @foreach (var name in RewardPolicyService.PolicyNames)
                     {
                         <option value="@name">@name</option>
                     }

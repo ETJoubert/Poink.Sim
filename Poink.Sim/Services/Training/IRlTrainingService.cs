@@ -13,7 +13,6 @@ internal interface IRlTrainingService
     IReadOnlyList<string> DraftBrainNames { get; }
     IReadOnlyList<BrainOption> BrainOptions { get; }
     IReadOnlyList<string> StrategyNames { get; }
-    IReadOnlyList<string> RewardPolicyNames { get; }
 
     bool IsRunning { get; }
     bool IsPaused { get; }
@@ -51,7 +50,7 @@ internal interface IRlTrainingService
     int GetWarmupBars(string brainName);
 
     bool TryStartTraining(
-        string brainName, string strategyName, string rewardPolicyName, int episodeCount, int episodeBars, int barWidthSeconds, double startingCash,
+        string brainName, string strategyName, int episodeCount, int episodeBars, int barWidthSeconds, double startingCash,
         double learningRate, (string Table, DateTime From, DateTime To)? historicRange,
         Trader.TraderSettings? traderSettings = null, bool pauseAfterFirstEpisode = false,
         EpisodeTimeConstraint? episodeTimeConstraint = null);
@@ -75,7 +74,7 @@ internal interface IRlTrainingService
         double decisionTemperature = 1.0, CnnKernelSweepSource cnnKernelSweepSource = CnnKernelSweepSource.BarWindow);
 
     bool SaveBrain(
-        string savedName, string brainName, string strategyName, string rewardPolicyName, string dataset,
+        string savedName, string brainName, string strategyName, string dataset,
         int episodeBars, int barWidthSeconds, double startingCash, double learningRate,
         Trader.TraderSettings? traderSettings = null);
 
