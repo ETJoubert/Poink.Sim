@@ -86,7 +86,7 @@ builder.Services.AddSingleton<ISimulationBrain, RandomBrain>();
 
 builder.Services.AddSingleton<BrainRegistry>();
 
-builder.Services.AddRiskPolicies();
+builder.Services.AddSingleton<IRiskPolicyService, RiskPolicyService>();
 builder.Services.AddSingleton<ITraderFactory, TraderFactory>();
 builder.Services.AddSingleton<ISimulationEngine, SimulationEngine>();
 

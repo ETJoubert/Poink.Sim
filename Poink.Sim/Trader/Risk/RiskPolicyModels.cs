@@ -11,3 +11,9 @@ internal readonly record struct RiskContext(
     IReadOnlyList<Trade> Trades);
 
 public readonly record struct RiskPolicyInfo(string Name, string Description);
+
+public sealed record RiskPolicySnapshot(string Name, string Description, bool Enabled);
+
+public readonly record struct RiskPolicyStatus(string Name, string Status);
+
+public readonly record struct RiskPolicyDenial(string PolicyName, string Reason, DateTime TimestampUtc);

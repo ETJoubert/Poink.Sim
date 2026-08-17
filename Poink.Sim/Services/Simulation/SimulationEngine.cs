@@ -48,7 +48,6 @@ internal sealed class SimulationEngine : ISimulationEngine
         public required Trader.ITrader Trader;
         public TraderControlMode Mode = TraderControlMode.Auto;
         public readonly RingBuffer<SimulationLogEntry> RecentLog = new(MaxRecentLog);
-        public RiskPolicyDenial? LastDenial;
 
         public IReadOnlyList<RlInputFeature>? LatestInputs;
         public IReadOnlyList<RlOutputFeature>? LatestOutputs;
@@ -82,17 +81,17 @@ internal sealed class SimulationEngine : ISimulationEngine
 
     private readonly ITickRepository _tickRepository;
     private readonly Trader.ITraderFactory _traderFactory;
-    private readonly IRiskPolicyRegistry _riskPolicyRegistry;
+    private readonly IRiskPolicyService _riskPolicyService;
     private readonly ILogger<SimulationEngine> _logger;
 
     public SimulationEngine(
         BrainRegistry brainRegistry, ITickRepository tickRepository, Trader.ITraderFactory traderFactory,
-        IRiskPolicyRegistry riskPolicyRegistry, ILogger<SimulationEngine> logger)
+        IRiskPolicyService riskPolicyService, ILogger<SimulationEngine> logger)
     {
         _brainRegistry = brainRegistry;
         _tickRepository = tickRepository;
         _traderFactory = traderFactory;
-        _riskPolicyRegistry = riskPolicyRegistry;
+        _riskPolicyService = riskPolicyService;
         _logger = logger;
         _timer = new Timer(TimerCallback, null, Timeout.Infinite, Timeout.Infinite);
     }
@@ -195,7 +194,7 @@ internal sealed class SimulationEngine : ISimulationEngine
             _cursor = 0;
             _totalCount = totalCount;
             _config = config;
-            _riskToggles = config.RiskPolicyNames is { Count: > 0 } riskNames ? new RiskPolicyToggles(riskNames) : null;
+            _riskToggles = _riskPolicyService.CreateToggles(config.RiskPolicyNames, config.LockRiskPolicies);
             _traderSessions = CreateSessions(config.TraderCount, config.StartingCash, BuildTraderSettings(config, _riskToggles));
             _selectedTraderIdForIo = _traderSessions.Count > 0 ? _traderSessions[0].Id : null;
             _aggregator = config.Aggregate
@@ -531,12 +530,12 @@ internal sealed class SimulationEngine : ISimulationEngine
 
     public bool SetRiskPolicyEnabled(string policyName, bool enabled)
     {
+        bool changed;
         lock (_lock)
-        {
-            if (_config is null || _config.LockRiskPolicies || _riskToggles is null)
-                return false;
-            _riskToggles.Set(policyName, enabled);
-        }
+        { changed = _traderSessions.FirstOrDefault()?.Trader is IRiskInspectable insp && insp.SetPolicyEnabled(policyName, enabled); }
+
+        if (!changed)
+            return false;
         PublishSnapshot();
         _logger.LogInformation("Risk policy {Policy} {State}", policyName, enabled ? "enabled" : "disabled");
         return true;
@@ -545,12 +544,12 @@ internal sealed class SimulationEngine : ISimulationEngine
 
     public bool MoveRiskPolicy(string policyName, int delta)
     {
+        bool changed;
         lock (_lock)
-        {
-            if (_config is null || _config.LockRiskPolicies || _riskToggles is null)
-                return false;
-            _riskToggles.Move(policyName, delta);
-        }
+        { changed = _traderSessions.FirstOrDefault()?.Trader is IRiskInspectable insp && insp.MovePolicy(policyName, delta); }
+
+        if (!changed)
+            return false;
         PublishSnapshot();
         return true;
     }
@@ -580,10 +579,7 @@ internal sealed class SimulationEngine : ISimulationEngine
             if (execution is { } exec)
             {
                 AppendLog(session, LogEntryFor(exec, (bid + ask) / 2.0, timestamp));
-                session.LastDenial = exec.Blocked
-                    ? new RiskPolicyDenial(exec.DeniedByPolicy ?? "risk policy", exec.Reason ?? "denied", timestamp)
-                    : null;
-                denial = session.LastDenial;
+                denial = session.Trader is IRiskInspectable insp ? insp.LastDenial : null;
             }
         }
         PublishSnapshot();
@@ -605,18 +601,6 @@ internal sealed class SimulationEngine : ISimulationEngine
             execution.Blocked ? $"{execution.Action} (blocked)" : execution.Action.ToString(),
             price, execution.Direction, execution.Size, execution.RealizedPnl, execution.Commission, execution.Reason);
 
-    private IReadOnlyList<RiskPolicySnapshot> BuildRiskPolicySnapshotsLocked()
-    {
-        if (_riskToggles is null)
-            return Array.Empty<RiskPolicySnapshot>();
-
-        var descriptions = _riskPolicyRegistry.AvailablePolicies.ToDictionary(policy => policy.Name, policy => policy.Description);
-        return _riskToggles.States()
-            .Select(state => new RiskPolicySnapshot(
-                state.Name, descriptions.TryGetValue(state.Name, out var description) ? description : "", state.Enabled))
-            .ToList();
-    }
-
     private void PublishSnapshot()
     {
         SimulationSnapshot? snapshot;
@@ -631,6 +615,8 @@ internal sealed class SimulationEngine : ISimulationEngine
                 barHistograms.Add(_aggregator.CurrentPartialHistogram!);
             }
 
+            var primaryRisk = _traderSessions.FirstOrDefault()?.Trader as IRiskInspectable;
+
             snapshot = _config is null || _reader is null
                 ? null
                 : new SimulationSnapshot(
@@ -642,9 +628,9 @@ internal sealed class SimulationEngine : ISimulationEngine
                         ts.Trader.MaxEquity, ts.Trader.MaxDrawdown, ts.Trader.Leverage, ts.Trader.StopOutLevelPercent,
                         ts.LatestInputs, ts.LatestOutputs,
                         ts.Trader is IRiskInspectable inspectable ? inspectable.PolicyStatuses() : Array.Empty<RiskPolicyStatus>(),
-                        ts.LastDenial)).ToList(),
+                        ts.Trader is IRiskInspectable denialInspectable ? denialInspectable.LastDenial : null)).ToList(),
                     bars, barHistograms, _recentTicks.ToList(),
-                    BuildRiskPolicySnapshotsLocked(), _config.LockRiskPolicies);
+                    primaryRisk?.PolicyStates() ?? Array.Empty<RiskPolicySnapshot>(), primaryRisk?.PoliciesLocked ?? false);
         }
         Snapshot = snapshot;
         Progress = snapshot is null

@@ -18,7 +18,7 @@ namespace Poink.Sim.Components.Pages
     {
         [Inject] private IRlTrainingService Service { get; set; } = default!;
 
-        [Inject] private IRiskPolicyRegistry RiskPolicyRegistry { get; set; } = default!;
+        [Inject] private IRiskPolicyService RiskPolicyService { get; set; } = default!;
 
         // Set via @ref on the Build panel -- StartTrainingCore asks it to
         // draft a live, unsaved brain from its current fields right before a

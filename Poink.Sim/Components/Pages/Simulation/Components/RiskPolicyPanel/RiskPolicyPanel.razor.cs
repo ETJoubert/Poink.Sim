@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Poink.Sim.Models;
 using Poink.Sim.Simulation;
+using Poink.Sim.Trader.Risk;
 
 namespace Poink.Sim.Components.Simulation
 {

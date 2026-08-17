@@ -8,14 +8,14 @@ using Poink.Sim.Trader.Risk;
 /// </summary>
 internal sealed class TraderFactory : ITraderFactory
 {
-    private readonly IRiskManagerFactory _riskManagerFactory;
+    private readonly IRiskPolicyService _riskPolicyService;
 
-    public TraderFactory(IRiskManagerFactory riskManagerFactory) => _riskManagerFactory = riskManagerFactory;
+    public TraderFactory(IRiskPolicyService riskPolicyService) => _riskPolicyService = riskPolicyService;
 
     public ITrader Create(double startingCash, TraderSettings? settings = null)
     {
         var effectiveSettings = settings ?? new TraderSettings();
         var trader = new Trader(startingCash, effectiveSettings);
-        return _riskManagerFactory.Wrap(trader, effectiveSettings.EffectiveRiskPolicyNames, effectiveSettings.RiskToggles);
+        return _riskPolicyService.Wrap(trader, effectiveSettings.EffectiveRiskPolicyNames, effectiveSettings.RiskToggles);
     }
 }

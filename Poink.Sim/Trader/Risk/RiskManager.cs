@@ -73,4 +73,12 @@ internal sealed class RiskManager : IRiskManager
             .Where(policy => policy.Status is not null)
             .Select(policy => new RiskPolicyStatus(policy.Name, policy.Status!))
             .ToList();
+
+    public IReadOnlyList<RiskPolicySnapshot> PolicyStates() => _toggles?.States() ?? Array.Empty<RiskPolicySnapshot>();
+
+    public bool PoliciesLocked => _toggles?.Locked ?? false;
+
+    public bool SetPolicyEnabled(string policyName, bool enabled) => _toggles is not null && _toggles.Set(policyName, enabled);
+
+    public bool MovePolicy(string policyName, int delta) => _toggles is not null && _toggles.Move(policyName, delta);
 }

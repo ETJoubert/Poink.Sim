@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using Poink.Sim.Brain.Neural;
 using Poink.Sim.Repository;
 using Poink.Sim.Trader.Orders;
+using Poink.Sim.Trader.Risk;
 
 namespace Poink.Sim.Models;
 
@@ -32,13 +33,6 @@ internal sealed record TraderSnapshot(
     double MaxEquity, double MaxDrawdown, double Leverage, double StopOutLevelPercent,
     IReadOnlyList<RlInputFeature>? Inputs, IReadOnlyList<RlOutputFeature>? Outputs,
     IReadOnlyList<RiskPolicyStatus> RiskPolicyStatuses, RiskPolicyDenial? LastDenial);
-
-public sealed record RiskPolicySnapshot(string Name, string Description, bool Enabled);
-
-public readonly record struct RiskPolicyStatus(string Name, string Status);
-
-public readonly record struct RiskPolicyDenial(string PolicyName, string Reason, DateTime TimestampUtc);
-
 
 internal sealed record SimulationSnapshot(
     SimulationConfig Config, bool IsPlaying, bool IsFinished, double SpeedMultiplier, bool IsUncapped,

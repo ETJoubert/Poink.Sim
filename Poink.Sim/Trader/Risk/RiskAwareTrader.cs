@@ -19,6 +19,16 @@ internal sealed class RiskAwareTrader : ITrader, IRiskInspectable
 
     public IReadOnlyList<RiskPolicyStatus> PolicyStatuses() => _riskManager.PolicyStatuses();
 
+    public IReadOnlyList<RiskPolicySnapshot> PolicyStates() => _riskManager.PolicyStates();
+
+    public bool PoliciesLocked => _riskManager.PoliciesLocked;
+
+    public bool SetPolicyEnabled(string policyName, bool enabled) => _riskManager.SetPolicyEnabled(policyName, enabled);
+
+    public bool MovePolicy(string policyName, int delta) => _riskManager.MovePolicy(policyName, delta);
+
+    public RiskPolicyDenial? LastDenial { get; private set; }
+
     public double Cash => _core.Cash;
     public double RealizedPnl => _core.RealizedPnl;
     public Position? CurrentPosition => _core.CurrentPosition;
@@ -56,8 +66,12 @@ internal sealed class RiskAwareTrader : ITrader, IRiskInspectable
     {
         var review = _riskManager.Gate(decision, bid, ask, timestamp);
         if (review.Verdict == RiskVerdict.Deny)
+        {
+            LastDenial = new RiskPolicyDenial(review.PolicyName ?? "risk policy", review.Reason ?? "denied", timestamp);
             return new TradeExecution(decision.Action, DirectionFor(decision.Action), 0, null, 0, review.Reason, Blocked: true, DeniedByPolicy: review.PolicyName);
+        }
 
+        LastDenial = null;
         return _core.Apply(review.Decision, bid, ask, timestamp);
     }
 

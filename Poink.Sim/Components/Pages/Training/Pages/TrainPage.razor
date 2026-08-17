@@ -170,12 +170,12 @@
                                            @bind="_stopOutLevelPercent" disabled="@Service.IsRunning" />
                                 </label>
                             </div>
-                            @if (RiskPolicyRegistry.AvailablePolicies.Count > 0)
+                            @if (RiskPolicyService.AvailablePolicies.Count > 0)
                             {
                                 <div class="train-card-fields-row"
                                      title="Risk policies gate every trade action -- permit, deny or resize it -- and supervise open positions during each episode">
                                     <span class="train-brainrow-field">Risk policies</span>
-                                    <PolicySelector Available="RiskPolicyRegistry.AvailablePolicies" Selected="_selectedRiskPolicies"
+                                    <PolicySelector Available="RiskPolicyService.AvailablePolicies" Selected="_selectedRiskPolicies"
                                                     Disabled="Service.IsRunning" OnChanged="StateHasChanged" />
                                 </div>
                             }

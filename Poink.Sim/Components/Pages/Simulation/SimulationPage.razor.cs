@@ -25,7 +25,7 @@ namespace Poink.Sim.Components.Pages
 
         [Inject] private IModelService ModelService { get; set; } = default!;
 
-        [Inject] private IRiskPolicyRegistry RiskPolicyRegistry { get; set; } = default!;
+        [Inject] private IRiskPolicyService RiskPolicyService { get; set; } = default!;
 
         // ── Setup form state ──
 

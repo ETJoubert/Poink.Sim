@@ -12,4 +12,12 @@ internal interface IRiskManager
     IReadOnlyList<SimulationDecision> Supervise(double bid, double ask, DateTime timestamp);
 
     IReadOnlyList<RiskPolicyStatus> PolicyStatuses();
+
+    IReadOnlyList<RiskPolicySnapshot> PolicyStates();
+
+    bool PoliciesLocked { get; }
+
+    bool SetPolicyEnabled(string policyName, bool enabled);
+
+    bool MovePolicy(string policyName, int delta);
 }

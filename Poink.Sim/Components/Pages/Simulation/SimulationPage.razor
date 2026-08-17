@@ -198,12 +198,12 @@
                 </label>
             </div>
 
-            @if (RiskPolicyRegistry.AvailablePolicies.Count > 0)
+            @if (RiskPolicyService.AvailablePolicies.Count > 0)
             {
                 <div class="sim-datarow sim-riskrow"
                      title="Risk policies gate every trade action -- permit, deny or resize it -- and supervise open positions, on top of the brain and manual controls">
                     <span class="sim-riskrow-label">Risk Policies</span>
-                    <PolicySelector Available="RiskPolicyRegistry.AvailablePolicies" Selected="_selectedRiskPolicies"
+                    <PolicySelector Available="RiskPolicyService.AvailablePolicies" Selected="_selectedRiskPolicies"
                                     Disabled="@(_isLoading || _snapshot is not null)" OnChanged="StateHasChanged">
                         <Actions>
                             @if (_selectedRiskPolicies.Count > 0)

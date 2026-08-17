@@ -463,7 +463,7 @@ internal sealed class CodeGraphProvider : ICodeGraphProvider
                 new CodeTypeRef("RiskManager", "Trader/Risk/RiskManager.cs"),
                 new CodeTypeRef("RiskAwareTrader", "Trader/Risk/RiskAwareTrader.cs"),
                 new CodeTypeRef("IRiskPolicy", "Trader/Risk/IRiskPolicy.cs"),
-                new CodeTypeRef("IRiskPolicyRegistry", "Trader/Risk/IRiskPolicyRegistry.cs"),
+                new CodeTypeRef("IRiskPolicyService", "Trader/Risk/IRiskPolicyService.cs"),
                 new CodeTypeRef("PositionManager", "Trader/Risk/PositionManager.cs")
             ],
             [new CodePort(Decision), new CodePort(RiskPolicyNames)],

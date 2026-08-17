@@ -8,12 +8,18 @@ internal sealed class RiskPolicyToggles
 {
     private readonly object _lock = new();
     private readonly List<string> _order;
+    private readonly Dictionary<string, string> _descriptions;
     private readonly Dictionary<string, bool> _enabled;
 
-    public RiskPolicyToggles(IEnumerable<string> policyNames)
+    public bool Locked { get; }
+
+    public RiskPolicyToggles(IEnumerable<(string Name, string Description)> policies, bool locked)
     {
-        _order = policyNames.Distinct().ToList();
+        var distinct = policies.GroupBy(p => p.Name).Select(g => g.First()).ToList();
+        _order = distinct.Select(p => p.Name).ToList();
+        _descriptions = distinct.ToDictionary(p => p.Name, p => p.Description);
         _enabled = _order.ToDictionary(name => name, _ => true);
+        Locked = locked;
     }
 
     public bool IsEnabled(string policyName)
@@ -22,27 +28,32 @@ internal sealed class RiskPolicyToggles
         { return !_enabled.TryGetValue(policyName, out var enabled) || enabled; }
     }
 
-    public void Set(string policyName, bool enabled)
+    public bool Set(string policyName, bool enabled)
     {
         lock (_lock)
         {
-            if (_enabled.ContainsKey(policyName))
-                _enabled[policyName] = enabled;
+            if (Locked || !_enabled.ContainsKey(policyName))
+                return false;
+            _enabled[policyName] = enabled;
+            return true;
         }
     }
 
     // delta -1 runs the policy earlier, +1 later; an out-of-range move is ignored.
-    public void Move(string policyName, int delta)
+    public bool Move(string policyName, int delta)
     {
         lock (_lock)
         {
+            if (Locked)
+                return false;
             int index = _order.IndexOf(policyName);
             if (index < 0)
-                return;
+                return false;
             int target = index + delta;
             if (target < 0 || target >= _order.Count)
-                return;
+                return false;
             (_order[index], _order[target]) = (_order[target], _order[index]);
+            return true;
         }
     }
 
@@ -52,11 +63,9 @@ internal sealed class RiskPolicyToggles
         { return _order.ToList(); }
     }
 
-    public IReadOnlyList<RiskPolicyToggleState> States()
+    public IReadOnlyList<RiskPolicySnapshot> States()
     {
         lock (_lock)
-        { return _order.Select(name => new RiskPolicyToggleState(name, _enabled[name])).ToList(); }
+        { return _order.Select(name => new RiskPolicySnapshot(name, _descriptions[name], _enabled[name])).ToList(); }
     }
 }
-
-internal readonly record struct RiskPolicyToggleState(string Name, bool Enabled);
