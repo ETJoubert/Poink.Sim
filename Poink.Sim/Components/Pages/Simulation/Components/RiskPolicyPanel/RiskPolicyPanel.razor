@@ -49,6 +49,22 @@
                     {
                         <span class="riskpolicy-card-status" title="Live state for the trader you are viewing">@status</span>
                     }
+                    @if (policy.Parameters.Count > 0)
+                    {
+                        <span class="riskpolicy-card-parameters" @onclick:stopPropagation="true">
+                            @foreach (var parameter in policy.Parameters)
+                            {
+                                <label class="riskpolicy-parameter" title="@($"{parameter.Label} for {policy.Name} -- range {parameter.Min:0.##} to {parameter.Max:0.##}")">
+                                    <span class="riskpolicy-parameter-label">@parameter.Label</span>
+                                    <input type="number" class="riskpolicy-parameter-input"
+                                           value="@parameter.Value" min="@parameter.Min" max="@parameter.Max" step="@parameter.Step"
+                                           disabled="@Locked"
+                                           title="@($"{parameter.Label} for {policy.Name} -- range {parameter.Min:0.##} to {parameter.Max:0.##}")"
+                                           @onchange="e => SetParameter(policy.Name, parameter.Key, e)" />
+                                </label>
+                            }
+                        </span>
+                    }
                 </span>
             </div>
         }

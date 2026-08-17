@@ -47,7 +47,7 @@ internal sealed class RiskPolicyService : IRiskPolicyService
 
         var entries = policyNames
             .Where(_prototypes.ContainsKey)
-            .Select(name => (name, _prototypes[name].Description));
+            .Select(name => (name, _prototypes[name].Description, _prototypes[name].Parameters));
         return new RiskPolicyToggles(entries, locked);
     }
 

@@ -16,5 +16,7 @@ internal interface IRiskInspectable
 
     bool MovePolicy(string policyName, int delta);
 
+    bool SetPolicyParameter(string policyName, string key, double value);
+
     RiskPolicyDenial? LastDenial { get; }
 }

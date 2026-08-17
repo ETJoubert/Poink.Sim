@@ -1,4 +1,5 @@
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -10,15 +11,17 @@ internal sealed class RiskPolicyToggles
     private readonly List<string> _order;
     private readonly Dictionary<string, string> _descriptions;
     private readonly Dictionary<string, bool> _enabled;
+    private readonly Dictionary<string, Dictionary<string, RiskPolicyParameter>> _parameters;
 
     public bool Locked { get; }
 
-    public RiskPolicyToggles(IEnumerable<(string Name, string Description)> policies, bool locked)
+    public RiskPolicyToggles(IEnumerable<(string Name, string Description, IReadOnlyList<RiskPolicyParameter> Parameters)> policies, bool locked)
     {
         var distinct = policies.GroupBy(p => p.Name).Select(g => g.First()).ToList();
         _order = distinct.Select(p => p.Name).ToList();
         _descriptions = distinct.ToDictionary(p => p.Name, p => p.Description);
         _enabled = _order.ToDictionary(name => name, _ => true);
+        _parameters = distinct.ToDictionary(p => p.Name, p => p.Parameters.ToDictionary(par => par.Key, par => par));
         Locked = locked;
     }
 
@@ -63,9 +66,30 @@ internal sealed class RiskPolicyToggles
         { return _order.ToList(); }
     }
 
+    public IReadOnlyList<RiskPolicyParameter> ParametersFor(string policyName)
+    {
+        lock (_lock)
+        { return _parameters.TryGetValue(policyName, out var parameters) ? parameters.Values.ToList() : Array.Empty<RiskPolicyParameter>(); }
+    }
+
+    public bool SetParameter(string policyName, string key, double value)
+    {
+        lock (_lock)
+        {
+            if (Locked || !_parameters.TryGetValue(policyName, out var parameters) || !parameters.TryGetValue(key, out var current))
+                return false;
+            parameters[key] = current with { Value = Math.Clamp(value, current.Min, current.Max) };
+            return true;
+        }
+    }
+
     public IReadOnlyList<RiskPolicySnapshot> States()
     {
         lock (_lock)
-        { return _order.Select(name => new RiskPolicySnapshot(name, _descriptions[name], _enabled[name])).ToList(); }
+        {
+            return _order
+                .Select(name => new RiskPolicySnapshot(name, _descriptions[name], _enabled[name], _parameters[name].Values.ToList()))
+                .ToList();
+        }
     }
 }

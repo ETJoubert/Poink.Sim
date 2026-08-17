@@ -539,6 +539,20 @@ internal sealed class SimulationEngine : ISimulationEngine
     }
 
 
+    public bool SetRiskPolicyParameter(string policyName, string key, double value)
+    {
+        bool changed;
+        lock (_lock)
+        { changed = _traderSessions.FirstOrDefault()?.Trader is IRiskInspectable insp && insp.SetPolicyParameter(policyName, key, value); }
+
+        if (!changed)
+            return false;
+        PublishSnapshot();
+        _logger.LogInformation("Risk policy {Policy} parameter {Key} set to {Value}", policyName, key, value);
+        return true;
+    }
+
+
     public void SelectTraderForIo(int? traderId)
     {
         lock (_lock)

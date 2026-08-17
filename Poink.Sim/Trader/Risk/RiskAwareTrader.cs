@@ -29,6 +29,8 @@ internal sealed class RiskAwareTrader : ITrader, IRiskInspectable
 
     public bool MovePolicy(string policyName, int delta) => _riskManager.MovePolicy(policyName, delta);
 
+    public bool SetPolicyParameter(string policyName, string key, double value) => _riskManager.SetPolicyParameter(policyName, key, value);
+
     public RiskPolicyDenial? LastDenial { get; private set; }
 
     public double Cash => _core.Cash;

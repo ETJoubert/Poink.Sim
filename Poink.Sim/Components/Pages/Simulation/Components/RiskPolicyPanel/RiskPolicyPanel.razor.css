@@ -203,3 +203,34 @@
 .riskpolicy-card-on .riskpolicy-card-state {
     color: var(--color-success);
 }
+
+.riskpolicy-card-parameters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    cursor: default;
+}
+
+.riskpolicy-parameter {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.66rem;
+    color: var(--color-secondary);
+}
+
+.riskpolicy-parameter-input {
+    width: 56px;
+    padding: 1px 4px;
+    font-size: 0.66rem;
+    font-family: var(--font-body);
+    color: var(--color-primary);
+    background: color-mix(in srgb, var(--color-bg-terminal) 70%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
+    border-radius: var(--border-radius-sm);
+}
+
+.riskpolicy-parameter-input:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}

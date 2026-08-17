@@ -12,8 +12,20 @@ internal readonly record struct RiskContext(
 
 public readonly record struct RiskPolicyInfo(string Name, string Description);
 
-public sealed record RiskPolicySnapshot(string Name, string Description, bool Enabled);
+public readonly record struct RiskPolicyParameter(string Key, string Label, double Value, double Min, double Max, double Step);
+
+public sealed record RiskPolicySnapshot(string Name, string Description, bool Enabled, IReadOnlyList<RiskPolicyParameter> Parameters);
 
 public readonly record struct RiskPolicyStatus(string Name, string Status);
 
 public readonly record struct RiskPolicyDenial(string PolicyName, string Reason, DateTime TimestampUtc);
+
+
+internal enum RiskVerdict { Permit, Deny, Modify }
+
+internal readonly record struct RiskReview(RiskVerdict Verdict, SimulationDecision Decision, string? Reason, string? PolicyName)
+{
+    public static RiskReview Permit(SimulationDecision decision) => new(RiskVerdict.Permit, decision, null, null);
+    public static RiskReview Deny(SimulationDecision decision, string reason, string policyName) => new(RiskVerdict.Deny, decision, reason, policyName);
+    public static RiskReview Modify(SimulationDecision decision, string reason) => new(RiskVerdict.Modify, decision, reason, null);
+}

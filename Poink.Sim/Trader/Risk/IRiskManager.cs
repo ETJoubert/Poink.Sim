@@ -20,4 +20,6 @@ internal interface IRiskManager
     bool SetPolicyEnabled(string policyName, bool enabled);
 
     bool MovePolicy(string policyName, int delta);
+
+    bool SetPolicyParameter(string policyName, string key, double value);
 }

@@ -42,5 +42,11 @@ namespace Poink.Sim.Components.Simulation
         }
 
         private void MoveRiskPolicy(string policyName, int delta) => Service.MoveRiskPolicy(policyName, delta);
+
+        private void SetParameter(string policyName, string key, ChangeEventArgs args)
+        {
+            if (double.TryParse(args.Value?.ToString(), out var value))
+                Service.SetRiskPolicyParameter(policyName, key, value);
+        }
     }
 }
