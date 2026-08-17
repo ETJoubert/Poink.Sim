@@ -46,11 +46,7 @@ internal sealed class SimulationEngine : ISimulationEngine
         public required int Id;
         public required string Label;
         public required Trader.ITrader Trader;
-        public TraderControlMode Mode = TraderControlMode.Auto;
         public readonly RingBuffer<SimulationLogEntry> RecentLog = new(MaxRecentLog);
-
-        public IReadOnlyList<RlInputFeature>? LatestInputs;
-        public IReadOnlyList<RlOutputFeature>? LatestOutputs;
     }
 
     private Func<IEnumerator<Tick>>? _openReader;
@@ -195,8 +191,9 @@ internal sealed class SimulationEngine : ISimulationEngine
             _totalCount = totalCount;
             _config = config;
             _riskToggles = _riskPolicyService.CreateToggles(config.RiskPolicyNames, config.LockRiskPolicies);
-            _traderSessions = CreateSessions(config.TraderCount, config.StartingCash, BuildTraderSettings(config, _riskToggles));
+            _traderSessions = CreateSessions(config.TraderCount, config.StartingCash, BuildTraderSettings(config, _riskToggles, brain));
             _selectedTraderIdForIo = _traderSessions.Count > 0 ? _traderSessions[0].Id : null;
+            UpdateCaptureIoLocked();
             _aggregator = config.Aggregate
                 ? new SimulationBarAggregator(config.BarSize, PriceBucketWidthFor(config.Table))
                 : null;
@@ -223,10 +220,18 @@ internal sealed class SimulationEngine : ISimulationEngine
             .Select(i => new TraderSession { Id = i, Label = $"Trader {i}", Trader = _traderFactory.Create(startingCash, settings) })
             .ToList();
 
-    private static Trader.TraderSettings BuildTraderSettings(SimulationConfig config, RiskPolicyToggles? toggles) => new(
+    // The same brain instance is shared by every trader in the run (stateless decision function
+    // over its observation, guarded internally by its own forward-pass lock), not per-trader-owned.
+    private static Trader.TraderSettings BuildTraderSettings(SimulationConfig config, RiskPolicyToggles? toggles, ISimulationBrain? brain) => new(
         config.Leverage, config.StopOutLevelPercent,
         new Trader.Commission.PercentOfNotionalCommission(config.CommissionRatePercent),
-        config.RiskPolicyNames, toggles);
+        config.RiskPolicyNames, toggles, brain);
+
+    private void UpdateCaptureIoLocked()
+    {
+        foreach (var session in _traderSessions)
+            session.Trader.CaptureIo = session.Id == _selectedTraderIdForIo;
+    }
 
     public bool Play()
     {
@@ -334,8 +339,9 @@ internal sealed class SimulationEngine : ISimulationEngine
             _reader?.Dispose();
             _reader = _openReader();
             _cursor = 0;
-            _traderSessions = CreateSessions(_config.TraderCount, _config.StartingCash, BuildTraderSettings(_config, _riskToggles));
+            _traderSessions = CreateSessions(_config.TraderCount, _config.StartingCash, BuildTraderSettings(_config, _riskToggles, _activeBrain));
             _selectedTraderIdForIo = _traderSessions.Count > 0 ? _traderSessions[0].Id : null;
+            UpdateCaptureIoLocked();
             _aggregator = _config.Aggregate
                 ? new SimulationBarAggregator(_config.BarSize, PriceBucketWidthFor(_config.Table))
                 : null;
@@ -453,11 +459,9 @@ internal sealed class SimulationEngine : ISimulationEngine
         AppendTick(tick);
 
 
-        var capitalStates = new List<CapitalState>(_traderSessions.Count);
         foreach (var session in _traderSessions)
         {
             var maintenance = session.Trader.Advance(tick.Bid, tick.Ask, tick.Timestamp);
-            capitalStates.Add(maintenance.Capital);
             foreach (var fill in maintenance.AutomaticFills)
                 AppendLog(session, LogEntryFor(fill, price, tick.Timestamp));
         }
@@ -468,46 +472,26 @@ internal sealed class SimulationEngine : ISimulationEngine
             if (completed is not null)
             {
                 AppendBar(completed.Value.Bar, completed.Value.Histogram);
-                DecideAndApply(tick.Timestamp, completed.Value.Bar.Close, tick.Bid, tick.Ask, useBars: true, capitalStates);
+                ObserveAndApply(tick.Timestamp, completed.Value.Bar.Close, tick.Bid, tick.Ask, useBars: true);
             }
         }
         else
         {
-            DecideAndApply(tick.Timestamp, price, tick.Bid, tick.Ask, useBars: false, capitalStates);
+            ObserveAndApply(tick.Timestamp, price, tick.Bid, tick.Ask, useBars: false);
         }
     }
 
-    private void DecideAndApply(DateTime timestamp, double price, double bid, double ask, bool useBars, IReadOnlyList<CapitalState> capitalStates)
+    private void ObserveAndApply(DateTime timestamp, double price, double bid, double ask, bool useBars)
     {
-        for (int i = 0; i < _traderSessions.Count; i++)
+        var window = new MarketWindow(
+            timestamp, price, bid, ask,
+            useBars ? _recentBars : Array.Empty<HlocAvdtBar>(),
+            useBars ? Array.Empty<Tick>() : _recentTicks,
+            useBars ? _recentBarHistograms : Array.Empty<BarPriceHistogram>());
+
+        foreach (var session in _traderSessions)
         {
-            var session = _traderSessions[i];
-            if (session.Mode == TraderControlMode.Manual)
-                continue;
-
-            var capital = capitalStates[i];
-            var observation = new SimulationObservation(
-                timestamp, price,
-                useBars ? _recentBars : Array.Empty<HlocAvdtBar>(),
-                useBars ? Array.Empty<Tick>() : _recentTicks,
-                useBars ? _recentBarHistograms : Array.Empty<BarPriceHistogram>(),
-                capital, session.Trader.CurrentPosition, session.Trader.TradeLog, bid, ask);
-
-
-            SimulationDecision decision;
-            if (_activeBrain is IPolicyGradientBrain policyBrain && session.Id == _selectedTraderIdForIo)
-            {
-                var (decidedAction, _, _, outputs) = policyBrain.DecideWithLogProbability(observation);
-                session.LatestInputs = policyBrain.DescribeInputs(observation);
-                session.LatestOutputs = outputs;
-                decision = decidedAction;
-            }
-            else
-            {
-                decision = _activeBrain!.Decide(observation);
-            }
-
-            var execution = session.Trader.Apply(decision, bid, ask, timestamp);
+            var execution = session.Trader.Observe(window);
             if (execution is { } exec)
                 AppendLog(session, LogEntryFor(exec, price, timestamp));
         }
@@ -521,7 +505,7 @@ internal sealed class SimulationEngine : ISimulationEngine
             var session = _traderSessions.FirstOrDefault(s => s.Id == traderId);
             if (session is null)
                 return false;
-            session.Mode = mode;
+            session.Trader.ControlMode = mode;
         }
         PublishSnapshot();
         return true;
@@ -558,10 +542,15 @@ internal sealed class SimulationEngine : ISimulationEngine
     public void SelectTraderForIo(int? traderId)
     {
         lock (_lock)
-        { _selectedTraderIdForIo = traderId; }
+        {
+            _selectedTraderIdForIo = traderId;
+            UpdateCaptureIoLocked();
+        }
     }
 
 
+    // Submitting a manual decision seizes control immediately, whatever the trader's current
+    // mode -- the Agent goes quiet (ControlMode != Auto) until the user flips back.
     public bool SubmitManualDecision(int traderId, SimulationDecision decision, out RiskPolicyDenial? denial)
     {
         denial = null;
@@ -570,12 +559,13 @@ internal sealed class SimulationEngine : ISimulationEngine
             if (_config is null)
                 return false;
             var session = _traderSessions.FirstOrDefault(s => s.Id == traderId);
-            if (session is null || session.Mode != TraderControlMode.Manual)
+            if (session is null)
                 return false;
 
             double bid = _lastBid ?? 0, ask = _lastAsk ?? 0;
             var timestamp = _lastTimestamp ?? DateTime.UtcNow;
             var execution = session.Trader.Apply(decision, bid, ask, timestamp);
+            session.Trader.ControlMode = TraderControlMode.Manual;
             if (execution is { } exec)
             {
                 AppendLog(session, LogEntryFor(exec, (bid + ask) / 2.0, timestamp));
@@ -623,10 +613,10 @@ internal sealed class SimulationEngine : ISimulationEngine
                     _config, _isPlaying, _cursor >= _totalCount, _speedMultiplier, _uncapped,
                     _cursor, _totalCount, _lastTimestamp, _lastPrice, _lastBid, _lastAsk,
                     _traderSessions.Select(ts => new TraderSnapshot(
-                        ts.Id, ts.Label, ts.Mode, ts.Trader.Snapshot(_lastBid ?? 0, _lastAsk ?? 0), ts.Trader.CurrentPosition,
+                        ts.Id, ts.Label, ts.Trader.ControlMode, ts.Trader.Snapshot(_lastBid ?? 0, _lastAsk ?? 0), ts.Trader.CurrentPosition,
                         ts.Trader.CurrentPendingOrder, ts.Trader.TradeLog.Count, ts.RecentLog.ToList(), ts.Trader.TradeLog.ToList(),
                         ts.Trader.MaxEquity, ts.Trader.MaxDrawdown, ts.Trader.Leverage, ts.Trader.StopOutLevelPercent,
-                        ts.LatestInputs, ts.LatestOutputs,
+                        ts.Trader.LatestInputs, ts.Trader.LatestOutputs,
                         ts.Trader is IRiskInspectable inspectable ? inspectable.PolicyStatuses() : Array.Empty<RiskPolicyStatus>(),
                         ts.Trader is IRiskInspectable denialInspectable ? denialInspectable.LastDenial : null)).ToList(),
                     bars, barHistograms, _recentTicks.ToList(),

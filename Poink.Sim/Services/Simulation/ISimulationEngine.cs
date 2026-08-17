@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using Poink.Sim.Models;
+using Poink.Sim.Trader;
 using Poink.Sim.Trader.Risk;
 
 namespace Poink.Sim.Simulation;

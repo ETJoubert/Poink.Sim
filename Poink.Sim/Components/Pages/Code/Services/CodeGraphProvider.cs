@@ -135,7 +135,7 @@ internal sealed class CodeGraphProvider : ICodeGraphProvider
                 new CodeTypeRef("SimulationSnapshot", "Models/SimulationSnapshot.cs"),
                 new CodeTypeRef("TraderSnapshot", "Models/SimulationSnapshot.cs"),
                 new CodeTypeRef("SimulationProgress", "Models/SimulationSnapshot.cs"),
-                new CodeTypeRef("RiskPolicySnapshot", "Models/SimulationSnapshot.cs")
+                new CodeTypeRef("RiskPolicySnapshot", "Trader/Risk/RiskPolicyModels.cs")
             ],
             [new CodePort(Snapshot)],
             [],
@@ -442,8 +442,8 @@ internal sealed class CodeGraphProvider : ICodeGraphProvider
             "Lets a person submit a decision by hand instead of the brain.",
             [
                 new CodeTypeRef("SimulationEngine.SubmitManualDecision", "Services/Simulation/SimulationEngine.cs"),
-                new CodeTypeRef("TraderControlMode", "Models/SimulationSnapshot.cs"),
-                new CodeTypeRef("RiskPolicyDenial", "Models/SimulationSnapshot.cs")
+                new CodeTypeRef("TraderControlMode", "Trader/ITrader.cs"),
+                new CodeTypeRef("RiskPolicyDenial", "Trader/Risk/RiskPolicyModels.cs")
             ],
             [],
             [new CodePort(Decision)],

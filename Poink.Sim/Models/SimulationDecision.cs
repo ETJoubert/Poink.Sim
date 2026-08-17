@@ -25,3 +25,8 @@ internal readonly record struct SimulationObservation(
     CapitalState Capital, Position? Position,
     IReadOnlyList<Trade> RecentTrades,
     double Bid, double Ask);
+
+
+internal readonly record struct MarketWindow(
+    DateTime TimestampUtc, double CurrentPrice, double Bid, double Ask,
+    IReadOnlyList<HlocAvdtBar> RecentBars, IReadOnlyList<Tick> RecentTicks, IReadOnlyList<BarPriceHistogram> RecentBarHistograms);

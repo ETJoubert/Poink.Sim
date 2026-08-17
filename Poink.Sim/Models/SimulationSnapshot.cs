@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using Poink.Sim.Brain.Neural;
 using Poink.Sim.Repository;
+using Poink.Sim.Trader;
 using Poink.Sim.Trader.Orders;
 using Poink.Sim.Trader.Risk;
 
@@ -17,9 +18,6 @@ internal sealed record SimulationConfig(
 internal sealed record SimulationLogEntry(
     DateTime TimestampUtc, string Action, double Price, PositionDirection Direction,
     double Size, double? RealizedPnl, double Commission, string? Reason);
-
-
-internal enum TraderControlMode { Auto, Manual }
 
 
 internal sealed record SimulationProgress(

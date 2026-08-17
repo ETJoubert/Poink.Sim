@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Components;
 using Poink.Sim.Models;
 using Poink.Sim.Simulation;
+using Poink.Sim.Trader;
 using Poink.Sim.Trader.Risk;
 
 namespace Poink.Sim.Components.Simulation
@@ -11,7 +12,6 @@ namespace Poink.Sim.Components.Simulation
         [Inject] private ISimulationEngine Service { get; set; } = default!;
 
         [Parameter] public int? TraderId { get; set; }
-        [Parameter] public string TraderLabel { get; set; } = "";
         [Parameter] public bool IsManual { get; set; }
 
         [Parameter] public string? PositionSummary { get; set; }
@@ -103,8 +103,6 @@ namespace Poink.Sim.Components.Simulation
             _error = null;
             if (TraderId is not { } id)
             { _error = "no trader selected"; return; }
-            if (!IsManual)
-            { _error = "switch this trader to Manual first"; return; }
             if (CapitalFraction is <= 0 or > 1)
             { _error = "volume must resolve to between 0 and 100% of cash"; return; }
             if (_orderType != OrderType.Market && _triggerPrice <= 0)
@@ -127,8 +125,6 @@ namespace Poink.Sim.Components.Simulation
             _error = null;
             if (TraderId is not { } id)
             { _error = "no trader selected"; return; }
-            if (!IsManual)
-            { _error = "switch this trader to Manual first"; return; }
 
             var decision = new SimulationDecision(SimulationAction.Close, Reason: "manual");
             if (Service.SubmitManualDecision(id, decision, out RiskPolicyDenial? denial) && denial is { } d)

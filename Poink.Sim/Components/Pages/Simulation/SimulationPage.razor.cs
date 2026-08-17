@@ -9,6 +9,7 @@ using Poink.Sim.Components.Charts;
 using Poink.Sim.Models;
 using Poink.Sim.Repository;
 using Poink.Sim.Simulation;
+using Poink.Sim.Trader;
 using Poink.Sim.Trader.Risk;
 using Poink.Sim.Training;
 
@@ -185,7 +186,7 @@ namespace Poink.Sim.Components.Pages
 
         private void CloseSelectedTrader(string reason)
         {
-            if (SelectedTrader is not { } trader || trader.Mode != TraderControlMode.Manual)
+            if (SelectedTrader is not { } trader)
                 return;
             Service.SubmitManualDecision(trader.Id, new SimulationDecision(SimulationAction.Close, Reason: reason), out _);
         }
@@ -195,7 +196,7 @@ namespace Poink.Sim.Components.Pages
         // of current price, a Stop otherwise; Volume maps onto the engine's capital fraction.
         private void PlaceXGridOrder(XGridOrder order)
         {
-            if (SelectedTrader is not { } trader || trader.Mode != TraderControlMode.Manual)
+            if (SelectedTrader is not { } trader)
                 return;
 
             double current = _snapshot?.CurrentPrice ?? order.EntryPrice;
@@ -320,7 +321,6 @@ namespace Poink.Sim.Components.Pages
         };
 
 
-        private string SelectedTraderLabel => SelectedTrader?.Label ?? "";
         private bool SelectedTraderIsManual => SelectedTrader?.Mode == TraderControlMode.Manual;
 
         private string? SelectedPositionSummary =>

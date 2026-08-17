@@ -1,6 +1,8 @@
 
 using System;
 using System.Collections.Generic;
+using Poink.Sim.Brain;
+using Poink.Sim.Brain.Neural;
 using Poink.Sim.Models;
 using Poink.Sim.Trader.Orders;
 
@@ -27,6 +29,7 @@ internal sealed class Trader : ITrader
         _peakEquity = startingCash;
         MaxEquity = startingCash;
         _settings = settings ?? new TraderSettings();
+        Brain = _settings.Brain;
     }
 
     public double Cash { get; private set; }
@@ -44,8 +47,16 @@ internal sealed class Trader : ITrader
     public double MaxEquity { get; private set; }
     public double MaxDrawdown { get; private set; }
 
-    // Pure read -- no fills, safe to call redundantly (e.g. an out-of-band UI
-    // refresh) alongside Advance's own internal call.
+    public ISimulationBrain? Brain { get; set; }
+    public TraderControlMode ControlMode { get; set; } = TraderControlMode.Auto;
+    public bool CaptureIo { get; set; }
+    public IReadOnlyList<RlInputFeature>? LatestInputs { get; set; }
+    public IReadOnlyList<RlOutputFeature>? LatestOutputs { get; set; }
+
+    // Idempotent, not a pure read -- MaxEquity/MaxDrawdown are high-water marks updated here.
+    // A redundant call with unchanged bid/ask re-derives the same CapitalState and the mark
+    // updates become no-ops, which is what makes calling this from Observe (after Advance
+    // already ran this tick) safe.
     public CapitalState Snapshot(double bid, double ask)
     {
         double unrealized = CurrentPosition?.UnrealizedPnl(bid, ask) ?? 0;

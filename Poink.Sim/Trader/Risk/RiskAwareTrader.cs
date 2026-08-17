@@ -1,6 +1,8 @@
 
 using System;
 using System.Collections.Generic;
+using Poink.Sim.Brain;
+using Poink.Sim.Brain.Neural;
 using Poink.Sim.Models;
 using Poink.Sim.Trader.Orders;
 
@@ -39,6 +41,12 @@ internal sealed class RiskAwareTrader : ITrader, IRiskInspectable
     public double MarginUsed => _core.MarginUsed;
     public double MaxEquity => _core.MaxEquity;
     public double MaxDrawdown => _core.MaxDrawdown;
+
+    public ISimulationBrain? Brain { get => _core.Brain; set => _core.Brain = value; }
+    public TraderControlMode ControlMode { get => _core.ControlMode; set => _core.ControlMode = value; }
+    public bool CaptureIo { get => _core.CaptureIo; set => _core.CaptureIo = value; }
+    public IReadOnlyList<RlInputFeature>? LatestInputs { get => _core.LatestInputs; set => _core.LatestInputs = value; }
+    public IReadOnlyList<RlOutputFeature>? LatestOutputs { get => _core.LatestOutputs; set => _core.LatestOutputs = value; }
 
     public CapitalState Snapshot(double bid, double ask) => _core.Snapshot(bid, ask);
 
