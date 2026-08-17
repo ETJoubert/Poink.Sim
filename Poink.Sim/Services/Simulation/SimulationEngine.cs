@@ -15,6 +15,11 @@ using Poink.Sim.Trader.Risk;
 
 namespace Poink.Sim.Simulation;
 
+/// <summary>
+/// Interactive replay driver for one shared, in-process simulation run: plays, pauses and
+/// steps ticks through the shared aggregator, brain and trader, and publishes an immutable
+/// snapshot after each callback for the UI to render.
+/// </summary>
 internal sealed class SimulationEngine : ISimulationEngine
 {
     private const int CallbackIntervalMs = 100;

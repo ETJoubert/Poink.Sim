@@ -1,0 +1,126 @@
+@namespace Poink.Sim.Components.Arch
+@using Poink.Sim.Components.Pages.Arch.Models
+
+<aside class="add-drawer @(Node is null ? "add-closed" : "add-open")" @onclick:stopPropagation="true">
+
+    @if (Node is not null)
+    {
+        <header class="add-header">
+            <div class="add-heading">
+                <span class="add-kicker">CHIP</span>
+                <span class="add-title">@Node.Title</span>
+            </div>
+            <button type="button"
+                    class="add-close"
+                    title="Close the detail panel"
+                    @onclick="RaiseClose">&times;</button>
+        </header>
+
+        <div class="add-body">
+            <p class="add-summary">@Node.Summary</p>
+
+            <section class="add-section">
+                <h3 class="add-section-title" title="This chip's own identity pin: whether the whole instance is handed to another chip's constructor, or produced by another chip's method">Identity</h3>
+                <div class="add-wires">
+                    @if (Producer is not null)
+                    {
+                        <div class="add-wire add-wire-in">
+                            <span class="add-wire-dot add-wire-dot-in"></span>
+                            <span class="add-wire-label" title="Produced via @(Producer.Value.Method)()">produced by</span>
+                            <button type="button" class="add-peer" title="Jump to @Producer.Value.Peer.Title" @onclick="() => RaiseSelect(Producer.Value.Peer.Id)">@Producer.Value.Peer.Title</button>
+                        </div>
+                    }
+                    @foreach (var peer in InjectsInto)
+                    {
+                        <div class="add-wire add-wire-out">
+                            <span class="add-wire-dot add-wire-dot-out"></span>
+                            <span class="add-wire-label">injected into</span>
+                            <button type="button" class="add-peer" title="Jump to @peer.Title" @onclick="() => RaiseSelect(peer.Id)">@peer.Title</button>
+                        </div>
+                    }
+                    @if (Producer is null && InjectsInto.Count == 0)
+                    {
+                        <span class="add-wire-open" title="No other reflected chip references this one as a whole instance">not referenced elsewhere on this page</span>
+                    }
+                </div>
+            </section>
+
+            <section class="add-section">
+                <h3 class="add-section-title" title="Reflected from the constructor: what must be injected before this chip can be built">Input Ports</h3>
+                <div class="add-wires">
+                    @foreach (var port in Node.Inputs)
+                    {
+                        <div class="add-wire add-wire-in">
+                            <span class="add-wire-dot add-wire-dot-in"></span>
+                            <span class="add-wire-label" title="@port.Name: @port.TypeName">@port.Name</span>
+                            <span class="add-wire-type">@port.TypeName</span>
+                            @if (port.WiredFrom is not null)
+                            {
+                                <button type="button" class="add-peer" title="Jump to @port.WiredFrom" @onclick="() => RaiseSelectByTitle(port.WiredFrom)">@port.WiredFrom</button>
+                            }
+                            else
+                            {
+                                <span class="add-wire-open" title="Supplied from outside this diagram">external</span>
+                            }
+                        </div>
+                    }
+                    @if (Node.Inputs.Count == 0)
+                    {
+                        <span class="add-wire-open">no constructor parameters</span>
+                    }
+                </div>
+            </section>
+
+            <section class="add-section">
+                <h3 class="add-section-title" title="Reflected from the public contract: every callable operation, in declaration order">Public Methods (@Node.Methods.Count)</h3>
+                <div class="add-methods">
+                    @foreach (var method in Node.Methods)
+                    {
+                        <div class="add-method" title="@method.Tooltip">
+                            <span class="add-method-signature">@method.Signature</span>
+                            @if (method.Produces is not null)
+                            {
+                                <span class="add-method-produces">&rarr; @method.Produces</span>
+                            }
+                        </div>
+                    }
+                </div>
+            </section>
+
+            <section class="add-section">
+                <h3 class="add-section-title" title="Reflected from the public contract: state properties and events read back out">Output Ports</h3>
+                <div class="add-wires">
+                    @foreach (var port in Node.Outputs)
+                    {
+                        <div class="add-wire add-wire-out">
+                            <span class="add-wire-dot add-wire-dot-out"></span>
+                            <span class="add-wire-label" title="@port.Name: @port.TypeName">@port.Name</span>
+                            <span class="add-wire-type">@port.TypeName</span>
+                            @if (port.IsEvent)
+                            {
+                                <span class="add-wire-badge" title="Public .NET event">EVENT</span>
+                            }
+                        </div>
+                    }
+                    @if (Node.Outputs.Count == 0)
+                    {
+                        <span class="add-wire-open">no public properties or events</span>
+                    }
+                </div>
+            </section>
+
+            <section class="add-section">
+                <h3 class="add-section-title" title="The C# types reflected for this chip">Types</h3>
+                <ul class="add-types">
+                    @foreach (var type in Node.Types)
+                    {
+                        <li class="add-type" title="@type.Name defined under Poink.Sim/@type.Path">
+                            <span class="add-type-name">@type.Name</span>
+                            <span class="add-type-path">@type.Path</span>
+                        </li>
+                    }
+                </ul>
+            </section>
+        </div>
+    }
+</aside>

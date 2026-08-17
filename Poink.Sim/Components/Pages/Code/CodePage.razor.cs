@@ -166,6 +166,14 @@ public partial class CodePage : ComponentBase, IDisposable
 
     private void ZoomOut() => _zoom = Math.Max(MinZoom, Math.Round(_zoom - ZoomStep, 2));
 
+    private void HandleWheelZoom(double deltaY)
+    {
+        if (deltaY < 0)
+            ZoomIn();
+        else if (deltaY > 0)
+            ZoomOut();
+    }
+
     private void ResetView()
     {
         _zoom = DefaultZoom;

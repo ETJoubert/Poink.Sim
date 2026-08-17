@@ -1,0 +1,42 @@
+@namespace Poink.Sim.Components.Arch
+@using Poink.Sim.Components.Pages.Arch.Models
+
+<div class="anc-card @StateClass"
+     style="@AreaColorStyle"
+     title="@Tooltip"
+     role="button"
+     tabindex="0"
+     @onclick="RaiseSelected"
+     @onclick:stopPropagation="true"
+     @onkeydown="HandleKeyDown">
+
+    <div class="anc-head">
+        <span class="anc-title">@Node.Title</span>
+    </div>
+
+    <span class="@SelfPortClass" title="@Node.SelfPort.Tooltip">
+        <span class="anc-self-dot"></span>
+    </span>
+
+    <div class="anc-foot">
+        <div class="anc-types" title="@TypesTooltip">@TypesLabel</div>
+        <div class="anc-badges">
+            <span class="anc-badge" title="Namespace area this chip was grouped under, read from its own type">
+                <span class="anc-badge-label">area</span>
+                <span class="anc-badge-value">@Node.Area</span>
+            </span>
+            <span class="anc-badge" title="Public methods on the reflected contract — see the detail panel for the full list">
+                <span class="anc-badge-label">methods</span>
+                <span class="anc-badge-value">@Node.Methods.Count</span>
+            </span>
+        </div>
+    </div>
+
+    @foreach (var port in Ports)
+    {
+        <div class="@PortClass(port)" style="@PortStyle(port)" title="@port.Tooltip">
+            <span class="anc-port-dot"></span>
+            <span class="anc-port-label">@port.Name</span>
+        </div>
+    }
+</div>

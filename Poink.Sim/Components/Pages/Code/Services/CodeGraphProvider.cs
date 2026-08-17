@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using Poink.Sim.Brain;
+using Poink.Sim.Brain.Neural;
 using Poink.Sim.Components.Pages.Code.Models;
 using Poink.Sim.Simulation;
 using Poink.Sim.Training;
@@ -41,6 +43,7 @@ internal sealed class CodeGraphProvider : ICodeGraphProvider
     private const string Entropy = "entropy";
     private const string HeadValues = "head values";
     private const string Decision = "SimulationDecision";
+    private const string RiskPolicyNames = "risk policy names";
     private const string RewardValue = "double reward";
     private const string Episode = "RlEpisode";
     private const string GradientStep = "gradient step";
@@ -49,11 +52,13 @@ internal sealed class CodeGraphProvider : ICodeGraphProvider
 
     private readonly IRlTrainingService _training;
     private readonly ISimulationEngine _simulation;
+    private readonly ICodeSourceIndex _sourceIndex;
 
-    public CodeGraphProvider(IRlTrainingService training, ISimulationEngine simulation)
+    public CodeGraphProvider(IRlTrainingService training, ISimulationEngine simulation, ICodeSourceIndex sourceIndex)
     {
         _training = training;
         _simulation = simulation;
+        _sourceIndex = sourceIndex;
     }
 
     public CodeGraph Build() => new(BuildNodes(), BuildEdges());
@@ -67,6 +72,7 @@ internal sealed class CodeGraphProvider : ICodeGraphProvider
             Column: 0,
             Row: 0,
             "What you set before a run starts on the Train page. Chooses the brain, strategy and reward policy, and sizes every episode in the run.",
+            "Sets the brain, strategy, reward policy and episode size for the run.",
             [
                 new CodeTypeRef("RlTrainingService.TryStartTraining", "Services/Training/RlTrainingService.cs"),
                 new CodeTypeRef("ModelTrainingParameters", "Repository/IModelRepository.cs")
@@ -83,7 +89,9 @@ internal sealed class CodeGraphProvider : ICodeGraphProvider
             Column: 1,
             Row: 0,
             "Owns the training run: requests episode windows, prefetches ticks through a bounded channel, drives the episode runner and hands each finished episode to the training strategy.",
+            "Requests episode windows, prefetches ticks and drives the episode runner.",
             [
+                new CodeTypeRef("IRlTrainingService", "Services/Training/IRlTrainingService.cs"),
                 new CodeTypeRef("RlTrainingService", "Services/Training/RlTrainingService.cs"),
                 new CodeTypeRef("RlEpisodeMetric", "Services/Training/RlEpisode.cs"),
                 new CodeTypeRef("BrainRecipe", "Brain/Neural/BrainCatalog.cs")
@@ -100,7 +108,9 @@ internal sealed class CodeGraphProvider : ICodeGraphProvider
             Column: 2,
             Row: 0,
             "Interactive replay driver. Play, pause, step and speed control over the same aggregator, brain and trader the training loop uses.",
+            "Plays, pauses and steps ticks through the shared aggregator, brain and trader.",
             [
+                new CodeTypeRef("ISimulationEngine", "Services/Simulation/ISimulationEngine.cs"),
                 new CodeTypeRef("SimulationEngine", "Services/Simulation/SimulationEngine.cs"),
                 new CodeTypeRef("SimulationSnapshot", "Models/SimulationSnapshot.cs"),
                 new CodeTypeRef("RingBuffer", "Services/Simulation/RingBuffer.cs")
@@ -111,12 +121,32 @@ internal sealed class CodeGraphProvider : ICodeGraphProvider
             []),
 
         new CodeNode(
+            "snapshot",
+            "Replay Snapshot",
+            CodeConcept.Simulation,
+            Column: 4,
+            Row: 0,
+            "The read-model the Simulation page renders from. One immutable snapshot per callback: config, play state, cursor and price, every trader's account and risk state, and the recent bars, ticks and histograms the charts draw.",
+            "Packages the replay's live state into one snapshot for the UI to render.",
+            [
+                new CodeTypeRef("SimulationSnapshot", "Models/SimulationSnapshot.cs"),
+                new CodeTypeRef("TraderSnapshot", "Models/SimulationSnapshot.cs"),
+                new CodeTypeRef("SimulationProgress", "Models/SimulationSnapshot.cs"),
+                new CodeTypeRef("RiskPolicySnapshot", "Models/SimulationSnapshot.cs")
+            ],
+            [new CodePort(Snapshot)],
+            [],
+            [],
+            []),
+
+        new CodeNode(
             "episode-runner",
             "Episode Runner",
             CodeConcept.Simulation,
             Column: 3,
             Row: 0,
             "Headless tick loop for one episode. Advances the trader, aggregates bars, skips warmup, records a step per completed bar and returns the assembled episode.",
+            "Advances the trader tick by tick and assembles the finished episode.",
             [
                 new CodeTypeRef("RlEpisodeRunner", "Services/Training/RlEpisodeRunner.cs"),
                 new CodeTypeRef("RlEpisode", "Services/Training/RlEpisode.cs"),
@@ -135,6 +165,7 @@ internal sealed class CodeGraphProvider : ICodeGraphProvider
             Column: 0,
             Row: 1,
             "The historic slice the run reads from. Names the Postgres tick table and the outer date range every episode window is drawn from.",
+            "Names the tick table and the date range a run reads from.",
             [
                 new CodeTypeRef("ITickRepository.ReadTicks", "Repository/ITickRepository.cs"),
                 new CodeTypeRef("TickDataSource", "Components/Shared/TickDataSource/")
@@ -151,6 +182,7 @@ internal sealed class CodeGraphProvider : ICodeGraphProvider
             Column: 1,
             Row: 1,
             "Raw market data. Reads bid and ask ticks from the Postgres tick tables, or synthesises them when no database is attached.",
+            "Reads bid/ask ticks from Postgres, or synthesises them without one.",
             [
                 new CodeTypeRef("ITickRepository", "Repository/ITickRepository.cs"),
                 new CodeTypeRef("TickRepository", "Repository/TickRepository.cs"),
@@ -169,6 +201,7 @@ internal sealed class CodeGraphProvider : ICodeGraphProvider
             Column: 2,
             Row: 1,
             "Picks the random time window for the next episode. Honours the configured time-of-day and weekday constraints and sizes the window from bar width, episode bars and warmup bars.",
+            "Picks the next episode's random time window within the configured constraints.",
             [
                 new CodeTypeRef("EpisodeWindowSampler", "Services/Training/EpisodeWindowSampler.cs"),
                 new CodeTypeRef("EpisodeTimeConstraint", "Services/Training/EpisodeTimeConstraint.cs"),
@@ -186,6 +219,7 @@ internal sealed class CodeGraphProvider : ICodeGraphProvider
             Column: 3,
             Row: 1,
             "Folds ticks into fixed-width bars and builds the per-bar price histogram that the volume and time profile encoders read.",
+            "Folds ticks into bars and builds the per-bar price histogram.",
             [
                 new CodeTypeRef("SimulationBarAggregator", "Services/Simulation/SimulationBarAggregator.cs"),
                 new CodeTypeRef("HlocAvdtBar", "Models/HlocAvdtBar.cs"),
@@ -203,6 +237,7 @@ internal sealed class CodeGraphProvider : ICodeGraphProvider
             Column: 4,
             Row: 1,
             "The complete view the brain gets for one decision: recent bars, recent ticks, bar histograms, the live capital state, the open position and the trade log.",
+            "Assembles bars, ticks, histograms and account state into one view.",
             [
                 new CodeTypeRef("SimulationObservation", "Models/SimulationDecision.cs"),
                 new CodeTypeRef("CapitalState", "Models/SimulationAccount.cs"),
@@ -220,6 +255,7 @@ internal sealed class CodeGraphProvider : ICodeGraphProvider
             Column: 1,
             Row: 2,
             "What the Simulation page loads a replay with. Table, range, bar size, which brain observes the stream, and the account each trader starts from.",
+            "Sets the table, bar size, brain and starting account for a replay.",
             [
                 new CodeTypeRef("SimulationConfig", "Models/SimulationSnapshot.cs")
             ],
@@ -235,6 +271,7 @@ internal sealed class CodeGraphProvider : ICodeGraphProvider
             Column: 2,
             Row: 2,
             "Restricts which slices of history an episode may be drawn from, so the brain trains on the sessions and weekdays you care about.",
+            "Restricts which sessions and weekdays an episode may be drawn from.",
             [
                 new CodeTypeRef("EpisodeTimeConstraint", "Services/Training/EpisodeTimeConstraint.cs")
             ],
@@ -250,6 +287,7 @@ internal sealed class CodeGraphProvider : ICodeGraphProvider
             Column: 4,
             Row: 2,
             "Per-feature scaling applied inside the encoders so raw prices, spreads, equity ratios and flags all reach the network on comparable scales.",
+            "Scales each raw feature onto a comparable range.",
             [
                 new CodeTypeRef("IFeatureNormalizer", "Brain/Neural/Normalizers/IFeatureNormalizer.cs"),
                 new CodeTypeRef("ZScoreNormalizer", "Brain/Neural/Normalizers/"),
@@ -269,6 +307,7 @@ internal sealed class CodeGraphProvider : ICodeGraphProvider
             Column: 5,
             Row: 1,
             "Transform the observation into the flat feature vector. The composite encoder concatenates the enabled parts and keeps any sequence-bearing encoder first so recurrent architectures can slice the leading window.",
+            "Concatenates the enabled encoders into one flat feature vector.",
             [
                 new CodeTypeRef("IObservationEncoder", "Brain/Neural/Encoders/IObservationEncoder.cs"),
                 new CodeTypeRef("CompositeEncoder", "Brain/Neural/Encoders/CompositeEncoder.cs"),
@@ -280,7 +319,7 @@ internal sealed class CodeGraphProvider : ICodeGraphProvider
                 new CodeTypeRef("TraderStateEncoder", "Brain/Neural/Encoders/TraderStateEncoder.cs")
             ],
             [new CodePort(Observation), new CodePort(NormalizedFeature), new CodePort(EncoderSizes)],
-            [new CodePort(FeatureVector)],
+            [new CodePort(FeatureVector), new CodePort(RawFeature)],
             EncoderBadges(),
             []),
 
@@ -291,13 +330,8 @@ internal sealed class CodeGraphProvider : ICodeGraphProvider
             Column: 6,
             Row: 1,
             "The composed policy: encoders, an architecture and action heads bound together. Encodes the observation to a tensor, runs the network and decodes the result into a decision with its log probability.",
-            [
-                new CodeTypeRef("ISimulationBrain", "Brain/ISimulationBrain.cs"),
-                new CodeTypeRef("IPolicyGradientBrain", "Brain/Neural/IPolicyGradientBrain.cs"),
-                new CodeTypeRef("ComposedPolicyBrain", "Brain/Neural/ComposedPolicyBrain.cs"),
-                new CodeTypeRef("BrainCatalog", "Brain/Neural/BrainCatalog.cs"),
-                new CodeTypeRef("BrainRegistry", "Brain/BrainRegistry.cs")
-            ],
+            "Encodes the observation, runs the network and decodes a decision.",
+            BrainTypes(),
             [new CodePort(FeatureVector), new CodePort(Recipe)],
             [new CodePort(FeatureTensor)],
             BrainBadges(),
@@ -310,6 +344,7 @@ internal sealed class CodeGraphProvider : ICodeGraphProvider
             Column: 6,
             Row: 2,
             "The blueprint the brain is built from. Which encoders are enabled and how wide each one is, which architecture backs them, and how the decision is collapsed.",
+            "Picks which encoders, architecture and decoding the brain is built from.",
             [
                 new CodeTypeRef("BrainRecipe", "Brain/Neural/BrainCatalog.cs"),
                 new CodeTypeRef("EncoderSizeOptions", "Brain/Neural/BrainCatalog.cs"),
@@ -327,6 +362,7 @@ internal sealed class CodeGraphProvider : ICodeGraphProvider
             Column: 7,
             Row: 1,
             "The trainable TorchSharp module built from the chosen architecture. Emits one flat logit vector covering the enabled directions followed by each action head's slice.",
+            "Runs the tensor through the trainable architecture to produce logits.",
             [
                 new CodeTypeRef("INetworkArchitecture", "Brain/Neural/Architectures/INetworkArchitecture.cs"),
                 new CodeTypeRef("MlpArchitecture", "Brain/Neural/Architectures/MlpArchitecture.cs"),
@@ -346,6 +382,7 @@ internal sealed class CodeGraphProvider : ICodeGraphProvider
             Column: 8,
             Row: 1,
             "Collapses the direction slice of the logits to one action. Softmax sampling or hard argmax, temperature scaled, returning the log probability and entropy the policy gradient needs.",
+            "Collapses the direction logits into one sampled action.",
             [
                 new CodeTypeRef("CategoricalSampling", "Brain/Neural/CategoricalSampling.cs"),
                 new CodeTypeRef("DecisionDecodingKind", "Brain/Neural/BrainCatalog.cs"),
@@ -363,6 +400,7 @@ internal sealed class CodeGraphProvider : ICodeGraphProvider
             Column: 8,
             Row: 2,
             "Each head owns a contiguous logit slice and samples a discrete level from it. Volume fraction, stop loss distance and take profit distance, expressed as fractions of the current price.",
+            "Samples a discrete level from each head's logit slice.",
             [
                 new CodeTypeRef("IActionOutputHead", "Brain/Neural/ActionOutputs/IActionOutputHead.cs"),
                 new CodeTypeRef("DiscretizedLevelsActionHead", "Brain/Neural/ActionOutputs/DiscretizedLevelsActionHead.cs"),
@@ -380,6 +418,7 @@ internal sealed class CodeGraphProvider : ICodeGraphProvider
             Column: 9,
             Row: 1,
             "The concrete instruction leaving the brain: hold, enter long, enter short or close, together with the capital fraction and any stop loss and take profit prices.",
+            "Combines the sampled action and head values into one instruction.",
             [
                 new CodeTypeRef("SimulationDecision", "Models/SimulationDecision.cs"),
                 new CodeTypeRef("SimulationAction", "Models/SimulationDecision.cs"),
@@ -391,12 +430,52 @@ internal sealed class CodeGraphProvider : ICodeGraphProvider
             []),
 
         new CodeNode(
+            "manual-override",
+            "Manual Override",
+            CodeConcept.Simulation,
+            Column: 9,
+            Row: 0,
+            "Interactive-only path. Puts one replay trader in Manual mode and lets you submit a decision by hand instead of letting the brain decide. The risk manager reviews it exactly like any brain-made decision.",
+            "Lets a person submit a decision by hand instead of the brain.",
+            [
+                new CodeTypeRef("SimulationEngine.SubmitManualDecision", "Services/Simulation/SimulationEngine.cs"),
+                new CodeTypeRef("TraderControlMode", "Models/SimulationSnapshot.cs"),
+                new CodeTypeRef("RiskPolicyDenial", "Models/SimulationSnapshot.cs")
+            ],
+            [],
+            [new CodePort(Decision)],
+            [],
+            []),
+
+        new CodeNode(
+            "risk-manager",
+            "Risk Manager",
+            CodeConcept.Trader,
+            Column: 10,
+            Row: 0,
+            "Reviews every proposed decision before the trader acts, and watches the open position every tick. Wraps the core trader as a decorator when the run names any policies. Applies the same way whether the decision came from the brain or a manual override, and to both training and replay runs.",
+            "Permits, denies or modifies the decision, then watches the open position.",
+            [
+                new CodeTypeRef("IRiskManager", "Trader/Risk/IRiskManager.cs"),
+                new CodeTypeRef("RiskManager", "Trader/Risk/RiskManager.cs"),
+                new CodeTypeRef("RiskAwareTrader", "Trader/Risk/RiskAwareTrader.cs"),
+                new CodeTypeRef("IRiskPolicy", "Trader/Risk/IRiskPolicy.cs"),
+                new CodeTypeRef("IRiskPolicyRegistry", "Trader/Risk/IRiskPolicyRegistry.cs"),
+                new CodeTypeRef("PositionManager", "Trader/Risk/PositionManager.cs")
+            ],
+            [new CodePort(Decision), new CodePort(RiskPolicyNames)],
+            [new CodePort(Decision)],
+            [],
+            []),
+
+        new CodeNode(
             "strategy",
             "Training Strategy",
             CodeConcept.Rewards,
             Column: 9,
             Row: 2,
             "Turns a finished episode into a weight update. Discounts and normalizes returns, builds the REINFORCE loss with an annealed entropy bonus and steps the optimizer.",
+            "Turns the finished episode into a policy-gradient weight update.",
             [
                 new CodeTypeRef("IRlTrainingStrategy", "Services/Training/IRlTrainingStrategy.cs"),
                 new CodeTypeRef("PolicyGradientTrainingStrategy", "Services/Training/PolicyGradientTrainingStrategy.cs")
@@ -416,6 +495,7 @@ internal sealed class CodeGraphProvider : ICodeGraphProvider
             Column: 10,
             Row: 1,
             "Executes decisions against the account. Advances stop loss, take profit, margin stop-out and pending orders on every tick, sizes positions from capital fraction and leverage and charges commission on open and close.",
+            "Applies the decision to the account and advances stops on every tick.",
             [
                 new CodeTypeRef("ITrader", "Trader/ITrader.cs"),
                 new CodeTypeRef("Trader", "Trader/Trader.cs"),
@@ -436,13 +516,14 @@ internal sealed class CodeGraphProvider : ICodeGraphProvider
             Column: 10,
             Row: 2,
             "The account rules every trader is created with. Leverage multiplies the capital fraction into notional, the stop-out level force-closes on margin, and the commission model is charged on open and close.",
+            "Sets the leverage, stop-out level and commission every trader uses.",
             [
                 new CodeTypeRef("TraderSettings", "Trader/TraderSettings.cs"),
                 new CodeTypeRef("ICommissionModel", "Trader/Commission/ICommissionModel.cs"),
                 new CodeTypeRef("PercentOfNotionalCommission", "Trader/Commission/PercentOfNotionalCommission.cs")
             ],
             [],
-            [new CodePort(TraderConfig)],
+            [new CodePort(TraderConfig), new CodePort(RiskPolicyNames)],
             [],
             TraderSettingsValues()),
 
@@ -453,6 +534,7 @@ internal sealed class CodeGraphProvider : ICodeGraphProvider
             Column: 11,
             Row: 1,
             "Scores the outcome of the previous step from the capital and position change. The chosen policy decides how the brain is paid, currently for equity drift.",
+            "Scores the previous step from the change in capital and position.",
             [
                 new CodeTypeRef("IRewardPolicy", "Services/Training/RewardPolicies/IRewardPolicy.cs"),
                 new CodeTypeRef("RewardContext", "Services/Training/RewardPolicies/IRewardPolicy.cs"),
@@ -468,6 +550,7 @@ internal sealed class CodeGraphProvider : ICodeGraphProvider
     [
         new CodeEdge("ticks", TickStream, "sampler", TickStream, CodeEdgeKind.Flow),
         new CodeEdge("ticks", TickStream, "sim-engine", TickStream, CodeEdgeKind.Flow),
+        new CodeEdge("sim-engine", Snapshot, "snapshot", Snapshot, CodeEdgeKind.Flow),
         new CodeEdge("sampler", TickWindow, "episode-runner", TickWindow, CodeEdgeKind.Flow),
         new CodeEdge("episode-runner", Tick, "aggregator", Tick, CodeEdgeKind.Flow),
         new CodeEdge("aggregator", Bar, "observation", Bar, CodeEdgeKind.Flow),
@@ -475,6 +558,7 @@ internal sealed class CodeGraphProvider : ICodeGraphProvider
         new CodeEdge("trader", AccountState, "observation", AccountState, CodeEdgeKind.Flow),
         new CodeEdge("observation", Observation, "encoders", Observation, CodeEdgeKind.Flow),
         new CodeEdge("normalizers", NormalizedFeature, "encoders", NormalizedFeature, CodeEdgeKind.Flow),
+        new CodeEdge("encoders", RawFeature, "normalizers", RawFeature, CodeEdgeKind.Flow),
         new CodeEdge("encoders", FeatureVector, "brain", FeatureVector, CodeEdgeKind.Flow),
         new CodeEdge("brain", FeatureTensor, "network", FeatureTensor, CodeEdgeKind.Flow),
         new CodeEdge("network", DirectionLogits, "decoder", DirectionLogits, CodeEdgeKind.Flow),
@@ -482,7 +566,9 @@ internal sealed class CodeGraphProvider : ICodeGraphProvider
         new CodeEdge("decoder", ActionIndex, "decision", ActionIndex, CodeEdgeKind.Flow),
         new CodeEdge("heads", HeadValues, "decision", HeadValues, CodeEdgeKind.Flow),
         new CodeEdge("observation", CurrentPrice, "decision", CurrentPrice, CodeEdgeKind.Flow),
-        new CodeEdge("decision", Decision, "trader", Decision, CodeEdgeKind.Flow),
+        new CodeEdge("decision", Decision, "risk-manager", Decision, CodeEdgeKind.Flow),
+        new CodeEdge("manual-override", Decision, "risk-manager", Decision, CodeEdgeKind.Flow),
+        new CodeEdge("risk-manager", Decision, "trader", Decision, CodeEdgeKind.Flow),
         new CodeEdge("trader", AccountState, "reward", AccountState, CodeEdgeKind.Flow),
         new CodeEdge("reward", RewardValue, "strategy", RewardValue, CodeEdgeKind.Flow),
         new CodeEdge("decoder", LogProbability, "strategy", LogProbability, CodeEdgeKind.Flow),
@@ -504,8 +590,22 @@ internal sealed class CodeGraphProvider : ICodeGraphProvider
         new CodeEdge("brain-config", Recipe, "brain", Recipe, CodeEdgeKind.Config),
         new CodeEdge("brain-config", Architecture, "network", Architecture, CodeEdgeKind.Config),
         new CodeEdge("brain-config", EncoderSizes, "encoders", EncoderSizes, CodeEdgeKind.Config),
-        new CodeEdge("trader-config", TraderConfig, "trader", TraderConfig, CodeEdgeKind.Config)
+        new CodeEdge("trader-config", TraderConfig, "trader", TraderConfig, CodeEdgeKind.Config),
+        new CodeEdge("trader-config", RiskPolicyNames, "risk-manager", RiskPolicyNames, CodeEdgeKind.Config)
     ];
+
+    private IReadOnlyList<CodeTypeRef> BrainTypes()
+    {
+        var implementation = typeof(ComposedPolicyBrain);
+        var interfaces = implementation.GetInterfaces()
+            .Where(i => i.Namespace is { } ns && ns.StartsWith("Poink.Sim", StringComparison.Ordinal))
+            .OrderBy(i => i.GetInterfaces().Length)
+            .Select(TypeRef);
+
+        return [.. interfaces, TypeRef(implementation), TypeRef(typeof(BrainCatalog)), TypeRef(typeof(BrainRegistry))];
+    }
+
+    private CodeTypeRef TypeRef(Type type) => new(type.Name, _sourceIndex.PathFor(type) ?? "path unresolved");
 
     private IReadOnlyList<CodeSetting> RunSettings()
     {

@@ -1,0 +1,41 @@
+@namespace Poink.Sim.Components.Arch
+@using Poink.Sim.Components.Pages.Arch.Models
+
+<div class="acv-viewport" @ref="_viewportRef" title="Poink.Sim architecture graph, reflected live from constructors and public contracts. Click a chip for its full port and method list. Drag empty space to pan. Scroll to zoom." @onclick="RaiseBackgroundClicked" @onwheel="HandleWheel" @onwheel:preventDefault="true">
+    <div class="acv-space" style="@SpaceStyle">
+        <div class="acv-canvas" style="@CanvasStyle">
+
+            <svg class="acv-edges" viewBox="@ViewBox" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <marker id="acv-arrow-injected" viewBox="0 0 10 10" refX="9" refY="5"
+                            markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                        <path d="M 0 1 L 10 5 L 0 9 z" fill="context-stroke" />
+                    </marker>
+                    <marker id="acv-arrow-produces" viewBox="0 0 10 10" refX="9" refY="5"
+                            markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                        <path d="M 0 1 L 10 5 L 0 9 z" fill="context-stroke" />
+                    </marker>
+                </defs>
+
+                @foreach (var edge in _edges)
+                {
+                    <g class="@EdgeClass(edge)">
+                        <title>@EdgeTooltip(edge)</title>
+                        <path class="acv-edge-path" d="@edge.Path" marker-end="url(#@MarkerId(edge.Edge.Kind))" />
+                    </g>
+                }
+            </svg>
+
+            @foreach (var node in _nodes)
+            {
+                <div class="acv-node" style="@NodeStyle(node)">
+                    <ArchNodeCard Node="node.Node"
+                                  Ports="node.Ports"
+                                  IsSelected="@(SelectedId == node.Node.Id)"
+                                  IsDimmed="@IsDimmed(node.Node.Id)"
+                                  OnSelected="RaiseNodeSelected" />
+                </div>
+            }
+        </div>
+    </div>
+</div>

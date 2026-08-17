@@ -2,6 +2,10 @@ namespace Poink.Sim.Trader;
 
 using Poink.Sim.Trader.Risk;
 
+/// <summary>
+/// Builds a <see cref="Trader"/> for one session and wraps it with risk management
+/// according to the session's settings.
+/// </summary>
 internal sealed class TraderFactory : ITraderFactory
 {
     private readonly IRiskManagerFactory _riskManagerFactory;

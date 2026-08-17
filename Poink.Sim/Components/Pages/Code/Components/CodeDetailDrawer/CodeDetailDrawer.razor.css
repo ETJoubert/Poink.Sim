@@ -90,6 +90,15 @@
   color: rgba(255, 255, 255, 0.72);
 }
 
+.cdd-action {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 10.5px;
+  font-weight: bold;
+  line-height: 1.5;
+  color: var(--cdd-color);
+}
+
 .cdd-section {
   display: flex;
   flex-direction: column;

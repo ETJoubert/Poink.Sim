@@ -1,0 +1,85 @@
+@page "/arch"
+@namespace Poink.Sim.Components.Pages
+@using Poink.Sim.Components.Arch
+
+<div class="arch-page">
+
+    <div class="arch-topbar">
+        <header class="arch-header">
+            <div class="arch-header-title">
+                <span class="arch-header-symbol">ARCH</span>
+                <span class="arch-header-mode" title="Components reflected onto this canvas">@_graph.Nodes.Count chips</span>
+                <span class="arch-header-mode" title="Constructor-injected input ports, across all chips">@InputPortCount input ports</span>
+                <span class="arch-header-mode" title="Public methods reflected from each chip's contract">@MethodCount methods</span>
+                <span class="arch-header-mode" title="State and event output ports, across all chips">@OutputPortCount output ports</span>
+                <span class="arch-header-mode" title="Edges resolved by matching a constructor parameter or method return type against another chip's contract or implementation">@WireCount wires</span>
+            </div>
+
+            <div class="arch-header-tools">
+                <button type="button"
+                        class="arch-tool-btn arch-tool-btn-wide @(_connectedOnly ? "arch-tool-btn-on" : "")"
+                        title="@ConnectedOnlyTooltip"
+                        @onclick="ToggleConnectedOnly">
+                    <span class="arch-tool-pip @(_connectedOnly ? "arch-tool-pip-on" : "")"></span>
+                    WIRED ONLY (@WiredChipCount/@_graph.Nodes.Count)
+                </button>
+                <button type="button" class="arch-tool-btn" title="Zoom out" @onclick="ZoomOut" disabled="@(_zoom <= MinZoom)">&minus;</button>
+                <span class="arch-zoom-value" title="Current zoom level">@ZoomLabel</span>
+                <button type="button" class="arch-tool-btn" title="Zoom in" @onclick="ZoomIn" disabled="@(_zoom >= MaxZoom)">+</button>
+                <button type="button" class="arch-tool-btn arch-tool-btn-wide" title="Reset zoom, show every area and clear the wired-only filter" @onclick="ResetView">RESET</button>
+            </div>
+        </header>
+
+        <div class="arch-legend">
+            @foreach (var area in AllAreas)
+            {
+                <button type="button"
+                        class="arch-area-pill @(IsAreaVisible(area) ? "arch-area-on" : "arch-area-off")"
+                        style="--area-color:@ArchAreaPalette.ColorFor(area);"
+                        title="@AreaTooltip(area)"
+                        @onclick="() => ToggleArea(area)">
+                    @area
+                </button>
+            }
+
+            <span class="arch-legend-spacer"></span>
+
+            <span class="arch-legend-key" title="A chip's own identity pin. Solid when this whole instance is either injected into another chip's constructor or produced by another chip's method.">
+                <span class="arch-legend-self"></span>SELF
+            </span>
+            <span class="arch-legend-key" title="Hollow ports on the left edge are constructor-injected dependencies. A solid one is wired to another chip's self pin.">
+                <span class="arch-legend-port arch-legend-port-in"></span>IN
+            </span>
+            <span class="arch-legend-key" title="Filled ports on the right edge are public state and .NET events a chip reports back out.">
+                <span class="arch-legend-port arch-legend-port-out"></span>OUT
+            </span>
+            <span class="arch-legend-key" title="Solid line: a chip's self pin flows into another chip's named input port through constructor injection.">
+                <span class="arch-legend-line arch-legend-line-injected"></span>INJECTED
+            </span>
+            <span class="arch-legend-key" title="Dashed line: a chip's method returns another chip's type, so that instance is produced rather than injected.">
+                <span class="arch-legend-line arch-legend-line-produces"></span>PRODUCES
+            </span>
+            <span class="arch-legend-spacer"></span>
+            <span class="arch-legend-key" title="Every chip, port, method and wire on this page is read live via System.Reflection from the chip's constructor and public contract — nothing here is hand-maintained.">
+                REFLECTED LIVE FROM CODE
+            </span>
+        </div>
+    </div>
+
+    <div class="arch-body">
+        <ArchCanvas Graph="_graph"
+                    SelectedId="_selectedId"
+                    Zoom="_zoom"
+                    VisibleAreas="_visibleAreas"
+                    ConnectedOnly="_connectedOnly"
+                    HighlightedNodeIds="_highlighted"
+                    OnNodeSelected="SelectNode"
+                    OnBackgroundClicked="ClearSelection"
+                    OnWheelZoom="HandleWheelZoom" />
+
+        <ArchDetailDrawer Graph="_graph"
+                           Node="SelectedNode"
+                           OnSelect="SelectNode"
+                           OnClose="ClearSelection" />
+    </div>
+</div>

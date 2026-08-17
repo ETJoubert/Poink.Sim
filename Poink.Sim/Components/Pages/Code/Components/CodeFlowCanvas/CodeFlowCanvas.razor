@@ -1,7 +1,7 @@
 @namespace Poink.Sim.Components.Code
 @using Poink.Sim.Components.Pages.Code.Models
 
-<div class="cfc-viewport" @ref="_viewportRef" title="Poink.Sim signal graph. Click a card to trace it, click empty space to clear. Drag empty space to pan." @onclick="RaiseBackgroundClicked">
+<div class="cfc-viewport" @ref="_viewportRef" title="Poink.Sim signal graph. Click a card to trace it, click empty space to clear. Drag empty space to pan. Scroll to zoom." @onclick="RaiseBackgroundClicked" @onwheel="HandleWheel" @onwheel:preventDefault="true">
     <div class="cfc-space" style="@SpaceStyle">
         <div class="@CanvasClass" style="@CanvasStyle">
 

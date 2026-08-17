@@ -1,0 +1,259 @@
+.add-drawer {
+  --add-color: var(--color-accent);
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  width: 340px;
+  min-height: 0;
+  background: var(--color-bg-terminal);
+  border-left: 1px solid color-mix(in srgb, var(--add-color) 30%, transparent);
+  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+  transition: width 0.2s ease, opacity 0.2s ease;
+}
+
+.add-closed {
+  width: 0;
+  border-left-width: 0;
+  opacity: 0;
+}
+
+.add-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px 9px;
+  border-bottom: 1px solid color-mix(in srgb, var(--add-color) 22%, transparent);
+}
+
+.add-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.add-kicker {
+  font-family: var(--font-body);
+  font-size: 8px;
+  font-weight: bold;
+  letter-spacing: 0.14em;
+  color: color-mix(in srgb, var(--add-color) 70%, transparent);
+}
+
+.add-title {
+  font-family: var(--font-heading);
+  font-size: 1.05rem;
+  font-weight: bold;
+  letter-spacing: 0.06em;
+  color: var(--add-color);
+  text-shadow: 0 0 10px color-mix(in srgb, var(--add-color) 40%, transparent);
+}
+
+.add-close {
+  flex-shrink: 0;
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--add-color) 30%, transparent);
+  border-radius: var(--border-radius-sm);
+  color: var(--color-secondary);
+  font-size: 15px;
+  line-height: 1;
+  padding: 2px 7px 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.add-close:hover {
+  color: var(--color-error);
+  border-color: var(--color-error);
+}
+
+.add-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--add-color) transparent;
+}
+
+.add-summary {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 11px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.add-section {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.add-section-title {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 9px;
+  font-weight: bold;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--add-color) 75%, transparent);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  padding-bottom: 3px;
+}
+
+.add-wires {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.add-wire {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 3px 6px;
+  background: rgba(0, 0, 0, 0.28);
+  border-radius: var(--border-radius-sm);
+}
+
+.add-wire-dot {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  box-sizing: border-box;
+  border-radius: 50%;
+}
+
+.add-wire-dot-in {
+  background: var(--color-bg-dark);
+  border: 1.5px solid var(--color-primary);
+}
+
+.add-wire-dot-out {
+  background: var(--color-warning);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--color-warning) 60%, transparent);
+}
+
+.add-wire-label {
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: bold;
+  color: var(--color-secondary);
+  word-break: break-word;
+}
+
+.add-wire-type {
+  font-family: var(--font-mono, monospace);
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.add-wire-badge {
+  padding: 0 5px 1px;
+  border: 1px solid color-mix(in srgb, var(--color-accent) 45%, transparent);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.35);
+  font-family: var(--font-body);
+  font-size: 7px;
+  font-weight: bold;
+  letter-spacing: 0.06em;
+  color: var(--color-accent);
+}
+
+.add-peer {
+  margin-left: auto;
+  padding: 1px 6px 2px;
+  background: var(--color-bg-tab);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  font-family: var(--font-body);
+  font-size: 8.5px;
+  color: var(--color-primary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.add-peer:hover {
+  border-color: var(--add-color);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--add-color) 30%, transparent);
+}
+
+.add-wire-open {
+  margin-left: auto;
+  font-family: var(--font-body);
+  font-size: 8.5px;
+  font-style: italic;
+  color: rgba(255, 255, 255, 0.32);
+}
+
+.add-methods {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.add-method {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 8px;
+  padding: 3px 6px;
+  background: rgba(0, 0, 0, 0.28);
+  border-radius: var(--border-radius-sm);
+}
+
+.add-method-signature {
+  font-family: var(--font-mono, monospace);
+  font-size: 9.5px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.72);
+  word-break: break-word;
+}
+
+.add-method-produces {
+  font-family: var(--font-body);
+  font-size: 8.5px;
+  color: var(--color-warning);
+}
+
+.add-types {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.add-type {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 4px 7px;
+  background: rgba(0, 0, 0, 0.28);
+  border-left: 2px solid color-mix(in srgb, var(--add-color) 45%, transparent);
+  border-radius: var(--border-radius-sm);
+}
+
+.add-type-name {
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: bold;
+  color: var(--color-secondary);
+}
+
+.add-type-path {
+  font-family: var(--font-body);
+  font-size: 8.5px;
+  color: rgba(255, 255, 255, 0.35);
+  word-break: break-all;
+}

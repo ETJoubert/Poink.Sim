@@ -9,6 +9,10 @@ using Npgsql;
 
 namespace Poink.Sim.Repository;
 
+/// <summary>
+/// Reads bid/ask ticks and per-table statistics from the Postgres tick tables,
+/// caching the table list across calls.
+/// </summary>
 internal sealed class TickRepository : ITickRepository
 {
 

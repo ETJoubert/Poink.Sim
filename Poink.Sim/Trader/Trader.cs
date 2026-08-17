@@ -6,6 +6,10 @@ using Poink.Sim.Trader.Orders;
 
 namespace Poink.Sim.Trader;
 
+/// <summary>
+/// Executes trading decisions against one account. Advances stop loss, take profit,
+/// margin stop-out and pending orders on every tick, and charges commission on open and close.
+/// </summary>
 internal sealed class Trader : ITrader
 {
     private readonly List<Trade> _trades = new();

@@ -42,6 +42,7 @@ public sealed record CodeNode(
     int Column,
     int Row,
     string Summary,
+    string Action,
     IReadOnlyList<CodeTypeRef> Types,
     IReadOnlyList<CodePort> Inputs,
     IReadOnlyList<CodePort> Outputs,

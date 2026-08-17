@@ -1,0 +1,229 @@
+.anc-card {
+  --anc-color: var(--color-accent);
+  --anc-in-color: var(--color-primary);
+  --anc-out-color: var(--color-warning);
+  position: relative;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg-tab);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-left: 3px solid var(--anc-color);
+  border-radius: var(--border-radius-sm);
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
+}
+
+.anc-card:hover {
+  border-color: color-mix(in srgb, var(--anc-color) 60%, transparent);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--anc-color) 28%, transparent);
+  transform: translateY(-1px);
+}
+
+.anc-card:focus-visible {
+  outline: 1px solid var(--anc-color);
+  outline-offset: 2px;
+}
+
+.anc-selected {
+  border-color: var(--anc-color);
+  background: color-mix(in srgb, var(--anc-color) 8%, var(--color-bg-tab));
+  box-shadow:
+    0 0 20px color-mix(in srgb, var(--anc-color) 45%, transparent),
+    inset 0 0 14px color-mix(in srgb, var(--anc-color) 8%, transparent);
+}
+
+.anc-dimmed {
+  opacity: 0.16;
+}
+
+.anc-head {
+  height: 24px;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px 0 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--anc-color) 22%, transparent);
+  background: color-mix(in srgb, var(--anc-color) 7%, transparent);
+}
+
+.anc-title {
+  font-family: var(--font-heading);
+  font-size: 11px;
+  font-weight: bold;
+  letter-spacing: 0.05em;
+  color: var(--anc-color);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.anc-self {
+  position: absolute;
+  right: -5px;
+  top: 12px;
+  transform: translateY(-50%);
+  z-index: 4;
+  cursor: help;
+}
+
+.anc-self-dot {
+  display: block;
+  width: 10px;
+  height: 10px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  background: var(--color-bg-dark);
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.anc-self-wired .anc-self-dot {
+  background: var(--anc-color);
+  border-color: var(--color-bg-dark);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--anc-color) 70%, transparent);
+}
+
+.anc-self:hover .anc-self-dot {
+  transform: scale(1.3);
+}
+
+.anc-foot {
+  margin-top: auto;
+  height: 32px;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  padding: 0 10px 3px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  overflow: hidden;
+}
+
+.anc-types {
+  font-family: var(--font-body);
+  font-size: 8.5px;
+  color: var(--color-secondary);
+  opacity: 0.75;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.anc-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  overflow: hidden;
+}
+
+.anc-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  max-width: 100%;
+  padding: 0 5px 1px;
+  border: 1px solid color-mix(in srgb, var(--anc-color) 28%, transparent);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.35);
+  font-family: var(--font-body);
+  font-size: 7.5px;
+  overflow: hidden;
+}
+
+.anc-badge-label {
+  flex-shrink: 0;
+  color: rgba(255, 255, 255, 0.42);
+  text-transform: uppercase;
+}
+
+.anc-badge-value {
+  color: var(--anc-color);
+  font-weight: bold;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.anc-port {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 16px;
+  max-width: 60%;
+  transform: translateY(-50%);
+  cursor: help;
+  z-index: 3;
+}
+
+.anc-port-in {
+  left: -5px;
+  padding-right: 4px;
+}
+
+.anc-port-out {
+  right: -5px;
+  flex-direction: row-reverse;
+  padding-left: 4px;
+}
+
+.anc-port-dot {
+  flex-shrink: 0;
+  width: 9px;
+  height: 9px;
+  box-sizing: border-box;
+  border-radius: 50%;
+}
+
+.anc-port-in .anc-port-dot {
+  background: var(--color-bg-dark);
+  border: 1.5px solid var(--anc-in-color);
+}
+
+.anc-port-out .anc-port-dot {
+  background: var(--anc-out-color);
+  border: 1px solid var(--color-bg-dark);
+  box-shadow: 0 0 7px color-mix(in srgb, var(--anc-out-color) 65%, transparent);
+}
+
+.anc-port-open .anc-port-dot {
+  border-style: dashed;
+  border-color: rgba(255, 255, 255, 0.4);
+  background: var(--color-bg-dark);
+  box-shadow: none;
+}
+
+.anc-port-label {
+  font-family: var(--font-body);
+  font-size: 8px;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.62);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.anc-port-out .anc-port-label {
+  color: color-mix(in srgb, var(--anc-out-color) 78%, white);
+  text-align: right;
+}
+
+.anc-port-open .anc-port-label {
+  color: rgba(255, 255, 255, 0.3);
+  font-style: italic;
+}
+
+.anc-port:hover .anc-port-dot {
+  transform: scale(1.4);
+}
+
+.anc-port:hover .anc-port-label {
+  color: var(--anc-color);
+}

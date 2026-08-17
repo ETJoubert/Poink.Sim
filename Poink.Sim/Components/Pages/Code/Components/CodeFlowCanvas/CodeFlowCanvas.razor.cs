@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
 using Poink.Sim.Components.Pages.Code.Models;
 
@@ -29,6 +30,8 @@ public partial class CodeFlowCanvas : ComponentBase, IAsyncDisposable
     [Parameter] public EventCallback<string> OnNodeSelected { get; set; }
 
     [Parameter] public EventCallback OnBackgroundClicked { get; set; }
+
+    [Parameter] public EventCallback<double> OnWheelZoom { get; set; }
 
     private const double CardWidth = 250;
     private const double ColumnGap = 92;
@@ -455,4 +458,6 @@ public partial class CodeFlowCanvas : ComponentBase, IAsyncDisposable
     private Task RaiseNodeSelected(string nodeId) => OnNodeSelected.InvokeAsync(nodeId);
 
     private Task RaiseBackgroundClicked() => OnBackgroundClicked.InvokeAsync();
+
+    private Task HandleWheel(WheelEventArgs e) => OnWheelZoom.InvokeAsync(e.DeltaY);
 }

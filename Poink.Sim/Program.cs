@@ -12,6 +12,8 @@
 //  trained ISimulationBrain, plus Postgres tick access (Repository/) and the
 //  shared terminal UI (Poink.Shared.Client).
 // ═══════════════════════════════════════════════════════════════════════════
+using System.Collections.Generic;
+using System.Linq;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -20,6 +22,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
 using Poink.CTrader;
 using Poink.Sim.Brain;
+using Poink.Sim.Components.Pages.Arch.Services;
 using Poink.Sim.Components.Pages.Code.Services;
 using Poink.Sim.Data;
 using Poink.Sim.Diagnostics;
@@ -115,7 +118,13 @@ builder.Services.AddSingleton<IRlTrainingStrategy, PolicyGradientTrainingStrateg
 
 builder.Services.AddSingleton<IRewardPolicy, EquityDriftRewardPolicy>();
 builder.Services.AddSingleton<IRlTrainingService, RlTrainingService>();
+builder.Services.AddSingleton<ICodeSourceIndex, CodeSourceIndex>();
 builder.Services.AddScoped<ICodeGraphProvider, CodeGraphProvider>();
+builder.Services.AddSingleton<IXmlDocumentationProvider, XmlDocumentationProvider>();
+builder.Services.AddScoped<IArchGraphProvider, ArchGraphProvider>();
+// Snapshot of every registration made above this line, so the Arch page can reflect the
+// DI container itself into a graph instead of maintaining a hand-written node list.
+builder.Services.AddSingleton<IReadOnlyList<ServiceDescriptor>>(builder.Services.ToList());
 #pragma warning disable CA1416 // SystemPerformanceMonitor is Windows-only, same as this app's other host assumptions (see its class comment).
 builder.Services.AddSingleton<SystemPerformanceMonitor>();
 #pragma warning restore CA1416

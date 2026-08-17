@@ -11,6 +11,11 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <Optimize>true</Optimize>
     <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+    <!-- The Arch page reads class-level <summary> comments back out of this file at
+         runtime (see XmlDocumentationProvider), so a chip's description lives once,
+         on the class itself, instead of being duplicated in the graph provider. -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

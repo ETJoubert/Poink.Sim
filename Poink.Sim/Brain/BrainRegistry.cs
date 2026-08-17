@@ -5,6 +5,10 @@ using System.Linq;
 
 namespace Poink.Sim.Brain;
 
+/// <summary>
+/// Holds every DI-registered <see cref="ISimulationBrain"/> instance so callers can list or
+/// look one up by name without depending on the DI container directly.
+/// </summary>
 internal sealed class BrainRegistry
 {
     private readonly object _lock = new();
