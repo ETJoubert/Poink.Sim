@@ -58,6 +58,31 @@
         <button class="xgrid-delta-toggle @(_distanceWeighted ? "active" : "")" @onclick="() => _distanceWeighted = !_distanceWeighted"
                 title="Weight each tick by the price distance it moved instead of counting it as one. Applies to whichever shading mode is active.">&times;Dist</button>
     </div>
+    <div class="xgrid-spectrum-row">
+        <span class="xgrid-delta-label" title="Percent of highest-volume cells to highlight, ranked by total tick count">Total %</span>
+        <label class="xgrid-control" title="Percent of highest-volume cells to highlight, ranked by total tick count -- 10 highlights the top 10%">
+            <input type="number" min="0" max="100" step="1" @bind="_spectrum.Percent" @bind:event="oninput" />
+            <span>%</span>
+        </label>
+        <button class="xgrid-delta-toggle @(_spectrum.ShowHighlight ? "active" : "")" @onclick="() => _spectrum.ShowHighlight = !_spectrum.ShowHighlight"
+                title="Highlight the border of the top @_spectrum.Percent% of cells by total tick count, and mark that cutoff on the Spectrum graph">Highlight</button>
+
+        <span class="xgrid-delta-label xgrid-delta-label-up" title="Percent of highest up-tick cells to highlight, ranked by up-tick count">Up %</span>
+        <label class="xgrid-control" title="Percent of highest up-tick cells to highlight, ranked by up-tick count -- 10 highlights the top 10%">
+            <input type="number" min="0" max="100" step="1" @bind="_upSpectrum.Percent" @bind:event="oninput" />
+            <span>%</span>
+        </label>
+        <button class="xgrid-delta-toggle xgrid-delta-toggle-up @(_upSpectrum.ShowHighlight ? "active" : "")" @onclick="() => _upSpectrum.ShowHighlight = !_upSpectrum.ShowHighlight"
+                title="Highlight the border of the top @_upSpectrum.Percent% of cells by up-tick count, and mark that cutoff on the Up Spectrum graph">Highlight</button>
+
+        <span class="xgrid-delta-label xgrid-delta-label-down" title="Percent of highest down-tick cells to highlight, ranked by down-tick count">Down %</span>
+        <label class="xgrid-control" title="Percent of highest down-tick cells to highlight, ranked by down-tick count -- 10 highlights the top 10%">
+            <input type="number" min="0" max="100" step="1" @bind="_downSpectrum.Percent" @bind:event="oninput" />
+            <span>%</span>
+        </label>
+        <button class="xgrid-delta-toggle xgrid-delta-toggle-down @(_downSpectrum.ShowHighlight ? "active" : "")" @onclick="() => _downSpectrum.ShowHighlight = !_downSpectrum.ShowHighlight"
+                title="Highlight the border of the top @_downSpectrum.Percent% of cells by down-tick count, and mark that cutoff on the Down Spectrum graph">Highlight</button>
+    </div>
     <div class="xgrid-levels-row">
         <label class="xgrid-level-toggle xgrid-level-toggle-poc" title="Highlight the Point of Control row -- the price with the most volume in the range">
             <input type="checkbox" @bind="_showPoc" /><span>POC</span>
@@ -97,6 +122,12 @@
             <span class="xgrid-total xgrid-total-net" title="Net = SBuy minus SSell">Net @((grid.SBuy - grid.SSell).ToString("F5", CultureInfo.InvariantCulture))</span>
             <button class="xgrid-total-toggle @(_showNetGraph ? "active" : "")" @onclick="() => _showNetGraph = !_showNetGraph"
                     title="Plot cumulative Net (SBuy - SSell) across the range as a line graph">Graph</button>
+            <button class="xgrid-total-toggle @(_spectrum.ShowGraph ? "active" : "")" @onclick="() => _spectrum.ShowGraph = !_spectrum.ShowGraph"
+                    title="Plot every cell's total tick count ordered least to most, with a marker showing where the current cell (the cell the price is at) falls on that range">Spectrum</button>
+            <button class="xgrid-total-toggle @(_upSpectrum.ShowGraph ? "active" : "")" @onclick="() => _upSpectrum.ShowGraph = !_upSpectrum.ShowGraph"
+                    title="Plot every cell's up-tick count ordered least to most, with a marker showing where the current cell falls on that range">Up Spectrum</button>
+            <button class="xgrid-total-toggle @(_downSpectrum.ShowGraph ? "active" : "")" @onclick="() => _downSpectrum.ShowGraph = !_downSpectrum.ShowGraph"
+                    title="Plot every cell's down-tick count ordered least to most, with a marker showing where the current cell falls on that range">Down Spectrum</button>
         </div>
         @if (_showNetGraph)
         {
@@ -111,6 +142,57 @@
                     @foreach (var x in NetGraphZeroCrossings(grid))
                     {
                         <line class="xgrid-netgraph-cross" x1="@x" y1="0" x2="@x" y2="100" />
+                    }
+                </svg>
+            </div>
+        }
+        @if (_spectrum.ShowGraph)
+        {
+            <div class="xgrid-spectrum" title="Every cell's total tick count across the range, ordered least to most; the guide line marks where the current cell (the cell the price is at) falls on that range, the dashed line the top-percent highlight cutoff">
+                <svg viewBox="0 0 100 100" preserveAspectRatio="none">
+                    <polygon class="xgrid-spectrum-area" points="@SpectrumAreaPoints(grid, XGridSpectrumMetric.Total)" />
+                    <polyline class="xgrid-spectrum-curve" points="@SpectrumCurvePoints(grid, XGridSpectrumMetric.Total)" />
+                    @if (SpectrumThresholdX(grid, XGridSpectrumMetric.Total) is { } totalThresholdX)
+                    {
+                        <line class="xgrid-spectrum-threshold" x1="@totalThresholdX" y1="0" x2="@totalThresholdX" y2="100" />
+                    }
+                    @if (SpectrumMarkerX(grid, XGridSpectrumMetric.Total) is { } totalMarkerX)
+                    {
+                        <line class="xgrid-spectrum-guide" x1="@totalMarkerX" y1="0" x2="@totalMarkerX" y2="100" />
+                    }
+                </svg>
+            </div>
+        }
+        @if (_upSpectrum.ShowGraph)
+        {
+            <div class="xgrid-spectrum" title="Every cell's up-tick count across the range, ordered least to most; the guide line marks where the current cell falls on that range, the dashed line the top-percent highlight cutoff">
+                <svg viewBox="0 0 100 100" preserveAspectRatio="none">
+                    <polygon class="xgrid-spectrum-area xgrid-spectrum-area-up" points="@SpectrumAreaPoints(grid, XGridSpectrumMetric.Up)" />
+                    <polyline class="xgrid-spectrum-curve xgrid-spectrum-curve-up" points="@SpectrumCurvePoints(grid, XGridSpectrumMetric.Up)" />
+                    @if (SpectrumThresholdX(grid, XGridSpectrumMetric.Up) is { } upThresholdX)
+                    {
+                        <line class="xgrid-spectrum-threshold" x1="@upThresholdX" y1="0" x2="@upThresholdX" y2="100" />
+                    }
+                    @if (SpectrumMarkerX(grid, XGridSpectrumMetric.Up) is { } upMarkerX)
+                    {
+                        <line class="xgrid-spectrum-guide" x1="@upMarkerX" y1="0" x2="@upMarkerX" y2="100" />
+                    }
+                </svg>
+            </div>
+        }
+        @if (_downSpectrum.ShowGraph)
+        {
+            <div class="xgrid-spectrum" title="Every cell's down-tick count across the range, ordered least to most; the guide line marks where the current cell falls on that range, the dashed line the top-percent highlight cutoff">
+                <svg viewBox="0 0 100 100" preserveAspectRatio="none">
+                    <polygon class="xgrid-spectrum-area xgrid-spectrum-area-down" points="@SpectrumAreaPoints(grid, XGridSpectrumMetric.Down)" />
+                    <polyline class="xgrid-spectrum-curve xgrid-spectrum-curve-down" points="@SpectrumCurvePoints(grid, XGridSpectrumMetric.Down)" />
+                    @if (SpectrumThresholdX(grid, XGridSpectrumMetric.Down) is { } downThresholdX)
+                    {
+                        <line class="xgrid-spectrum-threshold" x1="@downThresholdX" y1="0" x2="@downThresholdX" y2="100" />
+                    }
+                    @if (SpectrumMarkerX(grid, XGridSpectrumMetric.Down) is { } downMarkerX)
+                    {
+                        <line class="xgrid-spectrum-guide" x1="@downMarkerX" y1="0" x2="@downMarkerX" y2="100" />
                     }
                 </svg>
             </div>
@@ -188,6 +270,44 @@
                         }
                     </div>
                 }
+            </div>
+            <div class="xgrid-signals" title="Whether the current cell (the cell the price is at right now) ranks in that metric's own top-percent cutoff">
+                <div class="xgrid-signal @(CurrentSignal(grid, XGridSpectrumMetric.Total) ? "on" : "")" title="Current cell in the top @_spectrum.Percent% by total tick count">
+                    <span class="xgrid-signal-dot"></span>
+                    <span>TOTAL</span>
+                </div>
+                <div class="xgrid-signal xgrid-signal-up @(CurrentSignal(grid, XGridSpectrumMetric.Up) ? "on" : "")" title="Current cell in the top @_upSpectrum.Percent% by up-tick count">
+                    <span class="xgrid-signal-dot"></span>
+                    <span>UP</span>
+                </div>
+                <div class="xgrid-signal xgrid-signal-down @(CurrentSignal(grid, XGridSpectrumMetric.Down) ? "on" : "")" title="Current cell in the top @_downSpectrum.Percent% by down-tick count">
+                    <span class="xgrid-signal-dot"></span>
+                    <span>DOWN</span>
+                </div>
+                <div class="xgrid-signal-pos xgrid-signal-poc" title="Current price relative to the Point of Control">
+                    <span class="xgrid-signal-dot @(XGridStats.IsCurrentAtPoc(grid) ? "on" : "")" title="Current cell is at the POC row"></span>
+                    <span>POC</span>
+                    <span class="xgrid-signal-arrow @(XGridStats.IsCurrentAbovePoc(grid) ? "on" : "")" title="Current price is above POC">&#9650;</span>
+                    <span class="xgrid-signal-arrow @(XGridStats.IsCurrentBelowPoc(grid) ? "on" : "")" title="Current price is below POC">&#9660;</span>
+                </div>
+                <div class="xgrid-signal-pos xgrid-signal-vah" title="Current price relative to Value Area High">
+                    <span class="xgrid-signal-dot @(XGridStats.IsCurrentAtVah(grid) ? "on" : "")" title="Current cell is at the VAH row"></span>
+                    <span>VAH</span>
+                    <span class="xgrid-signal-arrow @(XGridStats.IsCurrentAboveVah(grid) ? "on" : "")" title="Current price is above VAH">&#9650;</span>
+                    <span class="xgrid-signal-arrow @(XGridStats.IsCurrentBelowVah(grid) ? "on" : "")" title="Current price is below VAH">&#9660;</span>
+                </div>
+                <div class="xgrid-signal-pos xgrid-signal-val" title="Current price relative to Value Area Low">
+                    <span class="xgrid-signal-dot @(XGridStats.IsCurrentAtVal(grid) ? "on" : "")" title="Current cell is at the VAL row"></span>
+                    <span>VAL</span>
+                    <span class="xgrid-signal-arrow @(XGridStats.IsCurrentAboveVal(grid) ? "on" : "")" title="Current price is above VAL">&#9650;</span>
+                    <span class="xgrid-signal-arrow @(XGridStats.IsCurrentBelowVal(grid) ? "on" : "")" title="Current price is below VAL">&#9660;</span>
+                </div>
+                <div class="xgrid-signal-pos xgrid-signal-vwap" title="Current price relative to VWAP">
+                    <span class="xgrid-signal-dot @(XGridStats.IsCurrentAtVwap(grid) ? "on" : "")" title="Current cell is at the VWAP row"></span>
+                    <span>VWAP</span>
+                    <span class="xgrid-signal-arrow @(XGridStats.IsCurrentAboveVwap(grid) ? "on" : "")" title="Current price is above VWAP">&#9650;</span>
+                    <span class="xgrid-signal-arrow @(XGridStats.IsCurrentBelowVwap(grid) ? "on" : "")" title="Current price is below VWAP">&#9660;</span>
+                </div>
             </div>
         </div>
         <div class="xgrid-footer">

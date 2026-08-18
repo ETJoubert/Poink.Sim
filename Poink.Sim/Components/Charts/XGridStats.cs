@@ -42,6 +42,11 @@ public readonly record struct XGridResult(
     XGridLevel? Poc, XGridLevel? Vah, XGridLevel? Val, XGridLevel? Vwap, XGridLevel? Average, XGridLevel? Median,
     XGridLevel? Current);
 
+// Which per-cell metric XGridStats ranks cells by -- Total is the raw tick count
+// (XGridCell.Value), Up/Down isolate one side's ticks so the two directions can be
+// inspected independently.
+internal enum XGridSpectrumMetric { Total, Up, Down }
+
 // Footprint-style price/bar matrix -- rows are price buckets (shared across every column,
 // same bucketing approach as VolumeProfileStats), columns are the bars inside ProfilerPage's
 // Volume Range selection, grouped down to colCount columns when the selection holds more
@@ -229,5 +234,87 @@ internal static class XGridStats
         for (var i = 1; i < values.Length; i++)
             if (values[i] > values[best]) best = i;
         return best;
+    }
+
+    // The cell the price is at right now -- current price's row, most recent (right-most)
+    // column. Null when there's no Current level or the grid has no columns.
+    public static (int Row, int Col)? CurrentCell(XGridResult grid) =>
+        grid.Current is { } cur && grid.Columns.Count > 0 ? (cur.Row, grid.Columns.Count - 1) : null;
+
+    // True when the current cell's row matches the given level's row -- false when there's
+    // no current cell, or the level itself isn't set (not enough data for that level).
+    private static bool IsCurrentAtLevel(XGridResult grid, XGridLevel? level) =>
+        CurrentCell(grid) is { } cell && level is { } l && l.Row == cell.Row;
+
+    public static bool IsCurrentAtPoc(XGridResult grid) => IsCurrentAtLevel(grid, grid.Poc);
+    public static bool IsCurrentAtVah(XGridResult grid) => IsCurrentAtLevel(grid, grid.Vah);
+    public static bool IsCurrentAtVal(XGridResult grid) => IsCurrentAtLevel(grid, grid.Val);
+    public static bool IsCurrentAtVwap(XGridResult grid) => IsCurrentAtLevel(grid, grid.Vwap);
+
+    // Above/below compare actual price, not row -- finer-grained than IsCurrentAtLevel's row
+    // match, since a row is a bucket that can span many price levels. False when there's no
+    // current price, or the level itself isn't set.
+    private static bool IsCurrentAboveLevel(XGridResult grid, XGridLevel? level) =>
+        grid.Current is { } cur && level is { } l && cur.Price > l.Price;
+
+    private static bool IsCurrentBelowLevel(XGridResult grid, XGridLevel? level) =>
+        grid.Current is { } cur && level is { } l && cur.Price < l.Price;
+
+    public static bool IsCurrentAbovePoc(XGridResult grid) => IsCurrentAboveLevel(grid, grid.Poc);
+    public static bool IsCurrentBelowPoc(XGridResult grid) => IsCurrentBelowLevel(grid, grid.Poc);
+    public static bool IsCurrentAboveVah(XGridResult grid) => IsCurrentAboveLevel(grid, grid.Vah);
+    public static bool IsCurrentBelowVah(XGridResult grid) => IsCurrentBelowLevel(grid, grid.Vah);
+    public static bool IsCurrentAboveVal(XGridResult grid) => IsCurrentAboveLevel(grid, grid.Val);
+    public static bool IsCurrentBelowVal(XGridResult grid) => IsCurrentBelowLevel(grid, grid.Val);
+    public static bool IsCurrentAboveVwap(XGridResult grid) => IsCurrentAboveLevel(grid, grid.Vwap);
+    public static bool IsCurrentBelowVwap(XGridResult grid) => IsCurrentBelowLevel(grid, grid.Vwap);
+
+    public static double CellValue(XGridResult grid, (int Row, int Col) cell, XGridSpectrumMetric metric)
+    {
+        XGridCell c = grid.Columns[cell.Col].Cells[cell.Row];
+        return metric switch
+        {
+            XGridSpectrumMetric.Up => c.UpCount,
+            XGridSpectrumMetric.Down => c.DownCount,
+            _ => c.Value,
+        };
+    }
+
+    // Every (row, col) cell with a nonzero metric value, ordered least to most by it. Cells
+    // at zero (no ticks at all for Total, or none on that side for Up/Down) are excluded
+    // rather than sorted to the front -- a footprint grid is mostly empty, so including them
+    // would flatten the curve into a long zero run. Sort order among equal values is
+    // unspecified (Array.Sort isn't stable), but that only affects the curve's shape at a
+    // plateau, not which point marks the current cell or the top-percent threshold -- both
+    // look up by (Row, Col) identity or by rank, not by value.
+    public static (int Row, int Col)[] CellOrder(XGridResult grid, XGridSpectrumMetric metric)
+    {
+        int rows = grid.RowLow.Count, cols = grid.Columns.Count;
+        var cells = new List<(int Row, int Col)>(rows * cols);
+        for (var c = 0; c < cols; c++)
+            for (var r = 0; r < rows; r++)
+                if (CellValue(grid, (r, c), metric) > 0) cells.Add((r, c));
+
+        var order = cells.ToArray();
+        Array.Sort(order, (a, b) => CellValue(grid, a, metric).CompareTo(CellValue(grid, b, metric)));
+        return order;
+    }
+
+    // How many of the n nonzero cells fall within the top Percent% by value.
+    public static int TopCount(int n, double percent) =>
+        Math.Clamp((int)Math.Round(n * Math.Clamp(percent, 0, 100) / 100.0, MidpointRounding.AwayFromZero), 0, n);
+
+    // True when the current (latest) cell's metric value ranks inside the top percent% of
+    // every nonzero cell on the grid. False when there's no current cell, or the current
+    // cell itself has a zero metric value (excluded from CellOrder, so it can never rank).
+    public static bool IsCurrentInTopPercent(XGridResult grid, XGridSpectrumMetric metric, double percent)
+    {
+        if (CurrentCell(grid) is not { } cell) return false;
+        var order = CellOrder(grid, metric);
+        int rank = Array.IndexOf(order, cell);
+        if (rank < 0) return false;
+
+        int n = order.Length;
+        return rank >= n - TopCount(n, percent);
     }
 }

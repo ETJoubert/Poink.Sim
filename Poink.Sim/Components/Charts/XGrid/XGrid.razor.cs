@@ -204,6 +204,34 @@ namespace Poink.Sim.Components.Charts
         // other overlay.
         private bool _showNetGraph;
 
+        // Per-metric UI state for one Spectrum: ShowGraph opts into its distribution graph,
+        // ShowHighlight opts into bordering the top Percent% of its cells on the main grid --
+        // same opt-in, off-by-default convention as _showNetGraph. Grouped into one object per
+        // metric rather than tripling flat fields, since Total/Up/Down are otherwise identical.
+        private sealed class SpectrumOverlay
+        {
+            public bool ShowGraph;
+            public bool ShowHighlight;
+            public double Percent = 10;
+        }
+
+        private readonly SpectrumOverlay _spectrum = new();
+        private readonly SpectrumOverlay _upSpectrum = new();
+        private readonly SpectrumOverlay _downSpectrum = new();
+
+        private SpectrumOverlay OverlayFor(XGridSpectrumMetric metric) => metric switch
+        {
+            XGridSpectrumMetric.Up => _upSpectrum,
+            XGridSpectrumMetric.Down => _downSpectrum,
+            _ => _spectrum,
+        };
+
+        // Whether the current (latest) cell ranks in this metric's own top Percent% -- reuses
+        // the same percent already configured for that metric's Highlight/Spectrum overlay, so
+        // the signal panel agrees with whatever cutoff is drawn on screen.
+        private bool CurrentSignal(XGridResult grid, XGridSpectrumMetric metric) =>
+            XGridStats.IsCurrentInTopPercent(grid, metric, OverlayFor(metric).Percent);
+
         // Poc/Vah/Val/Vwap/Average/Median are independently toggleable, same "each gets its
         // own checkbox" convention as ProfilerPage's own CHART OVERLAYS panel. Every overlay
         // starts off so the grid opens unshaded and unmarked.
@@ -331,6 +359,9 @@ namespace Poink.Sim.Components.Charts
                 mode = _shadeDelta ? "delta" : "count",
                 cells,
                 present,
+                topHighlight = TopHighlightMask(grid, XGridSpectrumMetric.Total),
+                upHighlight = TopHighlightMask(grid, XGridSpectrumMetric.Up),
+                downHighlight = TopHighlightMask(grid, XGridSpectrumMetric.Down),
                 sweep,
                 markers,
                 current = grid.Current is { } cur2 ? (int?)cur2.Row : null,
@@ -758,6 +789,86 @@ namespace Poink.Sim.Components.Charts
         }
 
         private static string XForm(double x) => x.ToString("0.##", CultureInfo.InvariantCulture);
+
+        // Rank i's x sits at i / (n - 1) across the 0..100 viewBox, its y at the cell's value
+        // as a fraction of the largest cell value -- an ascending curve from bottom-left
+        // (smallest cell) to top-right (largest cell).
+        private static string SpectrumCurvePoints(XGridResult grid, XGridSpectrumMetric metric)
+        {
+            var order = XGridStats.CellOrder(grid, metric);
+            int n = order.Length;
+            if (n == 0) return "";
+
+            double max = XGridStats.CellValue(grid, order[^1], metric);
+            var points = new string[n];
+            for (var i = 0; i < n; i++)
+            {
+                double x = n <= 1 ? 0 : i * 100.0 / (n - 1);
+                double y = max <= 0 ? 100 : 100 - XGridStats.CellValue(grid, order[i], metric) / max * 100;
+                points[i] = $"{XForm(x)},{XForm(y)}";
+            }
+            return string.Join(' ', points);
+        }
+
+        // Closes SpectrumCurvePoints down to the baseline so it can fill as a solid area
+        // instead of just an outline.
+        private static string SpectrumAreaPoints(XGridResult grid, XGridSpectrumMetric metric)
+        {
+            var curve = SpectrumCurvePoints(grid, metric);
+            return curve.Length == 0 ? "" : $"{curve} 100,100 0,100";
+        }
+
+        // Current cell's x position on SpectrumCurvePoints -- the curve is monotonically
+        // ascending, so x alone (its rank among every cell) locates it; the guide line crosses
+        // the curve at its actual value without needing that height computed separately. Null
+        // when there's no current cell, same as every other level marker on this grid.
+        private static string? SpectrumMarkerX(XGridResult grid, XGridSpectrumMetric metric)
+        {
+            if (XGridStats.CurrentCell(grid) is not { } cell) return null;
+            var order = XGridStats.CellOrder(grid, metric);
+            int rank = Array.IndexOf(order, cell);
+            if (rank < 0) return null;
+
+            int n = order.Length;
+            return XForm(n <= 1 ? 0 : rank * 100.0 / (n - 1));
+        }
+
+        // One byte per grid cell, 1 for every cell within the top Percent% by this metric --
+        // fed to xGrid.js to stroke a border around each, same present-mask shape BuildPayload
+        // already sends for the baseline tick-presence border. Null while that metric's overlay
+        // is off, so the JS side skips the extra pass entirely rather than drawing an empty mask.
+        private byte[]? TopHighlightMask(XGridResult grid, XGridSpectrumMetric metric)
+        {
+            var overlay = OverlayFor(metric);
+            if (!overlay.ShowHighlight) return null;
+            int rows = grid.RowLow.Count, cols = grid.Columns.Count;
+            var mask = new byte[rows * cols];
+            var order = XGridStats.CellOrder(grid, metric);
+            int n = order.Length;
+            int count = XGridStats.TopCount(n, overlay.Percent);
+            for (var i = n - count; i < n; i++)
+            {
+                var (row, col) = order[i];
+                mask[row * cols + col] = 1;
+            }
+            return mask;
+        }
+
+        // x position on SpectrumCurvePoints where the top-percent cutoff sits -- null while
+        // that metric's overlay is off, or when the cutoff isn't a meaningful split (no cells,
+        // or 0%/100% selects none/all of them).
+        private string? SpectrumThresholdX(XGridResult grid, XGridSpectrumMetric metric)
+        {
+            var overlay = OverlayFor(metric);
+            if (!overlay.ShowHighlight) return null;
+            var order = XGridStats.CellOrder(grid, metric);
+            int n = order.Length;
+            if (n <= 1) return null;
+
+            int count = XGridStats.TopCount(n, overlay.Percent);
+            if (count <= 0 || count >= n) return null;
+            return XForm((n - count) * 100.0 / (n - 1));
+        }
 
         private static (double Min, double Range) NetGraphSpan(IReadOnlyList<double> series)
         {

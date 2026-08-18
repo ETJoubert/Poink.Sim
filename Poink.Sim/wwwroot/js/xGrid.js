@@ -129,6 +129,12 @@ function render(ctx, W, H, p, st) {
         ctx.stroke();
     }
 
+    // Top-percent highlights: a brighter border over the baseline one for each direction's
+    // top-percent overlay, marking the cells its Spectrum graph's threshold line also cuts off.
+    strokeMask(ctx, p.topHighlight, rows, cols, ml, cw, ch, gap, cssVar('--color-accent'), 1.5);
+    strokeMask(ctx, p.upHighlight, rows, cols, ml, cw, ch, gap, cssVar('--color-success'), 1.5);
+    strokeMask(ctx, p.downHighlight, rows, cols, ml, cw, ch, gap, cssVar('--color-error'), 1.5);
+
     if (p.sweep) {
         const warn = rgb(cssVar('--color-warning'));
         ctx.save();
@@ -413,6 +419,23 @@ function drawDraft(ctx, L, p) {
         ctx.stroke();
         ctx.setLineDash([]);
     }
+}
+
+// Strokes a border around every cell flagged in a rows*cols byte mask (present/topHighlight/
+// upHighlight/downHighlight) -- shared by the several masks BuildPayload sends so each only
+// differs by colour, not by loop.
+function strokeMask(ctx, mask, rows, cols, ml, cw, ch, gap, color, width) {
+    if (!mask || cw <= 4 || ch <= 4) return;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.beginPath();
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+            if (!mask[r * cols + c]) continue;
+            ctx.rect(ml + c * cw + gap + 0.5, r * ch + gap + 0.5, cw - gap - 1, ch - gap - 1);
+        }
+    }
+    ctx.stroke();
 }
 
 function strokeCell(ctx, L, row, col, color, width, dash) {
