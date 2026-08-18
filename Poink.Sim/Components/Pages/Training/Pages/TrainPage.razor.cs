@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Components.Web;
 using Poink.Sim.Brain.Neural;
 using Poink.Sim.Components.Training;
 using Poink.Sim.Helpers;
+using Poink.Sim.Models;
 using Poink.Sim.Repository;
 using Poink.Sim.Trader;
 using Poink.Sim.Trader.Commission;
@@ -32,6 +33,8 @@ namespace Poink.Sim.Components.Pages
         private string _brainName = "";
 
         private int _barWidthSeconds = 60;
+        private SimulationSteppingMode _steppingMode = SimulationSteppingMode.Bar;
+        private double _cellWidth = 0.10;
 
         private string _strategyName = "";
         private int _episodeCount = 1000;
@@ -264,7 +267,8 @@ namespace Poink.Sim.Components.Pages
 
             if (!Service.TryStartTraining(
                     _brainName, _strategyName, _episodeCount, EffectiveEpisodeBars, _barWidthSeconds, _startingCash, _learningRate,
-                    (_table, _from, _to), CurrentTraderSettings, pauseAfterFirstEpisode, CurrentEpisodeTimeConstraint))
+                    (_table, _from, _to), CurrentTraderSettings, pauseAfterFirstEpisode, CurrentEpisodeTimeConstraint,
+                    _steppingMode, _cellWidth))
                 _startError = Service.Error ?? "a training run is already in progress";
         }
 

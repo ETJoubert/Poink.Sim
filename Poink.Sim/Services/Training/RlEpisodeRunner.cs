@@ -22,7 +22,8 @@ internal static class RlEpisodeRunner
         ISimulationBrain brain, IEnumerable<Tick> ticks, double startingCash,
         int episodeBars, TimeSpan barSize, Trader.ITraderFactory traderFactory,
         bool aggregate = true, Trader.TraderSettings? settings = null, int warmupBars = 0,
-        IRewardPolicy? rewardPolicy = null)
+        IRewardPolicy? rewardPolicy = null, SimulationSteppingMode steppingMode = SimulationSteppingMode.Bar,
+        double cellWidth = 0.10)
     {
 
         var effectiveRewardPolicy = rewardPolicy ?? new EquityDriftRewardPolicy();
@@ -31,6 +32,7 @@ internal static class RlEpisodeRunner
 
         var trader = traderFactory.Create(startingCash, settings);
         var aggregator = aggregate ? new SimulationBarAggregator(barSize, PriceBucketWidth) : null;
+        var cellTracker = aggregate && steppingMode == SimulationSteppingMode.Cell ? new PriceCellTracker(cellWidth) : null;
 
         var recentBars = new List<HlocAvdtBar>();
         var recentBarHistograms = new List<BarPriceHistogram>();
@@ -94,14 +96,24 @@ internal static class RlEpisodeRunner
 
                     allBars.Add(completed.Value.Bar);
                     allBarHistograms.Add(completed.Value.Histogram);
+                }
 
+                // cellTracker.Feed always runs, warmup or not, so its notion of "current
+                // cell" doesn't desync from price once decisions are allowed to start.
+                bool stillWarmingUp = warmupRemaining > 0;
+                if (completed is not null && stillWarmingUp)
+                    warmupRemaining--;
 
-                    if (warmupRemaining > 0)
-                    { warmupRemaining--; continue; }
+                var cellStep = cellTracker?.Feed(tick);
+                bool decide = !stillWarmingUp && (cellTracker is not null ? cellStep is not null : completed is not null);
+
+                if (decide)
+                {
+                    double decisionPrice = completed is { } c ? c.Bar.Close : price;
 
                     bool policyBlocked;
                     (previousCapital, lastObservation, lastOutputs, positionAfterDecision, policyBlocked) = RecordStep(
-                        brain, trader, tick.Timestamp, completed.Value.Bar.Close, tick.Bid, tick.Ask, maintenance.Capital,
+                        brain, trader, tick.Timestamp, decisionPrice, tick.Bid, tick.Ask, maintenance.Capital,
                         recentBars, Array.Empty<Tick>(), recentBarHistograms, steps, previousCapital, previousPosition, effectiveRewardPolicy);
 
                     previousPosition = lastObservation.Value.Position;
@@ -115,17 +127,17 @@ internal static class RlEpisodeRunner
                     allBarActions.Add(new RlBarAction(
                         steps[^1].Action, positionAfterDecision?.EntryPrice,
                         positionAfterDecision is { } p ? p.Direction == PositionDirection.Long : null,
-                        positionAfterDecision?.StopLossPrice, positionAfterDecision?.TakeProfitPrice, blocked));
+                        positionAfterDecision?.StopLossPrice, positionAfterDecision?.TakeProfitPrice, tick.Timestamp, blocked));
                     if (describableBrain is not null)
                     {
                         allBarInputs.Add(describableBrain.DescribeInputs(lastObservation.Value));
                         allBarEquity.Add(lastObservation.Value.Capital.Equity);
                         allBarOutputs.Add(lastOutputs!);
                     }
-
-                    if (++completedBars >= episodeBars)
-                        break;
                 }
+
+                if (completed is not null && !stillWarmingUp && ++completedBars >= episodeBars)
+                    break;
             }
             else
             {
@@ -154,7 +166,8 @@ internal static class RlEpisodeRunner
 
         return new RlEpisode(
             steps, trader.Snapshot(lastBid, lastAsk), lastInputs, lastOutputs, trader.TradeLog, trader.MaxEquity, trader.MaxDrawdown,
-            windowStart, windowEnd, allBars, allBarHistograms, allBarInputs, allBarEquity, allBarOutputs, actualWarmupBars, allBarActions);
+            windowStart, windowEnd, allBars, allBarHistograms, allBarInputs, allBarEquity, allBarOutputs, actualWarmupBars, allBarActions,
+            steppingMode, cellWidth);
     }
 
 

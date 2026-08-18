@@ -162,6 +162,10 @@ internal sealed class RlTrainingService : IRlTrainingService
 
     public int LatestEpisodeWarmupBars { get; private set; }
 
+    public SimulationSteppingMode LatestEpisodeSteppingMode { get; private set; }
+
+    public double LatestEpisodeCellWidth { get; private set; }
+
 
     public IReadOnlyList<Trade> LatestEpisodeTrades { get; private set; } = Array.Empty<Trade>();
 
@@ -216,7 +220,8 @@ internal sealed class RlTrainingService : IRlTrainingService
         string brainName, string strategyName, int episodeCount, int episodeBars, int barWidthSeconds, double startingCash,
         double learningRate, (string Table, DateTime From, DateTime To)? historicRange,
         Trader.TraderSettings? traderSettings = null, bool pauseAfterFirstEpisode = false,
-        EpisodeTimeConstraint? episodeTimeConstraint = null)
+        EpisodeTimeConstraint? episodeTimeConstraint = null,
+        SimulationSteppingMode steppingMode = SimulationSteppingMode.Bar, double cellWidth = 0.10)
     {
         var timeConstraint = episodeTimeConstraint ?? EpisodeTimeConstraint.None;
         var brain = _brainRegistry.All.FirstOrDefault(b => b.Name == brainName);
@@ -273,6 +278,8 @@ internal sealed class RlTrainingService : IRlTrainingService
             LatestEpisodeBars = Array.Empty<HlocAvdtBar>();
             LatestEpisodeBarHistograms = Array.Empty<BarPriceHistogram>();
             LatestEpisodeWarmupBars = 0;
+            LatestEpisodeSteppingMode = SimulationSteppingMode.Bar;
+            LatestEpisodeCellWidth = 0;
             LatestEpisodeTrades = Array.Empty<Trade>();
             LatestEpisodeBarInputs = Array.Empty<IReadOnlyList<RlInputFeature>>();
             LatestEpisodeBarEquity = Array.Empty<double>();
@@ -299,11 +306,12 @@ internal sealed class RlTrainingService : IRlTrainingService
             ? $"weekdays={string.Join(",", timeConstraint.AllowedWeekdays.OrderBy(d => d))}, " +
               $"session={EpisodeTimeConstraint.FormatClock(timeConstraint.SessionStart)}-{EpisodeTimeConstraint.FormatClock(timeConstraint.SessionEnd)}"
             : "unrestricted";
+        string stepping = steppingMode == SimulationSteppingMode.Cell ? $"cell(width={cellWidth:0.#####})" : "bar";
         _logger.LogInformation(
-            "Training started: brain={Brain}, strategy={Strategy}, rewardPolicy={RewardPolicy}, episodes={EpisodeCount}, episodeBars={EpisodeBars}, warmupBars={WarmupBars}, barWidthSeconds={BarWidthSeconds}, source={Source}, timing={Timing}",
-            brainName, strategyName, rewardPolicy.Name, episodeCount, episodeBars, warmupBars, barWidthSeconds, source, timing);
+            "Training started: brain={Brain}, strategy={Strategy}, rewardPolicy={RewardPolicy}, episodes={EpisodeCount}, episodeBars={EpisodeBars}, warmupBars={WarmupBars}, barWidthSeconds={BarWidthSeconds}, stepping={Stepping}, source={Source}, timing={Timing}",
+            brainName, strategyName, rewardPolicy.Name, episodeCount, episodeBars, warmupBars, barWidthSeconds, stepping, source, timing);
         AppendLog("info",
-            $"start: brain={brainName}, strategy={strategyName}, policy={rewardPolicy.Name}, {episodeCount} episodes x {episodeBars} bars @ {BarSizeOptions.Label(barWidthSeconds)}, lr={learningRate:N4}, cash={startingCash:N0}, source={source}, timing={timing}");
+            $"start: brain={brainName}, strategy={strategyName}, policy={rewardPolicy.Name}, {episodeCount} episodes x {episodeBars} bars @ {BarSizeOptions.Label(barWidthSeconds)}, step={stepping}, lr={learningRate:N4}, cash={startingCash:N0}, source={source}, timing={timing}");
 
         var barWidth = TimeSpan.FromSeconds(barWidthSeconds);
 
@@ -388,7 +396,8 @@ internal sealed class RlTrainingService : IRlTrainingService
 
                     var result = RlEpisodeRunner.Run(
                         brain, episodeTicks, startingCash, episodeBars, barWidth, _traderFactory,
-                        settings: traderSettings, warmupBars: warmupBars, rewardPolicy: rewardPolicy);
+                        settings: traderSettings, warmupBars: warmupBars, rewardPolicy: rewardPolicy,
+                        steppingMode: steppingMode, cellWidth: cellWidth);
 
                     double progress = episodeCount > 1 ? (double)episode / (episodeCount - 1) : 1.0;
                     double reward = strategy.TrainEpisode(brain, optimizer, result, progress);
@@ -419,6 +428,8 @@ internal sealed class RlTrainingService : IRlTrainingService
                         LatestEpisodeBars = result.Bars;
                         LatestEpisodeBarHistograms = result.BarHistograms;
                         LatestEpisodeWarmupBars = result.WarmupBars;
+                        LatestEpisodeSteppingMode = result.SteppingMode;
+                        LatestEpisodeCellWidth = result.CellWidth;
                         LatestEpisodeTrades = result.Trades;
                         LatestEpisodeBarInputs = result.BarInputs;
                         LatestEpisodeBarEquity = result.BarEquity;
@@ -521,6 +532,8 @@ internal sealed class RlTrainingService : IRlTrainingService
             LatestEpisodeBars = Array.Empty<HlocAvdtBar>();
             LatestEpisodeBarHistograms = Array.Empty<BarPriceHistogram>();
             LatestEpisodeWarmupBars = 0;
+            LatestEpisodeSteppingMode = SimulationSteppingMode.Bar;
+            LatestEpisodeCellWidth = 0;
             LatestEpisodeTrades = Array.Empty<Trade>();
             LatestEpisodeBarInputs = Array.Empty<IReadOnlyList<RlInputFeature>>();
             LatestEpisodeBarEquity = Array.Empty<double>();

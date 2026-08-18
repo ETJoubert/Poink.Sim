@@ -4,6 +4,7 @@
 @using Poink.Sim.Components.Shared.BarSizeSelect
 @using Poink.Sim.Components.Shared.PolicySelector
 @using Poink.Sim.Components.Shared.TickDataSource
+@using Poink.Sim.Models
 @using Poink.Shared.Client.Components.Shared.Icon
 
 <div class="train-page @(_dashboardView ? "train-page-dashboard" : "")">
@@ -106,6 +107,22 @@
                             <BarSizeSelect @bind-Value="_barWidthSeconds" Disabled="@Service.IsRunning"
                                            Label="Bar width"
                                            Title="Time span of one bar (M) -- also determines how much wall-clock time an episode's fetched ticks need to cover" />
+                            <label class="train-brainrow-field"
+                                   title="Bar steps a decision on each bar's close. Cell steps on a fixed-width price band instead, the moment price moves into a different band">
+                                Step
+                                <select class="train-brainrow-select" @bind="_steppingMode" disabled="@Service.IsRunning">
+                                    <option value="@SimulationSteppingMode.Bar">bar</option>
+                                    <option value="@SimulationSteppingMode.Cell">cell</option>
+                                </select>
+                            </label>
+                            @if (_steppingMode == SimulationSteppingMode.Cell)
+                            {
+                                <label class="train-brainrow-field" title="Fixed price width of each cell -- a decision fires when price crosses from one cell into the next">
+                                    Cell width
+                                    <input class="train-brainrow-input" type="number" min="0.00001" step="0.01"
+                                           @bind="_cellWidth" disabled="@Service.IsRunning" />
+                                </label>
+                            }
                             <label class="train-brainrow-field train-timing-toggle"
                                    title="Turn on to restrict episodes to specific weekdays and/or a daily time-of-day session -- off means an episode may start anywhere in the Data Range above, including across midnight">
                                 <input type="checkbox" checked="@_restrictEpisodeTiming" @onchange="ToggleRestrictEpisodeTiming"

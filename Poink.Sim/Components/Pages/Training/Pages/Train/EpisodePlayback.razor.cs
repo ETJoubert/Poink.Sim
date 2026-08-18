@@ -25,6 +25,7 @@ namespace Poink.Sim.Components.Training
         private BrainRecipe? Recipe => Service.GetRecipe(BrainName);
 
         private bool _trainingWasAdvancing;
+        private bool _autoShownXGridForCell;
 
         protected override void OnInitialized()
         {
@@ -38,6 +39,14 @@ namespace Poink.Sim.Components.Training
             if (isAdvancing && !_trainingWasAdvancing)
                 StopAndResetReplay();
             _trainingWasAdvancing = isAdvancing;
+
+            // One-time reveal, not a standing override -- a Cell-mode episode is worth
+            // seeing the grid for, but a user who hides it again afterward is respected.
+            if (!_autoShownXGridForCell && Service.LatestEpisodeSteppingMode == SimulationSteppingMode.Cell)
+            {
+                _showXGrid = true;
+                _autoShownXGridForCell = true;
+            }
 
             _ = InvokeAsync(StateHasChanged);
         }
@@ -120,6 +129,8 @@ namespace Poink.Sim.Components.Training
             IReadOnlyList<HlocAvdtBar> LatestEpisodeBars,
             IReadOnlyList<BarPriceHistogram> LatestEpisodeBarHistograms,
             int LatestEpisodeWarmupBars,
+            SimulationSteppingMode LatestEpisodeSteppingMode,
+            double LatestEpisodeCellWidth,
             IReadOnlyList<Trade> LatestEpisodeTrades,
             IReadOnlyList<double> LatestEpisodeBarEquity,
             IReadOnlyList<RlBarAction> LatestEpisodeBarActions,
@@ -137,6 +148,7 @@ namespace Poink.Sim.Components.Training
             _liveFeedbackSnapshot = new LiveFeedbackSnapshot(
                 Service.RecentEpisodes, Service.RecentEpisodeTrades, Service.ActionCounts,
                 Service.LatestEpisodeBars, Service.LatestEpisodeBarHistograms, Service.LatestEpisodeWarmupBars,
+                Service.LatestEpisodeSteppingMode, Service.LatestEpisodeCellWidth,
                 Service.LatestEpisodeTrades, Service.LatestEpisodeBarEquity, Service.LatestEpisodeBarActions,
                 Service.LatestEpisodeBarInputs);
             _liveFeedbackPaused = true;
@@ -149,6 +161,8 @@ namespace Poink.Sim.Components.Training
         private IReadOnlyList<HlocAvdtBar> SourceEpisodeBars => _liveFeedbackSnapshot?.LatestEpisodeBars ?? Service.LatestEpisodeBars;
         private IReadOnlyList<BarPriceHistogram> SourceEpisodeBarHistograms => _liveFeedbackSnapshot?.LatestEpisodeBarHistograms ?? Service.LatestEpisodeBarHistograms;
         private int SourceEpisodeWarmupBars => _liveFeedbackSnapshot?.LatestEpisodeWarmupBars ?? Service.LatestEpisodeWarmupBars;
+        private SimulationSteppingMode SourceEpisodeSteppingMode => _liveFeedbackSnapshot?.LatestEpisodeSteppingMode ?? Service.LatestEpisodeSteppingMode;
+        private double SourceEpisodeCellWidth => _liveFeedbackSnapshot?.LatestEpisodeCellWidth ?? Service.LatestEpisodeCellWidth;
         private IReadOnlyList<Trade> SourceEpisodeTrades => _liveFeedbackSnapshot?.LatestEpisodeTrades ?? Service.LatestEpisodeTrades;
         private IReadOnlyList<double> SourceEpisodeBarEquity => _liveFeedbackSnapshot?.LatestEpisodeBarEquity ?? Service.LatestEpisodeBarEquity;
         private IReadOnlyList<RlBarAction> SourceEpisodeBarActions => _liveFeedbackSnapshot?.LatestEpisodeBarActions ?? Service.LatestEpisodeBarActions;
@@ -248,6 +262,8 @@ namespace Poink.Sim.Components.Training
         private List<IReadOnlyList<RlInputFeature>>? _replayBarInputs;
 
         private int _replayWarmupBars;
+        private SimulationSteppingMode _replaySteppingMode;
+        private double _replayCellWidth;
         private int _revealedBarCount;
         private bool _isReplaying;
         private Timer? _replayTimer;
@@ -284,6 +300,22 @@ namespace Poink.Sim.Components.Training
                     t.EntryTime, t.EntryPrice, t.ExitTime, t.ExitPrice, ColorGroup: t.RealizedPnl >= 0 ? "win" : "loss"))
                 .ToList();
 
+        private List<XGridPosition> DisplayedXGridPositions =>
+            DisplayedRevealedTrades
+                .Select(t => new XGridPosition(MapDirection(t.Direction), t.EntryTime, t.EntryPrice, t.ExitTime, t.ExitPrice))
+                .ToList();
+
+        private static XGridPositionDirection MapDirection(PositionDirection direction) =>
+            direction == PositionDirection.Long ? XGridPositionDirection.Long : XGridPositionDirection.Short;
+
+        // Matches this brain's own XGrid Signals encoder settings -- lets the panel show
+        // exactly the grid the network decides from, instead of an independently tuned one.
+        private void MatchXGridToBrainConfig()
+        {
+            _xgridPipCount = Math.Max(1, EncoderSizes.XGridRowCount);
+            _xgridColCount = Math.Max(1, EncoderSizes.XGridColCount);
+        }
+
         private TradeStatistics DisplayedTraderStats => TradeStatistics.From(DisplayedRevealedTrades, 0, 0);
 
         private (int Longs, int Shorts, int Closes) DisplayedBlockedCounts
@@ -292,21 +324,25 @@ namespace Poink.Sim.Components.Training
             {
                 var bars = DisplayedEpisodeBars;
                 var actions = DisplayedBarActionsSource;
-                int warmupBars = DisplayedWarmupBars;
-                if (actions.Count == 0 || bars.Count <= warmupBars)
+                if (actions.Count == 0 || bars.Count == 0)
                     return (0, 0, 0);
 
-                int revealedDecisions = Math.Min(actions.Count, bars.Count - warmupBars);
+                // Actions are chronological, so a decision is "revealed" once its own
+                // timestamp falls within the bars shown so far -- true for any number of
+                // decisions per bar, not just the old one-per-bar assumption.
+                DateTime cutoff = bars[^1].TimeUtc;
                 int longs = 0, shorts = 0, closes = 0;
-                for (int i = 0; i < revealedDecisions; i++)
+                foreach (var action in actions)
                 {
-                    if (!actions[i].Blocked)
+                    if (action.Timestamp > cutoff)
+                        break;
+                    if (!action.Blocked)
                         continue;
-                    if (actions[i].Action == SimulationAction.EnterLong)
+                    if (action.Action == SimulationAction.EnterLong)
                         longs++;
-                    else if (actions[i].Action == SimulationAction.EnterShort)
+                    else if (action.Action == SimulationAction.EnterShort)
                         shorts++;
-                    else if (actions[i].Action == SimulationAction.Close)
+                    else if (action.Action == SimulationAction.Close)
                         closes++;
                 }
                 return (longs, shorts, closes);
@@ -332,8 +368,41 @@ namespace Poink.Sim.Components.Training
         };
 
         private int DisplayedWarmupBars => _replayBars is not null ? _replayWarmupBars : SourceEpisodeWarmupBars;
+        private SimulationSteppingMode DisplayedSteppingMode => _replayBars is not null ? _replaySteppingMode : SourceEpisodeSteppingMode;
+        private double DisplayedCellWidth => _replayBars is not null ? _replayCellWidth : SourceEpisodeCellWidth;
 
-        private int DisplayedDecisionIndex => _revealedBarCount - 1 - DisplayedWarmupBars;
+        // Absolute-origin band containing the latest displayed price, same floor(price/width)
+        // scheme PriceCellTracker steps decisions on -- lets a Cell-mode episode be compared
+        // against XGrid's own rows exactly like SimulationPage's CellBandLines.
+        private List<XGridLine> DisplayedCellBandLines
+        {
+            get
+            {
+                if (DisplayedSteppingMode != SimulationSteppingMode.Cell || DisplayedCellWidth <= 0 || EpisodeLastPrice is not { } price)
+                    return new List<XGridLine>();
+
+                double cell = Math.Floor(price / DisplayedCellWidth);
+                return new List<XGridLine>
+                {
+                    XGridLine.Horizontal(cell * DisplayedCellWidth) with { Id = "cell-low" },
+                    XGridLine.Horizontal((cell + 1) * DisplayedCellWidth) with { Id = "cell-high" },
+                };
+            }
+        }
+
+        // Index of the last decision whose own timestamp falls within the revealed bars --
+        // works for any decisions-per-bar ratio, unlike a fixed "_revealedBarCount - Warmup" offset.
+        private int DisplayedDecisionIndex
+        {
+            get
+            {
+                var bars = DisplayedEpisodeBars;
+                if (bars.Count == 0)
+                    return -1;
+                DateTime cutoff = bars[^1].TimeUtc;
+                return DisplayedBarActionsSource.Count(a => a.Timestamp <= cutoff) - 1;
+            }
+        }
 
         private double? DisplayedEquity
         {
@@ -413,19 +482,18 @@ namespace Poink.Sim.Components.Training
             {
                 var bars = DisplayedEpisodeBars;
                 var actions = DisplayedBarActionsSource;
-                int warmupBars = DisplayedWarmupBars;
 
                 var markers = new List<ChartMarker>();
-                if (actions.Count > 0 && bars.Count > warmupBars)
+                if (actions.Count > 0 && bars.Count > 0)
                 {
-                    for (int i = warmupBars; i < bars.Count; i++)
+                    DateTime cutoff = bars[^1].TimeUtc;
+                    foreach (var action in actions)
                     {
-                        int decisionIndex = i - warmupBars;
-                        if (decisionIndex >= actions.Count)
+                        if (action.Timestamp > cutoff)
                             break;
-                        if (ActionMarkerStyle(actions[decisionIndex]) is not { } style)
+                        if (ActionMarkerStyle(action) is not { } style)
                             continue;
-                        markers.Add(new ChartMarker(bars[i].TimeUtc, style.Shape, style.ColorGroup, style.Text));
+                        markers.Add(new ChartMarker(action.Timestamp, style.Shape, style.ColorGroup, style.Text));
                     }
                 }
 
@@ -584,6 +652,8 @@ namespace Poink.Sim.Components.Training
             _replayHistograms = SourceEpisodeBarHistograms.ToList();
             _replayBarInputs = SourceEpisodeBarInputs.ToList();
             _replayWarmupBars = SourceEpisodeWarmupBars;
+            _replaySteppingMode = SourceEpisodeSteppingMode;
+            _replayCellWidth = SourceEpisodeCellWidth;
             _revealedBarCount = 0;
             _isReplaying = true;
             ScheduleNextReveal();
@@ -607,6 +677,8 @@ namespace Poink.Sim.Components.Training
             _replayHistograms = null;
             _replayBarInputs = null;
             _replayWarmupBars = 0;
+            _replaySteppingMode = SimulationSteppingMode.Bar;
+            _replayCellWidth = 0;
             _revealedBarCount = 0;
         }
 

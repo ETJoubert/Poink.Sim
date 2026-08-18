@@ -30,6 +30,8 @@ internal interface IRlTrainingService
     IReadOnlyList<HlocAvdtBar> LatestEpisodeBars { get; }
     IReadOnlyList<BarPriceHistogram> LatestEpisodeBarHistograms { get; }
     int LatestEpisodeWarmupBars { get; }
+    SimulationSteppingMode LatestEpisodeSteppingMode { get; }
+    double LatestEpisodeCellWidth { get; }
     IReadOnlyList<Trade> LatestEpisodeTrades { get; }
     IReadOnlyList<IReadOnlyList<RlInputFeature>> LatestEpisodeBarInputs { get; }
     IReadOnlyList<double> LatestEpisodeBarEquity { get; }
@@ -53,7 +55,8 @@ internal interface IRlTrainingService
         string brainName, string strategyName, int episodeCount, int episodeBars, int barWidthSeconds, double startingCash,
         double learningRate, (string Table, DateTime From, DateTime To)? historicRange,
         Trader.TraderSettings? traderSettings = null, bool pauseAfterFirstEpisode = false,
-        EpisodeTimeConstraint? episodeTimeConstraint = null);
+        EpisodeTimeConstraint? episodeTimeConstraint = null,
+        SimulationSteppingMode steppingMode = SimulationSteppingMode.Bar, double cellWidth = 0.10);
 
     bool ResetRun();
     void PauseTraining();

@@ -13,9 +13,11 @@ namespace Poink.Sim.Training;
 internal sealed record RlStep(SimulationAction Action, Tensor? LogProbability, double Reward, Tensor? Entropy);
 
 
+// Timestamp is the decision's own moment -- cell-stepped episodes can hold zero, one, or
+// several decisions per bar, so callers locate a decision by this time, not by index.
 internal readonly record struct RlBarAction(
     SimulationAction Action, double? EntryPrice, bool? PositionIsLong, double? StopLossPrice, double? TakeProfitPrice,
-    bool Blocked = false);
+    DateTime Timestamp, bool Blocked = false);
 
 
 internal sealed record RlEpisode(
@@ -23,7 +25,8 @@ internal sealed record RlEpisode(
     IReadOnlyList<RlOutputFeature>? LastOutputs, IReadOnlyList<Trade> Trades, double MaxEquity, double MaxDrawdown,
     DateTime WindowStart, DateTime WindowEnd, IReadOnlyList<HlocAvdtBar> Bars, IReadOnlyList<BarPriceHistogram> BarHistograms,
     IReadOnlyList<IReadOnlyList<RlInputFeature>> BarInputs, IReadOnlyList<double> BarEquity,
-    IReadOnlyList<IReadOnlyList<RlOutputFeature>> BarOutputs, int WarmupBars, IReadOnlyList<RlBarAction> BarActions);
+    IReadOnlyList<IReadOnlyList<RlOutputFeature>> BarOutputs, int WarmupBars, IReadOnlyList<RlBarAction> BarActions,
+    SimulationSteppingMode SteppingMode, double CellWidth);
 
 internal sealed record RlEpisodeTrades(
     int EpisodeNumber, IReadOnlyList<Trade> Trades, double MaxEquity, double MaxDrawdown,

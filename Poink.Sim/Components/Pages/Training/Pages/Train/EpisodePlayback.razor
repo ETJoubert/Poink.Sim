@@ -1,5 +1,6 @@
 @namespace Poink.Sim.Components.Training
 @using Poink.Sim.Components.Shared.DataTable
+@using Poink.Sim.Models
 @using Poink.Shared.Client.Components.Shared.Icon
 
 @if (Service.TotalEpisodes == 0)
@@ -51,6 +52,13 @@ else
                             <input type="checkbox" @bind="_showXGrid" />
                             <span>XGrid</span>
                         </label>
+                        @if (_showXGrid)
+                        {
+                            <button type="button" class="train-episode-btn" @onclick="MatchXGridToBrainConfig"
+                                    title="Set the XGrid panel's Pips/Cols to this brain's own XGrid Signals encoder settings (Row/Col in Build), so it shows exactly the grid the network decides from">
+                                MATCH BRAIN CONFIG
+                            </button>
+                        }
                     </div>
                 }
             </div>
@@ -89,6 +97,10 @@ else
                     {
                         <span class="train-episode-progress">bar @_revealedBarCount / @_replayBars.Count</span>
                     }
+                    <span class="train-episode-decision"
+                          title="Bar steps a decision on each bar's close. Cell steps on a fixed-width price band instead -- this is how the currently displayed episode was actually run">
+                        STEP: @(DisplayedSteppingMode == SimulationSteppingMode.Cell ? $"CELL ({DisplayedCellWidth:0.#####})" : "BAR")
+                    </span>
                     <span class="train-episode-decision @DecisionClass(DisplayedBarAction?.Action)"
                           title="The action taken on the currently displayed bar (live, or wherever the replay is currently revealed)">
                         DECISION: @DecisionLabel(DisplayedBarAction?.Action)
@@ -150,7 +162,8 @@ else
                         @if (_showXGrid)
                         {
                             <div class="train-episode-chart-panel">
-                                <XGrid Grid="EpisodeXGrid" @bind-PipCount="_xgridPipCount" @bind-ColCount="_xgridColCount"
+                                <XGrid Grid="EpisodeXGrid" Positions="DisplayedXGridPositions" Lines="DisplayedCellBandLines"
+                                       @bind-PipCount="_xgridPipCount" @bind-ColCount="_xgridColCount"
                                        @bind-Collapsed="_xgridCollapsed" />
                             </div>
                         }
