@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
+using Microsoft.JSInterop;
 using Poink.Sim.Brain.Neural;
 using Poink.Sim.Components.Charts;
 using Poink.Sim.Models;
@@ -12,9 +14,11 @@ using Poink.Sim.Training;
 
 namespace Poink.Sim.Components.Training
 {
-    public partial class EpisodePlayback : ComponentBase, IDisposable
+    public partial class EpisodePlayback : ComponentBase, IDisposable, IAsyncDisposable
     {
         [Inject] private IRlTrainingService Service { get; set; } = default!;
+
+        [Inject] private IJSRuntime JS { get; set; } = default!;
 
         [Parameter] public string BrainName { get; set; } = "";
 
@@ -42,6 +46,68 @@ namespace Poink.Sim.Components.Training
         {
             Service.OnChanged -= HandleServiceChanged;
             _replayTimer?.Dispose();
+        }
+
+        private ElementReference _episodeChartHDividerRef;
+        private IJSObjectReference? _episodeChartResizeInstance;
+
+        // Drag-to-resize the episode chart row's height, same mechanism as SimulationPage's
+        // own chart area (see SimulationPage.razor.cs's ChartDividerScript) -- only the
+        // height half is needed here since the chart panels themselves split width equally
+        // rather than via draggable per-panel dividers.
+        private const string EpisodeChartResizeScript = """
+            (function() {
+                function bindHeight(divider) {
+                    if (!divider || divider.dataset.bound) return;
+                    divider.dataset.bound = '1';
+                    var minHeight = parseInt(divider.dataset.minHeight, 10) || 160;
+                    var maxHeightVh = parseInt(divider.dataset.maxHeightVh, 10) || 80;
+                    divider.addEventListener('pointerdown', function(e) {
+                        e.preventDefault();
+                        var target = divider.previousElementSibling;
+                        if (!target) return;
+                        var startY = e.clientY;
+                        var startHeight = target.getBoundingClientRect().height;
+                        var maxHeight = (maxHeightVh / 100) * window.innerHeight;
+                        divider.setPointerCapture(e.pointerId);
+                        divider.classList.add('train-episode-hdivider-active');
+
+                        function clamp(ev) {
+                            return Math.min(maxHeight, Math.max(minHeight, startHeight + (ev.clientY - startY)));
+                        }
+                        function onMove(ev) {
+                            target.style.height = clamp(ev) + 'px';
+                        }
+                        function onUp(ev) {
+                            divider.releasePointerCapture(e.pointerId);
+                            divider.removeEventListener('pointermove', onMove);
+                            divider.removeEventListener('pointerup', onUp);
+                            divider.classList.remove('train-episode-hdivider-active');
+                        }
+                        divider.addEventListener('pointermove', onMove);
+                        divider.addEventListener('pointerup', onUp);
+                    });
+                }
+                return { bindHeight: bindHeight };
+            })()
+            """;
+
+        protected override async Task OnAfterRenderAsync(bool firstRender)
+        {
+            if (firstRender)
+                _episodeChartResizeInstance = await JS.InvokeAsync<IJSObjectReference>("eval", EpisodeChartResizeScript);
+
+            if (EpisodeBarRows.Count > 0 && _episodeChartResizeInstance is not null)
+                await _episodeChartResizeInstance.InvokeVoidAsync("bindHeight", _episodeChartHDividerRef);
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            if (_episodeChartResizeInstance is not null)
+            {
+                try { await _episodeChartResizeInstance.DisposeAsync(); }
+                catch (JSDisconnectedException) { }
+            }
         }
 
         private bool _liveFeedbackPaused;
@@ -126,6 +192,46 @@ namespace Poink.Sim.Components.Training
                 return BarPriceHistogram.MergeTime(bars, histograms, window)
                     .Select(t => new WeightedTimeSample(t.Price, t.Count, t.Seconds, t.UpSeconds, t.DownSeconds))
                     .ToList();
+            }
+        }
+
+        private bool _showMarketChart = true;
+        private bool _showVolumeProfile = true;
+        private bool _showTimeProfile = true;
+        private bool _showXGrid;
+
+        private int _xgridRowCount = 20;
+        private int _xgridColCount = 20;
+        private bool _xgridCollapsed;
+
+        private List<WeightedPriceSample> EpisodeXGridSamples
+        {
+            get
+            {
+                var histograms = DisplayedEpisodeBarHistograms;
+                int window = EncoderSizes.XGridWindowBars > 0 ? Math.Min(EncoderSizes.XGridWindowBars, histograms.Count) : histograms.Count;
+                return BarPriceHistogram.Merge(histograms, window)
+                    .Select(t => new WeightedPriceSample(t.Price, t.Count, t.UpCount, t.DownCount))
+                    .ToList();
+            }
+        }
+
+        // Sources the grid's range from the same trailing window XGridSignalEncoder itself
+        // would use (EncoderSizes.XGridWindowBars), same "displayed panel mirrors what the
+        // network sees" convention as EpisodeVolumeProfileSamples/EpisodeTimeProfileSamples.
+        private XGridResult? EpisodeXGrid
+        {
+            get
+            {
+                var bars = DisplayedEpisodeBarsRaw;
+                var histograms = DisplayedEpisodeBarHistograms;
+                if (bars.Count == 0 || histograms.Count == 0)
+                    return null;
+
+                int window = Math.Min(EncoderSizes.XGridWindowBars > 0 ? EncoderSizes.XGridWindowBars : bars.Count, bars.Count);
+                var start = bars[bars.Count - window].OpenTime;
+                var end = bars[^1].OpenTime;
+                return XGridStats.Compute(bars, histograms, EpisodeXGridSamples, start, end, _xgridRowCount, _xgridColCount);
             }
         }
 
@@ -379,6 +485,7 @@ namespace Poink.Sim.Components.Training
             EncoderKind.SessionClock => "Session Clock",
             EncoderKind.SpreadVolatility => "Spread + Volatility",
             EncoderKind.TraderState => "Trader State",
+            EncoderKind.XGrid => "XGrid Signals",
             _ => kind.ToString(),
         };
 

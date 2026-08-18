@@ -201,6 +201,8 @@
 .tp-value-down { color: var(--color-error); opacity: 1; }
 .tp-value-diff { color: var(--color-warning); opacity: 1; }
 .tp-value-summary { color: var(--color-accent); opacity: 1; font-weight: bold; }
+.tp-value-on { color: var(--color-success); opacity: 1; font-weight: bold; }
+.tp-value-off { opacity: 0.5; }
 
 .tp-source-badge-1 { --tp-source-color: var(--color-badge-1); }
 .tp-source-badge-2 { --tp-source-color: var(--color-badge-2); }

@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 using Poink.Sim.Brain.Neural;
+using Poink.Sim.Components.Charts;
 using Poink.Sim.Helpers;
 using Poink.Sim.Models;
 using Poink.Sim.Repository;
@@ -137,6 +138,8 @@ namespace Poink.Sim.Components.Training
             "down" => "tp-value-down",
             "diff" => "tp-value-diff",
             "summary" => "tp-value-summary",
+            "on" => "tp-value-on",
+            "off" => "tp-value-off",
             _ => "",
         };
 
@@ -716,6 +719,46 @@ namespace Poink.Sim.Components.Training
             return FormatEncoded(encoder.Features, encoder.Encode(observation));
         }
 
+        // Unlike the other Build*Values helpers, each XGrid feature is a differently-named
+        // signal rather than an interchangeable bucket/scalar -- so instead of a bare "0"/"1"
+        // (meaningless without hovering 15 identical-looking chips), the visible text is the
+        // signal's own short name and its Kind ("on"/"off") drives the chip's styling.
+        private static List<ProfileValue> BuildXGridSignalValues(
+            IReadOnlyList<HlocAvdtBar> episodeBars, IReadOnlyList<BarPriceHistogram> episodeHistograms,
+            EncoderSizeOptions sizes, IReadOnlyList<RlInputFeature>? liveInputs)
+        {
+            var signals = BrainCatalog.ResolveXGridSignals(sizes);
+            if (signals.Count == 0)
+                return [];
+
+            var encoder = BrainCatalog.CreateEncoder(EncoderKind.XGrid, sizes);
+            if (TryBuildLiveValues(encoder.Features, liveInputs, out var liveValues))
+                return XGridProfileValues(signals, i => i < liveValues.Count && liveValues[i].Value == "1");
+
+            if (episodeBars.Count == 0)
+                return [];
+
+            double currentPrice = episodeBars[^1].Close;
+            var observation = new SimulationObservation(
+                episodeBars[^1].OpenTime, currentPrice, episodeBars, [], episodeHistograms,
+                new CapitalState(0, 0, 0, 0, null), Position: null, RecentTrades: [], currentPrice, currentPrice);
+            var raw = encoder.Encode(observation);
+
+            return XGridProfileValues(signals, i => i < raw.Length && raw[i] != 0);
+        }
+
+        private static List<ProfileValue> XGridProfileValues(IReadOnlyList<XGridSignalKind> signals, Func<int, bool> isOn)
+        {
+            var values = new List<ProfileValue>(signals.Count);
+            for (int i = 0; i < signals.Count; i++)
+            {
+                string label = XGridSignals.ShortLabel(signals[i]);
+                bool on = isOn(i);
+                values.Add(new ProfileValue(label, on ? "on" : "off", $"{label}: {(on ? "true" : "false")}"));
+            }
+            return values;
+        }
+
         private static bool TryBuildLiveValues(
             IReadOnlyList<FeatureDescriptor> features, IReadOnlyList<RlInputFeature>? liveInputs,
             out List<(string Value, string Tooltip)> values)
@@ -842,6 +885,18 @@ namespace Poink.Sim.Components.Training
                     NormalizedValues: traderStateValues.Select(v => v.Value).ToList(),
                     RawValueTooltips: traderStateValues.Select(v => v.Tooltip).ToList(),
                     NormalizedValueTooltips: traderStateValues.Select(v => v.Tooltip).ToList()));
+            }
+            if (recipe.EncoderKinds.Contains(EncoderKind.XGrid))
+            {
+                var count = BrainCatalog.CreateEncoder(EncoderKind.XGrid, sizes).FeatureCount;
+                var xgridValues = BuildXGridSignalValues(episodeBars, episodeHistograms, sizes, liveInputs);
+                rows.Add(new("XGrid Signals", count.ToString(), "Binary", $"{sizes.XGridWindowBars} bars", $"{sizes.XGridRowCount}x{sizes.XGridColCount}",
+                    RawValues: xgridValues.Select(v => v.Text).ToList(),
+                    NormalizedValues: xgridValues.Select(v => v.Text).ToList(),
+                    RawValueKinds: xgridValues.Select(v => v.Kind).ToList(),
+                    NormalizedValueKinds: xgridValues.Select(v => v.Kind).ToList(),
+                    RawValueTooltips: xgridValues.Select(v => v.Tooltip).ToList(),
+                    NormalizedValueTooltips: xgridValues.Select(v => v.Tooltip).ToList()));
             }
             return rows;
         }

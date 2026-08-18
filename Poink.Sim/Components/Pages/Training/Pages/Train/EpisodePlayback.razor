@@ -28,9 +28,31 @@ else
     <div class="train-live-grid">
 
         <div class="train-live-panel train-live-panel-wide">
-            <div class="train-panel-title">
-                CURRENT EPISODE <span class="train-panel-subtitle">(bars, volume profile and price profile of the most
-                recently completed episode)</span>
+            <div class="train-panel-title train-panel-title-row">
+                <span>CURRENT EPISODE <span class="train-panel-subtitle">(bars, volume profile and price profile of
+                    the most recently completed episode)</span></span>
+                @if (EpisodeBarRows.Count > 0)
+                {
+                    <div class="train-episode-panel-toggles" title="Show or hide each chart panel below">
+                        <label class="train-episode-panel-toggle">
+                            <input type="checkbox" @bind="_showMarketChart" />
+                            <span>Chart</span>
+                        </label>
+                        <label class="train-episode-panel-toggle">
+                            <input type="checkbox" @bind="_showVolumeProfile" />
+                            <span>Volume profile</span>
+                        </label>
+                        <label class="train-episode-panel-toggle">
+                            <input type="checkbox" @bind="_showTimeProfile" />
+                            <span>Time profile</span>
+                        </label>
+                        <label class="train-episode-panel-toggle"
+                               title="Footprint grid of the same trailing bar window XGrid Signals inputs (when this brain includes them) are computed over">
+                            <input type="checkbox" @bind="_showXGrid" />
+                            <span>XGrid</span>
+                        </label>
+                    </div>
+                }
             </div>
             @if (EpisodeBarRows.Count == 0)
             {
@@ -103,20 +125,38 @@ else
                     </div>
 
                     <div class="train-episode-row">
-                        <div class="train-episode-main">
-                            <MarketChart Bars="DisplayedEpisodeBars" DiagonalLines="DisplayedTradeLines"
-                                                RangeFills="DisplayedWindowRange" VerticalLines="DisplayedWarmupBoundary"
-                                                Markers="DisplayedActionMarkers" EntryPrice="DisplayedEntryPrice"
-                                                PositionIsLong="DisplayedPositionIsLong" StopLossPrice="DisplayedStopLossPrice"
-                                                TakeProfitPrice="DisplayedTakeProfitPrice" Interactive="false" />
-                        </div>
-                        <div class="train-episode-side">
-                            <TickVolumeProfileChart WeightedSamples="EpisodeVolumeProfileSamples" CurrentPrice="EpisodeLastPrice" />
-                        </div>
-                        <div class="train-episode-side">
-                            <TickTimeProfileChart WeightedSamples="EpisodeTimeProfileSamples" CurrentPrice="EpisodeLastPrice" />
-                        </div>
+                        @if (_showMarketChart)
+                        {
+                            <div class="train-episode-chart-panel">
+                                <MarketChart Bars="DisplayedEpisodeBars" DiagonalLines="DisplayedTradeLines"
+                                                    RangeFills="DisplayedWindowRange" VerticalLines="DisplayedWarmupBoundary"
+                                                    Markers="DisplayedActionMarkers" EntryPrice="DisplayedEntryPrice"
+                                                    PositionIsLong="DisplayedPositionIsLong" StopLossPrice="DisplayedStopLossPrice"
+                                                    TakeProfitPrice="DisplayedTakeProfitPrice" Interactive="false" />
+                            </div>
+                        }
+                        @if (_showVolumeProfile)
+                        {
+                            <div class="train-episode-chart-panel">
+                                <TickVolumeProfileChart WeightedSamples="EpisodeVolumeProfileSamples" CurrentPrice="EpisodeLastPrice" />
+                            </div>
+                        }
+                        @if (_showTimeProfile)
+                        {
+                            <div class="train-episode-chart-panel">
+                                <TickTimeProfileChart WeightedSamples="EpisodeTimeProfileSamples" CurrentPrice="EpisodeLastPrice" />
+                            </div>
+                        }
+                        @if (_showXGrid)
+                        {
+                            <div class="train-episode-chart-panel">
+                                <XGrid Grid="EpisodeXGrid" @bind-RowCount="_xgridRowCount" @bind-ColCount="_xgridColCount"
+                                       @bind-Collapsed="_xgridCollapsed" />
+                            </div>
+                        }
                     </div>
+                    <div class="train-episode-hdivider" @ref="_episodeChartHDividerRef" data-min-height="200" data-max-height-vh="80"
+                         title="Drag to resize"></div>
                 }
             </div>
 

@@ -116,6 +116,7 @@
                 </div>
 
                 <div class="train-buildbrain-cards">
+                    <div class="train-buildbrain-input-stack">
                     <div class="train-card train-card-input">
                         <div class="train-card-title-row">
                             <div class="train-card-title"
@@ -359,6 +360,67 @@
                                                                         </tr>
                                                                     </tbody>
                                                                 </table>
+                                                            </div>
+
+                                                            <div class="train-card train-card-xgrid">
+                                                                <div class="train-card-title-row">
+                                                                    <div class="train-card-title"
+                                                                         title="XGrid's 15 boolean footprint signals -- current cell's rank/at/above/below relationship to POC/VAH/VAL/VWAP, computed over a trailing window of bars">
+                                                                        XGrid Signals</div>
+                                                                    <span class="train-card-badge"
+                                                                          title="How many of the 15 available XGrid signals are enabled">
+                                                                        @SelectedXGridSignalCount/@TotalXGridSignalCount</span>
+                                                                </div>
+                                                                <div class="train-buildbrain-card-fields">
+                                                                    <label class="train-brainrow-field" title="Toggle every XGrid signal below on or off at once">
+                                                                        <input type="checkbox" @bind="AllXGridSignalsSelected" disabled="@Service.IsRunning" />
+                                                                        Select All
+                                                                    </label>
+                                                                    <div class="train-card-fields-row">
+                                                                        <label class="train-brainrow-field"
+                                                                               title="Percent threshold for the Rank signals -- current cell counts as 'top %' when its tick count ranks in this top percent of every nonzero cell on the grid">
+                                                                            %
+                                                                            <input class="train-brainrow-input" type="number" min="0" max="100" step="1"
+                                                                                   @bind="_xgridTopPercent" disabled="@(Service.IsRunning || !AnyXGridSignalSelected)" />
+                                                                        </label>
+                                                                        <label class="train-brainrow-field"
+                                                                               title="How many columns (time buckets) XGrid's footprint grid is divided into over its trailing Window">
+                                                                            Col
+                                                                            <input class="train-brainrow-input" type="number" min="1" step="1"
+                                                                                   @bind="_xgridColCount" disabled="@(Service.IsRunning || !AnyXGridSignalSelected)" />
+                                                                        </label>
+                                                                        <label class="train-brainrow-field"
+                                                                               title="How many rows (price buckets) XGrid's footprint grid is divided into over its trailing Window">
+                                                                            Row
+                                                                            <input class="train-brainrow-input" type="number" min="1" step="1"
+                                                                                   @bind="_xgridRowCount" disabled="@(Service.IsRunning || !AnyXGridSignalSelected)" />
+                                                                        </label>
+                                                                        <label class="train-brainrow-field"
+                                                                               title="How many trailing bars XGrid computes its footprint grid over each decision">
+                                                                            Window
+                                                                            <input class="train-brainrow-input" type="number" min="1" step="1"
+                                                                                   @bind="_xgridWindowBars" disabled="@(Service.IsRunning || !AnyXGridSignalSelected)" />
+                                                                        </label>
+                                                                    </div>
+                                                                    <div class="train-xgrid-groups">
+                                                                        @foreach (var group in XGridSignalGroups)
+                                                                        {
+                                                                            <div class="train-xgrid-group">
+                                                                                <span class="train-xgrid-group-title">@group.Key</span>
+                                                                                @foreach (var row in group)
+                                                                                {
+                                                                                    <label class="train-brainrow-field" title="@row.Tooltip">
+                                                                                        <input type="checkbox" checked="@row.Get()"
+                                                                                               @onchange="e => row.Set(e.Value is bool b && b)"
+                                                                                               disabled="@Service.IsRunning" />
+                                                                                        @row.Label
+                                                                                    </label>
+                                                                                }
+                                                                            </div>
+                                                                        }
+                                                                    </div>
+                                                                </div>
+                                                            </div>
                                                             </div>
 
                                                             <div class="train-card">

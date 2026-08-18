@@ -318,3 +318,79 @@ internal static class XGridStats
         return rank >= n - TopCount(n, percent);
     }
 }
+
+internal enum XGridSignalKind
+{
+    RankTopPercentTotal, RankTopPercentUp, RankTopPercentDown,
+    AtPoc, AtVah, AtVal, AtVwap,
+    AbovePoc, AboveVah, AboveVal, AboveVwap,
+    BelowPoc, BelowVah, BelowVal, BelowVwap,
+}
+
+// One dispatch table for "which XGridStats predicate does this signal kind mean" -- shared
+// by the Brain Builder's XGrid input encoder and any future live overlay toggle, so neither
+// has to re-derive the mapping.
+internal static class XGridSignals
+{
+    public static bool Value(XGridResult grid, XGridSignalKind kind, double percent) => kind switch
+    {
+        XGridSignalKind.RankTopPercentTotal => XGridStats.IsCurrentInTopPercent(grid, XGridSpectrumMetric.Total, percent),
+        XGridSignalKind.RankTopPercentUp => XGridStats.IsCurrentInTopPercent(grid, XGridSpectrumMetric.Up, percent),
+        XGridSignalKind.RankTopPercentDown => XGridStats.IsCurrentInTopPercent(grid, XGridSpectrumMetric.Down, percent),
+        XGridSignalKind.AtPoc => XGridStats.IsCurrentAtPoc(grid),
+        XGridSignalKind.AtVah => XGridStats.IsCurrentAtVah(grid),
+        XGridSignalKind.AtVal => XGridStats.IsCurrentAtVal(grid),
+        XGridSignalKind.AtVwap => XGridStats.IsCurrentAtVwap(grid),
+        XGridSignalKind.AbovePoc => XGridStats.IsCurrentAbovePoc(grid),
+        XGridSignalKind.AboveVah => XGridStats.IsCurrentAboveVah(grid),
+        XGridSignalKind.AboveVal => XGridStats.IsCurrentAboveVal(grid),
+        XGridSignalKind.AboveVwap => XGridStats.IsCurrentAboveVwap(grid),
+        XGridSignalKind.BelowPoc => XGridStats.IsCurrentBelowPoc(grid),
+        XGridSignalKind.BelowVah => XGridStats.IsCurrentBelowVah(grid),
+        XGridSignalKind.BelowVal => XGridStats.IsCurrentBelowVal(grid),
+        XGridSignalKind.BelowVwap => XGridStats.IsCurrentBelowVwap(grid),
+        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
+    };
+
+    public static string Label(XGridSignalKind kind) => kind switch
+    {
+        XGridSignalKind.RankTopPercentTotal => "rank-top-total",
+        XGridSignalKind.RankTopPercentUp => "rank-top-up",
+        XGridSignalKind.RankTopPercentDown => "rank-top-down",
+        XGridSignalKind.AtPoc => "at-poc",
+        XGridSignalKind.AtVah => "at-vah",
+        XGridSignalKind.AtVal => "at-val",
+        XGridSignalKind.AtVwap => "at-vwap",
+        XGridSignalKind.AbovePoc => "above-poc",
+        XGridSignalKind.AboveVah => "above-vah",
+        XGridSignalKind.AboveVal => "above-val",
+        XGridSignalKind.AboveVwap => "above-vwap",
+        XGridSignalKind.BelowPoc => "below-poc",
+        XGridSignalKind.BelowVah => "below-vah",
+        XGridSignalKind.BelowVal => "below-val",
+        XGridSignalKind.BelowVwap => "below-vwap",
+        _ => kind.ToString(),
+    };
+
+    // Compact display text for UI chips (e.g. TrainingPreview's Source column) -- distinct
+    // from Label, which is the machine-readable feature name matched against RlInputFeature.
+    public static string ShortLabel(XGridSignalKind kind) => kind switch
+    {
+        XGridSignalKind.RankTopPercentTotal => "Top% Total",
+        XGridSignalKind.RankTopPercentUp => "Top% Up",
+        XGridSignalKind.RankTopPercentDown => "Top% Down",
+        XGridSignalKind.AtPoc => "At POC",
+        XGridSignalKind.AtVah => "At VAH",
+        XGridSignalKind.AtVal => "At VAL",
+        XGridSignalKind.AtVwap => "At VWAP",
+        XGridSignalKind.AbovePoc => "Above POC",
+        XGridSignalKind.AboveVah => "Above VAH",
+        XGridSignalKind.AboveVal => "Above VAL",
+        XGridSignalKind.AboveVwap => "Above VWAP",
+        XGridSignalKind.BelowPoc => "Below POC",
+        XGridSignalKind.BelowVah => "Below VAH",
+        XGridSignalKind.BelowVal => "Below VAL",
+        XGridSignalKind.BelowVwap => "Below VWAP",
+        _ => kind.ToString(),
+    };
+}

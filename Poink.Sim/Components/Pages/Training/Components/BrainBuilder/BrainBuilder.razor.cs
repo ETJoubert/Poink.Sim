@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Poink.Sim.Brain.Neural;
+using Poink.Sim.Components.Charts;
 using Poink.Sim.Models;
 using Poink.Sim.Repository;
 using Poink.Sim.Training;
@@ -153,6 +154,26 @@ namespace Poink.Sim.Components.Training
             _traderStatePositionLevelListLength = sizes.TraderStatePositionLevelListLength;
             _traderStateDirectionListLength = sizes.TraderStateDirectionListLength;
 
+            _xgridRankTopTotal = sizes.XGridRankTopTotal;
+            _xgridRankTopUp = sizes.XGridRankTopUp;
+            _xgridRankTopDown = sizes.XGridRankTopDown;
+            _xgridAtPoc = sizes.XGridAtPoc;
+            _xgridAtVah = sizes.XGridAtVah;
+            _xgridAtVal = sizes.XGridAtVal;
+            _xgridAtVwap = sizes.XGridAtVwap;
+            _xgridAbovePoc = sizes.XGridAbovePoc;
+            _xgridAboveVah = sizes.XGridAboveVah;
+            _xgridAboveVal = sizes.XGridAboveVal;
+            _xgridAboveVwap = sizes.XGridAboveVwap;
+            _xgridBelowPoc = sizes.XGridBelowPoc;
+            _xgridBelowVah = sizes.XGridBelowVah;
+            _xgridBelowVal = sizes.XGridBelowVal;
+            _xgridBelowVwap = sizes.XGridBelowVwap;
+            _xgridTopPercent = sizes.XGridTopPercent;
+            _xgridColCount = sizes.XGridColCount;
+            _xgridRowCount = sizes.XGridRowCount;
+            _xgridWindowBars = sizes.XGridWindowBars;
+
             _architectureKind = recipe.ArchitectureKind;
             switch (recipe.ArchitectureKind)
             {
@@ -216,6 +237,85 @@ namespace Poink.Sim.Components.Training
         private int _traderStateTradeOutcomeListLength;
         private int _traderStatePositionLevelListLength;
         private int _traderStateDirectionListLength;
+
+        private bool _xgridRankTopTotal;
+        private bool _xgridRankTopUp;
+        private bool _xgridRankTopDown;
+        private bool _xgridAtPoc;
+        private bool _xgridAtVah;
+        private bool _xgridAtVal;
+        private bool _xgridAtVwap;
+        private bool _xgridAbovePoc;
+        private bool _xgridAboveVah;
+        private bool _xgridAboveVal;
+        private bool _xgridAboveVwap;
+        private bool _xgridBelowPoc;
+        private bool _xgridBelowVah;
+        private bool _xgridBelowVal;
+        private bool _xgridBelowVwap;
+
+        private double _xgridTopPercent = 10;
+        private int _xgridColCount = 20;
+        private int _xgridRowCount = 20;
+        private int _xgridWindowBars = 60;
+
+        private const int TotalXGridSignalCount = 15;
+
+        private sealed record XGridSignalRow(string Group, string Label, string Tooltip, Func<bool> Get, Action<bool> Set);
+
+        // (Group, Label, Tooltip, Get, Set) per signal -- drives the checkbox rows in the
+        // XGrid Signals card from one list instead of 15 hand-written near-duplicate blocks.
+        // Get/Set close over this component's own _xgrid* fields, same "computed property
+        // returns a fresh collection each access" convention as EnabledDirectionLabels.
+        private IReadOnlyList<XGridSignalRow> XGridSignalRows => new List<XGridSignalRow>
+        {
+            new("Rank", "Top % Total", "Current cell's total tick count ranks in the top % of every nonzero cell on the grid",
+                () => _xgridRankTopTotal, v => _xgridRankTopTotal = v),
+            new("Rank", "Top % Up", "Current cell's up-tick count ranks in the top % of every nonzero cell (Up metric)",
+                () => _xgridRankTopUp, v => _xgridRankTopUp = v),
+            new("Rank", "Top % Down", "Current cell's down-tick count ranks in the top % of every nonzero cell (Down metric)",
+                () => _xgridRankTopDown, v => _xgridRankTopDown = v),
+            new("At", "At POC", "Current price's row matches the Point of Control's row",
+                () => _xgridAtPoc, v => _xgridAtPoc = v),
+            new("At", "At VAH", "Current price's row matches the Value Area High's row",
+                () => _xgridAtVah, v => _xgridAtVah = v),
+            new("At", "At VAL", "Current price's row matches the Value Area Low's row",
+                () => _xgridAtVal, v => _xgridAtVal = v),
+            new("At", "At VWAP", "Current price's row matches the VWAP's row",
+                () => _xgridAtVwap, v => _xgridAtVwap = v),
+            new("Above", "Above POC", "Current price is above the Point of Control's price",
+                () => _xgridAbovePoc, v => _xgridAbovePoc = v),
+            new("Above", "Above VAH", "Current price is above the Value Area High's price",
+                () => _xgridAboveVah, v => _xgridAboveVah = v),
+            new("Above", "Above VAL", "Current price is above the Value Area Low's price",
+                () => _xgridAboveVal, v => _xgridAboveVal = v),
+            new("Above", "Above VWAP", "Current price is above the VWAP's price",
+                () => _xgridAboveVwap, v => _xgridAboveVwap = v),
+            new("Below", "Below POC", "Current price is below the Point of Control's price",
+                () => _xgridBelowPoc, v => _xgridBelowPoc = v),
+            new("Below", "Below VAH", "Current price is below the Value Area High's price",
+                () => _xgridBelowVah, v => _xgridBelowVah = v),
+            new("Below", "Below VAL", "Current price is below the Value Area Low's price",
+                () => _xgridBelowVal, v => _xgridBelowVal = v),
+            new("Below", "Below VWAP", "Current price is below the VWAP's price",
+                () => _xgridBelowVwap, v => _xgridBelowVwap = v),
+        };
+
+        private IReadOnlyList<IGrouping<string, XGridSignalRow>> XGridSignalGroups => XGridSignalRows.GroupBy(r => r.Group).ToList();
+
+        private int SelectedXGridSignalCount => XGridSignalRows.Count(r => r.Get());
+
+        private bool AnyXGridSignalSelected => SelectedXGridSignalCount > 0;
+
+        private bool AllXGridSignalsSelected
+        {
+            get => SelectedXGridSignalCount == TotalXGridSignalCount;
+            set
+            {
+                foreach (var row in XGridSignalRows)
+                    row.Set(value);
+            }
+        }
 
         private ArchitectureKind _architectureKind = ArchitectureKind.Mlp;
 
@@ -305,7 +405,7 @@ namespace Poink.Sim.Components.Training
 
         private bool CanCreateBrain =>
             !string.IsNullOrWhiteSpace(EffectiveBuildBrainName)
-            && (_includeBarWindow || _includeVolumeProfile || _includeTimeProfile || _includeSessionClock || _includeSpreadVolatility || _includeTraderState)
+            && (_includeBarWindow || _includeVolumeProfile || _includeTimeProfile || _includeSessionClock || _includeSpreadVolatility || _includeTraderState || AnyXGridSignalSelected)
             && (_includeHold || _includeEnterLong || _includeEnterShort || _includeClose)
             && (_architectureKind != ArchitectureKind.Lstm || _includeBarWindow)
             && (_architectureKind != ArchitectureKind.Cnn || (CnnSweepSourceIncluded && _cnnKernelSize >= 1 && EffectiveCnnChannels.Count > 0))
@@ -316,6 +416,7 @@ namespace Poink.Sim.Components.Training
             && (_barWindowNormalization != NormalizationKind.LocalZScore || _barWindowZScoreSubWindowSize >= 1)
             && (_volumeProfileNormalization != NormalizationKind.LocalZScore || _volumeProfileZScoreSubWindowSize >= 1)
             && (!_includeTraderState || (_traderStateTradeOutcomeListLength >= 0 && _traderStatePositionLevelListLength >= 0 && _traderStateDirectionListLength >= 0))
+            && (!AnyXGridSignalSelected || (_xgridColCount >= 1 && _xgridRowCount >= 1 && _xgridWindowBars >= 1 && _xgridTopPercent is >= 0 and <= 100))
             && _decisionTemperature > 0;
 
         private IReadOnlyList<EncoderKind> SelectedEncoderKinds
@@ -335,6 +436,8 @@ namespace Poink.Sim.Components.Training
                     kinds.Add(EncoderKind.SpreadVolatility);
                 if (_includeTraderState)
                     kinds.Add(EncoderKind.TraderState);
+                if (AnyXGridSignalSelected)
+                    kinds.Add(EncoderKind.XGrid);
                 return kinds;
             }
         }
@@ -355,7 +458,26 @@ namespace Poink.Sim.Components.Training
             VolumeProfileZScoreSubWindowSize: _volumeProfileZScoreSubWindowSize,
             TraderStateTradeOutcomeListLength: _traderStateTradeOutcomeListLength,
             TraderStatePositionLevelListLength: _traderStatePositionLevelListLength,
-            TraderStateDirectionListLength: _traderStateDirectionListLength);
+            TraderStateDirectionListLength: _traderStateDirectionListLength,
+            XGridRankTopTotal: _xgridRankTopTotal,
+            XGridRankTopUp: _xgridRankTopUp,
+            XGridRankTopDown: _xgridRankTopDown,
+            XGridAtPoc: _xgridAtPoc,
+            XGridAtVah: _xgridAtVah,
+            XGridAtVal: _xgridAtVal,
+            XGridAtVwap: _xgridAtVwap,
+            XGridAbovePoc: _xgridAbovePoc,
+            XGridAboveVah: _xgridAboveVah,
+            XGridAboveVal: _xgridAboveVal,
+            XGridAboveVwap: _xgridAboveVwap,
+            XGridBelowPoc: _xgridBelowPoc,
+            XGridBelowVah: _xgridBelowVah,
+            XGridBelowVal: _xgridBelowVal,
+            XGridBelowVwap: _xgridBelowVwap,
+            XGridTopPercent: _xgridTopPercent,
+            XGridColCount: _xgridColCount,
+            XGridRowCount: _xgridRowCount,
+            XGridWindowBars: _xgridWindowBars);
 
         private string VolumeProfileBucketsTooltip =>
             (_volumeProfileNormalization == NormalizationKind.Raw, _volumeProfileSplitUpDown) switch
@@ -489,6 +611,8 @@ namespace Poink.Sim.Components.Training
                     dataParts.Add("dSV");
                 if (_includeTraderState)
                     dataParts.Add("dAS");
+                if (AnyXGridSignalSelected)
+                    dataParts.Add("dXG");
                 string data = string.Join("-", dataParts);
 
                 string name = string.IsNullOrEmpty(layers) ? $"{arch}_{data}" : $"{arch}_{layers}_{data}";
