@@ -183,10 +183,6 @@ namespace Poink.Sim.Components.Pages
 
         private void ToggleControls() => _controlsCollapsed = !_controlsCollapsed;
 
-        private bool _dashboardView;
-
-        private void ToggleDashboardView() => _dashboardView = !_dashboardView;
-
         private TimeSpan EpisodeBlockSpan => TimeSpan.FromSeconds(_barWidthSeconds) * EffectiveEpisodeBars;
 
         private int ProgressPercent =>

@@ -7,7 +7,7 @@
 @using Poink.Sim.Models
 @using Poink.Shared.Client.Components.Shared.Icon
 
-<div class="train-page @(_dashboardView ? "train-page-dashboard" : "")">
+<div class="train-page">
     <div class="train-topbar">
         <header class="train-header">
             <span class="train-title">BRAIN TRAINING</span>
@@ -65,8 +65,6 @@
             {
                 <div class="train-config-cards">
                     <div class="train-card train-card-full train-card-datarange">
-                        <div class="train-card-title"
-                             title="Which symbol and time range the Start button samples episodes from">Data Range</div>
                         <div class="train-card-fields-row">
                             <TickDataSource @bind-Table="_table" @bind-From="_from" @bind-To="_to"
                                             Disabled="Service.IsRunning" />
@@ -74,260 +72,254 @@
                     </div>
 
                     <BrainBuilder @ref="_brainBuilder" @bind-BrainName="_brainName" @bind-StrategyName="_strategyName"
-                                  @bind-LearningRate="_learningRate"
-                                  OnBrainCreated="HandleBrainCreated" />
+                                  @bind-LearningRate="_learningRate" OnBrainCreated="HandleBrainCreated" />
 
                     <div class="train-card train-card-full">
                         <div class="train-card-title"
                              title="How much data each episode/run consists of, and optionally which days/times of day an episode's start may fall in">
                             Episode Timing</div>
-                        <div class="train-card-fields-row">
-                            <label class="train-brainrow-field">
-                                Episodes
-                                <input class="train-brainrow-input train-brainrow-input-narrow" type="number" min="1"
-                                       @bind="_episodeCount" disabled="@Service.IsRunning" />
-                            </label>
+                            <div class="train-card-fields-row">
+                                <label class="train-brainrow-field">
+                                    Episodes
+                                    <input class="train-brainrow-input train-brainrow-input-narrow" type="number" min="1"
+                                           @bind="_episodeCount" disabled="@Service.IsRunning" />
+                                </label>
+                                @if (_restrictEpisodeTiming)
+                                {
+                                    <label class="train-brainrow-field"
+                                           title="Derived from the session length ÷ bar width while timing is restricted -- an episode's decisions span exactly the configured day/session, so this isn't picked independently">
+                                        Bars/episode
+                                        <span class="train-brainrow-readonly">@EffectiveEpisodeBars</span>
+                                    </label>
+                                }
+                                else
+                                {
+                                    <label class="train-brainrow-field"
+                                           title="How many bars one episode runs for (E) -- ticks are fetched to cover this many bars, then the episode stops once the last one completes, regardless of tick density">
+                                        Bars/episode
+                                        <input class="train-brainrow-input" type="number" min="1" @bind="_episodeBars"
+                                               disabled="@Service.IsRunning" />
+                                    </label>
+                                }
+                                <BarSizeSelect @bind-Value="_barWidthSeconds" Disabled="@Service.IsRunning" Label="Bar width"
+                                               Title="Time span of one bar (M) -- also determines how much wall-clock time an episode's fetched ticks need to cover" />
+                                <label class="train-brainrow-field"
+                                       title="Bar steps a decision on each bar's close. Cell steps on a fixed-width price band instead, the moment price moves into a different band">
+                                    Step
+                                    <select class="train-brainrow-select" @bind="_steppingMode" disabled="@Service.IsRunning">
+                                        <option value="@SimulationSteppingMode.Bar">bar</option>
+                                        <option value="@SimulationSteppingMode.Cell">cell</option>
+                                    </select>
+                                </label>
+                                @if (_steppingMode == SimulationSteppingMode.Cell)
+                                {
+                                    <label class="train-brainrow-field"
+                                           title="Fixed price width of each cell -- a decision fires when price crosses from one cell into the next">
+                                        Cell width
+                                        <input class="train-brainrow-input" type="number" min="0.00001" step="0.01"
+                                               @bind="_cellWidth" disabled="@Service.IsRunning" />
+                                    </label>
+                                }
+                                <label class="train-brainrow-field train-timing-toggle"
+                                       title="Turn on to restrict episodes to specific weekdays and/or a daily time-of-day session -- off means an episode may start anywhere in the Data Range above, including across midnight">
+                                    <input type="checkbox" checked="@_restrictEpisodeTiming"
+                                           @onchange="ToggleRestrictEpisodeTiming" disabled="@Service.IsRunning" />
+                                    Restrict timing
+                                </label>
+                            </div>
                             @if (_restrictEpisodeTiming)
                             {
-                                <label class="train-brainrow-field"
-                                       title="Derived from the session length ÷ bar width while timing is restricted -- an episode's decisions span exactly the configured day/session, so this isn't picked independently">
-                                    Bars/episode
-                                    <span class="train-brainrow-readonly">@EffectiveEpisodeBars</span>
-                                </label>
-                            }
-                            else
-                            {
-                                <label class="train-brainrow-field"
-                                       title="How many bars one episode runs for (E) -- ticks are fetched to cover this many bars, then the episode stops once the last one completes, regardless of tick density">
-                                    Bars/episode
-                                    <input class="train-brainrow-input" type="number" min="1" @bind="_episodeBars"
-                                           disabled="@Service.IsRunning" />
-                                </label>
-                            }
-                            <BarSizeSelect @bind-Value="_barWidthSeconds" Disabled="@Service.IsRunning"
-                                           Label="Bar width"
-                                           Title="Time span of one bar (M) -- also determines how much wall-clock time an episode's fetched ticks need to cover" />
-                            <label class="train-brainrow-field"
-                                   title="Bar steps a decision on each bar's close. Cell steps on a fixed-width price band instead, the moment price moves into a different band">
-                                Step
-                                <select class="train-brainrow-select" @bind="_steppingMode" disabled="@Service.IsRunning">
-                                    <option value="@SimulationSteppingMode.Bar">bar</option>
-                                    <option value="@SimulationSteppingMode.Cell">cell</option>
-                                </select>
-                            </label>
-                            @if (_steppingMode == SimulationSteppingMode.Cell)
-                            {
-                                <label class="train-brainrow-field" title="Fixed price width of each cell -- a decision fires when price crosses from one cell into the next">
-                                    Cell width
-                                    <input class="train-brainrow-input" type="number" min="0.00001" step="0.01"
-                                           @bind="_cellWidth" disabled="@Service.IsRunning" />
-                                </label>
-                            }
-                            <label class="train-brainrow-field train-timing-toggle"
-                                   title="Turn on to restrict episodes to specific weekdays and/or a daily time-of-day session -- off means an episode may start anywhere in the Data Range above, including across midnight">
-                                <input type="checkbox" checked="@_restrictEpisodeTiming" @onchange="ToggleRestrictEpisodeTiming"
-                                       disabled="@Service.IsRunning" />
-                                Restrict timing
-                            </label>
-                        </div>
-                        @if (_restrictEpisodeTiming)
-                        {
-                            <div class="train-card-fields-row train-timing-filters">
-                                <div class="train-brainrow-field" title="Which days of the week an episode may start on">
-                                    Weekdays
-                                    <div class="train-weekday-row">
-                                        @foreach (var day in WeekdayDisplayOrder)
-                                        {
-                                            <button type="button" class="train-btn-toggle @(_allowedWeekdays.Contains(day) ? "train-btn-toggle-active" : "")"
-                                                    @onclick="@(() => ToggleWeekday(day))" disabled="@Service.IsRunning" title="@day.ToString()">
-                                                @WeekdayAbbreviation(day)
-                                            </button>
-                                        }
+                                <div class="train-card-fields-row train-timing-filters">
+                                    <div class="train-brainrow-field" title="Which days of the week an episode may start on">
+                                        Weekdays
+                                        <div class="train-weekday-row">
+                                            @foreach (var day in WeekdayDisplayOrder)
+                                            {
+                                                <button type="button"
+                                                        class="train-btn-toggle @(_allowedWeekdays.Contains(day) ? "train-btn-toggle-active" : "")"
+                                                        @onclick="@(() => ToggleWeekday(day))" disabled="@Service.IsRunning"
+                                                        title="@day.ToString()">
+                                                    @WeekdayAbbreviation(day)
+                                                </button>
+                                            }
+                                        </div>
                                     </div>
+                                    <label class="train-brainrow-field"
+                                           title="Time-of-day window an episode's decisions span, on each eligible day -- 24:00 means end of day">
+                                        Session
+                                        <input class="train-brainrow-input train-brainrow-input-narrow" type="text"
+                                               placeholder="00:00" @bind="SessionStartText" disabled="@Service.IsRunning" />
+                                        to
+                                        <input class="train-brainrow-input train-brainrow-input-narrow" type="text"
+                                               placeholder="24:00" @bind="SessionEndText" disabled="@Service.IsRunning" />
+                                    </label>
                                 </div>
-                                <label class="train-brainrow-field"
-                                       title="Time-of-day window an episode's decisions span, on each eligible day -- 24:00 means end of day">
-                                    Session
-                                    <input class="train-brainrow-input train-brainrow-input-narrow" type="text" placeholder="00:00"
-                                           @bind="SessionStartText" disabled="@Service.IsRunning" />
-                                    to
-                                    <input class="train-brainrow-input train-brainrow-input-narrow" type="text" placeholder="24:00"
-                                           @bind="SessionEndText" disabled="@Service.IsRunning" />
-                                </label>
+                            }
+                        </div>
+
+                        <div class="train-card">
+                            <div class="train-card-title"
+                                 title="Starting capital the simulated Trader begins each episode with">
+                                Trader</div>
+                                <div class="train-card-fields-row">
+                                    <label class="train-brainrow-field">
+                                        Starting cash
+                                        <input class="train-brainrow-input" type="number" min="1" step="100" @bind="_startingCash"
+                                               disabled="@Service.IsRunning" />
+                                    </label>
+                                    <label class="train-brainrow-field"
+                                           title="Notional exposure per unit of margin committed -- 1 means no leverage">
+                                        Leverage
+                                        <input class="train-brainrow-input" type="number" min="1" step="1" @bind="_leverage"
+                                               disabled="@Service.IsRunning" />
+                                    </label>
+                                    <label class="train-brainrow-field"
+                                           title="Commission charged per fill, as a percent of that fill's notional value">
+                                        Commission %
+                                        <input class="train-brainrow-input" type="number" min="0" step="0.01"
+                                               @bind="_commissionRatePercent" disabled="@Service.IsRunning" />
+                                    </label>
+                                    <label class="train-brainrow-field"
+                                           title="Force-close the open position when Margin Level (Equity ÷ Margin Used) drops below this percent">
+                                        Stop-out %
+                                        <input class="train-brainrow-input" type="number" min="1" max="100" step="1"
+                                               @bind="_stopOutLevelPercent" disabled="@Service.IsRunning" />
+                                    </label>
+                                </div>
+                                @if (RiskPolicyService.AvailablePolicies.Count > 0)
+                                {
+                                    <div class="train-card-fields-row"
+                                         title="Risk policies gate every trade action -- permit, deny or resize it -- and supervise open positions during each episode">
+                                        <span class="train-brainrow-field">Risk policies</span>
+                                        <PolicySelector Available="RiskPolicyService.AvailablePolicies" Selected="_selectedRiskPolicies"
+                                                        Disabled="Service.IsRunning" OnChanged="StateHasChanged" />
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+
+
+
+                <div class="train-toolbar">
+                    <div class="train-controls">
+                        @if (!Service.IsRunning)
+                        {
+                            <button class="train-ctrl-btn train-ctrl-btn-play" @onclick="StartTraining"
+                                    title="Trains on the symbol/range picked above -- each episode streams its own random window straight from Postgres">
+                                <Icon Name="play-fill" Class="train-ctrl-icon" />
+                                START
+                            </button>
+                            <button class="train-ctrl-btn" @onclick="StepTraining"
+                                    title="Runs exactly one episode on the symbol/range picked above, then pauses -- lets you step through training one episode at a time from the start">
+                                <Icon Name="skip-end-fill" Class="train-ctrl-icon" />
+                                STEP
+                            </button>
+                            <button class="train-ctrl-btn" @onclick="ResetRun"
+                                    title="Clears this run's episodes/metrics/charts -- Data Range/Brain/Training/Trader setup stays as configured">
+                                <Icon Name="arrow-clockwise" Class="train-ctrl-icon" />
+                                RESET
+                            </button>
+                        }
+                        else if (Service.IsPaused)
+                        {
+                            <button class="train-ctrl-btn train-ctrl-btn-play" @onclick="ResumeTraining"
+                                    title="Resume training from where it paused">
+                                <Icon Name="play-fill" Class="train-ctrl-icon" />
+                                RESUME
+                            </button>
+                            <button class="train-ctrl-btn" @onclick="StepTraining"
+                                    title="Runs exactly one more episode, then pauses again -- lets you step through training one episode at a time">
+                                <Icon Name="skip-end-fill" Class="train-ctrl-icon" />
+                                STEP
+                            </button>
+                            <button class="train-ctrl-btn train-ctrl-btn-warn" @onclick="StopTraining"
+                                    title="Stop training once the in-flight episode finishes">
+                                STOP
+                            </button>
+                        }
+                        else
+                        {
+                            <button class="train-ctrl-btn train-ctrl-btn-play" @onclick="PauseTraining"
+                                    title="Pause training once the in-flight episode finishes">
+                                <Icon Name="pause-fill" Class="train-ctrl-icon" />
+                                PAUSE
+                            </button>
+                            <button class="train-ctrl-btn train-ctrl-btn-warn" @onclick="StopTraining"
+                                    title="Stop training once the in-flight episode finishes">
+                                STOP
+                            </button>
+                        }
+                        @if (_startError is not null)
+                        {
+                            <span class="train-brainrow-error">@_startError</span>
+                        }
+
+                        @if (Service.TotalEpisodes > 0)
+                        {
+                            <div class="train-progress">
+                                <div class="train-progress-bar">
+                                    <div class="train-progress-fill" style="width: @(ProgressPercent)%"></div>
+                                </div>
+                                <span class="train-progress-text">
+                                    @Service.EpisodesCompleted / @Service.TotalEpisodes episodes (@ProgressPercent%)
+                                </span>
+                                <span class="train-progress-rate"
+                                      title="Rolling episodes/sec over the most recent episodes -- pause/step time isn't counted">
+                                    @Service.EpisodesPerSecond.ToString("N2") eps
+                                </span>
                             </div>
                         }
                     </div>
-
-                    <div class="train-card">
-                        <div class="train-card-title"
-                             title="Starting capital the simulated Trader begins each episode with">
-                            Trader</div>
-                            <div class="train-card-fields-row">
-                                <label class="train-brainrow-field">
-                                    Starting cash
-                                    <input class="train-brainrow-input" type="number" min="1" step="100" @bind="_startingCash"
-                                           disabled="@Service.IsRunning" />
-                                </label>
-                                <label class="train-brainrow-field"
-                                       title="Notional exposure per unit of margin committed -- 1 means no leverage">
-                                    Leverage
-                                    <input class="train-brainrow-input" type="number" min="1" step="1" @bind="_leverage"
-                                           disabled="@Service.IsRunning" />
-                                </label>
-                                <label class="train-brainrow-field"
-                                       title="Commission charged per fill, as a percent of that fill's notional value">
-                                    Commission %
-                                    <input class="train-brainrow-input" type="number" min="0" step="0.01"
-                                           @bind="_commissionRatePercent" disabled="@Service.IsRunning" />
-                                </label>
-                                <label class="train-brainrow-field"
-                                       title="Force-close the open position when Margin Level (Equity ÷ Margin Used) drops below this percent">
-                                    Stop-out %
-                                    <input class="train-brainrow-input" type="number" min="1" max="100" step="1"
-                                           @bind="_stopOutLevelPercent" disabled="@Service.IsRunning" />
-                                </label>
-                            </div>
-                            @if (RiskPolicyService.AvailablePolicies.Count > 0)
-                            {
-                                <div class="train-card-fields-row"
-                                     title="Risk policies gate every trade action -- permit, deny or resize it -- and supervise open positions during each episode">
-                                    <span class="train-brainrow-field">Risk policies</span>
-                                    <PolicySelector Available="RiskPolicyService.AvailablePolicies" Selected="_selectedRiskPolicies"
-                                                    Disabled="Service.IsRunning" OnChanged="StateHasChanged" />
-                                </div>
-                            }
-                        </div>
+                </div>
+            </div>
+            <div class="train-content">
+                <div class="train-stats">
+                    <div class="train-stat">
+                        <span class="train-stat-label">recent avg reward</span>
+                        <span class="train-stat-value">@Service.RecentAverageReward.ToString("N2")</span>
                     </div>
+                    <div class="train-stat">
+                        <span class="train-stat-label">best episode</span>
+                        <span class="train-stat-value">@Service.BestReward.ToString("N2")</span>
+                    </div>
+                    <div class="train-stat">
+                        <span class="train-stat-label">worst episode</span>
+                        <span class="train-stat-value">@Service.WorstReward.ToString("N2")</span>
+                    </div>
+                    <div class="train-stat">
+                        <span class="train-stat-label">win rate</span>
+                        <span class="train-stat-value">@WinRatePercent.ToString("N0")%</span>
+                    </div>
+                    <div class="train-stat">
+                        <span class="train-stat-label">median reward</span>
+                        <span class="train-stat-value">@RewardDistribution.Median.ToString("N2")</span>
+                    </div>
+                    <div class="train-stat">
+                        <span class="train-stat-label">reward std dev</span>
+                        <span class="train-stat-value">@RewardDistribution.StdDev.ToString("N2")</span>
+                    </div>
+                    <div class="train-stat">
+                        <span class="train-stat-label">reward spread</span>
+                        <span class="train-stat-value">@RewardSpread.ToString("N2")</span>
+                    </div>
+                </div>
+            </div>
+
+            <TrainingPreview Recipe="CurrentBrainRecipe" DataItems="PreviewDataItems" TrainingItems="PreviewTrainingItems"
+                             From="_from" To="_to" BlockSpan="EpisodeBlockSpan" EpisodeWindows="Service.RecentEpisodeWindows" Table="@_table"
+                             BarWidthSeconds="_barWidthSeconds" StartingCash="_startingCash" TimeConstraint="CurrentEpisodeTimeConstraint" />
+
+            <div class="train-content">
+
+
+                <EpisodePlayback BrainName="@_brainName" />
+
+
+                @if (Service.Error is not null)
+                {
+                    <p class="train-error">@Service.Error</p>
                 }
             </div>
-
-
-
-            <div class="train-toolbar">
-                <div class="train-controls">
-                    <button class="train-ctrl-btn train-ctrl-btn-collapse" @onclick="ToggleDashboardView"
-                            title="@(_dashboardView
-                                                                                                                                                                                                                                                                                                               ? "Switch back to the detailed view -- full-size charts, episode replay, inputs/outputs and stats tables"
-                                                                                                                                                                                                                                                                                                               : "Switch to the compact dashboard -- gauges, charts, metrics and the training log, all on one screen")">
-                        <Icon Name="@(_dashboardView ? "list-ul" : "speedometer2")" Class="train-ctrl-icon" />
-                    </button>
-
-                    @if (!Service.IsRunning)
-                    {
-                        <button class="train-ctrl-btn train-ctrl-btn-play" @onclick="StartTraining"
-                                title="Trains on the symbol/range picked above -- each episode streams its own random window straight from Postgres">
-                            <Icon Name="play-fill" Class="train-ctrl-icon" />
-                            START
-                        </button>
-                        <button class="train-ctrl-btn" @onclick="StepTraining"
-                                title="Runs exactly one episode on the symbol/range picked above, then pauses -- lets you step through training one episode at a time from the start">
-                            <Icon Name="skip-end-fill" Class="train-ctrl-icon" />
-                            STEP
-                        </button>
-                        <button class="train-ctrl-btn" @onclick="ResetRun"
-                                title="Clears this run's episodes/metrics/charts -- Data Range/Brain/Training/Trader setup stays as configured">
-                            <Icon Name="arrow-clockwise" Class="train-ctrl-icon" />
-                            RESET
-                        </button>
-                    }
-                    else if (Service.IsPaused)
-                    {
-                        <button class="train-ctrl-btn train-ctrl-btn-play" @onclick="ResumeTraining"
-                                title="Resume training from where it paused">
-                            <Icon Name="play-fill" Class="train-ctrl-icon" />
-                            RESUME
-                        </button>
-                        <button class="train-ctrl-btn" @onclick="StepTraining"
-                                title="Runs exactly one more episode, then pauses again -- lets you step through training one episode at a time">
-                            <Icon Name="skip-end-fill" Class="train-ctrl-icon" />
-                            STEP
-                        </button>
-                        <button class="train-ctrl-btn train-ctrl-btn-warn" @onclick="StopTraining"
-                                title="Stop training once the in-flight episode finishes">
-                            STOP
-                        </button>
-                    }
-                    else
-                    {
-                        <button class="train-ctrl-btn train-ctrl-btn-play" @onclick="PauseTraining"
-                                title="Pause training once the in-flight episode finishes">
-                            <Icon Name="pause-fill" Class="train-ctrl-icon" />
-                            PAUSE
-                        </button>
-                        <button class="train-ctrl-btn train-ctrl-btn-warn" @onclick="StopTraining"
-                                title="Stop training once the in-flight episode finishes">
-                            STOP
-                        </button>
-                    }
-                    @if (_startError is not null)
-                    {
-                        <span class="train-brainrow-error">@_startError</span>
-                    }
-
-                    @if (Service.TotalEpisodes > 0)
-                    {
-                        <div class="train-progress">
-                            <div class="train-progress-bar">
-                                <div class="train-progress-fill" style="width: @(ProgressPercent)%"></div>
-                            </div>
-                            <span class="train-progress-text">
-                                @Service.EpisodesCompleted / @Service.TotalEpisodes episodes (@ProgressPercent%)
-                            </span>
-                            <span class="train-progress-rate"
-                                  title="Rolling episodes/sec over the most recent episodes -- pause/step time isn't counted">
-                                @Service.EpisodesPerSecond.ToString("N2") eps
-                            </span>
-                        </div>
-                    }
-                </div>
-            </div>
         </div>
-        <div class="train-content">
-            <div class="train-stats">
-                <div class="train-stat">
-                    <span class="train-stat-label">recent avg reward</span>
-                    <span class="train-stat-value">@Service.RecentAverageReward.ToString("N2")</span>
-                </div>
-                <div class="train-stat">
-                    <span class="train-stat-label">best episode</span>
-                    <span class="train-stat-value">@Service.BestReward.ToString("N2")</span>
-                </div>
-                <div class="train-stat">
-                    <span class="train-stat-label">worst episode</span>
-                    <span class="train-stat-value">@Service.WorstReward.ToString("N2")</span>
-                </div>
-                <div class="train-stat">
-                    <span class="train-stat-label">win rate</span>
-                    <span class="train-stat-value">@WinRatePercent.ToString("N0")%</span>
-                </div>
-                <div class="train-stat">
-                    <span class="train-stat-label">median reward</span>
-                    <span class="train-stat-value">@RewardDistribution.Median.ToString("N2")</span>
-                </div>
-                <div class="train-stat">
-                    <span class="train-stat-label">reward std dev</span>
-                    <span class="train-stat-value">@RewardDistribution.StdDev.ToString("N2")</span>
-                </div>
-                <div class="train-stat">
-                    <span class="train-stat-label">reward spread</span>
-                    <span class="train-stat-value">@RewardSpread.ToString("N2")</span>
-                </div>
-            </div>
-        </div>
-
-        <TrainingPreview Recipe="CurrentBrainRecipe" DataItems="PreviewDataItems" TrainingItems="PreviewTrainingItems"
-                         From="_from" To="_to" BlockSpan="EpisodeBlockSpan" EpisodeWindows="Service.RecentEpisodeWindows" Table="@_table"
-                         BarWidthSeconds="_barWidthSeconds" StartingCash="_startingCash" TimeConstraint="CurrentEpisodeTimeConstraint" />
-
-        <div class="train-content">
-
-
-            <EpisodePlayback BrainName="@_brainName" />
-
-
-            @if (Service.Error is not null)
-            {
-                <p class="train-error">@Service.Error</p>
-            }
-        </div>
-    </div>

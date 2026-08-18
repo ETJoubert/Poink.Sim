@@ -188,8 +188,8 @@ function createRangeFillsPrimitive() {
 }
 
 // Volume Range band drag-to-reposition/resize -- lets the user grab the placed band
-// (the one RangeFill with colorGroup 'volume', see setLines below; TransformerPage/
-// ProfilerPage's VolumeRangeFill are its only producers, so that colorGroup is
+// (the one RangeFill with colorGroup 'volume', see setLines below; ProfilerPage's
+// VolumeRangeFill is its only producer, so that colorGroup is
 // exclusive to it), either sliding the whole thing left/right or dragging just one
 // edge to shrink/extend it, instead of clearing and re-placing both clicks. Reuses
 // OnVolumeRangeClickedAsync (the same callback the initial two clicks dispatch

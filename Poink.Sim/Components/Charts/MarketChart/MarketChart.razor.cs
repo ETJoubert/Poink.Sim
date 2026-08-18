@@ -39,7 +39,7 @@ namespace Poink.Sim.Components.Charts
 
         [Parameter] public List<CTraderBarRow> Bars { get; set; } = new();
 
-        // Hides the Lines/Ranges/Shapes/Charts toolbar groups, leaving only Volume Range -- see TransformerPage.
+        // Hides the Lines/Ranges/Shapes/Charts toolbar groups, leaving only Volume Range -- see ProfilerPage.
         [Parameter] public bool ShowAnnotationTools { get; set; } = true;
 
         // False hides the whole toolbar and disables pan/zoom/scroll/minimap-drag -- for read-only,

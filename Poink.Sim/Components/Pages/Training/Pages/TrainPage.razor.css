@@ -3,16 +3,6 @@
     flex-direction: column;
 }
 
-/* Dashboard mode fills the layout's scroll container (article.content, a
-   flex column) instead of growing taller than the viewport -- flex:1 +
-   min-height:0 claims exactly the space under the sticky topbar/nav,
-   whatever their height, with no calc(100vh - ...) math needed. */
-.train-page-dashboard {
-    flex: 1;
-    min-height: 0;
-    overflow: hidden;
-}
-
 .train-topbar {
     position: sticky;
     top: 0;
@@ -23,15 +13,6 @@
 
 .train-content {
     padding: 20px 24px 32px;
-}
-
-.train-content-dashboard {
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    padding: 10px 16px 14px;
 }
 
 .train-header {
@@ -363,18 +344,6 @@
 .train-ctrl-btn:disabled {
     opacity: 0.35;
     cursor: not-allowed;
-}
-
-.train-ctrl-btn-collapse {
-    padding: 5px 7px;
-    line-height: 1;
-}
-
-.train-ctrl-btn-collapse ::deep .train-ctrl-icon {
-    width: 11px;
-    height: 11px;
-    margin-right: 0;
-    vertical-align: -1px;
 }
 
 .train-ctrl-btn-play {

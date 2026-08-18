@@ -34,7 +34,6 @@ using Poink.Sim.Simulation;
 using Poink.Sim.Trader;
 using Poink.Sim.Trader.Risk;
 using Poink.Sim.Training;
-using Poink.Sim.Transformer;
 using Serilog;
 using Serilog.Events;
 using System.IO;
@@ -113,7 +112,6 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<TickBackfillWorker
 
 builder.Services.AddScoped<IProfilerService, ProfilerService>();
 
-builder.Services.AddScoped<ITransformerService, TransformerService>();
 builder.Services.AddSingleton<IRlTrainingStrategy, PolicyGradientTrainingStrategy>();
 
 builder.Services.AddSingleton<IRewardPolicyService, RewardPolicyService>();
