@@ -890,7 +890,8 @@ namespace Poink.Sim.Components.Training
             {
                 var count = BrainCatalog.CreateEncoder(EncoderKind.XGrid, sizes).FeatureCount;
                 var xgridValues = BuildXGridSignalValues(episodeBars, episodeHistograms, sizes, liveInputs);
-                rows.Add(new("XGrid Signals", count.ToString(), "Binary", $"{sizes.XGridWindowBars} bars", $"{sizes.XGridRowCount}x{sizes.XGridColCount}",
+                rows.Add(new("XGrid Signals", count.ToString(), "Binary", $"{sizes.XGridWindowBars} bars",
+                    $"{(sizes.XGridRowCount * sizes.XGridPipSize):0.#####}/row x {sizes.XGridColCount}col",
                     RawValues: xgridValues.Select(v => v.Text).ToList(),
                     NormalizedValues: xgridValues.Select(v => v.Text).ToList(),
                     RawValueKinds: xgridValues.Select(v => v.Kind).ToList(),

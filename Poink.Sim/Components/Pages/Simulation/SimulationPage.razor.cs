@@ -35,6 +35,8 @@ namespace Poink.Sim.Components.Pages
         private DateTime _to = DateTime.UtcNow;
         private bool _aggregate = true;
         private int _barSizeSeconds = 60;
+        private SimulationSteppingMode _steppingMode = SimulationSteppingMode.Bar;
+        private double _cellWidth = 0.10;
         private string _brainName = "";
 
         private long? _modelId;
@@ -94,25 +96,22 @@ namespace Poink.Sim.Components.Pages
         private bool _showVolumeProfile;
         private bool _showTimeProfile;
 
-        private int _xgridRowCount = 20;
+        private int _xgridPipCount = 20;
         private int _xgridColCount = 20;
         private bool _xgridCollapsed;
 
         private XGridResult? _xgridCache;
-        private (int Rows, int Cols, int Window, int Count, DateTime LastOpen, double LastClose, double LastVolume)? _xgridKey;
+        private (int Pips, double PipSize, int Cols, int Window, int Count, DateTime LastOpen, double LastClose, double LastVolume)? _xgridKey;
 
-        // Sources the grid's range from the profile-bar window rather than a drawn Volume
-        // Range, which Simulation has no chart tool for -- see ProfilerPage.ComputeXGrid.
-        // Memoised: the parent re-renders every tick, but the footprint only changes when the
-        // window, resolution, or the latest bar's price/volume moves -- the key catches all
-        // three, so hovers and unrelated re-renders reuse the last result.
+        // Row height comes from the account's own pip size (Config.PipSize, set up before
+        // load, same value TraderControlsPanel uses for SL/TP), not a value XGrid owns itself.
         private XGridResult? ComputeXGrid(SimulationSnapshot s)
         {
             if (!s.Config.Aggregate || s.RecentBars.Count == 0)
                 return null;
             var window = Math.Min(ClampedBarWindow, s.RecentBars.Count);
             var last = s.RecentBars[^1];
-            var key = (_xgridRowCount, _xgridColCount, window, s.RecentBars.Count, last.OpenTime, last.Close, (double)last.Volume);
+            var key = (_xgridPipCount, s.Config.PipSize, _xgridColCount, window, s.RecentBars.Count, last.OpenTime, last.Close, (double)last.Volume);
             if (_xgridKey == key && _xgridCache is not null)
                 return _xgridCache;
 
@@ -120,7 +119,7 @@ namespace Poink.Sim.Components.Pages
             var end = last.OpenTime;
             _xgridKey = key;
             _xgridCache = XGridStats.Compute(
-                s.RecentBars, s.RecentBarHistograms, MergedBarSamples(s), start, end, _xgridRowCount, _xgridColCount);
+                s.RecentBars, s.RecentBarHistograms, MergedBarSamples(s), start, end, _xgridPipCount * s.Config.PipSize, _xgridColCount);
             return _xgridCache;
         }
 
@@ -509,7 +508,8 @@ namespace Poink.Sim.Components.Pages
 
             var config = new SimulationConfig(
                 _table, _from, _to, _aggregate, TimeSpan.FromSeconds(_barSizeSeconds), _brainName, _startingCash, _traderCount,
-                _leverage, _stopOutLevelPercent, _commissionRatePercent, _pipSize, SelectedRiskPolicies, _lockRiskPolicies);
+                _leverage, _stopOutLevelPercent, _commissionRatePercent, _pipSize, SelectedRiskPolicies, _lockRiskPolicies,
+                _steppingMode, _cellWidth);
 
             _keepChartView = false;
             if (!Service.TryLoad(config))
@@ -537,6 +537,19 @@ namespace Poink.Sim.Components.Pages
 
         private void OnAggregationSettingChanged() => Service.SetAggregation(_aggregate, TimeSpan.FromSeconds(_barSizeSeconds));
 
+        private void OnSteppingModeChanged() => Service.SetSteppingMode(_steppingMode, _cellWidth);
+
+        // Pins the live cell's edges on XGrid as host lines, distinct from the grid's own
+        // rowCount-derived bands, so a Cell-stepping run can be compared against them visually.
+        private static List<XGridLine> CellBandLines(SimulationSnapshot s) =>
+            s.Config.SteppingMode == SimulationSteppingMode.Cell && s.CellState is { } cell
+                ? new List<XGridLine>
+                {
+                    XGridLine.Horizontal(cell.CellLow) with { Id = "cell-low" },
+                    XGridLine.Horizontal(cell.CellHigh) with { Id = "cell-high" },
+                }
+                : new List<XGridLine>();
+
 
         private void LoadDummySimulation()
         {
@@ -557,7 +570,8 @@ namespace Poink.Sim.Components.Pages
 
             var config = new SimulationConfig(
                 table, from, to, _aggregate, TimeSpan.FromSeconds(_barSizeSeconds), _brainName, _startingCash, _traderCount,
-                _leverage, _stopOutLevelPercent, _commissionRatePercent, _pipSize, SelectedRiskPolicies, _lockRiskPolicies);
+                _leverage, _stopOutLevelPercent, _commissionRatePercent, _pipSize, SelectedRiskPolicies, _lockRiskPolicies,
+                _steppingMode, _cellWidth);
 
             _keepChartView = false;
             if (!Service.TryLoadDummy(config))

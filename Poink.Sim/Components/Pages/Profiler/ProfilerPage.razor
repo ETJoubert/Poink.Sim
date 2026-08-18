@@ -104,7 +104,7 @@
                      title="@(VolumeRangeLabel() is { } xgridLabel
                                                                           ? $"Footprint grid for the selected Volume Range ({xgridLabel}) -- rows are price buckets, columns are bars"
                                                                           : "Select a Volume Range on the chart to build the footprint grid -- rows are price buckets, columns are bars")">
-                    <XGrid Grid="ComputeXGrid()" @bind-RowCount="_xgridRowCount" @bind-ColCount="_xgridColCount"
+                    <XGrid Grid="ComputeXGrid()" @bind-PipCount="_xgridPipCount" @bind-ColCount="_xgridColCount"
                            @bind-Collapsed="_xgridCollapsed" />
                 </div>
             </div>

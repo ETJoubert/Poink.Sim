@@ -18,17 +18,20 @@ namespace Poink.Sim.Components.Charts
 
         [Parameter] public XGridResult? Grid { get; set; }
 
-        // Two-way bound so ProfilerPage (the only one that can call XGridStats.Compute --
-        // it owns the bars/histograms) recomputes Grid when either changes. The inputs
-        // themselves live in this component's own header, same ownership split as
-        // TickVolumeProfileChart/TickTimeProfileChart's Collapsed parameter.
-        [Parameter] public int RowCount { get; set; } = 20;
-        [Parameter] public EventCallback<int> RowCountChanged { get; set; }
+        // Two-way bound so the host (the only one that can call XGridStats.Compute -- it owns
+        // the bars/histograms) recomputes Grid when either changes. The inputs themselves live
+        // in this component's own header, same ownership split as TickVolumeProfileChart/
+        // TickTimeProfileChart's Collapsed parameter.
+        // PipCount x the instrument's pip size (host-owned, not this component's concern) is
+        // the fixed row height the host passes into XGridStats.Compute -- row count is then
+        // derived from however many of those bands the price range needs.
+        [Parameter] public int PipCount { get; set; } = 20;
+        [Parameter] public EventCallback<int> PipCountChanged { get; set; }
 
         [Parameter] public int ColCount { get; set; } = 20;
         [Parameter] public EventCallback<int> ColCountChanged { get; set; }
 
-        private Task SetRowCount(int value) => RowCountChanged.InvokeAsync(RowCount = value);
+        private Task SetPipCount(int value) => PipCountChanged.InvokeAsync(PipCount = value);
         private Task SetColCount(int value) => ColCountChanged.InvokeAsync(ColCount = value);
 
         // Two-way bound so the parent shrinks its own layout column around this panel, same
@@ -182,10 +185,8 @@ namespace Poink.Sim.Components.Charts
 
         private void ToggleLineMode() => _lineMode = !_lineMode;
 
-        // Which sweep metric shades on top of the base tick-count grid -- purely a display
-        // choice (all three are already sitting on Grid), so it stays local, unbound state
-        // rather than a two-way parameter like RowCount/ColCount, which do drive a
-        // recompute. Opt-in: None is the default, so the grid starts unshaded.
+        // Purely a display choice over data already on Grid, so it stays local, unbound state
+        // rather than a two-way parameter like PipCount/ColCount, which do drive a recompute.
         private enum SweepMode { None, LeftToRight, RightToLeft, Sum }
 
         private SweepMode _sweepMode = SweepMode.None;
@@ -906,11 +907,29 @@ namespace Poink.Sim.Components.Charts
         private static string GridTimeSpan(XGridResult grid)
         {
             if (grid.Columns.Count == 0) return "--";
-            TimeSpan span = grid.Columns[^1].OpenTime - grid.Columns[0].OpenTime;
+            return FormatDuration(grid.Columns[^1].OpenTime - grid.Columns[0].OpenTime);
+        }
+
+        private static string FormatDuration(TimeSpan span)
+        {
             if (span.TotalDays >= 1) return $"{(int)span.TotalDays}d {span.Hours}h";
             if (span.TotalHours >= 1) return $"{(int)span.TotalHours}h {span.Minutes}m";
             if (span.TotalMinutes >= 1) return $"{(int)span.TotalMinutes}m {span.Seconds}s";
             return $"{(int)span.TotalSeconds}s";
+        }
+
+        // All rows share one height by construction (XGridStats.Compute divides the range
+        // evenly), so the first row's own span stands for every row's.
+        private static string RowHeightLabel(XGridResult grid) =>
+            grid.RowLow.Count == 0 ? "--" : (grid.RowHigh[0] - grid.RowLow[0]).ToString("F5", CultureInfo.InvariantCulture);
+
+        // Columns can each cover a different number of source bars (grouping spreads any
+        // remainder across the earliest columns), so this is the average spacing between
+        // column open times rather than an exact per-column width.
+        private static string ColumnWidthLabel(XGridResult grid)
+        {
+            int cols = grid.Columns.Count;
+            return cols < 2 ? "--" : FormatDuration((grid.Columns[^1].OpenTime - grid.Columns[0].OpenTime) / (cols - 1));
         }
     }
 }

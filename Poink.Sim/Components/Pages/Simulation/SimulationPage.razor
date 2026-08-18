@@ -13,6 +13,7 @@
 @using Poink.Sim.Components.Simulation
 @using Poink.Sim.Components.Training
 @using Poink.Sim.Helpers
+@using Poink.Sim.Models
 @using Poink.Shared.Client.Components.Shared.Icon
 @using Poink.Shared.Client.Components.Shared.ViewDatatable
 @using System.Globalization
@@ -57,6 +58,12 @@
                 <div class="sim-header-title">
                     <span class="sim-header-symbol">@s.Config.Table</span>
                     <span class="sim-header-mode">@(s.Config.Aggregate ? $"{BarSizeOptions.Label((int)s.Config.BarSize.TotalSeconds)} bars" : "raw ticks")</span>
+                    @if (s.Config.Aggregate && s.Config.SteppingMode == SimulationSteppingMode.Cell)
+                    {
+                        <span class="sim-header-mode" title="Decisions step on a fixed price band instead of the bar clock">
+                            step: cell (@s.Config.CellWidth.ToString("F5"))
+                        </span>
+                    }
                     <span class="sim-header-mode">viewing: @trader.Label</span>
                     <span class="sim-header-state @StateClass(s)">
                         @(s.IsFinished ? "FINISHED" : s.IsPlaying ? "PLAYING" : "PAUSED")
@@ -103,6 +110,17 @@
                             <span class="sim-stat-label">trades</span>
                             <span class="sim-stat-value">@trader.TradeCount</span>
                         </div>
+                        @if (s.Config.SteppingMode == SimulationSteppingMode.Cell && s.CellState is { } cellStat)
+                        {
+                            <div class="sim-stat" title="How many times price has crossed into a new cell -- this is what drives decisions instead of the bar clock">
+                                <span class="sim-stat-label">cell steps</span>
+                                <span class="sim-stat-value">@cellStat.StepCount</span>
+                            </div>
+                            <div class="sim-stat" title="Low/high edge of the price band the latest decision stepped into">
+                                <span class="sim-stat-label">cell band</span>
+                                <span class="sim-stat-value">@cellStat.CellLow.ToString("F5") – @cellStat.CellHigh.ToString("F5")</span>
+                            </div>
+                        }
                     </div>
                 }
             </header>
@@ -130,6 +148,18 @@
                             <BarSizeSelect @bind-Value="_barSizeSeconds" @bind-Value:after="OnAggregationSettingChanged"
                                            Disabled="@_isLoading"
                                            Title="Size of each aggregated bar -- can be changed while a simulation is running" />
+                            <select class="sim-datarow-select" @bind="_steppingMode" @bind:after="OnSteppingModeChanged"
+                                    disabled="@_isLoading"
+                                    title="Bar steps a decision on each aggregated bar's close. Cell steps on a fixed-width price band instead, the moment price moves into a different band -- can be changed while a simulation is running">
+                                <option value="@SimulationSteppingMode.Bar">step: bar</option>
+                                <option value="@SimulationSteppingMode.Cell">step: cell</option>
+                            </select>
+                            @if (_steppingMode == SimulationSteppingMode.Cell)
+                            {
+                                <input class="sim-window-input" type="number" min="0.00001" step="0.01"
+                                       @bind="_cellWidth" @bind:after="OnSteppingModeChanged" disabled="@_isLoading"
+                                       title="Fixed price width of each cell -- a decision fires when price crosses from one cell into the next" />
+                            }
                         }
                     </div>
                 </div>
@@ -392,8 +422,8 @@
                                     <XGrid Grid="ComputeXGrid(s)" Positions="XGridPositions(s)"
                                            Pending="XGridPending()" OnOrderPlaced="PlaceXGridOrder"
                                            OnPendingModified="ModifyXGridPending" OnPendingCancelled="CancelXGridPending"
-                                           OnPositionClosed="CloseXGridPosition"
-                                           @bind-RowCount="_xgridRowCount" @bind-ColCount="_xgridColCount"
+                                           OnPositionClosed="CloseXGridPosition" Lines="CellBandLines(s)"
+                                           @bind-PipCount="_xgridPipCount" @bind-ColCount="_xgridColCount"
                                            @bind-Collapsed="_xgridCollapsed">
                                         <ExpandedControls>
                                             <button class="sim-ctrl-btn sim-ctrl-btn-play" @onclick="TogglePlayPause" disabled="@s.IsFinished"

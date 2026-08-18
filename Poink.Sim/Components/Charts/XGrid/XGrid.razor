@@ -10,13 +10,21 @@
         <div class="xgrid-header-actions">
             @if (!Collapsed)
             {
-                <label class="xgrid-control" title="Number of price buckets (rows)">
-                    <span>Rows</span>
-                    <input type="number" min="1" max="200" @bind:get="RowCount" @bind:set="SetRowCount" @bind:event="oninput" />
+                <label class="xgrid-control" title="Pips per row -- multiplied by the instrument's pip size for each row's fixed price height. Rows snap to an absolute price grid, so the row count is derived from the range rather than fixed">
+                    <span>Pips</span>
+                    <input type="number" min="1" max="200" @bind:get="PipCount" @bind:set="SetPipCount" @bind:event="oninput" />
+                    @if (Grid is { } rowGrid)
+                    {
+                        <span class="xgrid-control-readout" title="Fixed price height of one row">@RowHeightLabel(rowGrid)</span>
+                    }
                 </label>
                 <label class="xgrid-control" title="Number of bar groups (columns) -- bars are merged evenly when the selection holds more than this">
                     <span>Cols</span>
                     <input type="number" min="1" max="500" @bind:get="ColCount" @bind:set="SetColCount" @bind:event="oninput" />
+                    @if (Grid is { } colGrid)
+                    {
+                        <span class="xgrid-control-readout" title="Average time span of one column">@ColumnWidthLabel(colGrid)</span>
+                    }
                 </label>
             }
             @if (!Collapsed)

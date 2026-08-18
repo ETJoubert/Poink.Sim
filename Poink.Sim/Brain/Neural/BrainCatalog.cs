@@ -26,6 +26,8 @@ public enum DecisionDecodingKind { Softmax, HardMax }
 public enum CnnKernelSweepSource { BarWindow, VolumeProfile }
 
 
+// XGridRowCount is now a row-height multiplier (row height = XGridRowCount x XGridPipSize),
+// kept under its old name so saved brain JSON still deserializes onto the right field.
 public sealed record EncoderSizeOptions(
     int BarWindowSize = 20,
     int VolumeProfileBucketCount = 20,
@@ -61,6 +63,7 @@ public sealed record EncoderSizeOptions(
     double XGridTopPercent = 10,
     int XGridColCount = 20,
     int XGridRowCount = 20,
+    double XGridPipSize = 0.01,
     int XGridWindowBars = 60);
 
 
@@ -115,7 +118,7 @@ internal static class BrainCatalog
                 directionListLength: sizes.TraderStateDirectionListLength),
             EncoderKind.XGrid => new XGridSignalEncoder(
                 signals: ResolveXGridSignals(sizes), percent: sizes.XGridTopPercent,
-                rowCount: sizes.XGridRowCount, colCount: sizes.XGridColCount, windowBars: sizes.XGridWindowBars),
+                rowPips: sizes.XGridRowCount, pipSize: sizes.XGridPipSize, colCount: sizes.XGridColCount, windowBars: sizes.XGridWindowBars),
             _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
         };
     }

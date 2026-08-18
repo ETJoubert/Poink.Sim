@@ -56,9 +56,13 @@ internal enum XGridSpectrumMetric { Total, Up, Down }
 // README's three-layer split for the same reasoning applied to draw tools).
 internal static class XGridStats
 {
+    // Safety cap on rows derived from a tiny rowHeight over a wide range -- rows past this
+    // are dropped from the low end rather than shrinking rowHeight to fit.
+    private const int MaxRows = 1000;
+
     public static XGridResult? Compute(
         IReadOnlyList<HlocAvdtBar> bars, IReadOnlyList<BarPriceHistogram> histograms,
-        IReadOnlyList<WeightedPriceSample> samples, DateTime rangeStart, DateTime rangeEnd, int rowCount, int colCount)
+        IReadOnlyList<WeightedPriceSample> samples, DateTime rangeStart, DateTime rangeEnd, double rowHeight, int colCount)
     {
         var indices = new List<int>();
         for (var i = 0; i < bars.Count; i++)
@@ -66,7 +70,7 @@ internal static class XGridStats
                 indices.Add(i);
         if (indices.Count == 0) return null;
 
-        rowCount = Math.Max(1, rowCount);
+        rowHeight = rowHeight > 0 ? rowHeight : double.Epsilon;
         colCount = Math.Clamp(colCount, 1, indices.Count);
 
         double min = double.MaxValue, max = double.MinValue;
@@ -82,13 +86,22 @@ internal static class XGridStats
         }
         if (max <= min) return null;
 
-        var size = (max - min) / rowCount;
+        // Rows snap to absolute multiples of rowHeight (same floor(price/width) scheme
+        // PriceCellTracker uses) instead of dividing this call's own range -- so row edges
+        // stay fixed across renders and windows instead of drifting with whatever range this
+        // particular call was given.
+        long topCell = (long)Math.Floor(max / rowHeight);
+        long bottomCell = (long)Math.Floor(min / rowHeight);
+        int rowCount = (int)Math.Clamp(topCell - bottomCell + 1, 1, MaxRows);
+
+        int RowOf(double price) => (int)Math.Clamp(topCell - (long)Math.Floor(price / rowHeight), 0, rowCount - 1);
+
         var rowLow = new List<double>(rowCount);
         var rowHigh = new List<double>(rowCount);
         for (var r = 0; r < rowCount; r++)
         {
-            rowHigh.Add(max - size * r);
-            rowLow.Add(max - size * (r + 1));
+            rowHigh.Add((topCell - r + 1) * rowHeight);
+            rowLow.Add((topCell - r) * rowHeight);
         }
 
         var columns = new List<XGridColumn>(colCount);
@@ -119,7 +132,7 @@ internal static class XGridStats
                 {
                     double price = key * hist.BucketWidth;
                     // 0 = top row (highest price), rowCount - 1 = bottom row (lowest price).
-                    int row = Math.Clamp((int)((max - price) / size), 0, rowCount - 1);
+                    int row = RowOf(price);
                     counts[row] += c.Count;
                     upCounts[row] += c.UpCount;
                     downCounts[row] += c.DownCount;
@@ -147,11 +160,9 @@ internal static class XGridStats
             columns.Add(new XGridColumn(bars[indices[groupStart]].OpenTime, cells));
         }
 
-        var (sweepLtr, sweepRtl, sweepSum, maxSweepValue) = ComputeSweeps(bars, histograms, indices, min, max, size, rowCount);
+        var (sweepLtr, sweepRtl, sweepSum, maxSweepValue) = ComputeSweeps(histograms, indices, rowCount, RowOf);
 
-        XGridLevel? ToLevel(double? price) => price is { } p
-            ? new XGridLevel(p, Math.Clamp((int)((max - p) / size), 0, rowCount - 1))
-            : null;
+        XGridLevel? ToLevel(double? price) => price is { } p ? new XGridLevel(p, RowOf(p)) : null;
 
         var profileLevels = VolumeProfileStats.Compute(samples);
         var poc = ToLevel(profileLevels?.Poc);
@@ -184,8 +195,7 @@ internal static class XGridStats
     // same span (window [0, i]). Prefix/suffix sums keep this O(bars x rowCount) instead of
     // re-summing each window from scratch.
     private static (double[] Ltr, double[] Rtl, double[] Sum, double MaxSum) ComputeSweeps(
-        IReadOnlyList<HlocAvdtBar> bars, IReadOnlyList<BarPriceHistogram> histograms, List<int> indices,
-        double min, double max, double size, int rowCount)
+        IReadOnlyList<BarPriceHistogram> histograms, List<int> indices, int rowCount, Func<double, int> rowOf)
     {
         var barRowCounts = new double[indices.Count][];
         for (var i = 0; i < indices.Count; i++)
@@ -195,8 +205,7 @@ internal static class XGridStats
             foreach ((long key, PriceBucketCounts c) in hist.Buckets)
             {
                 double price = key * hist.BucketWidth;
-                int row = Math.Clamp((int)((max - price) / size), 0, rowCount - 1);
-                rc[row] += c.Count;
+                rc[rowOf(price)] += c.Count;
             }
             barRowCounts[i] = rc;
         }

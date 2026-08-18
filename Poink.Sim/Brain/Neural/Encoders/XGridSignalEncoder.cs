@@ -9,14 +9,16 @@ namespace Poink.Sim.Brain.Neural;
 
 internal sealed class XGridSignalEncoder : IObservationEncoder
 {
-    private const int DefaultRowCount = 20;
+    private const int DefaultRowPips = 20;
+    private const double DefaultPipSize = 0.01;
     private const int DefaultColCount = 20;
     private const int DefaultWindowBars = 60;
     private const double DefaultPercent = 10;
 
     private readonly IReadOnlyList<XGridSignalKind> _signals;
     private readonly double _percent;
-    private readonly int _rowCount;
+    private readonly int _rowPips;
+    private readonly double _pipSize;
     private readonly int _colCount;
     private readonly int _windowBars;
     private readonly IFeatureNormalizer _binaryNormalizer;
@@ -24,12 +26,13 @@ internal sealed class XGridSignalEncoder : IObservationEncoder
 
     public XGridSignalEncoder(
         IReadOnlyList<XGridSignalKind> signals, double percent = DefaultPercent,
-        int rowCount = DefaultRowCount, int colCount = DefaultColCount, int windowBars = DefaultWindowBars,
+        int rowPips = DefaultRowPips, double pipSize = DefaultPipSize, int colCount = DefaultColCount, int windowBars = DefaultWindowBars,
         IFeatureNormalizer? binaryNormalizer = null)
     {
         _signals = signals;
         _percent = percent;
-        _rowCount = Math.Max(1, rowCount);
+        _rowPips = Math.Max(1, rowPips);
+        _pipSize = pipSize > 0 ? pipSize : DefaultPipSize;
         _colCount = Math.Max(1, colCount);
         _windowBars = Math.Max(1, windowBars);
         _binaryNormalizer = binaryNormalizer ?? new BinaryNormalizer();
@@ -76,6 +79,6 @@ internal sealed class XGridSignalEncoder : IObservationEncoder
         var merged = BarPriceHistogram.Merge(histograms, histograms.Count);
         var samples = merged.Select(t => new WeightedPriceSample(t.Price, t.Count, t.UpCount, t.DownCount)).ToList();
 
-        return XGridStats.Compute(bars, histograms, samples, bars[0].OpenTime, bars[^1].OpenTime, _rowCount, _colCount);
+        return XGridStats.Compute(bars, histograms, samples, bars[0].OpenTime, bars[^1].OpenTime, _rowPips * _pipSize, _colCount);
     }
 }

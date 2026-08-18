@@ -686,26 +686,28 @@ namespace Poink.Sim.Components.Pages
         private double? LastClose => _bars.Count > 0 ? _bars[^1].Close : null;
 
 
-        private int _xgridRowCount = 20;
+        private int _xgridPipCount = 20;
+
+        // Placeholder until pip size is looked up from the loaded symbol -- ProfilerPage has
+        // no per-instrument settings today, unlike Simulation's Config.PipSize.
+        private const double XGridPipSize = 0.01;
+
         private int _xgridColCount = 20;
 
         private XGridResult? _xgridCache;
-        private (int Rows, int Cols, DateTime Start, DateTime End, int Count, double LastClose)? _xgridKey;
+        private (int Pips, int Cols, DateTime Start, DateTime End, int Count, double LastClose)? _xgridKey;
 
-        // Memoised: the loaded data is static, so only the volume range, resolution, or a
-        // fresh load changes the footprint -- the key catches all three, so annotation draws
-        // and unrelated re-renders reuse the last result instead of re-bucketing every bar.
         private XGridResult? ComputeXGrid()
         {
             if (_volumeRangeStart is not { } start || _volumeRangeEnd is not { } end)
                 return null;
 
-            var key = (_xgridRowCount, _xgridColCount, start, end, _bars.Count, _bars.Count > 0 ? _bars[^1].Close : 0);
+            var key = (_xgridPipCount, _xgridColCount, start, end, _bars.Count, _bars.Count > 0 ? _bars[^1].Close : 0);
             if (_xgridKey == key && _xgridCache is not null)
                 return _xgridCache;
 
             _xgridKey = key;
-            _xgridCache = XGridStats.Compute(_bars, _barHistograms, MergedSamples(), start, end, _xgridRowCount, _xgridColCount);
+            _xgridCache = XGridStats.Compute(_bars, _barHistograms, MergedSamples(), start, end, _xgridPipCount * XGridPipSize, _xgridColCount);
             return _xgridCache;
         }
     }

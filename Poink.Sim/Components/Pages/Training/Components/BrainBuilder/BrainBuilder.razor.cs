@@ -172,6 +172,7 @@ namespace Poink.Sim.Components.Training
             _xgridTopPercent = sizes.XGridTopPercent;
             _xgridColCount = sizes.XGridColCount;
             _xgridRowCount = sizes.XGridRowCount;
+            _xgridPipSize = sizes.XGridPipSize;
             _xgridWindowBars = sizes.XGridWindowBars;
 
             _architectureKind = recipe.ArchitectureKind;
@@ -257,6 +258,7 @@ namespace Poink.Sim.Components.Training
         private double _xgridTopPercent = 10;
         private int _xgridColCount = 20;
         private int _xgridRowCount = 20;
+        private double _xgridPipSize = 0.01;
         private int _xgridWindowBars = 60;
 
         private const int TotalXGridSignalCount = 15;
@@ -416,7 +418,7 @@ namespace Poink.Sim.Components.Training
             && (_barWindowNormalization != NormalizationKind.LocalZScore || _barWindowZScoreSubWindowSize >= 1)
             && (_volumeProfileNormalization != NormalizationKind.LocalZScore || _volumeProfileZScoreSubWindowSize >= 1)
             && (!_includeTraderState || (_traderStateTradeOutcomeListLength >= 0 && _traderStatePositionLevelListLength >= 0 && _traderStateDirectionListLength >= 0))
-            && (!AnyXGridSignalSelected || (_xgridColCount >= 1 && _xgridRowCount >= 1 && _xgridWindowBars >= 1 && _xgridTopPercent is >= 0 and <= 100))
+            && (!AnyXGridSignalSelected || (_xgridColCount >= 1 && _xgridRowCount >= 1 && _xgridPipSize > 0 && _xgridWindowBars >= 1 && _xgridTopPercent is >= 0 and <= 100))
             && _decisionTemperature > 0;
 
         private IReadOnlyList<EncoderKind> SelectedEncoderKinds
@@ -477,6 +479,7 @@ namespace Poink.Sim.Components.Training
             XGridTopPercent: _xgridTopPercent,
             XGridColCount: _xgridColCount,
             XGridRowCount: _xgridRowCount,
+            XGridPipSize: _xgridPipSize,
             XGridWindowBars: _xgridWindowBars);
 
         private string VolumeProfileBucketsTooltip =>

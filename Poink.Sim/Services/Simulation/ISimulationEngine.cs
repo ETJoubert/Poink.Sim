@@ -26,6 +26,7 @@ internal interface ISimulationEngine : IDisposable
     void SetSpeed(double multiplier);
     void SetMaxSpeed();
     bool SetAggregation(bool aggregate, TimeSpan barSize);
+    bool SetSteppingMode(SimulationSteppingMode mode, double cellWidth);
     bool Reset();
     void Unload();
     bool SetTraderMode(int traderId, TraderControlMode mode);

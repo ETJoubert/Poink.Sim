@@ -200,7 +200,7 @@ namespace Poink.Sim.Components.Training
         private bool _showTimeProfile = true;
         private bool _showXGrid;
 
-        private int _xgridRowCount = 20;
+        private int _xgridPipCount = 20;
         private int _xgridColCount = 20;
         private bool _xgridCollapsed;
 
@@ -216,9 +216,8 @@ namespace Poink.Sim.Components.Training
             }
         }
 
-        // Sources the grid's range from the same trailing window XGridSignalEncoder itself
-        // would use (EncoderSizes.XGridWindowBars), same "displayed panel mirrors what the
-        // network sees" convention as EpisodeVolumeProfileSamples/EpisodeTimeProfileSamples.
+        // Window and pip size mirror what XGridSignalEncoder itself trains with, same
+        // "displayed panel mirrors what the network sees" convention as EpisodeVolumeProfileSamples.
         private XGridResult? EpisodeXGrid
         {
             get
@@ -231,7 +230,7 @@ namespace Poink.Sim.Components.Training
                 int window = Math.Min(EncoderSizes.XGridWindowBars > 0 ? EncoderSizes.XGridWindowBars : bars.Count, bars.Count);
                 var start = bars[bars.Count - window].OpenTime;
                 var end = bars[^1].OpenTime;
-                return XGridStats.Compute(bars, histograms, EpisodeXGridSamples, start, end, _xgridRowCount, _xgridColCount);
+                return XGridStats.Compute(bars, histograms, EpisodeXGridSamples, start, end, _xgridPipCount * EncoderSizes.XGridPipSize, _xgridColCount);
             }
         }
 

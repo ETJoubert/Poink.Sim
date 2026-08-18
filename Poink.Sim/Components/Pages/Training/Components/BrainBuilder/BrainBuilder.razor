@@ -390,10 +390,16 @@
                                                                                    @bind="_xgridColCount" disabled="@(Service.IsRunning || !AnyXGridSignalSelected)" />
                                                                         </label>
                                                                         <label class="train-brainrow-field"
-                                                                               title="How many rows (price buckets) XGrid's footprint grid is divided into over its trailing Window">
+                                                                               title="Row height in pips -- multiplied by Pip below for each row's fixed price height. Rows snap to an absolute price grid, so how many of them XGrid's footprint grid needs is derived from the price range rather than fixed">
                                                                             Row
                                                                             <input class="train-brainrow-input" type="number" min="1" step="1"
                                                                                    @bind="_xgridRowCount" disabled="@(Service.IsRunning || !AnyXGridSignalSelected)" />
+                                                                        </label>
+                                                                        <label class="train-brainrow-field"
+                                                                               title="Price size of one pip -- row height = Row x Pip">
+                                                                            Pip
+                                                                            <input class="train-brainrow-input" type="number" min="0.00001" step="0.001"
+                                                                                   @bind="_xgridPipSize" disabled="@(Service.IsRunning || !AnyXGridSignalSelected)" />
                                                                         </label>
                                                                         <label class="train-brainrow-field"
                                                                                title="How many trailing bars XGrid computes its footprint grid over each decision">
