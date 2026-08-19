@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Poink.Sim.Components.Charts;
 using Poink.Sim.Models;
 using TorchSharp;
 using static TorchSharp.torch;
@@ -22,11 +23,12 @@ internal sealed class ComposedPolicyBrain : IPolicyGradientBrain
     private readonly IReadOnlyList<SimulationAction> _enabledDirections;
     private readonly DecisionDecodingKind _decisionDecoding;
     private readonly double _decisionTemperature;
+    private readonly DirectionActionMasker _directionMasker;
 
     private ComposedPolicyBrain(
         string name, IObservationEncoder encoder, Module<Tensor, Tensor> network,
         IReadOnlyList<IActionOutputHead> actionOutputHeads, IReadOnlyList<SimulationAction> enabledDirections,
-        DecisionDecodingKind decisionDecoding, double decisionTemperature)
+        DecisionDecodingKind decisionDecoding, double decisionTemperature, DirectionActionMasker directionMasker)
     {
         Name = name;
         _encoder = encoder;
@@ -35,6 +37,7 @@ internal sealed class ComposedPolicyBrain : IPolicyGradientBrain
         _enabledDirections = enabledDirections;
         _decisionDecoding = decisionDecoding;
         _decisionTemperature = decisionTemperature;
+        _directionMasker = directionMasker;
     }
 
 
@@ -65,7 +68,22 @@ internal sealed class ComposedPolicyBrain : IPolicyGradientBrain
             ? BuildCnnSweepNetwork(cnnArchitecture, parts, encoder.FeatureCount, outputWidth)
             : architecture.Build(encoder.FeatureCount, encoder.SequenceLength, outputWidth);
 
-        return new ComposedPolicyBrain(name, encoder, network, actionOutputHeads, enabledDirections, decisionDecoding, decisionTemperature);
+        var directionMasker = BuildDirectionMasker(parts);
+        return new ComposedPolicyBrain(name, encoder, network, actionOutputHeads, enabledDirections, decisionDecoding, decisionTemperature, directionMasker);
+    }
+
+    // xGrid-gated entry only applies when the brain actually observes xGrid signals -- a brain
+    // built without that encoder has no basis to evaluate the rule, so it's left out entirely.
+    private static DirectionActionMasker BuildDirectionMasker(IReadOnlyList<IObservationEncoder> parts)
+    {
+        var rules = new List<IDirectionMaskRule> { new PositionRequiredForCloseRule(), new FlatRequiredForEntryRule() };
+        if (parts.OfType<XGridSignalEncoder>().FirstOrDefault() is { } xGridEncoder)
+        {
+            rules.Add(new DirectionalXGridSignalRule(SimulationAction.EnterLong, XGridSignalKind.RankTopPercentUp, xGridEncoder));
+            rules.Add(new DirectionalXGridSignalRule(SimulationAction.EnterShort, XGridSignalKind.RankTopPercentDown, xGridEncoder));
+            rules.Add(new KeyLevelRequiredForCloseRule(xGridEncoder));
+        }
+        return new DirectionActionMasker(rules.ToArray());
     }
 
     public static IPolicyGradientBrain Create(
@@ -140,9 +158,11 @@ internal sealed class ComposedPolicyBrain : IPolicyGradientBrain
             var logits = Network.forward(input);
 
             var directionLogits = logits.narrow(1, 0, _enabledDirections.Count);
+            var legalDirections = _directionMasker.Mask(_enabledDirections, observation);
+            var maskedDirectionLogits = ApplyDirectionMask(directionLogits, legalDirections);
 
             var scaledDirectionLogits = _decisionDecoding == DecisionDecodingKind.HardMax
-                ? directionLogits : directionLogits / _decisionTemperature;
+                ? maskedDirectionLogits : maskedDirectionLogits / _decisionTemperature;
             var directionLogProbs = functional.log_softmax(scaledDirectionLogits, dim: 1);
             var directionProbabilities = exp(directionLogProbs);
 
@@ -151,7 +171,7 @@ internal sealed class ComposedPolicyBrain : IPolicyGradientBrain
                 ? CategoricalSampling.ArgmaxIndex(directionProbabilities)
                 : CategoricalSampling.SampleIndex(directionProbabilities);
             var actionLogProbability = directionLogProbs[0, actionIndex];
-            var outputs = new List<RlOutputFeature>(DescribeOutputs(directionLogits, directionProbabilities, actionIndex));
+            var outputs = new List<RlOutputFeature>(DescribeOutputs(maskedDirectionLogits, directionProbabilities, actionIndex));
 
             var headValues = new Dictionary<ActionOutputKind, double?>();
             int offset = _enabledDirections.Count;
@@ -167,6 +187,15 @@ internal sealed class ComposedPolicyBrain : IPolicyGradientBrain
 
             return (BuildDecision(_enabledDirections[actionIndex], headValues, observation.CurrentPrice), actionLogProbability, entropy, outputs);
         }
+    }
+
+    // A finite penalty (rather than -infinity) keeps log_softmax and the entropy's 0 * log(0) term finite.
+    private const float IllegalDirectionPenalty = -1e9f;
+
+    private static Tensor ApplyDirectionMask(Tensor logits, IReadOnlyList<bool> legalDirections)
+    {
+        var penalties = legalDirections.Select(legal => legal ? 0f : IllegalDirectionPenalty).ToArray();
+        return logits + tensor(penalties).to(logits.device);
     }
 
     private IReadOnlyList<RlOutputFeature> DescribeOutputs(Tensor actionLogits, Tensor actionProbabilities, int chosenIndex)

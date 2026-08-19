@@ -47,6 +47,11 @@ internal sealed class XGridSignalEncoder : IObservationEncoder
 
     public IReadOnlyList<FeatureDescriptor> Features => _features;
 
+    // Evaluated against this encoder's own grid/threshold config regardless of which signals
+    // it was configured to expose as input features, so a mask rule can reuse it as-is.
+    public bool HasSignal(XGridSignalKind kind, SimulationObservation observation) =>
+        BuildGrid(observation) is { } grid && XGridSignals.Value(grid, kind, _percent);
+
     public float[] Encode(SimulationObservation observation)
     {
         var features = new float[FeatureCount];
