@@ -52,6 +52,79 @@
             </div>
         </header>
 
+                <div class="train-toolbar">
+                    <div class="train-controls">
+                        @if (!Service.IsRunning)
+                        {
+                            <button class="train-ctrl-btn train-ctrl-btn-play" @onclick="StartTraining"
+                                    title="Trains on the symbol/range picked above -- each episode streams its own random window straight from Postgres">
+                                <Icon Name="play-fill" Class="train-ctrl-icon" />
+                                START
+                            </button>
+                            <button class="train-ctrl-btn" @onclick="StepTraining"
+                                    title="Runs exactly one episode on the symbol/range picked above, then pauses -- lets you step through training one episode at a time from the start">
+                                <Icon Name="skip-end-fill" Class="train-ctrl-icon" />
+                                STEP
+                            </button>
+                            <button class="train-ctrl-btn" @onclick="ResetRun"
+                                    title="Clears this run's episodes/metrics/charts -- Data Range/Brain/Training/Trader setup stays as configured">
+                                <Icon Name="arrow-clockwise" Class="train-ctrl-icon" />
+                                RESET
+                            </button>
+                        }
+                        else if (Service.IsPaused)
+                        {
+                            <button class="train-ctrl-btn train-ctrl-btn-play" @onclick="ResumeTraining"
+                                    title="Resume training from where it paused">
+                                <Icon Name="play-fill" Class="train-ctrl-icon" />
+                                RESUME
+                            </button>
+                            <button class="train-ctrl-btn" @onclick="StepTraining"
+                                    title="Runs exactly one more episode, then pauses again -- lets you step through training one episode at a time">
+                                <Icon Name="skip-end-fill" Class="train-ctrl-icon" />
+                                STEP
+                            </button>
+                            <button class="train-ctrl-btn train-ctrl-btn-warn" @onclick="StopTraining"
+                                    title="Stop training once the in-flight episode finishes">
+                                STOP
+                            </button>
+                        }
+                        else
+                        {
+                            <button class="train-ctrl-btn train-ctrl-btn-play" @onclick="PauseTraining"
+                                    title="Pause training once the in-flight episode finishes">
+                                <Icon Name="pause-fill" Class="train-ctrl-icon" />
+                                PAUSE
+                            </button>
+                            <button class="train-ctrl-btn train-ctrl-btn-warn" @onclick="StopTraining"
+                                    title="Stop training once the in-flight episode finishes">
+                                STOP
+                            </button>
+                        }
+                        @if (_startError is not null)
+                        {
+                            <span class="train-brainrow-error">@_startError</span>
+                        }
+
+                        @if (Service.TotalEpisodes > 0)
+                        {
+                            <div class="train-progress">
+                                <div class="train-progress-bar">
+                                    <div class="train-progress-fill" style="width: @(ProgressPercent)%"></div>
+                                </div>
+                                <span class="train-progress-text">
+                                    @Service.EpisodesCompleted / @Service.TotalEpisodes episodes (@ProgressPercent%)
+                                </span>
+                                <span class="train-progress-rate"
+                                      title="Rolling episodes/sec over the most recent episodes -- pause/step time isn't counted">
+                                    @Service.EpisodesPerSecond.ToString("N2") eps
+                                </span>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+
         <div class="train-config-group">
             <div class="train-config-group-header">
                 <button type="button" class="train-config-collapse-btn" @onclick="ToggleControls"
@@ -200,80 +273,6 @@
                     }
                 </div>
 
-
-
-                <div class="train-toolbar">
-                    <div class="train-controls">
-                        @if (!Service.IsRunning)
-                        {
-                            <button class="train-ctrl-btn train-ctrl-btn-play" @onclick="StartTraining"
-                                    title="Trains on the symbol/range picked above -- each episode streams its own random window straight from Postgres">
-                                <Icon Name="play-fill" Class="train-ctrl-icon" />
-                                START
-                            </button>
-                            <button class="train-ctrl-btn" @onclick="StepTraining"
-                                    title="Runs exactly one episode on the symbol/range picked above, then pauses -- lets you step through training one episode at a time from the start">
-                                <Icon Name="skip-end-fill" Class="train-ctrl-icon" />
-                                STEP
-                            </button>
-                            <button class="train-ctrl-btn" @onclick="ResetRun"
-                                    title="Clears this run's episodes/metrics/charts -- Data Range/Brain/Training/Trader setup stays as configured">
-                                <Icon Name="arrow-clockwise" Class="train-ctrl-icon" />
-                                RESET
-                            </button>
-                        }
-                        else if (Service.IsPaused)
-                        {
-                            <button class="train-ctrl-btn train-ctrl-btn-play" @onclick="ResumeTraining"
-                                    title="Resume training from where it paused">
-                                <Icon Name="play-fill" Class="train-ctrl-icon" />
-                                RESUME
-                            </button>
-                            <button class="train-ctrl-btn" @onclick="StepTraining"
-                                    title="Runs exactly one more episode, then pauses again -- lets you step through training one episode at a time">
-                                <Icon Name="skip-end-fill" Class="train-ctrl-icon" />
-                                STEP
-                            </button>
-                            <button class="train-ctrl-btn train-ctrl-btn-warn" @onclick="StopTraining"
-                                    title="Stop training once the in-flight episode finishes">
-                                STOP
-                            </button>
-                        }
-                        else
-                        {
-                            <button class="train-ctrl-btn train-ctrl-btn-play" @onclick="PauseTraining"
-                                    title="Pause training once the in-flight episode finishes">
-                                <Icon Name="pause-fill" Class="train-ctrl-icon" />
-                                PAUSE
-                            </button>
-                            <button class="train-ctrl-btn train-ctrl-btn-warn" @onclick="StopTraining"
-                                    title="Stop training once the in-flight episode finishes">
-                                STOP
-                            </button>
-                        }
-                        @if (_startError is not null)
-                        {
-                            <span class="train-brainrow-error">@_startError</span>
-                        }
-
-                        @if (Service.TotalEpisodes > 0)
-                        {
-                            <div class="train-progress">
-                                <div class="train-progress-bar">
-                                    <div class="train-progress-fill" style="width: @(ProgressPercent)%"></div>
-                                </div>
-                                <span class="train-progress-text">
-                                    @Service.EpisodesCompleted / @Service.TotalEpisodes episodes (@ProgressPercent%)
-                                </span>
-                                <span class="train-progress-rate"
-                                      title="Rolling episodes/sec over the most recent episodes -- pause/step time isn't counted">
-                                    @Service.EpisodesPerSecond.ToString("N2") eps
-                                </span>
-                            </div>
-                        }
-                    </div>
-                </div>
-            </div>
             <div class="train-content">
                 <div class="train-stats">
                     <div class="train-stat">
