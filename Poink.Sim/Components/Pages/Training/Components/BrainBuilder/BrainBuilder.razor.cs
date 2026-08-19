@@ -150,9 +150,25 @@ namespace Poink.Sim.Components.Training
             _spreadVolatilityAtrPeriod = sizes.SpreadVolatilityAtrPeriod;
             _barWindowZScoreSubWindowSize = sizes.BarWindowZScoreSubWindowSize;
             _volumeProfileZScoreSubWindowSize = sizes.VolumeProfileZScoreSubWindowSize;
-            _traderStateTradeOutcomeListLength = sizes.TraderStateTradeOutcomeListLength;
-            _traderStatePositionLevelListLength = sizes.TraderStatePositionLevelListLength;
-            _traderStateDirectionListLength = sizes.TraderStateDirectionListLength;
+            _includeTraderStateOutcomes = sizes.TraderStateTradeOutcomeListLength > 0;
+            _includeTraderStatePositionLevel = sizes.TraderStatePositionLevelListLength > 0;
+            _includeTraderStateDirection = sizes.TraderStateDirectionListLength > 0;
+            _traderStateTradeOutcomeListLength = sizes.TraderStateTradeOutcomeListLength > 0 ? sizes.TraderStateTradeOutcomeListLength : _traderStateTradeOutcomeListLength;
+            _traderStatePositionLevelListLength = sizes.TraderStatePositionLevelListLength > 0 ? sizes.TraderStatePositionLevelListLength : _traderStatePositionLevelListLength;
+            _traderStateDirectionListLength = sizes.TraderStateDirectionListLength > 0 ? sizes.TraderStateDirectionListLength : _traderStateDirectionListLength;
+
+            _traderStateIncludePosition = sizes.TraderStateIncludePosition;
+            _traderStateIncludePositionPrice = sizes.TraderStateIncludePositionPrice;
+            _traderStateIncludePositionTicks = sizes.TraderStateIncludePositionTicks;
+            _traderStateIncludePositionDistance = sizes.TraderStateIncludePositionDistance;
+            _traderStateIncludeCurrentPrice = sizes.TraderStateIncludeCurrentPrice;
+            _traderStateIncludeCash = sizes.TraderStateIncludeCash;
+            _traderStateIncludeRealized = sizes.TraderStateIncludeRealized;
+            _traderStateIncludeUnrealized = sizes.TraderStateIncludeUnrealized;
+            _traderStateIncludeEquity = sizes.TraderStateIncludeEquity;
+            _traderStateIncludeMargin = sizes.TraderStateIncludeMargin;
+            _traderStateIncludeMarginLevel = sizes.TraderStateIncludeMarginLevel;
+            _traderStateIncludePositionCount = sizes.TraderStateIncludePositionCount;
 
             _xgridRankTopTotal = sizes.XGridRankTopTotal;
             _xgridRankTopUp = sizes.XGridRankTopUp;
@@ -219,6 +235,8 @@ namespace Poink.Sim.Components.Training
         private bool _includeSpreadVolatility;
         private bool _includeTraderState;
 
+        private bool _timeSeriesInputsHidden = true;
+
         private NormalizationKind _barWindowNormalization = NormalizationKind.Normalized;
         private NormalizationKind _volumeProfileNormalization = NormalizationKind.Normalized;
         private NormalizationKind _timeProfileNormalization = NormalizationKind.Normalized;
@@ -235,9 +253,84 @@ namespace Poink.Sim.Components.Training
         private int _barWindowZScoreSubWindowSize = 5;
         private int _volumeProfileZScoreSubWindowSize = 5;
 
-        private int _traderStateTradeOutcomeListLength;
-        private int _traderStatePositionLevelListLength;
-        private int _traderStateDirectionListLength;
+        private bool _includeTraderStateOutcomes;
+        private bool _includeTraderStatePositionLevel;
+        private bool _includeTraderStateDirection;
+
+        private int _traderStateTradeOutcomeListLength = 5;
+        private int _traderStatePositionLevelListLength = 5;
+        private int _traderStateDirectionListLength = 5;
+
+        private bool AllTraderStateListsSelected
+        {
+            get => _includeTraderStateOutcomes && _includeTraderStatePositionLevel && _includeTraderStateDirection;
+            set
+            {
+                _includeTraderStateOutcomes = value;
+                _includeTraderStatePositionLevel = value;
+                _includeTraderStateDirection = value;
+            }
+        }
+
+        private bool _traderStateIncludePosition = true;
+        private bool _traderStateIncludePositionPrice = true;
+        private bool _traderStateIncludePositionTicks = true;
+        private bool _traderStateIncludePositionDistance = true;
+        private bool _traderStateIncludeCurrentPrice = true;
+        private bool _traderStateIncludeCash = true;
+        private bool _traderStateIncludeRealized = true;
+        private bool _traderStateIncludeUnrealized = true;
+        private bool _traderStateIncludeEquity = true;
+        private bool _traderStateIncludeMargin = true;
+        private bool _traderStateIncludeMarginLevel = true;
+        private bool _traderStateIncludePositionCount = true;
+
+        private sealed record TraderStateFieldRow(string Label, string Tooltip, Func<bool> Get, Action<bool> Set);
+
+        // (Label, Tooltip, Get, Set) per base field -- drives the checkbox row in the Trader
+        // State card from one list instead of 12 hand-written near-duplicate blocks, same
+        // "computed property returns a fresh collection each access" convention as XGridSignalRows.
+        private IReadOnlyList<TraderStateFieldRow> TraderStateFieldRows => new List<TraderStateFieldRow>
+        {
+            new("Position", "Direction of the open position: 1 long, -1 short, 0 flat",
+                () => _traderStateIncludePosition, v => _traderStateIncludePosition = v),
+            new("Position Price", "Entry price of the open position, 0 if flat",
+                () => _traderStateIncludePositionPrice, v => _traderStateIncludePositionPrice = v),
+            new("Position Ticks", "Ticks the open position has been held, 0 if flat",
+                () => _traderStateIncludePositionTicks, v => _traderStateIncludePositionTicks = v),
+            new("Position Distance", "Cumulative price distance traveled since the position opened, 0 if flat",
+                () => _traderStateIncludePositionDistance, v => _traderStateIncludePositionDistance = v),
+            new("Current Price", "Current market price",
+                () => _traderStateIncludeCurrentPrice, v => _traderStateIncludeCurrentPrice = v),
+            new("Cash", "Available cash balance",
+                () => _traderStateIncludeCash, v => _traderStateIncludeCash = v),
+            new("Realized", "Realized profit/loss booked so far",
+                () => _traderStateIncludeRealized, v => _traderStateIncludeRealized = v),
+            new("Unrealized", "Unrealized profit/loss on the open position",
+                () => _traderStateIncludeUnrealized, v => _traderStateIncludeUnrealized = v),
+            new("Equity", "Cash plus unrealized profit/loss",
+                () => _traderStateIncludeEquity, v => _traderStateIncludeEquity = v),
+            new("Margin", "Margin currently used by the open position",
+                () => _traderStateIncludeMargin, v => _traderStateIncludeMargin = v),
+            new("Margin Level", "Equity as a percent of margin used",
+                () => _traderStateIncludeMarginLevel, v => _traderStateIncludeMarginLevel = v),
+            new("Position Count", "1 if a position is open, 0 if flat",
+                () => _traderStateIncludePositionCount, v => _traderStateIncludePositionCount = v),
+        };
+
+        private const int TotalTraderStateFieldCount = 12;
+
+        private int SelectedTraderStateFieldCount => TraderStateFieldRows.Count(r => r.Get());
+
+        private bool AllTraderStateBaseFieldsSelected
+        {
+            get => SelectedTraderStateFieldCount == TotalTraderStateFieldCount;
+            set
+            {
+                foreach (var row in TraderStateFieldRows)
+                    row.Set(value);
+            }
+        }
 
         private bool _xgridRankTopTotal;
         private bool _xgridRankTopUp;
@@ -417,7 +510,9 @@ namespace Poink.Sim.Components.Training
             && (!_includeSpreadVolatility || _spreadVolatilityAtrPeriod >= 1)
             && (_barWindowNormalization != NormalizationKind.LocalZScore || _barWindowZScoreSubWindowSize >= 1)
             && (_volumeProfileNormalization != NormalizationKind.LocalZScore || _volumeProfileZScoreSubWindowSize >= 1)
-            && (!_includeTraderState || (_traderStateTradeOutcomeListLength >= 0 && _traderStatePositionLevelListLength >= 0 && _traderStateDirectionListLength >= 0))
+            && (!_includeTraderStateOutcomes || _traderStateTradeOutcomeListLength >= 1)
+            && (!_includeTraderStatePositionLevel || _traderStatePositionLevelListLength >= 1)
+            && (!_includeTraderStateDirection || _traderStateDirectionListLength >= 1)
             && (!AnyXGridSignalSelected || (_xgridColCount >= 1 && _xgridRowCount >= 1 && _xgridPipSize > 0 && _xgridWindowBars >= 1 && _xgridTopPercent is >= 0 and <= 100))
             && _decisionTemperature > 0;
 
@@ -458,9 +553,21 @@ namespace Poink.Sim.Components.Training
             TimeProfileSplitUpDown: _timeProfileSplitUpDown,
             BarWindowZScoreSubWindowSize: _barWindowZScoreSubWindowSize,
             VolumeProfileZScoreSubWindowSize: _volumeProfileZScoreSubWindowSize,
-            TraderStateTradeOutcomeListLength: _traderStateTradeOutcomeListLength,
-            TraderStatePositionLevelListLength: _traderStatePositionLevelListLength,
-            TraderStateDirectionListLength: _traderStateDirectionListLength,
+            TraderStateTradeOutcomeListLength: _includeTraderStateOutcomes ? _traderStateTradeOutcomeListLength : 0,
+            TraderStatePositionLevelListLength: _includeTraderStatePositionLevel ? _traderStatePositionLevelListLength : 0,
+            TraderStateDirectionListLength: _includeTraderStateDirection ? _traderStateDirectionListLength : 0,
+            TraderStateIncludePosition: _traderStateIncludePosition,
+            TraderStateIncludePositionPrice: _traderStateIncludePositionPrice,
+            TraderStateIncludePositionTicks: _traderStateIncludePositionTicks,
+            TraderStateIncludePositionDistance: _traderStateIncludePositionDistance,
+            TraderStateIncludeCurrentPrice: _traderStateIncludeCurrentPrice,
+            TraderStateIncludeCash: _traderStateIncludeCash,
+            TraderStateIncludeRealized: _traderStateIncludeRealized,
+            TraderStateIncludeUnrealized: _traderStateIncludeUnrealized,
+            TraderStateIncludeEquity: _traderStateIncludeEquity,
+            TraderStateIncludeMargin: _traderStateIncludeMargin,
+            TraderStateIncludeMarginLevel: _traderStateIncludeMarginLevel,
+            TraderStateIncludePositionCount: _traderStateIncludePositionCount,
             XGridRankTopTotal: _xgridRankTopTotal,
             XGridRankTopUp: _xgridRankTopUp,
             XGridRankTopDown: _xgridRankTopDown,
@@ -502,6 +609,22 @@ namespace Poink.Sim.Components.Training
 
         private int TotalInputCount =>
             SelectedEncoderKinds.Sum(k => BrainCatalog.CreateEncoder(k, CurrentEncoderSizeOptions).FeatureCount);
+
+        private int FeatureCountFor(EncoderKind kind) => BrainCatalog.CreateEncoder(kind, CurrentEncoderSizeOptions).FeatureCount;
+
+        private int BarWindowFeatureCount => FeatureCountFor(EncoderKind.BarWindow);
+        private int VolumeProfileFeatureCount => FeatureCountFor(EncoderKind.VolumeProfile);
+        private int TimeProfileFeatureCount => FeatureCountFor(EncoderKind.TimeProfile);
+        private int SessionClockFeatureCount => FeatureCountFor(EncoderKind.SessionClock);
+        private int SpreadVolatilityFeatureCount => FeatureCountFor(EncoderKind.SpreadVolatility);
+        private int TraderStateFeatureCount => FeatureCountFor(EncoderKind.TraderState);
+
+        private int TimeSeriesInputsFeatureCount =>
+            (_includeBarWindow ? BarWindowFeatureCount : 0)
+            + (_includeVolumeProfile ? VolumeProfileFeatureCount : 0)
+            + (_includeTimeProfile ? TimeProfileFeatureCount : 0)
+            + (_includeSessionClock ? SessionClockFeatureCount : 0)
+            + (_includeSpreadVolatility ? SpreadVolatilityFeatureCount : 0);
 
         private int? FirstHiddenLayerSize => _architectureKind switch
         {

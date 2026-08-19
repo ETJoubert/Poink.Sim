@@ -117,252 +117,243 @@
 
                 <div class="train-buildbrain-cards">
                     <div class="train-buildbrain-input-stack">
-                    <div class="train-card train-card-input">
-                        <div class="train-card-title-row">
-                            <div class="train-card-title"
-                                 title="Which market/account data feeds this brain -- check a set, then pick its normalization and input structure">
-                                Input</div>
-                                <span class="train-card-badge"
-                                      title="Total network input width: every selected set's input count below">
-                                    @TotalInputCount</span>
-                                </div>
-                                <table class="train-inputset-table">
-                                    <thead>
-                                        <tr>
-                                            <th title="Which market/account data feeds this brain -- check a set to include it">Any
-                                                input set</th>
-                                                <th
-                                                    title="Normalized feeds a fraction-of-total/percent-offset from current price; Raw feeds the literal quantity (price, tick count, or seconds); Local/Global Z-Score feed a z-score against a sub-window's/the whole set's own mean and standard deviation instead; Binary feeds 1 if an entry is higher than the one before it, 0 if lower or equal">
-                                                    Normalization</th>
-                                                    <th
-                                                        title="How much trailing bar history this set uses -- a fixed count of bars for Bar Window, merged into one profile for Volume/Time Profile, or (for Trader State) its 3 optional trailing-list lengths">
-                                                        Window</th>
-                                                        <th
-                                                            title="How many histogram buckets Volume/Time Profile rebins its merged bars into -- not applicable to Bar Window or Trader State">
-                                                            Bucket</th>
-                                                            <th
-                                                                title="Only used by Local Z-Score -- how many entries (bars for Bar Window, buckets for Volume Profile) each independently-normalized sub-window covers">
-                                                                Z Sub-Window</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody>
-                                                            <tr>
-                                                                <td>
-                                                                    <label class="train-brainrow-field" title="Trailing bar price window">
-                                                                        <input type="checkbox" @bind="_includeBarWindow" disabled="@Service.IsRunning" />
-                                                                        Bar Window
-                                                                    </label>
-                                                                </td>
-                                                                <td>
-                                                                    <select class="train-brainrow-select" value="@_barWindowNormalization"
-                                                                            @onchange="OnBarWindowNormalizationChanged"
-                                                                            disabled="@(Service.IsRunning || !_includeBarWindow)"
-                                                                            title="Normalized feeds percent-change-from-current-price; Raw feeds the literal price; Local/Global Z-Score feed each bar's z-score against a sub-window's/the whole window's own mean and standard deviation instead; Binary feeds 1 if a bar's price is higher than the one before it, 0 if lower or equal">
-                                                                        <option value="Normalized">Normalized</option>
-                                                                        <option value="Raw">Raw</option>
-                                                                        <option value="LocalZScore">Local Z-Score</option>
-                                                                        <option value="GlobalZScore">Global Z-Score</option>
-                                                                        <option value="Binary">Binary</option>
-                                                                    </select>
-                                                                </td>
-                                                                <td>
-                                                                    <input class="train-brainrow-input" type="number" min="1" step="1"
-                                                                           @bind="_barWindowSize" disabled="@(Service.IsRunning || !_includeBarWindow)"
-                                                                           title="How many trailing bars Bar Window feeds the network -- also its input count, 1 input per bar" />
-                                                                </td>
-                                                                <td class="train-inputset-cell-na" title="Bar Window has no bucketing -- one input per bar">
-                                                                    &#8212;</td>
-                                                                    <td>
-                                                                        @if (_barWindowNormalization == NormalizationKind.LocalZScore)
-                                                                        {
-                                                                            <input class="train-brainrow-input" type="number" min="1" step="1"
-                                                                                   @bind="_barWindowZScoreSubWindowSize"
-                                                                                   disabled="@(Service.IsRunning || !_includeBarWindow)"
-                                                                                   title="How many trailing bars each independently-normalized Local Z-Score sub-window covers" />
-                                                                        }
-                                                                        else
-                                                                        {
-                                                                            <span class="train-inputset-cell-na" title="Only used by Local Z-Score">&#8212;</span>
-                                                                        }
-                                                                    </td>
-                                                                </tr>
-                                                                <tr>
-                                                                    <td>
-                                                                        <label class="train-brainrow-field"
-                                                                               title="Volume histogram + point-of-control/value-area summary, merged from its Window's trailing bars">
-                                                                            <input type="checkbox" @bind="_includeVolumeProfile"
-                                                                                   disabled="@Service.IsRunning" />
-                                                                            Volume Profile
-                                                                        </label>
-                                                                        <label class="train-brainrow-field train-brainrow-field-sub"
-                                                                               title="Split each bucket's volume into up-tick/down-tick totals plus their diff, instead of one plain total -- mirrors the Volume Profile chart's own Split up/down toggle">
-                                                                            <input type="checkbox" @bind="_volumeProfileSplitUpDown"
-                                                                                   disabled="@(Service.IsRunning || !_includeVolumeProfile)" />
-                                                                            Split Up/Down
-                                                                        </label>
-                                                                    </td>
-                                                                    <td>
-                                                                        <select class="train-brainrow-select" value="@_volumeProfileNormalization"
-                                                                                @onchange="OnVolumeProfileNormalizationChanged"
-                                                                                disabled="@(Service.IsRunning || !_includeVolumeProfile)"
-                                                                                title="Normalized feeds a fraction-of-total/percent-offset from current price; Raw feeds exact tick counts and exact price levels; Local/Global Z-Score feed each bucket's volume as a z-score against a sub-window's/the whole profile's own mean and standard deviation instead; Binary feeds 1 if a bucket's volume is higher than the bucket before it, 0 if lower or equal">
-                                                                            <option value="Normalized">Normalized</option>
-                                                                            <option value="Raw">Raw</option>
-                                                                            <option value="LocalZScore">Local Z-Score</option>
-                                                                            <option value="GlobalZScore">Global Z-Score</option>
-                                                                            <option value="Binary">Binary</option>
-                                                                        </select>
-                                                                    </td>
-                                                                    <td>
-                                                                        <input class="train-brainrow-input" type="number" min="1" step="1"
-                                                                               @bind="_volumeProfileLookbackBars"
-                                                                               disabled="@(Service.IsRunning || !_includeVolumeProfile)"
-                                                                               title="How many trailing bars Volume Profile merges into one profile each decision" />
-                                                                    </td>
-                                                                    <td>
-                                                                        <input class="train-brainrow-input" type="number" min="1" step="1"
-                                                                               @bind="_volumeProfileBucketCount"
-                                                                               disabled="@(Service.IsRunning || !_includeVolumeProfile)"
-                                                                               title="@VolumeProfileBucketsTooltip" />
-                                                                    </td>
-                                                                    <td>
-                                                                        @if (_volumeProfileNormalization == NormalizationKind.LocalZScore)
-                                                                        {
-                                                                            <input class="train-brainrow-input" type="number" min="1" step="1"
-                                                                                   @bind="_volumeProfileZScoreSubWindowSize"
-                                                                                   disabled="@(Service.IsRunning || !_includeVolumeProfile)"
-                                                                                   title="How many buckets each independently-normalized Local Z-Score sub-window covers" />
-                                                                        }
-                                                                        else
-                                                                        {
-                                                                            <span class="train-inputset-cell-na" title="Only used by Local Z-Score">&#8212;</span>
-                                                                        }
-                                                                    </td>
-                                                                </tr>
-                                                                <tr>
-                                                                    <td>
-                                                                        <label class="train-brainrow-field"
-                                                                               title="Time-weighted histogram + point-of-control/value-area summary (seconds spent at each price level), merged from its Window's trailing bars">
-                                                                            <input type="checkbox" @bind="_includeTimeProfile" disabled="@Service.IsRunning" />
-                                                                            Time Profile
-                                                                        </label>
-                                                                        <label class="train-brainrow-field train-brainrow-field-sub"
-                                                                               title="Split each bucket's seconds into up-tick/down-tick totals plus their diff, instead of one plain total -- mirrors the Volume Profile chart's own Split up/down toggle">
-                                                                            <input type="checkbox" @bind="_timeProfileSplitUpDown"
-                                                                                   disabled="@(Service.IsRunning || !_includeTimeProfile)" />
-                                                                            Split Up/Down
-                                                                        </label>
-                                                                    </td>
-                                                                    <td>
-                                                                        <select class="train-brainrow-select" value="@_timeProfileNormalization"
-                                                                                @onchange="OnTimeProfileNormalizationChanged"
-                                                                                disabled="@(Service.IsRunning || !_includeTimeProfile)"
-                                                                                title="Normalized feeds a fraction-of-total/percent-offset from current price; Raw feeds exact seconds spent and exact price levels instead">
-                                                                            <option value="Normalized">Normalized</option>
-                                                                            <option value="Raw">Raw</option>
-                                                                        </select>
-                                                                    </td>
-                                                                    <td>
-                                                                        <input class="train-brainrow-input" type="number" min="1" step="1"
-                                                                               @bind="_timeProfileLookbackBars"
-                                                                               disabled="@(Service.IsRunning || !_includeTimeProfile)"
-                                                                               title="How many trailing bars Time Profile merges into one profile each decision" />
-                                                                    </td>
-                                                                    <td>
-                                                                        <input class="train-brainrow-input" type="number" min="1" step="1"
-                                                                               @bind="_timeProfileBucketCount"
-                                                                               disabled="@(Service.IsRunning || !_includeTimeProfile)"
-                                                                               title="@TimeProfileBucketsTooltip" />
-                                                                    </td>
-                                                                    <td class="train-inputset-cell-na"
-                                                                        title="Local/Global Z-Score not offered for Time Profile">&#8212;</td>
-                                                                </tr>
-                                                                <tr>
-                                                                    <td>
-                                                                        <label class="train-brainrow-field"
-                                                                               title="Time-of-day and day-of-week as sin/cos pairs -- captures recurring FX session structure (Sydney/Tokyo/London/New York open-close, weekend closure)">
-                                                                            <input type="checkbox" @bind="_includeSessionClock" disabled="@Service.IsRunning" />
-                                                                            Session Clock
-                                                                        </label>
-                                                                    </td>
-                                                                    <td class="train-inputset-cell-na"
-                                                                        title="Always sin/cos-encoded, already bounded -- no Raw alternative">&#8212;</td>
-                                                                    <td class="train-inputset-cell-na"
-                                                                        title="Derived from the current tick's own timestamp -- no history needed">&#8212;</td>
-                                                                    <td class="train-inputset-cell-na"
-                                                                        title="Fixed 4 values (time-of-day sin/cos, day-of-week sin/cos), no bucketing">&#8212;
-                                                                    </td>
-                                                                    <td class="train-inputset-cell-na"
-                                                                        title="Local/Global Z-Score not offered for Session Clock">&#8212;</td>
-                                                                </tr>
-                                                                <tr>
-                                                                    <td>
-                                                                        <label class="train-brainrow-field"
-                                                                               title="Current Bid/Ask spread plus a short trailing Average True Range -- how expensive trading is right now, and how much price is actually moving">
-                                                                            <input type="checkbox" @bind="_includeSpreadVolatility"
-                                                                                   disabled="@Service.IsRunning" />
-                                                                            Spread + Volatility
-                                                                        </label>
-                                                                    </td>
-                                                                    <td class="train-inputset-cell-na"
-                                                                        title="Always fed as literal price-scaled values -- no Raw alternative">&#8212;</td>
-                                                                    <td>
-                                                                        <input class="train-brainrow-input" type="number" min="1" step="1"
-                                                                               @bind="_spreadVolatilityAtrPeriod"
-                                                                               disabled="@(Service.IsRunning || !_includeSpreadVolatility)"
-                                                                               title="How many trailing bars the Average True Range figure averages over" />
-                                                                    </td>
-                                                                    <td class="train-inputset-cell-na" title="Fixed 2 values (spread, ATR), no bucketing">
-                                                                        &#8212;</td>
-                                                                        <td class="train-inputset-cell-na"
-                                                                            title="Local/Global Z-Score not offered for Spread + Volatility">&#8212;</td>
-                                                                    </tr>
-                                                                    <tr>
-                                                                        <td>
-                                                                            <label class="train-brainrow-field"
-                                                                                   title="Own position/capital state -- opt-in, unchecked by default; check it if this brain needs to know whether it already holds a position">
-                                                                                <input type="checkbox" @bind="_includeTraderState" disabled="@Service.IsRunning" />
-                                                                                Trader State
-                                                                            </label>
-                                                                        </td>
-                                                                        <td>
-                                                                            <select class="train-brainrow-select" disabled
-                                                                                    title="Every field is fed to the network exactly as reported (position, cash, equity, margin, ...) -- not yet configurable, may become selectable in the future">
-                                                                                <option>Raw</option>
-                                                                            </select>
-                                                                        </td>
-                                                                        <td>
-                                                                            <label class="train-brainrow-field"
-                                                                                   title="How many of the most recent closed trades' win(1)/loss(0) outcome Trader State feeds, most-recent-last, zero-padded if fewer trades have closed yet -- 0 disables this list">
-                                                                                Outcomes
-                                                                                <input class="train-brainrow-input" type="number" min="0" step="1"
-                                                                                       @bind="_traderStateTradeOutcomeListLength"
-                                                                                       disabled="@(Service.IsRunning || !_includeTraderState)" />
-                                                                            </label>
-                                                                            <label class="train-brainrow-field train-brainrow-field-sub"
-                                                                                   title="How many trailing price records since the open position's own entry time Trader State compares against entry price (1 above, 0 at-or-below), most-recent-last, zero-padded -- flat (no position) or 0 disables this list">
-                                                                                Level
-                                                                                <input class="train-brainrow-input" type="number" min="0" step="1"
-                                                                                       @bind="_traderStatePositionLevelListLength"
-                                                                                       disabled="@(Service.IsRunning || !_includeTraderState)" />
-                                                                            </label>
-                                                                            <label class="train-brainrow-field train-brainrow-field-sub"
-                                                                                   title="How many of the most recent closed trades' direction (1=Long, 0=Short) Trader State feeds, index-aligned with Outcomes -- 0 disables this list">
-                                                                                Direction
-                                                                                <input class="train-brainrow-input" type="number" min="0" step="1"
-                                                                                       @bind="_traderStateDirectionListLength"
-                                                                                       disabled="@(Service.IsRunning || !_includeTraderState)" />
-                                                                            </label>
-                                                                        </td>
-                                                                            <td class="train-inputset-cell-na" title="Fixed 12 base fields, no bucketing -- Outcomes/Level/Direction list lengths (Window column) add to that count instead">&#8212;</td>
-                                                                            <td class="train-inputset-cell-na"
-                                                                                title="Local/Global Z-Score not offered for Trader State">&#8212;</td>
-                                                                        </tr>
-                                                                    </tbody>
-                                                                </table>
-                                                            </div>
+                        <div class="train-card">
+                            <div class="train-card-title-row">
+                                <div class="train-card-title"
+                                     title="Trailing-history market data sets -- Bar Window, Volume Profile, Time Profile, Session Clock, and Spread + Volatility">
+                                    Time Series Inputs</div>
+                                @if (!_timeSeriesInputsHidden)
+                                {
+                                    <span class="train-card-badge" title="Combined input count from every included set below">
+                                        @TimeSeriesInputsFeatureCount</span>
+                                }
+                                <span class="train-card-title-actions">
+                                    <button type="button" class="train-btn-toggle" @onclick="() => _timeSeriesInputsHidden = !_timeSeriesInputsHidden"
+                                            disabled="@Service.IsRunning" title="Collapse/expand this whole group of input sets">
+                                        @(_timeSeriesInputsHidden ? "+ SHOW" : "- HIDE")
+                                    </button>
+                                </span>
+                            </div>
+                            @if (!_timeSeriesInputsHidden)
+                            {
+                                <div class="train-timeseries-groups">
+                                    <div class="train-timeseries-set">
+                                        <label class="train-brainrow-field" title="Trailing bar price window">
+                                            <input type="checkbox" @bind="_includeBarWindow" disabled="@Service.IsRunning" />
+                                            Bar Window
+                                        </label>
+                                        <div class="train-card-fields-row">
+                                            <label class="train-brainrow-field"
+                                                   title="Normalized feeds percent-change-from-current-price; Raw feeds the literal price; Local/Global Z-Score feed each bar's z-score against a sub-window's/the whole window's own mean and standard deviation instead; Binary feeds 1 if a bar's price is higher than the one before it, 0 if lower or equal">
+                                                Normalization
+                                                <select class="train-brainrow-select" value="@_barWindowNormalization"
+                                                        @onchange="OnBarWindowNormalizationChanged" disabled="@(Service.IsRunning || !_includeBarWindow)">
+                                                    <option value="Normalized">Normalized</option>
+                                                    <option value="Raw">Raw</option>
+                                                    <option value="LocalZScore">Local Z-Score</option>
+                                                    <option value="GlobalZScore">Global Z-Score</option>
+                                                    <option value="Binary">Binary</option>
+                                                </select>
+                                            </label>
+                                            <label class="train-brainrow-field" title="How many trailing bars Bar Window feeds the network -- also its input count, 1 input per bar">
+                                                Window
+                                                <input class="train-brainrow-input" type="number" min="1" step="1"
+                                                       @bind="_barWindowSize" disabled="@(Service.IsRunning || !_includeBarWindow)" />
+                                            </label>
+                                            @if (_barWindowNormalization == NormalizationKind.LocalZScore)
+                                            {
+                                                <label class="train-brainrow-field" title="How many trailing bars each independently-normalized Local Z-Score sub-window covers">
+                                                    Z Sub-Window
+                                                    <input class="train-brainrow-input" type="number" min="1" step="1"
+                                                           @bind="_barWindowZScoreSubWindowSize" disabled="@(Service.IsRunning || !_includeBarWindow)" />
+                                                </label>
+                                            }
+                                            @if (_includeBarWindow)
+                                            {
+                                                <span class="train-card-badge" title="Input count contributed by Bar Window -- 1 input per bar">@BarWindowFeatureCount</span>
+                                            }
+                                        </div>
+                                    </div>
 
-                                                            <div class="train-card train-card-xgrid">
+                                    <div class="train-timeseries-set">
+                                        <label class="train-brainrow-field"
+                                               title="Volume histogram + point-of-control/value-area summary, merged from its Window's trailing bars">
+                                            <input type="checkbox" @bind="_includeVolumeProfile" disabled="@Service.IsRunning" />
+                                            Volume Profile
+                                        </label>
+                                        <div class="train-card-fields-row">
+                                            <label class="train-brainrow-field"
+                                                   title="Normalized feeds a fraction-of-total/percent-offset from current price; Raw feeds exact tick counts and exact price levels; Local/Global Z-Score feed each bucket's volume as a z-score against a sub-window's/the whole profile's own mean and standard deviation instead; Binary feeds 1 if a bucket's volume is higher than the bucket before it, 0 if lower or equal">
+                                                Normalization
+                                                <select class="train-brainrow-select" value="@_volumeProfileNormalization"
+                                                        @onchange="OnVolumeProfileNormalizationChanged" disabled="@(Service.IsRunning || !_includeVolumeProfile)">
+                                                    <option value="Normalized">Normalized</option>
+                                                    <option value="Raw">Raw</option>
+                                                    <option value="LocalZScore">Local Z-Score</option>
+                                                    <option value="GlobalZScore">Global Z-Score</option>
+                                                    <option value="Binary">Binary</option>
+                                                </select>
+                                            </label>
+                                            <label class="train-brainrow-field" title="How many trailing bars Volume Profile merges into one profile each decision">
+                                                Lookback
+                                                <input class="train-brainrow-input" type="number" min="1" step="1"
+                                                       @bind="_volumeProfileLookbackBars" disabled="@(Service.IsRunning || !_includeVolumeProfile)" />
+                                            </label>
+                                            <label class="train-brainrow-field" title="@VolumeProfileBucketsTooltip">
+                                                Bucket
+                                                <input class="train-brainrow-input" type="number" min="1" step="1"
+                                                       @bind="_volumeProfileBucketCount" disabled="@(Service.IsRunning || !_includeVolumeProfile)" />
+                                            </label>
+                                            @if (_volumeProfileNormalization == NormalizationKind.LocalZScore)
+                                            {
+                                                <label class="train-brainrow-field" title="How many buckets each independently-normalized Local Z-Score sub-window covers">
+                                                    Z Sub-Window
+                                                    <input class="train-brainrow-input" type="number" min="1" step="1"
+                                                           @bind="_volumeProfileZScoreSubWindowSize" disabled="@(Service.IsRunning || !_includeVolumeProfile)" />
+                                                </label>
+                                            }
+                                            <label class="train-brainrow-field"
+                                                   title="Split each bucket's volume into up-tick/down-tick totals plus their diff, instead of one plain total -- mirrors the Volume Profile chart's own Split up/down toggle">
+                                                <input type="checkbox" @bind="_volumeProfileSplitUpDown" disabled="@(Service.IsRunning || !_includeVolumeProfile)" />
+                                                Split Up/Down
+                                            </label>
+                                            @if (_includeVolumeProfile)
+                                            {
+                                                <span class="train-card-badge" title="Input count contributed by Volume Profile">@VolumeProfileFeatureCount</span>
+                                            }
+                                        </div>
+                                    </div>
+
+                                    <div class="train-timeseries-set">
+                                        <label class="train-brainrow-field"
+                                               title="Time-weighted histogram + point-of-control/value-area summary (seconds spent at each price level), merged from its Window's trailing bars">
+                                            <input type="checkbox" @bind="_includeTimeProfile" disabled="@Service.IsRunning" />
+                                            Time Profile
+                                        </label>
+                                        <div class="train-card-fields-row">
+                                            <label class="train-brainrow-field"
+                                                   title="Normalized feeds a fraction-of-total/percent-offset from current price; Raw feeds exact seconds spent and exact price levels instead">
+                                                Normalization
+                                                <select class="train-brainrow-select" value="@_timeProfileNormalization"
+                                                        @onchange="OnTimeProfileNormalizationChanged" disabled="@(Service.IsRunning || !_includeTimeProfile)">
+                                                    <option value="Normalized">Normalized</option>
+                                                    <option value="Raw">Raw</option>
+                                                </select>
+                                            </label>
+                                            <label class="train-brainrow-field" title="How many trailing bars Time Profile merges into one profile each decision">
+                                                Lookback
+                                                <input class="train-brainrow-input" type="number" min="1" step="1"
+                                                       @bind="_timeProfileLookbackBars" disabled="@(Service.IsRunning || !_includeTimeProfile)" />
+                                            </label>
+                                            <label class="train-brainrow-field" title="@TimeProfileBucketsTooltip">
+                                                Bucket
+                                                <input class="train-brainrow-input" type="number" min="1" step="1"
+                                                       @bind="_timeProfileBucketCount" disabled="@(Service.IsRunning || !_includeTimeProfile)" />
+                                            </label>
+                                            <label class="train-brainrow-field"
+                                                   title="Split each bucket's seconds into up-tick/down-tick totals plus their diff, instead of one plain total -- mirrors the Volume Profile chart's own Split up/down toggle">
+                                                <input type="checkbox" @bind="_timeProfileSplitUpDown" disabled="@(Service.IsRunning || !_includeTimeProfile)" />
+                                                Split Up/Down
+                                            </label>
+                                            @if (_includeTimeProfile)
+                                            {
+                                                <span class="train-card-badge" title="Input count contributed by Time Profile">@TimeProfileFeatureCount</span>
+                                            }
+                                        </div>
+                                    </div>
+
+                                    <div class="train-timeseries-set">
+                                        <label class="train-brainrow-field"
+                                               title="Time-of-day and day-of-week as sin/cos pairs -- captures recurring FX session structure (Sydney/Tokyo/London/New York open-close, weekend closure)">
+                                            <input type="checkbox" @bind="_includeSessionClock" disabled="@Service.IsRunning" />
+                                            Session Clock
+                                        </label>
+                                        @if (_includeSessionClock)
+                                        {
+                                            <span class="train-card-badge" title="Input count contributed by Session Clock -- fixed 4 values, no configuration">
+                                                @SessionClockFeatureCount</span>
+                                        }
+                                    </div>
+
+                                    <div class="train-timeseries-set">
+                                        <label class="train-brainrow-field"
+                                               title="Current Bid/Ask spread plus a short trailing Average True Range -- how expensive trading is right now, and how much price is actually moving">
+                                            <input type="checkbox" @bind="_includeSpreadVolatility" disabled="@Service.IsRunning" />
+                                            Spread + Volatility
+                                        </label>
+                                        <div class="train-card-fields-row">
+                                            <label class="train-brainrow-field" title="How many trailing bars the Average True Range figure averages over">
+                                                ATR Period
+                                                <input class="train-brainrow-input" type="number" min="1" step="1"
+                                                       @bind="_spreadVolatilityAtrPeriod" disabled="@(Service.IsRunning || !_includeSpreadVolatility)" />
+                                            </label>
+                                            @if (_includeSpreadVolatility)
+                                            {
+                                                <span class="train-card-badge" title="Input count contributed by Spread + Volatility -- fixed 2 values (spread, ATR)">@SpreadVolatilityFeatureCount</span>
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+
+                        <div class="train-card">
+                            <div class="train-card-title-row">
+                                <label class="train-brainrow-field"
+                                       title="Own position/capital state -- opt-in, unchecked by default; check it if this brain needs to know whether it already holds a position">
+                                    <input type="checkbox" @bind="_includeTraderState" disabled="@Service.IsRunning" />
+                                    <span class="train-card-title">Trader State</span>
+                                </label>
+                                <span class="train-card-badge" title="Input count contributed by Trader State -- the enabled state fields plus the enabled trailing lists below">
+                                    @TraderStateFeatureCount</span>
+                            </div>
+                            <div class="train-buildbrain-card-fields">
+                                <label class="train-brainrow-field" title="Toggle every state field below on or off at once">
+                                    <input type="checkbox" @bind="AllTraderStateBaseFieldsSelected" disabled="@(Service.IsRunning || !_includeTraderState)" />
+                                    Select All Fields (@SelectedTraderStateFieldCount/@TotalTraderStateFieldCount)
+                                </label>
+                                <div class="train-card-fields-row">
+                                    @foreach (var row in TraderStateFieldRows)
+                                    {
+                                        <label class="train-brainrow-field" title="@row.Tooltip">
+                                            <input type="checkbox" checked="@row.Get()"
+                                                   @onchange="e => row.Set(e.Value is bool b && b)"
+                                                   disabled="@(Service.IsRunning || !_includeTraderState)" />
+                                            @row.Label
+                                        </label>
+                                    }
+                                </div>
+                                <label class="train-brainrow-field" title="Toggle every trailing list below on or off at once">
+                                    <input type="checkbox" @bind="AllTraderStateListsSelected" disabled="@(Service.IsRunning || !_includeTraderState)" />
+                                    Select All Lists
+                                </label>
+                                <div class="train-card-fields-row">
+                                    <label class="train-brainrow-field"
+                                           title="How many of the most recent closed trades' win(1)/loss(0) outcome Trader State feeds, most-recent-last, zero-padded if fewer trades have closed yet">
+                                        <input type="checkbox" @bind="_includeTraderStateOutcomes" disabled="@(Service.IsRunning || !_includeTraderState)" />
+                                        Outcomes
+                                        <input class="train-brainrow-input" type="number" min="1" step="1" @bind="_traderStateTradeOutcomeListLength"
+                                               disabled="@(Service.IsRunning || !_includeTraderState || !_includeTraderStateOutcomes)" />
+                                    </label>
+                                    <label class="train-brainrow-field"
+                                           title="How many trailing price records since the open position's own entry time Trader State compares against entry price (1 above, 0 at-or-below), most-recent-last, zero-padded -- flat (no position) leaves this list zero-padded regardless">
+                                        <input type="checkbox" @bind="_includeTraderStatePositionLevel" disabled="@(Service.IsRunning || !_includeTraderState)" />
+                                        Level
+                                        <input class="train-brainrow-input" type="number" min="1" step="1" @bind="_traderStatePositionLevelListLength"
+                                               disabled="@(Service.IsRunning || !_includeTraderState || !_includeTraderStatePositionLevel)" />
+                                    </label>
+                                    <label class="train-brainrow-field"
+                                           title="How many of the most recent closed trades' direction (1=Long, 0=Short) Trader State feeds, index-aligned with Outcomes">
+                                        <input type="checkbox" @bind="_includeTraderStateDirection" disabled="@(Service.IsRunning || !_includeTraderState)" />
+                                        Direction
+                                        <input class="train-brainrow-input" type="number" min="1" step="1" @bind="_traderStateDirectionListLength"
+                                               disabled="@(Service.IsRunning || !_includeTraderState || !_includeTraderStateDirection)" />
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="train-card train-card-xgrid">
                                                                 <div class="train-card-title-row">
                                                                     <div class="train-card-title"
                                                                          title="XGrid's 15 boolean footprint signals -- current cell's rank/at/above/below relationship to POC/VAH/VAL/VWAP, computed over a trailing window of bars">

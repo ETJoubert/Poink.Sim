@@ -1,4 +1,5 @@
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Poink.Sim.Models;
@@ -7,8 +8,6 @@ namespace Poink.Sim.Brain.Neural;
 
 internal sealed class TraderStateEncoder : IObservationEncoder
 {
-    private const int BaseCount = 12;
-
     private readonly int _tradeOutcomeListLength;
     private readonly int _positionLevelListLength;
     private readonly int _directionListLength;
@@ -16,9 +15,14 @@ internal sealed class TraderStateEncoder : IObservationEncoder
     private readonly IFeatureNormalizer _priceNormalizer;
     private readonly IFeatureNormalizer _valueNormalizer;
     private readonly IFeatureNormalizer _binaryNormalizer;
+    private readonly IReadOnlyList<BaseFieldDefinition> _baseFields;
     private readonly IReadOnlyList<FeatureDescriptor> _features;
 
+    private sealed record BaseFieldDefinition(
+        TraderStateFieldKind Kind, string Name, IFeatureNormalizer Normalizer, Func<SimulationObservation, double> Value);
+
     public TraderStateEncoder(
+        IReadOnlyList<TraderStateFieldKind>? enabledBaseFields = null,
         int tradeOutcomeListLength = 0, int positionLevelListLength = 0, int directionListLength = 0,
         IFeatureNormalizer? directionNormalizer = null, IFeatureNormalizer? priceNormalizer = null,
         IFeatureNormalizer? valueNormalizer = null, IFeatureNormalizer? binaryNormalizer = null)
@@ -31,21 +35,13 @@ internal sealed class TraderStateEncoder : IObservationEncoder
         _valueNormalizer = valueNormalizer ?? new RawValueNormalizer();
         _binaryNormalizer = binaryNormalizer ?? new BinaryNormalizer();
 
-        var features = new List<FeatureDescriptor>(FeatureCount)
-        {
-            new("position", _directionNormalizer),
-            new("position-price", _priceNormalizer),
-            new("position-ticks", _valueNormalizer),
-            new("position-distance", _priceNormalizer),
-            new("current-price", _priceNormalizer),
-            new("cash", _valueNormalizer),
-            new("realized", _valueNormalizer),
-            new("unrealized", _valueNormalizer),
-            new("equity", _valueNormalizer),
-            new("margin", _valueNormalizer),
-            new("margin-level", _valueNormalizer),
-            new("position-count", _valueNormalizer),
-        };
+        var allBaseFields = BuildBaseFieldDefinitions();
+        _baseFields = enabledBaseFields is null
+            ? allBaseFields
+            : allBaseFields.Where(f => enabledBaseFields.Contains(f.Kind)).ToList();
+
+        var features = new List<FeatureDescriptor>();
+        features.AddRange(_baseFields.Select(f => new FeatureDescriptor(f.Name, f.Normalizer)));
         for (int i = _tradeOutcomeListLength; i >= 1; i--)
             features.Add(new FeatureDescriptor($"trade-outcome-t-{i}", _binaryNormalizer));
         for (int i = _positionLevelListLength; i >= 1; i--)
@@ -55,7 +51,35 @@ internal sealed class TraderStateEncoder : IObservationEncoder
         _features = features;
     }
 
-    public int FeatureCount => BaseCount + _tradeOutcomeListLength + _positionLevelListLength + _directionListLength;
+    private List<BaseFieldDefinition> BuildBaseFieldDefinitions() => new()
+    {
+        new(TraderStateFieldKind.Position, "position", _directionNormalizer,
+            o => o.Position is { } p ? (p.Direction == PositionDirection.Long ? 1 : -1) : 0),
+        new(TraderStateFieldKind.PositionPrice, "position-price", _priceNormalizer,
+            o => o.Position?.EntryPrice ?? 0),
+        new(TraderStateFieldKind.PositionTicks, "position-ticks", _valueNormalizer,
+            o => o.Position?.TicksHeld ?? 0),
+        new(TraderStateFieldKind.PositionDistance, "position-distance", _priceNormalizer,
+            o => o.Position?.CumulativeDistance ?? 0),
+        new(TraderStateFieldKind.CurrentPrice, "current-price", _priceNormalizer,
+            o => o.CurrentPrice),
+        new(TraderStateFieldKind.Cash, "cash", _valueNormalizer,
+            o => o.Capital.Cash),
+        new(TraderStateFieldKind.Realized, "realized", _valueNormalizer,
+            o => o.Capital.RealizedPnl),
+        new(TraderStateFieldKind.Unrealized, "unrealized", _valueNormalizer,
+            o => o.Capital.UnrealizedPnl),
+        new(TraderStateFieldKind.Equity, "equity", _valueNormalizer,
+            o => o.Capital.Equity),
+        new(TraderStateFieldKind.Margin, "margin", _valueNormalizer,
+            o => o.Capital.MarginUsed),
+        new(TraderStateFieldKind.MarginLevel, "margin-level", _valueNormalizer,
+            o => o.Capital.MarginLevel ?? 0),
+        new(TraderStateFieldKind.PositionCount, "position-count", _valueNormalizer,
+            o => o.Position is null ? 0 : 1),
+    };
+
+    public int FeatureCount => _baseFields.Count + _tradeOutcomeListLength + _positionLevelListLength + _directionListLength;
 
     public int SequenceLength => 0;
 
@@ -65,28 +89,8 @@ internal sealed class TraderStateEncoder : IObservationEncoder
 
     public float[] Encode(SimulationObservation observation)
     {
-        var capital = observation.Capital;
-        double direction = observation.Position is { } position ? (position.Direction == PositionDirection.Long ? 1 : -1) : 0;
-        double positionPrice = observation.Position?.EntryPrice ?? 0;
-        double positionTicks = observation.Position?.TicksHeld ?? 0;
-        double positionDistance = observation.Position?.CumulativeDistance ?? 0;
-        double positionCount = observation.Position is null ? 0 : 1;
-
-        var result = new List<float>(FeatureCount)
-        {
-            _directionNormalizer.Normalize(direction, observation),
-            _priceNormalizer.Normalize(positionPrice, observation),
-            _valueNormalizer.Normalize(positionTicks, observation),
-            _priceNormalizer.Normalize(positionDistance, observation),
-            _priceNormalizer.Normalize(observation.CurrentPrice, observation),
-            _valueNormalizer.Normalize(capital.Cash, observation),
-            _valueNormalizer.Normalize(capital.RealizedPnl, observation),
-            _valueNormalizer.Normalize(capital.UnrealizedPnl, observation),
-            _valueNormalizer.Normalize(capital.Equity, observation),
-            _valueNormalizer.Normalize(capital.MarginUsed, observation),
-            _valueNormalizer.Normalize(capital.MarginLevel ?? 0, observation),
-            _valueNormalizer.Normalize(positionCount, observation),
-        };
+        var result = new List<float>(FeatureCount);
+        result.AddRange(_baseFields.Select(f => f.Normalizer.Normalize(f.Value(observation), observation)));
         result.AddRange(EncodeTradeOutcomes(observation));
         result.AddRange(EncodePositionLevels(observation));
         result.AddRange(EncodeDirections(observation));

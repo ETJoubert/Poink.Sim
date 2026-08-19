@@ -26,6 +26,13 @@ public enum DecisionDecodingKind { Softmax, HardMax }
 public enum CnnKernelSweepSource { BarWindow, VolumeProfile }
 
 
+public enum TraderStateFieldKind
+{
+    Position, PositionPrice, PositionTicks, PositionDistance, CurrentPrice,
+    Cash, Realized, Unrealized, Equity, Margin, MarginLevel, PositionCount,
+}
+
+
 // XGridRowCount is now a row-height multiplier (row height = XGridRowCount x XGridPipSize),
 // kept under its old name so saved brain JSON still deserializes onto the right field.
 public sealed record EncoderSizeOptions(
@@ -45,6 +52,18 @@ public sealed record EncoderSizeOptions(
     int TraderStateTradeOutcomeListLength = 0,
     int TraderStatePositionLevelListLength = 0,
     int TraderStateDirectionListLength = 0,
+    bool TraderStateIncludePosition = true,
+    bool TraderStateIncludePositionPrice = true,
+    bool TraderStateIncludePositionTicks = true,
+    bool TraderStateIncludePositionDistance = true,
+    bool TraderStateIncludeCurrentPrice = true,
+    bool TraderStateIncludeCash = true,
+    bool TraderStateIncludeRealized = true,
+    bool TraderStateIncludeUnrealized = true,
+    bool TraderStateIncludeEquity = true,
+    bool TraderStateIncludeMargin = true,
+    bool TraderStateIncludeMarginLevel = true,
+    bool TraderStateIncludePositionCount = true,
     bool XGridRankTopTotal = false,
     bool XGridRankTopUp = false,
     bool XGridRankTopDown = false,
@@ -113,6 +132,7 @@ internal static class BrainCatalog
             EncoderKind.SessionClock => new SessionClockEncoder(),
             EncoderKind.SpreadVolatility => new SpreadVolatilityEncoder(atrPeriod: sizes.SpreadVolatilityAtrPeriod),
             EncoderKind.TraderState => new TraderStateEncoder(
+                enabledBaseFields: ResolveTraderStateFields(sizes),
                 tradeOutcomeListLength: sizes.TraderStateTradeOutcomeListLength,
                 positionLevelListLength: sizes.TraderStatePositionLevelListLength,
                 directionListLength: sizes.TraderStateDirectionListLength),
@@ -144,6 +164,26 @@ internal static class BrainCatalog
         if (sizes.XGridBelowVal) signals.Add(XGridSignalKind.BelowVal);
         if (sizes.XGridBelowVwap) signals.Add(XGridSignalKind.BelowVwap);
         return signals;
+    }
+
+    // Not private: TrainingPreview needs the same enabled-field order the encoder itself
+    // builds its Features/Encode array in, to label each recorded/live feature value.
+    internal static List<TraderStateFieldKind> ResolveTraderStateFields(EncoderSizeOptions sizes)
+    {
+        var fields = new List<TraderStateFieldKind>();
+        if (sizes.TraderStateIncludePosition) fields.Add(TraderStateFieldKind.Position);
+        if (sizes.TraderStateIncludePositionPrice) fields.Add(TraderStateFieldKind.PositionPrice);
+        if (sizes.TraderStateIncludePositionTicks) fields.Add(TraderStateFieldKind.PositionTicks);
+        if (sizes.TraderStateIncludePositionDistance) fields.Add(TraderStateFieldKind.PositionDistance);
+        if (sizes.TraderStateIncludeCurrentPrice) fields.Add(TraderStateFieldKind.CurrentPrice);
+        if (sizes.TraderStateIncludeCash) fields.Add(TraderStateFieldKind.Cash);
+        if (sizes.TraderStateIncludeRealized) fields.Add(TraderStateFieldKind.Realized);
+        if (sizes.TraderStateIncludeUnrealized) fields.Add(TraderStateFieldKind.Unrealized);
+        if (sizes.TraderStateIncludeEquity) fields.Add(TraderStateFieldKind.Equity);
+        if (sizes.TraderStateIncludeMargin) fields.Add(TraderStateFieldKind.Margin);
+        if (sizes.TraderStateIncludeMarginLevel) fields.Add(TraderStateFieldKind.MarginLevel);
+        if (sizes.TraderStateIncludePositionCount) fields.Add(TraderStateFieldKind.PositionCount);
+        return fields;
     }
 
 

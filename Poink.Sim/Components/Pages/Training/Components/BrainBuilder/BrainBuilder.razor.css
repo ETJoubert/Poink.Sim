@@ -24,6 +24,13 @@
     gap: 8px;
 }
 
+.train-card-title-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+}
+
 .train-card-badge {
     font-family: var(--font-body);
     font-size: 0.68rem;
@@ -88,12 +95,6 @@
 
 .train-brainrow-field-grow {
     flex: 1;
-}
-
-.train-brainrow-field-sub {
-    margin-left: 20px;
-    margin-top: 4px;
-    opacity: 0.85;
 }
 
 .train-brainrow-input-full {
@@ -172,15 +173,30 @@
     justify-content: space-between;
 }
 
-.train-card-input {
-    min-width: 340px;
-}
-
 .train-buildbrain-input-stack {
     display: flex;
     flex-direction: column;
     gap: 14px;
     min-width: 340px;
+}
+
+.train-timeseries-groups {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.train-timeseries-set {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-top: 8px;
+    border-top: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+.train-timeseries-set:first-child {
+    padding-top: 0;
+    border-top: none;
 }
 
 .train-xgrid-groups {
@@ -203,39 +219,6 @@
     text-transform: uppercase;
     color: var(--color-accent);
     opacity: 0.8;
-}
-
-.train-inputset-table {
-    width: 100%;
-    border-collapse: collapse;
-}
-
-.train-inputset-table th {
-    font-size: 0.62rem;
-    font-weight: bold;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--color-accent);
-    text-align: left;
-    padding: 0 8px 6px 0;
-}
-
-.train-inputset-table td {
-    padding: 5px 8px 5px 0;
-    border-top: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
-    vertical-align: middle;
-}
-
-.train-inputset-table .train-brainrow-select,
-.train-inputset-table .train-brainrow-input {
-    width: 100%;
-    min-width: 0;
-}
-
-.train-inputset-cell-na {
-    color: var(--color-secondary);
-    opacity: 0.5;
-    text-align: center;
 }
 
 .train-decoding-value {
