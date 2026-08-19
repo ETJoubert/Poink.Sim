@@ -1,20 +1,30 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Microsoft.Extensions.Logging;
+using Poink.Sim.Brain;
 using Poink.Sim.Brain.Neural;
+using Poink.Sim.Models;
 using Poink.Sim.Repository;
 
 namespace Poink.Sim.Training;
 
+public sealed record BrainOption(string Name, bool IsNeuralNetwork);
+
 internal sealed class BrainService : IBrainService
 {
     private readonly IBrainRepository _brainRepository;
+    private readonly BrainRegistry _brainRegistry;
     private readonly ILogger<BrainService> _logger;
 
-    public BrainService(IBrainRepository networkRepository, ILogger<BrainService> logger)
+    private readonly Dictionary<string, BrainRecipe> _brainRecipes = new();
+    private readonly HashSet<string> _draftBrainNames = new();
+
+    public BrainService(IBrainRepository networkRepository, BrainRegistry brainRegistry, ILogger<BrainService> logger)
     {
         _brainRepository = networkRepository;
+        _brainRegistry = brainRegistry;
         _logger = logger;
 
         try
@@ -30,10 +40,154 @@ internal sealed class BrainService : IBrainService
 
     public IReadOnlyList<BrainSummary> Brains { get; private set; } = [];
 
+    public IReadOnlyList<string> BrainNames => _brainRegistry.All.Select(b => b.Name).ToList();
+
+    public IReadOnlyList<string> DraftBrainNames => _draftBrainNames.ToList();
+
+    public IReadOnlyList<BrainOption> BrainOptions =>
+        _brainRegistry.All.Select(b => new BrainOption(b.Name, b is IPolicyGradientBrain)).ToList();
 
     public string? Status { get; private set; }
 
     public event Action? OnChanged;
+    public event Action<string>? BrainReset;
+
+    public BrainRecipe? GetRecipe(string brainName) =>
+        _brainRecipes.TryGetValue(brainName, out var recipe) ? recipe : Brains.FirstOrDefault(b => b.Name == brainName)?.Recipe;
+
+    public IReadOnlyList<NetworkLayerShape> DescribeNetworkShape(string brainName) =>
+        _brainRegistry.All.OfType<IPolicyGradientBrain>().FirstOrDefault(b => b.Name == brainName)?.DescribeNetworkShape() ?? [];
+
+    public int GetWarmupBars(string brainName) =>
+        (_brainRegistry.All.OfType<IPolicyGradientBrain>().FirstOrDefault(b => b.Name == brainName))?.WarmupBars ?? 0;
+
+
+    private static IPolicyGradientBrain BuildFromRecipe(string name, BrainRecipe recipe)
+    {
+        var parts = recipe.EncoderKinds.Select(k => BrainCatalog.CreateEncoder(k, recipe.EncoderSizes)).ToArray();
+        var architecture = BrainCatalog.CreateArchitecture(recipe.ArchitectureKind, recipe.HiddenSizes);
+        var actionOutputHeads = (recipe.ActionOutputKinds ?? [])
+            .Select(k => BrainCatalog.CreateActionOutputHead(k, recipe.ActionOutputEncodingKind, recipe.DecisionDecoding, recipe.DecisionTemperature)).ToList();
+        var directions = recipe.EnabledDirections ?? ComposedPolicyBrain.AllDirections;
+        return ComposedPolicyBrain.Create(
+            name, architecture, actionOutputHeads, directions, recipe.DecisionDecoding, recipe.DecisionTemperature, recipe.CnnKernelSweepSource, parts);
+    }
+
+    public IPolicyGradientBrain BuildAndRegister(string name, BrainRecipe recipe)
+    {
+        var brain = BuildFromRecipe(name, recipe);
+        _brainRegistry.Register(brain);
+        _brainRecipes[name] = recipe;
+        return brain;
+    }
+
+
+    private bool ValidateBuildRequest(string name, IReadOnlyList<EncoderKind> encoderKinds, IReadOnlyList<SimulationAction>? enabledDirections)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        { Status = "enter a name for the new brain"; OnChanged?.Invoke(); return false; }
+        if (encoderKinds.Count == 0)
+        { Status = "pick at least one encoder"; OnChanged?.Invoke(); return false; }
+        if (enabledDirections is { Count: 0 })
+        { Status = "pick at least one action"; OnChanged?.Invoke(); return false; }
+        if (_brainRegistry.All.Any(b => b.Name == name && b is not IPolicyGradientBrain))
+        { Status = $"'{name}' is already used by a built-in brain"; OnChanged?.Invoke(); return false; }
+        return true;
+    }
+
+    public bool TryBuildDraftBrain(
+      string name, IReadOnlyList<EncoderKind> encoderKinds, ArchitectureKind architectureKind, IReadOnlyList<int> hiddenSizes,
+      IReadOnlyList<ActionOutputKind>? actionOutputKinds = null, IReadOnlyList<SimulationAction>? enabledDirections = null,
+      EncoderSizeOptions? encoderSizes = null, DecisionDecodingKind decisionDecoding = DecisionDecodingKind.Softmax,
+      double decisionTemperature = 1.0, CnnKernelSweepSource cnnKernelSweepSource = CnnKernelSweepSource.BarWindow)
+    {
+        if (!ValidateBuildRequest(name, encoderKinds, enabledDirections))
+            return false;
+
+        var recipe = new BrainRecipe(
+            encoderKinds.ToList(), architectureKind, hiddenSizes.ToList(),
+            actionOutputKinds?.ToList(), ActionOutputEncodingKind.DiscretizedLevels, enabledDirections?.ToList(), encoderSizes,
+            decisionDecoding, decisionTemperature, cnnKernelSweepSource);
+
+        try
+        {
+            var brain = BuildFromRecipe(name, recipe);
+            if (_brainRegistry.All.Any(b => b.Name == name))
+            {
+                _brainRegistry.Unregister(name);
+                BrainReset?.Invoke(name);
+            }
+            _brainRegistry.Register(brain);
+            _brainRecipes[name] = recipe;
+            _draftBrainNames.Add(name);
+            Status = null;
+            OnChanged?.Invoke();
+            _logger.LogInformation("Built draft brain (not saved): name={Name}, encoders={Encoders}, architecture={Architecture}",
+                name, string.Join(",", encoderKinds), architectureKind);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Status = $"couldn't build brain: {ex.Message}";
+            OnChanged?.Invoke();
+            _logger.LogWarning(ex, "Failed to build draft brain: name={Name}", name);
+            return false;
+        }
+    }
+
+
+    public bool TryBuildBrain(
+        string name, IReadOnlyList<EncoderKind> encoderKinds, ArchitectureKind architectureKind, IReadOnlyList<int> hiddenSizes,
+        IReadOnlyList<ActionOutputKind>? actionOutputKinds = null, IReadOnlyList<SimulationAction>? enabledDirections = null,
+        EncoderSizeOptions? encoderSizes = null, DecisionDecodingKind decisionDecoding = DecisionDecodingKind.Softmax,
+        double decisionTemperature = 1.0, CnnKernelSweepSource cnnKernelSweepSource = CnnKernelSweepSource.BarWindow)
+    {
+        if (!ValidateBuildRequest(name, encoderKinds, enabledDirections))
+            return false;
+
+        var recipe = new BrainRecipe(
+            encoderKinds.ToList(), architectureKind, hiddenSizes.ToList(),
+            actionOutputKinds?.ToList(), ActionOutputEncodingKind.DiscretizedLevels, enabledDirections?.ToList(), encoderSizes,
+            decisionDecoding, decisionTemperature, cnnKernelSweepSource);
+
+        try
+        {
+            bool alreadyLive = _brainRegistry.All.Any(b => b.Name == name);
+            if (!alreadyLive)
+            {
+                var brain = BuildFromRecipe(name, recipe);
+                _brainRegistry.Register(brain);
+                _logger.LogInformation("Built new brain: name={Name}, encoders={Encoders}, architecture={Architecture}",
+                    name, string.Join(",", encoderKinds), architectureKind);
+            }
+            _brainRecipes[name] = recipe;
+            _draftBrainNames.Remove(name);
+            Status = null;
+
+            var existing = Brains.FirstOrDefault(b => b.Name == name);
+            bool persisted = existing is not null
+                ? UpdateNetwork(existing.Id, name, recipe)
+                : CreateNetwork(name, recipe);
+            if (!persisted)
+            {
+                Status = $"built '{name}' live, but couldn't save it to storage: {Status}";
+                OnChanged?.Invoke();
+                _logger.LogWarning("Failed to persist built brain '{Name}' as a network: {Status}", name, Status);
+                return false;
+            }
+
+            OnChanged?.Invoke();
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Status = $"couldn't build brain: {ex.Message}";
+            OnChanged?.Invoke();
+            _logger.LogWarning(ex, "Failed to build brain: name={Name}", name);
+            return false;
+        }
+    }
+
 
     public bool CreateNetwork(string name, BrainRecipe recipe)
     {

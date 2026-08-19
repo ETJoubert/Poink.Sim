@@ -23,6 +23,8 @@ namespace Poink.Sim.Components.Pages
 
         [Inject] private IRlTrainingService TrainingService { get; set; } = default!;
 
+        [Inject] private IBrainService BrainService { get; set; } = default!;
+
 
         [Inject] private IModelService ModelService { get; set; } = default!;
 
@@ -271,7 +273,7 @@ namespace Poink.Sim.Components.Pages
         private IReadOnlyList<SimulationBrainOption> SimulationBrainOptions =>
             ModelService.Models
                 .Select(m => new SimulationBrainOption($"{m.Name} ({m.BrainName})", m.BrainName, m.Id))
-                .Concat(TrainingService.BrainOptions.Where(b => !b.IsNeuralNetwork).Select(b => new SimulationBrainOption(b.Name, b.Name, null)))
+                .Concat(BrainService.BrainOptions.Where(b => !b.IsNeuralNetwork).Select(b => new SimulationBrainOption(b.Name, b.Name, null)))
                 .ToList();
 
 
@@ -297,7 +299,7 @@ namespace Poink.Sim.Components.Pages
 
 
         private bool CurrentBrainIsNeuralNetwork(string brainName) =>
-            TrainingService.BrainOptions.FirstOrDefault(b => b.Name == brainName)?.IsNeuralNetwork ?? false;
+            BrainService.BrainOptions.FirstOrDefault(b => b.Name == brainName)?.IsNeuralNetwork ?? false;
 
 
         private TraderSnapshot? SelectedTrader =>

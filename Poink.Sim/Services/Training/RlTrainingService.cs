@@ -16,8 +16,6 @@ using Poink.Sim.Simulation;
 
 namespace Poink.Sim.Training;
 
-public sealed record BrainOption(string Name, bool IsNeuralNetwork);
-
 internal sealed record RlTrainingLogEntry(DateTime TimestampUtc, string Level, string Message);
 
 internal sealed class RlTrainingService : IRlTrainingService
@@ -55,12 +53,6 @@ internal sealed class RlTrainingService : IRlTrainingService
     private readonly Dictionary<string, long> _activeSnapshotId = new();
 
 
-    private readonly Dictionary<string, BrainRecipe> _brainRecipes = new();
-
-
-    private readonly HashSet<string> _draftBrainNames = new();
-
-
     private readonly Dictionary<string, int> _episodesTrainedByBrain = new();
 
     private readonly Dictionary<string, DateTime> _lastTrainedAt = new();
@@ -86,6 +78,12 @@ internal sealed class RlTrainingService : IRlTrainingService
         _traderFactory = traderFactory;
         _logger = logger;
 
+        _brainService.BrainReset += name =>
+        {
+            _episodesTrainedByBrain.Remove(name);
+            _lastTrainedAt.Remove(name);
+            _activeSnapshotId.Remove(name);
+        };
 
         foreach (var latest in _modelService.Models.GroupBy(m => m.BrainName).Select(g => g.OrderByDescending(m => m.SavedAt).First()))
         {
@@ -112,27 +110,6 @@ internal sealed class RlTrainingService : IRlTrainingService
 
     public TrainedModelSummary? GetActiveSnapshot(string brainName) =>
         _activeSnapshotId.TryGetValue(brainName, out var id) ? _modelService.Models.FirstOrDefault(m => m.Id == id) : null;
-
-
-    public BrainRecipe? GetRecipe(string brainName) =>
-        _brainRecipes.TryGetValue(brainName, out var recipe) ? recipe : _brainService.Brains.FirstOrDefault(b => b.Name == brainName)?.Recipe;
-
-
-    public IReadOnlyList<NetworkLayerShape> DescribeNetworkShape(string brainName) =>
-        _brainRegistry.All.OfType<IPolicyGradientBrain>().FirstOrDefault(b => b.Name == brainName)?.DescribeNetworkShape() ?? [];
-
-
-    public int GetWarmupBars(string brainName) =>
-        (_brainRegistry.All.OfType<IPolicyGradientBrain>().FirstOrDefault(b => b.Name == brainName))?.WarmupBars ?? 0;
-
-    public IReadOnlyList<string> BrainNames => _brainRegistry.All.Select(b => b.Name).ToList();
-
-
-    public IReadOnlyList<string> DraftBrainNames => _draftBrainNames.ToList();
-
-
-    public IReadOnlyList<BrainOption> BrainOptions =>
-        _brainRegistry.All.Select(b => new BrainOption(b.Name, b is IPolicyGradientBrain)).ToList();
 
     public IReadOnlyList<string> StrategyNames => _strategies.Select(s => s.Name).ToList();
 
@@ -234,9 +211,7 @@ internal sealed class RlTrainingService : IRlTrainingService
             {
                 try
                 {
-                    brain = BuildFromRecipe(network.Name, network.Recipe);
-                    _brainRegistry.Register(brain);
-                    _brainRecipes[network.Name] = network.Recipe;
+                    brain = _brainService.BuildAndRegister(network.Name, network.Recipe);
                     _logger.LogInformation("Rebuilt brain '{Name}' from its saved network at training start", network.Name);
                 }
                 catch (Exception ex)
@@ -605,129 +580,6 @@ internal sealed class RlTrainingService : IRlTrainingService
     }
 
 
-    private static IPolicyGradientBrain BuildFromRecipe(string name, BrainRecipe recipe)
-    {
-        var parts = recipe.EncoderKinds.Select(k => BrainCatalog.CreateEncoder(k, recipe.EncoderSizes)).ToArray();
-        var architecture = BrainCatalog.CreateArchitecture(recipe.ArchitectureKind, recipe.HiddenSizes);
-        var actionOutputHeads = (recipe.ActionOutputKinds ?? [])
-            .Select(k => BrainCatalog.CreateActionOutputHead(k, recipe.ActionOutputEncodingKind, recipe.DecisionDecoding, recipe.DecisionTemperature)).ToList();
-        var directions = recipe.EnabledDirections ?? ComposedPolicyBrain.AllDirections;
-        return ComposedPolicyBrain.Create(
-            name, architecture, actionOutputHeads, directions, recipe.DecisionDecoding, recipe.DecisionTemperature, recipe.CnnKernelSweepSource, parts);
-    }
-
-
-    private bool ValidateBuildRequest(string name, IReadOnlyList<EncoderKind> encoderKinds, IReadOnlyList<SimulationAction>? enabledDirections)
-    {
-        if (string.IsNullOrWhiteSpace(name))
-        { Error = "enter a name for the new brain"; OnChanged?.Invoke(); return false; }
-        if (encoderKinds.Count == 0)
-        { Error = "pick at least one encoder"; OnChanged?.Invoke(); return false; }
-        if (enabledDirections is { Count: 0 })
-        { Error = "pick at least one action"; OnChanged?.Invoke(); return false; }
-        if (_brainRegistry.All.Any(b => b.Name == name && b is not IPolicyGradientBrain))
-        { Error = $"'{name}' is already used by a built-in brain"; OnChanged?.Invoke(); return false; }
-        return true;
-    }
-
-    public bool TryBuildDraftBrain(
-      string name, IReadOnlyList<EncoderKind> encoderKinds, ArchitectureKind architectureKind, IReadOnlyList<int> hiddenSizes,
-      IReadOnlyList<ActionOutputKind>? actionOutputKinds = null, IReadOnlyList<SimulationAction>? enabledDirections = null,
-      EncoderSizeOptions? encoderSizes = null, DecisionDecodingKind decisionDecoding = DecisionDecodingKind.Softmax,
-      double decisionTemperature = 1.0, CnnKernelSweepSource cnnKernelSweepSource = CnnKernelSweepSource.BarWindow)
-    {
-        if (!ValidateBuildRequest(name, encoderKinds, enabledDirections))
-            return false;
-
-        var recipe = new BrainRecipe(
-            encoderKinds.ToList(), architectureKind, hiddenSizes.ToList(),
-            actionOutputKinds?.ToList(), ActionOutputEncodingKind.DiscretizedLevels, enabledDirections?.ToList(), encoderSizes,
-            decisionDecoding, decisionTemperature, cnnKernelSweepSource);
-
-        try
-        {
-            var brain = BuildFromRecipe(name, recipe);
-            if (_brainRegistry.All.Any(b => b.Name == name))
-            {
-
-                _brainRegistry.Unregister(name);
-                _episodesTrainedByBrain.Remove(name);
-                _lastTrainedAt.Remove(name);
-                _activeSnapshotId.Remove(name);
-            }
-            _brainRegistry.Register(brain);
-            _brainRecipes[name] = recipe;
-            _draftBrainNames.Add(name);
-            Error = null;
-            OnChanged?.Invoke();
-            _logger.LogInformation("Built draft brain (not saved): name={Name}, encoders={Encoders}, architecture={Architecture}",
-                name, string.Join(",", encoderKinds), architectureKind);
-            return true;
-        }
-        catch (Exception ex)
-        {
-            Error = $"couldn't build brain: {ex.Message}";
-            OnChanged?.Invoke();
-            _logger.LogWarning(ex, "Failed to build draft brain: name={Name}", name);
-            return false;
-        }
-    }
-
-
-    public bool TryBuildBrain(
-        string name, IReadOnlyList<EncoderKind> encoderKinds, ArchitectureKind architectureKind, IReadOnlyList<int> hiddenSizes,
-        IReadOnlyList<ActionOutputKind>? actionOutputKinds = null, IReadOnlyList<SimulationAction>? enabledDirections = null,
-        EncoderSizeOptions? encoderSizes = null, DecisionDecodingKind decisionDecoding = DecisionDecodingKind.Softmax,
-        double decisionTemperature = 1.0, CnnKernelSweepSource cnnKernelSweepSource = CnnKernelSweepSource.BarWindow)
-    {
-        if (!ValidateBuildRequest(name, encoderKinds, enabledDirections))
-            return false;
-
-        var recipe = new BrainRecipe(
-            encoderKinds.ToList(), architectureKind, hiddenSizes.ToList(),
-            actionOutputKinds?.ToList(), ActionOutputEncodingKind.DiscretizedLevels, enabledDirections?.ToList(), encoderSizes,
-            decisionDecoding, decisionTemperature, cnnKernelSweepSource);
-
-        try
-        {
-            bool alreadyLive = _brainRegistry.All.Any(b => b.Name == name);
-            if (!alreadyLive)
-            {
-                var brain = BuildFromRecipe(name, recipe);
-                _brainRegistry.Register(brain);
-                _logger.LogInformation("Built new brain: name={Name}, encoders={Encoders}, architecture={Architecture}",
-                    name, string.Join(",", encoderKinds), architectureKind);
-            }
-            _brainRecipes[name] = recipe;
-            _draftBrainNames.Remove(name);
-            Error = null;
-
-
-            var existing = _brainService.Brains.FirstOrDefault(b => b.Name == name);
-            bool persisted = existing is not null
-                ? _brainService.UpdateNetwork(existing.Id, name, recipe)
-                : _brainService.CreateNetwork(name, recipe);
-            if (!persisted)
-            {
-                Error = $"built '{name}' live, but couldn't save it to storage: {_brainService.Status}";
-                OnChanged?.Invoke();
-                _logger.LogWarning("Failed to persist built brain '{Name}' as a network: {Status}", name, _brainService.Status);
-                return false;
-            }
-
-            OnChanged?.Invoke();
-            return true;
-        }
-        catch (Exception ex)
-        {
-            Error = $"couldn't build brain: {ex.Message}";
-            OnChanged?.Invoke();
-            _logger.LogWarning(ex, "Failed to build brain: name={Name}", name);
-            return false;
-        }
-    }
-
-
     public bool SaveBrain(
         string savedName, string brainName, string strategyName, string dataset,
         int episodeBars, int barWidthSeconds, double startingCash, double learningRate,
@@ -764,7 +616,7 @@ internal sealed class RlTrainingService : IRlTrainingService
                 CommissionRatePercent = settings.CommissionModel is Trader.Commission.PercentOfNotionalCommission p ? p.RatePercent : 0,
             };
             DateTime? trainedAt = _lastTrainedAt.TryGetValue(brainName, out var t) ? t : null;
-            _brainRecipes.TryGetValue(brainName, out var recipe); // null for the 4 fixed Program.cs brains
+            var recipe = _brainService.GetRecipe(brainName); // null for the 4 fixed Program.cs brains
 
             if (!_modelService.SaveModel(
                     savedName, brainName, strategyName, _rewardPolicyService.SelectedPolicyName, dataset, parameters, recipe, trainedAt,
@@ -824,9 +676,7 @@ internal sealed class RlTrainingService : IRlTrainingService
             }
             try
             {
-                brain = BuildFromRecipe(summary.BrainName, recipe);
-                _brainRegistry.Register(brain);
-                _brainRecipes[summary.BrainName] = recipe;
+                brain = _brainService.BuildAndRegister(summary.BrainName, recipe);
                 _logger.LogInformation("Rebuilt brain {BrainName} from saved recipe for id {Id}", summary.BrainName, id);
             }
             catch (Exception ex)

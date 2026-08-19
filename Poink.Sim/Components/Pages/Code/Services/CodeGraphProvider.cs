@@ -51,14 +51,17 @@ internal sealed class CodeGraphProvider : ICodeGraphProvider
     private const string SetOnTrainPage = "set on /train";
 
     private readonly IRlTrainingService _training;
+    private readonly IBrainService _brainService;
     private readonly IRewardPolicyService _rewardPolicies;
     private readonly ISimulationEngine _simulation;
     private readonly ICodeSourceIndex _sourceIndex;
 
     public CodeGraphProvider(
-        IRlTrainingService training, IRewardPolicyService rewardPolicies, ISimulationEngine simulation, ICodeSourceIndex sourceIndex)
+        IRlTrainingService training, IBrainService brainService, IRewardPolicyService rewardPolicies, ISimulationEngine simulation,
+        ICodeSourceIndex sourceIndex)
     {
         _training = training;
+        _brainService = brainService;
         _rewardPolicies = rewardPolicies;
         _simulation = simulation;
         _sourceIndex = sourceIndex;
@@ -751,7 +754,7 @@ internal sealed class CodeGraphProvider : ICodeGraphProvider
 
     private IReadOnlyList<CodeBadge> BrainBadges()
     {
-        var options = _training.BrainOptions;
+        var options = _brainService.BrainOptions;
         var badges = new List<CodeBadge> { new("registered", options.Count.ToString(CultureInfo.InvariantCulture)) };
         var neural = options.Count(o => o.IsNeuralNetwork);
         if (neural > 0)

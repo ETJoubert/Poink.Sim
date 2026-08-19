@@ -18,11 +18,13 @@ namespace Poink.Sim.Components.Training
     {
         [Inject] private IRlTrainingService Service { get; set; } = default!;
 
+        [Inject] private IBrainService BrainService { get; set; } = default!;
+
         [Inject] private IJSRuntime JS { get; set; } = default!;
 
         [Parameter] public string BrainName { get; set; } = "";
 
-        private BrainRecipe? Recipe => Service.GetRecipe(BrainName);
+        private BrainRecipe? Recipe => BrainService.GetRecipe(BrainName);
 
         private bool _trainingWasAdvancing;
         private bool _autoShownXGridForCell;
@@ -616,7 +618,7 @@ namespace Poink.Sim.Components.Training
         private double? DisplayedStopLossPrice => DisplayedBarAction?.StopLossPrice;
         private double? DisplayedTakeProfitPrice => DisplayedBarAction?.TakeProfitPrice;
 
-        private int DisplayedWindowBarCount => Service.GetWarmupBars(BrainName);
+        private int DisplayedWindowBarCount => BrainService.GetWarmupBars(BrainName);
 
         private List<ChartRangeFill> DisplayedWindowRange
         {

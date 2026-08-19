@@ -36,7 +36,7 @@ namespace Poink.Sim.Components.Training
 
         private IReadOnlyList<BrainOption> TrainableBrainOptions =>
             BrainService.Brains.Select(n => n.Name)
-                .Concat(Service.DraftBrainNames)
+                .Concat(BrainService.DraftBrainNames)
                 .Distinct()
                 .Select(name => new BrainOption(name, true))
                 .ToList();
@@ -54,7 +54,7 @@ namespace Poink.Sim.Components.Training
             if (BrainName != _lastBrainName)
             {
                 _lastBrainName = BrainName;
-                if (!string.IsNullOrEmpty(BrainName) && Service.GetRecipe(BrainName) is { } recipe)
+                if (!string.IsNullOrEmpty(BrainName) && BrainService.GetRecipe(BrainName) is { } recipe)
                     LoadRecipe(BrainName, recipe);
             }
         }
@@ -719,7 +719,7 @@ namespace Poink.Sim.Components.Training
         {
             var name = EffectiveBuildBrainName;
 
-            if (Service.TryBuildBrain(
+            if (BrainService.TryBuildBrain(
                     name, SelectedEncoderKinds, _architectureKind, CurrentHiddenSizes,
                     SelectedActionOutputKinds, SelectedEnabledDirections, CurrentEncoderSizeOptions,
                     _decisionDecoding, _decisionTemperature, _cnnKernelSweepSource))
@@ -729,7 +729,7 @@ namespace Poink.Sim.Components.Training
             }
             else
             {
-                _buildBrainStatus = Service.Error;
+                _buildBrainStatus = BrainService.Status;
             }
         }
 
@@ -741,12 +741,12 @@ namespace Poink.Sim.Components.Training
                 return false;
             }
 
-            if (!Service.TryBuildDraftBrain(
+            if (!BrainService.TryBuildDraftBrain(
                     EffectiveBuildBrainName, SelectedEncoderKinds, _architectureKind, CurrentHiddenSizes,
                     SelectedActionOutputKinds, SelectedEnabledDirections, CurrentEncoderSizeOptions,
                     _decisionDecoding, _decisionTemperature, _cnnKernelSweepSource))
             {
-                _buildBrainStatus = Service.Error;
+                _buildBrainStatus = BrainService.Status;
                 return false;
             }
 

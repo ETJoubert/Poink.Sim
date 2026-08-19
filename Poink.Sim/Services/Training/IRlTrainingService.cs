@@ -9,9 +9,6 @@ namespace Poink.Sim.Training;
 
 internal interface IRlTrainingService
 {
-    IReadOnlyList<string> BrainNames { get; }
-    IReadOnlyList<string> DraftBrainNames { get; }
-    IReadOnlyList<BrainOption> BrainOptions { get; }
     IReadOnlyList<string> StrategyNames { get; }
 
     bool IsRunning { get; }
@@ -47,9 +44,6 @@ internal interface IRlTrainingService
     event Action? OnChanged;
 
     TrainedModelSummary? GetActiveSnapshot(string brainName);
-    BrainRecipe? GetRecipe(string brainName);
-    IReadOnlyList<NetworkLayerShape> DescribeNetworkShape(string brainName);
-    int GetWarmupBars(string brainName);
 
     bool TryStartTraining(
         string brainName, string strategyName, int episodeCount, int episodeBars, int barWidthSeconds, double startingCash,
@@ -63,18 +57,6 @@ internal interface IRlTrainingService
     void ResumeTraining();
     void StepTraining();
     void StopTraining();
-
-    bool TryBuildDraftBrain(
-        string name, IReadOnlyList<EncoderKind> encoderKinds, ArchitectureKind architectureKind, IReadOnlyList<int> hiddenSizes,
-        IReadOnlyList<ActionOutputKind>? actionOutputKinds = null, IReadOnlyList<SimulationAction>? enabledDirections = null,
-        EncoderSizeOptions? encoderSizes = null, DecisionDecodingKind decisionDecoding = DecisionDecodingKind.Softmax,
-        double decisionTemperature = 1.0, CnnKernelSweepSource cnnKernelSweepSource = CnnKernelSweepSource.BarWindow);
-
-    bool TryBuildBrain(
-        string name, IReadOnlyList<EncoderKind> encoderKinds, ArchitectureKind architectureKind, IReadOnlyList<int> hiddenSizes,
-        IReadOnlyList<ActionOutputKind>? actionOutputKinds = null, IReadOnlyList<SimulationAction>? enabledDirections = null,
-        EncoderSizeOptions? encoderSizes = null, DecisionDecodingKind decisionDecoding = DecisionDecodingKind.Softmax,
-        double decisionTemperature = 1.0, CnnKernelSweepSource cnnKernelSweepSource = CnnKernelSweepSource.BarWindow);
 
     bool SaveBrain(
         string savedName, string brainName, string strategyName, string dataset,
