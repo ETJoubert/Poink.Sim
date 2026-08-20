@@ -59,6 +59,36 @@ namespace Poink.Sim.Data.Migrations.PoinkSim
 
                     b.ToTable("CTraderAccountTokens");
                 });
+
+            modelBuilder.Entity("Poink.Sim.Data.Entities.TrainingResult", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ConfigJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("GraphJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("StatsJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("TrainingResults");
+                });
 #pragma warning restore 612, 618
         }
     }

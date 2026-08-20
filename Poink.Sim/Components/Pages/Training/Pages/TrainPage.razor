@@ -2,6 +2,7 @@
 @namespace Poink.Sim.Components.Pages
 @using Poink.Sim.Components.Training
 @using Poink.Sim.Components.Shared.BarSizeSelect
+@using Poink.Sim.Components.Shared.DataTable
 @using Poink.Sim.Components.Shared.PolicySelector
 @using Poink.Sim.Components.Shared.TickDataSource
 @using Poink.Sim.Models
@@ -47,6 +48,34 @@
                     @if (Service.SaveStatus is not null)
                     {
                         <span class="train-header-save-status">@Service.SaveStatus</span>
+                    }
+                </div>
+
+                <div class="train-header-save">
+                    @if (_showSaveResultsInput)
+                    {
+                        <input class="train-header-save-input" type="text" placeholder="e.g. momentum-set-run-3"
+                               @bind="_saveResultsName" @bind:event="oninput" @onkeydown="OnSaveResultsNameKeyDown" autofocus
+                               title="Name to save this run's config, session stats, and results graph under" />
+                        <button class="terminal-btn-action" @onclick="SaveResultsAsync"
+                                disabled="@string.IsNullOrWhiteSpace(_saveResultsName)"
+                                title="Saves this run's Run Setup config, session stats, and a latest-snapshot of the results graphs">
+                            SAVE
+                        </button>
+                        <button class="terminal-btn-action" @onclick="CancelSaveResults" title="Cancel without saving">
+                            CANCEL
+                        </button>
+                    }
+                    else
+                    {
+                        <button class="terminal-btn-action" @onclick="ShowSaveResultsInput" disabled="@(!CanSaveResults)"
+                                title="Saves this run's Run Setup config, session stats, and a latest-snapshot of the results graphs">
+                            SAVE RESULTS
+                        </button>
+                    }
+                    @if (_resultsStatus is not null)
+                    {
+                        <span class="train-header-save-status">@_resultsStatus</span>
                     }
                 </div>
             </div>
@@ -273,52 +302,80 @@
                 }
             </div>
 
-            <div class="train-content">
-                <div class="train-stats">
-                    <div class="train-stat">
-                        <span class="train-stat-label">recent avg reward</span>
-                        <span class="train-stat-value">@Service.RecentAverageReward.ToString("N2")</span>
-                    </div>
-                    <div class="train-stat">
-                        <span class="train-stat-label">best episode</span>
-                        <span class="train-stat-value">@Service.BestReward.ToString("N2")</span>
-                    </div>
-                    <div class="train-stat">
-                        <span class="train-stat-label">worst episode</span>
-                        <span class="train-stat-value">@Service.WorstReward.ToString("N2")</span>
-                    </div>
-                    <div class="train-stat">
-                        <span class="train-stat-label">win rate</span>
-                        <span class="train-stat-value">@WinRatePercent.ToString("N0")%</span>
-                    </div>
-                    <div class="train-stat">
-                        <span class="train-stat-label">median reward</span>
-                        <span class="train-stat-value">@RewardDistribution.Median.ToString("N2")</span>
-                    </div>
-                    <div class="train-stat">
-                        <span class="train-stat-label">reward std dev</span>
-                        <span class="train-stat-value">@RewardDistribution.StdDev.ToString("N2")</span>
-                    </div>
-                    <div class="train-stat">
-                        <span class="train-stat-label">reward spread</span>
-                        <span class="train-stat-value">@RewardSpread.ToString("N2")</span>
+            <div class="train-tabs">
+                <button type="button" class="train-btn-toggle @(_activeTab == TrainTab.Live ? "train-btn-toggle-active" : "")"
+                        @onclick="() => _activeTab = TrainTab.Live"
+                        title="Live stats, results charts, and episode playback for this run">
+                    LIVE TRAINING
+                </button>
+                <button type="button" class="train-btn-toggle @(_activeTab == TrainTab.SavedResults ? "train-btn-toggle-active" : "")"
+                        @onclick="() => _activeTab = TrainTab.SavedResults"
+                        title="Every saved training result -- Run Setup config, session stats, and a latest-snapshot of the results graphs">
+                    SAVED RESULTS
+                </button>
+            </div>
+
+            @if (_activeTab == TrainTab.Live)
+            {
+                <div class="train-content">
+                    <div class="train-stats">
+                        <div class="train-stat">
+                            <span class="train-stat-label">recent avg reward</span>
+                            <span class="train-stat-value">@Service.RecentAverageReward.ToString("N2")</span>
+                        </div>
+                        <div class="train-stat">
+                            <span class="train-stat-label">best episode</span>
+                            <span class="train-stat-value">@Service.BestReward.ToString("N2")</span>
+                        </div>
+                        <div class="train-stat">
+                            <span class="train-stat-label">worst episode</span>
+                            <span class="train-stat-value">@Service.WorstReward.ToString("N2")</span>
+                        </div>
+                        <div class="train-stat">
+                            <span class="train-stat-label">win rate</span>
+                            <span class="train-stat-value">@WinRatePercent.ToString("N0")%</span>
+                        </div>
+                        <div class="train-stat">
+                            <span class="train-stat-label">median reward</span>
+                            <span class="train-stat-value">@RewardDistribution.Median.ToString("N2")</span>
+                        </div>
+                        <div class="train-stat">
+                            <span class="train-stat-label">reward std dev</span>
+                            <span class="train-stat-value">@RewardDistribution.StdDev.ToString("N2")</span>
+                        </div>
+                        <div class="train-stat">
+                            <span class="train-stat-label">reward spread</span>
+                            <span class="train-stat-value">@RewardSpread.ToString("N2")</span>
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <TrainingPreview Recipe="CurrentBrainRecipe" DataItems="PreviewDataItems" TrainingItems="PreviewTrainingItems"
-                             From="_from" To="_to" BlockSpan="EpisodeBlockSpan" EpisodeWindows="Service.RecentEpisodeWindows" Table="@_table"
-                             BarWidthSeconds="_barWidthSeconds" StartingCash="_startingCash" TimeConstraint="CurrentEpisodeTimeConstraint" />
+                <TrainingPreview Recipe="CurrentBrainRecipe" DataItems="PreviewDataItems" TrainingItems="PreviewTrainingItems"
+                                 From="_from" To="_to" BlockSpan="EpisodeBlockSpan" EpisodeWindows="Service.RecentEpisodeWindows" Table="@_table"
+                                 BarWidthSeconds="_barWidthSeconds" StartingCash="_startingCash" TimeConstraint="CurrentEpisodeTimeConstraint" />
 
-            <div class="train-content">
-
-
-                <EpisodePlayback BrainName="@_brainName" />
+                <div class="train-content">
 
 
-                @if (Service.Error is not null)
-                {
-                    <p class="train-error">@Service.Error</p>
-                }
-            </div>
+                    <EpisodePlayback BrainName="@_brainName" />
+
+
+                    @if (Service.Error is not null)
+                    {
+                        <p class="train-error">@Service.Error</p>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="train-content">
+                    <div class="train-card train-card-full">
+                        <div class="train-card-title" title="Every saved training result -- Run Setup config, session stats, and a latest-snapshot of the results graphs">
+                            Saved Results</div>
+                        <DataTable TItem="TrainingResultSummary" Items="_savedResults" ShowRowNumbers="false" ActionsHeader="ACTIONS"
+                                   ExcludeProperties="@(new List<string> { "Id" })" OnDelete="DeleteResultAsync"
+                                   EmptyMessage="no saved training results yet -- run training, then use SAVE RESULTS above" />
+                    </div>
+                </div>
+            }
         </div>

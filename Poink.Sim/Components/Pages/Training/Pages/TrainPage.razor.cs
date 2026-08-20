@@ -25,6 +25,8 @@ namespace Poink.Sim.Components.Pages
 
         [Inject] private ILocalStorageHelper LocalStorage { get; set; } = default!;
 
+        [Inject] private ITrainingResultService TrainingResultService { get; set; } = default!;
+
         // Set via @ref on the Build panel -- StartTrainingCore asks it to
         // draft a live, unsaved brain from its current fields right before a
         // run starts (see BrainBuilder.PrepareBrainForTraining).
@@ -77,10 +79,21 @@ namespace Poink.Sim.Components.Pages
 
         private bool _controlsCollapsed;
 
+        private List<TrainingResultSummary> _savedResults = [];
+        private string _saveResultsName = "";
+        private bool _showSaveResultsInput;
+        private string? _resultsStatus;
+
+        private enum TrainTab { Live, SavedResults }
+
+        private TrainTab _activeTab;
+
         protected override void OnInitialized()
         {
             Service.OnChanged += HandleServiceChanged;
         }
+
+        protected override async Task OnInitializedAsync() => await RefreshSavedResultsAsync();
 
         private void HandleServiceChanged() => _ = InvokeAsync(StateHasChanged);
 
@@ -390,6 +403,66 @@ namespace Poink.Sim.Components.Pages
         }
 
         private string CurrentDatasetDescription => $"{_table} ({_from:yyyy-MM-dd HH:mm} to {_to:yyyy-MM-dd HH:mm})";
+
+        // Mirrors CurrentSettings' fields -- a decoupled snapshot for a saved
+        // TrainingResult rather than the page's own round-tripped UI state.
+        private TrainingConfig CurrentTrainingConfig => new(
+            _table, _from, _to, _brainName, _strategyName, _learningRate, _barWidthSeconds, _steppingMode, _cellWidth,
+            _episodeCount, _episodeBars, _restrictEpisodeTiming, [.. _allowedWeekdays], _sessionStart, _sessionEnd,
+            _startingCash, _leverage, _commissionRatePercent, _stopOutLevelPercent, [.. _selectedRiskPolicies]);
+
+        private TrainingSessionStats CurrentTrainingSessionStats => new(
+            Service.EpisodesCompleted, Service.TotalEpisodes, Service.RecentAverageReward, Service.BestReward, Service.WorstReward,
+            Service.EpisodesPerSecond, Service.ActionCounts, WinRatePercent, RewardSpread, RewardDistribution.StdDev, RewardDistribution.Median);
+
+        private TrainingResultsGraph CurrentTrainingResultsGraph => new(Service.RecentEpisodes, Service.RecentEpisodeWindows);
+
+        private bool CanSaveResults => Service.RecentEpisodes.Count > 0;
+
+        private void ShowSaveResultsInput() => _showSaveResultsInput = true;
+
+        private void CancelSaveResults()
+        {
+            _showSaveResultsInput = false;
+            _saveResultsName = "";
+        }
+
+        private async Task SaveResultsAsync()
+        {
+            if (string.IsNullOrWhiteSpace(_saveResultsName))
+                return;
+
+            try
+            {
+                await TrainingResultService.CreateAsync(
+                    _saveResultsName, CurrentTrainingConfig, CurrentTrainingSessionStats, CurrentTrainingResultsGraph);
+                _resultsStatus = $"saved '{_saveResultsName}'";
+                _saveResultsName = "";
+                _showSaveResultsInput = false;
+                await RefreshSavedResultsAsync();
+            }
+            catch (Exception ex)
+            {
+                _resultsStatus = $"save failed: {ex.Message}";
+            }
+        }
+
+        private void OnSaveResultsNameKeyDown(KeyboardEventArgs e)
+        {
+            if (e.Key == "Enter")
+                _ = SaveResultsAsync();
+            else if (e.Key == "Escape")
+                CancelSaveResults();
+        }
+
+        private async Task RefreshSavedResultsAsync() =>
+            _savedResults = [.. await TrainingResultService.ListAsync()];
+
+        private async Task DeleteResultAsync(TrainingResultSummary summary)
+        {
+            await TrainingResultService.DeleteAsync(summary.Id);
+            await RefreshSavedResultsAsync();
+        }
 
         private double WinRatePercent
         {

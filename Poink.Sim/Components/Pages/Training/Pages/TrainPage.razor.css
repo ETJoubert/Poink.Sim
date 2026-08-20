@@ -92,6 +92,12 @@
     text-shadow: 0 0 8px color-mix(in srgb, var(--color-success) 60%, transparent);
 }
 
+.train-tabs {
+    display: flex;
+    gap: 8px;
+    padding: 12px 24px 0;
+}
+
 .train-config-group {
     border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
 }

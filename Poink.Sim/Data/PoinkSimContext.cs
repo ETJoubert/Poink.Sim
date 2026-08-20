@@ -9,5 +9,7 @@ namespace Poink.Sim.Data
         public PoinkSimContext(DbContextOptions<PoinkSimContext> options) : base(options) { }
 
         public DbSet<CTraderAccountToken> CTraderAccountTokens { get; set; }
+
+        public DbSet<TrainingResult> TrainingResults { get; set; }
     }
 }
