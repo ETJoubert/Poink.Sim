@@ -35,10 +35,20 @@
     <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="9.0.0" />
     <PackageReference Include="Microsoft.ML" Version="5.0.0" />
     <PackageReference Include="TorchSharp" Version="0.107.0" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(OS)' == 'Windows_NT'">
     <!-- CUDA backend targeting the RTX 3060, matching Poink.ML's choice. This package
          bundles both CUDA and CPU kernels, so code still runs fine on machines without
          a GPU. Swap back to TorchSharp-cpu for a much smaller download if needed. -->
     <PackageReference Include="TorchSharp-cuda-windows" Version="0.107.0" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(OS)' != 'Windows_NT'">
+    <!-- win-x64-only native libs in TorchSharp-cuda-windows leave non-Windows builds (the
+         Poink.Sim Docker image) with no libtorch at all. CPU-only here instead, so
+         neural brain pages still work in-container, just without GPU acceleration. -->
+    <PackageReference Include="TorchSharp-cpu" Version="0.107.0" />
   </ItemGroup>
 
   <ItemGroup>

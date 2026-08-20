@@ -1,3 +1,4 @@
+using System;
 using System.Runtime.InteropServices;
 
 namespace Poink.Sim.Diagnostics;
@@ -23,8 +24,13 @@ internal static class NativeMemory
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool GlobalMemoryStatusEx(ref MEMORYSTATUSEX lpBuffer);
 
+    // GlobalMemoryStatusEx is a kernel32 export -- unavailable on non-Windows hosts (e.g. the
+    // Linux container build), where this reports "unknown" rather than throwing.
     public static (ulong totalBytes, ulong availBytes) GetPhysicalMemory()
     {
+        if (!OperatingSystem.IsWindows())
+            return (0UL, 0UL);
+
         var status = new MEMORYSTATUSEX { dwLength = (uint)Marshal.SizeOf<MEMORYSTATUSEX>() };
         return GlobalMemoryStatusEx(ref status) ? (status.ullTotalPhys, status.ullAvailPhys) : (0UL, 0UL);
     }

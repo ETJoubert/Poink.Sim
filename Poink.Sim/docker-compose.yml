@@ -1,0 +1,28 @@
+# Simple local build-and-run loop for Poink.Sim: `docker compose up --build` publishes the
+# app fresh into a Linux container and runs it, as a quick sanity check of the real
+# published build alongside your normal local dev/debug loop -- it doesn't replace it.
+#
+# Requires the repo root's docker-compose.yml (postgres/pgadmin/metabase) already running --
+# this only runs the app itself and points at that Postgres via host.docker.internal, which
+# Docker Desktop resolves to the host machine automatically.
+services:
+  poink-sim:
+    build:
+      context: ..
+      dockerfile: Poink.Sim/Dockerfile
+      args:
+        BUILD_CONFIGURATION: Release
+    container_name: poink-sim
+    ports:
+      # Matches appsettings.json's CTrader:RedirectUri (http://localhost:5001/...).
+      - "5001:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__PoinkSim: "Host=host.docker.internal;Port=5432;Username=postgres;Password=postgres;Database=Poink.Sim"
+      ConnectionStrings__PoinkSimMaintenance: "Host=host.docker.internal;Port=5432;Username=postgres;Password=postgres;Database=postgres"
+      ConnectionStrings__PoinkMarketData: "Host=host.docker.internal;Port=5432;Username=postgres;Password=postgres;Database=Poink.MarketData"
+    # Uncomment to enable cTrader login from inside the container -- optional; mounted
+    # read-only from the host rather than baked into the image, so it never ends up in a
+    # layer or gets committed.
+    # volumes:
+    #   - ../appsettings.Secrets.json:/app/appsettings.Secrets.json:ro
