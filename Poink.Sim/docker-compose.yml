@@ -14,13 +14,19 @@ services:
         BUILD_CONFIGURATION: Release
     container_name: poink-sim
     ports:
-      # Matches appsettings.json's CTrader:RedirectUri (http://localhost:5001/...).
-      - "5001:8080"
+      # Deliberately not 5001 (appsettings.json's CTrader:RedirectUri) -- keeps this
+      # container running alongside a local `dotnet run` without a port clash. cTrader
+      # login needs its own redirect URI registered for http://localhost:5000/... to work
+      # from here.
+      - "5000:8080"
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__PoinkSim: "Host=host.docker.internal;Port=5432;Username=postgres;Password=postgres;Database=Poink.Sim"
       ConnectionStrings__PoinkSimMaintenance: "Host=host.docker.internal;Port=5432;Username=postgres;Password=postgres;Database=postgres"
       ConnectionStrings__PoinkMarketData: "Host=host.docker.internal;Port=5432;Username=postgres;Password=postgres;Database=Poink.MarketData"
+      # appsettings.json's default (port 5001) is for local `dotnet run`. Login from this
+      # container needs its own redirect URI registered with cTrader for port 5000.
+      CTrader__RedirectUri: "http://localhost:5000/ctrader/callback"
     # Uncomment to enable cTrader login from inside the container -- optional; mounted
     # read-only from the host rather than baked into the image, so it never ends up in a
     # layer or gets committed.
