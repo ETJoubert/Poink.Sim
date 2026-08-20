@@ -4,8 +4,10 @@
 // data/pixels split the component held when it rendered to a CSS grid, moved off the DOM so
 // cell count no longer costs DOM nodes.
 
-function cssVar(name) {
-    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+// Theme colours live on :root; XGrid's own variables (see XGrid.razor.css) live on
+// .xgrid-wrapper instead, so those calls pass the canvas to read the inherited value.
+function cssVar(name, el = document.documentElement) {
+    return getComputedStyle(el).getPropertyValue(name).trim();
 }
 
 // App theme colours are hex; parse to "r,g,b" so alpha can be applied per cell.
@@ -67,7 +69,7 @@ function paint(canvas) {
     }
     const ctx = canvas.getContext('2d');
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    render(ctx, W, H, p, st);
+    render(ctx, W, H, p, st, canvas);
 }
 
 // One reserved cell of margin on the left and bottom -- sizing the cells to cols+1 / rows+1
@@ -84,7 +86,7 @@ function layout(p, W, H) {
     return { cw, ch, ml: margin, mr: margin, mb: ch, gRight: W - margin, gBottom: H - ch };
 }
 
-function render(ctx, W, H, p, st) {
+function render(ctx, W, H, p, st, canvas) {
     ctx.clearRect(0, 0, W, H);
     const rows = p.rows, cols = p.cols;
     if (rows <= 0 || cols <= 0) return;
@@ -93,7 +95,7 @@ function render(ctx, W, H, p, st) {
     const cw = L.cw, ch = L.ch, ml = L.ml, mr = L.mr, mb = L.mb, gRight = L.gRight;
     const gap = (cw > 3 && ch > 3) ? 1 : 0;
 
-    ctx.fillStyle = 'rgba(255,255,255,0.03)';
+    ctx.fillStyle = cssVar('--xgrid-grid-fill', canvas);
     ctx.fillRect(ml, 0, gRight - ml, H - mb);
 
     // cells: byte per cell, 128 = zero; delta mode reads the sign, count mode is >= 128.

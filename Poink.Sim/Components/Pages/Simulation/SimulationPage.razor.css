@@ -762,6 +762,11 @@
     min-height: 0;
 }
 
+.sim-chart-fill {
+    flex: 1 1 auto;
+    width: auto;
+}
+
 .sim-chart-divider {
     position: relative;
     flex: 0 0 6px;

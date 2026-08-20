@@ -419,7 +419,7 @@
                         <div class="sim-chart">
                             @if (_showMainChart)
                             {
-                                <div class="sim-chart-main">
+                                <div class="sim-chart-main @(VisibleChartPanelCount(s) == 1 ? "sim-chart-fill" : "")">
                                     @if (s.Config.Aggregate)
                                     {
                                         <MarketChart Bars="ToBarRows(s.RecentBars)" KeepView="_keepChartView"
@@ -438,9 +438,12 @@
                             }
                             @if (s.Config.Aggregate && _showXGrid)
                             {
-                                <div class="sim-chart-divider" @ref="_chartDividerRefXGrid" data-min-width="160"
-                                     title="Drag to resize"></div>
-                                <div class="sim-chart-side">
+                                @if (ShowXGridDivider(s))
+                                {
+                                    <div class="sim-chart-divider" @ref="_chartDividerRefXGrid" data-min-width="160"
+                                         title="Drag to resize"></div>
+                                }
+                                <div class="sim-chart-side @(VisibleChartPanelCount(s) == 1 ? "sim-chart-fill" : "")">
                                     <XGrid Grid="ComputeXGrid(s)" Positions="XGridPositions(s)"
                                            Pending="XGridPending()" OnOrderPlaced="PlaceXGridOrder"
                                            OnPendingModified="ModifyXGridPending" OnPendingCancelled="CancelXGridPending"
@@ -480,9 +483,12 @@
                             }
                             @if (_showVolumeProfile)
                             {
-                                <div class="sim-chart-divider" @ref="_chartDividerRef" data-min-width="160"
-                                     title="Drag to resize"></div>
-                                <div class="sim-chart-side">
+                                @if (ShowVolumeProfileDivider(s))
+                                {
+                                    <div class="sim-chart-divider" @ref="_chartDividerRef" data-min-width="160"
+                                         title="Drag to resize"></div>
+                                }
+                                <div class="sim-chart-side @(VisibleChartPanelCount(s) == 1 ? "sim-chart-fill" : "")">
                                     @if (s.Config.Aggregate)
                                     {
                                         <TickVolumeProfileChart WeightedSamples="MergedBarSamples(s)" CurrentPrice="s.CurrentPrice"
@@ -497,9 +503,12 @@
                             }
                             @if (_showTimeProfile)
                             {
-                                <div class="sim-chart-divider" @ref="_chartDividerRef2" data-min-width="160"
-                                     title="Drag to resize"></div>
-                                <div class="sim-chart-side">
+                                @if (ShowTimeProfileDivider(s))
+                                {
+                                    <div class="sim-chart-divider" @ref="_chartDividerRef2" data-min-width="160"
+                                         title="Drag to resize"></div>
+                                }
+                                <div class="sim-chart-side @(VisibleChartPanelCount(s) == 1 ? "sim-chart-fill" : "")">
                                     @if (s.Config.Aggregate)
                                     {
                                         <TickTimeProfileChart WeightedSamples="MergedBarTimeSamples(s)" CurrentPrice="s.CurrentPrice" />

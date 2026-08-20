@@ -98,6 +98,27 @@ namespace Poink.Sim.Components.Pages
         private int _xgridPipCount = 20;
         private int _xgridColCount = 20;
 
+        // A lone visible panel fills the row instead of keeping its dragged/default width,
+        // since a resize divider has nothing to divide against with only one panel showing.
+        private int VisibleChartPanelCount(SimulationSnapshot s) =>
+            (_showMainChart ? 1 : 0) +
+            (s.Config.Aggregate && _showXGrid ? 1 : 0) +
+            (_showVolumeProfile ? 1 : 0) +
+            (_showTimeProfile ? 1 : 0);
+
+        // A divider's negative margin assumes a panel sits to its left -- rendering one as the
+        // row's first flex child pulls it past the container's own padding. Panels are ordered
+        // main -> XGrid -> volume profile -> time profile, so each divider only shows once a
+        // panel earlier in that order is actually visible for it to sit between.
+        private bool ShowXGridDivider(SimulationSnapshot s) =>
+            s.Config.Aggregate && _showXGrid && _showMainChart;
+
+        private bool ShowVolumeProfileDivider(SimulationSnapshot s) =>
+            _showVolumeProfile && (_showMainChart || (s.Config.Aggregate && _showXGrid));
+
+        private bool ShowTimeProfileDivider(SimulationSnapshot s) =>
+            _showTimeProfile && (_showMainChart || (s.Config.Aggregate && _showXGrid) || _showVolumeProfile);
+
         private XGridResult? _xgridCache;
         private (int Pips, double PipSize, int Cols, int Window, int Count, DateTime LastOpen, double LastClose, double LastVolume)? _xgridKey;
 
@@ -445,11 +466,11 @@ namespace Poink.Sim.Components.Pages
 
             if (_snapshot is not null && !_hideChart && _dividerResizeInstance is not null)
             {
-                if (_snapshot.Config.Aggregate && _showXGrid)
+                if (ShowXGridDivider(_snapshot))
                     await _dividerResizeInstance.InvokeVoidAsync("bind", _chartDividerRefXGrid);
-                if (_showVolumeProfile)
+                if (ShowVolumeProfileDivider(_snapshot))
                     await _dividerResizeInstance.InvokeVoidAsync("bind", _chartDividerRef);
-                if (_showTimeProfile)
+                if (ShowTimeProfileDivider(_snapshot))
                     await _dividerResizeInstance.InvokeVoidAsync("bind", _chartDividerRef2);
                 await _dividerResizeInstance.InvokeVoidAsync("bindHeight", _chartHDividerRef);
             }
