@@ -178,6 +178,7 @@
    width) but needs its fields-row to stay flex -- see .train-card-fields-row. */
 .train-card-datarange .train-card-fields-row {
     display: block;
+
 }
 
 .train-card-fields-row {

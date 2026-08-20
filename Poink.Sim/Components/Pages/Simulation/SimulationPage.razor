@@ -278,6 +278,28 @@
                         <button class="sim-ctrl-btn sim-ctrl-btn-max @(s.IsUncapped ? "active" : "")" @onclick="SetMax"
                                 title="Uncapped backend speed -- combine with Hide Chart for the fastest runs">MAX</button>
                         <button class="sim-ctrl-btn sim-ctrl-btn-warn" @onclick="ResetSim">RESET</button>
+                        @if (_setupCollapsed && s.Config.Aggregate)
+                        {
+                            <span class="sim-toolbar-divider"></span>
+                            <div class="sim-toolbar-stepctrls">
+                                <BarSizeSelect @bind-Value="_barSizeSeconds" @bind-Value:after="OnAggregationSettingChanged"
+                                               Disabled="@_isLoading" Label=""
+                                               Title="Size of each aggregated bar -- can be changed while a simulation is running" />
+                                <select class="sim-datarow-select sim-toolbar-select" @bind="_steppingMode"
+                                        @bind:after="OnSteppingModeChanged" disabled="@_isLoading"
+                                        title="Bar steps a decision on each aggregated bar's close. Cell steps on a fixed-width price band instead, the moment price moves into a different band -- can be changed while a simulation is running">
+                                    <option value="@SimulationSteppingMode.Bar">step: bar</option>
+                                    <option value="@SimulationSteppingMode.Cell">step: cell</option>
+                                </select>
+                                @if (_steppingMode == SimulationSteppingMode.Cell)
+                                {
+                                    <input class="sim-window-input sim-toolbar-cell-input" type="number" min="0.00001"
+                                           step="0.01" @bind="_cellWidth" @bind:after="OnSteppingModeChanged"
+                                           disabled="@_isLoading"
+                                           title="Fixed price width of each cell -- a decision fires when price crosses from one cell into the next" />
+                                }
+                            </div>
+                        }
                         <SimTimeline />
 
                         <div class="sim-controls-right">
@@ -417,14 +439,13 @@
                             @if (s.Config.Aggregate && _showXGrid)
                             {
                                 <div class="sim-chart-divider" @ref="_chartDividerRefXGrid" data-min-width="160"
-                                     data-max-width="480" title="Drag to resize"></div>
-                                <div class="sim-chart-side @(_xgridCollapsed ? "sim-chart-side-collapsed" : "")">
+                                     title="Drag to resize"></div>
+                                <div class="sim-chart-side">
                                     <XGrid Grid="ComputeXGrid(s)" Positions="XGridPositions(s)"
                                            Pending="XGridPending()" OnOrderPlaced="PlaceXGridOrder"
                                            OnPendingModified="ModifyXGridPending" OnPendingCancelled="CancelXGridPending"
                                            OnPositionClosed="CloseXGridPosition" Lines="CellBandLines(s)"
-                                           @bind-PipCount="_xgridPipCount" @bind-ColCount="_xgridColCount"
-                                           @bind-Collapsed="_xgridCollapsed">
+                                           @bind-PipCount="_xgridPipCount" @bind-ColCount="_xgridColCount">
                                         <ExpandedControls>
                                             <button class="sim-ctrl-btn sim-ctrl-btn-play" @onclick="TogglePlayPause" disabled="@s.IsFinished"
                                                     title="@(s.IsPlaying ? "Pause playback" : "Resume playback")">
@@ -459,35 +480,34 @@
                             }
                             @if (_showVolumeProfile)
                             {
-                                <div class="sim-chart-divider" @ref="_chartDividerRef" data-min-width="160" data-max-width="480"
+                                <div class="sim-chart-divider" @ref="_chartDividerRef" data-min-width="160"
                                      title="Drag to resize"></div>
-                                <div class="sim-chart-side @(_volumeProfileCollapsed ? "sim-chart-side-collapsed" : "")">
+                                <div class="sim-chart-side">
                                     @if (s.Config.Aggregate)
                                     {
                                         <TickVolumeProfileChart WeightedSamples="MergedBarSamples(s)" CurrentPrice="s.CurrentPrice"
-                                                                ShowLevels="_showProfilePanelLevels" @bind-Collapsed="_volumeProfileCollapsed" />
+                                                                ShowLevels="_showProfilePanelLevels" />
                                     }
                                     else
                                     {
                                         <TickVolumeProfileChart Prices="ToMidPrices(s.RecentTicks)" CurrentPrice="s.CurrentPrice"
-                                                                WindowSize="ClampedTickWindow" @bind-Collapsed="_volumeProfileCollapsed" />
+                                                                WindowSize="ClampedTickWindow" />
                                     }
                                 </div>
                             }
                             @if (_showTimeProfile)
                             {
-                                <div class="sim-chart-divider" @ref="_chartDividerRef2" data-min-width="160" data-max-width="480"
+                                <div class="sim-chart-divider" @ref="_chartDividerRef2" data-min-width="160"
                                      title="Drag to resize"></div>
-                                <div class="sim-chart-side @(_timeProfileCollapsed ? "sim-chart-side-collapsed" : "")">
+                                <div class="sim-chart-side">
                                     @if (s.Config.Aggregate)
                                     {
-                                        <TickTimeProfileChart WeightedSamples="MergedBarTimeSamples(s)" CurrentPrice="s.CurrentPrice"
-                                                              @bind-Collapsed="_timeProfileCollapsed" />
+                                        <TickTimeProfileChart WeightedSamples="MergedBarTimeSamples(s)" CurrentPrice="s.CurrentPrice" />
                                     }
                                     else
                                     {
                                         <TickTimeProfileChart Ticks="ToTimedMidPrices(s.RecentTicks)" CurrentPrice="s.CurrentPrice"
-                                                              WindowSize="ClampedTickWindow" @bind-Collapsed="_timeProfileCollapsed" />
+                                                              WindowSize="ClampedTickWindow" />
                                     }
                                 </div>
                             }

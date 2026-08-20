@@ -171,13 +171,6 @@
     overflow-y: auto;
 }
 
-.prof-chart-side.prof-chart-side-collapsed {
-    width: 22px;
-    min-width: 22px;
-    max-width: 22px;
-    overflow: hidden;
-}
-
 .prof-vp {
     flex: 1 1 auto;
     min-height: 0;
@@ -254,16 +247,27 @@
     flex: 1;
 }
 
+.prof-chart-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+}
+
 .prof-overlay-toggles {
     display: flex;
     align-items: center;
     gap: 14px;
     flex-wrap: wrap;
     padding: 5px 10px;
-    margin-bottom: 10px;
     background: color-mix(in srgb, var(--color-highlight) 6%, transparent);
     border: 1px solid color-mix(in srgb, var(--color-highlight) 30%, transparent);
     border-radius: var(--border-radius-sm);
+}
+
+.prof-profile-toggles {
+    margin-left: auto;
 }
 
 .prof-overlay-toggles-label {

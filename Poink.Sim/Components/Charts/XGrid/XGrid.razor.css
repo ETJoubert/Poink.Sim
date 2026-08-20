@@ -50,17 +50,12 @@
     opacity: 0.85;
 }
 
-.xgrid-header-collapsed {
-    justify-content: center;
-}
-
 .xgrid-header-actions {
     display: flex;
     align-items: center;
     gap: 10px;
 }
 
-.xgrid-collapse-btn,
 .xgrid-expand-btn {
     flex: 0 0 auto;
     background: transparent;
@@ -74,7 +69,6 @@
     transition: color 0.15s ease, border-color 0.15s ease;
 }
 
-.xgrid-collapse-btn:hover,
 .xgrid-expand-btn:hover {
     color: var(--color-primary);
     border-color: var(--color-primary);

@@ -199,38 +199,39 @@
                                        disabled="@Service.IsRunning" />
                                 Restrict timing
                             </label>
-                        </div>
-                        @if (_restrictEpisodeTiming)
-                        {
-                            <div class="train-card-fields-row">
-                                <div class="train-brainrow-field" title="Which days of the week an episode may start on">
-                                    Weekdays
-                                    <div class="train-weekday-row">
-                                        @foreach (var day in WeekdayDisplayOrder)
-                                        {
-                                            <button type="button"
-                                                    class="train-btn-toggle @(_allowedWeekdays.Contains(day) ? "train-btn-toggle-active" : "")"
-                                                    @onclick="@(() => ToggleWeekday(day))" disabled="@Service.IsRunning"
-                                                    title="@day.ToString()">
-                                                @WeekdayAbbreviation(day)
-                                            </button>
-                                        }
+
+                            @if (_restrictEpisodeTiming)
+                            {
+                                <div class="train-card-fields-row">
+                                    <div class="train-brainrow-field" title="Which days of the week an episode may start on">
+                                        Weekdays
+                                        <div class="train-weekday-row">
+                                            @foreach (var day in WeekdayDisplayOrder)
+                                            {
+                                                <button type="button"
+                                                        class="train-btn-toggle @(_allowedWeekdays.Contains(day) ? "train-btn-toggle-active" : "")"
+                                                        @onclick="@(() => ToggleWeekday(day))" disabled="@Service.IsRunning"
+                                                        title="@day.ToString()">
+                                                    @WeekdayAbbreviation(day)
+                                                </button>
+                                            }
+                                        </div>
                                     </div>
+                                    <label class="train-brainrow-field"
+                                           title="Time-of-day window an episode's decisions span, on each eligible day -- 24:00 means end of day">
+                                        Session
+                                        <input class="train-brainrow-input train-brainrow-input-narrow" type="text"
+                                               placeholder="00:00" @bind="SessionStartText" disabled="@Service.IsRunning" />
+                                        to
+                                        <input class="train-brainrow-input train-brainrow-input-narrow" type="text"
+                                               placeholder="24:00" @bind="SessionEndText" disabled="@Service.IsRunning" />
+                                    </label>
                                 </div>
-                                <label class="train-brainrow-field"
-                                       title="Time-of-day window an episode's decisions span, on each eligible day -- 24:00 means end of day">
-                                    Session
-                                    <input class="train-brainrow-input train-brainrow-input-narrow" type="text" placeholder="00:00"
-                                           @bind="SessionStartText" disabled="@Service.IsRunning" />
-                                    to
-                                    <input class="train-brainrow-input train-brainrow-input-narrow" type="text" placeholder="24:00"
-                                           @bind="SessionEndText" disabled="@Service.IsRunning" />
-                                </label>
-                            </div>
-                        }
+                            }
+                        </div>
                     </div>
 
-                    <div class="train-card">
+                    <div class="train-card train-card-full">
                         <div class="train-card-title" title="Starting capital the simulated Trader begins each episode with">
                             Trader</div>
                             <div class="train-card-fields-row">

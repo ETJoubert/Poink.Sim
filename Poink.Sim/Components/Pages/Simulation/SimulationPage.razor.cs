@@ -90,9 +90,6 @@ namespace Poink.Sim.Components.Pages
         private bool _showProfileChartLines = true;
         private bool _showVwap = true;
 
-        private bool _volumeProfileCollapsed;
-        private bool _timeProfileCollapsed;
-
         private bool _showMainChart = true;
         private bool _showXGrid;
         private bool _showVolumeProfile;
@@ -100,7 +97,6 @@ namespace Poink.Sim.Components.Pages
 
         private int _xgridPipCount = 20;
         private int _xgridColCount = 20;
-        private bool _xgridCollapsed;
 
         private XGridResult? _xgridCache;
         private (int Pips, double PipSize, int Cols, int Window, int Count, DateTime LastOpen, double LastClose, double LastVolume)? _xgridKey;
@@ -381,7 +377,7 @@ namespace Poink.Sim.Components.Pages
                     if (!divider || divider.dataset.bound) return;
                     divider.dataset.bound = '1';
                     var minWidth = parseInt(divider.dataset.minWidth, 10) || 160;
-                    var maxWidth = parseInt(divider.dataset.maxWidth, 10) || 480;
+                    var maxWidth = parseInt(divider.dataset.maxWidth, 10) || Infinity;
                     divider.addEventListener('pointerdown', function(e) {
                         e.preventDefault();
                         var side = divider.nextElementSibling;

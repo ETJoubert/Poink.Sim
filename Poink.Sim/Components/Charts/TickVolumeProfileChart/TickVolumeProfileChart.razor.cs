@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 
 namespace Poink.Sim.Components.Charts
@@ -51,15 +50,6 @@ namespace Poink.Sim.Components.Charts
         // overlay toggle. Doesn't affect WeightedSamples/Buckets at all, only whether
         // Levels (and therefore IsPoc/IsValueArea/the header readout) ever computes.
         [Parameter] public bool ShowLevels { get; set; } = true;
-
-        // Two-way bound so the parent (ProfilerPage) can shrink its own layout column
-        // around this panel -- the collapse button itself lives in this component's own
-        // header, but only the parent knows whether it owns a resizable outer column that
-        // needs to shrink alongside it.
-        [Parameter] public bool Collapsed { get; set; }
-        [Parameter] public EventCallback<bool> CollapsedChanged { get; set; }
-
-        private Task ToggleCollapsed() => CollapsedChanged.InvokeAsync(Collapsed = !Collapsed);
 
         private bool _splitUpDown;
         private int _bucketCount = 20;

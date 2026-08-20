@@ -188,7 +188,6 @@
     display: flex;
     align-items: center;
     gap: 14px;
-    flex-wrap: wrap;
     min-height: 30px;
 }
 
@@ -418,7 +417,7 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    flex-wrap: wrap;
+
 }
 
 .sim-controls ::deep .stl-progress {
@@ -439,6 +438,26 @@
     align-self: stretch;
     background: color-mix(in srgb, var(--color-primary) 20%, transparent);
     margin: 0 4px;
+}
+
+.sim-toolbar-stepctrls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.sim-toolbar-stepctrls ::deep .bar-size-select-input {
+    min-width: 84px;
+    font-size: 11px;
+}
+
+.sim-toolbar-select {
+    width: 90px;
+    font-size: 11px;
+}
+
+.sim-toolbar-cell-input {
+    width: 64px;
 }
 
 ::deep .sim-ctrl-icon {
@@ -737,18 +756,10 @@
 }
 
 .sim-chart-side {
-    flex: 1 1 auto;
+    flex: 0 0 auto;
     width: 260px;
     min-width: 160px;
     min-height: 0;
-}
-
-.sim-chart-side.sim-chart-side-collapsed {
-    flex: 0 0 22px;
-    width: 22px;
-    min-width: 22px;
-    max-width: 22px;
-    overflow: hidden;
 }
 
 .sim-chart-divider {

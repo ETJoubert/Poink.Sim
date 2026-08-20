@@ -98,9 +98,10 @@ namespace Poink.Sim.Components.Pages
         private bool _showAverageLine = true;
         private bool _showMedianLine = true;
 
-        private bool _volumeProfileCollapsed;
-        private bool _timeProfileCollapsed;
-        private bool _xgridCollapsed;
+        private bool _showMainChart = true;
+        private bool _showXGrid = true;
+        private bool _showVolumeProfile = true;
+        private bool _showTimeProfile = true;
 
 
 
@@ -213,9 +214,12 @@ namespace Poink.Sim.Components.Pages
 
             if (HasData && _dividerResizeInstance is not null)
             {
-                await _dividerResizeInstance.InvokeVoidAsync("bind", _chartDividerRefXGrid);
-                await _dividerResizeInstance.InvokeVoidAsync("bind", _chartDividerRef);
-                await _dividerResizeInstance.InvokeVoidAsync("bind", _chartDividerRef2);
+                if (_showXGrid)
+                    await _dividerResizeInstance.InvokeVoidAsync("bind", _chartDividerRefXGrid);
+                if (_showVolumeProfile)
+                    await _dividerResizeInstance.InvokeVoidAsync("bind", _chartDividerRef);
+                if (_showTimeProfile)
+                    await _dividerResizeInstance.InvokeVoidAsync("bind", _chartDividerRef2);
                 await _dividerResizeInstance.InvokeVoidAsync("bindHeight", _chartHDividerRef);
             }
         }

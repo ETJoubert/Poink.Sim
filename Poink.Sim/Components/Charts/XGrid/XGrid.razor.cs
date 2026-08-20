@@ -20,8 +20,7 @@ namespace Poink.Sim.Components.Charts
 
         // Two-way bound so the host (the only one that can call XGridStats.Compute -- it owns
         // the bars/histograms) recomputes Grid when either changes. The inputs themselves live
-        // in this component's own header, same ownership split as TickVolumeProfileChart/
-        // TickTimeProfileChart's Collapsed parameter.
+        // in this component's own header.
         // PipCount x the instrument's pip size (host-owned, not this component's concern) is
         // the fixed row height the host passes into XGridStats.Compute -- row count is then
         // derived from however many of those bands the price range needs.
@@ -33,13 +32,6 @@ namespace Poink.Sim.Components.Charts
 
         private Task SetPipCount(int value) => PipCountChanged.InvokeAsync(PipCount = value);
         private Task SetColCount(int value) => ColCountChanged.InvokeAsync(ColCount = value);
-
-        // Two-way bound so the parent shrinks its own layout column around this panel, same
-        // ownership split as TickVolumeProfileChart/TickTimeProfileChart's Collapsed.
-        [Parameter] public bool Collapsed { get; set; }
-        [Parameter] public EventCallback<bool> CollapsedChanged { get; set; }
-
-        private Task ToggleCollapsed() => CollapsedChanged.InvokeAsync(Collapsed = !Collapsed);
 
         // Local overlay state, same fixed-position "get bigger" expand as MarketChart's own
         // _expanded -- purely visual, so it stays unbound rather than a two-way parameter.
@@ -261,7 +253,7 @@ namespace Poink.Sim.Components.Charts
 
                 // The canvas is only in the DOM when this same condition rendered it, so
                 // _canvasRef is valid exactly then -- guarding here keeps draw off a stale ref.
-                if (!_disposed && !Collapsed && Grid is { } grid)
+                if (!_disposed && Grid is { } grid)
                     await _module.InvokeVoidAsync("draw", _canvasRef, _dotNetRef, BuildPayload(grid));
             }
             catch (JSDisconnectedException) { }

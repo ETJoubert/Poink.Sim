@@ -218,7 +218,6 @@ namespace Poink.Sim.Components.Training
 
         private int _xgridPipCount = 20;
         private int _xgridColCount = 20;
-        private bool _xgridCollapsed;
 
         private List<WeightedPriceSample> EpisodeXGridSamples
         {
