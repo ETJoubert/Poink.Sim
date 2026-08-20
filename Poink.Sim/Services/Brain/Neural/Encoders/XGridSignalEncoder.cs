@@ -15,7 +15,7 @@ internal sealed class XGridSignalEncoder : IObservationEncoder
     private const int DefaultWindowBars = 60;
     private const double DefaultPercent = 10;
 
-    private readonly IReadOnlyList<XGridSignalKind> _signals;
+    private readonly IReadOnlyList<string> _signals;
     private readonly double _percent;
     private readonly int _rowPips;
     private readonly double _pipSize;
@@ -25,7 +25,7 @@ internal sealed class XGridSignalEncoder : IObservationEncoder
     private readonly IReadOnlyList<FeatureDescriptor> _features;
 
     public XGridSignalEncoder(
-        IReadOnlyList<XGridSignalKind> signals, double percent = DefaultPercent,
+        IReadOnlyList<string> signals, double percent = DefaultPercent,
         int rowPips = DefaultRowPips, double pipSize = DefaultPipSize, int colCount = DefaultColCount, int windowBars = DefaultWindowBars,
         IFeatureNormalizer? binaryNormalizer = null)
     {
@@ -36,7 +36,7 @@ internal sealed class XGridSignalEncoder : IObservationEncoder
         _colCount = Math.Max(1, colCount);
         _windowBars = Math.Max(1, windowBars);
         _binaryNormalizer = binaryNormalizer ?? new BinaryNormalizer();
-        _features = _signals.Select(s => new FeatureDescriptor($"xgrid-{XGridSignals.Label(s)}", _binaryNormalizer)).ToList();
+        _features = _signals.Select(s => new FeatureDescriptor($"xgrid-{s}", _binaryNormalizer)).ToList();
     }
 
     public int FeatureCount => _signals.Count;
@@ -49,8 +49,8 @@ internal sealed class XGridSignalEncoder : IObservationEncoder
 
     // Evaluated against this encoder's own grid/threshold config regardless of which signals
     // it was configured to expose as input features, so a mask rule can reuse it as-is.
-    public bool HasSignal(XGridSignalKind kind, SimulationObservation observation) =>
-        BuildGrid(observation) is { } grid && XGridSignals.Value(grid, kind, _percent);
+    public bool HasSignal(string kind, SimulationObservation observation) =>
+        BuildGrid(observation) is { } grid && XGridSignalCatalog.Value(grid, kind, _percent);
 
     public float[] Encode(SimulationObservation observation)
     {
@@ -63,7 +63,7 @@ internal sealed class XGridSignalEncoder : IObservationEncoder
 
         for (int i = 0; i < _signals.Count; i++)
         {
-            bool value = XGridSignals.Value(grid, _signals[i], _percent);
+            bool value = XGridSignalCatalog.Value(grid, _signals[i], _percent);
             features[i] = _binaryNormalizer.Normalize(value ? 1 : 0, observation);
         }
         return features;

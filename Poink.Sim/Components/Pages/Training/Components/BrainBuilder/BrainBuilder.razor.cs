@@ -171,21 +171,7 @@ namespace Poink.Sim.Components.Training
             _traderStateIncludeMarginLevel = sizes.TraderStateIncludeMarginLevel;
             _traderStateIncludePositionCount = sizes.TraderStateIncludePositionCount;
 
-            _xgridRankTopTotal = sizes.XGridRankTopTotal;
-            _xgridRankTopUp = sizes.XGridRankTopUp;
-            _xgridRankTopDown = sizes.XGridRankTopDown;
-            _xgridAtPoc = sizes.XGridAtPoc;
-            _xgridAtVah = sizes.XGridAtVah;
-            _xgridAtVal = sizes.XGridAtVal;
-            _xgridAtVwap = sizes.XGridAtVwap;
-            _xgridAbovePoc = sizes.XGridAbovePoc;
-            _xgridAboveVah = sizes.XGridAboveVah;
-            _xgridAboveVal = sizes.XGridAboveVal;
-            _xgridAboveVwap = sizes.XGridAboveVwap;
-            _xgridBelowPoc = sizes.XGridBelowPoc;
-            _xgridBelowVah = sizes.XGridBelowVah;
-            _xgridBelowVal = sizes.XGridBelowVal;
-            _xgridBelowVwap = sizes.XGridBelowVwap;
+            _xgridEnabledSignals = sizes.XGridEnabledSignals is { } enabled ? new HashSet<string>(enabled) : [];
             _xgridTopPercent = sizes.XGridTopPercent;
             _xgridColCount = sizes.XGridColCount;
             _xgridRowCount = sizes.XGridRowCount;
@@ -340,21 +326,9 @@ namespace Poink.Sim.Components.Training
             }
         }
 
-        private bool _xgridRankTopTotal;
-        private bool _xgridRankTopUp;
-        private bool _xgridRankTopDown;
-        private bool _xgridAtPoc;
-        private bool _xgridAtVah;
-        private bool _xgridAtVal;
-        private bool _xgridAtVwap;
-        private bool _xgridAbovePoc;
-        private bool _xgridAboveVah;
-        private bool _xgridAboveVal;
-        private bool _xgridAboveVwap;
-        private bool _xgridBelowPoc;
-        private bool _xgridBelowVah;
-        private bool _xgridBelowVal;
-        private bool _xgridBelowVwap;
+        // Which XGridSignalCatalog.All entries (by Key) are enabled -- one HashSet instead of
+        // one private bool field per signal, so a new catalog entry needs no field added here.
+        private HashSet<string> _xgridEnabledSignals = [];
 
         private double _xgridTopPercent = 10;
         private int _xgridColCount = 20;
@@ -362,51 +336,22 @@ namespace Poink.Sim.Components.Training
         private double _xgridPipSize = 0.01;
         private int _xgridWindowBars = 60;
 
-        private const int TotalXGridSignalCount = 15;
+        private int TotalXGridSignalCount => XGridSignalCatalog.All.Count;
 
         private sealed record XGridSignalRow(string Group, string Label, string Tooltip, Func<bool> Get, Action<bool> Set);
 
-        // (Group, Label, Tooltip, Get, Set) per signal -- drives the checkbox rows in the
-        // XGrid Signals card from one list instead of 15 hand-written near-duplicate blocks.
-        // Get/Set close over this component's own _xgrid* fields, same "computed property
-        // returns a fresh collection each access" convention as EnabledDirectionLabels.
-        private IReadOnlyList<XGridSignalRow> XGridSignalRows => new List<XGridSignalRow>
-        {
-            new("Rank", "Top % Total", "Current cell's total tick count ranks in the top % of every nonzero cell on the grid",
-                () => _xgridRankTopTotal, v => _xgridRankTopTotal = v),
-            new("Rank", "Top % Up", "Current cell's up-tick count ranks in the top % of every nonzero cell (Up metric)",
-                () => _xgridRankTopUp, v => _xgridRankTopUp = v),
-            new("Rank", "Top % Down", "Current cell's down-tick count ranks in the top % of every nonzero cell (Down metric)",
-                () => _xgridRankTopDown, v => _xgridRankTopDown = v),
-            new("At", "At POC", "Current price's row matches the Point of Control's row",
-                () => _xgridAtPoc, v => _xgridAtPoc = v),
-            new("At", "At VAH", "Current price's row matches the Value Area High's row",
-                () => _xgridAtVah, v => _xgridAtVah = v),
-            new("At", "At VAL", "Current price's row matches the Value Area Low's row",
-                () => _xgridAtVal, v => _xgridAtVal = v),
-            new("At", "At VWAP", "Current price's row matches the VWAP's row",
-                () => _xgridAtVwap, v => _xgridAtVwap = v),
-            new("Above", "Above POC", "Current price is above the Point of Control's price",
-                () => _xgridAbovePoc, v => _xgridAbovePoc = v),
-            new("Above", "Above VAH", "Current price is above the Value Area High's price",
-                () => _xgridAboveVah, v => _xgridAboveVah = v),
-            new("Above", "Above VAL", "Current price is above the Value Area Low's price",
-                () => _xgridAboveVal, v => _xgridAboveVal = v),
-            new("Above", "Above VWAP", "Current price is above the VWAP's price",
-                () => _xgridAboveVwap, v => _xgridAboveVwap = v),
-            new("Below", "Below POC", "Current price is below the Point of Control's price",
-                () => _xgridBelowPoc, v => _xgridBelowPoc = v),
-            new("Below", "Below VAH", "Current price is below the Value Area High's price",
-                () => _xgridBelowVah, v => _xgridBelowVah = v),
-            new("Below", "Below VAL", "Current price is below the Value Area Low's price",
-                () => _xgridBelowVal, v => _xgridBelowVal = v),
-            new("Below", "Below VWAP", "Current price is below the VWAP's price",
-                () => _xgridBelowVwap, v => _xgridBelowVwap = v),
-        };
+        // One row per XGridSignalCatalog entry -- Get/Set read/write that entry's membership in
+        // _xgridEnabledSignals, so the checkbox rows in the XGrid Signals card grow with the
+        // catalog instead of needing a hand-written entry per signal.
+        private IReadOnlyList<XGridSignalRow> XGridSignalRows => XGridSignalCatalog.All
+            .Select(def => new XGridSignalRow(def.Group, def.Label, def.Tooltip,
+                () => _xgridEnabledSignals.Contains(def.Key),
+                v => { if (v) _xgridEnabledSignals.Add(def.Key); else _xgridEnabledSignals.Remove(def.Key); }))
+            .ToList();
 
         private IReadOnlyList<IGrouping<string, XGridSignalRow>> XGridSignalGroups => XGridSignalRows.GroupBy(r => r.Group).ToList();
 
-        private int SelectedXGridSignalCount => XGridSignalRows.Count(r => r.Get());
+        private int SelectedXGridSignalCount => _xgridEnabledSignals.Count;
 
         private bool AnyXGridSignalSelected => SelectedXGridSignalCount > 0;
 
@@ -621,21 +566,7 @@ namespace Poink.Sim.Components.Training
             TraderStateIncludeMargin: _traderStateIncludeMargin,
             TraderStateIncludeMarginLevel: _traderStateIncludeMarginLevel,
             TraderStateIncludePositionCount: _traderStateIncludePositionCount,
-            XGridRankTopTotal: _xgridRankTopTotal,
-            XGridRankTopUp: _xgridRankTopUp,
-            XGridRankTopDown: _xgridRankTopDown,
-            XGridAtPoc: _xgridAtPoc,
-            XGridAtVah: _xgridAtVah,
-            XGridAtVal: _xgridAtVal,
-            XGridAtVwap: _xgridAtVwap,
-            XGridAbovePoc: _xgridAbovePoc,
-            XGridAboveVah: _xgridAboveVah,
-            XGridAboveVal: _xgridAboveVal,
-            XGridAboveVwap: _xgridAboveVwap,
-            XGridBelowPoc: _xgridBelowPoc,
-            XGridBelowVah: _xgridBelowVah,
-            XGridBelowVal: _xgridBelowVal,
-            XGridBelowVwap: _xgridBelowVwap,
+            XGridEnabledSignals: _xgridEnabledSignals.ToList(),
             XGridTopPercent: _xgridTopPercent,
             XGridColCount: _xgridColCount,
             XGridRowCount: _xgridRowCount,

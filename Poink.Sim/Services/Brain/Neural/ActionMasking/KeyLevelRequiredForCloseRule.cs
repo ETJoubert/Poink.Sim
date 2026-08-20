@@ -7,8 +7,8 @@ namespace Poink.Sim.Brain.Neural;
 
 internal sealed class KeyLevelRequiredForCloseRule : IDirectionMaskRule
 {
-    private static readonly XGridSignalKind[] KeyLevelSignals =
-        [XGridSignalKind.AtPoc, XGridSignalKind.AtVah, XGridSignalKind.AtVal, XGridSignalKind.AtVwap];
+    private static readonly string[] KeyLevelSignals =
+        [XGridSignalCatalog.Keys.AtPoc, XGridSignalCatalog.Keys.AtVah, XGridSignalCatalog.Keys.AtVal, XGridSignalCatalog.Keys.AtVwap];
 
     private readonly XGridSignalEncoder _encoder;
 

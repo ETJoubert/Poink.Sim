@@ -7,10 +7,10 @@ namespace Poink.Sim.Brain.Neural;
 internal sealed class DirectionalXGridSignalRule : IDirectionMaskRule
 {
     private readonly SimulationAction _gatedAction;
-    private readonly XGridSignalKind _requiredSignal;
+    private readonly string _requiredSignal;
     private readonly XGridSignalEncoder _encoder;
 
-    public DirectionalXGridSignalRule(SimulationAction gatedAction, XGridSignalKind requiredSignal, XGridSignalEncoder encoder)
+    public DirectionalXGridSignalRule(SimulationAction gatedAction, string requiredSignal, XGridSignalEncoder encoder)
     {
         _gatedAction = gatedAction;
         _requiredSignal = requiredSignal;

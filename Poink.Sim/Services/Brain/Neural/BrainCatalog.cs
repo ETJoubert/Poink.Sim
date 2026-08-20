@@ -70,21 +70,10 @@ public sealed record EncoderSizeOptions(
     bool TraderStateIncludeMargin = true,
     bool TraderStateIncludeMarginLevel = true,
     bool TraderStateIncludePositionCount = true,
-    bool XGridRankTopTotal = false,
-    bool XGridRankTopUp = false,
-    bool XGridRankTopDown = false,
-    bool XGridAtPoc = false,
-    bool XGridAtVah = false,
-    bool XGridAtVal = false,
-    bool XGridAtVwap = false,
-    bool XGridAbovePoc = false,
-    bool XGridAboveVah = false,
-    bool XGridAboveVal = false,
-    bool XGridAboveVwap = false,
-    bool XGridBelowPoc = false,
-    bool XGridBelowVah = false,
-    bool XGridBelowVal = false,
-    bool XGridBelowVwap = false,
+    // Which XGridSignalCatalog.All entries are enabled, by Key -- null/absent keys are simply
+    // off, so an old or unknown key (e.g. from a stale saved recipe) is dropped rather than
+    // throwing (see BrainCatalog.ResolveXGridSignals).
+    IReadOnlyList<string>? XGridEnabledSignals = null,
     double XGridTopPercent = 10,
     int XGridColCount = 20,
     int XGridRowCount = 20,
@@ -144,9 +133,9 @@ internal static class BrainCatalog
                 DirectionMaskRuleKind.PositionRequiredForClose => new PositionRequiredForCloseRule(),
                 DirectionMaskRuleKind.FlatRequiredForEntry => new FlatRequiredForEntryRule(),
                 DirectionMaskRuleKind.LongRequiresUpSignal => xGridEncoder is null
-                    ? null : new DirectionalXGridSignalRule(SimulationAction.EnterLong, XGridSignalKind.RankTopPercentUp, xGridEncoder),
+                    ? null : new DirectionalXGridSignalRule(SimulationAction.EnterLong, XGridSignalCatalog.Keys.RankTopPercentUp, xGridEncoder),
                 DirectionMaskRuleKind.ShortRequiresDownSignal => xGridEncoder is null
-                    ? null : new DirectionalXGridSignalRule(SimulationAction.EnterShort, XGridSignalKind.RankTopPercentDown, xGridEncoder),
+                    ? null : new DirectionalXGridSignalRule(SimulationAction.EnterShort, XGridSignalCatalog.Keys.RankTopPercentDown, xGridEncoder),
                 DirectionMaskRuleKind.KeyLevelRequiredForClose => xGridEncoder is null ? null : new KeyLevelRequiredForCloseRule(xGridEncoder),
                 _ => throw new ArgumentOutOfRangeException(nameof(kinds), kind, null),
             };
@@ -185,27 +174,10 @@ internal static class BrainCatalog
     }
 
     // Not private: TrainingPreview needs the same enabled-signal order the encoder itself
-    // builds its Features/Encode array in, to label each recorded/live feature value.
-    internal static List<XGridSignalKind> ResolveXGridSignals(EncoderSizeOptions sizes)
-    {
-        var signals = new List<XGridSignalKind>();
-        if (sizes.XGridRankTopTotal) signals.Add(XGridSignalKind.RankTopPercentTotal);
-        if (sizes.XGridRankTopUp) signals.Add(XGridSignalKind.RankTopPercentUp);
-        if (sizes.XGridRankTopDown) signals.Add(XGridSignalKind.RankTopPercentDown);
-        if (sizes.XGridAtPoc) signals.Add(XGridSignalKind.AtPoc);
-        if (sizes.XGridAtVah) signals.Add(XGridSignalKind.AtVah);
-        if (sizes.XGridAtVal) signals.Add(XGridSignalKind.AtVal);
-        if (sizes.XGridAtVwap) signals.Add(XGridSignalKind.AtVwap);
-        if (sizes.XGridAbovePoc) signals.Add(XGridSignalKind.AbovePoc);
-        if (sizes.XGridAboveVah) signals.Add(XGridSignalKind.AboveVah);
-        if (sizes.XGridAboveVal) signals.Add(XGridSignalKind.AboveVal);
-        if (sizes.XGridAboveVwap) signals.Add(XGridSignalKind.AboveVwap);
-        if (sizes.XGridBelowPoc) signals.Add(XGridSignalKind.BelowPoc);
-        if (sizes.XGridBelowVah) signals.Add(XGridSignalKind.BelowVah);
-        if (sizes.XGridBelowVal) signals.Add(XGridSignalKind.BelowVal);
-        if (sizes.XGridBelowVwap) signals.Add(XGridSignalKind.BelowVwap);
-        return signals;
-    }
+    // builds its Features/Encode array in, to label each recorded/live feature value. Unknown
+    // keys (stale saved recipe, renamed/removed catalog entry) are dropped rather than thrown.
+    internal static List<string> ResolveXGridSignals(EncoderSizeOptions sizes) =>
+        (sizes.XGridEnabledSignals ?? []).Where(XGridSignalCatalog.Contains).ToList();
 
     // Not private: TrainingPreview needs the same enabled-field order the encoder itself
     // builds its Features/Encode array in, to label each recorded/live feature value.

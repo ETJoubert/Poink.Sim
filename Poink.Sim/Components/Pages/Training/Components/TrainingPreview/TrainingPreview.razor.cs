@@ -747,12 +747,12 @@ namespace Poink.Sim.Components.Training
             return XGridProfileValues(signals, i => i < raw.Length && raw[i] != 0);
         }
 
-        private static List<ProfileValue> XGridProfileValues(IReadOnlyList<XGridSignalKind> signals, Func<int, bool> isOn)
+        private static List<ProfileValue> XGridProfileValues(IReadOnlyList<string> signals, Func<int, bool> isOn)
         {
             var values = new List<ProfileValue>(signals.Count);
             for (int i = 0; i < signals.Count; i++)
             {
-                string label = XGridSignals.ShortLabel(signals[i]);
+                string label = XGridSignalCatalog.Get(signals[i]).Label;
                 bool on = isOn(i);
                 values.Add(new ProfileValue(label, on ? "on" : "off", $"{label}: {(on ? "true" : "false")}"));
             }

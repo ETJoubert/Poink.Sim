@@ -629,6 +629,22 @@
     color: var(--color-tertiary);
 }
 
+.xgrid-signal-vwap-poc {
+    color: var(--color-tertiary);
+}
+
+.xgrid-signal-total-poc {
+    color: var(--color-primary);
+}
+
+.xgrid-signal-up-poc {
+    color: var(--color-success);
+}
+
+.xgrid-signal-down-poc {
+    color: var(--color-error);
+}
+
 .xgrid-order-panel {
     position: absolute;
     right: 0;

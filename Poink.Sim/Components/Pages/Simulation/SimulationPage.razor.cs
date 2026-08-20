@@ -495,6 +495,7 @@ namespace Poink.Sim.Components.Pages
         {
             _loadError = null;
 
+
             if (string.IsNullOrWhiteSpace(_table))
             { _loadError = "pick a symbol"; return; }
             if (_to <= _from)
@@ -514,6 +515,7 @@ namespace Poink.Sim.Components.Pages
                 _steppingMode, _cellWidth);
 
             _keepChartView = false;
+            _setupCollapsed = true;
             if (!Service.TryLoad(config))
                 _loadError = "a load is already in progress";
         }
@@ -622,12 +624,14 @@ namespace Poink.Sim.Components.Pages
         private void ResetSim()
         {
             _keepChartView = false;
+
             Service.Reset();
         }
 
         private void UnloadSim()
         {
             _keepChartView = false;
+            _setupCollapsed = false;
             Service.Unload();
         }
 
