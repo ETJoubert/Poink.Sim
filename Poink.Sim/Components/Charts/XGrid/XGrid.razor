@@ -34,6 +34,7 @@
         </div>
     }
     <div class="xgrid-overlay-row">
+        <span class="xgrid-row-label">Overlays</span>
         <span class="xgrid-overlay-label" title="Shades each price row by how many times it was the POC while dragging the Volume Range's near border across every bar position. L->R pins the far border at the range's right edge; R->L pins it at the left edge; Sum combines both.">Sweep</span>
         <div class="xgrid-sweep-toggle">
             <button class="@(_sweepMode == SweepMode.None ? "active" : "")" @onclick="() => _sweepMode = SweepMode.None"
@@ -45,63 +46,64 @@
             <button class="@(_sweepMode == SweepMode.Sum ? "active" : "")" @onclick="() => _sweepMode = SweepMode.Sum"
                     title="Shade by the combined L->R and R->L occurrence counts">Sum</button>
         </div>
+        <span class="xgrid-row-divider"></span>
         <span class="xgrid-delta-label" title="Shade each block by its up-minus-down tick balance instead of its raw tick count.">Delta</span>
         <button class="xgrid-delta-toggle @(_shadeDelta ? "active" : "")" @onclick="() => _shadeDelta = !_shadeDelta"
                 title="Shade each block green when up ticks lead, red when down ticks lead, brighter with a larger imbalance. Replaces the tick-count shading while active.">Up/Dn</button>
         <button class="xgrid-delta-toggle @(_distanceWeighted ? "active" : "")" @onclick="() => _distanceWeighted = !_distanceWeighted"
                 title="Weight each tick by the price distance it moved instead of counting it as one. Applies to whichever shading mode is active.">&times;Dist</button>
+        <span class="xgrid-row-divider"></span>
+        <button class="xgrid-level-toggle xgrid-level-toggle-poc @(_showPoc ? "active" : "")" @onclick="() => _showPoc = !_showPoc"
+                title="Highlight the Point of Control row -- the price with the most volume in the range">POC</button>
+        <button class="xgrid-level-toggle xgrid-level-toggle-vah @(_showVah ? "active" : "")" @onclick="() => _showVah = !_showVah"
+                title="Highlight the row containing Value Area High">VAH</button>
+        <button class="xgrid-level-toggle xgrid-level-toggle-val @(_showVal ? "active" : "")" @onclick="() => _showVal = !_showVal"
+                title="Highlight the row containing Value Area Low">VAL</button>
+        <button class="xgrid-level-toggle xgrid-level-toggle-vwap @(_showVwap ? "active" : "")" @onclick="() => _showVwap = !_showVwap"
+                title="Highlight the row containing the range's volume-weighted average price">VWAP</button>
+        <button class="xgrid-level-toggle xgrid-level-toggle-avg @(_showAverage ? "active" : "")" @onclick="() => _showAverage = !_showAverage"
+                title="Highlight the row containing the range's mean price">AVG</button>
+        <button class="xgrid-level-toggle xgrid-level-toggle-med @(_showMedian ? "active" : "")" @onclick="() => _showMedian = !_showMedian"
+                title="Highlight the row containing the range's median price">MED</button>
     </div>
     <div class="xgrid-spectrum-row">
-        <span class="xgrid-delta-label" title="Percent of highest-volume cells to highlight, ranked by total tick count">Total %</span>
+        <span class="xgrid-row-label">Highlights</span>
+        <button class="xgrid-delta-toggle @(_spectrum.ShowHighlight ? "active" : "")" @onclick="() => _spectrum.ShowHighlight = !_spectrum.ShowHighlight"
+                title="Highlight the border of the top @_spectrum.Percent% of cells by total tick count, and mark that cutoff on the Spectrum graph">Total</button>
         <label class="xgrid-control" title="Percent of highest-volume cells to highlight, ranked by total tick count -- 10 highlights the top 10%">
             <input type="number" min="0" max="100" step="1" @bind="_spectrum.Percent" @bind:event="oninput" />
             <span>%</span>
         </label>
-        <button class="xgrid-delta-toggle @(_spectrum.ShowHighlight ? "active" : "")" @onclick="() => _spectrum.ShowHighlight = !_spectrum.ShowHighlight"
-                title="Highlight the border of the top @_spectrum.Percent% of cells by total tick count, and mark that cutoff on the Spectrum graph">Highlight</button>
 
-        <span class="xgrid-delta-label xgrid-delta-label-up" title="Percent of highest up-tick cells to highlight, ranked by up-tick count">Up %</span>
+        <button class="xgrid-delta-toggle xgrid-delta-toggle-up @(_upSpectrum.ShowHighlight ? "active" : "")" @onclick="() => _upSpectrum.ShowHighlight = !_upSpectrum.ShowHighlight"
+                title="Highlight the border of the top @_upSpectrum.Percent% of cells by up-tick count, and mark that cutoff on the Up Spectrum graph">Up</button>
         <label class="xgrid-control" title="Percent of highest up-tick cells to highlight, ranked by up-tick count -- 10 highlights the top 10%">
             <input type="number" min="0" max="100" step="1" @bind="_upSpectrum.Percent" @bind:event="oninput" />
             <span>%</span>
         </label>
-        <button class="xgrid-delta-toggle xgrid-delta-toggle-up @(_upSpectrum.ShowHighlight ? "active" : "")" @onclick="() => _upSpectrum.ShowHighlight = !_upSpectrum.ShowHighlight"
-                title="Highlight the border of the top @_upSpectrum.Percent% of cells by up-tick count, and mark that cutoff on the Up Spectrum graph">Highlight</button>
 
-        <span class="xgrid-delta-label xgrid-delta-label-down" title="Percent of highest down-tick cells to highlight, ranked by down-tick count">Down %</span>
+        <button class="xgrid-delta-toggle xgrid-delta-toggle-down @(_downSpectrum.ShowHighlight ? "active" : "")" @onclick="() => _downSpectrum.ShowHighlight = !_downSpectrum.ShowHighlight"
+                title="Highlight the border of the top @_downSpectrum.Percent% of cells by down-tick count, and mark that cutoff on the Down Spectrum graph">Down</button>
         <label class="xgrid-control" title="Percent of highest down-tick cells to highlight, ranked by down-tick count -- 10 highlights the top 10%">
             <input type="number" min="0" max="100" step="1" @bind="_downSpectrum.Percent" @bind:event="oninput" />
             <span>%</span>
         </label>
-        <button class="xgrid-delta-toggle xgrid-delta-toggle-down @(_downSpectrum.ShowHighlight ? "active" : "")" @onclick="() => _downSpectrum.ShowHighlight = !_downSpectrum.ShowHighlight"
-                title="Highlight the border of the top @_downSpectrum.Percent% of cells by down-tick count, and mark that cutoff on the Down Spectrum graph">Highlight</button>
-    </div>
-    <div class="xgrid-levels-row">
-        <label class="xgrid-level-toggle xgrid-level-toggle-poc" title="Highlight the Point of Control row -- the price with the most volume in the range">
-            <input type="checkbox" @bind="_showPoc" /><span>POC</span>
-        </label>
-        <label class="xgrid-level-toggle xgrid-level-toggle-vah" title="Highlight the row containing Value Area High">
-            <input type="checkbox" @bind="_showVah" /><span>VAH</span>
-        </label>
-        <label class="xgrid-level-toggle xgrid-level-toggle-val" title="Highlight the row containing Value Area Low">
-            <input type="checkbox" @bind="_showVal" /><span>VAL</span>
-        </label>
-        <label class="xgrid-level-toggle xgrid-level-toggle-vwap" title="Highlight the row containing the range's volume-weighted average price">
-            <input type="checkbox" @bind="_showVwap" /><span>VWAP</span>
-        </label>
-        <label class="xgrid-level-toggle xgrid-level-toggle-avg" title="Highlight the row containing the range's mean price">
-            <input type="checkbox" @bind="_showAverage" /><span>AVG</span>
-        </label>
-        <label class="xgrid-level-toggle xgrid-level-toggle-med" title="Highlight the row containing the range's median price">
-            <input type="checkbox" @bind="_showMedian" /><span>MED</span>
-        </label>
     </div>
     <div class="xgrid-draw-row">
+        <span class="xgrid-row-label">Graphs</span>
         <span class="xgrid-draw-label" title="Draw lines over the grid. In Line mode, click a start cell then an end cell to place a segment; the endpoints' borders highlight. Click a bottom-margin cell for a vertical line, a left-margin cell for a horizontal line. Hover a line for its start/end time and price. Right-click a line to remove it.">Draw</span>
         <button class="xgrid-draw-toggle @(_lineMode ? "active" : "")" @onclick="ToggleLineMode"
                 title="@(_lineMode ? "Exit the line tool -- return to plain hovering" : "Line tool -- click a start cell then an end cell to place a segment")">Line</button>
         <button class="xgrid-draw-clear" @onclick="ClearLines"
                 title="Remove every line you have drawn -- host-supplied lines are left intact">Clear</button>
+        <button class="xgrid-total-toggle @(_showNetGraph ? "active" : "")" @onclick="() => _showNetGraph = !_showNetGraph"
+                title="Plot cumulative Net (SBuy - SSell) across the range as a line graph">Graph</button>
+        <button class="xgrid-total-toggle @(_spectrum.ShowGraph ? "active" : "")" @onclick="() => _spectrum.ShowGraph = !_spectrum.ShowGraph"
+                title="Plot every cell's total tick count ordered least to most, with a marker showing where the current cell (the cell the price is at) falls on that range">Spectrum</button>
+        <button class="xgrid-total-toggle @(_upSpectrum.ShowGraph ? "active" : "")" @onclick="() => _upSpectrum.ShowGraph = !_upSpectrum.ShowGraph"
+                title="Plot every cell's up-tick count ordered least to most, with a marker showing where the current cell falls on that range">Up Spectrum</button>
+        <button class="xgrid-total-toggle @(_downSpectrum.ShowGraph ? "active" : "")" @onclick="() => _downSpectrum.ShowGraph = !_downSpectrum.ShowGraph"
+                title="Plot every cell's down-tick count ordered least to most, with a marker showing where the current cell falls on that range">Down Spectrum</button>
     </div>
     @if (Grid is not { } grid)
     {
@@ -110,17 +112,10 @@
     else
     {
         <div class="xgrid-totals-row">
+            <span class="xgrid-row-label">metrics</span>
             <span class="xgrid-total xgrid-total-up" title="SBuy -- sum of the price before every up tick across the range">SBuy @grid.SBuy.ToString("F5", CultureInfo.InvariantCulture)</span>
             <span class="xgrid-total xgrid-total-down" title="SSell -- sum of the price before every down tick across the range">SSell @grid.SSell.ToString("F5", CultureInfo.InvariantCulture)</span>
             <span class="xgrid-total xgrid-total-net" title="Net = SBuy minus SSell">Net @((grid.SBuy - grid.SSell).ToString("F5", CultureInfo.InvariantCulture))</span>
-            <button class="xgrid-total-toggle @(_showNetGraph ? "active" : "")" @onclick="() => _showNetGraph = !_showNetGraph"
-                    title="Plot cumulative Net (SBuy - SSell) across the range as a line graph">Graph</button>
-            <button class="xgrid-total-toggle @(_spectrum.ShowGraph ? "active" : "")" @onclick="() => _spectrum.ShowGraph = !_spectrum.ShowGraph"
-                    title="Plot every cell's total tick count ordered least to most, with a marker showing where the current cell (the cell the price is at) falls on that range">Spectrum</button>
-            <button class="xgrid-total-toggle @(_upSpectrum.ShowGraph ? "active" : "")" @onclick="() => _upSpectrum.ShowGraph = !_upSpectrum.ShowGraph"
-                    title="Plot every cell's up-tick count ordered least to most, with a marker showing where the current cell falls on that range">Up Spectrum</button>
-            <button class="xgrid-total-toggle @(_downSpectrum.ShowGraph ? "active" : "")" @onclick="() => _downSpectrum.ShowGraph = !_downSpectrum.ShowGraph"
-                    title="Plot every cell's down-tick count ordered least to most, with a marker showing where the current cell falls on that range">Down Spectrum</button>
         </div>
         @if (_showNetGraph)
         {
@@ -265,6 +260,7 @@
                 }
             </div>
             <div class="xgrid-signals" title="Whether the current cell (the cell the price is at right now) ranks in that metric's own top-percent cutoff">
+                <span class="xgrid-signals-label">Signals</span>
                 <div class="xgrid-signal @(CurrentSignal(grid, XGridSpectrumMetric.Total) ? "on" : "")" title="Current cell in the top @_spectrum.Percent% by total tick count">
                     <span class="xgrid-signal-dot"></span>
                     <span>TOTAL</span>
