@@ -26,6 +26,12 @@ public enum DecisionDecodingKind { Softmax, HardMax }
 public enum CnnKernelSweepSource { BarWindow, VolumeProfile }
 
 
+public enum DirectionMaskRuleKind
+{
+    PositionRequiredForClose, FlatRequiredForEntry, LongRequiresUpSignal, ShortRequiresDownSignal, KeyLevelRequiredForClose,
+}
+
+
 public enum TraderStateFieldKind
 {
     Position, PositionPrice, PositionTicks, PositionDistance, CurrentPrice,
@@ -94,7 +100,8 @@ public sealed record BrainRecipe(
     EncoderSizeOptions? EncoderSizes = null,
     DecisionDecodingKind DecisionDecoding = DecisionDecodingKind.Softmax,
     double DecisionTemperature = 1.0,
-    CnnKernelSweepSource CnnKernelSweepSource = CnnKernelSweepSource.BarWindow)
+    CnnKernelSweepSource CnnKernelSweepSource = CnnKernelSweepSource.BarWindow,
+    IReadOnlyList<DirectionMaskRuleKind>? EnabledMaskRules = null)
 {
     public override string ToString()
     {
@@ -109,12 +116,46 @@ public sealed record BrainRecipe(
             baseDescription += " [HardMax]";
         else if (DecisionTemperature != 1.0)
             baseDescription += $" [T={DecisionTemperature:0.##}]";
+        if (EnabledMaskRules is { } masks && masks.Count != BrainCatalog.AllDirectionMaskRuleKinds.Count)
+            baseDescription += $" [masks {masks.Count}/{BrainCatalog.AllDirectionMaskRuleKinds.Count}]";
         return baseDescription;
     }
 }
 
 internal static class BrainCatalog
 {
+    public static readonly IReadOnlyList<DirectionMaskRuleKind> AllDirectionMaskRuleKinds =
+    [
+        DirectionMaskRuleKind.PositionRequiredForClose, DirectionMaskRuleKind.FlatRequiredForEntry,
+        DirectionMaskRuleKind.LongRequiresUpSignal, DirectionMaskRuleKind.ShortRequiresDownSignal, DirectionMaskRuleKind.KeyLevelRequiredForClose,
+    ];
+
+    // xGrid-backed rules need this brain's own XGridSignalEncoder instance to stay in sync with
+    // what it reports as input features; a brain built without one simply can't evaluate them.
+    public static IReadOnlyList<IDirectionMaskRule> CreateDirectionMaskRules(
+        IReadOnlyList<DirectionMaskRuleKind> kinds, IReadOnlyList<IObservationEncoder> parts)
+    {
+        var xGridEncoder = parts.OfType<XGridSignalEncoder>().FirstOrDefault();
+        var rules = new List<IDirectionMaskRule>();
+        foreach (var kind in kinds)
+        {
+            IDirectionMaskRule? rule = kind switch
+            {
+                DirectionMaskRuleKind.PositionRequiredForClose => new PositionRequiredForCloseRule(),
+                DirectionMaskRuleKind.FlatRequiredForEntry => new FlatRequiredForEntryRule(),
+                DirectionMaskRuleKind.LongRequiresUpSignal => xGridEncoder is null
+                    ? null : new DirectionalXGridSignalRule(SimulationAction.EnterLong, XGridSignalKind.RankTopPercentUp, xGridEncoder),
+                DirectionMaskRuleKind.ShortRequiresDownSignal => xGridEncoder is null
+                    ? null : new DirectionalXGridSignalRule(SimulationAction.EnterShort, XGridSignalKind.RankTopPercentDown, xGridEncoder),
+                DirectionMaskRuleKind.KeyLevelRequiredForClose => xGridEncoder is null ? null : new KeyLevelRequiredForCloseRule(xGridEncoder),
+                _ => throw new ArgumentOutOfRangeException(nameof(kinds), kind, null),
+            };
+            if (rule is not null)
+                rules.Add(rule);
+        }
+        return rules;
+    }
+
     public static IObservationEncoder CreateEncoder(EncoderKind kind, EncoderSizeOptions? sizeOptions = null)
     {
         var sizes = sizeOptions ?? new EncoderSizeOptions();

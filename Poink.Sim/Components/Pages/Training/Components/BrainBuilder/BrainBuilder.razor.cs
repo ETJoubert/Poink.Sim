@@ -77,7 +77,8 @@ namespace Poink.Sim.Components.Training
             && a.EncoderKinds.SequenceEqual(b.EncoderKinds)
             && a.HiddenSizes.SequenceEqual(b.HiddenSizes)
             && (a.ActionOutputKinds ?? []).SequenceEqual(b.ActionOutputKinds ?? [])
-            && (a.EnabledDirections ?? ComposedPolicyBrain.AllDirections).SequenceEqual(b.EnabledDirections ?? ComposedPolicyBrain.AllDirections);
+            && (a.EnabledDirections ?? ComposedPolicyBrain.AllDirections).SequenceEqual(b.EnabledDirections ?? ComposedPolicyBrain.AllDirections)
+            && (a.EnabledMaskRules ?? BrainCatalog.AllDirectionMaskRuleKinds).SequenceEqual(b.EnabledMaskRules ?? BrainCatalog.AllDirectionMaskRuleKinds);
 
         private bool _showBuildPanel;
 
@@ -221,6 +222,13 @@ namespace Poink.Sim.Components.Training
 
             _decisionDecoding = recipe.DecisionDecoding;
             _decisionTemperature = recipe.DecisionTemperature;
+
+            var masks = recipe.EnabledMaskRules ?? BrainCatalog.AllDirectionMaskRuleKinds;
+            _maskPositionRequiredForClose = masks.Contains(DirectionMaskRuleKind.PositionRequiredForClose);
+            _maskFlatRequiredForEntry = masks.Contains(DirectionMaskRuleKind.FlatRequiredForEntry);
+            _maskLongRequiresUpSignal = masks.Contains(DirectionMaskRuleKind.LongRequiresUpSignal);
+            _maskShortRequiresDownSignal = masks.Contains(DirectionMaskRuleKind.ShortRequiresDownSignal);
+            _maskKeyLevelRequiredForClose = masks.Contains(DirectionMaskRuleKind.KeyLevelRequiredForClose);
 
             _buildBrainStatus = null;
         }
@@ -435,6 +443,51 @@ namespace Poink.Sim.Components.Training
 
         private double _decisionTemperature = 1.0;
         private string? _buildBrainStatus;
+
+        private bool _maskPositionRequiredForClose = true;
+        private bool _maskFlatRequiredForEntry = true;
+        private bool _maskLongRequiresUpSignal = true;
+        private bool _maskShortRequiresDownSignal = true;
+        private bool _maskKeyLevelRequiredForClose = true;
+
+        private sealed record MaskRuleRow(DirectionMaskRuleKind Kind, string Label, string Tooltip, Func<bool> Get, Action<bool> Set);
+
+        // (Kind, Label, Tooltip, Get, Set) per rule -- same "computed property returns a fresh
+        // collection each access" convention as XGridSignalRows/TraderStateFieldRows.
+        private IReadOnlyList<MaskRuleRow> MaskRuleRows => new List<MaskRuleRow>
+        {
+            new(DirectionMaskRuleKind.PositionRequiredForClose, "Close Requires Position",
+                "Close is illegal unless a position is currently open",
+                () => _maskPositionRequiredForClose, v => _maskPositionRequiredForClose = v),
+            new(DirectionMaskRuleKind.FlatRequiredForEntry, "Entry Requires Flat",
+                "Enter Long / Enter Short are illegal while a position is already open",
+                () => _maskFlatRequiredForEntry, v => _maskFlatRequiredForEntry = v),
+            new(DirectionMaskRuleKind.LongRequiresUpSignal, "Long Requires Up Signal",
+                "Enter Long is illegal unless the xGrid Rank Top % Up signal is active -- has no effect without the XGrid Signals encoder",
+                () => _maskLongRequiresUpSignal, v => _maskLongRequiresUpSignal = v),
+            new(DirectionMaskRuleKind.ShortRequiresDownSignal, "Short Requires Down Signal",
+                "Enter Short is illegal unless the xGrid Rank Top % Down signal is active -- has no effect without the XGrid Signals encoder",
+                () => _maskShortRequiresDownSignal, v => _maskShortRequiresDownSignal = v),
+            new(DirectionMaskRuleKind.KeyLevelRequiredForClose, "Close Requires Key Level",
+                "Close is illegal unless price is currently at POC, VAH, VAL, or VWAP -- has no effect without the XGrid Signals encoder",
+                () => _maskKeyLevelRequiredForClose, v => _maskKeyLevelRequiredForClose = v),
+        };
+
+        private const int TotalMaskRuleCount = 5;
+
+        private int SelectedMaskRuleCount => MaskRuleRows.Count(r => r.Get());
+
+        private bool AllMaskRulesSelected
+        {
+            get => SelectedMaskRuleCount == TotalMaskRuleCount;
+            set
+            {
+                foreach (var row in MaskRuleRows)
+                    row.Set(value);
+            }
+        }
+
+        private List<DirectionMaskRuleKind> SelectedMaskRuleKinds => MaskRuleRows.Where(r => r.Get()).Select(r => r.Kind).ToList();
 
         private void OnArchitectureKindChanged(ChangeEventArgs e) =>
             _architectureKind = Enum.Parse<ArchitectureKind>(e.Value?.ToString() ?? nameof(ArchitectureKind.Mlp));
@@ -762,6 +815,8 @@ namespace Poink.Sim.Components.Training
                     actionParts.Add("hardmax");
                 else if (_decisionTemperature != 1.0)
                     actionParts.Add($"T{_decisionTemperature:0.##}");
+                if (SelectedMaskRuleCount != TotalMaskRuleCount)
+                    actionParts.Add($"mask{SelectedMaskRuleCount}");
                 return actionParts.Count == 0 ? name : $"{name}_{string.Join("-", actionParts)}";
             }
         }
@@ -833,7 +888,7 @@ namespace Poink.Sim.Components.Training
             SelectedEncoderKinds.ToList(), _architectureKind, CurrentHiddenSizes.ToList(),
             SelectedActionOutputKinds.Count > 0 ? SelectedActionOutputKinds : null, ActionOutputEncodingKind.DiscretizedLevels,
             SelectedEnabledDirections.Count > 0 ? SelectedEnabledDirections : null, CurrentEncoderSizeOptions,
-            _decisionDecoding, _decisionTemperature, _cnnKernelSweepSource);
+            _decisionDecoding, _decisionTemperature, _cnnKernelSweepSource, SelectedMaskRuleKinds);
 
 
         public BrainRecipe CurrentConfigRecipe => CurrentRecipe;
@@ -845,7 +900,7 @@ namespace Poink.Sim.Components.Training
             if (BrainService.TryBuildBrain(
                     name, SelectedEncoderKinds, _architectureKind, CurrentHiddenSizes,
                     SelectedActionOutputKinds, SelectedEnabledDirections, CurrentEncoderSizeOptions,
-                    _decisionDecoding, _decisionTemperature, _cnnKernelSweepSource))
+                    _decisionDecoding, _decisionTemperature, _cnnKernelSweepSource, SelectedMaskRuleKinds))
             {
                 _buildBrainStatus = $"saved '{name}' to storage";
                 _ = OnBrainCreated.InvokeAsync(name);
@@ -867,7 +922,7 @@ namespace Poink.Sim.Components.Training
             if (!BrainService.TryBuildDraftBrain(
                     EffectiveBuildBrainName, SelectedEncoderKinds, _architectureKind, CurrentHiddenSizes,
                     SelectedActionOutputKinds, SelectedEnabledDirections, CurrentEncoderSizeOptions,
-                    _decisionDecoding, _decisionTemperature, _cnnKernelSweepSource))
+                    _decisionDecoding, _decisionTemperature, _cnnKernelSweepSource, SelectedMaskRuleKinds))
             {
                 _buildBrainStatus = BrainService.Status;
                 return false;

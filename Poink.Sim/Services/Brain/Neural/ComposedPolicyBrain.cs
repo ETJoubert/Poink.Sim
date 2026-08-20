@@ -2,7 +2,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Poink.Sim.Components.Charts;
 using Poink.Sim.Models;
 using TorchSharp;
 using static TorchSharp.torch;
@@ -54,7 +53,7 @@ internal sealed class ComposedPolicyBrain : IPolicyGradientBrain
     public static IPolicyGradientBrain Create(
         string name, INetworkArchitecture architecture, IReadOnlyList<IActionOutputHead> actionOutputHeads,
         IReadOnlyList<SimulationAction> enabledDirections, DecisionDecodingKind decisionDecoding, double decisionTemperature,
-        CnnKernelSweepSource cnnKernelSweepSource, params IObservationEncoder[] parts)
+        CnnKernelSweepSource cnnKernelSweepSource, IReadOnlyList<DirectionMaskRuleKind>? enabledMaskRules, params IObservationEncoder[] parts)
     {
         if (enabledDirections.Count == 0)
             throw new ArgumentException("a brain needs at least one enabled direction (Hold/EnterLong/EnterShort/Close)", nameof(enabledDirections));
@@ -68,23 +67,16 @@ internal sealed class ComposedPolicyBrain : IPolicyGradientBrain
             ? BuildCnnSweepNetwork(cnnArchitecture, parts, encoder.FeatureCount, outputWidth)
             : architecture.Build(encoder.FeatureCount, encoder.SequenceLength, outputWidth);
 
-        var directionMasker = BuildDirectionMasker(parts);
+        var maskRules = BrainCatalog.CreateDirectionMaskRules(enabledMaskRules ?? BrainCatalog.AllDirectionMaskRuleKinds, parts);
+        var directionMasker = new DirectionActionMasker(maskRules);
         return new ComposedPolicyBrain(name, encoder, network, actionOutputHeads, enabledDirections, decisionDecoding, decisionTemperature, directionMasker);
     }
 
-    // xGrid-gated entry only applies when the brain actually observes xGrid signals -- a brain
-    // built without that encoder has no basis to evaluate the rule, so it's left out entirely.
-    private static DirectionActionMasker BuildDirectionMasker(IReadOnlyList<IObservationEncoder> parts)
-    {
-        var rules = new List<IDirectionMaskRule> { new PositionRequiredForCloseRule(), new FlatRequiredForEntryRule() };
-        if (parts.OfType<XGridSignalEncoder>().FirstOrDefault() is { } xGridEncoder)
-        {
-            rules.Add(new DirectionalXGridSignalRule(SimulationAction.EnterLong, XGridSignalKind.RankTopPercentUp, xGridEncoder));
-            rules.Add(new DirectionalXGridSignalRule(SimulationAction.EnterShort, XGridSignalKind.RankTopPercentDown, xGridEncoder));
-            rules.Add(new KeyLevelRequiredForCloseRule(xGridEncoder));
-        }
-        return new DirectionActionMasker(rules.ToArray());
-    }
+    public static IPolicyGradientBrain Create(
+        string name, INetworkArchitecture architecture, IReadOnlyList<IActionOutputHead> actionOutputHeads,
+        IReadOnlyList<SimulationAction> enabledDirections, DecisionDecodingKind decisionDecoding, double decisionTemperature,
+        CnnKernelSweepSource cnnKernelSweepSource, params IObservationEncoder[] parts) =>
+        Create(name, architecture, actionOutputHeads, enabledDirections, decisionDecoding, decisionTemperature, cnnKernelSweepSource, null, parts);
 
     public static IPolicyGradientBrain Create(
         string name, INetworkArchitecture architecture, IReadOnlyList<IActionOutputHead> actionOutputHeads,

@@ -70,7 +70,8 @@ internal sealed class BrainService : IBrainService
             .Select(k => BrainCatalog.CreateActionOutputHead(k, recipe.ActionOutputEncodingKind, recipe.DecisionDecoding, recipe.DecisionTemperature)).ToList();
         var directions = recipe.EnabledDirections ?? ComposedPolicyBrain.AllDirections;
         return ComposedPolicyBrain.Create(
-            name, architecture, actionOutputHeads, directions, recipe.DecisionDecoding, recipe.DecisionTemperature, recipe.CnnKernelSweepSource, parts);
+            name, architecture, actionOutputHeads, directions, recipe.DecisionDecoding, recipe.DecisionTemperature, recipe.CnnKernelSweepSource,
+            recipe.EnabledMaskRules, parts);
     }
 
     public IPolicyGradientBrain BuildAndRegister(string name, BrainRecipe recipe)
@@ -99,7 +100,8 @@ internal sealed class BrainService : IBrainService
       string name, IReadOnlyList<EncoderKind> encoderKinds, ArchitectureKind architectureKind, IReadOnlyList<int> hiddenSizes,
       IReadOnlyList<ActionOutputKind>? actionOutputKinds = null, IReadOnlyList<SimulationAction>? enabledDirections = null,
       EncoderSizeOptions? encoderSizes = null, DecisionDecodingKind decisionDecoding = DecisionDecodingKind.Softmax,
-      double decisionTemperature = 1.0, CnnKernelSweepSource cnnKernelSweepSource = CnnKernelSweepSource.BarWindow)
+      double decisionTemperature = 1.0, CnnKernelSweepSource cnnKernelSweepSource = CnnKernelSweepSource.BarWindow,
+      IReadOnlyList<DirectionMaskRuleKind>? enabledMaskRules = null)
     {
         if (!ValidateBuildRequest(name, encoderKinds, enabledDirections))
             return false;
@@ -107,7 +109,7 @@ internal sealed class BrainService : IBrainService
         var recipe = new BrainRecipe(
             encoderKinds.ToList(), architectureKind, hiddenSizes.ToList(),
             actionOutputKinds?.ToList(), ActionOutputEncodingKind.DiscretizedLevels, enabledDirections?.ToList(), encoderSizes,
-            decisionDecoding, decisionTemperature, cnnKernelSweepSource);
+            decisionDecoding, decisionTemperature, cnnKernelSweepSource, enabledMaskRules?.ToList());
 
         try
         {
@@ -140,7 +142,8 @@ internal sealed class BrainService : IBrainService
         string name, IReadOnlyList<EncoderKind> encoderKinds, ArchitectureKind architectureKind, IReadOnlyList<int> hiddenSizes,
         IReadOnlyList<ActionOutputKind>? actionOutputKinds = null, IReadOnlyList<SimulationAction>? enabledDirections = null,
         EncoderSizeOptions? encoderSizes = null, DecisionDecodingKind decisionDecoding = DecisionDecodingKind.Softmax,
-        double decisionTemperature = 1.0, CnnKernelSweepSource cnnKernelSweepSource = CnnKernelSweepSource.BarWindow)
+        double decisionTemperature = 1.0, CnnKernelSweepSource cnnKernelSweepSource = CnnKernelSweepSource.BarWindow,
+        IReadOnlyList<DirectionMaskRuleKind>? enabledMaskRules = null)
     {
         if (!ValidateBuildRequest(name, encoderKinds, enabledDirections))
             return false;
@@ -148,7 +151,7 @@ internal sealed class BrainService : IBrainService
         var recipe = new BrainRecipe(
             encoderKinds.ToList(), architectureKind, hiddenSizes.ToList(),
             actionOutputKinds?.ToList(), ActionOutputEncodingKind.DiscretizedLevels, enabledDirections?.ToList(), encoderSizes,
-            decisionDecoding, decisionTemperature, cnnKernelSweepSource);
+            decisionDecoding, decisionTemperature, cnnKernelSweepSource, enabledMaskRules?.ToList());
 
         try
         {

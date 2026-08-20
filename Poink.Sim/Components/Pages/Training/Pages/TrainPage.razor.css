@@ -270,16 +270,10 @@
 }
 
 .train-timing-toggle {
-    margin-left: auto;
     padding-left: 12px;
     border-left: 1px solid color-mix(in srgb, var(--color-primary) 20%, transparent);
 }
 
-.train-timing-filters {
-    margin-top: 4px;
-    padding-top: 10px;
-    border-top: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
-}
 
 .train-weekday-row {
     display: flex;

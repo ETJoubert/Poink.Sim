@@ -592,6 +592,32 @@
                                                                                 </div>
                                                                             </div>
 
+                                                                            <div class="train-card">
+                                                                                <div class="train-card-title-row">
+                                                                                    <div class="train-card-title"
+                                                                                         title="Hard legality rules enforced on the network's raw logits before Softmax -- an illegal action gets exactly 0% probability, guaranteed, rather than being left for the network to learn to avoid">
+                                                                                        Action Masking</div>
+                                                                                        <span class="train-card-badge"
+                                                                                              title="How many of the @TotalMaskRuleCount available masking rules are enabled">
+                                                                                            @SelectedMaskRuleCount/@TotalMaskRuleCount</span>
+                                                                                        </div>
+                                                                                        <div class="train-buildbrain-card-fields">
+                                                                                            <label class="train-brainrow-field" title="Toggle every masking rule below on or off at once">
+                                                                                                <input type="checkbox" @bind="AllMaskRulesSelected" disabled="@Service.IsRunning" />
+                                                                                                Select All
+                                                                                            </label>
+                                                                                            @foreach (var row in MaskRuleRows)
+                                                                                            {
+                                                                                                <label class="train-brainrow-field" title="@row.Tooltip">
+                                                                                                    <input type="checkbox" checked="@row.Get()"
+                                                                                                           @onchange="e => row.Set(e.Value is bool b && b)"
+                                                                                                           disabled="@Service.IsRunning" />
+                                                                                                    @row.Label
+                                                                                                </label>
+                                                                                            }
+                                                                                        </div>
+                                                                                    </div>
+
 
                                                                             <div class="train-card">
                                                                                 <div class="train-card-title-row">
