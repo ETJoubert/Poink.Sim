@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Text.Json;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Poink.Sim.Brain.Neural;
@@ -20,6 +22,8 @@ namespace Poink.Sim.Components.Pages
         [Inject] private IRlTrainingService Service { get; set; } = default!;
 
         [Inject] private IRiskPolicyService RiskPolicyService { get; set; } = default!;
+
+        [Inject] private ILocalStorageHelper LocalStorage { get; set; } = default!;
 
         // Set via @ref on the Build panel -- StartTrainingCore asks it to
         // draft a live, unsaved brain from its current fields right before a
@@ -83,6 +87,81 @@ namespace Poink.Sim.Components.Pages
         public void Dispose() => Service.OnChanged -= HandleServiceChanged;
 
         private void HandleBrainCreated(string name) => _brainName = name;
+
+        // Run Setup config (Data Range/Brain/Strategy/Episode Timing/Trader) round-trips
+        // through localStorage so it survives navigating away and back -- Service itself
+        // keeps a run going across navigation, but this component's own fields don't. Load
+        // needs JS interop, so it can only happen post-render, not from OnInitialized;
+        // persisting is diffed against _lastPersistedSettingsJson so the frequent
+        // HandleServiceChanged-driven re-renders during an active run don't spam the
+        // browser with redundant writes.
+        private const string SettingsStorageKey = "poink.train.runSetup";
+
+        private string? _lastPersistedSettingsJson;
+
+        protected override async Task OnAfterRenderAsync(bool firstRender)
+        {
+            if (firstRender)
+            {
+                await LoadPersistedSettingsAsync();
+                return;
+            }
+
+            await PersistSettingsIfChangedAsync();
+        }
+
+        private TrainPageSettings CurrentSettings => new(
+            _table, _from, _to, _brainName, _strategyName, _learningRate, _barWidthSeconds, _steppingMode, _cellWidth,
+            _episodeCount, _episodeBars, _restrictEpisodeTiming, [.. _allowedWeekdays], _sessionStart, _sessionEnd,
+            _startingCash, _leverage, _commissionRatePercent, _stopOutLevelPercent, [.. _selectedRiskPolicies]);
+
+        private async Task LoadPersistedSettingsAsync()
+        {
+            var settings = await LocalStorage.GetItemAsync<TrainPageSettings>(SettingsStorageKey);
+            if (settings is null)
+                return;
+
+            ApplySettings(settings);
+            _lastPersistedSettingsJson = JsonSerializer.Serialize(CurrentSettings);
+            StateHasChanged();
+        }
+
+        private void ApplySettings(TrainPageSettings settings)
+        {
+            _table = settings.Table;
+            _from = settings.From;
+            _to = settings.To;
+            _brainName = settings.BrainName;
+            _strategyName = settings.StrategyName;
+            _learningRate = settings.LearningRate;
+            _barWidthSeconds = settings.BarWidthSeconds;
+            _steppingMode = settings.SteppingMode;
+            _cellWidth = settings.CellWidth;
+            _episodeCount = settings.EpisodeCount;
+            _episodeBars = settings.EpisodeBars;
+            _restrictEpisodeTiming = settings.RestrictEpisodeTiming;
+            _allowedWeekdays.Clear();
+            foreach (var day in settings.AllowedWeekdays)
+                _allowedWeekdays.Add(day);
+            _sessionStart = settings.SessionStart;
+            _sessionEnd = settings.SessionEnd;
+            _startingCash = settings.StartingCash;
+            _leverage = settings.Leverage;
+            _commissionRatePercent = settings.CommissionRatePercent;
+            _stopOutLevelPercent = settings.StopOutLevelPercent;
+            _selectedRiskPolicies.Clear();
+            _selectedRiskPolicies.AddRange(settings.SelectedRiskPolicies);
+        }
+
+        private async Task PersistSettingsIfChangedAsync()
+        {
+            var json = JsonSerializer.Serialize(CurrentSettings);
+            if (json == _lastPersistedSettingsJson)
+                return;
+
+            _lastPersistedSettingsJson = json;
+            await LocalStorage.SetItemAsync(SettingsStorageKey, CurrentSettings);
+        }
 
         // Feeds TrainingPreview -- whatever's currently held in the Build
         // panel's fields, live, whether or not it's been saved (see

@@ -22,6 +22,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Poink.Sim.Data;
 using Poink.Sim.Diagnostics;
+using Poink.Sim.Helpers;
 using Poink.Sim.Profiler;
 using Poink.Sim.Services.CTrader;
 using Poink.Sim.Services.Registration;
@@ -42,6 +43,7 @@ builder.Services.BuildTrainingServices();
 builder.Services.BuildSimulationServices();
 
 builder.Services.AddScoped<IProfilerService, ProfilerService>();
+builder.Services.AddScoped<ILocalStorageHelper, LocalStorageHelper>();
 builder.Services.BuildCodeGraphServices();
 // Snapshot of every registration made above this line, so the Arch page can reflect the
 // DI container itself into a graph instead of maintaining a hand-written node list.
