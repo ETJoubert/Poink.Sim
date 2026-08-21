@@ -24,6 +24,7 @@ internal interface IRlTrainingService
 
     IReadOnlyList<RlInputFeature>? LatestInputs { get; }
     IReadOnlyList<RlOutputFeature>? LatestOutputs { get; }
+    NeatTopologySnapshot? LatestNeatTopology { get; }
     IReadOnlyList<HlocAvdtBar> LatestEpisodeBars { get; }
     IReadOnlyList<BarPriceHistogram> LatestEpisodeBarHistograms { get; }
     int LatestEpisodeWarmupBars { get; }
@@ -36,6 +37,7 @@ internal interface IRlTrainingService
     IReadOnlyList<RlBarAction> LatestEpisodeBarActions { get; }
 
     IReadOnlyList<RlEpisodeMetric> RecentEpisodes { get; }
+    IReadOnlyList<NeatGenerationStats> RecentGenerations { get; }
     IReadOnlyList<RlEpisodeTrades> RecentEpisodeTrades { get; }
     IReadOnlyList<RlEpisodeWindow> RecentEpisodeWindows { get; }
     string? SaveStatus { get; }

@@ -18,3 +18,19 @@ Phase 2 — historic training. One symbol, training range = older ~80% of your c
 Phase 3 — risk-adjusted fine-tune. Once directionally profitable on validation, switch to DifferentialSharpeRewardPolicy for a shorter run — for a live trader you want risk-adjusted return, not raw drift. Optionally add the Volume/SL/TP heads here.
 Phase 4 — out-of-sample verdict. Best-validation snapshot into SimulationEngine against the newest, never-touched data slice. Compare equity curve, max drawdown, profit factor, and trade count against the Phase 0 baselines. Only a brain that wins here graduates.
 Phase 5 — live path. This is currently missing: the cTrader robot only writes ticks to Postgres. The pragmatic bridge is to keep inference in Poink.Sim (it already owns TorchSharp, the encoders, and saved brains) and expose a tiny local decision endpoint the robot calls per bar — rather than porting the whole encoder/TorchSharp stack into the cAlgo sandbox. Start with the robot logging decisions without placing orders (paper mode) so live-fed decisions can be compared against the sim before real money moves.
+
+5. Feed Past actions into network 
+To feed historical actions into a neural network, each discrete categorical action is converted into a one-hot encoded vector. With 4 possible actions, a single action is represented by an array of 4 binary bits (for example, taking action two looks like [0, 1, 0, 0]). Retaining a sliding window of the previous 5 actions requires multiplying those 5 steps by 4 bits per step, resulting in a sequence of 20 bits. Flattening this sequence and concatenating it with your original 27 state inputs yields a final, 1D input vector of 47 binary features.
+
+Implementation Rules for Action Windows
+
+Zero-Padding Early Steps: During the first 4 steps of a new episode, a full 5-step history does not exist. Fill the missing historical action slots with an all-zero vector (e.g., [0, 0, 0, 0]). Because a one-hot vector always has a 1 in it, the network easily learns that a block of all zeros represents a "null" action prior to the episode start.
+
+Temporal Ordering: Maintain a strict chronological order in your flattened 20-bit array. Always order the bits from oldest action to most recent (or vice versa), ensuring the network's weights map consistently to specific time delays.
+
+The Step Counter Alternative: If your primary goal is just to prevent the state aliasing you noticed earlier—ensuring the agent knows where it is in the episode—appending a single normalized float for the current step (e.g., current_step / max_steps) is computationally lighter than a 20-bit action history and often just as effective.
+
+Your calculation that feeding in 5 past actions across 4 choices creates a flat vector of 20 is entirely correct
+
+6. Delayed Rewards and Monolithic Credit Assignment
+If the agent receives a reward primarily at the end of an episode (sparse/delayed reward), temporal credit assignment spreads that final return across every action in the trajectory. The network doesn't know that the first 50% of Sequence A was great and the last 50% was weak; it simply evaluates Sequence A as a single unit with value $V_A$, and Sequence B as $V_B$. When updates nudge $V_B > V_A$, the greedy policy flips the entire sequence at once.

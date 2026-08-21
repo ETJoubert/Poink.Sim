@@ -1,0 +1,17 @@
+@namespace Poink.Sim.Components.Training
+
+<div class="neat-topology-graph">
+    @if (Topology is null || Topology.Nodes.Count == 0)
+    {
+        <span class="neat-topology-graph-empty">no genome yet</span>
+    }
+    else
+    {
+        <canvas @ref="_canvasRef" class="neat-topology-graph-canvas"></canvas>
+        <div class="neat-topology-graph-legend">
+            <span>@NodeCount nodes</span>
+            <span>@EnabledConnectionCount connections</span>
+            <span>@StatusLabel</span>
+        </div>
+    }
+</div>

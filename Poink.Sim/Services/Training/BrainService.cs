@@ -45,7 +45,7 @@ internal sealed class BrainService : IBrainService
     public IReadOnlyList<string> DraftBrainNames => _draftBrainNames.ToList();
 
     public IReadOnlyList<BrainOption> BrainOptions =>
-        _brainRegistry.All.Select(b => new BrainOption(b.Name, b is IPolicyGradientBrain)).ToList();
+        _brainRegistry.All.Select(b => new BrainOption(b.Name, b is IDescribableBrain)).ToList();
 
     public string? Status { get; private set; }
 
@@ -58,23 +58,33 @@ internal sealed class BrainService : IBrainService
     public IReadOnlyList<NetworkLayerShape> DescribeNetworkShape(string brainName) =>
         _brainRegistry.All.OfType<IPolicyGradientBrain>().FirstOrDefault(b => b.Name == brainName)?.DescribeNetworkShape() ?? [];
 
-    public int GetWarmupBars(string brainName) =>
-        (_brainRegistry.All.OfType<IPolicyGradientBrain>().FirstOrDefault(b => b.Name == brainName))?.WarmupBars ?? 0;
+    public int GetWarmupBars(string brainName) => _brainRegistry.All.FirstOrDefault(b => b.Name == brainName) switch
+    {
+        IPolicyGradientBrain policyBrain => policyBrain.WarmupBars,
+        INeatPolicyBrain neatBrain => neatBrain.WarmupBars,
+        _ => 0,
+    };
 
 
-    private static IPolicyGradientBrain BuildFromRecipe(string name, BrainRecipe recipe)
+    private static IDescribableBrain BuildFromRecipe(string name, BrainRecipe recipe)
     {
         var parts = recipe.EncoderKinds.Select(k => BrainCatalog.CreateEncoder(k, recipe.EncoderSizes)).ToArray();
-        var architecture = BrainCatalog.CreateArchitecture(recipe.ArchitectureKind, recipe.HiddenSizes);
         var actionOutputHeads = (recipe.ActionOutputKinds ?? [])
             .Select(k => BrainCatalog.CreateActionOutputHead(k, recipe.ActionOutputEncodingKind, recipe.DecisionDecoding, recipe.DecisionTemperature)).ToList();
         var directions = recipe.EnabledDirections ?? ComposedPolicyBrain.AllDirections;
+
+        if (recipe.ArchitectureKind == ArchitectureKind.Neat)
+            return NeatPolicyBrain.Create(
+                name, recipe.NeatHyperparameters ?? new NeatHyperparameters(), actionOutputHeads, directions,
+                recipe.DecisionDecoding, recipe.DecisionTemperature, recipe.EnabledMaskRules, parts);
+
+        var architecture = BrainCatalog.CreateArchitecture(recipe.ArchitectureKind, recipe.HiddenSizes);
         return ComposedPolicyBrain.Create(
             name, architecture, actionOutputHeads, directions, recipe.DecisionDecoding, recipe.DecisionTemperature, recipe.CnnKernelSweepSource,
             recipe.EnabledMaskRules, parts);
     }
 
-    public IPolicyGradientBrain BuildAndRegister(string name, BrainRecipe recipe)
+    public IDescribableBrain BuildAndRegister(string name, BrainRecipe recipe)
     {
         var brain = BuildFromRecipe(name, recipe);
         _brainRegistry.Register(brain);
@@ -91,7 +101,7 @@ internal sealed class BrainService : IBrainService
         { Status = "pick at least one encoder"; OnChanged?.Invoke(); return false; }
         if (enabledDirections is { Count: 0 })
         { Status = "pick at least one action"; OnChanged?.Invoke(); return false; }
-        if (_brainRegistry.All.Any(b => b.Name == name && b is not IPolicyGradientBrain))
+        if (_brainRegistry.All.Any(b => b.Name == name && b is not IDescribableBrain))
         { Status = $"'{name}' is already used by a built-in brain"; OnChanged?.Invoke(); return false; }
         return true;
     }
@@ -101,7 +111,7 @@ internal sealed class BrainService : IBrainService
       IReadOnlyList<ActionOutputKind>? actionOutputKinds = null, IReadOnlyList<SimulationAction>? enabledDirections = null,
       EncoderSizeOptions? encoderSizes = null, DecisionDecodingKind decisionDecoding = DecisionDecodingKind.Softmax,
       double decisionTemperature = 1.0, CnnKernelSweepSource cnnKernelSweepSource = CnnKernelSweepSource.BarWindow,
-      IReadOnlyList<DirectionMaskRuleKind>? enabledMaskRules = null)
+      IReadOnlyList<DirectionMaskRuleKind>? enabledMaskRules = null, NeatHyperparameters? neatHyperparameters = null)
     {
         if (!ValidateBuildRequest(name, encoderKinds, enabledDirections))
             return false;
@@ -109,7 +119,7 @@ internal sealed class BrainService : IBrainService
         var recipe = new BrainRecipe(
             encoderKinds.ToList(), architectureKind, hiddenSizes.ToList(),
             actionOutputKinds?.ToList(), ActionOutputEncodingKind.DiscretizedLevels, enabledDirections?.ToList(), encoderSizes,
-            decisionDecoding, decisionTemperature, cnnKernelSweepSource, enabledMaskRules?.ToList());
+            decisionDecoding, decisionTemperature, cnnKernelSweepSource, enabledMaskRules?.ToList(), neatHyperparameters);
 
         try
         {
@@ -143,7 +153,7 @@ internal sealed class BrainService : IBrainService
         IReadOnlyList<ActionOutputKind>? actionOutputKinds = null, IReadOnlyList<SimulationAction>? enabledDirections = null,
         EncoderSizeOptions? encoderSizes = null, DecisionDecodingKind decisionDecoding = DecisionDecodingKind.Softmax,
         double decisionTemperature = 1.0, CnnKernelSweepSource cnnKernelSweepSource = CnnKernelSweepSource.BarWindow,
-        IReadOnlyList<DirectionMaskRuleKind>? enabledMaskRules = null)
+        IReadOnlyList<DirectionMaskRuleKind>? enabledMaskRules = null, NeatHyperparameters? neatHyperparameters = null)
     {
         if (!ValidateBuildRequest(name, encoderKinds, enabledDirections))
             return false;
@@ -151,7 +161,7 @@ internal sealed class BrainService : IBrainService
         var recipe = new BrainRecipe(
             encoderKinds.ToList(), architectureKind, hiddenSizes.ToList(),
             actionOutputKinds?.ToList(), ActionOutputEncodingKind.DiscretizedLevels, enabledDirections?.ToList(), encoderSizes,
-            decisionDecoding, decisionTemperature, cnnKernelSweepSource, enabledMaskRules?.ToList());
+            decisionDecoding, decisionTemperature, cnnKernelSweepSource, enabledMaskRules?.ToList(), neatHyperparameters);
 
         try
         {

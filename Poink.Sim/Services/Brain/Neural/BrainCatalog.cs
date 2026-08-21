@@ -10,7 +10,7 @@ namespace Poink.Sim.Brain.Neural;
 
 public enum EncoderKind { BarWindow, VolumeProfile, TimeProfile, SessionClock, SpreadVolatility, TraderState, XGrid }
 
-public enum ArchitectureKind { Mlp, Lstm, Cnn }
+public enum ArchitectureKind { Mlp, Lstm, Cnn, Neat }
 
 public enum NormalizationKind { Normalized, Raw, LocalZScore, GlobalZScore, Binary }
 
@@ -90,11 +90,14 @@ public sealed record BrainRecipe(
     DecisionDecodingKind DecisionDecoding = DecisionDecodingKind.Softmax,
     double DecisionTemperature = 1.0,
     CnnKernelSweepSource CnnKernelSweepSource = CnnKernelSweepSource.BarWindow,
-    IReadOnlyList<DirectionMaskRuleKind>? EnabledMaskRules = null)
+    IReadOnlyList<DirectionMaskRuleKind>? EnabledMaskRules = null,
+    NeatHyperparameters? NeatHyperparameters = null)
 {
     public override string ToString()
     {
-        string baseDescription = $"{ArchitectureKind}[{string.Join(",", HiddenSizes)}] {string.Join("+", EncoderKinds)}";
+        string baseDescription = ArchitectureKind == ArchitectureKind.Neat
+            ? $"Neat[pop={(NeatHyperparameters ?? new NeatHyperparameters()).PopulationSize}] {string.Join("+", EncoderKinds)}"
+            : $"{ArchitectureKind}[{string.Join(",", HiddenSizes)}] {string.Join("+", EncoderKinds)}";
         if (ArchitectureKind == ArchitectureKind.Cnn && CnnKernelSweepSource != CnnKernelSweepSource.BarWindow)
             baseDescription += $" [sweep={CnnKernelSweepSource}]";
         if (EnabledDirections is { Count: > 0 } directions)

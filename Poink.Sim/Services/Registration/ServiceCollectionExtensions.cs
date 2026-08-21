@@ -88,6 +88,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IModelService, ModelService>();
 
         services.AddSingleton<IRlTrainingStrategy, PolicyGradientTrainingStrategy>();
+        services.AddSingleton<IRlTrainingStrategy, NeatTrainingStrategy>();
         services.AddSingleton<IRewardPolicyService, RewardPolicyService>();
         services.AddSingleton<IRlTrainingService, RlTrainingService>();
 

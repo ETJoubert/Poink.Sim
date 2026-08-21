@@ -1,0 +1,40 @@
+@namespace Poink.Sim.Components.Training
+
+<div class="neat-evolution-chart neat-evolution-chart-@ColorVariant">
+    @if (Generations.Count == 0)
+    {
+        <span class="neat-evolution-chart-empty">no generations yet</span>
+    }
+    else
+    {
+        <svg viewBox="0 0 600 160" preserveAspectRatio="none" class="neat-evolution-chart-svg">
+            <line x1="@FormatCoord(PadLeft)" y1="@BaselineY" x2="@FormatCoord(ViewWidth - PadRight)" y2="@BaselineY" class="neat-evolution-chart-baseline" />
+            <text x="@FormatCoord(PadLeft + 2)" y="@FormatCoord(MapY(0) - 3)" class="neat-evolution-chart-baseline-label">0</text>
+            @if (SecondaryPoints is { } secondaryPoints)
+            {
+                <polyline points="@PolylinePoints(secondaryPoints)" class="neat-evolution-chart-line neat-evolution-chart-line-secondary" />
+                @foreach (var p in secondaryPoints)
+                {
+                    <circle cx="@p.X" cy="@p.Y" r="2" class="neat-evolution-chart-point neat-evolution-chart-point-secondary">
+                        <title>generation @p.Generation — @SecondaryLabel @FormatValue(p.Value)</title>
+                    </circle>
+                }
+            }
+            <polyline points="@PolylinePoints(PrimaryPoints)" class="neat-evolution-chart-line neat-evolution-chart-line-primary" />
+            @foreach (var p in PrimaryPoints)
+            {
+                <circle cx="@p.X" cy="@p.Y" r="2.5" class="neat-evolution-chart-point neat-evolution-chart-point-primary @(p.IsLatest && IsRunning ? "neat-evolution-chart-point-latest" : "")">
+                    <title>generation @p.Generation — @PrimaryLabel @FormatValue(p.Value)</title>
+                </circle>
+            }
+        </svg>
+        <div class="neat-evolution-chart-labels">
+            <span>min @FormatValue(ValueRange.Min)</span>
+            @if (SecondaryLabel is not null)
+            {
+                <span>@PrimaryLabel / @SecondaryLabel</span>
+            }
+            <span>max @FormatValue(ValueRange.Max)</span>
+        </div>
+    }
+</div>

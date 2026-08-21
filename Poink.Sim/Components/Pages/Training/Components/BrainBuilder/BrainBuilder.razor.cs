@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
+using Poink.Sim.Brain;
 using Poink.Sim.Brain.Neural;
 using Poink.Sim.Components.Charts;
 using Poink.Sim.Models;
@@ -78,7 +79,8 @@ namespace Poink.Sim.Components.Training
             && a.HiddenSizes.SequenceEqual(b.HiddenSizes)
             && (a.ActionOutputKinds ?? []).SequenceEqual(b.ActionOutputKinds ?? [])
             && (a.EnabledDirections ?? ComposedPolicyBrain.AllDirections).SequenceEqual(b.EnabledDirections ?? ComposedPolicyBrain.AllDirections)
-            && (a.EnabledMaskRules ?? BrainCatalog.AllDirectionMaskRuleKinds).SequenceEqual(b.EnabledMaskRules ?? BrainCatalog.AllDirectionMaskRuleKinds);
+            && (a.EnabledMaskRules ?? BrainCatalog.AllDirectionMaskRuleKinds).SequenceEqual(b.EnabledMaskRules ?? BrainCatalog.AllDirectionMaskRuleKinds)
+            && Equals(a.NeatHyperparameters, b.NeatHyperparameters);
 
         private bool _showBuildPanel;
 
@@ -189,6 +191,9 @@ namespace Poink.Sim.Components.Training
                 case ArchitectureKind.Lstm:
                     _lstmHiddenSize = recipe.HiddenSizes.Count > 0 ? recipe.HiddenSizes[0] : 64;
                     _lstmNumLayers = recipe.HiddenSizes.Count > 1 ? recipe.HiddenSizes[1] : 2;
+                    break;
+                case ArchitectureKind.Neat:
+                    LoadNeatHyperparameters(recipe.NeatHyperparameters ?? new NeatHyperparameters());
                     break;
                 default:
                     _mlpHiddenSizes = recipe.HiddenSizes.Count > 0 ? recipe.HiddenSizes.ToList() : [64];
@@ -375,6 +380,47 @@ namespace Poink.Sim.Components.Training
         private List<int> _cnnChannels = [16, 32];
         private CnnKernelSweepSource _cnnKernelSweepSource = CnnKernelSweepSource.BarWindow;
 
+        private int _neatPopulationSize = 150;
+        private double _neatCompatibilityThreshold = 3.0;
+        private double _neatExcessCoefficient = 1.0;
+        private double _neatDisjointCoefficient = 1.0;
+        private double _neatWeightDiffCoefficient = 0.4;
+        private double _neatSurvivalThreshold = 0.2;
+        private double _neatWeightMutationRate = 0.8;
+        private double _neatWeightResetChance = 0.1;
+        private double _neatWeightPerturbStdDev = 0.5;
+        private double _neatAddConnectionMutationRate = 0.05;
+        private double _neatAddNodeMutationRate = 0.03;
+        private double _neatDisableInheritedGeneChance = 0.75;
+        private double _neatInterspeciesMatingRate = 0.001;
+        private int _neatStagnationGenerations = 15;
+        private int _neatElitismMinSpeciesSize = 5;
+
+        private void LoadNeatHyperparameters(NeatHyperparameters h)
+        {
+            _neatPopulationSize = h.PopulationSize;
+            _neatCompatibilityThreshold = h.CompatibilityThreshold;
+            _neatExcessCoefficient = h.ExcessCoefficient;
+            _neatDisjointCoefficient = h.DisjointCoefficient;
+            _neatWeightDiffCoefficient = h.WeightDiffCoefficient;
+            _neatSurvivalThreshold = h.SurvivalThreshold;
+            _neatWeightMutationRate = h.WeightMutationRate;
+            _neatWeightResetChance = h.WeightResetChance;
+            _neatWeightPerturbStdDev = h.WeightPerturbStdDev;
+            _neatAddConnectionMutationRate = h.AddConnectionMutationRate;
+            _neatAddNodeMutationRate = h.AddNodeMutationRate;
+            _neatDisableInheritedGeneChance = h.DisableInheritedGeneChance;
+            _neatInterspeciesMatingRate = h.InterspeciesMatingRate;
+            _neatStagnationGenerations = h.StagnationGenerations;
+            _neatElitismMinSpeciesSize = h.ElitismMinSpeciesSize;
+        }
+
+        private NeatHyperparameters CurrentNeatHyperparameters => new(
+            _neatPopulationSize, _neatCompatibilityThreshold, _neatExcessCoefficient, _neatDisjointCoefficient,
+            _neatWeightDiffCoefficient, _neatSurvivalThreshold, _neatWeightMutationRate, _neatWeightResetChance,
+            _neatWeightPerturbStdDev, _neatAddConnectionMutationRate, _neatAddNodeMutationRate,
+            _neatDisableInheritedGeneChance, _neatInterspeciesMatingRate, _neatStagnationGenerations, _neatElitismMinSpeciesSize);
+
         private bool _includeVolumeOutput;
         private bool _includeStopLossOutput;
         private bool _includeTakeProfitOutput;
@@ -502,6 +548,7 @@ namespace Poink.Sim.Components.Training
             && (_includeHold || _includeEnterLong || _includeEnterShort || _includeClose)
             && (_architectureKind != ArchitectureKind.Lstm || _includeBarWindow)
             && (_architectureKind != ArchitectureKind.Cnn || (CnnSweepSourceIncluded && _cnnKernelSize >= 1 && EffectiveCnnChannels.Count > 0))
+            && (_architectureKind != ArchitectureKind.Neat || _neatPopulationSize >= 1)
             && (!_includeBarWindow || _barWindowSize >= 1)
             && (!_includeVolumeProfile || (_volumeProfileBucketCount >= 1 && _volumeProfileLookbackBars >= 1))
             && (!_includeTimeProfile || (_timeProfileBucketCount >= 1 && _timeProfileLookbackBars >= 1))
@@ -780,6 +827,7 @@ namespace Poink.Sim.Components.Training
         {
             ArchitectureKind.Mlp => EffectiveMlpHiddenSizes,
             ArchitectureKind.Cnn => [_cnnKernelSize, .. EffectiveCnnChannels],
+            ArchitectureKind.Neat => [],
             _ => [_lstmHiddenSize, _lstmNumLayers],
         };
 
@@ -819,7 +867,7 @@ namespace Poink.Sim.Components.Training
             SelectedEncoderKinds.ToList(), _architectureKind, CurrentHiddenSizes.ToList(),
             SelectedActionOutputKinds.Count > 0 ? SelectedActionOutputKinds : null, ActionOutputEncodingKind.DiscretizedLevels,
             SelectedEnabledDirections.Count > 0 ? SelectedEnabledDirections : null, CurrentEncoderSizeOptions,
-            _decisionDecoding, _decisionTemperature, _cnnKernelSweepSource, SelectedMaskRuleKinds);
+            _decisionDecoding, _decisionTemperature, _cnnKernelSweepSource, SelectedMaskRuleKinds, CurrentNeatHyperparameters);
 
 
         public BrainRecipe CurrentConfigRecipe => CurrentRecipe;
@@ -831,7 +879,7 @@ namespace Poink.Sim.Components.Training
             if (BrainService.TryBuildBrain(
                     name, SelectedEncoderKinds, _architectureKind, CurrentHiddenSizes,
                     SelectedActionOutputKinds, SelectedEnabledDirections, CurrentEncoderSizeOptions,
-                    _decisionDecoding, _decisionTemperature, _cnnKernelSweepSource, SelectedMaskRuleKinds))
+                    _decisionDecoding, _decisionTemperature, _cnnKernelSweepSource, SelectedMaskRuleKinds, CurrentNeatHyperparameters))
             {
                 _buildBrainStatus = $"saved '{name}' to storage";
                 _ = OnBrainCreated.InvokeAsync(name);
@@ -853,7 +901,7 @@ namespace Poink.Sim.Components.Training
             if (!BrainService.TryBuildDraftBrain(
                     EffectiveBuildBrainName, SelectedEncoderKinds, _architectureKind, CurrentHiddenSizes,
                     SelectedActionOutputKinds, SelectedEnabledDirections, CurrentEncoderSizeOptions,
-                    _decisionDecoding, _decisionTemperature, _cnnKernelSweepSource, SelectedMaskRuleKinds))
+                    _decisionDecoding, _decisionTemperature, _cnnKernelSweepSource, SelectedMaskRuleKinds, CurrentNeatHyperparameters))
             {
                 _buildBrainStatus = BrainService.Status;
                 return false;

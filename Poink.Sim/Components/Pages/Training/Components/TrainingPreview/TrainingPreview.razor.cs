@@ -916,6 +916,7 @@ namespace Poink.Sim.Components.Training
                     "CNN",
                     $"Sweeps: {(recipe.CnnKernelSweepSource == CnnKernelSweepSource.VolumeProfile ? "Volume Profile" : "Bar Window")}",
                 ],
+                ArchitectureKind.Neat => ["NEAT"],
                 _ => ["MLP"],
             };
         }

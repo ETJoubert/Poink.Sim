@@ -440,6 +440,7 @@
                                                                                     <option value="Mlp">MLP</option>
                                                                                     <option value="Lstm">LSTM</option>
                                                                                     <option value="Cnn">CNN</option>
+                                                                                    <option value="Neat">NEAT</option>
                                                                                 </select>
                                                                             </label>
                                                                             @if (_architectureKind == ArchitectureKind.Mlp)
@@ -492,7 +493,7 @@
                                                                                     <span class="train-brainrow-error">LSTM needs Bar Window for its sequence</span>
                                                                                 }
                                                                             }
-                                                                            else
+                                                                            else if (_architectureKind == ArchitectureKind.Cnn)
                                                                             {
                                                                                 <label class="train-brainrow-field"
                                                                                        title="Which selected input set the convolution kernel actually sweeps over -- Bar Window (default) slides over the trailing price window; Volume Profile instead slides over its price-ordered histogram buckets, with everything else (including Bar Window if also selected) fed as plain scalars alongside the pooled conv output">
@@ -542,6 +543,84 @@
                                                                                                          "Bar Window") for its sequence
                                                                                     </span>
                                                                                 }
+                                                                            }
+                                                                            else if (_architectureKind == ArchitectureKind.Neat)
+                                                                            {
+                                                                                <label class="train-brainrow-field" title="Number of candidate networks (genomes) evaluated per generation -- higher explores more per generation at the cost of one training episode per genome">
+                                                                                    Population size
+                                                                                    <input class="train-brainrow-input train-brainrow-input-right" type="number" min="1" step="1"
+                                                                                           @bind="_neatPopulationSize" disabled="@Service.IsRunning" />
+                                                                                </label>
+                                                                                <label class="train-brainrow-field" title="How similar two genomes must be to share a species -- lower creates more, smaller species; higher creates fewer, broader ones">
+                                                                                    Compatibility threshold
+                                                                                    <input class="train-brainrow-input train-brainrow-input-right" type="number" min="0" step="0.1"
+                                                                                           @bind="_neatCompatibilityThreshold" disabled="@Service.IsRunning" />
+                                                                                </label>
+                                                                                <label class="train-brainrow-field" title="Weight given to excess genes (structural genes beyond the other genome's highest innovation number) when computing compatibility distance">
+                                                                                    Excess coefficient
+                                                                                    <input class="train-brainrow-input train-brainrow-input-right" type="number" min="0" step="0.1"
+                                                                                           @bind="_neatExcessCoefficient" disabled="@Service.IsRunning" />
+                                                                                </label>
+                                                                                <label class="train-brainrow-field" title="Weight given to disjoint genes (structural genes that don't match between two genomes) when computing compatibility distance">
+                                                                                    Disjoint coefficient
+                                                                                    <input class="train-brainrow-input train-brainrow-input-right" type="number" min="0" step="0.1"
+                                                                                           @bind="_neatDisjointCoefficient" disabled="@Service.IsRunning" />
+                                                                                </label>
+                                                                                <label class="train-brainrow-field" title="Weight given to the average connection-weight difference between matching genes when computing compatibility distance">
+                                                                                    Weight diff coefficient
+                                                                                    <input class="train-brainrow-input train-brainrow-input-right" type="number" min="0" step="0.1"
+                                                                                           @bind="_neatWeightDiffCoefficient" disabled="@Service.IsRunning" />
+                                                                                </label>
+                                                                                <label class="train-brainrow-field" title="A species is culled if its best fitness hasn't improved in this many generations">
+                                                                                    Stagnation generations
+                                                                                    <input class="train-brainrow-input train-brainrow-input-right" type="number" min="1" step="1"
+                                                                                           @bind="_neatStagnationGenerations" disabled="@Service.IsRunning" />
+                                                                                </label>
+                                                                                <label class="train-brainrow-field" title="A species at or above this size automatically carries its best genome into the next generation unchanged">
+                                                                                    Elitism min species size
+                                                                                    <input class="train-brainrow-input train-brainrow-input-right" type="number" min="1" step="1"
+                                                                                           @bind="_neatElitismMinSpeciesSize" disabled="@Service.IsRunning" />
+                                                                                </label>
+                                                                                <label class="train-brainrow-field" title="Fraction of each species, ranked by fitness, allowed to breed the next generation">
+                                                                                    Survival threshold
+                                                                                    <input class="train-brainrow-input train-brainrow-input-right" type="number" min="0" max="1" step="0.01"
+                                                                                           @bind="_neatSurvivalThreshold" disabled="@Service.IsRunning" />
+                                                                                </label>
+                                                                                <label class="train-brainrow-field" title="Chance a child's second parent is drawn from a different species instead of its own">
+                                                                                    Interspecies mating rate
+                                                                                    <input class="train-brainrow-input train-brainrow-input-right" type="number" min="0" max="1" step="0.001"
+                                                                                           @bind="_neatInterspeciesMatingRate" disabled="@Service.IsRunning" />
+                                                                                </label>
+                                                                                <label class="train-brainrow-field" title="Chance a child's connection weights are mutated at all">
+                                                                                    Weight mutation rate
+                                                                                    <input class="train-brainrow-input train-brainrow-input-right" type="number" min="0" max="1" step="0.01"
+                                                                                           @bind="_neatWeightMutationRate" disabled="@Service.IsRunning" />
+                                                                                </label>
+                                                                                <label class="train-brainrow-field" title="When weights mutate, the chance a given connection gets a brand new random weight instead of being perturbed">
+                                                                                    Weight reset chance
+                                                                                    <input class="train-brainrow-input train-brainrow-input-right" type="number" min="0" max="1" step="0.01"
+                                                                                           @bind="_neatWeightResetChance" disabled="@Service.IsRunning" />
+                                                                                </label>
+                                                                                <label class="train-brainrow-field" title="Standard deviation of the random nudge applied to a connection weight during perturbation">
+                                                                                    Weight perturb std dev
+                                                                                    <input class="train-brainrow-input train-brainrow-input-right" type="number" min="0" step="0.01"
+                                                                                           @bind="_neatWeightPerturbStdDev" disabled="@Service.IsRunning" />
+                                                                                </label>
+                                                                                <label class="train-brainrow-field" title="Chance a new connection is added between two previously unconnected nodes">
+                                                                                    Add connection rate
+                                                                                    <input class="train-brainrow-input train-brainrow-input-right" type="number" min="0" max="1" step="0.01"
+                                                                                           @bind="_neatAddConnectionMutationRate" disabled="@Service.IsRunning" />
+                                                                                </label>
+                                                                                <label class="train-brainrow-field" title="Chance an existing connection is split by inserting a new node into it">
+                                                                                    Add node rate
+                                                                                    <input class="train-brainrow-input train-brainrow-input-right" type="number" min="0" max="1" step="0.01"
+                                                                                           @bind="_neatAddNodeMutationRate" disabled="@Service.IsRunning" />
+                                                                                </label>
+                                                                                <label class="train-brainrow-field" title="Chance a gene inherited from crossover, disabled in either parent, stays disabled in the child">
+                                                                                    Disable inherited gene chance
+                                                                                    <input class="train-brainrow-input train-brainrow-input-right" type="number" min="0" max="1" step="0.01"
+                                                                                           @bind="_neatDisableInheritedGeneChance" disabled="@Service.IsRunning" />
+                                                                                </label>
                                                                             }
                                                                         </div>
                                                                     </div>

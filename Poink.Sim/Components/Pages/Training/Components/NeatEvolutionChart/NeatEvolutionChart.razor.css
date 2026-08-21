@@ -1,0 +1,100 @@
+.neat-evolution-chart {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1;
+    min-height: 0;
+}
+
+.neat-evolution-chart-empty {
+    font-size: 0.75rem;
+    color: var(--color-secondary);
+    opacity: 0.7;
+}
+
+.neat-evolution-chart-svg {
+    width: 100%;
+    flex: 1;
+    min-height: 80px;
+    display: block;
+}
+
+.neat-evolution-chart-baseline {
+    stroke: var(--color-muted);
+    stroke-width: 1;
+    opacity: 0.9;
+}
+
+.neat-evolution-chart-baseline-label {
+    fill: var(--color-muted);
+    font-size: 9px;
+    opacity: 1;
+}
+
+.neat-evolution-chart-line {
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.neat-evolution-chart-line-secondary {
+    stroke-width: 1.5;
+    stroke-dasharray: 4 3;
+    opacity: 0.7;
+}
+
+.neat-evolution-chart-point {
+    opacity: 0.8;
+}
+
+.neat-evolution-chart-point-secondary {
+    opacity: 0.6;
+}
+
+.neat-evolution-chart-point-latest {
+    animation: neat-evolution-point-pop 1.2s ease-in-out infinite;
+    transform-box: fill-box;
+    transform-origin: center;
+}
+
+@keyframes neat-evolution-point-pop {
+    0%, 100% {
+        r: 2.5;
+        opacity: 0.8;
+    }
+    50% {
+        r: 5;
+        opacity: 1;
+    }
+}
+
+.neat-evolution-chart-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.65rem;
+    color: var(--color-secondary);
+    opacity: 0.7;
+}
+
+/* Color variants -- one per statistic this chart is reused for. */
+
+.neat-evolution-chart-fitness .neat-evolution-chart-line-primary,
+.neat-evolution-chart-fitness .neat-evolution-chart-point-primary {
+    stroke: var(--color-success);
+    fill: var(--color-success);
+    filter: drop-shadow(0 0 4px color-mix(in srgb, var(--color-success) 50%, transparent));
+}
+
+.neat-evolution-chart-fitness .neat-evolution-chart-line-secondary,
+.neat-evolution-chart-fitness .neat-evolution-chart-point-secondary {
+    stroke: var(--color-info);
+    fill: var(--color-info);
+}
+
+.neat-evolution-chart-species .neat-evolution-chart-line-primary,
+.neat-evolution-chart-species .neat-evolution-chart-point-primary {
+    stroke: var(--color-warning);
+    fill: var(--color-warning);
+    filter: drop-shadow(0 0 4px color-mix(in srgb, var(--color-warning) 50%, transparent));
+}

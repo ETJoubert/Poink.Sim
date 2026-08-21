@@ -1,0 +1,28 @@
+.neat-topology-graph {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1;
+    min-height: 0;
+}
+
+.neat-topology-graph-empty {
+    font-size: 0.75rem;
+    color: var(--color-secondary);
+    opacity: 0.7;
+}
+
+.neat-topology-graph-canvas {
+    width: 100%;
+    flex: 1;
+    min-height: 100px;
+    display: block;
+}
+
+.neat-topology-graph-legend {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.65rem;
+    color: var(--color-secondary);
+    opacity: 0.7;
+}

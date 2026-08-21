@@ -24,12 +24,13 @@ internal sealed class PolicyGradientTrainingStrategy : IRlTrainingStrategy
         return optim.Adam(policyBrain.Network.parameters(), lr: learningRate);
     }
 
-    public double TrainEpisode(ISimulationBrain brain, optim.Optimizer optimizer, RlEpisode episode, double progress)
+    public (double Reward, NeatGenerationStats? CompletedGeneration) TrainEpisode(
+        ISimulationBrain brain, optim.Optimizer optimizer, RlEpisode episode, double progress)
     {
         if (brain is not IPolicyGradientBrain)
             throw new InvalidOperationException($"{Name} cannot train brain '{brain.Name}'");
         if (episode.Steps.Count == 0)
-            return 0;
+            return (0, null);
 
         using var scope = NewDisposeScope();
 
@@ -71,6 +72,6 @@ internal sealed class PolicyGradientTrainingStrategy : IRlTrainingStrategy
         foreach (var entropy in entropies)
             entropy.Dispose();
 
-        return totalReward;
+        return (totalReward, null);
     }
 }

@@ -40,6 +40,7 @@ internal sealed class RlTrainingService : IRlTrainingService
     private readonly List<IRlTrainingStrategy> _strategies;
     private readonly IRewardPolicyService _rewardPolicyService;
     private readonly List<RlEpisodeMetric> _episodeMetrics = new();
+    private readonly List<NeatGenerationStats> _generationStats = new();
     private readonly List<RlEpisodeTrades> _episodeTrades = new();
     private readonly List<RlEpisodeWindow> _episodeWindows = new();
     private readonly RingBuffer<RlTrainingLogEntry> _trainingLog = new(MaxLogEntries);
@@ -132,6 +133,8 @@ internal sealed class RlTrainingService : IRlTrainingService
 
     public IReadOnlyList<RlOutputFeature>? LatestOutputs { get; private set; }
 
+    public NeatTopologySnapshot? LatestNeatTopology { get; private set; }
+
 
     public IReadOnlyList<HlocAvdtBar> LatestEpisodeBars { get; private set; } = Array.Empty<HlocAvdtBar>();
     public IReadOnlyList<BarPriceHistogram> LatestEpisodeBarHistograms { get; private set; } = Array.Empty<BarPriceHistogram>();
@@ -161,6 +164,12 @@ internal sealed class RlTrainingService : IRlTrainingService
     public IReadOnlyList<RlEpisodeMetric> RecentEpisodes
     {
         get { lock (_lock) { return _episodeMetrics.ToList(); } }
+    }
+
+
+    public IReadOnlyList<NeatGenerationStats> RecentGenerations
+    {
+        get { lock (_lock) { return _generationStats.ToList(); } }
     }
 
 
@@ -250,6 +259,7 @@ internal sealed class RlTrainingService : IRlTrainingService
             ActionCounts = RlActionCounts.Empty;
             LatestInputs = null;
             LatestOutputs = null;
+            LatestNeatTopology = null;
             LatestEpisodeBars = Array.Empty<HlocAvdtBar>();
             LatestEpisodeBarHistograms = Array.Empty<BarPriceHistogram>();
             LatestEpisodeWarmupBars = 0;
@@ -263,6 +273,7 @@ internal sealed class RlTrainingService : IRlTrainingService
             _episodeMetrics.Clear();
             _episodeTrades.Clear();
             _episodeWindows.Clear();
+            _generationStats.Clear();
             _pauseAfterNextEpisode = pauseAfterFirstEpisode;
             _activeSnapshotId.Remove(brain.Name);
         }
@@ -272,7 +283,12 @@ internal sealed class RlTrainingService : IRlTrainingService
             trainableBrain.MoveToTrainingDevice();
 
 
-        int warmupBars = brain is IPolicyGradientBrain warmupAwareBrain ? warmupAwareBrain.WarmupBars : 0;
+        int warmupBars = brain switch
+        {
+            IPolicyGradientBrain policyBrain => policyBrain.WarmupBars,
+            INeatPolicyBrain neatBrain => neatBrain.WarmupBars,
+            _ => 0,
+        };
 
         OnChanged?.Invoke();
 
@@ -375,7 +391,7 @@ internal sealed class RlTrainingService : IRlTrainingService
                         steppingMode: steppingMode, cellWidth: cellWidth);
 
                     double progress = episodeCount > 1 ? (double)episode / (episodeCount - 1) : 1.0;
-                    double reward = strategy.TrainEpisode(brain, optimizer, result, progress);
+                    var (reward, generationStats) = strategy.TrainEpisode(brain, optimizer, result, progress);
 
                     recentRewards.Enqueue(reward);
                     if (recentRewards.Count > RecentRewardWindow)
@@ -400,6 +416,8 @@ internal sealed class RlTrainingService : IRlTrainingService
                             LatestInputs = result.LastInputs;
                         if (result.LastOutputs is not null)
                             LatestOutputs = result.LastOutputs;
+                        if (brain is INeatPolicyBrain neatBrainForTopology)
+                            LatestNeatTopology = neatBrainForTopology.DescribeTopology();
                         LatestEpisodeBars = result.Bars;
                         LatestEpisodeBarHistograms = result.BarHistograms;
                         LatestEpisodeWarmupBars = result.WarmupBars;
@@ -413,6 +431,12 @@ internal sealed class RlTrainingService : IRlTrainingService
                         _episodeMetrics.Add(new RlEpisodeMetric(episode + 1, reward, result.FinalCapital.Equity));
                         if (_episodeMetrics.Count > MaxMetricsLog)
                             _episodeMetrics.RemoveAt(0);
+                        if (generationStats is not null)
+                        {
+                            _generationStats.Add(generationStats);
+                            if (_generationStats.Count > MaxMetricsLog)
+                                _generationStats.RemoveAt(0);
+                        }
                         int blockedLongs = result.BarActions.Count(a => a.Action == SimulationAction.EnterLong && a.Blocked);
                         int blockedShorts = result.BarActions.Count(a => a.Action == SimulationAction.EnterShort && a.Blocked);
                         int blockedCloses = result.BarActions.Count(a => a.Action == SimulationAction.Close && a.Blocked);
@@ -504,6 +528,7 @@ internal sealed class RlTrainingService : IRlTrainingService
             ActionCounts = RlActionCounts.Empty;
             LatestInputs = null;
             LatestOutputs = null;
+            LatestNeatTopology = null;
             LatestEpisodeBars = Array.Empty<HlocAvdtBar>();
             LatestEpisodeBarHistograms = Array.Empty<BarPriceHistogram>();
             LatestEpisodeWarmupBars = 0;
@@ -517,6 +542,7 @@ internal sealed class RlTrainingService : IRlTrainingService
             _episodeMetrics.Clear();
             _episodeTrades.Clear();
             _episodeWindows.Clear();
+            _generationStats.Clear();
             Error = null;
             AppendLog("info", "run reset");
         }
@@ -676,7 +702,7 @@ internal sealed class RlTrainingService : IRlTrainingService
             }
             try
             {
-                brain = _brainService.BuildAndRegister(summary.BrainName, recipe);
+                brain = _brainService.BuildAndRegister(summary.BrainName, recipe) as IPolicyGradientBrain;
                 _logger.LogInformation("Rebuilt brain {BrainName} from saved recipe for id {Id}", summary.BrainName, id);
             }
             catch (Exception ex)
@@ -684,6 +710,15 @@ internal sealed class RlTrainingService : IRlTrainingService
                 SaveStatus = $"couldn't rebuild '{summary.BrainName}' from its saved recipe: {ex.Message}";
                 OnChanged?.Invoke();
                 _logger.LogWarning(ex, "LoadSavedBrain: failed to rebuild '{BrainName}' from recipe for id {Id}", summary.BrainName, id);
+                return false;
+            }
+            // A recipe that no longer rebuilds to a policy-gradient brain (e.g. its
+            // ArchitectureKind changed to Neat) has no ExportWeights/ImportWeights to load into.
+            if (brain is null)
+            {
+                SaveStatus = $"'{summary.BrainName}' no longer rebuilds to a brain kind that supports saved weights";
+                OnChanged?.Invoke();
+                _logger.LogWarning("LoadSavedBrain: rebuilt '{BrainName}' is not a policy-gradient brain for id {Id}", summary.BrainName, id);
                 return false;
             }
         }

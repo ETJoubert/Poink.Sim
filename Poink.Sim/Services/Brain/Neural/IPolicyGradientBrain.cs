@@ -19,7 +19,12 @@ public sealed record RlOutputFeature(string Label, double Probability, bool IsCh
 
 public sealed record NetworkLayerShape(int Units, bool IsRecurrent);
 
-internal interface IPolicyGradientBrain : ISimulationBrain
+internal interface IDescribableBrain : ISimulationBrain
+{
+    IReadOnlyList<RlInputFeature> DescribeInputs(SimulationObservation observation);
+}
+
+internal interface IPolicyGradientBrain : IDescribableBrain
 {
 
     Module<Tensor, Tensor> Network { get; }
@@ -32,9 +37,6 @@ internal interface IPolicyGradientBrain : ISimulationBrain
 
     (SimulationDecision Decision, Tensor ActionLogProbability, Tensor Entropy, IReadOnlyList<RlOutputFeature> Outputs) DecideWithLogProbability(
         SimulationObservation observation);
-
-
-    IReadOnlyList<RlInputFeature> DescribeInputs(SimulationObservation observation);
 
 
     byte[] ExportWeights()

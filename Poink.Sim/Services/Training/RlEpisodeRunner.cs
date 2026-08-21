@@ -51,7 +51,7 @@ internal static class RlEpisodeRunner
 
 
         var allBarOutputs = new List<IReadOnlyList<RlOutputFeature>>();
-        var describableBrain = brain as IPolicyGradientBrain;
+        var describableBrain = brain as IDescribableBrain;
 
         double lastBid = 0, lastAsk = 0;
 
@@ -197,6 +197,12 @@ internal static class RlEpisodeRunner
             decision = decidedAction;
             logProbability = actionLogProbability;
             entropy = decisionEntropy;
+            outputs = decisionOutputs;
+        }
+        else if (brain is INeatPolicyBrain neatBrain)
+        {
+            var (decidedAction, decisionOutputs) = neatBrain.DecideWithOutputs(observation);
+            decision = decidedAction;
             outputs = decisionOutputs;
         }
         else

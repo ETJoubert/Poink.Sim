@@ -347,6 +347,26 @@
                             <span class="train-stat-label">reward spread</span>
                             <span class="train-stat-value">@RewardSpread.ToString("N2")</span>
                         </div>
+                        @if (Service.RecentGenerations.Count > 0)
+                        {
+                            var latestGeneration = Service.RecentGenerations[^1];
+                            <div class="train-stat">
+                                <span class="train-stat-label">generation</span>
+                                <span class="train-stat-value">@latestGeneration.Generation</span>
+                            </div>
+                            <div class="train-stat">
+                                <span class="train-stat-label">species</span>
+                                <span class="train-stat-value">@latestGeneration.SpeciesCount</span>
+                            </div>
+                            <div class="train-stat">
+                                <span class="train-stat-label">best fitness</span>
+                                <span class="train-stat-value">@latestGeneration.BestFitness.ToString("N2")</span>
+                            </div>
+                            <div class="train-stat">
+                                <span class="train-stat-label">avg fitness</span>
+                                <span class="train-stat-value">@latestGeneration.AverageFitness.ToString("N2")</span>
+                            </div>
+                        }
                     </div>
                 </div>
 

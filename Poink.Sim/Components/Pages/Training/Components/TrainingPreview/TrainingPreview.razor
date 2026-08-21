@@ -1,4 +1,5 @@
 @namespace Poink.Sim.Components.Training
+@using Poink.Sim.Brain.Neural
 @using Poink.Sim.Training
 
 <div class="tp-card">
@@ -170,6 +171,12 @@
                                 <div class="tp-nn-progress-light tp-nn-progress-light-forward"></div>
                                 <div class="tp-nn-progress-light tp-nn-progress-light-update"></div>
                             </div>
+                            @if (Recipe?.ArchitectureKind == ArchitectureKind.Neat)
+                            {
+                                <NeatTopologyGraph Topology="Service.LatestNeatTopology" Recipe="Recipe" />
+                            }
+                            else
+                            {
                             <div class="tp-nn-cards">
                                 <div class="tp-source-card tp-nn-card">
                                     <div class="tp-source-card-title"
@@ -236,6 +243,7 @@
                                             }
                                         </div>
                                     </div>
+                            }
                                 </div>
                                 <div class="tp-column">
                                     <div class="tp-column-title"
@@ -287,6 +295,23 @@
                                                                                 Aggregate="@RlEpisodeMetricStats.WinRate" ColorVariant="winrate" ValueFormat="N0"
                                                                                 ValueSuffix="%" />
                                                             </div>
+                                                        @if (Service.RecentGenerations.Count > 0)
+                                                        {
+                                                            <div class="tp-results-chart">
+                                                                <div class="tp-profile-title" title="Best and average fitness per generation -- fitness is this run's reward policy, summed per episode/genome">
+                                                                    Evolution — Fitness</div>
+                                                                    <NeatEvolutionChart Generations="Service.RecentGenerations" IsRunning="Service.IsRunning"
+                                                                                        PrimarySelector="g => g.BestFitness" PrimaryLabel="best"
+                                                                                        SecondarySelector="g => g.AverageFitness" SecondaryLabel="avg" ColorVariant="fitness" />
+                                                                </div>
+                                                            <div class="tp-results-chart">
+                                                                <div class="tp-profile-title" title="Species count per generation -- a healthy run holds a handful of species that turn over slowly">
+                                                                    Evolution — Species</div>
+                                                                    <NeatEvolutionChart Generations="Service.RecentGenerations" IsRunning="Service.IsRunning"
+                                                                                        PrimarySelector="g => (double)g.SpeciesCount" PrimaryLabel="species"
+                                                                                        ColorVariant="species" ValueFormat="N0" />
+                                                                </div>
+                                                        }
                                                         </div>
                                                     </div>
                                                 </div>
