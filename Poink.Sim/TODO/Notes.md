@@ -34,3 +34,11 @@ Your calculation that feeding in 5 past actions across 4 choices creates a flat 
 
 6. Delayed Rewards and Monolithic Credit Assignment
 If the agent receives a reward primarily at the end of an episode (sparse/delayed reward), temporal credit assignment spreads that final return across every action in the trajectory. The network doesn't know that the first 50% of Sequence A was great and the last 50% was weak; it simply evaluates Sequence A as a single unit with value $V_A$, and Sequence B as $V_B$. When updates nudge $V_B > V_A$, the greedy policy flips the entire sequence at once.
+
+
+7. Upgrade to arch and codepage using roslyn
+For /arch: aggregate the call graph up to type-level edges (A calls B if any method in A calls into B) and add it as a third edge kind alongside Injected/Produces, with its own line style. Main tradeoff: Arch currently renders instantly from an in-memory DI snapshot, while /calls takes ~7s to build — so Arch would either need to wait on that build too, or render immediately and have the "Calls" edges pop in a moment later.
+
+For /code: I wouldn't auto-generate it — that page's value is the hand-curated narrative grouping (Config/Data/Inputs/Network/...), and Roslyn can't reconstruct editorial judgment like that. Instead I'd use the call graph as a drift check: verify each CodeTypeRef in CodeGraphModels.cs still points to a real type/method and log a warning for any that don't — reusing the exact pattern CodePage.razor.cs already has for unresolved wires (FindUnresolvedWires → Logger.LogWarning), just backed by real Roslyn data instead of manual upkeep.
+
+Both are additive to their pages, not replacements. Want me to plan either one out?

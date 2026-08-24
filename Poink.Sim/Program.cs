@@ -45,6 +45,7 @@ builder.Services.BuildSimulationServices();
 builder.Services.AddScoped<IProfilerService, ProfilerService>();
 builder.Services.AddScoped<ILocalStorageHelper, LocalStorageHelper>();
 builder.Services.BuildCodeGraphServices();
+builder.Services.BuildCallGraphServices();
 // Snapshot of every registration made above this line, so the Arch page can reflect the
 // DI container itself into a graph instead of maintaining a hand-written node list.
 builder.Services.AddSingleton<IReadOnlyList<ServiceDescriptor>>(builder.Services.ToList());

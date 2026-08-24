@@ -68,9 +68,17 @@ internal sealed class TrainingService : ITrainingService
     private volatile bool _pauseAfterNextEpisode;
 
     public TrainingService(
-        BrainRegistry brainRegistry, IBrainBuilder brainBuilder, IEnumerable<IRlTrainingStrategy> strategies, IRewardPolicyService rewardPolicyService,
-        IModelService modelService, IBrainService brainService, INeuralNetworkService neuralNetworkService, ITickRepository tickRepository,
-        Trader.ITraderFactory traderFactory, ILogger<TrainingService> logger)
+        BrainRegistry brainRegistry,
+        IBrainBuilder brainBuilder,
+        IEnumerable<IRlTrainingStrategy> strategies,
+        IRewardPolicyService rewardPolicyService,
+        IModelService modelService,
+        IBrainService brainService,
+        INeuralNetworkService neuralNetworkService,
+        ITickRepository tickRepository,
+        Trader.ITraderFactory traderFactory,
+        ILogger<TrainingService> logger
+        )
     {
         _brainRegistry = brainRegistry;
         _brainBuilder = brainBuilder;
@@ -652,7 +660,7 @@ internal sealed class TrainingService : ITrainingService
                 CommissionRatePercent = settings.CommissionModel is Trader.Commission.PercentOfNotionalCommission p ? p.RatePercent : 0,
             };
             DateTime? trainedAt = _lastTrainedAt.TryGetValue(brainName, out var t) ? t : null;
-            var recipe = _brainService.GetRecipe(brainName); // null for the 4 fixed Program.cs brains
+            var recipe = _brainService.GetRecipe(brainName);
 
             if (!_modelService.SaveModel(
                     savedName, brainName, strategyName, _rewardPolicyService.SelectedPolicyName, dataset, parameters, recipe, trainedAt,

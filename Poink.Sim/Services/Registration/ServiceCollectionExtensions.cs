@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Poink.CTrader;
 using Poink.Sim.Brain;
 using Poink.Sim.Components.Pages.Arch.Services;
+using Poink.Sim.Components.Pages.Calls.Services;
 using Poink.Sim.Components.Pages.Code.Services;
 using Poink.Sim.Data;
 using Poink.Sim.Repository;
@@ -139,6 +140,17 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ICodeGraphProvider, CodeGraphProvider>();
         services.AddSingleton<IXmlDocumentationProvider, XmlDocumentationProvider>();
         services.AddScoped<IArchGraphProvider, ArchGraphProvider>();
+
+        return services;
+    }
+
+    /// <summary>
+    /// The Calls page's method-level call graph, built by parsing Poink.Sim's own source with
+    /// Roslyn (see CallGraphIndex.cs) — the one thing reflection-based Arch/Code cannot show.
+    /// </summary>
+    public static IServiceCollection BuildCallGraphServices(this IServiceCollection services)
+    {
+        services.AddSingleton<ICallGraphIndex, CallGraphIndex>();
 
         return services;
     }

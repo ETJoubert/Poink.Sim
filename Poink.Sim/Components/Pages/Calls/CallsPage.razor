@@ -1,0 +1,149 @@
+@page "/calls"
+@namespace Poink.Sim.Components.Pages
+@using Poink.Sim.Components.Pages.Calls.Models
+
+<div class="calls-page">
+
+    <div class="calls-topbar">
+        <header class="calls-header">
+            <div class="calls-header-title">
+                <span class="calls-header-symbol">CALLS</span>
+                @if (_result is not null)
+                {
+                    <span class="calls-header-mode" title="Types with at least one method or constructor declared under Poink.Sim">@_result.Stats.TypeCount types</span>
+                    <span class="calls-header-mode" title="Methods and constructors indexed by parsing Poink.Sim's own source with Roslyn">@_result.Stats.MethodCount methods</span>
+                    <span class="calls-header-mode" title="Invocations and object-creation expressions resolved to another Poink.Sim method by Roslyn's semantic model">@_result.Stats.EdgeCount calls</span>
+                    <span class="calls-header-mode" title="Total time to parse, compile and resolve the call graph">@(_result.Stats.BuildDuration.TotalMilliseconds.ToString("0"))ms</span>
+                }
+            </div>
+
+            <div class="calls-header-tools">
+                <input class="calls-search"
+                       type="search"
+                       placeholder="Search type, namespace or method..."
+                       title="Filter the type list by type name, namespace or method signature"
+                       value="@_search"
+                       @oninput="OnSearchChanged" />
+                <button type="button" class="calls-tool-btn" title="Clear the current selection" @onclick="ClearSelection" disabled="@(_selectedTypeId is null)">CLEAR</button>
+            </div>
+        </header>
+
+        @if (_result is not null)
+        {
+            <div class="calls-legend">
+                @foreach (var kind in AllKinds)
+                {
+                    <button type="button"
+                            class="calls-kind-pill calls-kind-@(kind.ToLowerInvariant()) @(IsKindVisible(kind) ? "calls-kind-on" : "calls-kind-off")"
+                            title="@KindTooltip(kind)"
+                            @onclick="() => ToggleKind(kind)">
+                        @kind
+                    </button>
+                }
+            </div>
+        }
+
+        <div class="calls-notice" title="Roslyn's semantic model does static, syntax-level binding, the same as an IDE's Find All References">
+            Calls made only from <code>.razor</code> markup bindings (@@onclick, @@bind) are not visible here — they compile into a generated file this index does not parse.
+            A call through an interface-typed reference resolves to the interface method, not the concrete override.
+        </div>
+    </div>
+
+    @if (_result is null)
+    {
+        <div class="calls-loading" title="First load only — Roslyn is parsing and semantically resolving Poink.Sim's own source">
+            Building call graph index…
+        </div>
+    }
+    else
+    {
+        <div class="calls-body">
+            <div class="calls-pane calls-pane-types">
+                <div class="calls-pane-title" title="Every Poink.Sim type with at least one indexed method">TYPES</div>
+                @foreach (var type in FilteredTypes)
+                {
+                    <button type="button"
+                            class="calls-list-item @(type.Id == _selectedTypeId ? "calls-list-item-on" : "")"
+                            title="@($"{type.Namespace}.{type.Name} [{type.Kind}] — {type.Methods.Count} method(s) — {type.FilePath}")"
+                            @onclick="() => SelectType(type.Id)">
+                        <span class="calls-list-item-kind calls-kind-@(type.Kind.ToLowerInvariant())">@type.Kind[0]</span>
+                        <span class="calls-list-item-name">@type.Name</span>
+                        <span class="calls-list-item-count">@type.Methods.Count</span>
+                    </button>
+                }
+            </div>
+
+            <div class="calls-pane calls-pane-methods">
+                <div class="calls-pane-title" title="Methods and constructors declared on the selected type">METHODS</div>
+                @if (SelectedType is null)
+                {
+                    <div class="calls-empty">Select a type</div>
+                }
+                else
+                {
+                    @foreach (var method in SelectedType.Methods)
+                    {
+                        <button type="button"
+                                class="calls-list-item @(method.Id == _selectedMethodId ? "calls-list-item-on" : "")"
+                                title="@($"{method.Signature} — {method.DeclaredAt.FilePath}:{method.DeclaredAt.Line} — {method.Outgoing.Count} call(s) out, {method.Incoming.Count} call(s) in")"
+                                @onclick="() => SelectMethod(method.Id)">
+                            <span class="calls-list-item-name">@method.Signature</span>
+                        </button>
+                    }
+                }
+            </div>
+
+            <div class="calls-pane calls-pane-detail">
+                @if (SelectedMethod is null)
+                {
+                    <div class="calls-empty">Select a method to see what it calls and what calls it</div>
+                }
+                else
+                {
+                    <div class="calls-detail-header" title="@($"{SelectedType!.Namespace}.{SelectedType.Name}")">
+                        @SelectedType!.Name<span class="calls-detail-dot">.</span>@SelectedMethod.Signature
+                    </div>
+                    <div class="calls-detail-location" title="Where this method is declared">
+                        @SelectedMethod.DeclaredAt.FilePath:@SelectedMethod.DeclaredAt.Line
+                    </div>
+
+                    <div class="calls-pane-title" title="Other Poink.Sim methods this method calls or constructs">CALLS (@SelectedMethod.Outgoing.Count)</div>
+                    @if (SelectedMethod.Outgoing.Count == 0)
+                    {
+                        <div class="calls-empty">No resolved calls into another Poink.Sim method</div>
+                    }
+                    else
+                    {
+                        @foreach (var edge in SelectedMethod.Outgoing)
+                        {
+                            <button type="button"
+                                    class="calls-edge-item"
+                                    title="@($"{edge.TypeName}.{edge.Signature} — called at {edge.Site.FilePath}:{edge.Site.Line}")"
+                                    @onclick="() => SelectEdge(edge)">
+                                <span class="calls-edge-type">@edge.TypeName</span>.@edge.Signature
+                            </button>
+                        }
+                    }
+
+                    <div class="calls-pane-title" title="Other Poink.Sim methods that call this method">CALLED BY (@SelectedMethod.Incoming.Count)</div>
+                    @if (SelectedMethod.Incoming.Count == 0)
+                    {
+                        <div class="calls-empty">No resolved callers found in Poink.Sim (may still be invoked from .razor markup — see notice above)</div>
+                    }
+                    else
+                    {
+                        @foreach (var edge in SelectedMethod.Incoming)
+                        {
+                            <button type="button"
+                                    class="calls-edge-item"
+                                    title="@($"{edge.TypeName}.{edge.Signature} — calls from {edge.Site.FilePath}:{edge.Site.Line}")"
+                                    @onclick="() => SelectEdge(edge)">
+                                <span class="calls-edge-type">@edge.TypeName</span>.@edge.Signature
+                            </button>
+                        }
+                    }
+                }
+            </div>
+        </div>
+    }
+</div>
