@@ -1,12 +1,17 @@
-
 using System;
 using System.Collections.Generic;
 
 namespace Poink.Sim.Models;
 
 internal readonly record struct PriceBucketCounts(
-    int Count, int UpCount, int DownCount, double UpDistance, double DownDistance,
-    double UpPriceSum, double DownPriceSum);
+    int Count,
+    int UpCount,
+    int DownCount,
+    double UpDistance,
+    double DownDistance,
+    double UpPriceSum,
+    double DownPriceSum
+);
 
 internal sealed class BarPriceHistogram
 {
@@ -33,11 +38,14 @@ internal sealed class BarPriceHistogram
             existing.UpDistance + (direction > 0 ? distance : 0),
             existing.DownDistance + (direction < 0 ? distance : 0),
             existing.UpPriceSum + (direction > 0 ? originPrice : 0),
-            existing.DownPriceSum + (direction < 0 ? originPrice : 0));
+            existing.DownPriceSum + (direction < 0 ? originPrice : 0)
+        );
     }
 
     public static List<(double Price, int Count, int UpCount, int DownCount)> Merge(
-        IReadOnlyList<BarPriceHistogram> histograms, int windowCount)
+        IReadOnlyList<BarPriceHistogram> histograms,
+        int windowCount
+    )
     {
         var start = Math.Max(0, histograms.Count - windowCount);
         var merged = new Dictionary<long, PriceBucketCounts>();
@@ -50,9 +58,14 @@ internal sealed class BarPriceHistogram
             {
                 merged.TryGetValue(key, out var existing);
                 merged[key] = new PriceBucketCounts(
-                    existing.Count + c.Count, existing.UpCount + c.UpCount, existing.DownCount + c.DownCount,
-                    existing.UpDistance + c.UpDistance, existing.DownDistance + c.DownDistance,
-                    existing.UpPriceSum + c.UpPriceSum, existing.DownPriceSum + c.DownPriceSum);
+                    existing.Count + c.Count,
+                    existing.UpCount + c.UpCount,
+                    existing.DownCount + c.DownCount,
+                    existing.UpDistance + c.UpDistance,
+                    existing.DownDistance + c.DownDistance,
+                    existing.UpPriceSum + c.UpPriceSum,
+                    existing.DownPriceSum + c.DownPriceSum
+                );
             }
         }
 
@@ -62,9 +75,11 @@ internal sealed class BarPriceHistogram
         return result;
     }
 
-
     public static List<(double Price, int Count, double Seconds, double UpSeconds, double DownSeconds)> MergeTime(
-        IReadOnlyList<HlocAvdtBar> bars, IReadOnlyList<BarPriceHistogram> histograms, int windowCount)
+        IReadOnlyList<HlocAvdtBar> bars,
+        IReadOnlyList<BarPriceHistogram> histograms,
+        int windowCount
+    )
     {
         var start = Math.Max(0, histograms.Count - windowCount);
         var merged = new Dictionary<long, (int Count, double Seconds, double UpSeconds, double DownSeconds)>();
@@ -82,7 +97,8 @@ internal sealed class BarPriceHistogram
                     existing.Count + c.Count,
                     existing.Seconds + c.Count * avgTickSeconds,
                     existing.UpSeconds + c.UpCount * avgTickSeconds,
-                    existing.DownSeconds + c.DownCount * avgTickSeconds);
+                    existing.DownSeconds + c.DownCount * avgTickSeconds
+                );
             }
         }
 
@@ -92,3 +108,4 @@ internal sealed class BarPriceHistogram
         return result;
     }
 }
+

@@ -12,5 +12,7 @@ namespace Poink.Sim.Models
         int BarWidthSeconds,
         double StartingCash,
         double LearningRate,
-        Trader.TraderSettings? TraderSettings = null);
+        Trader.TraderSettings? TraderSettings = null
+    );
 }
+

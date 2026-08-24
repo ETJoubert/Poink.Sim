@@ -20,5 +20,7 @@ namespace Poink.Sim.Models
         bool PauseAfterFirstEpisode = false,
         EpisodeTimeConstraint? EpisodeTimeConstraint = null,
         SimulationSteppingMode SteppingMode = SimulationSteppingMode.Bar,
-        double CellWidth = 0.10);
+        double CellWidth = 0.10
+    );
 }
+

@@ -29,5 +29,7 @@ namespace Poink.Sim.Models
         double Leverage,
         double CommissionRatePercent,
         double StopOutLevelPercent,
-        List<string> SelectedRiskPolicies);
+        List<string> SelectedRiskPolicies
+    );
 }
+

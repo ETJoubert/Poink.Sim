@@ -29,7 +29,8 @@ namespace Poink.Sim.Models
         double Leverage,
         double CommissionRatePercent,
         double StopOutLevelPercent,
-        IReadOnlyList<string> SelectedRiskPolicies);
+        IReadOnlyList<string> SelectedRiskPolicies
+    );
 
     /// <summary>
     /// Training-signal stats for a run (reward/episode-throughput). Excludes trade/trader
@@ -46,14 +47,16 @@ namespace Poink.Sim.Models
         double WinRatePercent,
         double RewardSpread,
         double RewardStdDev,
-        double RewardMedian);
+        double RewardMedian
+    );
 
     /// <summary>
     /// Latest-snapshot series backing the reward/trend/coverage charts.
     /// </summary>
     internal sealed record TrainingResultsGraph(
         IReadOnlyList<RlEpisodeMetric> Episodes,
-        IReadOnlyList<RlEpisodeWindow> EpisodeWindows);
+        IReadOnlyList<RlEpisodeWindow> EpisodeWindows
+    );
 
     internal sealed record TrainingResultModel(
         Guid Id,
@@ -61,7 +64,8 @@ namespace Poink.Sim.Models
         TrainingConfig Config,
         TrainingSessionStats Stats,
         TrainingResultsGraph Graph,
-        DateTime CreatedAt);
+        DateTime CreatedAt
+    );
 
     internal sealed record TrainingResultSummary(
         Guid Id,
@@ -72,5 +76,7 @@ namespace Poink.Sim.Models
         int EpisodesCompleted,
         int TotalEpisodes,
         double RecentAverageReward,
-        double BestReward);
+        double BestReward
+    );
 }
+

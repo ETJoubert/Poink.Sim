@@ -1,18 +1,20 @@
-
 using System;
 using System.Collections.Generic;
 using System.Linq;
 
 namespace Poink.Sim.Models;
 
-internal readonly record struct VolumeProfileSummary(
-    double PointOfControl, double ValueAreaHigh, double ValueAreaLow);
+internal readonly record struct VolumeProfileSummary(double PointOfControl, double ValueAreaHigh, double ValueAreaLow);
 
 internal static class VolumeProfileAnalysis
 {
     private static (long[] Counts, long[] UpCounts, long[] DownCounts)? RebinSplit(
-        IReadOnlyList<(double Price, int Count, int UpCount, int DownCount)> buckets, int bucketCount,
-        out long totalCount, out double binMin, out double binSize)
+        IReadOnlyList<(double Price, int Count, int UpCount, int DownCount)> buckets,
+        int bucketCount,
+        out long totalCount,
+        out double binMin,
+        out double binSize
+    )
     {
         totalCount = 0;
         binMin = 0;
@@ -27,11 +29,11 @@ internal static class VolumeProfileAnalysis
         var counts = new long[bucketCount];
         var upCounts = new long[bucketCount];
         var downCounts = new long[bucketCount];
-        double min = buckets.Min(b => b.Price), max = buckets.Max(b => b.Price);
+        double min = buckets.Min(b => b.Price),
+            max = buckets.Max(b => b.Price);
         binMin = min;
         if (max <= min)
         {
-
             int mid = bucketCount / 2;
             counts[mid] = totalCount;
             upCounts[mid] = buckets.Sum(b => (long)b.UpCount);
@@ -51,13 +53,17 @@ internal static class VolumeProfileAnalysis
     }
 
     private static long[]? RebinCounts(
-        IReadOnlyList<(double Price, int Count, int UpCount, int DownCount)> buckets, int bucketCount,
-        out long totalCount, out double binMin, out double binSize) =>
-        RebinSplit(buckets, bucketCount, out totalCount, out binMin, out binSize)?.Counts;
-
+        IReadOnlyList<(double Price, int Count, int UpCount, int DownCount)> buckets,
+        int bucketCount,
+        out long totalCount,
+        out double binMin,
+        out double binSize
+    ) => RebinSplit(buckets, bucketCount, out totalCount, out binMin, out binSize)?.Counts;
 
     public static float[] BuildRelativeHistogram(
-        IReadOnlyList<(double Price, int Count, int UpCount, int DownCount)> buckets, int bucketCount)
+        IReadOnlyList<(double Price, int Count, int UpCount, int DownCount)> buckets,
+        int bucketCount
+    )
     {
         var histogram = new float[bucketCount];
         var counts = RebinCounts(buckets, bucketCount, out var totalCount, out _, out _);
@@ -70,7 +76,9 @@ internal static class VolumeProfileAnalysis
     }
 
     public static (float[] Counts, float[] Prices) BuildRawHistogram(
-        IReadOnlyList<(double Price, int Count, int UpCount, int DownCount)> buckets, int bucketCount)
+        IReadOnlyList<(double Price, int Count, int UpCount, int DownCount)> buckets,
+        int bucketCount
+    )
     {
         var countsOut = new float[bucketCount];
         var pricesOut = new float[bucketCount];
@@ -86,9 +94,10 @@ internal static class VolumeProfileAnalysis
         return (countsOut, pricesOut);
     }
 
-
     public static (float[] Up, float[] Down, float[] Diff) BuildRelativeSplitHistogram(
-        IReadOnlyList<(double Price, int Count, int UpCount, int DownCount)> buckets, int bucketCount)
+        IReadOnlyList<(double Price, int Count, int UpCount, int DownCount)> buckets,
+        int bucketCount
+    )
     {
         var up = new float[bucketCount];
         var down = new float[bucketCount];
@@ -105,9 +114,10 @@ internal static class VolumeProfileAnalysis
         return (up, down, diff);
     }
 
-
     public static (float[] Up, float[] Down, float[] Diff, float[] Prices) BuildRawSplitHistogram(
-        IReadOnlyList<(double Price, int Count, int UpCount, int DownCount)> buckets, int bucketCount)
+        IReadOnlyList<(double Price, int Count, int UpCount, int DownCount)> buckets,
+        int bucketCount
+    )
     {
         var up = new float[bucketCount];
         var down = new float[bucketCount];
@@ -128,7 +138,9 @@ internal static class VolumeProfileAnalysis
 
     public static VolumeProfileSummary? ComputeSummary(
         IReadOnlyList<(double Price, int Count, int UpCount, int DownCount)> buckets,
-        double bucketWidth, double valueAreaFraction = 0.70)
+        double bucketWidth,
+        double valueAreaFraction = 0.70
+    )
     {
         if (buckets.Count == 0)
             return null;
@@ -143,7 +155,8 @@ internal static class VolumeProfileAnalysis
             if (ordered[i].Count > ordered[pocIndex].Count)
                 pocIndex = i;
 
-        int lowIdx = pocIndex, highIdx = pocIndex;
+        int lowIdx = pocIndex,
+            highIdx = pocIndex;
         long includedVolume = ordered[pocIndex].Count;
         long target = (long)Math.Ceiling(totalVolume * valueAreaFraction);
         while (includedVolume < target && (lowIdx > 0 || highIdx < ordered.Count - 1))
@@ -165,6 +178,8 @@ internal static class VolumeProfileAnalysis
         return new VolumeProfileSummary(
             ordered[pocIndex].Price + bucketWidth / 2.0,
             ordered[highIdx].Price + bucketWidth,
-            ordered[lowIdx].Price);
+            ordered[lowIdx].Price
+        );
     }
 }
+

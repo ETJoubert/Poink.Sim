@@ -1,19 +1,20 @@
-
 using System;
 using System.Collections.Generic;
 using System.Linq;
 
 namespace Poink.Sim.Models;
 
-internal readonly record struct TimeProfileSummary(
-    double PointOfControl, double ValueAreaHigh, double ValueAreaLow);
+internal readonly record struct TimeProfileSummary(double PointOfControl, double ValueAreaHigh, double ValueAreaLow);
 
 internal static class TimeProfileAnalysis
 {
-
     private static (double[] Seconds, double[] UpSeconds, double[] DownSeconds)? RebinSecondsSplit(
-        IReadOnlyList<(double Price, int Count, double Seconds, double UpSeconds, double DownSeconds)> buckets, int bucketCount,
-        out double totalSeconds, out double binMin, out double binSize)
+        IReadOnlyList<(double Price, int Count, double Seconds, double UpSeconds, double DownSeconds)> buckets,
+        int bucketCount,
+        out double totalSeconds,
+        out double binMin,
+        out double binSize
+    )
     {
         totalSeconds = 0;
         binMin = 0;
@@ -28,11 +29,11 @@ internal static class TimeProfileAnalysis
         var seconds = new double[bucketCount];
         var upSeconds = new double[bucketCount];
         var downSeconds = new double[bucketCount];
-        double min = buckets.Min(b => b.Price), max = buckets.Max(b => b.Price);
+        double min = buckets.Min(b => b.Price),
+            max = buckets.Max(b => b.Price);
         binMin = min;
         if (max <= min)
         {
-
             int mid = bucketCount / 2;
             seconds[mid] = totalSeconds;
             upSeconds[mid] = buckets.Sum(b => b.UpSeconds);
@@ -52,13 +53,17 @@ internal static class TimeProfileAnalysis
     }
 
     private static double[]? RebinSeconds(
-        IReadOnlyList<(double Price, int Count, double Seconds, double UpSeconds, double DownSeconds)> buckets, int bucketCount,
-        out double totalSeconds, out double binMin, out double binSize) =>
-        RebinSecondsSplit(buckets, bucketCount, out totalSeconds, out binMin, out binSize)?.Seconds;
-
+        IReadOnlyList<(double Price, int Count, double Seconds, double UpSeconds, double DownSeconds)> buckets,
+        int bucketCount,
+        out double totalSeconds,
+        out double binMin,
+        out double binSize
+    ) => RebinSecondsSplit(buckets, bucketCount, out totalSeconds, out binMin, out binSize)?.Seconds;
 
     public static float[] BuildRelativeHistogram(
-        IReadOnlyList<(double Price, int Count, double Seconds, double UpSeconds, double DownSeconds)> buckets, int bucketCount)
+        IReadOnlyList<(double Price, int Count, double Seconds, double UpSeconds, double DownSeconds)> buckets,
+        int bucketCount
+    )
     {
         var histogram = new float[bucketCount];
         var seconds = RebinSeconds(buckets, bucketCount, out var totalSeconds, out _, out _);
@@ -70,9 +75,10 @@ internal static class TimeProfileAnalysis
         return histogram;
     }
 
-
     public static (float[] Seconds, float[] Prices) BuildRawHistogram(
-        IReadOnlyList<(double Price, int Count, double Seconds, double UpSeconds, double DownSeconds)> buckets, int bucketCount)
+        IReadOnlyList<(double Price, int Count, double Seconds, double UpSeconds, double DownSeconds)> buckets,
+        int bucketCount
+    )
     {
         var secondsOut = new float[bucketCount];
         var pricesOut = new float[bucketCount];
@@ -89,7 +95,9 @@ internal static class TimeProfileAnalysis
     }
 
     public static (float[] Up, float[] Down, float[] Diff) BuildRelativeSplitHistogram(
-        IReadOnlyList<(double Price, int Count, double Seconds, double UpSeconds, double DownSeconds)> buckets, int bucketCount)
+        IReadOnlyList<(double Price, int Count, double Seconds, double UpSeconds, double DownSeconds)> buckets,
+        int bucketCount
+    )
     {
         var up = new float[bucketCount];
         var down = new float[bucketCount];
@@ -107,7 +115,9 @@ internal static class TimeProfileAnalysis
     }
 
     public static (float[] Up, float[] Down, float[] Diff, float[] Prices) BuildRawSplitHistogram(
-        IReadOnlyList<(double Price, int Count, double Seconds, double UpSeconds, double DownSeconds)> buckets, int bucketCount)
+        IReadOnlyList<(double Price, int Count, double Seconds, double UpSeconds, double DownSeconds)> buckets,
+        int bucketCount
+    )
     {
         var up = new float[bucketCount];
         var down = new float[bucketCount];
@@ -128,7 +138,9 @@ internal static class TimeProfileAnalysis
 
     public static TimeProfileSummary? ComputeSummary(
         IReadOnlyList<(double Price, int Count, double Seconds, double UpSeconds, double DownSeconds)> buckets,
-        double bucketWidth, double valueAreaFraction = 0.70)
+        double bucketWidth,
+        double valueAreaFraction = 0.70
+    )
     {
         if (buckets.Count == 0)
             return null;
@@ -143,7 +155,8 @@ internal static class TimeProfileAnalysis
             if (ordered[i].Seconds > ordered[pocIndex].Seconds)
                 pocIndex = i;
 
-        int lowIdx = pocIndex, highIdx = pocIndex;
+        int lowIdx = pocIndex,
+            highIdx = pocIndex;
         double includedSeconds = ordered[pocIndex].Seconds;
         double target = totalSeconds * valueAreaFraction;
         while (includedSeconds < target && (lowIdx > 0 || highIdx < ordered.Count - 1))
@@ -165,6 +178,8 @@ internal static class TimeProfileAnalysis
         return new TimeProfileSummary(
             ordered[pocIndex].Price + bucketWidth / 2.0,
             ordered[highIdx].Price + bucketWidth,
-            ordered[lowIdx].Price);
+            ordered[lowIdx].Price
+        );
     }
 }
+
