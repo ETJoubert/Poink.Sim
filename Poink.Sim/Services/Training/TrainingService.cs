@@ -215,13 +215,12 @@ internal sealed class TrainingService : ITrainingService
     }
 
 
-    public bool TryStartTraining(
-        string brainName, string strategyName, int episodeCount, int episodeBars, int barWidthSeconds, double startingCash,
-        double learningRate, (string Table, DateTime From, DateTime To)? historicRange,
-        Trader.TraderSettings? traderSettings = null, bool pauseAfterFirstEpisode = false,
-        EpisodeTimeConstraint? episodeTimeConstraint = null,
-        SimulationSteppingMode steppingMode = SimulationSteppingMode.Bar, double cellWidth = 0.10)
+    public bool TryStartTraining(TrainingStartRequest request)
     {
+        var (brainName, strategyName, episodeCount, episodeBars, barWidthSeconds, startingCash,
+            learningRate, historicRange, traderSettings, pauseAfterFirstEpisode,
+            episodeTimeConstraint, steppingMode, cellWidth) = request;
+
         var timeConstraint = episodeTimeConstraint ?? EpisodeTimeConstraint.None;
         var brain = _brainRegistry.All.FirstOrDefault(b => b.Name == brainName);
 
@@ -621,11 +620,12 @@ internal sealed class TrainingService : ITrainingService
     }
 
 
-    public bool SaveBrain(
-        string savedName, string brainName, string strategyName, string dataset,
-        int episodeBars, int barWidthSeconds, double startingCash, double learningRate,
-        Trader.TraderSettings? traderSettings = null)
+    public bool SaveBrain(TrainingSaveRequest request)
     {
+        var (savedName, brainName, strategyName, dataset, episodeBars, barWidthSeconds,
+            startingCash, learningRate, traderSettings) = request;
+
+
         var brain = _brainRegistry.All.OfType<IPolicyGradientBrain>().FirstOrDefault(b => b.Name == brainName);
         if (brain is null)
         {

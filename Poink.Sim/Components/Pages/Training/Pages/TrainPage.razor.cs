@@ -353,10 +353,11 @@ namespace Poink.Sim.Components.Pages
             if (_restrictEpisodeTiming && _sessionEnd <= _sessionStart)
             { _startError = "episode timing: session end must be after session start"; return; }
 
-            if (!Service.TryStartTraining(
-                    _brainName, _strategyName, _episodeCount, EffectiveEpisodeBars, _barWidthSeconds, _startingCash, _learningRate,
-                    (_table, _from, _to), CurrentTraderSettings, pauseAfterFirstEpisode, CurrentEpisodeTimeConstraint,
-                    _steppingMode, _cellWidth))
+            var startRequest = new TrainingStartRequest(
+                _brainName, _strategyName, _episodeCount, EffectiveEpisodeBars, _barWidthSeconds, _startingCash, _learningRate,
+                (_table, _from, _to), CurrentTraderSettings, pauseAfterFirstEpisode, CurrentEpisodeTimeConstraint,
+                _steppingMode, _cellWidth);
+            if (!Service.TryStartTraining(startRequest))
                 _startError = Service.Error ?? "a training run is already in progress";
         }
 
@@ -377,9 +378,11 @@ namespace Poink.Sim.Components.Pages
             if (string.IsNullOrWhiteSpace(_saveName))
                 return;
 
-            if (Service.SaveBrain(_saveName, _brainName, _strategyName, CurrentDatasetDescription,
-                    EffectiveEpisodeBars, _barWidthSeconds, _startingCash, _learningRate,
-                    CurrentTraderSettings))
+            var saveRequest = new TrainingSaveRequest(
+                _saveName, _brainName, _strategyName, CurrentDatasetDescription,
+                EffectiveEpisodeBars, _barWidthSeconds, _startingCash, _learningRate,
+                CurrentTraderSettings);
+            if (Service.SaveBrain(saveRequest))
             {
                 _saveName = "";
                 _showSaveInput = false;

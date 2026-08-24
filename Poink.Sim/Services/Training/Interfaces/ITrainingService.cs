@@ -47,12 +47,7 @@ internal interface ITrainingService
 
     NeuralWeightsSummary? GetActiveSnapshot(string brainName);
 
-    bool TryStartTraining(
-        string brainName, string strategyName, int episodeCount, int episodeBars, int barWidthSeconds, double startingCash,
-        double learningRate, (string Table, DateTime From, DateTime To)? historicRange,
-        Trader.TraderSettings? traderSettings = null, bool pauseAfterFirstEpisode = false,
-        EpisodeTimeConstraint? episodeTimeConstraint = null,
-        SimulationSteppingMode steppingMode = SimulationSteppingMode.Bar, double cellWidth = 0.10);
+    bool TryStartTraining(TrainingStartRequest request);
 
     bool ResetRun();
     void PauseTraining();
@@ -60,10 +55,7 @@ internal interface ITrainingService
     void StepTraining();
     void StopTraining();
 
-    bool SaveBrain(
-        string savedName, string brainName, string strategyName, string dataset,
-        int episodeBars, int barWidthSeconds, double startingCash, double learningRate,
-        Trader.TraderSettings? traderSettings = null);
+    bool SaveBrain(TrainingSaveRequest request);
 
     bool LoadSavedBrain(Guid id);
 }
