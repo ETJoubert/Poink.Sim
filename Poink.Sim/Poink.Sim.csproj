@@ -60,4 +60,8 @@
          (replaces the discontinued CTraderPage in Poink.Shared.Client). -->
     <ProjectReference Include="..\Poink.CTrader\Poink.CTrader.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Poink.Analyzers\Poink.Analyzers.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
 </Project>
