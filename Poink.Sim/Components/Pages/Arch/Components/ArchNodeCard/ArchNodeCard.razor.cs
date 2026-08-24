@@ -16,11 +16,9 @@ public partial class ArchNodeCard : ComponentBase
 
     [Parameter] public bool IsSelected { get; set; }
 
-    [Parameter] public bool IsDimmed { get; set; }
-
     [Parameter] public EventCallback<string> OnSelected { get; set; }
 
-    private string StateClass => IsSelected ? "anc-selected" : IsDimmed ? "anc-dimmed" : string.Empty;
+    private string StateClass => IsSelected ? "anc-selected" : string.Empty;
 
     private string AreaColorStyle => $"--anc-color:{ArchAreaPalette.ColorFor(Node.Area)};";
 

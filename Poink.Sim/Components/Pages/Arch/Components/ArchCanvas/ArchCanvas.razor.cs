@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
+using Poink.Sim.Components.Pages.Arch.Helpers;
 using Poink.Sim.Components.Pages.Arch.Models;
 
 namespace Poink.Sim.Components.Arch;
@@ -24,7 +25,7 @@ public partial class ArchCanvas : ComponentBase, IAsyncDisposable
 
     [Parameter] public bool ConnectedOnly { get; set; }
 
-    [Parameter] public IReadOnlySet<string>? HighlightedNodeIds { get; set; }
+    [Parameter] public IReadOnlySet<string>? FocusedNodeIds { get; set; }
 
     [Parameter] public EventCallback<string> OnNodeSelected { get; set; }
 
@@ -32,15 +33,11 @@ public partial class ArchCanvas : ComponentBase, IAsyncDisposable
 
     [Parameter] public EventCallback<double> OnWheelZoom { get; set; }
 
-    private const double CardWidth = 210;
+    private const double CardWidth = ArchNodeLayoutHelper.CardWidth;
     private const double ColumnGap = 90;
     private const double RowGap = 46;
-    private const double HeaderHeight = 24;
-    private const double PortsPad = 8;
-    private const double PortRowHeight = 16;
-    private const double FooterHeight = 32;
+    private const double HeaderHeight = ArchNodeLayoutHelper.HeaderHeight;
     private const double EdgePadding = 30;
-    private const double PortClearance = 7;
 
     private sealed record NodeLayout(ArchComponentNode Node, double X, double Y, double Height, IReadOnlyList<ArchPortView> Ports);
 
@@ -157,7 +154,7 @@ public partial class ArchCanvas : ComponentBase, IAsyncDisposable
         var columnOrder = visible.Select(n => n.Column).Distinct().OrderBy(c => c).ToList();
         var columnIndex = columnOrder.Select((column, index) => (column, index)).ToDictionary(p => p.column, p => p.index);
 
-        var heights = visible.ToDictionary(n => n.Id, CardHeightFor);
+        var heights = visible.ToDictionary(n => n.Id, ArchNodeLayoutHelper.CardHeightFor);
 
         // Each chip is only as tall as its own port count needs, and chips stack directly under
         // one another from the top of their column — no shared height, no padding to a common row grid.
@@ -176,7 +173,7 @@ public partial class ArchCanvas : ComponentBase, IAsyncDisposable
         }
 
         _nodes = visible
-            .Select(n => new NodeLayout(n, positions[n.Id].X, positions[n.Id].Y, heights[n.Id], BuildPortViews(n)))
+            .Select(n => new NodeLayout(n, positions[n.Id].X, positions[n.Id].Y, heights[n.Id], ArchNodeLayoutHelper.BuildPortViews(n)))
             .ToList();
 
         _canvasWidth = EdgePadding * 2 + (columnOrder.Count - 1) * (CardWidth + ColumnGap) + CardWidth;
@@ -198,10 +195,10 @@ public partial class ArchCanvas : ComponentBase, IAsyncDisposable
             if (edge.Kind == ArchEdgeKind.Injected)
             {
                 var to = FindNode(edge.ToId)!;
-                var inputIndex = IndexOfPort(to.Inputs, edge.Label);
+                var inputIndex = ArchNodeLayoutHelper.IndexOfPort(to.Inputs, edge.Label);
                 if (inputIndex < 0)
                     continue;
-                end = (toPosition.X, toPosition.Y + PortCenterY(inputIndex));
+                end = (toPosition.X, toPosition.Y + ArchNodeLayoutHelper.PortCenterY(inputIndex));
             }
             else
             {
@@ -216,44 +213,6 @@ public partial class ArchCanvas : ComponentBase, IAsyncDisposable
         _edges = laid;
     }
 
-    private static double CardHeightFor(ArchComponentNode node)
-    {
-        var bodyRows = Math.Max(node.Inputs.Count, node.Outputs.Count);
-        return HeaderHeight + PortsPad * 2 + bodyRows * PortRowHeight + FooterHeight;
-    }
-
-    private static double PortCenterY(int index) =>
-        HeaderHeight + PortsPad + index * PortRowHeight + PortRowHeight / 2;
-
-    private static int IndexOfPort(IReadOnlyList<ArchPort> ports, string name)
-    {
-        for (var index = 0; index < ports.Count; index++)
-        {
-            if (ports[index].Name == name)
-                return index;
-        }
-        return -1;
-    }
-
-    private static IReadOnlyList<ArchPortView> BuildPortViews(ArchComponentNode node)
-    {
-        var views = new List<ArchPortView>(node.Inputs.Count + node.Outputs.Count);
-
-        for (var index = 0; index < node.Inputs.Count; index++)
-        {
-            var port = node.Inputs[index];
-            views.Add(new ArchPortView(port.Name, IsOutput: false, PortCenterY(index), port.WiredFrom is not null, port.Tooltip));
-        }
-
-        for (var index = 0; index < node.Outputs.Count; index++)
-        {
-            var port = node.Outputs[index];
-            views.Add(new ArchPortView(port.Name, IsOutput: true, PortCenterY(index), IsConnected: false, port.Tooltip));
-        }
-
-        return views;
-    }
-
     private ArchComponentNode? FindNode(string nodeId) => Graph.Nodes.FirstOrDefault(n => n.Id == nodeId);
 
     private static EdgeLayout BuildEdgeLayout(ArchEdge edge, (double X, double Y) start, (double X, double Y) end)
@@ -261,7 +220,7 @@ public partial class ArchCanvas : ComponentBase, IAsyncDisposable
         var dx = Math.Max(46, Math.Abs(end.X - start.X) * 0.5);
         var c1 = (X: start.X + dx, Y: start.Y);
         var c2 = (X: end.X - dx, Y: end.Y);
-        var tip = PullBack(c2, end);
+        var tip = ArchNodeLayoutHelper.PullBack(c2, end);
 
         var path = string.Create(
             CultureInfo.InvariantCulture,
@@ -270,37 +229,17 @@ public partial class ArchCanvas : ComponentBase, IAsyncDisposable
         return new EdgeLayout(edge, path);
     }
 
-    private static (double X, double Y) PullBack((double X, double Y) from, (double X, double Y) target)
-    {
-        var dx = target.X - from.X;
-        var dy = target.Y - from.Y;
-        var length = Math.Sqrt(dx * dx + dy * dy);
-        return length < PortClearance
-            ? target
-            : (target.X - dx / length * PortClearance, target.Y - dy / length * PortClearance);
-    }
-
     private string NodeStyle(NodeLayout layout) => string.Create(
         CultureInfo.InvariantCulture,
         $"left:{layout.X:0.##}px;top:{layout.Y:0.##}px;width:{CardWidth:0.##}px;height:{layout.Height:0.##}px;");
 
     private bool IsNodeVisible(ArchComponentNode node) =>
         (VisibleAreas is null || VisibleAreas.Count == 0 || VisibleAreas.Contains(node.Area)) &&
-        (!ConnectedOnly || _connectedNodeIds.Contains(node.Id));
+        (!ConnectedOnly || _connectedNodeIds.Contains(node.Id)) &&
+        (FocusedNodeIds is not { Count: > 0 } || FocusedNodeIds.Contains(node.Id));
 
-    private bool IsDimmed(string nodeId) =>
-        HighlightedNodeIds is { Count: > 0 } && !HighlightedNodeIds.Contains(nodeId);
-
-    private string EdgeClass(EdgeLayout layout)
-    {
-        var kind = layout.Edge.Kind == ArchEdgeKind.Produces ? "acv-edge-produces" : "acv-edge-injected";
-        var dimmed = IsEdgeDimmed(layout) ? " acv-dimmed" : string.Empty;
-        return $"acv-edge {kind}{dimmed}";
-    }
-
-    private bool IsEdgeDimmed(EdgeLayout layout) =>
-        HighlightedNodeIds is { Count: > 0 } highlighted &&
-        !(highlighted.Contains(layout.Edge.FromId) && highlighted.Contains(layout.Edge.ToId));
+    private static string EdgeClass(EdgeLayout layout) =>
+        layout.Edge.Kind == ArchEdgeKind.Produces ? "acv-edge acv-edge-produces" : "acv-edge acv-edge-injected";
 
     private static string EdgeTooltip(EdgeLayout layout) => layout.Edge.Kind == ArchEdgeKind.Injected
         ? $"{layout.Edge.FromTitle} is injected into {layout.Edge.ToTitle} as \"{layout.Edge.Label}\"."

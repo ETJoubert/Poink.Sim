@@ -1,7 +1,7 @@
 @namespace Poink.Sim.Components.Arch
 @using Poink.Sim.Components.Pages.Arch.Models
 
-<div class="acv-viewport" @ref="_viewportRef" title="Poink.Sim architecture graph, reflected live from constructors and public contracts. Click a chip for its full port and method list. Drag empty space to pan. Scroll to zoom." @onclick="RaiseBackgroundClicked" @onwheel="HandleWheel" @onwheel:preventDefault="true">
+<div class="acv-viewport" @ref="_viewportRef" title="Poink.Sim architecture graph, reflected live from constructors and public contracts. Click a chip for its full port and method list — the canvas compacts to just its dependency closure. Click again, or UNSELECT, to restore every chip. Drag empty space to pan. Scroll to zoom." @onclick="RaiseBackgroundClicked" @onwheel="HandleWheel" @onwheel:preventDefault="true">
     <div class="acv-space" style="@SpaceStyle">
         <div class="acv-canvas" style="@CanvasStyle">
 
@@ -32,7 +32,6 @@
                     <ArchNodeCard Node="node.Node"
                                   Ports="node.Ports"
                                   IsSelected="@(SelectedId == node.Node.Id)"
-                                  IsDimmed="@IsDimmed(node.Node.Id)"
                                   OnSelected="RaiseNodeSelected" />
                 </div>
             }

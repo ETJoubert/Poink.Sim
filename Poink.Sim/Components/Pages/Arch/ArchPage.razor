@@ -26,6 +26,7 @@
                 <button type="button" class="arch-tool-btn" title="Zoom out" @onclick="ZoomOut" disabled="@(_zoom <= MinZoom)">&minus;</button>
                 <span class="arch-zoom-value" title="Current zoom level">@ZoomLabel</span>
                 <button type="button" class="arch-tool-btn" title="Zoom in" @onclick="ZoomIn" disabled="@(_zoom >= MaxZoom)">+</button>
+                <button type="button" class="arch-tool-btn arch-tool-btn-wide" title="Deselect the current chip and restore every chip to the canvas" @onclick="ClearSelection" disabled="@(_selectedId is null)">UNSELECT</button>
                 <button type="button" class="arch-tool-btn arch-tool-btn-wide" title="Reset zoom, show every area and clear the wired-only filter" @onclick="ResetView">RESET</button>
             </div>
         </header>
@@ -72,7 +73,7 @@
                     Zoom="_zoom"
                     VisibleAreas="_visibleAreas"
                     ConnectedOnly="_connectedOnly"
-                    HighlightedNodeIds="_highlighted"
+                    FocusedNodeIds="_highlighted"
                     OnNodeSelected="SelectNode"
                     OnBackgroundClicked="ClearSelection"
                     OnWheelZoom="HandleWheelZoom" />
