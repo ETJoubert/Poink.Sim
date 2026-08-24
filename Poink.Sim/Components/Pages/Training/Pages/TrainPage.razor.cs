@@ -382,7 +382,7 @@ namespace Poink.Sim.Components.Pages
                 _saveName, _brainName, _strategyName, CurrentDatasetDescription,
                 EffectiveEpisodeBars, _barWidthSeconds, _startingCash, _learningRate,
                 CurrentTraderSettings);
-            if (Service.SaveBrain(saveRequest))
+            if (Service.SaveTrainedBrain(saveRequest))
             {
                 _saveName = "";
                 _showSaveInput = false;

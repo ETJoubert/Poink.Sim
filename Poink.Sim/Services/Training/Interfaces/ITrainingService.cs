@@ -55,7 +55,7 @@ internal interface ITrainingService
     void StepTraining();
     void StopTraining();
 
-    bool SaveBrain(TrainingSaveRequest request);
+    bool SaveTrainedBrain(TrainingSaveRequest request);
 
     bool LoadSavedBrain(Guid id);
 }

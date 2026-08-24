@@ -371,7 +371,7 @@ internal sealed class TrainingService : ITrainingService
                         for (int i = 0; i < episodeCount; i++)
                         {
                             var ticks = historicRange is { } episodeRange
-                                ? RandomEpisodeWindow(episodeRange.Table, episodeRange.From, episodeRange.To, fetchSpan, warmupSpan, rng, timeConstraint).ToList()
+                                ? EpisodeWindowSampler.RandomWindow(_tickRepository, _logger, episodeRange.Table, episodeRange.From, episodeRange.To, fetchSpan, warmupSpan, rng, timeConstraint).ToList()
                                 : DummyTickGenerator.Generate(DateTime.UtcNow - fetchSpan, DateTime.UtcNow, syntheticTickCount).ToList();
                             await episodeQueue.Writer.WriteAsync(ticks, prefetchCts.Token);
                         }
@@ -620,7 +620,7 @@ internal sealed class TrainingService : ITrainingService
     }
 
 
-    public bool SaveBrain(TrainingSaveRequest request)
+    public bool SaveTrainedBrain(TrainingSaveRequest request)
     {
         var (savedName, brainName, strategyName, dataset, episodeBars, barWidthSeconds,
             startingCash, learningRate, traderSettings) = request;
@@ -767,54 +767,6 @@ internal sealed class TrainingService : ITrainingService
         {
             OnChanged?.Invoke();
         }
-    }
-
-
-    private IEnumerable<Tick> RandomEpisodeWindow(
-        string table, DateTime from, DateTime to, TimeSpan fetchSpan, TimeSpan warmupSpan, Random rng, EpisodeTimeConstraint constraint) =>
-        constraint.Enabled
-            ? RandomConstrainedEpisodeWindow(table, from, to, fetchSpan, warmupSpan, rng, constraint)
-            : RandomUnrestrictedEpisodeWindow(table, from, to, fetchSpan, rng);
-
-    private IEnumerable<Tick> RandomUnrestrictedEpisodeWindow(string table, DateTime from, DateTime to, TimeSpan fetchSpan, Random rng)
-    {
-        var latestStart = to - fetchSpan;
-        for (int attempt = 0; attempt < 5; attempt++)
-        {
-            var start = latestStart <= from ? from : from.AddTicks((long)(rng.NextDouble() * (latestStart - from).Ticks));
-            if (_tickRepository.ReadTicks(table, start, start + fetchSpan).Any())
-                return _tickRepository.ReadTicks(table, start, start + fetchSpan);
-        }
-        _logger.LogWarning(
-            "RandomEpisodeWindow: 5 random starts in {Table} landed in empty windows; falling back to range start {From}",
-            table, from);
-        return _tickRepository.ReadTicks(table, from, from + fetchSpan);
-    }
-
-
-    private IEnumerable<Tick> RandomConstrainedEpisodeWindow(
-        string table, DateTime from, DateTime to, TimeSpan fetchSpan, TimeSpan warmupSpan, Random rng, EpisodeTimeConstraint constraint)
-    {
-        var eligibleDays = EpisodeWindowSampler.EligibleDays(from, to, constraint).ToList();
-        if (eligibleDays.Count == 0)
-        {
-            _logger.LogWarning(
-                "RandomConstrainedEpisodeWindow: no eligible day in {Table} for the configured weekday/session filters", table);
-            return Array.Empty<Tick>();
-        }
-
-        for (int attempt = 0; attempt < 5; attempt++)
-        {
-            var day = eligibleDays[rng.Next(eligibleDays.Count)];
-            var start = day + constraint.SessionStart - warmupSpan;
-            if (_tickRepository.ReadTicks(table, start, start + fetchSpan).Any())
-                return _tickRepository.ReadTicks(table, start, start + fetchSpan);
-        }
-        _logger.LogWarning(
-            "RandomConstrainedEpisodeWindow: 5 random starts in {Table} landed in empty windows; falling back to the first eligible day's session",
-            table);
-        var fallbackStart = eligibleDays[0] + constraint.SessionStart - warmupSpan;
-        return _tickRepository.ReadTicks(table, fallbackStart, fallbackStart + fetchSpan);
     }
 
 }
