@@ -11,5 +11,9 @@ namespace Poink.Sim.Data
         public DbSet<CTraderAccountToken> CTraderAccountTokens { get; set; }
 
         public DbSet<TrainingResult> TrainingResults { get; set; }
+
+        public DbSet<NeuralNetwork> NeuralNetworks { get; set; }
+
+        public DbSet<NeuralWeights> NeuralWeights { get; set; }
     }
 }

@@ -79,8 +79,9 @@ public static class ServiceCollectionExtensions
     /// <summary>
     /// RL training pipeline plus the Brain/Model CRUD service layer (topology-only
     /// "networks" and trained weights + run metadata) that the Brain Builder and
-    /// Training pages sit on top of. Also registers the EF-backed TrainingResult
-    /// create/read/delete service, scoped to match its PoinkSimContext dependency.
+    /// Training pages sit on top of. Also registers the EF-backed TrainingResult,
+    /// NeuralNetwork, and NeuralWeights create/read/delete services, scoped to match
+    /// their PoinkSimContext dependency.
     /// </summary>
     public static IServiceCollection BuildTrainingServices(this IServiceCollection services)
     {
@@ -93,6 +94,12 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IRlTrainingService, RlTrainingService>();
 
         services.AddScoped<ITrainingResultService, TrainingResultService>();
+
+        services.AddScoped<INeuralNetworkRepository, NeuralNetworkRepository>();
+        services.AddScoped<INeuralNetworkService, NeuralNetworkService>();
+
+        services.AddScoped<INeuralWeightsRepository, NeuralWeightsRepository>();
+        services.AddScoped<INeuralWeightsService, NeuralWeightsService>();
 
         return services;
     }

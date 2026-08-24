@@ -60,6 +60,61 @@ namespace Poink.Sim.Data.Migrations.PoinkSim
                     b.ToTable("CTraderAccountTokens");
                 });
 
+            modelBuilder.Entity("Poink.Sim.Data.Entities.NeuralNetwork", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("StructureJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("NeuralNetworks");
+                });
+
+            modelBuilder.Entity("Poink.Sim.Data.Entities.NeuralWeights", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<byte[]>("Data")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("NeuralNetworkId")
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("WeightCount")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NeuralNetworkId");
+
+                    b.ToTable("NeuralWeights");
+                });
+
             modelBuilder.Entity("Poink.Sim.Data.Entities.TrainingResult", b =>
                 {
                     b.Property<Guid>("Id")
@@ -88,6 +143,22 @@ namespace Poink.Sim.Data.Migrations.PoinkSim
                     b.HasKey("Id");
 
                     b.ToTable("TrainingResults");
+                });
+
+            modelBuilder.Entity("Poink.Sim.Data.Entities.NeuralWeights", b =>
+                {
+                    b.HasOne("Poink.Sim.Data.Entities.NeuralNetwork", "NeuralNetwork")
+                        .WithMany("Weights")
+                        .HasForeignKey("NeuralNetworkId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("NeuralNetwork");
+                });
+
+            modelBuilder.Entity("Poink.Sim.Data.Entities.NeuralNetwork", b =>
+                {
+                    b.Navigation("Weights");
                 });
 #pragma warning restore 612, 618
         }
