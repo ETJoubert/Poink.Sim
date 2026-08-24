@@ -18,17 +18,18 @@ internal sealed class BrainService : IBrainService
 {
     private readonly INeuralNetworkService _neuralNetworkService;
     private readonly BrainRegistry _brainRegistry;
-    private readonly IBrainBuilder _brainBuilder;
     private readonly ILogger<BrainService> _logger;
 
     private readonly Dictionary<string, BrainRecipe> _brainRecipes = new();
     private readonly HashSet<string> _draftBrainNames = new();
 
-    public BrainService(INeuralNetworkService neuralNetworkService, BrainRegistry brainRegistry, IBrainBuilder brainBuilder, ILogger<BrainService> logger)
+    public BrainService(
+        INeuralNetworkService neuralNetworkService,
+        BrainRegistry brainRegistry,
+        ILogger<BrainService> logger)
     {
         _neuralNetworkService = neuralNetworkService;
         _brainRegistry = brainRegistry;
-        _brainBuilder = brainBuilder;
         _logger = logger;
 
         try
@@ -106,7 +107,7 @@ internal sealed class BrainService : IBrainService
 
         try
         {
-            IDescribableBrain brain = _brainBuilder.Build(name, recipe);
+            IDescribableBrain brain = AssembleBrain(name, recipe);
             if (_brainRegistry.All.Any(b => b.Name == name))
             {
                 _brainRegistry.Unregister(name);
@@ -130,6 +131,23 @@ internal sealed class BrainService : IBrainService
         }
     }
 
+    public IDescribableBrain AssembleBrain(string name, BrainRecipe recipe)
+    {
+        var parts = recipe.EncoderKinds.Select(k => BrainCatalog.CreateEncoder(k, recipe.EncoderSizes)).ToArray();
+        var actionOutputHeads = (recipe.ActionOutputKinds ?? [])
+            .Select(k => BrainCatalog.CreateActionOutputHead(k, recipe.ActionOutputEncodingKind, recipe.DecisionDecoding, recipe.DecisionTemperature)).ToList();
+        var directions = recipe.EnabledDirections ?? ComposedPolicyBrain.AllDirections;
+
+        if (recipe.ArchitectureKind == ArchitectureKind.Neat)
+            return NeatPolicyBrain.Create(
+                name, recipe.NeatHyperparameters ?? new NeatHyperparameters(), actionOutputHeads, directions,
+                recipe.DecisionDecoding, recipe.DecisionTemperature, recipe.EnabledMaskRules, parts);
+
+        var architecture = BrainCatalog.CreateArchitecture(recipe.ArchitectureKind, recipe.HiddenSizes);
+        return ComposedPolicyBrain.Create(
+            name, architecture, actionOutputHeads, directions, recipe.DecisionDecoding, recipe.DecisionTemperature, recipe.CnnKernelSweepSource,
+            recipe.EnabledMaskRules, parts);
+    }
 
     public bool TryBuildBrain(
         string name, IReadOnlyList<EncoderKind> encoderKinds, ArchitectureKind architectureKind, IReadOnlyList<int> hiddenSizes,
@@ -151,7 +169,7 @@ internal sealed class BrainService : IBrainService
             bool alreadyLive = _brainRegistry.All.Any(b => b.Name == name);
             if (!alreadyLive)
             {
-                IDescribableBrain brain = _brainBuilder.Build(name, recipe);
+                IDescribableBrain brain = AssembleBrain(name, recipe);
                 _brainRegistry.Register(brain);
                 _logger.LogInformation("Built new brain: name={Name}, encoders={Encoders}, architecture={Architecture}",
                     name, string.Join(",", encoderKinds), architectureKind);

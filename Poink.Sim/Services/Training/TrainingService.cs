@@ -37,7 +37,6 @@ internal sealed class TrainingService : ITrainingService
 
     private readonly object _lock = new();
     private readonly BrainRegistry _brainRegistry;
-    private readonly IBrainBuilder _brainBuilder;
     private readonly List<IRlTrainingStrategy> _strategies;
     private readonly IRewardPolicyService _rewardPolicyService;
     private readonly List<RlEpisodeMetric> _episodeMetrics = new();
@@ -69,7 +68,6 @@ internal sealed class TrainingService : ITrainingService
 
     public TrainingService(
         BrainRegistry brainRegistry,
-        IBrainBuilder brainBuilder,
         IEnumerable<IRlTrainingStrategy> strategies,
         IRewardPolicyService rewardPolicyService,
         IModelService modelService,
@@ -81,7 +79,6 @@ internal sealed class TrainingService : ITrainingService
         )
     {
         _brainRegistry = brainRegistry;
-        _brainBuilder = brainBuilder;
         _strategies = strategies.ToList();
         _rewardPolicyService = rewardPolicyService;
         _modelService = modelService;
@@ -237,7 +234,7 @@ internal sealed class TrainingService : ITrainingService
                 try
                 {
                     BrainRecipe recipe = _neuralNetworkService.DecodeRecipe(network.StructureJson);
-                    brain = _brainBuilder.Build(network.Name, recipe);
+                    brain = _brainService.AssembleBrain(network.Name, recipe);
                     _brainRegistry.Register(brain);
                     _logger.LogInformation("Rebuilt brain '{Name}' from its saved network at training start", network.Name);
                 }
@@ -720,7 +717,7 @@ internal sealed class TrainingService : ITrainingService
             }
             try
             {
-                IDescribableBrain built = _brainBuilder.Build(summary.BrainName, recipe);
+                IDescribableBrain built = _brainService.AssembleBrain(summary.BrainName, recipe);
                 _brainRegistry.Register(built);
                 brain = built as IPolicyGradientBrain;
                 _logger.LogInformation("Rebuilt brain {BrainName} from saved recipe for id {Id}", summary.BrainName, id);

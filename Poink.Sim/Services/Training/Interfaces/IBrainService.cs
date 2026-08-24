@@ -29,7 +29,7 @@ internal interface IBrainService
         EncoderSizeOptions? encoderSizes = null, DecisionDecodingKind decisionDecoding = DecisionDecodingKind.Softmax,
         double decisionTemperature = 1.0, CnnKernelSweepSource cnnKernelSweepSource = CnnKernelSweepSource.BarWindow,
         IReadOnlyList<DirectionMaskRuleKind>? enabledMaskRules = null, NeatHyperparameters? neatHyperparameters = null);
-
+    public IDescribableBrain AssembleBrain(string name, BrainRecipe recipe);
     bool TryBuildBrain(
         string name, IReadOnlyList<EncoderKind> encoderKinds, ArchitectureKind architectureKind, IReadOnlyList<int> hiddenSizes,
         IReadOnlyList<ActionOutputKind>? actionOutputKinds = null, IReadOnlyList<SimulationAction>? enabledDirections = null,

@@ -120,7 +120,6 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ISimulationBrain, MomentumThresholdBrain>();
         services.AddSingleton<ISimulationBrain, RandomBrain>();
         services.AddSingleton<BrainRegistry>();
-        services.AddSingleton<IBrainBuilder, BrainBuilder>();
 
         services.AddSingleton<IRiskPolicyService, RiskPolicyService>();
         services.AddSingleton<ITraderFactory, TraderFactory>();
