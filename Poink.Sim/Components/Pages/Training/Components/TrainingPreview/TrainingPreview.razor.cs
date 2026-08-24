@@ -49,7 +49,7 @@ namespace Poink.Sim.Components.Training
         [Parameter] public double StartingCash { get; set; }
 
 
-        [Inject] private IRlTrainingService Service { get; set; } = default!;
+        [Inject] private ITrainingService Service { get; set; } = default!;
 
 
         private const int MaxRandomEpisodeAttempts = 8;

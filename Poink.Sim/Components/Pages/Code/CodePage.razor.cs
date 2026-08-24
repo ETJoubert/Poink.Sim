@@ -15,7 +15,7 @@ public partial class CodePage : ComponentBase, IDisposable
 {
     [Inject] private ICodeGraphProvider GraphProvider { get; set; } = default!;
 
-    [Inject] private IRlTrainingService Training { get; set; } = default!;
+    [Inject] private ITrainingService Training { get; set; } = default!;
 
     [Inject] private ISimulationEngine Simulation { get; set; } = default!;
 

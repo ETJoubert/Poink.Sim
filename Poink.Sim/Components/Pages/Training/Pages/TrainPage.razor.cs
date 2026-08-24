@@ -19,7 +19,7 @@ namespace Poink.Sim.Components.Pages
 {
     public partial class TrainPage : ComponentBase, IDisposable
     {
-        [Inject] private IRlTrainingService Service { get; set; } = default!;
+        [Inject] private ITrainingService Service { get; set; } = default!;
 
         [Inject] private IRiskPolicyService RiskPolicyService { get; set; } = default!;
 

@@ -18,7 +18,7 @@ namespace Poink.Sim.Training;
 
 internal sealed record RlTrainingLogEntry(DateTime TimestampUtc, string Level, string Message);
 
-internal sealed class RlTrainingService : IRlTrainingService
+internal sealed class TrainingService : ITrainingService
 {
     private const int RecentRewardWindow = 20;
     private const int MaxMetricsLog = 500;
@@ -48,7 +48,7 @@ internal sealed class RlTrainingService : IRlTrainingService
     private readonly IBrainService _brainService;
     private readonly ITickRepository _tickRepository;
     private readonly Trader.ITraderFactory _traderFactory;
-    private readonly ILogger<RlTrainingService> _logger;
+    private readonly ILogger<TrainingService> _logger;
 
 
     private readonly Dictionary<string, Guid> _activeSnapshotId = new();
@@ -65,10 +65,10 @@ internal sealed class RlTrainingService : IRlTrainingService
 
     private volatile bool _pauseAfterNextEpisode;
 
-    public RlTrainingService(
+    public TrainingService(
         BrainRegistry brainRegistry, IEnumerable<IRlTrainingStrategy> strategies, IRewardPolicyService rewardPolicyService,
         IModelService modelService, IBrainService brainService, ITickRepository tickRepository,
-        Trader.ITraderFactory traderFactory, ILogger<RlTrainingService> logger)
+        Trader.ITraderFactory traderFactory, ILogger<TrainingService> logger)
     {
         _brainRegistry = brainRegistry;
         _strategies = strategies.ToList();

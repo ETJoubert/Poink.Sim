@@ -15,7 +15,7 @@ namespace Poink.Sim.Components.Training
 {
     public partial class BrainBuilder : ComponentBase
     {
-        [Inject] private IRlTrainingService Service { get; set; } = default!;
+        [Inject] private ITrainingService Service { get; set; } = default!;
 
         [Inject] private IRewardPolicyService RewardPolicyService { get; set; } = default!;
 

@@ -7,7 +7,7 @@ using Poink.Sim.Repository;
 
 namespace Poink.Sim.Training;
 
-internal interface IRlTrainingService
+internal interface ITrainingService
 {
     IReadOnlyList<string> StrategyNames { get; }
 

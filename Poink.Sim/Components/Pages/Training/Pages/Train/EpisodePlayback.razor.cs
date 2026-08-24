@@ -16,7 +16,7 @@ namespace Poink.Sim.Components.Training
 {
     public partial class EpisodePlayback : ComponentBase, IDisposable, IAsyncDisposable
     {
-        [Inject] private IRlTrainingService Service { get; set; } = default!;
+        [Inject] private ITrainingService Service { get; set; } = default!;
 
         [Inject] private IBrainService BrainService { get; set; } = default!;
 
@@ -116,7 +116,8 @@ namespace Poink.Sim.Components.Training
         {
             if (_episodeChartResizeInstance is not null)
             {
-                try { await _episodeChartResizeInstance.DisposeAsync(); }
+                try
+                { await _episodeChartResizeInstance.DisposeAsync(); }
                 catch (JSDisconnectedException) { }
             }
         }
