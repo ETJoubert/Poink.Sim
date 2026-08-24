@@ -172,10 +172,6 @@
                                         Disabled="Service.IsRunning" />
                     </div>
                 </div>
-
-                <BrainBuilder @ref="_brainBuilder" @bind-BrainName="_brainName" @bind-StrategyName="_strategyName"
-                              @bind-LearningRate="_learningRate" OnBrainCreated="HandleBrainCreated" />
-
                 <div class="train-card train-card-full">
                     <div class="train-card-title"
                          title="How much data each episode/run consists of, and optionally which days/times of day an episode's start may fall in">
@@ -260,6 +256,11 @@
                         </div>
                     </div>
 
+                    <BrainBuilder @ref="_brainBuilder" @bind-BrainName="_brainName" @bind-StrategyName="_strategyName"
+                                  @bind-LearningRate="_learningRate" OnBrainCreated="HandleBrainCreated" />
+
+
+
                     <div class="train-card train-card-full">
                         <div class="train-card-title" title="Starting capital the simulated Trader begins each episode with">
                             Trader</div>
@@ -308,7 +309,8 @@
                         title="Live stats, results charts, and episode playback for this run">
                     LIVE TRAINING
                 </button>
-                <button type="button" class="train-btn-toggle @(_activeTab == TrainTab.SavedResults ? "train-btn-toggle-active" : "")"
+                <button type="button"
+                        class="train-btn-toggle @(_activeTab == TrainTab.SavedResults ? "train-btn-toggle-active" : "")"
                         @onclick="() => _activeTab = TrainTab.SavedResults"
                         title="Every saved training result -- Run Setup config, session stats, and a latest-snapshot of the results graphs">
                     SAVED RESULTS
@@ -390,12 +392,13 @@
             {
                 <div class="train-content">
                     <div class="train-card train-card-full">
-                        <div class="train-card-title" title="Every saved training result -- Run Setup config, session stats, and a latest-snapshot of the results graphs">
+                        <div class="train-card-title"
+                             title="Every saved training result -- Run Setup config, session stats, and a latest-snapshot of the results graphs">
                             Saved Results</div>
-                        <DataTable TItem="TrainingResultSummary" Items="_savedResults" ShowRowNumbers="false" ActionsHeader="ACTIONS"
-                                   ExcludeProperties="@(new List<string> { "Id" })" OnDelete="DeleteResultAsync"
-                                   EmptyMessage="no saved training results yet -- run training, then use SAVE RESULTS above" />
+                            <DataTable TItem="TrainingResultSummary" Items="_savedResults" ShowRowNumbers="false"
+                                       ActionsHeader="ACTIONS" ExcludeProperties="@(new List<string> { "Id" })" OnDelete="DeleteResultAsync"
+                                       EmptyMessage="no saved training results yet -- run training, then use SAVE RESULTS above" />
+                        </div>
                     </div>
-                </div>
-            }
-        </div>
+                }
+            </div>
