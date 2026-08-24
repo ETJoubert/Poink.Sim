@@ -45,8 +45,6 @@ namespace Poink.Sim.Components.Training
 		[Parameter]
 		public EventCallback<double> LearningRateChanged { get; set; }
 
-		private string? _lastBrainName;
-
 		private IReadOnlyList<BrainOption> TrainableBrainOptions =>
 			BrainService
 				.Brains.Select(n => n.Name)
@@ -63,18 +61,11 @@ namespace Poink.Sim.Components.Training
 				_ = StrategyNameChanged.InvokeAsync(Service.StrategyNames[0]);
 		}
 
-		protected override void OnParametersSet()
-		{
-			if (BrainName != _lastBrainName)
-			{
-				_lastBrainName = BrainName;
-				if (!string.IsNullOrEmpty(BrainName) && BrainService.GetRecipe(BrainName) is { } recipe)
-					LoadRecipe(BrainName, recipe);
-			}
-		}
-
 		private bool IsDraft =>
 			PersistedRecipeForCurrentName is not { } persisted || !RecipesEqual(persisted, CurrentRecipe);
+
+		private bool IsModifiedFromSaved =>
+			PersistedRecipeForCurrentName is { } persisted && !RecipesEqual(persisted, CurrentRecipe);
 
 		private BrainRecipe? PersistedRecipeForCurrentName =>
 			BrainService.Brains.FirstOrDefault(b => b.Name == EffectiveBuildBrainName)?.Recipe;
@@ -101,15 +92,23 @@ namespace Poink.Sim.Components.Training
 
 		private bool _showBuildPanel;
 
-		private void ToggleBuildPanel()
+		private void StartNewBrain()
 		{
-			_showBuildPanel = !_showBuildPanel;
-			if (_showBuildPanel)
-				_buildBrainStatus = null;
+			ResetBuildFieldsToDefaults();
+			_showBuildPanel = true;
+		}
+
+		private void ModifyCurrentBrain()
+		{
+			if (!string.IsNullOrEmpty(BrainName) && BrainService.GetRecipe(BrainName) is { } recipe)
+				LoadRecipe(BrainName, recipe);
+			_showBuildPanel = true;
 		}
 
 		private bool _showDeleteConfirm;
 		private string? _deleteStatus;
+
+		private void RequestDeleteBrain() => _showDeleteConfirm = true;
 
 		private void CancelDeleteBrain() => _showDeleteConfirm = false;
 
@@ -249,6 +248,111 @@ namespace Poink.Sim.Components.Training
 			_maskKeyLevelRequiredForClose = masks.Contains(DirectionMaskRuleKind.KeyLevelRequiredForClose);
 
 			_buildBrainStatus = null;
+		}
+
+		// Mirrors every field's own declared default below -- kept in sync with them so
+		// "+ NEW BRAIN" reproduces exactly the state a fresh BrainBuilder starts in.
+		private void ResetBuildFieldsToDefaults()
+		{
+			_buildBrainName = "";
+			_buildBrainNameAuto = true;
+			_includeBarWindow = true;
+			_includeVolumeProfile = false;
+			_includeTimeProfile = false;
+			_includeSessionClock = false;
+			_includeSpreadVolatility = false;
+			_includeTraderState = false;
+
+			_timeSeriesInputsHidden = true;
+
+			_barWindowNormalization = NormalizationKind.Normalized;
+			_volumeProfileNormalization = NormalizationKind.Normalized;
+			_timeProfileNormalization = NormalizationKind.Normalized;
+
+			_volumeProfileSplitUpDown = false;
+			_timeProfileSplitUpDown = false;
+
+			_barWindowSize = 20;
+			_volumeProfileBucketCount = 20;
+			_timeProfileBucketCount = 20;
+			_volumeProfileLookbackBars = 50;
+			_timeProfileLookbackBars = 50;
+			_spreadVolatilityAtrPeriod = 14;
+			_barWindowZScoreSubWindowSize = 5;
+			_volumeProfileZScoreSubWindowSize = 5;
+
+			_includeTraderStateOutcomes = false;
+			_includeTraderStatePositionLevel = false;
+			_includeTraderStateDirection = false;
+
+			_traderStateTradeOutcomeListLength = 5;
+			_traderStatePositionLevelListLength = 5;
+			_traderStateDirectionListLength = 5;
+
+			_traderStateIncludePosition = true;
+			_traderStateIncludePositionPrice = true;
+			_traderStateIncludePositionTicks = true;
+			_traderStateIncludePositionDistance = true;
+			_traderStateIncludeCurrentPrice = true;
+			_traderStateIncludeCash = true;
+			_traderStateIncludeRealized = true;
+			_traderStateIncludeUnrealized = true;
+			_traderStateIncludeEquity = true;
+			_traderStateIncludeMargin = true;
+			_traderStateIncludeMarginLevel = true;
+			_traderStateIncludePositionCount = true;
+
+			_xgridEnabledSignals = [];
+			_xgridTopPercent = 10;
+			_xgridColCount = 20;
+			_xgridRowCount = 20;
+			_xgridPipSize = 0.01;
+			_xgridWindowBars = 60;
+
+			_architectureKind = ArchitectureKind.Mlp;
+
+			_mlpHiddenSizes = [64];
+			_lstmHiddenSize = 64;
+			_lstmNumLayers = 2;
+
+			_cnnKernelSize = 3;
+			_cnnChannels = [16, 32];
+			_cnnKernelSweepSource = CnnKernelSweepSource.BarWindow;
+
+			_neatPopulationSize = 150;
+			_neatCompatibilityThreshold = 3.0;
+			_neatExcessCoefficient = 1.0;
+			_neatDisjointCoefficient = 1.0;
+			_neatWeightDiffCoefficient = 0.4;
+			_neatSurvivalThreshold = 0.2;
+			_neatWeightMutationRate = 0.8;
+			_neatWeightResetChance = 0.1;
+			_neatWeightPerturbStdDev = 0.5;
+			_neatAddConnectionMutationRate = 0.05;
+			_neatAddNodeMutationRate = 0.03;
+			_neatDisableInheritedGeneChance = 0.75;
+			_neatInterspeciesMatingRate = 0.001;
+			_neatStagnationGenerations = 15;
+			_neatElitismMinSpeciesSize = 5;
+
+			_includeVolumeOutput = false;
+			_includeStopLossOutput = false;
+			_includeTakeProfitOutput = false;
+
+			_includeHold = true;
+			_includeEnterLong = true;
+			_includeEnterShort = true;
+			_includeClose = true;
+
+			_decisionDecoding = DecisionDecodingKind.Softmax;
+			_decisionTemperature = 1.0;
+			_buildBrainStatus = null;
+
+			_maskPositionRequiredForClose = true;
+			_maskFlatRequiredForEntry = true;
+			_maskLongRequiresUpSignal = true;
+			_maskShortRequiresDownSignal = true;
+			_maskKeyLevelRequiredForClose = true;
 		}
 
 		private string _buildBrainName = "";
@@ -1087,6 +1191,7 @@ namespace Poink.Sim.Components.Training
 			{
 				_buildBrainStatus = $"saved '{name}' to storage";
 				_ = OnBrainCreated.InvokeAsync(name);
+				_ = BrainNameChanged.InvokeAsync(name);
 			}
 			else
 			{
@@ -1131,8 +1236,10 @@ namespace Poink.Sim.Components.Training
 
 		public string? PrepareBrainForTraining()
 		{
-			if (!IsDraft)
+			if (!_showBuildPanel)
 				return BrainName;
+			if (!IsDraft)
+				return EffectiveBuildBrainName;
 			return TryDraftCurrentConfig() ? EffectiveBuildBrainName : null;
 		}
 	}

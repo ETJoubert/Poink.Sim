@@ -1,0 +1,16 @@
+@namespace Poink.Sim.Components.Shared.ConfirmDialog
+
+<div class="confirm-dialog-backdrop" @onclick="OnCancel">
+    <div class="confirm-dialog" role="alertdialog" aria-modal="true" @onclick:stopPropagation="true">
+        <div class="confirm-dialog-title">@Title</div>
+        <div class="confirm-dialog-message">@Message</div>
+        <div class="confirm-dialog-actions">
+            <button type="button" class="confirm-dialog-btn" @onclick="OnCancel" title="@CancelLabel">
+                @CancelLabel
+            </button>
+            <button type="button" class="confirm-dialog-btn confirm-dialog-btn-warn" @onclick="OnConfirm" title="@ConfirmLabel">
+                @ConfirmLabel
+            </button>
+        </div>
+    </div>
+</div>

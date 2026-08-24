@@ -1,101 +1,50 @@
 @namespace Poink.Sim.Components.Training
 @using Poink.Sim.Brain.Neural
+@using Poink.Sim.Components.Shared.ConfirmDialog
+
+@if (_showDeleteConfirm)
+{
+    <ConfirmDialog Title="Delete Brain"
+                   Message="@($"Delete '{BrainName}'? This permanently removes its saved network config and cannot be undone.")"
+                   ConfirmLabel="YES, DELETE" CancelLabel="CANCEL"
+                   OnConfirm="ConfirmDeleteBrain" OnCancel="CancelDeleteBrain" />
+}
 
 <div class="train-card">
-    <div class="train-card-title-row"
-         title="Which brain (neural network) this run trains and plays back, the strategy that trains it, and the reward policy it optimizes against -- heuristic brains have no trainable weights, so they never appear here">
-        <div class="train-card-title">Brain Type</div>
-        <span>
-            <span class="train-card-badge"
-                  title="The config currently held in memory -- what Start Training actually trains, whether or not it's been saved">
-                @EffectiveBuildBrainName</span>
-            @if (IsDraft)
+    <div class="train-card-title-row">
+        <div class="train-card-title"
+             title="Which brain (neural network) this run trains and plays back, the strategy that trains it, and the reward policy it optimizes against -- heuristic brains have no trainable weights, so they never appear here">
+            Brain Config</div>
+        <BrainSelect BrainOptions="TrainableBrainOptions" BrainName="@BrainName" BrainNameChanged="OnBrainNameChanged"
+                     Disabled="Service.IsRunning" />
+        <span class="train-card-title-actions">
+            <button type="button" class="train-btn-toggle" @onclick="StartNewBrain" disabled="@Service.IsRunning"
+                    title="Start building a brand-new brain from scratch -- resets the panel below to defaults with Auto Name on">
+                + NEW BRAIN
+            </button>
+            <button type="button" class="train-btn-toggle" @onclick="ModifyCurrentBrain"
+                    disabled="@(Service.IsRunning || !BrainNameIsPersisted)"
+                    title="Load the brain selected above into the panel below for editing">
+                MODIFY
+            </button>
+            <button type="button" class="train-btn-toggle train-btn-toggle-warn" @onclick="RequestDeleteBrain"
+                    disabled="@(Service.IsRunning || !BrainNameIsPersisted)"
+                    title="Delete the brain selected above -- removes its saved network config; cannot be undone">
+                DELETE BRAIN
+            </button>
+            @if (_showBuildPanel)
             {
-                <span class="train-card-badge train-card-badge-warn"
-                      title="Not saved -- Start Training uses this config live; Save Brain is what commits it to storage">
-                    DRAFT</span>
+                <button type="button" class="train-btn-toggle" @onclick="() => _showBuildPanel = false"
+                        disabled="@Service.IsRunning" title="Collapse the panel below -- keeps your in-progress edits">
+                    - HIDE
+                </button>
             }
         </span>
     </div>
-        <div class="train-card-fields-row">
-            <BrainSelect BrainOptions="TrainableBrainOptions" BrainName="@BrainName" BrainNameChanged="OnBrainNameChanged"
-                         Disabled="Service.IsRunning" />
-            <button class="train-btn-toggle" @onclick="ToggleBuildPanel" disabled="@Service.IsRunning"
-                    title="Show/hide this brain's editable config -- any change here is used immediately by Start Training; Save Brain is what commits it to storage">
-                @(_showBuildPanel ? "- BUILD BRAIN" : "+ BUILD BRAIN")
-            </button>
-            <button type="button" class="train-btn-toggle" @onclick="SetConfig"
-                    disabled="@(Service.IsRunning || !CanCreateBrain || !IsDraft)"
-                    title="Applies the current config live now, without saving -- lets Training Preview below show it before you start a run">
-                SET
-            </button>
-            <button type="button" class="train-btn-toggle" @onclick="SaveBrain"
-                    disabled="@(Service.IsRunning || !CanCreateBrain || !IsDraft)"
-                    title="Commits the current config to storage under its name -- updates it in place if that name's already saved">
-                SAVE BRAIN
-            </button>
-            @if (_showDeleteConfirm)
-            {
-                <span class="train-brainrow-field">
-
-                    <button type="button" class="train-btn-toggle train-btn-toggle-warn" @onclick="ConfirmDeleteBrain"
-                            title="Permanently deletes this brain's saved network config -- cannot be undone">
-                        YES, DELETE
-                    </button>
-                    <button type="button" class="train-btn-toggle" @onclick="CancelDeleteBrain"
-                            title="Cancel -- keep this brain">
-                        CANCEL
-                    </button>
-                    Delete '@BrainName'?
-                </span>
-            }
-            else
-            {
-                <button type="button" class="train-btn-toggle train-btn-toggle-warn" @onclick="() => _showDeleteConfirm = true"
-                        disabled="@(Service.IsRunning || string.IsNullOrEmpty(BrainName) || !BrainNameIsPersisted)"
-                        title="Delete the brain currently selected above -- removes its saved network config; cannot be undone">
-                    DELETE BRAIN
-                </button>
-            }
-        </div>
-        @if (_deleteStatus is not null)
-        {
-            <span class="train-brainrow-error">@_deleteStatus</span>
-        }
-        @if (_buildBrainStatus is not null)
-        {
-            <span class="train-brainrow-error">@_buildBrainStatus</span>
-        }
-
-        <div class="train-card-fields-row">
-            <label class="train-brainrow-field">
-                Strategy
-                <select class="train-brainrow-select" value="@StrategyName" @onchange="OnStrategyChanged"
-                        disabled="@Service.IsRunning">
-                    @foreach (var name in Service.StrategyNames)
-                    {
-                        <option value="@name">@name</option>
-                    }
-                </select>
-            </label>
-            <label class="train-brainrow-field"
-                   title="Which rules shape the per-decision reward -- Equity Drift is the raw, unshaped baseline; Trading Rules adds loss-aversion, an anti-churn entry cost, and a max-holding-time penalty on top of it">
-                Reward Policy
-                <select class="train-brainrow-select" value="@RewardPolicyService.SelectedPolicyName" @onchange="OnRewardPolicyChanged"
-                        disabled="@Service.IsRunning">
-                    @foreach (var name in RewardPolicyService.PolicyNames)
-                    {
-                        <option value="@name">@name</option>
-                    }
-                </select>
-            </label>
-            <label class="train-brainrow-field">
-                Learning rate
-                <input class="train-brainrow-input" type="number" min="0.00001" step="0.0001"
-                       value="@LearningRate.ToString(System.Globalization.CultureInfo.InvariantCulture)"
-                       @onchange="OnLearningRateChanged" disabled="@Service.IsRunning" />
-            </label>
-        </div>
+    @if (_deleteStatus is not null)
+    {
+        <span class="train-brainrow-error">@_deleteStatus</span>
+    }
 
         @if (_showBuildPanel)
         {
@@ -108,10 +57,60 @@
                                value="@EffectiveBuildBrainName" @oninput="OnBuildBrainNameInput"
                                disabled="@(Service.IsRunning || _buildBrainNameAuto)" placeholder="e.g. lstm-vp-experiment" />
                     </label>
+                    @if (IsModifiedFromSaved)
+                    {
+                        <span class="train-card-badge train-card-badge-warn"
+                              title="This name matches a saved brain, but the config below no longer matches what's saved -- Save Brain commits these changes; Set applies them live without saving">
+                            MODIFIED</span>
+                    }
                     <label class="train-brainrow-field"
                            title="Auto-generate the name from architecture, layers, and selected data -- uncheck to type your own">
                         <input type="checkbox" checked="@_buildBrainNameAuto" @onchange="OnToggleAutoBuildBrainName"
                                disabled="@Service.IsRunning" /> Auto Name
+                    </label>
+                    <button type="button" class="train-btn-toggle" @onclick="SetConfig"
+                            disabled="@(Service.IsRunning || !CanCreateBrain || !IsDraft)"
+                            title="Applies the current config live now, without saving -- lets Training Preview below show it before you start a run">
+                        SET
+                    </button>
+                    <button type="button" class="train-btn-toggle" @onclick="SaveBrain"
+                            disabled="@(Service.IsRunning || !CanCreateBrain || !IsDraft)"
+                            title="Commits the current config to storage under its name -- updates it in place if that name's already saved, and selects it above as the brain in use">
+                        SAVE BRAIN
+                    </button>
+                </div>
+                @if (_buildBrainStatus is not null)
+                {
+                    <span class="train-brainrow-error">@_buildBrainStatus</span>
+                }
+
+                <div class="train-card-fields-row">
+                    <label class="train-brainrow-field">
+                        Strategy
+                        <select class="train-brainrow-select" value="@StrategyName" @onchange="OnStrategyChanged"
+                                disabled="@Service.IsRunning">
+                            @foreach (var name in Service.StrategyNames)
+                            {
+                                <option value="@name">@name</option>
+                            }
+                        </select>
+                    </label>
+                    <label class="train-brainrow-field"
+                           title="Which rules shape the per-decision reward -- Equity Drift is the raw, unshaped baseline; Trading Rules adds loss-aversion, an anti-churn entry cost, and a max-holding-time penalty on top of it">
+                        Reward Policy
+                        <select class="train-brainrow-select" value="@RewardPolicyService.SelectedPolicyName" @onchange="OnRewardPolicyChanged"
+                                disabled="@Service.IsRunning">
+                            @foreach (var name in RewardPolicyService.PolicyNames)
+                            {
+                                <option value="@name">@name</option>
+                            }
+                        </select>
+                    </label>
+                    <label class="train-brainrow-field">
+                        Learning rate
+                        <input class="train-brainrow-input" type="number" min="0.00001" step="0.0001"
+                               value="@LearningRate.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                               @onchange="OnLearningRateChanged" disabled="@Service.IsRunning" />
                     </label>
                 </div>
 

@@ -217,8 +217,12 @@
                 <label class="sim-brainrow-field"
                        title="Force-close the open position when Margin Level (Equity ÷ Margin Used) drops below this percent">
                     Stop-out %
-                    <input class="sim-brainrow-input sim-brainrow-input-narrow" type="number" min="1" max="100" step="1"
-                           @bind="_stopOutLevelPercent" disabled="@(_isLoading || _snapshot is not null)" />
+                    <input class="sim-brainrow-input sim-brainrow-input-narrow"
+                        type="number"
+                        min="1"
+                        max="100"
+                        step="1"
+                        @bind="_stopOutLevelPercent" disabled="@(_isLoading || _snapshot is not null)" />
                 </label>
                 <label class="sim-brainrow-field"
                        title="Price value of one pip for this instrument -- stop-loss and take-profit distances are entered in pips and converted through this">

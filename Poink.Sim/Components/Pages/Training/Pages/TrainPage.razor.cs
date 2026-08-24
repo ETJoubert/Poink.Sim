@@ -409,14 +409,8 @@ namespace Poink.Sim.Components.Pages
 		{
 			_startError = null;
 
-			// The Build panel's fields are always the source of truth for
-			// what trains, regardless of whether the panel is expanded. If
-			// they don't match what's saved under their name, this drafts
-			// (or refreshes) a live, unsaved brain from them, so tweaking
-			// parameters between runs never needs saving first (see
-			// BrainBuilder.PrepareBrainForTraining). If they already match,
-			// this just echoes _brainName back untouched, so any weights
-			// already trained this session keep going.
+			// While the Build panel is open, unsaved edits are drafted live so tweaks never
+			// need saving first (see BrainBuilder.PrepareBrainForTraining); closed, it trains the brain selected above as-is.
 			var brainName = _brainBuilder?.PrepareBrainForTraining();
 			if (_brainBuilder is not null && brainName is null)
 			{
