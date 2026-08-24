@@ -42,6 +42,13 @@
                     @area
                 </button>
             }
+            <button type="button"
+                    class="arch-tool-btn @(_visibleAreas.Count == 0 ? "arch-tool-btn-on" : "")"
+                    title="@AllAreasTooltip"
+                    @onclick="ToggleAllAreas">
+                <span class="arch-tool-pip @(_visibleAreas.Count == 0 ? "arch-tool-pip-on" : "")"></span>
+                NONE
+            </button>
 
             <span class="arch-legend-spacer"></span>
 

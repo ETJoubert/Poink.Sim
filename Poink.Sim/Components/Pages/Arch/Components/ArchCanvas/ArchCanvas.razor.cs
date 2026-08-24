@@ -234,7 +234,7 @@ public partial class ArchCanvas : ComponentBase, IAsyncDisposable
         $"left:{layout.X:0.##}px;top:{layout.Y:0.##}px;width:{CardWidth:0.##}px;height:{layout.Height:0.##}px;");
 
     private bool IsNodeVisible(ArchComponentNode node) =>
-        (VisibleAreas is null || VisibleAreas.Count == 0 || VisibleAreas.Contains(node.Area)) &&
+        (VisibleAreas is null || VisibleAreas.Contains(node.Area)) &&
         (!ConnectedOnly || _connectedNodeIds.Contains(node.Id)) &&
         (FocusedNodeIds is not { Count: > 0 } || FocusedNodeIds.Contains(node.Id));
 

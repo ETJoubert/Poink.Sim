@@ -119,10 +119,16 @@ public partial class ArchPage : ComponentBase
     {
         if (!_visibleAreas.Remove(area))
             _visibleAreas.Add(area);
-
-        if (_visibleAreas.Count == 0)
-            _visibleAreas = [.. AllAreas];
     }
+
+    private void ToggleAllAreas()
+    {
+        _visibleAreas = _visibleAreas.Count == 0 ? [.. AllAreas] : [];
+    }
+
+    private string AllAreasTooltip => _visibleAreas.Count == 0
+        ? "Every area is hidden. Click to show them all again."
+        : "Hide every area.";
 
     private void ToggleConnectedOnly()
     {
