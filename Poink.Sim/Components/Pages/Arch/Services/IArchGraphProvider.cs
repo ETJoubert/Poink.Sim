@@ -4,5 +4,5 @@ namespace Poink.Sim.Components.Pages.Arch.Services;
 
 public interface IArchGraphProvider
 {
-    ArchGraph Build();
+	ArchGraph Build();
 }

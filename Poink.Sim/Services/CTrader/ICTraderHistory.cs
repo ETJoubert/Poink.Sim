@@ -6,15 +6,20 @@ using Poink.Sim.Repository;
 
 namespace Poink.Sim.Services.CTrader
 {
-    /// <summary>
-    /// Internal history fetch over the authorized cTrader connection, kept off the public
-    /// <see cref="ICTraderSessionService"/> because it returns the internal <see cref="Tick"/> type.
-    /// Implemented by the session, which owns the connection and the selected account.
-    /// </summary>
-    internal interface ICTraderHistory
-    {
-        bool CanFetchHistory { get; }
+	/// <summary>
+	/// Internal history fetch over the authorized cTrader connection, kept off the public
+	/// <see cref="ICTraderSessionService"/> because it returns the internal <see cref="Tick"/> type.
+	/// Implemented by the session, which owns the connection and the selected account.
+	/// </summary>
+	internal interface ICTraderHistory
+	{
+		bool CanFetchHistory { get; }
 
-        Task<IReadOnlyList<Tick>> GetHistoricalTicksAsync(long symbolId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken = default);
-    }
+		Task<IReadOnlyList<Tick>> GetHistoricalTicksAsync(
+			long symbolId,
+			DateTime fromUtc,
+			DateTime toUtc,
+			CancellationToken cancellationToken = default
+		);
+	}
 }

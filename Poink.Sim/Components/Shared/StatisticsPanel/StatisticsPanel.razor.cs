@@ -11,16 +11,17 @@ namespace Poink.Sim.Components.Shared.StatisticsPanel;
 // its own data-table-value-positive/negative, see TraderCellClass).
 public partial class StatisticsPanel : ComponentBase
 {
-    [Parameter, EditorRequired]
-    public IReadOnlyList<StatGroup> Groups { get; set; } = [];
+	[Parameter, EditorRequired]
+	public IReadOnlyList<StatGroup> Groups { get; set; } = [];
 
-    [Parameter]
-    public string EmptyMessage { get; set; } = "No data to display.";
+	[Parameter]
+	public string EmptyMessage { get; set; } = "No data to display.";
 
-    private static string EmphasisClass(StatEmphasis emphasis) => emphasis switch
-    {
-        StatEmphasis.Positive => "stp-value-positive",
-        StatEmphasis.Negative => "stp-value-negative",
-        _ => "",
-    };
+	private static string EmphasisClass(StatEmphasis emphasis) =>
+		emphasis switch
+		{
+			StatEmphasis.Positive => "stp-value-positive",
+			StatEmphasis.Negative => "stp-value-negative",
+			_ => "",
+		};
 }

@@ -1,4 +1,3 @@
-
 using System.Collections.Generic;
 using Poink.Sim.Models;
 
@@ -8,13 +7,13 @@ internal readonly record struct FeatureDescriptor(string Label, IFeatureNormaliz
 
 internal interface IObservationEncoder
 {
-    int FeatureCount { get; }
+	int FeatureCount { get; }
 
-    int SequenceLength { get; }
+	int SequenceLength { get; }
 
-    int WarmupBars { get; }
+	int WarmupBars { get; }
 
-    IReadOnlyList<FeatureDescriptor> Features { get; }
+	IReadOnlyList<FeatureDescriptor> Features { get; }
 
-    float[] Encode(SimulationObservation observation);
+	float[] Encode(SimulationObservation observation);
 }

@@ -4,37 +4,43 @@ using Poink.Sim.Repository;
 
 namespace Poink.Sim.Services.MarketData
 {
-    /// <summary>
-    /// Write side of the tick store, kept separate from the read-only <see cref="ITickRepository"/>.
-    /// The backfill worker is the single writer; it creates tables on explicit opt-in, appends ticks in
-    /// bulk, and keeps the tick_table_stats registry current so coverage checks stay cheap.
-    /// </summary>
-    internal interface ITickIngest
-    {
-        bool TableExists(string table);
+	/// <summary>
+	/// Write side of the tick store, kept separate from the read-only <see cref="ITickRepository"/>.
+	/// The backfill worker is the single writer; it creates tables on explicit opt-in, appends ticks in
+	/// bulk, and keeps the tick_table_stats registry current so coverage checks stay cheap.
+	/// </summary>
+	internal interface ITickIngest
+	{
+		bool TableExists(string table);
 
-        /// <summary>Resolves the table registered for a symbol code, or null when none is mapped yet.</summary>
-        string? GetTableForSymbol(string symbolCode);
+		/// <summary>Resolves the table registered for a symbol code, or null when none is mapped yet.</summary>
+		string? GetTableForSymbol(string symbolCode);
 
-        void CreateTable(string table);
+		void CreateTable(string table);
 
-        /// <summary>Records the symbol code against a table in the registry, creating the row (with computed stats) if absent.</summary>
-        void AssociateSymbol(string table, string symbolCode);
+		/// <summary>Records the symbol code against a table in the registry, creating the row (with computed stats) if absent.</summary>
+		void AssociateSymbol(string table, string symbolCode);
 
-        TickCoverage GetCoverage(string table);
+		TickCoverage GetCoverage(string table);
 
-        /// <summary>Returns every tick_table_stats row for inspection on the Data page.</summary>
-        IReadOnlyList<TickTableStatRow> GetRegistry();
+		/// <summary>Returns every tick_table_stats row for inspection on the Data page.</summary>
+		IReadOnlyList<TickTableStatRow> GetRegistry();
 
-        /// <summary>Bulk-appends the ticks (assumed sorted ascending by timestamp) and updates the registry. Returns the row count written.</summary>
-        long InsertTicks(string table, IReadOnlyList<Tick> ticks);
+		/// <summary>Bulk-appends the ticks (assumed sorted ascending by timestamp) and updates the registry. Returns the row count written.</summary>
+		long InsertTicks(string table, IReadOnlyList<Tick> ticks);
 
-        /// <summary>Records a completed backfill fetch-and-store to the tick_backfill_log audit table.</summary>
-        void LogBackfill(
-            string table, long symbolCode, string symbolName,
-            DateTime backfillFromUtc, DateTime backfillToUtc, long recordCount, BackfillTrigger trigger);
+		/// <summary>Records a completed backfill fetch-and-store to the tick_backfill_log audit table.</summary>
+		void LogBackfill(
+			string table,
+			long symbolCode,
+			string symbolName,
+			DateTime backfillFromUtc,
+			DateTime backfillToUtc,
+			long recordCount,
+			BackfillTrigger trigger
+		);
 
-        /// <summary>Returns every tick_backfill_log row, most recent first.</summary>
-        IReadOnlyList<BackfillLogEntry> GetBackfillLog();
-    }
+		/// <summary>Returns every tick_backfill_log row, most recent first.</summary>
+		IReadOnlyList<BackfillLogEntry> GetBackfillLog();
+	}
 }

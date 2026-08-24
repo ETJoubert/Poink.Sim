@@ -7,22 +7,29 @@ using Poink.Sim.Training;
 
 namespace Poink.Sim.Components.Training
 {
+	public partial class BrainSelect : ComponentBase
+	{
+		[Parameter, EditorRequired]
+		public IReadOnlyList<BrainOption> BrainOptions { get; set; } = [];
 
-    public partial class BrainSelect : ComponentBase
-    {
-        [Parameter, EditorRequired] public IReadOnlyList<BrainOption> BrainOptions { get; set; } = [];
+		[Parameter]
+		public string BrainName { get; set; } = "";
 
-        [Parameter] public string BrainName { get; set; } = "";
-        [Parameter] public EventCallback<string> BrainNameChanged { get; set; }
+		[Parameter]
+		public EventCallback<string> BrainNameChanged { get; set; }
 
-        [Parameter] public string Label { get; set; } = "Brain";
-        [Parameter] public bool Disabled { get; set; }
+		[Parameter]
+		public string Label { get; set; } = "Brain";
 
-        private IEnumerable<BrainOption> NeuralBrains => BrainOptions.Where(b => b.IsNeuralNetwork);
-        private IEnumerable<BrainOption> HeuristicBrains => BrainOptions.Where(b => !b.IsNeuralNetwork);
+		[Parameter]
+		public bool Disabled { get; set; }
 
-        private bool SelectedIsNeuralNetwork => BrainOptions.FirstOrDefault(b => b.Name == BrainName)?.IsNeuralNetwork ?? false;
+		private IEnumerable<BrainOption> NeuralBrains => BrainOptions.Where(b => b.IsNeuralNetwork);
+		private IEnumerable<BrainOption> HeuristicBrains => BrainOptions.Where(b => !b.IsNeuralNetwork);
 
-        private Task OnBrainChanged(ChangeEventArgs e) => BrainNameChanged.InvokeAsync(e.Value?.ToString() ?? "");
-    }
+		private bool SelectedIsNeuralNetwork =>
+			BrainOptions.FirstOrDefault(b => b.Name == BrainName)?.IsNeuralNetwork ?? false;
+
+		private Task OnBrainChanged(ChangeEventArgs e) => BrainNameChanged.InvokeAsync(e.Value?.ToString() ?? "");
+	}
 }

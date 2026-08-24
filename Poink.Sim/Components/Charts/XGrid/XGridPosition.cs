@@ -4,8 +4,8 @@ namespace Poink.Sim.Components.Charts;
 
 public enum XGridPositionDirection
 {
-    Long,
-    Short,
+	Long,
+	Short,
 }
 
 // A trade overlaid on the XGrid, anchored to absolute price/time like XGridLine so it tracks
@@ -15,9 +15,14 @@ public enum XGridPositionDirection
 // trade is open. Public since it crosses the XGrid component boundary, same reason
 // XGridResult and XGridLine are public rather than internal.
 public sealed record XGridPosition(
-    XGridPositionDirection Direction, DateTime OpenTime, double OpenPrice,
-    DateTime? CloseTime = null, double? ClosePrice = null,
-    double? StopLoss = null, double? TakeProfit = null)
+	XGridPositionDirection Direction,
+	DateTime OpenTime,
+	double OpenPrice,
+	DateTime? CloseTime = null,
+	double? ClosePrice = null,
+	double? StopLoss = null,
+	double? TakeProfit = null
+)
 {
-    public string? Id { get; init; }
+	public string? Id { get; init; }
 }

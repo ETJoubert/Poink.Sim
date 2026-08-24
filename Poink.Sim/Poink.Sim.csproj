@@ -1,68 +1,72 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
-  <PropertyGroup>
-    <OutputType>Exe</OutputType>
-    <!-- Split out of Poink.ML: this is trader-simulation playback (data replay +
+	<PropertyGroup>
+		<OutputType>Exe</OutputType>
+		<!-- Split out of Poink.ML: this is trader-simulation playback (data replay +
          heuristic/rule-based brains), not the training pipeline. It still carries
          its own TorchSharp/Microsoft.ML for a future trained ISimulationBrain (see
          Brain/ISimulationBrain.cs and README.md's "Trained ML brain" entry), kept
          as this project's own copy rather than a ProjectReference to Poink.ML. -->
-    <TargetFramework>net10.0</TargetFramework>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>disable</ImplicitUsings>
-    <Optimize>true</Optimize>
-    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
-    <!-- The Arch page reads class-level <summary> comments back out of this file at
+		<TargetFramework>net10.0</TargetFramework>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>disable</ImplicitUsings>
+		<Optimize>true</Optimize>
+		<AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+		<!-- The Arch page reads class-level <summary> comments back out of this file at
          runtime (see XmlDocumentationProvider), so a chip's description lives once,
          on the class itself, instead of being duplicated in the graph provider. -->
-    <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <NoWarn>$(NoWarn);CS1591</NoWarn>
-  </PropertyGroup>
+		<GenerateDocumentationFile>true</GenerateDocumentationFile>
+		<NoWarn>$(NoWarn);CS1591</NoWarn>
+	</PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.9.0" />
-    <PackageReference Include="Npgsql" Version="10.0.3" />
-    <PackageReference Include="Dapper" Version="2.1.66" />
-    <!-- EF Core (Postgres) backing the cTrader token store, so a login survives restarts.
+	<ItemGroup>
+		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.9.0" />
+		<PackageReference Include="Npgsql" Version="10.0.3" />
+		<PackageReference Include="Dapper" Version="2.1.66" />
+		<!-- EF Core (Postgres) backing the cTrader token store, so a login survives restarts.
          Separate from the Dapper tick access above; this context owns only CTraderAccountTokens. -->
-    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.9" />
-    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.1" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.9">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
-    <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
-    <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
-    <!-- CPU/GPU counters for the MainLayout performance toggle (Diagnostics/SystemPerformanceMonitor.cs). -->
-    <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="9.0.0" />
-    <PackageReference Include="Microsoft.ML" Version="5.0.0" />
-    <PackageReference Include="TorchSharp" Version="0.107.0" />
-  </ItemGroup>
+		<PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.9" />
+		<PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.1" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.9">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+		<PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
+		<PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
+		<!-- CPU/GPU counters for the MainLayout performance toggle (Diagnostics/SystemPerformanceMonitor.cs). -->
+		<PackageReference Include="System.Diagnostics.PerformanceCounter" Version="9.0.0" />
+		<PackageReference Include="Microsoft.ML" Version="5.0.0" />
+		<PackageReference Include="TorchSharp" Version="0.107.0" />
+	</ItemGroup>
 
-  <ItemGroup Condition="'$(OS)' == 'Windows_NT'">
-    <!-- CUDA backend targeting the RTX 3060, matching Poink.ML's choice. This package
+	<ItemGroup Condition="'$(OS)' == 'Windows_NT'">
+		<!-- CUDA backend targeting the RTX 3060, matching Poink.ML's choice. This package
          bundles both CUDA and CPU kernels, so code still runs fine on machines without
          a GPU. Swap back to TorchSharp-cpu for a much smaller download if needed. -->
-    <PackageReference Include="TorchSharp-cuda-windows" Version="0.107.0" />
-  </ItemGroup>
+		<PackageReference Include="TorchSharp-cuda-windows" Version="0.107.0" />
+	</ItemGroup>
 
-  <ItemGroup Condition="'$(OS)' != 'Windows_NT'">
-    <!-- win-x64-only native libs in TorchSharp-cuda-windows leave non-Windows builds (the
+	<ItemGroup Condition="'$(OS)' != 'Windows_NT'">
+		<!-- win-x64-only native libs in TorchSharp-cuda-windows leave non-Windows builds (the
          Poink.Sim Docker image) with no libtorch at all. CPU-only here instead, so
          neural brain pages still work in-container, just without GPU acceleration. -->
-    <PackageReference Include="TorchSharp-cpu" Version="0.107.0" />
-  </ItemGroup>
+		<PackageReference Include="TorchSharp-cpu" Version="0.107.0" />
+	</ItemGroup>
 
-  <ItemGroup>
-    <!-- Used for the ViewDatatable/Icon/PageNav shared components and CSS/theme
+	<ItemGroup>
+		<!-- Used for the ViewDatatable/Icon/PageNav shared components and CSS/theme
          static assets served under "serve", plus CTraderBarRow for the
          MarketChart component. -->
-    <ProjectReference Include="..\Poink.Shared.Client\Poink.Shared.Client.csproj" />
-    <!-- cTrader Open API backend for the Trade page's live broker login/connection
+		<ProjectReference Include="..\Poink.Shared.Client\Poink.Shared.Client.csproj" />
+		<!-- cTrader Open API backend for the Trade page's live broker login/connection
          (replaces the discontinued CTraderPage in Poink.Shared.Client). -->
-    <ProjectReference Include="..\Poink.CTrader\Poink.CTrader.csproj" />
-  </ItemGroup>
+		<ProjectReference Include="..\Poink.CTrader\Poink.CTrader.csproj" />
+	</ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\Poink.Analyzers\Poink.Analyzers.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
-  </ItemGroup>
+	<ItemGroup>
+		<ProjectReference
+			Include="..\Poink.Analyzers\Poink.Analyzers.csproj"
+			OutputItemType="Analyzer"
+			ReferenceOutputAssembly="false"
+		/>
+	</ItemGroup>
 </Project>

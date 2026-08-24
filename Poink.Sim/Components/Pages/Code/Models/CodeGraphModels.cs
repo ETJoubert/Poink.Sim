@@ -4,23 +4,23 @@ namespace Poink.Sim.Components.Pages.Code.Models;
 
 public enum CodeConcept
 {
-    Config,
-    Data,
-    Inputs,
-    Network,
-    Outputs,
-    Actions,
-    Trader,
-    Simulation,
-    Rewards
+	Config,
+	Data,
+	Inputs,
+	Network,
+	Outputs,
+	Actions,
+	Trader,
+	Simulation,
+	Rewards,
 }
 
 public enum CodeEdgeKind
 {
-    Flow,
-    Feedback,
-    Drives,
-    Config
+	Flow,
+	Feedback,
+	Drives,
+	Config,
 }
 
 public sealed record CodePort(string Label);
@@ -36,18 +36,19 @@ public sealed record CodeTypeRef(string Name, string Path);
 public sealed record CodeBadge(string Label, string Value);
 
 public sealed record CodeNode(
-    string Id,
-    string Title,
-    CodeConcept Concept,
-    int Column,
-    int Row,
-    string Summary,
-    string Action,
-    IReadOnlyList<CodeTypeRef> Types,
-    IReadOnlyList<CodePort> Inputs,
-    IReadOnlyList<CodePort> Outputs,
-    IReadOnlyList<CodeBadge> Badges,
-    IReadOnlyList<CodeSetting> Settings);
+	string Id,
+	string Title,
+	CodeConcept Concept,
+	int Column,
+	int Row,
+	string Summary,
+	string Action,
+	IReadOnlyList<CodeTypeRef> Types,
+	IReadOnlyList<CodePort> Inputs,
+	IReadOnlyList<CodePort> Outputs,
+	IReadOnlyList<CodeBadge> Badges,
+	IReadOnlyList<CodeSetting> Settings
+);
 
 public sealed record CodeEdge(string FromId, string FromPort, string ToId, string ToPort, CodeEdgeKind Kind);
 

@@ -5,16 +5,16 @@ namespace Poink.Sim.Components.Arch;
 // deterministically, from the area's own name — the same area always lands on the same hue.
 internal static class ArchAreaPalette
 {
-    public static string ColorFor(string area)
-    {
-        var hash = 0;
-        unchecked
-        {
-            foreach (var character in area)
-                hash = hash * 31 + character;
-        }
+	public static string ColorFor(string area)
+	{
+		var hash = 0;
+		unchecked
+		{
+			foreach (var character in area)
+				hash = hash * 31 + character;
+		}
 
-        var hue = ((hash % 360) + 360) % 360;
-        return $"hsl({hue}, 82%, 62%)";
-    }
+		var hue = ((hash % 360) + 360) % 360;
+		return $"hsl({hue}, 82%, 62%)";
+	}
 }

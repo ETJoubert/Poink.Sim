@@ -46,6 +46,7 @@ builder.Services.AddScoped<IProfilerService, ProfilerService>();
 builder.Services.AddScoped<ILocalStorageHelper, LocalStorageHelper>();
 builder.Services.BuildCodeGraphServices();
 builder.Services.BuildCallGraphServices();
+
 // Snapshot of every registration made above this line, so the Arch page can reflect the
 // DI container itself into a graph instead of maintaining a hand-written node list.
 builder.Services.AddSingleton<IReadOnlyList<ServiceDescriptor>>(builder.Services.ToList());
@@ -53,30 +54,28 @@ builder.Services.AddSingleton<IReadOnlyList<ServiceDescriptor>>(builder.Services
 #pragma warning disable CA1416 // SystemPerformanceMonitor is Windows-only, same as this app's other host assumptions (see its class comment).
 builder.Services.AddSingleton<SystemPerformanceMonitor>();
 #pragma warning restore CA1416
-builder.Services.AddRazorComponents()
-    .AddInteractiveServerComponents();
+builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 
 var app = builder.Build();
 
 using (var migrationScope = app.Services.CreateScope())
 {
-    var db = migrationScope.ServiceProvider.GetRequiredService<PoinkSimContext>();
-    db.Database.Migrate();
-    app.Logger.LogInformation("Poink.Sim database migrations applied.");
+	var db = migrationScope.ServiceProvider.GetRequiredService<PoinkSimContext>();
+	db.Database.Migrate();
+	app.Logger.LogInformation("Poink.Sim database migrations applied.");
 }
 
 if (!app.Environment.IsDevelopment())
 {
-    app.UseExceptionHandler("/Error", createScopeForErrors: true);
-    app.UseHsts();
+	app.UseExceptionHandler("/Error", createScopeForErrors: true);
+	app.UseHsts();
 }
 
 app.UseHttpsRedirection();
 app.UseAntiforgery();
 app.MapStaticAssets();
 
-app.MapRazorComponents<Poink.Sim.Components.App>()
-    .AddInteractiveServerRenderMode();
+app.MapRazorComponents<Poink.Sim.Components.App>().AddInteractiveServerRenderMode();
 
 app.MapCTraderAuthCallback();
 

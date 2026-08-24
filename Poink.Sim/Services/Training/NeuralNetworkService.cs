@@ -1,4 +1,3 @@
-
 using System;
 using System.Collections.Generic;
 using System.Text.Json;
@@ -13,32 +12,40 @@ namespace Poink.Sim.Training;
 
 internal sealed class NeuralNetworkService : INeuralNetworkService
 {
-    private static readonly JsonSerializerOptions RecipeJsonOptions = new() { Converters = { new JsonStringEnumConverter() } };
+	private static readonly JsonSerializerOptions RecipeJsonOptions = new()
+	{
+		Converters = { new JsonStringEnumConverter() },
+	};
 
-    private readonly INeuralNetworkRepository _repository;
+	private readonly INeuralNetworkRepository _repository;
 
-    public NeuralNetworkService(INeuralNetworkRepository repository)
-    {
-        _repository = repository;
-    }
+	public NeuralNetworkService(INeuralNetworkRepository repository)
+	{
+		_repository = repository;
+	}
 
-    public Task<Guid> CreateAsync(string name, string structureJson, CancellationToken cancellationToken = default) =>
-        _repository.CreateAsync(name, structureJson, cancellationToken);
+	public Task<Guid> CreateAsync(string name, string structureJson, CancellationToken cancellationToken = default) =>
+		_repository.CreateAsync(name, structureJson, cancellationToken);
 
-    public Task<IReadOnlyList<NeuralNetworkModel>> ListAsync(CancellationToken cancellationToken = default) =>
-        _repository.ListAsync(cancellationToken);
+	public Task<IReadOnlyList<NeuralNetworkModel>> ListAsync(CancellationToken cancellationToken = default) =>
+		_repository.ListAsync(cancellationToken);
 
-    public Task<NeuralNetworkModel?> GetAsync(Guid id, CancellationToken cancellationToken = default) =>
-        _repository.GetAsync(id, cancellationToken);
+	public Task<NeuralNetworkModel?> GetAsync(Guid id, CancellationToken cancellationToken = default) =>
+		_repository.GetAsync(id, cancellationToken);
 
-    public Task<bool> UpdateAsync(Guid id, string name, string structureJson, CancellationToken cancellationToken = default) =>
-        _repository.UpdateAsync(id, name, structureJson, cancellationToken);
+	public Task<bool> UpdateAsync(
+		Guid id,
+		string name,
+		string structureJson,
+		CancellationToken cancellationToken = default
+	) => _repository.UpdateAsync(id, name, structureJson, cancellationToken);
 
-    public Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default) =>
-        _repository.DeleteAsync(id, cancellationToken);
+	public Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default) =>
+		_repository.DeleteAsync(id, cancellationToken);
 
-    public string EncodeRecipe(BrainRecipe recipe) => JsonSerializer.Serialize(recipe, RecipeJsonOptions);
+	public string EncodeRecipe(BrainRecipe recipe) => JsonSerializer.Serialize(recipe, RecipeJsonOptions);
 
-    public BrainRecipe DecodeRecipe(string recipeJson) =>
-        JsonSerializer.Deserialize<BrainRecipe>(recipeJson, RecipeJsonOptions) ?? new BrainRecipe([], ArchitectureKind.Mlp, []);
+	public BrainRecipe DecodeRecipe(string recipeJson) =>
+		JsonSerializer.Deserialize<BrainRecipe>(recipeJson, RecipeJsonOptions)
+		?? new BrainRecipe([], ArchitectureKind.Mlp, []);
 }

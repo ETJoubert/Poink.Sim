@@ -5,5 +5,5 @@ namespace Poink.Sim.Components.Pages.Calls.Services;
 
 internal interface ICallGraphIndex
 {
-    Task<CallGraphIndexResult> GetAsync();
+	Task<CallGraphIndexResult> GetAsync();
 }

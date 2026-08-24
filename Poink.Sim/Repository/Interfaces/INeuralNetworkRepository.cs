@@ -1,4 +1,3 @@
-
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -9,13 +8,13 @@ namespace Poink.Sim.Repository;
 
 internal interface INeuralNetworkRepository
 {
-    Task<Guid> CreateAsync(string name, string structureJson, CancellationToken cancellationToken = default);
+	Task<Guid> CreateAsync(string name, string structureJson, CancellationToken cancellationToken = default);
 
-    Task<IReadOnlyList<NeuralNetworkModel>> ListAsync(CancellationToken cancellationToken = default);
+	Task<IReadOnlyList<NeuralNetworkModel>> ListAsync(CancellationToken cancellationToken = default);
 
-    Task<NeuralNetworkModel?> GetAsync(Guid id, CancellationToken cancellationToken = default);
+	Task<NeuralNetworkModel?> GetAsync(Guid id, CancellationToken cancellationToken = default);
 
-    Task<bool> UpdateAsync(Guid id, string name, string structureJson, CancellationToken cancellationToken = default);
+	Task<bool> UpdateAsync(Guid id, string name, string structureJson, CancellationToken cancellationToken = default);
 
-    Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default);
+	Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default);
 }

@@ -5,4 +5,9 @@ namespace Poink.Sim.Components.Charts;
 // null until the user pins them. Public since it crosses the XGrid component boundary, same
 // reason XGridLine and XGridPosition are public rather than internal.
 public readonly record struct XGridOrder(
-    bool IsLong, double EntryPrice, double Volume, double? StopLoss, double? TakeProfit);
+	bool IsLong,
+	double EntryPrice,
+	double Volume,
+	double? StopLoss,
+	double? TakeProfit
+);

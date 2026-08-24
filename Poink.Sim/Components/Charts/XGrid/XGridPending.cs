@@ -6,8 +6,12 @@ namespace Poink.Sim.Components.Charts;
 // StopLoss/TakeProfit seed the modify panel. Host owned and recomputed per render. Public
 // since it crosses the XGrid component boundary, same reason XGridPosition/XGridOrder are.
 public readonly record struct XGridPending(
-    bool IsLong, double TriggerPrice, double Volume,
-    double? StopLoss = null, double? TakeProfit = null)
+	bool IsLong,
+	double TriggerPrice,
+	double Volume,
+	double? StopLoss = null,
+	double? TakeProfit = null
+)
 {
-    public string? Id { get; init; }
+	public string? Id { get; init; }
 }
