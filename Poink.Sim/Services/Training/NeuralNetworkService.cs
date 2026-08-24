@@ -1,8 +1,11 @@
 
 using System;
 using System.Collections.Generic;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
+using Poink.Sim.Brain.Neural;
 using Poink.Sim.Models;
 using Poink.Sim.Repository;
 
@@ -10,6 +13,8 @@ namespace Poink.Sim.Training;
 
 internal sealed class NeuralNetworkService : INeuralNetworkService
 {
+    private static readonly JsonSerializerOptions RecipeJsonOptions = new() { Converters = { new JsonStringEnumConverter() } };
+
     private readonly INeuralNetworkRepository _repository;
 
     public NeuralNetworkService(INeuralNetworkRepository repository)
@@ -31,4 +36,9 @@ internal sealed class NeuralNetworkService : INeuralNetworkService
 
     public Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default) =>
         _repository.DeleteAsync(id, cancellationToken);
+
+    public string EncodeRecipe(BrainRecipe recipe) => JsonSerializer.Serialize(recipe, RecipeJsonOptions);
+
+    public BrainRecipe DecodeRecipe(string recipeJson) =>
+        JsonSerializer.Deserialize<BrainRecipe>(recipeJson, RecipeJsonOptions) ?? new BrainRecipe([], ArchitectureKind.Mlp, []);
 }

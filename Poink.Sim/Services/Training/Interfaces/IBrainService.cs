@@ -23,9 +23,6 @@ internal interface IBrainService
     IReadOnlyList<NetworkLayerShape> DescribeNetworkShape(string brainName);
     int GetWarmupBars(string brainName);
 
-    /// <summary>Builds a live brain from a recipe, registers it, and records the recipe against its name.</summary>
-    IDescribableBrain BuildAndRegister(string name, BrainRecipe recipe);
-
     bool TryBuildDraftBrain(
         string name, IReadOnlyList<EncoderKind> encoderKinds, ArchitectureKind architectureKind, IReadOnlyList<int> hiddenSizes,
         IReadOnlyList<ActionOutputKind>? actionOutputKinds = null, IReadOnlyList<SimulationAction>? enabledDirections = null,

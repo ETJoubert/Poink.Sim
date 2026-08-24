@@ -37,6 +37,7 @@ internal sealed class TrainingService : ITrainingService
 
     private readonly object _lock = new();
     private readonly BrainRegistry _brainRegistry;
+    private readonly IBrainBuilder _brainBuilder;
     private readonly List<IRlTrainingStrategy> _strategies;
     private readonly IRewardPolicyService _rewardPolicyService;
     private readonly List<RlEpisodeMetric> _episodeMetrics = new();
@@ -46,6 +47,7 @@ internal sealed class TrainingService : ITrainingService
     private readonly RingBuffer<RlTrainingLogEntry> _trainingLog = new(MaxLogEntries);
     private readonly IModelService _modelService;
     private readonly IBrainService _brainService;
+    private readonly INeuralNetworkService _neuralNetworkService;
     private readonly ITickRepository _tickRepository;
     private readonly Trader.ITraderFactory _traderFactory;
     private readonly ILogger<TrainingService> _logger;
@@ -66,15 +68,17 @@ internal sealed class TrainingService : ITrainingService
     private volatile bool _pauseAfterNextEpisode;
 
     public TrainingService(
-        BrainRegistry brainRegistry, IEnumerable<IRlTrainingStrategy> strategies, IRewardPolicyService rewardPolicyService,
-        IModelService modelService, IBrainService brainService, ITickRepository tickRepository,
+        BrainRegistry brainRegistry, IBrainBuilder brainBuilder, IEnumerable<IRlTrainingStrategy> strategies, IRewardPolicyService rewardPolicyService,
+        IModelService modelService, IBrainService brainService, INeuralNetworkService neuralNetworkService, ITickRepository tickRepository,
         Trader.ITraderFactory traderFactory, ILogger<TrainingService> logger)
     {
         _brainRegistry = brainRegistry;
+        _brainBuilder = brainBuilder;
         _strategies = strategies.ToList();
         _rewardPolicyService = rewardPolicyService;
         _modelService = modelService;
         _brainService = brainService;
+        _neuralNetworkService = neuralNetworkService;
         _tickRepository = tickRepository;
         _traderFactory = traderFactory;
         _logger = logger;
@@ -108,6 +112,10 @@ internal sealed class TrainingService : ITrainingService
             }
         }
     }
+
+    // INeuralNetworkService is itself a singleton (backed by IDbContextFactory), so it's safe to
+    // call directly -- Task.Run just bridges its async API onto TrainingService's synchronous one.
+    private static T RunSync<T>(Func<Task<T>> action) => Task.Run(action).GetAwaiter().GetResult();
 
     public NeuralWeightsSummary? GetActiveSnapshot(string brainName) =>
         _activeSnapshotId.TryGetValue(brainName, out var id) ? _modelService.Models.FirstOrDefault(m => m.Id == id) : null;
@@ -215,12 +223,14 @@ internal sealed class TrainingService : ITrainingService
 
         if (brain is null)
         {
-            var network = _brainService.Brains.FirstOrDefault(n => n.Name == brainName);
+            NeuralNetworkModel? network = RunSync(() => _neuralNetworkService.ListAsync()).FirstOrDefault(n => n.Name == brainName);
             if (network is not null)
             {
                 try
                 {
-                    brain = _brainService.BuildAndRegister(network.Name, network.Recipe);
+                    BrainRecipe recipe = _neuralNetworkService.DecodeRecipe(network.StructureJson);
+                    brain = _brainBuilder.Build(network.Name, recipe);
+                    _brainRegistry.Register(brain);
                     _logger.LogInformation("Rebuilt brain '{Name}' from its saved network at training start", network.Name);
                 }
                 catch (Exception ex)
@@ -702,7 +712,9 @@ internal sealed class TrainingService : ITrainingService
             }
             try
             {
-                brain = _brainService.BuildAndRegister(summary.BrainName, recipe) as IPolicyGradientBrain;
+                IDescribableBrain built = _brainBuilder.Build(summary.BrainName, recipe);
+                _brainRegistry.Register(built);
+                brain = built as IPolicyGradientBrain;
                 _logger.LogInformation("Rebuilt brain {BrainName} from saved recipe for id {Id}", summary.BrainName, id);
             }
             catch (Exception ex)

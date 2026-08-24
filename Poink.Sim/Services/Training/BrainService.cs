@@ -2,8 +2,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Poink.Sim.Brain;
@@ -18,19 +16,19 @@ public sealed record NeuralNetworkSummary(Guid Id, string Name, BrainRecipe Reci
 
 internal sealed class BrainService : IBrainService
 {
-    private static readonly JsonSerializerOptions StructureJsonOptions = new() { Converters = { new JsonStringEnumConverter() } };
-
     private readonly INeuralNetworkService _neuralNetworkService;
     private readonly BrainRegistry _brainRegistry;
+    private readonly IBrainBuilder _brainBuilder;
     private readonly ILogger<BrainService> _logger;
 
     private readonly Dictionary<string, BrainRecipe> _brainRecipes = new();
     private readonly HashSet<string> _draftBrainNames = new();
 
-    public BrainService(INeuralNetworkService neuralNetworkService, BrainRegistry brainRegistry, ILogger<BrainService> logger)
+    public BrainService(INeuralNetworkService neuralNetworkService, BrainRegistry brainRegistry, IBrainBuilder brainBuilder, ILogger<BrainService> logger)
     {
         _neuralNetworkService = neuralNetworkService;
         _brainRegistry = brainRegistry;
+        _brainBuilder = brainBuilder;
         _logger = logger;
 
         try
@@ -47,11 +45,8 @@ internal sealed class BrainService : IBrainService
     // call directly -- Task.Run just bridges its async API onto BrainService's synchronous one.
     private static T RunSync<T>(Func<Task<T>> action) => Task.Run(action).GetAwaiter().GetResult();
 
-    private static NeuralNetworkSummary ToSummary(NeuralNetworkModel model) =>
-        new(
-            model.Id, model.Name,
-            JsonSerializer.Deserialize<BrainRecipe>(model.StructureJson, StructureJsonOptions) ?? new BrainRecipe([], ArchitectureKind.Mlp, []),
-            model.CreatedAt, model.UpdatedAt);
+    private NeuralNetworkSummary ToSummary(NeuralNetworkModel model) =>
+        new(model.Id, model.Name, _neuralNetworkService.DecodeRecipe(model.StructureJson), model.CreatedAt, model.UpdatedAt);
 
     public IReadOnlyList<NeuralNetworkSummary> Brains { get; private set; } = [];
 
@@ -79,33 +74,6 @@ internal sealed class BrainService : IBrainService
         INeatPolicyBrain neatBrain => neatBrain.WarmupBars,
         _ => 0,
     };
-
-
-    private static IDescribableBrain BuildFromRecipe(string name, BrainRecipe recipe)
-    {
-        var parts = recipe.EncoderKinds.Select(k => BrainCatalog.CreateEncoder(k, recipe.EncoderSizes)).ToArray();
-        var actionOutputHeads = (recipe.ActionOutputKinds ?? [])
-            .Select(k => BrainCatalog.CreateActionOutputHead(k, recipe.ActionOutputEncodingKind, recipe.DecisionDecoding, recipe.DecisionTemperature)).ToList();
-        var directions = recipe.EnabledDirections ?? ComposedPolicyBrain.AllDirections;
-
-        if (recipe.ArchitectureKind == ArchitectureKind.Neat)
-            return NeatPolicyBrain.Create(
-                name, recipe.NeatHyperparameters ?? new NeatHyperparameters(), actionOutputHeads, directions,
-                recipe.DecisionDecoding, recipe.DecisionTemperature, recipe.EnabledMaskRules, parts);
-
-        var architecture = BrainCatalog.CreateArchitecture(recipe.ArchitectureKind, recipe.HiddenSizes);
-        return ComposedPolicyBrain.Create(
-            name, architecture, actionOutputHeads, directions, recipe.DecisionDecoding, recipe.DecisionTemperature, recipe.CnnKernelSweepSource,
-            recipe.EnabledMaskRules, parts);
-    }
-
-    public IDescribableBrain BuildAndRegister(string name, BrainRecipe recipe)
-    {
-        var brain = BuildFromRecipe(name, recipe);
-        _brainRegistry.Register(brain);
-        _brainRecipes[name] = recipe;
-        return brain;
-    }
 
 
     private bool ValidateBuildRequest(string name, IReadOnlyList<EncoderKind> encoderKinds, IReadOnlyList<SimulationAction>? enabledDirections)
@@ -138,7 +106,7 @@ internal sealed class BrainService : IBrainService
 
         try
         {
-            var brain = BuildFromRecipe(name, recipe);
+            IDescribableBrain brain = _brainBuilder.Build(name, recipe);
             if (_brainRegistry.All.Any(b => b.Name == name))
             {
                 _brainRegistry.Unregister(name);
@@ -183,7 +151,7 @@ internal sealed class BrainService : IBrainService
             bool alreadyLive = _brainRegistry.All.Any(b => b.Name == name);
             if (!alreadyLive)
             {
-                var brain = BuildFromRecipe(name, recipe);
+                IDescribableBrain brain = _brainBuilder.Build(name, recipe);
                 _brainRegistry.Register(brain);
                 _logger.LogInformation("Built new brain: name={Name}, encoders={Encoders}, architecture={Architecture}",
                     name, string.Join(",", encoderKinds), architectureKind);
@@ -228,7 +196,7 @@ internal sealed class BrainService : IBrainService
 
         try
         {
-            string structureJson = JsonSerializer.Serialize(recipe, StructureJsonOptions);
+            string structureJson = _neuralNetworkService.EncodeRecipe(recipe);
             RunSync(() => _neuralNetworkService.CreateAsync(name, structureJson));
             Status = $"saved '{name}'";
             Refresh();
@@ -254,7 +222,7 @@ internal sealed class BrainService : IBrainService
 
         try
         {
-            string structureJson = JsonSerializer.Serialize(recipe, StructureJsonOptions);
+            string structureJson = _neuralNetworkService.EncodeRecipe(recipe);
             if (!RunSync(() => _neuralNetworkService.UpdateAsync(id, name, structureJson)))
             {
                 Status = $"update failed: network id {id} not found";

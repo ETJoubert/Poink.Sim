@@ -3,7 +3,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Poink.Sim.Brain.Neural;
@@ -19,8 +18,6 @@ public sealed record NeuralWeightsSummary(
 
 internal sealed class ModelService : IModelService
 {
-    private static readonly JsonSerializerOptions RecipeJsonOptions = new() { Converters = { new JsonStringEnumConverter() } };
-
     private readonly INeuralWeightsService _weightsService;
     private readonly INeuralNetworkService _networkService;
     private readonly ILogger<ModelService> _logger;
@@ -82,7 +79,7 @@ internal sealed class ModelService : IModelService
                     ?? throw new InvalidOperationException($"no saved network named '{brainName}'");
 
                 string parametersJson = JsonSerializer.Serialize(parameters);
-                string? structureSnapshotJson = recipe is null ? null : JsonSerializer.Serialize(recipe, RecipeJsonOptions);
+                string? structureSnapshotJson = recipe is null ? null : _networkService.EncodeRecipe(recipe);
 
                 return await _weightsService.CreateAsync(
                     network.Id, name, strategyName, rewardPolicyName, dataset, parametersJson, structureSnapshotJson,
@@ -137,10 +134,10 @@ internal sealed class ModelService : IModelService
         OnChanged?.Invoke();
     }
 
-    private static NeuralWeightsSummary ToSummary(NeuralWeightsModel model, string brainName) =>
+    private NeuralWeightsSummary ToSummary(NeuralWeightsModel model, string brainName) =>
         new(
             model.Id, model.Name, brainName, model.StrategyName, model.RewardPolicyName, model.Dataset,
             JsonSerializer.Deserialize<ModelTrainingParameters>(model.ParametersJson) ?? new ModelTrainingParameters(),
-            model.StructureSnapshotJson is null ? null : JsonSerializer.Deserialize<BrainRecipe>(model.StructureSnapshotJson, RecipeJsonOptions),
+            model.StructureSnapshotJson is null ? null : _networkService.DecodeRecipe(model.StructureSnapshotJson),
             model.TrainedAt, model.WeightCount, model.AvgReward, model.CreatedAt);
 }
