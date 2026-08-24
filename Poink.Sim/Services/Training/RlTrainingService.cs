@@ -51,7 +51,7 @@ internal sealed class RlTrainingService : IRlTrainingService
     private readonly ILogger<RlTrainingService> _logger;
 
 
-    private readonly Dictionary<string, long> _activeSnapshotId = new();
+    private readonly Dictionary<string, Guid> _activeSnapshotId = new();
 
 
     private readonly Dictionary<string, int> _episodesTrainedByBrain = new();
@@ -109,7 +109,7 @@ internal sealed class RlTrainingService : IRlTrainingService
         }
     }
 
-    public TrainedModelSummary? GetActiveSnapshot(string brainName) =>
+    public NeuralWeightsSummary? GetActiveSnapshot(string brainName) =>
         _activeSnapshotId.TryGetValue(brainName, out var id) ? _modelService.Models.FirstOrDefault(m => m.Id == id) : null;
 
     public IReadOnlyList<string> StrategyNames => _strategies.Select(s => s.Name).ToList();
@@ -678,7 +678,7 @@ internal sealed class RlTrainingService : IRlTrainingService
     }
 
 
-    public bool LoadSavedBrain(long id)
+    public bool LoadSavedBrain(Guid id)
     {
         var summary = _modelService.Models.FirstOrDefault(m => m.Id == id);
         if (summary is null)

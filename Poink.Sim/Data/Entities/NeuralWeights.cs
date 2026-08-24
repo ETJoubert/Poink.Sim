@@ -17,9 +17,26 @@ namespace Poink.Sim.Data.Entities
 
         public string Name { get; set; } = string.Empty;
 
+        public string StrategyName { get; set; } = string.Empty;
+
+        public string RewardPolicyName { get; set; } = string.Empty;
+
+        public string Dataset { get; set; } = string.Empty;
+
+        [Column(TypeName = "jsonb")]
+        public string ParametersJson { get; set; } = string.Empty;
+
+        /// <summary>The network's structure at the moment this training run started -- kept separate from the live <see cref="NeuralNetwork.StructureJson"/> since that can be edited later.</summary>
+        [Column(TypeName = "jsonb")]
+        public string? StructureSnapshotJson { get; set; }
+
         public byte[] Data { get; set; } = Array.Empty<byte>();
 
         public long WeightCount { get; set; }
+
+        public double AvgReward { get; set; }
+
+        public DateTime? TrainedAt { get; set; }
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }

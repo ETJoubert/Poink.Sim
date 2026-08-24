@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.AspNetCore.Components;
-using Poink.Sim.Repository;
+using Poink.Sim.Training;
 
 namespace Poink.Sim.Components.Training
 {
@@ -16,10 +16,10 @@ namespace Poink.Sim.Components.Training
     // same live singleton brains by name.
     public partial class SavedBrainsTable : ComponentBase
     {
-        [Parameter, EditorRequired] public IReadOnlyList<TrainedModelSummary> SavedBrains { get; set; } = [];
+        [Parameter, EditorRequired] public IReadOnlyList<NeuralWeightsSummary> SavedBrains { get; set; } = [];
 
-        [Parameter] public EventCallback<TrainedModelSummary> OnUse { get; set; }
-        [Parameter] public EventCallback<TrainedModelSummary> OnDelete { get; set; }
+        [Parameter] public EventCallback<NeuralWeightsSummary> OnUse { get; set; }
+        [Parameter] public EventCallback<NeuralWeightsSummary> OnDelete { get; set; }
 
         [Parameter] public string Title { get; set; } = "Saved brains";
         [Parameter] public string UseTitle { get; set; } = "Loads these weights into the brain's live weights";
@@ -46,7 +46,7 @@ namespace Poink.Sim.Components.Training
         // snapshot was saved before any training episode actually completed
         // for it, distinct from SavedAt.
         private sealed record SavedBrainRow(
-            long Id, string Name, string Structure, string Strategy, string RewardPolicy, string Dataset,
+            Guid Id, string Name, string Structure, string Strategy, string RewardPolicy, string Dataset,
             long WeightCount, string Parameters, double AvgReward, string Status, DateTime? TrainedAt, DateTime SavedAt);
 
         private List<SavedBrainRow> Rows =>

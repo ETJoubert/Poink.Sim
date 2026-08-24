@@ -280,7 +280,7 @@ namespace Poink.Sim.Components.Pages
         private int ProgressPercent =>
             Service.TotalEpisodes <= 0 ? 0 : (int)Math.Round(Service.EpisodesCompleted * 100.0 / Service.TotalEpisodes);
 
-        private TrainedModelSummary? CurrentActiveSnapshot =>
+        private NeuralWeightsSummary? CurrentActiveSnapshot =>
             string.IsNullOrWhiteSpace(_brainName) ? null : Service.GetActiveSnapshot(_brainName);
 
         private bool ValidateCommonStartParams()

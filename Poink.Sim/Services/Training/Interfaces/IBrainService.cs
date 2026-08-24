@@ -3,13 +3,12 @@ using System;
 using System.Collections.Generic;
 using Poink.Sim.Brain.Neural;
 using Poink.Sim.Models;
-using Poink.Sim.Repository;
 
 namespace Poink.Sim.Training;
 
 internal interface IBrainService
 {
-    IReadOnlyList<BrainSummary> Brains { get; }
+    IReadOnlyList<NeuralNetworkSummary> Brains { get; }
     IReadOnlyList<string> BrainNames { get; }
     IReadOnlyList<string> DraftBrainNames { get; }
     IReadOnlyList<BrainOption> BrainOptions { get; }
@@ -42,7 +41,7 @@ internal interface IBrainService
         IReadOnlyList<DirectionMaskRuleKind>? enabledMaskRules = null, NeatHyperparameters? neatHyperparameters = null);
 
     bool CreateNetwork(string name, BrainRecipe recipe);
-    bool UpdateNetwork(long id, string name, BrainRecipe recipe);
-    bool DeleteNetwork(long id);
+    bool UpdateNetwork(Guid id, string name, BrainRecipe recipe);
+    bool DeleteNetwork(Guid id);
     void Refresh();
 }

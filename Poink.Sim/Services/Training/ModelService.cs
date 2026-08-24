@@ -1,25 +1,39 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Poink.Sim.Brain.Neural;
+using Poink.Sim.Models;
 using Poink.Sim.Repository;
 
 namespace Poink.Sim.Training;
 
+public sealed record NeuralWeightsSummary(
+    Guid Id, string Name, string BrainName, string StrategyName, string RewardPolicyName, string Dataset,
+    ModelTrainingParameters Parameters, BrainRecipe? Recipe, DateTime? TrainedAt,
+    long WeightCount, double AvgReward, DateTime SavedAt);
+
 internal sealed class ModelService : IModelService
 {
-    private readonly IModelRepository _modelRepository;
+    private static readonly JsonSerializerOptions RecipeJsonOptions = new() { Converters = { new JsonStringEnumConverter() } };
+
+    private readonly INeuralWeightsService _weightsService;
+    private readonly INeuralNetworkService _networkService;
     private readonly ILogger<ModelService> _logger;
 
-    public ModelService(IModelRepository modelRepository, ILogger<ModelService> logger)
+    public ModelService(INeuralWeightsService weightsService, INeuralNetworkService networkService, ILogger<ModelService> logger)
     {
-        _modelRepository = modelRepository;
+        _weightsService = weightsService;
+        _networkService = networkService;
         _logger = logger;
 
         try
         {
-            Models = _modelRepository.ListModels();
+            Models = LoadModels();
         }
         catch (Exception ex)
         {
@@ -27,14 +41,26 @@ internal sealed class ModelService : IModelService
         }
     }
 
-
-    public IReadOnlyList<TrainedModelSummary> Models { get; private set; } = [];
-
+    public IReadOnlyList<NeuralWeightsSummary> Models { get; private set; } = [];
 
     public string? Status { get; private set; }
 
     public event Action? OnChanged;
 
+    // INeuralWeightsService/INeuralNetworkService are themselves singletons (backed by
+    // IDbContextFactory), so it's safe to call them directly -- Task.Run just bridges their
+    // async API onto ModelService's synchronous one.
+    private static T RunSync<T>(Func<Task<T>> action) => Task.Run(action).GetAwaiter().GetResult();
+
+    private IReadOnlyList<NeuralWeightsSummary> LoadModels() =>
+        RunSync(async () =>
+        {
+            var weights = await _weightsService.ListAllAsync();
+            var networkNamesById = (await _networkService.ListAsync()).ToDictionary(n => n.Id, n => n.Name);
+            return (IReadOnlyList<NeuralWeightsSummary>)weights
+                .Select(w => ToSummary(w, networkNamesById.GetValueOrDefault(w.NeuralNetworkId, "?")))
+                .ToList();
+        });
 
     public bool SaveModel(
         string name, string brainName, string strategyName, string rewardPolicyName, string dataset,
@@ -50,8 +76,19 @@ internal sealed class ModelService : IModelService
 
         try
         {
-            long id = _modelRepository.SaveModel(
-                name, brainName, strategyName, rewardPolicyName, dataset, parameters, recipe, trainedAt, weightCount, avgReward, weights);
+            var id = RunSync(async () =>
+            {
+                var network = (await _networkService.ListAsync()).FirstOrDefault(n => n.Name == brainName)
+                    ?? throw new InvalidOperationException($"no saved network named '{brainName}'");
+
+                string parametersJson = JsonSerializer.Serialize(parameters);
+                string? structureSnapshotJson = recipe is null ? null : JsonSerializer.Serialize(recipe, RecipeJsonOptions);
+
+                return await _weightsService.CreateAsync(
+                    network.Id, name, strategyName, rewardPolicyName, dataset, parametersJson, structureSnapshotJson,
+                    weights, weightCount, avgReward, trainedAt);
+            });
+
             Status = $"saved '{name}' as id {id}";
             Refresh();
             return true;
@@ -65,14 +102,14 @@ internal sealed class ModelService : IModelService
         }
     }
 
+    public byte[]? LoadWeights(Guid id) =>
+        RunSync(async () => (await _weightsService.GetAsync(id))?.Data);
 
-    public byte[]? LoadWeights(long id) => _modelRepository.LoadWeights(id);
-
-    public bool DeleteModel(long id)
+    public bool DeleteModel(Guid id)
     {
         try
         {
-            _modelRepository.DeleteModel(id);
+            RunSync(() => _weightsService.DeleteAsync(id));
             Status = "model deleted";
             Refresh();
             return true;
@@ -90,7 +127,7 @@ internal sealed class ModelService : IModelService
     {
         try
         {
-            Models = _modelRepository.ListModels();
+            Models = LoadModels();
         }
         catch (Exception ex)
         {
@@ -99,4 +136,11 @@ internal sealed class ModelService : IModelService
         }
         OnChanged?.Invoke();
     }
+
+    private static NeuralWeightsSummary ToSummary(NeuralWeightsModel model, string brainName) =>
+        new(
+            model.Id, model.Name, brainName, model.StrategyName, model.RewardPolicyName, model.Dataset,
+            JsonSerializer.Deserialize<ModelTrainingParameters>(model.ParametersJson) ?? new ModelTrainingParameters(),
+            model.StructureSnapshotJson is null ? null : JsonSerializer.Deserialize<BrainRecipe>(model.StructureSnapshotJson, RecipeJsonOptions),
+            model.TrainedAt, model.WeightCount, model.AvgReward, model.CreatedAt);
 }

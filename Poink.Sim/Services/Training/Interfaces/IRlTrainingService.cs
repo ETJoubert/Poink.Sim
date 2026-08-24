@@ -45,7 +45,7 @@ internal interface IRlTrainingService
 
     event Action? OnChanged;
 
-    TrainedModelSummary? GetActiveSnapshot(string brainName);
+    NeuralWeightsSummary? GetActiveSnapshot(string brainName);
 
     bool TryStartTraining(
         string brainName, string strategyName, int episodeCount, int episodeBars, int barWidthSeconds, double startingCash,
@@ -65,5 +65,5 @@ internal interface IRlTrainingService
         int episodeBars, int barWidthSeconds, double startingCash, double learningRate,
         Trader.TraderSettings? traderSettings = null);
 
-    bool LoadSavedBrain(long id);
+    bool LoadSavedBrain(Guid id);
 }

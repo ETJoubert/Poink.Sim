@@ -91,6 +91,9 @@ namespace Poink.Sim.Data.Migrations.PoinkSim
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<double>("AvgReward")
+                        .HasColumnType("double precision");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -98,12 +101,34 @@ namespace Poink.Sim.Data.Migrations.PoinkSim
                         .IsRequired()
                         .HasColumnType("bytea");
 
+                    b.Property<string>("Dataset")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<Guid>("NeuralNetworkId")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("ParametersJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("RewardPolicyName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("StrategyName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("StructureSnapshotJson")
+                        .HasColumnType("jsonb");
+
+                    b.Property<DateTime?>("TrainedAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<long>("WeightCount")
                         .HasColumnType("bigint");

@@ -14,17 +14,19 @@ namespace Poink.Sim.Repository;
 
 internal sealed class NeuralNetworkRepository : INeuralNetworkRepository
 {
-    private readonly PoinkSimContext _context;
+    private readonly IDbContextFactory<PoinkSimContext> _contextFactory;
     private readonly ILogger<NeuralNetworkRepository> _logger;
 
-    public NeuralNetworkRepository(PoinkSimContext context, ILogger<NeuralNetworkRepository> logger)
+    public NeuralNetworkRepository(IDbContextFactory<PoinkSimContext> contextFactory, ILogger<NeuralNetworkRepository> logger)
     {
-        _context = context;
+        _contextFactory = contextFactory;
         _logger = logger;
     }
 
     public async Task<Guid> CreateAsync(string name, string structureJson, CancellationToken cancellationToken = default)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
+
         var entity = new NeuralNetwork
         {
             Id = Guid.NewGuid(),
@@ -33,8 +35,8 @@ internal sealed class NeuralNetworkRepository : INeuralNetworkRepository
             CreatedAt = DateTime.UtcNow,
         };
 
-        _context.NeuralNetworks.Add(entity);
-        await _context.SaveChangesAsync(cancellationToken);
+        context.NeuralNetworks.Add(entity);
+        await context.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation("Saved neural network '{Name}' as id {Id}", name, entity.Id);
         return entity.Id;
@@ -42,7 +44,9 @@ internal sealed class NeuralNetworkRepository : INeuralNetworkRepository
 
     public async Task<IReadOnlyList<NeuralNetworkModel>> ListAsync(CancellationToken cancellationToken = default)
     {
-        var entities = await _context.NeuralNetworks
+        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
+
+        var entities = await context.NeuralNetworks
             .OrderBy(n => n.Name)
             .ToListAsync(cancellationToken);
 
@@ -52,19 +56,23 @@ internal sealed class NeuralNetworkRepository : INeuralNetworkRepository
 
     public async Task<NeuralNetworkModel?> GetAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        var entity = await _context.NeuralNetworks.FirstOrDefaultAsync(n => n.Id == id, cancellationToken);
+        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
+
+        var entity = await context.NeuralNetworks.FirstOrDefaultAsync(n => n.Id == id, cancellationToken);
         return entity is null ? null : ToModel(entity);
     }
 
     public async Task<bool> UpdateAsync(Guid id, string name, string structureJson, CancellationToken cancellationToken = default)
     {
-        var entity = await _context.NeuralNetworks.FirstOrDefaultAsync(n => n.Id == id, cancellationToken);
+        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
+
+        var entity = await context.NeuralNetworks.FirstOrDefaultAsync(n => n.Id == id, cancellationToken);
         if (entity is null) return false;
 
         entity.Name = name;
         entity.StructureJson = structureJson;
         entity.UpdatedAt = DateTime.UtcNow;
-        await _context.SaveChangesAsync(cancellationToken);
+        await context.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation("Updated neural network id {Id} ('{Name}')", id, name);
         return true;
@@ -72,11 +80,13 @@ internal sealed class NeuralNetworkRepository : INeuralNetworkRepository
 
     public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        var entity = await _context.NeuralNetworks.FirstOrDefaultAsync(n => n.Id == id, cancellationToken);
+        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
+
+        var entity = await context.NeuralNetworks.FirstOrDefaultAsync(n => n.Id == id, cancellationToken);
         if (entity is null) return false;
 
-        _context.NeuralNetworks.Remove(entity);
-        await _context.SaveChangesAsync(cancellationToken);
+        context.NeuralNetworks.Remove(entity);
+        await context.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation("Deleted neural network id {Id} ('{Name}')", id, entity.Name);
         return true;

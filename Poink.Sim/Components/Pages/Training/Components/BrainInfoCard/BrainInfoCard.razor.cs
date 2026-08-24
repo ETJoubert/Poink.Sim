@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.Components;
-using Poink.Sim.Repository;
+using Poink.Sim.Training;
 
 namespace Poink.Sim.Components.Training
 {
@@ -8,6 +8,6 @@ namespace Poink.Sim.Components.Training
     {
         [Parameter, EditorRequired] public string BrainName { get; set; } = "";
         [Parameter] public bool IsNeuralNetwork { get; set; }
-        [Parameter] public TrainedModelSummary? ActiveSnapshot { get; set; }
+        [Parameter] public NeuralWeightsSummary? ActiveSnapshot { get; set; }
     }
 }

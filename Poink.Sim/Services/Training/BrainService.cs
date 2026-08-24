@@ -2,34 +2,40 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Poink.Sim.Brain;
 using Poink.Sim.Brain.Neural;
 using Poink.Sim.Models;
-using Poink.Sim.Repository;
 
 namespace Poink.Sim.Training;
 
 public sealed record BrainOption(string Name, bool IsNeuralNetwork);
 
+public sealed record NeuralNetworkSummary(Guid Id, string Name, BrainRecipe Recipe, DateTime CreatedAt, DateTime? UpdatedAt);
+
 internal sealed class BrainService : IBrainService
 {
-    private readonly IBrainRepository _brainRepository;
+    private static readonly JsonSerializerOptions StructureJsonOptions = new() { Converters = { new JsonStringEnumConverter() } };
+
+    private readonly INeuralNetworkService _neuralNetworkService;
     private readonly BrainRegistry _brainRegistry;
     private readonly ILogger<BrainService> _logger;
 
     private readonly Dictionary<string, BrainRecipe> _brainRecipes = new();
     private readonly HashSet<string> _draftBrainNames = new();
 
-    public BrainService(IBrainRepository networkRepository, BrainRegistry brainRegistry, ILogger<BrainService> logger)
+    public BrainService(INeuralNetworkService neuralNetworkService, BrainRegistry brainRegistry, ILogger<BrainService> logger)
     {
-        _brainRepository = networkRepository;
+        _neuralNetworkService = neuralNetworkService;
         _brainRegistry = brainRegistry;
         _logger = logger;
 
         try
         {
-            Brains = _brainRepository.ListBrains();
+            Brains = RunSync(() => _neuralNetworkService.ListAsync()).Select(ToSummary).ToList();
         }
         catch (Exception ex)
         {
@@ -37,8 +43,17 @@ internal sealed class BrainService : IBrainService
         }
     }
 
+    // INeuralNetworkService is itself a singleton (backed by IDbContextFactory), so it's safe to
+    // call directly -- Task.Run just bridges its async API onto BrainService's synchronous one.
+    private static T RunSync<T>(Func<Task<T>> action) => Task.Run(action).GetAwaiter().GetResult();
 
-    public IReadOnlyList<BrainSummary> Brains { get; private set; } = [];
+    private static NeuralNetworkSummary ToSummary(NeuralNetworkModel model) =>
+        new(
+            model.Id, model.Name,
+            JsonSerializer.Deserialize<BrainRecipe>(model.StructureJson, StructureJsonOptions) ?? new BrainRecipe([], ArchitectureKind.Mlp, []),
+            model.CreatedAt, model.UpdatedAt);
+
+    public IReadOnlyList<NeuralNetworkSummary> Brains { get; private set; } = [];
 
     public IReadOnlyList<string> BrainNames => _brainRegistry.All.Select(b => b.Name).ToList();
 
@@ -213,7 +228,8 @@ internal sealed class BrainService : IBrainService
 
         try
         {
-            _brainRepository.SaveBrain(name, recipe);
+            string structureJson = JsonSerializer.Serialize(recipe, StructureJsonOptions);
+            RunSync(() => _neuralNetworkService.CreateAsync(name, structureJson));
             Status = $"saved '{name}'";
             Refresh();
             return true;
@@ -227,7 +243,7 @@ internal sealed class BrainService : IBrainService
         }
     }
 
-    public bool UpdateNetwork(long id, string name, BrainRecipe recipe)
+    public bool UpdateNetwork(Guid id, string name, BrainRecipe recipe)
     {
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -238,7 +254,14 @@ internal sealed class BrainService : IBrainService
 
         try
         {
-            _brainRepository.UpdateBrain(id, name, recipe);
+            string structureJson = JsonSerializer.Serialize(recipe, StructureJsonOptions);
+            if (!RunSync(() => _neuralNetworkService.UpdateAsync(id, name, structureJson)))
+            {
+                Status = $"update failed: network id {id} not found";
+                OnChanged?.Invoke();
+                return false;
+            }
+
             Status = $"updated '{name}'";
             Refresh();
             return true;
@@ -252,11 +275,17 @@ internal sealed class BrainService : IBrainService
         }
     }
 
-    public bool DeleteNetwork(long id)
+    public bool DeleteNetwork(Guid id)
     {
         try
         {
-            _brainRepository.DeleteBrain(id);
+            if (!RunSync(() => _neuralNetworkService.DeleteAsync(id)))
+            {
+                Status = "network not found";
+                OnChanged?.Invoke();
+                return false;
+            }
+
             Status = "network deleted";
             Refresh();
             return true;
@@ -274,7 +303,7 @@ internal sealed class BrainService : IBrainService
     {
         try
         {
-            Brains = _brainRepository.ListBrains();
+            Brains = RunSync(() => _neuralNetworkService.ListAsync()).Select(ToSummary).ToList();
         }
         catch (Exception ex)
         {

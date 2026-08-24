@@ -19,21 +19,24 @@ namespace Poink.Sim.Services.Registration;
 public static class ServiceCollectionExtensions
 {
     /// <summary>
-    /// EF Postgres context plus every ITickRepository/IBrainRepository/IModelRepository/
-    /// ITRangeChartRepository/ITRangeReferenceChartRepository. Registered singleton to
-    /// match ITickRepository's requirement to share its loaded-table-list cache across
-    /// pages -- SimulationEngine/RlTrainingService both read ticks straight from it
-    /// (streamed, chunk-pruned range/window queries), never materializing a full range
-    /// in memory.
+    /// EF Postgres context plus every ITickRepository/ITRangeChartRepository/
+    /// ITRangeReferenceChartRepository. Registered singleton to match ITickRepository's
+    /// requirement to share its loaded-table-list cache across pages --
+    /// SimulationEngine/RlTrainingService both read ticks straight from it (streamed,
+    /// chunk-pruned range/window queries), never materializing a full range in memory.
+    /// Only AddDbContextFactory is called (not AddDbContext) so its DbContextOptions stay
+    /// singleton-safe -- IDbContextFactory&lt;PoinkSimContext&gt; is what NeuralNetwork/
+    /// NeuralWeights repositories use to be singletons themselves (see BuildTrainingServices).
+    /// A scoped PoinkSimContext is then derived from that same factory for services (e.g.
+    /// TrainingResultService, PostgresCTraderTokenStore) that still inject the context directly.
     /// </summary>
     public static IServiceCollection BuildDatabase(this IServiceCollection services, IConfiguration configuration)
     {
-        services.AddDbContext<PoinkSimContext>(options =>
+        services.AddDbContextFactory<PoinkSimContext>(options =>
             options.UseNpgsql(configuration.GetConnectionString("PoinkSim")));
+        services.AddScoped(sp => sp.GetRequiredService<IDbContextFactory<PoinkSimContext>>().CreateDbContext());
 
         services.AddSingleton<ITickRepository, TickRepository>();
-        services.AddSingleton<IBrainRepository, NetworkRepository>();
-        services.AddSingleton<IModelRepository, ModelRepository>();
         services.AddSingleton<ITRangeChartRepository, TRangeChartRepository>();
         services.AddSingleton<ITRangeReferenceChartRepository, TRangeReferenceChartRepository>();
 
@@ -79,9 +82,10 @@ public static class ServiceCollectionExtensions
     /// <summary>
     /// RL training pipeline plus the Brain/Model CRUD service layer (topology-only
     /// "networks" and trained weights + run metadata) that the Brain Builder and
-    /// Training pages sit on top of. Also registers the EF-backed TrainingResult,
-    /// NeuralNetwork, and NeuralWeights create/read/delete services, scoped to match
-    /// their PoinkSimContext dependency.
+    /// Training pages sit on top of. Also registers the EF-backed TrainingResult service
+    /// (scoped, to match its PoinkSimContext dependency) and the NeuralNetwork/NeuralWeights
+    /// create/read/delete services (singleton, backed by IDbContextFactory -- see
+    /// BuildDatabase).
     /// </summary>
     public static IServiceCollection BuildTrainingServices(this IServiceCollection services)
     {
@@ -95,11 +99,11 @@ public static class ServiceCollectionExtensions
 
         services.AddScoped<ITrainingResultService, TrainingResultService>();
 
-        services.AddScoped<INeuralNetworkRepository, NeuralNetworkRepository>();
-        services.AddScoped<INeuralNetworkService, NeuralNetworkService>();
+        services.AddSingleton<INeuralNetworkRepository, NeuralNetworkRepository>();
+        services.AddSingleton<INeuralNetworkService, NeuralNetworkService>();
 
-        services.AddScoped<INeuralWeightsRepository, NeuralWeightsRepository>();
-        services.AddScoped<INeuralWeightsService, NeuralWeightsService>();
+        services.AddSingleton<INeuralWeightsRepository, NeuralWeightsRepository>();
+        services.AddSingleton<INeuralWeightsService, NeuralWeightsService>();
 
         return services;
     }

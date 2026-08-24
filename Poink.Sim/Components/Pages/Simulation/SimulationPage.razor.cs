@@ -41,7 +41,7 @@ namespace Poink.Sim.Components.Pages
         private double _cellWidth = 0.10;
         private string _brainName = "";
 
-        private long? _modelId;
+        private Guid? _modelId;
 
         private double _startingCash = 10_000;
         private int _traderCount = 1;
@@ -285,7 +285,7 @@ namespace Poink.Sim.Components.Pages
         private enum LogTab { Decisions, Positions, Traders, Brain, InputsOutputs, Statistics }
 
 
-        private sealed record SimulationBrainOption(string DisplayName, string BrainName, long? ModelId);
+        private sealed record SimulationBrainOption(string DisplayName, string BrainName, Guid? ModelId);
 
         private IReadOnlyList<SimulationBrainOption> SimulationBrainOptions =>
             ModelService.Models
@@ -495,7 +495,7 @@ namespace Poink.Sim.Components.Pages
         // ── Saved brains (setup-only picker, see SavedBrainsTable) ──
 
 
-        private void UseSavedBrain(TrainedModelSummary summary)
+        private void UseSavedBrain(NeuralWeightsSummary summary)
         {
             if (TrainingService.LoadSavedBrain(summary.Id))
             {
@@ -504,7 +504,7 @@ namespace Poink.Sim.Components.Pages
             }
         }
 
-        private void DeleteSavedBrainSnapshot(TrainedModelSummary summary) => ModelService.DeleteModel(summary.Id);
+        private void DeleteSavedBrainSnapshot(NeuralWeightsSummary summary) => ModelService.DeleteModel(summary.Id);
 
         // ── Setup actions ──
 

@@ -8,7 +8,7 @@ namespace Poink.Sim.Training;
 
 internal interface IModelService
 {
-    IReadOnlyList<TrainedModelSummary> Models { get; }
+    IReadOnlyList<NeuralWeightsSummary> Models { get; }
     string? Status { get; }
 
     event Action? OnChanged;
@@ -18,7 +18,7 @@ internal interface IModelService
         ModelTrainingParameters parameters, BrainRecipe? recipe, DateTime? trainedAt,
         long weightCount, double avgReward, byte[] weights);
 
-    byte[]? LoadWeights(long id);
-    bool DeleteModel(long id);
+    byte[]? LoadWeights(Guid id);
+    bool DeleteModel(Guid id);
     void Refresh();
 }

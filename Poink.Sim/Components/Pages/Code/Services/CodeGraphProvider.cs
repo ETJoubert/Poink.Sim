@@ -81,7 +81,7 @@ internal sealed class CodeGraphProvider : ICodeGraphProvider
             "Sets the brain, strategy, reward policy and episode size for the run.",
             [
                 new CodeTypeRef("RlTrainingService.TryStartTraining", "Services/Training/RlTrainingService.cs"),
-                new CodeTypeRef("ModelTrainingParameters", "Repository/IModelRepository.cs")
+                new CodeTypeRef("ModelTrainingParameters", "Repository/ModelTrainingParameters.cs")
             ],
             [],
             [new CodePort(TrainingSettings), new CodePort(LearnRate)],
