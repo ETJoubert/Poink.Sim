@@ -25,7 +25,8 @@ internal sealed class RandomBrain : ISimulationBrain
 
 	public string Name => "Random";
 
-	public void Reset() { } // stateless
+	// Stateless.
+	public void Reset() { }
 
 	public SimulationDecision Decide(SimulationObservation observation)
 	{

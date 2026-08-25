@@ -166,9 +166,8 @@ public partial class ArchCanvas : ComponentBase, IAsyncDisposable
 			return;
 		}
 
-		// A hidden chip takes no grid slot at all: columns are renumbered to only the distinct
-		// Column values still present among visible chips — so filtering compacts the grid
-		// instead of leaving holes.
+		// A hidden chip takes no grid slot: columns are renumbered to the distinct Column values
+		// still present among visible chips, so filtering compacts the grid instead of leaving holes.
 		var columnOrder = visible.Select(n => n.Column).Distinct().OrderBy(c => c).ToList();
 		var columnIndex = columnOrder
 			.Select((column, index) => (column, index))
@@ -176,8 +175,6 @@ public partial class ArchCanvas : ComponentBase, IAsyncDisposable
 
 		var heights = visible.ToDictionary(n => n.Id, ArchNodeLayoutHelper.CardHeightFor);
 
-		// Each chip is only as tall as its own port count needs, and chips stack directly under
-		// one another from the top of their column — no shared height, no padding to a common row grid.
 		var positions = new Dictionary<string, (double X, double Y)>();
 		var columnBottom = EdgePadding;
 		foreach (var column in visible.GroupBy(n => n.Column))
@@ -215,8 +212,6 @@ public partial class ArchCanvas : ComponentBase, IAsyncDisposable
 			var fromPosition = positions[edge.FromId];
 			var toPosition = positions[edge.ToId];
 
-			// A chip's self pin sits at the right of its header, whichever role it plays: the
-			// source of an injected dependency or the source of a produced one.
 			var start = (X: fromPosition.X + CardWidth, Y: fromPosition.Y + HeaderHeight / 2);
 
 			(double X, double Y) end;
@@ -230,8 +225,6 @@ public partial class ArchCanvas : ComponentBase, IAsyncDisposable
 			}
 			else
 			{
-				// Produces: no named port receives it, so the wire lands at the produced
-				// chip's top-left corner — the same side every other incoming wire arrives from.
 				end = (toPosition.X, toPosition.Y + HeaderHeight / 2);
 			}
 

@@ -4,11 +4,10 @@ using Poink.Sim.Models;
 
 namespace Poink.Sim.Components.Shared.StatisticsPanel;
 
-// Renders TradeStatistics.Groups as labeled sections (see the model class for
-// how the categories are built) instead of ViewDatatable's single flat
-// key/value table -- own scoped styling, since a parent's scoped CSS classes
-// don't reach into a child component's DOM (same reason DataTable exposes
-// its own data-table-value-positive/negative, see TraderCellClass).
+/// <summary>
+/// Renders TradeStatistics.Groups as labeled sections, instead of ViewDatatable's single flat
+/// key/value table, with its own scoped styling since scoped CSS doesn't reach a child component.
+/// </summary>
 public partial class StatisticsPanel : ComponentBase
 {
 	[Parameter, EditorRequired]

@@ -154,8 +154,7 @@ internal sealed class TickRepository : ITickRepository
 	private static void EnsureRegistryTable(NpgsqlConnection conn) => conn.Execute(Sql.CreateRegistryTable);
 
 	// ── SQL ──
-	// All query text lives here, named by what it does, so the methods above
-	// read as plain calls instead of inline strings.
+	// Query text lives here, named by what it does, instead of inline in the methods above.
 	private static class Sql
 	{
 		public const string SelectTickTableNames =

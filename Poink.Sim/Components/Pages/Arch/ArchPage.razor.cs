@@ -97,8 +97,7 @@ public partial class ArchPage : ComponentBase
 		_highlighted = [];
 	}
 
-	// Walks both directions of the wiring — everything this chip depends on, transitively, and
-	// everything that transitively depends on it — so a click shows the chip's full blast radius,
+	// Walks both directions of the wiring so a click shows the chip's full blast radius,
 	// not just its immediate neighbours.
 	private HashSet<string> BuildDependencyClosure(string nodeId)
 	{

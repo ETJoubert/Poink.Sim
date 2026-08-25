@@ -8,12 +8,12 @@ using Poink.Sim.Models;
 
 namespace Poink.Sim.Components.Charts
 {
-	// ColorGroup keys marketChart.js's own groupColors map; null/unrecognized falls back to the plain accent colour.
+	/// <summary>ColorGroup keys marketChart.js's own groupColors map; null/unrecognized falls back to the plain accent colour.</summary>
 	public readonly record struct ChartHorizontalLine(double Price, string? Label = null, string? ColorGroup = null);
 
 	public readonly record struct ChartVerticalLine(DateTime TimeUtc, string? Label = null, string? ColorGroup = null);
 
-	// Both endpoints matter, so this isn't built from the two single-axis line types above.
+	/// <summary>Both endpoints matter, so this isn't built from the two single-axis line types above.</summary>
 	public readonly record struct ChartDiagonalLine(
 		DateTime StartTimeUtc,
 		double StartPrice,
@@ -23,10 +23,10 @@ namespace Poink.Sim.Components.Charts
 		string? ColorGroup = null
 	);
 
-	// Not necessarily ordered -- caller may click the later point first.
+	/// <summary>Not necessarily ordered -- caller may click the later point first.</summary>
 	public readonly record struct ChartTimeRange(DateTime TimeUtc1, DateTime TimeUtc2);
 
-	// Translucent vertical band over [StartUtc, EndUtc]; not ordered, sort before rendering.
+	/// <summary>Translucent vertical band over [StartUtc, EndUtc]; not ordered, sort before rendering.</summary>
 	public readonly record struct ChartRangeFill(
 		DateTime StartUtc,
 		DateTime EndUtc,
@@ -34,13 +34,13 @@ namespace Poink.Sim.Components.Charts
 		string? ColorGroup = null
 	);
 
-	// A computed overlay series (e.g. VWAP), rendered as its own lightweight-charts LineSeries.
+	/// <summary>A computed overlay series (e.g. VWAP), rendered as its own lightweight-charts LineSeries.</summary>
 	public readonly record struct ChartLinePoint(DateTime TimeUtc, double Price);
 
-	// Shape/ColorGroup are lightweight-charts series-marker primitives; Text is the short label under/over the marker.
+	/// <summary>Shape/ColorGroup are lightweight-charts series-marker primitives; Text is the short label under/over the marker.</summary>
 	public readonly record struct ChartMarker(DateTime TimeUtc, string Shape, string ColorGroup, string? Text = null);
 
-	// Candlestick + volume chart with click-to-draw annotations, shared by ProfilerPage and SimulationPage's live overlay.
+	/// <summary>Candlestick + volume chart with click-to-draw annotations, shared by ProfilerPage and SimulationPage's live overlay.</summary>
 	public partial class MarketChart : ComponentBase, IAsyncDisposable
 	{
 		[Inject]
@@ -49,24 +49,26 @@ namespace Poink.Sim.Components.Charts
 		[Parameter]
 		public List<CTraderBarRow> Bars { get; set; } = new();
 
-		// Hides the Lines/Ranges/Shapes/Charts toolbar groups, leaving only Volume Range -- see ProfilerPage.
+		/// <summary>Hides the Lines/Ranges/Shapes/Charts toolbar groups, leaving only Volume Range -- see ProfilerPage.</summary>
 		[Parameter]
 		public bool ShowAnnotationTools { get; set; } = true;
 
-		// False hides the whole toolbar and disables pan/zoom/scroll/minimap-drag -- for read-only,
-		// frequently-updating views like EpisodePlayback's live episode chart, where letting the user
-		// interact while Bars keeps changing underneath them can crash lightweight-charts internally.
+		/// <summary>
+		/// False hides the whole toolbar and disables pan/zoom/scroll/minimap-drag, for read-only,
+		/// frequently-updating views where letting the user interact while <see cref="Bars"/> keeps
+		/// changing underneath them can crash lightweight-charts internally.
+		/// </summary>
 		[Parameter]
 		public bool Interactive { get; set; } = true;
 
-		// Live bid/ask pinned to the right axis -- see SimulationPage's sim-header price readout.
+		/// <summary>Live bid/ask pinned to the right axis -- see SimulationPage's sim-header price readout.</summary>
 		[Parameter]
 		public double? CurrentBid { get; set; }
 
 		[Parameter]
 		public double? CurrentAsk { get; set; }
 
-		// Open-position lines; each null independently hides just that line.
+		/// <summary>Open-position lines; each null independently hides just that line.</summary>
 		[Parameter]
 		public double? EntryPrice { get; set; }
 
@@ -79,15 +81,15 @@ namespace Poink.Sim.Components.Charts
 		[Parameter]
 		public double? TakeProfitPrice { get; set; }
 
-		// Tick/bar window-start marker; null hides it.
+		/// <summary>Tick/bar window-start marker; null hides it.</summary>
 		[Parameter]
 		public DateTime? WindowStartUtc { get; set; }
 
-		// Skips the auto fit-to-content a Bars update normally triggers, so backfill doesn't reset pan/zoom.
+		/// <summary>Skips the auto fit-to-content a Bars update normally triggers, so backfill doesn't reset pan/zoom.</summary>
 		[Parameter]
 		public bool KeepView { get; set; }
 
-		// Fires when panning/zooming nears the oldest loaded bar, so the caller can prepend an older chunk.
+		/// <summary>Fires when panning/zooming nears the oldest loaded bar, so the caller can prepend an older chunk.</summary>
 		[Parameter]
 		public EventCallback OnNearStart { get; set; }
 
@@ -109,7 +111,7 @@ namespace Poink.Sim.Components.Charts
 		[Parameter]
 		public IReadOnlyList<ChartLinePoint> VwapLine { get; set; } = Array.Empty<ChartLinePoint>();
 
-		// Caller owns the canonical lines lists and is expected to append + pass the updated list back down.
+		/// <summary>Caller owns the canonical lines lists and is expected to append + pass the updated list back down.</summary>
 		[Parameter]
 		public EventCallback<double> OnHorizontalLineDrawn { get; set; }
 
@@ -119,26 +121,26 @@ namespace Poink.Sim.Components.Charts
 		[Parameter]
 		public EventCallback<ChartDiagonalLine> OnDiagonalLineDrawn { get; set; }
 
-		// Fires once T-Range Chart's two clicks land, alongside the matching OnVerticalLineDrawn calls.
+		/// <summary>Fires once T-Range Chart's two clicks land, alongside the matching OnVerticalLineDrawn calls.</summary>
 		[Parameter]
 		public EventCallback<ChartTimeRange> OnTRangeChartDrawn { get; set; }
 
-		// Fires once T-Range Reference Chart's third click lands -- kept separate so the caller can group/colour it as its own reference window.
+		/// <summary>Fires once T-Range Reference Chart's third click lands -- kept separate so the caller can group/colour it as its own reference window.</summary>
 		[Parameter]
 		public EventCallback<DateTime> OnReferenceLineDrawn { get; set; }
 
-		// Fires once Volume Range's two clicks land, and again on move/resize -- deliberately does NOT also fire OnVerticalLineDrawn.
+		/// <summary>Fires once Volume Range's two clicks land, and again on move/resize -- deliberately does NOT also fire OnVerticalLineDrawn.</summary>
 		[Parameter]
 		public EventCallback<ChartTimeRange> OnVolumeRangeDrawn { get; set; }
 
-		// True once the caller has a Volume Range selection -- drives the toolbar button's clear state.
+		/// <summary>True once the caller has a Volume Range selection -- drives the toolbar button's clear state.</summary>
 		[Parameter]
 		public bool HasVolumeRange { get; set; }
 
 		[Parameter]
 		public EventCallback OnVolumeRangeCleared { get; set; }
 
-		// Fires once an armed mode's whole click sequence is done, so the caller can group multi-click drawings into one card.
+		/// <summary>Fires once an armed mode's whole click sequence is done, so the caller can group multi-click drawings into one card.</summary>
 		[Parameter]
 		public EventCallback OnDrawFinished { get; set; }
 
@@ -357,7 +359,6 @@ namespace Poink.Sim.Components.Charts
 				if (_disposed)
 					return;
 
-				// Gated separately from Bars: CurrentBid/Ask moves every tick, Bars only once per completed bar.
 				if (
 					_module is not null
 					&& _chartId is not null
@@ -372,7 +373,6 @@ namespace Poink.Sim.Components.Charts
 				if (_disposed)
 					return;
 
-				// Only moves when the position opens/closes/changes, not every tick.
 				if (
 					_module is not null
 					&& _chartId is not null
@@ -416,7 +416,7 @@ namespace Poink.Sim.Components.Charts
 
 		private void ToggleExpanded() => _expanded = !_expanded;
 
-		// Forwards to OnNearStart, then tells JS it's free to fire again once this round trip finishes.
+		/// <summary>Forwards to OnNearStart, then tells JS it's free to fire again once this round trip finishes.</summary>
 		[JSInvokable]
 		public async Task OnNearStartAsync()
 		{
@@ -452,7 +452,7 @@ namespace Poink.Sim.Components.Charts
 				new ChartDiagonalLine(FromUnixSeconds(unixSeconds1), price1, FromUnixSeconds(unixSeconds2), price2)
 			);
 
-		// Fired in addition to the two OnVerticalLineClickedAsync calls already sent for these same two clicks.
+		/// <summary>Fired in addition to the two OnVerticalLineClickedAsync calls already sent for these same two clicks.</summary>
 		[JSInvokable]
 		public Task OnTRangeChartClickedAsync(double unixSeconds1, double unixSeconds2) =>
 			InvokeIfBound(
@@ -464,7 +464,7 @@ namespace Poink.Sim.Components.Charts
 		public Task OnReferenceLineClickedAsync(double unixSeconds) =>
 			InvokeIfBound(OnReferenceLineDrawn, FromUnixSeconds(unixSeconds));
 
-		// Also fired on move/resize of an already-placed band, not just the initial two clicks.
+		/// <summary>Also fired on move/resize of an already-placed band, not just the initial two clicks.</summary>
 		[JSInvokable]
 		public Task OnVolumeRangeClickedAsync(double unixSeconds1, double unixSeconds2) =>
 			InvokeIfBound(
@@ -472,7 +472,7 @@ namespace Poink.Sim.Components.Charts
 				new ChartTimeRange(FromUnixSeconds(unixSeconds1), FromUnixSeconds(unixSeconds2))
 			);
 
-		// Null clears the hint (tool disarmed).
+		/// <summary>Null clears the hint (tool disarmed).</summary>
 		[JSInvokable]
 		public Task OnDrawHintAsync(string? hint)
 		{

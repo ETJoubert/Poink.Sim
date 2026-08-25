@@ -7,15 +7,11 @@ using Poink.Sim.Training;
 
 namespace Poink.Sim.Components.Training
 {
-	// Generic rolling-window scatter chart for a per-episode statistic
-	// (median reward, reward std dev, win rate, ...) -- callers supply only
-	// how to reduce a window of episodes to one number (Aggregate); this
-	// owns the windowing, SVG rendering and window-size control. Points only
-	// (no connecting line/fill), so trend is read from the point cloud's
-	// shape rather than an interpolated line. Same pure Razor + inline SVG
-	// approach as RewardChart (no JS, native <title> tooltips), and the same
-	// InvariantCulture coordinate formatting for the same reason (SVG
-	// geometry attributes always use '.'/',' regardless of host locale).
+	/// <summary>
+	/// Generic rolling-window scatter chart for a per-episode statistic; callers supply only
+	/// how to reduce a window of episodes to one number (Aggregate). Points only, no
+	/// connecting line/fill, so trend is read from the point cloud's shape.
+	/// </summary>
 	public partial class TrendLineChart : ComponentBase
 	{
 		private const double ViewWidth = 600;
@@ -33,12 +29,11 @@ namespace Poink.Sim.Components.Training
 		[Parameter]
 		public bool IsRunning { get; set; }
 
-		// Reduces a trailing window of episodes to the one number this chart
-		// plots -- e.g. median/population-stddev of Reward, or win rate %.
+		/// <summary>Reduces a trailing window of episodes to the one number this chart plots -- e.g. median/population-stddev of Reward, or win rate %.</summary>
 		[Parameter]
 		public Func<IReadOnlyList<RlEpisodeMetric>, double> Aggregate { get; set; } = default!;
 
-		// CSS modifier selecting the line/point color -- see TrendLineChart.razor.css.
+		/// <summary>CSS modifier selecting the line/point color -- see TrendLineChart.razor.css.</summary>
 		[Parameter]
 		public string ColorVariant { get; set; } = "median";
 
@@ -51,17 +46,11 @@ namespace Poink.Sim.Components.Training
 		[Parameter]
 		public string EmptyMessage { get; set; } = "no episodes yet";
 
-		private int _windowIndex = 1; // 20 episodes
+		// 20 episodes.
+		private int _windowIndex = 1;
 
-		// Recomputed once per render (OnParametersSet, or explicitly after a
-		// window-size change) rather than as get-only properties -- Points
-		// below reads _series/_valueRange once per point (up to 500), and
-		// recomputing the windowed aggregate from scratch on every one of
-		// those reads turned an O(n*w) pass into O(n^2*w), which at this
-		// app's caps (500 episodes, window up to 100) cost real, measurable
-		// CPU on every single episode's re-render -- worth avoiding since
-		// training runs on the shared ThreadPool (see RlTrainingService's
-		// Task.Run loop) that this render work also competes for.
+		// Recomputed once per render rather than as get-only properties: recomputing per Points
+		// read (up to 500/render) turned an O(n*w) pass into O(n^2*w), real CPU competing with training.
 		private List<(int Episode, double Value)> _series = new();
 		private (double Min, double Max) _valueRange = (-1, 1);
 
@@ -80,20 +69,8 @@ namespace Poink.Sim.Components.Training
 			_valueRange = ComputeValueRange(_series);
 		}
 
-		// One point per episode with a *complete* trailing window -- widening
-		// only applies at the true start of a run (Episodes[0] really is
-		// episode 1), so the chart still has something to show from episode
-		// 1 instead of staying empty until history fills. Once Episodes has
-		// ever evicted its oldest entry (RlTrainingService caps retained
-		// episodes at 500), Episodes[0] is no longer episode 1, and a point
-		// near the front whose window would reach earlier than that is
-		// missing real history, not merely "not born yet" -- computing it
-		// over whatever's left would silently shrink that same point's
-		// window a little more on every subsequent episode as history keeps
-		// aging out from under it, drifting its value until it's evicted.
-		// Skipping it instead keeps every plotted point's value stable for
-		// as long as it's on the chart at all, matching how RewardChart's
-		// unwindowed points behave.
+		// A partial trailing window is only allowed when Episodes[0] is truly episode 1; once
+		// history has evicted its oldest entry, a short window there is skipped instead of drifting.
 		private List<(int Episode, double Value)> BuildTrendSeries()
 		{
 			if (Episodes.Count == 0)
@@ -120,11 +97,8 @@ namespace Poink.Sim.Components.Training
 			return series;
 		}
 
-		// Zero is always folded into the range (never just the data's own
-		// min/max) so the zero baseline is a fixed, meaningful anchor rather
-		// than an auto-zoomed window that can make small fluctuations near a
-		// nonzero baseline (e.g. win rate bobbing between 45-55%) look like
-		// huge swings.
+		// Zero is always folded into the range so the baseline is a fixed anchor, rather than
+		// an auto-zoomed window that makes small fluctuations near a nonzero value look huge.
 		private static (double Min, double Max) ComputeValueRange(List<(int Episode, double Value)> series)
 		{
 			if (series.Count == 0)

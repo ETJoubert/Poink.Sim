@@ -12,8 +12,10 @@ internal interface IRlTrainingStrategy
 
 	optim.Optimizer CreateOptimizer(ISimulationBrain brain, double learningRate);
 
-	// CompletedGeneration is non-null only on the exact call where a generation-based
-	// strategy (NEAT) advances its population -- episode-based strategies always return null.
+	/// <summary>
+	/// CompletedGeneration is non-null only on the exact call where a generation-based
+	/// strategy (NEAT) advances its population; episode-based strategies always return null.
+	/// </summary>
 	(double Reward, NeatGenerationStats? CompletedGeneration) TrainEpisode(
 		ISimulationBrain brain,
 		optim.Optimizer optimizer,

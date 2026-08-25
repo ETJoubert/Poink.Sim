@@ -86,13 +86,13 @@ internal sealed class NeatPolicyBrain : INeatPolicyBrain
 
 	public int WarmupBars => _encoder.WarmupBars;
 
-	public void Reset() { } // population state persists deliberately across runs/episodes
+	// Population state persists deliberately across runs/episodes.
+	public void Reset() { }
 
 	public SimulationDecision Decide(SimulationObservation observation) => DecideWithOutputs(observation).Decision;
 
-	// Always the genome currently under evaluation (not Population.BestGenome) -- that one only
-	// changes once per generation, which would leave the live view frozen for every episode in
-	// between; CurrentGenome updates every episode, same cadence as everything else in TrainingPreview.
+	// Always the genome currently under evaluation, not Population.BestGenome, which only
+	// changes once per generation and would leave the live view frozen between generations.
 	public NeatTopologySnapshot DescribeTopology() =>
 		NeatTopologyDescriber.Describe(Population.CurrentGenome, Population.Generation);
 

@@ -51,10 +51,12 @@ internal sealed class Trader : ITrader
 	public IReadOnlyList<RlInputFeature>? LatestInputs { get; set; }
 	public IReadOnlyList<RlOutputFeature>? LatestOutputs { get; set; }
 
-	// Idempotent, not a pure read -- MaxEquity/MaxDrawdown are high-water marks updated here.
-	// A redundant call with unchanged bid/ask re-derives the same CapitalState and the mark
-	// updates become no-ops, which is what makes calling this from Observe (after Advance
-	// already ran this tick) safe.
+	/// <summary>
+	/// Computes the current capital snapshot. Idempotent, not a pure read: MaxEquity/MaxDrawdown
+	/// are high-water marks updated here, but a redundant call with unchanged bid/ask re-derives
+	/// the same state and the mark updates become no-ops, which is what makes calling this from
+	/// Observe (after Advance already ran this tick) safe.
+	/// </summary>
 	public CapitalState Snapshot(double bid, double ask)
 	{
 		double unrealized = CurrentPosition?.UnrealizedPnl(bid, ask) ?? 0;
@@ -191,7 +193,7 @@ internal sealed class Trader : ITrader
 			);
 
 		if (decision.TriggerPrice is not { } triggerPrice)
-			return null; // Limit/Stop requires a trigger price
+			return null;
 
 		_pendingOrder = new PendingOrder(
 			direction,
@@ -203,7 +205,8 @@ internal sealed class Trader : ITrader
 			time,
 			decision.Reason
 		);
-		return null; // queued, not filled -- no decision-log entry until it triggers
+		// queued, not filled -- no decision-log entry until it triggers
+		return null;
 	}
 
 	private TradeExecution? Open(
@@ -248,7 +251,8 @@ internal sealed class Trader : ITrader
 		double grossPnl = position.UnrealizedPnl(bid, ask);
 		double closeCommission = _settings.EffectiveCommissionModel.CommissionFor(position.Size, exitPrice);
 		double totalCommission = _openCommissionCharge + closeCommission;
-		double netPnl = grossPnl - closeCommission; // open leg's commission was already charged at Open
+		// open leg's commission was already charged at Open
+		double netPnl = grossPnl - closeCommission;
 
 		Cash += netPnl;
 		RealizedPnl += netPnl;
@@ -292,6 +296,7 @@ internal sealed class Trader : ITrader
 			(PositionDirection.Long, OrderType.Stop) => ask >= order.TriggerPrice,
 			(PositionDirection.Short, OrderType.Limit) => bid >= order.TriggerPrice,
 			(PositionDirection.Short, OrderType.Stop) => bid <= order.TriggerPrice,
-			_ => false, // OrderType.Market never rests as a pending order
+			// OrderType.Market never rests as a pending order
+			_ => false,
 		};
 }

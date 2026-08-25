@@ -1,10 +1,11 @@
 namespace Poink.Sim.Components.Arch;
 
-// Areas are discovered from live DI registrations, not a fixed enum, so there is no static
-// per-area CSS rule to write (unlike CodePage's concept colours). A colour is derived instead,
-// deterministically, from the area's own name — the same area always lands on the same hue.
 internal static class ArchAreaPalette
 {
+	/// <summary>
+	/// Areas are discovered from live DI registrations, not a fixed enum, so there's no static per-area
+	/// CSS rule to write; the colour is derived deterministically from the area's own name instead.
+	/// </summary>
 	public static string ColorFor(string area)
 	{
 		var hash = 0;

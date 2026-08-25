@@ -852,9 +852,7 @@ namespace Poink.Sim.Components.Training
 		}
 
 		// Unlike the other Build*Values helpers, each XGrid feature is a differently-named
-		// signal rather than an interchangeable bucket/scalar -- so instead of a bare "0"/"1"
-		// (meaningless without hovering 15 identical-looking chips), the visible text is the
-		// signal's own short name and its Kind ("on"/"off") drives the chip's styling.
+		// signal, so the visible text is the signal's own short name, not a bare "0"/"1".
 		private static List<ProfileValue> BuildXGridSignalValues(
 			IReadOnlyList<HlocAvdtBar> episodeBars,
 			IReadOnlyList<BarPriceHistogram> episodeHistograms,

@@ -4,9 +4,8 @@ using System.Linq;
 
 namespace Poink.Sim.Brain.Neural;
 
-// One "episode" (in the RL training loop's existing sense) evaluates one genome; TrainEpisode
-// reports its fitness and advances the population, calling Evolve() once every genome in the
-// current generation has been scored. See NeatTrainingStrategy.
+// One "episode" evaluates one genome; TrainEpisode reports its fitness and advances the
+// population, calling Evolve() once every genome in the generation has been scored.
 internal sealed class NeatPopulation
 {
 	private readonly NeatHyperparameters _hyperparameters;

@@ -29,9 +29,7 @@ internal static class NeatTopologyDescriber
 	}
 
 	// Kahn's algorithm over enabled connections, tracking longest-path depth from the source
-	// nodes rather than a flat execution order -- depth is what the topology graph lays out on.
-	// A node stranded by a cycle (shouldn't happen; AddConnection mutation guards against
-	// introducing one) simply keeps its default depth of 0 rather than throwing.
+	// nodes; a node stranded by a cycle keeps depth 0 rather than throwing (shouldn't occur).
 	private static Dictionary<int, int> ComputeDepths(NeatGenome genome)
 	{
 		var enabledConnections = genome.Connections.Where(c => c.Enabled).ToList();

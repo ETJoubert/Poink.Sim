@@ -66,9 +66,7 @@ namespace Poink.Sim.Components.Training
 		private IJSObjectReference? _episodeChartResizeInstance;
 
 		// Drag-to-resize the episode chart row's height, same mechanism as SimulationPage's
-		// own chart area (see SimulationPage.razor.cs's ChartDividerScript) -- only the
-		// height half is needed here since the chart panels themselves split width equally
-		// rather than via draggable per-panel dividers.
+		// ChartDividerScript, minus the width half since panels here split width equally.
 		private const string EpisodeChartResizeScript = """
 			(function() {
 			    function bindHeight(divider) {
@@ -404,9 +402,8 @@ namespace Poink.Sim.Components.Training
 				if (actions.Count == 0 || bars.Count == 0)
 					return (0, 0, 0);
 
-				// Actions are chronological, so a decision is "revealed" once its own
-				// timestamp falls within the bars shown so far -- true for any number of
-				// decisions per bar, not just the old one-per-bar assumption.
+				// Actions are chronological, so a decision is "revealed" once its own timestamp
+				// falls within the bars shown so far, for any number of decisions per bar.
 				DateTime cutoff = bars[^1].TimeUtc;
 				int longs = 0,
 					shorts = 0,
@@ -454,8 +451,7 @@ namespace Poink.Sim.Components.Training
 		private double DisplayedCellWidth => _replayBars is not null ? _replayCellWidth : SourceEpisodeCellWidth;
 
 		// Absolute-origin band containing the latest displayed price, same floor(price/width)
-		// scheme PriceCellTracker steps decisions on -- lets a Cell-mode episode be compared
-		// against XGrid's own rows exactly like SimulationPage's CellBandLines.
+		// scheme PriceCellTracker steps decisions on, so it compares against XGrid's own rows.
 		private List<XGridLine> DisplayedCellBandLines
 		{
 			get

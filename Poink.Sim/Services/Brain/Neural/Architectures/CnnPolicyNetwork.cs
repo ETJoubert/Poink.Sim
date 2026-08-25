@@ -49,9 +49,11 @@ internal sealed class CnnPolicyNetwork : Module<Tensor, Tensor>
 		return Sequential(layers.ToArray());
 	}
 
+	// Convolves the window, then combines its last-timestep and mean-pooled
+	// channels with the untouched scalar tail.
 	public override Tensor forward(Tensor input)
 	{
-		var window = input.narrow(1, _sequenceOffset, _sequenceLength).unsqueeze(1); // (batch, 1, sequenceLength)
+		var window = input.narrow(1, _sequenceOffset, _sequenceLength).unsqueeze(1);
 
 		long afterStart = _sequenceOffset + _sequenceLength;
 		long afterLength = input.shape[1] - afterStart;
@@ -60,10 +62,10 @@ internal sealed class CnnPolicyNetwork : Module<Tensor, Tensor>
 				? input.narrow(1, afterStart, afterLength)
 				: cat(new[] { input.narrow(1, 0, _sequenceOffset), input.narrow(1, afterStart, afterLength) }, dim: 1);
 
-		var mapped = _convStack.forward(window); // (batch, channels, actualLength)
+		var mapped = _convStack.forward(window);
 
-		var last = mapped.narrow(2, mapped.shape[2] - 1, 1).squeeze(-1); // (batch, channels) -- most recent timestep
-		var mean = mapped.mean(new long[] { 2 }); // (batch, channels) -- overall window regime
+		var last = mapped.narrow(2, mapped.shape[2] - 1, 1).squeeze(-1);
+		var mean = mapped.mean(new long[] { 2 });
 
 		var combined = cat(new[] { last, mean, scalars }, dim: 1);
 		var hidden = functional.tanh(_head1.forward(combined));

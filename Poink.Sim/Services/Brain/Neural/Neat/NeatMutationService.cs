@@ -53,8 +53,9 @@ internal static class NeatMutationService
 				continue;
 			if (genome.Connections.Any(c => c.InNodeId == source.Id && c.OutNodeId == target.Id))
 				continue;
+			// target already reaches source -- adding source->target would close a cycle
 			if (CanReach(genome, target.Id, source.Id))
-				continue; // target already reaches source -- adding source->target would close a cycle
+				continue;
 
 			int innovation = innovationTracker.InnovationForConnection(source.Id, target.Id);
 			genome.Connections.Add(

@@ -114,9 +114,8 @@ public sealed record EncoderSizeOptions(
 	bool TraderStateIncludeMargin = true,
 	bool TraderStateIncludeMarginLevel = true,
 	bool TraderStateIncludePositionCount = true,
-	// Which XGridSignalCatalog.All entries are enabled, by Key -- null/absent keys are simply
-	// off, so an old or unknown key (e.g. from a stale saved recipe) is dropped rather than
-	// throwing (see BrainCatalog.ResolveXGridSignals).
+	// Which XGridSignalCatalog.All entries are enabled, by Key. Unknown or stale keys are
+	// dropped rather than throwing (see BrainCatalog.ResolveXGridSignals).
 	IReadOnlyList<string>? XGridEnabledSignals = null,
 	double XGridTopPercent = 10,
 	int XGridColCount = 20,
@@ -256,9 +255,8 @@ internal static class BrainCatalog
 		};
 	}
 
-	// Not private: TrainingPreview needs the same enabled-signal order the encoder itself
-	// builds its Features/Encode array in, to label each recorded/live feature value. Unknown
-	// keys (stale saved recipe, renamed/removed catalog entry) are dropped rather than thrown.
+	// Not private: TrainingPreview needs the same enabled-signal order the encoder builds its
+	// Features/Encode array in, to label each recorded/live feature value.
 	internal static List<string> ResolveXGridSignals(EncoderSizeOptions sizes) =>
 		(sizes.XGridEnabledSignals ?? []).Where(XGridSignalCatalog.Contains).ToList();
 

@@ -8,6 +8,6 @@ internal interface ISimulationBrain
 
 	SimulationDecision Decide(SimulationObservation observation);
 
-	// Called once per run start; stateless brains no-op.
+	/// <summary>Called once per run start. Stateless brains no-op.</summary>
 	void Reset();
 }

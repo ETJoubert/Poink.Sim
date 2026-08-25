@@ -30,7 +30,8 @@ internal static class CategoricalSampling
 			if (cumulative >= threshold)
 				return i;
 		}
-		return count - 1; // float-rounding safety net -- cumulative sum landed just under threshold
+		// Float-rounding safety net: cumulative sum landed just under threshold.
+		return count - 1;
 	}
 
 	public static int ArgmaxIndex(Tensor probabilities) => (int)probabilities.argmax(dim: 1).item<long>();

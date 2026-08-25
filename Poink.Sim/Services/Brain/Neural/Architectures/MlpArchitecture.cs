@@ -13,8 +13,7 @@ internal sealed class MlpArchitecture : INetworkArchitecture
 
 	public string Name => $"MLP-{string.Join('-', _hiddenSizes)}";
 
-	// sequenceLength is intentionally unused -- a flat MLP treats the whole
-	// vector as one input, sequence or not.
+	// sequenceLength is unused: a flat MLP treats the whole vector as one input.
 	public Module<Tensor, Tensor> Build(int featureCount, int sequenceLength, int outputWidth)
 	{
 		var layers = new List<(string, Module<Tensor, Tensor>)>();

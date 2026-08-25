@@ -25,7 +25,8 @@ internal sealed class MomentumThresholdBrain : ISimulationBrain
 
 	public string Name => "Momentum Threshold";
 
-	public void Reset() { } // stateless
+	// Stateless.
+	public void Reset() { }
 
 	public SimulationDecision Decide(SimulationObservation observation)
 	{

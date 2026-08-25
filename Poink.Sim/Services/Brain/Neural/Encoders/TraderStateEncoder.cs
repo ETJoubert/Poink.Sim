@@ -106,7 +106,8 @@ internal sealed class TraderStateEncoder : IObservationEncoder
 
 	public int SequenceLength => 0;
 
-	public int WarmupBars => 0; // account state is meaningful from the first tick -- no windowing
+	// Account state is meaningful from the first tick; no windowing.
+	public int WarmupBars => 0;
 
 	public IReadOnlyList<FeatureDescriptor> Features => _features;
 

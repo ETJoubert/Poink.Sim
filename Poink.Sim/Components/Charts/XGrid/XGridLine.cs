@@ -9,12 +9,11 @@ public enum XGridLineKind
 	Horizontal,
 }
 
-// A line overlaid on the XGrid, anchored to absolute price/time rather than grid cell
-// indices so it tracks its real position as the grid recomputes -- the renderer re-maps the
-// anchors onto whatever rows/columns the current XGridResult exposes. Segment joins two
-// price/time points; Vertical pins to a time and spans every price; Horizontal pins to a
-// price and spans every time. Public since it crosses the XGrid component boundary, same
-// reason XGridResult is public rather than internal.
+/// <summary>
+/// A line overlaid on the XGrid, anchored to absolute price/time rather than grid cell indices so it
+/// tracks its real position as the grid recomputes. Segment joins two price/time points; Vertical pins
+/// to a time and spans every price; Horizontal pins to a price and spans every time.
+/// </summary>
 public sealed record XGridLine(
 	XGridLineKind Kind,
 	DateTime StartTime,

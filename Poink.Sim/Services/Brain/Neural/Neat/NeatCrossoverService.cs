@@ -28,7 +28,6 @@ internal static class NeatCrossoverService
 			}
 			else
 			{
-				// Disjoint/excess gene -- inherited from the fitter parent only.
 				inherited = gene.Clone();
 				eitherDisabled = !gene.Enabled;
 			}

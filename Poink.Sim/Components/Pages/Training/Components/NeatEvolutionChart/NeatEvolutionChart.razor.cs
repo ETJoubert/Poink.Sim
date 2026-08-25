@@ -7,9 +7,10 @@ using Poink.Sim.Brain.Neural;
 
 namespace Poink.Sim.Components.Training
 {
-	// Generation-indexed sibling of RewardChart -- NEAT emits one stats record
-	// per generation (already aggregated), so this plots raw points with no
-	// rolling window, unlike TrendLineChart's per-episode smoothing.
+	/// <summary>
+	/// Plots one point per NEAT generation from already-aggregated stats records, with no
+	/// rolling window (unlike TrendLineChart's per-episode smoothing).
+	/// </summary>
 	public partial class NeatEvolutionChart : ComponentBase
 	{
 		private const double ViewWidth = 600;

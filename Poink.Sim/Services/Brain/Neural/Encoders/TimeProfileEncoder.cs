@@ -6,13 +6,18 @@ namespace Poink.Sim.Brain.Neural;
 
 internal sealed class TimeProfileEncoder : IObservationEncoder
 {
-	private const int DefaultBucketCount = 20; // matches VolumeProfileEncoder's bucket count
+	// Matches VolumeProfileEncoder's bucket count.
+	private const int DefaultBucketCount = 20;
 	private const int DefaultLookbackBars = 50;
-	private const int SummaryScalarCount = 3; // POC, value-area-high, value-area-low
+
+	// POC, value-area-high, value-area-low.
+	private const int SummaryScalarCount = 3;
 	private const double ValueAreaFraction = 0.70;
 
 	private readonly int _bucketCount;
-	private readonly int _bucketFeatureCount; // slots/bucket: 1 (Normalized), 2 (Raw), 3 (Normalized+SplitUpDown), or 4 (Raw+SplitUpDown)
+
+	// Slots/bucket: 1 (Normalized), 2 (Raw), 3 (Normalized+SplitUpDown), or 4 (Raw+SplitUpDown).
+	private readonly int _bucketFeatureCount;
 	private readonly int _lookbackBars;
 	private readonly NormalizationKind _normalization;
 	private readonly bool _splitUpDown;

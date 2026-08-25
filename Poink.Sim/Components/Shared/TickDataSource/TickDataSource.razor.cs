@@ -7,10 +7,10 @@ using Poink.Sim.Repository;
 
 namespace Poink.Sim.Components.Shared.TickDataSource;
 
-// Symbol picker + date-range slider for a ticks_<symbol> table -- shared by
-// SimulationPage and TrainPage so both pages pick historic data the same way,
-// with the same RECOUNT-only button flow (no separate "load tables" step;
-// the table list fetches itself on init).
+/// <summary>
+/// Symbol picker + date-range slider for a ticks_&lt;symbol&gt; table, shared by SimulationPage
+/// and TrainPage so both pages pick historic data the same way.
+/// </summary>
 public partial class TickDataSource : ComponentBase
 {
 	[Inject]
@@ -44,16 +44,11 @@ public partial class TickDataSource : ComponentBase
 	private (string Table, long Rows, DateTime? MinTime, DateTime? MaxTime) SelectedTableMeta =>
 		_availableTables.FirstOrDefault(t => t.Table == Table);
 
-	// Bounds for the DateRangeSlider -- the selected table's known span when
-	// one's picked, else a generous fallback so the slider still renders
-	// before any table list has loaded.
+	// Falls back to a generous default range so the slider renders before any table list has loaded.
 	private DateTime SliderMin => SelectedTableMeta.MinTime ?? DateTime.UtcNow.AddDays(-30);
 	private DateTime SliderMax => SelectedTableMeta.MaxTime ?? DateTime.UtcNow;
 
-	// ITickRepository is a singleton, so if another page already loaded the
-	// table list this run, reuse it here for free instead of re-fetching.
-	// Otherwise kick off the same fetch RECOUNT triggers manually -- fire-
-	// and-forget so first paint isn't blocked on Postgres.
+	// Reuses another page's cached table list via the singleton repository; fetches only when nothing is cached yet.
 	protected override void OnInitialized()
 	{
 		if (TickRepository.HasCachedTables)
@@ -70,9 +65,7 @@ public partial class TickDataSource : ComponentBase
 	// Fast: reads the tick_table_stats registry (small table, no scanning).
 	private Task LoadTables() => FetchTables(() => TickRepository.ListTickTables());
 
-	// Slow: rescans every ticks_* table (COUNT(*)/MIN/MAX) and rebuilds the
-	// registry -- the only remaining manual action, so it never happens as a
-	// side effect of just visiting the page.
+	// Rescans every ticks_* table (COUNT/MIN/MAX); manual-only so it never runs as a side effect of visiting the page.
 	private Task RecountTables() => FetchTables(() => TickRepository.RefreshTickTableStats());
 
 	private async Task FetchTables(Func<List<(string Table, long Rows, DateTime? MinTime, DateTime? MaxTime)>> fetch)
@@ -103,8 +96,7 @@ public partial class TickDataSource : ComponentBase
 
 	private Task OnTableSelected(ChangeEventArgs e) => SelectTable(e.Value?.ToString() ?? "");
 
-	// Also snaps From/To to the newly-selected table's own range -- same
-	// behavior each page had inline before this was extracted.
+	// Snaps From/To to the newly selected table's own range, matching prior inline behavior.
 	private async Task SelectTable(string value)
 	{
 		await TableChanged.InvokeAsync(value);

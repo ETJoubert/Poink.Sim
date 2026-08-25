@@ -5,28 +5,25 @@ using Microsoft.AspNetCore.Components;
 
 namespace Poink.Sim.Components.Charts
 {
-	// One price level's contribution to the profile -- Count=1 with a single up-or-down
-	// flag for a raw tick (see PlainSamples), or a merged multi-tick total for a bar-mode
-	// bucket (see BarPriceHistogram.Merge, fed in via WeightedSamples below).
+	/// <summary>
+	/// One price level's contribution to the profile: Count=1 with a single up-or-down flag for a raw
+	/// tick, or a merged multi-tick total for a bar-mode bucket (see BarPriceHistogram.Merge).
+	/// </summary>
 	public readonly record struct WeightedPriceSample(double Price, int Count, int UpCount, int DownCount);
 
-	// Horizontal-bar tick histogram (price on the row axis, tick count as bar width) --
-	// deliberately plain Razor/CSS rather than the vendored lightweight-charts library
-	// OhlcvChart uses, since it isn't pixel-synced to that chart's zoom/pan; it just
-	// shares the same "high price at top" orientation so it reads naturally beside it.
-	// Recomputes from its Prices/WeightedSamples on every render, which is cheap at the
-	// buffer's tick cap (raw-tick mode) or bar cap (bar mode).
-	// Takes plain mid-prices rather than the internal Tick type, since a public
-	// [Parameter] can't expose a less-accessible type.
+	/// <summary>
+	/// Horizontal-bar tick histogram (price on the row axis, tick count as bar width), deliberately plain
+	/// Razor/CSS rather than the vendored lightweight-charts library, since it just shares OhlcvChart's
+	/// "high price at top" orientation without being pixel-synced to its zoom/pan. Takes plain mid-prices
+	/// rather than the internal Tick type, since a public [Parameter] can't expose a less-accessible type.
+	/// </summary>
 	public partial class TickVolumeProfileChart : ComponentBase
 	{
-		private const int MaxWindow = 5000; // matches SimulationEngine.MaxRecentTicks / SimulationPage.MaxTickWindow
+		// Matches SimulationEngine.MaxRecentTicks / SimulationPage.MaxTickWindow.
+		private const int MaxWindow = 5000;
 		private const int MaxBuckets = 100;
 
-		// Below this many samples per bucket, maxCount-relative scaling degenerates --
-		// e.g. right after Load/Reset, with 5 ticks spread across 20 buckets every
-		// populated bucket has count 1, so count/maxCount renders every one of them at
-		// 100% ("all bars maxed"). Below the floor we show a placeholder instead of that.
+		// Below this floor, count/maxCount scaling degenerates -- sparse buckets all read as 100%.
 		private const int MinSamplesPerBucket = 3;
 
 		[Parameter]
@@ -35,25 +32,25 @@ namespace Poink.Sim.Components.Charts
 		[Parameter]
 		public double? CurrentPrice { get; set; }
 
-		// Owned by the parent page now (SimulationPage), not this component -- it also
-		// drives the "window start" marker on the OhlcvChart candlestick chart, so a
-		// single slider up there needs to control both rather than each chart having
-		// its own out-of-sync copy. Only used for the plain Prices path below (raw-tick
-		// mode); ignored when WeightedSamples is supplied.
+		/// <summary>
+		/// Owned by the parent page (SimulationPage), which also drives the OhlcvChart "window start"
+		/// marker from the same slider. Only used for the plain Prices path; ignored when WeightedSamples is supplied.
+		/// </summary>
 		[Parameter]
 		public int WindowSize { get; set; } = 200;
 
-		// Pre-aggregated alternative to Prices/WindowSize -- SimulationPage supplies this
-		// in bar mode, where a window can span far more ticks than could ever be held
-		// individually (see BarPriceHistogram's doc comment). When set, this replaces
-		// Prices/WindowSize entirely; when null, the plain per-tick path is used instead.
+		/// <summary>
+		/// Pre-aggregated alternative to Prices/WindowSize; SimulationPage supplies this in bar mode, where
+		/// a window can span far more ticks than could ever be held individually. When set, this replaces
+		/// Prices/WindowSize entirely.
+		/// </summary>
 		[Parameter]
 		public IReadOnlyList<WeightedPriceSample>? WeightedSamples { get; set; }
 
-		// Caller-controlled visibility for the Point of Control/Value Area highlight +
-		// header readout below -- ProfilerPage wires this to its own "POC/VA in profile"
-		// overlay toggle. Doesn't affect WeightedSamples/Buckets at all, only whether
-		// Levels (and therefore IsPoc/IsValueArea/the header readout) ever computes.
+		/// <summary>
+		/// Caller-controlled visibility for the Point of Control/Value Area highlight and header readout;
+		/// doesn't affect WeightedSamples/Buckets, only whether Levels ever computes.
+		/// </summary>
 		[Parameter]
 		public bool ShowLevels { get; set; } = true;
 
@@ -62,10 +59,7 @@ namespace Poink.Sim.Components.Charts
 
 		private int ClampedWindowSize => Math.Clamp(WindowSize, 2, MaxWindow);
 
-		// Up/down counts classify each tick by direction vs. the prior tick (a standard
-		// uptick/downtick volume proxy -- ticks carry no explicit trade-side field) and
-		// are always computed alongside the plain total, so toggling split mode is a pure
-		// presentation switch with no recompute.
+		// Up/down counts classify each tick by direction vs. the prior tick; ticks carry no explicit trade-side field.
 		private sealed record Bucket(
 			double Low,
 			double High,
@@ -83,16 +77,11 @@ namespace Poink.Sim.Components.Charts
 			public int Diff => UpCount - DownCount;
 		}
 
-		// Recomputed alongside Buckets below (same samples, same "cheap enough to redo
-		// every render" reasoning) -- null while there isn't enough data for a
-		// meaningful Point of Control/Value Area (see VolumeProfileStats.Compute), or
-		// while ShowLevels is off.
+		// Null while there isn't enough data for a meaningful Point of Control/Value Area, or while ShowLevels is off.
 		private VolumeProfileLevels? Levels =>
 			ShowLevels ? VolumeProfileStats.Compute(WeightedSamples ?? PlainSamples()) : null;
 
-		// Matches the up/down bars' own colors (tvp-row-bar-up/-down) so the diff reads
-		// as "which side is winning" at a glance, same convention as SimulationPage's
-		// PnlClass for realized/unrealized P&L.
+		// Matches the up/down bars' own colors, same convention as SimulationPage's PnlClass.
 		private static string DiffClass(int diff) =>
 			diff switch
 			{
@@ -101,8 +90,7 @@ namespace Poink.Sim.Components.Charts
 				_ => "",
 			};
 
-		// Combinable, not exclusive -- the current-price row can also be the POC row (or
-		// sit inside the value area), and all three should still read at a glance.
+		// Combinable, not exclusive -- the current-price row can also be the POC row or sit inside the value area.
 		private static string RowClass(Bucket b) =>
 			$"{(b.IsCurrent ? "tvp-row-current" : "")} {(b.IsValueArea ? "tvp-row-value-area" : "")} {(b.IsPoc ? "tvp-row-poc" : "")}";
 
@@ -151,9 +139,7 @@ namespace Poink.Sim.Components.Charts
 					downCounts[idx] += s.DownCount;
 				}
 
-				// Clamped rather than excluded when out of [min,max] -- the current price can
-				// briefly sit outside the window's own range right as the window slides, and
-				// pinning it to the nearest edge bucket beats not highlighting anything at all.
+				// Clamped rather than excluded -- pinning it to the nearest edge bucket beats not highlighting anything.
 				var currentIdx = CurrentPrice is { } cp
 					? Math.Clamp((int)((cp - min) / size), 0, bucketCount - 1)
 					: (int?)null;
@@ -190,10 +176,7 @@ namespace Poink.Sim.Components.Charts
 			}
 		}
 
-		// Plain per-tick path: every raw price is its own sample (Count=1), with up/down
-		// classified against the immediately preceding tick in the window -- the same
-		// tick-rule bar mode's WeightedSamples already bakes in per-tick before ticks are
-		// discarded (see SimulationBarAggregator/BarPriceHistogram).
+		// Every raw price is its own sample (Count=1), up/down classified against the immediately preceding tick.
 		private List<WeightedPriceSample> PlainSamples()
 		{
 			var windowSize = ClampedWindowSize;

@@ -8,9 +8,10 @@ using Poink.Sim.Models;
 
 namespace Poink.Sim.Components.Charts
 {
-	// Dependency-free canvas OHLC candlestick chart -- no pan/zoom/crosshair, no volume/
-	// annotation layers (see MarketChart for the full lightweight-charts-backed view).
-	// Used for the small T-Range Chart/T-Range Reference Chart previews on ProfilerPage.
+	/// <summary>
+	/// Dependency-free canvas OHLC candlestick chart with no pan/zoom/crosshair/volume/annotation layers
+	/// (see <see cref="Charts.MarketChart"/> for the full view); used for the small T-Range preview charts on ProfilerPage.
+	/// </summary>
 	public partial class CandlestickChart : ComponentBase, IAsyncDisposable
 	{
 		[Inject]
@@ -19,8 +20,10 @@ namespace Poink.Sim.Components.Charts
 		[Parameter]
 		public List<CTraderBarRow> Bars { get; set; } = new();
 
-		// Shades the first ReferenceBarCount bars of Bars as a lookback window, with a
-		// dashed boundary -- see ProfilerPage's T-Range Reference Chart drawing.
+		/// <summary>
+		/// Shades the first <see cref="ReferenceBarCount"/> bars of <see cref="Bars"/> as a lookback window
+		/// with a dashed boundary -- see ProfilerPage's T-Range Reference Chart drawing.
+		/// </summary>
 		[Parameter]
 		public int ReferenceBarCount { get; set; }
 

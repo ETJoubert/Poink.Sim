@@ -23,8 +23,10 @@ internal static class NativeMemory
 	[return: MarshalAs(UnmanagedType.Bool)]
 	private static extern bool GlobalMemoryStatusEx(ref MEMORYSTATUSEX lpBuffer);
 
-	// GlobalMemoryStatusEx is a kernel32 export -- unavailable on non-Windows hosts (e.g. the
-	// Linux container build), where this reports "unknown" rather than throwing.
+	/// <summary>
+	/// Reports physical memory via the Windows-only kernel32 export. Non-Windows hosts (e.g. the
+	/// Linux container build) get zero for both values rather than an exception.
+	/// </summary>
 	public static (ulong totalBytes, ulong availBytes) GetPhysicalMemory()
 	{
 		if (!OperatingSystem.IsWindows())

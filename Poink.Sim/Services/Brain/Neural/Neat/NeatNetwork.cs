@@ -38,9 +38,8 @@ internal static class NeatNetwork
 			.ToArray();
 	}
 
-	// Kahn's algorithm over enabled connections; any node left stranded by a cycle falls back
-	// to declaration order rather than throwing, since AddConnection mutation should never
-	// introduce one -- this is a defensive backstop, not the primary correctness mechanism.
+	// Kahn's algorithm over enabled connections; a node stranded by a cycle falls back to
+	// declaration order as a defensive backstop, since AddConnection mutation prevents cycles.
 	private static IEnumerable<NeatNodeGene> TopologicalOrder(
 		NeatGenome genome,
 		IReadOnlyList<NeatConnectionGene> enabledConnections

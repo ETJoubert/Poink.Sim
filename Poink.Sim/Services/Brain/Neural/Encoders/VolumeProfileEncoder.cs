@@ -7,14 +7,19 @@ namespace Poink.Sim.Brain.Neural;
 
 internal sealed class VolumeProfileEncoder : IObservationEncoder, ICnnSweepable
 {
-	private const int DefaultBucketCount = 20; // matches TickVolumeProfileChart's default bucket count
+	// Matches TickVolumeProfileChart's default bucket count.
+	private const int DefaultBucketCount = 20;
 	private const int DefaultLookbackBars = 50;
 	private const int DefaultZScoreSubWindowSize = 5;
-	private const int SummaryScalarCount = 3; // POC, value-area-high, value-area-low
+
+	// POC, value-area-high, value-area-low.
+	private const int SummaryScalarCount = 3;
 	private const double ValueAreaFraction = 0.70;
 
 	private readonly int _bucketCount;
-	private readonly int _bucketFeatureCount; // slots/bucket: 1 (Normalized), 2 (Raw), 3 (Normalized+SplitUpDown), or 4 (Raw+SplitUpDown)
+
+	// Slots/bucket: 1 (Normalized), 2 (Raw), 3 (Normalized+SplitUpDown), or 4 (Raw+SplitUpDown).
+	private readonly int _bucketFeatureCount;
 	private readonly int _lookbackBars;
 	private readonly NormalizationKind _normalization;
 	private readonly int _zScoreSubWindowSize;

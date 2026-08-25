@@ -31,7 +31,9 @@ internal interface ITrader
 	ISimulationBrain? Brain { get; set; }
 	TraderControlMode ControlMode { get; set; }
 
-	// True only for the one trader currently inspected in the UI -- see Observe.
+	/// <summary>
+	/// True only for the one trader currently inspected in the UI; see <see cref="Observe"/>.
+	/// </summary>
 	bool CaptureIo { get; set; }
 	IReadOnlyList<RlInputFeature>? LatestInputs { get; set; }
 	IReadOnlyList<RlOutputFeature>? LatestOutputs { get; set; }
@@ -40,11 +42,13 @@ internal interface ITrader
 	MaintenanceResult Advance(double bid, double ask, DateTime timestamp);
 	TradeExecution? Apply(SimulationDecision decision, double bid, double ask, DateTime timestamp);
 
-	// Auto-mode traders decide for themselves from what they observe of the market; manual
-	// traders no-op here since a human (or SubmitManualDecision) drives them directly.
-	// CaptureIo gates the expensive DecideWithLogProbability/DescribeInputs path -- it builds an
-	// autograd graph with no dispose scope, unlike the plain Decide() path, so only the one
-	// trader the UI is currently inspecting should ever set it.
+	/// <summary>
+	/// Auto-mode traders decide for themselves from what they observe of the market; manual
+	/// traders no-op here since a human (or SubmitManualDecision) drives them directly.
+	/// CaptureIo gates the expensive DecideWithLogProbability/DescribeInputs path -- it builds an
+	/// autograd graph with no dispose scope, unlike the plain Decide() path, so only the one
+	/// trader the UI is currently inspecting should ever set it.
+	/// </summary>
 	TradeExecution? Observe(MarketWindow window)
 	{
 		if (ControlMode != TraderControlMode.Auto || Brain is null)

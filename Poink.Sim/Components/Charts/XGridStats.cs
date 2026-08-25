@@ -5,11 +5,11 @@ using Poink.Sim.Models;
 
 namespace Poink.Sim.Components.Charts;
 
-// One row x column intersection of XGrid. Value is the metric XGrid's cell colour is
-// driven by -- Count stands in for it until X (the real signal) is decided; Count/
-// UpCount/DownCount ride along so a future X can be computed without reshaping the grid.
-// Public (not internal) since XGrid.razor.cs's [Parameter] Grid exposes it -- same reason
-// TickVolumeProfileChart's WeightedPriceSample is public rather than internal.
+/// <summary>
+/// One row x column intersection of XGrid. Value is the metric XGrid's cell colour is driven by; Count/
+/// UpCount/DownCount ride along so a future replacement metric can be computed without reshaping the grid.
+/// Public (not internal) since XGrid.razor.cs's [Parameter] Grid exposes it.
+/// </summary>
 public readonly record struct XGridCell(
 	int Count,
 	int UpCount,
@@ -26,27 +26,13 @@ public readonly record struct XGridColumn(DateTime OpenTime, IReadOnlyList<XGrid
 // XGridResult.RowLow/RowHigh the same way XGridColumn.Cells does.
 public readonly record struct XGridLevel(double Price, int Row);
 
-// SweepLeftToRight[row]/SweepRightToLeft[row] -- how many sweep steps landed their
-// window's POC (the row with the most ticks, at this grid's own row resolution) on that
-// row. A step's window shrinks the Volume Range from one side while the other side stays
-// pinned at the range's own edge (see XGridStats.Compute's sweep loops) -- this is what
-// lets a dragged Volume Range border land on a different POC than the same border dragged
-// from the opposite direction. SweepSum is the elementwise sum of the two.
-//
-// Vah/Val/Vwap/Average/Median mirror the same-named overlays ProfilerPage already draws
-// on the main chart (see ProfileLevelLines/VwapPoints/AverageMedianLines) -- null when
-// there isn't enough data for that particular level, same as those. Current is the range's
-// latest bar close (its right-most price), pinned to whichever row holds it.
-//
-// NetByColumn is the running cumulative SBuy - SSell after each column, so its last element
-// equals the SBuy - SSell readout -- one point per column, left to right in time.
-//
-// TotalPeak/UpPeak/DownPeak are this grid's own row-aggregated tick-count peak by that
-// metric (summed across every column) -- the footprint's own POC-equivalent for Total/Up/
-// Down, computed independently from Poc (which comes from VolumeProfileStats over
-// WeightedPriceSample). The two can land on different rows, which is what the
-// Is*AbovePoc/BelowPoc/AtPoc signals below compare. Null when every row is empty for
-// that metric, same as the other levels.
+/// <summary>
+/// Full grid output. SweepLeftToRight/SweepRightToLeft/SweepSum count, per row, how many Volume-Range-sweep
+/// steps landed their window's POC there (see <see cref="XGridStats.Compute"/>). Vah/Val/Vwap/Average/Median/
+/// TotalPeak/UpPeak/DownPeak are null when there isn't enough data for that level; TotalPeak/UpPeak/DownPeak
+/// are computed independently from Poc and can land on a different row. NetByColumn is the running
+/// cumulative SBuy - SSell, one point per column.
+/// </summary>
 public readonly record struct XGridResult(
 	IReadOnlyList<double> RowLow,
 	IReadOnlyList<double> RowHigh,
@@ -74,9 +60,8 @@ public readonly record struct XGridResult(
 	XGridLevel? Current
 );
 
-// Which per-cell metric XGridStats ranks cells by -- Total is the raw tick count
-// (XGridCell.Value), Up/Down isolate one side's ticks so the two directions can be
-// inspected independently.
+// Which per-cell metric XGridStats ranks cells by -- Up/Down isolate one side's ticks
+// so the two directions can be inspected independently of Total.
 internal enum XGridSpectrumMetric
 {
 	Total,
@@ -84,13 +69,8 @@ internal enum XGridSpectrumMetric
 	Down,
 }
 
-// Footprint-style price/bar matrix -- rows are price buckets (shared across every column,
-// same bucketing approach as VolumeProfileStats), columns are the bars inside ProfilerPage's
-// Volume Range selection, grouped down to colCount columns when the selection holds more
-// bars than that (each column then merges its group's histograms, same "sum the per-bucket
-// counts" reduction BarPriceHistogram.Merge already does across a whole window). Kept
-// separate from XGrid.razor so the component stays render-only (see MarketChart.
-// README's three-layer split for the same reasoning applied to draw tools).
+// Footprint-style price/bar matrix -- rows are shared price buckets, columns are ProfilerPage's Volume
+// Range bars grouped down to colCount. Kept separate from XGrid.razor so the component stays render-only.
 internal static class XGridStats
 {
 	// Safety cap on rows derived from a tiny rowHeight over a wide range -- rows past this
@@ -134,10 +114,8 @@ internal static class XGridStats
 		if (max <= min)
 			return null;
 
-		// Rows snap to absolute multiples of rowHeight (same floor(price/width) scheme
-		// PriceCellTracker uses) instead of dividing this call's own range -- so row edges
-		// stay fixed across renders and windows instead of drifting with whatever range this
-		// particular call was given.
+		// Rows snap to absolute multiples of rowHeight so edges stay fixed across renders
+		// and windows; row 0 is the top (highest price), rowCount - 1 is the bottom.
 		long topCell = (long)Math.Floor(max / rowHeight);
 		long bottomCell = (long)Math.Floor(min / rowHeight);
 		int rowCount = (int)Math.Clamp(topCell - bottomCell + 1, 1, MaxRows);
@@ -165,9 +143,6 @@ internal static class XGridStats
 		var rowDownCounts = new double[rowCount];
 		for (var g = 0; g < colCount; g++)
 		{
-			// Splits indices into colCount contiguous groups as evenly as integer division
-			// allows -- same "distribute the remainder across the earliest groups" spread
-			// as the rest of the codebase's bucketing.
 			var groupStart = (int)((long)g * indices.Count / colCount);
 			var groupEnd = (int)((long)(g + 1) * indices.Count / colCount);
 
@@ -182,7 +157,6 @@ internal static class XGridStats
 				foreach ((long key, PriceBucketCounts c) in hist.Buckets)
 				{
 					double price = key * hist.BucketWidth;
-					// 0 = top row (highest price), rowCount - 1 = bottom row (lowest price).
 					int row = RowOf(price);
 					counts[row] += c.Count;
 					upCounts[row] += c.UpCount;
@@ -285,13 +259,8 @@ internal static class XGridStats
 		);
 	}
 
-	// Walks every possible position of the Volume Range's near border, one raw bar at a
-	// time (independent of colCount's column grouping -- a dragged border moves bar by
-	// bar, not group by group), tallying which row each resulting window's POC lands on.
-	// L->R pins the right edge at indices[^1] and sweeps the left edge indices[0]..indices[^1]
-	// (window [i, ^1]); R->L pins the left edge at indices[0] and sweeps the right edge the
-	// same span (window [0, i]). Prefix/suffix sums keep this O(bars x rowCount) instead of
-	// re-summing each window from scratch.
+	// Walks every position of the Volume Range's near border, one raw bar at a time, tallying
+	// which row each resulting window's POC lands on; prefix/suffix sums keep this O(bars x rowCount).
 	private static (double[] Ltr, double[] Rtl, double[] Sum, double MaxSum) ComputeSweeps(
 		IReadOnlyList<BarPriceHistogram> histograms,
 		List<int> indices,
@@ -369,9 +338,8 @@ internal static class XGridStats
 
 	public static bool IsCurrentAtVwap(XGridResult grid) => IsCurrentAtLevel(grid, grid.Vwap);
 
-	// Above/below compare actual price, not row -- finer-grained than IsCurrentAtLevel's row
-	// match, since a row is a bucket that can span many price levels. False when there's no
-	// current price, or the level itself isn't set.
+	// Compares actual price, not row -- finer-grained than IsCurrentAtLevel's row match,
+	// since a row is a bucket that can span many price levels.
 	private static bool IsCurrentAboveLevel(XGridResult grid, XGridLevel? level) =>
 		grid.Current is { } cur && level is { } l && cur.Price > l.Price;
 
@@ -395,8 +363,7 @@ internal static class XGridStats
 	public static bool IsCurrentBelowVwap(XGridResult grid) => IsCurrentBelowLevel(grid, grid.Vwap);
 
 	// Level-vs-level comparison -- same price-for-above/below, row-for-at split as
-	// IsCurrentAboveLevel/IsCurrentAtLevel, but between two computed levels instead of
-	// between the current price and one level.
+	// IsCurrentAboveLevel/IsCurrentAtLevel, between two computed levels.
 	private static bool IsLevelAboveLevel(XGridLevel? level, XGridLevel? reference) =>
 		level is { } l && reference is { } r && l.Price > r.Price;
 
@@ -441,13 +408,11 @@ internal static class XGridStats
 		};
 	}
 
-	// Every (row, col) cell with a nonzero metric value, ordered least to most by it. Cells
-	// at zero (no ticks at all for Total, or none on that side for Up/Down) are excluded
-	// rather than sorted to the front -- a footprint grid is mostly empty, so including them
-	// would flatten the curve into a long zero run. Sort order among equal values is
-	// unspecified (Array.Sort isn't stable), but that only affects the curve's shape at a
-	// plateau, not which point marks the current cell or the top-percent threshold -- both
-	// look up by (Row, Col) identity or by rank, not by value.
+	/// <summary>
+	/// Every (row, col) cell with a nonzero metric value, ordered least to most by it. Zero cells are
+	/// excluded rather than sorted to the front -- a footprint grid is mostly empty, so including them
+	/// would flatten the curve into a long zero run.
+	/// </summary>
 	public static (int Row, int Col)[] CellOrder(XGridResult grid, XGridSpectrumMetric metric)
 	{
 		int rows = grid.RowLow.Count,
@@ -467,9 +432,10 @@ internal static class XGridStats
 	public static int TopCount(int n, double percent) =>
 		Math.Clamp((int)Math.Round(n * Math.Clamp(percent, 0, 100) / 100.0, MidpointRounding.AwayFromZero), 0, n);
 
-	// True when the current (latest) cell's metric value ranks inside the top percent% of
-	// every nonzero cell on the grid. False when there's no current cell, or the current
-	// cell itself has a zero metric value (excluded from CellOrder, so it can never rank).
+	/// <summary>
+	/// True when the current (latest) cell's metric value ranks inside the top percent% of every
+	/// nonzero cell on the grid; a zero-value current cell is excluded from CellOrder, so it can never rank.
+	/// </summary>
 	public static bool IsCurrentInTopPercent(XGridResult grid, XGridSpectrumMetric metric, double percent)
 	{
 		if (CurrentCell(grid) is not { } cell)
@@ -484,10 +450,8 @@ internal static class XGridStats
 	}
 }
 
-// A signal is one boolean condition over a grid -- Key is its stable identity (used as the
-// RL feature name and as the Brain Builder's persisted toggle), Group/Label/Tooltip drive the
-// Brain Builder checkbox UI, Predicate is the condition itself. One catalog entry is the whole
-// cost of adding a signal; nothing else in the codebase needs a matching case.
+// A signal is one boolean condition over a grid -- Key is its stable RL feature name/persisted
+// toggle identity, Group/Label/Tooltip drive the Brain Builder checkbox UI.
 internal delegate bool XGridSignalPredicate(XGridResult grid, double percent);
 
 internal sealed record XGridSignalDef(

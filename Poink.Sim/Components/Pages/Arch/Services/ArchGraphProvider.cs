@@ -49,11 +49,8 @@ internal sealed class ArchGraphProvider : IArchGraphProvider
 		return new ArchGraph(nodes, edges);
 	}
 
-	// Every chip on this page is discovered from the live DI container, not hand-listed: a
-	// group per distinct implementation type, filtered to this project and to registrations
-	// reflection can actually see through (factory- and instance-based ones have no
-	// constructor to read, so they are skipped — the type they wrap still shows up under its
-	// own concrete registration, if it has one).
+	// Discovered from the live DI container, filtered to registrations reflection can see
+	// through; factory- and instance-based ones have no constructor to read and are skipped.
 	private IReadOnlyList<NodeSpec> BuildSpecs()
 	{
 		var discovered = _serviceDescriptors
@@ -86,9 +83,8 @@ internal sealed class ArchGraphProvider : IArchGraphProvider
 		);
 	}
 
-	// Trader is built per session by TraderFactory.Create, not resolved from the container, so
-	// it never appears as a ServiceDescriptor. It stays on the page as the one hand-added chip,
-	// added only if discovery did not already surface it under some other registration.
+	// Trader is built per session by TraderFactory.Create, so it never appears as a
+	// ServiceDescriptor; it is added here only if discovery did not already surface it.
 	private IReadOnlyList<NodeSpec> BuildManualSpecs(IReadOnlyList<NodeSpec> discovered)
 	{
 		var implementation = typeof(Poink.Sim.Trader.Trader);
@@ -205,9 +201,7 @@ internal sealed class ArchGraphProvider : IArchGraphProvider
 		);
 	}
 
-	// The chip's own identity pin: it is the source when this whole instance is handed to
-	// another chip's constructor or produced by another chip's method, and the target when
-	// this chip is itself produced. Regular Inputs/Outputs below stay named and per-parameter.
+	// The chip's own identity pin, distinct from the named per-parameter Inputs/Outputs below.
 	private static ArchPort BuildSelfPort(NodeSpec spec, IReadOnlyList<ArchEdge> edges)
 	{
 		var injectsInto = edges
@@ -327,9 +321,8 @@ internal sealed class ArchGraphProvider : IArchGraphProvider
 				var elementType = UnwrapCollection(parameter.ParameterType);
 				var isCollection = elementType != parameter.ParameterType;
 
-				// A collection parameter (e.g. IEnumerable<ISimulationBrain>) can be fed by every
-				// matching chip at once, not just the first one found — a single-value parameter
-				// still resolves to at most one source.
+				// A collection parameter can be fed by every matching chip at once; a
+				// single-value parameter still resolves to at most one source.
 				IEnumerable<NodeSpec> sources =
 					isCollection ? FindSpecs(specs, elementType, target.Id)
 					: FindSpec(specs, elementType, target.Id) is { } single ? [single]

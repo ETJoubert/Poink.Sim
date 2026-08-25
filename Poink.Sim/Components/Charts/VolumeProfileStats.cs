@@ -4,12 +4,7 @@ using System.Linq;
 
 namespace Poink.Sim.Components.Charts;
 
-// Point of Control (the price with the most volume) and Value Area High/Low (the
-// tightest band holding ValueAreaFraction of total volume) -- the standard "where did
-// this profile actually trade" read, on top of TickVolumeProfileChart's own per-bucket
-// bars. Fixed BucketCount rather than reusing the panel's own user-adjustable bucket
-// count, so this stays a stable summary instead of shifting with a purely cosmetic
-// display setting.
+// Point of Control (most volume) and Value Area High/Low (tightest band holding ValueAreaFraction of total volume).
 internal readonly record struct VolumeProfileLevels(double Poc, double ValueAreaHigh, double ValueAreaLow);
 
 internal static class VolumeProfileStats
@@ -17,8 +12,7 @@ internal static class VolumeProfileStats
 	private const int BucketCount = 50;
 	private const double ValueAreaFraction = 0.70;
 
-	// Same "too little data to mean anything" floor TickVolumeProfileChart.Buckets
-	// applies to its own (variable) bucket count -- scaled to this type's fixed one.
+	// Same "too little data to mean anything" floor TickVolumeProfileChart.Buckets applies.
 	private const int MinSamplesPerBucket = 3;
 
 	public static VolumeProfileLevels? Compute(IReadOnlyList<WeightedPriceSample> samples)
@@ -45,9 +39,6 @@ internal static class VolumeProfileStats
 			if (counts[i] > counts[pocIndex])
 				pocIndex = i;
 
-		// Expands one bucket at a time from the POC, each step taking whichever
-		// neighbour (above the current band or below it) carries more volume, until
-		// the band covers ValueAreaFraction of total volume or both edges are hit.
 		var lowIndex = pocIndex;
 		var highIndex = pocIndex;
 		var covered = counts[pocIndex];
@@ -83,8 +74,7 @@ internal static class VolumeProfileStats
 		return totalCount == 0 ? null : samples.Sum(s => s.Price * (double)s.Count) / totalCount;
 	}
 
-	// Exact (unbucketed) median price -- the sample where cumulative count first
-	// reaches half of the total, walking samples in ascending price order.
+	// Exact (unbucketed) median price, walking samples in ascending price order.
 	public static double? ComputeMedian(IReadOnlyList<WeightedPriceSample> samples)
 	{
 		var totalCount = samples.Sum(s => s.Count);

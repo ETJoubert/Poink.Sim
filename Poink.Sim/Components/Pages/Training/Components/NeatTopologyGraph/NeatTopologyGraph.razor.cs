@@ -8,16 +8,12 @@ using Poink.Sim.Brain.Neural;
 
 namespace Poink.Sim.Components.Training
 {
-	// Live render of one NEAT genome's graph -- Input/Bias anchor to a stacked left column,
-	// Output anchors to a stacked right column, and Hidden nodes flow between them by
-	// topological depth. No windowing or rolling aggregation, since a genome is already a
-	// single point-in-time structure.
-	//
-	// Drawn on <canvas> via JS interop, same pattern as XGrid/MarketChart/CandlestickChart
-	// (Components/Charts/) -- lazily import a module in OnAfterRenderAsync, call its draw(canvas,
-	// payload) export every render, dispose the module reference on teardown. Colors are passed
-	// as CSS custom-property names, not resolved values, so the JS side reads them live via
-	// getComputedStyle and stays theme-aware without duplicating hex colors into JS.
+	/// <summary>
+	/// Live render of one NEAT genome's graph: Input/Bias anchor left, Output anchors right,
+	/// and Hidden nodes flow between them by topological depth. Drawn on &lt;canvas&gt; via JS
+	/// interop, same pattern as XGrid/MarketChart/CandlestickChart. Colors are passed as CSS
+	/// custom-property names so the JS side stays theme-aware without duplicating hex values.
+	/// </summary>
 	public partial class NeatTopologyGraph : ComponentBase, IAsyncDisposable
 	{
 		private const double PadLeftPercent = 6;
@@ -28,17 +24,13 @@ namespace Poink.Sim.Components.Training
 		private const double MinEdgeOpacity = 0.15;
 		private const double MaxEdgeWeightForOpacity = 2.0;
 
-		// Every node in a depth column (almost always Input/Bias -- dozens of raw encoder
-		// features land at depth 0) is spread across the column's full height rather than
-		// wrapping into a grid; diameter shrinks with node count instead, so a crowded column
-		// stays legible without ever exceeding the container's own height. ReferenceHeightPx is
-		// a heuristic stand-in for the container's actual rendered height (unknowable without
-		// measuring the live DOM) -- it only affects how aggressively circles shrink under
-		// crowding, not layout.
+		// Nodes in a depth column spread across the column's full height, shrinking diameter with
+		// count instead of wrapping. ReferenceHeightPx stands in for the unmeasurable live DOM height.
 		private const double ReferenceHeightPx = 170;
 		private const double MaxNodeDiameterPx = 8;
 		private const double MinNodeDiameterPx = 2.5;
-		private const double NodeSpacingFactor = 1.6; // diameter = spacing / this -- leaves a visible gap between adjacent circles
+		// diameter = spacing / this -- leaves a visible gap between adjacent circles.
+		private const double NodeSpacingFactor = 1.6;
 
 		// Hidden nodes flow between the fixed Input and Output columns, by depth; this margin
 		// keeps that band clear of the two anchored columns rather than crowding right up to them.
@@ -50,15 +42,15 @@ namespace Poink.Sim.Components.Training
 		[Parameter]
 		public NeatTopologySnapshot? Topology { get; set; }
 
-		// Recipe-only (not live data) -- used solely to attribute each Input node index to the
-		// encoder that produced it, so Input nodes can be colored to match that encoder's card
-		// in the Source column, same as TrainingPreview.SourceColorClass does there.
+		/// <summary>
+		/// Recipe (not live data) used to attribute each Input node index to the encoder that
+		/// produced it, so Input nodes can be colored to match that encoder's card in the Source column.
+		/// </summary>
 		[Parameter]
 		public BrainRecipe? Recipe { get; set; }
 
-		// Fixed check order, not Recipe.EncoderKinds' own order -- matches
-		// TrainingPreview.BuildSourceRows, and both agree with CompositeEncoder's actual
-		// concatenation order because BrainBuilder always assembles EncoderKinds in this order.
+		// Fixed check order matching TrainingPreview.BuildSourceRows and CompositeEncoder's
+		// actual concatenation order, not Recipe.EncoderKinds' own order.
 		private static readonly (EncoderKind Kind, string Label)[] CanonicalEncoderOrder =
 		[
 			(EncoderKind.BarWindow, "Bar Window"),
@@ -104,10 +96,8 @@ namespace Poink.Sim.Components.Training
 			GC.SuppressFinalize(this);
 		}
 
-		// Input/Bias always anchor to the left edge and Output always anchors to the right edge
-		// -- both single stacked columns, regardless of topological depth, so an output reached
-		// through a long mutation chain doesn't wander into the middle of the graph. Only Hidden
-		// nodes lay out by depth, flowing through the band between the two anchored columns.
+		// Input/Bias and Output always anchor to fixed stacked columns regardless of topological
+		// depth; only Hidden nodes lay out by depth, flowing through the band between them.
 		private Dictionary<int, (double XPercent, double YPercent, double DiameterPx)> ComputePositions()
 		{
 			var positions = new Dictionary<int, (double, double, double)>();
@@ -185,9 +175,8 @@ namespace Poink.Sim.Components.Training
 				_ => "--color-neutral",
 			};
 
-		// Input node Ids are assigned 0..InputCount-1 in exactly this encoder order when the
-		// genome is created (NeatPopulation.CreateInitialGenomes), so a cumulative offset over
-		// CanonicalEncoderOrder recovers which encoder produced a given input index.
+		// Input node Ids are assigned 0..InputCount-1 in this encoder order at genome creation
+		// (NeatPopulation.CreateInitialGenomes), so a cumulative offset recovers the source encoder.
 		private Dictionary<int, string> ComputeInputSourceBadges()
 		{
 			var badges = new Dictionary<int, string>();

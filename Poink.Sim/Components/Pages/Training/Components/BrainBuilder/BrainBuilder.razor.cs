@@ -417,9 +417,8 @@ namespace Poink.Sim.Components.Training
 
 		private sealed record TraderStateFieldRow(string Label, string Tooltip, Func<bool> Get, Action<bool> Set);
 
-		// (Label, Tooltip, Get, Set) per base field -- drives the checkbox row in the Trader
-		// State card from one list instead of 12 hand-written near-duplicate blocks, same
-		// "computed property returns a fresh collection each access" convention as XGridSignalRows.
+		// Drives the Trader State checkbox row from one list instead of 12 near-duplicate
+		// blocks; follows the same fresh-collection-per-access convention as XGridSignalRows.
 		private IReadOnlyList<TraderStateFieldRow> TraderStateFieldRows =>
 			new List<TraderStateFieldRow>
 			{
@@ -526,9 +525,8 @@ namespace Poink.Sim.Components.Training
 			Action<bool> Set
 		);
 
-		// One row per XGridSignalCatalog entry -- Get/Set read/write that entry's membership in
-		// _xgridEnabledSignals, so the checkbox rows in the XGrid Signals card grow with the
-		// catalog instead of needing a hand-written entry per signal.
+		// One row per catalog entry, so the checkbox rows grow with the catalog instead of
+		// needing a hand-written entry per signal.
 		private IReadOnlyList<XGridSignalRow> XGridSignalRows =>
 			XGridSignalCatalog
 				.All.Select(def => new XGridSignalRow(

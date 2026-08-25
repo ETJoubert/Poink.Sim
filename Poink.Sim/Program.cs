@@ -1,17 +1,4 @@
-// ═══════════════════════════════════════════════════════════════════════════
-//  Poink.Sim — always-on Blazor Server dashboard for the trader simulation
-//
-//  Split out of Poink.ML because this isn't the training pipeline: it replays
-//  historical ticks for a chosen symbol and date range under user control
-//  (play/pause/step/speed), lets a pluggable ISimulationBrain observe the
-//  stream (raw ticks or aggregated HLOC/AVDT bars) plus live Capital/Position,
-//  and executes its decisions through Trader with simple cash P&L (no
-//  leverage). See README.md for the full design.
-//
-//  Carries its own TorchSharp/Microsoft.ML (see Poink.Sim.csproj) for a future
-//  trained ISimulationBrain, plus Postgres tick access (Repository/) and its
-//  own copy of the terminal UI (Components/Shared, Core/).
-// ═══════════════════════════════════════════════════════════════════════════
+// Split out of Poink.ML: the always-on dashboard, not the training pipeline (see README.md).
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.AspNetCore.Builder;
@@ -29,9 +16,7 @@ using Poink.Sim.Services.Registration;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Local, gitignored overrides (e.g. a real remote Postgres host/credentials) — see
-// appsettings.json for the tracked local-dev connection strings and
-// Poink.CTrader/README.md's "Secrets" section for the convention.
+// Local, gitignored overrides; see Poink.CTrader/README.md's "Secrets" section.
 builder.Configuration.AddJsonFile("appsettings.Secrets.json", optional: true, reloadOnChange: true);
 
 builder.SetupLogging();
@@ -47,8 +32,7 @@ builder.Services.AddScoped<ILocalStorageHelper, LocalStorageHelper>();
 builder.Services.BuildCodeGraphServices();
 builder.Services.BuildCallGraphServices();
 
-// Snapshot of every registration made above this line, so the Arch page can reflect the
-// DI container itself into a graph instead of maintaining a hand-written node list.
+// Snapshot of every registration above, so the Arch page can graph the DI container itself.
 builder.Services.AddSingleton<IReadOnlyList<ServiceDescriptor>>(builder.Services.ToList());
 
 #pragma warning disable CA1416 // SystemPerformanceMonitor is Windows-only, same as this app's other host assumptions (see its class comment).

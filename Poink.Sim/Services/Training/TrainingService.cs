@@ -458,8 +458,6 @@ internal sealed class TrainingService : ITrainingService
 					}
 					catch (OperationCanceledException)
 					{
-						// Training loop stopped/errored before consuming everything it
-						// asked for -- nothing left to feed it, so just stop producing.
 					}
 					catch (Exception ex)
 					{
@@ -634,7 +632,7 @@ internal sealed class TrainingService : ITrainingService
 						prefetchProducerTask?.GetAwaiter().GetResult();
 					}
 					catch
-					{ /* already surfaced above, or a clean cancellation -- either way nothing more to do */
+					{
 					}
 					prefetchCts.Dispose();
 				}

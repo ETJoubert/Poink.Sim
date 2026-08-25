@@ -78,12 +78,14 @@ namespace Poink.Sim.Components.Pages
 		private int? _selectedTraderId;
 		private LogTab _activeLogTab;
 
-		private const int MaxTickWindow = 5000; // matches SimulationEngine.MaxRecentTicks
+		// Matches SimulationEngine.MaxRecentTicks.
+		private const int MaxTickWindow = 5000;
 		private int _tickWindowSize = 200;
 		private int ClampedTickWindow => Math.Clamp(_tickWindowSize, 2, MaxTickWindow);
 		private double TickWindowFillPercent => ClampedTickWindow * 100.0 / MaxTickWindow;
 
-		private const int MaxBarWindow = 300; // matches SimulationEngine.MaxRecentBars
+		// Matches SimulationEngine.MaxRecentBars.
+		private const int MaxBarWindow = 300;
 		private int _barWindowSize = 50;
 		private int ClampedBarWindow => Math.Clamp(_barWindowSize, 1, MaxBarWindow);
 		private double BarWindowFillPercent => ClampedBarWindow * 100.0 / MaxBarWindow;
@@ -108,10 +110,8 @@ namespace Poink.Sim.Components.Pages
 			+ (_showVolumeProfile ? 1 : 0)
 			+ (_showTimeProfile ? 1 : 0);
 
-		// A divider's negative margin assumes a panel sits to its left -- rendering one as the
-		// row's first flex child pulls it past the container's own padding. Panels are ordered
-		// main -> XGrid -> volume profile -> time profile, so each divider only shows once a
-		// panel earlier in that order is actually visible for it to sit between.
+		// A divider's negative margin assumes a panel to its left, so a divider only shows
+		// once an earlier panel (main -> XGrid -> volume profile -> time profile) is visible.
 		private bool ShowXGridDivider(SimulationSnapshot s) => s.Config.Aggregate && _showXGrid && _showMainChart;
 
 		private bool ShowVolumeProfileDivider(SimulationSnapshot s) =>
@@ -168,10 +168,8 @@ namespace Poink.Sim.Components.Pages
 			return _xgridCache;
 		}
 
-		// Feeds the selected trader's open position and window-visible closed trades to XGrid
-		// as price/time-anchored markers -- recomputed each render so live P&L colouring on the
-		// open position stays current. Trades entirely outside the grid's window are dropped to
-		// keep the overlay uncluttered.
+		// Recomputed each render so live P&L colouring on the open position stays current;
+		// trades entirely outside the grid's window are dropped to keep the overlay uncluttered.
 		private List<XGridPosition> XGridPositions(SimulationSnapshot s)
 		{
 			var result = new List<XGridPosition>();
@@ -267,9 +265,8 @@ namespace Poink.Sim.Components.Pages
 			);
 		}
 
-		// Submits an XGrid right-margin order as a manual pending decision for the selected
-		// trader. The entry price becomes a Limit trigger when it sits on the favourable side
-		// of current price, a Stop otherwise; Volume maps onto the engine's capital fraction.
+		// Entry price becomes a Limit trigger when it sits on the favourable side of current
+		// price, a Stop otherwise; Volume maps onto the engine's capital fraction.
 		private void PlaceXGridOrder(XGridOrder order)
 		{
 			if (SelectedTrader is not { } trader)
@@ -412,6 +409,7 @@ namespace Poink.Sim.Components.Pages
 				PositionDirection.Long => true,
 				PositionDirection.Short => false,
 				null => null,
+				_ => null,
 			};
 
 		private bool SelectedTraderIsManual => SelectedTrader?.Mode == TraderControlMode.Manual;

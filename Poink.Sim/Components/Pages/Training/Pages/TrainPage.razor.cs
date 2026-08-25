@@ -31,9 +31,8 @@ namespace Poink.Sim.Components.Pages
 		[Inject]
 		private ITrainingResultService TrainingResultService { get; set; } = default!;
 
-		// Set via @ref on the Build panel -- StartTrainingCore asks it to
-		// draft a live, unsaved brain from its current fields right before a
-		// run starts (see BrainBuilder.PrepareBrainForTraining).
+		// Set via @ref; StartTrainingCore asks it to draft a live, unsaved brain from its
+		// current fields right before a run starts (see BrainBuilder.PrepareBrainForTraining).
 		private BrainBuilder? _brainBuilder;
 
 		private string _table = "";
@@ -51,12 +50,8 @@ namespace Poink.Sim.Components.Pages
 		private int _episodeBars = 20;
 		private double _learningRate = 0.001;
 
-		// Episode Timing card -- off by default, so an episode may start anywhere
-		// in the Data Range above (including across midnight), exactly like
-		// before this feature existed. Weekday/session are independent,
-		// combinable filters (see EpisodeTimeConstraint's doc comment): "Days" is
-		// just every weekday with the full 00:00-24:00 session; narrowing either
-		// one is what turns it into "Weeks" or "Sessions".
+		// Off by default, so an episode may start anywhere in the Data Range above. Weekday and
+		// session are independent, combinable filters -- see EpisodeTimeConstraint's doc comment.
 		private bool _restrictEpisodeTiming;
 		private readonly HashSet<DayOfWeek> _allowedWeekdays = [.. Enum.GetValues<DayOfWeek>()];
 		private TimeSpan _sessionStart = TimeSpan.Zero;
@@ -114,13 +109,8 @@ namespace Poink.Sim.Components.Pages
 
 		private void HandleBrainCreated(string name) => _brainName = name;
 
-		// Run Setup config (Data Range/Brain/Strategy/Episode Timing/Trader) round-trips
-		// through localStorage so it survives navigating away and back -- Service itself
-		// keeps a run going across navigation, but this component's own fields don't. Load
-		// needs JS interop, so it can only happen post-render, not from OnInitialized;
-		// persisting is diffed against _lastPersistedSettingsJson so the frequent
-		// HandleServiceChanged-driven re-renders during an active run don't spam the
-		// browser with redundant writes.
+		// Round-trips through localStorage since this component's own fields don't survive
+		// navigation; persisting is diffed against _lastPersistedSettingsJson to avoid write spam.
 		private const string SettingsStorageKey = "poink.train.runSetup";
 
 		private string? _lastPersistedSettingsJson;
@@ -208,10 +198,8 @@ namespace Poink.Sim.Components.Pages
 			await LocalStorage.SetItemAsync(SettingsStorageKey, CurrentSettings);
 		}
 
-		// Feeds TrainingPreview -- whatever's currently held in the Build
-		// panel's fields, live, whether or not it's been saved (see
-		// BrainBuilder.CurrentConfigRecipe) -- so the preview never lags
-		// behind an unsaved tweak.
+		// Feeds TrainingPreview from whatever's live in the Build panel's fields, whether or
+		// not it's been saved, so the preview never lags behind an unsaved tweak.
 		private BrainRecipe? CurrentBrainRecipe => _brainBuilder?.CurrentConfigRecipe;
 
 		// Feeds TrainingPreview's Data column -- mirrors the Data Range card's TickDataSource fields.
@@ -231,21 +219,14 @@ namespace Poink.Sim.Components.Pages
 				$"Timing: {EpisodeTimingSummary}",
 			];
 
-		// When Episode Timing is restricted, Bars/episode is derived from the
-		// session length / bar width rather than picked independently -- an
-		// episode's decisions are meant to span exactly the configured day/session
-		// (see RlTrainingService.RandomConstrainedEpisodeWindow), not some shorter
-		// random slice inside it. 0 (not clamped to 1) when the session is too
-		// short for even one bar, so ValidateCommonStartParams's "at least 1"
-		// check still catches it instead of silently rounding up.
+		// When restricted, Bars/episode derives from session length / bar width; 0 (not 1) when
+		// too short for a bar, so ValidateCommonStartParams's "at least 1" check still catches it.
 		private int EffectiveEpisodeBars =>
 			_restrictEpisodeTiming
 				? (int)((_sessionEnd - _sessionStart).TotalSeconds / _barWidthSeconds)
 				: _episodeBars;
 
-		// "unrestricted", or e.g. "Mo,Tu,We,Th,Fr 13:00-17:00" -- read by
-		// PreviewTrainingItems above, same weekday/session state the Episode
-		// Timing card's controls edit.
+		// "unrestricted", or e.g. "Mo,Tu,We,Th,Fr 13:00-17:00", read by PreviewTrainingItems.
 		private string EpisodeTimingSummary
 		{
 			get
@@ -281,11 +262,8 @@ namespace Poink.Sim.Components.Pages
 				_ => day.ToString(),
 			};
 
-		// "HH:mm" (plus the literal "24:00" for end-of-day) <-> TimeSpan bridge for
-		// the session range's plain-text inputs -- a native <input type="time">
-		// can't represent 24:00, which the full-day default needs, so this uses
-		// text inputs instead. Invalid text is silently ignored (keeps the last
-		// valid value) rather than surfacing a parse error on every keystroke.
+		// Plain-text "HH:mm" (plus literal "24:00") bridge, since a native <input type="time">
+		// can't represent the full-day default; invalid text is silently ignored, not parsed.
 		private string SessionStartText
 		{
 			get => EpisodeTimeConstraint.FormatClock(_sessionStart);
@@ -468,10 +446,8 @@ namespace Poink.Sim.Components.Pages
 
 		private void StopTraining() => Service.StopTraining();
 
-		// Only reachable once training's finished/stopped (see the Reset button's
-		// guard in the .razor) -- clears this run's episodes/metrics/charts back
-		// to a blank slate, leaving Run Setup (Data Range/Brain/Training/Trader)
-		// untouched so the same config can be run again.
+		// Clears this run's episodes/metrics/charts, leaving Run Setup untouched so the same
+		// config can be run again; only reachable once training's finished/stopped.
 		private void ResetRun() => Service.ResetRun();
 
 		private void SaveModel()

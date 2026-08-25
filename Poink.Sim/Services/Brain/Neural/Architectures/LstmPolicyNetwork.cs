@@ -30,13 +30,15 @@ internal sealed class LstmPolicyNetwork : Module<Tensor, Tensor>
 		RegisterComponents();
 	}
 
+	// Runs the window through the LSTM from a fresh zero state each call (see
+	// LstmArchitecture's doc comment), then combines the top layer's final hidden state with the scalar tail.
 	public override Tensor forward(Tensor input)
 	{
-		var window = input.narrow(1, 0, _windowSize).unsqueeze(-1); // (batch, windowSize, 1)
-		var scalars = input.narrow(1, _windowSize, input.shape[1] - _windowSize); // (batch, scalarCount)
+		var window = input.narrow(1, 0, _windowSize).unsqueeze(-1);
+		var scalars = input.narrow(1, _windowSize, input.shape[1] - _windowSize);
 
-		var (_, hn, _) = _lstm.forward(window, null); // null h0_c0 -- fresh zero state per call, see LstmArchitecture's doc comment
-		var lastHidden = hn[-1]; // (batch, hiddenSize) -- top layer's final hidden state
+		var (_, hn, _) = _lstm.forward(window, null);
+		var lastHidden = hn[-1];
 
 		var combined = cat(new[] { lastHidden, scalars }, dim: 1);
 		var hidden = functional.tanh(_head1.forward(combined));

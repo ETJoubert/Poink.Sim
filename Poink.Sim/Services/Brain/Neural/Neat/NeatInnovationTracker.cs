@@ -2,9 +2,8 @@ using System.Collections.Generic;
 
 namespace Poink.Sim.Brain.Neural;
 
-// Historical markings, reset each generation -- two genomes that add the "same" structural
-// mutation (same connection endpoints, or the same connection split) within one generation
-// get matching innovation numbers, which is what makes crossover gene-alignment meaningful.
+// Historical markings, reset each generation; genomes that add the same structural mutation
+// within one generation get matching innovation numbers, enabling crossover gene-alignment.
 internal sealed class NeatInnovationTracker(int startingNodeId, int startingInnovationId)
 {
 	private int _nextNodeId = startingNodeId;

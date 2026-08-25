@@ -4,12 +4,7 @@ using System.Linq;
 
 namespace Poink.Sim.Components.Charts;
 
-// Point of Control (the price with the most time spent at it) and Value Area High/Low
-// (the tightest band holding ValueAreaFraction of total time) -- TimeProfileChart's
-// time-weighted counterpart to VolumeProfileStats. Fixed BucketCount rather than
-// reusing the panel's own user-adjustable bucket count, same reasoning as
-// VolumeProfileStats: this stays a stable summary instead of shifting with a purely
-// cosmetic display setting.
+// Point of Control and Value Area High/Low, time-weighted counterpart to VolumeProfileLevels.
 internal readonly record struct TimeProfileLevels(double Poc, double ValueAreaHigh, double ValueAreaLow);
 
 internal static class TimeProfileStats
@@ -17,8 +12,7 @@ internal static class TimeProfileStats
 	private const int BucketCount = 50;
 	private const double ValueAreaFraction = 0.70;
 
-	// Same "too little data to mean anything" floor as VolumeProfileStats, gated on
-	// sample count rather than total seconds -- see TickTimeProfileChart.MinSamplesPerBucket.
+	// Same "too little data to mean anything" floor as VolumeProfileStats, gated on sample count.
 	private const int MinSamplesPerBucket = 3;
 
 	public static TimeProfileLevels? Compute(IReadOnlyList<WeightedTimeSample> samples)
@@ -41,8 +35,7 @@ internal static class TimeProfileStats
 		}
 
 		var totalSeconds = seconds.Sum();
-		// Enough samples but no elapsed time between them yet (e.g. right after
-		// Load/Reset) -- nothing meaningful to rank a POC/Value Area from.
+		// Enough samples but no elapsed time between them yet (e.g. right after Load/Reset).
 		if (totalSeconds <= 0)
 			return null;
 
@@ -51,9 +44,6 @@ internal static class TimeProfileStats
 			if (seconds[i] > seconds[pocIndex])
 				pocIndex = i;
 
-		// Expands one bucket at a time from the POC, each step taking whichever
-		// neighbour (above the current band or below it) carries more time, until the
-		// band covers ValueAreaFraction of total time or both edges are hit.
 		var lowIndex = pocIndex;
 		var highIndex = pocIndex;
 		var covered = seconds[pocIndex];

@@ -29,7 +29,8 @@ internal sealed class SessionClockEncoder : IObservationEncoder
 
 	public int SequenceLength => 0;
 
-	public int WarmupBars => 0; // derived from the current tick's own timestamp -- no history needed
+	// Derived from the current tick's own timestamp; no history needed.
+	public int WarmupBars => 0;
 
 	public IReadOnlyList<FeatureDescriptor> Features => _features;
 

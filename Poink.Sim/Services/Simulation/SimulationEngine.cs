@@ -23,9 +23,12 @@ internal sealed class SimulationEngine : ISimulationEngine
 {
 	private const int CallbackIntervalMs = 100;
 	private const int BaseUnitsPerCallback = 5;
-	private const int FiniteSpeedUnitsCap = 100_000; // headroom above 5 * MaxFiniteMultiplier
+	// headroom above 5 * MaxFiniteMultiplier
+	private const int FiniteSpeedUnitsCap = 100_000;
 	private const double MaxFiniteMultiplier = 10_000;
-	private const int UncappedSliceMs = 100; // time budget per callback while uncapped, not a tick cap
+
+	// time budget per callback while uncapped, not a tick cap
+	private const int UncappedSliceMs = 100;
 
 	private const int MaxRecentBars = 300;
 	private const int MaxRecentTicks = 5000;

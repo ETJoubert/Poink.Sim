@@ -224,7 +224,9 @@ public partial class DataTable<TItem> : IAsyncDisposable
 	// null = all visible (lazy init so no OnParametersSet wiring needed)
 	private HashSet<string>? _tableColumnSelection;
 	private HashSet<string> _cardFieldSelection = new();
-	private int _cardsPerRow = 0; // 0 = auto
+
+	// 0 = auto.
+	private int _cardsPerRow = 0;
 
 	private string CardsGridStyle =>
 		_cardsPerRow == 0 ? "repeat(auto-fill, minmax(220px, 1fr))" : $"repeat({_cardsPerRow}, 1fr)";
@@ -411,17 +413,17 @@ public partial class DataTable<TItem> : IAsyncDisposable
 		return properties;
 	}
 
+	// Always includes the first 2, last 2, and a window of 3 around the current page; a gap
+	// between kept pages yields a null, the caller's ellipsis marker.
 	private IEnumerable<int?> GetPageNumbers(int totalPages, int currentPage)
 	{
 		var pages = new HashSet<int>();
 
-		// Always include first 2 and last 2 pages
 		for (int i = 1; i <= Math.Min(2, totalPages); i++)
 			pages.Add(i);
 		for (int i = Math.Max(1, totalPages - 1); i <= totalPages; i++)
 			pages.Add(i);
 
-		// Include a window of 3 around the current page
 		for (int i = Math.Max(1, currentPage - 1); i <= Math.Min(totalPages, currentPage + 1); i++)
 			pages.Add(i);
 
@@ -429,7 +431,7 @@ public partial class DataTable<TItem> : IAsyncDisposable
 		foreach (var p in pages.OrderBy(x => x))
 		{
 			if (prev.HasValue && p - prev.Value > 1)
-				yield return null; // ellipsis marker
+				yield return null;
 			yield return p;
 			prev = p;
 		}

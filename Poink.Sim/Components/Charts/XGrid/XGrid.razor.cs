@@ -7,11 +7,12 @@ using Microsoft.JSInterop;
 
 namespace Poink.Sim.Components.Charts
 {
-	// Data/pixels split: every row/column/cell value arrives pre-computed via Grid (see
-	// XGridStats.Compute); this component turns the active display state into a flat numeric
-	// payload and hands it to xGrid.js, which paints the footprint onto one canvas instead
-	// of one DOM node per cell. Only the grid cells/overlays/markers moved to canvas -- the
-	// header, toggles, totals and Net bar chart stay declarative markup.
+	/// <summary>
+	/// Data/pixels split: every row/column/cell value arrives pre-computed via Grid (see XGridStats.Compute);
+	/// this component turns the active display state into a flat numeric payload and hands it to xGrid.js,
+	/// which paints the footprint onto one canvas instead of one DOM node per cell. Only the grid
+	/// cells/overlays/markers moved to canvas -- the header, toggles, totals and Net bar chart stay declarative markup.
+	/// </summary>
 	public partial class XGrid : ComponentBase, IAsyncDisposable
 	{
 		[Inject]
@@ -20,12 +21,11 @@ namespace Poink.Sim.Components.Charts
 		[Parameter]
 		public XGridResult? Grid { get; set; }
 
-		// Two-way bound so the host (the only one that can call XGridStats.Compute -- it owns
-		// the bars/histograms) recomputes Grid when either changes. The inputs themselves live
-		// in this component's own header.
-		// PipCount x the instrument's pip size (host-owned, not this component's concern) is
-		// the fixed row height the host passes into XGridStats.Compute -- row count is then
-		// derived from however many of those bands the price range needs.
+		/// <summary>
+		/// Two-way bound so the host (the only one that can call XGridStats.Compute) recomputes Grid when
+		/// either changes. PipCount x the instrument's pip size is the fixed row height the host passes
+		/// into XGridStats.Compute -- row count is then derived from however many bands the price range needs.
+		/// </summary>
 		[Parameter]
 		public int PipCount { get; set; } = 20;
 
@@ -42,54 +42,66 @@ namespace Poink.Sim.Components.Charts
 
 		private Task SetColCount(int value) => ColCountChanged.InvokeAsync(ColCount = value);
 
-		// Local overlay state, same fixed-position "get bigger" expand as MarketChart's own
-		// _expanded -- purely visual, so it stays unbound rather than a two-way parameter.
+		// Local overlay state, purely visual, so it stays unbound rather than a two-way parameter.
 		private bool _expanded;
 
 		private void ToggleExpanded() => _expanded = !_expanded;
 
-		// Host-provided controls shown in a top bar only while expanded -- lets the hosting
-		// page drop mini playback/profile controls beside the fullscreen grid. Extensible by
-		// design: the host owns the content, so adding controls needs no change here.
+		/// <summary>
+		/// Host-provided controls shown in a top bar only while expanded, letting the hosting page drop
+		/// mini playback/profile controls beside the fullscreen grid.
+		/// </summary>
 		[Parameter]
 		public RenderFragment? ExpandedControls { get; set; }
 
-		// Lines a host process computes and pins over the grid -- rendered alongside the
-		// user's own drawings but owned by the host, so the user's Clear leaves them intact.
+		/// <summary>
+		/// Lines a host process computes and pins over the grid -- rendered alongside the user's own
+		/// drawings but owned by the host, so the user's Clear leaves them intact.
+		/// </summary>
 		[Parameter]
 		public IReadOnlyList<XGridLine>? Lines { get; set; }
 
-		// Raised when the user completes a drawing, letting a host record or react to it. The
-		// imperative counterpart is AddLine/ClearLines for hosts holding an @ref.
+		/// <summary>
+		/// Raised when the user completes a drawing. The imperative counterpart is AddLine/ClearLines
+		/// for hosts holding an @ref.
+		/// </summary>
 		[Parameter]
 		public EventCallback<XGridLine> OnLineDrawn { get; set; }
 
-		// Trades a host process pins over the grid -- open/close markers with a connecting
-		// line, plus a right-edge direction marker per open trade coloured by live P&L. Host
-		// owned and recomputed per render, so live price and profit/loss stay current.
+		/// <summary>
+		/// Trades a host process pins over the grid -- open/close markers with a connecting line, plus a
+		/// right-edge direction marker per open trade coloured by live P&amp;L. Host-owned and recomputed
+		/// per render, so live price and profit/loss stay current.
+		/// </summary>
 		[Parameter]
 		public IReadOnlyList<XGridPosition>? Positions { get; set; }
 
-		// Raised when the user presses Place on the right-margin order panel -- the host maps
-		// the absolute prices onto its own order model and executes it.
+		/// <summary>
+		/// Raised when the user presses Place on the right-margin order panel -- the host maps the
+		/// absolute prices onto its own order model and executes it.
+		/// </summary>
 		[Parameter]
 		public EventCallback<XGridOrder> OnOrderPlaced { get; set; }
 
-		// Resting orders a host pins at their trigger price -- dotted level plus a right-edge
-		// direction marker, recomputed per render like Positions.
+		/// <summary>
+		/// Resting orders a host pins at their trigger price -- dotted level plus a right-edge
+		/// direction marker, recomputed per render like Positions.
+		/// </summary>
 		[Parameter]
 		public IReadOnlyList<XGridPending>? Pending { get; set; }
 
-		// Raised when the user applies edits to a resting order -- the host cancels the old one
-		// and re-places it, since the engine has no in-place modify.
+		/// <summary>
+		/// Raised when the user applies edits to a resting order -- the host cancels the old one and
+		/// re-places it, since the engine has no in-place modify.
+		/// </summary>
 		[Parameter]
 		public EventCallback<XGridOrderModification> OnPendingModified { get; set; }
 
-		// Raised with a pending order's Id when the user cancels it.
+		/// <summary>Raised with a pending order's Id when the user cancels it.</summary>
 		[Parameter]
 		public EventCallback<string> OnPendingCancelled { get; set; }
 
-		// Raised with an open position's Id when the user closes it.
+		/// <summary>Raised with an open position's Id when the user closes it.</summary>
 		[Parameter]
 		public EventCallback<string> OnPositionClosed { get; set; }
 
@@ -104,8 +116,7 @@ namespace Poink.Sim.Components.Charts
 			public double? TakeProfit { get; set; }
 		}
 
-		// New drafts a fresh order; Pending/Open bind the panel to an existing order for
-		// modify/cancel or close, addressed by _panelTargetId.
+		// New drafts a fresh order; Pending/Open bind the panel to an existing order, addressed by _panelTargetId.
 		private enum OrderPanelMode
 		{
 			New,
@@ -219,14 +230,12 @@ namespace Poink.Sim.Components.Charts
 
 		private readonly List<XGridLine> _userLines = new();
 
-		// Opt-in segment tool -- while active a click places a start cell, the next a end
-		// cell. Off by default so the grid keeps its plain hover/tooltip behaviour.
+		// Opt-in segment tool -- while active a click places a start cell, the next an end cell.
 		private bool _lineMode;
 
 		private void ToggleLineMode() => _lineMode = !_lineMode;
 
-		// Purely a display choice over data already on Grid, so it stays local, unbound state
-		// rather than a two-way parameter like PipCount/ColCount, which do drive a recompute.
+		// Purely a display choice over data already on Grid, so it stays local, unbound state.
 		private enum SweepMode
 		{
 			None,
@@ -238,23 +247,18 @@ namespace Poink.Sim.Components.Charts
 		private SweepMode _sweepMode = SweepMode.None;
 
 		// Opt-in delta shading -- recolours each cell by its up-minus-down tick balance
-		// instead of its raw tick count, same "display choice sitting on data already on
-		// Grid" rationale as _sweepMode.
+		// instead of its raw tick count, same display-choice rationale as _sweepMode.
 		private bool _shadeDelta;
 
 		// Weights each tick by the price distance it moved instead of counting it as one --
-		// modifies whichever shading is active (count or delta), same opt-in display-only
-		// rationale as _sweepMode/_shadeDelta.
+		// modifies whichever shading is active (count or delta).
 		private bool _distanceWeighted;
 
-		// Opt-in line graph of NetByColumn under the totals row -- default off like every
-		// other overlay.
+		// Opt-in line graph of NetByColumn under the totals row -- default off like every other overlay.
 		private bool _showNetGraph;
 
-		// Per-metric UI state for one Spectrum: ShowGraph opts into its distribution graph,
-		// ShowHighlight opts into bordering the top Percent% of its cells on the main grid --
-		// same opt-in, off-by-default convention as _showNetGraph. Grouped into one object per
-		// metric rather than tripling flat fields, since Total/Up/Down are otherwise identical.
+		// Per-metric UI state for one Spectrum: ShowGraph opts into its distribution graph, ShowHighlight
+		// opts into bordering the top Percent% of its cells on the main grid, grouped per metric.
 		private sealed class SpectrumOverlay
 		{
 			public bool ShowGraph;
@@ -274,15 +278,12 @@ namespace Poink.Sim.Components.Charts
 				_ => _spectrum,
 			};
 
-		// Whether the current (latest) cell ranks in this metric's own top Percent% -- reuses
-		// the same percent already configured for that metric's Highlight/Spectrum overlay, so
-		// the signal panel agrees with whatever cutoff is drawn on screen.
+		// Reuses the same percent already configured for that metric's Highlight/Spectrum overlay,
+		// so the signal panel agrees with whatever cutoff is drawn on screen.
 		private bool CurrentSignal(XGridResult grid, XGridSpectrumMetric metric) =>
 			XGridStats.IsCurrentInTopPercent(grid, metric, OverlayFor(metric).Percent);
 
-		// Poc/Vah/Val/Vwap/Average/Median are independently toggleable, same "each gets its
-		// own checkbox" convention as ProfilerPage's own CHART OVERLAYS panel. Every overlay
-		// starts off so the grid opens unshaded and unmarked.
+		// Poc/Vah/Val/Vwap/Average/Median are independently toggleable, every overlay starting off.
 		private bool _showPoc;
 		private bool _showVah;
 		private bool _showVal;
@@ -316,16 +317,13 @@ namespace Poink.Sim.Components.Charts
 			catch (ObjectDisposedException) { }
 		}
 
-		// One byte per cell, 128 = zero, sign carried for delta mode -- keeps the per-cell
-		// payload to a byte[] (base64 fast path over interop) instead of a colour string per
-		// cell. The intensity mapping mirrors what the CSS-grid version computed inline.
+		// One byte per cell (128 = zero, sign carried for delta mode), keeping the payload a byte[]
+		// (base64 fast path over interop) instead of a colour string per cell.
 		private object BuildPayload(XGridResult grid)
 		{
 			int rows = grid.RowLow.Count,
 				cols = grid.Columns.Count;
 			var cells = new byte[rows * cols];
-			// Tick presence rides separately from intensity: a balanced delta cell encodes to
-			// the same zero byte as an empty one, so the baseline border needs its own signal.
 			var present = new byte[rows * cols];
 			for (var r = 0; r < rows; r++)
 			for (var c = 0; c < cols; c++)
@@ -398,7 +396,6 @@ namespace Poink.Sim.Components.Charts
 						}
 					);
 
-			// Open mode reuses the position's own held lines, so only New/Pending draw a draft.
 			object? draft = null;
 			if (_order is { } order && _panelMode != OrderPanelMode.Open)
 			{
@@ -739,9 +736,7 @@ namespace Poink.Sim.Components.Charts
 		private static string FormatPrice(double price) => price.ToString("F5", CultureInfo.InvariantCulture);
 
 		// Rows run high-to-low; the top edge is RowHigh[0], the bottom edge RowLow[last]. The
-		// integer form returns the containing bucket, the fractional form the continuous
-		// position (row r+0 at its high edge, r+1 at its low edge) so a re-mapped line lands
-		// exactly on its price rather than snapping to a cell.
+		// fractional form below returns the continuous position so a re-mapped line lands exactly on its price.
 		private static int PriceToRow(XGridResult grid, double price)
 		{
 			int rows = grid.RowHigh.Count;
@@ -777,9 +772,8 @@ namespace Poink.Sim.Components.Charts
 			return rows / 2.0;
 		}
 
-		// Columns run left-to-right by OpenTime. The integer form returns the nearest column,
-		// the fractional form the continuous position (column c centred at c+0.5) interpolated
-		// between adjacent open times so a re-mapped line tracks time across a shifting range.
+		// Columns run left-to-right by OpenTime; the fractional form below interpolates between
+		// adjacent open times so a re-mapped line tracks time across a shifting range.
 		private static int TimeToCol(XGridResult grid, DateTime time)
 		{
 			int cols = grid.Columns.Count;
@@ -839,9 +833,8 @@ namespace Poink.Sim.Components.Charts
 
 		private readonly record struct NetBar(string X, string Y, string Width, string Height, bool Positive);
 
-		// One bar per column, aligned to the grid's equal-width columns and drawn from the
-		// zero baseline: positive Net rises above it, negative drops below. Mapped onto the
-		// same 0..100 viewBox the baseline/crossings use, stretched to fill width.
+		// One bar per column, drawn from the zero baseline: positive Net rises above it, negative
+		// drops below, mapped onto the same 0..100 viewBox the baseline/crossings use.
 		private static IReadOnlyList<NetBar> NetGraphBars(XGridResult grid)
 		{
 			var series = grid.NetByColumn;
@@ -879,9 +872,8 @@ namespace Poink.Sim.Components.Charts
 			return y.ToString("0.##", CultureInfo.InvariantCulture);
 		}
 
-		// Every x (0..100 viewBox) where the cumulative Net line touches or crosses zero:
-		// an exact zero point contributes its own x, a sign change between two columns
-		// contributes the linearly interpolated crossing.
+		// Every x (0..100 viewBox) where the cumulative Net line touches or crosses zero: an exact
+		// zero point contributes its own x, a sign change contributes the interpolated crossing.
 		private static IReadOnlyList<string> NetGraphZeroCrossings(XGridResult grid)
 		{
 			var series = grid.NetByColumn;
@@ -907,9 +899,8 @@ namespace Poink.Sim.Components.Charts
 
 		private static string XForm(double x) => x.ToString("0.##", CultureInfo.InvariantCulture);
 
-		// Rank i's x sits at i / (n - 1) across the 0..100 viewBox, its y at the cell's value
-		// as a fraction of the largest cell value -- an ascending curve from bottom-left
-		// (smallest cell) to top-right (largest cell).
+		// Rank i's x sits at i / (n - 1), its y at the cell's value as a fraction of the largest --
+		// an ascending curve from bottom-left (smallest cell) to top-right (largest cell).
 		private static string SpectrumCurvePoints(XGridResult grid, XGridSpectrumMetric metric)
 		{
 			var order = XGridStats.CellOrder(grid, metric);
@@ -928,17 +919,14 @@ namespace Poink.Sim.Components.Charts
 			return string.Join(' ', points);
 		}
 
-		// Closes SpectrumCurvePoints down to the baseline so it can fill as a solid area
-		// instead of just an outline.
+		// Closes SpectrumCurvePoints down to the baseline so it can fill as a solid area.
 		private static string SpectrumAreaPoints(XGridResult grid, XGridSpectrumMetric metric)
 		{
 			var curve = SpectrumCurvePoints(grid, metric);
 			return curve.Length == 0 ? "" : $"{curve} 100,100 0,100";
 		}
 
-		// Current cell's x position on SpectrumCurvePoints -- the curve is monotonically
-		// ascending, so x alone (its rank among every cell) locates it; the guide line crosses
-		// the curve at its actual value without needing that height computed separately. Null
+		// The curve is monotonically ascending, so x alone (the cell's rank) locates it; null
 		// when there's no current cell, same as every other level marker on this grid.
 		private static string? SpectrumMarkerX(XGridResult grid, XGridSpectrumMetric metric)
 		{
@@ -953,10 +941,8 @@ namespace Poink.Sim.Components.Charts
 			return XForm(n <= 1 ? 0 : rank * 100.0 / (n - 1));
 		}
 
-		// One byte per grid cell, 1 for every cell within the top Percent% by this metric --
-		// fed to xGrid.js to stroke a border around each, same present-mask shape BuildPayload
-		// already sends for the baseline tick-presence border. Null while that metric's overlay
-		// is off, so the JS side skips the extra pass entirely rather than drawing an empty mask.
+		// One byte per grid cell, 1 for every cell within the top Percent% by this metric, fed to
+		// xGrid.js to stroke a border around each. Null while that metric's overlay is off.
 		private byte[]? TopHighlightMask(XGridResult grid, XGridSpectrumMetric metric)
 		{
 			var overlay = OverlayFor(metric);
@@ -976,9 +962,8 @@ namespace Poink.Sim.Components.Charts
 			return mask;
 		}
 
-		// x position on SpectrumCurvePoints where the top-percent cutoff sits -- null while
-		// that metric's overlay is off, or when the cutoff isn't a meaningful split (no cells,
-		// or 0%/100% selects none/all of them).
+		// Null while that metric's overlay is off, or when the cutoff isn't a meaningful split
+		// (no cells, or 0%/100% selects none/all of them).
 		private string? SpectrumThresholdX(XGridResult grid, XGridSpectrumMetric metric)
 		{
 			var overlay = OverlayFor(metric);
@@ -1050,16 +1035,13 @@ namespace Poink.Sim.Components.Charts
 			return $"{(int)span.TotalSeconds}s";
 		}
 
-		// All rows share one height by construction (XGridStats.Compute divides the range
-		// evenly), so the first row's own span stands for every row's.
+		// All rows share one height by construction, so the first row's span stands for every row's.
 		private static string RowHeightLabel(XGridResult grid) =>
 			grid.RowLow.Count == 0
 				? "--"
 				: (grid.RowHigh[0] - grid.RowLow[0]).ToString("F5", CultureInfo.InvariantCulture);
 
-		// Columns can each cover a different number of source bars (grouping spreads any
-		// remainder across the earliest columns), so this is the average spacing between
-		// column open times rather than an exact per-column width.
+		// Columns can each cover a different number of source bars, so this is the average spacing between column open times.
 		private static string ColumnWidthLabel(XGridResult grid)
 		{
 			int cols = grid.Columns.Count;

@@ -43,7 +43,8 @@ internal static class NeatSpeciationService
 		}
 
 		int n = Math.Max(a.Connections.Count, b.Connections.Count);
-		n = n < 20 ? 1 : n; // small-genome normalization, per the original NEAT paper
+		// small-genome normalization, per the original NEAT paper
+		n = n < 20 ? 1 : n;
 
 		double averageWeightDiff = matching > 0 ? weightDiffSum / matching : 0;
 

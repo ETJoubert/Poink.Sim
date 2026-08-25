@@ -3,8 +3,7 @@ using Poink.Sim.Repository;
 
 namespace Poink.Sim.Simulation;
 
-// Fixed-width, absolute-origin price bucket (same scheme as BarPriceHistogram) -- stays
-// stable across a run, unlike XGrid's own window-derived rows.
+// Fixed-width, absolute-origin price bucket (same scheme as BarPriceHistogram) that stays stable across a run, unlike XGrid's own window-derived rows.
 internal sealed class PriceCellTracker
 {
 	private readonly double _cellWidth;
@@ -12,8 +11,10 @@ internal sealed class PriceCellTracker
 
 	public PriceCellTracker(double cellWidth) => _cellWidth = cellWidth;
 
-	// Null on the tick that establishes the starting cell -- nothing to have left yet, same
-	// shape as SimulationBarAggregator's first partial bar.
+	/// <summary>
+	/// Returns the newly entered cell's bounds when the tracked price crosses into a different
+	/// cell, or null on the tick that establishes the starting cell (nothing to have left yet).
+	/// </summary>
 	public (long Cell, double Low, double High)? Feed(Tick tick)
 	{
 		double mid = (tick.Bid + tick.Ask) / 2.0;

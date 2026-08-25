@@ -23,10 +23,8 @@ internal sealed class BarPriceHistogram
 
 	public IReadOnlyDictionary<long, PriceBucketCounts> Buckets => _buckets;
 
-	// The tick's count, move distance, and the origin price itself all book to the origin
-	// bucket -- the cell the tick left, not the cell it arrived in. UpPriceSum/DownPriceSum
-	// accumulate that origin price so SBuy/SSell (see XGridStats) sum the price before each
-	// up/down move exactly, not at bucket resolution.
+	// Books to the origin bucket (the cell the tick left, not arrived in); UpPriceSum/DownPriceSum
+	// accumulate that origin price so SBuy/SSell (see XGridStats) sum it exactly, not at bucket resolution.
 	public void Add(double originPrice, int direction, double distance)
 	{
 		long key = (long)Math.Floor(originPrice / BucketWidth);

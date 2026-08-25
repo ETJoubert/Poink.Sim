@@ -58,8 +58,7 @@ internal sealed class ModelService : IModelService
 	public event Action? OnChanged;
 
 	// INeuralWeightsService/INeuralNetworkService are themselves singletons (backed by
-	// IDbContextFactory), so it's safe to call them directly -- Task.Run just bridges their
-	// async API onto ModelService's synchronous one.
+	// IDbContextFactory); Task.Run just bridges their async API onto this synchronous call.
 	private static T RunSync<T>(Func<Task<T>> action) => Task.Run(action).GetAwaiter().GetResult();
 
 	private IReadOnlyList<NeuralWeightsSummary> LoadModels() =>
