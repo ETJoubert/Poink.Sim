@@ -6,7 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
-using Poink.Shared.Client.Core;
+using Poink.Sim.Core;
 
 namespace Poink.Sim.Components.Shared.DataTable;
 

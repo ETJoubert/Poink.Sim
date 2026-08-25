@@ -1,0 +1,282 @@
+
+.btn {
+  font-family: var(--font-body);
+  font-weight: bold;
+  letter-spacing: 1px;
+  padding: 0.75rem 1.5rem;
+  border-radius: var(--border-radius-md);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: 2px solid;
+  background: var(--color-bg-terminal);
+  text-transform: uppercase;
+  font-size: 0.875rem;
+}
+
+.btn-primary {
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+  text-shadow: var(--shadow-glow-primary);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--color-primary) 50%, transparent);
+  transform: translateY(-2px);
+}
+
+.btn-secondary {
+  color: var(--color-secondary);
+  border-color: var(--color-secondary);
+  text-shadow: var(--shadow-glow-secondary);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-secondary) 10%, transparent);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--color-secondary) 50%, transparent);
+  transform: translateY(-2px);
+}
+
+.btn-danger {
+  color: var(--color-error);
+  border-color: var(--color-error);
+  text-shadow: 0 0 8px color-mix(in srgb, var(--color-error) 60%, transparent);
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-error) 10%, transparent);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--color-error) 50%, transparent);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn:focus,
+.btn:active:focus,
+.btn-link.nav-link:focus {
+  box-shadow:
+    0 0 0 0.1rem var(--color-accent),
+    0 0 20px color-mix(in srgb, var(--color-accent) 80%, transparent);
+}
+
+.terminal-btn {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.terminal-btn-close {
+  background: var(--color-error);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--color-error) 50%, transparent);
+}
+
+.terminal-btn-minimize {
+  background: var(--color-warning);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--color-warning) 50%, transparent);
+}
+
+.terminal-btn-maximize {
+  background: var(--color-success);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--color-success) 50%, transparent);
+}
+
+.terminal-btn-action {
+  background: var(--color-bg-terminal);
+  border: 2px solid var(--color-primary);
+  color: var(--color-primary);
+  padding: 10px 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-family: var(--font-body);
+  font-weight: bold;
+  font-size: 13px;
+  letter-spacing: 1px;
+  border-radius: var(--border-radius-md);
+  text-transform: uppercase;
+  text-shadow: var(--shadow-glow-primary);
+}
+
+.terminal-btn-action:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--color-primary) 50%, transparent);
+}
+
+.terminal-btn-action:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-connect {
+  border-color: var(--color-success);
+  color: var(--color-success);
+  text-shadow: 0 0 8px color-mix(in srgb, var(--color-success) 60%, transparent);
+}
+
+.btn-connect:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-success) 10%, transparent);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--color-success) 50%, transparent);
+}
+
+.btn-create {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-bg-dark);
+  text-shadow: none;
+}
+
+.btn-create:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-primary) 85%, transparent);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--color-primary) 60%, transparent);
+}
+
+.btn-disconnect {
+  border-color: var(--color-error);
+  color: var(--color-error);
+  text-shadow: 0 0 8px color-mix(in srgb, var(--color-error) 60%, transparent);
+}
+
+.btn-disconnect:hover {
+  background: color-mix(in srgb, var(--color-error) 10%, transparent);
+}
+
+.btn-publish {
+  border-color: var(--color-secondary);
+  color: var(--color-secondary);
+}
+
+.btn-publish:hover {
+  background: color-mix(in srgb, var(--color-secondary) 10%, transparent);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--color-secondary) 50%, transparent);
+}
+
+.btn-clear {
+  border-color: var(--color-warning);
+  color: var(--color-warning);
+}
+
+.btn-clear:hover {
+  background: color-mix(in srgb, var(--color-warning) 10%, transparent);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--color-warning) 50%, transparent);
+}
+
+.terminal-btn-sm {
+  background: transparent;
+  border: 1px solid var(--color-secondary);
+  color: var(--color-secondary);
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-family: var(--font-body);
+  font-size: 11px;
+  border-radius: var(--border-radius-sm);
+}
+
+.terminal-btn-sm:hover {
+  background: color-mix(in srgb, var(--color-secondary) 10%, transparent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--color-secondary) 50%, transparent);
+}
+
+.terminal-btn-sm.active {
+  background: var(--color-secondary);
+  color: var(--bg-primary);
+  font-weight: bold;
+}
+
+.filter-buttons {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.btn-pause {
+  border-color: var(--color-warning);
+  color: var(--color-warning);
+}
+
+.btn-pause:hover {
+  background: color-mix(in srgb, var(--color-warning) 10%, transparent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--color-warning) 50%, transparent);
+}
+
+.btn-resume {
+  border-color: var(--color-success);
+  color: var(--color-success);
+}
+
+.btn-resume:hover {
+  background: color-mix(in srgb, var(--color-success) 10%, transparent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--color-success) 50%, transparent);
+}
+
+.btn-kill {
+  border-color: var(--color-error);
+  color: var(--color-error);
+  text-shadow: 0 0 8px color-mix(in srgb, var(--color-error) 60%, transparent);
+}
+
+.btn-kill:hover {
+  background: color-mix(in srgb, var(--color-error) 10%, transparent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--color-error) 50%, transparent);
+}
+
+.btn-restore {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.btn-restore:hover {
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--color-primary) 50%, transparent);
+}
+
+.btn-stat-reset {
+  background: transparent;
+  border: 1px solid var(--color-warning);
+  color: var(--color-warning);
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-family: var(--font-body);
+  font-size: 11px;
+  border-radius: var(--border-radius-sm);
+}
+
+.btn-stat-reset:hover {
+  background: color-mix(in srgb, var(--color-warning) 10%, transparent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--color-warning) 50%, transparent);
+  transform: scale(1.05);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.btn-stat-reset:active {
+  transform: scale(0.98);
+}
+
+.btn-stat-reset-all {
+  background: transparent;
+  border: 2px solid var(--color-error);
+  color: var(--color-error);
+  padding: 8px 15px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: bold;
+  border-radius: var(--border-radius-md);
+}
+
+.btn-stat-reset-all:hover {
+  background: color-mix(in srgb, var(--color-error) 10%, transparent);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--color-error) 50%, transparent);
+  transform: scale(1.05);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.btn-stat-reset-all:active {
+  transform: scale(0.98);
+}

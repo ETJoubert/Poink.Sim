@@ -1,0 +1,16 @@
+@using Poink.Sim.Core.Icons
+
+@if (Markup is not null)
+{
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="@Class" aria-hidden="true">
+        @Markup
+    </svg>
+}
+
+@code {
+    [Parameter, EditorRequired] public string? Name { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    private MarkupString? Markup =>
+        Name is not null && BootstrapIcon.Paths.TryGetValue(Name, out var svg) ? (MarkupString)svg : null;
+}

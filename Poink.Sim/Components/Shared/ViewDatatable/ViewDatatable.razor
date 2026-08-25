@@ -1,0 +1,58 @@
+@using Poink.Sim.Components.Shared.ViewDatatable
+
+<div class="vdt-section">
+    <div class="vdt-header">
+        <div class="vdt-header-left">
+            <span class="vdt-prompt">></span>
+            <span class="vdt-title">@_displayTitle</span>
+            <span class="vdt-count">(@Items.Count)</span>
+        </div>
+    </div>
+    <div class="vdt-body">
+        <div class="vdt-wrapper">
+            @if (_columns.Count > 0 && Items.Count > 0)
+            {
+                <div class="vdt-scroll">
+                    <table class="vdt-table">
+                        <thead>
+                            <tr>
+                                @if (ShowRowNumbers)
+                                {
+                                    <th class="vdt-th vdt-th-num">#</th>
+                                }
+                                @foreach (var col in _columns)
+                                {
+                                    <th class="vdt-th">@col.Header</th>
+                                }
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @for (int i = 0; i < Items.Count; i++)
+                            {
+                                var item = Items[i];
+                                var rowIndex = i;
+                                <tr class="vdt-row">
+                                    @if (ShowRowNumbers)
+                                    {
+                                        <td class="vdt-td vdt-td-num">@(rowIndex + 1)</td>
+                                    }
+                                    @foreach (var col in _columns)
+                                    {
+                                        <td class="vdt-td">@col.GetValue(item)</td>
+                                    }
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <div class="vdt-empty">
+                    <span class="vdt-empty-prompt">[OK]</span>
+                    <span>@EmptyMessage</span>
+                </div>
+            }
+        </div>
+    </div>
+</div>

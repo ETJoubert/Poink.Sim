@@ -53,12 +53,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<!-- Used for the ViewDatatable/Icon/PageNav shared components and CSS/theme
-         static assets served under "serve", plus CTraderBarRow for the
-         MarketChart component. -->
-		<ProjectReference Include="..\Poink.Shared.Client\Poink.Shared.Client.csproj" />
-		<!-- cTrader Open API backend for the Trade page's live broker login/connection
-         (replaces the discontinued CTraderPage in Poink.Shared.Client). -->
+		<!-- cTrader Open API backend for the Trade page's live broker login/connection. -->
 		<ProjectReference Include="..\Poink.CTrader\Poink.CTrader.csproj" />
 	</ItemGroup>
 

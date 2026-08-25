@@ -9,8 +9,8 @@
 //  leverage). See README.md for the full design.
 //
 //  Carries its own TorchSharp/Microsoft.ML (see Poink.Sim.csproj) for a future
-//  trained ISimulationBrain, plus Postgres tick access (Repository/) and the
-//  shared terminal UI (Poink.Shared.Client).
+//  trained ISimulationBrain, plus Postgres tick access (Repository/) and its
+//  own copy of the terminal UI (Components/Shared, Core/).
 // ═══════════════════════════════════════════════════════════════════════════
 using System.Collections.Generic;
 using System.Linq;

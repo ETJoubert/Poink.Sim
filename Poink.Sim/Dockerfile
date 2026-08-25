@@ -15,19 +15,15 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 COPY ["Poink.Sim/Poink.Sim.csproj", "Poink.Sim/"]
-COPY ["Poink.Shared.Client/Poink.Shared.Client.csproj", "Poink.Shared.Client/"]
 COPY ["Poink.CTrader/Poink.CTrader.csproj", "Poink.CTrader/"]
 RUN dotnet restore "Poink.Sim/Poink.Sim.csproj"
 COPY . .
 WORKDIR /src/Poink.Sim
-# SkipTypeScriptCompile bypasses Poink.Shared.Client's node/tsc build step (see that
-# project's .csproj) -- not installed in this image, and unneeded since its compiled
-# output is already checked into wwwroot/js.
-RUN dotnet build "Poink.Sim.csproj" -c $BUILD_CONFIGURATION -o /app/build /p:SkipTypeScriptCompile=true
+RUN dotnet build "Poink.Sim.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
 FROM build AS publish
 ARG BUILD_CONFIGURATION=Release
-RUN dotnet publish "Poink.Sim.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false /p:SkipTypeScriptCompile=true
+RUN dotnet publish "Poink.Sim.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
 
 FROM base AS final
 WORKDIR /app

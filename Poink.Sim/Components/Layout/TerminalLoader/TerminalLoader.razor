@@ -1,0 +1,44 @@
+@namespace Poink.Sim.Components.Layout
+
+@if (IsLoading)
+{
+    <div class="terminal-loader">
+        <div class="loader-content">
+            <div class="loader-header">
+                <span class="loader-prompt">$</span>
+                <span class="loader-path">~/poink/system</span>
+            </div>
+            <div class="loader-body">
+                <div class="loader-line">
+                    <span class="loader-command">sudo init --system-check</span>
+                </div>
+                <div class="loader-line delay-1">
+                    <span class="loader-output">[OK] Checking dependencies...</span>
+                </div>
+                <div class="loader-line delay-2">
+                    <span class="loader-output">[OK] Loading modules...</span>
+                </div>
+                <div class="loader-line delay-3">
+                    <span class="loader-output">[OK] Initializing UI...</span>
+                </div>
+                <div class="loader-line delay-4">
+                    <span class="loader-output success">[COMPLETE] System ready</span>
+                </div>
+                <div class="loader-spinner">
+                    <span class="spinner-text">@_spinnerText</span>
+                    <span class="cursor-blink">_</span>
+                </div>
+            </div>
+            <div class="loader-ascii">
+                <pre>
+         _____ _____ _____ _____ _   __
+        |  _  |  _  |     |   | |  |/ /
+        |   __|  |  |-   -| | | |    &lt;
+        |__|  |_____|_____|_|___|__|\_\
+                        </pre>
+            </div>
+        </div>
+        <div class="scanline"></div>
+        <div class="crt-effect"></div>
+    </div>
+}
