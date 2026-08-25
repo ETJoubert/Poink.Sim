@@ -15,7 +15,14 @@
             </label>
             <label class="xgrid-control" title="Number of bar groups (columns) -- bars are merged evenly when the selection holds more than this">
                 <span>Cols</span>
-                <input type="number" min="1" max="500" @bind:get="ColCount" @bind:set="SetColCount" @bind:event="oninput" />
+                <input type="number" min="1" max="500" disabled="@_colsBoundToProfileBars"
+                       @bind:get="ColCount" @bind:set="SetColCount" @bind:event="oninput" />
+                @if (ProfileBarCount is { } profileBarCount)
+                {
+                    <button type="button" class="xgrid-bind-btn @(_colsBoundToProfileBars ? "active" : "")"
+                            @onclick="ToggleColsBoundToProfileBars"
+                            title="@(_colsBoundToProfileBars ? $"Cols is following Profile Bars ({profileBarCount}) -- click to unbind and edit Cols manually again" : $"Bind Cols to Profile Bars ({profileBarCount}) -- keeps one column per bar in the profile window as it changes")">=Bars</button>
+                }
                 @if (Grid is { } colGrid)
                 {
                     <span class="xgrid-control-readout" title="Average time span of one column">@ColumnWidthLabel(colGrid)</span>

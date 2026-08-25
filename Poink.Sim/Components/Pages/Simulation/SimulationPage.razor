@@ -452,7 +452,8 @@
                                            Pending="XGridPending()" OnOrderPlaced="PlaceXGridOrder"
                                            OnPendingModified="ModifyXGridPending" OnPendingCancelled="CancelXGridPending"
                                            OnPositionClosed="CloseXGridPosition" Lines="CellBandLines(s)"
-                                           @bind-PipCount="_xgridPipCount" @bind-ColCount="_xgridColCount">
+                                           @bind-PipCount="_xgridPipCount" @bind-ColCount="_xgridColCount"
+                                           ProfileBarCount="ClampedBarWindow">
                                         <ExpandedControls>
                                             <button class="sim-ctrl-btn sim-ctrl-btn-play" @onclick="TogglePlayPause" disabled="@s.IsFinished"
                                                     title="@(s.IsPlaying ? "Pause playback" : "Resume playback")">

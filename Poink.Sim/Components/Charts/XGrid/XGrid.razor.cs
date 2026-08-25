@@ -38,9 +38,33 @@ namespace Poink.Sim.Components.Charts
 		[Parameter]
 		public EventCallback<int> ColCountChanged { get; set; }
 
+		/// <summary>
+		/// Host-supplied "Profile Bars" window size (bars back from now driving the host's volume
+		/// profile) -- null when the host has no such concept. Only then does the Cols control offer
+		/// a button to snap ColCount onto it.
+		/// </summary>
+		[Parameter]
+		public int? ProfileBarCount { get; set; }
+
 		private Task SetPipCount(int value) => PipCountChanged.InvokeAsync(PipCount = value);
 
 		private Task SetColCount(int value) => ColCountChanged.InvokeAsync(ColCount = value);
+
+		// While bound, Cols tracks ProfileBarCount on every parameter set (OnParametersSetAsync
+		// below) instead of being independently editable.
+		private bool _colsBoundToProfileBars;
+
+		private Task ToggleColsBoundToProfileBars()
+		{
+			_colsBoundToProfileBars = !_colsBoundToProfileBars;
+			return _colsBoundToProfileBars ? SyncColsToProfileBars() : Task.CompletedTask;
+		}
+
+		private Task SyncColsToProfileBars() =>
+			ProfileBarCount is { } count && count != ColCount ? SetColCount(count) : Task.CompletedTask;
+
+		protected override Task OnParametersSetAsync() =>
+			_colsBoundToProfileBars ? SyncColsToProfileBars() : Task.CompletedTask;
 
 		// Local overlay state, purely visual, so it stays unbound rather than a two-way parameter.
 		private bool _expanded;
@@ -527,12 +551,15 @@ namespace Poink.Sim.Components.Charts
 				return "";
 
 			XGridCell cell = grid.Columns[col].Cells[row];
-			var text =
-				$"{grid.RowLow[row]:F5} - {grid.RowHigh[row]:F5} @ {grid.Columns[col].OpenTime:HH:mm}: "
-				+ $"{cell.Count} ticks ({cell.UpCount} up / {cell.DownCount} down)";
+			int deltaUpDown = cell.UpCount - cell.DownCount;
+			var lines = new List<string>
+			{
+				$"{grid.RowLow[row]:F5} - {grid.RowHigh[row]:F5} @ {grid.Columns[col].OpenTime:HH:mm}",
+				$"Ticks {cell.Count}  Up {cell.UpCount}  Down {cell.DownCount}  Δ {deltaUpDown:+0;-0;0}",
+			};
 
 			if (_sweepMode != SweepMode.None)
-				text += $" | POC on {RowSweepValue(grid, row):0} sweep steps";
+				lines.Add($"POC on {RowSweepValue(grid, row):0} sweep steps");
 
 			var levels = new List<string>();
 			void Note(bool show, XGridLevel? level, string label)
@@ -549,9 +576,9 @@ namespace Poink.Sim.Components.Charts
 			if (grid.Current is { } current && current.Row == row)
 				levels.Add("current");
 			if (levels.Count > 0)
-				text += " | " + string.Join(", ", levels);
+				lines.Add(string.Join(", ", levels));
 
-			return text;
+			return string.Join('\n', lines);
 		}
 
 		[JSInvokable]

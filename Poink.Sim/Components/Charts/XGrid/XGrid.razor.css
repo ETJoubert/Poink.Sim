@@ -104,9 +104,39 @@
     box-shadow: 0 0 6px color-mix(in srgb, var(--color-secondary) 45%, transparent);
 }
 
+.xgrid-control input[type="number"]:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 .xgrid-control-readout {
     opacity: 0.65;
     font-variant-numeric: tabular-nums;
+}
+
+.xgrid-bind-btn {
+    flex: 0 0 auto;
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--color-secondary) 40%, transparent);
+    color: var(--color-secondary);
+    font-family: var(--font-body);
+    font-size: 0.58rem;
+    line-height: 1;
+    padding: 2px 4px;
+    border-radius: var(--border-radius-sm);
+    cursor: pointer;
+    transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.xgrid-bind-btn:hover {
+    color: var(--color-primary);
+    border-color: var(--color-primary);
+}
+
+.xgrid-bind-btn.active {
+    color: var(--color-secondary);
+    border-color: var(--color-secondary);
+    background: color-mix(in srgb, var(--color-secondary) 15%, transparent);
 }
 
 .xgrid-overlay-row {
@@ -912,9 +942,9 @@
     border-radius: var(--border-radius-sm);
     padding: 4px 8px;
     font-size: 0.6rem;
-    line-height: 1.35;
+    line-height: 1.5;
     color: var(--color-secondary);
-    white-space: normal;
+    white-space: pre-line;
     overflow-wrap: anywhere;
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
 }
