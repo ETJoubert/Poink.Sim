@@ -74,8 +74,21 @@ public partial class CodeFlowCanvas : ComponentBase, IAsyncDisposable
 
 	private sealed record EdgeLayout(CodeEdge Edge, CodeConcept SourceConcept, string Path);
 
+	private sealed record RegionLayout(CodeRegion Region, double X, double Width);
+
+	private static readonly CodeRegion[] RegionOrder =
+	[
+		CodeRegion.Config,
+		CodeRegion.Data,
+		CodeRegion.Inputs,
+		CodeRegion.Network,
+		CodeRegion.OutputActions,
+		CodeRegion.TraderSimulation,
+	];
+
 	private IReadOnlyList<NodeLayout> _nodes = [];
 	private IReadOnlyList<EdgeLayout> _edges = [];
+	private IReadOnlyList<RegionLayout> _regions = [];
 	private double _cardHeight;
 	private double _canvasWidth;
 	private double _canvasHeight;
@@ -163,6 +176,7 @@ public partial class CodeFlowCanvas : ComponentBase, IAsyncDisposable
 		{
 			_nodes = [];
 			_edges = [];
+			_regions = [];
 			return;
 		}
 
@@ -221,6 +235,30 @@ public partial class CodeFlowCanvas : ComponentBase, IAsyncDisposable
 		}
 
 		_edges = laid;
+		_regions = BuildRegions();
+	}
+
+	private IReadOnlyList<RegionLayout> BuildRegions()
+	{
+		var bounds = _nodes
+			.GroupBy(n => n.Node.Concept.ToRegion())
+			.ToDictionary(g => g.Key, g => (Min: g.Min(n => n.X), Max: g.Max(n => n.X + CardWidth)));
+
+		var present = RegionOrder.Where(bounds.ContainsKey).ToList();
+		var bands = new List<RegionLayout>(present.Count);
+
+		for (var index = 0; index < present.Count; index++)
+		{
+			var region = present[index];
+			var left = index == 0 ? 0 : (bounds[present[index - 1]].Max + bounds[region].Min) / 2;
+			var right =
+				index == present.Count - 1
+					? _canvasWidth
+					: (bounds[region].Max + bounds[present[index + 1]].Min) / 2;
+			bands.Add(new RegionLayout(region, left, right - left));
+		}
+
+		return bands;
 	}
 
 	private static double PortCenterY(int index) => HeaderHeight + PortsPad + index * PortRowHeight + PortRowHeight / 2;
@@ -436,6 +474,34 @@ public partial class CodeFlowCanvas : ComponentBase, IAsyncDisposable
 
 	private bool IsVisible(CodeConcept concept) =>
 		VisibleConcepts is null || VisibleConcepts.Count == 0 || VisibleConcepts.Contains(concept);
+
+	private bool IsRegionVisible(CodeRegion region) =>
+		_nodes.Any(n => n.Node.Concept.ToRegion() == region && IsVisible(n.Node.Concept));
+
+	private static string RegionLabel(CodeRegion region) =>
+		region switch
+		{
+			CodeRegion.Config => "CONFIG",
+			CodeRegion.Data => "DATA",
+			CodeRegion.Inputs => "INPUTS",
+			CodeRegion.Network => "NETWORK",
+			CodeRegion.OutputActions => "OUTPUT & ACTIONS",
+			CodeRegion.TraderSimulation => "TRADER / SIMULATION",
+			_ => region.ToString().ToUpperInvariant(),
+		};
+
+	private string RegionClass(RegionLayout region)
+	{
+		var slug = region.Region.ToString().ToLowerInvariant();
+		var hidden = IsRegionVisible(region.Region) ? string.Empty : " cfc-region-hidden";
+		return $"cfc-region cfc-region-{slug}{hidden}";
+	}
+
+	private string RegionStyle(RegionLayout region) =>
+		string.Create(
+			CultureInfo.InvariantCulture,
+			$"left:{region.X:0.##}px;top:0px;width:{region.Width:0.##}px;height:{_canvasHeight:0.##}px;"
+		);
 
 	private string NodeWrapperClass(NodeLayout layout) =>
 		IsVisible(layout.Node.Concept) ? "cfc-node" : "cfc-node cfc-node-hidden";

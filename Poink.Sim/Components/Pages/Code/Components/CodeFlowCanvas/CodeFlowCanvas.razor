@@ -5,6 +5,13 @@
     <div class="cfc-space" style="@SpaceStyle">
         <div class="@CanvasClass" style="@CanvasStyle">
 
+            @foreach (var region in _regions)
+            {
+                <div class="@RegionClass(region)" style="@RegionStyle(region)" title="@RegionLabel(region.Region)">
+                    <span class="cfc-region-label">@RegionLabel(region.Region)</span>
+                </div>
+            }
+
             <svg class="cfc-edges" viewBox="@ViewBox" xmlns="http://www.w3.org/2000/svg">
                 <defs>
                     <marker id="cfc-arrow-flow" viewBox="0 0 10 10" refX="9" refY="5"

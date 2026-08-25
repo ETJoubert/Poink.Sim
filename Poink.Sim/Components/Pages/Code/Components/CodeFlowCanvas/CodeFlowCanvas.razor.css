@@ -47,6 +47,48 @@
   pointer-events: none;
 }
 
+.cfc-region {
+  --cfc-region-color: var(--color-primary);
+  position: absolute;
+  box-sizing: border-box;
+  border-right: 1px dashed color-mix(in srgb, var(--cfc-region-color) 35%, transparent);
+  background: color-mix(in srgb, var(--cfc-region-color) 4%, transparent);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.cfc-region:last-child {
+  border-right: none;
+}
+
+.cfc-region-hidden {
+  display: none;
+}
+
+.cfc-region-label {
+  position: absolute;
+  top: 8px;
+  left: 12px;
+  display: inline-block;
+  padding: 3px 10px;
+  font-family: var(--font-body);
+  font-size: 9px;
+  font-weight: bold;
+  letter-spacing: 0.14em;
+  white-space: nowrap;
+  color: var(--cfc-region-color);
+  background: color-mix(in srgb, var(--cfc-region-color) 16%, var(--color-bg-dark));
+  border: 1px solid color-mix(in srgb, var(--cfc-region-color) 40%, transparent);
+  border-radius: 999px;
+}
+
+.cfc-region-config { --cfc-region-color: #9fb2c9; }
+.cfc-region-data { --cfc-region-color: var(--color-secondary); }
+.cfc-region-inputs { --cfc-region-color: var(--color-primary); }
+.cfc-region-network { --cfc-region-color: var(--color-accent); }
+.cfc-region-outputactions { --cfc-region-color: var(--color-warning); }
+.cfc-region-tradersimulation { --cfc-region-color: var(--color-error); }
+
 .cfc-node {
   position: absolute;
   z-index: 2;

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace Poink.Sim.Components.Pages.Code.Models;
@@ -13,6 +14,35 @@ public enum CodeConcept
 	Trader,
 	Simulation,
 	Rewards,
+}
+
+/// <summary>Left-to-right layout region a card is grouped into on the code diagram.</summary>
+public enum CodeRegion
+{
+	Config,
+	Data,
+	Inputs,
+	Network,
+	OutputActions,
+	TraderSimulation,
+}
+
+public static class CodeConceptExtensions
+{
+	public static CodeRegion ToRegion(this CodeConcept concept) =>
+		concept switch
+		{
+			CodeConcept.Config => CodeRegion.Config,
+			CodeConcept.Data => CodeRegion.Data,
+			CodeConcept.Inputs => CodeRegion.Inputs,
+			CodeConcept.Network => CodeRegion.Network,
+			CodeConcept.Rewards => CodeRegion.Network,
+			CodeConcept.Outputs => CodeRegion.OutputActions,
+			CodeConcept.Actions => CodeRegion.OutputActions,
+			CodeConcept.Trader => CodeRegion.TraderSimulation,
+			CodeConcept.Simulation => CodeRegion.TraderSimulation,
+			_ => throw new ArgumentOutOfRangeException(nameof(concept), concept, null),
+		};
 }
 
 public enum CodeEdgeKind
