@@ -1,0 +1,9 @@
+<Project>
+
+  <PropertyGroup>
+    <!-- Pomelo.EntityFrameworkCore.MySql 9.0.0 targets EF Core 9; no EF Core 10-compatible
+         release exists yet. Remove this suppression once Pomelo ships one. -->
+    <NoWarn>$(NoWarn);NU1608</NoWarn>
+  </PropertyGroup>
+
+</Project>
