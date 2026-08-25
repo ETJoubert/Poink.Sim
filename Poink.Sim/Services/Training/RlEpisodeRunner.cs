@@ -56,6 +56,7 @@ internal static class RlEpisodeRunner
 
 		var allBarOutputs = new List<IReadOnlyList<RlOutputFeature>>();
 		var describableBrain = brain as IDescribableBrain;
+		var decisionMaskedBrain = brain as IDecisionMaskedBrain;
 
 		double lastBid = 0,
 			lastAsk = 0;
@@ -112,13 +113,31 @@ internal static class RlEpisodeRunner
 					warmupRemaining--;
 
 				var cellStep = cellTracker?.Feed(tick);
+				double decisionPrice = completed is { } completedBar ? completedBar.Bar.Close : price;
+
 				bool decide =
-					!stillWarmingUp && (cellTracker is not null ? cellStep is not null : completed is not null);
+					decisionMaskedBrain is { HasActiveDecisionMask: true }
+						? !stillWarmingUp
+							&& decisionMaskedBrain.ShouldDecide(
+								tick,
+								completed is not null,
+								new SimulationObservation(
+									tick.Timestamp,
+									decisionPrice,
+									recentBars,
+									Array.Empty<Tick>(),
+									recentBarHistograms,
+									maintenance.Capital,
+									trader.CurrentPosition,
+									trader.TradeLog,
+									tick.Bid,
+									tick.Ask
+								)
+							)
+						: !stillWarmingUp && (cellTracker is not null ? cellStep is not null : completed is not null);
 
 				if (decide)
 				{
-					double decisionPrice = completed is { } c ? c.Bar.Close : price;
-
 					bool policyBlocked;
 					(previousCapital, lastObservation, lastOutputs, positionAfterDecision, policyBlocked) = RecordStep(
 						brain,

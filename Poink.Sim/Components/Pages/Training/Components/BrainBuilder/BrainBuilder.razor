@@ -421,6 +421,61 @@
 
                                                             <div class="train-card">
                                                                 <div class="train-card-title-row">
+                                                                    <div class="train-card-title"
+                                                                         title="Gates whether this brain's network is even asked to decide -- opposite of Action Masking, which restricts choices after the network has already decided. With any rule below enabled, an episode's bar/tick count no longer equals its decision count">
+                                                                        Decision Masking</div>
+                                                                        <span class="train-card-badge"
+                                                                              title="How many of the @TotalDecisionMaskRuleCount available decision-gating rules are enabled">
+                                                                            @SelectedDecisionMaskRuleCount/@TotalDecisionMaskRuleCount</span>
+                                                                        </div>
+                                                                        <div class="train-buildbrain-card-fields">
+                                                                            <label class="train-brainrow-field"
+                                                                                   title="How often the rules below get checked -- a decision only ever fires on a resolution tick, and only when every enabled rule also passes">
+                                                                                Resolution
+                                                                                <select class="train-brainrow-select" @bind="_decisionMaskResolution" disabled="@Service.IsRunning">
+                                                                                    <option value="@DecisionMaskResolutionKind.PerBar">Once per bar</option>
+                                                                                    <option value="@DecisionMaskResolutionKind.EverySeconds">Every X seconds</option>
+                                                                                    <option value="@DecisionMaskResolutionKind.PerTick">Every tick</option>
+                                                                                    <option value="@DecisionMaskResolutionKind.OnCellWidthChange">On cell width change</option>
+                                                                                </select>
+                                                                            </label>
+                                                                            @if (_decisionMaskResolution == DecisionMaskResolutionKind.EverySeconds)
+                                                                            {
+                                                                                <label class="train-brainrow-field" title="How many seconds must pass between resolution checks">
+                                                                                    Seconds
+                                                                                    <input class="train-brainrow-input" type="number" min="0.001" step="1"
+                                                                                           @bind="_decisionMaskResolutionSeconds" disabled="@Service.IsRunning" />
+                                                                                </label>
+                                                                            }
+                                                                            @if (_decisionMaskResolution == DecisionMaskResolutionKind.OnCellWidthChange)
+                                                                            {
+                                                                                <label class="train-brainrow-field"
+                                                                                       title="Fixed price width of each cell -- a resolution check fires when price crosses from one cell into the next">
+                                                                                    Cell width
+                                                                                    <input class="train-brainrow-input" type="number" min="0.00001" step="0.01"
+                                                                                           @bind="_decisionMaskResolutionCellWidth" disabled="@Service.IsRunning" />
+                                                                                </label>
+                                                                            }
+                                                                        </div>
+                                                                        <div class="train-buildbrain-card-fields">
+                                                                            <label class="train-brainrow-field" title="Toggle every decision-gating rule below on or off at once">
+                                                                                <input type="checkbox" @bind="AllDecisionMaskRulesSelected" disabled="@Service.IsRunning" />
+                                                                                Select All
+                                                                            </label>
+                                                                            @foreach (var row in DecisionMaskRuleRows)
+                                                                            {
+                                                                                <label class="train-brainrow-field" title="@row.Tooltip">
+                                                                                    <input type="checkbox" checked="@row.Get()"
+                                                                                           @onchange="e => row.Set(e.Value is bool b && b)"
+                                                                                           disabled="@Service.IsRunning" />
+                                                                                    @row.Label
+                                                                                </label>
+                                                                            }
+                                                                        </div>
+                                                                    </div>
+
+                                                            <div class="train-card">
+                                                                <div class="train-card-title-row">
                                                                     <div class="train-card-title" title="Network shape applied to the inputs selected on the left">
                                                                         Structure</div>
                                                                         @if (FirstLayerTooSmall)

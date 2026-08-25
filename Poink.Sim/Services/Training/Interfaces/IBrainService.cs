@@ -34,7 +34,11 @@ internal interface IBrainService
 		double decisionTemperature = 1.0,
 		CnnKernelSweepSource cnnKernelSweepSource = CnnKernelSweepSource.BarWindow,
 		IReadOnlyList<DirectionMaskRuleKind>? enabledMaskRules = null,
-		NeatHyperparameters? neatHyperparameters = null
+		NeatHyperparameters? neatHyperparameters = null,
+		DecisionMaskResolutionKind decisionMaskResolution = DecisionMaskResolutionKind.PerBar,
+		double decisionMaskResolutionSeconds = 1.0,
+		double decisionMaskResolutionCellWidth = 0.10,
+		IReadOnlyList<DecisionMaskRuleKind>? enabledDecisionMaskRules = null
 	);
 	public IDescribableBrain AssembleBrain(string name, BrainRecipe recipe);
 	bool TryBuildBrain(
@@ -49,7 +53,11 @@ internal interface IBrainService
 		double decisionTemperature = 1.0,
 		CnnKernelSweepSource cnnKernelSweepSource = CnnKernelSweepSource.BarWindow,
 		IReadOnlyList<DirectionMaskRuleKind>? enabledMaskRules = null,
-		NeatHyperparameters? neatHyperparameters = null
+		NeatHyperparameters? neatHyperparameters = null,
+		DecisionMaskResolutionKind decisionMaskResolution = DecisionMaskResolutionKind.PerBar,
+		double decisionMaskResolutionSeconds = 1.0,
+		double decisionMaskResolutionCellWidth = 0.10,
+		IReadOnlyList<DecisionMaskRuleKind>? enabledDecisionMaskRules = null
 	);
 
 	bool CreateNetwork(string name, BrainRecipe recipe);

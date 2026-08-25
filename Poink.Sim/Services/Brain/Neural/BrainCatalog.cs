@@ -67,6 +67,20 @@ public enum DirectionMaskRuleKind
 	KeyLevelRequiredForClose,
 }
 
+// How often DecisionMaskRuleKind rules below get checked -- see DecisionMasker.
+public enum DecisionMaskResolutionKind
+{
+	PerBar,
+	EverySeconds,
+	PerTick,
+	OnCellWidthChange,
+}
+
+public enum DecisionMaskRuleKind
+{
+	PriceBelowPoc,
+}
+
 public enum TraderStateFieldKind
 {
 	Position,
@@ -136,7 +150,13 @@ public sealed record BrainRecipe(
 	double DecisionTemperature = 1.0,
 	CnnKernelSweepSource CnnKernelSweepSource = CnnKernelSweepSource.BarWindow,
 	IReadOnlyList<DirectionMaskRuleKind>? EnabledMaskRules = null,
-	NeatHyperparameters? NeatHyperparameters = null
+	NeatHyperparameters? NeatHyperparameters = null,
+	DecisionMaskResolutionKind DecisionMaskResolution = DecisionMaskResolutionKind.PerBar,
+	double DecisionMaskResolutionSeconds = 1.0,
+	double DecisionMaskResolutionCellWidth = 0.10,
+	// Null/empty means no rule enabled -- unlike EnabledMaskRules, NOT "all rules", so brains
+	// saved before this field existed decode with decision masking fully inert.
+	IReadOnlyList<DecisionMaskRuleKind>? EnabledDecisionMaskRules = null
 )
 {
 	public override string ToString()
@@ -157,6 +177,8 @@ public sealed record BrainRecipe(
 			baseDescription += $" [T={DecisionTemperature:0.##}]";
 		if (EnabledMaskRules is { } masks && masks.Count != BrainCatalog.AllDirectionMaskRuleKinds.Count)
 			baseDescription += $" [masks {masks.Count}/{BrainCatalog.AllDirectionMaskRuleKinds.Count}]";
+		if (EnabledDecisionMaskRules is { Count: > 0 } decisionMasks)
+			baseDescription += $" [decision-masked {decisionMasks.Count}/{BrainCatalog.AllDecisionMaskRuleKinds.Count}]";
 		return baseDescription;
 	}
 }
@@ -204,6 +226,33 @@ internal static class BrainCatalog
 				DirectionMaskRuleKind.KeyLevelRequiredForClose => xGridEncoder is null
 					? null
 					: new KeyLevelRequiredForCloseRule(xGridEncoder),
+				_ => throw new ArgumentOutOfRangeException(nameof(kinds), kind, null),
+			};
+			if (rule is not null)
+				rules.Add(rule);
+		}
+		return rules;
+	}
+
+	public static readonly IReadOnlyList<DecisionMaskRuleKind> AllDecisionMaskRuleKinds =
+	[
+		DecisionMaskRuleKind.PriceBelowPoc,
+	];
+
+	// Same xGrid-instance-sharing rationale as CreateDirectionMaskRules -- a rule referencing an
+	// xGrid signal that the brain has no XGridSignalEncoder for is simply dropped.
+	public static IReadOnlyList<IDecisionMaskRule> CreateDecisionMaskRules(
+		IReadOnlyList<DecisionMaskRuleKind> kinds,
+		IReadOnlyList<IObservationEncoder> parts
+	)
+	{
+		var xGridEncoder = parts.OfType<XGridSignalEncoder>().FirstOrDefault();
+		var rules = new List<IDecisionMaskRule>();
+		foreach (var kind in kinds)
+		{
+			IDecisionMaskRule? rule = kind switch
+			{
+				DecisionMaskRuleKind.PriceBelowPoc => xGridEncoder is null ? null : new PriceBelowPocRule(xGridEncoder),
 				_ => throw new ArgumentOutOfRangeException(nameof(kinds), kind, null),
 			};
 			if (rule is not null)

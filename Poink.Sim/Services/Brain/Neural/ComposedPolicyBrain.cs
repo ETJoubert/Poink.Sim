@@ -2,13 +2,14 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Poink.Sim.Models;
+using Poink.Sim.Repository;
 using TorchSharp;
 using static TorchSharp.torch;
 using static TorchSharp.torch.nn;
 
 namespace Poink.Sim.Brain.Neural;
 
-internal sealed class ComposedPolicyBrain : IPolicyGradientBrain
+internal sealed class ComposedPolicyBrain : IPolicyGradientBrain, IDecisionMaskedBrain
 {
 	private const double CapitalFraction = 0.5;
 
@@ -27,6 +28,7 @@ internal sealed class ComposedPolicyBrain : IPolicyGradientBrain
 	private readonly DecisionDecodingKind _decisionDecoding;
 	private readonly double _decisionTemperature;
 	private readonly DirectionActionMasker _directionMasker;
+	private readonly DecisionMasker _decisionMasker;
 
 	private ComposedPolicyBrain(
 		string name,
@@ -36,7 +38,8 @@ internal sealed class ComposedPolicyBrain : IPolicyGradientBrain
 		IReadOnlyList<SimulationAction> enabledDirections,
 		DecisionDecodingKind decisionDecoding,
 		double decisionTemperature,
-		DirectionActionMasker directionMasker
+		DirectionActionMasker directionMasker,
+		DecisionMasker decisionMasker
 	)
 	{
 		Name = name;
@@ -47,7 +50,13 @@ internal sealed class ComposedPolicyBrain : IPolicyGradientBrain
 		_decisionDecoding = decisionDecoding;
 		_decisionTemperature = decisionTemperature;
 		_directionMasker = directionMasker;
+		_decisionMasker = decisionMasker;
 	}
+
+	public bool HasActiveDecisionMask => _decisionMasker.HasActiveDecisionMask;
+
+	public bool ShouldDecide(Tick tick, bool barCompletedThisTick, SimulationObservation observation) =>
+		_decisionMasker.ShouldDecide(tick, barCompletedThisTick, observation);
 
 	public static IPolicyGradientBrain Create(
 		string name,
@@ -75,6 +84,10 @@ internal sealed class ComposedPolicyBrain : IPolicyGradientBrain
 		double decisionTemperature,
 		CnnKernelSweepSource cnnKernelSweepSource,
 		IReadOnlyList<DirectionMaskRuleKind>? enabledMaskRules,
+		DecisionMaskResolutionKind decisionMaskResolution = DecisionMaskResolutionKind.PerBar,
+		double decisionMaskResolutionSeconds = 1.0,
+		double decisionMaskResolutionCellWidth = 0.10,
+		IReadOnlyList<DecisionMaskRuleKind>? enabledDecisionMaskRules = null,
 		params IObservationEncoder[] parts
 	)
 	{
@@ -99,6 +112,13 @@ internal sealed class ComposedPolicyBrain : IPolicyGradientBrain
 			parts
 		);
 		var directionMasker = new DirectionActionMasker(maskRules);
+		var decisionMaskRules = BrainCatalog.CreateDecisionMaskRules(enabledDecisionMaskRules ?? [], parts);
+		var decisionMasker = new DecisionMasker(
+			decisionMaskResolution,
+			decisionMaskResolutionSeconds,
+			decisionMaskResolutionCellWidth,
+			decisionMaskRules
+		);
 		return new ComposedPolicyBrain(
 			name,
 			encoder,
@@ -107,7 +127,8 @@ internal sealed class ComposedPolicyBrain : IPolicyGradientBrain
 			enabledDirections,
 			decisionDecoding,
 			decisionTemperature,
-			directionMasker
+			directionMasker,
+			decisionMasker
 		);
 	}
 
@@ -129,8 +150,8 @@ internal sealed class ComposedPolicyBrain : IPolicyGradientBrain
 			decisionDecoding,
 			decisionTemperature,
 			cnnKernelSweepSource,
-			null,
-			parts
+			enabledMaskRules: null,
+			parts: parts
 		);
 
 	public static IPolicyGradientBrain Create(

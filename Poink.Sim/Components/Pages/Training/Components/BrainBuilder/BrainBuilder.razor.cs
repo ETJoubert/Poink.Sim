@@ -88,6 +88,10 @@ namespace Poink.Sim.Components.Training
 			&& (a.EnabledMaskRules ?? BrainCatalog.AllDirectionMaskRuleKinds).SequenceEqual(
 				b.EnabledMaskRules ?? BrainCatalog.AllDirectionMaskRuleKinds
 			)
+			&& a.DecisionMaskResolution == b.DecisionMaskResolution
+			&& a.DecisionMaskResolutionSeconds == b.DecisionMaskResolutionSeconds
+			&& a.DecisionMaskResolutionCellWidth == b.DecisionMaskResolutionCellWidth
+			&& (a.EnabledDecisionMaskRules ?? []).SequenceEqual(b.EnabledDecisionMaskRules ?? [])
 			&& Equals(a.NeatHyperparameters, b.NeatHyperparameters);
 
 		private bool _showBuildPanel;
@@ -247,6 +251,12 @@ namespace Poink.Sim.Components.Training
 			_maskShortRequiresDownSignal = masks.Contains(DirectionMaskRuleKind.ShortRequiresDownSignal);
 			_maskKeyLevelRequiredForClose = masks.Contains(DirectionMaskRuleKind.KeyLevelRequiredForClose);
 
+			_decisionMaskResolution = recipe.DecisionMaskResolution;
+			_decisionMaskResolutionSeconds = recipe.DecisionMaskResolutionSeconds;
+			_decisionMaskResolutionCellWidth = recipe.DecisionMaskResolutionCellWidth;
+			var decisionMasks = recipe.EnabledDecisionMaskRules ?? [];
+			_maskDecisionPriceBelowPoc = decisionMasks.Contains(DecisionMaskRuleKind.PriceBelowPoc);
+
 			_buildBrainStatus = null;
 		}
 
@@ -308,6 +318,11 @@ namespace Poink.Sim.Components.Training
 			_xgridRowCount = 20;
 			_xgridPipSize = 0.01;
 			_xgridWindowBars = 60;
+
+			_decisionMaskResolution = DecisionMaskResolutionKind.PerBar;
+			_decisionMaskResolutionSeconds = 1.0;
+			_decisionMaskResolutionCellWidth = 0.10;
+			_maskDecisionPriceBelowPoc = false;
 
 			_architectureKind = ArchitectureKind.Mlp;
 
@@ -711,6 +726,50 @@ namespace Poink.Sim.Components.Training
 
 		private List<DirectionMaskRuleKind> SelectedMaskRuleKinds =>
 			MaskRuleRows.Where(r => r.Get()).Select(r => r.Kind).ToList();
+
+		private DecisionMaskResolutionKind _decisionMaskResolution = DecisionMaskResolutionKind.PerBar;
+		private double _decisionMaskResolutionSeconds = 1.0;
+		private double _decisionMaskResolutionCellWidth = 0.10;
+
+		private bool _maskDecisionPriceBelowPoc;
+
+		private sealed record DecisionMaskRuleRow(
+			DecisionMaskRuleKind Kind,
+			string Label,
+			string Tooltip,
+			Func<bool> Get,
+			Action<bool> Set
+		);
+
+		// (Kind, Label, Tooltip, Get, Set) per rule -- same convention as MaskRuleRows/XGridSignalRows.
+		private IReadOnlyList<DecisionMaskRuleRow> DecisionMaskRuleRows =>
+			new List<DecisionMaskRuleRow>
+			{
+				new(
+					DecisionMaskRuleKind.PriceBelowPoc,
+					"Price Below POC",
+					"A decision only fires when price is below the trailing window's Point of Control -- has no effect without the XGrid Signals encoder",
+					() => _maskDecisionPriceBelowPoc,
+					v => _maskDecisionPriceBelowPoc = v
+				),
+			};
+
+		private const int TotalDecisionMaskRuleCount = 1;
+
+		private int SelectedDecisionMaskRuleCount => DecisionMaskRuleRows.Count(r => r.Get());
+
+		private bool AllDecisionMaskRulesSelected
+		{
+			get => SelectedDecisionMaskRuleCount == TotalDecisionMaskRuleCount;
+			set
+			{
+				foreach (var row in DecisionMaskRuleRows)
+					row.Set(value);
+			}
+		}
+
+		private List<DecisionMaskRuleKind> SelectedDecisionMaskRuleKinds =>
+			DecisionMaskRuleRows.Where(r => r.Get()).Select(r => r.Kind).ToList();
 
 		private void OnArchitectureKindChanged(ChangeEventArgs e) =>
 			_architectureKind = Enum.Parse<ArchitectureKind>(e.Value?.ToString() ?? nameof(ArchitectureKind.Mlp));
@@ -1161,7 +1220,11 @@ namespace Poink.Sim.Components.Training
 				_decisionTemperature,
 				_cnnKernelSweepSource,
 				SelectedMaskRuleKinds,
-				CurrentNeatHyperparameters
+				CurrentNeatHyperparameters,
+				_decisionMaskResolution,
+				_decisionMaskResolutionSeconds,
+				_decisionMaskResolutionCellWidth,
+				SelectedDecisionMaskRuleKinds
 			);
 
 		public BrainRecipe CurrentConfigRecipe => CurrentRecipe;
@@ -1183,7 +1246,11 @@ namespace Poink.Sim.Components.Training
 					_decisionTemperature,
 					_cnnKernelSweepSource,
 					SelectedMaskRuleKinds,
-					CurrentNeatHyperparameters
+					CurrentNeatHyperparameters,
+					_decisionMaskResolution,
+					_decisionMaskResolutionSeconds,
+					_decisionMaskResolutionCellWidth,
+					SelectedDecisionMaskRuleKinds
 				)
 			)
 			{
@@ -1218,7 +1285,11 @@ namespace Poink.Sim.Components.Training
 					_decisionTemperature,
 					_cnnKernelSweepSource,
 					SelectedMaskRuleKinds,
-					CurrentNeatHyperparameters
+					CurrentNeatHyperparameters,
+					_decisionMaskResolution,
+					_decisionMaskResolutionSeconds,
+					_decisionMaskResolutionCellWidth,
+					SelectedDecisionMaskRuleKinds
 				)
 			)
 			{

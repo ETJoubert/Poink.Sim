@@ -476,6 +476,7 @@ internal static class XGridSignalCatalog
 		public const string AtVah = "at-vah";
 		public const string AtVal = "at-val";
 		public const string AtVwap = "at-vwap";
+		public const string BelowPoc = "below-poc";
 	}
 
 	public static readonly IReadOnlyList<XGridSignalDef> All = new[]
@@ -558,7 +559,7 @@ internal static class XGridSignalCatalog
 			(g, _) => XGridStats.IsCurrentAboveVwap(g)
 		),
 		new XGridSignalDef(
-			"below-poc",
+			Keys.BelowPoc,
 			"Below",
 			"Below POC",
 			"Current price is below the Point of Control's price",

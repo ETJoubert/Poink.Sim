@@ -2,13 +2,14 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Poink.Sim.Models;
+using Poink.Sim.Repository;
 using TorchSharp;
 using static TorchSharp.torch;
 using static TorchSharp.torch.nn;
 
 namespace Poink.Sim.Brain.Neural;
 
-internal sealed class NeatPolicyBrain : INeatPolicyBrain
+internal sealed class NeatPolicyBrain : INeatPolicyBrain, IDecisionMaskedBrain
 {
 	private const double CapitalFraction = 0.5;
 	private const float IllegalDirectionPenalty = -1e9f;
@@ -20,6 +21,7 @@ internal sealed class NeatPolicyBrain : INeatPolicyBrain
 	private readonly DecisionDecodingKind _decisionDecoding;
 	private readonly double _decisionTemperature;
 	private readonly DirectionActionMasker _directionMasker;
+	private readonly DecisionMasker _decisionMasker;
 
 	private NeatPolicyBrain(
 		string name,
@@ -29,7 +31,8 @@ internal sealed class NeatPolicyBrain : INeatPolicyBrain
 		IReadOnlyList<SimulationAction> enabledDirections,
 		DecisionDecodingKind decisionDecoding,
 		double decisionTemperature,
-		DirectionActionMasker directionMasker
+		DirectionActionMasker directionMasker,
+		DecisionMasker decisionMasker
 	)
 	{
 		Name = name;
@@ -40,7 +43,13 @@ internal sealed class NeatPolicyBrain : INeatPolicyBrain
 		_decisionDecoding = decisionDecoding;
 		_decisionTemperature = decisionTemperature;
 		_directionMasker = directionMasker;
+		_decisionMasker = decisionMasker;
 	}
+
+	public bool HasActiveDecisionMask => _decisionMasker.HasActiveDecisionMask;
+
+	public bool ShouldDecide(Tick tick, bool barCompletedThisTick, SimulationObservation observation) =>
+		_decisionMasker.ShouldDecide(tick, barCompletedThisTick, observation);
 
 	public static INeatPolicyBrain Create(
 		string name,
@@ -50,6 +59,10 @@ internal sealed class NeatPolicyBrain : INeatPolicyBrain
 		DecisionDecodingKind decisionDecoding,
 		double decisionTemperature,
 		IReadOnlyList<DirectionMaskRuleKind>? enabledMaskRules,
+		DecisionMaskResolutionKind decisionMaskResolution = DecisionMaskResolutionKind.PerBar,
+		double decisionMaskResolutionSeconds = 1.0,
+		double decisionMaskResolutionCellWidth = 0.10,
+		IReadOnlyList<DecisionMaskRuleKind>? enabledDecisionMaskRules = null,
 		params IObservationEncoder[] parts
 	)
 	{
@@ -68,6 +81,13 @@ internal sealed class NeatPolicyBrain : INeatPolicyBrain
 			parts
 		);
 		var directionMasker = new DirectionActionMasker(maskRules);
+		var decisionMaskRules = BrainCatalog.CreateDecisionMaskRules(enabledDecisionMaskRules ?? [], parts);
+		var decisionMasker = new DecisionMasker(
+			decisionMaskResolution,
+			decisionMaskResolutionSeconds,
+			decisionMaskResolutionCellWidth,
+			decisionMaskRules
+		);
 		return new NeatPolicyBrain(
 			name,
 			encoder,
@@ -76,7 +96,8 @@ internal sealed class NeatPolicyBrain : INeatPolicyBrain
 			enabledDirections,
 			decisionDecoding,
 			decisionTemperature,
-			directionMasker
+			directionMasker,
+			decisionMasker
 		);
 	}
 

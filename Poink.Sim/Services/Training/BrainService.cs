@@ -140,7 +140,11 @@ internal sealed class BrainService : IBrainService
 		double decisionTemperature = 1.0,
 		CnnKernelSweepSource cnnKernelSweepSource = CnnKernelSweepSource.BarWindow,
 		IReadOnlyList<DirectionMaskRuleKind>? enabledMaskRules = null,
-		NeatHyperparameters? neatHyperparameters = null
+		NeatHyperparameters? neatHyperparameters = null,
+		DecisionMaskResolutionKind decisionMaskResolution = DecisionMaskResolutionKind.PerBar,
+		double decisionMaskResolutionSeconds = 1.0,
+		double decisionMaskResolutionCellWidth = 0.10,
+		IReadOnlyList<DecisionMaskRuleKind>? enabledDecisionMaskRules = null
 	)
 	{
 		if (!ValidateBuildRequest(name, encoderKinds, enabledDirections))
@@ -158,7 +162,11 @@ internal sealed class BrainService : IBrainService
 			decisionTemperature,
 			cnnKernelSweepSource,
 			enabledMaskRules?.ToList(),
-			neatHyperparameters
+			neatHyperparameters,
+			decisionMaskResolution,
+			decisionMaskResolutionSeconds,
+			decisionMaskResolutionCellWidth,
+			enabledDecisionMaskRules?.ToList()
 		);
 
 		try
@@ -215,7 +223,11 @@ internal sealed class BrainService : IBrainService
 				recipe.DecisionDecoding,
 				recipe.DecisionTemperature,
 				recipe.EnabledMaskRules,
-				parts
+				recipe.DecisionMaskResolution,
+				recipe.DecisionMaskResolutionSeconds,
+				recipe.DecisionMaskResolutionCellWidth,
+				recipe.EnabledDecisionMaskRules,
+				parts: parts
 			);
 
 		var architecture = BrainCatalog.CreateArchitecture(recipe.ArchitectureKind, recipe.HiddenSizes);
@@ -228,7 +240,11 @@ internal sealed class BrainService : IBrainService
 			recipe.DecisionTemperature,
 			recipe.CnnKernelSweepSource,
 			recipe.EnabledMaskRules,
-			parts
+			recipe.DecisionMaskResolution,
+			recipe.DecisionMaskResolutionSeconds,
+			recipe.DecisionMaskResolutionCellWidth,
+			recipe.EnabledDecisionMaskRules,
+			parts: parts
 		);
 	}
 
@@ -244,7 +260,11 @@ internal sealed class BrainService : IBrainService
 		double decisionTemperature = 1.0,
 		CnnKernelSweepSource cnnKernelSweepSource = CnnKernelSweepSource.BarWindow,
 		IReadOnlyList<DirectionMaskRuleKind>? enabledMaskRules = null,
-		NeatHyperparameters? neatHyperparameters = null
+		NeatHyperparameters? neatHyperparameters = null,
+		DecisionMaskResolutionKind decisionMaskResolution = DecisionMaskResolutionKind.PerBar,
+		double decisionMaskResolutionSeconds = 1.0,
+		double decisionMaskResolutionCellWidth = 0.10,
+		IReadOnlyList<DecisionMaskRuleKind>? enabledDecisionMaskRules = null
 	)
 	{
 		if (!ValidateBuildRequest(name, encoderKinds, enabledDirections))
@@ -262,7 +282,11 @@ internal sealed class BrainService : IBrainService
 			decisionTemperature,
 			cnnKernelSweepSource,
 			enabledMaskRules?.ToList(),
-			neatHyperparameters
+			neatHyperparameters,
+			decisionMaskResolution,
+			decisionMaskResolutionSeconds,
+			decisionMaskResolutionCellWidth,
+			enabledDecisionMaskRules?.ToList()
 		);
 
 		try
