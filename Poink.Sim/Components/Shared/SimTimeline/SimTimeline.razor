@@ -4,7 +4,8 @@
 {
     <div class="stl-progress">
 
-        <div class="stl-rail" title="Position within the loaded run's From/To range -- keeps moving during Max">
+        <div class="stl-rail" @ref="_railRef"
+             title="Position within the loaded run's From/To range -- keeps moving during Max. Drag to seek to a different time.">
             <div class="stl-track"></div>
             <div class="stl-fill" style="width: @(Pct(Percent(p)))%"></div>
             <div class="stl-marker" style="left: @(Pct(Percent(p)))%"></div>

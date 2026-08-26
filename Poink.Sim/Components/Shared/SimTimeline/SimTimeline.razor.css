@@ -18,6 +18,12 @@
     flex: 1;
     max-width: 480px;
     height: 14px;
+    cursor: pointer;
+    touch-action: none;
+}
+
+.stl-rail.stl-dragging {
+    cursor: grabbing;
 }
 
 .stl-track {

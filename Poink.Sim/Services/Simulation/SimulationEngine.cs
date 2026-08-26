@@ -410,36 +410,72 @@ internal sealed class SimulationEngine : ISimulationEngine
 		{
 			if (_config is null || _openReader is null)
 				return false;
-			_timer.Change(Timeout.Infinite, Timeout.Infinite);
-			_reader?.Dispose();
-			_reader = _openReader();
-			_cursor = 0;
-			_traderSessions = CreateSessions(
-				_config.TraderCount,
-				_config.StartingCash,
-				BuildTraderSettings(_config, _riskToggles, _activeBrain)
-			);
-			_selectedTraderIdForIo = _traderSessions.Count > 0 ? _traderSessions[0].Id : null;
-			UpdateCaptureIoLocked();
-			_aggregator = _config.Aggregate
-				? new SimulationBarAggregator(_config.BarSize, PriceBucketWidthFor(_config.Table))
-				: null;
-			_cellTracker = BuildCellTracker(_config);
-			_cellStepCount = 0;
-			_lastCellStep = null;
-			_lastCellStepUtc = null;
-			_activeBrain?.Reset();
-			_recentBars.Clear();
-			_recentBarHistograms.Clear();
-			_recentTicks.Clear();
-			_lastPrice = null;
-			_lastBid = null;
-			_lastAsk = null;
-			_lastTimestamp = null;
-			_isPlaying = false;
+			ResetToStartLocked();
 		}
 		PublishSnapshot();
 		_logger.LogInformation("Simulation reset to start of range");
+		return true;
+	}
+
+	private void ResetToStartLocked()
+	{
+		_timer.Change(Timeout.Infinite, Timeout.Infinite);
+		_reader?.Dispose();
+		_reader = _openReader!();
+		_cursor = 0;
+		_traderSessions = CreateSessions(
+			_config!.TraderCount,
+			_config.StartingCash,
+			BuildTraderSettings(_config, _riskToggles, _activeBrain)
+		);
+		_selectedTraderIdForIo = _traderSessions.Count > 0 ? _traderSessions[0].Id : null;
+		UpdateCaptureIoLocked();
+		_aggregator = _config.Aggregate
+			? new SimulationBarAggregator(_config.BarSize, PriceBucketWidthFor(_config.Table))
+			: null;
+		_cellTracker = BuildCellTracker(_config);
+		_cellStepCount = 0;
+		_lastCellStep = null;
+		_lastCellStepUtc = null;
+		_activeBrain?.Reset();
+		_recentBars.Clear();
+		_recentBarHistograms.Clear();
+		_recentTicks.Clear();
+		_lastPrice = null;
+		_lastBid = null;
+		_lastAsk = null;
+		_lastTimestamp = null;
+		_isPlaying = false;
+	}
+
+	// Trader/brain state is only valid built up tick by tick, so a backward seek replays from
+	// the start; either way every tick to the target still runs, so a large jump takes a while.
+	public bool Seek(int targetIndex)
+	{
+		int cursor,
+			total;
+		lock (_lock)
+		{
+			if (_config is null || _openReader is null)
+				return false;
+
+			int clamped = Math.Clamp(targetIndex, 0, _totalCount);
+			if (clamped < _cursor)
+				ResetToStartLocked();
+			else
+			{
+				_timer.Change(Timeout.Infinite, Timeout.Infinite);
+				_isPlaying = false;
+			}
+
+			while (_cursor < clamped)
+				AdvanceOneUnitLocked();
+
+			cursor = _cursor;
+			total = _totalCount;
+		}
+		PublishSnapshot();
+		_logger.LogInformation("Simulation sought to {Cursor}/{Total}", cursor, total);
 		return true;
 	}
 

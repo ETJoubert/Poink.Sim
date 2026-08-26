@@ -22,6 +22,7 @@ internal interface ISimulationEngine : IDisposable
 	bool Play();
 	bool Pause();
 	bool Step();
+	bool Seek(int targetIndex);
 	void SetSpeed(double multiplier);
 	void SetMaxSpeed();
 	bool SetAggregation(bool aggregate, TimeSpan barSize);

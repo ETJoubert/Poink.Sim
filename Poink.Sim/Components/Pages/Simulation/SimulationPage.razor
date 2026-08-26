@@ -426,7 +426,8 @@
                                 <div class="sim-chart-main @(VisibleChartPanelCount(s) == 1 ? "sim-chart-fill" : "")">
                                     @if (s.Config.Aggregate)
                                     {
-                                        <MarketChart Bars="ToBarRows(s.RecentBars)" KeepView="_keepChartView"
+                                        <MarketChart Bars="ToBarRows(ChartBars(s))" KeepView="_keepChartView"
+                                                            OnNearStart="LoadOlderChartHistory"
                                                             CurrentBid="s.CurrentBid"
                                                             CurrentAsk="s.CurrentAsk" EntryPrice="SelectedTrader?.Position?.EntryPrice"
                                                             PositionIsLong="SelectedPositionIsLong" StopLossPrice="SelectedTrader?.Position?.StopLossPrice"

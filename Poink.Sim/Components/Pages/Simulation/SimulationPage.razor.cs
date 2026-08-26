@@ -4,9 +4,11 @@ using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 using Poink.Sim.Components.Charts;
 using Poink.Sim.Models;
+using Poink.Sim.Profiler;
 using Poink.Sim.Repository;
 using Poink.Sim.Simulation;
 using Poink.Sim.Trader;
@@ -34,6 +36,12 @@ namespace Poink.Sim.Components.Pages
 
 		[Inject]
 		private IRiskPolicyService RiskPolicyService { get; set; } = default!;
+
+		[Inject]
+		private IProfilerService ProfilerService { get; set; } = default!;
+
+		[Inject]
+		private ILogger<SimulationPage> Logger { get; set; } = default!;
 
 		// ── Setup form state ──
 
@@ -72,6 +80,17 @@ namespace Poink.Sim.Components.Pages
 		// Fits the chart once on a fresh run, then latches true so live ticks preserve the
 		// user's own pan/zoom instead of refitting every tick. See MarketChart.KeepView.
 		private bool _keepChartView;
+
+		private bool _isDummyRun;
+
+		// Bars scrolled in from the tick repository, older than the engine's own live RecentBars
+		// tail -- cleared on config change or cursor rewind, see SyncHistoryState.
+		private const int HistoryBarsPerFetch = 300;
+		private SimulationConfig? _historyConfig;
+		private List<HlocAvdtBar> _historyBars = new();
+		private bool _historyReachedStart;
+		private bool _isLoadingHistory;
+		private int _lastHistoryCursorIndex;
 
 		private bool _traderPanelCollapsed;
 		private bool _setupCollapsed;
@@ -451,6 +470,61 @@ namespace Poink.Sim.Components.Pages
 			_snapshot = Service.Snapshot;
 			_isLoading = Service.IsLoading;
 			_error = Service.Error;
+			SyncHistoryState(_snapshot);
+		}
+
+		// A config change invalidates already-fetched history; a cursor moving backward means
+		// Reset/Seek replayed from scratch, so bars once "older than now" may no longer be.
+		private void SyncHistoryState(SimulationSnapshot? snapshot)
+		{
+			if (snapshot is null || snapshot.Config != _historyConfig || snapshot.CursorIndex < _lastHistoryCursorIndex)
+			{
+				_historyBars = new();
+				_historyReachedStart = false;
+				_historyConfig = snapshot?.Config;
+			}
+			_lastHistoryCursorIndex = snapshot?.CursorIndex ?? 0;
+		}
+
+		private IReadOnlyList<HlocAvdtBar> ChartBars(SimulationSnapshot s) =>
+			_historyBars.Count == 0 ? s.RecentBars : _historyBars.Concat(s.RecentBars).ToList();
+
+		// MarketChart's OnNearStart -- pulls an older chunk straight from the tick repository,
+		// independent of the engine's own live RecentBars ring buffer.
+		private async Task LoadOlderChartHistory()
+		{
+			if (_snapshot is null || _isDummyRun || _historyReachedStart || _isLoadingHistory)
+				return;
+
+			var config = _snapshot.Config;
+			var oldestKnown =
+				_historyBars.Count > 0 ? _historyBars[0].OpenTime
+				: _snapshot.RecentBars.Count > 0 ? _snapshot.RecentBars[0].OpenTime
+				: config.To;
+			if (oldestKnown <= config.From)
+			{
+				_historyReachedStart = true;
+				return;
+			}
+
+			_isLoadingHistory = true;
+			try
+			{
+				var profilerConfig = new ProfilerConfig(config.Table, config.From, config.To, config.BarSize);
+				var chunk = await ProfilerService.LoadAsync(profilerConfig, oldestKnown, HistoryBarsPerFetch);
+				_historyBars = chunk.Bars.Concat(_historyBars).ToList();
+				_historyReachedStart = chunk.ReachedStart;
+				_historyConfig = config;
+			}
+			catch (Exception ex)
+			{
+				Logger.LogError(ex, "Failed to backfill simulation chart history for table {Table}", config.Table);
+			}
+			finally
+			{
+				_isLoadingHistory = false;
+			}
+			StateHasChanged();
 		}
 
 		public void Dispose()
@@ -637,6 +711,7 @@ namespace Poink.Sim.Components.Pages
 
 			_keepChartView = false;
 			_setupCollapsed = true;
+			_isDummyRun = false;
 			if (!Service.TryLoad(config))
 				_loadError = "a load is already in progress";
 		}
@@ -734,6 +809,7 @@ namespace Poink.Sim.Components.Pages
 			);
 
 			_keepChartView = false;
+			_isDummyRun = true;
 			if (!Service.TryLoadDummy(config))
 				_loadError = "a load is already in progress";
 		}
