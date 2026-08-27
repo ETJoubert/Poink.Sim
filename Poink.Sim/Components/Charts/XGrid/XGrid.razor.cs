@@ -337,6 +337,12 @@ namespace Poink.Sim.Components.Charts
 		private bool _showAverage;
 		private bool _showMedian;
 
+		// Vertical dashed dividers over the columns -- Day is a fixed 24h case of the same
+		// midnight-aligned bucketing Every uses at its own configurable hour span.
+		private bool _showDayLines;
+		private bool _showIntervalLines;
+		private int _intervalHours = 4;
+
 		private IJSObjectReference? _module;
 		private DotNetObjectReference<XGrid>? _dotNetRef;
 		private ElementReference _canvasRef;
@@ -398,6 +404,9 @@ namespace Poink.Sim.Components.Charts
 			Add(_showVwap, grid.Vwap, "vwap");
 			Add(_showAverage, grid.Average, "avg");
 			Add(_showMedian, grid.Median, "med");
+
+			var dayLines = _showDayLines ? IntervalBoundaryColumns(grid, 24) : null;
+			var intervalLines = _showIntervalLines ? IntervalBoundaryColumns(grid, _intervalHours) : null;
 
 			var lines = new List<object>();
 			var toggledRows = new List<int>();
@@ -467,6 +476,8 @@ namespace Poink.Sim.Components.Charts
 				deltaNegHighlight = DeltaHighlightMask(grid, positive: false),
 				sweep,
 				markers,
+				dayLines,
+				intervalLines,
 				current = grid.Current is { } cur2 ? (int?)cur2.Row : null,
 				lines,
 				toggledRows,
@@ -1075,6 +1086,22 @@ namespace Poink.Sim.Components.Charts
 			if (grid.Columns.Count == 0)
 				return "--";
 			return FormatDuration(grid.Columns[^1].OpenTime - grid.Columns[0].OpenTime);
+		}
+
+		// Column indices where OpenTime crosses into a new hours-wide bucket counted from ticks
+		// zero (midnight), so bucket edges land on absolute clock times, not the first column.
+		private static IReadOnlyList<int> IntervalBoundaryColumns(XGridResult grid, int hours)
+		{
+			if (hours <= 0)
+				return Array.Empty<int>();
+
+			long BucketOf(DateTime t) => t.Ticks / (TimeSpan.TicksPerHour * hours);
+
+			var cols = new List<int>();
+			for (var c = 1; c < grid.Columns.Count; c++)
+				if (BucketOf(grid.Columns[c].OpenTime) != BucketOf(grid.Columns[c - 1].OpenTime))
+					cols.Add(c);
+			return cols;
 		}
 
 		private static string FormatDuration(TimeSpan span)

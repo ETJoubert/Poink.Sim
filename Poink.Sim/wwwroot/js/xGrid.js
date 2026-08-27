@@ -242,6 +242,10 @@ function render(ctx, W, H, p, st, canvas) {
         }
     }
 
+    // Day is the coarser, more visible divider; Every draws the finer sub-interval on top.
+    drawColumnDividers(ctx, p.dayLines, ml, cw, L.gBottom, cssVar('--color-highlight'), [6, 3]);
+    drawColumnDividers(ctx, p.intervalLines, ml, cw, L.gBottom, cssVar('--color-secondary'), [2, 2]);
+
     // Current price sits in the right margin as a left-pointing arrow whose tip touches the
     // grid edge, clear of the footprint it used to overlap.
     if (p.current != null) {
@@ -533,6 +537,23 @@ function hline(ctx, x0, x1, y) {
     ctx.moveTo(x0, y);
     ctx.lineTo(x1, y);
     ctx.stroke();
+}
+
+// One dashed vertical line per column index in cols -- shared by the Day/Every overlays,
+// which only differ by which columns they mark and what colour/dash they draw with.
+function drawColumnDividers(ctx, cols, ml, cw, gBottom, color, dash) {
+    if (!cols || cols.length === 0) return;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1;
+    ctx.setLineDash(dash);
+    ctx.beginPath();
+    for (const c of cols) {
+        const x = ml + c * cw + 0.5;
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, gBottom);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
 }
 
 function distToSeg(px, py, x1, y1, x2, y2) {

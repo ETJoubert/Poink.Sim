@@ -72,6 +72,15 @@
                 title="Highlight the row containing the range's mean price">AVG</button>
         <button class="xgrid-level-toggle xgrid-level-toggle-med @(_showMedian ? "active" : "")" @onclick="() => _showMedian = !_showMedian"
                 title="Highlight the row containing the range's median price">MED</button>
+        <span class="xgrid-row-divider"></span>
+        <button class="xgrid-level-toggle xgrid-level-toggle-day @(_showDayLines ? "active" : "")" @onclick="() => _showDayLines = !_showDayLines"
+                title="Draw a dashed vertical line at every day rollover (midnight)">Day</button>
+        <button class="xgrid-level-toggle xgrid-level-toggle-interval @(_showIntervalLines ? "active" : "")" @onclick="() => _showIntervalLines = !_showIntervalLines"
+                title="Draw a dashed vertical line every @_intervalHours hours, aligned to midnight">Every</button>
+        <label class="xgrid-control" title="Hours between interval lines when Every is active, aligned to midnight -- e.g. 4 draws a line at 00:00, 04:00, 08:00...">
+            <input type="number" min="1" max="24" step="1" @bind="_intervalHours" @bind:event="oninput" />
+            <span>h</span>
+        </label>
     </div>
     <div class="xgrid-spectrum-row">
         <span class="xgrid-row-label">Highlights</span>

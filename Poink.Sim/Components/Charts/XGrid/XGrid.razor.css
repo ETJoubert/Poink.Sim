@@ -401,6 +401,36 @@
     font-weight: bold;
 }
 
+.xgrid-level-toggle-day {
+    color: var(--color-highlight);
+    border: 1px solid color-mix(in srgb, var(--color-highlight) 35%, transparent);
+}
+
+.xgrid-level-toggle-day:hover {
+    background: color-mix(in srgb, var(--color-highlight) 15%, transparent);
+}
+
+.xgrid-level-toggle-day.active {
+    background: var(--color-highlight);
+    color: var(--color-bg-dark);
+    font-weight: bold;
+}
+
+.xgrid-level-toggle-interval {
+    color: var(--color-secondary);
+    border: 1px solid color-mix(in srgb, var(--color-secondary) 35%, transparent);
+}
+
+.xgrid-level-toggle-interval:hover {
+    background: color-mix(in srgb, var(--color-secondary) 15%, transparent);
+}
+
+.xgrid-level-toggle-interval.active {
+    background: var(--color-secondary);
+    color: var(--color-bg-dark);
+    font-weight: bold;
+}
+
 .xgrid-draw-row {
     display: flex;
     align-items: center;
