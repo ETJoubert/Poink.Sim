@@ -283,6 +283,34 @@
     color: var(--color-bg-dark);
 }
 
+.xgrid-delta-toggle-pos {
+    color: var(--color-badge-1);
+    border-color: color-mix(in srgb, var(--color-badge-1) 35%, transparent);
+}
+
+.xgrid-delta-toggle-pos:hover {
+    background: color-mix(in srgb, var(--color-badge-1) 15%, transparent);
+}
+
+.xgrid-delta-toggle-pos.active {
+    background: var(--color-badge-1);
+    color: var(--color-bg-dark);
+}
+
+.xgrid-delta-toggle-neg {
+    color: var(--color-badge-3);
+    border-color: color-mix(in srgb, var(--color-badge-3) 35%, transparent);
+}
+
+.xgrid-delta-toggle-neg:hover {
+    background: color-mix(in srgb, var(--color-badge-3) 15%, transparent);
+}
+
+.xgrid-delta-toggle-neg.active {
+    background: var(--color-badge-3);
+    color: var(--color-bg-dark);
+}
+
 .xgrid-level-toggle {
     font-family: var(--font-body);
     font-size: 0.54rem;
@@ -504,61 +532,6 @@
     opacity: 0.8;
 }
 
-.xgrid-spectrum {
-    flex: 0 0 auto;
-    height: 48px;
-    padding: 3px 8px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.xgrid-spectrum svg {
-    display: block;
-    width: 100%;
-    height: 100%;
-    overflow: visible;
-}
-
-.xgrid-spectrum-area {
-    fill: color-mix(in srgb, var(--color-secondary) 25%, transparent);
-    stroke: none;
-}
-
-.xgrid-spectrum-curve {
-    fill: none;
-    stroke: var(--color-secondary);
-    stroke-width: 1.25;
-    vector-effect: non-scaling-stroke;
-}
-
-.xgrid-spectrum-guide {
-    stroke: var(--color-highlight);
-    stroke-width: 1.5;
-    vector-effect: non-scaling-stroke;
-}
-
-.xgrid-spectrum-threshold {
-    stroke: var(--color-accent);
-    stroke-width: 1.25;
-    vector-effect: non-scaling-stroke;
-    stroke-dasharray: 3 2;
-}
-
-.xgrid-spectrum-area-up {
-    fill: color-mix(in srgb, var(--color-success) 25%, transparent);
-}
-
-.xgrid-spectrum-curve-up {
-    stroke: var(--color-success);
-}
-
-.xgrid-spectrum-area-down {
-    fill: color-mix(in srgb, var(--color-error) 25%, transparent);
-}
-
-.xgrid-spectrum-curve-down {
-    stroke: var(--color-error);
-}
-
 .xgrid-empty {
     margin: auto;
     font-size: 0.75rem;
@@ -573,10 +546,19 @@
     gap: 6px;
 }
 
-.xgrid-canvas-wrap {
+.xgrid-canvas-outer {
     position: relative;
     flex: 1;
     min-width: 0;
+}
+
+/* Clips only the zoomed canvas -- the cell tooltip sits outside this box (in xgrid-canvas-outer
+   instead) so it isn't cut off when it needs to overflow near the canvas's own edges. */
+.xgrid-canvas-wrap {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
 }
 
 .xgrid-canvas {
@@ -689,6 +671,14 @@
 
 .xgrid-signal-down {
     color: var(--color-error);
+}
+
+.xgrid-signal-delta-pos {
+    color: var(--color-badge-1);
+}
+
+.xgrid-signal-delta-neg {
+    color: var(--color-badge-3);
 }
 
 .xgrid-signal-poc {
@@ -947,4 +937,29 @@
     white-space: pre-line;
     overflow-wrap: anywhere;
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+}
+
+.xgrid-tip-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 14px;
+}
+
+.xgrid-tip-row + .xgrid-tip-row {
+    margin-top: 1px;
+}
+
+.xgrid-tip-label {
+    color: var(--color-secondary);
+    opacity: 0.6;
+    white-space: nowrap;
+}
+
+.xgrid-tip-value {
+    color: var(--color-primary);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    white-space: nowrap;
 }

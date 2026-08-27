@@ -35,14 +35,47 @@ function markerVar(kind) {
     }
 }
 
+// Zoom is a pure CSS transform on the canvas element -- the bitmap itself is always painted
+// at the full, unzoomed grid, so none of the cell/hit-testing math below needs to know about
+// it. Mouse handlers just divide the transform back out to recover logical canvas coordinates.
+const MIN_ZOOM = 1, MAX_ZOOM = 8, WHEEL_ZOOM_STEP = 1.15, DRAG_THRESHOLD = 3;
+
+// Ceiling on backing-store pixel ratio -- letting it track zoom all the way to MAX_ZOOM would
+// let the canvas's memory footprint grow with the square of the scale.
+const MAX_EFFECTIVE_DPR = 4;
+
+// Keeps the scaled content covering the canvas -- at scale 1 this collapses pan to exactly 0,0.
+function clampZoom(zoom, W, H) {
+    const s = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom.scale));
+    return {
+        scale: s,
+        panX: Math.min(0, Math.max(W * (1 - s), zoom.panX)),
+        panY: Math.min(0, Math.max(H * (1 - s), zoom.panY)),
+    };
+}
+
+function applyZoom(canvas) {
+    const z = canvas.__xgrid.zoom;
+    canvas.style.transform = z.scale === 1 ? '' : `translate(${z.panX}px, ${z.panY}px) scale(${z.scale})`;
+}
+
 export function draw(canvas, dotNetRef, payload) {
     if (!canvas) return;
     if (!canvas.__xgrid) {
-        canvas.__xgrid = { tipKey: null, mouse: null, hover: null, hoverMargin: null, hoverLine: null, hoverPos: null, hoverPend: null, pending: null };
+        canvas.__xgrid = {
+            tipKey: null, mouse: null, mouseDisp: null, hover: null, hoverMargin: null,
+            hoverLine: null, hoverPos: null, hoverPend: null, pending: null,
+            zoom: { scale: 1, panX: 0, panY: 0 }, dragStart: null, dragging: false, suppressClick: false,
+        };
+        canvas.style.transformOrigin = '0 0';
         canvas.addEventListener('mousemove', e => onMove(canvas, e));
         canvas.addEventListener('mouseleave', () => onLeave(canvas));
+        canvas.addEventListener('mousedown', e => onDown(canvas, e));
+        canvas.addEventListener('mouseup', () => onUp(canvas));
         canvas.addEventListener('click', e => onClick(canvas, e));
+        canvas.addEventListener('dblclick', e => onDoubleClick(canvas, e));
         canvas.addEventListener('contextmenu', e => onContextMenu(canvas, e));
+        canvas.addEventListener('wheel', e => onWheel(canvas, e), { passive: false });
     }
     const st = canvas.__xgrid;
     st.payload = payload;
@@ -50,14 +83,57 @@ export function draw(canvas, dotNetRef, payload) {
     paint(canvas);
 }
 
+// Zoom toward the cursor: the logical point under it is computed before the scale changes,
+// then pan is solved so that same point stays under the cursor after.
+function onWheel(canvas, e) {
+    const st = canvas.__xgrid;
+    if (!st.payload) return;
+    e.preventDefault();
+    const rect = canvas.getBoundingClientRect();
+    const z0 = st.zoom;
+    const lx = (e.clientX - rect.left) / z0.scale;
+    const ly = (e.clientY - rect.top) / z0.scale;
+    const scale1 = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z0.scale * (e.deltaY < 0 ? WHEEL_ZOOM_STEP : 1 / WHEEL_ZOOM_STEP)));
+    const raw = { scale: scale1, panX: z0.panX + lx * (z0.scale - scale1), panY: z0.panY + ly * (z0.scale - scale1) };
+    st.zoom = clampZoom(raw, canvas.clientWidth, canvas.clientHeight);
+    applyZoom(canvas);
+    // Scale changed, so the backing store needs to be redrawn at its new effective resolution --
+    // panning alone (see onMove) doesn't, since the already-painted bitmap is still sharp enough.
+    paint(canvas);
+}
+
+function onDown(canvas, e) {
+    if (e.button !== 0) return;
+    const st = canvas.__xgrid;
+    st.dragStart = { x: e.clientX, y: e.clientY, panX: st.zoom.panX, panY: st.zoom.panY };
+    st.dragging = false;
+}
+
+function onUp(canvas) {
+    const st = canvas.__xgrid;
+    if (st.dragging) st.suppressClick = true;
+    st.dragStart = null;
+    st.dragging = false;
+}
+
+function onDoubleClick(canvas) {
+    const st = canvas.__xgrid;
+    st.zoom = { scale: 1, panX: 0, panY: 0 };
+    applyZoom(canvas);
+    paint(canvas);
+}
+
 // Repaints from the stored payload -- called on each draw and again on any hover/pending
 // change so overlays layer over the already-painted footprint without a .NET round-trip.
+// Folding zoom scale into the pixel ratio keeps the backing store as sharp as the un-zoomed
+// grid (up to MAX_EFFECTIVE_DPR) instead of the CSS transform stretching a fixed bitmap.
 function paint(canvas) {
     const st = canvas.__xgrid;
     const p = st.payload;
     if (!p) return;
 
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const baseDpr = Math.min(window.devicePixelRatio || 1, 2);
+    const dpr = Math.min(baseDpr * st.zoom.scale, MAX_EFFECTIVE_DPR);
     const W = canvas.clientWidth, H = canvas.clientHeight;
     if (W === 0 || H === 0) return;
     // Resize only when the backing store size actually changed -- the pointer crosshair
@@ -136,6 +212,8 @@ function render(ctx, W, H, p, st, canvas) {
     strokeMask(ctx, p.topHighlight, rows, cols, ml, cw, ch, gap, cssVar('--color-accent'), 1.5);
     strokeMask(ctx, p.upHighlight, rows, cols, ml, cw, ch, gap, cssVar('--color-success'), 1.5);
     strokeMask(ctx, p.downHighlight, rows, cols, ml, cw, ch, gap, cssVar('--color-error'), 1.5);
+    strokeMask(ctx, p.deltaPosHighlight, rows, cols, ml, cw, ch, gap, cssVar('--color-badge-1'), 1.5);
+    strokeMask(ctx, p.deltaNegHighlight, rows, cols, ml, cw, ch, gap, cssVar('--color-badge-3'), 1.5);
 
     if (p.sweep) {
         const warn = rgb(cssVar('--color-warning'));
@@ -493,18 +571,41 @@ function region(p, L, x, y) {
     return null;
 }
 
+// The tip lives beside xgrid-canvas-wrap (in its parent), not inside it, so it isn't clipped
+// by that wrap's overflow:hidden (needed to bound the zoomed canvas).
 function tipEl(canvas) {
-    return canvas.parentElement ? canvas.parentElement.querySelector('.xgrid-cell-tip') : null;
+    const outer = canvas.parentElement && canvas.parentElement.parentElement;
+    return outer ? outer.querySelector('.xgrid-cell-tip') : null;
 }
 
 function onMove(canvas, e) {
     const st = canvas.__xgrid;
     const p = st.payload;
     if (!p) return;
+
+    // Dragging pans instead of hovering -- only once zoomed in (at scale 1, pan always clamps
+    // back to 0 anyway) and only past a small threshold, so a plain click still registers as one.
+    if (st.dragStart && st.zoom.scale > 1.001) {
+        const dx = e.clientX - st.dragStart.x, dy = e.clientY - st.dragStart.y;
+        if (!st.dragging && (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD)) st.dragging = true;
+        if (st.dragging) {
+            const raw = { scale: st.zoom.scale, panX: st.dragStart.panX + dx, panY: st.dragStart.panY + dy };
+            st.zoom = clampZoom(raw, canvas.clientWidth, canvas.clientHeight);
+            applyZoom(canvas);
+            canvas.style.cursor = 'grabbing';
+            return;
+        }
+    }
+
     const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left, y = e.clientY - rect.top;
+    const scale = st.zoom.scale;
+    const x = (e.clientX - rect.left) / scale, y = (e.clientY - rect.top) / scale;
     st.mouse = { x, y };
-    const W = rect.width, H = rect.height;
+    // Separate from the logical x/y above: this positions the (unzoomed) tooltip element, which
+    // sits beside the canvas rather than inside its transform.
+    const wrapperRect = canvas.parentElement.getBoundingClientRect();
+    st.mouseDisp = { x: e.clientX - wrapperRect.left, y: e.clientY - wrapperRect.top };
+    const W = canvas.clientWidth, H = canvas.clientHeight;
     const L = layout(p, W, H);
 
     const line = hitLine(p, L, W, H, x, y);
@@ -527,7 +628,10 @@ function onMove(canvas, e) {
     // Repaint every move so the pointer crosshair tracks the cursor, not only on hover change.
     paint(canvas);
 
-    canvas.style.cursor = (newLine || newPos || newPend || newMargin) ? 'pointer' : (newCell && p.lineMode ? 'crosshair' : 'default');
+    canvas.style.cursor = (newLine || newPos || newPend || newMargin) ? 'pointer'
+        : newCell && p.lineMode ? 'crosshair'
+            : st.zoom.scale > 1.001 ? 'grab'
+                : 'default';
 
     const tip = tipEl(canvas);
     if (!tip) return;
@@ -581,9 +685,9 @@ function showTip(canvas, tip, key, resolve) {
     const st = canvas.__xgrid;
     if (st.tipKey !== key) {
         st.tipKey = key;
-        resolve().then(text => {
-            if (!text) { hideTip(canvas); return; }
-            tip.textContent = text;
+        resolve().then(rows => {
+            if (!rows || rows.length === 0) { hideTip(canvas); return; }
+            renderTipRows(tip, rows);
             tip.style.display = 'block';
             positionTip(canvas, tip);
         });
@@ -592,22 +696,46 @@ function showTip(canvas, tip, key, resolve) {
     }
 }
 
+// One label/value pair per row instead of one long joined string -- assigning textContent
+// elsewhere (line/position/pending/margin tips) already clears these child nodes back out.
+function renderTipRows(tip, rows) {
+    tip.textContent = '';
+    for (const r of rows) {
+        const line = document.createElement('div');
+        line.className = 'xgrid-tip-row';
+        const label = document.createElement('span');
+        label.className = 'xgrid-tip-label';
+        label.textContent = r.label;
+        const value = document.createElement('span');
+        value.className = 'xgrid-tip-value';
+        value.textContent = r.value;
+        line.append(label, value);
+        tip.appendChild(line);
+    }
+}
+
 function positionTip(canvas, tip) {
     const st = canvas.__xgrid;
-    if (!st.mouse) return;
-    const flip = st.mouse.x > canvas.clientWidth - 150;
-    tip.style.left = st.mouse.x + 'px';
-    tip.style.top = st.mouse.y + 'px';
-    tip.style.transform = flip ? 'translate(calc(-100% - 12px), 12px)' : 'translate(12px, 12px)';
+    if (!st.mouseDisp) return;
+    const flipX = st.mouseDisp.x > canvas.clientWidth - 150;
+    const flipY = st.mouseDisp.y > canvas.clientHeight - 130;
+    tip.style.left = st.mouseDisp.x + 'px';
+    tip.style.top = st.mouseDisp.y + 'px';
+    const tx = flipX ? 'calc(-100% - 12px)' : '12px';
+    const ty = flipY ? 'calc(-100% - 12px)' : '12px';
+    tip.style.transform = `translate(${tx}, ${ty})`;
 }
 
 function onClick(canvas, e) {
     const st = canvas.__xgrid;
+    // A click that ends a pan drag shouldn't also fall through to line/margin actions.
+    if (st.suppressClick) { st.suppressClick = false; return; }
     const p = st.payload;
     if (!p) return;
     const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left, y = e.clientY - rect.top;
-    const L = layout(p, rect.width, rect.height);
+    const scale = st.zoom.scale;
+    const x = (e.clientX - rect.left) / scale, y = (e.clientY - rect.top) / scale;
+    const L = layout(p, canvas.clientWidth, canvas.clientHeight);
     const reg = region(p, L, x, y);
     if (!reg) return;
 
@@ -642,8 +770,10 @@ function onContextMenu(canvas, e) {
     if (!p) return;
     if (st.pending) { e.preventDefault(); st.pending = null; paint(canvas); return; }
     const rect = canvas.getBoundingClientRect();
-    const L = layout(p, rect.width, rect.height);
-    const hit = hitLine(p, L, rect.width, rect.height, e.clientX - rect.left, e.clientY - rect.top);
+    const scale = st.zoom.scale;
+    const W = canvas.clientWidth, H = canvas.clientHeight;
+    const L = layout(p, W, H);
+    const hit = hitLine(p, L, W, H, (e.clientX - rect.left) / scale, (e.clientY - rect.top) / scale);
     if (hit && !hit.line.external && hit.line.index >= 0) {
         e.preventDefault();
         st.dotNetRef.invokeMethodAsync('RemoveUserLine', hit.line.index);
@@ -675,6 +805,10 @@ function onLeave(canvas) {
     st.hoverPos = null;
     st.hoverPend = null;
     st.mouse = null;
+    st.mouseDisp = null;
+    // A drag that leaves the canvas ends here rather than via a mouseup the canvas never sees.
+    st.dragStart = null;
+    st.dragging = false;
     paint(canvas);
     canvas.style.cursor = 'default';
     hideTip(canvas);

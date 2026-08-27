@@ -38,6 +38,8 @@ public readonly record struct XGridResult(
 	IReadOnlyList<double> RowHigh,
 	IReadOnlyList<XGridColumn> Columns,
 	double MaxValue,
+	int MaxUpCount,
+	int MaxDownCount,
 	int MaxAbsDelta,
 	double MaxDistanceValue,
 	double MaxAbsDeltaDistance,
@@ -60,13 +62,22 @@ public readonly record struct XGridResult(
 	XGridLevel? Current
 );
 
-// Which per-cell metric XGridStats ranks cells by -- Up/Down isolate one side's ticks
-// so the two directions can be inspected independently of Total.
+// Up/Down isolate one side's ticks from Total; Delta ranks the signed up-minus-down
+// imbalance, ascending from most sell-heavy to most buy-heavy.
 internal enum XGridSpectrumMetric
 {
 	Total,
 	Up,
 	Down,
+	Delta,
+}
+
+// How a Percent value is turned into a cutoff -- Rank always highlights that share of the
+// grid's nonzero cells; Max highlights every cell at least that share of the metric's peak.
+internal enum XGridHighlightMode
+{
+	Rank,
+	Max,
 }
 
 // Footprint-style price/bar matrix -- rows are shared price buckets, columns are ProfilerPage's Volume
@@ -132,6 +143,8 @@ internal static class XGridStats
 
 		var columns = new List<XGridColumn>(colCount);
 		var maxValue = 0.0;
+		var maxUpCount = 0;
+		var maxDownCount = 0;
 		var maxAbsDelta = 0;
 		var maxDistanceValue = 0.0;
 		var maxAbsDeltaDistance = 0.0;
@@ -174,6 +187,10 @@ internal static class XGridStats
 				double value = counts[r];
 				if (value > maxValue)
 					maxValue = value;
+				if (upCounts[r] > maxUpCount)
+					maxUpCount = upCounts[r];
+				if (downCounts[r] > maxDownCount)
+					maxDownCount = downCounts[r];
 				var absDelta = Math.Abs(upCounts[r] - downCounts[r]);
 				if (absDelta > maxAbsDelta)
 					maxAbsDelta = absDelta;
@@ -236,6 +253,8 @@ internal static class XGridStats
 			rowHigh,
 			columns,
 			maxValue,
+			maxUpCount,
+			maxDownCount,
 			maxAbsDelta,
 			maxDistanceValue,
 			maxAbsDeltaDistance,
@@ -404,9 +423,21 @@ internal static class XGridStats
 		{
 			XGridSpectrumMetric.Up => c.UpCount,
 			XGridSpectrumMetric.Down => c.DownCount,
+			XGridSpectrumMetric.Delta => c.UpCount - c.DownCount,
 			_ => c.Value,
 		};
 	}
+
+	// The grid-wide ceiling for a metric -- Delta uses the signed metric's absolute ceiling
+	// since both its directions are judged against the same peak imbalance.
+	public static double MaxCellValue(XGridResult grid, XGridSpectrumMetric metric) =>
+		metric switch
+		{
+			XGridSpectrumMetric.Up => grid.MaxUpCount,
+			XGridSpectrumMetric.Down => grid.MaxDownCount,
+			XGridSpectrumMetric.Delta => grid.MaxAbsDelta,
+			_ => grid.MaxValue,
+		};
 
 	/// <summary>
 	/// Every (row, col) cell with a nonzero metric value, ordered least to most by it. Zero cells are
@@ -420,7 +451,7 @@ internal static class XGridStats
 		var cells = new List<(int Row, int Col)>(rows * cols);
 		for (var c = 0; c < cols; c++)
 		for (var r = 0; r < rows; r++)
-			if (CellValue(grid, (r, c), metric) > 0)
+			if (CellValue(grid, (r, c), metric) != 0)
 				cells.Add((r, c));
 
 		var order = cells.ToArray();
@@ -432,14 +463,33 @@ internal static class XGridStats
 	public static int TopCount(int n, double percent) =>
 		Math.Clamp((int)Math.Round(n * Math.Clamp(percent, 0, 100) / 100.0, MidpointRounding.AwayFromZero), 0, n);
 
+	// Max mode's cutoff: the top Percent% of the value range below max, so Percent behaves the
+	// same as Rank mode's -- 10 means "the top 10%", not "at least 10% of the peak".
+	public static double MaxModeThreshold(double max, double percent) =>
+		max * (1 - Math.Clamp(percent, 0, 100) / 100.0);
+
 	/// <summary>
 	/// True when the current (latest) cell's metric value ranks inside the top percent% of every
-	/// nonzero cell on the grid; a zero-value current cell is excluded from CellOrder, so it can never rank.
+	/// nonzero cell on the grid (Rank mode), or is at least percent% of the metric's grid-wide
+	/// peak (Max mode). A zero-value current cell never qualifies under either mode.
 	/// </summary>
-	public static bool IsCurrentInTopPercent(XGridResult grid, XGridSpectrumMetric metric, double percent)
+	public static bool IsCurrentInTopPercent(
+		XGridResult grid,
+		XGridSpectrumMetric metric,
+		double percent,
+		XGridHighlightMode mode = XGridHighlightMode.Rank
+	)
 	{
 		if (CurrentCell(grid) is not { } cell)
 			return false;
+
+		if (mode == XGridHighlightMode.Max)
+		{
+			double value = CellValue(grid, cell, metric);
+			double max = MaxCellValue(grid, metric);
+			return value > 0 && max > 0 && value >= MaxModeThreshold(max, percent);
+		}
+
 		var order = CellOrder(grid, metric);
 		int rank = Array.IndexOf(order, cell);
 		if (rank < 0)
@@ -447,6 +497,47 @@ internal static class XGridStats
 
 		int n = order.Length;
 		return rank >= n - TopCount(n, percent);
+	}
+
+	/// <summary>
+	/// True when the current (latest) cell's price ranks inside the top percent% of the signed
+	/// Delta order on the requested side -- positive slices the ascending tail (most buy-heavy),
+	/// negative the head (most sell-heavy) in Rank mode, or is at least percent% of the grid's
+	/// peak imbalance in that direction in Max mode -- and its value actually carries that sign.
+	/// </summary>
+	public static bool IsCurrentInDeltaPercent(
+		XGridResult grid,
+		double percent,
+		bool positive,
+		XGridHighlightMode mode = XGridHighlightMode.Rank
+	)
+	{
+		if (CurrentCell(grid) is not { } cell)
+			return false;
+
+		if (mode == XGridHighlightMode.Max)
+		{
+			double deltaMax = CellValue(grid, cell, XGridSpectrumMetric.Delta);
+			double max = grid.MaxAbsDelta;
+			if (max <= 0)
+				return false;
+			double threshold = MaxModeThreshold(max, percent);
+			return positive ? deltaMax >= threshold && deltaMax > 0 : -deltaMax >= threshold && deltaMax < 0;
+		}
+
+		var order = CellOrder(grid, XGridSpectrumMetric.Delta);
+		int rank = Array.IndexOf(order, cell);
+		if (rank < 0)
+			return false;
+
+		int n = order.Length;
+		int count = TopCount(n, percent);
+		bool inSlice = positive ? rank >= n - count : rank < count;
+		if (!inSlice)
+			return false;
+
+		double deltaRank = CellValue(grid, cell, XGridSpectrumMetric.Delta);
+		return positive ? deltaRank > 0 : deltaRank < 0;
 	}
 }
 
