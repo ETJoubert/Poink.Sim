@@ -225,6 +225,38 @@
     opacity: 0.8;
 }
 
+/* --sig-color is set per row (see XGridSignalColors.Var) to mirror the matching signal's
+   colour in XGrid's own live panel (XGrid.razor.css), not a fixed palette here. */
+.train-xgrid-signal {
+    color: var(--sig-color, var(--color-secondary));
+}
+
+/* A ring that fills to a glowing dot when checked -- the same idle/active look as
+   XGrid's own .xgrid-signal-dot, applied to an actual checkbox instead of a display-only span. */
+.train-xgrid-signal input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 12px;
+    height: 12px;
+    margin: 0;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    border: 1.5px solid var(--sig-color, var(--color-secondary));
+    background: transparent;
+    cursor: pointer;
+    transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.train-xgrid-signal input[type="checkbox"]:checked {
+    background: var(--sig-color, var(--color-secondary));
+    box-shadow: 0 0 4px var(--sig-color, var(--color-secondary));
+}
+
+.train-xgrid-signal input[type="checkbox"]:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 .train-decoding-value {
     color: var(--color-primary);
     font-weight: bold;

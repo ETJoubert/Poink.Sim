@@ -158,6 +158,13 @@ namespace Poink.Sim.Components.Training
 				_ => "",
 			};
 
+		// XGrid signal values carry their own colour (see XGridSignalColors) instead of the
+		// generic on/off green/grey every other kind uses.
+		private static string SignalValueClass(string? colorVar, string? kind) =>
+			colorVar is null ? ValueKindClass(kind) : kind == "on" ? "tp-value-signal tp-value-signal-on" : "tp-value-signal";
+
+		private static string? SignalValueStyle(string? colorVar) => colorVar is null ? null : $"--sig-color: var({colorVar})";
+
 		protected override void OnParametersSet()
 		{
 			var weekdays = string.Join(",", TimeConstraint.AllowedWeekdays.OrderBy(d => d));
@@ -417,7 +424,7 @@ namespace Poink.Sim.Components.Training
 			return rows;
 		}
 
-		private sealed record ProfileValue(string Text, string Kind, string Tooltip);
+		private sealed record ProfileValue(string Text, string Kind, string Tooltip, string? ColorVar = null);
 
 		private static string FormatCount(float v) => v.ToString("0", CultureInfo.InvariantCulture);
 
@@ -896,7 +903,14 @@ namespace Poink.Sim.Components.Training
 			{
 				string label = XGridSignalCatalog.Get(signals[i]).Label;
 				bool on = isOn(i);
-				values.Add(new ProfileValue(label, on ? "on" : "off", $"{label}: {(on ? "true" : "false")}"));
+				values.Add(
+					new ProfileValue(
+						label,
+						on ? "on" : "off",
+						$"{label}: {(on ? "true" : "false")}",
+						XGridSignalColors.Var(signals[i])
+					)
+				);
 			}
 			return values;
 		}
@@ -1109,7 +1123,9 @@ namespace Poink.Sim.Components.Training
 						RawValueKinds: xgridValues.Select(v => v.Kind).ToList(),
 						NormalizedValueKinds: xgridValues.Select(v => v.Kind).ToList(),
 						RawValueTooltips: xgridValues.Select(v => v.Tooltip).ToList(),
-						NormalizedValueTooltips: xgridValues.Select(v => v.Tooltip).ToList()
+						NormalizedValueTooltips: xgridValues.Select(v => v.Tooltip).ToList(),
+						RawValueColors: xgridValues.Select(v => v.ColorVar).ToList(),
+						NormalizedValueColors: xgridValues.Select(v => v.ColorVar).ToList()
 					)
 				);
 			}
@@ -1433,7 +1449,9 @@ namespace Poink.Sim.Components.Training
 		IReadOnlyList<string>? RawValueKinds = null,
 		IReadOnlyList<string>? NormalizedValueKinds = null,
 		IReadOnlyList<string>? RawValueTooltips = null,
-		IReadOnlyList<string>? NormalizedValueTooltips = null
+		IReadOnlyList<string>? NormalizedValueTooltips = null,
+		IReadOnlyList<string?>? RawValueColors = null,
+		IReadOnlyList<string?>? NormalizedValueColors = null
 	)
 	{
 		public IReadOnlyList<string> RawValues { get; init; } = RawValues ?? [];
@@ -1442,5 +1460,7 @@ namespace Poink.Sim.Components.Training
 		public IReadOnlyList<string> NormalizedValueKinds { get; init; } = NormalizedValueKinds ?? [];
 		public IReadOnlyList<string> RawValueTooltips { get; init; } = RawValueTooltips ?? [];
 		public IReadOnlyList<string> NormalizedValueTooltips { get; init; } = NormalizedValueTooltips ?? [];
+		public IReadOnlyList<string?> RawValueColors { get; init; } = RawValueColors ?? [];
+		public IReadOnlyList<string?> NormalizedValueColors { get; init; } = NormalizedValueColors ?? [];
 	}
 }

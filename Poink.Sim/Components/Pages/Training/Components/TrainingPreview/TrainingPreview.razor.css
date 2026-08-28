@@ -208,6 +208,12 @@
 .tp-value-on { color: var(--color-success); opacity: 1; font-weight: bold; }
 .tp-value-off { opacity: 0.5; }
 
+/* --sig-color is set per value (see XGridSignalColors.Var) to mirror the matching signal's
+   colour in XGrid's own live panel, so each XGrid value keeps its own hue instead of the
+   generic on/off green/grey above. */
+.tp-value-signal { color: var(--sig-color, var(--color-secondary)); opacity: 0.55; }
+.tp-value-signal-on { opacity: 1; font-weight: bold; text-shadow: 0 0 4px var(--sig-color, var(--color-secondary)); }
+
 .tp-source-badge-1 { --tp-source-color: var(--color-badge-1); }
 .tp-source-badge-2 { --tp-source-color: var(--color-badge-2); }
 .tp-source-badge-3 { --tp-source-color: var(--color-badge-3); }

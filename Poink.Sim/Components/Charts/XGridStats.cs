@@ -800,6 +800,20 @@ internal static class XGridSignalCatalog
 			(g, _) => XGridStats.IsCurrentAtVwap(g)
 		),
 		new XGridSignalDef(
+			"at-low",
+			"At",
+			"At Low",
+			"Current price's row matches the latest swing low's row (top % most prominent, adaptive)",
+			(g, pct) => XGridStats.IsCurrentAtLowLevel(g, new XGridPeakSettings(XGridPeakMode.Adaptive, 0, pct, 10))
+		),
+		new XGridSignalDef(
+			"at-high",
+			"At",
+			"At High",
+			"Current price's row matches the latest swing high's row (top % most prominent, adaptive)",
+			(g, pct) => XGridStats.IsCurrentAtHighLevel(g, new XGridPeakSettings(XGridPeakMode.Adaptive, 0, pct, 10))
+		),
+		new XGridSignalDef(
 			"above-poc",
 			"Above",
 			"Above POC",
@@ -828,6 +842,20 @@ internal static class XGridSignalCatalog
 			(g, _) => XGridStats.IsCurrentAboveVwap(g)
 		),
 		new XGridSignalDef(
+			"above-low",
+			"Above",
+			"Above Low",
+			"Current price is above the latest swing low's price (top % most prominent, adaptive)",
+			(g, pct) => XGridStats.IsCurrentAboveLowLevel(g, new XGridPeakSettings(XGridPeakMode.Adaptive, 0, pct, 10))
+		),
+		new XGridSignalDef(
+			"above-high",
+			"Above",
+			"Above High",
+			"Current price is above the latest swing high's price (top % most prominent, adaptive)",
+			(g, pct) => XGridStats.IsCurrentAboveHighLevel(g, new XGridPeakSettings(XGridPeakMode.Adaptive, 0, pct, 10))
+		),
+		new XGridSignalDef(
 			Keys.BelowPoc,
 			"Below",
 			"Below POC",
@@ -854,6 +882,20 @@ internal static class XGridSignalCatalog
 			"Below VWAP",
 			"Current price is below the VWAP's price",
 			(g, _) => XGridStats.IsCurrentBelowVwap(g)
+		),
+		new XGridSignalDef(
+			"below-low",
+			"Below",
+			"Below Low",
+			"Current price is below the latest swing low's price (top % most prominent, adaptive)",
+			(g, pct) => XGridStats.IsCurrentBelowLowLevel(g, new XGridPeakSettings(XGridPeakMode.Adaptive, 0, pct, 10))
+		),
+		new XGridSignalDef(
+			"below-high",
+			"Below",
+			"Below High",
+			"Current price is below the latest swing high's price (top % most prominent, adaptive)",
+			(g, pct) => XGridStats.IsCurrentBelowHighLevel(g, new XGridPeakSettings(XGridPeakMode.Adaptive, 0, pct, 10))
 		),
 		new XGridSignalDef(
 			"vwap-at-poc",

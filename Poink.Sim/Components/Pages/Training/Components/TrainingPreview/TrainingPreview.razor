@@ -116,7 +116,8 @@
                                             {
                                                 var tooltip = i < row.RawValueTooltips.Count ? row.RawValueTooltips[i] : null;
                                                 var kind = i < row.RawValueKinds.Count ? row.RawValueKinds[i] : null;
-                                                <span class="tp-source-card-value @ValueKindClass(kind)" title="@tooltip">@row.RawValues[i]</span>
+                                                var color = i < row.RawValueColors.Count ? row.RawValueColors[i] : null;
+                                                <span class="tp-source-card-value @SignalValueClass(color, kind)" style="@SignalValueStyle(color)" title="@tooltip">@row.RawValues[i]</span>
                                             }
                                         </div>
                                     }
@@ -147,7 +148,8 @@
                                             {
                                                 var tooltip = i < row.NormalizedValueTooltips.Count ? row.NormalizedValueTooltips[i] : null;
                                                 var kind = i < row.NormalizedValueKinds.Count ? row.NormalizedValueKinds[i] : null;
-                                                <span class="tp-source-card-value @ValueKindClass(kind)" title="@tooltip">@row.NormalizedValues[i]</span>
+                                                var color = i < row.NormalizedValueColors.Count ? row.NormalizedValueColors[i] : null;
+                                                <span class="tp-source-card-value @SignalValueClass(color, kind)" style="@SignalValueStyle(color)" title="@tooltip">@row.NormalizedValues[i]</span>
                                             }
                                         </div>
                                     </div>

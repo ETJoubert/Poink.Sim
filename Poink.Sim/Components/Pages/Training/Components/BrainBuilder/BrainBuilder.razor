@@ -405,7 +405,7 @@
                                                                                 <span class="train-xgrid-group-title">@group.Key</span>
                                                                                 @foreach (var row in group)
                                                                                 {
-                                                                                    <label class="train-brainrow-field" title="@row.Tooltip">
+                                                                                    <label class="train-brainrow-field train-xgrid-signal" style="--sig-color: var(@row.ColorVar)" title="@row.Tooltip">
                                                                                         <input type="checkbox" checked="@row.Get()"
                                                                                                @onchange="e => row.Set(e.Value is bool b && b)"
                                                                                                disabled="@Service.IsRunning" />
