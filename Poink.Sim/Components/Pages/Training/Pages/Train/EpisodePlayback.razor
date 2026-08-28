@@ -162,7 +162,7 @@ else
                         @if (_showXGrid)
                         {
                             <div class="train-episode-chart-panel">
-                                <XGrid Grid="EpisodeXGrid" Positions="DisplayedXGridPositions" Lines="DisplayedCellBandLines"
+                                <XGridController Grid="EpisodeXGrid" Positions="DisplayedXGridPositions" Lines="DisplayedCellBandLines"
                                        @bind-PipCount="_xgridPipCount" @bind-ColCount="_xgridColCount" />
                             </div>
                         }

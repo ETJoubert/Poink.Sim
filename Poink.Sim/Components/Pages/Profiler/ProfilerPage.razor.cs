@@ -113,6 +113,7 @@ namespace Poink.Sim.Components.Pages
 		private bool _showXGrid = true;
 		private bool _showVolumeProfile = true;
 		private bool _showTimeProfile = true;
+		private bool _showMetricsPanel;
 
 		private HashSet<int> _selectedDrawingIds = new();
 		private HashSet<int> _savedDrawingIds = new();
@@ -136,6 +137,7 @@ namespace Poink.Sim.Components.Pages
 		private ElementReference _chartDividerRefXGrid;
 		private ElementReference _chartDividerRef;
 		private ElementReference _chartDividerRef2;
+		private ElementReference _chartDividerRefMetrics;
 		private ElementReference _chartHDividerRef;
 		private IJSObjectReference? _dividerResizeInstance;
 
@@ -225,6 +227,8 @@ namespace Poink.Sim.Components.Pages
 					await _dividerResizeInstance.InvokeVoidAsync("bind", _chartDividerRef);
 				if (_showTimeProfile)
 					await _dividerResizeInstance.InvokeVoidAsync("bind", _chartDividerRef2);
+				if (_showMetricsPanel)
+					await _dividerResizeInstance.InvokeVoidAsync("bind", _chartDividerRefMetrics);
 				await _dividerResizeInstance.InvokeVoidAsync("bindHeight", _chartHDividerRef);
 			}
 		}

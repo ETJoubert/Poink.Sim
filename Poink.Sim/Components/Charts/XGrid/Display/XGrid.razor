@@ -1,0 +1,142 @@
+@namespace Poink.Sim.Components.Charts
+@using System.Globalization
+
+<div class="xgrid-wrapper @(_expanded ? "expanded" : "")">
+    <div class="xgrid-header">
+        <span class="xgrid-title">X GRID</span>
+        <div class="xgrid-header-actions">
+            <button class="xgrid-expand-btn" @onclick="ToggleExpanded"
+                    title="@(_expanded ? "Shrink the X Grid back into its panel" : "Expand the X Grid to a large overlay")">
+                @(_expanded ? "✕" : "⤢")
+            </button>
+        </div>
+    </div>
+    @if (_expanded && ExpandedControls is not null)
+    {
+        <div class="xgrid-expanded-bar">
+            @ExpandedControls
+        </div>
+    }
+    <div class="xgrid-draw-row">
+        <span class="xgrid-row-label">Graphs</span>
+        <span class="xgrid-draw-label" title="Draw lines over the grid. In Line mode, click a start cell then an end cell to place a segment; the endpoints' borders highlight. Click a bottom-margin cell for a vertical line, a left-margin cell for a horizontal line. Hover a line for its start/end time and price. Right-click a line to remove it.">Draw</span>
+        <button class="xgrid-draw-toggle @(_lineMode ? "active" : "")" @onclick="ToggleLineMode"
+                title="@(_lineMode ? "Exit the line tool -- return to plain hovering" : "Line tool -- click a start cell then an end cell to place a segment")">Line</button>
+        <button class="xgrid-draw-clear" @onclick="ClearLines"
+                title="Remove every line you have drawn -- host-supplied lines are left intact">Clear</button>
+        <button class="xgrid-total-toggle @(_showNetGraph ? "active" : "")" @onclick="() => _showNetGraph = !_showNetGraph"
+                title="Plot cumulative Net (SBuy - SSell) across the range as a line graph">Graph</button>
+    </div>
+    @if (Grid is not { } grid)
+    {
+        <div class="xgrid-empty">select a Volume Range to build the grid</div>
+    }
+    else
+    {
+        <div class="xgrid-totals-row">
+            <span class="xgrid-row-label">metrics</span>
+            <span class="xgrid-total xgrid-total-up" title="SBuy -- sum of the price before every up tick across the range">SBuy @grid.SBuy.ToString("F5", CultureInfo.InvariantCulture)</span>
+            <span class="xgrid-total xgrid-total-down" title="SSell -- sum of the price before every down tick across the range">SSell @grid.SSell.ToString("F5", CultureInfo.InvariantCulture)</span>
+            <span class="xgrid-total xgrid-total-net" title="Net = SBuy minus SSell">Net @((grid.SBuy - grid.SSell).ToString("F5", CultureInfo.InvariantCulture))</span>
+        </div>
+        @if (_showNetGraph)
+        {
+            <div class="xgrid-netgraph" title="Cumulative Net per column as bars, one bar per grid column; green above zero, red below; solid line marks zero, vertical lines mark where Net crosses zero">
+                <svg viewBox="0 0 100 100" preserveAspectRatio="none">
+                    @foreach (var bar in NetGraphBars(grid))
+                    {
+                        <rect class="@(bar.Positive ? "xgrid-netgraph-bar-up" : "xgrid-netgraph-bar-down")"
+                              x="@bar.X" y="@bar.Y" width="@bar.Width" height="@bar.Height" />
+                    }
+                    <line class="xgrid-netgraph-zero" x1="0" y1="@NetGraphZeroY(grid)" x2="100" y2="@NetGraphZeroY(grid)" />
+                    @foreach (var x in NetGraphZeroCrossings(grid))
+                    {
+                        <line class="xgrid-netgraph-cross" x1="@x" y1="0" x2="@x" y2="100" />
+                    }
+                </svg>
+            </div>
+        }
+        <div class="xgrid-scroll">
+            <div class="xgrid-canvas-outer">
+                <div class="xgrid-canvas-wrap">
+                    <canvas class="xgrid-canvas" @ref="_canvasRef"></canvas> @* NoTitle by design *@
+                </div>
+                <div class="xgrid-cell-tip"></div>
+            </div>
+            <div class="xgrid-price-axis">
+                <span class="xgrid-price xgrid-price-high" title="Highest price in the grid range">@(grid.RowHigh.Count > 0 ? grid.RowHigh[0].ToString("F5", CultureInfo.InvariantCulture) : "--")</span>
+                <span class="xgrid-price xgrid-price-current" title="Current price -- the range's latest bar close">@(grid.Current is { } cur ? cur.Price.ToString("F5", CultureInfo.InvariantCulture) : "--")</span>
+                <span class="xgrid-price xgrid-price-low" title="Lowest price in the grid range">@(grid.RowLow.Count > 0 ? grid.RowLow[^1].ToString("F5", CultureInfo.InvariantCulture) : "--")</span>
+                @if (_order is { } order)
+                {
+                    <div class="xgrid-order-panel" style="--xgrid-order-top: @OrderPanelTopPercent(grid).ToString("0.##", CultureInfo.InvariantCulture)%">
+                        <div class="xgrid-order-head">
+                            <span class="xgrid-order-tag">@PanelTag</span>
+                            <button class="xgrid-order-close" @onclick="CancelOrder" title="Dismiss this panel without changing the order">&times;</button>
+                        </div>
+                        <span class="xgrid-order-price" title="@(_panelMode == OrderPanelMode.New ? "Entry price -- the middle price of the clicked cell" : _panelMode == OrderPanelMode.Pending ? "Trigger price of the resting order" : "Entry price of the open position")">@order.EntryPrice.ToString("F5", CultureInfo.InvariantCulture)</span>
+
+                        @if (_panelMode == OrderPanelMode.New)
+                        {
+                            <button class="xgrid-order-dir @(order.IsLong ? "long" : "short")" @onclick="ToggleOrderDirection"
+                                    title="Toggle the order direction between long and short">@(order.IsLong ? "LONG" : "SHORT")</button>
+                        }
+                        else
+                        {
+                            <span class="xgrid-order-dir static @(order.IsLong ? "long" : "short")" title="Order direction">@(order.IsLong ? "LONG" : "SHORT")</span>
+                        }
+
+                        @if (_panelMode != OrderPanelMode.Open)
+                        {
+                            <label class="xgrid-order-vol" title="Order volume">
+                                <span>Vol</span>
+                                <input type="number" min="0" step="0.01" @bind="order.Volume" @bind:event="oninput" />
+                            </label>
+                            <div class="xgrid-order-sltp">
+                                <div class="xgrid-order-lvl">
+                                    <button class="xgrid-order-sl @(_orderArm == OrderArm.StopLoss ? "arming" : "") @(order.StopLoss is not null ? "set" : "")" @onclick="ArmStopLoss"
+                                            title="@(order.StopLoss is { } s ? $"Stop loss at {s.ToString("F5", CultureInfo.InvariantCulture)} -- click SL then a right-margin cell to move it" : "Arm stop loss -- then click a right-margin cell to set its price")">SL</button>
+                                    @if (order.StopLoss is not null)
+                                    {
+                                        <button class="xgrid-order-clear" @onclick="ClearStopLoss" title="Clear the stop loss">&times;</button>
+                                    }
+                                </div>
+                                <div class="xgrid-order-lvl">
+                                    <button class="xgrid-order-tp @(_orderArm == OrderArm.TakeProfit ? "arming" : "") @(order.TakeProfit is not null ? "set" : "")" @onclick="ArmTakeProfit"
+                                            title="@(order.TakeProfit is { } t ? $"Take profit at {t.ToString("F5", CultureInfo.InvariantCulture)} -- click TP then a right-margin cell to move it" : "Arm take profit -- then click a right-margin cell to set its price")">TP</button>
+                                    @if (order.TakeProfit is not null)
+                                    {
+                                        <button class="xgrid-order-clear" @onclick="ClearTakeProfit" title="Clear the take profit">&times;</button>
+                                    }
+                                </div>
+                            </div>
+                        }
+
+                        @if (_panelMode == OrderPanelMode.New)
+                        {
+                            <button class="xgrid-order-place" @onclick="PlaceOrder"
+                                    title="Place the order with the current direction, volume, and any stop loss / take profit set">PLACE</button>
+                        }
+                        else if (_panelMode == OrderPanelMode.Pending)
+                        {
+                            <button class="xgrid-order-place" @onclick="ApplyModification"
+                                    title="Apply the changes -- cancels the resting order and re-places it with the new volume and stop loss / take profit">APPLY</button>
+                            <button class="xgrid-order-cancel" @onclick="CancelPending"
+                                    title="Cancel this resting order">CANCEL</button>
+                        }
+                        else
+                        {
+                            <button class="xgrid-order-cancel" @onclick="ClosePosition"
+                                    title="Close this open position at market">CLOSE</button>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+        <div class="xgrid-footer">
+            <span class="xgrid-footer-time" title="Oldest bar in the grid range">@(grid.Columns.Count > 0 ? grid.Columns[0].OpenTime.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) : "--")</span>
+            <span class="xgrid-footer-span" title="Time span from the oldest to the latest bar in the grid">@GridTimeSpan(grid) &middot; @GridTickCount(grid).ToString("N0", CultureInfo.InvariantCulture) ticks</span>
+            <span class="xgrid-footer-time" title="Latest bar in the grid range">@(grid.Columns.Count > 0 ? grid.Columns[^1].OpenTime.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) : "--")</span>
+        </div>
+    }
+</div>

@@ -1,0 +1,163 @@
+@namespace Poink.Sim.Components.Charts
+@using System.Globalization
+
+<div class="metrics-panel-wrapper">
+    <div class="xgrid-header">
+        <span class="xgrid-title">METRICS</span>
+        <div class="xgrid-header-actions">
+            <label class="xgrid-control" title="Pips per row -- multiplied by the instrument's pip size for each row's fixed price height. Rows snap to an absolute price grid, so the row count is derived from the range rather than fixed">
+                <span>Pips</span>
+                <input type="number" min="1" max="200" @bind:get="PipCount" @bind:set="SetPipCount" @bind:event="oninput" />
+                @if (Grid is { } rowGrid)
+                {
+                    <span class="xgrid-control-readout" title="Fixed price height of one row">@RowHeightLabel(rowGrid)</span>
+                }
+            </label>
+            <label class="xgrid-control" title="Number of bar groups (columns) -- bars are merged evenly when the selection holds more than this">
+                <span>Cols</span>
+                <input type="number" min="1" max="500" disabled="@_colsBoundToProfileBars"
+                       @bind:get="ColCount" @bind:set="SetColCount" @bind:event="oninput" />
+                @if (ProfileBarCount is { } profileBarCount)
+                {
+                    <button type="button" class="xgrid-bind-btn @(_colsBoundToProfileBars ? "active" : "")"
+                            @onclick="ToggleColsBoundToProfileBars"
+                            title="@(_colsBoundToProfileBars ? $"Cols is following Profile Bars ({profileBarCount}) -- click to unbind and edit Cols manually again" : $"Bind Cols to Profile Bars ({profileBarCount}) -- keeps one column per bar in the profile window as it changes")">=Bars</button>
+                }
+                @if (Grid is { } colGrid)
+                {
+                    <span class="xgrid-control-readout" title="Average time span of one column">@ColumnWidthLabel(colGrid)</span>
+                }
+            </label>
+        </div>
+    </div>
+    <div class="xgrid-overlay-row">
+        <span class="xgrid-row-label">Overlays</span>
+        <span class="xgrid-overlay-label" title="Shades each price row by how many times it was the POC while dragging the Volume Range's near border across every bar position. L->R pins the far border at the range's right edge; R->L pins it at the left edge; Sum combines both.">Sweep</span>
+        <div class="xgrid-sweep-toggle">
+            <button class="@(Display.SweepMode == XGridSweepMode.None ? "active" : "")" @onclick="() => SetDisplay(Display with { SweepMode = XGridSweepMode.None })"
+                    title="Don't shade by sweep occurrences">None</button>
+            <button class="@(Display.SweepMode == XGridSweepMode.LeftToRight ? "active" : "")" @onclick="() => SetDisplay(Display with { SweepMode = XGridSweepMode.LeftToRight })"
+                    title="Shade by POC occurrences while sweeping the Volume Range's left border rightward, right border pinned">L-&gt;R</button>
+            <button class="@(Display.SweepMode == XGridSweepMode.RightToLeft ? "active" : "")" @onclick="() => SetDisplay(Display with { SweepMode = XGridSweepMode.RightToLeft })"
+                    title="Shade by POC occurrences while sweeping the Volume Range's right border leftward, left border pinned">R-&gt;L</button>
+            <button class="@(Display.SweepMode == XGridSweepMode.Sum ? "active" : "")" @onclick="() => SetDisplay(Display with { SweepMode = XGridSweepMode.Sum })"
+                    title="Shade by the combined L->R and R->L occurrence counts">Sum</button>
+        </div>
+        <span class="xgrid-row-divider"></span>
+        <span class="xgrid-delta-label" title="Shade each block by its up-minus-down tick balance instead of its raw tick count.">Delta</span>
+        <button class="xgrid-delta-toggle @(Display.ShadeDelta ? "active" : "")" @onclick="() => SetDisplay(Display with { ShadeDelta = !Display.ShadeDelta })"
+                title="Shade green when up ticks lead, red when down ticks lead, brighter with a larger imbalance. Replaces the tick-count shading while active.">Up/Dn</button>
+        <button class="xgrid-delta-toggle @(Display.DistanceWeighted ? "active" : "")" @onclick="() => SetDisplay(Display with { DistanceWeighted = !Display.DistanceWeighted })"
+                title="Weight each tick by the price distance it moved instead of counting it as one. Applies to whichever shading mode is active.">&times;Dist</button>
+        <span class="xgrid-row-divider"></span>
+        <button class="xgrid-level-toggle xgrid-level-toggle-poc @(Display.ShowPoc ? "active" : "")" @onclick="() => SetDisplay(Display with { ShowPoc = !Display.ShowPoc })"
+                title="Highlight the Point of Control row -- the price with the most volume in the range">POC</button>
+        <button class="xgrid-level-toggle xgrid-level-toggle-vah @(Display.ShowVah ? "active" : "")" @onclick="() => SetDisplay(Display with { ShowVah = !Display.ShowVah })"
+                title="Highlight the row containing Value Area High">VAH</button>
+        <button class="xgrid-level-toggle xgrid-level-toggle-val @(Display.ShowVal ? "active" : "")" @onclick="() => SetDisplay(Display with { ShowVal = !Display.ShowVal })"
+                title="Highlight the row containing Value Area Low">VAL</button>
+        <button class="xgrid-level-toggle xgrid-level-toggle-vwap @(Display.ShowVwap ? "active" : "")" @onclick="() => SetDisplay(Display with { ShowVwap = !Display.ShowVwap })"
+                title="Highlight the row containing the range's volume-weighted average price">VWAP</button>
+        <button class="xgrid-level-toggle xgrid-level-toggle-avg @(Display.ShowAverage ? "active" : "")" @onclick="() => SetDisplay(Display with { ShowAverage = !Display.ShowAverage })"
+                title="Highlight the row containing the range's mean price">AVG</button>
+        <button class="xgrid-level-toggle xgrid-level-toggle-med @(Display.ShowMedian ? "active" : "")" @onclick="() => SetDisplay(Display with { ShowMedian = !Display.ShowMedian })"
+                title="Highlight the row containing the range's median price">MED</button>
+        <span class="xgrid-row-divider"></span>
+        <button class="xgrid-level-toggle xgrid-level-toggle-day @(Display.ShowDayLines ? "active" : "")" @onclick="() => SetDisplay(Display with { ShowDayLines = !Display.ShowDayLines })"
+                title="Draw a dashed vertical line at every day rollover (midnight)">Day</button>
+        <button class="xgrid-level-toggle xgrid-level-toggle-interval @(Display.ShowIntervalLines ? "active" : "")" @onclick="() => SetDisplay(Display with { ShowIntervalLines = !Display.ShowIntervalLines })"
+                title="Draw a dashed vertical line every @Display.IntervalHours hours, aligned to midnight">Every</button>
+        <label class="xgrid-control" title="Hours between interval lines when Every is active, aligned to midnight -- e.g. 4 draws a line at 00:00, 04:00, 08:00...">
+            <input type="number" min="1" max="24" step="1" @bind:get="Display.IntervalHours" @bind:set="v => SetDisplay(Display with { IntervalHours = v })" @bind:event="oninput" />
+            <span>h</span>
+        </label>
+    </div>
+    <div class="xgrid-spectrum-row">
+        <span class="xgrid-row-label">Highlights</span>
+        <button class="xgrid-delta-toggle @(Spectrum.HighlightMode == XGridHighlightMode.Max ? "active" : "")" @onclick="ToggleHighlightMode"
+                title="@(Spectrum.HighlightMode == XGridHighlightMode.Max ? "Max mode: highlights every cell at least Percent% of that metric's grid-wide peak value -- click for Rank mode" : "Rank mode: highlights exactly the top Percent% of cells by that metric, regardless of their values -- click for Max mode")">@(Spectrum.HighlightMode == XGridHighlightMode.Max ? "Max" : "Rank")</button>
+        <span class="xgrid-row-divider"></span>
+        <button class="xgrid-delta-toggle @(Spectrum.TotalShow ? "active" : "")" @onclick="() => SetSpectrum(Spectrum with { TotalShow = !Spectrum.TotalShow })"
+                title="Highlight the border of the top Percent% of cells by total tick count">Total</button>
+        <label class="xgrid-control" title="Percent of highest-volume cells to highlight, ranked by total tick count -- 10 highlights the top 10%">
+            <input type="number" min="0" max="100" step="1" @bind:get="Spectrum.TotalPercent" @bind:set="v => SetSpectrum(Spectrum with { TotalPercent = v })" @bind:event="oninput" />
+            <span>%</span>
+        </label>
+
+        <button class="xgrid-delta-toggle xgrid-delta-toggle-up @(Spectrum.UpShow ? "active" : "")" @onclick="() => SetSpectrum(Spectrum with { UpShow = !Spectrum.UpShow })"
+                title="Highlight the border of the top Percent% of cells by up-tick count">Up</button>
+        <label class="xgrid-control" title="Percent of highest up-tick cells to highlight, ranked by up-tick count -- 10 highlights the top 10%">
+            <input type="number" min="0" max="100" step="1" @bind:get="Spectrum.UpPercent" @bind:set="v => SetSpectrum(Spectrum with { UpPercent = v })" @bind:event="oninput" />
+            <span>%</span>
+        </label>
+
+        <button class="xgrid-delta-toggle xgrid-delta-toggle-down @(Spectrum.DownShow ? "active" : "")" @onclick="() => SetSpectrum(Spectrum with { DownShow = !Spectrum.DownShow })"
+                title="Highlight the border of the top Percent% of cells by down-tick count">Down</button>
+        <label class="xgrid-control" title="Percent of highest down-tick cells to highlight, ranked by down-tick count -- 10 highlights the top 10%">
+            <input type="number" min="0" max="100" step="1" @bind:get="Spectrum.DownPercent" @bind:set="v => SetSpectrum(Spectrum with { DownPercent = v })" @bind:event="oninput" />
+            <span>%</span>
+        </label>
+
+        <span class="xgrid-row-divider"></span>
+        <button class="xgrid-delta-toggle xgrid-delta-toggle-pos @(Spectrum.DeltaPosShow ? "active" : "")" @onclick="() => SetSpectrum(Spectrum with { DeltaPosShow = !Spectrum.DeltaPosShow })"
+                title="Highlight the border of the top Percent% most buy-heavy cells, ranked by up-minus-down tick delta across every nonzero-delta cell">&Delta;+</button>
+        <label class="xgrid-control" title="Percent of the most positive-delta cells to highlight, ranked among every nonzero-delta cell -- 10 highlights the top 10%">
+            <input type="number" min="0" max="100" step="1" @bind:get="Spectrum.DeltaPosPercent" @bind:set="v => SetSpectrum(Spectrum with { DeltaPosPercent = v })" @bind:event="oninput" />
+            <span>%</span>
+        </label>
+
+        <button class="xgrid-delta-toggle xgrid-delta-toggle-neg @(Spectrum.DeltaNegShow ? "active" : "")" @onclick="() => SetSpectrum(Spectrum with { DeltaNegShow = !Spectrum.DeltaNegShow })"
+                title="Highlight the border of the top Percent% most sell-heavy cells, ranked by down-minus-up tick delta across every nonzero-delta cell">&Delta;-</button>
+        <label class="xgrid-control" title="Percent of the most negative-delta cells to highlight, ranked among every nonzero-delta cell -- 10 highlights the top 10%">
+            <input type="number" min="0" max="100" step="1" @bind:get="Spectrum.DeltaNegPercent" @bind:set="v => SetSpectrum(Spectrum with { DeltaNegPercent = v })" @bind:event="oninput" />
+            <span>%</span>
+        </label>
+
+        <span class="xgrid-row-divider"></span>
+        <button class="xgrid-delta-toggle xgrid-delta-toggle-low @(LowPointOverlay.ShowHighlight ? "active" : "")" @onclick="() => SetLowPointOverlay(LowPointOverlay with { ShowHighlight = !LowPointOverlay.ShowHighlight })"
+                title="Mark local swing lows: a low must out-drop its neighbours by at least the prominence (Fixed) or rank in the top Percent% found (Adaptive), and survivors within the distance of a stronger low are dropped">Low</button>
+        <button class="xgrid-delta-toggle @(LowPointOverlay.Mode == XGridPeakMode.Adaptive ? "active" : "")" @onclick="() => SetLowPointOverlay(LowPointOverlay with { Mode = LowPointOverlay.Mode == XGridPeakMode.Fixed ? XGridPeakMode.Adaptive : XGridPeakMode.Fixed })"
+                title="@(LowPointOverlay.Mode == XGridPeakMode.Adaptive ? "Adaptive: keeps the top Percent% most prominent lows found in the current view -- click for Fixed" : "Fixed: keeps every low whose prominence clears the row threshold -- click for Adaptive")">@(LowPointOverlay.Mode == XGridPeakMode.Adaptive ? "Adapt" : "Fixed")</button>
+        @if (LowPointOverlay.Mode == XGridPeakMode.Adaptive)
+        {
+            <label class="xgrid-control" title="Percent of the most prominent lows to keep in the current view -- 20 keeps the top 20%">
+                <input type="number" min="0" max="100" step="1" @bind:get="LowPointOverlay.AdaptivePercent" @bind:set="v => SetLowPointOverlay(LowPointOverlay with { AdaptivePercent = v })" @bind:event="oninput" />
+                <span>%</span>
+            </label>
+        }
+        else
+        {
+            <label class="xgrid-control" title="Minimum prominence (rows) a low must clear -- its drop to the higher of the two nearest rises before a deeper low">
+                <input type="number" min="0" step="0.5" @bind:get="LowPointOverlay.MinProminence" @bind:set="v => SetLowPointOverlay(LowPointOverlay with { MinProminence = v })" @bind:event="oninput" />
+                <span>prom</span>
+            </label>
+        }
+        <label class="xgrid-control" title="Minimum columns between two kept lows -- the stronger (higher-prominence) low wins when two are closer than this">
+            <input type="number" min="1" max="500" step="1" @bind:get="LowPointOverlay.MinDistance" @bind:set="v => SetLowPointOverlay(LowPointOverlay with { MinDistance = v })" @bind:event="oninput" />
+            <span>dist</span>
+        </label>
+
+        <button class="xgrid-delta-toggle xgrid-delta-toggle-high @(HighPointOverlay.ShowHighlight ? "active" : "")" @onclick="() => SetHighPointOverlay(HighPointOverlay with { ShowHighlight = !HighPointOverlay.ShowHighlight })"
+                title="Mark local swing highs: a high must out-rise its neighbours by at least the prominence (Fixed) or rank in the top Percent% found (Adaptive), and survivors within the distance of a stronger high are dropped">High</button>
+        <button class="xgrid-delta-toggle @(HighPointOverlay.Mode == XGridPeakMode.Adaptive ? "active" : "")" @onclick="() => SetHighPointOverlay(HighPointOverlay with { Mode = HighPointOverlay.Mode == XGridPeakMode.Fixed ? XGridPeakMode.Adaptive : XGridPeakMode.Fixed })"
+                title="@(HighPointOverlay.Mode == XGridPeakMode.Adaptive ? "Adaptive: keeps the top Percent% most prominent highs found in the current view -- click for Fixed" : "Fixed: keeps every high whose prominence clears the row threshold -- click for Adaptive")">@(HighPointOverlay.Mode == XGridPeakMode.Adaptive ? "Adapt" : "Fixed")</button>
+        @if (HighPointOverlay.Mode == XGridPeakMode.Adaptive)
+        {
+            <label class="xgrid-control" title="Percent of the most prominent highs to keep in the current view -- 20 keeps the top 20%">
+                <input type="number" min="0" max="100" step="1" @bind:get="HighPointOverlay.AdaptivePercent" @bind:set="v => SetHighPointOverlay(HighPointOverlay with { AdaptivePercent = v })" @bind:event="oninput" />
+                <span>%</span>
+            </label>
+        }
+        else
+        {
+            <label class="xgrid-control" title="Minimum prominence (rows) a high must clear -- its rise above the lower of the two nearest drops before a taller high">
+                <input type="number" min="0" step="0.5" @bind:get="HighPointOverlay.MinProminence" @bind:set="v => SetHighPointOverlay(HighPointOverlay with { MinProminence = v })" @bind:event="oninput" />
+                <span>prom</span>
+            </label>
+        }
+        <label class="xgrid-control" title="Minimum columns between two kept highs -- the stronger (higher-prominence) high wins when two are closer than this">
+            <input type="number" min="1" max="500" step="1" @bind:get="HighPointOverlay.MinDistance" @bind:set="v => SetHighPointOverlay(HighPointOverlay with { MinDistance = v })" @bind:event="oninput" />
+            <span>dist</span>
+        </label>
+    </div>
+</div>

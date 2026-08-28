@@ -105,6 +105,10 @@
                     <input type="checkbox" @bind="_showTimeProfile" />
                     <span>Time profile</span>
                 </label>
+                <label class="prof-overlay-toggle" title="Standalone panel of XGrid's measurement controls (pips/cols, overlays, spectrum highlights) -- not wired to the chart, for review only">
+                    <input type="checkbox" @bind="_showMetricsPanel" />
+                    <span>Metrics</span>
+                </label>
             </div>
         </div>
         <div class="prof-chart">
@@ -130,7 +134,7 @@
                          title="@(VolumeRangeLabel() is { } xgridLabel
                                                                               ? $"Footprint grid for the selected Volume Range ({xgridLabel}) -- rows are price buckets, columns are bars"
                                                                               : "Select a Volume Range on the chart to build the footprint grid -- rows are price buckets, columns are bars")">
-                        <XGrid Grid="ComputeXGrid()" @bind-PipCount="_xgridPipCount" @bind-ColCount="_xgridColCount" />
+                        <XGridController Grid="ComputeXGrid()" @bind-PipCount="_xgridPipCount" @bind-ColCount="_xgridColCount" />
                     </div>
                 </div>
             }
@@ -158,6 +162,15 @@
                                                                               : "Time profile across every bar loaded so far -- use the toolbar's VOLUME RANGE tool to narrow it to a specific time window")
                                                                               + ". Measures dwell time (seconds) per price level instead of tick count")">
                         <TickTimeProfileChart WeightedSamples="MergedTimeSamples()" CurrentPrice="LastClose" />
+                    </div>
+                </div>
+            }
+            @if (_showMetricsPanel)
+            {
+                <div class="prof-chart-divider" @ref="_chartDividerRefMetrics" data-min-width="200" title="Drag to resize"></div>
+                <div class="prof-chart-side">
+                    <div class="prof-vp" title="XGrid's measurement controls, extracted into their own panel for review -- not bound to the chart or XGrid above">
+                        <MetricsControlPanel />
                     </div>
                 </div>
             }

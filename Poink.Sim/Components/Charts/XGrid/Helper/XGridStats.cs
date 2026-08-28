@@ -72,17 +72,23 @@ internal enum XGridSpectrumMetric
 	Delta,
 }
 
-// How a Percent value is turned into a cutoff -- Rank always highlights that share of the
-// grid's nonzero cells; Max highlights every cell at least that share of the metric's peak.
-internal enum XGridHighlightMode
+/// <summary>
+/// How a Percent value becomes a cutoff -- Rank highlights that share of the grid's nonzero cells;
+/// Max highlights every cell at least that share of the metric's peak. Public (not internal) since
+/// XGridSpectrumSettings.HighlightMode exposes it, same rationale as XGridResult.
+/// </summary>
+public enum XGridHighlightMode
 {
 	Rank,
 	Max,
 }
 
-// Fixed clears an absolute row-count prominence; Adaptive keeps the top Percent% of
-// candidates found in the current view, the same top-X% convention XGridHighlightMode.Max uses.
-internal enum XGridPeakMode
+/// <summary>
+/// Fixed clears an absolute row-count prominence; Adaptive keeps the top Percent% of candidates
+/// found in the current view. Public (not internal) since XGridPeakOverlaySettings.Mode exposes it,
+/// same rationale as XGridResult.
+/// </summary>
+public enum XGridPeakMode
 {
 	Fixed,
 	Adaptive,

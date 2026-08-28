@@ -1,0 +1,408 @@
+.metrics-panel-wrapper {
+    --xgrid-bg: rgba(255, 255, 255, 0.015);
+
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: var(--border-radius-sm);
+    background: var(--xgrid-bg);
+    overflow: auto;
+}
+
+.xgrid-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    flex: 0 0 auto;
+}
+
+.xgrid-title {
+    font-size: 0.6rem;
+    letter-spacing: 0.1em;
+    color: var(--color-secondary);
+    opacity: 0.85;
+}
+
+.xgrid-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.xgrid-control {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.62rem;
+    color: var(--color-secondary);
+    opacity: 0.85;
+    white-space: nowrap;
+}
+
+.xgrid-control input[type="number"] {
+    width: 42px;
+    background: var(--color-bg-terminal);
+    border: 1px solid color-mix(in srgb, var(--color-secondary) 40%, transparent);
+    color: var(--color-secondary);
+    padding: 1px 2px;
+    border-radius: var(--border-radius-sm);
+    font-family: var(--font-body);
+    font-size: 0.62rem;
+}
+
+.xgrid-control input[type="number"]:focus {
+    outline: none;
+    border-color: var(--color-secondary);
+    box-shadow: 0 0 6px color-mix(in srgb, var(--color-secondary) 45%, transparent);
+}
+
+.xgrid-control input[type="number"]:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.xgrid-control-readout {
+    opacity: 0.65;
+    font-variant-numeric: tabular-nums;
+}
+
+.xgrid-bind-btn {
+    flex: 0 0 auto;
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--color-secondary) 40%, transparent);
+    color: var(--color-secondary);
+    font-family: var(--font-body);
+    font-size: 0.58rem;
+    line-height: 1;
+    padding: 2px 4px;
+    border-radius: var(--border-radius-sm);
+    cursor: pointer;
+    transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.xgrid-bind-btn:hover {
+    color: var(--color-primary);
+    border-color: var(--color-primary);
+}
+
+.xgrid-bind-btn.active {
+    color: var(--color-secondary);
+    border-color: var(--color-secondary);
+    background: color-mix(in srgb, var(--color-secondary) 15%, transparent);
+}
+
+.xgrid-overlay-row,
+.xgrid-spectrum-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    flex: 0 0 auto;
+    flex-wrap: wrap;
+}
+
+.xgrid-row-label {
+    flex: 0 0 auto;
+    font-size: 0.56rem;
+    font-weight: bold;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-highlight);
+    opacity: 0.9;
+    white-space: nowrap;
+}
+
+.xgrid-row-divider {
+    flex: 0 0 auto;
+    align-self: stretch;
+    width: 1px;
+    margin: 2px 0;
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.xgrid-overlay-label {
+    font-size: 0.56rem;
+    color: var(--color-warning);
+    opacity: 0.85;
+    white-space: nowrap;
+}
+
+.xgrid-sweep-toggle {
+    display: flex;
+    gap: 1px;
+}
+
+.xgrid-sweep-toggle button {
+    font-family: var(--font-body);
+    font-size: 0.54rem;
+    letter-spacing: 0.02em;
+    color: var(--color-warning);
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--color-warning) 35%, transparent);
+    padding: 1px 5px;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.xgrid-sweep-toggle button:not(:first-child) {
+    border-left: none;
+}
+
+.xgrid-sweep-toggle button:first-child {
+    border-radius: var(--border-radius-sm) 0 0 var(--border-radius-sm);
+}
+
+.xgrid-sweep-toggle button:last-child {
+    border-radius: 0 var(--border-radius-sm) var(--border-radius-sm) 0;
+}
+
+.xgrid-sweep-toggle button:hover {
+    background: color-mix(in srgb, var(--color-warning) 15%, transparent);
+}
+
+.xgrid-sweep-toggle button.active {
+    background: var(--color-warning);
+    color: var(--color-bg-dark);
+    font-weight: bold;
+}
+
+.xgrid-delta-label {
+    font-size: 0.56rem;
+    color: var(--color-secondary);
+    opacity: 0.85;
+    white-space: nowrap;
+    margin-left: 4px;
+}
+
+.xgrid-delta-toggle {
+    font-family: var(--font-body);
+    font-size: 0.54rem;
+    letter-spacing: 0.02em;
+    color: var(--color-secondary);
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--color-secondary) 35%, transparent);
+    padding: 1px 5px;
+    border-radius: var(--border-radius-sm);
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.xgrid-delta-toggle:hover {
+    background: color-mix(in srgb, var(--color-secondary) 15%, transparent);
+}
+
+.xgrid-delta-toggle.active {
+    background: var(--color-secondary);
+    color: var(--color-bg-dark);
+    font-weight: bold;
+}
+
+.xgrid-delta-toggle-up {
+    color: var(--color-success);
+    border-color: color-mix(in srgb, var(--color-success) 35%, transparent);
+}
+
+.xgrid-delta-toggle-up:hover {
+    background: color-mix(in srgb, var(--color-success) 15%, transparent);
+}
+
+.xgrid-delta-toggle-up.active {
+    background: var(--color-success);
+    color: var(--color-bg-dark);
+}
+
+.xgrid-delta-toggle-down {
+    color: var(--color-error);
+    border-color: color-mix(in srgb, var(--color-error) 35%, transparent);
+}
+
+.xgrid-delta-toggle-down:hover {
+    background: color-mix(in srgb, var(--color-error) 15%, transparent);
+}
+
+.xgrid-delta-toggle-down.active {
+    background: var(--color-error);
+    color: var(--color-bg-dark);
+}
+
+.xgrid-delta-toggle-pos {
+    color: var(--color-badge-1);
+    border-color: color-mix(in srgb, var(--color-badge-1) 35%, transparent);
+}
+
+.xgrid-delta-toggle-pos:hover {
+    background: color-mix(in srgb, var(--color-badge-1) 15%, transparent);
+}
+
+.xgrid-delta-toggle-pos.active {
+    background: var(--color-badge-1);
+    color: var(--color-bg-dark);
+}
+
+.xgrid-delta-toggle-neg {
+    color: var(--color-badge-3);
+    border-color: color-mix(in srgb, var(--color-badge-3) 35%, transparent);
+}
+
+.xgrid-delta-toggle-neg:hover {
+    background: color-mix(in srgb, var(--color-badge-3) 15%, transparent);
+}
+
+.xgrid-delta-toggle-neg.active {
+    background: var(--color-badge-3);
+    color: var(--color-bg-dark);
+}
+
+.xgrid-delta-toggle-low {
+    color: var(--color-badge-4);
+    border-color: color-mix(in srgb, var(--color-badge-4) 35%, transparent);
+}
+
+.xgrid-delta-toggle-low:hover {
+    background: color-mix(in srgb, var(--color-badge-4) 15%, transparent);
+}
+
+.xgrid-delta-toggle-low.active {
+    background: var(--color-badge-4);
+    color: var(--color-bg-dark);
+}
+
+.xgrid-delta-toggle-high {
+    color: var(--color-badge-5);
+    border-color: color-mix(in srgb, var(--color-badge-5) 35%, transparent);
+}
+
+.xgrid-delta-toggle-high:hover {
+    background: color-mix(in srgb, var(--color-badge-5) 15%, transparent);
+}
+
+.xgrid-delta-toggle-high.active {
+    background: var(--color-badge-5);
+    color: var(--color-bg-dark);
+}
+
+.xgrid-level-toggle {
+    font-family: var(--font-body);
+    font-size: 0.54rem;
+    letter-spacing: 0.02em;
+    background: transparent;
+    padding: 1px 5px;
+    border-radius: var(--border-radius-sm);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.xgrid-level-toggle-poc {
+    color: var(--color-primary);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 35%, transparent);
+}
+
+.xgrid-level-toggle-poc:hover {
+    background: color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+.xgrid-level-toggle-poc.active {
+    background: var(--color-primary);
+    color: var(--color-bg-dark);
+    font-weight: bold;
+}
+
+.xgrid-level-toggle-vah,
+.xgrid-level-toggle-val {
+    color: var(--color-highlight);
+    border: 1px solid color-mix(in srgb, var(--color-highlight) 35%, transparent);
+}
+
+.xgrid-level-toggle-vah:hover,
+.xgrid-level-toggle-val:hover {
+    background: color-mix(in srgb, var(--color-highlight) 15%, transparent);
+}
+
+.xgrid-level-toggle-vah.active,
+.xgrid-level-toggle-val.active {
+    background: var(--color-highlight);
+    color: var(--color-bg-dark);
+    font-weight: bold;
+}
+
+.xgrid-level-toggle-vwap {
+    color: var(--color-tertiary);
+    border: 1px solid color-mix(in srgb, var(--color-tertiary) 35%, transparent);
+}
+
+.xgrid-level-toggle-vwap:hover {
+    background: color-mix(in srgb, var(--color-tertiary) 15%, transparent);
+}
+
+.xgrid-level-toggle-vwap.active {
+    background: var(--color-tertiary);
+    color: var(--color-bg-dark);
+    font-weight: bold;
+}
+
+.xgrid-level-toggle-avg {
+    color: var(--color-badge-2);
+    border: 1px solid color-mix(in srgb, var(--color-badge-2) 35%, transparent);
+}
+
+.xgrid-level-toggle-avg:hover {
+    background: color-mix(in srgb, var(--color-badge-2) 15%, transparent);
+}
+
+.xgrid-level-toggle-avg.active {
+    background: var(--color-badge-2);
+    color: var(--color-bg-dark);
+    font-weight: bold;
+}
+
+.xgrid-level-toggle-med {
+    color: var(--color-neutral);
+    border: 1px solid color-mix(in srgb, var(--color-neutral) 35%, transparent);
+}
+
+.xgrid-level-toggle-med:hover {
+    background: color-mix(in srgb, var(--color-neutral) 15%, transparent);
+}
+
+.xgrid-level-toggle-med.active {
+    background: var(--color-neutral);
+    color: var(--color-bg-dark);
+    font-weight: bold;
+}
+
+.xgrid-level-toggle-day {
+    color: var(--color-highlight);
+    border: 1px solid color-mix(in srgb, var(--color-highlight) 35%, transparent);
+}
+
+.xgrid-level-toggle-day:hover {
+    background: color-mix(in srgb, var(--color-highlight) 15%, transparent);
+}
+
+.xgrid-level-toggle-day.active {
+    background: var(--color-highlight);
+    color: var(--color-bg-dark);
+    font-weight: bold;
+}
+
+.xgrid-level-toggle-interval {
+    color: var(--color-secondary);
+    border: 1px solid color-mix(in srgb, var(--color-secondary) 35%, transparent);
+}
+
+.xgrid-level-toggle-interval:hover {
+    background: color-mix(in srgb, var(--color-secondary) 15%, transparent);
+}
+
+.xgrid-level-toggle-interval.active {
+    background: var(--color-secondary);
+    color: var(--color-bg-dark);
+    font-weight: bold;
+}

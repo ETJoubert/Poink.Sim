@@ -449,7 +449,7 @@
                                          title="Drag to resize"></div>
                                 }
                                 <div class="sim-chart-side @(VisibleChartPanelCount(s) == 1 ? "sim-chart-fill" : "")">
-                                    <XGrid Grid="ComputeXGrid(s)" Positions="XGridPositions(s)"
+                                    <XGridController Grid="ComputeXGrid(s)" Positions="XGridPositions(s)"
                                            Pending="XGridPending()" OnOrderPlaced="PlaceXGridOrder"
                                            OnPendingModified="ModifyXGridPending" OnPendingCancelled="CancelXGridPending"
                                            OnPositionClosed="CloseXGridPosition" Lines="CellBandLines(s)"
@@ -484,7 +484,7 @@
                                                        title="Bars back from now -- their price histograms drive the volume profile window" />
                                             }
                                         </ExpandedControls>
-                                    </XGrid>
+                                    </XGridController>
                                 </div>
                             }
                             @if (_showVolumeProfile)

@@ -1,0 +1,136 @@
+.xgrid-signals-wrapper {
+    --xgrid-bg: rgba(255, 255, 255, 0.015);
+
+    flex: 0 0 auto;
+    width: 150px;
+    display: flex;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: var(--border-radius-sm);
+    background: var(--xgrid-bg);
+    overflow: auto;
+    padding: 6px;
+}
+
+.xgrid-signals {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+}
+
+.xgrid-signals-label {
+    font-size: 0.52rem;
+    font-weight: bold;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-highlight);
+    opacity: 0.9;
+    white-space: nowrap;
+    margin-bottom: 2px;
+}
+
+.xgrid-signal {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.52rem;
+    letter-spacing: 0.04em;
+    color: var(--color-secondary);
+    opacity: 0.45;
+    white-space: nowrap;
+    transition: opacity 0.15s ease;
+}
+
+.xgrid-signal-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.5;
+}
+
+.xgrid-signal.on {
+    opacity: 1;
+}
+
+.xgrid-signal.on .xgrid-signal-dot,
+.xgrid-signal-dot.on {
+    opacity: 1;
+    box-shadow: 0 0 4px currentColor;
+}
+
+.xgrid-signal-pos {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.52rem;
+    letter-spacing: 0.04em;
+    opacity: 0.85;
+    white-space: nowrap;
+}
+
+.xgrid-signal-arrow {
+    font-size: 0.5rem;
+    line-height: 1;
+    opacity: 0.3;
+    transition: opacity 0.15s ease;
+}
+
+.xgrid-signal-arrow.on {
+    opacity: 1;
+    text-shadow: 0 0 4px currentColor;
+}
+
+.xgrid-signal-up {
+    color: var(--color-success);
+}
+
+.xgrid-signal-down {
+    color: var(--color-error);
+}
+
+.xgrid-signal-delta-pos {
+    color: var(--color-badge-1);
+}
+
+.xgrid-signal-delta-neg {
+    color: var(--color-badge-3);
+}
+
+.xgrid-signal-poc {
+    color: var(--color-primary);
+}
+
+.xgrid-signal-vah,
+.xgrid-signal-val {
+    color: var(--color-highlight);
+}
+
+.xgrid-signal-vwap {
+    color: var(--color-tertiary);
+}
+
+.xgrid-signal-vwap-poc {
+    color: var(--color-tertiary);
+}
+
+.xgrid-signal-low {
+    color: var(--color-badge-4);
+}
+
+.xgrid-signal-high {
+    color: var(--color-badge-5);
+}
+
+.xgrid-signal-total-poc {
+    color: var(--color-primary);
+}
+
+.xgrid-signal-up-poc {
+    color: var(--color-success);
+}
+
+.xgrid-signal-down-poc {
+    color: var(--color-error);
+}

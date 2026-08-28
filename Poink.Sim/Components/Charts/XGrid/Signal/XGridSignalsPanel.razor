@@ -1,0 +1,87 @@
+@namespace Poink.Sim.Components.Charts
+
+<div class="xgrid-signals-wrapper">
+<div class="xgrid-signals" title="Whether the current cell (the cell the price is at right now) ranks in that metric's own top-percent cutoff">
+    <span class="xgrid-signals-label">Signals</span>
+    <div class="xgrid-signal @(CurrentSignal(XGridSpectrumMetric.Total) ? "on" : "")" title="Current cell in the top @Spectrum.TotalPercent% by total tick count">
+        <span class="xgrid-signal-dot"></span>
+        <span>TOTAL</span>
+    </div>
+    <div class="xgrid-signal xgrid-signal-up @(CurrentSignal(XGridSpectrumMetric.Up) ? "on" : "")" title="Current cell in the top @Spectrum.UpPercent% by up-tick count">
+        <span class="xgrid-signal-dot"></span>
+        <span>UP</span>
+    </div>
+    <div class="xgrid-signal xgrid-signal-down @(CurrentSignal(XGridSpectrumMetric.Down) ? "on" : "")" title="Current cell in the top @Spectrum.DownPercent% by down-tick count">
+        <span class="xgrid-signal-dot"></span>
+        <span>DOWN</span>
+    </div>
+    <div class="xgrid-signal xgrid-signal-delta-pos @(CurrentDeltaSignal(true) ? "on" : "")" title="Current price's cell is in the top @Spectrum.DeltaPosPercent% most buy-heavy cells by up-minus-down delta">
+        <span class="xgrid-signal-dot"></span>
+        <span>&Delta;+</span>
+    </div>
+    <div class="xgrid-signal xgrid-signal-delta-neg @(CurrentDeltaSignal(false) ? "on" : "")" title="Current price's cell is in the top @Spectrum.DeltaNegPercent% most sell-heavy cells by down-minus-up delta">
+        <span class="xgrid-signal-dot"></span>
+        <span>&Delta;-</span>
+    </div>
+    <div class="xgrid-signal-pos xgrid-signal-poc" title="Current price relative to the Point of Control">
+        <span class="xgrid-signal-dot @(XGridStats.IsCurrentAtPoc(Grid) ? "on" : "")" title="Current cell is at the POC row"></span>
+        <span>POC</span>
+        <span class="xgrid-signal-arrow @(XGridStats.IsCurrentAbovePoc(Grid) ? "on" : "")" title="Current price is above POC">&#9650;</span>
+        <span class="xgrid-signal-arrow @(XGridStats.IsCurrentBelowPoc(Grid) ? "on" : "")" title="Current price is below POC">&#9660;</span>
+    </div>
+    <div class="xgrid-signal-pos xgrid-signal-vah" title="Current price relative to Value Area High">
+        <span class="xgrid-signal-dot @(XGridStats.IsCurrentAtVah(Grid) ? "on" : "")" title="Current cell is at the VAH row"></span>
+        <span>VAH</span>
+        <span class="xgrid-signal-arrow @(XGridStats.IsCurrentAboveVah(Grid) ? "on" : "")" title="Current price is above VAH">&#9650;</span>
+        <span class="xgrid-signal-arrow @(XGridStats.IsCurrentBelowVah(Grid) ? "on" : "")" title="Current price is below VAH">&#9660;</span>
+    </div>
+    <div class="xgrid-signal-pos xgrid-signal-val" title="Current price relative to Value Area Low">
+        <span class="xgrid-signal-dot @(XGridStats.IsCurrentAtVal(Grid) ? "on" : "")" title="Current cell is at the VAL row"></span>
+        <span>VAL</span>
+        <span class="xgrid-signal-arrow @(XGridStats.IsCurrentAboveVal(Grid) ? "on" : "")" title="Current price is above VAL">&#9650;</span>
+        <span class="xgrid-signal-arrow @(XGridStats.IsCurrentBelowVal(Grid) ? "on" : "")" title="Current price is below VAL">&#9660;</span>
+    </div>
+    <div class="xgrid-signal-pos xgrid-signal-vwap" title="Current price relative to VWAP">
+        <span class="xgrid-signal-dot @(XGridStats.IsCurrentAtVwap(Grid) ? "on" : "")" title="Current cell is at the VWAP row"></span>
+        <span>VWAP</span>
+        <span class="xgrid-signal-arrow @(XGridStats.IsCurrentAboveVwap(Grid) ? "on" : "")" title="Current price is above VWAP">&#9650;</span>
+        <span class="xgrid-signal-arrow @(XGridStats.IsCurrentBelowVwap(Grid) ? "on" : "")" title="Current price is below VWAP">&#9660;</span>
+    </div>
+    <div class="xgrid-signal-pos xgrid-signal-low" title="Current price relative to the latest swing low">
+        <span class="xgrid-signal-dot @(XGridStats.IsCurrentAtLowLevel(Grid, LowPointOverlay.Settings) ? "on" : "")" title="Current cell is at the latest swing low's row"></span>
+        <span>LOW</span>
+        <span class="xgrid-signal-arrow @(XGridStats.IsCurrentAboveLowLevel(Grid, LowPointOverlay.Settings) ? "on" : "")" title="Current price is above the latest swing low">&#9650;</span>
+        <span class="xgrid-signal-arrow @(XGridStats.IsCurrentBelowLowLevel(Grid, LowPointOverlay.Settings) ? "on" : "")" title="Current price is below the latest swing low">&#9660;</span>
+    </div>
+    <div class="xgrid-signal-pos xgrid-signal-high" title="Current price relative to the latest swing high">
+        <span class="xgrid-signal-dot @(XGridStats.IsCurrentAtHighLevel(Grid, HighPointOverlay.Settings) ? "on" : "")" title="Current cell is at the latest swing high's row"></span>
+        <span>HIGH</span>
+        <span class="xgrid-signal-arrow @(XGridStats.IsCurrentAboveHighLevel(Grid, HighPointOverlay.Settings) ? "on" : "")" title="Current price is above the latest swing high">&#9650;</span>
+        <span class="xgrid-signal-arrow @(XGridStats.IsCurrentBelowHighLevel(Grid, HighPointOverlay.Settings) ? "on" : "")" title="Current price is below the latest swing high">&#9660;</span>
+    </div>
+    <div class="xgrid-signal-pos xgrid-signal-vwap-poc" title="VWAP relative to the Point of Control">
+        <span class="xgrid-signal-dot @(XGridStats.IsVwapAtPoc(Grid) ? "on" : "")" title="VWAP's row matches the POC row"></span>
+        <span>VWAP/POC</span>
+        <span class="xgrid-signal-arrow @(XGridStats.IsVwapAbovePoc(Grid) ? "on" : "")" title="VWAP is above POC">&#9650;</span>
+        <span class="xgrid-signal-arrow @(XGridStats.IsVwapBelowPoc(Grid) ? "on" : "")" title="VWAP is below POC">&#9660;</span>
+    </div>
+    <div class="xgrid-signal-pos xgrid-signal-total-poc" title="This grid's own total tick-count peak row relative to the Point of Control">
+        <span class="xgrid-signal-dot @(XGridStats.IsTotalAtPoc(Grid) ? "on" : "")" title="Total peak row matches the POC row"></span>
+        <span>TOTAL/POC</span>
+        <span class="xgrid-signal-arrow @(XGridStats.IsTotalAbovePoc(Grid) ? "on" : "")" title="Total peak row is above POC">&#9650;</span>
+        <span class="xgrid-signal-arrow @(XGridStats.IsTotalBelowPoc(Grid) ? "on" : "")" title="Total peak row is below POC">&#9660;</span>
+    </div>
+    <div class="xgrid-signal-pos xgrid-signal-up-poc" title="This grid's own up-tick peak row relative to the Point of Control">
+        <span class="xgrid-signal-dot @(XGridStats.IsUpAtPoc(Grid) ? "on" : "")" title="Up peak row matches the POC row"></span>
+        <span>UP/POC</span>
+        <span class="xgrid-signal-arrow @(XGridStats.IsUpAbovePoc(Grid) ? "on" : "")" title="Up peak row is above POC">&#9650;</span>
+        <span class="xgrid-signal-arrow @(XGridStats.IsUpBelowPoc(Grid) ? "on" : "")" title="Up peak row is below POC">&#9660;</span>
+    </div>
+    <div class="xgrid-signal-pos xgrid-signal-down-poc" title="This grid's own down-tick peak row relative to the Point of Control">
+        <span class="xgrid-signal-dot @(XGridStats.IsDownAtPoc(Grid) ? "on" : "")" title="Down peak row matches the POC row"></span>
+        <span>DOWN/POC</span>
+        <span class="xgrid-signal-arrow @(XGridStats.IsDownAbovePoc(Grid) ? "on" : "")" title="Down peak row is above POC">&#9650;</span>
+        <span class="xgrid-signal-arrow @(XGridStats.IsDownBelowPoc(Grid) ? "on" : "")" title="Down peak row is below POC">&#9660;</span>
+    </div>
+</div>
+</div>

@@ -12,6 +12,8 @@ namespace Poink.Sim.Components.Charts
 	/// this component turns the active display state into a flat numeric payload and hands it to xGrid.js,
 	/// which paints the footprint onto one canvas instead of one DOM node per cell. Only the grid
 	/// cells/overlays/markers moved to canvas -- the header, toggles, totals and Net bar chart stay declarative markup.
+	/// The pips/cols/overlay/highlight controls that used to live here now belong to MetricsControlPanel;
+	/// Display/Spectrum/LowPointOverlay/HighPointOverlay arrive as read-only parameters from XGridController.
 	/// </summary>
 	public partial class XGrid : ComponentBase, IAsyncDisposable
 	{
@@ -21,50 +23,17 @@ namespace Poink.Sim.Components.Charts
 		[Parameter]
 		public XGridResult? Grid { get; set; }
 
-		/// <summary>
-		/// Two-way bound so the host (the only one that can call XGridStats.Compute) recomputes Grid when
-		/// either changes. PipCount x the instrument's pip size is the fixed row height the host passes
-		/// into XGridStats.Compute -- row count is then derived from however many bands the price range needs.
-		/// </summary>
 		[Parameter]
-		public int PipCount { get; set; } = 20;
+		public XGridDisplaySettings Display { get; set; } = new();
 
 		[Parameter]
-		public EventCallback<int> PipCountChanged { get; set; }
+		public XGridSpectrumSettings Spectrum { get; set; } = new();
 
 		[Parameter]
-		public int ColCount { get; set; } = 20;
+		public XGridPeakOverlaySettings LowPointOverlay { get; set; } = new();
 
 		[Parameter]
-		public EventCallback<int> ColCountChanged { get; set; }
-
-		/// <summary>
-		/// Host-supplied "Profile Bars" window size (bars back from now driving the host's volume
-		/// profile) -- null when the host has no such concept. Only then does the Cols control offer
-		/// a button to snap ColCount onto it.
-		/// </summary>
-		[Parameter]
-		public int? ProfileBarCount { get; set; }
-
-		private Task SetPipCount(int value) => PipCountChanged.InvokeAsync(PipCount = value);
-
-		private Task SetColCount(int value) => ColCountChanged.InvokeAsync(ColCount = value);
-
-		// While bound, Cols tracks ProfileBarCount on every parameter set (OnParametersSetAsync
-		// below) instead of being independently editable.
-		private bool _colsBoundToProfileBars;
-
-		private Task ToggleColsBoundToProfileBars()
-		{
-			_colsBoundToProfileBars = !_colsBoundToProfileBars;
-			return _colsBoundToProfileBars ? SyncColsToProfileBars() : Task.CompletedTask;
-		}
-
-		private Task SyncColsToProfileBars() =>
-			ProfileBarCount is { } count && count != ColCount ? SetColCount(count) : Task.CompletedTask;
-
-		protected override Task OnParametersSetAsync() =>
-			_colsBoundToProfileBars ? SyncColsToProfileBars() : Task.CompletedTask;
+		public XGridPeakOverlaySettings HighPointOverlay { get; set; } = new();
 
 		// Local overlay state, purely visual, so it stays unbound rather than a two-way parameter.
 		private bool _expanded;
@@ -259,105 +228,8 @@ namespace Poink.Sim.Components.Charts
 
 		private void ToggleLineMode() => _lineMode = !_lineMode;
 
-		// Purely a display choice over data already on Grid, so it stays local, unbound state.
-		private enum SweepMode
-		{
-			None,
-			LeftToRight,
-			RightToLeft,
-			Sum,
-		}
-
-		private SweepMode _sweepMode = SweepMode.None;
-
-		// Opt-in delta shading -- recolours each cell by its up-minus-down tick balance
-		// instead of its raw tick count, same display-choice rationale as _sweepMode.
-		private bool _shadeDelta;
-
-		// Weights each tick by the price distance it moved instead of counting it as one --
-		// modifies whichever shading is active (count or delta).
-		private bool _distanceWeighted;
-
 		// Opt-in line graph of NetByColumn under the totals row -- default off like every other overlay.
 		private bool _showNetGraph;
-
-		// Per-metric UI state for one Spectrum: ShowHighlight opts into bordering the top Percent%
-		// of its cells on the main grid, grouped per metric.
-		private sealed class SpectrumOverlay
-		{
-			public bool ShowHighlight;
-			public double Percent = 10;
-		}
-
-		private readonly SpectrumOverlay _spectrum = new();
-		private readonly SpectrumOverlay _upSpectrum = new();
-		private readonly SpectrumOverlay _downSpectrum = new();
-
-		// Rank against the signed Delta metric (up-minus-down), one overlay per end of that
-		// ascending order.
-		private readonly SpectrumOverlay _deltaPosSpectrum = new();
-		private readonly SpectrumOverlay _deltaNegSpectrum = new();
-
-		// Swing-low/-high overlay config -- ShowHighlight is display-only state, so it stays
-		// here rather than in XGridStats.XGridPeakSettings, which the ranking itself reads.
-		private sealed class PeakOverlay
-		{
-			public bool ShowHighlight;
-			public XGridPeakMode Mode = XGridPeakMode.Fixed;
-			public double MinProminence = 2;
-			public double AdaptivePercent = 20;
-			public int MinDistance = 10;
-
-			public XGridPeakSettings Settings => new(Mode, MinProminence, AdaptivePercent, MinDistance);
-		}
-
-		private readonly PeakOverlay _lowPointOverlay = new();
-		private readonly PeakOverlay _highPointOverlay = new();
-
-		// Shared by every Highlight overlay above -- Rank always highlights a fixed share of
-		// cells, Max highlights every cell at least Percent% of that metric's grid-wide peak.
-		private XGridHighlightMode _highlightMode = XGridHighlightMode.Rank;
-
-		private void ToggleHighlightMode() =>
-			_highlightMode =
-				_highlightMode == XGridHighlightMode.Rank ? XGridHighlightMode.Max : XGridHighlightMode.Rank;
-
-		private SpectrumOverlay OverlayFor(XGridSpectrumMetric metric) =>
-			metric switch
-			{
-				XGridSpectrumMetric.Up => _upSpectrum,
-				XGridSpectrumMetric.Down => _downSpectrum,
-				_ => _spectrum,
-			};
-
-		// Reuses the same percent already configured for that metric's Highlight overlay, and the
-		// shared mode, so the signal panel agrees with whatever cutoff is drawn on screen.
-		private bool CurrentSignal(XGridResult grid, XGridSpectrumMetric metric) =>
-			XGridStats.IsCurrentInTopPercent(grid, metric, OverlayFor(metric).Percent, _highlightMode);
-
-		// Same percent/mode-reuse rationale as CurrentSignal, but against whichever Delta overlay
-		// (positive/negative) since Delta ranks both ends of one signed order, not one metric.
-		private bool CurrentDeltaSignal(XGridResult grid, bool positive) =>
-			XGridStats.IsCurrentInDeltaPercent(
-				grid,
-				positive ? _deltaPosSpectrum.Percent : _deltaNegSpectrum.Percent,
-				positive,
-				_highlightMode
-			);
-
-		// Poc/Vah/Val/Vwap/Average/Median are independently toggleable, every overlay starting off.
-		private bool _showPoc;
-		private bool _showVah;
-		private bool _showVal;
-		private bool _showVwap;
-		private bool _showAverage;
-		private bool _showMedian;
-
-		// Vertical dashed dividers over the columns -- Day is a fixed 24h case of the same
-		// midnight-aligned bucketing Every uses at its own configurable hour span.
-		private bool _showDayLines;
-		private bool _showIntervalLines;
-		private int _intervalHours = 4;
 
 		private IJSObjectReference? _module;
 		private DotNetObjectReference<XGrid>? _dotNetRef;
@@ -401,7 +273,7 @@ namespace Poink.Sim.Components.Charts
 			}
 
 			double[]? sweep = null;
-			if (_sweepMode != SweepMode.None)
+			if (Display.SweepMode != XGridSweepMode.None)
 			{
 				sweep = new double[rows];
 				for (var r = 0; r < rows; r++)
@@ -414,15 +286,15 @@ namespace Poink.Sim.Components.Charts
 				if (show && level is { } l)
 					markers.Add(new { row = l.Row, kind });
 			}
-			Add(_showPoc, grid.Poc, "poc");
-			Add(_showVah, grid.Vah, "vah");
-			Add(_showVal, grid.Val, "val");
-			Add(_showVwap, grid.Vwap, "vwap");
-			Add(_showAverage, grid.Average, "avg");
-			Add(_showMedian, grid.Median, "med");
+			Add(Display.ShowPoc, grid.Poc, "poc");
+			Add(Display.ShowVah, grid.Vah, "vah");
+			Add(Display.ShowVal, grid.Val, "val");
+			Add(Display.ShowVwap, grid.Vwap, "vwap");
+			Add(Display.ShowAverage, grid.Average, "avg");
+			Add(Display.ShowMedian, grid.Median, "med");
 
-			var dayLines = _showDayLines ? IntervalBoundaryColumns(grid, 24) : null;
-			var intervalLines = _showIntervalLines ? IntervalBoundaryColumns(grid, _intervalHours) : null;
+			var dayLines = Display.ShowDayLines ? IntervalBoundaryColumns(grid, 24) : null;
+			var intervalLines = Display.ShowIntervalLines ? IntervalBoundaryColumns(grid, Display.IntervalHours) : null;
 
 			static List<object> PointsPayload(IReadOnlyList<(int Row, int Col)> points)
 			{
@@ -431,11 +303,11 @@ namespace Poink.Sim.Components.Charts
 					payload.Add(new { row = pt.Row, col = pt.Col });
 				return payload;
 			}
-			var lowPoints = _lowPointOverlay.ShowHighlight
-				? PointsPayload(XGridStats.LowPointCells(grid, _lowPointOverlay.Settings))
+			var lowPoints = LowPointOverlay.ShowHighlight
+				? PointsPayload(XGridStats.LowPointCells(grid, LowPointOverlay.Settings))
 				: null;
-			var highPoints = _highPointOverlay.ShowHighlight
-				? PointsPayload(XGridStats.HighPointCells(grid, _highPointOverlay.Settings))
+			var highPoints = HighPointOverlay.ShowHighlight
+				? PointsPayload(XGridStats.HighPointCells(grid, HighPointOverlay.Settings))
 				: null;
 
 			var lines = new List<object>();
@@ -496,7 +368,7 @@ namespace Poink.Sim.Components.Charts
 			{
 				rows,
 				cols,
-				mode = _shadeDelta ? "delta" : "count",
+				mode = Display.ShadeDelta ? "delta" : "count",
 				cells,
 				present,
 				topHighlight = TopHighlightMask(grid, XGridSpectrumMetric.Total),
@@ -595,15 +467,17 @@ namespace Poink.Sim.Components.Charts
 		private double CellIntensity(XGridResult grid, int row, int col)
 		{
 			XGridCell cell = grid.Columns[col].Cells[row];
-			if (_shadeDelta)
+			if (Display.ShadeDelta)
 			{
-				double delta = _distanceWeighted ? cell.UpDistance - cell.DownDistance : cell.UpCount - cell.DownCount;
-				double ceiling = _distanceWeighted ? grid.MaxAbsDeltaDistance : grid.MaxAbsDelta;
+				double delta = Display.DistanceWeighted
+					? cell.UpDistance - cell.DownDistance
+					: cell.UpCount - cell.DownCount;
+				double ceiling = Display.DistanceWeighted ? grid.MaxAbsDeltaDistance : grid.MaxAbsDelta;
 				return ceiling <= 0 ? 0 : delta / ceiling;
 			}
 
-			double value = _distanceWeighted ? cell.UpDistance + cell.DownDistance : cell.Value;
-			double maxValue = _distanceWeighted ? grid.MaxDistanceValue : grid.MaxValue;
+			double value = Display.DistanceWeighted ? cell.UpDistance + cell.DownDistance : cell.Value;
+			double maxValue = Display.DistanceWeighted ? grid.MaxDistanceValue : grid.MaxValue;
 			return maxValue <= 0 ? 0 : value / maxValue;
 		}
 
@@ -627,7 +501,7 @@ namespace Poink.Sim.Components.Charts
 			rows.Add(new XGridTooltipRow("Down: ", $"{cell.DownCount}"));
 			rows.Add(new XGridTooltipRow("Delta: ", $"{deltaUpDown:+0;-0;0}"));
 
-			if (_sweepMode != SweepMode.None)
+			if (Display.SweepMode != XGridSweepMode.None)
 				rows.Add(new XGridTooltipRow("Sweep: ", $"{RowSweepValue(grid, row):0} steps"));
 
 			var levels = new List<string>();
@@ -636,12 +510,12 @@ namespace Poink.Sim.Components.Charts
 				if (show && level is { } l && l.Row == row)
 					levels.Add(label);
 			}
-			Note(_showPoc, grid.Poc, "POC");
-			Note(_showVah, grid.Vah, "VAH");
-			Note(_showVal, grid.Val, "VAL");
-			Note(_showVwap, grid.Vwap, "VWAP");
-			Note(_showAverage, grid.Average, "AVG");
-			Note(_showMedian, grid.Median, "MED");
+			Note(Display.ShowPoc, grid.Poc, "POC");
+			Note(Display.ShowVah, grid.Vah, "VAH");
+			Note(Display.ShowVal, grid.Val, "VAL");
+			Note(Display.ShowVwap, grid.Vwap, "VWAP");
+			Note(Display.ShowAverage, grid.Average, "AVG");
+			Note(Display.ShowMedian, grid.Median, "MED");
 			if (grid.Current is { } current && current.Row == row)
 				levels.Add("current");
 			if (levels.Count > 0)
@@ -995,23 +869,31 @@ namespace Poink.Sim.Components.Charts
 
 		private static string XForm(double x) => x.ToString("0.##", CultureInfo.InvariantCulture);
 
+		private (bool Show, double Percent) SpectrumOverlayFor(XGridSpectrumMetric metric) =>
+			metric switch
+			{
+				XGridSpectrumMetric.Up => (Spectrum.UpShow, Spectrum.UpPercent),
+				XGridSpectrumMetric.Down => (Spectrum.DownShow, Spectrum.DownPercent),
+				_ => (Spectrum.TotalShow, Spectrum.TotalPercent),
+			};
+
 		// One byte per grid cell, 1 for every cell within the top Percent% by this metric (Rank:
 		// share of nonzero cells; Max: share of the grid-wide peak), fed to xGrid.js for a border.
 		private byte[]? TopHighlightMask(XGridResult grid, XGridSpectrumMetric metric)
 		{
-			var overlay = OverlayFor(metric);
-			if (!overlay.ShowHighlight)
+			var (show, percent) = SpectrumOverlayFor(metric);
+			if (!show)
 				return null;
 			int rows = grid.RowLow.Count,
 				cols = grid.Columns.Count;
 			var mask = new byte[rows * cols];
 
-			if (_highlightMode == XGridHighlightMode.Max)
+			if (Spectrum.HighlightMode == XGridHighlightMode.Max)
 			{
 				double max = XGridStats.MaxCellValue(grid, metric);
 				if (max <= 0)
 					return mask;
-				double threshold = XGridStats.MaxModeThreshold(max, overlay.Percent);
+				double threshold = XGridStats.MaxModeThreshold(max, percent);
 				for (var r = 0; r < rows; r++)
 				for (var c = 0; c < cols; c++)
 				{
@@ -1024,7 +906,7 @@ namespace Poink.Sim.Components.Charts
 
 			var order = XGridStats.CellOrder(grid, metric);
 			int n = order.Length;
-			int count = XGridStats.TopCount(n, overlay.Percent);
+			int count = XGridStats.TopCount(n, percent);
 			for (var i = n - count; i < n; i++)
 			{
 				var (row, col) = order[i];
@@ -1037,19 +919,20 @@ namespace Poink.Sim.Components.Charts
 		// (positive: buy-heavy, negative: sell-heavy) and clipped to its own sign.
 		private byte[]? DeltaHighlightMask(XGridResult grid, bool positive)
 		{
-			var overlay = positive ? _deltaPosSpectrum : _deltaNegSpectrum;
-			if (!overlay.ShowHighlight)
+			bool show = positive ? Spectrum.DeltaPosShow : Spectrum.DeltaNegShow;
+			double percent = positive ? Spectrum.DeltaPosPercent : Spectrum.DeltaNegPercent;
+			if (!show)
 				return null;
 			int rows = grid.RowLow.Count,
 				cols = grid.Columns.Count;
 			var mask = new byte[rows * cols];
 
-			if (_highlightMode == XGridHighlightMode.Max)
+			if (Spectrum.HighlightMode == XGridHighlightMode.Max)
 			{
 				double max = grid.MaxAbsDelta;
 				if (max <= 0)
 					return mask;
-				double threshold = XGridStats.MaxModeThreshold(max, overlay.Percent);
+				double threshold = XGridStats.MaxModeThreshold(max, percent);
 				for (var r = 0; r < rows; r++)
 				for (var c = 0; c < cols; c++)
 				{
@@ -1063,7 +946,7 @@ namespace Poink.Sim.Components.Charts
 
 			var order = XGridStats.CellOrder(grid, XGridSpectrumMetric.Delta);
 			int n = order.Length;
-			int count = XGridStats.TopCount(n, overlay.Percent);
+			int count = XGridStats.TopCount(n, percent);
 			int start = positive ? n - count : 0;
 			int end = positive ? n : count;
 			for (var i = start; i < end; i++)
@@ -1093,11 +976,11 @@ namespace Poink.Sim.Components.Charts
 		// Row-uniform -- the sweep metric has no per-column dimension (see
 		// XGridStats.ComputeSweeps), so the whole row shades the same regardless of column.
 		private double RowSweepValue(XGridResult grid, int row) =>
-			_sweepMode switch
+			Display.SweepMode switch
 			{
-				SweepMode.LeftToRight => grid.SweepLeftToRight[row],
-				SweepMode.RightToLeft => grid.SweepRightToLeft[row],
-				SweepMode.Sum => grid.SweepSum[row],
+				XGridSweepMode.LeftToRight => grid.SweepLeftToRight[row],
+				XGridSweepMode.RightToLeft => grid.SweepRightToLeft[row],
+				XGridSweepMode.Sum => grid.SweepSum[row],
 				_ => 0,
 			};
 
@@ -1145,21 +1028,6 @@ namespace Poink.Sim.Components.Charts
 			if (span.TotalMinutes >= 1)
 				return $"{(int)span.TotalMinutes}m {span.Seconds}s";
 			return $"{(int)span.TotalSeconds}s";
-		}
-
-		// All rows share one height by construction, so the first row's span stands for every row's.
-		private static string RowHeightLabel(XGridResult grid) =>
-			grid.RowLow.Count == 0
-				? "--"
-				: (grid.RowHigh[0] - grid.RowLow[0]).ToString("F5", CultureInfo.InvariantCulture);
-
-		// Columns can each cover a different number of source bars, so this is the average spacing between column open times.
-		private static string ColumnWidthLabel(XGridResult grid)
-		{
-			int cols = grid.Columns.Count;
-			return cols < 2
-				? "--"
-				: FormatDuration((grid.Columns[^1].OpenTime - grid.Columns[0].OpenTime) / (cols - 1));
 		}
 	}
 }
