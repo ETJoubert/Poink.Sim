@@ -6,36 +6,46 @@ identifier/name chosen in the step before it.
 
 ## The architecture, in one paragraph
 
-Three layers, each with its **own copy** of "what draw modes exist" — there is no
-shared enum/codegen, so every new tool touches all three by hand:
+Four layers, each with its **own copy** of "what draw modes exist" — there is no
+shared enum/codegen, so every new tool touches all four by hand:
 
-1. **`MarketChart.razor(.cs)`** — the C# `DrawMode` enum, the toolbar buttons,
-   and the `[JSInvokable]`/`EventCallback` plumbing that turns chart clicks into
-   strongly-typed callbacks.
-2. **`wwwroot/js/marketChart.js`** — the actual click state machine
+1. **`Helper/DrawMode.cs`** — the shared C# `DrawMode` enum, referenced by all
+   three components below.
+2. **`Control/MarketChartToolbar.razor(.cs)`** — the toolbar buttons; purely
+   presentational, raises `OnModeToggled(DrawMode)` up to `MarketChartContainer`.
+3. **`Display/MarketChart.razor.cs`** — the `[JSInvokable]`/`EventCallback` plumbing
+   that turns chart clicks into strongly-typed callbacks, and (via its `Mode`
+   parameter) the `JsDrawMode()` mapping and the `setDrawMode` JS push.
+4. **`wwwroot/js/marketChart.js`** — the actual click state machine
    (`entry.drawClicks`), which mode needs how many clicks (`modeClickCounts`), and
    what each click dispatches to .NET.
-3. **The consuming page** (e.g. `ProfilerPage.razor(.cs)`) — owns the real `Drawing`
-   model, decides a completed drawing's `Kind`/`ColorGroup`, and renders the
-   side-panel card. `MarketChart` itself has no notion of "a drawing", only
-   individual horizontal/vertical/diagonal lines and range fills.
+
+`Container/MarketChartContainer.razor(.cs)` composes the toolbar and the canvas and
+owns the `DrawMode`/hint/expanded state that flows between them — hosts target
+`<MarketChartContainer>`, not `<MarketChart>` directly.
+
+**The consuming page** (e.g. `ProfilerPage.razor(.cs)`) owns the real `Drawing`
+model, decides a completed drawing's `Kind`/`ColorGroup`, and renders the
+side-panel card. `MarketChart` itself has no notion of "a drawing", only
+individual horizontal/vertical/diagonal lines and range fills.
 
 ## Checklist
 
-### 1. `MarketChart.razor.cs`
-- Add a member to the `DrawMode` enum.
-- Map it to a lowercase JS string in `JsDrawMode()`.
+### 1. `Helper/DrawMode.cs` and `Display/MarketChart.razor.cs`
+- Add a member to the `DrawMode` enum in `Helper/DrawMode.cs`.
+- Map it to a lowercase JS string in `Display/MarketChart.razor.cs`'s `JsDrawMode()`.
 - Decide: does the tool's data reduce to existing horizontal/vertical/diagonal line
   clicks (like T-Range/P-Range/Rectangle), or does it need its own payload?
   - **Reduces to existing lines** — nothing else needed here; the JS side will just
     call `OnVerticalLineClickedAsync`/`OnHorizontalLineClickedAsync` repeatedly.
-  - **Needs its own payload** — add:
+  - **Needs its own payload** — add, in `Display/MarketChart.razor.cs`:
     - `[Parameter] public EventCallback<T> OnXxxDrawn { get; set; }`
     - `[JSInvokable] public Task OnXxxClickedAsync(...) => InvokeIfBound(OnXxxDrawn, ...)`
     - if `T` is a new shape, a `public readonly record struct ChartXxx(...)` next to
       `ChartHorizontalLine`/`ChartVerticalLine`/`ChartDiagonalLine`/`ChartTimeRange`/`ChartRangeFill`.
+    - forward the new parameter/callback straight through `Container/MarketChartContainer.razor(.cs)`.
 
-### 2. `MarketChart.razor`
+### 2. `Control/MarketChartToolbar.razor`
 - Add a `<button>` inside the matching `.doc-tool-group-*` div (Lines / Ranges /
   Shapes / Charts), or a new group if it genuinely doesn't fit one.
 - Always give it a `title` tooltip describing the full click sequence (project rule:
@@ -82,7 +92,7 @@ shared enum/codegen, so every new tool touches all three by hand:
   rather than through `Drawing.ColorGroup`, which colours a whole drawing uniformly.
 
 ### 5. The consuming page's markup (e.g. `ProfilerPage.razor`)
-- Wire `OnXxxDrawn="AddXxx"` onto the `<MarketChart>` tag.
+- Wire `OnXxxDrawn="AddXxx"` onto the `<MarketChartContainer>` tag.
 - Update the two "list of tool names" strings (the chart container's `title`, and
   the empty-state message) to mention the new tool.
 - If the new data has its own per-item label, add a `@foreach` rendering it in the
@@ -164,4 +174,4 @@ added on top of an already-wired-up T-Range Reference Chart):
 
 Adding a group only needs the `groupColors` entry above — no CSS file changes are
 needed unless the new tool's *toolbar button* doesn't fit an existing
-`.doc-tool-group-*`/`.doc-tool-btn-*` (see `MarketChart.razor.css`).
+`.doc-tool-group-*`/`.doc-tool-btn-*` (see `Control/MarketChartToolbar.razor.css`).

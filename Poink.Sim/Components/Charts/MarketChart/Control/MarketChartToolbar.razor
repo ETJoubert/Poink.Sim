@@ -1,0 +1,83 @@
+@namespace Poink.Sim.Components.Charts
+
+<div class="doc-toolbar">
+    @if (ShowAnnotationTools)
+    {
+        <!-- Lines: single/two-point shapes with no area of their own. -->
+        <div class="doc-tool-group doc-tool-group-lines">
+            <button type="button"
+                    class="doc-tool-btn doc-tool-btn-lines @(Mode == DrawMode.Horizontal ? "active" : "")"
+                    @onclick="() => OnModeToggled.InvokeAsync(DrawMode.Horizontal)"
+                    title="Click a point on the chart to add a horizontal price line">
+                H-LINE
+            </button>
+            <button type="button" class="doc-tool-btn doc-tool-btn-lines @(Mode == DrawMode.Vertical ? "active" : "")"
+                    @onclick="() => OnModeToggled.InvokeAsync(DrawMode.Vertical)"
+                    title="Click a point on the chart to add a vertical time line">
+                V-LINE
+            </button>
+            <button type="button" class="doc-tool-btn doc-tool-btn-lines @(Mode == DrawMode.Diagonal ? "active" : "")"
+                    @onclick="() => OnModeToggled.InvokeAsync(DrawMode.Diagonal)"
+                    title="Click a start point, then an end point, to draw a diagonal trend line">
+                D-LINE
+            </button>
+        </div>
+        <!-- Ranges: a pair of same-axis lines bounding a span. -->
+        <div class="doc-tool-group doc-tool-group-ranges">
+            <button type="button" class="doc-tool-btn doc-tool-btn-ranges @(Mode == DrawMode.TRange ? "active" : "")"
+                    @onclick="() => OnModeToggled.InvokeAsync(DrawMode.TRange)"
+                    title="Click two points to add a pair of vertical lines marking a time range">
+                T-RANGE
+            </button>
+            <button type="button" class="doc-tool-btn doc-tool-btn-ranges @(Mode == DrawMode.PRange ? "active" : "")"
+                    @onclick="() => OnModeToggled.InvokeAsync(DrawMode.PRange)"
+                    title="Click two points to add a pair of horizontal lines marking a price range">
+                P-RANGE
+            </button>
+        </div>
+        <!-- Shapes: bounded areas built from more than one axis of lines. -->
+        <div class="doc-tool-group doc-tool-group-shapes">
+            <button type="button"
+                    class="doc-tool-btn doc-tool-btn-shapes @(Mode == DrawMode.Rectangle ? "active" : "")"
+                    @onclick="() => OnModeToggled.InvokeAsync(DrawMode.Rectangle)"
+                    title="Click four points (two time, two price) to add a rectangle's vertical and horizontal bounds">
+                RECT
+            </button>
+        </div>
+        <!-- Charts: a range selection that also renders its own mini chart. -->
+        <div class="doc-tool-group doc-tool-group-charts">
+            <button type="button"
+                    class="doc-tool-btn doc-tool-btn-charts @(Mode == DrawMode.TRangeChart ? "active" : "")"
+                    @onclick="() => OnModeToggled.InvokeAsync(DrawMode.TRangeChart)"
+                    title="Click two points to mark a time range AND render a small candlestick chart of the bars inside it">
+                T-RANGE CHART
+            </button>
+            <button type="button"
+                    class="doc-tool-btn doc-tool-btn-charts @(Mode == DrawMode.TRangeReferenceChart ? "active" : "")"
+                    @onclick="() => OnModeToggled.InvokeAsync(DrawMode.TRangeReferenceChart)"
+                    title="Click two points like T-Range Chart, then a third point before the earlier of the two to mark a reference window">
+                T-RANGE REF CHART
+            </button>
+        </div>
+    }
+
+    <div class="doc-tool-group doc-tool-group-volume">
+        <button type="button"
+                class="doc-tool-btn doc-tool-btn-volume @(Mode == DrawMode.VolumeRange ? "active" : "") @(HasVolumeRange && Mode != DrawMode.VolumeRange ? "has-value" : "")"
+                @onclick="() => OnVolumeRangeToggled.InvokeAsync()" title="@(Mode == DrawMode.VolumeRange
+                                               ? "Click again to cancel"
+                                               : HasVolumeRange
+                                                   ? "A volume range is selected -- click to clear it and use every loaded bar again"
+                                                   : "Click two points to set the time range the volume profile panel is built from")">
+            @(HasVolumeRange && Mode != DrawMode.VolumeRange ? "CLEAR VOLUME RANGE" : "VOLUME RANGE")
+        </button>
+    </div>
+    @if (Mode != DrawMode.None)
+    {
+        <span class="doc-toolbar-hint" title="What to click next">@(DrawHint ?? "click the chart to place it")</span>
+    }
+    <button type="button" class="doc-expand-btn" @onclick="() => OnExpandedToggled.InvokeAsync()"
+            title="@(Expanded ? "Collapse" : "Expand")">
+        @(Expanded ? "✕" : "⤢")
+    </button>
+</div>

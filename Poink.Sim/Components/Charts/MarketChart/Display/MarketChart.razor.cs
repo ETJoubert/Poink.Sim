@@ -49,10 +49,6 @@ namespace Poink.Sim.Components.Charts
 		[Parameter]
 		public List<CTraderBarRow> Bars { get; set; } = new();
 
-		/// <summary>Hides the Lines/Ranges/Shapes/Charts toolbar groups, leaving only Volume Range -- see ProfilerPage.</summary>
-		[Parameter]
-		public bool ShowAnnotationTools { get; set; } = true;
-
 		/// <summary>
 		/// False hides the whole toolbar and disables pan/zoom/scroll/minimap-drag, for read-only,
 		/// frequently-updating views where letting the user interact while <see cref="Bars"/> keeps
@@ -133,36 +129,20 @@ namespace Poink.Sim.Components.Charts
 		[Parameter]
 		public EventCallback<ChartTimeRange> OnVolumeRangeDrawn { get; set; }
 
-		/// <summary>True once the caller has a Volume Range selection -- drives the toolbar button's clear state.</summary>
-		[Parameter]
-		public bool HasVolumeRange { get; set; }
-
-		[Parameter]
-		public EventCallback OnVolumeRangeCleared { get; set; }
-
 		/// <summary>Fires once an armed mode's whole click sequence is done, so the caller can group multi-click drawings into one card.</summary>
 		[Parameter]
 		public EventCallback OnDrawFinished { get; set; }
 
-		// TRange/PRange/Rectangle are built from repeated H/V-line placement, not their own shape; VolumeRange is unrelated to line placement entirely.
-		private enum DrawMode
-		{
-			None,
-			Horizontal,
-			Vertical,
-			Diagonal,
-			TRange,
-			PRange,
-			Rectangle,
-			TRangeChart,
-			TRangeReferenceChart,
-			VolumeRange,
-		}
+		/// <summary>Owned by MarketChartContainer; pushed to marketChart.js's setDrawMode the same way Bars/lines/markers are diffed and pushed.</summary>
+		[Parameter]
+		public DrawMode Mode { get; set; }
 
-		private DrawMode _mode;
+		[Parameter]
+		public EventCallback<DrawMode> ModeChanged { get; set; }
 
-		// Kept up to date by marketChart.js, which owns the click state machine. Null while no mode is armed.
-		private string? _drawHint;
+		/// <summary>Reports marketChart.js's click-state-machine hint text back up to MarketChartContainer's toolbar.</summary>
+		[Parameter]
+		public EventCallback<string?> DrawHintChanged { get; set; }
 
 		private ElementReference _containerRef;
 		private ElementReference _minimapRef;
@@ -183,7 +163,7 @@ namespace Poink.Sim.Components.Charts
 		private double? _renderedStopLoss;
 		private double? _renderedTakeProfit;
 		private DateTime? _renderedWindowStart;
-		private bool _expanded;
+		private DrawMode? _renderedMode;
 		private bool _disposed;
 
 		private static string JsDrawMode(DrawMode mode) =>
@@ -200,44 +180,6 @@ namespace Poink.Sim.Components.Charts
 				DrawMode.VolumeRange => "volumerange",
 				_ => "",
 			};
-
-		// Toggling the same mode again disarms it.
-		private async Task ToggleMode(DrawMode mode)
-		{
-			_mode = _mode == mode ? DrawMode.None : mode;
-
-			if (_module is null || _chartId is null)
-				return;
-			try
-			{
-				await _module.InvokeVoidAsync(
-					"setDrawMode",
-					_chartId,
-					_mode == DrawMode.None ? null : JsDrawMode(_mode)
-				);
-			}
-			catch (JSDisconnectedException) { }
-			catch (ObjectDisposedException) { }
-		}
-
-		// Triples as arm/disarm/clear: armed -> disarm; unarmed with a selection -> clear via OnVolumeRangeCleared; otherwise arm.
-		private async Task ToggleVolumeRange()
-		{
-			if (_mode == DrawMode.VolumeRange)
-			{
-				await ToggleMode(DrawMode.VolumeRange);
-				return;
-			}
-
-			if (HasVolumeRange)
-			{
-				if (OnVolumeRangeCleared.HasDelegate)
-					await OnVolumeRangeCleared.InvokeAsync();
-				return;
-			}
-
-			await ToggleMode(DrawMode.VolumeRange);
-		}
 
 		protected override async Task OnAfterRenderAsync(bool firstRender)
 		{
@@ -409,12 +351,23 @@ namespace Poink.Sim.Components.Charts
 						: null;
 					await _module.InvokeVoidAsync("setWindowStart", _chartId, unixSeconds);
 				}
+
+				if (_disposed)
+					return;
+
+				if (_module is not null && _chartId is not null && _renderedMode != Mode)
+				{
+					_renderedMode = Mode;
+					await _module.InvokeVoidAsync(
+						"setDrawMode",
+						_chartId,
+						Mode == DrawMode.None ? null : JsDrawMode(Mode)
+					);
+				}
 			}
 			catch (ObjectDisposedException) { }
 			catch (JSDisconnectedException) { }
 		}
-
-		private void ToggleExpanded() => _expanded = !_expanded;
 
 		/// <summary>Forwards to OnNearStart, then tells JS it's free to fire again once this round trip finishes.</summary>
 		[JSInvokable]
@@ -474,19 +427,14 @@ namespace Poink.Sim.Components.Charts
 
 		/// <summary>Null clears the hint (tool disarmed).</summary>
 		[JSInvokable]
-		public Task OnDrawHintAsync(string? hint)
-		{
-			_drawHint = hint;
-			StateHasChanged();
-			return Task.CompletedTask;
-		}
+		public Task OnDrawHintAsync(string? hint) => InvokeIfBound(DrawHintChanged, hint);
 
 		[JSInvokable]
 		public async Task OnDrawFinishedAsync()
 		{
-			_mode = DrawMode.None;
-			_drawHint = null;
-			StateHasChanged();
+			_renderedMode = DrawMode.None;
+			await InvokeIfBound(ModeChanged, DrawMode.None);
+			await InvokeIfBound(DrawHintChanged, null);
 
 			if (OnDrawFinished.HasDelegate)
 				await OnDrawFinished.InvokeAsync();

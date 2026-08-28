@@ -1,0 +1,21 @@
+@namespace Poink.Sim.Components.Charts
+
+<div class="doc-wrapper @(_expanded ? "expanded" : "")">
+    @if (Interactive)
+    {
+        <MarketChartToolbar ShowAnnotationTools="ShowAnnotationTools" Mode="_mode" DrawHint="_drawHint"
+                             HasVolumeRange="HasVolumeRange" Expanded="_expanded"
+                             OnModeToggled="ToggleMode" OnVolumeRangeToggled="ToggleVolumeRange"
+                             OnExpandedToggled="ToggleExpanded" />
+    }
+    <MarketChart Bars="Bars" Interactive="Interactive" CurrentBid="CurrentBid" CurrentAsk="CurrentAsk"
+                 EntryPrice="EntryPrice" PositionIsLong="PositionIsLong" StopLossPrice="StopLossPrice"
+                 TakeProfitPrice="TakeProfitPrice" WindowStartUtc="WindowStartUtc" KeepView="KeepView"
+                 OnNearStart="OnNearStart" HorizontalLines="HorizontalLines" VerticalLines="VerticalLines"
+                 DiagonalLines="DiagonalLines" RangeFills="RangeFills" Markers="Markers" VwapLine="VwapLine"
+                 OnHorizontalLineDrawn="OnHorizontalLineDrawn" OnVerticalLineDrawn="OnVerticalLineDrawn"
+                 OnDiagonalLineDrawn="OnDiagonalLineDrawn" OnTRangeChartDrawn="OnTRangeChartDrawn"
+                 OnReferenceLineDrawn="OnReferenceLineDrawn" OnVolumeRangeDrawn="OnVolumeRangeDrawn"
+                 Mode="_mode" ModeChanged="SetMode" DrawHintChanged="SetDrawHint"
+                 OnDrawFinished="OnDrawFinished" />
+</div>

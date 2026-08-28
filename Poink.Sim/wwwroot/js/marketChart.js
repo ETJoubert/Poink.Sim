@@ -795,7 +795,7 @@ export function create(container, minimapContainer, dotNetRef, interactive) {
         tooltip.style.top = `${Math.max(param.point.y - 12, 8)}px`;
     });
 
-    // Same custom properties MarketChart.razor.css's .doc-tool-btn-* group
+    // Same custom properties MarketChartToolbar.razor.css's .doc-tool-btn-* group
     // modifiers use (base.css defines each --color-* per theme) -- read once here so
     // drawn shapes are colour-coded by the same Lines/Ranges/Shapes/Charts
     // classification as the toolbar buttons that place them (see setLines' colorFor).
@@ -810,7 +810,7 @@ export function create(container, minimapContainer, dotNetRef, interactive) {
         // its own colour, distinct from charts' accentColor, per "should also have some
         // colour but different".
         reference: style.getPropertyValue('--color-error').trim() || accentColor,
-        // Volume Range's own fill -- see MarketChart.razor.css's .doc-tool-btn-profile.
+        // Volume Range's own fill -- see MarketChartToolbar.razor.css's .doc-tool-btn-profile.
         volume: style.getPropertyValue('--color-info').trim() || accentColor,
         // POC/VAH/VAL price lines, computed (not user-drawn) -- see ProfilerPage's
         // ProfileLevelLines. Its own colour, distinct from every drawn-tool group above.

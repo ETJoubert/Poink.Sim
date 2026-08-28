@@ -1,30 +1,3 @@
-.doc-wrapper {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    width: 100%;
-    height: 100%;
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: var(--border-radius-sm);
-    background: rgba(255, 255, 255, 0.015);
-    overflow: hidden;
-}
-
-.doc-wrapper.expanded {
-    position: fixed;
-    top: 16px;
-    right: 32px;
-    bottom: 16px;
-    left: 16px;
-    z-index: 1000;
-    width: auto;
-    height: auto;
-    background: var(--color-bg-terminal);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    border-radius: 4px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
-}
-
 .doc-toolbar {
     display: flex;
     align-items: center;
@@ -108,18 +81,4 @@
 .doc-expand-btn:hover {
     color: #e6e6e6;
     border-color: rgba(255, 255, 255, 0.35);
-}
-
-.doc-chart-container {
-    flex: 1;
-    min-height: 0;
-    width: 100%;
-}
-
-.doc-minimap {
-    flex: 0 0 44px;
-    width: 100%;
-    position: relative;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-    overflow: hidden;
 }

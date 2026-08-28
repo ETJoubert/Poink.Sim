@@ -1,0 +1,26 @@
+.doc-wrapper {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: var(--border-radius-sm);
+    background: rgba(255, 255, 255, 0.015);
+    overflow: hidden;
+}
+
+.doc-wrapper.expanded {
+    position: fixed;
+    top: 16px;
+    right: 32px;
+    bottom: 16px;
+    left: 16px;
+    z-index: 1000;
+    width: auto;
+    height: auto;
+    background: var(--color-bg-terminal);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+}
