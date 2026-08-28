@@ -122,6 +122,53 @@
             <input type="number" min="0" max="100" step="1" @bind="_deltaNegSpectrum.Percent" @bind:event="oninput" />
             <span>%</span>
         </label>
+
+        <span class="xgrid-row-divider"></span>
+        <button class="xgrid-delta-toggle xgrid-delta-toggle-low @(_lowPointOverlay.ShowHighlight ? "active" : "")" @onclick="() => _lowPointOverlay.ShowHighlight = !_lowPointOverlay.ShowHighlight"
+                title="Mark local swing lows: a low must out-drop its neighbours by at least the prominence (Fixed) or rank in the top Percent% found (Adaptive), and survivors within the distance of a stronger low are dropped">Low</button>
+        <button class="xgrid-delta-toggle @(_lowPointOverlay.Mode == XGridPeakMode.Adaptive ? "active" : "")" @onclick="() => _lowPointOverlay.Mode = _lowPointOverlay.Mode == XGridPeakMode.Fixed ? XGridPeakMode.Adaptive : XGridPeakMode.Fixed"
+                title="@(_lowPointOverlay.Mode == XGridPeakMode.Adaptive ? "Adaptive: keeps the top Percent% most prominent lows found in the current view -- click for Fixed" : "Fixed: keeps every low whose prominence clears the row threshold -- click for Adaptive")">@(_lowPointOverlay.Mode == XGridPeakMode.Adaptive ? "Adapt" : "Fixed")</button>
+        @if (_lowPointOverlay.Mode == XGridPeakMode.Adaptive)
+        {
+            <label class="xgrid-control" title="Percent of the most prominent lows to keep in the current view -- 20 keeps the top 20%">
+                <input type="number" min="0" max="100" step="1" @bind="_lowPointOverlay.AdaptivePercent" @bind:event="oninput" />
+                <span>%</span>
+            </label>
+        }
+        else
+        {
+            <label class="xgrid-control" title="Minimum prominence (rows) a low must clear -- its drop to the higher of the two nearest rises before a deeper low">
+                <input type="number" min="0" step="0.5" @bind="_lowPointOverlay.MinProminence" @bind:event="oninput" />
+                <span>prom</span>
+            </label>
+        }
+        <label class="xgrid-control" title="Minimum columns between two kept lows -- the stronger (higher-prominence) low wins when two are closer than this">
+            <input type="number" min="1" max="500" step="1" @bind="_lowPointOverlay.MinDistance" @bind:event="oninput" />
+            <span>dist</span>
+        </label>
+
+        <button class="xgrid-delta-toggle xgrid-delta-toggle-high @(_highPointOverlay.ShowHighlight ? "active" : "")" @onclick="() => _highPointOverlay.ShowHighlight = !_highPointOverlay.ShowHighlight"
+                title="Mark local swing highs: a high must out-rise its neighbours by at least the prominence (Fixed) or rank in the top Percent% found (Adaptive), and survivors within the distance of a stronger high are dropped">High</button>
+        <button class="xgrid-delta-toggle @(_highPointOverlay.Mode == XGridPeakMode.Adaptive ? "active" : "")" @onclick="() => _highPointOverlay.Mode = _highPointOverlay.Mode == XGridPeakMode.Fixed ? XGridPeakMode.Adaptive : XGridPeakMode.Fixed"
+                title="@(_highPointOverlay.Mode == XGridPeakMode.Adaptive ? "Adaptive: keeps the top Percent% most prominent highs found in the current view -- click for Fixed" : "Fixed: keeps every high whose prominence clears the row threshold -- click for Adaptive")">@(_highPointOverlay.Mode == XGridPeakMode.Adaptive ? "Adapt" : "Fixed")</button>
+        @if (_highPointOverlay.Mode == XGridPeakMode.Adaptive)
+        {
+            <label class="xgrid-control" title="Percent of the most prominent highs to keep in the current view -- 20 keeps the top 20%">
+                <input type="number" min="0" max="100" step="1" @bind="_highPointOverlay.AdaptivePercent" @bind:event="oninput" />
+                <span>%</span>
+            </label>
+        }
+        else
+        {
+            <label class="xgrid-control" title="Minimum prominence (rows) a high must clear -- its rise above the lower of the two nearest drops before a taller high">
+                <input type="number" min="0" step="0.5" @bind="_highPointOverlay.MinProminence" @bind:event="oninput" />
+                <span>prom</span>
+            </label>
+        }
+        <label class="xgrid-control" title="Minimum columns between two kept highs -- the stronger (higher-prominence) high wins when two are closer than this">
+            <input type="number" min="1" max="500" step="1" @bind="_highPointOverlay.MinDistance" @bind:event="oninput" />
+            <span>dist</span>
+        </label>
     </div>
     <div class="xgrid-draw-row">
         <span class="xgrid-row-label">Graphs</span>
@@ -283,6 +330,18 @@
                     <span>VWAP</span>
                     <span class="xgrid-signal-arrow @(XGridStats.IsCurrentAboveVwap(grid) ? "on" : "")" title="Current price is above VWAP">&#9650;</span>
                     <span class="xgrid-signal-arrow @(XGridStats.IsCurrentBelowVwap(grid) ? "on" : "")" title="Current price is below VWAP">&#9660;</span>
+                </div>
+                <div class="xgrid-signal-pos xgrid-signal-low" title="Current price relative to the latest swing low">
+                    <span class="xgrid-signal-dot @(XGridStats.IsCurrentAtLowLevel(grid, _lowPointOverlay.Settings) ? "on" : "")" title="Current cell is at the latest swing low's row"></span>
+                    <span>LOW</span>
+                    <span class="xgrid-signal-arrow @(XGridStats.IsCurrentAboveLowLevel(grid, _lowPointOverlay.Settings) ? "on" : "")" title="Current price is above the latest swing low">&#9650;</span>
+                    <span class="xgrid-signal-arrow @(XGridStats.IsCurrentBelowLowLevel(grid, _lowPointOverlay.Settings) ? "on" : "")" title="Current price is below the latest swing low">&#9660;</span>
+                </div>
+                <div class="xgrid-signal-pos xgrid-signal-high" title="Current price relative to the latest swing high">
+                    <span class="xgrid-signal-dot @(XGridStats.IsCurrentAtHighLevel(grid, _highPointOverlay.Settings) ? "on" : "")" title="Current cell is at the latest swing high's row"></span>
+                    <span>HIGH</span>
+                    <span class="xgrid-signal-arrow @(XGridStats.IsCurrentAboveHighLevel(grid, _highPointOverlay.Settings) ? "on" : "")" title="Current price is above the latest swing high">&#9650;</span>
+                    <span class="xgrid-signal-arrow @(XGridStats.IsCurrentBelowHighLevel(grid, _highPointOverlay.Settings) ? "on" : "")" title="Current price is below the latest swing high">&#9660;</span>
                 </div>
                 <div class="xgrid-signal-pos xgrid-signal-vwap-poc" title="VWAP relative to the Point of Control">
                     <span class="xgrid-signal-dot @(XGridStats.IsVwapAtPoc(grid) ? "on" : "")" title="VWAP's row matches the POC row"></span>

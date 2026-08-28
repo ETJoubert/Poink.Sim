@@ -80,6 +80,26 @@ internal enum XGridHighlightMode
 	Max,
 }
 
+// Fixed clears an absolute row-count prominence; Adaptive keeps the top Percent% of
+// candidates found in the current view, the same top-X% convention XGridHighlightMode.Max uses.
+internal enum XGridPeakMode
+{
+	Fixed,
+	Adaptive,
+}
+
+// A column's extreme cell for peak-finding -- Value is the row, negated for highs, so a
+// FindPeaks maximum is always a price extreme.
+internal readonly record struct XGridColumnExtreme(int Col, int Row, double Value);
+
+// Peak-finding cutoff config for one direction (low or high); see XGridStats.FindPeaks.
+internal readonly record struct XGridPeakSettings(
+	XGridPeakMode Mode,
+	double MinProminence,
+	double AdaptivePercent,
+	int MinDistance
+);
+
 // Footprint-style price/bar matrix -- rows are shared price buckets, columns are ProfilerPage's Volume
 // Range bars grouped down to colCount. Kept separate from XGrid.razor so the component stays render-only.
 internal static class XGridStats
@@ -538,6 +558,164 @@ internal static class XGridStats
 
 		double deltaRank = CellValue(grid, cell, XGridSpectrumMetric.Delta);
 		return positive ? deltaRank > 0 : deltaRank < 0;
+	}
+
+	// Swing-low/-high ranking: local maxima of a per-column extreme-price series (see FindPeaks).
+	public static IReadOnlyList<(int Row, int Col)> LowPointCells(XGridResult grid, XGridPeakSettings settings) =>
+		ExtremePoints(grid, settings, lowest: true);
+
+	public static IReadOnlyList<(int Row, int Col)> HighPointCells(XGridResult grid, XGridPeakSettings settings) =>
+		ExtremePoints(grid, settings, lowest: false);
+
+	// The most recent (rightmost-column) swing point as a level, so it can drive the same
+	// At/Above/Below comparisons Poc/Vah/Val/Vwap already use. Null when none survive settings.
+	public static XGridLevel? LatestLowLevel(XGridResult grid, XGridPeakSettings settings) =>
+		LatestLevel(grid, LowPointCells(grid, settings));
+
+	public static XGridLevel? LatestHighLevel(XGridResult grid, XGridPeakSettings settings) =>
+		LatestLevel(grid, HighPointCells(grid, settings));
+
+	private static XGridLevel? LatestLevel(XGridResult grid, IReadOnlyList<(int Row, int Col)> points)
+	{
+		if (points.Count == 0)
+			return null;
+		var latest = points[0];
+		for (var i = 1; i < points.Count; i++)
+			if (points[i].Col > latest.Col)
+				latest = points[i];
+		return new XGridLevel((grid.RowLow[latest.Row] + grid.RowHigh[latest.Row]) / 2, latest.Row);
+	}
+
+	public static bool IsCurrentAtLowLevel(XGridResult grid, XGridPeakSettings settings) =>
+		IsCurrentAtLevel(grid, LatestLowLevel(grid, settings));
+
+	public static bool IsCurrentAboveLowLevel(XGridResult grid, XGridPeakSettings settings) =>
+		IsCurrentAboveLevel(grid, LatestLowLevel(grid, settings));
+
+	public static bool IsCurrentBelowLowLevel(XGridResult grid, XGridPeakSettings settings) =>
+		IsCurrentBelowLevel(grid, LatestLowLevel(grid, settings));
+
+	public static bool IsCurrentAtHighLevel(XGridResult grid, XGridPeakSettings settings) =>
+		IsCurrentAtLevel(grid, LatestHighLevel(grid, settings));
+
+	public static bool IsCurrentAboveHighLevel(XGridResult grid, XGridPeakSettings settings) =>
+		IsCurrentAboveLevel(grid, LatestHighLevel(grid, settings));
+
+	public static bool IsCurrentBelowHighLevel(XGridResult grid, XGridPeakSettings settings) =>
+		IsCurrentBelowLevel(grid, LatestHighLevel(grid, settings));
+
+	private static IReadOnlyList<(int Row, int Col)> ExtremePoints(
+		XGridResult grid,
+		XGridPeakSettings settings,
+		bool lowest
+	)
+	{
+		var series = new List<XGridColumnExtreme>();
+		for (var c = 0; c < grid.Columns.Count; c++)
+			if (ColumnExtremeRow(grid.Columns[c], lowest) is { } row)
+				series.Add(new XGridColumnExtreme(c, row, lowest ? row : -row));
+
+		var peaks = FindPeaks(series, settings);
+		var points = new List<(int Row, int Col)>(peaks.Count);
+		foreach (var peak in peaks)
+			points.Add((peak.Row, peak.Col));
+		return points;
+	}
+
+	// Bottom-most (lowest) or top-most (highest) nonzero row in the column; null if empty.
+	private static int? ColumnExtremeRow(XGridColumn column, bool lowest)
+	{
+		var cells = column.Cells;
+		int count = cells.Count;
+		for (var i = 0; i < count; i++)
+		{
+			int r = lowest ? count - 1 - i : i;
+			if (cells[r].Count > 0)
+				return r;
+		}
+		return null;
+	}
+
+	// Local maxima of series.Value, plateau-aware: a flat run strictly higher than the value
+	// before and after it counts as one peak (its midpoint), not zero.
+	private static List<(XGridColumnExtreme Point, double Prominence)> PeakCandidates(
+		IReadOnlyList<XGridColumnExtreme> series
+	)
+	{
+		var candidates = new List<(XGridColumnExtreme Point, double Prominence)>();
+		int n = series.Count;
+		var i = 1;
+		while (i < n - 1)
+		{
+			double v = series[i].Value;
+			if (series[i - 1].Value >= v)
+			{
+				i++;
+				continue;
+			}
+
+			int end = i;
+			while (end + 1 < n && series[end + 1].Value == v)
+				end++;
+
+			if (end < n - 1 && series[end + 1].Value < v)
+			{
+				double leftMin = series[i - 1].Value;
+				for (var j = i - 1; j >= 0 && series[j].Value <= v; j--)
+					leftMin = Math.Min(leftMin, series[j].Value);
+
+				double rightMin = series[end + 1].Value;
+				for (var j = end + 1; j < n && series[j].Value <= v; j++)
+					rightMin = Math.Min(rightMin, series[j].Value);
+
+				candidates.Add((series[(i + end) / 2], v - Math.Max(leftMin, rightMin)));
+			}
+
+			i = end + 1;
+		}
+		return candidates;
+	}
+
+	// Filters PeakCandidates by settings.Mode, then keeps strongest-prominence first, skipping
+	// any candidate within MinDistance columns of one already kept.
+	private static List<XGridColumnExtreme> FindPeaks(
+		IReadOnlyList<XGridColumnExtreme> series,
+		XGridPeakSettings settings
+	)
+	{
+		var candidates = PeakCandidates(series);
+
+		List<(XGridColumnExtreme Point, double Prominence)> filtered;
+		if (settings.Mode == XGridPeakMode.Adaptive)
+		{
+			candidates.Sort((a, b) => a.Prominence.CompareTo(b.Prominence));
+			int count = TopCount(candidates.Count, settings.AdaptivePercent);
+			filtered = candidates.GetRange(candidates.Count - count, count);
+		}
+		else
+		{
+			filtered = new List<(XGridColumnExtreme Point, double Prominence)>();
+			foreach (var c in candidates)
+				if (c.Prominence >= settings.MinProminence)
+					filtered.Add(c);
+		}
+
+		filtered.Sort((a, b) => b.Prominence.CompareTo(a.Prominence));
+		int minDistance = Math.Max(1, settings.MinDistance);
+		var kept = new List<XGridColumnExtreme>();
+		foreach (var (point, _) in filtered)
+		{
+			var tooClose = false;
+			foreach (var k in kept)
+				if (Math.Abs(k.Col - point.Col) < minDistance)
+				{
+					tooClose = true;
+					break;
+				}
+			if (!tooClose)
+				kept.Add(point);
+		}
+		return kept;
 	}
 }
 

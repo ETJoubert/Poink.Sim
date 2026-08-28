@@ -311,6 +311,34 @@
     color: var(--color-bg-dark);
 }
 
+.xgrid-delta-toggle-low {
+    color: var(--color-badge-4);
+    border-color: color-mix(in srgb, var(--color-badge-4) 35%, transparent);
+}
+
+.xgrid-delta-toggle-low:hover {
+    background: color-mix(in srgb, var(--color-badge-4) 15%, transparent);
+}
+
+.xgrid-delta-toggle-low.active {
+    background: var(--color-badge-4);
+    color: var(--color-bg-dark);
+}
+
+.xgrid-delta-toggle-high {
+    color: var(--color-badge-5);
+    border-color: color-mix(in srgb, var(--color-badge-5) 35%, transparent);
+}
+
+.xgrid-delta-toggle-high:hover {
+    background: color-mix(in srgb, var(--color-badge-5) 15%, transparent);
+}
+
+.xgrid-delta-toggle-high.active {
+    background: var(--color-badge-5);
+    color: var(--color-bg-dark);
+}
+
 .xgrid-level-toggle {
     font-family: var(--font-body);
     font-size: 0.54rem;
@@ -726,6 +754,14 @@
 
 .xgrid-signal-vwap-poc {
     color: var(--color-tertiary);
+}
+
+.xgrid-signal-low {
+    color: var(--color-badge-4);
+}
+
+.xgrid-signal-high {
+    color: var(--color-badge-5);
 }
 
 .xgrid-signal-total-poc {

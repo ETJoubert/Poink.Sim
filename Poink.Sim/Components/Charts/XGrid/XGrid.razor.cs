@@ -298,6 +298,22 @@ namespace Poink.Sim.Components.Charts
 		private readonly SpectrumOverlay _deltaPosSpectrum = new();
 		private readonly SpectrumOverlay _deltaNegSpectrum = new();
 
+		// Swing-low/-high overlay config -- ShowHighlight is display-only state, so it stays
+		// here rather than in XGridStats.XGridPeakSettings, which the ranking itself reads.
+		private sealed class PeakOverlay
+		{
+			public bool ShowHighlight;
+			public XGridPeakMode Mode = XGridPeakMode.Fixed;
+			public double MinProminence = 2;
+			public double AdaptivePercent = 20;
+			public int MinDistance = 10;
+
+			public XGridPeakSettings Settings => new(Mode, MinProminence, AdaptivePercent, MinDistance);
+		}
+
+		private readonly PeakOverlay _lowPointOverlay = new();
+		private readonly PeakOverlay _highPointOverlay = new();
+
 		// Shared by every Highlight overlay above -- Rank always highlights a fixed share of
 		// cells, Max highlights every cell at least Percent% of that metric's grid-wide peak.
 		private XGridHighlightMode _highlightMode = XGridHighlightMode.Rank;
@@ -408,6 +424,20 @@ namespace Poink.Sim.Components.Charts
 			var dayLines = _showDayLines ? IntervalBoundaryColumns(grid, 24) : null;
 			var intervalLines = _showIntervalLines ? IntervalBoundaryColumns(grid, _intervalHours) : null;
 
+			static List<object> PointsPayload(IReadOnlyList<(int Row, int Col)> points)
+			{
+				var payload = new List<object>(points.Count);
+				foreach (var pt in points)
+					payload.Add(new { row = pt.Row, col = pt.Col });
+				return payload;
+			}
+			var lowPoints = _lowPointOverlay.ShowHighlight
+				? PointsPayload(XGridStats.LowPointCells(grid, _lowPointOverlay.Settings))
+				: null;
+			var highPoints = _highPointOverlay.ShowHighlight
+				? PointsPayload(XGridStats.HighPointCells(grid, _highPointOverlay.Settings))
+				: null;
+
 			var lines = new List<object>();
 			var toggledRows = new List<int>();
 			var toggledCols = new List<int>();
@@ -474,6 +504,8 @@ namespace Poink.Sim.Components.Charts
 				downHighlight = TopHighlightMask(grid, XGridSpectrumMetric.Down),
 				deltaPosHighlight = DeltaHighlightMask(grid, positive: true),
 				deltaNegHighlight = DeltaHighlightMask(grid, positive: false),
+				lowPoints,
+				highPoints,
 				sweep,
 				markers,
 				dayLines,

@@ -208,12 +208,17 @@ function render(ctx, W, H, p, st, canvas) {
     }
 
     // Top-percent highlights: a brighter border over the baseline one for each direction's
-    // top-percent overlay, marking the cells its Spectrum graph's threshold line also cuts off.
+    // top-percent overlay.
     strokeMask(ctx, p.topHighlight, rows, cols, ml, cw, ch, gap, cssVar('--color-accent'), 1.5);
     strokeMask(ctx, p.upHighlight, rows, cols, ml, cw, ch, gap, cssVar('--color-success'), 1.5);
     strokeMask(ctx, p.downHighlight, rows, cols, ml, cw, ch, gap, cssVar('--color-error'), 1.5);
     strokeMask(ctx, p.deltaPosHighlight, rows, cols, ml, cw, ch, gap, cssVar('--color-badge-1'), 1.5);
     strokeMask(ctx, p.deltaNegHighlight, rows, cols, ml, cw, ch, gap, cssVar('--color-badge-3'), 1.5);
+
+    // Low/High points are sparse marker sets (unlike the dense masks above), drawn as filled
+    // dots rather than borders so they read as a distinct annotation, not another rank highlight.
+    drawPointMarkers(ctx, p.lowPoints, ml, cw, ch, cssVar('--color-badge-4'));
+    drawPointMarkers(ctx, p.highPoints, ml, cw, ch, cssVar('--color-badge-5'));
 
     if (p.sweep) {
         const warn = rgb(cssVar('--color-warning'));
@@ -554,6 +559,19 @@ function drawColumnDividers(ctx, cols, ml, cw, gBottom, color, dash) {
     }
     ctx.stroke();
     ctx.setLineDash([]);
+}
+
+// One filled dot per {row, col} point -- shared by the Low/High point overlays, which only
+// differ by which cells they mark and what colour they draw with.
+function drawPointMarkers(ctx, points, ml, cw, ch, color) {
+    if (!points || points.length === 0) return;
+    ctx.fillStyle = color;
+    const r = Math.max(2, Math.min(cw, ch) * 0.18);
+    for (const pt of points) {
+        ctx.beginPath();
+        ctx.arc(ml + (pt.col + 0.5) * cw, (pt.row + 0.5) * ch, r, 0, Math.PI * 2);
+        ctx.fill();
+    }
 }
 
 function distToSeg(px, py, x1, y1, x2, y2) {
