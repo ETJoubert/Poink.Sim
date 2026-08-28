@@ -82,6 +82,8 @@ internal sealed class PolicyGradientTrainingStrategy : IRlTrainingStrategy
 			logProb.Dispose();
 		foreach (var entropy in entropies)
 			entropy.Dispose();
+		foreach (var step in episode.Steps)
+			step.Replay?.Dispose();
 
 		return (totalReward, null);
 	}

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -9,6 +10,10 @@ using static TorchSharp.torch;
 using static TorchSharp.torch.nn;
 
 namespace Poink.Sim.Brain.Neural;
+
+// Opaque, brain-owned state needed to replay a decision's forward pass under updated weights --
+// callers pass it back unopened via IPolicyGradientBrain.Recompute, never inspect its shape.
+internal interface IPolicyGradientReplay : IDisposable { }
 
 public sealed record RlInputFeature(string Label, double Value, IFeatureDisplayNormalizer Normalizer);
 
@@ -39,8 +44,13 @@ internal interface IPolicyGradientBrain : IDescribableBrain
 		SimulationDecision Decision,
 		Tensor ActionLogProbability,
 		Tensor Entropy,
-		IReadOnlyList<RlOutputFeature> Outputs
+		IReadOnlyList<RlOutputFeature> Outputs,
+		IPolicyGradientReplay Replay
 	) DecideWithLogProbability(SimulationObservation observation);
+
+	// Recomputes log-probability/entropy for the exact action a replay captured, against this
+	// brain's current (possibly since-updated) weights -- for per-decision policy-gradient training.
+	(Tensor LogProbability, Tensor Entropy) Recompute(IPolicyGradientReplay replay);
 
 	byte[] ExportWeights()
 	{

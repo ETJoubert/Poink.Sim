@@ -244,7 +244,8 @@ internal sealed class ComposedPolicyBrain : IPolicyGradientBrain, IDecisionMaske
 		SimulationDecision Decision,
 		Tensor ActionLogProbability,
 		Tensor Entropy,
-		IReadOnlyList<RlOutputFeature> Outputs
+		IReadOnlyList<RlOutputFeature> Outputs,
+		IPolicyGradientReplay Replay
 	) DecideWithLogProbability(SimulationObservation observation)
 	{
 		lock (_forwardLock)
@@ -274,24 +275,73 @@ internal sealed class ComposedPolicyBrain : IPolicyGradientBrain, IDecisionMaske
 			);
 
 			var headValues = new Dictionary<ActionOutputKind, double?>();
+			var headLevelIndices = new List<int>(_actionOutputHeads.Count);
 			int offset = _enabledDirections.Count;
 			foreach (var head in _actionOutputHeads)
 			{
 				var slice = logits.narrow(1, offset, head.OutputWidth);
-				var (value, logProbability, headOutputs) = head.Sample(slice);
+				var (value, logProbability, levelIndex, headOutputs) = head.Sample(slice);
 				headValues[head.Kind] = value;
 				actionLogProbability = actionLogProbability + logProbability;
+				headLevelIndices.Add(levelIndex);
 				outputs.AddRange(headOutputs);
 				offset += head.OutputWidth;
 			}
+
+			var replay = new DecisionReplay(input, legalDirections, actionIndex, headLevelIndices);
 
 			return (
 				BuildDecision(_enabledDirections[actionIndex], headValues, observation.CurrentPrice),
 				actionLogProbability,
 				entropy,
-				outputs
+				outputs,
+				replay
 			);
 		}
+	}
+
+	public (Tensor LogProbability, Tensor Entropy) Recompute(IPolicyGradientReplay replay)
+	{
+		if (replay is not DecisionReplay decisionReplay)
+			throw new ArgumentException($"replay was not produced by {nameof(ComposedPolicyBrain)}", nameof(replay));
+
+		lock (_forwardLock)
+		{
+			var logits = Network.forward(decisionReplay.Input);
+
+			var directionLogits = logits.narrow(1, 0, _enabledDirections.Count);
+			var maskedDirectionLogits = ApplyDirectionMask(directionLogits, decisionReplay.LegalDirections);
+			var scaledDirectionLogits =
+				_decisionDecoding == DecisionDecodingKind.HardMax
+					? maskedDirectionLogits
+					: maskedDirectionLogits / _decisionTemperature;
+			var directionLogProbs = functional.log_softmax(scaledDirectionLogits, dim: 1);
+			var directionProbabilities = exp(directionLogProbs);
+
+			var entropy = -(directionProbabilities * directionLogProbs).sum();
+			var logProbability = directionLogProbs[0, decisionReplay.DirectionIndex];
+
+			int offset = _enabledDirections.Count;
+			for (int i = 0; i < _actionOutputHeads.Count; i++)
+			{
+				var head = _actionOutputHeads[i];
+				var slice = logits.narrow(1, offset, head.OutputWidth);
+				logProbability = logProbability + head.LogProbabilityOf(slice, decisionReplay.HeadLevelIndices[i]);
+				offset += head.OutputWidth;
+			}
+
+			return (logProbability, entropy);
+		}
+	}
+
+	private sealed record DecisionReplay(
+		Tensor Input,
+		IReadOnlyList<bool> LegalDirections,
+		int DirectionIndex,
+		IReadOnlyList<int> HeadLevelIndices
+	) : IPolicyGradientReplay
+	{
+		public void Dispose() => Input.Dispose();
 	}
 
 	// A finite penalty (rather than -infinity) keeps log_softmax and the entropy's 0 * log(0) term finite.

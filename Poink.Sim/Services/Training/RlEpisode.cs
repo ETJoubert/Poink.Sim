@@ -8,7 +8,13 @@ using static TorchSharp.torch;
 
 namespace Poink.Sim.Training;
 
-internal sealed record RlStep(SimulationAction Action, Tensor? LogProbability, double Reward, Tensor? Entropy);
+internal sealed record RlStep(
+	SimulationAction Action,
+	Tensor? LogProbability,
+	double Reward,
+	Tensor? Entropy,
+	IPolicyGradientReplay? Replay = null
+);
 
 // Timestamp is the decision's own moment -- cell-stepped episodes can hold zero, one, or
 // several decisions per bar, so callers locate a decision by this time, not by index.

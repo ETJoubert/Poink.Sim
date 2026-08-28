@@ -305,14 +305,16 @@ internal static class RlEpisodeRunner
 		Tensor? logProbability = null;
 		Tensor? entropy = null;
 		IReadOnlyList<RlOutputFeature>? outputs = null;
+		IPolicyGradientReplay? replay = null;
 		if (brain is IPolicyGradientBrain policyBrain)
 		{
-			var (decidedAction, actionLogProbability, decisionEntropy, decisionOutputs) =
+			var (decidedAction, actionLogProbability, decisionEntropy, decisionOutputs, decisionReplay) =
 				policyBrain.DecideWithLogProbability(observation);
 			decision = decidedAction;
 			logProbability = actionLogProbability;
 			entropy = decisionEntropy;
 			outputs = decisionOutputs;
+			replay = decisionReplay;
 		}
 		else if (brain is INeatPolicyBrain neatBrain)
 		{
@@ -328,7 +330,7 @@ internal static class RlEpisodeRunner
 		var execution = trader.Apply(decision, bid, ask, timestamp);
 		var capitalAfter = trader.Snapshot(bid, ask);
 
-		steps.Add(new RlStep(decision.Action, logProbability, 0.0, entropy));
+		steps.Add(new RlStep(decision.Action, logProbability, 0.0, entropy, replay));
 		return (capitalAfter, observation, outputs, trader.CurrentPosition, execution?.Blocked ?? false);
 	}
 }

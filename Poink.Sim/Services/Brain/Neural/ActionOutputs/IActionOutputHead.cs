@@ -10,5 +10,9 @@ internal interface IActionOutputHead
 
 	int OutputWidth { get; }
 
-	(double? Value, Tensor LogProbability, IReadOnlyList<RlOutputFeature> Outputs) Sample(Tensor rawSlice);
+	(double? Value, Tensor LogProbability, int LevelIndex, IReadOnlyList<RlOutputFeature> Outputs) Sample(
+		Tensor rawSlice
+	);
+
+	Tensor LogProbabilityOf(Tensor rawSlice, int levelIndex);
 }

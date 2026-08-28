@@ -164,7 +164,7 @@ internal sealed class NeatPolicyBrain : INeatPolicyBrain, IDecisionMaskedBrain
 			foreach (var head in _actionOutputHeads)
 			{
 				var slice = logits.narrow(1, offset, head.OutputWidth);
-				var (value, _, headOutputs) = head.Sample(slice);
+				var (value, _, _, headOutputs) = head.Sample(slice);
 				headValues[head.Kind] = value;
 				outputs.AddRange(headOutputs);
 				offset += head.OutputWidth;

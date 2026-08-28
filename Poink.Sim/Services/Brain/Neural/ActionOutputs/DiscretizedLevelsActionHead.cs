@@ -39,7 +39,9 @@ internal sealed class DiscretizedLevelsActionHead : IActionOutputHead
 	public static IReadOnlyList<string> GetLevelLabels(ActionOutputKind kind) =>
 		LevelsByKind[kind].Select(l => l.Label).ToList();
 
-	public (double? Value, Tensor LogProbability, IReadOnlyList<RlOutputFeature> Outputs) Sample(Tensor rawSlice)
+	public (double? Value, Tensor LogProbability, int LevelIndex, IReadOnlyList<RlOutputFeature> Outputs) Sample(
+		Tensor rawSlice
+	)
 	{
 		var scaledSlice = _decoding == DecisionDecodingKind.HardMax ? rawSlice : rawSlice / _temperature;
 		var logProbs = functional.log_softmax(scaledSlice, dim: 1);
@@ -61,6 +63,13 @@ internal sealed class DiscretizedLevelsActionHead : IActionOutputHead
 				)
 			);
 
-		return (_levels[levelIndex].Value, logProbs[0, levelIndex], outputs);
+		return (_levels[levelIndex].Value, logProbs[0, levelIndex], levelIndex, outputs);
+	}
+
+	public Tensor LogProbabilityOf(Tensor rawSlice, int levelIndex)
+	{
+		var scaledSlice = _decoding == DecisionDecodingKind.HardMax ? rawSlice : rawSlice / _temperature;
+		var logProbs = functional.log_softmax(scaledSlice, dim: 1);
+		return logProbs[0, levelIndex];
 	}
 }

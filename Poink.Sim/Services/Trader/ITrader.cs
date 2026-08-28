@@ -70,7 +70,8 @@ internal interface ITrader
 		SimulationDecision decision;
 		if (CaptureIo && Brain is IPolicyGradientBrain policyBrain)
 		{
-			var (decidedAction, _, _, outputs) = policyBrain.DecideWithLogProbability(observation);
+			var (decidedAction, _, _, outputs, replay) = policyBrain.DecideWithLogProbability(observation);
+			replay.Dispose();
 			LatestInputs = policyBrain.DescribeInputs(observation);
 			LatestOutputs = outputs;
 			decision = decidedAction;
