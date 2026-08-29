@@ -3,6 +3,7 @@
 @using Poink.Sim.Components.Charts
 @using Poink.Sim.Components.Shared.BarSizeSelect
 @using Poink.Sim.Components.Shared.DataTable
+@using Poink.Sim.Components.Shared.Icon
 @using Poink.Sim.Components.Shared.TickDataSource
 @using Poink.Sim.Helpers
 @using Poink.Sim.Repository
@@ -40,13 +41,6 @@
                         title="Load a recent slice of the selected range -- older history backfills automatically as you pan the chart">
                     @(_isLoading ? "LOADING..." : "LOAD")
                 </button>
-                @if (HasData && !_reachedStart)
-                {
-                    <button class="prof-ctrl-btn" @onclick="LoadMore" disabled="@(_isLoading || _isLoadingMore)"
-                            title="Fetch the next older chunk of history -- same as panning the chart back to its earliest bar">
-                        @(_isLoadingMore ? "LOADING OLDER..." : "LOAD OLDER")
-                    </button>
-                }
                 @if (_error is not null)
                 {
                     <span class="prof-error-inline" title="@_error">@_error</span>
@@ -108,12 +102,19 @@
             </div>
         </div>
         <div class="prof-chart-sparkline">
+            @if (!_reachedStart)
+            {
+                <button class="prof-load-older-btn" @onclick="LoadMore" disabled="@(_isLoading || _isLoadingMore)"
+                        title="Fetch the next older chunk of history -- same as panning the chart back to its earliest bar">
+                    <Icon Name="chevron-left" Class="prof-load-older-icon" />
+                </button>
+            }
             <MarketChartSparkline Bars="ToBarRows()"
                                    WindowWidth="_lookbackEnabled ? _lookbackWidth : (int?)null"
                                    WindowOffset="_lookbackEnabled ? _lookbackOffset : (int?)null"
                                    WindowChanged="OnWindowChanged" />
         </div>
-        <div class="prof-chart">
+        <div class="prof-chart" @ref="_chartRowRef">
             @if (_showMainChart)
             {
                 <div class="prof-chart-main"

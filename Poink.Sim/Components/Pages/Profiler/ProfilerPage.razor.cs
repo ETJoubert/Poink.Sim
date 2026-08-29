@@ -138,34 +138,54 @@ namespace Poink.Sim.Components.Pages
 
 		private IEnumerable<Drawing> AllDrawings() => _drawings.Append(_pending);
 
+		private ElementReference _chartRowRef;
 		private ElementReference _chartDividerRefXGrid;
 		private ElementReference _chartDividerRef;
 		private ElementReference _chartDividerRef2;
 		private ElementReference _chartDividerRefMetrics;
 		private ElementReference _chartHDividerRef;
 		private IJSObjectReference? _dividerResizeInstance;
+		private HashSet<string> _lastVisiblePanels = new();
 
 		private const string ChartHDividerScript = """
 			(function() {
+			    // Every .prof-chart-main/.prof-chart-side child gets an explicit flex-basis
+			    // percent (not width px) so N panels always sum to 100% regardless of window
+			    // size -- resetEqual splits it evenly, bind's drag only ever moves percent
+			    // between the divider's own two immediate neighbours.
+			    function resetEqual(container) {
+			        if (!container) return;
+			        var panels = container.querySelectorAll(':scope > .prof-chart-main, :scope > .prof-chart-side');
+			        if (panels.length === 0) return;
+			        var percent = 100 / panels.length;
+			        panels.forEach(function(p) { p.style.flex = '0 0 ' + percent + '%'; });
+			    }
 			    function bind(divider) {
 			        if (!divider || divider.dataset.bound) return;
 			        divider.dataset.bound = '1';
-			        var minWidth = parseInt(divider.dataset.minWidth, 10) || 200;
-			        var maxWidth = parseInt(divider.dataset.maxWidth, 10) || Infinity;
+			        var minWidthPx = parseInt(divider.dataset.minWidth, 10) || 200;
 			        divider.addEventListener('pointerdown', function(e) {
 			            e.preventDefault();
-			            var side = divider.nextElementSibling;
-			            if (!side) return;
+			            var left = divider.previousElementSibling;
+			            var right = divider.nextElementSibling;
+			            if (!left || !right) return;
+			            var container = divider.parentElement;
+			            var containerWidth = container.getBoundingClientRect().width;
+			            var minPercent = (minWidthPx / containerWidth) * 100;
 			            var startX = e.clientX;
-			            var startWidth = side.getBoundingClientRect().width;
+			            var startLeftPercent = (left.getBoundingClientRect().width / containerWidth) * 100;
+			            var startRightPercent = (right.getBoundingClientRect().width / containerWidth) * 100;
 			            divider.setPointerCapture(e.pointerId);
 			            divider.classList.add('prof-chart-divider-active');
 
-			            function clamp(ev) {
-			                return Math.min(maxWidth, Math.max(minWidth, startWidth - (ev.clientX - startX)));
-			            }
 			            function onMove(ev) {
-			                side.style.width = clamp(ev) + 'px';
+			                var deltaPercent = ((ev.clientX - startX) / containerWidth) * 100;
+			                var newLeft = startLeftPercent + deltaPercent;
+			                var newRight = startRightPercent - deltaPercent;
+			                if (newLeft < minPercent) { newRight -= (minPercent - newLeft); newLeft = minPercent; }
+			                if (newRight < minPercent) { newLeft -= (minPercent - newRight); newRight = minPercent; }
+			                left.style.flex = '0 0 ' + newLeft + '%';
+			                right.style.flex = '0 0 ' + newRight + '%';
 			            }
 			            function onUp(ev) {
 			                divider.releasePointerCapture(e.pointerId);
@@ -208,7 +228,7 @@ namespace Poink.Sim.Components.Pages
 			            divider.addEventListener('pointerup', onUp);
 			        });
 			    }
-			    return { bind: bind, bindHeight: bindHeight };
+			    return { bind: bind, bindHeight: bindHeight, resetEqual: resetEqual };
 			})()
 			""";
 
@@ -225,6 +245,13 @@ namespace Poink.Sim.Components.Pages
 
 			if (HasData && _dividerResizeInstance is not null)
 			{
+				var visiblePanels = CurrentVisiblePanelKeys();
+				if (!visiblePanels.SetEquals(_lastVisiblePanels))
+				{
+					_lastVisiblePanels = visiblePanels;
+					await _dividerResizeInstance.InvokeVoidAsync("resetEqual", _chartRowRef);
+				}
+
 				if (_showXGrid)
 					await _dividerResizeInstance.InvokeVoidAsync("bind", _chartDividerRefXGrid);
 				if (_showVolumeProfile)
@@ -235,6 +262,17 @@ namespace Poink.Sim.Components.Pages
 					await _dividerResizeInstance.InvokeVoidAsync("bind", _chartDividerRefMetrics);
 				await _dividerResizeInstance.InvokeVoidAsync("bindHeight", _chartHDividerRef);
 			}
+		}
+
+		private HashSet<string> CurrentVisiblePanelKeys()
+		{
+			var keys = new HashSet<string>();
+			if (_showMainChart) keys.Add("main");
+			if (_showXGrid) keys.Add("xgrid");
+			if (_showVolumeProfile) keys.Add("volume");
+			if (_showTimeProfile) keys.Add("time");
+			if (_showMetricsPanel) keys.Add("metrics");
+			return keys;
 		}
 
 		public async ValueTask DisposeAsync()

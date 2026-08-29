@@ -147,9 +147,47 @@
 }
 
 .prof-chart-sparkline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     flex-shrink: 0;
     padding: 0 5px;
     margin-bottom: 10px;
+}
+
+.prof-chart-sparkline ::deep .mkt-sparkline {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.prof-load-older-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 45%, transparent);
+    border-radius: var(--border-radius-sm);
+    color: var(--color-primary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.prof-load-older-btn:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+    border-color: var(--color-primary);
+}
+
+.prof-load-older-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.prof-load-older-icon {
+    width: 14px;
+    height: 14px;
 }
 
 .prof-chart {
@@ -163,17 +201,16 @@
     max-height: 80vh;
 }
 
-.prof-chart-main {
-    flex: 1;
-    min-width: 0;
+/* Equal-share fallback -- ProfilerPage.razor.cs's resetEqual/bind JS sets each panel's actual flex-basis in percent once mounted. */
+.prof-chart-main,
+.prof-chart-side {
+    flex: 1 1 0;
+    min-width: 150px;
 }
 
 .prof-chart-side {
     display: flex;
     flex-direction: column;
-    flex: 0 0 auto;
-    width: 260px;
-    min-width: 200px;
     overflow-y: auto;
 }
 
