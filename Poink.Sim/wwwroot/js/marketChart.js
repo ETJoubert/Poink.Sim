@@ -15,6 +15,11 @@ const downColor = '#ff5f56';
 // loaded edge, instead of only starting once they're already there.
 const nearStartThreshold = 50;
 
+// Bars of empty space left of the oldest loaded bar on a fresh fitContent(), mirroring
+// the timeScale's own rightOffset -- without it the first bar sits flush against the
+// left edge, under the pane's edge chrome.
+const leftOffsetBars = 10;
+
 // Hand-rolled Series Primitive drawing an arbitrary set of dashed vertical lines, each
 // in its own colour -- same technique ohlcvChart.js's single-purpose window-start
 // marker uses (updateAllViews()/requestUpdate(), called by the chart right before every
@@ -1009,7 +1014,12 @@ export function setData(id, bars, resetView) {
 
     entry.bars = bars;
     entry.hasData = bars.length > 0;
-    if (resetView) entry.chart.timeScale().fitContent();
+    if (resetView) {
+        const ts = entry.chart.timeScale();
+        ts.fitContent();
+        const range = ts.getVisibleLogicalRange();
+        if (range) ts.setVisibleLogicalRange({ from: range.from - leftOffsetBars, to: range.to });
+    }
     drawMinimap(entry);
 }
 

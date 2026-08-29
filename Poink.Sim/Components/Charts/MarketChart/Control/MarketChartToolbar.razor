@@ -67,9 +67,9 @@
                 @onclick="() => OnVolumeRangeToggled.InvokeAsync()" title="@(Mode == DrawMode.VolumeRange
                                                ? "Click again to cancel"
                                                : HasVolumeRange
-                                                   ? "A volume range is selected -- click to clear it and use every loaded bar again"
+                                                   ? "A Lookback Window is selected -- click to clear it and use every loaded bar again"
                                                    : "Click two points to set the time range the volume profile panel is built from")">
-            @(HasVolumeRange && Mode != DrawMode.VolumeRange ? "CLEAR VOLUME RANGE" : "VOLUME RANGE")
+            @(HasVolumeRange && Mode != DrawMode.VolumeRange ? "CLEAR LOOKBACK WINDOW" : "LOOKBACK WINDOW")
         </button>
     </div>
     @if (Mode != DrawMode.None)

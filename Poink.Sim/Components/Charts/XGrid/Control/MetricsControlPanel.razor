@@ -32,14 +32,14 @@
     </div>
     <div class="xgrid-overlay-row">
         <span class="xgrid-row-label">Overlays</span>
-        <span class="xgrid-overlay-label" title="Shades each price row by how many times it was the POC while dragging the Volume Range's near border across every bar position. L->R pins the far border at the range's right edge; R->L pins it at the left edge; Sum combines both.">Sweep</span>
+        <span class="xgrid-overlay-label" title="Shades each price row by how many times it was the POC while dragging the Lookback Window's near border across every bar position. L->R pins the far border at the range's right edge; R->L pins it at the left edge; Sum combines both.">Sweep</span>
         <div class="xgrid-sweep-toggle">
             <button class="@(Display.SweepMode == XGridSweepMode.None ? "active" : "")" @onclick="() => SetDisplay(Display with { SweepMode = XGridSweepMode.None })"
                     title="Don't shade by sweep occurrences">None</button>
             <button class="@(Display.SweepMode == XGridSweepMode.LeftToRight ? "active" : "")" @onclick="() => SetDisplay(Display with { SweepMode = XGridSweepMode.LeftToRight })"
-                    title="Shade by POC occurrences while sweeping the Volume Range's left border rightward, right border pinned">L-&gt;R</button>
+                    title="Shade by POC occurrences while sweeping the Lookback Window's left border rightward, right border pinned">L-&gt;R</button>
             <button class="@(Display.SweepMode == XGridSweepMode.RightToLeft ? "active" : "")" @onclick="() => SetDisplay(Display with { SweepMode = XGridSweepMode.RightToLeft })"
-                    title="Shade by POC occurrences while sweeping the Volume Range's right border leftward, left border pinned">R-&gt;L</button>
+                    title="Shade by POC occurrences while sweeping the Lookback Window's right border leftward, left border pinned">R-&gt;L</button>
             <button class="@(Display.SweepMode == XGridSweepMode.Sum ? "active" : "")" @onclick="() => SetDisplay(Display with { SweepMode = XGridSweepMode.Sum })"
                     title="Shade by the combined L->R and R->L occurrence counts">Sum</button>
         </div>

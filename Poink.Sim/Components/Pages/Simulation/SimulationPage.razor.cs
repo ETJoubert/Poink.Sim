@@ -20,7 +20,7 @@ namespace Poink.Sim.Components.Pages
 	public partial class SimulationPage : ComponentBase, IDisposable, IAsyncDisposable
 	{
 		[Inject]
-		private ISimulationEngine Service { get; set; } = default!;
+		private ISimulationEngine SimulationService { get; set; } = default!;
 
 		[Inject]
 		private IJSRuntime JS { get; set; } = default!;
@@ -277,7 +277,7 @@ namespace Poink.Sim.Components.Pages
 		{
 			if (SelectedTrader is not { } trader)
 				return;
-			Service.SubmitManualDecision(
+			SimulationService.SubmitManualDecision(
 				trader.Id,
 				new SimulationDecision(SimulationAction.Close, Reason: reason),
 				out _
@@ -307,7 +307,7 @@ namespace Poink.Sim.Components.Pages
 				order.EntryPrice,
 				Reason: "xgrid"
 			);
-			Service.SubmitManualDecision(trader.Id, decision, out _);
+			SimulationService.SubmitManualDecision(trader.Id, decision, out _);
 		}
 
 		private List<WeightedPriceSample> MergedBarSamples(SimulationSnapshot s) =>
@@ -419,7 +419,7 @@ namespace Poink.Sim.Components.Pages
 		private void SelectTrader(int id)
 		{
 			_selectedTraderId = id;
-			Service.SelectTraderForIo(id);
+			SimulationService.SelectTraderForIo(id);
 		}
 
 		private bool? SelectedPositionIsLong =>
@@ -445,7 +445,7 @@ namespace Poink.Sim.Components.Pages
 
 		protected override void OnInitialized()
 		{
-			Service.OnChanged += HandleServiceChanged;
+			SimulationService.OnChanged += HandleServiceChanged;
 			ApplyServiceState();
 
 			if (SimulationBrainOptions.Count > 0)
@@ -467,9 +467,9 @@ namespace Poink.Sim.Components.Pages
 
 		private void ApplyServiceState()
 		{
-			_snapshot = Service.Snapshot;
-			_isLoading = Service.IsLoading;
-			_error = Service.Error;
+			_snapshot = SimulationService.Snapshot;
+			_isLoading = SimulationService.IsLoading;
+			_error = SimulationService.Error;
 			SyncHistoryState(_snapshot);
 		}
 
@@ -529,7 +529,7 @@ namespace Poink.Sim.Components.Pages
 
 		public void Dispose()
 		{
-			Service.OnChanged -= HandleServiceChanged;
+			SimulationService.OnChanged -= HandleServiceChanged;
 		}
 
 		private ElementReference _chartDividerRefXGrid;
@@ -712,7 +712,7 @@ namespace Poink.Sim.Components.Pages
 			_keepChartView = false;
 			_setupCollapsed = true;
 			_isDummyRun = false;
-			if (!Service.TryLoad(config))
+			if (!SimulationService.TryLoad(config))
 				_loadError = "a load is already in progress";
 		}
 
@@ -745,9 +745,9 @@ namespace Poink.Sim.Components.Pages
 			_selectedRiskPolicies.Count > 0 ? _selectedRiskPolicies.ToList() : null;
 
 		private void OnAggregationSettingChanged() =>
-			Service.SetAggregation(_aggregate, TimeSpan.FromSeconds(_barSizeSeconds));
+			SimulationService.SetAggregation(_aggregate, TimeSpan.FromSeconds(_barSizeSeconds));
 
-		private void OnSteppingModeChanged() => Service.SetSteppingMode(_steppingMode, _cellWidth);
+		private void OnSteppingModeChanged() => SimulationService.SetSteppingMode(_steppingMode, _cellWidth);
 
 		// Pins the live cell's edges on XGrid as host lines, distinct from the grid's own
 		// rowCount-derived bands, so a Cell-stepping run can be compared against them visually.
@@ -810,7 +810,7 @@ namespace Poink.Sim.Components.Pages
 
 			_keepChartView = false;
 			_isDummyRun = true;
-			if (!Service.TryLoadDummy(config))
+			if (!SimulationService.TryLoadDummy(config))
 				_loadError = "a load is already in progress";
 		}
 
@@ -819,14 +819,14 @@ namespace Poink.Sim.Components.Pages
 		private void TogglePlayPause()
 		{
 			if (_snapshot?.IsPlaying == true)
-				Service.Pause();
+				SimulationService.Pause();
 			else
-				Service.Play();
+				SimulationService.Play();
 		}
 
-		private void StepOnce() => Service.Step();
+		private void StepOnce() => SimulationService.Step();
 
-		private void SetSpeed(double multiplier) => Service.SetSpeed(multiplier);
+		private void SetSpeed(double multiplier) => SimulationService.SetSpeed(multiplier);
 
 		private static readonly double[] Speeds = [0.1, 1.0, 10.0, 100.0, 1000.0, 10000.0];
 
@@ -836,16 +836,17 @@ namespace Poink.Sim.Components.Pages
 			return i >= 0 ? i : Array.IndexOf(Speeds, 1.0);
 		}
 
-		private void DecreaseSpeed(SimulationSnapshot s) => Service.SetSpeed(Speeds[Math.Max(0, SpeedIndex(s) - 1)]);
+		private void DecreaseSpeed(SimulationSnapshot s) =>
+			SimulationService.SetSpeed(Speeds[Math.Max(0, SpeedIndex(s) - 1)]);
 
 		private void IncreaseSpeed(SimulationSnapshot s) =>
-			Service.SetSpeed(Speeds[Math.Min(Speeds.Length - 1, SpeedIndex(s) + 1)]);
+			SimulationService.SetSpeed(Speeds[Math.Min(Speeds.Length - 1, SpeedIndex(s) + 1)]);
 
 		private static string FormatSpeed(double v) =>
 			(v < 1 ? v.ToString("0.#", CultureInfo.InvariantCulture) : v.ToString("0", CultureInfo.InvariantCulture))
 			+ "x";
 
-		private void SetMax() => Service.SetMaxSpeed();
+		private void SetMax() => SimulationService.SetMaxSpeed();
 
 		private void ToggleHideChart() => _hideChart = !_hideChart;
 
@@ -857,14 +858,14 @@ namespace Poink.Sim.Components.Pages
 		{
 			_keepChartView = false;
 
-			Service.Reset();
+			SimulationService.Reset();
 		}
 
 		private void UnloadSim()
 		{
 			_keepChartView = false;
 			_setupCollapsed = false;
-			Service.Unload();
+			SimulationService.Unload();
 		}
 
 		// ── Rendering helpers ──

@@ -146,12 +146,18 @@
     box-shadow: 0 0 14px color-mix(in srgb, var(--color-success) 45%, transparent);
 }
 
+.prof-chart-sparkline {
+    flex-shrink: 0;
+    padding: 0 5px;
+    margin-bottom: 10px;
+}
+
 .prof-chart {
     display: flex;
     flex-shrink: 0;
     align-items: stretch;
     gap: 16px;
-    padding: 18px 24px 10px;
+    padding: 5px 5px 5px;
     height: 60vh;
     min-height: 200px;
     max-height: 80vh;
@@ -258,11 +264,11 @@
 .prof-overlay-toggles {
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: 8px;
     flex-wrap: wrap;
     padding: 5px 10px;
-    background: color-mix(in srgb, var(--color-highlight) 6%, transparent);
-    border: 1px solid color-mix(in srgb, var(--color-highlight) 30%, transparent);
+    background: color-mix(in srgb, var(--color-secondary) 6%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-secondary) 30%, transparent);
     border-radius: var(--border-radius-sm);
 }
 
@@ -270,27 +276,127 @@
     margin-left: auto;
 }
 
+.prof-lookback-field {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.62rem;
+    letter-spacing: 0.02em;
+    color: var(--color-secondary);
+}
+
+.prof-lookback-input {
+    width: 4.5em;
+    font-family: var(--font-body);
+    font-size: 0.62rem;
+    color: var(--color-secondary);
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--color-secondary) 35%, transparent);
+    border-radius: var(--border-radius-sm);
+    padding: 2px 5px;
+}
+
 .prof-overlay-toggles-label {
     font-size: 0.6rem;
     font-weight: bold;
     letter-spacing: 0.1em;
-    color: var(--color-highlight);
+    text-transform: uppercase;
+    color: var(--color-secondary);
     opacity: 0.9;
 }
 
-.prof-overlay-toggle {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    font-size: 0.68rem;
+.prof-overlay-toggle-btn {
+    font-family: var(--font-body);
+    font-size: 0.62rem;
+    letter-spacing: 0.02em;
     color: var(--color-secondary);
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--color-secondary) 35%, transparent);
+    padding: 2px 7px;
+    border-radius: var(--border-radius-sm);
     cursor: pointer;
     white-space: nowrap;
+    transition: background 0.15s ease, color 0.15s ease;
 }
 
-.prof-overlay-toggle input {
-    accent-color: var(--color-highlight);
-    cursor: pointer;
+.prof-overlay-toggle-btn:hover {
+    background: color-mix(in srgb, var(--color-secondary) 15%, transparent);
+}
+
+.prof-overlay-toggle-btn.active {
+    background: var(--color-secondary);
+    color: var(--color-bg-dark);
+    font-weight: bold;
+}
+
+.prof-overlay-toggle-btn-poc {
+    color: var(--color-primary);
+    border-color: color-mix(in srgb, var(--color-primary) 35%, transparent);
+}
+
+.prof-overlay-toggle-btn-poc:hover {
+    background: color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+.prof-overlay-toggle-btn-poc.active {
+    background: var(--color-primary);
+    color: var(--color-bg-dark);
+}
+
+.prof-overlay-toggle-btn-lines {
+    color: var(--color-accent);
+    border-color: color-mix(in srgb, var(--color-accent) 35%, transparent);
+}
+
+.prof-overlay-toggle-btn-lines:hover {
+    background: color-mix(in srgb, var(--color-accent) 15%, transparent);
+}
+
+.prof-overlay-toggle-btn-lines.active {
+    background: var(--color-accent);
+    color: var(--color-bg-dark);
+}
+
+.prof-overlay-toggle-btn-vwap {
+    color: var(--color-tertiary);
+    border-color: color-mix(in srgb, var(--color-tertiary) 35%, transparent);
+}
+
+.prof-overlay-toggle-btn-vwap:hover {
+    background: color-mix(in srgb, var(--color-tertiary) 15%, transparent);
+}
+
+.prof-overlay-toggle-btn-vwap.active {
+    background: var(--color-tertiary);
+    color: var(--color-bg-dark);
+}
+
+.prof-overlay-toggle-btn-avg {
+    color: var(--color-badge-2);
+    border-color: color-mix(in srgb, var(--color-badge-2) 35%, transparent);
+}
+
+.prof-overlay-toggle-btn-avg:hover {
+    background: color-mix(in srgb, var(--color-badge-2) 15%, transparent);
+}
+
+.prof-overlay-toggle-btn-avg.active {
+    background: var(--color-badge-2);
+    color: var(--color-bg-dark);
+}
+
+.prof-overlay-toggle-btn-med {
+    color: var(--color-neutral);
+    border-color: color-mix(in srgb, var(--color-neutral) 35%, transparent);
+}
+
+.prof-overlay-toggle-btn-med:hover {
+    background: color-mix(in srgb, var(--color-neutral) 15%, transparent);
+}
+
+.prof-overlay-toggle-btn-med.active {
+    background: var(--color-neutral);
+    color: var(--color-bg-dark);
 }
 
 .prof-log-tabs {

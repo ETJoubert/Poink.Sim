@@ -60,62 +60,64 @@
         <div class="prof-chart-toolbar">
             <div class="prof-overlay-toggles"
                  title="Toggle the computed chart overlays introduced alongside the volume profile -- these aren't Drawings, so they aren't listed/removable below">
-                <span class="prof-overlay-toggles-label">CHART OVERLAYS</span>
-                <label class="prof-overlay-toggle"
-                       title="Highlight the Point of Control (most-traded price) and Value Area rows inside the volume profile panel">
-                    <input type="checkbox" @bind="_showProfilePanelLevels" />
-                    <span>POC/VA in profile</span>
+                <span class="prof-overlay-toggles-label">Overlays</span>
+                <button type="button" class="prof-overlay-toggle-btn prof-overlay-toggle-btn-poc @(_showProfilePanelLevels ? "active" : "")"
+                        @onclick="() => _showProfilePanelLevels = !_showProfilePanelLevels"
+                        title="Highlight the Point of Control (most-traded price) and Value Area rows inside the volume profile panel">POC/VA</button>
+                <button type="button" class="prof-overlay-toggle-btn prof-overlay-toggle-btn-lines @(_showProfileChartLines ? "active" : "")"
+                        @onclick="() => _showProfileChartLines = !_showProfileChartLines"
+                        title="Project the Point of Control/Value Area High/Low as three dashed lines on the main chart">POC/VAH/VAL</button>
+                <button type="button" class="prof-overlay-toggle-btn prof-overlay-toggle-btn-vwap @(_showVwap ? "active" : "")"
+                        @onclick="() => _showVwap = !_showVwap"
+                        title="Show a cumulative volume-weighted average price line on the main chart, narrowed to the Lookback Window if one is active">VWAP</button>
+                <button type="button" class="prof-overlay-toggle-btn prof-overlay-toggle-btn-avg @(_showAverageLine ? "active" : "")"
+                        @onclick="() => _showAverageLine = !_showAverageLine"
+                        title="Project the mean price as a dashed line on the main chart, narrowed to the Lookback Window if one is active">AVG</button>
+                <button type="button" class="prof-overlay-toggle-btn prof-overlay-toggle-btn-med @(_showMedianLine ? "active" : "")"
+                        @onclick="() => _showMedianLine = !_showMedianLine"
+                        title="Project the median price as a dashed line on the main chart, narrowed to the Lookback Window if one is active">MED</button>
+            </div>
+            <div class="prof-overlay-toggles prof-lookback-toggles"
+                 title="The Lookback Window narrows the volume/time profile panels, XGrid, and VWAP to a slice of the loaded bars -- set it here by width/offset, drag it (or its edges, to resize) on the sparkline below, or draw it on the chart with the LOOKBACK WINDOW tool">
+                <button type="button" class="prof-overlay-toggle-btn @(_lookbackEnabled ? "active" : "")"
+                        @onclick="ToggleLookbackWindow" title="Turn the Lookback Window on/off">Lookback Window</button>
+                <label class="prof-lookback-field" title="Number of bars the window spans">
+                    Width
+                    <input type="number" min="1" class="prof-lookback-input" title="Number of bars the window spans"
+                           @bind="LookbackWidth" @bind:event="onchange" />
                 </label>
-                <label class="prof-overlay-toggle"
-                       title="Project the Point of Control/Value Area High/Low as three dashed lines on the main chart">
-                    <input type="checkbox" @bind="_showProfileChartLines" />
-                    <span>POC/VAH/VAL lines</span>
-                </label>
-                <label class="prof-overlay-toggle"
-                       title="Show a cumulative volume-weighted average price line on the main chart, narrowed to the Volume Range selection if one is active">
-                    <input type="checkbox" @bind="_showVwap" />
-                    <span>VWAP line</span>
-                </label>
-                <label class="prof-overlay-toggle"
-                       title="Project the mean price as a dashed line on the main chart, narrowed to the Volume Range selection if one is active">
-                    <input type="checkbox" @bind="_showAverageLine" />
-                    <span>Average line</span>
-                </label>
-                <label class="prof-overlay-toggle"
-                       title="Project the median price as a dashed line on the main chart, narrowed to the Volume Range selection if one is active">
-                    <input type="checkbox" @bind="_showMedianLine" />
-                    <span>Median line</span>
+                <label class="prof-lookback-field" title="Bars back from the most recently loaded bar to the end of the window">
+                    Offset
+                    <input type="number" min="0" class="prof-lookback-input" title="Bars back from the most recently loaded bar to the end of the window"
+                           @bind="LookbackOffset" @bind:event="onchange" />
                 </label>
             </div>
             <div class="prof-overlay-toggles prof-profile-toggles" title="Show or hide the chart and profile panels">
-                <span class="prof-overlay-toggles-label">PANELS</span>
-                <label class="prof-overlay-toggle" title="Show or hide the main price chart">
-                    <input type="checkbox" @bind="_showMainChart" />
-                    <span>Chart</span>
-                </label>
-                <label class="prof-overlay-toggle" title="Show or hide the footprint grid">
-                    <input type="checkbox" @bind="_showXGrid" />
-                    <span>XGrid</span>
-                </label>
-                <label class="prof-overlay-toggle" title="Volume-at-price histogram over the current window">
-                    <input type="checkbox" @bind="_showVolumeProfile" />
-                    <span>Volume profile</span>
-                </label>
-                <label class="prof-overlay-toggle" title="Time-at-price histogram over the current window">
-                    <input type="checkbox" @bind="_showTimeProfile" />
-                    <span>Time profile</span>
-                </label>
-                <label class="prof-overlay-toggle" title="Standalone panel of XGrid's measurement controls (pips/cols, overlays, spectrum highlights) -- not wired to the chart, for review only">
-                    <input type="checkbox" @bind="_showMetricsPanel" />
-                    <span>Metrics</span>
-                </label>
+                <span class="prof-overlay-toggles-label">Panels</span>
+                <button type="button" class="prof-overlay-toggle-btn @(_showMainChart ? "active" : "")"
+                        @onclick="() => _showMainChart = !_showMainChart" title="Show or hide the main price chart">Chart</button>
+                <button type="button" class="prof-overlay-toggle-btn @(_showXGrid ? "active" : "")"
+                        @onclick="() => _showXGrid = !_showXGrid" title="Show or hide the footprint grid">XGrid</button>
+                <button type="button" class="prof-overlay-toggle-btn @(_showVolumeProfile ? "active" : "")"
+                        @onclick="() => _showVolumeProfile = !_showVolumeProfile" title="Volume-at-price histogram over the current window">Volume profile</button>
+                <button type="button" class="prof-overlay-toggle-btn @(_showTimeProfile ? "active" : "")"
+                        @onclick="() => _showTimeProfile = !_showTimeProfile" title="Time-at-price histogram over the current window">Time profile</button>
+                <button type="button" class="prof-overlay-toggle-btn @(_showMetricsPanel ? "active" : "")"
+                        @onclick="() => _showMetricsPanel = !_showMetricsPanel"
+                        title="Standalone panel of XGrid's measurement controls (pips/cols, overlays, spectrum highlights) -- not wired to the chart, for review only">Metrics</button>
             </div>
+        </div>
+        <div class="prof-chart-sparkline">
+            <MarketChartSparkline Bars="ToBarRows()"
+                                   WindowWidth="_lookbackEnabled ? _lookbackWidth : (int?)null"
+                                   WindowOffset="_lookbackEnabled ? _lookbackOffset : (int?)null"
+                                   WindowChanged="OnWindowChanged" />
         </div>
         <div class="prof-chart">
             @if (_showMainChart)
             {
                 <div class="prof-chart-main"
-                     title="OHLC bar chart -- pan left to backfill older history, or use the toolbar to draw H-Line/V-Line/D-Line/T-Range/P-Range/Rectangle/T-Range Chart/T-Range Reference Chart/Volume Range. POC/VAH/VAL, a cumulative VWAP line, and Average/Median lines are shown automatically for whatever window the volume profile panel is built from">
+                     title="OHLC bar chart -- pan left to backfill older history, or use the toolbar to draw H-Line/V-Line/D-Line/T-Range/P-Range/Rectangle/T-Range Chart/T-Range Reference Chart/Lookback Window. POC/VAH/VAL, a cumulative VWAP line, and Average/Median lines are shown automatically for whatever window the volume profile panel is built from">
                     <MarketChartContainer Bars="ToBarRows()" KeepView="_keepView" OnNearStart="LoadMore"
                                  HorizontalLines="AllHorizontalLines()" VerticalLines="AllVerticalLines()"
                                  DiagonalLines="AllDiagonalLines()" RangeFills="AllRangeFills()" VwapLine="VwapPoints()"
@@ -132,8 +134,8 @@
                 <div class="prof-chart-side">
                     <div class="prof-vp"
                          title="@(VolumeRangeLabel() is { } xgridLabel
-                                                                              ? $"Footprint grid for the selected Volume Range ({xgridLabel}) -- rows are price buckets, columns are bars"
-                                                                              : "Select a Volume Range on the chart to build the footprint grid -- rows are price buckets, columns are bars")">
+                                                                              ? $"Footprint grid for the selected Lookback Window ({xgridLabel}) -- rows are price buckets, columns are bars"
+                                                                              : "Select a Lookback Window to build the footprint grid -- rows are price buckets, columns are bars")">
                         <XGridController Grid="ComputeXGrid()" @bind-PipCount="_xgridPipCount" @bind-ColCount="_xgridColCount" />
                     </div>
                 </div>
@@ -144,8 +146,8 @@
                 <div class="prof-chart-side">
                     <div class="prof-vp"
                          title="@((VolumeRangeLabel() is { } label
-                                                                              ? $"Volume profile for the selected Volume Range ({label}) -- use the toolbar's CLEAR VOLUME RANGE button to go back to every loaded bar"
-                                                                              : "Volume profile across every bar loaded so far -- use the toolbar's VOLUME RANGE tool to narrow it to a specific time window")
+                                                                              ? $"Volume profile for the selected Lookback Window ({label}) -- use the toolbar's CLEAR LOOKBACK WINDOW button to go back to every loaded bar"
+                                                                              : "Volume profile across every bar loaded so far -- use the toolbar's LOOKBACK WINDOW tool to narrow it to a specific time window")
                                                                               + ". POC/Value Area are highlighted below and projected onto the main chart as POC/VAH/VAL lines")">
                         <TickVolumeProfileChart WeightedSamples="MergedSamples()" CurrentPrice="LastClose"
                                                 ShowLevels="_showProfilePanelLevels" />
@@ -158,8 +160,8 @@
                 <div class="prof-chart-side">
                     <div class="prof-vp"
                          title="@((VolumeRangeLabel() is { } timeLabel
-                                                                              ? $"Time profile for the selected Volume Range ({timeLabel}) -- use the toolbar's CLEAR VOLUME RANGE button to go back to every loaded bar"
-                                                                              : "Time profile across every bar loaded so far -- use the toolbar's VOLUME RANGE tool to narrow it to a specific time window")
+                                                                              ? $"Time profile for the selected Lookback Window ({timeLabel}) -- use the toolbar's CLEAR LOOKBACK WINDOW button to go back to every loaded bar"
+                                                                              : "Time profile across every bar loaded so far -- use the toolbar's LOOKBACK WINDOW tool to narrow it to a specific time window")
                                                                               + ". Measures dwell time (seconds) per price level instead of tick count")">
                         <TickTimeProfileChart WeightedSamples="MergedTimeSamples()" CurrentPrice="LastClose" />
                     </div>

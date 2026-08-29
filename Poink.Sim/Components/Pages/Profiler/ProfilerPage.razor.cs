@@ -103,16 +103,20 @@ namespace Poink.Sim.Components.Pages
 		private DateTime? _volumeRangeStart;
 		private DateTime? _volumeRangeEnd;
 
-		private bool _showProfilePanelLevels = true;
-		private bool _showProfileChartLines = true;
-		private bool _showVwap = true;
-		private bool _showAverageLine = true;
-		private bool _showMedianLine = true;
+		private bool _lookbackEnabled;
+		private int _lookbackWidth = 50;
+		private int _lookbackOffset;
+
+		private bool _showProfilePanelLevels = false;
+		private bool _showProfileChartLines = false;
+		private bool _showVwap = false;
+		private bool _showAverageLine = false;
+		private bool _showMedianLine = false;
 
 		private bool _showMainChart = true;
 		private bool _showXGrid = true;
-		private bool _showVolumeProfile = true;
-		private bool _showTimeProfile = true;
+		private bool _showVolumeProfile = false;
+		private bool _showTimeProfile = false;
 		private bool _showMetricsPanel;
 
 		private HashSet<int> _selectedDrawingIds = new();
@@ -367,12 +371,89 @@ namespace Poink.Sim.Components.Pages
 		{
 			_volumeRangeStart = range.TimeUtc1 <= range.TimeUtc2 ? range.TimeUtc1 : range.TimeUtc2;
 			_volumeRangeEnd = range.TimeUtc1 <= range.TimeUtc2 ? range.TimeUtc2 : range.TimeUtc1;
+			_lookbackEnabled = true;
+			SyncLookbackFieldsFromRange();
 		}
 
 		private void ClearVolumeRange()
 		{
 			_volumeRangeStart = null;
 			_volumeRangeEnd = null;
+			_lookbackEnabled = false;
+		}
+
+		private void ToggleLookbackWindow()
+		{
+			_lookbackEnabled = !_lookbackEnabled;
+			if (_lookbackEnabled)
+				ApplyLookbackWindow();
+			else
+			{
+				_volumeRangeStart = null;
+				_volumeRangeEnd = null;
+			}
+		}
+
+		// Width/offset only recompute the applied window while the toggle is on -- otherwise
+		// they're just the values it'll use once turned on.
+		private int LookbackWidth
+		{
+			get => _lookbackWidth;
+			set
+			{
+				_lookbackWidth = Math.Max(1, value);
+				if (_lookbackEnabled)
+					ApplyLookbackWindow();
+			}
+		}
+
+		private int LookbackOffset
+		{
+			get => _lookbackOffset;
+			set
+			{
+				_lookbackOffset = Math.Max(0, value);
+				if (_lookbackEnabled)
+					ApplyLookbackWindow();
+			}
+		}
+
+		// Resolves _lookbackWidth/_lookbackOffset (both in bars, counted back from the most
+		// recently loaded bar) to the DateTime pair every Lookback Window consumer below reads.
+		private void ApplyLookbackWindow()
+		{
+			if (_bars.Count == 0)
+				return;
+
+			var endIndex = Math.Clamp(_bars.Count - 1 - _lookbackOffset, 0, _bars.Count - 1);
+			var startIndex = Math.Clamp(endIndex - _lookbackWidth + 1, 0, endIndex);
+			_volumeRangeStart = _bars[startIndex].OpenTime;
+			_volumeRangeEnd = _bars[endIndex].OpenTime;
+		}
+
+		// Keeps the toolbar's width/offset fields in step when the window is instead drawn on
+		// the chart via the LOOKBACK WINDOW tool, so neither input method goes stale.
+		private void SyncLookbackFieldsFromRange()
+		{
+			if (_volumeRangeStart is not { } start || _volumeRangeEnd is not { } end || _bars.Count == 0)
+				return;
+
+			var startIndex = _bars.FindIndex(b => b.OpenTime >= start);
+			var endIndex = _bars.FindLastIndex(b => b.OpenTime <= end);
+			if (startIndex < 0 || endIndex < 0 || endIndex < startIndex)
+				return;
+
+			_lookbackWidth = endIndex - startIndex + 1;
+			_lookbackOffset = _bars.Count - 1 - endIndex;
+		}
+
+		// Sparkline's drag callback -- fires continuously as the user drags the window's body
+		// (pan, width unchanged) or either edge (resize), not just once on release.
+		private void OnWindowChanged((int Width, int Offset) window)
+		{
+			_lookbackWidth = Math.Max(1, window.Width);
+			_lookbackOffset = Math.Max(0, window.Offset);
+			ApplyLookbackWindow();
 		}
 
 		private string? VolumeRangeLabel()
@@ -686,7 +767,7 @@ namespace Poink.Sim.Components.Pages
 		private IEnumerable<ChartRangeFill> VolumeRangeFill()
 		{
 			if (_volumeRangeStart is { } start && _volumeRangeEnd is { } end)
-				yield return new ChartRangeFill(start, end, "VOLUME RANGE", "volume");
+				yield return new ChartRangeFill(start, end, "LOOKBACK WINDOW", "volume");
 		}
 
 		private static string FormatSpan(TimeSpan span) =>

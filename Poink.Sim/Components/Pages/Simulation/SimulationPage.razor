@@ -338,10 +338,48 @@
 
                     @if (!_hideChart)
                     {
+                        <div class="sim-chart-toolbar">
+                            @if (s.Config.Aggregate)
+                            {
+                                <div class="sim-overlay-toggles"
+                                     title="Toggle the computed chart overlays alongside the volume profile -- Point of Control/Value Area and a cumulative VWAP line">
+                                    <span class="sim-overlay-toggles-label">Overlays</span>
+                                    <button type="button" class="sim-overlay-toggle-btn sim-overlay-toggle-btn-poc @(_showProfilePanelLevels ? "active" : "")"
+                                            @onclick="() => _showProfilePanelLevels = !_showProfilePanelLevels"
+                                            title="Highlight the Point of Control (most-traded price) and Value Area rows inside the volume profile panel">POC/VA</button>
+                                    <button type="button" class="sim-overlay-toggle-btn sim-overlay-toggle-btn-lines @(_showProfileChartLines ? "active" : "")"
+                                            @onclick="() => _showProfileChartLines = !_showProfileChartLines"
+                                            title="Project the Point of Control/Value Area High/Low as three dashed lines on the main chart">POC/VAH/VAL</button>
+                                    <button type="button" class="sim-overlay-toggle-btn sim-overlay-toggle-btn-vwap @(_showVwap ? "active" : "")"
+                                            @onclick="() => _showVwap = !_showVwap"
+                                            title="Show a cumulative volume-weighted average price line on the main chart, over the same bar window as the volume profile">VWAP</button>
+                                </div>
+                            }
+                            <div class="sim-profile-toggles"
+                                 title="Show or hide the chart and profile panels">
+                                <span class="sim-overlay-toggles-label">Panels</span>
+                                <button type="button" class="sim-overlay-toggle-btn @(_showMainChart ? "active" : "")"
+                                        @onclick="() => _showMainChart = !_showMainChart"
+                                        title="Show or hide the main price chart">Chart</button>
+                                @if (s.Config.Aggregate)
+                                {
+                                    <button type="button" class="sim-overlay-toggle-btn @(_showXGrid ? "active" : "")"
+                                            @onclick="() => _showXGrid = !_showXGrid"
+                                            title="Show or hide the XGrid footprint panel">XGrid</button>
+                                }
+                                <button type="button" class="sim-overlay-toggle-btn @(_showVolumeProfile ? "active" : "")"
+                                        @onclick="() => _showVolumeProfile = !_showVolumeProfile"
+                                        title="Volume-at-price histogram over the current window">Volume profile</button>
+                                <button type="button" class="sim-overlay-toggle-btn @(_showTimeProfile ? "active" : "")"
+                                        @onclick="() => _showTimeProfile = !_showTimeProfile"
+                                        title="Time-at-price histogram over the current window">Time profile</button>
+                            </div>
+                        </div>
+
                         <div class="sim-window-bar">
                             @if (s.Config.Aggregate)
                             {
-                                <span class="sim-window-title">PROFILE BARS</span>
+                                <span class="sim-window-title">LOOKBACK WINDOW</span>
                                 <div class="sim-window-rail">
                                     <div class="sim-window-track"></div>
                                     <div class="sim-window-fill"
@@ -367,57 +405,6 @@
                                 <input class="sim-window-input" type="number" min="0" max="@MaxTickWindow" @bind="_tickWindowSize"
                                        @bind:event="oninput" />
                             }
-                        </div>
-
-                        <div class="sim-chart-toolbar">
-                            @if (s.Config.Aggregate)
-                            {
-                                <div class="sim-overlay-toggles"
-                                     title="Toggle the computed chart overlays alongside the volume profile -- Point of Control/Value Area and a cumulative VWAP line">
-                                    <span class="sim-overlay-toggles-label">CHART OVERLAYS</span>
-                                    <label class="sim-overlay-toggle"
-                                           title="Highlight the Point of Control (most-traded price) and Value Area rows inside the volume profile panel">
-                                        <input type="checkbox" @bind="_showProfilePanelLevels" />
-                                        <span>POC/VA in profile</span>
-                                    </label>
-                                    <label class="sim-overlay-toggle"
-                                           title="Project the Point of Control/Value Area High/Low as three dashed lines on the main chart">
-                                        <input type="checkbox" @bind="_showProfileChartLines" />
-                                        <span>POC/VAH/VAL lines</span>
-                                    </label>
-                                    <label class="sim-overlay-toggle"
-                                           title="Show a cumulative volume-weighted average price line on the main chart, over the same bar window as the volume profile">
-                                        <input type="checkbox" @bind="_showVwap" />
-                                        <span>VWAP line</span>
-                                    </label>
-                                </div>
-                            }
-                            <div class="sim-profile-toggles"
-                                 title="Show or hide the chart and profile panels">
-                                <span class="sim-overlay-toggles-label">PANELS</span>
-                                <label class="sim-overlay-toggle"
-                                       title="Show or hide the main price chart">
-                                    <input type="checkbox" @bind="_showMainChart" />
-                                    <span>Chart</span>
-                                </label>
-                                @if (s.Config.Aggregate)
-                                {
-                                    <label class="sim-overlay-toggle">
-                                        <input type="checkbox" @bind="_showXGrid" />
-                                        <span>XGrid</span>
-                                    </label>
-                                }
-                                <label class="sim-overlay-toggle"
-                                       title="Volume-at-price histogram over the current window">
-                                    <input type="checkbox" @bind="_showVolumeProfile" />
-                                    <span>Volume profile</span>
-                                </label>
-                                <label class="sim-overlay-toggle"
-                                       title="Time-at-price histogram over the current window">
-                                    <input type="checkbox" @bind="_showTimeProfile" />
-                                    <span>Time profile</span>
-                                </label>
-                            </div>
                         </div>
 
                         <div class="sim-chart">
@@ -478,7 +465,7 @@
                                                     title="Uncapped backend speed">MAX</button>
                                             @if (s.Config.Aggregate)
                                             {
-                                                <span class="sim-window-title">PROFILE BARS</span>
+                                                <span class="sim-window-title">LOOKBACK WINDOW</span>
                                                 <input class="sim-window-input" type="number" min="1" max="@MaxBarWindow"
                                                        @bind="_barWindowSize" @bind:event="oninput"
                                                        title="Bars back from now -- their price histograms drive the volume profile window" />

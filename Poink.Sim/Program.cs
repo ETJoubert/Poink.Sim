@@ -27,7 +27,7 @@ builder.Services.BuildBackgroundWorkers();
 builder.Services.BuildTrainingServices();
 builder.Services.BuildSimulationServices();
 
-builder.Services.AddScoped<IProfilerService, ProfilerService>();
+builder.Services.AddSingleton<IProfilerService, ProfilerService>();
 builder.Services.AddScoped<ILocalStorageHelper, LocalStorageHelper>();
 builder.Services.BuildCodeGraphServices();
 builder.Services.BuildCallGraphServices();
