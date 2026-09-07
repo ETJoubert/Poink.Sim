@@ -55,6 +55,7 @@ namespace Poink.Sim.Components.Charts
 						equity = s.Equity,
 						tradeMax = s.TradeMaxEquity,
 						tradeMin = s.TradeMinEquity,
+						tradeNumber = s.TradeNumber,
 					});
 					await module.InvokeVoidAsync("setSamples", _containerRef, payload);
 				}

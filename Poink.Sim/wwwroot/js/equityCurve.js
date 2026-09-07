@@ -1,9 +1,15 @@
 // Read-only equity-over-time chart: a solid trace for equity plus two fainter traces for the
 // best/worst equity reached during the currently open trade. A null sample breaks its trace into
 // a separate path segment rather than drawing through it, so gaps between trades don't render as
-// a connecting line. Per-instance state keyed by the container element itself, same WeakMap
-// convention as marketChartSparkline.js.
+// a connecting line. Y axis reads equity; X axis reads trade number (a tick per trade, placed at
+// that trade's last sample) rather than bar index or time. Per-instance state keyed by the
+// container element itself, same WeakMap convention as marketChartSparkline.js.
 const state = new WeakMap();
+
+const marginLeft = 52;
+const marginBottom = 20;
+const marginTop = 8;
+const marginRight = 10;
 
 function segments(samples, pick) {
     const result = [];
@@ -45,6 +51,85 @@ function strokeSeries(ctx, samples, pick, xForIndex, yForValue, color, alpha, li
     ctx.restore();
 }
 
+// Evenly spaced equity values to label on the Y axis -- not "nice rounded" numbers, just a plain
+// even split of the visible range, since equity has no natural round-number scale to snap to.
+function yAxisTicks(min, max, count) {
+    const ticks = [];
+    for (let i = 0; i < count; i++) ticks.push(min + ((max - min) * i) / (count - 1));
+    return ticks;
+}
+
+function formatEquity(v) {
+    const abs = Math.abs(v);
+    const decimals = abs >= 1000 ? 0 : 2;
+    return v.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+}
+
+// One tick per trade, placed at that trade's last sample index -- the point where its
+// max/min-equity traces end -- rather than one per bar, so the axis reads as trade progression.
+function tradeAxisTicks(samples) {
+    const ticks = [];
+    let lastNumber = null;
+    let lastIndex = -1;
+    samples.forEach((s, i) => {
+        if (s.tradeNumber != null) {
+            lastNumber = s.tradeNumber;
+            lastIndex = i;
+        } else if (lastNumber != null) {
+            ticks.push({ index: lastIndex, number: lastNumber });
+            lastNumber = null;
+        }
+    });
+    if (lastNumber != null) ticks.push({ index: lastIndex, number: lastNumber });
+    return ticks;
+}
+
+function drawAxes(ctx, rect, samples, min, max, xForIndex, yForValue, gridColor, textColor) {
+    ctx.save();
+    ctx.strokeStyle = gridColor;
+    ctx.fillStyle = textColor;
+    ctx.font = '10px sans-serif';
+    ctx.lineWidth = 1;
+
+    ctx.globalAlpha = 0.25;
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    for (const tick of yAxisTicks(min, max, 4)) {
+        const y = Math.round(yForValue(tick)) + 0.5;
+        ctx.beginPath();
+        ctx.moveTo(marginLeft, y);
+        ctx.lineTo(rect.width - marginRight, y);
+        ctx.stroke();
+    }
+
+    ctx.globalAlpha = 0.8;
+    for (const tick of yAxisTicks(min, max, 4)) {
+        const y = yForValue(tick);
+        ctx.fillText(formatEquity(tick), marginLeft - 6, y);
+    }
+
+    const axisY = rect.height - marginBottom;
+    ctx.globalAlpha = 0.35;
+    ctx.beginPath();
+    ctx.moveTo(marginLeft, axisY + 0.5);
+    ctx.lineTo(rect.width - marginRight, axisY + 0.5);
+    ctx.stroke();
+
+    ctx.globalAlpha = 0.8;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    for (const tick of tradeAxisTicks(samples)) {
+        const x = xForIndex(tick.index);
+        ctx.beginPath();
+        ctx.moveTo(x + 0.5, axisY);
+        ctx.lineTo(x + 0.5, axisY + 4);
+        ctx.stroke();
+        ctx.fillText(String(tick.number), x, axisY + 6);
+    }
+
+    ctx.restore();
+}
+
 function draw(container) {
     const s = state.get(container);
     if (!s) return;
@@ -72,15 +157,19 @@ function draw(container) {
     if (!isFinite(min) || !isFinite(max)) return;
     if (min === max) { min -= 1; max += 1; }
 
-    const padY = rect.height * 0.1;
-    const plotH = rect.height - padY * 2;
-    const yForValue = v => padY + plotH - ((v - min) / (max - min)) * plotH;
-    const xForIndex = i => (i / Math.max(1, samples.length - 1)) * rect.width;
+    const plotW = rect.width - marginLeft - marginRight;
+    const plotH = rect.height - marginTop - marginBottom;
+    const yForValue = v => marginTop + plotH - ((v - min) / (max - min)) * plotH;
+    const xForIndex = i => marginLeft + (i / Math.max(1, samples.length - 1)) * plotW;
 
     const style = getComputedStyle(container);
     const accentColor = style.getPropertyValue('--color-accent').trim() || '#ff6b9d';
     const winColor = style.getPropertyValue('--color-success').trim() || '#2ecc71';
     const lossColor = style.getPropertyValue('--color-error').trim() || '#e74c3c';
+    const gridColor = style.getPropertyValue('--color-text').trim() || '#ffffff';
+    const textColor = gridColor;
+
+    drawAxes(ctx, rect, samples, min, max, xForIndex, yForValue, gridColor, textColor);
 
     strokeSeries(ctx, samples, p => p.tradeMax, xForIndex, yForValue, winColor, 0.45, 1, [3, 3]);
     strokeSeries(ctx, samples, p => p.tradeMin, xForIndex, yForValue, lossColor, 0.45, 1, [3, 3]);

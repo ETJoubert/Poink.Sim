@@ -58,8 +58,15 @@ internal static class EquityCurveHelper
 				runningMin = Math.Min(runningMin, eq);
 			}
 
+			int? tradeNumber = covering is null ? null : tradeIndex + 1;
 			samples.Add(
-				new EquityCurveSample(time, eq, covering is null ? null : runningMax, covering is null ? null : runningMin)
+				new EquityCurveSample(
+					time,
+					eq,
+					covering is null ? null : runningMax,
+					covering is null ? null : runningMin,
+					tradeNumber
+				)
 			);
 		}
 
