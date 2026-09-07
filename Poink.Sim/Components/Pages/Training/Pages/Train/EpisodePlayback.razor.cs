@@ -259,6 +259,7 @@ namespace Poink.Sim.Components.Training
 		private bool _showMarketChart = true;
 		private bool _showVolumeProfile = true;
 		private bool _showTimeProfile = true;
+		private bool _showEquityCurve = true;
 		private bool _showXGrid;
 
 		private int _xgridPipCount = 20;
@@ -505,6 +506,23 @@ namespace Poink.Sim.Components.Training
 					return null;
 				int i = DisplayedDecisionIndex;
 				return i >= 0 && i < _replayBarEquity.Count ? _replayBarEquity[i] : null;
+			}
+		}
+
+		// Equity and DisplayedBarActionsSource are appended per decision by RlEpisodeRunner, so
+		// index i means the same decision in both -- pairing them by index keeps replay aligned.
+		private List<EquityCurveSample> DisplayedEquityCurveSamples
+		{
+			get
+			{
+				var actions = DisplayedBarActionsSource;
+				var equity = _replayBars is not null ? _replayBarEquity ?? new List<double>() : SourceEpisodeBarEquity;
+				int count = _replayBars is not null ? Math.Min(DisplayedDecisionIndex + 1, equity.Count) : equity.Count;
+				if (count <= 0)
+					return new List<EquityCurveSample>();
+
+				var timestamps = actions.Take(count).Select(a => a.Timestamp).ToList();
+				return EquityCurveHelper.Build(timestamps, equity.Take(count).ToList(), DisplayedRevealedTrades);
 			}
 		}
 

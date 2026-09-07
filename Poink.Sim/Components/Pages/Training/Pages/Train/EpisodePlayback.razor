@@ -47,6 +47,10 @@ else
                             <input type="checkbox" @bind="_showTimeProfile" />
                             <span>Time profile</span>
                         </label>
+                        <label class="train-episode-panel-toggle" title="Equity over time, with the best/worst equity reached during the currently open trade">
+                            <input type="checkbox" @bind="_showEquityCurve" />
+                            <span>Equity curve</span>
+                        </label>
                         <label class="train-episode-panel-toggle"
                                title="Footprint grid of the same trailing bar window XGrid Signals inputs (when this brain includes them) are computed over">
                             <input type="checkbox" @bind="_showXGrid" />
@@ -164,6 +168,12 @@ else
                             <div class="train-episode-chart-panel">
                                 <XGridController Grid="EpisodeXGrid" Positions="DisplayedXGridPositions" Lines="DisplayedCellBandLines"
                                        @bind-PipCount="_xgridPipCount" @bind-ColCount="_xgridColCount" />
+                            </div>
+                        }
+                        @if (_showEquityCurve)
+                        {
+                            <div class="train-episode-chart-panel">
+                                <EquityCurve Samples="DisplayedEquityCurveSamples" />
                             </div>
                         }
                     </div>
