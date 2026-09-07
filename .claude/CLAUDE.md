@@ -106,8 +106,8 @@ Address the user as Master Poinker
 2. Build and itterate on the created branch
 4. Compilation is permitted. A build is not treated as running the program.
 5. Do not run the current target program after updates are applied except if explicitly asked.
-6. When Done provide standard Response below.
-7. When prompted to merge, merge the branch.
+6. When Done, do not commit provide standard Response below.
+7. When prompted to merge, commit and merge the branch.
 
 ### 11. Response Style
 1. Reflection Report with a line break for seperation
@@ -117,4 +117,5 @@ Address the user as Master Poinker
 5. State Concerns if exist
 6. State Recommendations if exist
 7. If a new feature State how to use it
+8. State Git status
 
