@@ -800,23 +800,16 @@
     overflow: hidden;
 }
 
-.sim-chart-main {
-    flex: 1;
-    min-width: 0;
-    min-height: 0;
-    overflow-y: auto;
-}
-
+/* Equal-share fallback -- SimulationPage.razor.cs's resetChartPanelsEqual/bindChartDivider JS sets each panel's actual flex-basis in percent once mounted. */
+.sim-chart-main,
 .sim-chart-side {
-    flex: 0 0 auto;
-    width: 260px;
+    flex: 1 1 0;
     min-width: 160px;
     min-height: 0;
 }
 
-.sim-chart-fill {
-    flex: 1 1 auto;
-    width: auto;
+.sim-chart-main {
+    overflow-y: auto;
 }
 
 .sim-chart-divider {

@@ -121,14 +121,6 @@ namespace Poink.Sim.Components.Pages
 		private int _xgridPipCount = 20;
 		private int _xgridColCount = 20;
 
-		// A lone visible panel fills the row instead of keeping its dragged/default width,
-		// since a resize divider has nothing to divide against with only one panel showing.
-		private int VisibleChartPanelCount(SimulationSnapshot s) =>
-			(_showMainChart ? 1 : 0)
-			+ (s.Config.Aggregate && _showXGrid ? 1 : 0)
-			+ (_showVolumeProfile ? 1 : 0)
-			+ (_showTimeProfile ? 1 : 0);
-
 		// A divider's negative margin assumes a panel to its left, so a divider only shows
 		// once an earlier panel (main -> XGrid -> volume profile -> time profile) is visible.
 		private bool ShowXGridDivider(SimulationSnapshot s) => s.Config.Aggregate && _showXGrid && _showMainChart;
@@ -532,15 +524,21 @@ namespace Poink.Sim.Components.Pages
 			SimulationService.OnChanged -= HandleServiceChanged;
 		}
 
+		private ElementReference _chartRowRef;
 		private ElementReference _chartDividerRefXGrid;
 		private ElementReference _chartDividerRef;
 		private ElementReference _chartDividerRef2;
 		private ElementReference _chartHDividerRef;
 		private ElementReference _sidePanelDividerRef;
 		private IJSObjectReference? _dividerResizeInstance;
+		private HashSet<string> _lastVisibleChartPanels = new();
 
 		private const string ChartDividerScript = """
 			(function() {
+			    // Fixed single-sided px-width resize (min/max clamp) -- used for the trader
+			    // sidepanel divider, which resizes against the large flexible main content
+			    // area rather than an equal-share peer. bindChartDivider below is the
+			    // separate, percent-based one for the main/XGrid/volume/time chart row.
 			    function bind(divider) {
 			        if (!divider || divider.dataset.bound) return;
 			        divider.dataset.bound = '1';
@@ -560,6 +558,54 @@ namespace Poink.Sim.Components.Pages
 			            }
 			            function onMove(ev) {
 			                side.style.width = clamp(ev) + 'px';
+			            }
+			            function onUp(ev) {
+			                divider.releasePointerCapture(e.pointerId);
+			                divider.removeEventListener('pointermove', onMove);
+			                divider.removeEventListener('pointerup', onUp);
+			                divider.classList.remove('sim-chart-divider-active');
+			            }
+			            divider.addEventListener('pointermove', onMove);
+			            divider.addEventListener('pointerup', onUp);
+			        });
+			    }
+			    // Every .sim-chart-main/.sim-chart-side child gets an explicit flex-basis
+			    // percent (not width px) so N panels always sum to 100% regardless of window
+			    // size -- resetChartPanelsEqual splits it evenly, bindChartDivider's drag only
+			    // ever moves percent between the divider's own two immediate neighbours.
+			    function resetChartPanelsEqual(container) {
+			        if (!container) return;
+			        var panels = container.querySelectorAll(':scope > .sim-chart-main, :scope > .sim-chart-side');
+			        if (panels.length === 0) return;
+			        var percent = 100 / panels.length;
+			        panels.forEach(function(p) { p.style.flex = '0 0 ' + percent + '%'; });
+			    }
+			    function bindChartDivider(divider) {
+			        if (!divider || divider.dataset.bound) return;
+			        divider.dataset.bound = '1';
+			        var minWidthPx = parseInt(divider.dataset.minWidth, 10) || 160;
+			        divider.addEventListener('pointerdown', function(e) {
+			            e.preventDefault();
+			            var left = divider.previousElementSibling;
+			            var right = divider.nextElementSibling;
+			            if (!left || !right) return;
+			            var container = divider.parentElement;
+			            var containerWidth = container.getBoundingClientRect().width;
+			            var minPercent = (minWidthPx / containerWidth) * 100;
+			            var startX = e.clientX;
+			            var startLeftPercent = (left.getBoundingClientRect().width / containerWidth) * 100;
+			            var startRightPercent = (right.getBoundingClientRect().width / containerWidth) * 100;
+			            divider.setPointerCapture(e.pointerId);
+			            divider.classList.add('sim-chart-divider-active');
+
+			            function onMove(ev) {
+			                var deltaPercent = ((ev.clientX - startX) / containerWidth) * 100;
+			                var newLeft = startLeftPercent + deltaPercent;
+			                var newRight = startRightPercent - deltaPercent;
+			                if (newLeft < minPercent) { newRight -= (minPercent - newLeft); newLeft = minPercent; }
+			                if (newRight < minPercent) { newLeft -= (minPercent - newRight); newRight = minPercent; }
+			                left.style.flex = '0 0 ' + newLeft + '%';
+			                right.style.flex = '0 0 ' + newRight + '%';
 			            }
 			            function onUp(ev) {
 			                divider.releasePointerCapture(e.pointerId);
@@ -602,9 +648,22 @@ namespace Poink.Sim.Components.Pages
 			            divider.addEventListener('pointerup', onUp);
 			        });
 			    }
-			    return { bind: bind, bindHeight: bindHeight };
+			    return {
+			        bind: bind, bindChartDivider: bindChartDivider, bindHeight: bindHeight,
+			        resetChartPanelsEqual: resetChartPanelsEqual,
+			    };
 			})()
 			""";
+
+		private HashSet<string> CurrentVisibleChartPanelKeys(SimulationSnapshot s)
+		{
+			var keys = new HashSet<string>();
+			if (_showMainChart) keys.Add("main");
+			if (s.Config.Aggregate && _showXGrid) keys.Add("xgrid");
+			if (_showVolumeProfile) keys.Add("volume");
+			if (_showTimeProfile) keys.Add("time");
+			return keys;
+		}
 
 		protected override async Task OnAfterRenderAsync(bool firstRender)
 		{
@@ -613,12 +672,19 @@ namespace Poink.Sim.Components.Pages
 
 			if (_snapshot is not null && !_hideChart && _dividerResizeInstance is not null)
 			{
+				var visibleChartPanels = CurrentVisibleChartPanelKeys(_snapshot);
+				if (!visibleChartPanels.SetEquals(_lastVisibleChartPanels))
+				{
+					_lastVisibleChartPanels = visibleChartPanels;
+					await _dividerResizeInstance.InvokeVoidAsync("resetChartPanelsEqual", _chartRowRef);
+				}
+
 				if (ShowXGridDivider(_snapshot))
-					await _dividerResizeInstance.InvokeVoidAsync("bind", _chartDividerRefXGrid);
+					await _dividerResizeInstance.InvokeVoidAsync("bindChartDivider", _chartDividerRefXGrid);
 				if (ShowVolumeProfileDivider(_snapshot))
-					await _dividerResizeInstance.InvokeVoidAsync("bind", _chartDividerRef);
+					await _dividerResizeInstance.InvokeVoidAsync("bindChartDivider", _chartDividerRef);
 				if (ShowTimeProfileDivider(_snapshot))
-					await _dividerResizeInstance.InvokeVoidAsync("bind", _chartDividerRef2);
+					await _dividerResizeInstance.InvokeVoidAsync("bindChartDivider", _chartDividerRef2);
 				await _dividerResizeInstance.InvokeVoidAsync("bindHeight", _chartHDividerRef);
 			}
 

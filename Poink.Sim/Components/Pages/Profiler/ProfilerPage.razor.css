@@ -79,7 +79,7 @@
     flex-wrap: wrap;
     align-items: center;
     gap: 28px;
-    padding: 10px 24px;
+    padding: 5px 10px;
     border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
 }
 
