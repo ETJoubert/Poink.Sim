@@ -81,6 +81,10 @@ namespace Poink.Sim.Components.Charts
 		[Parameter]
 		public DateTime? WindowStartUtc { get; set; }
 
+		/// <summary>Tick/bar window-end marker; null hides it -- see SimulationPage's Offset control.</summary>
+		[Parameter]
+		public DateTime? WindowEndUtc { get; set; }
+
 		/// <summary>Skips the auto fit-to-content a Bars update normally triggers, so backfill doesn't reset pan/zoom.</summary>
 		[Parameter]
 		public bool KeepView { get; set; }
@@ -163,6 +167,7 @@ namespace Poink.Sim.Components.Charts
 		private double? _renderedStopLoss;
 		private double? _renderedTakeProfit;
 		private DateTime? _renderedWindowStart;
+		private DateTime? _renderedWindowEnd;
 		private DrawMode? _renderedMode;
 		private bool _disposed;
 
@@ -350,6 +355,18 @@ namespace Poink.Sim.Components.Charts
 						? new DateTimeOffset(w, TimeSpan.Zero).ToUnixTimeSeconds()
 						: null;
 					await _module.InvokeVoidAsync("setWindowStart", _chartId, unixSeconds);
+				}
+
+				if (_disposed)
+					return;
+
+				if (_module is not null && _chartId is not null && _renderedWindowEnd != WindowEndUtc)
+				{
+					_renderedWindowEnd = WindowEndUtc;
+					long? unixSeconds = WindowEndUtc is { } w
+						? new DateTimeOffset(w, TimeSpan.Zero).ToUnixTimeSeconds()
+						: null;
+					await _module.InvokeVoidAsync("setWindowEnd", _chartId, unixSeconds);
 				}
 
 				if (_disposed)
