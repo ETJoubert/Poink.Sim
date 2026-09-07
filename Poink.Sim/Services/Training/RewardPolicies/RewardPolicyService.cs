@@ -11,7 +11,7 @@ internal sealed class RewardPolicyService : IRewardPolicyService
 
 	public RewardPolicyService()
 	{
-		_policies = [new EquityDriftRewardPolicy()];
+		_policies = [new EquityDriftRewardPolicy(), new HitRateRewardPolicy()];
 		_selected = _policies.First();
 	}
 
