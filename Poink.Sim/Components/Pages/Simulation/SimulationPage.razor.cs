@@ -117,6 +117,7 @@ namespace Poink.Sim.Components.Pages
 		private bool _showXGrid;
 		private bool _showVolumeProfile;
 		private bool _showTimeProfile;
+		private bool _showEquityCurve;
 
 		private int _xgridPipCount = 20;
 		private int _xgridColCount = 20;
@@ -130,6 +131,10 @@ namespace Poink.Sim.Components.Pages
 
 		private bool ShowTimeProfileDivider(SimulationSnapshot s) =>
 			_showTimeProfile && (_showMainChart || (s.Config.Aggregate && _showXGrid) || _showVolumeProfile);
+
+		private bool ShowEquityCurveDivider(SimulationSnapshot s) =>
+			_showEquityCurve
+			&& (_showMainChart || (s.Config.Aggregate && _showXGrid) || _showVolumeProfile || _showTimeProfile);
 
 		private XGridResult? _xgridCache;
 		private (
@@ -425,6 +430,19 @@ namespace Poink.Sim.Components.Pages
 
 		private bool SelectedTraderIsManual => SelectedTrader?.Mode == TraderControlMode.Manual;
 
+		private List<EquityCurveSample> SelectedTraderEquityCurveSamples
+		{
+			get
+			{
+				if (SelectedTrader is not { } trader || trader.EquityHistory.Count == 0)
+					return [];
+
+				var timestamps = trader.EquityHistory.Select(p => p.TimestampUtc).ToList();
+				var equity = trader.EquityHistory.Select(p => p.Equity).ToList();
+				return EquityCurveHelper.Build(timestamps, equity, trader.Trades);
+			}
+		}
+
 		private string? SelectedPositionSummary =>
 			SelectedTrader?.Position is not { } pos ? null : $"{pos.Direction} {pos.Size:F4} @ {pos.EntryPrice:F5}";
 
@@ -528,6 +546,7 @@ namespace Poink.Sim.Components.Pages
 		private ElementReference _chartDividerRefXGrid;
 		private ElementReference _chartDividerRef;
 		private ElementReference _chartDividerRef2;
+		private ElementReference _chartDividerRefEquityCurve;
 		private ElementReference _chartHDividerRef;
 		private ElementReference _sidePanelDividerRef;
 		private IJSObjectReference? _dividerResizeInstance;
@@ -662,6 +681,7 @@ namespace Poink.Sim.Components.Pages
 			if (s.Config.Aggregate && _showXGrid) keys.Add("xgrid");
 			if (_showVolumeProfile) keys.Add("volume");
 			if (_showTimeProfile) keys.Add("time");
+			if (_showEquityCurve) keys.Add("equity");
 			return keys;
 		}
 
@@ -685,6 +705,8 @@ namespace Poink.Sim.Components.Pages
 					await _dividerResizeInstance.InvokeVoidAsync("bindChartDivider", _chartDividerRef);
 				if (ShowTimeProfileDivider(_snapshot))
 					await _dividerResizeInstance.InvokeVoidAsync("bindChartDivider", _chartDividerRef2);
+				if (ShowEquityCurveDivider(_snapshot))
+					await _dividerResizeInstance.InvokeVoidAsync("bindChartDivider", _chartDividerRefEquityCurve);
 				await _dividerResizeInstance.InvokeVoidAsync("bindHeight", _chartHDividerRef);
 			}
 

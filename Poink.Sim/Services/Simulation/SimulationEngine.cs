@@ -33,6 +33,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 	private const int MaxRecentBars = 300;
 	private const int MaxRecentTicks = 5000;
 	private const int MaxRecentLog = 200;
+	private const int MaxEquityHistory = 2000;
 
 	private const double DefaultPriceBucketWidth = 0.01;
 
@@ -48,6 +49,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 		public required string Label;
 		public required Trader.ITrader Trader;
 		public readonly RingBuffer<SimulationLogEntry> RecentLog = new(MaxRecentLog);
+		public readonly RingBuffer<EquityHistoryPoint> EquityHistory = new(MaxEquityHistory);
 	}
 
 	private Func<IEnumerator<Tick>>? _openReader;
@@ -631,6 +633,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 			var execution = session.Trader.Observe(window);
 			if (execution is { } exec)
 				AppendLog(session, LogEntryFor(exec, price, timestamp));
+			session.EquityHistory.Add(new EquityHistoryPoint(timestamp, session.Trader.Snapshot(bid, ask).Equity));
 		}
 	}
 
@@ -810,7 +813,8 @@ internal sealed class SimulationEngine : ISimulationEngine
 								ts.Trader is IRiskInspectable inspectable
 									? inspectable.PolicyStatuses()
 									: Array.Empty<RiskPolicyStatus>(),
-								ts.Trader is IRiskInspectable denialInspectable ? denialInspectable.LastDenial : null
+								ts.Trader is IRiskInspectable denialInspectable ? denialInspectable.LastDenial : null,
+								ts.EquityHistory.ToList()
 							))
 							.ToList(),
 						bars,
