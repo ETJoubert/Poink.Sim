@@ -103,11 +103,44 @@ namespace Poink.Sim.Components.Pages
 		private int ClampedTickWindow => Math.Clamp(_tickWindowSize, 2, MaxTickWindow);
 		private double TickWindowFillPercent => ClampedTickWindow * 100.0 / MaxTickWindow;
 
+		// Ticks back from the most recent tick to the end of the window -- unlike Profiler's
+		// Offset, this can never reach further back than the live RecentTicks ring buffer holds.
+		private int _tickWindowOffset;
+		private int ClampedTickOffset => Math.Clamp(_tickWindowOffset, 0, MaxTickWindow - 1);
+		private double TickWindowOffsetFillPercent => ClampedTickOffset * 100.0 / MaxTickWindow;
+
 		// Matches SimulationEngine.MaxRecentBars.
 		private const int MaxBarWindow = 300;
 		private int _barWindowSize = 50;
 		private int ClampedBarWindow => Math.Clamp(_barWindowSize, 1, MaxBarWindow);
 		private double BarWindowFillPercent => ClampedBarWindow * 100.0 / MaxBarWindow;
+
+		// Bars back from the most recent bar to the end of the window -- same idea as Profiler's
+		// Offset, but bounded by the live RecentBars ring buffer instead of arbitrary loaded history.
+		private int _barWindowOffset;
+		private int ClampedBarOffset => Math.Clamp(_barWindowOffset, 0, MaxBarWindow - 1);
+		private double BarWindowOffsetFillPercent => ClampedBarOffset * 100.0 / MaxBarWindow;
+
+		// Slices RecentBars/RecentBarHistograms to end Offset bars back from the live edge --
+		// every width-based window below reads from this so Offset moves them all together.
+		private (IReadOnlyList<HlocAvdtBar> Bars, IReadOnlyList<BarPriceHistogram> Histograms) WindowedBarData(
+			SimulationSnapshot s
+		)
+		{
+			var offset = Math.Min(ClampedBarOffset, Math.Max(0, s.RecentBars.Count - 1));
+			var count = s.RecentBars.Count - offset;
+			if (count <= 0)
+				return (Array.Empty<HlocAvdtBar>(), Array.Empty<BarPriceHistogram>());
+			return (s.RecentBars.Take(count).ToList(), s.RecentBarHistograms.Take(count).ToList());
+		}
+
+		// Tick-mode equivalent of WindowedBarData.
+		private IReadOnlyList<Tick> WindowedTicks(SimulationSnapshot s)
+		{
+			var offset = Math.Min(ClampedTickOffset, Math.Max(0, s.RecentTicks.Count - 1));
+			var count = s.RecentTicks.Count - offset;
+			return count <= 0 ? Array.Empty<Tick>() : s.RecentTicks.Take(count).ToList();
+		}
 
 		private bool _showProfilePanelLevels = true;
 		private bool _showProfileChartLines = true;
@@ -141,6 +174,7 @@ namespace Poink.Sim.Components.Pages
 			int Pips,
 			double PipSize,
 			int Cols,
+			int Offset,
 			int Window,
 			int Count,
 			DateTime LastOpen,
@@ -152,16 +186,20 @@ namespace Poink.Sim.Components.Pages
 		// load, same value TraderControlsPanel uses for SL/TP), not a value XGrid owns itself.
 		private XGridResult? ComputeXGrid(SimulationSnapshot s)
 		{
-			if (!s.Config.Aggregate || s.RecentBars.Count == 0)
+			if (!s.Config.Aggregate)
 				return null;
-			var window = Math.Min(ClampedBarWindow, s.RecentBars.Count);
-			var last = s.RecentBars[^1];
+			var (bars, histograms) = WindowedBarData(s);
+			if (bars.Count == 0)
+				return null;
+			var window = Math.Min(ClampedBarWindow, bars.Count);
+			var last = bars[^1];
 			var key = (
 				_xgridPipCount,
 				s.Config.PipSize,
 				_xgridColCount,
+				ClampedBarOffset,
 				window,
-				s.RecentBars.Count,
+				bars.Count,
 				last.OpenTime,
 				last.Close,
 				(double)last.Volume
@@ -169,12 +207,12 @@ namespace Poink.Sim.Components.Pages
 			if (_xgridKey == key && _xgridCache is not null)
 				return _xgridCache;
 
-			var start = s.RecentBars[s.RecentBars.Count - window].OpenTime;
+			var start = bars[bars.Count - window].OpenTime;
 			var end = last.OpenTime;
 			_xgridKey = key;
 			_xgridCache = XGridStats.Compute(
-				s.RecentBars,
-				s.RecentBarHistograms,
+				bars,
+				histograms,
 				MergedBarSamples(s),
 				start,
 				end,
@@ -192,11 +230,12 @@ namespace Poink.Sim.Components.Pages
 			if (SelectedTrader is not { } trader)
 				return result;
 
-			var window = Math.Min(ClampedBarWindow, s.RecentBars.Count);
+			var (bars, _) = WindowedBarData(s);
+			var window = Math.Min(ClampedBarWindow, bars.Count);
 			if (window == 0)
 				return result;
-			var start = s.RecentBars[s.RecentBars.Count - window].OpenTime;
-			var end = s.RecentBars[^1].OpenTime;
+			var start = bars[bars.Count - window].OpenTime;
+			var end = bars[^1].OpenTime;
 
 			foreach (var trade in trader.Trades)
 			{
@@ -307,17 +346,23 @@ namespace Poink.Sim.Components.Pages
 			SimulationService.SubmitManualDecision(trader.Id, decision, out _);
 		}
 
-		private List<WeightedPriceSample> MergedBarSamples(SimulationSnapshot s) =>
-			BarPriceHistogram
-				.Merge(s.RecentBarHistograms, ClampedBarWindow)
+		private List<WeightedPriceSample> MergedBarSamples(SimulationSnapshot s)
+		{
+			var (_, histograms) = WindowedBarData(s);
+			return BarPriceHistogram
+				.Merge(histograms, ClampedBarWindow)
 				.Select(t => new WeightedPriceSample(t.Price, t.Count, t.UpCount, t.DownCount))
 				.ToList();
+		}
 
-		private List<WeightedTimeSample> MergedBarTimeSamples(SimulationSnapshot s) =>
-			BarPriceHistogram
-				.MergeTime(s.RecentBars, s.RecentBarHistograms, ClampedBarWindow)
+		private List<WeightedTimeSample> MergedBarTimeSamples(SimulationSnapshot s)
+		{
+			var (bars, histograms) = WindowedBarData(s);
+			return BarPriceHistogram
+				.MergeTime(bars, histograms, ClampedBarWindow)
 				.Select(t => new WeightedTimeSample(t.Price, t.Count, t.Seconds, t.UpSeconds, t.DownSeconds))
 				.ToList();
+		}
 
 		private List<ChartHorizontalLine> ProfileLevelLines(SimulationSnapshot s)
 		{
@@ -338,7 +383,7 @@ namespace Poink.Sim.Components.Pages
 			if (!_showVwap)
 				return new();
 
-			var bars = s.RecentBars;
+			var (bars, _) = WindowedBarData(s);
 			var windowBars = bars.Count > ClampedBarWindow ? bars.Skip(bars.Count - ClampedBarWindow) : bars;
 
 			var points = new List<ChartLinePoint>();
@@ -354,11 +399,22 @@ namespace Poink.Sim.Components.Pages
 			return points;
 		}
 
-		private DateTime? WindowStartUtc(IReadOnlyList<HlocAvdtBar> bars)
+		private DateTime? WindowStartUtc(SimulationSnapshot s)
 		{
+			var (bars, _) = WindowedBarData(s);
 			if (bars.Count <= ClampedBarWindow)
 				return null;
 			return bars[bars.Count - ClampedBarWindow].OpenTime;
+		}
+
+		// Only meaningful once Offset pulls the window's far edge off of "now" -- at Offset 0
+		// the end is just the newest bar, already the chart's own right edge.
+		private DateTime? WindowEndUtc(SimulationSnapshot s)
+		{
+			if (ClampedBarOffset <= 0)
+				return null;
+			var (bars, _) = WindowedBarData(s);
+			return bars.Count > 0 ? bars[^1].OpenTime : null;
 		}
 
 		private enum LogTab

@@ -46,6 +46,9 @@ namespace Poink.Sim.Components.Charts
 		public DateTime? WindowStartUtc { get; set; }
 
 		[Parameter]
+		public DateTime? WindowEndUtc { get; set; }
+
+		[Parameter]
 		public bool KeepView { get; set; }
 
 		[Parameter]

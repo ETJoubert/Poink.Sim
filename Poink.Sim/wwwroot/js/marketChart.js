@@ -852,6 +852,10 @@ export function create(container, minimapContainer, dotNetRef, interactive) {
     // groupColors.reference/win/loss above.
     const windowLine = createWindowLinePrimitive(accentColor);
     candleSeries.attachPrimitive(windowLine);
+    // Window-end marker -- only meaningful once SimulationPage's Offset pulls the window's
+    // far edge off of "now"; groupColors.volume keeps it visually distinct from windowLine.
+    const windowEndLine = createWindowLinePrimitive(groupColors.volume);
+    candleSeries.attachPrimitive(windowEndLine);
     const slColor = style.getPropertyValue('--color-error').trim() || downColor;
     const tpColor = style.getPropertyValue('--color-success').trim() || upColor;
 
@@ -870,7 +874,7 @@ export function create(container, minimapContainer, dotNetRef, interactive) {
         chart, candleSeries, volumeSeries, vwapSeries, tooltip, verticalLines, diagonalLines, rangeFills, actionMarkers, accentColor, groupColors,
         horizontalLineObjs: [], dotNetRef, hasData: false, pendingLoadMore: false,
         drawMode: null, drawClicks: [], bars: [], minimap: null,
-        windowLine, slColor, tpColor, entryColor: accentColor,
+        windowLine, windowEndLine, slColor, tpColor, entryColor: accentColor,
         bidLine: null, askLine: null, slLine: null, tpLine: null, entryLine: null,
         rangeFillsRaw: [], volumeRangeFill: null, volumeRangePreviewLine,
     };
@@ -1091,6 +1095,14 @@ export function setWindowStart(id, unixSeconds) {
     const entry = instances.get(id);
     if (!entry) return;
     entry.windowLine.setTime(unixSeconds ?? null);
+}
+
+// Vertical marker for where the window ends (Offset bars/ticks back from now) -- null
+// hides it, which SimulationPage does whenever Offset is 0 and the end is just "now".
+export function setWindowEnd(id, unixSeconds) {
+    const entry = instances.get(id);
+    if (!entry) return;
+    entry.windowEndLine.setTime(unixSeconds ?? null);
 }
 
 // mode: one of modeClickCounts' keys, or null (null/falsy disarms drawing entirely).
