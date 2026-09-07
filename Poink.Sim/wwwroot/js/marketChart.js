@@ -1007,6 +1007,12 @@ export function setData(id, bars, resetView) {
     const entry = instances.get(id);
     if (!entry) return;
 
+    // Captured before entry.bars/hasData are overwritten below -- distinguishes a
+    // genuinely fresh dataset from one that's merely grown in place (Episode Playback's
+    // replay reveals one more bar per tick, each a resetView=true call with the same
+    // underlying session).
+    const isFreshLoad = !entry.hasData || bars.length < entry.bars.length;
+
     entry.candleSeries.setData(bars.map(b => ({ time: b.time, open: b.open, high: b.high, low: b.low, close: b.close })));
     entry.volumeSeries.setData(bars.map(b => ({
         time: b.time, value: b.volume, color: b.close >= b.open ? upColor : downColor,
@@ -1017,8 +1023,14 @@ export function setData(id, bars, resetView) {
     if (resetView) {
         const ts = entry.chart.timeScale();
         ts.fitContent();
-        const range = ts.getVisibleLogicalRange();
-        if (range) ts.setVisibleLogicalRange({ from: range.from - leftOffsetBars, to: range.to });
+        // leftOffsetBars is a fixed pad, meant for a fresh view's first bar only -- re-
+        // adding it on every re-fit of a growing-in-place dataset compounds each tick and,
+        // against a still-small bar count, reads as the chart repeatedly zooming out and
+        // squeezing its bars to the right.
+        if (isFreshLoad) {
+            const range = ts.getVisibleLogicalRange();
+            if (range) ts.setVisibleLogicalRange({ from: range.from - leftOffsetBars, to: range.to });
+        }
     }
     drawMinimap(entry);
 }

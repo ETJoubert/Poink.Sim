@@ -50,6 +50,15 @@ namespace Poink.Sim.Components.Pages
 
 		private ProfilerConfig? _config;
 		private List<HlocAvdtBar> _bars = new();
+
+		/// <summary>
+		/// Cached CTraderBarRow projection of <see cref="_bars"/>, recomputed only when
+		/// _bars itself changes -- MarketChart.razor.cs skips its JS setData call (and the
+		/// fitContent() reset that follows on anything but KeepView) via ReferenceEquals on
+		/// this list, which a fresh `ToBarRows()` on every render would defeat.
+		/// </summary>
+		private List<CTraderBarRow> _barRows = new();
+
 		private List<BarPriceHistogram> _barHistograms = new();
 		private int _tickCount;
 		private bool _reachedStart;
@@ -313,6 +322,7 @@ namespace Poink.Sim.Components.Pages
 			_keepView = false;
 			_config = null;
 			_bars = new();
+			_barRows = new();
 			_barHistograms = new();
 			_tickCount = 0;
 			_reachedStart = false;
@@ -351,10 +361,13 @@ namespace Poink.Sim.Components.Pages
 
 		private async Task LoadMore()
 		{
+			// Latched before the guard below since OnNearStartAsync re-renders ProfilerPage
+			// even on an early return, and a stale false here re-fits the chart every time.
+			_keepView = true;
+
 			if (_config is null || _reachedStart || _isLoadingMore)
 				return;
 			_isLoadingMore = true;
-			_keepView = true;
 
 			try
 			{
@@ -375,6 +388,7 @@ namespace Poink.Sim.Components.Pages
 		private void ApplyChunk(ProfilerChunk chunk)
 		{
 			_bars = chunk.Bars.Concat(_bars).ToList();
+			_barRows = ToBarRows(_bars);
 			_barHistograms = chunk.BarHistograms.Concat(_barHistograms).ToList();
 			_tickCount += chunk.TickCount;
 			_reachedStart = chunk.ReachedStart;
@@ -816,8 +830,6 @@ namespace Poink.Sim.Components.Pages
 				{ TotalMinutes: >= 1 } => $"{(int)span.TotalMinutes}m",
 				_ => $"{(int)span.TotalSeconds}s",
 			};
-
-		private List<CTraderBarRow> ToBarRows() => ToBarRows(_bars);
 
 		private static List<CTraderBarRow> ToBarRows(IEnumerable<HlocAvdtBar> bars) =>
 			bars.Select(b => new CTraderBarRow(

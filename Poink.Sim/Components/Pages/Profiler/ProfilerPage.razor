@@ -109,7 +109,7 @@
                     <Icon Name="chevron-left" Class="prof-load-older-icon" />
                 </button>
             }
-            <MarketChartSparkline Bars="ToBarRows()"
+            <MarketChartSparkline Bars="_barRows"
                                    WindowWidth="_lookbackEnabled ? _lookbackWidth : (int?)null"
                                    WindowOffset="_lookbackEnabled ? _lookbackOffset : (int?)null"
                                    WindowChanged="OnWindowChanged" />
@@ -119,7 +119,7 @@
             {
                 <div class="prof-chart-main"
                      title="OHLC bar chart -- pan left to backfill older history, or use the toolbar to draw H-Line/V-Line/D-Line/T-Range/P-Range/Rectangle/T-Range Chart/T-Range Reference Chart/Lookback Window. POC/VAH/VAL, a cumulative VWAP line, and Average/Median lines are shown automatically for whatever window the volume profile panel is built from">
-                    <MarketChartContainer Bars="ToBarRows()" KeepView="_keepView" OnNearStart="LoadMore"
+                    <MarketChartContainer Bars="_barRows" KeepView="_keepView" OnNearStart="LoadMore"
                                  HorizontalLines="AllHorizontalLines()" VerticalLines="AllVerticalLines()"
                                  DiagonalLines="AllDiagonalLines()" RangeFills="AllRangeFills()" VwapLine="VwapPoints()"
                                  OnHorizontalLineDrawn="AddHorizontalLine" OnVerticalLineDrawn="AddVerticalLine"

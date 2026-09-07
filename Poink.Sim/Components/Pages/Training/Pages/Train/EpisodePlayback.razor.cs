@@ -197,20 +197,41 @@ namespace Poink.Sim.Components.Training
 		private IReadOnlyList<IReadOnlyList<RlInputFeature>> SourceEpisodeBarInputs =>
 			_liveFeedbackSnapshot?.LatestEpisodeBarInputs ?? Service.LatestEpisodeBarInputs;
 
-		private List<CTraderBarRow> EpisodeBarRows =>
-			SourceEpisodeBars
-				.Select(b => new CTraderBarRow(
-					b.OpenTime,
-					b.Open,
-					b.High,
-					b.Low,
-					b.Close,
-					b.Volume,
-					b.UpVolume,
-					b.DownVolume,
-					b.Distance
-				))
-				.ToList();
+		private IReadOnlyList<HlocAvdtBar>? _episodeBarRowsSource;
+		private List<CTraderBarRow>? _episodeBarRowsCache;
+
+		/// <summary>
+		/// Cached projection of SourceEpisodeBars, recomputed only when that source
+		/// reference actually changes rather than on every property access -- this feeds
+		/// MarketChartContainer's Bars parameter, and a fresh list per access defeats
+		/// MarketChart.razor.cs's ReferenceEquals no-op check, forcing a fitContent() reset
+		/// on every unrelated re-render, e.g. every HandleServiceChanged tick during training.
+		/// </summary>
+		private List<CTraderBarRow> EpisodeBarRows
+		{
+			get
+			{
+				var source = SourceEpisodeBars;
+				if (!ReferenceEquals(_episodeBarRowsSource, source))
+				{
+					_episodeBarRowsSource = source;
+					_episodeBarRowsCache = source
+						.Select(b => new CTraderBarRow(
+							b.OpenTime,
+							b.Open,
+							b.High,
+							b.Low,
+							b.Close,
+							b.Volume,
+							b.UpVolume,
+							b.DownVolume,
+							b.Distance
+						))
+						.ToList();
+				}
+				return _episodeBarRowsCache!;
+			}
+		}
 
 		private IReadOnlyList<HlocAvdtBar> DisplayedEpisodeBarsRaw =>
 			_replayRawBars is not null ? _replayRawBars.Take(_revealedBarCount).ToList() : SourceEpisodeBars;
@@ -339,8 +360,31 @@ namespace Poink.Sim.Components.Training
 		private bool ReplayHasPausedProgress =>
 			_replayBars is not null && _revealedBarCount > 0 && _revealedBarCount < _replayBars.Count;
 
-		private List<CTraderBarRow> DisplayedEpisodeBars =>
-			_replayBars is not null ? _replayBars.Take(_revealedBarCount).ToList() : EpisodeBarRows;
+		private List<CTraderBarRow>? _displayedBarsSource;
+		private int _displayedBarsRevealedCount = -1;
+		private List<CTraderBarRow>? _displayedBarsCache;
+
+		/// <summary>
+		/// Cached Take(_revealedBarCount) slice of _replayBars, recomputed only when
+		/// _revealedBarCount actually advances -- see EpisodeBarRows' own doc comment for
+		/// why a fresh list per access is a bug here, not just waste.
+		/// </summary>
+		private List<CTraderBarRow> DisplayedEpisodeBars
+		{
+			get
+			{
+				if (_replayBars is null)
+					return EpisodeBarRows;
+
+				if (!ReferenceEquals(_displayedBarsSource, _replayBars) || _displayedBarsRevealedCount != _revealedBarCount)
+				{
+					_displayedBarsSource = _replayBars;
+					_displayedBarsRevealedCount = _revealedBarCount;
+					_displayedBarsCache = _replayBars.Take(_revealedBarCount).ToList();
+				}
+				return _displayedBarsCache!;
+			}
+		}
 
 		private List<Trade> DisplayedRevealedTrades
 		{
