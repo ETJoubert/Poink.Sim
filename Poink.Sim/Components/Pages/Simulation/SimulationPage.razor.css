@@ -332,87 +332,6 @@
     min-width: 0;
 }
 
-.sim-sidepanel {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    flex: 0 0 auto;
-    width: 300px;
-    min-width: 220px;
-    border-left: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
-}
-
-.sim-sidepanel-collapsed {
-    width: 40px;
-    min-width: 40px;
-    max-width: 40px;
-    overflow: hidden;
-}
-
-.sim-sidepanel-risk {
-    width: 220px;
-    min-width: 180px;
-}
-
-.sim-sidepanel-toggle {
-    flex: 0 0 auto;
-    align-self: flex-end;
-    margin: 10px 10px 0;
-    width: 24px;
-    height: 24px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: transparent;
-    border: 1px solid color-mix(in srgb, var(--color-primary) 45%, transparent);
-    border-radius: var(--border-radius-sm);
-    color: var(--color-primary);
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.sim-sidepanel-collapsed .sim-sidepanel-toggle {
-    align-self: center;
-}
-
-.sim-sidepanel-toggle:hover {
-    background: color-mix(in srgb, var(--color-primary) 12%, transparent);
-    border-color: var(--color-primary);
-}
-
-.sim-sidepanel-toggle-icon {
-    width: 13px;
-    height: 13px;
-}
-
-.sim-sidepanel-content {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    padding: 10px 16px 16px;
-}
-
-@media (max-width: 900px) {
-    .sim-body {
-        flex-direction: column;
-    }
-
-    .sim-sidepanel {
-        flex-basis: auto;
-        width: 100%;
-        min-width: 0;
-        border-left: none;
-        border-top: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
-    }
-
-    .sim-sidepanel-collapsed {
-        flex-basis: auto;
-        width: 100%;
-        min-width: 0;
-        max-width: none;
-    }
-}
-
 .sim-controls {
     display: flex;
     align-items: center;
@@ -812,6 +731,13 @@
     overflow-y: auto;
 }
 
+/* Trader Controls/Risk Policies are natural-height forms rather than auto-fitting charts,
+   so unlike their .sim-chart-side siblings they need their own scroll/padding. */
+.sim-chart-side-scroll {
+    overflow-y: auto;
+    padding: 10px 16px 16px;
+}
+
 .sim-chart-divider {
     position: relative;
     flex: 0 0 6px;
@@ -821,11 +747,6 @@
     touch-action: none;
     user-select: none;
     border-radius: 3px;
-}
-
-.sim-chart-divider-side {
-    flex: 0 0 8px;
-    margin: 0;
 }
 
 .sim-chart-divider::before {
