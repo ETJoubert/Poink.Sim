@@ -102,9 +102,12 @@ Address the user as Master Poinker
 5. Per-tick, per-episode, and per-request events are excluded from logging.
 
 ### 10. Workflow
-1. Do not run the current target program after updates are applied except if explicitly asked.
-2. User will perform UI evaluations
-3. Compilation is permitted. A build is not treated as running the program.
+1. Ask if feature branch should be created, If yes, then create a branch 
+2. Build and itterate on the created branch
+4. Compilation is permitted. A build is not treated as running the program.
+5. Do not run the current target program after updates are applied except if explicitly asked.
+6. When Done provide standard Response below.
+7. When prompted to merge, merge the branch.
 
 ### 11. Response Style
 1. Reflection Report with a line break for seperation
