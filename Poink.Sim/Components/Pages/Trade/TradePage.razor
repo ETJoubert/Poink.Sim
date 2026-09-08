@@ -1,6 +1,7 @@
 @page "/trade"
 @namespace Poink.Sim.Components.Pages.Trade
 @using Poink.Sim.Services.CTrader
+@using Poink.Sim.Components.Charts
 @using Poink.Sim.Components.Shared.Icon
 @using Poink.Sim.Components.Shared.BarSizeSelect
 
@@ -148,11 +149,31 @@
                         <BarSizeSelect @bind-Value="_barSizeSeconds" @bind-Value:after="OnBarSizeChangedAsync"
                                        Disabled="_chartLoading" Label="Aggregation"
                                        Title="Bar size the chart's live history and tick stream are aggregated into" />
+                        <div class="trade-panel-toggles" title="Show or hide chart panels">
+                            <span class="trade-panel-toggles-label">Panels</span>
+                            <button type="button" class="trade-panel-toggle-btn @(_showXGrid ? "active" : "")"
+                                    @onclick="() => _showXGrid = !_showXGrid"
+                                    title="Show or hide the XGrid footprint panel">XGrid</button>
+                        </div>
                         <button class="trade-chart-close" @onclick="CloseChart" title="Close this chart">
                             <Icon Name="x-lg" Class="trade-chart-close-icon" />
                             CLOSE
                         </button>
                     </div>
+                    @if (_showXGrid)
+                    {
+                        <div class="trade-window-bar">
+                            <span class="trade-window-title">XGRID LOOKBACK</span>
+                            <input class="trade-window-input" type="number" min="1" max="@MaxXGridBarWindow"
+                                   @bind="_xgridBarWindowSize" @bind:event="oninput"
+                                   title="Number of bars the XGrid footprint window spans" />
+                            <span class="trade-window-title"
+                                  title="Bars back from the most recent bar to the end of the window -- 0 keeps the window anchored to now">OFFSET</span>
+                            <input class="trade-window-input" type="number" min="0" max="@(MaxXGridBarWindow - 1)"
+                                   @bind="_xgridBarWindowOffset" @bind:event="oninput"
+                                   title="Bars back from the most recent bar to the end of the window" />
+                        </div>
+                    }
                     @if (_chartLoading)
                     {
                         <p class="trade-chart-status">Loading history...</p>
@@ -163,9 +184,18 @@
                     }
                     else
                     {
-                        <div class="trade-chart-canvas">
-                            <MarketChartContainer Bars="_chartBars" CurrentBid="ChartQuote?.Bid" CurrentAsk="ChartQuote?.Ask"
-                                         KeepView="_chartKeepView" ShowAnnotationTools="false" />
+                        <div class="trade-chart-row">
+                            <div class="trade-chart-canvas">
+                                <MarketChartContainer Bars="_chartBars" CurrentBid="ChartQuote?.Bid" CurrentAsk="ChartQuote?.Ask"
+                                             KeepView="_chartKeepView" ShowAnnotationTools="false" />
+                            </div>
+                            @if (_showXGrid)
+                            {
+                                <div class="trade-chart-side">
+                                    <XGridController Grid="ComputeXGrid()" @bind-PipCount="_xgridPipCount"
+                                                      @bind-ColCount="_xgridColCount" ProfileBarCount="ClampedXGridWindow" />
+                                </div>
+                            }
                         </div>
                     }
                 </div>

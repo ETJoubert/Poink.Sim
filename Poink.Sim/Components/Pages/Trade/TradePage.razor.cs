@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
+using Poink.Sim.Components.Charts;
 using Poink.Sim.Models;
 using Poink.Sim.Repository;
 using Poink.Sim.Services.CTrader;
@@ -21,8 +22,11 @@ namespace Poink.Sim.Components.Pages.Trade
 		/// <summary>Hard ceiling on the tick-history window regardless of bar size, so a coarse aggregation can't trigger a huge cTrader tick pull.</summary>
 		private static readonly TimeSpan MaxHistoryLookback = TimeSpan.FromDays(14);
 
-		/// <summary>Unused for chart display; SimulationBarAggregator requires a bucket width for its price histogram.</summary>
+		/// <summary>Bucket width for SimulationBarAggregator's price histogram; also the XGrid pip-size unit until a per-instrument pip size is looked up.</summary>
 		private const double PriceBucketWidth = 0.01;
+
+		/// <summary>Cap on the XGrid footprint's lookback window, matching Simulation's bar-window cap.</summary>
+		private const int MaxXGridBarWindow = 300;
 
 		[Inject]
 		private ICTraderSessionService Session { get; set; } = null!;
@@ -38,10 +42,31 @@ namespace Poink.Sim.Components.Pages.Trade
 		private long? _chartSymbolId;
 		private string? _chartSymbolName;
 		private List<CTraderBarRow> _chartBars = new();
+		private List<HlocAvdtBar> _chartHlocBars = new();
+		private List<BarPriceHistogram> _chartHistograms = new();
 		private bool _chartLoading;
 		private string? _chartError;
 		private int _barSizeSeconds = 60;
 		private SimulationBarAggregator? _barAggregator;
+
+		private bool _showXGrid;
+		private int _xgridBarWindowSize = 50;
+		private int _xgridBarWindowOffset;
+		private int _xgridPipCount = 20;
+		private int _xgridColCount = 20;
+		private XGridResult? _xgridCache;
+		private (
+			int Pips,
+			int Cols,
+			int Offset,
+			int Window,
+			int Count,
+			DateTime LastOpen,
+			double LastClose
+		)? _xgridKey;
+
+		private int ClampedXGridWindow => Math.Clamp(_xgridBarWindowSize, 1, MaxXGridBarWindow);
+		private int ClampedXGridOffset => Math.Clamp(_xgridBarWindowOffset, 0, MaxXGridBarWindow - 1);
 
 		// Fits the chart once on the initial history load, then latches true so live ticks
 		// update the bars in place without resetting the user's own pan/zoom.
@@ -129,6 +154,8 @@ namespace Poink.Sim.Components.Pages.Trade
 		{
 			_chartError = null;
 			_chartBars = new List<CTraderBarRow>();
+			_chartHlocBars = new List<HlocAvdtBar>();
+			_chartHistograms = new List<BarPriceHistogram>();
 			_chartKeepView = false;
 			_chartLoading = true;
 
@@ -144,15 +171,27 @@ namespace Poink.Sim.Components.Pages.Trade
 				var ticks = await History.GetHistoricalTicksAsync(symbolId, to - lookback, to);
 
 				var bars = new List<CTraderBarRow>();
+				var hlocBars = new List<HlocAvdtBar>();
+				var histograms = new List<BarPriceHistogram>();
 				foreach (var tick in ticks)
 				{
 					if (_barAggregator.Feed(tick) is { } completed)
+					{
 						bars.Add(ToBarRow(completed.Bar));
+						hlocBars.Add(completed.Bar);
+						histograms.Add(completed.Histogram);
+					}
 				}
 				if (_barAggregator.CurrentPartialBar is { } partial)
+				{
 					bars.Add(ToBarRow(partial));
+					hlocBars.Add(partial);
+					histograms.Add(_barAggregator.CurrentPartialHistogram!);
+				}
 
 				_chartBars = bars;
+				_chartHlocBars = hlocBars;
+				_chartHistograms = histograms;
 
 				if (_chartBars.Count == 0)
 					_chartError = "No tick history returned for this symbol.";
@@ -175,6 +214,8 @@ namespace Poink.Sim.Components.Pages.Trade
 			_chartSymbolId = null;
 			_chartSymbolName = null;
 			_chartBars = new List<CTraderBarRow>();
+			_chartHlocBars = new List<HlocAvdtBar>();
+			_chartHistograms = new List<BarPriceHistogram>();
 			_chartKeepView = false;
 			_chartError = null;
 			_barAggregator = null;
@@ -206,24 +247,99 @@ namespace Poink.Sim.Components.Pages.Trade
 
 			var completed = _barAggregator.Feed(new Tick(tick.TimestampUtc, tick.Bid, tick.Ask));
 			var bars = new List<CTraderBarRow>(_chartBars);
+			var hlocBars = new List<HlocAvdtBar>(_chartHlocBars);
+			var histograms = new List<BarPriceHistogram>(_chartHistograms);
 
 			if (completed is { } c)
 			{
 				if (bars.Count > 0)
+				{
 					bars[^1] = ToBarRow(c.Bar);
+					hlocBars[^1] = c.Bar;
+					histograms[^1] = c.Histogram;
+				}
 
 				if (_barAggregator.CurrentPartialBar is { } newPartial)
+				{
 					bars.Add(ToBarRow(newPartial));
+					hlocBars.Add(newPartial);
+					histograms.Add(_barAggregator.CurrentPartialHistogram!);
+				}
 			}
 			else if (_barAggregator.CurrentPartialBar is { } partial)
 			{
 				if (bars.Count > 0)
+				{
 					bars[^1] = ToBarRow(partial);
+					hlocBars[^1] = partial;
+					histograms[^1] = _barAggregator.CurrentPartialHistogram!;
+				}
 				else
+				{
 					bars.Add(ToBarRow(partial));
+					hlocBars.Add(partial);
+					histograms.Add(_barAggregator.CurrentPartialHistogram!);
+				}
 			}
 
 			_chartBars = bars;
+			_chartHlocBars = hlocBars;
+			_chartHistograms = histograms;
+		}
+
+		// Slices the tracked bars/histograms to end Offset bars back from the live edge, matching
+		// SimulationPage's WindowedBarData so the XGrid footprint reads the same lookback semantics.
+		private (IReadOnlyList<HlocAvdtBar> Bars, IReadOnlyList<BarPriceHistogram> Histograms) WindowedXGridData()
+		{
+			var offset = Math.Min(ClampedXGridOffset, Math.Max(0, _chartHlocBars.Count - 1));
+			var count = _chartHlocBars.Count - offset;
+			if (count <= 0)
+				return (Array.Empty<HlocAvdtBar>(), Array.Empty<BarPriceHistogram>());
+			return (_chartHlocBars.Take(count).ToList(), _chartHistograms.Take(count).ToList());
+		}
+
+		private List<WeightedPriceSample> MergedXGridSamples()
+		{
+			var (_, histograms) = WindowedXGridData();
+			return BarPriceHistogram
+				.Merge(histograms, ClampedXGridWindow)
+				.Select(t => new WeightedPriceSample(t.Price, t.Count, t.UpCount, t.DownCount))
+				.ToList();
+		}
+
+		private XGridResult? ComputeXGrid()
+		{
+			var (bars, histograms) = WindowedXGridData();
+			if (bars.Count == 0)
+				return null;
+
+			var window = Math.Min(ClampedXGridWindow, bars.Count);
+			var last = bars[^1];
+			var key = (
+				_xgridPipCount,
+				_xgridColCount,
+				ClampedXGridOffset,
+				window,
+				bars.Count,
+				last.OpenTime,
+				last.Close
+			);
+			if (_xgridKey == key && _xgridCache is not null)
+				return _xgridCache;
+
+			var start = bars[bars.Count - window].OpenTime;
+			var end = last.OpenTime;
+			_xgridKey = key;
+			_xgridCache = XGridStats.Compute(
+				bars,
+				histograms,
+				MergedXGridSamples(),
+				start,
+				end,
+				_xgridPipCount * PriceBucketWidth,
+				_xgridColCount
+			);
+			return _xgridCache;
 		}
 
 		public void Dispose()
