@@ -2,11 +2,13 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 using Poink.Sim.Components.Charts;
+using Poink.Sim.Helpers;
 using Poink.Sim.Models;
 using Poink.Sim.Profiler;
 using Poink.Sim.Repository;
@@ -42,6 +44,9 @@ namespace Poink.Sim.Components.Pages
 
 		[Inject]
 		private ILogger<SimulationPage> Logger { get; set; } = default!;
+
+		[Inject]
+		private ILocalStorageHelper LocalStorage { get; set; } = default!;
 
 		// ── Setup form state ──
 
@@ -621,6 +626,79 @@ namespace Poink.Sim.Components.Pages
 			SimulationService.OnChanged -= HandleServiceChanged;
 		}
 
+		// Round-trips the setup form through localStorage since this component's own fields
+		// don't survive navigation; diffed against _lastPersistedSettingsJson to avoid write spam.
+		private const string SettingsStorageKey = "poink.simulation.setup";
+
+		private string? _lastPersistedSettingsJson;
+
+		private SimulationPageSettings CurrentSettings =>
+			new(
+				_table,
+				_from,
+				_to,
+				_aggregate,
+				_barSizeSeconds,
+				_steppingMode,
+				_cellWidth,
+				_brainName,
+				_modelId,
+				_startingCash,
+				_traderCount,
+				_leverage,
+				_commissionRatePercent,
+				_stopOutLevelPercent,
+				_pipSize,
+				[.. _selectedRiskPolicies],
+				_lockRiskPolicies
+			);
+
+		private async Task LoadPersistedSettingsAsync()
+		{
+			var settings = await LocalStorage.GetItemAsync<SimulationPageSettings>(SettingsStorageKey);
+			if (settings is null)
+				return;
+
+			ApplySettings(settings);
+			_lastPersistedSettingsJson = JsonSerializer.Serialize(CurrentSettings);
+			StateHasChanged();
+		}
+
+		private void ApplySettings(SimulationPageSettings settings)
+		{
+			_table = settings.Table;
+			_from = settings.From;
+			_to = settings.To;
+			_aggregate = settings.Aggregate;
+			_barSizeSeconds = settings.BarSizeSeconds;
+			_steppingMode = settings.SteppingMode;
+			_cellWidth = settings.CellWidth;
+			_brainName = settings.BrainName;
+			_modelId = settings.ModelId;
+			_startingCash = settings.StartingCash;
+			_traderCount = settings.TraderCount;
+			_leverage = settings.Leverage;
+			_commissionRatePercent = settings.CommissionRatePercent;
+			_stopOutLevelPercent = settings.StopOutLevelPercent;
+			_pipSize = settings.PipSize;
+			_selectedRiskPolicies.Clear();
+			_selectedRiskPolicies.AddRange(settings.SelectedRiskPolicies);
+			_lockRiskPolicies = settings.LockRiskPolicies;
+		}
+
+		private async Task PersistSettingsIfChangedAsync()
+		{
+			if (_snapshot is not null)
+				return;
+
+			var json = JsonSerializer.Serialize(CurrentSettings);
+			if (json == _lastPersistedSettingsJson)
+				return;
+
+			_lastPersistedSettingsJson = json;
+			await LocalStorage.SetItemAsync(SettingsStorageKey, CurrentSettings);
+		}
+
 		private ElementReference _chartRowRef;
 		private ElementReference _chartDividerRefXGrid;
 		private ElementReference _chartDividerRef;
@@ -751,7 +829,14 @@ namespace Poink.Sim.Components.Pages
 		protected override async Task OnAfterRenderAsync(bool firstRender)
 		{
 			if (firstRender)
+			{
 				_dividerResizeInstance = await JS.InvokeAsync<IJSObjectReference>("eval", ChartDividerScript);
+				await LoadPersistedSettingsAsync();
+			}
+			else
+			{
+				await PersistSettingsIfChangedAsync();
+			}
 
 			if (_snapshot is not null && !_hideChart && _dividerResizeInstance is not null)
 			{
