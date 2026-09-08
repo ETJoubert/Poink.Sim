@@ -15,6 +15,7 @@ Every response ends with this report. Each section label is bold, sections are s
 5. **Usage:** how to use it, when the work is a new feature.
 6. **Concerns:** ✅ None, or ❌ followed by each concern.
 7. **Recommendations:** state if any exist.
+8. **Finally:** State Next workflow steps
 
 ### 10. Workflow
 1. Master is the core branch. Its own working tree stays on master; feature work never checks out another branch there.
