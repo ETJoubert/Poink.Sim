@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
+using Microsoft.JSInterop;
 using Poink.Sim.Components.Charts;
 using Poink.Sim.Models;
 using Poink.Sim.Repository;
@@ -12,7 +13,7 @@ using Poink.Sim.Simulation;
 
 namespace Poink.Sim.Components.Pages.Trade
 {
-	public partial class TradePage : ComponentBase, IDisposable
+	public partial class TradePage : ComponentBase, IDisposable, IAsyncDisposable
 	{
 		private const int MaxSymbolResults = 100;
 
@@ -25,8 +26,8 @@ namespace Poink.Sim.Components.Pages.Trade
 		/// <summary>Bucket width for SimulationBarAggregator's price histogram; also the XGrid pip-size unit until a per-instrument pip size is looked up.</summary>
 		private const double PriceBucketWidth = 0.01;
 
-		/// <summary>Cap on the XGrid footprint's lookback window, matching Simulation's bar-window cap.</summary>
-		private const int MaxXGridBarWindow = 300;
+		/// <summary>Cap on the chart/XGrid lookback window, matching Simulation's bar-window cap.</summary>
+		private const int MaxBarWindow = 300;
 
 		[Inject]
 		private ICTraderSessionService Session { get; set; } = null!;
@@ -36,6 +37,9 @@ namespace Poink.Sim.Components.Pages.Trade
 
 		[Inject]
 		private NavigationManager Navigation { get; set; } = null!;
+
+		[Inject]
+		private IJSRuntime JS { get; set; } = null!;
 
 		private string _symbolFilter = string.Empty;
 
@@ -49,9 +53,13 @@ namespace Poink.Sim.Components.Pages.Trade
 		private int _barSizeSeconds = 60;
 		private SimulationBarAggregator? _barAggregator;
 
+		private bool _showMainChart = true;
 		private bool _showXGrid;
-		private int _xgridBarWindowSize = 50;
-		private int _xgridBarWindowOffset;
+		private bool _showProfileChartLines = true;
+		private bool _showVwap = true;
+
+		private int _barWindowSize = 50;
+		private int _barWindowOffset;
 		private int _xgridPipCount = 20;
 		private int _xgridColCount = 20;
 		private XGridResult? _xgridCache;
@@ -65,8 +73,11 @@ namespace Poink.Sim.Components.Pages.Trade
 			double LastClose
 		)? _xgridKey;
 
-		private int ClampedXGridWindow => Math.Clamp(_xgridBarWindowSize, 1, MaxXGridBarWindow);
-		private int ClampedXGridOffset => Math.Clamp(_xgridBarWindowOffset, 0, MaxXGridBarWindow - 1);
+		private int ClampedBarWindow => Math.Clamp(_barWindowSize, 1, MaxBarWindow);
+		private double BarWindowFillPercent => ClampedBarWindow * 100.0 / MaxBarWindow;
+
+		private int ClampedBarOffset => Math.Clamp(_barWindowOffset, 0, MaxBarWindow - 1);
+		private double BarWindowOffsetFillPercent => ClampedBarOffset * 100.0 / MaxBarWindow;
 
 		// Fits the chart once on the initial history load, then latches true so live ticks
 		// update the bars in place without resetting the user's own pan/zoom.
@@ -120,10 +131,114 @@ namespace Poink.Sim.Components.Pages.Trade
 			Session.TickReceived += OnTickReceived;
 		}
 
-		protected override void OnAfterRender(bool firstRender)
+		private ElementReference _chartRowRef;
+		private ElementReference _chartDividerRef;
+		private IJSObjectReference? _dividerResizeInstance;
+		private HashSet<string> _lastVisibleChartPanels = new();
+
+		private HashSet<string> CurrentVisibleChartPanelKeys()
+		{
+			var keys = new HashSet<string>();
+			if (_showMainChart) keys.Add("main");
+			if (_showXGrid) keys.Add("xgrid");
+			return keys;
+		}
+
+		// Same drag-to-resize mechanism as SimulationPage's ChartDividerScript, trimmed to the
+		// two-panel (main/side) case Trade's chart row actually has -- no height divider here.
+		private const string ChartDividerScript = """
+			(function() {
+			    var DIVIDER_CHROME_PX = 18;
+			    function resetChartPanelsEqual(container) {
+			        if (!container) return;
+			        var panels = container.querySelectorAll(':scope > .trade-chart-main, :scope > .trade-chart-side');
+			        if (panels.length === 0) return;
+			        var dividerCount = container.querySelectorAll(':scope > .trade-chart-divider').length;
+			        var style = getComputedStyle(container);
+			        var containerWidth = container.getBoundingClientRect().width
+			            - (parseFloat(style.paddingLeft) || 0)
+			            - (parseFloat(style.paddingRight) || 0);
+			        var reservedPercent = containerWidth > 0
+			            ? (dividerCount * DIVIDER_CHROME_PX / containerWidth) * 100 : 0;
+			        var percent = (100 - reservedPercent) / panels.length;
+			        panels.forEach(function(p) { p.style.flex = '0 0 ' + percent + '%'; });
+			    }
+			    function bindChartDivider(divider) {
+			        if (!divider || divider.dataset.bound) return;
+			        divider.dataset.bound = '1';
+			        var minWidthPx = parseInt(divider.dataset.minWidth, 10) || 160;
+			        divider.addEventListener('pointerdown', function(e) {
+			            e.preventDefault();
+			            var left = divider.previousElementSibling;
+			            var right = divider.nextElementSibling;
+			            if (!left || !right) return;
+			            var container = divider.parentElement;
+			            var containerStyle = getComputedStyle(container);
+			            var containerWidth = container.getBoundingClientRect().width
+			                - (parseFloat(containerStyle.paddingLeft) || 0)
+			                - (parseFloat(containerStyle.paddingRight) || 0);
+			            var minPercent = (minWidthPx / containerWidth) * 100;
+			            var startX = e.clientX;
+			            var startLeftPercent = (left.getBoundingClientRect().width / containerWidth) * 100;
+			            var startRightPercent = (right.getBoundingClientRect().width / containerWidth) * 100;
+			            divider.setPointerCapture(e.pointerId);
+			            divider.classList.add('trade-chart-divider-active');
+
+			            function onMove(ev) {
+			                var deltaPercent = ((ev.clientX - startX) / containerWidth) * 100;
+			                var newLeft = startLeftPercent + deltaPercent;
+			                var newRight = startRightPercent - deltaPercent;
+			                if (newLeft < minPercent) { newRight -= (minPercent - newLeft); newLeft = minPercent; }
+			                if (newRight < minPercent) { newLeft -= (minPercent - newRight); newRight = minPercent; }
+			                left.style.flex = '0 0 ' + newLeft + '%';
+			                right.style.flex = '0 0 ' + newRight + '%';
+			            }
+			            function onUp(ev) {
+			                divider.releasePointerCapture(e.pointerId);
+			                divider.removeEventListener('pointermove', onMove);
+			                divider.removeEventListener('pointerup', onUp);
+			                divider.classList.remove('trade-chart-divider-active');
+			            }
+			            divider.addEventListener('pointermove', onMove);
+			            divider.addEventListener('pointerup', onUp);
+			        });
+			    }
+			    return { bindChartDivider: bindChartDivider, resetChartPanelsEqual: resetChartPanelsEqual };
+			})()
+			""";
+
+		protected override async Task OnAfterRenderAsync(bool firstRender)
 		{
 			if (!_chartKeepView && _chartBars.Count > 0)
 				_chartKeepView = true;
+
+			if (firstRender)
+				_dividerResizeInstance = await JS.InvokeAsync<IJSObjectReference>("eval", ChartDividerScript);
+
+			if (_chartSymbolId is null || _chartLoading || _chartError is not null || _dividerResizeInstance is null)
+				return;
+
+			var visiblePanels = CurrentVisibleChartPanelKeys();
+			if (!visiblePanels.SetEquals(_lastVisibleChartPanels))
+			{
+				_lastVisibleChartPanels = visiblePanels;
+				await _dividerResizeInstance.InvokeVoidAsync("resetChartPanelsEqual", _chartRowRef);
+			}
+
+			if (_showMainChart && _showXGrid)
+				await _dividerResizeInstance.InvokeVoidAsync("bindChartDivider", _chartDividerRef);
+		}
+
+		public async ValueTask DisposeAsync()
+		{
+			if (_dividerResizeInstance is not null)
+			{
+				try
+				{
+					await _dividerResizeInstance.DisposeAsync();
+				}
+				catch (JSDisconnectedException) { }
+			}
 		}
 
 		private void LogIn()
@@ -287,38 +402,38 @@ namespace Poink.Sim.Components.Pages.Trade
 			_chartHistograms = histograms;
 		}
 
-		// Slices the tracked bars/histograms to end Offset bars back from the live edge, matching
-		// SimulationPage's WindowedBarData so the XGrid footprint reads the same lookback semantics.
-		private (IReadOnlyList<HlocAvdtBar> Bars, IReadOnlyList<BarPriceHistogram> Histograms) WindowedXGridData()
+		// Every window-based view below (chart, XGrid, indicator overlays) reads from this
+		// slice, so the Offset/Width slider moves them all together, matching SimulationPage.
+		private (IReadOnlyList<HlocAvdtBar> Bars, IReadOnlyList<BarPriceHistogram> Histograms) WindowedBarData()
 		{
-			var offset = Math.Min(ClampedXGridOffset, Math.Max(0, _chartHlocBars.Count - 1));
+			var offset = Math.Min(ClampedBarOffset, Math.Max(0, _chartHlocBars.Count - 1));
 			var count = _chartHlocBars.Count - offset;
 			if (count <= 0)
 				return (Array.Empty<HlocAvdtBar>(), Array.Empty<BarPriceHistogram>());
 			return (_chartHlocBars.Take(count).ToList(), _chartHistograms.Take(count).ToList());
 		}
 
-		private List<WeightedPriceSample> MergedXGridSamples()
+		private List<WeightedPriceSample> MergedBarSamples()
 		{
-			var (_, histograms) = WindowedXGridData();
+			var (_, histograms) = WindowedBarData();
 			return BarPriceHistogram
-				.Merge(histograms, ClampedXGridWindow)
+				.Merge(histograms, ClampedBarWindow)
 				.Select(t => new WeightedPriceSample(t.Price, t.Count, t.UpCount, t.DownCount))
 				.ToList();
 		}
 
 		private XGridResult? ComputeXGrid()
 		{
-			var (bars, histograms) = WindowedXGridData();
+			var (bars, histograms) = WindowedBarData();
 			if (bars.Count == 0)
 				return null;
 
-			var window = Math.Min(ClampedXGridWindow, bars.Count);
+			var window = Math.Min(ClampedBarWindow, bars.Count);
 			var last = bars[^1];
 			var key = (
 				_xgridPipCount,
 				_xgridColCount,
-				ClampedXGridOffset,
+				ClampedBarOffset,
 				window,
 				bars.Count,
 				last.OpenTime,
@@ -333,13 +448,73 @@ namespace Poink.Sim.Components.Pages.Trade
 			_xgridCache = XGridStats.Compute(
 				bars,
 				histograms,
-				MergedXGridSamples(),
+				MergedBarSamples(),
 				start,
 				end,
 				_xgridPipCount * PriceBucketWidth,
 				_xgridColCount
 			);
 			return _xgridCache;
+		}
+
+		private List<ChartHorizontalLine> ProfileLevelLines()
+		{
+			if (!_showProfileChartLines)
+				return new();
+			if (VolumeProfileStats.Compute(MergedBarSamples()) is not { } levels)
+				return new();
+			return new()
+			{
+				new ChartHorizontalLine(levels.Poc, "POC", "profile"),
+				new ChartHorizontalLine(levels.ValueAreaHigh, "VAH", "profile"),
+				new ChartHorizontalLine(levels.ValueAreaLow, "VAL", "profile"),
+			};
+		}
+
+		private List<ChartLinePoint> VwapPoints()
+		{
+			if (!_showVwap)
+				return new();
+
+			var (bars, _) = WindowedBarData();
+			var windowBars = bars.Count > ClampedBarWindow ? bars.Skip(bars.Count - ClampedBarWindow) : bars;
+
+			var points = new List<ChartLinePoint>();
+			double cumulativePriceVolume = 0,
+				cumulativeVolume = 0;
+			foreach (var bar in windowBars)
+			{
+				cumulativePriceVolume += bar.Average * bar.Volume;
+				cumulativeVolume += bar.Volume;
+				if (cumulativeVolume > 0)
+					points.Add(new ChartLinePoint(bar.OpenTime, cumulativePriceVolume / cumulativeVolume));
+			}
+			return points;
+		}
+
+		private DateTime? WindowStartUtc()
+		{
+			var (bars, _) = WindowedBarData();
+			if (bars.Count <= ClampedBarWindow)
+				return null;
+			return bars[bars.Count - ClampedBarWindow].OpenTime;
+		}
+
+		// Only meaningful once Offset pulls the window's far edge off of "now" -- at Offset 0
+		// the end is just the newest bar, already the chart's own right edge.
+		private DateTime? WindowEndUtc()
+		{
+			if (ClampedBarOffset <= 0)
+				return null;
+			var (bars, _) = WindowedBarData();
+			return bars.Count > 0 ? bars[^1].OpenTime : null;
+		}
+
+		private static string QuoteRowTitle(CTraderSymbolQuote quote, bool selected)
+		{
+			var state = selected ? "Viewing this symbol's chart" : "Select to view this symbol's chart";
+			var updated = quote.UpdatedAt?.ToString("HH:mm:ss") ?? "waiting...";
+			return $"{state} -- last update: {updated}";
 		}
 
 		public void Dispose()

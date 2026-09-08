@@ -4,6 +4,7 @@
 @using Poink.Sim.Components.Charts
 @using Poink.Sim.Components.Shared.Icon
 @using Poink.Sim.Components.Shared.BarSizeSelect
+@using System.Globalization
 
 <div class="trade-page">
 
@@ -81,22 +82,25 @@
                         <ul class="trade-quote-list">
                             @foreach (var quote in Session.Watchlist)
                             {
-                                <li class="trade-quote-row" title="Last update: @(quote.UpdatedAt?.ToString("HH:mm:ss") ?? "waiting...")">
+                                var selected = quote.SymbolId == _chartSymbolId;
+                                <li class="trade-quote-row @(selected ? "trade-quote-row-selected" : "")"
+                                    @onclick="() => OpenChartAsync(quote.SymbolId, quote.SymbolName)"
+                                    title="@QuoteRowTitle(quote, selected)">
+                                    <span class="trade-quote-selected-indicator">
+                                        @if (selected)
+                                        {
+                                            <Icon Name="eye-fill" Class="trade-quote-selected-icon" />
+                                        }
+                                    </span>
                                     <span class="trade-quote-name">@quote.SymbolName</span>
                                     <span class="trade-quote-prices">
                                         <span class="trade-quote-bid" title="Bid">@Price(quote.Bid)</span>
                                         <span class="trade-quote-ask" title="Ask">@Price(quote.Ask)</span>
                                     </span>
-                                    <span class="trade-quote-actions">
-                                        <button class="trade-quote-chart" @onclick="() => OpenChartAsync(quote.SymbolId, quote.SymbolName)"
-                                                title="Open a price chart for @quote.SymbolName">
-                                            <Icon Name="graph-up-arrow" Class="trade-quote-chart-icon" />
-                                        </button>
-                                        <button class="trade-quote-remove" @onclick="() => UnwatchAsync(quote.SymbolId)"
-                                                title="Stop streaming @quote.SymbolName">
-                                            <Icon Name="x-lg" Class="trade-quote-remove-icon" />
-                                        </button>
-                                    </span>
+                                    <button class="trade-quote-remove" @onclick="() => UnwatchAsync(quote.SymbolId)"
+                                            @onclick:stopPropagation="true" title="Stop streaming @quote.SymbolName">
+                                        <Icon Name="x-lg" Class="trade-quote-remove-icon" />
+                                    </button>
                                 </li>
                             }
                         </ul>
@@ -149,31 +153,50 @@
                         <BarSizeSelect @bind-Value="_barSizeSeconds" @bind-Value:after="OnBarSizeChangedAsync"
                                        Disabled="_chartLoading" Label="Aggregation"
                                        Title="Bar size the chart's live history and tick stream are aggregated into" />
-                        <div class="trade-panel-toggles" title="Show or hide chart panels">
-                            <span class="trade-panel-toggles-label">Panels</span>
-                            <button type="button" class="trade-panel-toggle-btn @(_showXGrid ? "active" : "")"
-                                    @onclick="() => _showXGrid = !_showXGrid"
-                                    title="Show or hide the XGrid footprint panel">XGrid</button>
-                        </div>
                         <button class="trade-chart-close" @onclick="CloseChart" title="Close this chart">
                             <Icon Name="x-lg" Class="trade-chart-close-icon" />
                             CLOSE
                         </button>
                     </div>
-                    @if (_showXGrid)
-                    {
-                        <div class="trade-window-bar">
-                            <span class="trade-window-title">XGRID LOOKBACK</span>
-                            <input class="trade-window-input" type="number" min="1" max="@MaxXGridBarWindow"
-                                   @bind="_xgridBarWindowSize" @bind:event="oninput"
-                                   title="Number of bars the XGrid footprint window spans" />
-                            <span class="trade-window-title"
-                                  title="Bars back from the most recent bar to the end of the window -- 0 keeps the window anchored to now">OFFSET</span>
-                            <input class="trade-window-input" type="number" min="0" max="@(MaxXGridBarWindow - 1)"
-                                   @bind="_xgridBarWindowOffset" @bind:event="oninput"
-                                   title="Bars back from the most recent bar to the end of the window" />
+                    <div class="trade-chart-toolbar">
+                        <div class="trade-overlay-toggles" title="Toggle the computed chart overlays -- Point of Control/Value Area and a cumulative VWAP line">
+                            <span class="trade-overlay-toggles-label">Indicators</span>
+                            <button type="button" class="trade-overlay-toggle-btn trade-overlay-toggle-btn-lines @(_showProfileChartLines ? "active" : "")"
+                                    @onclick="() => _showProfileChartLines = !_showProfileChartLines"
+                                    title="Project the Point of Control/Value Area High/Low as three dashed lines on the chart">POC/VAH/VAL</button>
+                            <button type="button" class="trade-overlay-toggle-btn trade-overlay-toggle-btn-vwap @(_showVwap ? "active" : "")"
+                                    @onclick="() => _showVwap = !_showVwap"
+                                    title="Show a cumulative volume-weighted average price line on the chart, over the same bar window as the lookback slider">VWAP</button>
                         </div>
-                    }
+                        <div class="trade-panel-toggles" title="Show or hide chart panels">
+                            <span class="trade-panel-toggles-label">Panels</span>
+                            <button type="button" class="trade-panel-toggle-btn @(_showMainChart ? "active" : "")"
+                                    @onclick="() => _showMainChart = !_showMainChart"
+                                    title="Show or hide the main price chart">Chart</button>
+                            <button type="button" class="trade-panel-toggle-btn @(_showXGrid ? "active" : "")"
+                                    @onclick="() => _showXGrid = !_showXGrid"
+                                    title="Show or hide the XGrid footprint panel">XGrid</button>
+                        </div>
+                    </div>
+                    <div class="trade-window-bar">
+                        <span class="trade-window-title">LOOKBACK WINDOW</span>
+                        <div class="trade-window-rail"
+                             title="The highlighted segment is the window itself -- its right edge is Offset bars back from now, its left edge Offset+Width bars back">
+                            <div class="trade-window-track"></div>
+                            <div class="trade-window-fill"
+                                 style="right: @(BarWindowOffsetFillPercent.ToString("0.##", CultureInfo.InvariantCulture))%; width: @(Math.Min(BarWindowFillPercent, 100 - BarWindowOffsetFillPercent).ToString("0.##", CultureInfo.InvariantCulture))%"></div>
+                            <input type="range" class="trade-window-slider" min="1" max="@MaxBarWindow" step="1"
+                                   @bind="_barWindowSize" @bind:event="oninput"
+                                   title="Number of bars the window spans -- drives the chart's window-start marker, the indicator overlays and the XGrid footprint" />
+                        </div>
+                        <input class="trade-window-input" type="number" min="1" max="@MaxBarWindow" @bind="_barWindowSize"
+                               @bind:event="oninput" title="Number of bars the window spans" />
+                        <span class="trade-window-title"
+                              title="Bars back from the most recent bar to the end of the window -- 0 keeps the window anchored to now">OFFSET</span>
+                        <input class="trade-window-input" type="number" min="0" max="@(MaxBarWindow - 1)"
+                               @bind="_barWindowOffset" @bind:event="oninput"
+                               title="Bars back from the most recent bar to the end of the window" />
+                    </div>
                     @if (_chartLoading)
                     {
                         <p class="trade-chart-status">Loading history...</p>
@@ -184,17 +207,30 @@
                     }
                     else
                     {
-                        <div class="trade-chart-row">
-                            <div class="trade-chart-canvas">
-                                <MarketChartContainer Bars="_chartBars" CurrentBid="ChartQuote?.Bid" CurrentAsk="ChartQuote?.Ask"
-                                             KeepView="_chartKeepView" ShowAnnotationTools="false" />
-                            </div>
+                        <div class="trade-chart" @ref="_chartRowRef">
+                            @if (_showMainChart)
+                            {
+                                <div class="trade-chart-main">
+                                    <MarketChartContainer Bars="_chartBars" CurrentBid="ChartQuote?.Bid" CurrentAsk="ChartQuote?.Ask"
+                                                 KeepView="_chartKeepView" ShowAnnotationTools="false"
+                                                 WindowStartUtc="WindowStartUtc()" WindowEndUtc="WindowEndUtc()"
+                                                 HorizontalLines="ProfileLevelLines()" VwapLine="VwapPoints()" />
+                                </div>
+                            }
                             @if (_showXGrid)
                             {
+                                @if (_showMainChart)
+                                {
+                                    <div class="trade-chart-divider" @ref="_chartDividerRef" data-min-width="160" title="Drag to resize"></div>
+                                }
                                 <div class="trade-chart-side">
                                     <XGridController Grid="ComputeXGrid()" @bind-PipCount="_xgridPipCount"
-                                                      @bind-ColCount="_xgridColCount" ProfileBarCount="ClampedXGridWindow" />
+                                                      @bind-ColCount="_xgridColCount" ProfileBarCount="ClampedBarWindow" />
                                 </div>
+                            }
+                            @if (!_showMainChart && !_showXGrid)
+                            {
+                                <p class="trade-chart-status">No panels selected -- turn Chart or XGrid back on above.</p>
                             }
                         </div>
                     }
@@ -202,7 +238,7 @@
             }
             else if (IsConnected)
             {
-                <p class="trade-main-placeholder">Select symbols on the left to build a live watchlist, then use a row's chart button to open its price chart. Order placement comes next.</p>
+                <p class="trade-main-placeholder">Select symbols on the left to build a live watchlist, then select a watchlist row to view its price chart. Order placement comes next.</p>
             }
         </main>
     </div>
