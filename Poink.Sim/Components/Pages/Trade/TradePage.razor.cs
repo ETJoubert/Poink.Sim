@@ -400,7 +400,14 @@ namespace Poink.Sim.Components.Pages.Trade
 
 		private Task WatchAsync(long symbolId) => Session.WatchSymbolAsync(symbolId);
 
-		private Task UnwatchAsync(long symbolId) => Session.UnwatchSymbolAsync(symbolId);
+		// Unwatching the symbol whose chart is open closes that chart too, since a chart
+		// with no live quote behind it can no longer receive ticks.
+		private async Task UnwatchAsync(long symbolId)
+		{
+			await Session.UnwatchSymbolAsync(symbolId);
+			if (_chartSymbolId == symbolId)
+				CloseChart();
+		}
 
 		private async Task OpenChartAsync(long symbolId, string symbolName)
 		{

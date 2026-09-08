@@ -18,20 +18,9 @@
             {
                 <div class="trade-header-chart">
                     <span class="trade-chart-title">@_chartSymbolName</span>
-                    @if (ChartQuote is { } headerQuote)
-                    {
-                        <span class="trade-chart-prices">
-                            <span class="trade-chart-bid" title="Live bid">@Price(headerQuote.Bid)</span>
-                            <span class="trade-chart-ask" title="Live ask">@Price(headerQuote.Ask)</span>
-                        </span>
-                    }
                     <BarSizeSelect @bind-Value="_barSizeSeconds" @bind-Value:after="OnBarSizeChangedAsync"
                                    Disabled="_chartLoading" Label="Aggregation"
                                    Title="Bar size the chart's live history and tick stream are aggregated into" />
-                    <button class="trade-chart-close" @onclick="CloseChart" title="Close this chart">
-                        <Icon Name="x-lg" Class="trade-chart-close-icon" />
-                        CLOSE
-                    </button>
                 </div>
             }
 
