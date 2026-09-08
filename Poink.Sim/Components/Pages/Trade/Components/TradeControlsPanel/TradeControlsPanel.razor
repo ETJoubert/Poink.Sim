@@ -1,0 +1,84 @@
+@namespace Poink.Sim.Components.Pages.Trade
+@using Poink.Sim.Models
+
+<div class="tc-panel">
+    <div class="tc-header">
+        <span class="tc-title">TRADER CONTROLS@(SymbolName is { } name ? $" -- {name}" : "")</span>
+        <span class="tc-badge" title="Order placement isn't wired up to cTrader yet -- this panel previews entry/SL/TP levels only">PREVIEW</span>
+    </div>
+
+    <div class="tc-field" title="Market fills immediately; Limit/Stop queue a pending order until price crosses the trigger">
+        Order type
+        <div class="tc-toggle-group" role="group">
+            <button type="button" class="tc-toggle @(_orderType == OrderType.Market ? "active" : "")"
+                    @onclick="() => _orderType = OrderType.Market"
+                    title="Fill immediately at the current market price">Market</button>
+            <button type="button" class="tc-toggle @(_orderType == OrderType.Limit ? "active" : "")"
+                    @onclick="() => _orderType = OrderType.Limit"
+                    title="Queue a pending order until price reaches the trigger from the favourable side">Limit</button>
+            <button type="button" class="tc-toggle @(_orderType == OrderType.Stop ? "active" : "")"
+                    @onclick="() => _orderType = OrderType.Stop"
+                    title="Queue a pending order until price breaks through the trigger">Stop</button>
+        </div>
+    </div>
+
+    @if (_orderType != OrderType.Market)
+    {
+        <label class="tc-field" title="Price level the pending order triggers at">
+            Trigger price
+            <input class="tc-input" type="number" step="0.00001" @bind="_triggerPrice" @bind:event="oninput" />
+        </label>
+    }
+
+    <div class="tc-field" title="Direction the Place button previews">
+        Direction
+        <div class="tc-toggle-group" role="group">
+            <button type="button" class="tc-toggle tc-toggle-buy @(_isLong ? "active" : "")"
+                    @onclick="() => _isLong = true" title="Preview a long entry">BUY</button>
+            <button type="button" class="tc-toggle tc-toggle-sell @(!_isLong ? "active" : "")"
+                    @onclick="() => _isLong = false" title="Preview a short entry">SELL</button>
+        </div>
+    </div>
+
+    <label class="tc-field" title="Position size in units">
+        Volume
+        <input class="tc-input" type="number" min="0" step="0.01" @bind="_volumeUnits" @bind:event="oninput" />
+    </label>
+
+    <label class="tc-field" title="Optional stop loss distance in pips from the entry">
+        Stop loss (pips)
+        <input class="tc-input" type="number" min="0" step="1" @bind="_stopLossPips" @bind:event="oninput" />
+    </label>
+
+    <label class="tc-field" title="Optional take profit distance in pips from the entry">
+        Take profit (pips)
+        <input class="tc-input" type="number" min="0" step="1" @bind="_takeProfitPips" @bind:event="oninput" />
+    </label>
+
+    <div class="tc-preview">
+        <div class="tc-preview-row" title="Market price at the time of entry, or the Limit/Stop trigger price">
+            <span class="tc-preview-label">Entry</span>
+            <span class="tc-preview-value">@(EntryReferencePrice is { } e ? e.ToString("N5") : "--")</span>
+        </div>
+        <div class="tc-preview-row">
+            <span class="tc-preview-label">Stop loss</span>
+            <span class="tc-preview-value">@(StopLossPrice is { } sl ? sl.ToString("N5") : "--")</span>
+        </div>
+        <div class="tc-preview-row">
+            <span class="tc-preview-label">Take profit</span>
+            <span class="tc-preview-value">@(TakeProfitPrice is { } tp ? tp.ToString("N5") : "--")</span>
+        </div>
+    </div>
+
+    <div class="tc-actions">
+        <button class="tc-btn @(_isLong ? "tc-buy" : "tc-sell")" @onclick="() => SubmitEntry(_isLong)"
+                title="Preview only -- order placement isn't wired up yet">PLACE</button>
+        <button class="tc-btn tc-btn-warn" @onclick="SubmitCloseOrCancel"
+                title="Preview only -- order placement isn't wired up yet">CLOSE / CANCEL</button>
+    </div>
+
+    @if (_status is not null)
+    {
+        <span class="tc-status">@_status</span>
+    }
+</div>

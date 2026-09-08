@@ -1,0 +1,199 @@
+.tc-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.tc-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.tc-title {
+    font-family: var(--font-heading);
+    font-size: 0.72rem;
+    font-weight: bold;
+    letter-spacing: 0.08em;
+    color: var(--color-secondary);
+    text-transform: uppercase;
+}
+
+.tc-badge {
+    font-size: 0.6rem;
+    font-weight: bold;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--color-warning) 45%, transparent);
+    color: var(--color-warning);
+}
+
+.tc-status {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.78rem;
+    color: var(--color-warning);
+    padding: 6px 8px;
+    border: 1px solid color-mix(in srgb, var(--color-warning) 30%, transparent);
+    border-radius: 4px;
+}
+
+.tc-field {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    font-size: 0.72rem;
+    color: var(--color-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.tc-input {
+    font-size: 0.85rem;
+    padding: 4px 6px;
+    background: var(--color-bg-terminal);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
+    border-radius: 4px;
+    color: var(--color-primary);
+}
+
+.tc-toggle-group {
+    display: flex;
+    gap: 0;
+}
+
+.tc-toggle {
+    flex: 1;
+    font-family: var(--font-body);
+    font-weight: bold;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 7px 10px;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
+    border-left-width: 0;
+    background: transparent;
+    color: var(--color-secondary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.tc-toggle:first-child {
+    border-left-width: 1px;
+    border-top-left-radius: var(--border-radius-sm);
+    border-bottom-left-radius: var(--border-radius-sm);
+}
+
+.tc-toggle:last-child {
+    border-top-right-radius: var(--border-radius-sm);
+    border-bottom-right-radius: var(--border-radius-sm);
+}
+
+.tc-toggle:hover {
+    color: var(--color-primary);
+    background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+}
+
+.tc-toggle.active {
+    background: var(--color-primary);
+    color: var(--color-bg-terminal);
+    border-color: var(--color-primary);
+}
+
+.tc-toggle-buy.active {
+    background: var(--color-success);
+    border-color: var(--color-success);
+}
+
+.tc-toggle-sell.active {
+    background: var(--color-error);
+    border-color: var(--color-error);
+}
+
+.tc-preview {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 6px 8px;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 20%, transparent);
+    border-radius: 4px;
+    font-family: var(--font-mono, monospace);
+}
+
+.tc-preview-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.tc-preview-label {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-secondary);
+}
+
+.tc-preview-value {
+    font-size: 0.85rem;
+    font-weight: bold;
+    color: var(--color-primary);
+}
+
+.tc-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.tc-btn {
+    font-family: var(--font-body);
+    font-weight: bold;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 7px 14px;
+    border-radius: var(--border-radius-sm);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 45%, transparent);
+    background: transparent;
+    color: var(--color-primary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.tc-btn:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+    border-color: var(--color-primary);
+}
+
+.tc-btn-warn {
+    border-color: color-mix(in srgb, var(--color-warning) 50%, transparent);
+    color: var(--color-warning);
+}
+
+.tc-btn-warn:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-warning) 14%, transparent);
+    border-color: var(--color-warning);
+}
+
+.tc-buy {
+    border-color: color-mix(in srgb, var(--color-success) 50%, transparent);
+    color: var(--color-success);
+}
+
+.tc-buy:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-success) 14%, transparent);
+    border-color: var(--color-success);
+}
+
+.tc-sell {
+    border-color: color-mix(in srgb, var(--color-error) 50%, transparent);
+    color: var(--color-error);
+}
+
+.tc-sell:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-error) 14%, transparent);
+    border-color: var(--color-error);
+}

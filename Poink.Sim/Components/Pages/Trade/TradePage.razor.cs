@@ -55,6 +55,9 @@ namespace Poink.Sim.Components.Pages.Trade
 
 		private bool _showMainChart = true;
 		private bool _showXGrid;
+		private bool _showVolumeProfile;
+		private bool _showTimeProfile;
+		private bool _showTraderControls;
 		private bool _showProfileChartLines = true;
 		private bool _showVwap = true;
 
@@ -133,6 +136,9 @@ namespace Poink.Sim.Components.Pages.Trade
 
 		private ElementReference _chartRowRef;
 		private ElementReference _chartDividerRef;
+		private ElementReference _chartDividerRefVolume;
+		private ElementReference _chartDividerRefTime;
+		private ElementReference _chartDividerRefTrader;
 		private IJSObjectReference? _dividerResizeInstance;
 		private HashSet<string> _lastVisibleChartPanels = new();
 
@@ -141,8 +147,23 @@ namespace Poink.Sim.Components.Pages.Trade
 			var keys = new HashSet<string>();
 			if (_showMainChart) keys.Add("main");
 			if (_showXGrid) keys.Add("xgrid");
+			if (_showVolumeProfile) keys.Add("volume");
+			if (_showTimeProfile) keys.Add("time");
+			if (_showTraderControls) keys.Add("trader");
 			return keys;
 		}
+
+		// A divider's negative margin assumes a panel to its left, so a divider only shows
+		// once an earlier panel (main -> XGrid -> volume profile -> time profile) is visible.
+		private bool ShowXGridDivider => _showMainChart && _showXGrid;
+
+		private bool ShowVolumeProfileDivider => _showVolumeProfile && (_showMainChart || _showXGrid);
+
+		private bool ShowTimeProfileDivider =>
+			_showTimeProfile && (_showMainChart || _showXGrid || _showVolumeProfile);
+
+		private bool ShowTraderControlsDivider =>
+			_showTraderControls && (_showMainChart || _showXGrid || _showVolumeProfile || _showTimeProfile);
 
 		// Same drag-to-resize mechanism as SimulationPage's ChartDividerScript, trimmed to the
 		// two-panel (main/side) case Trade's chart row actually has -- no height divider here.
@@ -225,8 +246,14 @@ namespace Poink.Sim.Components.Pages.Trade
 				await _dividerResizeInstance.InvokeVoidAsync("resetChartPanelsEqual", _chartRowRef);
 			}
 
-			if (_showMainChart && _showXGrid)
+			if (ShowXGridDivider)
 				await _dividerResizeInstance.InvokeVoidAsync("bindChartDivider", _chartDividerRef);
+			if (ShowVolumeProfileDivider)
+				await _dividerResizeInstance.InvokeVoidAsync("bindChartDivider", _chartDividerRefVolume);
+			if (ShowTimeProfileDivider)
+				await _dividerResizeInstance.InvokeVoidAsync("bindChartDivider", _chartDividerRefTime);
+			if (ShowTraderControlsDivider)
+				await _dividerResizeInstance.InvokeVoidAsync("bindChartDivider", _chartDividerRefTrader);
 		}
 
 		public async ValueTask DisposeAsync()
@@ -419,6 +446,15 @@ namespace Poink.Sim.Components.Pages.Trade
 			return BarPriceHistogram
 				.Merge(histograms, ClampedBarWindow)
 				.Select(t => new WeightedPriceSample(t.Price, t.Count, t.UpCount, t.DownCount))
+				.ToList();
+		}
+
+		private List<WeightedTimeSample> MergedBarTimeSamples()
+		{
+			var (bars, histograms) = WindowedBarData();
+			return BarPriceHistogram
+				.MergeTime(bars, histograms, ClampedBarWindow)
+				.Select(t => new WeightedTimeSample(t.Price, t.Count, t.Seconds, t.UpSeconds, t.DownSeconds))
 				.ToList();
 		}
 

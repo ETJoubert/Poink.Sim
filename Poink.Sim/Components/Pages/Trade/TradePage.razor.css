@@ -633,6 +633,13 @@
     overflow-y: auto;
 }
 
+/* Trader controls is a natural-height form rather than an auto-fitting chart, so unlike
+   its .trade-chart-side siblings it needs its own scroll/padding. */
+.trade-chart-side-scroll {
+    overflow-y: auto;
+    padding: 10px 16px 16px;
+}
+
 .trade-chart-divider {
     position: relative;
     flex: 0 0 6px;

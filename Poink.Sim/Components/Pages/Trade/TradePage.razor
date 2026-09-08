@@ -176,6 +176,15 @@
                             <button type="button" class="trade-panel-toggle-btn @(_showXGrid ? "active" : "")"
                                     @onclick="() => _showXGrid = !_showXGrid"
                                     title="Show or hide the XGrid footprint panel">XGrid</button>
+                            <button type="button" class="trade-panel-toggle-btn @(_showVolumeProfile ? "active" : "")"
+                                    @onclick="() => _showVolumeProfile = !_showVolumeProfile"
+                                    title="Volume-at-price histogram over the lookback window">Volume profile</button>
+                            <button type="button" class="trade-panel-toggle-btn @(_showTimeProfile ? "active" : "")"
+                                    @onclick="() => _showTimeProfile = !_showTimeProfile"
+                                    title="Time-at-price histogram over the lookback window">Time profile</button>
+                            <button type="button" class="trade-panel-toggle-btn @(_showTraderControls ? "active" : "")"
+                                    @onclick="() => _showTraderControls = !_showTraderControls"
+                                    title="Order-entry preview -- not wired up to place live orders yet">Trader controls</button>
                         </div>
                     </div>
                     <div class="trade-window-bar">
@@ -219,7 +228,7 @@
                             }
                             @if (_showXGrid)
                             {
-                                @if (_showMainChart)
+                                @if (ShowXGridDivider)
                                 {
                                     <div class="trade-chart-divider" @ref="_chartDividerRef" data-min-width="160" title="Drag to resize"></div>
                                 }
@@ -228,9 +237,39 @@
                                                       @bind-ColCount="_xgridColCount" ProfileBarCount="ClampedBarWindow" />
                                 </div>
                             }
-                            @if (!_showMainChart && !_showXGrid)
+                            @if (_showVolumeProfile)
                             {
-                                <p class="trade-chart-status">No panels selected -- turn Chart or XGrid back on above.</p>
+                                @if (ShowVolumeProfileDivider)
+                                {
+                                    <div class="trade-chart-divider" @ref="_chartDividerRefVolume" data-min-width="160" title="Drag to resize"></div>
+                                }
+                                <div class="trade-chart-side">
+                                    <TickVolumeProfileChart WeightedSamples="MergedBarSamples()" CurrentPrice="ChartQuote?.Bid" />
+                                </div>
+                            }
+                            @if (_showTimeProfile)
+                            {
+                                @if (ShowTimeProfileDivider)
+                                {
+                                    <div class="trade-chart-divider" @ref="_chartDividerRefTime" data-min-width="160" title="Drag to resize"></div>
+                                }
+                                <div class="trade-chart-side">
+                                    <TickTimeProfileChart WeightedSamples="MergedBarTimeSamples()" CurrentPrice="ChartQuote?.Bid" />
+                                </div>
+                            }
+                            @if (_showTraderControls)
+                            {
+                                @if (ShowTraderControlsDivider)
+                                {
+                                    <div class="trade-chart-divider" @ref="_chartDividerRefTrader" data-min-width="160" title="Drag to resize"></div>
+                                }
+                                <div class="trade-chart-side trade-chart-side-scroll">
+                                    <TradeControlsPanel SymbolName="_chartSymbolName" CurrentBid="ChartQuote?.Bid" CurrentAsk="ChartQuote?.Ask" />
+                                </div>
+                            }
+                            @if (!_showMainChart && !_showXGrid && !_showVolumeProfile && !_showTimeProfile && !_showTraderControls)
+                            {
+                                <p class="trade-chart-status">No panels selected -- turn a panel back on above.</p>
                             }
                         </div>
                     }
