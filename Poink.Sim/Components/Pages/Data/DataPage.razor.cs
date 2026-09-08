@@ -124,6 +124,17 @@ namespace Poink.Sim.Components.Pages.Data
 			return state;
 		}
 
+		private void UpdateRegistrySymbolAsync(string table, string symbolName)
+		{
+			var trimmed = symbolName.Trim();
+			var current = _registry.FirstOrDefault(r => r.Table == table)?.Symbol ?? string.Empty;
+			if (trimmed == current)
+				return;
+
+			Ingest.AssociateSymbol(table, trimmed);
+			_registry = Ingest.GetRegistry();
+		}
+
 		private CTraderSymbolInfo? ResolveSymbol(string? symbolCode) =>
 			symbolCode is null ? null : Session.Symbols.FirstOrDefault(s => s.SymbolName == symbolCode);
 
