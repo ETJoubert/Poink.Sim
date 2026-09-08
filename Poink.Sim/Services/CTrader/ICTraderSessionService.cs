@@ -50,5 +50,24 @@ namespace Poink.Sim.Services.CTrader
 		Task UnwatchSymbolAsync(long symbolId);
 
 		Task<IReadOnlyList<CTraderBar>> GetHistoryAsync(long symbolId, CancellationToken cancellationToken = default);
+
+		/// <summary>
+		/// Submits a new order for the given symbol. <paramref name="triggerPrice"/> is required for
+		/// Limit/Stop and ignored for Market; <paramref name="volumeUnits"/> is in plain instrument units
+		/// (converted to cTrader's 0.01-of-a-unit Volume field internally).
+		/// </summary>
+		Task<CTraderOrderResult> PlaceOrderAsync(
+			long symbolId,
+			bool isLong,
+			double volumeUnits,
+			CTraderOrderType orderType,
+			double? triggerPrice,
+			double? stopLossPrice,
+			double? takeProfitPrice,
+			CancellationToken cancellationToken = default
+		);
+
+		/// <summary>Closes every open position and cancels every resting pending order for the given symbol.</summary>
+		Task<CTraderOrderResult> CloseSymbolAsync(long symbolId, CancellationToken cancellationToken = default);
 	}
 }

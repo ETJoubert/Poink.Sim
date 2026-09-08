@@ -301,6 +301,155 @@ namespace Poink.Sim.Services.CTrader
 
 		public bool CanFetchHistory => _client is not null && SelectedAccountId is not null;
 
+		public async Task<CTraderOrderResult> PlaceOrderAsync(
+			long symbolId,
+			bool isLong,
+			double volumeUnits,
+			CTraderOrderType orderType,
+			double? triggerPrice,
+			double? stopLossPrice,
+			double? takeProfitPrice,
+			CancellationToken cancellationToken = default
+		)
+		{
+			if (_client is null || SelectedAccountId is not { } accountId)
+				return new CTraderOrderResult(false, "Not connected.");
+			if (volumeUnits <= 0)
+				return new CTraderOrderResult(false, "Volume must be greater than zero.");
+			if (orderType != CTraderOrderType.Market && triggerPrice is not (> 0))
+				return new CTraderOrderResult(false, "A trigger price is required for a Limit/Stop order.");
+
+			var request = new ProtoOANewOrderReq
+			{
+				CtidTraderAccountId = accountId,
+				SymbolId = symbolId,
+				OrderType = orderType switch
+				{
+					CTraderOrderType.Limit => ProtoOAOrderType.Limit,
+					CTraderOrderType.Stop => ProtoOAOrderType.Stop,
+					_ => ProtoOAOrderType.Market,
+				},
+				TradeSide = isLong ? ProtoOATradeSide.Buy : ProtoOATradeSide.Sell,
+				Volume = (long)Math.Round(volumeUnits * 100),
+				ClientOrderId = Guid.NewGuid().ToString("N"),
+			};
+			if (orderType == CTraderOrderType.Limit)
+				request.LimitPrice = triggerPrice!.Value;
+			else if (orderType == CTraderOrderType.Stop)
+				request.StopPrice = triggerPrice!.Value;
+			if (stopLossPrice is { } sl)
+				request.StopLoss = sl;
+			if (takeProfitPrice is { } tp)
+				request.TakeProfit = tp;
+
+			await _gate.WaitAsync(cancellationToken);
+			try
+			{
+				var result = await _client.NewOrderAsync(request, cancellationToken);
+				if (result.ExecutionType == ProtoOAExecutionType.OrderRejected)
+				{
+					_logger.LogWarning(
+						"cTrader: order rejected for symbol {SymbolId} -- {ErrorCode}.",
+						symbolId,
+						result.ErrorCode
+					);
+					return new CTraderOrderResult(false, $"Rejected: {result.ErrorCode}");
+				}
+
+				_logger.LogInformation(
+					"cTrader: {Side} order placed for symbol {SymbolId}, {Volume} unit(s).",
+					isLong ? "BUY" : "SELL",
+					symbolId,
+					volumeUnits
+				);
+				return new CTraderOrderResult(
+					true,
+					result.ExecutionType == ProtoOAExecutionType.OrderFilled ? "Filled." : "Order accepted."
+				);
+			}
+			catch (CTraderApiException ex)
+			{
+				_logger.LogError(ex, "cTrader: failed to place order for symbol {SymbolId}.", symbolId);
+				return new CTraderOrderResult(false, ex.Message);
+			}
+			catch (TimeoutException)
+			{
+				_logger.LogError("cTrader: order placement for symbol {SymbolId} timed out.", symbolId);
+				return new CTraderOrderResult(false, "Timed out waiting for a response.");
+			}
+			finally
+			{
+				_gate.Release();
+			}
+		}
+
+		public async Task<CTraderOrderResult> CloseSymbolAsync(long symbolId, CancellationToken cancellationToken = default)
+		{
+			if (_client is null || SelectedAccountId is not { } accountId)
+				return new CTraderOrderResult(false, "Not connected.");
+
+			await _gate.WaitAsync(cancellationToken);
+			try
+			{
+				var reconcile = await _client.ReconcileAsync(accountId, cancellationToken);
+				var positions = reconcile.Position.Where(p => p.TradeData.SymbolId == symbolId).ToList();
+				var orders = reconcile.Order.Where(o => o.TradeData.SymbolId == symbolId).ToList();
+
+				if (positions.Count == 0 && orders.Count == 0)
+					return new CTraderOrderResult(false, "Nothing open for this symbol.");
+
+				var closed = 0;
+				var cancelled = 0;
+				var errors = new List<string>();
+
+				foreach (var position in positions)
+				{
+					try
+					{
+						await _client.ClosePositionAsync(
+							accountId,
+							position.PositionId,
+							position.TradeData.Volume,
+							cancellationToken
+						);
+						closed++;
+					}
+					catch (CTraderApiException ex)
+					{
+						errors.Add($"position {position.PositionId}: {ex.Message}");
+					}
+				}
+
+				foreach (var order in orders)
+				{
+					try
+					{
+						await _client.CancelOrderAsync(accountId, order.OrderId, cancellationToken);
+						cancelled++;
+					}
+					catch (CTraderApiException ex)
+					{
+						errors.Add($"order {order.OrderId}: {ex.Message}");
+					}
+				}
+
+				_logger.LogInformation(
+					"cTrader: closed {ClosedCount} position(s), cancelled {CancelledCount} order(s) for symbol {SymbolId}.",
+					closed,
+					cancelled,
+					symbolId
+				);
+
+				return errors.Count == 0
+					? new CTraderOrderResult(true, $"Closed {closed} position(s), cancelled {cancelled} order(s).")
+					: new CTraderOrderResult(false, string.Join("; ", errors));
+			}
+			finally
+			{
+				_gate.Release();
+			}
+		}
+
 		async Task<IReadOnlyList<Tick>> ICTraderHistory.GetHistoricalTicksAsync(
 			long symbolId,
 			DateTime fromUtc,

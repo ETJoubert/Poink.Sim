@@ -184,7 +184,7 @@
                                     title="Time-at-price histogram over the lookback window">Time profile</button>
                             <button type="button" class="trade-panel-toggle-btn @(_showTraderControls ? "active" : "")"
                                     @onclick="() => _showTraderControls = !_showTraderControls"
-                                    title="Order-entry preview -- not wired up to place live orders yet">Trader controls</button>
+                                    title="Manual order entry for this symbol -- places real orders on the connected cTrader account">Trader controls</button>
                         </div>
                     </div>
                     <div class="trade-window-bar">
@@ -264,7 +264,8 @@
                                     <div class="trade-chart-divider" @ref="_chartDividerRefTrader" data-min-width="160" title="Drag to resize"></div>
                                 }
                                 <div class="trade-chart-side trade-chart-side-scroll">
-                                    <TradeControlsPanel SymbolName="_chartSymbolName" CurrentBid="ChartQuote?.Bid" CurrentAsk="ChartQuote?.Ask" />
+                                    <TradeControlsPanel SymbolId="_chartSymbolId" SymbolName="_chartSymbolName"
+                                                         CurrentBid="ChartQuote?.Bid" CurrentAsk="ChartQuote?.Ask" />
                                 </div>
                             }
                             @if (!_showMainChart && !_showXGrid && !_showVolumeProfile && !_showTimeProfile && !_showTraderControls)

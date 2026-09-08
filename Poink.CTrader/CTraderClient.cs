@@ -100,7 +100,48 @@ namespace Poink.CTrader
                 ToTimestamp = to.ToUnixTimeMilliseconds()
             }, cancellationToken);
 
-        private async Task<TRes> SendAndWaitAsync<TRes>(IMessage request, CancellationToken cancellationToken) where TRes : IMessage
+        public Task<ProtoOAExecutionEvent> NewOrderAsync(ProtoOANewOrderReq request, CancellationToken cancellationToken = default) =>
+            SendAndWaitAsync<ProtoOAExecutionEvent>(
+                request,
+                e => IsTerminalOrderEvent(e.ExecutionType) && e.Order?.ClientOrderId == request.ClientOrderId,
+                cancellationToken);
+
+        public Task<ProtoOAExecutionEvent> ClosePositionAsync(long ctidTraderAccountId, long positionId, long volume, CancellationToken cancellationToken = default) =>
+            SendAndWaitAsync<ProtoOAExecutionEvent>(
+                new ProtoOAClosePositionReq
+                {
+                    CtidTraderAccountId = ctidTraderAccountId,
+                    PositionId = positionId,
+                    Volume = volume
+                },
+                e => e.Position?.PositionId == positionId,
+                cancellationToken);
+
+        public Task<ProtoOAExecutionEvent> CancelOrderAsync(long ctidTraderAccountId, long orderId, CancellationToken cancellationToken = default) =>
+            SendAndWaitAsync<ProtoOAExecutionEvent>(
+                new ProtoOACancelOrderReq
+                {
+                    CtidTraderAccountId = ctidTraderAccountId,
+                    OrderId = orderId
+                },
+                e => e.Order?.OrderId == orderId,
+                cancellationToken);
+
+        public Task<ProtoOAReconcileRes> ReconcileAsync(long ctidTraderAccountId, CancellationToken cancellationToken = default) =>
+            SendAndWaitAsync<ProtoOAReconcileRes>(new ProtoOAReconcileReq
+            {
+                CtidTraderAccountId = ctidTraderAccountId
+            }, cancellationToken);
+
+        // A new order's first execution event is usually ACCEPTED before a later FILLED/REJECTED
+        // one - only these three are "done", so NewOrderAsync doesn't resolve on an interim event.
+        private static bool IsTerminalOrderEvent(ProtoOAExecutionType type) =>
+            type is ProtoOAExecutionType.OrderFilled or ProtoOAExecutionType.OrderAccepted or ProtoOAExecutionType.OrderRejected;
+
+        private Task<TRes> SendAndWaitAsync<TRes>(IMessage request, CancellationToken cancellationToken) where TRes : IMessage =>
+            SendAndWaitAsync<TRes>(request, static _ => true, cancellationToken);
+
+        private async Task<TRes> SendAndWaitAsync<TRes>(IMessage request, Func<TRes, bool> isMatch, CancellationToken cancellationToken) where TRes : IMessage
         {
             if (_client is null) throw new InvalidOperationException("Not connected yet - call ConnectAsync first.");
 
@@ -111,7 +152,7 @@ namespace Poink.CTrader
                 {
                     switch (message)
                     {
-                        case TRes typed:
+                        case TRes typed when isMatch(typed):
                             tcs.TrySetResult(typed);
                             break;
                         case ProtoOAErrorRes error:

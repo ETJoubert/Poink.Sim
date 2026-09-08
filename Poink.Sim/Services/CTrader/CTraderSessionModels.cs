@@ -23,4 +23,14 @@ namespace Poink.Sim.Services.CTrader
 	);
 
 	public sealed record CTraderBar(DateTime TimeUtc, double Open, double High, double Low, double Close, long Volume);
+
+	public enum CTraderOrderType
+	{
+		Market,
+		Limit,
+		Stop,
+	}
+
+	/// <summary>Outcome of a PlaceOrderAsync/CloseSymbolAsync call, meant to be shown to the user as-is.</summary>
+	public sealed record CTraderOrderResult(bool Success, string Message);
 }

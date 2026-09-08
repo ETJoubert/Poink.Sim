@@ -44,5 +44,21 @@ namespace Poink.CTrader
         /// before the oldest tick received while <c>ProtoOAGetTickDataRes.HasMore</c> is true.
         /// </summary>
         Task<ProtoOAGetTickDataRes> GetTickDataAsync(long ctidTraderAccountId, long symbolId, ProtoOAQuoteType type, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Requires <see cref="AuthorizeAccountAsync"/> first. Submits a new order and waits for the terminal
+        /// execution event (accepted for a resting Limit/Stop, filled for Market, or rejected) that matches
+        /// <paramref name="request"/>'s ClientOrderId - the caller must set that to a unique value.
+        /// </summary>
+        Task<ProtoOAExecutionEvent> NewOrderAsync(ProtoOANewOrderReq request, CancellationToken cancellationToken = default);
+
+        /// <summary>Requires <see cref="AuthorizeAccountAsync"/> first. Closes (or partially closes) an open position.</summary>
+        Task<ProtoOAExecutionEvent> ClosePositionAsync(long ctidTraderAccountId, long positionId, long volume, CancellationToken cancellationToken = default);
+
+        /// <summary>Requires <see cref="AuthorizeAccountAsync"/> first. Cancels a resting pending order.</summary>
+        Task<ProtoOAExecutionEvent> CancelOrderAsync(long ctidTraderAccountId, long orderId, CancellationToken cancellationToken = default);
+
+        /// <summary>Requires <see cref="AuthorizeAccountAsync"/> first. Returns every currently open position and resting pending order on the account.</summary>
+        Task<ProtoOAReconcileRes> ReconcileAsync(long ctidTraderAccountId, CancellationToken cancellationToken = default);
     }
 }

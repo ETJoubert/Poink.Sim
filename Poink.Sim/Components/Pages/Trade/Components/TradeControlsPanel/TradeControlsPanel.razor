@@ -4,7 +4,8 @@
 <div class="tc-panel">
     <div class="tc-header">
         <span class="tc-title">TRADER CONTROLS@(SymbolName is { } name ? $" -- {name}" : "")</span>
-        <span class="tc-badge" title="Order placement isn't wired up to cTrader yet -- this panel previews entry/SL/TP levels only">PREVIEW</span>
+        <span class="tc-badge @(Session.UseLiveEnvironment ? "tc-badge-live" : "")"
+              title="cTrader environment this order would be sent to">@(Session.UseLiveEnvironment ? "LIVE" : "DEMO")</span>
     </div>
 
     <div class="tc-field" title="Market fills immediately; Limit/Stop queue a pending order until price crosses the trigger">
@@ -30,19 +31,20 @@
         </label>
     }
 
-    <div class="tc-field" title="Direction the Place button previews">
+    <div class="tc-field" title="Direction the Place button submits">
         Direction
         <div class="tc-toggle-group" role="group">
             <button type="button" class="tc-toggle tc-toggle-buy @(_isLong ? "active" : "")"
-                    @onclick="() => _isLong = true" title="Preview a long entry">BUY</button>
+                    @onclick="() => _isLong = true" title="Buy on Place">BUY</button>
             <button type="button" class="tc-toggle tc-toggle-sell @(!_isLong ? "active" : "")"
-                    @onclick="() => _isLong = false" title="Preview a short entry">SELL</button>
+                    @onclick="() => _isLong = false" title="Sell on Place">SELL</button>
         </div>
     </div>
 
     <label class="tc-field" title="Position size in units">
         Volume
-        <input class="tc-input" type="number" min="0" step="0.01" @bind="_volumeUnits" @bind:event="oninput" />
+        <input class="tc-input" type="number" min="0" step="0.01" @bind="_volumeUnits" @bind:event="oninput"
+               disabled="@_busy" />
     </label>
 
     <label class="tc-field" title="Optional stop loss distance in pips from the entry">
@@ -72,13 +74,17 @@
 
     <div class="tc-actions">
         <button class="tc-btn @(_isLong ? "tc-buy" : "tc-sell")" @onclick="() => SubmitEntry(_isLong)"
-                title="Preview only -- order placement isn't wired up yet">PLACE</button>
-        <button class="tc-btn tc-btn-warn" @onclick="SubmitCloseOrCancel"
-                title="Preview only -- order placement isn't wired up yet">CLOSE / CANCEL</button>
+                disabled="@_busy" title="Submit this entry to cTrader using the selected direction, order type, size, SL and TP">
+            @(_busy ? "PLACING..." : "PLACE")
+        </button>
+        <button class="tc-btn tc-btn-warn" @onclick="SubmitCloseOrCancel" disabled="@_busy"
+                title="Close every open position and cancel every pending order for this symbol">
+            @(_busy ? "WORKING..." : "CLOSE / CANCEL")
+        </button>
     </div>
 
     @if (_status is not null)
     {
-        <span class="tc-status">@_status</span>
+        <span class="tc-status @(_statusIsError ? "tc-status-error" : "")">@_status</span>
     }
 </div>
