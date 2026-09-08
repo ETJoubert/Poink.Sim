@@ -16,6 +16,11 @@
   );
 }
 
+/* Lets the nav dropdown popover escape the page's own clip box while open. */
+.page.dropdown-open {
+  overflow: visible;
+}
+
 main {
   flex: 1;
   background: var(--color-bg-dark);
@@ -221,6 +226,38 @@ main {
   justify-content: center;
 }
 
+.nav-tabs ::deep .nav-group-item {
+  position: relative;
+  z-index: 901;
+  display: flex;
+}
+
+.nav-tabs ::deep .nav-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 902;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 150px;
+  padding: 8px;
+  background: var(--color-bg-terminal);
+  border: 1px solid var(--color-primary);
+  border-radius: 4px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+/* Overrides .nav-tabs' own clip box so the popover isn't cut off while open. */
+.page.dropdown-open .nav-tabs {
+  overflow: visible;
+}
+
+.nav-tabs ::deep .nav-group-toggle.open {
+  border-color: var(--color-secondary);
+  color: var(--color-primary);
+}
+
 .content {
   flex: 1;
   overflow-y: auto;
@@ -351,4 +388,54 @@ main {
   padding: 8px 0;
   text-align: center;
   justify-content: center;
+}
+
+.side-nav ::deep .nav-group-item {
+  position: relative;
+  z-index: 901;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.side-nav ::deep .nav-group-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.side-nav ::deep .nav-group-toggle.open {
+  border-color: var(--color-secondary);
+  background: color-mix(in srgb, var(--color-primary) 8%, transparent);
+  color: var(--color-primary);
+}
+
+/* Vertical trunk descending from the open parent, tying its sub-items to it. */
+.side-nav ::deep .nav-dropdown {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-left: 17px;
+  padding-left: 10px;
+  border-left: 2px solid color-mix(in srgb, var(--color-secondary) 45%, transparent);
+}
+
+.side-nav ::deep .nav-dropdown-item {
+  position: relative;
+  margin-left: 0;
+  padding-left: 8px;
+  border-left: none;
+}
+
+/* Branch tick connecting each sub-item to the trunk. */
+.side-nav ::deep .nav-dropdown-item::before {
+  content: "";
+  position: absolute;
+  left: -10px;
+  top: 50%;
+  width: 8px;
+  height: 2px;
+  background: color-mix(in srgb, var(--color-secondary) 45%, transparent);
 }

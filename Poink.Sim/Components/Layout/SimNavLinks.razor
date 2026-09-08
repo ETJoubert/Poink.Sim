@@ -1,36 +1,123 @@
 @using Poink.Sim.Components.Shared.Icon
 
-@foreach (var link in Links)
+@if (_openGroup is not null)
 {
-    <NavLink href="@link.Route" class="@LinkClass" Match="NavLinkMatch.All" title="@link.Label">
-        @if (Collapsed)
-        {
-            <span class="nav-icon">
-                <Icon Name="@link.Icon" Class="nav-icon-img" />
-            </span>
-        }
-        else
-        {
-            <span>
-                <Icon Name="@link.Icon" Class="nav-icon-img" /> @link.Label
-            </span>
-        }
-    </NavLink>
+    <div class="nav-dropdown-backdrop" @onclick="CloseGroup"></div>
+}
+
+@foreach (var entry in Entries)
+{
+    @if (entry is NavGroupItem group)
+    {
+        <div class="nav-group-item">
+            <button type="button" class="@LinkClass nav-group-toggle @(IsOpen(group) ? "open" : "")"
+                    title="@group.Label" @onclick="() => ToggleGroup(group)">
+                @if (Collapsed)
+                {
+                    <span class="nav-icon">
+                        <Icon Name="@group.Icon" Class="nav-icon-img" />
+                    </span>
+                }
+                else
+                {
+                    <span>
+                        <Icon Name="@group.Icon" Class="nav-icon-img" /> @group.Label
+                    </span>
+                    <Icon Name="chevron-down" Class="nav-caret" />
+                }
+            </button>
+            @if (IsOpen(group))
+            {
+                <div class="nav-dropdown">
+                    @foreach (var child in group.Children)
+                    {
+                        <NavLink href="@child.Route" class="@($"{LinkClass} nav-dropdown-item")" Match="NavLinkMatch.All"
+                                 title="@child.Label" @onclick="CloseGroup">
+                            @if (Collapsed)
+                            {
+                                <span class="nav-icon">
+                                    <Icon Name="@child.Icon" Class="nav-icon-img" />
+                                </span>
+                            }
+                            else
+                            {
+                                <span>
+                                    <Icon Name="@child.Icon" Class="nav-icon-img" /> @child.Label
+                                </span>
+                            }
+                        </NavLink>
+                    }
+                </div>
+            }
+        </div>
+    }
+    else if (entry is NavLinkItem link)
+    {
+        <NavLink href="@link.Route" class="@LinkClass" Match="NavLinkMatch.All" title="@link.Label">
+            @if (Collapsed)
+            {
+                <span class="nav-icon">
+                    <Icon Name="@link.Icon" Class="nav-icon-img" />
+                </span>
+            }
+            else
+            {
+                <span>
+                    <Icon Name="@link.Icon" Class="nav-icon-img" /> @link.Label
+                </span>
+            }
+        </NavLink>
+    }
 }
 
 @code {
     [Parameter] public string LinkClass { get; set; } = "nav-tab";
     [Parameter] public bool Collapsed { get; set; } = false;
+    [Parameter] public EventCallback<bool> OnDropdownToggled { get; set; }
 
-    private static readonly (string Route, string Label, string Icon)[] Links =
+    private NavGroupItem? _openGroup;
+
+    private static readonly NavLinkItem[] ReflectionChildren =
     [
-        ("/code", "Code", "diagram-3-fill"),
-        ("/arch", "Arch", "boxes"),
-        ("/calls", "Calls", "arrow-left-right"),
-        ("/", "Simulation", "play-circle-fill"),
-        ("/trade", "Trade", "cash-stack"),
-        ("/data", "Data", "cloud-download"),
-        ("/train", "Train", "cpu-fill"),
-        ("/profiler", "Profiler", "bar-chart-steps"),
+        new("/code", "Code", "diagram-3-fill"),
+        new("/arch", "Arch", "boxes"),
+        new("/calls", "Calls", "arrow-left-right"),
     ];
+
+    private static readonly NavLinkItem[] TestingChildren =
+    [
+        new("/", "Simulation", "play-circle-fill"),
+        new("/train", "Train", "cpu-fill"),
+        new("/profiler", "Profiler", "bar-chart-steps"),
+    ];
+
+    private static readonly NavEntry[] Entries =
+    [
+        new NavGroupItem("Reflection", "diagram-3-fill", ReflectionChildren),
+        new NavGroupItem("Testing", "check2-square", TestingChildren),
+        new NavLinkItem("/trade", "Trade", "cash-stack"),
+        new NavLinkItem("/data", "Data", "cloud-download"),
+    ];
+
+    private bool IsOpen(NavGroupItem group) => ReferenceEquals(_openGroup, group);
+
+    private Task ToggleGroup(NavGroupItem group)
+    {
+        var wasOpen = _openGroup is not null;
+        _openGroup = IsOpen(group) ? null : group;
+        return NotifyDropdownStateChanged(wasOpen);
+    }
+
+    private Task CloseGroup()
+    {
+        var wasOpen = _openGroup is not null;
+        _openGroup = null;
+        return NotifyDropdownStateChanged(wasOpen);
+    }
+
+    private Task NotifyDropdownStateChanged(bool wasOpen)
+    {
+        var isOpen = _openGroup is not null;
+        return wasOpen != isOpen ? OnDropdownToggled.InvokeAsync(isOpen) : Task.CompletedTask;
+    }
 }

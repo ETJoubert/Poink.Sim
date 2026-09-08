@@ -4,7 +4,7 @@
 
 <TerminalLoader />
 
-<div class="page @(SidebarMode ? "sidebar-mode" : "")">
+<div class="page @(SidebarMode ? "sidebar-mode" : "") @(_dropdownOpen ? "dropdown-open" : "")">
     <header class="top-nav">
         <div class="nav-brand nav-brand-clickable" @onclick="CycleNavState"
              title="Cycle nav layout (state @_pageNav.State)">
@@ -26,7 +26,7 @@
         {
             <div class="nav-group">
                 <nav class="nav-tabs @(NavCollapsed ? "collapsed" : "")">
-                    <SimNavLinks LinkClass="nav-tab" Collapsed="NavCollapsed" />
+                    <SimNavLinks LinkClass="nav-tab" Collapsed="NavCollapsed" OnDropdownToggled="OnNavDropdownToggled" />
                 </nav>
             </div>
         }
@@ -36,7 +36,7 @@
         @if (SidebarMode)
         {
             <nav class="side-nav @(NavCollapsed ? "collapsed" : "")">
-                <SimNavLinks LinkClass="side-nav-tab" Collapsed="NavCollapsed" />
+                <SimNavLinks LinkClass="side-nav-tab" Collapsed="NavCollapsed" OnDropdownToggled="OnNavDropdownToggled" />
             </nav>
         }
         <div class="main-column">
@@ -55,6 +55,9 @@
     private readonly PageNavState _pageNav = new();
     private bool SidebarMode => _pageNav.SidebarMode;
     private bool NavCollapsed => _pageNav.NavCollapsed;
+    private bool _dropdownOpen;
 
     private void CycleNavState() => _pageNav.Cycle();
+
+    private void OnNavDropdownToggled(bool isOpen) => _dropdownOpen = isOpen;
 }

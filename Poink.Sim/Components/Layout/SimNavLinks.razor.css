@@ -13,3 +13,34 @@
 .nav-icon ::deep .nav-icon-img {
   margin: 0 auto;
 }
+
+.nav-group-toggle {
+  font: inherit;
+  letter-spacing: inherit;
+  appearance: none;
+  cursor: pointer;
+}
+
+::deep .nav-caret {
+  width: 10px;
+  height: 10px;
+  margin-left: 6px;
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.nav-group-toggle.open ::deep .nav-caret {
+  transform: rotate(180deg);
+}
+
+::deep .nav-dropdown-item {
+  border-left: 2px solid color-mix(in srgb, var(--color-primary) 35%, transparent);
+  padding-left: 10px;
+  margin-left: 4px;
+}
+
+.nav-dropdown-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+}
