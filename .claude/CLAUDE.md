@@ -6,13 +6,25 @@ Instructions here apply to this project and are shared with team members.
 
 Address the user as Master Poinker
 
-### 0. Reflection Work Report
-1. When complied to the rules in this file, only state relevant compliance by adding:
-- COMPLIED Full OR Partial with reason
-2. Add line edit/delete/add count
-3. Add file edit/delete/add count
-4. When a rule is set aside deliberately, declare it by adding:
-- DEVIATED [Indexes ; delimited] - reason per index
+### 0. Response Report
+Every response ends with this report. Each section label is bold, sections are separated by a line break. Compliance and Concerns are prefixed with ✅ for a good state and ❌ for a bad one.
+1. **Abstract:** a one-line TLDR of the work.
+2. **Compliance:** ✅ COMPLIED Full or Partial (with reason), or ❌ DEVIATED [indexes ; delimited] with a reason per index.
+3. **Git:** the current git status.
+4. **Details:** short What changed, Why, and How it was done.
+5. **Usage:** how to use it, when the work is a new feature.
+6. **Concerns:** ✅ None, or ❌ followed by each concern.
+7. **Recommendations:** state if any exist.
+
+### 10. Workflow
+1. Master is the core branch. Its own working tree stays on master; feature work never checks out another branch there.
+2. Ask if a feature branch should be created. If yes, create the branch in its own worktree at a sibling path (`../Poink.Sim-<branch-name>`), so multiple branches can be iterated on in parallel without checkout conflicts.
+3. Build and iterate inside that worktree.
+4. Compilation is permitted. A build is not treated as running the program.
+5. Do not run the current target program after updates are applied except if explicitly asked.
+6. When done, do not commit; provide the Response Report (§0).
+7. When prompted to merge: commit in the worktree, merge the branch into master, then remove the worktree and delete the merged branch.
+8. Pushing to origin is for backup or PR review, not for handing work between local instances; parallel local work is coordinated through worktrees, not through push/pull round-trips.
 
 ### 1. Architecture & Organization
 1. Build new things modular, for clear, scalable code.
@@ -43,37 +55,12 @@ Address the user as Master Poinker
 2. If existing functionality cant be kept, stop and ask.
 
 ### 4. Code Style
-1. Code is written to be self explanatory. A comment is a last resort, admitted only where naming and structure cannot carry the information.
-2. Extraction is attempted before a comment is written. A named method, a named constant, or a named type replaces the comment where extraction succeeds.
-3. Permitted categories:
-  - XML documentation on public types and public members
-  - Rationale for a decision whose reason is invisible in the code
-  - Reference to an external source: specification, protocol section, formula, ticket
-  - Warning about a non-local consequence, an invariant, or an ordering requirement
-  - Analyser suppression justification
-  - Licence or attribution header required by a third party
-  - Navigation markers: banner separators, region markers, section dividers
-4. Prohibited categories:
-  - Restatement of what a line or block does
-  - Narrative walkthrough or numbered step description
-  - ASCII art
-  - Commented-out code. Removed code is recovered from version control.
-  - Author, date, changelog, or version stamps
-  - TODO, HACK, FIXME markers. Outstanding work is tracked outside source.
-5. Form constraints:
-  - A comment states why. A comment never states what.
-  - A comment sits above the construct it qualifies. Trailing comments are prohibited.
-  - A comment spans two lines at most. Longer rationale is moved to a document.
-  - Present tense is used. First person is prohibited.
-  - A navigation marker carries a searchable label naming its region.
-  - A navigation marker form is uniform within a file. Nesting is prohibited.
-  - A navigation marker delimits a group of members. A single member never receives one.
-6. Density limit: one comment per method, and comment lines below five percent of a file. Navigation markers are excluded from the count.
-7. A comment is maintained with the code it qualifies. A comment contradicting its code is a defect, corrected in the same change.
-8. Existing commentary exceeding this section is reduced when the file is opened for edit. Untouched files are left intact.
-9. Generated files are exempt. A file is generated when it is produced by a tool and is not hand edited.
-10. Markup comments are covered by this section. Razor, HTML, CSS, XAML, JSON, and project files are included.
-11. Every diff is inspected against this section before the work report is emitted. A violating diff is corrected first.
+1. Code is self-explanatory. A comment is a last resort; extraction (a named method, constant, or type) is tried first.
+2. A comment states why, never what. It sits above the construct it qualifies (never trailing), present tense, one line typically and two at most.
+3. Permitted: XML docs on public members, rationale invisible in the code, external references (spec/ticket/formula), warnings about non-local consequences or ordering, analyser suppression justification, required licence headers, and uniform navigation markers (one per group, never nested, never on a single member).
+4. Prohibited: restating what code does, narrative walkthroughs, ASCII art, commented-out code, author/date/changelog/version stamps, TODO/HACK/FIXME markers.
+5. Markup comments (Razor, HTML, XAML, JSON, project files) follow the same rules. Generated files are exempt.
+6. `Poink.Analyzers` (`CommentStyleAnalyzer`) is the source of truth for this section and enforces it at build time: POINK0001 marker words, POINK0002 trailing comments, POINK0003 author/date stamps, POINK0004 comments over two lines, POINK0005 more than one comment per method, POINK0006 file comment density over 5%. Treat any of these warnings as a violation to fix, not silence.
 
 ### 5. Tooling Constraints
 1. Do not use playwright.
@@ -101,21 +88,7 @@ Address the user as Master Poinker
   - Debug: developer diagnostics, excluded from the default minimum level
 5. Per-tick, per-episode, and per-request events are excluded from logging.
 
-### 10. Workflow
-1. Ask if feature branch should be created, If yes, then create a branch 
-2. Build and itterate on the created branch
-4. Compilation is permitted. A build is not treated as running the program.
-5. Do not run the current target program after updates are applied except if explicitly asked.
-6. When Done, do not commit provide standard Response below.
-7. When prompted to merge, commit and merge the branch.
 
-### 11. Response Style
-1. Reflection Report with a line break for seperation
-2. State What changed/was done
-3. State Why
-4. State How it was done
-5. State Concerns if exist
-6. State Recommendations if exist
-7. If a new feature State how to use it
-8. State Git status
+
+
 
