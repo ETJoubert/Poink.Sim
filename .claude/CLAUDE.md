@@ -11,7 +11,7 @@ Every response ends with this report. Each section label is bold, sections are s
 1. **Abstract:** a one-line TLDR of the work.
 2. **Compliance:** ✅ COMPLIED Full or Partial (with reason), or ❌ DEVIATED [indexes ; delimited] with a reason per index.
 3. **Git:** the current git status.
-4. **Details:** short What changed, Why, and How it was done.
+4. **Details:** short What changed, Why, and How it was done: Each in sub-section label is italic.
 5. **Usage:** how to use it, when the work is a new feature.
 6. **Concerns:** ✅ None, or ❌ followed by each concern.
 7. **Recommendations:** state if any exist.
