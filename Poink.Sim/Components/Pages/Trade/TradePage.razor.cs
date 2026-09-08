@@ -47,6 +47,7 @@ namespace Poink.Sim.Components.Pages.Trade
 		private ILocalStorageHelper LocalStorage { get; set; } = null!;
 
 		private string _symbolFilter = string.Empty;
+		private bool _sidepanelCollapsed;
 
 		private long? _chartSymbolId;
 		private string? _chartSymbolName;
@@ -92,6 +93,17 @@ namespace Poink.Sim.Components.Pages.Trade
 		private bool _chartKeepView;
 
 		private bool IsConnected => Session.State == CTraderConnectionState.Connected;
+
+		private bool _accountMenuOpen;
+
+		private CTraderAccountInfo? SelectedAccount =>
+			Session.Accounts.FirstOrDefault(a => a.AccountId == Session.SelectedAccountId);
+
+		private void ToggleAccountMenu() => _accountMenuOpen = !_accountMenuOpen;
+
+		private void CloseAccountMenu() => _accountMenuOpen = false;
+
+		private void ToggleSidepanel() => _sidepanelCollapsed = !_sidepanelCollapsed;
 
 		private CTraderSymbolQuote? ChartQuote =>
 			_chartSymbolId is { } id ? Session.Watchlist.FirstOrDefault(q => q.SymbolId == id) : null;
@@ -306,7 +318,8 @@ namespace Poink.Sim.Components.Pages.Trade
 				_xgridColCount,
 				_chartSymbolId,
 				_chartSymbolName,
-				Session.Watchlist.Select(q => q.SymbolId).ToList()
+				Session.Watchlist.Select(q => q.SymbolId).ToList(),
+				_sidepanelCollapsed
 			);
 
 		private async Task LoadPersistedSettingsAsync()
@@ -327,6 +340,7 @@ namespace Poink.Sim.Components.Pages.Trade
 			_barWindowOffset = settings.BarWindowOffset;
 			_xgridPipCount = settings.XGridPipCount;
 			_xgridColCount = settings.XGridColCount;
+			_sidepanelCollapsed = settings.SidepanelCollapsed;
 			_pendingChartSymbolId = settings.ChartSymbolId;
 			_pendingChartSymbolName = settings.ChartSymbolName;
 			_pendingWatchSymbolIds = settings.WatchedSymbolIds;
@@ -375,7 +389,11 @@ namespace Poink.Sim.Components.Pages.Trade
 			Navigation.NavigateTo(authUri.ToString(), forceLoad: true);
 		}
 
-		private Task LogOutAsync() => Session.LogoutAsync();
+		private async Task LogOutAsync()
+		{
+			_accountMenuOpen = false;
+			await Session.LogoutAsync();
+		}
 
 		private Task WatchAsync(long symbolId) => Session.WatchSymbolAsync(symbolId);
 

@@ -78,10 +78,132 @@
     50% { opacity: 0.55; }
 }
 
-.trade-header-login {
+.trade-header-account {
     display: flex;
     align-items: center;
     gap: 12px;
+    margin-left: auto;
+}
+
+.trade-account-menu {
+    position: relative;
+}
+
+.trade-account-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-family: var(--font-body);
+    background: color-mix(in srgb, var(--color-primary) 6%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
+    border-radius: 999px;
+    padding: 4px 10px 4px 14px;
+    color: var(--color-primary);
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.trade-account-btn:hover,
+.trade-account-btn.open {
+    background: color-mix(in srgb, var(--color-primary) 14%, transparent);
+    border-color: var(--color-primary);
+}
+
+.trade-account-number {
+    font-size: 0.8rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--color-primary);
+}
+
+::deep .trade-account-caret {
+    width: 10px;
+    height: 10px;
+    flex-shrink: 0;
+    color: var(--color-secondary);
+    transition: transform 0.2s ease;
+}
+
+.trade-account-btn.open ::deep .trade-account-caret {
+    transform: rotate(180deg);
+}
+
+.trade-account-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+}
+
+.trade-account-dropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    z-index: 21;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 220px;
+    padding: 10px;
+    background: var(--color-bg-terminal);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
+    border-radius: var(--border-radius-sm);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+}
+
+.trade-account-dropdown-title {
+    font-family: var(--font-heading);
+    font-size: 0.65rem;
+    font-weight: bold;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-secondary);
+}
+
+.trade-account-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.trade-account-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: var(--border-radius-sm);
+    font-size: 0.8rem;
+    color: var(--color-secondary);
+}
+
+.trade-account-row-current {
+    background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+    color: var(--color-primary);
+}
+
+.trade-account-row-type {
+    font-size: 0.68rem;
+    font-weight: bold;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--color-secondary);
+}
+
+.trade-account-row-number {
+    flex: 1;
+    font-variant-numeric: tabular-nums;
+}
+
+::deep .trade-account-row-check {
+    width: 12px;
+    height: 12px;
+    flex-shrink: 0;
+    color: var(--color-accent);
+}
+
+.trade-account-logout-btn {
+    justify-content: center;
 }
 
 .trade-login-status {
@@ -155,12 +277,46 @@
 }
 
 .trade-sidepanel {
+    position: relative;
     display: flex;
     flex-direction: column;
     width: 300px;
     flex-shrink: 0;
     border-right: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
     overflow: hidden;
+    transition: width 0.15s ease;
+}
+
+.trade-sidepanel-collapsed {
+    width: 28px;
+}
+
+.trade-sidepanel-toggle {
+    position: absolute;
+    top: 8px;
+    right: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
+    border-radius: var(--border-radius-sm);
+    color: var(--color-secondary);
+    cursor: pointer;
+    z-index: 1;
+}
+
+.trade-sidepanel-toggle:hover {
+    color: var(--color-primary);
+    border-color: var(--color-primary);
+}
+
+::deep .trade-sidepanel-toggle-icon {
+    width: 12px;
+    height: 12px;
 }
 
 .trade-sidepanel-empty {
@@ -232,20 +388,6 @@
     background: color-mix(in srgb, var(--color-accent) 16%, transparent);
 }
 
-.trade-quote-selected-indicator {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex: 0 0 auto;
-    width: 12px;
-    color: var(--color-accent);
-}
-
-::deep .trade-quote-selected-icon {
-    width: 12px;
-    height: 12px;
-}
-
 .trade-quote-name {
     flex: 1;
     font-size: 0.82rem;
@@ -255,9 +397,11 @@
 
 .trade-quote-prices {
     display: flex;
-    gap: 10px;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 1px;
     font-variant-numeric: tabular-nums;
-    font-size: 0.8rem;
+    font-size: 0.66rem;
 }
 
 .trade-quote-bid {
