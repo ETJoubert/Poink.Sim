@@ -141,6 +141,12 @@ namespace Poink.CTrader
                 CtidTraderAccountId = ctidTraderAccountId
             }, cancellationToken);
 
+        public Task<ProtoOATraderRes> GetTraderAsync(long ctidTraderAccountId, CancellationToken cancellationToken = default) =>
+            SendAndWaitAsync<ProtoOATraderRes>(new ProtoOATraderReq
+            {
+                CtidTraderAccountId = ctidTraderAccountId
+            }, cancellationToken);
+
         // A new order's first execution event is usually ACCEPTED before a later FILLED/REJECTED
         // one - only these three are "done", so NewOrderAsync doesn't resolve on an interim event.
         private static bool IsTerminalOrderEvent(ProtoOAExecutionType type) =>
