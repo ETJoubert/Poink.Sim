@@ -474,12 +474,16 @@
     align-items: stretch;
     gap: 16px;
     flex: 1;
-    min-height: 0;
+    height: 280px;
+    min-height: 60vh;
+    max-height: 80vh;
+    overflow: hidden;
 }
 
 .trade-chart-side {
     flex: 0 0 380px;
     min-width: 320px;
+    min-height: 0;
     overflow-y: auto;
 }
 
