@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 using Poink.Sim.Components.Charts;
+using Poink.Sim.Helpers;
 using Poink.Sim.Models;
 using Poink.Sim.Repository;
 using Poink.Sim.Services.CTrader;
@@ -40,6 +42,9 @@ namespace Poink.Sim.Components.Pages.Trade
 
 		[Inject]
 		private IJSRuntime JS { get; set; } = null!;
+
+		[Inject]
+		private ILocalStorageHelper LocalStorage { get; set; } = null!;
 
 		private string _symbolFilter = string.Empty;
 
@@ -234,7 +239,14 @@ namespace Poink.Sim.Components.Pages.Trade
 				_chartKeepView = true;
 
 			if (firstRender)
+			{
 				_dividerResizeInstance = await JS.InvokeAsync<IJSObjectReference>("eval", ChartDividerScript);
+				await LoadPersistedSettingsAsync();
+			}
+			else
+			{
+				await PersistSettingsIfChangedAsync();
+			}
 
 			if (_chartSymbolId is null || _chartLoading || _chartError is not null || _dividerResizeInstance is null)
 				return;
@@ -266,6 +278,93 @@ namespace Poink.Sim.Components.Pages.Trade
 				}
 				catch (JSDisconnectedException) { }
 			}
+		}
+
+		// Round-trips layout/chart settings and the watchlist through localStorage -- this component's
+		// fields don't survive navigation, and CTraderSessionService's watchlist doesn't survive a restart.
+		private const string SettingsStorageKey = "poink.trade.setup";
+
+		private string? _lastPersistedSettingsJson;
+		private bool _restorePending;
+		private List<long> _pendingWatchSymbolIds = new();
+		private long? _pendingChartSymbolId;
+		private string? _pendingChartSymbolName;
+
+		private TradePageSettings CurrentSettings =>
+			new(
+				_barSizeSeconds,
+				_showMainChart,
+				_showXGrid,
+				_showVolumeProfile,
+				_showTimeProfile,
+				_showTraderControls,
+				_showProfileChartLines,
+				_showVwap,
+				_barWindowSize,
+				_barWindowOffset,
+				_xgridPipCount,
+				_xgridColCount,
+				_chartSymbolId,
+				_chartSymbolName,
+				Session.Watchlist.Select(q => q.SymbolId).ToList()
+			);
+
+		private async Task LoadPersistedSettingsAsync()
+		{
+			var settings = await LocalStorage.GetItemAsync<TradePageSettings>(SettingsStorageKey);
+			if (settings is null)
+				return;
+
+			_barSizeSeconds = settings.BarSizeSeconds;
+			_showMainChart = settings.ShowMainChart;
+			_showXGrid = settings.ShowXGrid;
+			_showVolumeProfile = settings.ShowVolumeProfile;
+			_showTimeProfile = settings.ShowTimeProfile;
+			_showTraderControls = settings.ShowTraderControls;
+			_showProfileChartLines = settings.ShowProfileChartLines;
+			_showVwap = settings.ShowVwap;
+			_barWindowSize = settings.BarWindowSize;
+			_barWindowOffset = settings.BarWindowOffset;
+			_xgridPipCount = settings.XGridPipCount;
+			_xgridColCount = settings.XGridColCount;
+			_pendingChartSymbolId = settings.ChartSymbolId;
+			_pendingChartSymbolName = settings.ChartSymbolName;
+			_pendingWatchSymbolIds = settings.WatchedSymbolIds;
+			_restorePending = true;
+
+			if (IsConnected)
+				await ApplyPendingRestoreAsync();
+
+			_lastPersistedSettingsJson = JsonSerializer.Serialize(CurrentSettings);
+			StateHasChanged();
+		}
+
+		// Re-subscribes whatever this browser had watched and reopens its last chart -- called once
+		// settings load if already connected, or on the next Connected transition otherwise.
+		private async Task ApplyPendingRestoreAsync()
+		{
+			if (!_restorePending)
+				return;
+			_restorePending = false;
+
+			foreach (var symbolId in _pendingWatchSymbolIds)
+			{
+				if (!Session.IsSymbolWatched(symbolId))
+					await WatchAsync(symbolId);
+			}
+
+			if (_pendingChartSymbolId is { } id && _pendingChartSymbolName is { } name && _chartSymbolId is null)
+				await OpenChartAsync(id, name);
+		}
+
+		private async Task PersistSettingsIfChangedAsync()
+		{
+			var json = JsonSerializer.Serialize(CurrentSettings);
+			if (json == _lastPersistedSettingsJson)
+				return;
+
+			_lastPersistedSettingsJson = json;
+			await LocalStorage.SetItemAsync(SettingsStorageKey, CurrentSettings);
 		}
 
 		private void LogIn()
@@ -365,7 +464,13 @@ namespace Poink.Sim.Components.Pages.Trade
 
 		private static string Price(double? value) => value?.ToString("N5") ?? "—";
 
-		private void OnSessionChanged() => InvokeAsync(StateHasChanged);
+		private void OnSessionChanged() =>
+			InvokeAsync(async () =>
+			{
+				if (_restorePending && IsConnected)
+					await ApplyPendingRestoreAsync();
+				StateHasChanged();
+			});
 
 		private void OnTickReceived(MarketTick tick)
 		{
