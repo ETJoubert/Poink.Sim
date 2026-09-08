@@ -57,6 +57,9 @@ namespace Poink.Sim.Components.Pages.Data
 		private bool _symbolsBusy;
 		private string? _symbolsResult;
 
+		private readonly Dictionary<long, SymbolMetadataModel> _metadataCache = new();
+		private readonly HashSet<long> _metadataBusy = new();
+
 		private bool IsConnected => Session.State == CTraderConnectionState.Connected;
 
 		private IReadOnlyList<SymbolIngestStatus> Statuses => Backfill.GetStatuses();
@@ -141,6 +144,36 @@ namespace Poink.Sim.Components.Pages.Data
 			finally
 			{
 				_symbolsBusy = false;
+				OnChanged();
+			}
+		}
+
+		private SymbolMetadataModel? GetMetadata(long symbolId) =>
+			_metadataCache.TryGetValue(symbolId, out var metadata) ? metadata : null;
+
+		private bool IsMetadataBusy(long symbolId) => _metadataBusy.Contains(symbolId);
+
+		private async Task GetMetadataAsync(long symbolId)
+		{
+			if (!IsConnected || !_metadataBusy.Add(symbolId))
+				return;
+
+			OnChanged();
+			Logger.LogInformation("Get Metadata started for symbol {SymbolId}.", symbolId);
+			try
+			{
+				var metadata = await SymbolService.RefreshMetadataFromCTraderAsync(symbolId);
+				if (metadata is not null)
+					_metadataCache[symbolId] = metadata;
+				Logger.LogInformation("Get Metadata finished for symbol {SymbolId}.", symbolId);
+			}
+			catch (Exception ex)
+			{
+				Logger.LogError(ex, "Get Metadata failed for symbol {SymbolId}.", symbolId);
+			}
+			finally
+			{
+				_metadataBusy.Remove(symbolId);
 				OnChanged();
 			}
 		}

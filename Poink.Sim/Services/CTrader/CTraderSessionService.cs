@@ -651,6 +651,23 @@ namespace Poink.Sim.Services.CTrader
 			}
 		}
 
+		public async Task<ProtoOASymbol?> GetSymbolMetadataAsync(long symbolId, CancellationToken cancellationToken = default)
+		{
+			if (_client is null || SelectedAccountId is not { } accountId)
+				throw new InvalidOperationException("Not connected to cTrader.");
+
+			var response = await _client.GetSymbolByIdAsync(accountId, symbolId, cancellationToken);
+			var symbol = response.Symbol.FirstOrDefault();
+
+			_logger.LogInformation(
+				"cTrader: metadata {Result} for symbol {SymbolId}.",
+				symbol is null ? "not found" : "loaded",
+				symbolId
+			);
+
+			return symbol;
+		}
+
 		private async Task<IReadOnlyList<CTraderSymbolInfo>> LoadSymbolsAsync(
 			long accountId,
 			CancellationToken cancellationToken

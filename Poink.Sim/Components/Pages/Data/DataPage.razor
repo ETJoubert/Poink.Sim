@@ -233,8 +233,81 @@
                     }
                 </div>
 
-                <DataTable TItem="SymbolRow" Items="Rows" ShowRowNumbers="false" ShowActions="false"
-                           EmptyMessage="No symbols saved yet. Click Get Symbols while connected." />
+                <DataTable TItem="SymbolRow" Items="Rows" ShowRowNumbers="false"
+                           EmptyMessage="No symbols saved yet. Click Get Symbols while connected.">
+                    <CustomActions Context="row">
+                        <button class="data-table-action-btn" @onclick="() => GetMetadataAsync(row.SymbolId)"
+                                disabled="@(!IsConnected || IsMetadataBusy(row.SymbolId))"
+                                title="@(IsConnected ? $"Fetch full trading detail for {row.SymbolName} from cTrader" : "Log in on the Trade page first")">
+                            <Icon Name="info-circle" Class="dt-icon" />
+                        </button>
+                    </CustomActions>
+                    <DetailContent Context="row">
+                        @{
+                            var metadata = GetMetadata(row.SymbolId);
+                        }
+                        @if (metadata is null)
+                        {
+                            <p class="data-empty">
+                                No metadata fetched yet.
+                                <button class="data-btn data-btn-play" @onclick="() => GetMetadataAsync(row.SymbolId)"
+                                        disabled="@(!IsConnected || IsMetadataBusy(row.SymbolId))"
+                                        title="Fetch full trading detail for @row.SymbolName from cTrader">
+                                    @(IsMetadataBusy(row.SymbolId) ? "FETCHING..." : "GET METADATA")
+                                </button>
+                            </p>
+                        }
+                        else
+                        {
+                            <div class="data-table-detail-body">
+                                <div class="data-table-detail-row">
+                                    <span class="data-table-detail-label">DIGITS / PIP POSITION</span>
+                                    <span class="data-table-detail-value">@metadata.Digits / @metadata.PipPosition</span>
+                                </div>
+                                <div class="data-table-detail-row">
+                                    <span class="data-table-detail-label">LOT SIZE</span>
+                                    <span class="data-table-detail-value">@metadata.LotSize</span>
+                                </div>
+                                <div class="data-table-detail-row">
+                                    <span class="data-table-detail-label">MIN / MAX / STEP VOLUME</span>
+                                    <span class="data-table-detail-value">@metadata.MinVolume / @metadata.MaxVolume / @metadata.StepVolume</span>
+                                </div>
+                                <div class="data-table-detail-row">
+                                    <span class="data-table-detail-label">MAX EXPOSURE</span>
+                                    <span class="data-table-detail-value">@metadata.MaxExposure</span>
+                                </div>
+                                <div class="data-table-detail-row">
+                                    <span class="data-table-detail-label">SWAP LONG / SHORT</span>
+                                    <span class="data-table-detail-value">@metadata.SwapLong / @metadata.SwapShort (@metadata.SwapCalculationType)</span>
+                                </div>
+                                <div class="data-table-detail-row">
+                                    <span class="data-table-detail-label">COMMISSION</span>
+                                    <span class="data-table-detail-value">@metadata.PreciseTradingCommissionRate (@metadata.CommissionType), min @metadata.PreciseMinCommission @metadata.MinCommissionAsset</span>
+                                </div>
+                                <div class="data-table-detail-row">
+                                    <span class="data-table-detail-label">TRADING MODE</span>
+                                    <span class="data-table-detail-value">@metadata.TradingMode</span>
+                                </div>
+                                <div class="data-table-detail-row">
+                                    <span class="data-table-detail-label">SHORT SELLING / GUARANTEED SL</span>
+                                    <span class="data-table-detail-value">@(metadata.EnableShortSelling ? "Yes" : "No") / @(metadata.GuaranteedStopLoss ? "Yes" : "No")</span>
+                                </div>
+                                <div class="data-table-detail-row">
+                                    <span class="data-table-detail-label">SCHEDULE</span>
+                                    <span class="data-table-detail-value">@metadata.ScheduleIntervals.Count interval(s), @metadata.ScheduleTimeZone</span>
+                                </div>
+                                <div class="data-table-detail-row">
+                                    <span class="data-table-detail-label">HOLIDAYS</span>
+                                    <span class="data-table-detail-value">@metadata.Holidays.Count</span>
+                                </div>
+                                <div class="data-table-detail-row">
+                                    <span class="data-table-detail-label">FETCHED</span>
+                                    <span class="data-table-detail-value">@Time(metadata.ChangedAt ?? metadata.CreatedAt)</span>
+                                </div>
+                            </div>
+                        }
+                    </DetailContent>
+                </DataTable>
             </section>
         }
         else

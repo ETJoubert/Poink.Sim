@@ -95,5 +95,181 @@ namespace Poink.Sim.Services.Symbols
 				entity.CreatedAt,
 				entity.ChangedAt
 			);
+
+		public async Task<SymbolMetadataModel?> GetMetadataAsync(
+			long symbolId,
+			CancellationToken cancellationToken = default
+		)
+		{
+			var entity = await _context
+				.SymbolMetadata.Include(m => m.ScheduleIntervals)
+				.Include(m => m.Holidays)
+				.FirstOrDefaultAsync(m => m.SymbolId == symbolId, cancellationToken);
+
+			return entity is null ? null : ToMetadataModel(entity);
+		}
+
+		public async Task<SymbolMetadataModel?> RefreshMetadataFromCTraderAsync(
+			long symbolId,
+			CancellationToken cancellationToken = default
+		)
+		{
+			_logger.LogInformation("Refreshing metadata for symbol {SymbolId} from cTrader...", symbolId);
+
+			var fetched = await _session.GetSymbolMetadataAsync(symbolId, cancellationToken);
+			if (fetched is null)
+			{
+				_logger.LogWarning("cTrader returned no metadata for symbol {SymbolId}.", symbolId);
+				return null;
+			}
+
+			var entity = await _context
+				.SymbolMetadata.Include(m => m.ScheduleIntervals)
+				.Include(m => m.Holidays)
+				.FirstOrDefaultAsync(m => m.SymbolId == symbolId, cancellationToken);
+
+			var now = DateTime.UtcNow;
+			if (entity is null)
+			{
+				entity = new Data.Entities.SymbolMetadata { Id = Guid.NewGuid(), SymbolId = symbolId, CreatedAt = now };
+				_context.SymbolMetadata.Add(entity);
+			}
+			else
+			{
+				entity.ScheduleIntervals.Clear();
+				entity.Holidays.Clear();
+				entity.ChangedAt = now;
+			}
+
+			entity.Digits = fetched.Digits;
+			entity.PipPosition = fetched.PipPosition;
+			entity.EnableShortSelling = fetched.EnableShortSelling;
+			entity.GuaranteedStopLoss = fetched.GuaranteedStopLoss;
+			entity.SwapRollover3Days = fetched.SwapRollover3Days;
+			entity.SwapLong = fetched.SwapLong;
+			entity.SwapShort = fetched.SwapShort;
+			entity.MaxVolume = fetched.MaxVolume;
+			entity.MinVolume = fetched.MinVolume;
+			entity.StepVolume = fetched.StepVolume;
+			entity.MaxExposure = (long)fetched.MaxExposure;
+			entity.CommissionType = fetched.CommissionType;
+			entity.SlDistance = (int)fetched.SlDistance;
+			entity.TpDistance = (int)fetched.TpDistance;
+			entity.GslDistance = (int)fetched.GslDistance;
+			entity.GslCharge = fetched.GslCharge;
+			entity.DistanceSetIn = fetched.DistanceSetIn;
+			entity.MinCommissionType = fetched.MinCommissionType;
+			entity.MinCommissionAsset = fetched.MinCommissionAsset;
+			entity.RolloverCommission = fetched.RolloverCommission;
+			entity.SkipRolloverDays = fetched.SkipRolloverDays;
+			entity.ScheduleTimeZone = fetched.ScheduleTimeZone;
+			entity.TradingMode = fetched.TradingMode;
+			entity.RolloverCommission3Days = fetched.RolloverCommission3Days;
+			entity.SwapCalculationType = fetched.SwapCalculationType;
+			entity.LotSize = fetched.LotSize;
+			entity.PreciseTradingCommissionRate = fetched.PreciseTradingCommissionRate;
+			entity.PreciseMinCommission = fetched.PreciseMinCommission;
+			entity.PnlConversionFeeRate = fetched.PnlConversionFeeRate;
+			entity.LeverageId = fetched.LeverageId;
+			entity.SwapPeriod = fetched.SwapPeriod;
+			entity.SwapTime = fetched.SwapTime;
+			entity.SkipSWAPPeriods = fetched.SkipSWAPPeriods;
+			entity.ChargeSwapAtWeekends = fetched.ChargeSwapAtWeekends;
+			entity.MeasurementUnits = fetched.MeasurementUnits;
+
+			foreach (var interval in fetched.Schedule)
+			{
+				entity.ScheduleIntervals.Add(
+					new Data.Entities.SymbolScheduleInterval
+					{
+						Id = Guid.NewGuid(),
+						SymbolMetadataId = entity.Id,
+						StartSecond = (int)interval.StartSecond,
+						EndSecond = (int)interval.EndSecond,
+					}
+				);
+			}
+
+			foreach (var holiday in fetched.Holiday)
+			{
+				entity.Holidays.Add(
+					new Data.Entities.SymbolHoliday
+					{
+						Id = Guid.NewGuid(),
+						SymbolMetadataId = entity.Id,
+						HolidayId = holiday.HolidayId,
+						Name = holiday.Name,
+						Description = holiday.Description,
+						ScheduleTimeZone = holiday.ScheduleTimeZone,
+						HolidayDate = DateOnly.FromDateTime(DateTime.UnixEpoch.AddDays(holiday.HolidayDate)),
+						IsRecurring = holiday.IsRecurring,
+						StartSecond = holiday.StartSecond,
+						EndSecond = holiday.EndSecond,
+					}
+				);
+			}
+
+			await _context.SaveChangesAsync(cancellationToken);
+
+			_logger.LogInformation("Refreshed metadata for symbol {SymbolId}.", symbolId);
+
+			return ToMetadataModel(entity);
+		}
+
+		private static SymbolMetadataModel ToMetadataModel(Data.Entities.SymbolMetadata entity) =>
+			new(
+				entity.Id,
+				entity.SymbolId,
+				entity.Digits,
+				entity.PipPosition,
+				entity.EnableShortSelling,
+				entity.GuaranteedStopLoss,
+				entity.SwapRollover3Days,
+				entity.SwapLong,
+				entity.SwapShort,
+				entity.MaxVolume,
+				entity.MinVolume,
+				entity.StepVolume,
+				entity.MaxExposure,
+				entity.CommissionType,
+				entity.SlDistance,
+				entity.TpDistance,
+				entity.GslDistance,
+				entity.GslCharge,
+				entity.DistanceSetIn,
+				entity.MinCommissionType,
+				entity.MinCommissionAsset,
+				entity.RolloverCommission,
+				entity.SkipRolloverDays,
+				entity.ScheduleTimeZone,
+				entity.TradingMode,
+				entity.RolloverCommission3Days,
+				entity.SwapCalculationType,
+				entity.LotSize,
+				entity.PreciseTradingCommissionRate,
+				entity.PreciseMinCommission,
+				entity.PnlConversionFeeRate,
+				entity.LeverageId,
+				entity.SwapPeriod,
+				entity.SwapTime,
+				entity.SkipSWAPPeriods,
+				entity.ChargeSwapAtWeekends,
+				entity.MeasurementUnits,
+				entity.CreatedAt,
+				entity.ChangedAt,
+				entity.ScheduleIntervals.Select(i => new SymbolScheduleIntervalModel(i.StartSecond, i.EndSecond)).ToList(),
+				entity
+					.Holidays.Select(h => new SymbolHolidayModel(
+						h.HolidayId,
+						h.Name,
+						h.Description,
+						h.ScheduleTimeZone,
+						h.HolidayDate,
+						h.IsRecurring,
+						h.StartSecond,
+						h.EndSecond
+					))
+					.ToList()
+			);
 	}
 }
