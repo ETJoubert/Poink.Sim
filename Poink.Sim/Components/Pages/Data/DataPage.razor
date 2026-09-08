@@ -181,7 +181,13 @@
                                     var canLoad = IsConnected && r.MinUtc is not null && ResolveSymbol(r.Symbol) is not null && !state.Busy;
                                     <tr>
                                         <td class="data-mono">@r.Table</td>
-                                        <td class="data-sym">@(r.Symbol ?? "—")</td>
+                                        <td class="data-sym">
+                                            <input type="text" class="data-symbol-edit"
+                                                   value="@r.Symbol"
+                                                   placeholder="—"
+                                                   @onchange="e => UpdateRegistrySymbolAsync(r.Table, e.Value?.ToString() ?? string.Empty)"
+                                                   title="Symbol name associated with @r.Table in the registry" />
+                                        </td>
                                         <td class="data-num data-mono">@Count(r.Rows)</td>
                                         <td class="data-mono">@Time(r.MinUtc)</td>
                                         <td class="data-mono">@Time(r.MaxUtc)</td>
