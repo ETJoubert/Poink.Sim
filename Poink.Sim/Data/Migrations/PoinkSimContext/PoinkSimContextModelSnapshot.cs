@@ -140,6 +140,248 @@ namespace Poink.Sim.Data.Migrations.PoinkSim
                     b.ToTable("NeuralWeights");
                 });
 
+            modelBuilder.Entity("Poink.Sim.Data.Entities.Symbol", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("BaseAssetId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime?>("ChangedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<long>("QuoteAssetId")
+                        .HasColumnType("bigint");
+
+                    b.Property<double>("SortingNumber")
+                        .HasColumnType("double precision");
+
+                    b.Property<long>("SymbolCategoryId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("SymbolId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("SymbolName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SymbolId")
+                        .IsUnique();
+
+                    b.ToTable("Symbols");
+                });
+
+            modelBuilder.Entity("Poink.Sim.Data.Entities.SymbolHoliday", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("EndSecond")
+                        .HasColumnType("integer");
+
+                    b.Property<DateOnly>("HolidayDate")
+                        .HasColumnType("date");
+
+                    b.Property<long>("HolidayId")
+                        .HasColumnType("bigint");
+
+                    b.Property<bool>("IsRecurring")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ScheduleTimeZone")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("StartSecond")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("SymbolMetadataId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SymbolMetadataId");
+
+                    b.ToTable("SymbolHolidays");
+                });
+
+            modelBuilder.Entity("Poink.Sim.Data.Entities.SymbolMetadata", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("ChangedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("ChargeSwapAtWeekends")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("CommissionType")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Digits")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("DistanceSetIn")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("EnableShortSelling")
+                        .HasColumnType("boolean");
+
+                    b.Property<long>("GslCharge")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("GslDistance")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("GuaranteedStopLoss")
+                        .HasColumnType("boolean");
+
+                    b.Property<long>("LeverageId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("LotSize")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("MaxExposure")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("MaxVolume")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("MeasurementUnits")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("MinCommissionAsset")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("MinCommissionType")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("MinVolume")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("PipPosition")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("PnlConversionFeeRate")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("PreciseMinCommission")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("PreciseTradingCommissionRate")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("RolloverCommission")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("RolloverCommission3Days")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ScheduleTimeZone")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("SkipRolloverDays")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SkipSWAPPeriods")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SlDistance")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("StepVolume")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("SwapCalculationType")
+                        .HasColumnType("integer");
+
+                    b.Property<double>("SwapLong")
+                        .HasColumnType("double precision");
+
+                    b.Property<int>("SwapPeriod")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SwapRollover3Days")
+                        .HasColumnType("integer");
+
+                    b.Property<double>("SwapShort")
+                        .HasColumnType("double precision");
+
+                    b.Property<int>("SwapTime")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("SymbolId")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("TpDistance")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TradingMode")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SymbolId")
+                        .IsUnique();
+
+                    b.ToTable("SymbolMetadata");
+                });
+
+            modelBuilder.Entity("Poink.Sim.Data.Entities.SymbolScheduleInterval", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("EndSecond")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("StartSecond")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("SymbolMetadataId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SymbolMetadataId");
+
+                    b.ToTable("SymbolScheduleIntervals");
+                });
+
             modelBuilder.Entity("Poink.Sim.Data.Entities.TrainingResult", b =>
                 {
                     b.Property<Guid>("Id")
@@ -181,9 +423,38 @@ namespace Poink.Sim.Data.Migrations.PoinkSim
                     b.Navigation("NeuralNetwork");
                 });
 
+            modelBuilder.Entity("Poink.Sim.Data.Entities.SymbolHoliday", b =>
+                {
+                    b.HasOne("Poink.Sim.Data.Entities.SymbolMetadata", "SymbolMetadata")
+                        .WithMany("Holidays")
+                        .HasForeignKey("SymbolMetadataId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("SymbolMetadata");
+                });
+
+            modelBuilder.Entity("Poink.Sim.Data.Entities.SymbolScheduleInterval", b =>
+                {
+                    b.HasOne("Poink.Sim.Data.Entities.SymbolMetadata", "SymbolMetadata")
+                        .WithMany("ScheduleIntervals")
+                        .HasForeignKey("SymbolMetadataId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("SymbolMetadata");
+                });
+
             modelBuilder.Entity("Poink.Sim.Data.Entities.NeuralNetwork", b =>
                 {
                     b.Navigation("Weights");
+                });
+
+            modelBuilder.Entity("Poink.Sim.Data.Entities.SymbolMetadata", b =>
+                {
+                    b.Navigation("Holidays");
+
+                    b.Navigation("ScheduleIntervals");
                 });
 #pragma warning restore 612, 618
         }

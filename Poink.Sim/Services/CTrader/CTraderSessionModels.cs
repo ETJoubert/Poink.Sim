@@ -12,7 +12,16 @@ namespace Poink.Sim.Services.CTrader
 
 	public sealed record CTraderAccountInfo(long AccountId, long Login, bool IsLive);
 
-	public sealed record CTraderSymbolInfo(long SymbolId, string SymbolName, bool Enabled);
+	public sealed record CTraderSymbolInfo(
+		long SymbolId,
+		string SymbolName,
+		bool Enabled,
+		long BaseAssetId,
+		long QuoteAssetId,
+		long SymbolCategoryId,
+		string Description,
+		double SortingNumber
+	);
 
 	public sealed record CTraderSymbolQuote(
 		long SymbolId,

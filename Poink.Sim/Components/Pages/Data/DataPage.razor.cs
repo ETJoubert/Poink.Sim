@@ -6,8 +6,10 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
+using Poink.Sim.Models;
 using Poink.Sim.Services.CTrader;
 using Poink.Sim.Services.MarketData;
+using Poink.Sim.Services.Symbols;
 
 namespace Poink.Sim.Components.Pages.Data
 {
@@ -20,6 +22,7 @@ namespace Poink.Sim.Components.Pages.Data
 		{
 			Ingest,
 			Registry,
+			Symbols,
 			Log,
 		}
 
@@ -31,6 +34,9 @@ namespace Poink.Sim.Components.Pages.Data
 
 		[Inject]
 		private ICTraderSessionService Session { get; set; } = null!;
+
+		[Inject]
+		private ISymbolService SymbolService { get; set; } = null!;
 
 		[Inject]
 		private ILogger<DataPage> Logger { get; set; } = null!;
@@ -46,6 +52,13 @@ namespace Poink.Sim.Components.Pages.Data
 		private IReadOnlyList<TickTableStatRow> _registry = Array.Empty<TickTableStatRow>();
 		private IReadOnlyList<BackfillLogEntry> _backfillLog = Array.Empty<BackfillLogEntry>();
 		private string _logSymbolFilter = string.Empty;
+
+		private IReadOnlyList<SymbolModel> _symbols = Array.Empty<SymbolModel>();
+		private bool _symbolsBusy;
+		private string? _symbolsResult;
+
+		private readonly Dictionary<long, SymbolMetadataModel> _metadataCache = new();
+		private readonly HashSet<long> _metadataBusy = new();
 
 		private bool IsConnected => Session.State == CTraderConnectionState.Connected;
 
@@ -98,7 +111,102 @@ namespace Poink.Sim.Components.Pages.Data
 				_registry = Ingest.GetRegistry();
 			else if (tab == Tab.Log)
 				_backfillLog = Ingest.GetBackfillLog();
+			else if (tab == Tab.Symbols)
+				_ = LoadSymbolsAsync();
 		}
+
+		private async Task LoadSymbolsAsync()
+		{
+			_symbols = await SymbolService.ListAsync();
+			OnChanged();
+		}
+
+		private async Task GetSymbolsAsync()
+		{
+			if (_symbolsBusy || !IsConnected)
+				return;
+
+			_symbolsBusy = true;
+			_symbolsResult = null;
+			OnChanged();
+			Logger.LogInformation("Get Symbols started.");
+			try
+			{
+				_symbols = await SymbolService.RefreshFromCTraderAsync();
+				_symbolsResult = $"Saved {_symbols.Count:N0} symbol(s).";
+				Logger.LogInformation("Get Symbols finished: {Count} symbol(s) saved.", _symbols.Count);
+			}
+			catch (Exception ex)
+			{
+				_symbolsResult = $"Failed: {ex.Message}";
+				Logger.LogError(ex, "Get Symbols failed.");
+			}
+			finally
+			{
+				_symbolsBusy = false;
+				OnChanged();
+			}
+		}
+
+		private SymbolMetadataModel? GetMetadata(long symbolId) =>
+			_metadataCache.TryGetValue(symbolId, out var metadata) ? metadata : null;
+
+		private bool IsMetadataBusy(long symbolId) => _metadataBusy.Contains(symbolId);
+
+		private async Task GetMetadataAsync(long symbolId)
+		{
+			if (!IsConnected || !_metadataBusy.Add(symbolId))
+				return;
+
+			OnChanged();
+			Logger.LogInformation("Get Metadata started for symbol {SymbolId}.", symbolId);
+			try
+			{
+				var metadata = await SymbolService.RefreshMetadataFromCTraderAsync(symbolId);
+				if (metadata is not null)
+					_metadataCache[symbolId] = metadata;
+				Logger.LogInformation("Get Metadata finished for symbol {SymbolId}.", symbolId);
+			}
+			catch (Exception ex)
+			{
+				Logger.LogError(ex, "Get Metadata failed for symbol {SymbolId}.", symbolId);
+			}
+			finally
+			{
+				_metadataBusy.Remove(symbolId);
+				OnChanged();
+			}
+		}
+
+		private List<SymbolRow> Rows =>
+			_symbols
+				.Select(s => new SymbolRow(
+					s.SymbolId,
+					s.SymbolName,
+					s.Enabled,
+					s.BaseAssetId,
+					s.QuoteAssetId,
+					s.SymbolCategoryId,
+					s.Description,
+					s.SortingNumber,
+					s.CreatedAt,
+					s.ChangedAt
+				))
+				.ToList();
+
+		// Flattens SymbolModel into a DataTable-friendly shape, matching its reflected-property display.
+		private sealed record SymbolRow(
+			long SymbolId,
+			string SymbolName,
+			bool Enabled,
+			long BaseAssetId,
+			long QuoteAssetId,
+			long SymbolCategoryId,
+			string Description,
+			double SortingNumber,
+			DateTime CreatedAt,
+			DateTime? ChangedAt
+		);
 
 		private async Task TrackAndStreamAsync(CTraderSymbolInfo symbol)
 		{

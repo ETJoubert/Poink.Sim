@@ -23,6 +23,13 @@ namespace Poink.CTrader
         Task<ProtoOASymbolsListRes> GetSymbolsAsync(long ctidTraderAccountId, bool includeArchivedSymbols = false, CancellationToken cancellationToken = default);
 
         /// <summary>
+        /// Requires <see cref="AuthorizeAccountAsync"/> first. Returns the full trading detail for one symbol
+        /// (digits, volume/commission/swap rules, schedule, holidays) - unlike <see cref="GetSymbolsAsync"/>'s
+        /// lightweight list, this costs one API call per symbol.
+        /// </summary>
+        Task<ProtoOASymbolByIdRes> GetSymbolByIdAsync(long ctidTraderAccountId, long symbolId, CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// Requires <see cref="AuthorizeAccountAsync"/> to have been called for this account first.
         /// Live price ticks then arrive as <c>ProtoOASpotEvent</c> messages on <see cref="Messages"/> -
         /// this only confirms the subscription was accepted.

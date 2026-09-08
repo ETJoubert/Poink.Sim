@@ -20,6 +20,10 @@
 
 	<ItemGroup>
 		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.9.0" />
+		<!-- Pinned to match Microsoft.CodeAnalysis.CSharp above. EF Core's design-time tooling
+         (dotnet ef migrations add) loads an AdhocWorkspace via Microsoft.CodeAnalysis.Workspaces,
+         and a version mismatch between that and CSharp above throws TypeLoadException. -->
+		<PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="5.9.0" />
 		<PackageReference Include="Npgsql" Version="10.0.3" />
 		<PackageReference Include="Dapper" Version="2.1.66" />
 		<!-- EF Core (Postgres) backing the cTrader token store, so a login survives restarts.

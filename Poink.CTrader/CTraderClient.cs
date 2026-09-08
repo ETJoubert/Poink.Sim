@@ -64,6 +64,14 @@ namespace Poink.CTrader
                 IncludeArchivedSymbols = includeArchivedSymbols
             }, cancellationToken);
 
+        public Task<ProtoOASymbolByIdRes> GetSymbolByIdAsync(long ctidTraderAccountId, long symbolId, CancellationToken cancellationToken = default)
+        {
+            var request = new ProtoOASymbolByIdReq { CtidTraderAccountId = ctidTraderAccountId };
+            request.SymbolId.Add(symbolId);
+
+            return SendAndWaitAsync<ProtoOASymbolByIdRes>(request, cancellationToken);
+        }
+
         public Task<ProtoOASubscribeSpotsRes> SubscribeSpotsAsync(long ctidTraderAccountId, IEnumerable<long> symbolIds, CancellationToken cancellationToken = default)
         {
             var request = new ProtoOASubscribeSpotsReq { CtidTraderAccountId = ctidTraderAccountId };
