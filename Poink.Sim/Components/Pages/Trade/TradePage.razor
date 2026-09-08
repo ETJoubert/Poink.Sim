@@ -2,6 +2,7 @@
 @namespace Poink.Sim.Components.Pages.Trade
 @using Poink.Sim.Services.CTrader
 @using Poink.Sim.Components.Shared.Icon
+@using Poink.Sim.Components.Shared.BarSizeSelect
 
 <div class="trade-page">
 
@@ -144,6 +145,9 @@
                                 <span class="trade-chart-ask" title="Live ask">@Price(q.Ask)</span>
                             </span>
                         }
+                        <BarSizeSelect @bind-Value="_barSizeSeconds" @bind-Value:after="OnBarSizeChangedAsync"
+                                       Disabled="_chartLoading" Label="Aggregation"
+                                       Title="Bar size the chart's live history and tick stream are aggregated into" />
                         <button class="trade-chart-close" @onclick="CloseChart" title="Close this chart">
                             <Icon Name="x-lg" Class="trade-chart-close-icon" />
                             CLOSE
@@ -161,7 +165,7 @@
                     {
                         <div class="trade-chart-canvas">
                             <MarketChartContainer Bars="_chartBars" CurrentBid="ChartQuote?.Bid" CurrentAsk="ChartQuote?.Ask"
-                                         ShowAnnotationTools="false" />
+                                         KeepView="_chartKeepView" ShowAnnotationTools="false" />
                         </div>
                     }
                 </div>
