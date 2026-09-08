@@ -17,17 +17,17 @@ Every response ends with this report. Each section label is bold, sections are s
 7. **Recommendations:** state if any exist.
 8. **Finally:** State Next workflow steps
 
-### 10. Workflow
+### 1. Workflow
 1. Master is the core branch. Its own working tree stays on master; feature work never checks out another branch there.
-2. Ask if a feature branch should be created. If yes, create the branch in its own worktree at a sibling path (`../Poink.Sim-<branch-name>`), so multiple branches can be iterated on in parallel without checkout conflicts.
-3. Build and iterate inside that worktree.
+2. At the start of any work: Ask if a feature branch or worktree should be created. If feature, create the branch from master. If worktree create branch in its own worktree at a sibling path (`../Poink.Sim-<branch-name>`), so multiple branches can be iterated on in parallel without checkout conflicts.
+3. Build and iterate inside that branch/worktree.
 4. Compilation is permitted. A build is not treated as running the program.
 5. Do not run the current target program after updates are applied except if explicitly asked.
 6. When done, do not commit; provide the Response Report (§0).
-7. When prompted to merge: commit in the worktree, merge the branch into master, then remove the worktree and delete the merged branch.
+7. When prompted to merge: commit in the branch/worktree, merge the branch into master, then remove the worktree and delete the merged branch.
 8. Pushing to origin is for backup or PR review, not for handing work between local instances; parallel local work is coordinated through worktrees, not through push/pull round-trips.
 
-### 1. Architecture & Organization
+### 2. Architecture & Organization
 1. Build new things modular, for clear, scalable code.
   - SOLID principles
   - Dependency Injection
