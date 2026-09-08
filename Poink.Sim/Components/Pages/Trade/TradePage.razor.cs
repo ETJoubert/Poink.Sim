@@ -48,6 +48,7 @@ namespace Poink.Sim.Components.Pages.Trade
 
 		private string _symbolFilter = string.Empty;
 		private bool _sidepanelCollapsed;
+		private bool _symbolPickerOpen;
 
 		private long? _chartSymbolId;
 		private string? _chartSymbolName;
@@ -104,6 +105,8 @@ namespace Poink.Sim.Components.Pages.Trade
 		private void CloseAccountMenu() => _accountMenuOpen = false;
 
 		private void ToggleSidepanel() => _sidepanelCollapsed = !_sidepanelCollapsed;
+
+		private void ToggleSymbolPicker() => _symbolPickerOpen = !_symbolPickerOpen;
 
 		private CTraderSymbolQuote? ChartQuote =>
 			_chartSymbolId is { } id ? Session.Watchlist.FirstOrDefault(q => q.SymbolId == id) : null;
