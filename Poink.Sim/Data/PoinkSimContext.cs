@@ -16,5 +16,7 @@ namespace Poink.Sim.Data
 		public DbSet<NeuralNetwork> NeuralNetworks { get; set; }
 
 		public DbSet<NeuralWeights> NeuralWeights { get; set; }
+
+		public DbSet<Symbol> Symbols { get; set; }
 	}
 }

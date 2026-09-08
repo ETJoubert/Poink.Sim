@@ -10,6 +10,7 @@ using Poink.Sim.Data;
 using Poink.Sim.Repository;
 using Poink.Sim.Services.CTrader;
 using Poink.Sim.Services.MarketData;
+using Poink.Sim.Services.Symbols;
 using Poink.Sim.Simulation;
 using Poink.Sim.Trader;
 using Poink.Sim.Trader.Risk;
@@ -61,6 +62,18 @@ public static class ServiceCollectionExtensions
 		services.AddSingleton<CTraderSessionService>();
 		services.AddSingleton<ICTraderSessionService>(sp => sp.GetRequiredService<CTraderSessionService>());
 		services.AddSingleton<ICTraderHistory>(sp => sp.GetRequiredService<CTraderSessionService>());
+
+		return services;
+	}
+
+	/// <summary>
+	/// Symbol registry: persists the connected cTrader account's symbol list into the Symbol
+	/// table so it can be browsed on the Data page without an active session. Scoped, to
+	/// match its PoinkSimContext dependency (see BuildDatabase).
+	/// </summary>
+	public static IServiceCollection BuildSymbolServices(this IServiceCollection services)
+	{
+		services.AddScoped<ISymbolService, SymbolService>();
 
 		return services;
 	}

@@ -23,6 +23,7 @@ builder.SetupLogging();
 
 builder.Services.BuildDatabase(builder.Configuration);
 builder.Services.BuildCTraderServices(builder.Configuration);
+builder.Services.BuildSymbolServices();
 builder.Services.BuildBackgroundWorkers();
 builder.Services.BuildTrainingServices();
 builder.Services.BuildSimulationServices();

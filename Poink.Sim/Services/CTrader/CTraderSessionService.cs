@@ -628,19 +628,56 @@ namespace Poink.Sim.Services.CTrader
 			SelectedAccountId = accountId;
 			_logger.LogInformation("cTrader: account {AccountId} authorized.", accountId);
 
-			var symbols = await _client.GetSymbolsAsync(accountId, cancellationToken: cancellationToken);
-			Symbols = symbols
-				.Symbol.Select(s => new CTraderSymbolInfo(s.SymbolId, s.SymbolName, s.Enabled))
-				.OrderBy(s => s.SymbolName)
-				.ToList();
+			await LoadSymbolsAsync(accountId, cancellationToken);
 
 			_spotSubscription = _client.Messages.OfType<ProtoOASpotEvent>().Subscribe(OnSpotEvent);
+		}
+
+		public async Task<IReadOnlyList<CTraderSymbolInfo>> RefreshSymbolsAsync(
+			CancellationToken cancellationToken = default
+		)
+		{
+			if (_client is null || SelectedAccountId is not { } accountId)
+				throw new InvalidOperationException("Not connected to cTrader.");
+
+			await _gate.WaitAsync(cancellationToken);
+			try
+			{
+				return await LoadSymbolsAsync(accountId, cancellationToken);
+			}
+			finally
+			{
+				_gate.Release();
+			}
+		}
+
+		private async Task<IReadOnlyList<CTraderSymbolInfo>> LoadSymbolsAsync(
+			long accountId,
+			CancellationToken cancellationToken
+		)
+		{
+			var symbols = await _client!.GetSymbolsAsync(accountId, cancellationToken: cancellationToken);
+			Symbols = symbols
+				.Symbol.Select(s => new CTraderSymbolInfo(
+					s.SymbolId,
+					s.SymbolName,
+					s.Enabled,
+					s.BaseAssetId,
+					s.QuoteAssetId,
+					s.SymbolCategoryId,
+					s.Description,
+					s.SortingNumber
+				))
+				.OrderBy(s => s.SymbolName)
+				.ToList();
 
 			_logger.LogInformation(
 				"cTrader: {SymbolCount} symbol(s) loaded for account {AccountId}.",
 				Symbols.Count,
 				accountId
 			);
+
+			return Symbols;
 		}
 
 		private void OnSpotEvent(ProtoOASpotEvent spot)

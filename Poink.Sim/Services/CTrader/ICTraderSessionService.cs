@@ -43,6 +43,9 @@ namespace Poink.Sim.Services.CTrader
 
 		Task LogoutAsync();
 
+		/// <summary>Re-fetches the authorized account's symbol list from cTrader and updates <see cref="Symbols"/>. Requires a connected session.</summary>
+		Task<IReadOnlyList<CTraderSymbolInfo>> RefreshSymbolsAsync(CancellationToken cancellationToken = default);
+
 		bool IsSymbolWatched(long symbolId);
 
 		Task WatchSymbolAsync(long symbolId);

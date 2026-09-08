@@ -140,6 +140,52 @@ namespace Poink.Sim.Data.Migrations.PoinkSim
                     b.ToTable("NeuralWeights");
                 });
 
+            modelBuilder.Entity("Poink.Sim.Data.Entities.Symbol", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("BaseAssetId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime?>("ChangedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<long>("QuoteAssetId")
+                        .HasColumnType("bigint");
+
+                    b.Property<double>("SortingNumber")
+                        .HasColumnType("double precision");
+
+                    b.Property<long>("SymbolCategoryId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("SymbolId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("SymbolName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SymbolId")
+                        .IsUnique();
+
+                    b.ToTable("Symbols");
+                });
+
             modelBuilder.Entity("Poink.Sim.Data.Entities.TrainingResult", b =>
                 {
                     b.Property<Guid>("Id")
