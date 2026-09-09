@@ -64,6 +64,18 @@ namespace Poink.CTrader
                 IncludeArchivedSymbols = includeArchivedSymbols
             }, cancellationToken);
 
+        public Task<ProtoOASymbolCategoryListRes> GetSymbolCategoriesAsync(long ctidTraderAccountId, CancellationToken cancellationToken = default) =>
+            SendAndWaitAsync<ProtoOASymbolCategoryListRes>(new ProtoOASymbolCategoryListReq
+            {
+                CtidTraderAccountId = ctidTraderAccountId
+            }, cancellationToken);
+
+        public Task<ProtoOAAssetClassListRes> GetAssetClassesAsync(long ctidTraderAccountId, CancellationToken cancellationToken = default) =>
+            SendAndWaitAsync<ProtoOAAssetClassListRes>(new ProtoOAAssetClassListReq
+            {
+                CtidTraderAccountId = ctidTraderAccountId
+            }, cancellationToken);
+
         public Task<ProtoOASymbolByIdRes> GetSymbolByIdAsync(long ctidTraderAccountId, long symbolId, CancellationToken cancellationToken = default)
         {
             var request = new ProtoOASymbolByIdReq { CtidTraderAccountId = ctidTraderAccountId };

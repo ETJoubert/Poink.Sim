@@ -16,5 +16,10 @@ namespace Poink.Sim.Services.Symbols
 
 		/// <summary>Fetches one symbol's full trading detail from cTrader and upserts it into the SymbolMetadata table, replacing its schedule/holiday rows. Requires a connected session.</summary>
 		Task<SymbolMetadataModel?> RefreshMetadataFromCTraderAsync(long symbolId, CancellationToken cancellationToken = default);
+
+		Task<IReadOnlyList<SymbolCategoryModel>> ListCategoriesAsync(CancellationToken cancellationToken = default);
+
+		/// <summary>Fetches the account's symbol categories and asset classes from cTrader, classifies each into a SymbolCategoryBucket, and upserts them into the SymbolCategory table. Requires a connected session.</summary>
+		Task<IReadOnlyList<SymbolCategoryModel>> RefreshCategoriesFromCTraderAsync(CancellationToken cancellationToken = default);
 	}
 }

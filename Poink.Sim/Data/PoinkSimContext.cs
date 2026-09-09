@@ -24,5 +24,7 @@ namespace Poink.Sim.Data
 		public DbSet<SymbolScheduleInterval> SymbolScheduleIntervals { get; set; }
 
 		public DbSet<SymbolHoliday> SymbolHolidays { get; set; }
+
+		public DbSet<SymbolCategory> SymbolCategories { get; set; }
 	}
 }

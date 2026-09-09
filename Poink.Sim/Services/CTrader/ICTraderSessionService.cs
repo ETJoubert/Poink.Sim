@@ -58,6 +58,12 @@ namespace Poink.Sim.Services.CTrader
 		/// <summary>Fetches one symbol's full trading detail (digits, volume/commission/swap rules, schedule, holidays). Requires a connected session; returns null if the symbol is unknown.</summary>
 		Task<ProtoOASymbol?> GetSymbolMetadataAsync(long symbolId, CancellationToken cancellationToken = default);
 
+		/// <summary>Fetches the account's symbol-category and asset-class reference lists (a small, broker-defined set). Requires a connected session.</summary>
+		Task<(
+			IReadOnlyList<ProtoOASymbolCategory> Categories,
+			IReadOnlyList<ProtoOAAssetClass> AssetClasses
+		)> GetSymbolCategoriesAsync(CancellationToken cancellationToken = default);
+
 		bool IsSymbolWatched(long symbolId);
 
 		Task WatchSymbolAsync(long symbolId);

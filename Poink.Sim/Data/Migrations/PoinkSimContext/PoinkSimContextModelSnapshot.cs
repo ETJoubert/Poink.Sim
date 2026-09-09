@@ -186,6 +186,43 @@ namespace Poink.Sim.Data.Migrations.PoinkSim
                     b.ToTable("Symbols");
                 });
 
+            modelBuilder.Entity("Poink.Sim.Data.Entities.SymbolCategory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("AssetClassId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("AssetClassName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("Bucket")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("ChangedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<long>("SymbolCategoryId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SymbolCategoryId")
+                        .IsUnique();
+
+                    b.ToTable("SymbolCategories");
+                });
+
             modelBuilder.Entity("Poink.Sim.Data.Entities.SymbolHoliday", b =>
                 {
                     b.Property<Guid>("Id")

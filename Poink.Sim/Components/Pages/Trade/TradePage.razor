@@ -4,6 +4,7 @@
 @using Poink.Sim.Components.Charts
 @using Poink.Sim.Components.Shared.Icon
 @using Poink.Sim.Components.Shared.BarSizeSelect
+@using Poink.Sim.Models
 @using System.Globalization
 
 <div class="trade-page">
@@ -116,6 +117,14 @@
                             <input type="text" class="trade-symbol-search" placeholder="Search symbols..."
                                    value="@_symbolFilter" @oninput="e => _symbolFilter = e.Value?.ToString() ?? string.Empty"
                                    title="Filter the account's symbols by name" />
+                            <div class="trade-panel-toggles" title="Filter by category -- select one or more, none selected shows everything">
+                                <span class="trade-panel-toggles-label">Category</span>
+                                @foreach (var (bucket, label, fullName) in CategoryToggleDefs)
+                                {
+                                    <button type="button" class="trade-panel-toggle-btn @(_selectedCategoryBuckets.Contains(bucket) ? "active" : "")"
+                                            @onclick="() => ToggleCategoryBucket(bucket)" title="@fullName">@label</button>
+                                }
+                            </div>
                             <ul class="trade-symbol-list">
                                 @foreach (var symbol in FilteredSymbols)
                                 {

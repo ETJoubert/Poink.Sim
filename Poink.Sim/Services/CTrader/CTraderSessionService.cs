@@ -927,6 +927,26 @@ namespace Poink.Sim.Services.CTrader
 			return symbol;
 		}
 
+		public async Task<(
+			IReadOnlyList<ProtoOASymbolCategory> Categories,
+			IReadOnlyList<ProtoOAAssetClass> AssetClasses
+		)> GetSymbolCategoriesAsync(CancellationToken cancellationToken = default)
+		{
+			if (_client is null || SelectedAccountId is not { } accountId)
+				throw new InvalidOperationException("Not connected to cTrader.");
+
+			var categoriesRes = await _client.GetSymbolCategoriesAsync(accountId, cancellationToken);
+			var assetClassesRes = await _client.GetAssetClassesAsync(accountId, cancellationToken);
+
+			_logger.LogInformation(
+				"cTrader: {CategoryCount} symbol categor(y/ies), {AssetClassCount} asset class(es) loaded.",
+				categoriesRes.SymbolCategory.Count,
+				assetClassesRes.AssetClass.Count
+			);
+
+			return (categoriesRes.SymbolCategory, assetClassesRes.AssetClass);
+		}
+
 		private async Task<IReadOnlyList<CTraderSymbolInfo>> LoadSymbolsAsync(
 			long accountId,
 			CancellationToken cancellationToken

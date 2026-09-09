@@ -22,6 +22,12 @@ namespace Poink.CTrader
         /// <summary>Requires <see cref="AuthorizeAccountAsync"/> to have been called for this account first.</summary>
         Task<ProtoOASymbolsListRes> GetSymbolsAsync(long ctidTraderAccountId, bool includeArchivedSymbols = false, CancellationToken cancellationToken = default);
 
+        /// <summary>Requires <see cref="AuthorizeAccountAsync"/> first. The account's small, broker-defined list of symbol categories.</summary>
+        Task<ProtoOASymbolCategoryListRes> GetSymbolCategoriesAsync(long ctidTraderAccountId, CancellationToken cancellationToken = default);
+
+        /// <summary>Requires <see cref="AuthorizeAccountAsync"/> first. The asset classes (e.g. Forex, Metals) that <see cref="ProtoOASymbolCategory.AssetClassId"/> references.</summary>
+        Task<ProtoOAAssetClassListRes> GetAssetClassesAsync(long ctidTraderAccountId, CancellationToken cancellationToken = default);
+
         /// <summary>
         /// Requires <see cref="AuthorizeAccountAsync"/> first. Returns the full trading detail for one symbol
         /// (digits, volume/commission/swap rules, schedule, holidays) - unlike <see cref="GetSymbolsAsync"/>'s

@@ -216,6 +216,78 @@ namespace Poink.Sim.Services.Symbols
 			return ToMetadataModel(entity);
 		}
 
+		public async Task<IReadOnlyList<SymbolCategoryModel>> ListCategoriesAsync(CancellationToken cancellationToken = default)
+		{
+			var entities = await _context.SymbolCategories.OrderBy(c => c.Name).ToListAsync(cancellationToken);
+
+			return entities.Select(ToCategoryModel).ToList();
+		}
+
+		public async Task<IReadOnlyList<SymbolCategoryModel>> RefreshCategoriesFromCTraderAsync(
+			CancellationToken cancellationToken = default
+		)
+		{
+			_logger.LogInformation("Refreshing symbol categories from cTrader...");
+
+			var (categories, assetClasses) = await _session.GetSymbolCategoriesAsync(cancellationToken);
+			var assetClassNames = assetClasses.ToDictionary(a => a.Id, a => a.Name);
+			var existing = await _context.SymbolCategories.ToDictionaryAsync(c => c.SymbolCategoryId, cancellationToken);
+			var now = DateTime.UtcNow;
+
+			foreach (var category in categories)
+			{
+				var assetClassName = assetClassNames.GetValueOrDefault(category.AssetClassId, string.Empty);
+				var bucket = SymbolCategoryClassifier.Classify(category.Name, assetClassName);
+
+				if (existing.TryGetValue(category.Id, out var entity))
+				{
+					entity.Name = category.Name;
+					entity.AssetClassId = category.AssetClassId;
+					entity.AssetClassName = assetClassName;
+					entity.Bucket = bucket;
+					entity.ChangedAt = now;
+				}
+				else
+				{
+					_context.SymbolCategories.Add(
+						new Data.Entities.SymbolCategory
+						{
+							Id = Guid.NewGuid(),
+							SymbolCategoryId = category.Id,
+							Name = category.Name,
+							AssetClassId = category.AssetClassId,
+							AssetClassName = assetClassName,
+							Bucket = bucket,
+							CreatedAt = now,
+						}
+					);
+				}
+			}
+
+			await _context.SaveChangesAsync(cancellationToken);
+
+			var result = await ListCategoriesAsync(cancellationToken);
+			_logger.LogInformation(
+				"Refreshed {CategoryCount} symbol categor(y/ies) from cTrader: {Categories}.",
+				result.Count,
+				string.Join(", ", result.Select(c => $"{c.Name}[{c.AssetClassName}]={c.Bucket}"))
+			);
+
+			return result;
+		}
+
+		private static SymbolCategoryModel ToCategoryModel(Data.Entities.SymbolCategory entity) =>
+			new(
+				entity.Id,
+				entity.SymbolCategoryId,
+				entity.Name,
+				entity.AssetClassId,
+				entity.AssetClassName,
+				entity.Bucket,
+				entity.CreatedAt,
+				entity.ChangedAt
+			);
+
 		private static SymbolMetadataModel ToMetadataModel(Data.Entities.SymbolMetadata entity) =>
 			new(
 				entity.Id,

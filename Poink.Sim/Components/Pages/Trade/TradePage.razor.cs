@@ -59,6 +59,22 @@ namespace Poink.Sim.Components.Pages.Trade
 		/// <summary>Pip-size source for the positions table, keyed by symbol -- populated lazily as each symbol is watched (see <see cref="WatchAsync"/>).</summary>
 		private readonly Dictionary<long, SymbolMetadataModel> _symbolMetadata = new();
 
+		/// <summary>Symbol-search category filter source, keyed by cTrader's SymbolCategoryId -- loaded once per connect (see <see cref="EnsureSymbolCategoriesAsync"/>).</summary>
+		private readonly Dictionary<long, SymbolCategoryModel> _symbolCategories = new();
+
+		private bool _symbolCategoriesLoaded;
+		private readonly HashSet<SymbolCategoryBucket> _selectedCategoryBuckets = new();
+
+		private static readonly (SymbolCategoryBucket Bucket, string Label, string FullName)[] CategoryToggleDefs =
+		{
+			(SymbolCategoryBucket.Index, "IX", "Indexes"),
+			(SymbolCategoryBucket.Forex, "FX", "Forex"),
+			(SymbolCategoryBucket.IndexFuture, "IXF", "Index Futures"),
+			(SymbolCategoryBucket.CommodityFuture, "ComF", "Commodity Futures"),
+			(SymbolCategoryBucket.Commodity, "Com", "Commodities"),
+			(SymbolCategoryBucket.Crypto, "CX", "Cryptos"),
+		};
+
 		// ISymbolService's DbContext is scoped and single-threaded, but restoring the watchlist and
 		// reacting to Session.Changed can both try to fetch metadata at once -- this serializes them.
 		private readonly SemaphoreSlim _metadataGate = new(1, 1);
@@ -138,14 +154,30 @@ namespace Poink.Sim.Components.Pages.Trade
 						s.SymbolName.Contains(_symbolFilter, StringComparison.OrdinalIgnoreCase)
 					);
 
-				return matches.Take(MaxSymbolResults).ToList();
+				return matches.Where(MatchesCategoryFilter).Take(MaxSymbolResults).ToList();
 			}
 		}
 
 		private int TotalSymbolMatchCount =>
-			string.IsNullOrWhiteSpace(_symbolFilter)
-				? Session.Symbols.Count
-				: Session.Symbols.Count(s => s.SymbolName.Contains(_symbolFilter, StringComparison.OrdinalIgnoreCase));
+			(
+				string.IsNullOrWhiteSpace(_symbolFilter)
+					? Session.Symbols
+					: Session.Symbols.Where(s => s.SymbolName.Contains(_symbolFilter, StringComparison.OrdinalIgnoreCase))
+			).Count(MatchesCategoryFilter);
+
+		// No toggle selected shows everything, matching today's name-only-filter behavior.
+		private bool MatchesCategoryFilter(CTraderSymbolInfo symbol) =>
+			_selectedCategoryBuckets.Count == 0
+			|| (
+				_symbolCategories.TryGetValue(symbol.SymbolCategoryId, out var category)
+				&& _selectedCategoryBuckets.Contains(category.Bucket)
+			);
+
+		private void ToggleCategoryBucket(SymbolCategoryBucket bucket)
+		{
+			if (!_selectedCategoryBuckets.Remove(bucket))
+				_selectedCategoryBuckets.Add(bucket);
+		}
 
 		private string StateLabel =>
 			Session.State switch
@@ -308,7 +340,10 @@ namespace Poink.Sim.Components.Pages.Trade
 				// Session and its Positions are a long-lived singleton, so navigating back to an already-
 				// connected session raises no Changed event to trigger this -- check once on mount too.
 				if (IsConnected)
+				{
 					await EnsureMetadataForOpenPositionsAsync();
+					await EnsureSymbolCategoriesAsync();
+				}
 			}
 			else
 			{
@@ -491,6 +526,33 @@ namespace Poink.Sim.Components.Pages.Trade
 				await EnsureSymbolMetadataAsync(position.SymbolId);
 		}
 
+		// Categories are a tiny, broker-defined reference set (unlike per-symbol metadata), so this
+		// fetches once per connect rather than requiring a manual DataPage refresh first.
+		private async Task EnsureSymbolCategoriesAsync()
+		{
+			if (_symbolCategoriesLoaded)
+				return;
+
+			await _metadataGate.WaitAsync();
+			try
+			{
+				if (_symbolCategoriesLoaded)
+					return;
+
+				var categories = await SymbolService.ListCategoriesAsync();
+				if (categories.Count == 0)
+					categories = await SymbolService.RefreshCategoriesFromCTraderAsync();
+
+				foreach (var category in categories)
+					_symbolCategories[category.SymbolCategoryId] = category;
+				_symbolCategoriesLoaded = true;
+			}
+			finally
+			{
+				_metadataGate.Release();
+			}
+		}
+
 		// Unwatching the symbol whose chart is open closes that chart too, since a chart
 		// with no live quote behind it can no longer receive ticks.
 		private async Task UnwatchAsync(long symbolId)
@@ -603,6 +665,8 @@ namespace Poink.Sim.Components.Pages.Trade
 				if (_restorePending && IsConnected)
 					await ApplyPendingRestoreAsync();
 				await EnsureMetadataForOpenPositionsAsync();
+				if (IsConnected)
+					await EnsureSymbolCategoriesAsync();
 				StateHasChanged();
 			});
 
