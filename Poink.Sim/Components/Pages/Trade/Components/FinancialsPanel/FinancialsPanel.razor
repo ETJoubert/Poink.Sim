@@ -1,0 +1,42 @@
+@namespace Poink.Sim.Components.Pages.Trade
+@using Poink.Sim.Services.CTrader
+
+<div class="fp-panel">
+    <div class="trade-section-header">
+        <span class="trade-section-title">POSITIONS</span>
+        <span class="trade-section-count">@Positions.Count</span>
+    </div>
+    <PositionTable Positions="Positions" OnSelect="OnSelectPosition" />
+
+    <div class="fp-financials"
+         title="Balance updates live from cTrader and Margin Used is summed from open positions; the remaining figures need closed-deal history or live unrealized P/L, not implemented yet">
+        <div class="fp-item" title="Live account balance">
+            <span class="fp-label">Balance</span>
+            <span class="fp-value">@Money(Balance)</span>
+        </div>
+        <div class="fp-item fp-item-placeholder" title="Derived from closed-deal history for the current server day -- not available yet">
+            <span class="fp-label">Realized</span>
+            <span class="fp-value">@Money(RealizedPnl)</span>
+        </div>
+        <div class="fp-item fp-item-placeholder" title="Derived from open positions -- not available yet">
+            <span class="fp-label">Unrealized</span>
+            <span class="fp-value">@Money(UnrealizedPnl)</span>
+        </div>
+        <div class="fp-item fp-item-placeholder" title="Derived as Balance + Unrealized P/L -- not available yet">
+            <span class="fp-label">Equity</span>
+            <span class="fp-value">@Money(Equity)</span>
+        </div>
+        <div class="fp-item" title="Sum of used margin across every open position">
+            <span class="fp-label">Margin Used</span>
+            <span class="fp-value">@Money(MarginUsed)</span>
+        </div>
+        <div class="fp-item fp-item-placeholder" title="Derived as Equity / Margin Used -- not available yet">
+            <span class="fp-label">Margin Level</span>
+            <span class="fp-value">@Money(MarginLevel)</span>
+        </div>
+        <div class="fp-item fp-item-placeholder" title="Derived as Equity - Margin Used -- not available yet">
+            <span class="fp-label">Free Margin</span>
+            <span class="fp-value">@Money(FreeMargin)</span>
+        </div>
+    </div>
+</div>

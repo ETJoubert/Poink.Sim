@@ -48,6 +48,7 @@ namespace Poink.Sim.Components.Pages.Trade
 
 		private string _symbolFilter = string.Empty;
 		private bool _sidepanelCollapsed;
+		private bool _rightPanelCollapsed;
 		private bool _symbolPickerOpen;
 
 		private long? _chartSymbolId;
@@ -64,7 +65,6 @@ namespace Poink.Sim.Components.Pages.Trade
 		private bool _showXGrid;
 		private bool _showVolumeProfile;
 		private bool _showTimeProfile;
-		private bool _showTraderControls;
 		private bool _showProfileChartLines = true;
 		private bool _showVwap = true;
 
@@ -106,10 +106,15 @@ namespace Poink.Sim.Components.Pages.Trade
 
 		private void ToggleSidepanel() => _sidepanelCollapsed = !_sidepanelCollapsed;
 
+		private void ToggleRightPanel() => _rightPanelCollapsed = !_rightPanelCollapsed;
+
 		private void ToggleSymbolPicker() => _symbolPickerOpen = !_symbolPickerOpen;
 
 		private CTraderSymbolQuote? ChartQuote =>
 			_chartSymbolId is { } id ? Session.Watchlist.FirstOrDefault(q => q.SymbolId == id) : null;
+
+		private CTraderPositionInfo? ChartPosition =>
+			_chartSymbolId is { } id ? Session.Positions.FirstOrDefault(p => p.SymbolId == id) : null;
 
 		private IReadOnlyList<CTraderSymbolInfo> FilteredSymbols
 		{
@@ -158,7 +163,7 @@ namespace Poink.Sim.Components.Pages.Trade
 		private ElementReference _chartDividerRef;
 		private ElementReference _chartDividerRefVolume;
 		private ElementReference _chartDividerRefTime;
-		private ElementReference _chartDividerRefTrader;
+		private ElementReference _positionsHDividerRef;
 		private IJSObjectReference? _dividerResizeInstance;
 		private HashSet<string> _lastVisibleChartPanels = new();
 
@@ -169,21 +174,17 @@ namespace Poink.Sim.Components.Pages.Trade
 			if (_showXGrid) keys.Add("xgrid");
 			if (_showVolumeProfile) keys.Add("volume");
 			if (_showTimeProfile) keys.Add("time");
-			if (_showTraderControls) keys.Add("trader");
 			return keys;
 		}
 
 		// A divider's negative margin assumes a panel to its left, so a divider only shows
-		// once an earlier panel (main -> XGrid -> volume profile -> time profile) is visible.
+		// once an earlier panel (main -> XGrid -> volume profile) is visible.
 		private bool ShowXGridDivider => _showMainChart && _showXGrid;
 
 		private bool ShowVolumeProfileDivider => _showVolumeProfile && (_showMainChart || _showXGrid);
 
 		private bool ShowTimeProfileDivider =>
 			_showTimeProfile && (_showMainChart || _showXGrid || _showVolumeProfile);
-
-		private bool ShowTraderControlsDivider =>
-			_showTraderControls && (_showMainChart || _showXGrid || _showVolumeProfile || _showTimeProfile);
 
 		// Same drag-to-resize mechanism as SimulationPage's ChartDividerScript, trimmed to the
 		// two-panel (main/side) case Trade's chart row actually has -- no height divider here.
@@ -205,7 +206,7 @@ namespace Poink.Sim.Components.Pages.Trade
 			        panels.forEach(function(p) { p.style.flex = '0 0 ' + percent + '%'; });
 			    }
 			    function bindChartDivider(divider) {
-			        if (!divider || divider.dataset.bound) return;
+			        if (!divider || !divider.dataset || divider.dataset.bound) return;
 			        divider.dataset.bound = '1';
 			        var minWidthPx = parseInt(divider.dataset.minWidth, 10) || 160;
 			        divider.addEventListener('pointerdown', function(e) {
@@ -244,7 +245,41 @@ namespace Poink.Sim.Components.Pages.Trade
 			            divider.addEventListener('pointerup', onUp);
 			        });
 			    }
-			    return { bindChartDivider: bindChartDivider, resetChartPanelsEqual: resetChartPanelsEqual };
+			    function bindHeightAfter(divider) {
+			        if (!divider || !divider.dataset || divider.dataset.bound) return;
+			        divider.dataset.bound = '1';
+			        var minHeight = parseInt(divider.dataset.minHeight, 10) || 120;
+			        var maxHeightVh = parseInt(divider.dataset.maxHeightVh, 10) || 70;
+			        divider.addEventListener('pointerdown', function(e) {
+			            e.preventDefault();
+			            var target = divider.nextElementSibling;
+			            if (!target) return;
+			            var startY = e.clientY;
+			            var startHeight = target.getBoundingClientRect().height;
+			            var maxHeight = (maxHeightVh / 100) * window.innerHeight;
+			            divider.setPointerCapture(e.pointerId);
+			            divider.classList.add('trade-chart-hdivider-active');
+
+			            function clamp(ev) {
+			                return Math.min(maxHeight, Math.max(minHeight, startHeight - (ev.clientY - startY)));
+			            }
+			            function onMove(ev) {
+			                target.style.height = clamp(ev) + 'px';
+			            }
+			            function onUp(ev) {
+			                divider.releasePointerCapture(e.pointerId);
+			                divider.removeEventListener('pointermove', onMove);
+			                divider.removeEventListener('pointerup', onUp);
+			                divider.classList.remove('trade-chart-hdivider-active');
+			            }
+			            divider.addEventListener('pointermove', onMove);
+			            divider.addEventListener('pointerup', onUp);
+			        });
+			    }
+			    return {
+			        bindChartDivider: bindChartDivider, bindHeightAfter: bindHeightAfter,
+			        resetChartPanelsEqual: resetChartPanelsEqual,
+			    };
 			})()
 			""";
 
@@ -263,7 +298,13 @@ namespace Poink.Sim.Components.Pages.Trade
 				await PersistSettingsIfChangedAsync();
 			}
 
-			if (_chartSymbolId is null || _chartLoading || _chartError is not null || _dividerResizeInstance is null)
+			if (_dividerResizeInstance is null)
+				return;
+
+			if (IsConnected)
+				await _dividerResizeInstance.InvokeVoidAsync("bindHeightAfter", _positionsHDividerRef);
+
+			if (_chartSymbolId is null || _chartLoading || _chartError is not null)
 				return;
 
 			var visiblePanels = CurrentVisibleChartPanelKeys();
@@ -279,8 +320,6 @@ namespace Poink.Sim.Components.Pages.Trade
 				await _dividerResizeInstance.InvokeVoidAsync("bindChartDivider", _chartDividerRefVolume);
 			if (ShowTimeProfileDivider)
 				await _dividerResizeInstance.InvokeVoidAsync("bindChartDivider", _chartDividerRefTime);
-			if (ShowTraderControlsDivider)
-				await _dividerResizeInstance.InvokeVoidAsync("bindChartDivider", _chartDividerRefTrader);
 		}
 
 		public async ValueTask DisposeAsync()
@@ -312,7 +351,6 @@ namespace Poink.Sim.Components.Pages.Trade
 				_showXGrid,
 				_showVolumeProfile,
 				_showTimeProfile,
-				_showTraderControls,
 				_showProfileChartLines,
 				_showVwap,
 				_barWindowSize,
@@ -322,7 +360,8 @@ namespace Poink.Sim.Components.Pages.Trade
 				_chartSymbolId,
 				_chartSymbolName,
 				Session.Watchlist.Select(q => q.SymbolId).ToList(),
-				_sidepanelCollapsed
+				_sidepanelCollapsed,
+				_rightPanelCollapsed
 			);
 
 		private async Task LoadPersistedSettingsAsync()
@@ -336,7 +375,6 @@ namespace Poink.Sim.Components.Pages.Trade
 			_showXGrid = settings.ShowXGrid;
 			_showVolumeProfile = settings.ShowVolumeProfile;
 			_showTimeProfile = settings.ShowTimeProfile;
-			_showTraderControls = settings.ShowTraderControls;
 			_showProfileChartLines = settings.ShowProfileChartLines;
 			_showVwap = settings.ShowVwap;
 			_barWindowSize = settings.BarWindowSize;
@@ -344,6 +382,7 @@ namespace Poink.Sim.Components.Pages.Trade
 			_xgridPipCount = settings.XGridPipCount;
 			_xgridColCount = settings.XGridColCount;
 			_sidepanelCollapsed = settings.SidepanelCollapsed;
+			_rightPanelCollapsed = settings.RightPanelCollapsed;
 			_pendingChartSymbolId = settings.ChartSymbolId;
 			_pendingChartSymbolName = settings.ChartSymbolName;
 			_pendingWatchSymbolIds = settings.WatchedSymbolIds;
@@ -492,8 +531,6 @@ namespace Poink.Sim.Components.Pages.Trade
 
 		private static string Price(double? value) => value?.ToString("N5") ?? "—";
 
-		private static string Money(double? value) => value?.ToString("N2") ?? "—";
-
 		private void OnSessionChanged() =>
 			InvokeAsync(async () =>
 			{
@@ -628,6 +665,21 @@ namespace Poink.Sim.Components.Pages.Trade
 			return _xgridCache;
 		}
 
+		private List<XGridPosition> XGridPositions() =>
+			Session.Positions
+				.Where(p => p.SymbolId == _chartSymbolId)
+				.Select(p => new XGridPosition(
+					p.IsLong ? XGridPositionDirection.Long : XGridPositionDirection.Short,
+					p.OpenTimeUtc,
+					p.EntryPrice,
+					StopLoss: p.StopLossPrice,
+					TakeProfit: p.TakeProfitPrice
+				)
+				{
+					Id = p.PositionId.ToString(),
+				})
+				.ToList();
+
 		private List<ChartHorizontalLine> ProfileLevelLines()
 		{
 			if (!_showProfileChartLines)
@@ -687,6 +739,7 @@ namespace Poink.Sim.Components.Pages.Trade
 			var updated = quote.UpdatedAt?.ToString("HH:mm:ss") ?? "waiting...";
 			return $"{state} -- last update: {updated}";
 		}
+
 
 		public void Dispose()
 		{

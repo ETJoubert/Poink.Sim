@@ -1,0 +1,41 @@
+.fp-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.fp-financials {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+    padding: 8px 10px;
+    border-top: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+.fp-item {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.fp-label {
+    font-size: 0.58rem;
+    font-weight: bold;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-secondary);
+    opacity: 0.85;
+}
+
+.fp-value {
+    font-variant-numeric: tabular-nums;
+    font-size: 0.82rem;
+    color: var(--color-primary);
+}
+
+.fp-item-placeholder .fp-value {
+    color: var(--color-secondary);
+    opacity: 0.55;
+}

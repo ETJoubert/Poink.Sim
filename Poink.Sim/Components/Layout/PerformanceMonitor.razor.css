@@ -3,7 +3,7 @@
   display: flex;
   align-items: center;
   gap: 24px;
-  padding: 6px 20px;
+  padding: 1px 5px;
   background: var(--color-bg-terminal);
   border-top: 2px solid var(--color-primary);
   box-shadow:

@@ -89,47 +89,6 @@
                 }
             </div>
         </header>
-
-        @if (IsConnected)
-        {
-            <div class="trade-account-financials"
-                 title="Balance updates live from cTrader; the other figures need deriving from open positions and closed-deal history, not implemented yet">
-                <div class="trade-financial-item" title="Live account balance">
-                    <span class="trade-financial-label">Balance</span>
-                    <span class="trade-financial-value">@Money(Session.AccountFinancials.Balance)</span>
-                </div>
-                <div class="trade-financial-item trade-financial-item-placeholder"
-                     title="Derived from closed-deal history for the current server day -- not available yet">
-                    <span class="trade-financial-label">Realized</span>
-                    <span class="trade-financial-value">@Money(Session.AccountFinancials.RealizedPnl)</span>
-                </div>
-                <div class="trade-financial-item trade-financial-item-placeholder"
-                     title="Derived from open positions -- not available yet">
-                    <span class="trade-financial-label">Unrealized</span>
-                    <span class="trade-financial-value">@Money(Session.AccountFinancials.UnrealizedPnl)</span>
-                </div>
-                <div class="trade-financial-item trade-financial-item-placeholder"
-                     title="Derived as Balance + Unrealized P/L -- not available yet">
-                    <span class="trade-financial-label">Equity</span>
-                    <span class="trade-financial-value">@Money(Session.AccountFinancials.Equity)</span>
-                </div>
-                <div class="trade-financial-item trade-financial-item-placeholder"
-                     title="Derived from open positions' used margin -- not available yet">
-                    <span class="trade-financial-label">Margin Used</span>
-                    <span class="trade-financial-value">@Money(Session.AccountFinancials.MarginUsed)</span>
-                </div>
-                <div class="trade-financial-item trade-financial-item-placeholder"
-                     title="Derived as Equity / Margin Used -- not available yet">
-                    <span class="trade-financial-label">Margin Level</span>
-                    <span class="trade-financial-value">@Money(Session.AccountFinancials.MarginLevel)</span>
-                </div>
-                <div class="trade-financial-item trade-financial-item-placeholder"
-                     title="Derived as Equity - Margin Used -- not available yet">
-                    <span class="trade-financial-label">Free Margin</span>
-                    <span class="trade-financial-value">@Money(Session.AccountFinancials.FreeMargin)</span>
-                </div>
-            </div>
-        }
     </div>
 
     <div class="trade-body">
@@ -242,9 +201,6 @@
                             <button type="button" class="trade-panel-toggle-btn @(_showTimeProfile ? "active" : "")"
                                     @onclick="() => _showTimeProfile = !_showTimeProfile"
                                     title="Time-at-price histogram over the lookback window">Time profile</button>
-                            <button type="button" class="trade-panel-toggle-btn @(_showTraderControls ? "active" : "")"
-                                    @onclick="() => _showTraderControls = !_showTraderControls"
-                                    title="Manual order entry for this symbol -- places real orders on the connected cTrader account">Trader controls</button>
                         </div>
                     </div>
                     <div class="trade-window-bar">
@@ -283,7 +239,9 @@
                                     <MarketChartContainer Bars="_chartBars" CurrentBid="ChartQuote?.Bid" CurrentAsk="ChartQuote?.Ask"
                                                  KeepView="_chartKeepView" ShowAnnotationTools="false"
                                                  WindowStartUtc="WindowStartUtc()" WindowEndUtc="WindowEndUtc()"
-                                                 HorizontalLines="ProfileLevelLines()" VwapLine="VwapPoints()" />
+                                                 HorizontalLines="ProfileLevelLines()" VwapLine="VwapPoints()"
+                                                 EntryPrice="ChartPosition?.EntryPrice" PositionIsLong="ChartPosition?.IsLong"
+                                                 StopLossPrice="ChartPosition?.StopLossPrice" TakeProfitPrice="ChartPosition?.TakeProfitPrice" />
                                 </div>
                             }
                             @if (_showXGrid)
@@ -293,7 +251,7 @@
                                     <div class="trade-chart-divider" @ref="_chartDividerRef" data-min-width="160" title="Drag to resize"></div>
                                 }
                                 <div class="trade-chart-side">
-                                    <XGridController Grid="ComputeXGrid()" @bind-PipCount="_xgridPipCount"
+                                    <XGridController Grid="ComputeXGrid()" Positions="XGridPositions()" @bind-PipCount="_xgridPipCount"
                                                       @bind-ColCount="_xgridColCount" ProfileBarCount="ClampedBarWindow" />
                                 </div>
                             }
@@ -317,18 +275,7 @@
                                     <TickTimeProfileChart WeightedSamples="MergedBarTimeSamples()" CurrentPrice="ChartQuote?.Bid" />
                                 </div>
                             }
-                            @if (_showTraderControls)
-                            {
-                                @if (ShowTraderControlsDivider)
-                                {
-                                    <div class="trade-chart-divider" @ref="_chartDividerRefTrader" data-min-width="160" title="Drag to resize"></div>
-                                }
-                                <div class="trade-chart-side trade-chart-side-scroll">
-                                    <TradeControlsPanel SymbolId="_chartSymbolId" SymbolName="_chartSymbolName"
-                                                         CurrentBid="ChartQuote?.Bid" CurrentAsk="ChartQuote?.Ask" />
-                                </div>
-                            }
-                            @if (!_showMainChart && !_showXGrid && !_showVolumeProfile && !_showTimeProfile && !_showTraderControls)
+                            @if (!_showMainChart && !_showXGrid && !_showVolumeProfile && !_showTimeProfile)
                             {
                                 <p class="trade-chart-status">No panels selected -- turn a panel back on above.</p>
                             }
@@ -340,7 +287,40 @@
             {
                 <p class="trade-main-placeholder">Select symbols on the left to build a live watchlist, then select a watchlist row to view its price chart. Order placement comes next.</p>
             }
+
+            @if (IsConnected)
+            {
+                <div class="trade-chart-hdivider" @ref="_positionsHDividerRef" data-min-height="160" data-max-height-vh="70" title="Drag to resize"></div>
+                <section class="trade-financials-panel" title="Open positions and account financials">
+                    <FinancialsPanel Positions="Session.Positions" Balance="Session.Balance"
+                                     OnSelectPosition="position => OpenChartAsync(position.SymbolId, position.SymbolName)" />
+                </section>
+            }
         </main>
+
+        @if (IsConnected)
+        {
+            <aside class="trade-right-side-panel @(_rightPanelCollapsed ? "trade-right-side-panel-collapsed" : "")">
+                <button type="button" class="trade-right-side-panel-toggle" @onclick="ToggleRightPanel"
+                        title="@(_rightPanelCollapsed ? "Expand trader controls" : "Collapse trader controls")">
+                    <Icon Name="@(_rightPanelCollapsed ? "chevron-left" : "chevron-right")" Class="trade-right-side-panel-toggle-icon" />
+                </button>
+                @if (!_rightPanelCollapsed)
+                {
+                    <div class="trade-right-side-panel-content">
+                        <div class="trade-section-header">
+                            <span class="trade-section-title">TRADER CONTROLS</span>
+                            @if (_chartSymbolName is not null)
+                            {
+                                <span class="trade-section-count">@_chartSymbolName</span>
+                            }
+                        </div>
+                        <TradeControlsPanel SymbolId="_chartSymbolId" SymbolName="_chartSymbolName"
+                                             CurrentBid="ChartQuote?.Bid" CurrentAsk="ChartQuote?.Ask" />
+                    </div>
+                }
+            </aside>
+        }
     </div>
 
 </div>
