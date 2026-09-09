@@ -750,7 +750,8 @@ namespace Poink.Sim.Services.CTrader
 				position.Price,
 				DateTimeOffset.FromUnixTimeMilliseconds(position.TradeData.OpenTimestamp).UtcDateTime,
 				position.HasStopLoss ? position.StopLoss : null,
-				position.HasTakeProfit ? position.TakeProfit : null
+				position.HasTakeProfit ? position.TakeProfit : null,
+				position.UsedMargin / Math.Pow(10, position.MoneyDigits)
 			);
 		}
 

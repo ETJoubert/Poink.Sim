@@ -22,7 +22,8 @@ namespace Poink.Sim.Services.CTrader
 		double EntryPrice,
 		DateTime OpenTimeUtc,
 		double? StopLossPrice,
-		double? TakeProfitPrice
+		double? TakeProfitPrice,
+		double UsedMargin
 	);
 
 	public sealed record CTraderSymbolInfo(

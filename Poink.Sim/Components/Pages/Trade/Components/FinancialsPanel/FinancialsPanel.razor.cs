@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using Microsoft.AspNetCore.Components;
 using Poink.Sim.Services.CTrader;
 
@@ -22,7 +23,7 @@ namespace Poink.Sim.Components.Pages.Trade
 
 		private double? Equity => Balance is { } balance && UnrealizedPnl is { } pnl ? balance + pnl : null;
 
-		private double? MarginUsed => null;
+		private double? MarginUsed => Positions.Count == 0 ? null : Positions.Sum(p => p.UsedMargin);
 
 		private double? MarginLevel =>
 			Equity is { } equity && MarginUsed is { } used && used != 0 ? equity / used * 100 : null;

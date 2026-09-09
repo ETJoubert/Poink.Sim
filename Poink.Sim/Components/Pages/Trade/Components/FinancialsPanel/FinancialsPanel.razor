@@ -9,7 +9,7 @@
     <PositionTable Positions="Positions" OnSelect="OnSelectPosition" />
 
     <div class="fp-financials"
-         title="Balance updates live from cTrader; the other figures need deriving from open positions and closed-deal history, not implemented yet">
+         title="Balance updates live from cTrader and Margin Used is summed from open positions; the remaining figures need closed-deal history or live unrealized P/L, not implemented yet">
         <div class="fp-item" title="Live account balance">
             <span class="fp-label">Balance</span>
             <span class="fp-value">@Money(Balance)</span>
@@ -26,7 +26,7 @@
             <span class="fp-label">Equity</span>
             <span class="fp-value">@Money(Equity)</span>
         </div>
-        <div class="fp-item fp-item-placeholder" title="Derived from open positions' used margin -- not available yet">
+        <div class="fp-item" title="Sum of used margin across every open position">
             <span class="fp-label">Margin Used</span>
             <span class="fp-value">@Money(MarginUsed)</span>
         </div>
