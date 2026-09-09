@@ -6,37 +6,45 @@
         <span class="trade-section-title">POSITIONS</span>
         <span class="trade-section-count">@Positions.Count</span>
     </div>
-    <PositionTable Positions="Positions" OnSelect="OnSelectPosition" />
+    <PositionTable Positions="Positions" Watchlist="Watchlist" SymbolMetadata="SymbolMetadata" OnSelect="OnSelectPosition" />
 
     <div class="fp-financials"
-         title="Balance updates live from cTrader and Margin Used is summed from open positions; the remaining figures need closed-deal history or live unrealized P/L, not implemented yet">
-        <div class="fp-item" title="Live account balance">
-            <span class="fp-label">Balance</span>
-            <span class="fp-value">@Money(Balance)</span>
+         title="Balance updates live from cTrader; Margin Used sums open positions; Unrealized (and everything derived from it) prices each position against its watchlist quote, so it's partial until every open position's symbol has been watched">
+        <div class="fp-card" title="Live account balance and equity">
+            <div class="fp-item" title="Live account balance">
+                <span class="fp-label">Balance</span>
+                <span class="fp-value">@Money(Balance)</span>
+            </div>
+            <div class="fp-item" title="Derived as Balance + Unrealized P/L">
+                <span class="fp-label">Equity</span>
+                <span class="fp-value">@Money(Equity)</span>
+            </div>
         </div>
-        <div class="fp-item fp-item-placeholder" title="Derived from closed-deal history for the current server day -- not available yet">
-            <span class="fp-label">Realized</span>
-            <span class="fp-value">@Money(RealizedPnl)</span>
+
+        <div class="fp-card" title="Margin figures across every open position">
+            <div class="fp-item" title="Sum of used margin across every open position">
+                <span class="fp-label">Margin Used</span>
+                <span class="fp-value">@Money(MarginUsed)</span>
+            </div>
+            <div class="fp-item" title="Derived as Equity / Margin Used">
+                <span class="fp-label">Margin Level</span>
+                <span class="fp-value">@Money(MarginLevel)</span>
+            </div>
+            <div class="fp-item" title="Derived as Equity - Margin Used">
+                <span class="fp-label">Free Margin</span>
+                <span class="fp-value">@Money(FreeMargin)</span>
+            </div>
         </div>
-        <div class="fp-item fp-item-placeholder" title="Derived from open positions -- not available yet">
-            <span class="fp-label">Unrealized</span>
-            <span class="fp-value">@Money(UnrealizedPnl)</span>
-        </div>
-        <div class="fp-item fp-item-placeholder" title="Derived as Balance + Unrealized P/L -- not available yet">
-            <span class="fp-label">Equity</span>
-            <span class="fp-value">@Money(Equity)</span>
-        </div>
-        <div class="fp-item" title="Sum of used margin across every open position">
-            <span class="fp-label">Margin Used</span>
-            <span class="fp-value">@Money(MarginUsed)</span>
-        </div>
-        <div class="fp-item fp-item-placeholder" title="Derived as Equity / Margin Used -- not available yet">
-            <span class="fp-label">Margin Level</span>
-            <span class="fp-value">@Money(MarginLevel)</span>
-        </div>
-        <div class="fp-item fp-item-placeholder" title="Derived as Equity - Margin Used -- not available yet">
-            <span class="fp-label">Free Margin</span>
-            <span class="fp-value">@Money(FreeMargin)</span>
+
+        <div class="fp-card" title="Realized and unrealized profit/loss">
+            <div class="fp-item fp-item-placeholder" title="Derived from closed-deal history for the current server day -- not available yet">
+                <span class="fp-label">Realized</span>
+                <span class="fp-value">@Money(RealizedPnl)</span>
+            </div>
+            <div class="fp-item" title="Sum of each open position's pip difference from its live quote times its volume -- watch a position's symbol to include it">
+                <span class="fp-label">Unrealized</span>
+                <span class="fp-value">@Money(UnrealizedPnl)</span>
+            </div>
         </div>
     </div>
 </div>

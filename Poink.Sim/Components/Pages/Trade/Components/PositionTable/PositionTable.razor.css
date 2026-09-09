@@ -58,3 +58,15 @@
     color: var(--color-error);
     font-weight: bold;
 }
+
+.pt-value-positive {
+    color: var(--color-success);
+}
+
+.pt-value-negative {
+    color: var(--color-error);
+}
+
+.pt-value-neutral {
+    color: var(--color-secondary);
+}

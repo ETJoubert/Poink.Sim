@@ -11,6 +11,7 @@ using Poink.Sim.Models;
 using Poink.Sim.Repository;
 using Poink.Sim.Services.CTrader;
 using Poink.Sim.Services.MarketData;
+using Poink.Sim.Services.Symbols;
 using Poink.Sim.Simulation;
 
 namespace Poink.Sim.Components.Pages.Trade
@@ -38,6 +39,9 @@ namespace Poink.Sim.Components.Pages.Trade
 		private ICTraderHistory History { get; set; } = null!;
 
 		[Inject]
+		private ISymbolService SymbolService { get; set; } = null!;
+
+		[Inject]
 		private NavigationManager Navigation { get; set; } = null!;
 
 		[Inject]
@@ -50,6 +54,9 @@ namespace Poink.Sim.Components.Pages.Trade
 		private bool _sidepanelCollapsed;
 		private bool _rightPanelCollapsed;
 		private bool _symbolPickerOpen;
+
+		/// <summary>Pip-size source for the positions table, keyed by symbol -- populated lazily as each symbol is watched (see <see cref="WatchAsync"/>).</summary>
+		private readonly Dictionary<long, SymbolMetadataModel> _symbolMetadata = new();
 
 		private long? _chartSymbolId;
 		private string? _chartSymbolName;
@@ -437,7 +444,23 @@ namespace Poink.Sim.Components.Pages.Trade
 			await Session.LogoutAsync();
 		}
 
-		private Task WatchAsync(long symbolId) => Session.WatchSymbolAsync(symbolId);
+		private async Task WatchAsync(long symbolId)
+		{
+			await Session.WatchSymbolAsync(symbolId);
+			await EnsureSymbolMetadataAsync(symbolId);
+		}
+
+		// Pip size for the positions table needs a symbol's Digits/PipPosition, which only cTrader's
+		// per-symbol detail call returns -- fetched once per symbol, the first time it's watched.
+		private async Task EnsureSymbolMetadataAsync(long symbolId)
+		{
+			if (_symbolMetadata.ContainsKey(symbolId))
+				return;
+
+			var metadata = await SymbolService.GetMetadataAsync(symbolId) ?? await SymbolService.RefreshMetadataFromCTraderAsync(symbolId);
+			if (metadata is not null)
+				_symbolMetadata[symbolId] = metadata;
+		}
 
 		// Unwatching the symbol whose chart is open closes that chart too, since a chart
 		// with no live quote behind it can no longer receive ticks.
