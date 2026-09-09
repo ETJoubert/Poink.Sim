@@ -22,6 +22,8 @@ namespace Poink.Sim.Services.CTrader
 
 		long? SelectedAccountId { get; }
 
+		CTraderAccountFinancials AccountFinancials { get; }
+
 		IReadOnlyList<CTraderSymbolInfo> Symbols { get; }
 
 		IReadOnlyList<CTraderSymbolQuote> Watchlist { get; }

@@ -22,6 +22,7 @@ namespace Poink.Sim.Models
 		int XGridColCount,
 		long? ChartSymbolId,
 		string? ChartSymbolName,
-		List<long> WatchedSymbolIds
+		List<long> WatchedSymbolIds,
+		bool SidepanelCollapsed
 	);
 }

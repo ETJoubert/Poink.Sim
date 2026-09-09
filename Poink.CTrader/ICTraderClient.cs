@@ -67,5 +67,12 @@ namespace Poink.CTrader
 
         /// <summary>Requires <see cref="AuthorizeAccountAsync"/> first. Returns every currently open position and resting pending order on the account.</summary>
         Task<ProtoOAReconcileRes> ReconcileAsync(long ctidTraderAccountId, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Requires <see cref="AuthorizeAccountAsync"/> first. Returns the account's current Balance
+        /// (scaled by the response's MoneyDigits) and related bonus/leverage detail. Balance changes
+        /// also arrive unprompted as <c>ProtoOATraderUpdatedEvent</c> on <see cref="Messages"/>.
+        /// </summary>
+        Task<ProtoOATraderRes> GetTraderAsync(long ctidTraderAccountId, CancellationToken cancellationToken = default);
     }
 }

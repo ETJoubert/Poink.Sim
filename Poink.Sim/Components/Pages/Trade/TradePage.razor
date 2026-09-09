@@ -12,22 +12,62 @@
         <header class="trade-header">
             <div class="trade-header-title">
                 <span class="trade-header-symbol">TRADE</span>
-                @if (IsConnected)
-                {
-                    <span class="trade-header-mode" title="cTrader environment this session is connected to">
-                        @(Session.UseLiveEnvironment ? "LIVE" : "DEMO")
-                    </span>
-                    <span class="trade-header-mode" title="Trading accounts available on the connected cTrader login">
-                        @Session.Accounts.Count account(s)
-                    </span>
-                }
-                <span class="trade-header-state @StateClass" title="Current cTrader connection state">
-                    @StateLabel
-                </span>
             </div>
 
-            <div class="trade-header-login">
-                @if (!Session.IsConfigured)
+            @if (_chartSymbolId is not null)
+            {
+                <div class="trade-header-chart">
+                    <span class="trade-chart-title">@_chartSymbolName</span>
+                    <BarSizeSelect @bind-Value="_barSizeSeconds" @bind-Value:after="OnBarSizeChangedAsync"
+                                   Disabled="_chartLoading" Label="Aggregation"
+                                   Title="Bar size the chart's live history and tick stream are aggregated into" />
+                </div>
+            }
+
+            <div class="trade-header-account">
+                @if (IsConnected)
+                {
+                    <div class="trade-account-menu">
+                        <button type="button" class="trade-account-btn @(_accountMenuOpen ? "open" : "")"
+                                @onclick="ToggleAccountMenu" title="View connected accounts and log out">
+                            <span class="trade-header-mode">@(SelectedAccount?.IsLive == true ? "LIVE" : "DEMO")</span>
+                            <span class="trade-account-number">@(SelectedAccount?.Login.ToString() ?? "—")</span>
+                            <span class="trade-header-state @StateClass" title="Current cTrader connection state">
+                                @StateLabel
+                            </span>
+                            <Icon Name="chevron-down" Class="trade-account-caret" />
+                        </button>
+
+                        @if (_accountMenuOpen)
+                        {
+                            <div class="trade-account-backdrop" @onclick="CloseAccountMenu"></div>
+                            <div class="trade-account-dropdown">
+                                <span class="trade-account-dropdown-title">Accounts</span>
+                                <ul class="trade-account-list">
+                                    @foreach (var account in Session.Accounts)
+                                    {
+                                        var isCurrent = account.AccountId == Session.SelectedAccountId;
+                                        <li class="trade-account-row @(isCurrent ? "trade-account-row-current" : "")"
+                                            title="@(isCurrent ? $"Active account {account.Login}" : $"Account {account.Login}")">
+                                            <span class="trade-account-row-type">@(account.IsLive ? "LIVE" : "DEMO")</span>
+                                            <span class="trade-account-row-number">@account.Login</span>
+                                            @if (isCurrent)
+                                            {
+                                                <Icon Name="check2" Class="trade-account-row-check" />
+                                            }
+                                        </li>
+                                    }
+                                </ul>
+                                <button class="trade-ctrl-btn trade-ctrl-btn-warn trade-account-logout-btn" @onclick="LogOutAsync"
+                                        title="Disconnect the current cTrader account">
+                                    <Icon Name="x-lg" Class="trade-ctrl-icon" />
+                                    LOG OUT
+                                </button>
+                            </div>
+                        }
+                    </div>
+                }
+                else if (!Session.IsConfigured)
                 {
                     <span class="trade-login-status trade-login-status-warn"
                           title="Set CTrader:ClientId, CTrader:ClientSecret and CTrader:RedirectUri (via appsettings.Secrets.json or env vars) then restart">
@@ -37,37 +77,108 @@
                 else
                 {
                     <span class="trade-login-status" title="Latest cTrader connection status">@Session.StatusMessage</span>
-
-                    @if (IsConnected)
-                    {
-                        <button class="trade-ctrl-btn trade-ctrl-btn-warn" @onclick="LogOutAsync"
-                                title="Disconnect the current cTrader account">
-                            <Icon Name="x-lg" Class="trade-ctrl-icon" />
-                            LOG OUT
-                        </button>
-                    }
-                    else
-                    {
-                        <button class="trade-ctrl-btn trade-ctrl-btn-play" @onclick="LogIn"
-                                disabled="@(Session.State == CTraderConnectionState.Connecting)"
-                                title="Open the cTrader login flow and connect an account">
-                            <Icon Name="key-fill" Class="trade-ctrl-icon" />
-                            @(Session.State == CTraderConnectionState.Connecting ? "CONNECTING..." : "LOG IN")
-                        </button>
-                    }
+                    <span class="trade-header-state @StateClass" title="Current cTrader connection state">
+                        @StateLabel
+                    </span>
+                    <button class="trade-ctrl-btn trade-ctrl-btn-play" @onclick="LogIn"
+                            disabled="@(Session.State == CTraderConnectionState.Connecting)"
+                            title="Open the cTrader login flow and connect an account">
+                        <Icon Name="key-fill" Class="trade-ctrl-icon" />
+                        @(Session.State == CTraderConnectionState.Connecting ? "CONNECTING..." : "LOG IN")
+                    </button>
                 }
             </div>
         </header>
+
+        @if (IsConnected)
+        {
+            <div class="trade-account-financials"
+                 title="Balance updates live from cTrader; the other figures need deriving from open positions and closed-deal history, not implemented yet">
+                <div class="trade-financial-item" title="Live account balance">
+                    <span class="trade-financial-label">Balance</span>
+                    <span class="trade-financial-value">@Money(Session.AccountFinancials.Balance)</span>
+                </div>
+                <div class="trade-financial-item trade-financial-item-placeholder"
+                     title="Derived from closed-deal history for the current server day -- not available yet">
+                    <span class="trade-financial-label">Realized</span>
+                    <span class="trade-financial-value">@Money(Session.AccountFinancials.RealizedPnl)</span>
+                </div>
+                <div class="trade-financial-item trade-financial-item-placeholder"
+                     title="Derived from open positions -- not available yet">
+                    <span class="trade-financial-label">Unrealized</span>
+                    <span class="trade-financial-value">@Money(Session.AccountFinancials.UnrealizedPnl)</span>
+                </div>
+                <div class="trade-financial-item trade-financial-item-placeholder"
+                     title="Derived as Balance + Unrealized P/L -- not available yet">
+                    <span class="trade-financial-label">Equity</span>
+                    <span class="trade-financial-value">@Money(Session.AccountFinancials.Equity)</span>
+                </div>
+                <div class="trade-financial-item trade-financial-item-placeholder"
+                     title="Derived from open positions' used margin -- not available yet">
+                    <span class="trade-financial-label">Margin Used</span>
+                    <span class="trade-financial-value">@Money(Session.AccountFinancials.MarginUsed)</span>
+                </div>
+                <div class="trade-financial-item trade-financial-item-placeholder"
+                     title="Derived as Equity / Margin Used -- not available yet">
+                    <span class="trade-financial-label">Margin Level</span>
+                    <span class="trade-financial-value">@Money(Session.AccountFinancials.MarginLevel)</span>
+                </div>
+                <div class="trade-financial-item trade-financial-item-placeholder"
+                     title="Derived as Equity - Margin Used -- not available yet">
+                    <span class="trade-financial-label">Free Margin</span>
+                    <span class="trade-financial-value">@Money(Session.AccountFinancials.FreeMargin)</span>
+                </div>
+            </div>
+        }
     </div>
 
     <div class="trade-body">
-        <aside class="trade-sidepanel">
-            @if (!IsConnected)
+        <aside class="trade-sidepanel @(_sidepanelCollapsed ? "trade-sidepanel-collapsed" : "")">
+            <button type="button" class="trade-sidepanel-toggle" @onclick="ToggleSidepanel"
+                    title="@(_sidepanelCollapsed ? "Expand the symbols panel" : "Collapse the symbols panel")">
+                <Icon Name="@(_sidepanelCollapsed ? "chevron-right" : "chevron-left")" Class="trade-sidepanel-toggle-icon" />
+            </button>
+            @if (!_sidepanelCollapsed && !IsConnected)
             {
                 <p class="trade-sidepanel-empty">Log in to load the account's symbols and stream live prices.</p>
             }
-            else
+            else if (!_sidepanelCollapsed)
             {
+                <section class="trade-symbols-picker">
+                    <button type="button" class="trade-section-header trade-symbols-toggle @(_symbolPickerOpen ? "open" : "")"
+                            @onclick="ToggleSymbolPicker" title="Search the account's symbols and add them to your watchlist">
+                        <span class="trade-section-title">SYMBOLS</span>
+                        <span class="trade-section-count">@TotalSymbolMatchCount</span>
+                        <Icon Name="chevron-down" Class="trade-symbols-caret" />
+                    </button>
+                    @if (_symbolPickerOpen)
+                    {
+                        <div class="trade-symbols-dropdown">
+                            <input type="text" class="trade-symbol-search" placeholder="Search symbols..."
+                                   value="@_symbolFilter" @oninput="e => _symbolFilter = e.Value?.ToString() ?? string.Empty"
+                                   title="Filter the account's symbols by name" />
+                            <ul class="trade-symbol-list">
+                                @foreach (var symbol in FilteredSymbols)
+                                {
+                                    var watched = Session.IsSymbolWatched(symbol.SymbolId);
+                                    <li>
+                                        <button class="trade-symbol-row @(watched ? "trade-symbol-row-watched" : "")"
+                                                @onclick="() => (watched ? UnwatchAsync(symbol.SymbolId) : WatchAsync(symbol.SymbolId))"
+                                                title="@(watched ? $"Stop streaming {symbol.SymbolName}" : $"Stream live bid/ask for {symbol.SymbolName}")">
+                                            <Icon Name="@(watched ? "eye-fill" : "plus-lg")" Class="trade-symbol-row-icon" />
+                                            <span class="trade-symbol-row-name">@symbol.SymbolName</span>
+                                        </button>
+                                    </li>
+                                }
+                            </ul>
+                            @if (TotalSymbolMatchCount > FilteredSymbols.Count)
+                            {
+                                <p class="trade-symbol-more">Showing @FilteredSymbols.Count of @TotalSymbolMatchCount — refine your search.</p>
+                            }
+                        </div>
+                    }
+                </section>
+
                 <section class="trade-watchlist" title="Symbols you are streaming -- live bid/ask update in real time">
                     <div class="trade-section-header">
                         <span class="trade-section-title">WATCHING</span>
@@ -75,7 +186,7 @@
                     </div>
                     @if (Session.Watchlist.Count == 0)
                     {
-                        <p class="trade-sidepanel-empty">Pick a symbol below to stream its bid/ask.</p>
+                        <p class="trade-sidepanel-empty">Pick a symbol above to stream its bid/ask.</p>
                     }
                     else
                     {
@@ -86,12 +197,6 @@
                                 <li class="trade-quote-row @(selected ? "trade-quote-row-selected" : "")"
                                     @onclick="() => OpenChartAsync(quote.SymbolId, quote.SymbolName)"
                                     title="@QuoteRowTitle(quote, selected)">
-                                    <span class="trade-quote-selected-indicator">
-                                        @if (selected)
-                                        {
-                                            <Icon Name="eye-fill" Class="trade-quote-selected-icon" />
-                                        }
-                                    </span>
                                     <span class="trade-quote-name">@quote.SymbolName</span>
                                     <span class="trade-quote-prices">
                                         <span class="trade-quote-bid" title="Bid">@Price(quote.Bid)</span>
@@ -106,34 +211,6 @@
                         </ul>
                     }
                 </section>
-
-                <section class="trade-symbols">
-                    <div class="trade-section-header">
-                        <span class="trade-section-title">SYMBOLS</span>
-                        <span class="trade-section-count">@TotalSymbolMatchCount</span>
-                    </div>
-                    <input type="text" class="trade-symbol-search" placeholder="Search symbols..."
-                           value="@_symbolFilter" @oninput="e => _symbolFilter = e.Value?.ToString() ?? string.Empty"
-                           title="Filter the account's symbols by name" />
-                    <ul class="trade-symbol-list">
-                        @foreach (var symbol in FilteredSymbols)
-                        {
-                            var watched = Session.IsSymbolWatched(symbol.SymbolId);
-                            <li>
-                                <button class="trade-symbol-row @(watched ? "trade-symbol-row-watched" : "")"
-                                        @onclick="() => (watched ? UnwatchAsync(symbol.SymbolId) : WatchAsync(symbol.SymbolId))"
-                                        title="@(watched ? $"Stop streaming {symbol.SymbolName}" : $"Stream live bid/ask for {symbol.SymbolName}")">
-                                    <Icon Name="@(watched ? "eye-fill" : "plus-lg")" Class="trade-symbol-row-icon" />
-                                    <span class="trade-symbol-row-name">@symbol.SymbolName</span>
-                                </button>
-                            </li>
-                        }
-                    </ul>
-                    @if (TotalSymbolMatchCount > FilteredSymbols.Count)
-                    {
-                        <p class="trade-symbol-more">Showing @FilteredSymbols.Count of @TotalSymbolMatchCount — refine your search.</p>
-                    }
-                </section>
             }
         </aside>
 
@@ -141,23 +218,6 @@
             @if (_chartSymbolId is not null)
             {
                 <div class="trade-chart-panel">
-                    <div class="trade-chart-header">
-                        <span class="trade-chart-title">@_chartSymbolName</span>
-                        @if (ChartQuote is { } q)
-                        {
-                            <span class="trade-chart-prices">
-                                <span class="trade-chart-bid" title="Live bid">@Price(q.Bid)</span>
-                                <span class="trade-chart-ask" title="Live ask">@Price(q.Ask)</span>
-                            </span>
-                        }
-                        <BarSizeSelect @bind-Value="_barSizeSeconds" @bind-Value:after="OnBarSizeChangedAsync"
-                                       Disabled="_chartLoading" Label="Aggregation"
-                                       Title="Bar size the chart's live history and tick stream are aggregated into" />
-                        <button class="trade-chart-close" @onclick="CloseChart" title="Close this chart">
-                            <Icon Name="x-lg" Class="trade-chart-close-icon" />
-                            CLOSE
-                        </button>
-                    </div>
                     <div class="trade-chart-toolbar">
                         <div class="trade-overlay-toggles" title="Toggle the computed chart overlays -- Point of Control/Value Area and a cumulative VWAP line">
                             <span class="trade-overlay-toggles-label">Indicators</span>

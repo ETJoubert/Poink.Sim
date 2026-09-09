@@ -53,6 +53,7 @@ namespace Poink.Sim.Services.CTrader
 		private CTraderClient? _client;
 		private Token? _token;
 		private IDisposable? _spotSubscription;
+		private IDisposable? _traderUpdatedSubscription;
 		private long _lastQuoteNotifyTicks;
 
 		public CTraderSessionService(
@@ -75,6 +76,8 @@ namespace Poink.Sim.Services.CTrader
 		public IReadOnlyList<CTraderAccountInfo> Accounts { get; private set; } = Array.Empty<CTraderAccountInfo>();
 
 		public long? SelectedAccountId { get; private set; }
+
+		public CTraderAccountFinancials AccountFinancials { get; private set; } = CTraderAccountFinancials.Empty;
 
 		public IReadOnlyList<CTraderSymbolInfo> Symbols { get; private set; } = Array.Empty<CTraderSymbolInfo>();
 
@@ -631,6 +634,38 @@ namespace Poink.Sim.Services.CTrader
 			await LoadSymbolsAsync(accountId, cancellationToken);
 
 			_spotSubscription = _client.Messages.OfType<ProtoOASpotEvent>().Subscribe(OnSpotEvent);
+			_traderUpdatedSubscription = _client.Messages.OfType<ProtoOATraderUpdatedEvent>().Subscribe(OnTraderUpdated);
+
+			await RefreshBalanceAsync(accountId, cancellationToken);
+		}
+
+		private async Task RefreshBalanceAsync(long accountId, CancellationToken cancellationToken)
+		{
+			try
+			{
+				var response = await _client!.GetTraderAsync(accountId, cancellationToken);
+				ApplyTrader(response.Trader);
+				_logger.LogInformation("cTrader: balance {Balance} loaded for account {AccountId}.", AccountFinancials.Balance, accountId);
+			}
+			catch (Exception ex)
+			{
+				_logger.LogWarning(ex, "cTrader: failed to fetch account balance for {AccountId}.", accountId);
+			}
+		}
+
+		private void OnTraderUpdated(ProtoOATraderUpdatedEvent e)
+		{
+			if (e.CtidTraderAccountId != SelectedAccountId)
+				return;
+
+			ApplyTrader(e.Trader);
+			_logger.LogInformation("cTrader: balance updated to {Balance} for account {AccountId}.", AccountFinancials.Balance, SelectedAccountId);
+		}
+
+		private void ApplyTrader(ProtoOATrader trader)
+		{
+			AccountFinancials = AccountFinancials with { Balance = trader.Balance / Math.Pow(10, trader.MoneyDigits) };
+			Changed?.Invoke();
 		}
 
 		public async Task<IReadOnlyList<CTraderSymbolInfo>> RefreshSymbolsAsync(
@@ -746,6 +781,8 @@ namespace Poink.Sim.Services.CTrader
 		{
 			_spotSubscription?.Dispose();
 			_spotSubscription = null;
+			_traderUpdatedSubscription?.Dispose();
+			_traderUpdatedSubscription = null;
 
 			lock (_quotesLock)
 			{
@@ -754,6 +791,7 @@ namespace Poink.Sim.Services.CTrader
 
 			Symbols = Array.Empty<CTraderSymbolInfo>();
 			SelectedAccountId = null;
+			AccountFinancials = CTraderAccountFinancials.Empty;
 
 			if (_client is not null)
 			{
