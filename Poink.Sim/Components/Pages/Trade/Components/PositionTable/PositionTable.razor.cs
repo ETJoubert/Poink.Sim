@@ -17,7 +17,7 @@ namespace Poink.Sim.Components.Pages.Trade
 		public IReadOnlyList<CTraderPositionInfo> Positions { get; set; } = Array.Empty<CTraderPositionInfo>();
 
 		[Parameter]
-		public IReadOnlyList<CTraderSymbolQuote> Watchlist { get; set; } = Array.Empty<CTraderSymbolQuote>();
+		public IReadOnlyList<CTraderSymbolQuote> Quotes { get; set; } = Array.Empty<CTraderSymbolQuote>();
 
 		[Parameter]
 		public IReadOnlyDictionary<long, SymbolMetadataModel> SymbolMetadata { get; set; } =
@@ -47,7 +47,7 @@ namespace Poink.Sim.Components.Pages.Trade
 				"P/L",
 				row => row.PnlDisplay,
 				row => SignCssClass(row.Pnl),
-				_ => "Unrealized profit/loss: pips x volume -- needs this symbol on the watchlist to price"
+				_ => "Unrealized profit/loss: pips x volume"
 			),
 		};
 
@@ -57,7 +57,7 @@ namespace Poink.Sim.Components.Pages.Trade
 
 		private PositionRowViewModel ToRow(CTraderPositionInfo position)
 		{
-			var quote = Watchlist.FirstOrDefault(q => q.SymbolId == position.SymbolId);
+			var quote = Quotes.FirstOrDefault(q => q.SymbolId == position.SymbolId);
 			SymbolMetadata.TryGetValue(position.SymbolId, out var metadata);
 			var pips = PositionPnlHelper.PipDifference(position, quote, metadata);
 			var pnl = PositionPnlHelper.UnrealizedPnl(position, quote, metadata);

@@ -292,7 +292,7 @@
             {
                 <div class="trade-chart-hdivider" @ref="_positionsHDividerRef" data-min-height="160" data-max-height-vh="70" title="Drag to resize"></div>
                 <section class="trade-financials-panel" title="Open positions and account financials">
-                    <FinancialsPanel Positions="Session.Positions" Balance="Session.Balance" Watchlist="Session.Watchlist"
+                    <FinancialsPanel Positions="Session.Positions" Balance="Session.Balance" Quotes="Session.Quotes"
                                      SymbolMetadata="_symbolMetadata"
                                      OnSelectPosition="position => OpenChartAsync(position.SymbolId, position.SymbolName)" />
                 </section>

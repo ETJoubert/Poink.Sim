@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
@@ -57,6 +58,10 @@ namespace Poink.Sim.Components.Pages.Trade
 
 		/// <summary>Pip-size source for the positions table, keyed by symbol -- populated lazily as each symbol is watched (see <see cref="WatchAsync"/>).</summary>
 		private readonly Dictionary<long, SymbolMetadataModel> _symbolMetadata = new();
+
+		// ISymbolService's DbContext is scoped and single-threaded, but restoring the watchlist and
+		// reacting to Session.Changed can both try to fetch metadata at once -- this serializes them.
+		private readonly SemaphoreSlim _metadataGate = new(1, 1);
 
 		private long? _chartSymbolId;
 		private string? _chartSymbolName;
@@ -118,7 +123,7 @@ namespace Poink.Sim.Components.Pages.Trade
 		private void ToggleSymbolPicker() => _symbolPickerOpen = !_symbolPickerOpen;
 
 		private CTraderSymbolQuote? ChartQuote =>
-			_chartSymbolId is { } id ? Session.Watchlist.FirstOrDefault(q => q.SymbolId == id) : null;
+			_chartSymbolId is { } id ? Session.Quotes.FirstOrDefault(q => q.SymbolId == id) : null;
 
 		private CTraderPositionInfo? ChartPosition =>
 			_chartSymbolId is { } id ? Session.Positions.FirstOrDefault(p => p.SymbolId == id) : null;
@@ -299,6 +304,11 @@ namespace Poink.Sim.Components.Pages.Trade
 			{
 				_dividerResizeInstance = await JS.InvokeAsync<IJSObjectReference>("eval", ChartDividerScript);
 				await LoadPersistedSettingsAsync();
+
+				// Session and its Positions are a long-lived singleton, so navigating back to an already-
+				// connected session raises no Changed event to trigger this -- check once on mount too.
+				if (IsConnected)
+					await EnsureMetadataForOpenPositionsAsync();
 			}
 			else
 			{
@@ -450,16 +460,35 @@ namespace Poink.Sim.Components.Pages.Trade
 			await EnsureSymbolMetadataAsync(symbolId);
 		}
 
-		// Pip size for the positions table needs a symbol's Digits/PipPosition, which only cTrader's
-		// per-symbol detail call returns -- fetched once per symbol, the first time it's watched.
+		// Pip size for the positions table needs a symbol's Digits/PipPosition -- checked against the DB
+		// first, falling back to cTrader (and persisting the result) only the first time anyone needs it.
 		private async Task EnsureSymbolMetadataAsync(long symbolId)
 		{
 			if (_symbolMetadata.ContainsKey(symbolId))
 				return;
 
-			var metadata = await SymbolService.GetMetadataAsync(symbolId) ?? await SymbolService.RefreshMetadataFromCTraderAsync(symbolId);
-			if (metadata is not null)
-				_symbolMetadata[symbolId] = metadata;
+			await _metadataGate.WaitAsync();
+			try
+			{
+				if (_symbolMetadata.ContainsKey(symbolId))
+					return;
+
+				var metadata = await SymbolService.GetMetadataAsync(symbolId) ?? await SymbolService.RefreshMetadataFromCTraderAsync(symbolId);
+				if (metadata is not null)
+					_symbolMetadata[symbolId] = metadata;
+			}
+			finally
+			{
+				_metadataGate.Release();
+			}
+		}
+
+		// Every open position needs its symbol's metadata to price, regardless of watchlist state -- run
+		// whenever positions load so pricing doesn't depend on re-watching each one after a reconnect.
+		private async Task EnsureMetadataForOpenPositionsAsync()
+		{
+			foreach (var position in Session.Positions)
+				await EnsureSymbolMetadataAsync(position.SymbolId);
 		}
 
 		// Unwatching the symbol whose chart is open closes that chart too, since a chart
@@ -559,6 +588,7 @@ namespace Poink.Sim.Components.Pages.Trade
 			{
 				if (_restorePending && IsConnected)
 					await ApplyPendingRestoreAsync();
+				await EnsureMetadataForOpenPositionsAsync();
 				StateHasChanged();
 			});
 
@@ -768,6 +798,7 @@ namespace Poink.Sim.Components.Pages.Trade
 		{
 			Session.Changed -= OnSessionChanged;
 			Session.TickReceived -= OnTickReceived;
+			_metadataGate.Dispose();
 		}
 	}
 }

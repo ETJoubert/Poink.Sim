@@ -29,7 +29,11 @@ namespace Poink.Sim.Services.CTrader
 
 		IReadOnlyList<CTraderSymbolInfo> Symbols { get; }
 
+		/// <summary>The user's explicitly-picked watchlist, shown in the Trade page's WATCHING panel.</summary>
 		IReadOnlyList<CTraderSymbolQuote> Watchlist { get; }
+
+		/// <summary>Every symbol with a live quote subscription -- the watchlist plus every open position's symbol, auto-subscribed independently of the watchlist so positions always have a price to mark against.</summary>
+		IReadOnlyList<CTraderSymbolQuote> Quotes { get; }
 
 		bool UseLiveEnvironment { get; }
 

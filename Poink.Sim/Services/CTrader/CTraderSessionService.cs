@@ -50,6 +50,9 @@ namespace Poink.Sim.Services.CTrader
 
 		private DateTime _lastHistoricalRequestUtc = DateTime.MinValue;
 		private readonly Dictionary<long, CTraderSymbolQuote> _quotes = new();
+
+		/// <summary>Subset of <see cref="_quotes"/> the user explicitly picked -- <see cref="Watchlist"/>'s backing set, separate from symbols only subscribed to price an open position.</summary>
+		private readonly HashSet<long> _watchedSymbolIds = new();
 		private readonly Dictionary<long, CTraderPositionInfo> _positions = new();
 
 		private CTraderClient? _client;
@@ -96,6 +99,17 @@ namespace Poink.Sim.Services.CTrader
 		}
 
 		public IReadOnlyList<CTraderSymbolQuote> Watchlist
+		{
+			get
+			{
+				lock (_quotesLock)
+				{
+					return _quotes.Values.Where(q => _watchedSymbolIds.Contains(q.SymbolId)).OrderBy(q => q.SymbolName).ToList();
+				}
+			}
+		}
+
+		public IReadOnlyList<CTraderSymbolQuote> Quotes
 		{
 			get
 			{
@@ -208,16 +222,23 @@ namespace Poink.Sim.Services.CTrader
 		{
 			lock (_quotesLock)
 			{
-				return _quotes.ContainsKey(symbolId);
+				return _watchedSymbolIds.Contains(symbolId);
 			}
 		}
 
-		public async Task WatchSymbolAsync(long symbolId)
+		public Task WatchSymbolAsync(long symbolId) => SubscribeSymbolAsync(symbolId, markWatched: true);
+
+		// Positions price against Quotes (see EnsurePositionSymbolSubscribedAsync), not Watchlist, so a
+		// position's symbol gets a subscription here without joining the user's watchlist.
+		private Task EnsurePositionSymbolSubscribedAsync(long symbolId) => SubscribeSymbolAsync(symbolId, markWatched: false);
+
+		private async Task SubscribeSymbolAsync(long symbolId, bool markWatched)
 		{
 			if (_client is null || SelectedAccountId is null)
 				return;
 
 			await _gate.WaitAsync();
+			bool needsSubscribe;
 			try
 			{
 				if (Symbols.FirstOrDefault(s => s.SymbolId == symbolId) is not { } info)
@@ -225,24 +246,77 @@ namespace Poink.Sim.Services.CTrader
 
 				lock (_quotesLock)
 				{
-					if (_quotes.ContainsKey(symbolId))
-						return;
+					needsSubscribe = !_quotes.ContainsKey(symbolId);
+					if (markWatched)
+						_watchedSymbolIds.Add(symbolId);
 				}
 
-				await _client.SubscribeSpotsAsync(SelectedAccountId.Value, new[] { symbolId });
-
-				lock (_quotesLock)
+				if (needsSubscribe)
 				{
-					_quotes[symbolId] = new CTraderSymbolQuote(symbolId, info.SymbolName, null, null, null);
+					await _client.SubscribeSpotsAsync(SelectedAccountId.Value, new[] { symbolId });
+
+					lock (_quotesLock)
+					{
+						_quotes[symbolId] = new CTraderSymbolQuote(symbolId, info.SymbolName, null, null, null);
+					}
+
+					_logger.LogInformation("cTrader: watching {Symbol} ({SymbolId}).", info.SymbolName, symbolId);
 				}
 
-				_logger.LogInformation("cTrader: watching {Symbol} ({SymbolId}).", info.SymbolName, symbolId);
 				Changed?.Invoke();
 			}
 			finally
 			{
 				_gate.Release();
 			}
+
+			if (needsSubscribe)
+				await SeedLatestQuoteAsync(symbolId);
+		}
+
+		// The spot subscription above only pushes on the next live tick, leaving Bid/Ask (and positions
+		// priced from them) null until one arrives -- backfill from recent tick history instead of waiting.
+		private async Task SeedLatestQuoteAsync(long symbolId)
+		{
+			if (_client is null || SelectedAccountId is null)
+				return;
+
+			var toUtc = DateTime.UtcNow;
+			var fromUtc = toUtc.AddDays(-HistoryDays);
+
+			double? bid,
+				ask;
+			try
+			{
+				await ThrottleHistoricalAsync(CancellationToken.None);
+				var bidResponse = await _client.GetTickDataAsync(SelectedAccountId.Value, symbolId, ProtoOAQuoteType.Bid, fromUtc, toUtc);
+				var bidPoints = TickDataDecoder.Decode(bidResponse.TickData);
+				bid = bidPoints.Count > 0 ? bidPoints[^1].Price : null;
+
+				await ThrottleHistoricalAsync(CancellationToken.None);
+				var askResponse = await _client.GetTickDataAsync(SelectedAccountId.Value, symbolId, ProtoOAQuoteType.Ask, fromUtc, toUtc);
+				var askPoints = TickDataDecoder.Decode(askResponse.TickData);
+				ask = askPoints.Count > 0 ? askPoints[^1].Price : null;
+			}
+			catch (CTraderApiException ex)
+			{
+				_logger.LogWarning(ex, "cTrader: failed to seed an initial quote for symbol {SymbolId}.", symbolId);
+				return;
+			}
+
+			if (bid is null && ask is null)
+				return;
+
+			lock (_quotesLock)
+			{
+				if (!_quotes.TryGetValue(symbolId, out var quote) || quote.Bid is not null || quote.Ask is not null)
+					return;
+
+				_quotes[symbolId] = quote with { Bid = bid, Ask = ask };
+			}
+
+			_logger.LogInformation("cTrader: seeded an initial quote for symbol {SymbolId} from tick history.", symbolId);
+			Changed?.Invoke();
 		}
 
 		public async Task UnwatchSymbolAsync(long symbolId)
@@ -253,16 +327,22 @@ namespace Poink.Sim.Services.CTrader
 			await _gate.WaitAsync();
 			try
 			{
+				var stillNeeded = HasOpenPosition(symbolId);
 				bool wasWatched;
 				lock (_quotesLock)
 				{
-					wasWatched = _quotes.Remove(symbolId);
+					wasWatched = _watchedSymbolIds.Remove(symbolId);
+					if (!stillNeeded)
+						_quotes.Remove(symbolId);
 				}
 
 				if (!wasWatched)
 					return;
 
-				await _client.UnsubscribeSpotsAsync(SelectedAccountId.Value, new[] { symbolId });
+				// An open position on this symbol still needs its price stream, so leave the subscription
+				// running -- only drop the wire subscription once nothing references it any more.
+				if (!stillNeeded)
+					await _client.UnsubscribeSpotsAsync(SelectedAccountId.Value, new[] { symbolId });
 
 				_logger.LogInformation("cTrader: stopped watching {SymbolId}.", symbolId);
 				Changed?.Invoke();
@@ -270,6 +350,14 @@ namespace Poink.Sim.Services.CTrader
 			finally
 			{
 				_gate.Release();
+			}
+		}
+
+		private bool HasOpenPosition(long symbolId)
+		{
+			lock (_positionsLock)
+			{
+				return _positions.Values.Any(p => p.SymbolId == symbolId);
 			}
 		}
 
@@ -690,16 +778,21 @@ namespace Poink.Sim.Services.CTrader
 			{
 				var reconcile = await _client!.ReconcileAsync(accountId, cancellationToken);
 				int count;
+				List<long> symbolIds;
 				lock (_positionsLock)
 				{
 					_positions.Clear();
 					foreach (var position in reconcile.Position.Where(p => p.PositionStatus == ProtoOAPositionStatus.PositionStatusOpen))
 						_positions[position.PositionId] = ToPositionInfo(position);
 					count = _positions.Count;
+					symbolIds = _positions.Values.Select(p => p.SymbolId).Distinct().ToList();
 				}
 
 				_logger.LogInformation("cTrader: {PositionCount} open position(s) loaded for account {AccountId}.", count, accountId);
 				Changed?.Invoke();
+
+				foreach (var symbolId in symbolIds)
+					SubscribeSymbolForPosition(symbolId);
 			}
 			catch (Exception ex)
 			{
@@ -721,6 +814,7 @@ namespace Poink.Sim.Services.CTrader
 					{
 						_positions[position.PositionId] = ToPositionInfo(position);
 					}
+					SubscribeSymbolForPosition(position.TradeData.SymbolId);
 					break;
 				case ProtoOAPositionStatus.PositionStatusClosed:
 					lock (_positionsLock)
@@ -734,6 +828,22 @@ namespace Poink.Sim.Services.CTrader
 
 			_logger.LogInformation("cTrader: position {PositionId} {Status}.", position.PositionId, position.PositionStatus);
 			Changed?.Invoke();
+		}
+
+		// Fire-and-forget: both call sites above already run inside _gate (held by the connect flow) or
+		// off a reactive event callback, so this can't be awaited inline -- errors are logged, not thrown.
+		private void SubscribeSymbolForPosition(long symbolId) => _ = SubscribeSymbolForPositionSafeAsync(symbolId);
+
+		private async Task SubscribeSymbolForPositionSafeAsync(long symbolId)
+		{
+			try
+			{
+				await EnsurePositionSymbolSubscribedAsync(symbolId);
+			}
+			catch (Exception ex)
+			{
+				_logger.LogWarning(ex, "cTrader: failed to subscribe symbol {SymbolId} for a position's live price.", symbolId);
+			}
 		}
 
 		private CTraderPositionInfo ToPositionInfo(ProtoOAPosition position)
@@ -876,6 +986,7 @@ namespace Poink.Sim.Services.CTrader
 			lock (_quotesLock)
 			{
 				_quotes.Clear();
+				_watchedSymbolIds.Clear();
 			}
 
 			lock (_positionsLock)

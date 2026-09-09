@@ -6,10 +6,10 @@
         <span class="trade-section-title">POSITIONS</span>
         <span class="trade-section-count">@Positions.Count</span>
     </div>
-    <PositionTable Positions="Positions" Watchlist="Watchlist" SymbolMetadata="SymbolMetadata" OnSelect="OnSelectPosition" />
+    <PositionTable Positions="Positions" Quotes="Quotes" SymbolMetadata="SymbolMetadata" OnSelect="OnSelectPosition" />
 
     <div class="fp-financials"
-         title="Balance updates live from cTrader; Margin Used sums open positions; Unrealized (and everything derived from it) prices each position against its watchlist quote, so it's partial until every open position's symbol has been watched">
+         title="Balance updates live from cTrader; Margin Used sums open positions; every open position's symbol streams its own live quote regardless of the watchlist">
         <div class="fp-card" title="Live account balance and equity">
             <div class="fp-item" title="Live account balance">
                 <span class="fp-label">Balance</span>
@@ -41,7 +41,7 @@
                 <span class="fp-label">Realized</span>
                 <span class="fp-value">@Money(RealizedPnl)</span>
             </div>
-            <div class="fp-item" title="Sum of each open position's pip difference from its live quote times its volume -- watch a position's symbol to include it">
+            <div class="fp-item" title="Sum of each open position's pip difference from its live quote times its volume">
                 <span class="fp-label">Unrealized</span>
                 <span class="fp-value">@Money(UnrealizedPnl)</span>
             </div>

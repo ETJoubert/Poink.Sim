@@ -17,7 +17,7 @@ namespace Poink.Sim.Components.Pages.Trade
 		public double? Balance { get; set; }
 
 		[Parameter]
-		public IReadOnlyList<CTraderSymbolQuote> Watchlist { get; set; } = System.Array.Empty<CTraderSymbolQuote>();
+		public IReadOnlyList<CTraderSymbolQuote> Quotes { get; set; } = System.Array.Empty<CTraderSymbolQuote>();
 
 		[Parameter]
 		public IReadOnlyDictionary<long, SymbolMetadataModel> SymbolMetadata { get; set; } =
@@ -28,8 +28,8 @@ namespace Poink.Sim.Components.Pages.Trade
 
 		private double? RealizedPnl => null;
 
-		// Excludes any position whose symbol isn't watched yet (no live quote/metadata to price it against),
-		// so this is a partial sum until every open position's symbol has been watched at least once.
+		// Every open position's symbol is auto-subscribed independently of the watchlist, so this excludes
+		// a position only in the brief window before its subscription/metadata/first quote lands.
 		private double? UnrealizedPnl
 		{
 			get
@@ -43,7 +43,7 @@ namespace Poink.Sim.Components.Pages.Trade
 			}
 		}
 
-		private CTraderSymbolQuote? QuoteFor(long symbolId) => Watchlist.FirstOrDefault(q => q.SymbolId == symbolId);
+		private CTraderSymbolQuote? QuoteFor(long symbolId) => Quotes.FirstOrDefault(q => q.SymbolId == symbolId);
 
 		private double? Equity => Balance is { } balance && UnrealizedPnl is { } pnl ? balance + pnl : null;
 
