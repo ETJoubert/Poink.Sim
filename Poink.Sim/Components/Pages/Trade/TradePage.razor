@@ -89,47 +89,6 @@
                 }
             </div>
         </header>
-
-        @if (IsConnected)
-        {
-            <div class="trade-account-financials"
-                 title="Balance updates live from cTrader; the other figures need deriving from open positions and closed-deal history, not implemented yet">
-                <div class="trade-financial-item" title="Live account balance">
-                    <span class="trade-financial-label">Balance</span>
-                    <span class="trade-financial-value">@Money(Session.AccountFinancials.Balance)</span>
-                </div>
-                <div class="trade-financial-item trade-financial-item-placeholder"
-                     title="Derived from closed-deal history for the current server day -- not available yet">
-                    <span class="trade-financial-label">Realized</span>
-                    <span class="trade-financial-value">@Money(Session.AccountFinancials.RealizedPnl)</span>
-                </div>
-                <div class="trade-financial-item trade-financial-item-placeholder"
-                     title="Derived from open positions -- not available yet">
-                    <span class="trade-financial-label">Unrealized</span>
-                    <span class="trade-financial-value">@Money(Session.AccountFinancials.UnrealizedPnl)</span>
-                </div>
-                <div class="trade-financial-item trade-financial-item-placeholder"
-                     title="Derived as Balance + Unrealized P/L -- not available yet">
-                    <span class="trade-financial-label">Equity</span>
-                    <span class="trade-financial-value">@Money(Session.AccountFinancials.Equity)</span>
-                </div>
-                <div class="trade-financial-item trade-financial-item-placeholder"
-                     title="Derived from open positions' used margin -- not available yet">
-                    <span class="trade-financial-label">Margin Used</span>
-                    <span class="trade-financial-value">@Money(Session.AccountFinancials.MarginUsed)</span>
-                </div>
-                <div class="trade-financial-item trade-financial-item-placeholder"
-                     title="Derived as Equity / Margin Used -- not available yet">
-                    <span class="trade-financial-label">Margin Level</span>
-                    <span class="trade-financial-value">@Money(Session.AccountFinancials.MarginLevel)</span>
-                </div>
-                <div class="trade-financial-item trade-financial-item-placeholder"
-                     title="Derived as Equity - Margin Used -- not available yet">
-                    <span class="trade-financial-label">Free Margin</span>
-                    <span class="trade-financial-value">@Money(Session.AccountFinancials.FreeMargin)</span>
-                </div>
-            </div>
-        }
     </div>
 
     <div class="trade-body">
@@ -331,13 +290,10 @@
 
             @if (IsConnected)
             {
-                <div class="trade-chart-hdivider" @ref="_positionsHDividerRef" data-min-height="120" data-max-height-vh="70" title="Drag to resize"></div>
-                <section class="trade-positions-panel" title="Every open position on the connected account">
-                    <div class="trade-section-header">
-                        <span class="trade-section-title">POSITIONS</span>
-                        <span class="trade-section-count">@Session.Positions.Count</span>
-                    </div>
-                    <PositionTable Positions="Session.Positions" OnSelect="position => OpenChartAsync(position.SymbolId, position.SymbolName)" />
+                <div class="trade-chart-hdivider" @ref="_positionsHDividerRef" data-min-height="160" data-max-height-vh="70" title="Drag to resize"></div>
+                <section class="trade-financials-panel" title="Open positions and account financials">
+                    <FinancialsPanel Positions="Session.Positions" Balance="Session.Balance"
+                                     OnSelectPosition="position => OpenChartAsync(position.SymbolId, position.SymbolName)" />
                 </section>
             }
         </main>

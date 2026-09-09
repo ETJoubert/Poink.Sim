@@ -29,41 +29,6 @@
     flex-wrap: wrap;
 }
 
-.trade-account-financials {
-    display: flex;
-    align-items: center;
-    gap: 22px;
-    flex-wrap: wrap;
-    padding: 5px 24px 6px;
-    border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
-}
-
-.trade-financial-item {
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-}
-
-.trade-financial-label {
-    font-size: 0.58rem;
-    font-weight: bold;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--color-secondary);
-    opacity: 0.85;
-}
-
-.trade-financial-value {
-    font-variant-numeric: tabular-nums;
-    font-size: 0.82rem;
-    color: var(--color-primary);
-}
-
-.trade-financial-item-placeholder .trade-financial-value {
-    color: var(--color-secondary);
-    opacity: 0.55;
-}
-
 .trade-header-symbol {
     font-family: var(--font-heading);
     font-size: 1.15rem;
@@ -624,11 +589,11 @@
     background: var(--color-primary);
 }
 
-.trade-positions-panel {
+.trade-financials-panel {
     display: flex;
     flex-direction: column;
     flex-shrink: 0;
-    height: 220px;
+    height: 280px;
     border: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
     border-radius: var(--border-radius-sm);
     overflow: hidden;

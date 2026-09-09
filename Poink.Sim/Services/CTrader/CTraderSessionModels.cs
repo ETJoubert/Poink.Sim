@@ -25,25 +25,6 @@ namespace Poink.Sim.Services.CTrader
 		double? TakeProfitPrice
 	);
 
-	/// <summary>
-	/// Account-level financial snapshot for the Trade page header. Balance is fetched on connect and
-	/// kept live via cTrader's ProtoOATraderUpdatedEvent push. The remaining figures would need to be
-	/// derived from open positions (margin, unrealized P/L) and closed-deal history (realized P/L),
-	/// which isn't implemented yet, so they stay null placeholders.
-	/// </summary>
-	public sealed record CTraderAccountFinancials(
-		double? Balance,
-		double? RealizedPnl,
-		double? UnrealizedPnl,
-		double? Equity,
-		double? MarginUsed,
-		double? MarginLevel,
-		double? FreeMargin
-	)
-	{
-		public static readonly CTraderAccountFinancials Empty = new(null, null, null, null, null, null, null);
-	}
-
 	public sealed record CTraderSymbolInfo(
 		long SymbolId,
 		string SymbolName,

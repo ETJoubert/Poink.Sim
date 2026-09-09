@@ -531,8 +531,6 @@ namespace Poink.Sim.Components.Pages.Trade
 
 		private static string Price(double? value) => value?.ToString("N5") ?? "—";
 
-		private static string Money(double? value) => value?.ToString("N2") ?? "—";
-
 		private void OnSessionChanged() =>
 			InvokeAsync(async () =>
 			{

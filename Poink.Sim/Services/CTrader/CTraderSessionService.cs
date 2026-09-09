@@ -80,7 +80,7 @@ namespace Poink.Sim.Services.CTrader
 
 		public long? SelectedAccountId { get; private set; }
 
-		public CTraderAccountFinancials AccountFinancials { get; private set; } = CTraderAccountFinancials.Empty;
+		public double? Balance { get; private set; }
 
 		public IReadOnlyList<CTraderSymbolInfo> Symbols { get; private set; } = Array.Empty<CTraderSymbolInfo>();
 
@@ -661,7 +661,7 @@ namespace Poink.Sim.Services.CTrader
 			{
 				var response = await _client!.GetTraderAsync(accountId, cancellationToken);
 				ApplyTrader(response.Trader);
-				_logger.LogInformation("cTrader: balance {Balance} loaded for account {AccountId}.", AccountFinancials.Balance, accountId);
+				_logger.LogInformation("cTrader: balance {Balance} loaded for account {AccountId}.", Balance, accountId);
 			}
 			catch (Exception ex)
 			{
@@ -675,12 +675,12 @@ namespace Poink.Sim.Services.CTrader
 				return;
 
 			ApplyTrader(e.Trader);
-			_logger.LogInformation("cTrader: balance updated to {Balance} for account {AccountId}.", AccountFinancials.Balance, SelectedAccountId);
+			_logger.LogInformation("cTrader: balance updated to {Balance} for account {AccountId}.", Balance, SelectedAccountId);
 		}
 
 		private void ApplyTrader(ProtoOATrader trader)
 		{
-			AccountFinancials = AccountFinancials with { Balance = trader.Balance / Math.Pow(10, trader.MoneyDigits) };
+			Balance = trader.Balance / Math.Pow(10, trader.MoneyDigits);
 			Changed?.Invoke();
 		}
 
@@ -884,7 +884,7 @@ namespace Poink.Sim.Services.CTrader
 
 			Symbols = Array.Empty<CTraderSymbolInfo>();
 			SelectedAccountId = null;
-			AccountFinancials = CTraderAccountFinancials.Empty;
+			Balance = null;
 
 			if (_client is not null)
 			{

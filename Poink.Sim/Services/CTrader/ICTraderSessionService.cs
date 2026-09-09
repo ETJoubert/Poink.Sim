@@ -22,7 +22,8 @@ namespace Poink.Sim.Services.CTrader
 
 		long? SelectedAccountId { get; }
 
-		CTraderAccountFinancials AccountFinancials { get; }
+		/// <summary>Account balance, pushed live by cTrader. Derived figures (equity, margin, P/L) are computed by FinancialsPanel from this and <see cref="Positions"/>.</summary>
+		double? Balance { get; }
 
 		IReadOnlyList<CTraderPositionInfo> Positions { get; }
 
