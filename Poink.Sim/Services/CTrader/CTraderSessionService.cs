@@ -46,14 +46,17 @@ namespace Poink.Sim.Services.CTrader
 		private readonly SemaphoreSlim _historyGate = new(1, 1);
 		private readonly SemaphoreSlim _historyRateGate = new(1, 1);
 		private readonly object _quotesLock = new();
+		private readonly object _positionsLock = new();
 
 		private DateTime _lastHistoricalRequestUtc = DateTime.MinValue;
 		private readonly Dictionary<long, CTraderSymbolQuote> _quotes = new();
+		private readonly Dictionary<long, CTraderPositionInfo> _positions = new();
 
 		private CTraderClient? _client;
 		private Token? _token;
 		private IDisposable? _spotSubscription;
 		private IDisposable? _traderUpdatedSubscription;
+		private IDisposable? _executionSubscription;
 		private long _lastQuoteNotifyTicks;
 
 		public CTraderSessionService(
@@ -80,6 +83,17 @@ namespace Poink.Sim.Services.CTrader
 		public CTraderAccountFinancials AccountFinancials { get; private set; } = CTraderAccountFinancials.Empty;
 
 		public IReadOnlyList<CTraderSymbolInfo> Symbols { get; private set; } = Array.Empty<CTraderSymbolInfo>();
+
+		public IReadOnlyList<CTraderPositionInfo> Positions
+		{
+			get
+			{
+				lock (_positionsLock)
+				{
+					return _positions.Values.OrderBy(p => p.OpenTimeUtc).ToList();
+				}
+			}
+		}
 
 		public IReadOnlyList<CTraderSymbolQuote> Watchlist
 		{
@@ -635,8 +649,10 @@ namespace Poink.Sim.Services.CTrader
 
 			_spotSubscription = _client.Messages.OfType<ProtoOASpotEvent>().Subscribe(OnSpotEvent);
 			_traderUpdatedSubscription = _client.Messages.OfType<ProtoOATraderUpdatedEvent>().Subscribe(OnTraderUpdated);
+			_executionSubscription = _client.Messages.OfType<ProtoOAExecutionEvent>().Subscribe(OnExecutionEvent);
 
 			await RefreshBalanceAsync(accountId, cancellationToken);
+			await LoadPositionsAsync(accountId, cancellationToken);
 		}
 
 		private async Task RefreshBalanceAsync(long accountId, CancellationToken cancellationToken)
@@ -666,6 +682,76 @@ namespace Poink.Sim.Services.CTrader
 		{
 			AccountFinancials = AccountFinancials with { Balance = trader.Balance / Math.Pow(10, trader.MoneyDigits) };
 			Changed?.Invoke();
+		}
+
+		private async Task LoadPositionsAsync(long accountId, CancellationToken cancellationToken)
+		{
+			try
+			{
+				var reconcile = await _client!.ReconcileAsync(accountId, cancellationToken);
+				int count;
+				lock (_positionsLock)
+				{
+					_positions.Clear();
+					foreach (var position in reconcile.Position.Where(p => p.PositionStatus == ProtoOAPositionStatus.PositionStatusOpen))
+						_positions[position.PositionId] = ToPositionInfo(position);
+					count = _positions.Count;
+				}
+
+				_logger.LogInformation("cTrader: {PositionCount} open position(s) loaded for account {AccountId}.", count, accountId);
+				Changed?.Invoke();
+			}
+			catch (Exception ex)
+			{
+				_logger.LogWarning(ex, "cTrader: failed to load open positions for account {AccountId}.", accountId);
+			}
+		}
+
+		// A position's PROTO_OA_POSITION_STATUS_CREATED shows up for a pending order with no fill yet -
+		// only OPEN and CLOSED represent an actual position change worth tracking here.
+		private void OnExecutionEvent(ProtoOAExecutionEvent e)
+		{
+			if (e.Position is not { } position)
+				return;
+
+			switch (position.PositionStatus)
+			{
+				case ProtoOAPositionStatus.PositionStatusOpen:
+					lock (_positionsLock)
+					{
+						_positions[position.PositionId] = ToPositionInfo(position);
+					}
+					break;
+				case ProtoOAPositionStatus.PositionStatusClosed:
+					lock (_positionsLock)
+					{
+						_positions.Remove(position.PositionId);
+					}
+					break;
+				default:
+					return;
+			}
+
+			_logger.LogInformation("cTrader: position {PositionId} {Status}.", position.PositionId, position.PositionStatus);
+			Changed?.Invoke();
+		}
+
+		private CTraderPositionInfo ToPositionInfo(ProtoOAPosition position)
+		{
+			var symbolId = position.TradeData.SymbolId;
+			var symbolName = Symbols.FirstOrDefault(s => s.SymbolId == symbolId)?.SymbolName ?? $"Symbol {symbolId}";
+
+			return new CTraderPositionInfo(
+				position.PositionId,
+				symbolId,
+				symbolName,
+				position.TradeData.TradeSide == ProtoOATradeSide.Buy,
+				position.TradeData.Volume / 100.0,
+				position.Price,
+				DateTimeOffset.FromUnixTimeMilliseconds(position.TradeData.OpenTimestamp).UtcDateTime,
+				position.HasStopLoss ? position.StopLoss : null,
+				position.HasTakeProfit ? position.TakeProfit : null
+			);
 		}
 
 		public async Task<IReadOnlyList<CTraderSymbolInfo>> RefreshSymbolsAsync(
@@ -783,10 +869,17 @@ namespace Poink.Sim.Services.CTrader
 			_spotSubscription = null;
 			_traderUpdatedSubscription?.Dispose();
 			_traderUpdatedSubscription = null;
+			_executionSubscription?.Dispose();
+			_executionSubscription = null;
 
 			lock (_quotesLock)
 			{
 				_quotes.Clear();
+			}
+
+			lock (_positionsLock)
+			{
+				_positions.Clear();
 			}
 
 			Symbols = Array.Empty<CTraderSymbolInfo>();

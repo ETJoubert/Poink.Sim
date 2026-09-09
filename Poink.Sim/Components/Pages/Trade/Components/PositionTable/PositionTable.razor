@@ -1,0 +1,39 @@
+@namespace Poink.Sim.Components.Pages.Trade
+@using Poink.Sim.Services.CTrader
+
+<div class="pt-wrapper">
+    @if (Positions.Count == 0)
+    {
+        <p class="pt-empty">No open positions.</p>
+    }
+    else
+    {
+        <table class="pt-table">
+            <thead>
+                <tr>
+                    <th>Symbol</th>
+                    <th>Side</th>
+                    <th>Volume</th>
+                    <th>Entry</th>
+                    <th>Opened</th>
+                    <th>SL</th>
+                    <th>TP</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var position in Positions)
+                {
+                    <tr class="pt-row" @onclick="() => SelectAsync(position)" title="View @position.SymbolName's chart">
+                        <td class="pt-cell-symbol">@position.SymbolName</td>
+                        <td class="@(position.IsLong ? "pt-side-long" : "pt-side-short")">@(position.IsLong ? "LONG" : "SHORT")</td>
+                        <td>@position.Volume.ToString("N2")</td>
+                        <td>@position.EntryPrice.ToString("N5")</td>
+                        <td>@position.OpenTimeUtc.ToLocalTime().ToString("HH:mm:ss")</td>
+                        <td>@(position.StopLossPrice?.ToString("N5") ?? "—")</td>
+                        <td>@(position.TakeProfitPrice?.ToString("N5") ?? "—")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>

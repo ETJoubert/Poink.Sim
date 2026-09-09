@@ -283,7 +283,9 @@
                                     <MarketChartContainer Bars="_chartBars" CurrentBid="ChartQuote?.Bid" CurrentAsk="ChartQuote?.Ask"
                                                  KeepView="_chartKeepView" ShowAnnotationTools="false"
                                                  WindowStartUtc="WindowStartUtc()" WindowEndUtc="WindowEndUtc()"
-                                                 HorizontalLines="ProfileLevelLines()" VwapLine="VwapPoints()" />
+                                                 HorizontalLines="ProfileLevelLines()" VwapLine="VwapPoints()"
+                                                 EntryPrice="ChartPosition?.EntryPrice" PositionIsLong="ChartPosition?.IsLong"
+                                                 StopLossPrice="ChartPosition?.StopLossPrice" TakeProfitPrice="ChartPosition?.TakeProfitPrice" />
                                 </div>
                             }
                             @if (_showXGrid)
@@ -339,6 +341,18 @@
             else if (IsConnected)
             {
                 <p class="trade-main-placeholder">Select symbols on the left to build a live watchlist, then select a watchlist row to view its price chart. Order placement comes next.</p>
+            }
+
+            @if (IsConnected)
+            {
+                <div class="trade-chart-hdivider" @ref="_positionsHDividerRef" data-min-height="120" data-max-height-vh="70" title="Drag to resize"></div>
+                <section class="trade-positions-panel" title="Every open position on the connected account">
+                    <div class="trade-section-header">
+                        <span class="trade-section-title">POSITIONS</span>
+                        <span class="trade-section-count">@Session.Positions.Count</span>
+                    </div>
+                    <PositionTable Positions="Session.Positions" OnSelect="position => OpenChartAsync(position.SymbolId, position.SymbolName)" />
+                </section>
             }
         </main>
     </div>

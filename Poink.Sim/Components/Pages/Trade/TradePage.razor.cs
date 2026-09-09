@@ -111,6 +111,9 @@ namespace Poink.Sim.Components.Pages.Trade
 		private CTraderSymbolQuote? ChartQuote =>
 			_chartSymbolId is { } id ? Session.Watchlist.FirstOrDefault(q => q.SymbolId == id) : null;
 
+		private CTraderPositionInfo? ChartPosition =>
+			_chartSymbolId is { } id ? Session.Positions.FirstOrDefault(p => p.SymbolId == id) : null;
+
 		private IReadOnlyList<CTraderSymbolInfo> FilteredSymbols
 		{
 			get
@@ -159,6 +162,7 @@ namespace Poink.Sim.Components.Pages.Trade
 		private ElementReference _chartDividerRefVolume;
 		private ElementReference _chartDividerRefTime;
 		private ElementReference _chartDividerRefTrader;
+		private ElementReference _positionsHDividerRef;
 		private IJSObjectReference? _dividerResizeInstance;
 		private HashSet<string> _lastVisibleChartPanels = new();
 
@@ -244,7 +248,41 @@ namespace Poink.Sim.Components.Pages.Trade
 			            divider.addEventListener('pointerup', onUp);
 			        });
 			    }
-			    return { bindChartDivider: bindChartDivider, resetChartPanelsEqual: resetChartPanelsEqual };
+			    function bindHeightAfter(divider) {
+			        if (!divider || divider.dataset.bound) return;
+			        divider.dataset.bound = '1';
+			        var minHeight = parseInt(divider.dataset.minHeight, 10) || 120;
+			        var maxHeightVh = parseInt(divider.dataset.maxHeightVh, 10) || 70;
+			        divider.addEventListener('pointerdown', function(e) {
+			            e.preventDefault();
+			            var target = divider.nextElementSibling;
+			            if (!target) return;
+			            var startY = e.clientY;
+			            var startHeight = target.getBoundingClientRect().height;
+			            var maxHeight = (maxHeightVh / 100) * window.innerHeight;
+			            divider.setPointerCapture(e.pointerId);
+			            divider.classList.add('trade-chart-hdivider-active');
+
+			            function clamp(ev) {
+			                return Math.min(maxHeight, Math.max(minHeight, startHeight - (ev.clientY - startY)));
+			            }
+			            function onMove(ev) {
+			                target.style.height = clamp(ev) + 'px';
+			            }
+			            function onUp(ev) {
+			                divider.releasePointerCapture(e.pointerId);
+			                divider.removeEventListener('pointermove', onMove);
+			                divider.removeEventListener('pointerup', onUp);
+			                divider.classList.remove('trade-chart-hdivider-active');
+			            }
+			            divider.addEventListener('pointermove', onMove);
+			            divider.addEventListener('pointerup', onUp);
+			        });
+			    }
+			    return {
+			        bindChartDivider: bindChartDivider, bindHeightAfter: bindHeightAfter,
+			        resetChartPanelsEqual: resetChartPanelsEqual,
+			    };
 			})()
 			""";
 
@@ -263,7 +301,13 @@ namespace Poink.Sim.Components.Pages.Trade
 				await PersistSettingsIfChangedAsync();
 			}
 
-			if (_chartSymbolId is null || _chartLoading || _chartError is not null || _dividerResizeInstance is null)
+			if (_dividerResizeInstance is null)
+				return;
+
+			if (IsConnected)
+				await _dividerResizeInstance.InvokeVoidAsync("bindHeightAfter", _positionsHDividerRef);
+
+			if (_chartSymbolId is null || _chartLoading || _chartError is not null)
 				return;
 
 			var visiblePanels = CurrentVisibleChartPanelKeys();
@@ -687,6 +731,7 @@ namespace Poink.Sim.Components.Pages.Trade
 			var updated = quote.UpdatedAt?.ToString("HH:mm:ss") ?? "waiting...";
 			return $"{state} -- last update: {updated}";
 		}
+
 
 		public void Dispose()
 		{

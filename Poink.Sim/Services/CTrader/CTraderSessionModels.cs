@@ -12,6 +12,19 @@ namespace Poink.Sim.Services.CTrader
 
 	public sealed record CTraderAccountInfo(long AccountId, long Login, bool IsLive);
 
+	/// <summary>An open position, kept in sync via an initial reconcile plus live execution-event push.</summary>
+	public sealed record CTraderPositionInfo(
+		long PositionId,
+		long SymbolId,
+		string SymbolName,
+		bool IsLong,
+		double Volume,
+		double EntryPrice,
+		DateTime OpenTimeUtc,
+		double? StopLossPrice,
+		double? TakeProfitPrice
+	);
+
 	/// <summary>
 	/// Account-level financial snapshot for the Trade page header. Balance is fetched on connect and
 	/// kept live via cTrader's ProtoOATraderUpdatedEvent push. The remaining figures would need to be

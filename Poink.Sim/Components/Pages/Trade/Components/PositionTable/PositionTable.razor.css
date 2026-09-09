@@ -1,0 +1,60 @@
+.pt-wrapper {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.pt-empty {
+    padding: 12px 16px;
+    font-size: 0.8rem;
+    color: var(--color-secondary);
+}
+
+.pt-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.78rem;
+}
+
+.pt-table thead th {
+    position: sticky;
+    top: 0;
+    background: var(--color-bg-terminal);
+    text-align: left;
+    font-size: 0.6rem;
+    font-weight: bold;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-secondary);
+    border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+.pt-row {
+    cursor: pointer;
+    transition: background 0.12s ease;
+}
+
+.pt-row:hover {
+    background: color-mix(in srgb, var(--color-primary) 8%, transparent);
+}
+
+.pt-table td {
+    border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 6%, transparent);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.pt-cell-symbol {
+    font-weight: bold;
+    color: var(--color-primary);
+}
+
+.pt-side-long {
+    color: var(--color-success);
+    font-weight: bold;
+}
+
+.pt-side-short {
+    color: var(--color-error);
+    font-weight: bold;
+}
