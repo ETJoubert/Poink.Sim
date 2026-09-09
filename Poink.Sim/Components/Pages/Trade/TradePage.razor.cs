@@ -48,6 +48,7 @@ namespace Poink.Sim.Components.Pages.Trade
 
 		private string _symbolFilter = string.Empty;
 		private bool _sidepanelCollapsed;
+		private bool _rightPanelCollapsed;
 		private bool _symbolPickerOpen;
 
 		private long? _chartSymbolId;
@@ -64,7 +65,6 @@ namespace Poink.Sim.Components.Pages.Trade
 		private bool _showXGrid;
 		private bool _showVolumeProfile;
 		private bool _showTimeProfile;
-		private bool _showTraderControls;
 		private bool _showProfileChartLines = true;
 		private bool _showVwap = true;
 
@@ -105,6 +105,8 @@ namespace Poink.Sim.Components.Pages.Trade
 		private void CloseAccountMenu() => _accountMenuOpen = false;
 
 		private void ToggleSidepanel() => _sidepanelCollapsed = !_sidepanelCollapsed;
+
+		private void ToggleRightPanel() => _rightPanelCollapsed = !_rightPanelCollapsed;
 
 		private void ToggleSymbolPicker() => _symbolPickerOpen = !_symbolPickerOpen;
 
@@ -161,7 +163,6 @@ namespace Poink.Sim.Components.Pages.Trade
 		private ElementReference _chartDividerRef;
 		private ElementReference _chartDividerRefVolume;
 		private ElementReference _chartDividerRefTime;
-		private ElementReference _chartDividerRefTrader;
 		private ElementReference _positionsHDividerRef;
 		private IJSObjectReference? _dividerResizeInstance;
 		private HashSet<string> _lastVisibleChartPanels = new();
@@ -173,21 +174,17 @@ namespace Poink.Sim.Components.Pages.Trade
 			if (_showXGrid) keys.Add("xgrid");
 			if (_showVolumeProfile) keys.Add("volume");
 			if (_showTimeProfile) keys.Add("time");
-			if (_showTraderControls) keys.Add("trader");
 			return keys;
 		}
 
 		// A divider's negative margin assumes a panel to its left, so a divider only shows
-		// once an earlier panel (main -> XGrid -> volume profile -> time profile) is visible.
+		// once an earlier panel (main -> XGrid -> volume profile) is visible.
 		private bool ShowXGridDivider => _showMainChart && _showXGrid;
 
 		private bool ShowVolumeProfileDivider => _showVolumeProfile && (_showMainChart || _showXGrid);
 
 		private bool ShowTimeProfileDivider =>
 			_showTimeProfile && (_showMainChart || _showXGrid || _showVolumeProfile);
-
-		private bool ShowTraderControlsDivider =>
-			_showTraderControls && (_showMainChart || _showXGrid || _showVolumeProfile || _showTimeProfile);
 
 		// Same drag-to-resize mechanism as SimulationPage's ChartDividerScript, trimmed to the
 		// two-panel (main/side) case Trade's chart row actually has -- no height divider here.
@@ -323,8 +320,6 @@ namespace Poink.Sim.Components.Pages.Trade
 				await _dividerResizeInstance.InvokeVoidAsync("bindChartDivider", _chartDividerRefVolume);
 			if (ShowTimeProfileDivider)
 				await _dividerResizeInstance.InvokeVoidAsync("bindChartDivider", _chartDividerRefTime);
-			if (ShowTraderControlsDivider)
-				await _dividerResizeInstance.InvokeVoidAsync("bindChartDivider", _chartDividerRefTrader);
 		}
 
 		public async ValueTask DisposeAsync()
@@ -356,7 +351,6 @@ namespace Poink.Sim.Components.Pages.Trade
 				_showXGrid,
 				_showVolumeProfile,
 				_showTimeProfile,
-				_showTraderControls,
 				_showProfileChartLines,
 				_showVwap,
 				_barWindowSize,
@@ -366,7 +360,8 @@ namespace Poink.Sim.Components.Pages.Trade
 				_chartSymbolId,
 				_chartSymbolName,
 				Session.Watchlist.Select(q => q.SymbolId).ToList(),
-				_sidepanelCollapsed
+				_sidepanelCollapsed,
+				_rightPanelCollapsed
 			);
 
 		private async Task LoadPersistedSettingsAsync()
@@ -380,7 +375,6 @@ namespace Poink.Sim.Components.Pages.Trade
 			_showXGrid = settings.ShowXGrid;
 			_showVolumeProfile = settings.ShowVolumeProfile;
 			_showTimeProfile = settings.ShowTimeProfile;
-			_showTraderControls = settings.ShowTraderControls;
 			_showProfileChartLines = settings.ShowProfileChartLines;
 			_showVwap = settings.ShowVwap;
 			_barWindowSize = settings.BarWindowSize;
@@ -388,6 +382,7 @@ namespace Poink.Sim.Components.Pages.Trade
 			_xgridPipCount = settings.XGridPipCount;
 			_xgridColCount = settings.XGridColCount;
 			_sidepanelCollapsed = settings.SidepanelCollapsed;
+			_rightPanelCollapsed = settings.RightPanelCollapsed;
 			_pendingChartSymbolId = settings.ChartSymbolId;
 			_pendingChartSymbolName = settings.ChartSymbolName;
 			_pendingWatchSymbolIds = settings.WatchedSymbolIds;

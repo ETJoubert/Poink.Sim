@@ -13,7 +13,6 @@ namespace Poink.Sim.Models
 		bool ShowXGrid,
 		bool ShowVolumeProfile,
 		bool ShowTimeProfile,
-		bool ShowTraderControls,
 		bool ShowProfileChartLines,
 		bool ShowVwap,
 		int BarWindowSize,
@@ -23,6 +22,7 @@ namespace Poink.Sim.Models
 		long? ChartSymbolId,
 		string? ChartSymbolName,
 		List<long> WatchedSymbolIds,
-		bool SidepanelCollapsed
+		bool SidepanelCollapsed,
+		bool RightPanelCollapsed
 	);
 }
