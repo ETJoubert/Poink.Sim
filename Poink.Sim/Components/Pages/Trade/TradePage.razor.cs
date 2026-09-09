@@ -206,7 +206,7 @@ namespace Poink.Sim.Components.Pages.Trade
 			        panels.forEach(function(p) { p.style.flex = '0 0 ' + percent + '%'; });
 			    }
 			    function bindChartDivider(divider) {
-			        if (!divider || divider.dataset.bound) return;
+			        if (!divider || !divider.dataset || divider.dataset.bound) return;
 			        divider.dataset.bound = '1';
 			        var minWidthPx = parseInt(divider.dataset.minWidth, 10) || 160;
 			        divider.addEventListener('pointerdown', function(e) {
@@ -246,7 +246,7 @@ namespace Poink.Sim.Components.Pages.Trade
 			        });
 			    }
 			    function bindHeightAfter(divider) {
-			        if (!divider || divider.dataset.bound) return;
+			        if (!divider || !divider.dataset || divider.dataset.bound) return;
 			        divider.dataset.bound = '1';
 			        var minHeight = parseInt(divider.dataset.minHeight, 10) || 120;
 			        var maxHeightVh = parseInt(divider.dataset.maxHeightVh, 10) || 70;
