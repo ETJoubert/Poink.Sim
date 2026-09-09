@@ -665,6 +665,21 @@ namespace Poink.Sim.Components.Pages.Trade
 			return _xgridCache;
 		}
 
+		private List<XGridPosition> XGridPositions() =>
+			Session.Positions
+				.Where(p => p.SymbolId == _chartSymbolId)
+				.Select(p => new XGridPosition(
+					p.IsLong ? XGridPositionDirection.Long : XGridPositionDirection.Short,
+					p.OpenTimeUtc,
+					p.EntryPrice,
+					StopLoss: p.StopLossPrice,
+					TakeProfit: p.TakeProfitPrice
+				)
+				{
+					Id = p.PositionId.ToString(),
+				})
+				.ToList();
+
 		private List<ChartHorizontalLine> ProfileLevelLines()
 		{
 			if (!_showProfileChartLines)
