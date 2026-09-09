@@ -1,10 +1,11 @@
 # Project Memory
-
-Instructions here apply to this project and are shared with team members.
-
 ## Context
 
-Address the user as Master Poinker
+Master is the core branch. Its own working tree stays on master; feature work never checks out another branch there.
+
+### Initialize
+1. After prompt state action
+2. Start Workflow by askking if straight to master, Feature branch, or worktree.
 
 ### 0. Response Report
 Every response ends with this report. Each section label is bold, sections are separated by a line break. Compliance and Concerns are prefixed with ✅ for a good state and ❌ for a bad one.
@@ -14,11 +15,12 @@ Every response ends with this report. Each section label is bold, sections are s
 4. **Details:** short What changed, Why, and How it was done: Each in sub-section label is italic.
 5. **Usage:** how to use it, when the work is a new feature.
 6. **Concerns:** ✅ None, or ❌ followed by each concern.
-7. **Recommendations:** state if any exist.
-8. **Finally:** State Next workflow steps
+7. **Mitigations:** If Workflow compliance failed, recommend actions to mitigate in future. 
+8. **Recommendations:** state if any exist.
+9. **Finally:** State Next workflow steps
 
 ### 1. Workflow
-1. Master is the core branch. Its own working tree stays on master; feature work never checks out another branch there.
+1. 
 2. At the start of any work: Ask if a feature branch or worktree should be created. If feature, create the branch from master. If worktree create branch in its own worktree at a sibling path (`../Poink.Sim-<branch-name>`), so multiple branches can be iterated on in parallel without checkout conflicts.
 3. Build and iterate inside that branch/worktree.
 4. Compilation is permitted. A build is not treated as running the program.
