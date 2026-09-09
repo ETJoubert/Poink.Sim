@@ -51,10 +51,16 @@ namespace Poink.Sim.Components.Pages.Trade
 		[Inject]
 		private ILocalStorageHelper LocalStorage { get; set; } = null!;
 
+		private enum SidepanelTab
+		{
+			Symbols,
+			Watchlist,
+		}
+
 		private string _symbolFilter = string.Empty;
 		private bool _sidepanelCollapsed;
 		private bool _rightPanelCollapsed;
-		private bool _symbolPickerOpen;
+		private SidepanelTab _sidepanelTab = SidepanelTab.Watchlist;
 
 		/// <summary>Pip-size source for the positions table, keyed by symbol -- populated lazily as each symbol is watched (see <see cref="WatchAsync"/>).</summary>
 		private readonly Dictionary<long, SymbolMetadataModel> _symbolMetadata = new();
@@ -64,6 +70,7 @@ namespace Poink.Sim.Components.Pages.Trade
 
 		private bool _symbolCategoriesLoaded;
 		private readonly HashSet<SymbolCategoryBucket> _selectedCategoryBuckets = new();
+		private bool _showDisabledSymbols;
 
 		private static readonly (SymbolCategoryBucket Bucket, string Label, string FullName)[] CategoryToggleDefs =
 		{
@@ -74,6 +81,10 @@ namespace Poink.Sim.Components.Pages.Trade
 			(SymbolCategoryBucket.Commodity, "Com", "Commodities"),
 			(SymbolCategoryBucket.Crypto, "CX", "Cryptos"),
 		};
+
+		private static readonly string[] FxQuickCurrencies = { "USD", "GBP", "EUR", "JPY", "ZAR" };
+
+		private readonly HashSet<string> _selectedFxCurrencies = new();
 
 		// ISymbolService's DbContext is scoped and single-threaded, but restoring the watchlist and
 		// reacting to Session.Changed can both try to fetch metadata at once -- this serializes them.
@@ -136,7 +147,7 @@ namespace Poink.Sim.Components.Pages.Trade
 
 		private void ToggleRightPanel() => _rightPanelCollapsed = !_rightPanelCollapsed;
 
-		private void ToggleSymbolPicker() => _symbolPickerOpen = !_symbolPickerOpen;
+		private void SelectSidepanelTab(SidepanelTab tab) => _sidepanelTab = tab;
 
 		private CTraderSymbolQuote? ChartQuote =>
 			_chartSymbolId is { } id ? Session.Quotes.FirstOrDefault(q => q.SymbolId == id) : null;
@@ -154,7 +165,12 @@ namespace Poink.Sim.Components.Pages.Trade
 						s.SymbolName.Contains(_symbolFilter, StringComparison.OrdinalIgnoreCase)
 					);
 
-				return matches.Where(MatchesCategoryFilter).Take(MaxSymbolResults).ToList();
+				return matches
+					.Where(MatchesCategoryFilter)
+					.Where(MatchesEnabledFilter)
+					.Where(MatchesFxCurrencyFilter)
+					.Take(MaxSymbolResults)
+					.ToList();
 			}
 		}
 
@@ -163,7 +179,10 @@ namespace Poink.Sim.Components.Pages.Trade
 				string.IsNullOrWhiteSpace(_symbolFilter)
 					? Session.Symbols
 					: Session.Symbols.Where(s => s.SymbolName.Contains(_symbolFilter, StringComparison.OrdinalIgnoreCase))
-			).Count(MatchesCategoryFilter);
+			)
+				.Where(MatchesCategoryFilter)
+				.Where(MatchesEnabledFilter)
+				.Count(MatchesFxCurrencyFilter);
 
 		// No toggle selected shows everything, matching today's name-only-filter behavior.
 		private bool MatchesCategoryFilter(CTraderSymbolInfo symbol) =>
@@ -173,10 +192,51 @@ namespace Poink.Sim.Components.Pages.Trade
 				&& _selectedCategoryBuckets.Contains(category.Bucket)
 			);
 
+		// Disabled symbols are hidden by default -- the toggle opts back into seeing them.
+		private bool MatchesEnabledFilter(CTraderSymbolInfo symbol) => _showDisabledSymbols || symbol.Enabled;
+
+		// Currency quick-filters only narrow the Forex bucket, leaving other selected categories untouched.
+		private bool MatchesFxCurrencyFilter(CTraderSymbolInfo symbol)
+		{
+			if (_selectedFxCurrencies.Count == 0)
+				return true;
+			if (!_symbolCategories.TryGetValue(symbol.SymbolCategoryId, out var category) || category.Bucket != SymbolCategoryBucket.Forex)
+				return true;
+
+			return _selectedFxCurrencies.Any(currency => symbol.SymbolName.Contains(currency, StringComparison.OrdinalIgnoreCase));
+		}
+
 		private void ToggleCategoryBucket(SymbolCategoryBucket bucket)
 		{
-			if (!_selectedCategoryBuckets.Remove(bucket))
-				_selectedCategoryBuckets.Add(bucket);
+			if (_selectedCategoryBuckets.Remove(bucket))
+			{
+				if (bucket == SymbolCategoryBucket.Forex)
+					_selectedFxCurrencies.Clear();
+				return;
+			}
+
+			_selectedCategoryBuckets.Add(bucket);
+		}
+
+		private void ToggleShowDisabledSymbols() => _showDisabledSymbols = !_showDisabledSymbols;
+
+		private void ToggleFxCurrency(string currency)
+		{
+			if (!_selectedFxCurrencies.Remove(currency))
+				_selectedFxCurrencies.Add(currency);
+		}
+
+		// Quick-glance info from what's already loaded (no per-symbol metadata fetch).
+		private string SymbolInfoTooltip(CTraderSymbolInfo symbol)
+		{
+			var categoryName = _symbolCategories.TryGetValue(symbol.SymbolCategoryId, out var category) ? category.Name : "Unknown category";
+			var lines = new List<string> { symbol.SymbolName };
+			if (!string.IsNullOrWhiteSpace(symbol.Description))
+				lines.Add(symbol.Description);
+			lines.Add(categoryName);
+			lines.Add(symbol.Enabled ? "Enabled" : "Disabled");
+
+			return string.Join("\n", lines);
 		}
 
 		private string StateLabel =>
