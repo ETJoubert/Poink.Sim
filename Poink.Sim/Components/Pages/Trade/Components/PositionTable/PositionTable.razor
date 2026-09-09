@@ -1,4 +1,5 @@
 @namespace Poink.Sim.Components.Pages.Trade
+@using Poink.Sim.Components.Shared.Icon
 @using Poink.Sim.Services.CTrader
 
 <div class="pt-wrapper">
@@ -15,6 +16,7 @@
                     {
                         <th>@column.Header</th>
                     }
+                    <th></th>
                 </tr>
             </thead>
             <tbody>
@@ -25,6 +27,12 @@
                         {
                             <td class="@column.CssClass?.Invoke(row)" title="@column.Title?.Invoke(row)">@column.Value(row)</td>
                         }
+                        <td class="pt-close-cell">
+                            <button class="pt-close-btn" @onclick="() => CloseAsync(row)" @onclick:stopPropagation="true"
+                                    title="Close this position">
+                                <Icon Name="x-lg" Class="pt-close-icon" />
+                            </button>
+                        </td>
                     </tr>
                 }
             </tbody>

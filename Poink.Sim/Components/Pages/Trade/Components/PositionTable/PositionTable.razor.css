@@ -70,3 +70,28 @@
 .pt-value-neutral {
     color: var(--color-secondary);
 }
+
+.pt-close-cell {
+    width: 1%;
+    text-align: right;
+}
+
+.pt-close-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 3px;
+    background: transparent;
+    border: none;
+    color: var(--color-secondary);
+    cursor: pointer;
+}
+
+.pt-close-btn:hover {
+    color: var(--color-error);
+}
+
+::deep .pt-close-icon {
+    width: 12px;
+    height: 12px;
+}

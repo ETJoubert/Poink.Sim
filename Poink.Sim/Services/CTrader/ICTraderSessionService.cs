@@ -84,5 +84,8 @@ namespace Poink.Sim.Services.CTrader
 
 		/// <summary>Closes every open position and cancels every resting pending order for the given symbol.</summary>
 		Task<CTraderOrderResult> CloseSymbolAsync(long symbolId, CancellationToken cancellationToken = default);
+
+		/// <summary>Closes a single open position by id, at its full current volume.</summary>
+		Task<CTraderOrderResult> ClosePositionAsync(long positionId, CancellationToken cancellationToken = default);
 	}
 }

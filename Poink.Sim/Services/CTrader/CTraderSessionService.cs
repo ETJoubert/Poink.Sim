@@ -555,6 +555,33 @@ namespace Poink.Sim.Services.CTrader
 			}
 		}
 
+		public async Task<CTraderOrderResult> ClosePositionAsync(long positionId, CancellationToken cancellationToken = default)
+		{
+			if (_client is null || SelectedAccountId is not { } accountId)
+				return new CTraderOrderResult(false, "Not connected.");
+
+			await _gate.WaitAsync(cancellationToken);
+			try
+			{
+				var reconcile = await _client.ReconcileAsync(accountId, cancellationToken);
+				if (reconcile.Position.FirstOrDefault(p => p.PositionId == positionId) is not { } position)
+					return new CTraderOrderResult(false, "Position not found.");
+
+				await _client.ClosePositionAsync(accountId, position.PositionId, position.TradeData.Volume, cancellationToken);
+
+				_logger.LogInformation("cTrader: closed position {PositionId}.", positionId);
+				return new CTraderOrderResult(true, "Position closed.");
+			}
+			catch (CTraderApiException ex)
+			{
+				return new CTraderOrderResult(false, ex.Message);
+			}
+			finally
+			{
+				_gate.Release();
+			}
+		}
+
 		async Task<IReadOnlyList<Tick>> ICTraderHistory.GetHistoricalTicksAsync(
 			long symbolId,
 			DateTime fromUtc,

@@ -26,6 +26,9 @@ namespace Poink.Sim.Components.Pages.Trade
 		[Parameter]
 		public EventCallback<CTraderPositionInfo> OnSelect { get; set; }
 
+		[Parameter]
+		public EventCallback<CTraderPositionInfo> OnClose { get; set; }
+
 		// Single source of truth for the table shape -- add a column here and it appears in both the
 		// header and every row in the same place, so header and cells can never drift out of alignment.
 		private static readonly List<PositionColumn> Columns = new()
@@ -54,6 +57,8 @@ namespace Poink.Sim.Components.Pages.Trade
 		private IReadOnlyList<PositionRowViewModel> Rows => Positions.Select(ToRow).ToList();
 
 		private Task SelectAsync(PositionRowViewModel row) => OnSelect.InvokeAsync(row.Position);
+
+		private Task CloseAsync(PositionRowViewModel row) => OnClose.InvokeAsync(row.Position);
 
 		private PositionRowViewModel ToRow(CTraderPositionInfo position)
 		{

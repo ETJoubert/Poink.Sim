@@ -294,7 +294,8 @@
                 <section class="trade-financials-panel" title="Open positions and account financials">
                     <FinancialsPanel Positions="Session.Positions" Balance="Session.Balance" Quotes="Session.Quotes"
                                      SymbolMetadata="_symbolMetadata"
-                                     OnSelectPosition="position => OpenChartAsync(position.SymbolId, position.SymbolName)" />
+                                     OnSelectPosition="position => OpenChartAsync(position.SymbolId, position.SymbolName)"
+                                     OnClosePosition="ClosePositionAsync" />
                 </section>
             }
         </main>

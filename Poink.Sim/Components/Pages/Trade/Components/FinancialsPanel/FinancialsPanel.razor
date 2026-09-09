@@ -6,7 +6,7 @@
         <span class="trade-section-title">POSITIONS</span>
         <span class="trade-section-count">@Positions.Count</span>
     </div>
-    <PositionTable Positions="Positions" Quotes="Quotes" SymbolMetadata="SymbolMetadata" OnSelect="OnSelectPosition" />
+    <PositionTable Positions="Positions" Quotes="Quotes" SymbolMetadata="SymbolMetadata" OnSelect="OnSelectPosition" OnClose="OnClosePosition" />
 
     <div class="fp-financials"
          title="Balance updates live from cTrader; Margin Used sums open positions; every open position's symbol streams its own live quote regardless of the watchlist">

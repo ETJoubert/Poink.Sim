@@ -500,6 +500,20 @@ namespace Poink.Sim.Components.Pages.Trade
 				CloseChart();
 		}
 
+		private async Task ClosePositionAsync(CTraderPositionInfo position)
+		{
+			if (
+				Session.UseLiveEnvironment
+				&& !await JS.InvokeAsync<bool>(
+					"confirm",
+					$"Close the {(position.IsLong ? "LONG" : "SHORT")} position on {position.SymbolName}?"
+				)
+			)
+				return;
+
+			await Session.ClosePositionAsync(position.PositionId);
+		}
+
 		private async Task OpenChartAsync(long symbolId, string symbolName)
 		{
 			_chartSymbolId = symbolId;

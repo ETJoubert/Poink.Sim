@@ -26,6 +26,9 @@ namespace Poink.Sim.Components.Pages.Trade
 		[Parameter]
 		public EventCallback<CTraderPositionInfo> OnSelectPosition { get; set; }
 
+		[Parameter]
+		public EventCallback<CTraderPositionInfo> OnClosePosition { get; set; }
+
 		private double? RealizedPnl => null;
 
 		// Every open position's symbol is auto-subscribed independently of the watchlist, so this excludes
