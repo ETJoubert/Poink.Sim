@@ -11,7 +11,6 @@
   border-left: 3px solid var(--tmnc-color);
   border-radius: var(--border-radius-sm);
   cursor: pointer;
-  overflow: hidden;
   transition: border-color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
 }
 
@@ -48,6 +47,7 @@
   gap: 2px;
   padding: 4px 12px;
   border-bottom: 1px solid color-mix(in srgb, var(--tmnc-color) 20%, transparent);
+  border-radius: var(--border-radius-sm) var(--border-radius-sm) 0 0;
   background: color-mix(in srgb, var(--tmnc-color) 6%, transparent);
 }
 
@@ -82,12 +82,20 @@
   border-bottom-style: dashed;
 }
 
-.tmnc-component { --tmnc-color: var(--color-primary); }
-.tmnc-service { --tmnc-color: var(--color-secondary); }
+.tmnc-panel { --tmnc-color: var(--color-primary); }
+.tmnc-driver { --tmnc-color: var(--color-secondary); }
 .tmnc-helper { --tmnc-color: #9fb2c9; }
 .tmnc-api { --tmnc-color: var(--color-warning); }
 .tmnc-data { --tmnc-color: var(--color-error); }
+.tmnc-userspace { --tmnc-color: #c99fe0; }
+.tmnc-coordinator { --tmnc-color: #7ee787; }
 
+/*
+ * Side (left/right) is independent of direction (in/out): a Display port keeps input-left/output-right
+ * (forward, toward the display), a Control port flips to input-right/output-left (backward, toward the
+ * action's source) -- see TradeMapCanvas's port-anchor build. Side controls position/alignment; direction
+ * controls dot fill and label emphasis.
+ */
 .tmnc-port {
   position: absolute;
   display: flex;
@@ -97,16 +105,16 @@
   max-width: 42%;
   transform: translateY(-50%);
   cursor: help;
-  z-index: 3;
+  z-index: 6;
 }
 
-.tmnc-port-in {
+.tmnc-port-left {
   left: -5px;
   flex-direction: row;
   padding-right: 4px;
 }
 
-.tmnc-port-out {
+.tmnc-port-right {
   right: -5px;
   flex-direction: row-reverse;
   padding-left: 4px;
@@ -152,6 +160,9 @@
 
 .tmnc-port-out .tmnc-port-label {
   color: color-mix(in srgb, var(--tmnc-color) 78%, white);
+}
+
+.tmnc-port-right .tmnc-port-label {
   text-align: right;
 }
 

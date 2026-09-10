@@ -141,11 +141,13 @@
 }
 
 .tm-legend-page { --tl-color: var(--color-accent); }
-.tm-legend-component { --tl-color: var(--color-primary); }
-.tm-legend-service { --tl-color: var(--color-secondary); }
+.tm-legend-panel { --tl-color: var(--color-primary); }
+.tm-legend-driver { --tl-color: var(--color-secondary); }
 .tm-legend-helper { --tl-color: #9fb2c9; }
 .tm-legend-api { --tl-color: var(--color-warning); }
 .tm-legend-data { --tl-color: var(--color-error); }
+.tm-legend-userspace { --tl-color: #c99fe0; }
+.tm-legend-coordinator { --tl-color: #7ee787; }
 
 .tm-legend-off {
   opacity: 0.3;

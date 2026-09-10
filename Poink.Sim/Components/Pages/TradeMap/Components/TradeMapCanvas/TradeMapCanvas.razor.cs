@@ -13,9 +13,13 @@ namespace Poink.Sim.Components.TradeMap
 {
 	/// <summary>
 	/// Routes connectors between the hand-placed node cards the same way /code's CodeFlowCanvas routes its
-	/// auto-laid-out ones: outputs always leave a card's right edge, inputs always arrive on its left edge; a
-	/// forward hop (into a later column) curves directly, a backward or same-column hop loops through a lane
-	/// so the line never has to cut across an unrelated card.
+	/// auto-laid-out ones, with one addition: a port's side depends on its signal kind, not just its direction.
+	/// A Display port keeps input-left/output-right (state flowing forward to be displayed); a Control port
+	/// flips to input-right/output-left (an action flowing backward to whatever originated it). A card is
+	/// split top/bottom to match -- Display ports stack down from the header, Control ports stack up from the
+	/// footer -- so the two directions never share a lane. A route whose ports face each other (forward Display,
+	/// backward Control) curves directly; one whose ports face away (same column, or a signal running against
+	/// its own kind's grain) loops through a routed lane instead.
 	/// </summary>
 	public partial class TradeMapCanvas : ComponentBase, IAsyncDisposable
 	{
@@ -66,13 +70,16 @@ namespace Poink.Sim.Components.TradeMap
 			GlobalLane,
 		}
 
-		private sealed record EdgeLayout(TradeMapEdge Edge, TradeMapNode From, string Path);
+		private readonly record struct PortKey(string NodeId, string Label, bool IsOutput);
+
+		private sealed record PortAnchor(double X, double Y, TradeMapSignalKind Kind);
+
+		private sealed record EdgeLayout(TradeMapEdge Edge, string Path);
 
 		private double _canvasWidth;
 		private double _canvasHeight;
 		private IReadOnlyList<EdgeLayout> _edgeLayouts = [];
-		private IReadOnlyDictionary<(string NodeId, string Port, bool IsOutput), TradeMapPortView> _portViews =
-			new Dictionary<(string, string, bool), TradeMapPortView>();
+		private IReadOnlyDictionary<PortKey, TradeMapPortView> _portViews = new Dictionary<PortKey, TradeMapPortView>();
 
 		private ElementReference _viewportRef;
 		private IJSObjectReference? _panInstance;
@@ -159,13 +166,14 @@ namespace Poink.Sim.Components.TradeMap
 				_canvasWidth = 0;
 				_canvasHeight = 0;
 				_edgeLayouts = [];
-				_portViews = new Dictionary<(string, string, bool), TradeMapPortView>();
+				_portViews = new Dictionary<PortKey, TradeMapPortView>();
 				return;
 			}
 
 			_canvasWidth = EdgePadding * 2 + Nodes.Max(n => n.X + n.W);
 			var contentBottom = Nodes.Max(n => n.Y + n.H);
 
+			var anchors = BuildPortAnchors();
 			var routes = Edges.ToDictionary(e => e, ClassifyRoute);
 			var globalLanes = AssignLanes(routes);
 
@@ -174,18 +182,16 @@ namespace Poink.Sim.Components.TradeMap
 			var laid = new List<EdgeLayout>(Edges.Count);
 			foreach (var edge in Edges)
 			{
+				if (
+					!anchors.TryGetValue(new PortKey(edge.FromId, edge.FromPort, true), out var start)
+					|| !anchors.TryGetValue(new PortKey(edge.ToId, edge.ToPort, false), out var end)
+				)
+					continue;
+
 				var from = FindNode(edge.FromId);
 				var to = FindNode(edge.ToId);
 				if (from is null || to is null)
 					continue;
-
-				var outputIndex = IndexOf(from.Outputs, edge.FromPort);
-				var inputIndex = IndexOf(to.Inputs, edge.ToPort);
-				if (outputIndex < 0 || inputIndex < 0)
-					continue;
-
-				var start = (X: from.X + from.W, Y: from.Y + PortCenterY(outputIndex));
-				var end = (X: to.X, Y: to.Y + PortCenterY(inputIndex));
 
 				var route = routes[edge];
 				var laneY = route switch
@@ -195,54 +201,97 @@ namespace Poink.Sim.Components.TradeMap
 					_ => 0,
 				};
 
-				laid.Add(new EdgeLayout(edge, from, BuildPath(route, start, end, laneY)));
+				laid.Add(new EdgeLayout(edge, BuildPath(route, (start.X, start.Y), (end.X, end.Y), laneY, edge.Kind)));
 			}
 
 			_edgeLayouts = laid;
-			_portViews = BuildPortViews();
+			_portViews = BuildPortViews(anchors);
 		}
 
-		private Dictionary<(string, string, bool), TradeMapPortView> BuildPortViews()
+		/// <summary>
+		/// Groups each node's declared ports by the kind of the one edge that uses them, then stacks each group
+		/// on its own side/band: Display inputs top-left, Display outputs top-right, Control outputs
+		/// bottom-left, Control inputs bottom-right.
+		/// </summary>
+		private Dictionary<PortKey, PortAnchor> BuildPortAnchors()
 		{
-			var views = new Dictionary<(string, string, bool), TradeMapPortView>();
+			var anchors = new Dictionary<PortKey, PortAnchor>();
 
 			foreach (var node in Nodes)
 			{
-				for (var index = 0; index < node.Inputs.Count; index++)
+				var displayIn = new List<string>();
+				var controlIn = new List<string>();
+				foreach (var port in node.Inputs)
+					(PortKind(node.Id, port.Label, isOutput: false) == TradeMapSignalKind.Display ? displayIn : controlIn).Add(port.Label);
+
+				var displayOut = new List<string>();
+				var controlOut = new List<string>();
+				foreach (var port in node.Outputs)
+					(PortKind(node.Id, port.Label, isOutput: true) == TradeMapSignalKind.Display ? displayOut : controlOut).Add(port.Label);
+
+				for (var i = 0; i < displayIn.Count; i++)
+					anchors[new PortKey(node.Id, displayIn[i], false)] = new PortAnchor(node.X, node.Y + TopCenterY(i), TradeMapSignalKind.Display);
+
+				for (var i = 0; i < displayOut.Count; i++)
+					anchors[new PortKey(node.Id, displayOut[i], true)] = new PortAnchor(node.X + node.W, node.Y + TopCenterY(i), TradeMapSignalKind.Display);
+
+				for (var i = 0; i < controlOut.Count; i++)
+					anchors[new PortKey(node.Id, controlOut[i], true)] = new PortAnchor(node.X, node.Y + BottomCenterY(node, i), TradeMapSignalKind.Control);
+
+				for (var i = 0; i < controlIn.Count; i++)
+					anchors[new PortKey(node.Id, controlIn[i], false)] = new PortAnchor(node.X + node.W, node.Y + BottomCenterY(node, i), TradeMapSignalKind.Control);
+			}
+
+			return anchors;
+		}
+
+		private Dictionary<PortKey, TradeMapPortView> BuildPortViews(IReadOnlyDictionary<PortKey, PortAnchor> anchors)
+		{
+			var views = new Dictionary<PortKey, TradeMapPortView>();
+
+			foreach (var node in Nodes)
+			{
+				foreach (var port in node.Inputs)
 				{
-					var label = node.Inputs[index].Label;
+					if (!anchors.TryGetValue(new PortKey(node.Id, port.Label, false), out var anchor))
+						continue;
+
 					var sources = Edges
-						.Where(e => e.ToId == node.Id && e.ToPort == label)
+						.Where(e => e.ToId == node.Id && e.ToPort == port.Label)
 						.Select(e => FindNode(e.FromId)?.Title)
 						.Where(title => title is not null)
 						.Distinct()
 						.ToList();
 
-					views[(node.Id, label, false)] = new TradeMapPortView(
-						label,
+					views[new PortKey(node.Id, port.Label, false)] = new TradeMapPortView(
+						port.Label,
+						anchor.Kind,
 						IsOutput: false,
-						PortCenterY(index),
+						anchor.Y - node.Y,
 						sources.Count > 0,
-						sources.Count > 0 ? $"IN — {label}\nfrom {string.Join(", ", sources)}" : $"IN — {label}\nunresolved"
+						sources.Count > 0 ? $"IN — {port.Label}\nfrom {string.Join(", ", sources)}" : $"IN — {port.Label}\nunresolved"
 					);
 				}
 
-				for (var index = 0; index < node.Outputs.Count; index++)
+				foreach (var port in node.Outputs)
 				{
-					var label = node.Outputs[index].Label;
+					if (!anchors.TryGetValue(new PortKey(node.Id, port.Label, true), out var anchor))
+						continue;
+
 					var targets = Edges
-						.Where(e => e.FromId == node.Id && e.FromPort == label)
+						.Where(e => e.FromId == node.Id && e.FromPort == port.Label)
 						.Select(e => FindNode(e.ToId)?.Title)
 						.Where(title => title is not null)
 						.Distinct()
 						.ToList();
 
-					views[(node.Id, label, true)] = new TradeMapPortView(
-						label,
+					views[new PortKey(node.Id, port.Label, true)] = new TradeMapPortView(
+						port.Label,
+						anchor.Kind,
 						IsOutput: true,
-						PortCenterY(index),
+						anchor.Y - node.Y,
 						targets.Count > 0,
-						targets.Count > 0 ? $"OUT — {label}\nto {string.Join(", ", targets)}" : $"OUT — {label}\nunresolved"
+						targets.Count > 0 ? $"OUT — {port.Label}\nto {string.Join(", ", targets)}" : $"OUT — {port.Label}\nunresolved"
 					);
 				}
 			}
@@ -254,31 +303,36 @@ namespace Poink.Sim.Components.TradeMap
 		{
 			var views = new List<TradeMapPortView>(node.Inputs.Count + node.Outputs.Count);
 			foreach (var port in node.Inputs)
-				if (_portViews.TryGetValue((node.Id, port.Label, false), out var view))
+				if (_portViews.TryGetValue(new PortKey(node.Id, port.Label, false), out var view))
 					views.Add(view);
 			foreach (var port in node.Outputs)
-				if (_portViews.TryGetValue((node.Id, port.Label, true), out var view))
+				if (_portViews.TryGetValue(new PortKey(node.Id, port.Label, true), out var view))
 					views.Add(view);
 			return views;
 		}
 
-		private static double PortCenterY(int index) => HeaderHeight + PortsPad + index * PortRowHeight + PortRowHeight / 2;
+		private TradeMapSignalKind PortKind(string nodeId, string label, bool isOutput)
+		{
+			var edge = isOutput
+				? Edges.FirstOrDefault(e => e.FromId == nodeId && e.FromPort == label)
+				: Edges.FirstOrDefault(e => e.ToId == nodeId && e.ToPort == label);
+			return edge?.Kind ?? TradeMapSignalKind.Display;
+		}
+
+		private static double TopCenterY(int index) => HeaderHeight + PortsPad + index * PortRowHeight + PortRowHeight / 2;
+
+		private static double BottomCenterY(TradeMapNode node, int index) => node.H - PortsPad - index * PortRowHeight - PortRowHeight / 2;
 
 		private static double LocalLaneY(TradeMapNode from, TradeMapNode to) =>
 			to.Y > from.Y ? (from.Y + from.H + to.Y) / 2 : (to.Y + to.H + from.Y) / 2;
 
-		private static int IndexOf(IReadOnlyList<TradeMapPort> ports, string label)
-		{
-			for (var index = 0; index < ports.Count; index++)
-			{
-				if (ports[index].Label == label)
-					return index;
-			}
-			return -1;
-		}
-
 		private TradeMapNode? FindNode(string nodeId) => Nodes.FirstOrDefault(n => n.Id == nodeId);
 
+		/// <summary>
+		/// A forward hop (Display into a later column) or a backward hop (Control into an earlier one) has its
+		/// ports already facing each other, so it curves directly. Anything else -- same column, or a signal
+		/// running against its own kind's grain -- has to loop through a lane instead.
+		/// </summary>
 		private EdgeRoute ClassifyRoute(TradeMapEdge edge)
 		{
 			var from = FindNode(edge.FromId);
@@ -287,10 +341,14 @@ namespace Poink.Sim.Components.TradeMap
 				return EdgeRoute.Bezier;
 
 			var span = to.Column - from.Column;
-			if (span > 0)
-				return span > LongSpanThreshold ? EdgeRoute.GlobalLane : EdgeRoute.Bezier;
+			if (span == 0)
+				return Math.Abs(to.Row - from.Row) <= 1 ? EdgeRoute.LocalLane : EdgeRoute.GlobalLane;
 
-			return span >= -1 && Math.Abs(to.Row - from.Row) <= 1 ? EdgeRoute.LocalLane : EdgeRoute.GlobalLane;
+			var expectedSign = edge.Kind == TradeMapSignalKind.Display ? 1 : -1;
+			if (Math.Sign(span) != expectedSign)
+				return EdgeRoute.GlobalLane;
+
+			return Math.Abs(span) > LongSpanThreshold ? EdgeRoute.GlobalLane : EdgeRoute.Bezier;
 		}
 
 		private Dictionary<TradeMapEdge, int> AssignLanes(IReadOnlyDictionary<TradeMapEdge, EdgeRoute> routes)
@@ -311,11 +369,15 @@ namespace Poink.Sim.Components.TradeMap
 			return from is null || to is null ? 0 : Math.Abs(to.Column - from.Column);
 		}
 
-		private static string BuildPath(EdgeRoute route, (double X, double Y) start, (double X, double Y) end, double laneY)
+		private static string BuildPath(EdgeRoute route, (double X, double Y) start, (double X, double Y) end, double laneY, TradeMapSignalKind kind)
 		{
 			if (route == EdgeRoute.Bezier)
 			{
-				var dx = Math.Max(46, (end.X - start.X) * 0.55);
+				var direction = Math.Sign(end.X - start.X);
+				if (direction == 0)
+					direction = kind == TradeMapSignalKind.Display ? 1 : -1;
+
+				var dx = Math.Max(46, Math.Abs(end.X - start.X) * 0.55) * direction;
 				var c1 = (X: start.X + dx, Y: start.Y);
 				var c2 = (X: end.X - dx, Y: end.Y);
 				var tip = PullBack(c2, end);
@@ -326,8 +388,11 @@ namespace Poink.Sim.Components.TradeMap
 				);
 			}
 
-			var outX = start.X + LaneStub;
-			var inX = end.X - LaneStub;
+			// A Display port exits/enters toward increasing X (forward); a Control port toward decreasing X
+			// (backward) -- the stub direction has to match whichever side the port actually renders on.
+			var stub = kind == TradeMapSignalKind.Display ? LaneStub : -LaneStub;
+			var outX = start.X + stub;
+			var inX = end.X - stub;
 			return BuildOrthogonalPath([start, (outX, start.Y), (outX, laneY), (inX, laneY), (inX, end.Y), PullBack((inX, end.Y), end)]);
 		}
 

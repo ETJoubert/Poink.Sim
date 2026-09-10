@@ -187,8 +187,10 @@
 }
 
 .tmdd-page { --tmdd-color: var(--color-accent); }
-.tmdd-component { --tmdd-color: var(--color-primary); }
-.tmdd-service { --tmdd-color: var(--color-secondary); }
+.tmdd-panel { --tmdd-color: var(--color-primary); }
+.tmdd-driver { --tmdd-color: var(--color-secondary); }
 .tmdd-helper { --tmdd-color: #9fb2c9; }
 .tmdd-api { --tmdd-color: var(--color-warning); }
 .tmdd-data { --tmdd-color: var(--color-error); }
+.tmdd-userspace { --tmdd-color: #c99fe0; }
+.tmdd-coordinator { --tmdd-color: #7ee787; }

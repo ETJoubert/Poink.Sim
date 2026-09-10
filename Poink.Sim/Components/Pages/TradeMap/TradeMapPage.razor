@@ -35,7 +35,7 @@
 
             <span class="tm-legend-spacer"></span>
 
-            <span class="tm-legend-key" title="A component/service imperatively calling something to its left -- a method invocation">
+            <span class="tm-legend-key" title="A panel/driver imperatively calling something to its left -- a method invocation">
                 <span class="tm-legend-line tm-legend-line-control"></span> CONTROL SIGNAL
             </span>
             <span class="tm-legend-key" title="State the callee exposes continuously -- a property read every render, or a subscribed event">
@@ -63,7 +63,7 @@
                                   OnClose="ClearSelection" />
         </div>
 
-        <span class="tm-footnote" title="Control signal = an imperative call this box makes to something on its left (a method invocation). Display signal = state the box on the left exposes continuously -- a property read every render, or an event it raises. Helpers are pure functions with no dependency of their own, so they carry neither -- each is labelled with the single component that calls it instead of a connector.">
+        <span class="tm-footnote" title="Control signal = an imperative call this box makes to something on its left (a method invocation). Display signal = state the box on the left exposes continuously -- a property read every render, or an event it raises. Helpers are pure functions with no dependency of their own, so they carry neither -- each is labelled with the single panel that calls it instead of a connector.">
             Control = imperative call &middot; Display = continuously exposed state (property/event) &middot; Helpers are pure and dependency-free, labelled by caller rather than wired &middot; hover for details
         </span>
     </div>

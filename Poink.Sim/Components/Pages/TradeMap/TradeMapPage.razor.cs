@@ -130,12 +130,14 @@ namespace Poink.Sim.Components.Pages.TradeMap
 		private static string LegendTooltip(TradeMapPartKind kind) =>
 			kind switch
 			{
-				TradeMapPartKind.Page => "Page: the routable component that owns layout and cross-panel state. Click to show or hide.",
-				TradeMapPartKind.Component => "Component: a UI panel rendered by the page. Click to show or hide.",
-				TradeMapPartKind.Service => "Service: an injected dependency the page or its panels call into. Click to show or hide.",
+				TradeMapPartKind.Page => "Page: the routable part that owns layout and cross-panel state. Click to show or hide.",
+				TradeMapPartKind.Panel => "Panel: a UI-rendering unit -- it can display and/or accept control input. Click to show or hide.",
+				TradeMapPartKind.Driver => "Driver: a narrow, single-consumer adapter to one external capability -- no cross-cutting knowledge. Click to show or hide.",
 				TradeMapPartKind.Helper => "Helper: a static, pure calculation function with no dependencies. Click to show or hide.",
 				TradeMapPartKind.ExternalApi => "External API: the cTrader Open API boundary. Click to show or hide.",
 				TradeMapPartKind.DataStore => "Data store: the Postgres-backed EF Core context. Click to show or hide.",
+				TradeMapPartKind.UserSpace => "User space: the buttons and inputs a person interacts with directly. Click to show or hide.",
+				TradeMapPartKind.Coordinator => "Coordinator: proposed orchestrator every panel would route through for cross-cutting concerns -- not in the current code. Click to show or hide.",
 				_ => kind.ToString(),
 			};
 
@@ -160,11 +162,32 @@ namespace Poink.Sim.Components.Pages.TradeMap
 
 		private string ZoomLabel => (_zoom * 100).ToString("0", CultureInfo.InvariantCulture) + "%";
 
-		// Column/Row group nodes for connector routing only (adjacent-column forward hops curve directly,
-		// backward or same-column hops loop through a routed lane) -- X/Y/W/H below are the actual hand-placed
-		// card geometry and are independent of this grouping.
+		// Column/Row group nodes for connector routing only, independent of the hand-placed X/Y/W/H below --
+		// forward/backward hops curve directly, same-column or against-the-grain hops loop through a lane.
 		private static readonly IReadOnlyList<TradeMapNode> Nodes = new List<TradeMapNode>
 		{
+			// PROPOSED -- not the current implementation. Drawn first so it paints behind TradeCoordinator and
+			// the panels, matching how it wraps them: a pure layout shell with no ports of its own.
+			new(
+				"tradepage",
+				"TradePage",
+				TradeMapPartKind.Page,
+				Column: 2,
+				Row: 0,
+				X: 800,
+				Y: 20,
+				W: 920,
+				H: 1140,
+				Detail:
+				[
+					"PROPOSED -- not the current implementation",
+					"@page \"/trade\", pure layout container",
+					"renders TradeCoordinator + the five panels",
+					"no service injection, no direct signal wiring",
+				],
+				Inputs: [],
+				Outputs: []
+			),
 			new(
 				"api",
 				"cTrader Open API",
@@ -207,7 +230,7 @@ namespace Poink.Sim.Components.Pages.TradeMap
 			new(
 				"session",
 				"ICTraderSessionService",
-				TradeMapPartKind.Service,
+				TradeMapPartKind.Driver,
 				Column: 1,
 				Row: 0,
 				X: 420,
@@ -241,7 +264,7 @@ namespace Poink.Sim.Components.Pages.TradeMap
 			new(
 				"symsvc",
 				"ISymbolService",
-				TradeMapPartKind.Service,
+				TradeMapPartKind.Driver,
 				Column: 1,
 				Row: 1,
 				X: 420,
@@ -255,7 +278,7 @@ namespace Poink.Sim.Components.Pages.TradeMap
 			new(
 				"metacache",
 				"ISymbolMetadataCache",
-				TradeMapPartKind.Service,
+				TradeMapPartKind.Driver,
 				Column: 1,
 				Row: 2,
 				X: 420,
@@ -322,33 +345,42 @@ namespace Poink.Sim.Components.Pages.TradeMap
 				Inputs: [],
 				Outputs: []
 			),
+			// PROPOSED -- not the current implementation. Stands in TradePage's old spot as the sole coordinator
+			// every panel routes through, relaying what used to be direct panel-to-driver calls.
 			new(
-				"page",
-				"TradePage",
-				TradeMapPartKind.Page,
+				"tradecoordinator",
+				"TradeCoordinator",
+				TradeMapPartKind.Coordinator,
 				Column: 2,
 				Row: 0,
 				X: 840,
 				Y: 60,
 				W: 300,
-				H: 340,
+				H: 500,
 				Detail:
 				[
-					"@page \"/trade\"",
-					"injects: Session, MetadataCache, Navigation,",
+					"PROPOSED coordinator -- not in the current code",
+					"would own: Session, MetadataCache, Navigation,",
 					"JS, LocalStorage",
-					"connector -- selection state + settings persistence",
+					"every panel routes through here, never services directly",
 				],
 				Inputs:
 				[
 					new TradeMapPort("connection state"),
 					new TradeMapPort("metadata snapshot"),
+					new TradeMapPort("watchlist state"),
+					new TradeMapPort("tick stream"),
 					new TradeMapPort("symbol selected"),
 					new TradeMapPort("symbol unwatched"),
 					new TradeMapPort("sidebar collapsed"),
 					new TradeMapPort("chart settings snapshot"),
 					new TradeMapPort("position selected"),
 					new TradeMapPort("position closed"),
+					new TradeMapPort("watch calls"),
+					new TradeMapPort("category calls"),
+					new TradeMapPort("ensure metadata"),
+					new TradeMapPort("tick history calls"),
+					new TradeMapPort("order calls"),
 				],
 				Outputs:
 				[
@@ -358,12 +390,19 @@ namespace Poink.Sim.Components.Pages.TradeMap
 					new TradeMapPort("chart parameters"),
 					new TradeMapPort("financials parameters"),
 					new TradeMapPort("controls parameters"),
+					new TradeMapPort("watchlist state"),
+					new TradeMapPort("tick stream"),
+					new TradeMapPort("watch calls"),
+					new TradeMapPort("category calls"),
+					new TradeMapPort("ensure metadata"),
+					new TradeMapPort("tick history calls"),
+					new TradeMapPort("order calls"),
 				]
 			),
 			new(
 				"watchlist",
 				"SymbolWatchlistPanel",
-				TradeMapPartKind.Component,
+				TradeMapPartKind.Panel,
 				Column: 3,
 				Row: 0,
 				X: 1300,
@@ -381,6 +420,7 @@ namespace Poink.Sim.Components.Pages.TradeMap
 					new TradeMapPort("watchlist state"),
 					new TradeMapPort("sidebar collapsed"),
 					new TradeMapPort("selected symbol"),
+					new TradeMapPort("user input"),
 				],
 				Outputs:
 				[
@@ -395,7 +435,7 @@ namespace Poink.Sim.Components.Pages.TradeMap
 			new(
 				"chart",
 				"TradeChartPanel",
-				TradeMapPartKind.Component,
+				TradeMapPartKind.Panel,
 				Column: 3,
 				Row: 1,
 				X: 1300,
@@ -408,13 +448,13 @@ namespace Poink.Sim.Components.Pages.TradeMap
 					"injects: Session, History (ICTraderHistory), JS",
 					"calc: ChartWindowHelper",
 				],
-				Inputs: [new TradeMapPort("tick stream"), new TradeMapPort("chart parameters")],
+				Inputs: [new TradeMapPort("tick stream"), new TradeMapPort("chart parameters"), new TradeMapPort("user input")],
 				Outputs: [new TradeMapPort("tick history calls"), new TradeMapPort("chart settings snapshot")]
 			),
 			new(
 				"financials",
 				"FinancialsPanel",
-				TradeMapPartKind.Component,
+				TradeMapPartKind.Panel,
 				Column: 3,
 				Row: 2,
 				X: 1300,
@@ -438,7 +478,7 @@ namespace Poink.Sim.Components.Pages.TradeMap
 			new(
 				"positiontable",
 				"PositionTable",
-				TradeMapPartKind.Component,
+				TradeMapPartKind.Panel,
 				Column: 3,
 				Row: 3,
 				X: 1340,
@@ -446,13 +486,13 @@ namespace Poink.Sim.Components.Pages.TradeMap
 				W: 260,
 				H: 120,
 				Detail: ["row rendering, nested in Financials", "calc: PositionPnlHelper (PipDifference, UnrealizedPnl)"],
-				Inputs: [new TradeMapPort("position rows")],
+				Inputs: [new TradeMapPort("position rows"), new TradeMapPort("user input")],
 				Outputs: [new TradeMapPort("row selected"), new TradeMapPort("row closed")]
 			),
 			new(
 				"controls",
 				"TradeControlsPanel",
-				TradeMapPartKind.Component,
+				TradeMapPartKind.Panel,
 				Column: 3,
 				Row: 4,
 				X: 1300,
@@ -460,8 +500,64 @@ namespace Poink.Sim.Components.Pages.TradeMap
 				W: 340,
 				H: 190,
 				Detail: ["right sidebar", "injects: Session, JS", "calc: RiskHelper"],
-				Inputs: [new TradeMapPort("controls parameters")],
+				Inputs: [new TradeMapPort("controls parameters"), new TradeMapPort("user input")],
 				Outputs: [new TradeMapPort("order calls")]
+			),
+			new(
+				"userspace-watchlist",
+				"Watchlist Controls",
+				TradeMapPartKind.UserSpace,
+				Column: 4,
+				Row: 0,
+				X: 1980,
+				Y: 60,
+				W: 280,
+				H: 140,
+				Detail: ["search filter, category/FX toggles,", "watch/unwatch buttons, collapse toggle"],
+				Inputs: [],
+				Outputs: [new TradeMapPort("user input")]
+			),
+			new(
+				"userspace-chart",
+				"Chart Controls",
+				TradeMapPartKind.UserSpace,
+				Column: 4,
+				Row: 1,
+				X: 1980,
+				Y: 320,
+				W: 280,
+				H: 140,
+				Detail: ["bar size buttons, profile lines toggle"],
+				Inputs: [],
+				Outputs: [new TradeMapPort("user input")]
+			),
+			new(
+				"userspace-positiontable",
+				"Position Row Actions",
+				TradeMapPartKind.UserSpace,
+				Column: 4,
+				Row: 3,
+				X: 1980,
+				Y: 740,
+				W: 280,
+				H: 120,
+				Detail: ["select row, close position button"],
+				Inputs: [],
+				Outputs: [new TradeMapPort("user input")]
+			),
+			new(
+				"userspace-controls",
+				"Order Controls",
+				TradeMapPartKind.UserSpace,
+				Column: 4,
+				Row: 4,
+				X: 1980,
+				Y: 910,
+				W: 280,
+				H: 190,
+				Detail: ["volume, SL/TP inputs, order type,", "Buy / Sell buttons"],
+				Inputs: [],
+				Outputs: [new TradeMapPort("user input")]
 			),
 		};
 
@@ -471,31 +567,46 @@ namespace Poink.Sim.Components.Pages.TradeMap
 			new("api", "message stream", "session", "message stream", TradeMapSignalKind.Display),
 			new("symsvc", "EF read/write", "db", "EF read/write", TradeMapSignalKind.Control),
 			new("symsvc", "symbol data calls", "session", "symbol data calls", TradeMapSignalKind.Control),
-			new("watchlist", "watch calls", "session", "watch calls", TradeMapSignalKind.Control),
-			new("chart", "tick history calls", "session", "tick history calls", TradeMapSignalKind.Control),
-			new("controls", "order calls", "session", "order calls", TradeMapSignalKind.Control),
-			new("page", "session calls", "session", "session calls", TradeMapSignalKind.Control),
-			new("session", "watchlist state", "watchlist", "watchlist state", TradeMapSignalKind.Display),
-			new("session", "tick stream", "chart", "tick stream", TradeMapSignalKind.Display),
-			new("session", "connection state", "page", "connection state", TradeMapSignalKind.Display),
 			new("metacache", "metadata lookup", "symsvc", "metadata lookup", TradeMapSignalKind.Control),
-			new("watchlist", "category calls", "symsvc", "category calls", TradeMapSignalKind.Control),
-			new("watchlist", "ensure metadata", "metacache", "ensure metadata", TradeMapSignalKind.Control),
-			new("metacache", "metadata snapshot", "page", "metadata snapshot", TradeMapSignalKind.Display),
-			new("watchlist", "symbol selected", "page", "symbol selected", TradeMapSignalKind.Control),
-			new("watchlist", "symbol unwatched", "page", "symbol unwatched", TradeMapSignalKind.Control),
-			new("watchlist", "sidebar collapsed", "page", "sidebar collapsed", TradeMapSignalKind.Display),
-			new("page", "sidebar collapsed", "watchlist", "sidebar collapsed", TradeMapSignalKind.Display),
-			new("page", "selected symbol", "watchlist", "selected symbol", TradeMapSignalKind.Display),
-			new("page", "chart parameters", "chart", "chart parameters", TradeMapSignalKind.Display),
-			new("chart", "chart settings snapshot", "page", "chart settings snapshot", TradeMapSignalKind.Display),
-			new("page", "financials parameters", "financials", "financials parameters", TradeMapSignalKind.Display),
-			new("financials", "position selected", "page", "position selected", TradeMapSignalKind.Control),
-			new("financials", "position closed", "page", "position closed", TradeMapSignalKind.Control),
-			new("page", "controls parameters", "controls", "controls parameters", TradeMapSignalKind.Display),
+
+			// PROPOSED -- every panel-to-driver call now relays through TradeCoordinator instead of going direct.
+			new("watchlist", "watch calls", "tradecoordinator", "watch calls", TradeMapSignalKind.Control),
+			new("tradecoordinator", "watch calls", "session", "watch calls", TradeMapSignalKind.Control),
+			new("session", "watchlist state", "tradecoordinator", "watchlist state", TradeMapSignalKind.Display),
+			new("tradecoordinator", "watchlist state", "watchlist", "watchlist state", TradeMapSignalKind.Display),
+			new("watchlist", "category calls", "tradecoordinator", "category calls", TradeMapSignalKind.Control),
+			new("tradecoordinator", "category calls", "symsvc", "category calls", TradeMapSignalKind.Control),
+			new("watchlist", "ensure metadata", "tradecoordinator", "ensure metadata", TradeMapSignalKind.Control),
+			new("tradecoordinator", "ensure metadata", "metacache", "ensure metadata", TradeMapSignalKind.Control),
+			new("chart", "tick history calls", "tradecoordinator", "tick history calls", TradeMapSignalKind.Control),
+			new("tradecoordinator", "tick history calls", "session", "tick history calls", TradeMapSignalKind.Control),
+			new("session", "tick stream", "tradecoordinator", "tick stream", TradeMapSignalKind.Display),
+			new("tradecoordinator", "tick stream", "chart", "tick stream", TradeMapSignalKind.Display),
+			new("controls", "order calls", "tradecoordinator", "order calls", TradeMapSignalKind.Control),
+			new("tradecoordinator", "order calls", "session", "order calls", TradeMapSignalKind.Control),
+
+			new("tradecoordinator", "session calls", "session", "session calls", TradeMapSignalKind.Control),
+			new("session", "connection state", "tradecoordinator", "connection state", TradeMapSignalKind.Display),
+			new("metacache", "metadata snapshot", "tradecoordinator", "metadata snapshot", TradeMapSignalKind.Display),
+			new("watchlist", "symbol selected", "tradecoordinator", "symbol selected", TradeMapSignalKind.Control),
+			new("watchlist", "symbol unwatched", "tradecoordinator", "symbol unwatched", TradeMapSignalKind.Control),
+			new("watchlist", "sidebar collapsed", "tradecoordinator", "sidebar collapsed", TradeMapSignalKind.Control),
+			new("tradecoordinator", "sidebar collapsed", "watchlist", "sidebar collapsed", TradeMapSignalKind.Display),
+			new("tradecoordinator", "selected symbol", "watchlist", "selected symbol", TradeMapSignalKind.Display),
+			new("tradecoordinator", "chart parameters", "chart", "chart parameters", TradeMapSignalKind.Display),
+			new("chart", "chart settings snapshot", "tradecoordinator", "chart settings snapshot", TradeMapSignalKind.Control),
+			new("tradecoordinator", "financials parameters", "financials", "financials parameters", TradeMapSignalKind.Display),
+			new("financials", "position selected", "tradecoordinator", "position selected", TradeMapSignalKind.Control),
+			new("financials", "position closed", "tradecoordinator", "position closed", TradeMapSignalKind.Control),
+			new("tradecoordinator", "controls parameters", "controls", "controls parameters", TradeMapSignalKind.Display),
+
 			new("financials", "position rows", "positiontable", "position rows", TradeMapSignalKind.Display),
 			new("positiontable", "row selected", "financials", "row selected", TradeMapSignalKind.Control),
 			new("positiontable", "row closed", "financials", "row closed", TradeMapSignalKind.Control),
+			new("userspace-watchlist", "user input", "watchlist", "user input", TradeMapSignalKind.Control),
+			new("userspace-chart", "user input", "chart", "user input", TradeMapSignalKind.Control),
+			new("userspace-positiontable", "user input", "positiontable", "user input", TradeMapSignalKind.Control),
+			new("userspace-controls", "user input", "controls", "user input", TradeMapSignalKind.Control),
 		};
 	}
 }

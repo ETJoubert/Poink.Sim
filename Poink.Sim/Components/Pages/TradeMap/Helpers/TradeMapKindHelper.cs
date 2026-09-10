@@ -9,11 +9,13 @@ namespace Poink.Sim.Components.Pages.TradeMap.Helpers
 			kind switch
 			{
 				TradeMapPartKind.Page => "PAGE",
-				TradeMapPartKind.Component => "COMPONENT",
-				TradeMapPartKind.Service => "SERVICE",
+				TradeMapPartKind.Panel => "PANEL",
+				TradeMapPartKind.Driver => "DRIVER",
 				TradeMapPartKind.Helper => "HELPER",
 				TradeMapPartKind.ExternalApi => "EXTERNAL API",
 				TradeMapPartKind.DataStore => "DATA STORE",
+				TradeMapPartKind.UserSpace => "USER SPACE",
+				TradeMapPartKind.Coordinator => "COORDINATOR",
 				_ => "",
 			};
 
@@ -21,12 +23,14 @@ namespace Poink.Sim.Components.Pages.TradeMap.Helpers
 			kind switch
 			{
 				TradeMapPartKind.Page => "page",
-				TradeMapPartKind.Component => "component",
-				TradeMapPartKind.Service => "service",
+				TradeMapPartKind.Panel => "panel",
+				TradeMapPartKind.Driver => "driver",
 				TradeMapPartKind.Helper => "helper",
 				TradeMapPartKind.ExternalApi => "api",
 				TradeMapPartKind.DataStore => "data",
-				_ => "component",
+				TradeMapPartKind.UserSpace => "userspace",
+				TradeMapPartKind.Coordinator => "coordinator",
+				_ => "panel",
 			};
 	}
 }

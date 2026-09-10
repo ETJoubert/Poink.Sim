@@ -41,9 +41,13 @@ namespace Poink.Sim.Components.TradeMap
 
 		private static string PortClass(TradeMapPortView port)
 		{
-			var side = port.IsOutput ? "tmnc-port-out" : "tmnc-port-in";
+			// Display keeps input-left/output-right (forward, toward the display); Control flips to
+			// input-right/output-left (backward, toward the action's source) -- see TradeMapCanvas.
+			var onRight = port.Kind == TradeMapSignalKind.Display ? port.IsOutput : !port.IsOutput;
+			var side = onRight ? "tmnc-port-right" : "tmnc-port-left";
+			var direction = port.IsOutput ? "tmnc-port-out" : "tmnc-port-in";
 			var open = port.IsConnected ? string.Empty : " tmnc-port-open";
-			return $"tmnc-port {side}{open}";
+			return $"tmnc-port {side} {direction}{open}";
 		}
 
 		private static string PortStyle(TradeMapPortView port) =>
