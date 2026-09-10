@@ -60,7 +60,8 @@ namespace Poink.Sim.Components.Pages.TradeMap
 			}
 		}
 
-		private TradeMapNode? SelectedNode => _selectedId is null ? null : Nodes.FirstOrDefault(n => n.Id == _selectedId);
+		private TradeMapNode? SelectedNode =>
+			_selectedId is null ? null : Nodes.FirstOrDefault(n => n.Id == _selectedId);
 
 		private void SelectNode(string nodeId)
 		{
@@ -130,15 +131,22 @@ namespace Poink.Sim.Components.Pages.TradeMap
 		private static string LegendTooltip(TradeMapPartKind kind) =>
 			kind switch
 			{
-				TradeMapPartKind.Page => "Page: the routable part that owns layout and cross-panel state. Click to show or hide.",
-				TradeMapPartKind.Panel => "Panel: a UI-rendering unit -- it can display and/or accept control input. Click to show or hide.",
-				TradeMapPartKind.Driver => "Driver: a narrow, single-consumer adapter to one external capability -- no cross-cutting knowledge. Click to show or hide.",
-				TradeMapPartKind.Helper => "Helper: a static, pure calculation function with no dependencies. Click to show or hide.",
+				TradeMapPartKind.Page =>
+					"Page: the routable part that owns layout and cross-panel state. Click to show or hide.",
+				TradeMapPartKind.Panel =>
+					"Panel: a UI-rendering unit -- it can display and/or accept control input. Click to show or hide.",
+				TradeMapPartKind.Driver =>
+					"Driver: a narrow, single-consumer adapter to one external capability -- no cross-cutting knowledge. Click to show or hide.",
+				TradeMapPartKind.Helper =>
+					"Helper: a static, pure calculation function with no dependencies. Click to show or hide.",
 				TradeMapPartKind.ExternalApi => "External API: the cTrader Open API boundary. Click to show or hide.",
 				TradeMapPartKind.DataStore => "Data store: the Postgres-backed EF Core context. Click to show or hide.",
-				TradeMapPartKind.UserSpace => "User space: the buttons and inputs a person interacts with directly. Click to show or hide.",
-				TradeMapPartKind.Coordinator => "Coordinator: proposed orchestrator every panel would route through for cross-cutting concerns -- not in the current code. Click to show or hide.",
-				TradeMapPartKind.Interface => "Interface: a narrow, segregated contract onto one driver -- consumers depend on this, not the driver directly. Click to show or hide.",
+				TradeMapPartKind.UserSpace =>
+					"User space: the buttons and inputs a person interacts with directly. Click to show or hide.",
+				TradeMapPartKind.Coordinator =>
+					"Coordinator: proposed orchestrator every panel would route through for cross-cutting concerns -- not in the current code. Click to show or hide.",
+				TradeMapPartKind.Interface =>
+					"Interface: a narrow, segregated contract onto one driver -- consumers depend on this, not the driver directly. Click to show or hide.",
 				_ => kind.ToString(),
 			};
 
@@ -350,11 +358,25 @@ namespace Poink.Sim.Components.Pages.TradeMap
 			// PROPOSED -- not in the current code (ICTraderHistory below is the one real exception). Each pill is
 			// a narrow, segregated contract onto exactly one driver; panels depend on these, never the driver itself.
 			new(
+				"iaccount",
+				"IAccountAccess",
+				TradeMapPartKind.Interface,
+				Column: 2,
+				Row: 0,
+				X: 820,
+				Y: 600,
+				W: 240,
+				H: 110,
+				Detail: ["PROPOSED -- not in the current code", "connection/account state + session lifecycle"],
+				Inputs: [new TradeMapPort("connection state"), new TradeMapPort("session lifecycle calls")],
+				Outputs: [new TradeMapPort("connection state"), new TradeMapPort("session lifecycle calls")]
+			),
+			new(
 				"iwatchlist",
 				"IWatchlistAccess",
 				TradeMapPartKind.Interface,
 				Column: 2,
-				Row: 0,
+				Row: 1,
 				X: 820,
 				Y: 60,
 				W: 240,
@@ -368,7 +390,7 @@ namespace Poink.Sim.Components.Pages.TradeMap
 				"ICTraderHistory",
 				TradeMapPartKind.Interface,
 				Column: 2,
-				Row: 1,
+				Row: 2,
 				X: 820,
 				Y: 195,
 				W: 240,
@@ -382,7 +404,7 @@ namespace Poink.Sim.Components.Pages.TradeMap
 				"ITickStreamAccess",
 				TradeMapPartKind.Interface,
 				Column: 2,
-				Row: 2,
+				Row: 3,
 				X: 820,
 				Y: 330,
 				W: 240,
@@ -396,7 +418,7 @@ namespace Poink.Sim.Components.Pages.TradeMap
 				"ITradeExecutionAccess",
 				TradeMapPartKind.Interface,
 				Column: 2,
-				Row: 3,
+				Row: 4,
 				X: 820,
 				Y: 465,
 				W: 240,
@@ -404,20 +426,6 @@ namespace Poink.Sim.Components.Pages.TradeMap
 				Detail: ["PROPOSED -- not in the current code", "place/close orders, close positions"],
 				Inputs: [new TradeMapPort("order calls"), new TradeMapPort("position close calls")],
 				Outputs: [new TradeMapPort("order calls"), new TradeMapPort("position close calls")]
-			),
-			new(
-				"iaccount",
-				"IAccountAccess",
-				TradeMapPartKind.Interface,
-				Column: 2,
-				Row: 4,
-				X: 820,
-				Y: 600,
-				W: 240,
-				H: 110,
-				Detail: ["PROPOSED -- not in the current code", "connection/account state + session lifecycle"],
-				Inputs: [new TradeMapPort("connection state"), new TradeMapPort("session lifecycle calls")],
-				Outputs: [new TradeMapPort("connection state"), new TradeMapPort("session lifecycle calls")]
 			),
 			new(
 				"icategory",
@@ -546,7 +554,12 @@ namespace Poink.Sim.Components.Pages.TradeMap
 					"injects: Session, History (ICTraderHistory), JS",
 					"calc: ChartWindowHelper",
 				],
-				Inputs: [new TradeMapPort("tick stream"), new TradeMapPort("chart parameters"), new TradeMapPort("user input")],
+				Inputs:
+				[
+					new TradeMapPort("tick stream"),
+					new TradeMapPort("chart parameters"),
+					new TradeMapPort("user input"),
+				],
 				Outputs: [new TradeMapPort("tick history calls"), new TradeMapPort("chart settings snapshot")]
 			),
 			new(
@@ -584,7 +597,11 @@ namespace Poink.Sim.Components.Pages.TradeMap
 				Y: 760,
 				W: 260,
 				H: 120,
-				Detail: ["row rendering, nested in Financials", "calc: PositionPnlHelper (PipDifference, UnrealizedPnl)"],
+				Detail:
+				[
+					"row rendering, nested in Financials",
+					"calc: PositionPnlHelper (PipDifference, UnrealizedPnl)",
+				],
 				Inputs: [new TradeMapPort("position rows"), new TradeMapPort("user input")],
 				Outputs: [new TradeMapPort("row selected"), new TradeMapPort("row closed")]
 			),
@@ -673,42 +690,45 @@ namespace Poink.Sim.Components.Pages.TradeMap
 			new("symsvc", "EF read/write", "db", "EF read/write", TradeMapSignalKind.Control),
 			new("symsvc", "symbol data calls", "session", "symbol data calls", TradeMapSignalKind.Control),
 			new("metacache", "metadata lookup", "symsvc", "metadata lookup", TradeMapSignalKind.Control),
-
 			// PROPOSED -- every panel-to-driver signal now runs through a segregated Interface pill instead of
 			// going direct. Each pill relays exactly one narrow slice of one driver.
 			new("watchlist", "watch calls", "iwatchlist", "watch calls", TradeMapSignalKind.Control),
 			new("iwatchlist", "watch calls", "session", "watch calls", TradeMapSignalKind.Control),
 			new("session", "watchlist state", "iwatchlist", "watchlist state", TradeMapSignalKind.Display),
 			new("iwatchlist", "watchlist state", "watchlist", "watchlist state", TradeMapSignalKind.Display),
-
 			new("chart", "tick history calls", "ihistory", "tick history calls", TradeMapSignalKind.Control),
 			new("ihistory", "tick history calls", "session", "tick history calls", TradeMapSignalKind.Control),
-
 			new("session", "tick stream", "itickstream", "tick stream", TradeMapSignalKind.Display),
 			new("itickstream", "tick stream", "chart", "tick stream", TradeMapSignalKind.Display),
 			new("itickstream", "tick stream", "financials", "tick stream", TradeMapSignalKind.Display),
 			new("itickstream", "tick stream", "controls", "tick stream", TradeMapSignalKind.Display),
-
 			new("controls", "order calls", "itradeexec", "order calls", TradeMapSignalKind.Control),
 			new("itradeexec", "order calls", "session", "order calls", TradeMapSignalKind.Control),
 			new("financials", "position close calls", "itradeexec", "position close calls", TradeMapSignalKind.Control),
 			new("itradeexec", "position close calls", "session", "position close calls", TradeMapSignalKind.Control),
-
 			new("session", "connection state", "iaccount", "connection state", TradeMapSignalKind.Display),
 			new("iaccount", "connection state", "tradecoordinator", "connection state", TradeMapSignalKind.Display),
-			new("tradecoordinator", "session lifecycle calls", "iaccount", "session lifecycle calls", TradeMapSignalKind.Control),
-			new("iaccount", "session lifecycle calls", "session", "session lifecycle calls", TradeMapSignalKind.Control),
-
+			new(
+				"tradecoordinator",
+				"session lifecycle calls",
+				"iaccount",
+				"session lifecycle calls",
+				TradeMapSignalKind.Control
+			),
+			new(
+				"iaccount",
+				"session lifecycle calls",
+				"session",
+				"session lifecycle calls",
+				TradeMapSignalKind.Control
+			),
 			new("watchlist", "category calls", "icategory", "category calls", TradeMapSignalKind.Control),
 			new("icategory", "category calls", "symsvc", "category calls", TradeMapSignalKind.Control),
-
 			new("watchlist", "ensure metadata", "imetaensure", "ensure metadata", TradeMapSignalKind.Control),
 			new("imetaensure", "ensure metadata", "metacache", "ensure metadata", TradeMapSignalKind.Control),
-
 			new("metacache", "metadata snapshot", "imetasnapshot", "metadata snapshot", TradeMapSignalKind.Display),
 			new("imetasnapshot", "metadata snapshot", "financials", "metadata snapshot", TradeMapSignalKind.Display),
 			new("imetasnapshot", "metadata snapshot", "controls", "metadata snapshot", TradeMapSignalKind.Display),
-
 			// TradeCoordinator keeps only what has no driver owner: cross-panel UI state.
 			new("watchlist", "symbol selected", "tradecoordinator", "symbol selected", TradeMapSignalKind.Control),
 			new("watchlist", "symbol unwatched", "tradecoordinator", "symbol unwatched", TradeMapSignalKind.Control),
@@ -716,10 +736,15 @@ namespace Poink.Sim.Components.Pages.TradeMap
 			new("tradecoordinator", "sidebar collapsed", "watchlist", "sidebar collapsed", TradeMapSignalKind.Display),
 			new("tradecoordinator", "selected symbol", "watchlist", "selected symbol", TradeMapSignalKind.Display),
 			new("tradecoordinator", "chart parameters", "chart", "chart parameters", TradeMapSignalKind.Display),
-			new("chart", "chart settings snapshot", "tradecoordinator", "chart settings snapshot", TradeMapSignalKind.Control),
+			new(
+				"chart",
+				"chart settings snapshot",
+				"tradecoordinator",
+				"chart settings snapshot",
+				TradeMapSignalKind.Control
+			),
 			new("financials", "position selected", "tradecoordinator", "position selected", TradeMapSignalKind.Control),
 			new("tradecoordinator", "selected symbol", "controls", "selected symbol", TradeMapSignalKind.Display),
-
 			new("financials", "position rows", "positiontable", "position rows", TradeMapSignalKind.Display),
 			new("positiontable", "row selected", "financials", "row selected", TradeMapSignalKind.Control),
 			new("positiontable", "row closed", "financials", "row closed", TradeMapSignalKind.Control),
@@ -730,3 +755,4 @@ namespace Poink.Sim.Components.Pages.TradeMap
 		};
 	}
 }
+
