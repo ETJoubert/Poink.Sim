@@ -1,0 +1,194 @@
+.tmdd-drawer {
+  --tmdd-color: var(--color-primary);
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  width: 330px;
+  min-height: 0;
+  background: var(--color-bg-terminal);
+  border-left: 1px solid color-mix(in srgb, var(--tmdd-color) 30%, transparent);
+  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+  transition: width 0.2s ease, opacity 0.2s ease;
+}
+
+.tmdd-closed {
+  width: 0;
+  border-left-width: 0;
+  opacity: 0;
+}
+
+.tmdd-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px 9px;
+  border-bottom: 1px solid color-mix(in srgb, var(--tmdd-color) 22%, transparent);
+}
+
+.tmdd-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.tmdd-kind {
+  font-family: var(--font-body);
+  font-size: 8px;
+  font-weight: bold;
+  letter-spacing: 0.14em;
+  color: color-mix(in srgb, var(--tmdd-color) 70%, transparent);
+}
+
+.tmdd-title {
+  font-family: var(--font-heading);
+  font-size: 1.05rem;
+  font-weight: bold;
+  letter-spacing: 0.06em;
+  color: var(--tmdd-color);
+  text-shadow: 0 0 10px color-mix(in srgb, var(--tmdd-color) 40%, transparent);
+}
+
+.tmdd-close {
+  flex-shrink: 0;
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--tmdd-color) 30%, transparent);
+  border-radius: var(--border-radius-sm);
+  color: var(--color-secondary);
+  font-size: 15px;
+  line-height: 1;
+  padding: 2px 7px 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.tmdd-close:hover {
+  color: var(--color-error);
+  border-color: var(--color-error);
+}
+
+.tmdd-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--tmdd-color) transparent;
+}
+
+.tmdd-section {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.tmdd-section-title {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 9px;
+  font-weight: bold;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--tmdd-color) 75%, transparent);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  padding-bottom: 3px;
+}
+
+.tmdd-notes {
+  margin: 0;
+  padding: 0 0 0 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-family: var(--font-body);
+  font-size: 10.5px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.tmdd-wires {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tmdd-wire-none {
+  font-family: var(--font-body);
+  font-size: 9.5px;
+  font-style: italic;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.tmdd-wire {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 3px 6px;
+  background: rgba(0, 0, 0, 0.28);
+  border-radius: var(--border-radius-sm);
+}
+
+.tmdd-wire-dot {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  box-sizing: border-box;
+  border-radius: 50%;
+}
+
+.tmdd-wire-dot-in {
+  background: var(--color-bg-dark);
+  border: 1.5px solid var(--tmdd-color);
+}
+
+.tmdd-wire-dot-out {
+  background: var(--tmdd-color);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--tmdd-color) 60%, transparent);
+}
+
+.tmdd-wire-label {
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: bold;
+  color: var(--color-secondary);
+  word-break: break-word;
+}
+
+.tmdd-wire-peers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-left: auto;
+}
+
+.tmdd-peer {
+  padding: 1px 6px 2px;
+  background: var(--color-bg-tab);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  font-family: var(--font-body);
+  font-size: 8.5px;
+  color: var(--color-primary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.tmdd-peer:hover {
+  border-color: var(--tmdd-color);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--tmdd-color) 30%, transparent);
+}
+
+.tmdd-page { --tmdd-color: var(--color-accent); }
+.tmdd-component { --tmdd-color: var(--color-primary); }
+.tmdd-service { --tmdd-color: var(--color-secondary); }
+.tmdd-helper { --tmdd-color: #9fb2c9; }
+.tmdd-api { --tmdd-color: var(--color-warning); }
+.tmdd-data { --tmdd-color: var(--color-error); }

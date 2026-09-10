@@ -1,0 +1,91 @@
+.tmc-viewport {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 12px;
+  cursor: grab;
+  background:
+    radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--color-primary) 12%, transparent) 1px, transparent 0)
+    0 0 / 28px 28px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-primary) transparent;
+}
+
+.tmc-viewport.tmc-panning {
+  cursor: grabbing;
+  user-select: none;
+}
+
+.tmc-viewport::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.tmc-viewport::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--color-primary) 60%, transparent);
+  border-radius: 4px;
+}
+
+.tmc-space {
+  position: relative;
+}
+
+.tmc-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+}
+
+.tmc-edges {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  /* Always above every node -- including the large Page card that visually sits behind its peers -- so a
+     connector is never hidden by a card it happens to cross. */
+  z-index: 10;
+}
+
+.tmc-node {
+  position: absolute;
+  z-index: 2;
+}
+
+.tmc-node-hidden {
+  display: none;
+}
+
+.tmc-flow-path {
+  fill: none;
+  stroke-width: 1.4;
+  transition: opacity 0.15s ease, stroke-width 0.15s ease;
+}
+
+.tmc-edge-control .tmc-flow-path {
+  stroke: var(--color-warning);
+  stroke-dasharray: 4 3;
+}
+
+.tmc-edge-display .tmc-flow-path {
+  stroke: var(--color-secondary);
+}
+
+.tmc-arrow-control {
+  fill: var(--color-warning);
+}
+
+.tmc-arrow-display {
+  fill: var(--color-secondary);
+}
+
+.tmc-dimmed {
+  opacity: 0.15;
+}
+
+.tmc-edge-hidden {
+  display: none;
+}

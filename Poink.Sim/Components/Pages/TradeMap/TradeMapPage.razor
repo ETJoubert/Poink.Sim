@@ -1,0 +1,71 @@
+@page "/trade-map"
+@namespace Poink.Sim.Components.Pages.TradeMap
+@using Poink.Sim.Components.TradeMap
+@using Poink.Sim.Components.Pages.TradeMap.Models
+
+<div class="tm-page">
+
+    <div class="tm-topbar">
+        <header class="tm-header">
+            <div class="tm-header-title">
+                <span class="tm-header-symbol">TRADE MAP</span>
+                <span class="tm-header-mode" title="Boxes on this diagram">@Nodes.Count parts</span>
+                <span class="tm-header-mode" title="Connectors on this diagram">@Edges.Count signals</span>
+                <span class="tm-header-mode tm-header-static" title="Hand-authored against the source, not derived from reflection like Code/Arch/Calls">STATIC</span>
+            </div>
+
+            <div class="tm-header-tools">
+                <button type="button" class="tm-tool-btn" title="Zoom out" @onclick="ZoomOut" disabled="@(_zoom <= MinZoom)">&minus;</button>
+                <span class="tm-zoom-value" title="Current zoom level">@ZoomLabel</span>
+                <button type="button" class="tm-tool-btn" title="Zoom in" @onclick="ZoomIn" disabled="@(_zoom >= MaxZoom)">+</button>
+                <button type="button" class="tm-tool-btn tm-tool-btn-wide" title="Reset zoom, show every part and clear the traced connector path" @onclick="ResetView">RESET</button>
+            </div>
+        </header>
+
+        <div class="tm-legend">
+            @foreach (var kind in AllKinds)
+            {
+                <button type="button"
+                        class="tm-legend-item @LegendClass(kind) @(IsKindVisible(kind) ? "tm-legend-on" : "tm-legend-off")"
+                        title="@LegendTooltip(kind)"
+                        @onclick="() => ToggleKind(kind)">
+                    <span class="tm-legend-swatch"></span>@KindLabel(kind)
+                </button>
+            }
+
+            <span class="tm-legend-spacer"></span>
+
+            <span class="tm-legend-key" title="A component/service imperatively calling something to its left -- a method invocation">
+                <span class="tm-legend-line tm-legend-line-control"></span> CONTROL SIGNAL
+            </span>
+            <span class="tm-legend-key" title="State the callee exposes continuously -- a property read every render, or a subscribed event">
+                <span class="tm-legend-line tm-legend-line-display"></span> DISPLAY SIGNAL
+            </span>
+        </div>
+    </div>
+
+    <div class="tm-body">
+        <div class="tm-workspace">
+            <TradeMapCanvas Nodes="Nodes"
+                            Edges="Edges"
+                            SelectedId="_selectedId"
+                            HighlightedNodeIds="_highlighted"
+                            VisibleKinds="_visibleKinds"
+                            Zoom="_zoom"
+                            OnNodeSelected="SelectNode"
+                            OnBackgroundClicked="ClearSelection"
+                            OnWheelZoom="HandleWheelZoom" />
+
+            <TradeMapDetailDrawer Nodes="Nodes"
+                                  Edges="Edges"
+                                  Node="SelectedNode"
+                                  OnSelect="SelectNode"
+                                  OnClose="ClearSelection" />
+        </div>
+
+        <span class="tm-footnote" title="Control signal = an imperative call this box makes to something on its left (a method invocation). Display signal = state the box on the left exposes continuously -- a property read every render, or an event it raises. Helpers are pure functions with no dependency of their own, so they carry neither -- each is labelled with the single component that calls it instead of a connector.">
+            Control = imperative call &middot; Display = continuously exposed state (property/event) &middot; Helpers are pure and dependency-free, labelled by caller rather than wired &middot; hover for details
+        </span>
+    </div>
+
+</div>

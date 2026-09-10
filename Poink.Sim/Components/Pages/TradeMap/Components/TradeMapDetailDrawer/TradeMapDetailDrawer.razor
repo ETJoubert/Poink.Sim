@@ -1,0 +1,74 @@
+@namespace Poink.Sim.Components.TradeMap
+@using Poink.Sim.Components.Pages.TradeMap.Models
+
+<aside class="tmdd-drawer @(Node is null ? "tmdd-closed" : "tmdd-open") @KindClass" @onclick:stopPropagation="true">
+
+    @if (Node is not null)
+    {
+        <header class="tmdd-header">
+            <div class="tmdd-heading">
+                <span class="tmdd-kind">@KindLabel</span>
+                <span class="tmdd-title">@Node.Title</span>
+            </div>
+            <button type="button" class="tmdd-close" title="Close the detail panel and clear the traced connector path" @onclick="RaiseClose">&times;</button>
+        </header>
+
+        <div class="tmdd-body">
+            <section class="tmdd-section">
+                <h3 class="tmdd-section-title" title="Hand-authored notes about this part">Notes</h3>
+                <ul class="tmdd-notes">
+                    @foreach (var line in Node.Detail)
+                    {
+                        <li>@line</li>
+                    }
+                </ul>
+            </section>
+
+            <section class="tmdd-section">
+                <h3 class="tmdd-section-title" title="Named signals entering this part and where each comes from">In</h3>
+                <div class="tmdd-wires">
+                    @if (Incoming.Count == 0)
+                    {
+                        <span class="tmdd-wire-none">none</span>
+                    }
+                    @foreach (var wire in Incoming)
+                    {
+                        <div class="tmdd-wire tmdd-wire-in">
+                            <span class="tmdd-wire-dot tmdd-wire-dot-in"></span>
+                            <span class="tmdd-wire-label" title="Port: @wire.Port">@wire.Port</span>
+                            <span class="tmdd-wire-peers">
+                                @foreach (var peer in wire.Peers)
+                                {
+                                    <button type="button" class="tmdd-peer" title="Jump to @peer.Title" @onclick="() => RaiseSelect(peer.Id)">@peer.Title</button>
+                                }
+                            </span>
+                        </div>
+                    }
+                </div>
+            </section>
+
+            <section class="tmdd-section">
+                <h3 class="tmdd-section-title" title="Named signals leaving this part and where each goes">Out</h3>
+                <div class="tmdd-wires">
+                    @if (Outgoing.Count == 0)
+                    {
+                        <span class="tmdd-wire-none">none</span>
+                    }
+                    @foreach (var wire in Outgoing)
+                    {
+                        <div class="tmdd-wire tmdd-wire-out">
+                            <span class="tmdd-wire-dot tmdd-wire-dot-out"></span>
+                            <span class="tmdd-wire-label" title="Port: @wire.Port">@wire.Port</span>
+                            <span class="tmdd-wire-peers">
+                                @foreach (var peer in wire.Peers)
+                                {
+                                    <button type="button" class="tmdd-peer" title="Jump to @peer.Title" @onclick="() => RaiseSelect(peer.Id)">@peer.Title</button>
+                                }
+                            </span>
+                        </div>
+                    }
+                </div>
+            </section>
+        </div>
+    }
+</aside>
