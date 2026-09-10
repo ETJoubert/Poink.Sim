@@ -148,6 +148,7 @@
 .tm-legend-data { --tl-color: var(--color-error); }
 .tm-legend-userspace { --tl-color: #c99fe0; }
 .tm-legend-coordinator { --tl-color: #7ee787; }
+.tm-legend-interface { --tl-color: #56d4dd; }
 
 .tm-legend-off {
   opacity: 0.3;

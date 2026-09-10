@@ -194,3 +194,4 @@
 .tmdd-data { --tmdd-color: var(--color-error); }
 .tmdd-userspace { --tmdd-color: #c99fe0; }
 .tmdd-coordinator { --tmdd-color: #7ee787; }
+.tmdd-interface { --tmdd-color: #56d4dd; }

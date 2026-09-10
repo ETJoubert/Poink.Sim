@@ -16,6 +16,7 @@ namespace Poink.Sim.Components.Pages.TradeMap.Helpers
 				TradeMapPartKind.DataStore => "DATA STORE",
 				TradeMapPartKind.UserSpace => "USER SPACE",
 				TradeMapPartKind.Coordinator => "COORDINATOR",
+				TradeMapPartKind.Interface => "INTERFACE",
 				_ => "",
 			};
 
@@ -30,6 +31,7 @@ namespace Poink.Sim.Components.Pages.TradeMap.Helpers
 				TradeMapPartKind.DataStore => "data",
 				TradeMapPartKind.UserSpace => "userspace",
 				TradeMapPartKind.Coordinator => "coordinator",
+				TradeMapPartKind.Interface => "interface",
 				_ => "panel",
 			};
 	}

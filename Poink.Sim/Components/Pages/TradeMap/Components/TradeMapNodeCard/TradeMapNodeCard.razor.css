@@ -90,6 +90,30 @@
 .tmnc-userspace { --tmnc-color: #c99fe0; }
 .tmnc-coordinator { --tmnc-color: #7ee787; }
 
+/* A provided interface: dashed like .tmnc-page's "abstract, not concrete" treatment, plus a UML lollipop
+   dot on the title, so it reads as a contract rather than a part -- square, so it doesn't fight the ports. */
+.tmnc-interface {
+  --tmnc-color: #56d4dd;
+  border-style: dashed;
+  border-left-style: solid;
+}
+
+.tmnc-interface .tmnc-head {
+  border-bottom-style: dashed;
+}
+
+.tmnc-lollipop {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--tmnc-color);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--tmnc-color) 65%, transparent);
+  margin-right: 5px;
+  vertical-align: middle;
+}
+
 /*
  * Side (left/right) is independent of direction (in/out): a Display port keeps input-left/output-right
  * (forward, toward the display), a Control port flips to input-right/output-left (backward, toward the

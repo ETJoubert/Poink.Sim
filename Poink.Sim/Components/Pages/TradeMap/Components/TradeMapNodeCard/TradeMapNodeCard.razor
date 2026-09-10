@@ -4,7 +4,13 @@
 <div class="@CardClass" title="@Tooltip" role="button" tabindex="0" @onclick="RaiseSelected" @onclick:stopPropagation="true" @onkeydown="HandleKeyDown">
     <div class="tmnc-head">
         <span class="tmnc-eyebrow">@KindLabel</span>
-        <span class="tmnc-title">@Node.Title</span>
+        <span class="tmnc-title">
+            @if (Node.Kind == TradeMapPartKind.Interface)
+            {
+                <span class="tmnc-lollipop"></span>
+            }
+            @Node.Title
+        </span>
     </div>
 
     @foreach (var port in Ports)

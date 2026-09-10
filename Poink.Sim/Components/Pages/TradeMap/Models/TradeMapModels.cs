@@ -13,6 +13,7 @@ namespace Poink.Sim.Components.Pages.TradeMap.Models
 		DataStore,
 		UserSpace,
 		Coordinator,
+		Interface,
 	}
 
 	/// <summary>
