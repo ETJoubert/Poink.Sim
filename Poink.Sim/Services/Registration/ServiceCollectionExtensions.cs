@@ -6,7 +6,9 @@ using Poink.Sim.Brain;
 using Poink.Sim.Components.Pages.Arch.Services;
 using Poink.Sim.Components.Pages.Calls.Services;
 using Poink.Sim.Components.Pages.Code.Services;
+using Poink.Sim.Components.Pages.Trade;
 using Poink.Sim.Data;
+using Poink.Sim.Helpers;
 using Poink.Sim.Repository;
 using Poink.Sim.Services.CTrader;
 using Poink.Sim.Services.MarketData;
@@ -62,6 +64,10 @@ public static class ServiceCollectionExtensions
 		services.AddSingleton<CTraderSessionService>();
 		services.AddSingleton<ICTraderSessionService>(sp => sp.GetRequiredService<CTraderSessionService>());
 		services.AddSingleton<ICTraderHistory>(sp => sp.GetRequiredService<CTraderSessionService>());
+		services.AddSingleton<IWatchlistAccess>(sp => sp.GetRequiredService<CTraderSessionService>());
+		services.AddSingleton<ITickStreamAccess>(sp => sp.GetRequiredService<CTraderSessionService>());
+		services.AddSingleton<ITradeExecutionAccess>(sp => sp.GetRequiredService<CTraderSessionService>());
+		services.AddSingleton<IAccountAccess>(sp => sp.GetRequiredService<CTraderSessionService>());
 
 		return services;
 	}
@@ -77,6 +83,17 @@ public static class ServiceCollectionExtensions
 	{
 		services.AddScoped<ISymbolService, SymbolService>();
 		services.AddScoped<ISymbolMetadataCache, SymbolMetadataCacheService>();
+
+		return services;
+	}
+
+	/// <summary>
+	/// TradePage's cross-panel UI state (selected symbol, side-panel collapse, settings persistence) --
+	/// scoped, to match its <see cref="ILocalStorageHelper"/> and driver-interface dependencies.
+	/// </summary>
+	public static IServiceCollection BuildTradePageServices(this IServiceCollection services)
+	{
+		services.AddScoped<ITradeCoordinator, TradeCoordinator>();
 
 		return services;
 	}

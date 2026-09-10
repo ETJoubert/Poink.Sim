@@ -15,7 +15,7 @@ namespace Poink.Sim.Components.Pages.Trade
 	public partial class TradeControlsPanel : ComponentBase
 	{
 		[Inject]
-		private ICTraderSessionService Session { get; set; } = null!;
+		private ITradeExecutionAccess Session { get; set; } = null!;
 
 		[Inject]
 		private IJSRuntime JS { get; set; } = null!;
