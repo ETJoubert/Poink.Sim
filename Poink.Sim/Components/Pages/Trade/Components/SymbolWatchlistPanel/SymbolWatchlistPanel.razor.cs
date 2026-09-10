@@ -14,7 +14,7 @@ namespace Poink.Sim.Components.Pages.Trade
 	public partial class SymbolWatchlistPanel : ComponentBase, IDisposable
 	{
 		[Inject]
-		private ICTraderSessionService Session { get; set; } = null!;
+		private IWatchlistAccess Session { get; set; } = null!;
 
 		[Inject]
 		private ISymbolService SymbolService { get; set; } = null!;

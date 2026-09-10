@@ -12,123 +12,60 @@
                 <span class="trade-header-symbol">TRADE</span>
             </div>
 
-            @if (_chartSymbolId is not null)
+            @if (Coordinator.ChartSymbolId is not null)
             {
                 <div class="trade-header-chart">
-                    <span class="trade-chart-title">@_chartSymbolName</span>
-                    <BarSizeSelect @bind-Value="_barSizeSeconds"
+                    <span class="trade-chart-title">@Coordinator.ChartSymbolName</span>
+                    <BarSizeSelect @bind-Value="Coordinator.BarSizeSeconds"
                                    Label="Aggregation"
                                    Title="Bar size the chart's live history and tick stream are aggregated into" />
                 </div>
             }
 
-            <div class="trade-header-account">
-                @if (IsConnected)
-                {
-                    <div class="trade-account-menu">
-                        <button type="button" class="trade-account-btn @(_accountMenuOpen ? "open" : "")"
-                                @onclick="ToggleAccountMenu" title="View connected accounts and log out">
-                            <span class="trade-header-mode">@(SelectedAccount?.IsLive == true ? "LIVE" : "DEMO")</span>
-                            <span class="trade-account-number">@(SelectedAccount?.Login.ToString() ?? "—")</span>
-                            <span class="trade-header-state @StateClass" title="Current cTrader connection state">
-                                @StateLabel
-                            </span>
-                            <Icon Name="chevron-down" Class="trade-account-caret" />
-                        </button>
-
-                        @if (_accountMenuOpen)
-                        {
-                            <div class="trade-account-backdrop" @onclick="CloseAccountMenu"></div>
-                            <div class="trade-account-dropdown">
-                                <span class="trade-account-dropdown-title">Accounts</span>
-                                <ul class="trade-account-list">
-                                    @foreach (var account in Session.Accounts)
-                                    {
-                                        var isCurrent = account.AccountId == Session.SelectedAccountId;
-                                        <li class="trade-account-row @(isCurrent ? "trade-account-row-current" : "")"
-                                            title="@(isCurrent ? $"Active account {account.Login}" : $"Account {account.Login}")">
-                                            <span class="trade-account-row-type">@(account.IsLive ? "LIVE" : "DEMO")</span>
-                                            <span class="trade-account-row-number">@account.Login</span>
-                                            @if (isCurrent)
-                                            {
-                                                <Icon Name="check2" Class="trade-account-row-check" />
-                                            }
-                                        </li>
-                                    }
-                                </ul>
-                                <button class="trade-ctrl-btn trade-ctrl-btn-warn trade-account-logout-btn" @onclick="LogOutAsync"
-                                        title="Disconnect the current cTrader account">
-                                    <Icon Name="x-lg" Class="trade-ctrl-icon" />
-                                    LOG OUT
-                                </button>
-                            </div>
-                        }
-                    </div>
-                }
-                else if (!Session.IsConfigured)
-                {
-                    <span class="trade-login-status trade-login-status-warn"
-                          title="Set CTrader:ClientId, CTrader:ClientSecret and CTrader:RedirectUri (via appsettings.Secrets.json or env vars) then restart">
-                        cTrader is not configured.
-                    </span>
-                }
-                else
-                {
-                    <span class="trade-login-status" title="Latest cTrader connection status">@Session.StatusMessage</span>
-                    <span class="trade-header-state @StateClass" title="Current cTrader connection state">
-                        @StateLabel
-                    </span>
-                    <button class="trade-ctrl-btn trade-ctrl-btn-play" @onclick="LogIn"
-                            disabled="@(Session.State == CTraderConnectionState.Connecting)"
-                            title="Open the cTrader login flow and connect an account">
-                        <Icon Name="key-fill" Class="trade-ctrl-icon" />
-                        @(Session.State == CTraderConnectionState.Connecting ? "CONNECTING..." : "LOG IN")
-                    </button>
-                }
-            </div>
+            <TradeAccountMenu />
         </header>
     </div>
 
     <div class="trade-body">
-        <SymbolWatchlistPanel ActiveSymbolId="_chartSymbolId"
-                               OnSymbolSelected="HandleSymbolSelected"
-                               OnSymbolUnwatched="HandleSymbolUnwatched"
-                               @bind-Collapsed="_sidepanelCollapsed" />
+        <SymbolWatchlistPanel ActiveSymbolId="Coordinator.ChartSymbolId"
+                               OnSymbolSelected="Coordinator.HandleSymbolSelected"
+                               OnSymbolUnwatched="Coordinator.HandleSymbolUnwatched"
+                               @bind-Collapsed="Coordinator.SidepanelCollapsed" />
 
         <main class="trade-main">
-            <TradeChartPanel @ref="_chartPanelRef" SymbolId="_chartSymbolId" SymbolName="_chartSymbolName"
-                              BarSizeSeconds="_barSizeSeconds" InitialSettings="_pendingChartSettings" />
+            <TradeChartPanel @ref="_chartPanelRef" SymbolId="Coordinator.ChartSymbolId" SymbolName="Coordinator.ChartSymbolName"
+                              BarSizeSeconds="Coordinator.BarSizeSeconds" InitialSettings="Coordinator.PendingChartSettings" />
 
-            @if (IsConnected)
+            @if (Coordinator.IsConnected)
             {
                 <div class="trade-chart-hdivider" @ref="_positionsHDividerRef" data-min-height="160" data-max-height-vh="70" title="Drag to resize"></div>
                 <section class="trade-financials-panel" title="Open positions and account financials">
                     <FinancialsPanel Positions="Session.Positions" Balance="Session.Balance" Quotes="Session.Quotes"
                                      SymbolMetadata="MetadataCache.Snapshot"
-                                     OnSelectPosition="position => OpenChart(position.SymbolId, position.SymbolName)"
+                                     OnSelectPosition="position => Coordinator.OpenChart(position.SymbolId, position.SymbolName)"
                                      OnClosePosition="ClosePositionAsync" />
                 </section>
             }
         </main>
 
-        @if (IsConnected)
+        @if (Coordinator.IsConnected)
         {
-            <aside class="trade-right-side-panel @(_rightPanelCollapsed ? "trade-right-side-panel-collapsed" : "")">
-                <button type="button" class="trade-right-side-panel-toggle" @onclick="ToggleRightPanel"
-                        title="@(_rightPanelCollapsed ? "Expand trader controls" : "Collapse trader controls")">
-                    <Icon Name="@(_rightPanelCollapsed ? "chevron-left" : "chevron-right")" Class="trade-right-side-panel-toggle-icon" />
+            <aside class="trade-right-side-panel @(Coordinator.RightPanelCollapsed ? "trade-right-side-panel-collapsed" : "")">
+                <button type="button" class="trade-right-side-panel-toggle" @onclick="Coordinator.ToggleRightPanel"
+                        title="@(Coordinator.RightPanelCollapsed ? "Expand trader controls" : "Collapse trader controls")">
+                    <Icon Name="@(Coordinator.RightPanelCollapsed ? "chevron-left" : "chevron-right")" Class="trade-right-side-panel-toggle-icon" />
                 </button>
-                @if (!_rightPanelCollapsed)
+                @if (!Coordinator.RightPanelCollapsed)
                 {
                     <div class="trade-right-side-panel-content">
                         <div class="trade-section-header">
                             <span class="trade-section-title">TRADER CONTROLS</span>
-                            @if (_chartSymbolName is not null)
+                            @if (Coordinator.ChartSymbolName is not null)
                             {
-                                <span class="trade-section-count">@_chartSymbolName</span>
+                                <span class="trade-section-count">@Coordinator.ChartSymbolName</span>
                             }
                         </div>
-                        <TradeControlsPanel SymbolId="_chartSymbolId" SymbolName="_chartSymbolName"
+                        <TradeControlsPanel SymbolId="Coordinator.ChartSymbolId" SymbolName="Coordinator.ChartSymbolName"
                                              CurrentBid="ChartQuote?.Bid" CurrentAsk="ChartQuote?.Ask"
                                              PipSize="ChartPipSize" />
                     </div>

@@ -15,7 +15,14 @@ using CTraderApp = OpenAPI.Net.Auth.App;
 
 namespace Poink.Sim.Services.CTrader
 {
-	public sealed class CTraderSessionService : ICTraderSessionService, ICTraderHistory, IAsyncDisposable
+	public sealed class CTraderSessionService
+		: ICTraderSessionService,
+			ICTraderHistory,
+			IWatchlistAccess,
+			ITickStreamAccess,
+			ITradeExecutionAccess,
+			IAccountAccess,
+			IAsyncDisposable
 	{
 		/// <summary>cTrader sends prices as integers scaled by 1/100_000 of a unit (e.g. 1.23 -> 123000).</summary>
 		private const double PriceScale = 100_000.0;

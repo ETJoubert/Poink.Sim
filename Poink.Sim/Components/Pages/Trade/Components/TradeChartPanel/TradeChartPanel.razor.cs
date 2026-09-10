@@ -29,7 +29,7 @@ namespace Poink.Sim.Components.Pages.Trade
 		private const int MaxBarWindow = 300;
 
 		[Inject]
-		private ICTraderSessionService Session { get; set; } = null!;
+		private ITickStreamAccess Session { get; set; } = null!;
 
 		[Inject]
 		private ICTraderHistory History { get; set; } = null!;

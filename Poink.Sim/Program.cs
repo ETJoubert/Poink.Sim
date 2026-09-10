@@ -30,6 +30,7 @@ builder.Services.BuildSimulationServices();
 
 builder.Services.AddSingleton<IProfilerService, ProfilerService>();
 builder.Services.AddScoped<ILocalStorageHelper, LocalStorageHelper>();
+builder.Services.BuildTradePageServices();
 builder.Services.BuildCodeGraphServices();
 builder.Services.BuildCallGraphServices();
 
