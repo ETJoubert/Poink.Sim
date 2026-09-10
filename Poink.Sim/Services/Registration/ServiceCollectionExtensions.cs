@@ -69,11 +69,14 @@ public static class ServiceCollectionExtensions
 	/// <summary>
 	/// Symbol registry: persists the connected cTrader account's symbol list into the Symbol
 	/// table so it can be browsed on the Data page without an active session. Scoped, to
-	/// match its PoinkSimContext dependency (see BuildDatabase).
+	/// match its PoinkSimContext dependency (see BuildDatabase). Also registers the Trade
+	/// page's symbol metadata cache, shared across its components (watchlist, order entry,
+	/// financials, chart) so each only fetches a symbol's pip size/digits once.
 	/// </summary>
 	public static IServiceCollection BuildSymbolServices(this IServiceCollection services)
 	{
 		services.AddScoped<ISymbolService, SymbolService>();
+		services.AddScoped<ISymbolMetadataCache, SymbolMetadataCacheService>();
 
 		return services;
 	}
