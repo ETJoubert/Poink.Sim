@@ -855,6 +855,8 @@ namespace Poink.Sim.Services.CTrader
 					{
 						_positions.Remove(position.PositionId);
 					}
+					if (SelectedAccountId is { } accountId)
+						_ = RefreshBalanceAsync(accountId, CancellationToken.None);
 					break;
 				default:
 					return;
