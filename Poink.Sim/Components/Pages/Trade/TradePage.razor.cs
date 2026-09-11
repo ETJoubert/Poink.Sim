@@ -79,6 +79,15 @@ namespace Poink.Sim.Components.Pages.Trade
 			})()
 			""";
 
+		protected override void OnInitialized()
+		{
+			Coordinator.Changed += HandleCoordinatorChanged;
+		}
+
+		// Only the watchlist panel and account menu re-render themselves on session updates, so this
+		// page needs its own subscription to keep FinancialsPanel's parameters current.
+		private void HandleCoordinatorChanged() => InvokeAsync(StateHasChanged);
+
 		protected override async Task OnAfterRenderAsync(bool firstRender)
 		{
 			if (firstRender)
@@ -98,6 +107,8 @@ namespace Poink.Sim.Components.Pages.Trade
 
 		public async ValueTask DisposeAsync()
 		{
+			Coordinator.Changed -= HandleCoordinatorChanged;
+
 			if (_dividerResizeInstance is not null)
 			{
 				try

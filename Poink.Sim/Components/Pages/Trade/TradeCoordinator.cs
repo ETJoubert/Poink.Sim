@@ -14,7 +14,7 @@ namespace Poink.Sim.Components.Pages.Trade
 	/// Scoped, so it's shared across TradePage and its panels for one circuit without being a
 	/// component itself. <see cref="Changed"/> mirrors the same background-thread-notification
 	/// pattern <see cref="ICTraderSessionService.Changed"/> already uses -- subscribers marshal onto
-	/// their own render context themselves (see TradePage.OnCoordinatorChanged).
+	/// their own render context themselves (see TradePage.HandleCoordinatorChanged).
 	/// </summary>
 	internal sealed class TradeCoordinator : ITradeCoordinator, IDisposable
 	{
