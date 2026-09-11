@@ -5,7 +5,11 @@ Master is the core branch. Its own working tree stays on master; feature work ne
 
 ### Initialize
 1. After prompt state action
-2. Start Workflow by askking if straight to master, Feature branch, or worktree.
+2. Start Workflow by asking if straight to master, branch, or worktree.
+3. There are different task types, branch naming depends on the type.:
+- Feature: New stuff
+- Fix: Fixing things that are broken
+- Update: Modifications
 
 ### 0. Response Report
 Every response ends with this report. Each section label is bold, sections are separated by a line break. Compliance and Concerns are prefixed with ✅ for a good state and ❌ for a bad one.
