@@ -496,13 +496,6 @@
     box-shadow: 0 0 12px color-mix(in srgb, var(--color-primary) 45%, transparent);
 }
 
-.sim-window-bar {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 1px 5px 1px;
-}
-
 .sim-window-title {
     flex: 0 0 auto;
     font-size: 0.62rem;
@@ -510,82 +503,6 @@
     color: var(--color-secondary);
     opacity: 0.85;
     white-space: nowrap;
-}
-
-.sim-window-rail {
-    position: relative;
-    flex: 1;
-    height: 12px;
-}
-
-.sim-window-track {
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: 4px;
-    height: 4px;
-    border-radius: 2px;
-    background: rgba(255, 255, 255, 0.08);
-}
-
-.sim-window-fill {
-    position: absolute;
-    right: 0;
-    top: 4px;
-    height: 4px;
-    border-radius: 2px;
-    background: linear-gradient(270deg, var(--color-secondary) 0%, var(--color-accent) 100%);
-    box-shadow: var(--shadow-glow-secondary);
-    pointer-events: none;
-}
-
-.sim-window-slider {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 12px;
-    margin: 0;
-    direction: rtl;
-    -webkit-appearance: none;
-    appearance: none;
-    background: transparent;
-    cursor: pointer;
-}
-
-.sim-window-slider:focus {
-    outline: none;
-}
-
-.sim-window-slider::-webkit-slider-runnable-track {
-    background: transparent;
-    height: 4px;
-}
-
-.sim-window-slider::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 3px;
-    height: 12px;
-    border-radius: 1px;
-    background: var(--color-accent);
-    box-shadow: var(--shadow-glow-accent);
-    cursor: pointer;
-}
-
-.sim-window-slider::-moz-range-track {
-    background: transparent;
-    height: 4px;
-}
-
-.sim-window-slider::-moz-range-thumb {
-    width: 3px;
-    height: 12px;
-    border-radius: 1px;
-    background: var(--color-accent);
-    box-shadow: var(--shadow-glow-accent);
-    cursor: pointer;
-    border: none;
 }
 
 .sim-window-input {

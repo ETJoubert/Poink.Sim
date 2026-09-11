@@ -105,25 +105,21 @@ namespace Poink.Sim.Components.Pages
 		private const int MaxTickWindow = 5000;
 		private int _tickWindowSize = 200;
 		private int ClampedTickWindow => Math.Clamp(_tickWindowSize, 2, MaxTickWindow);
-		private double TickWindowFillPercent => ClampedTickWindow * 100.0 / MaxTickWindow;
 
 		// Ticks back from the most recent tick to the end of the window -- unlike Profiler's
 		// Offset, this can never reach further back than the live RecentTicks ring buffer holds.
 		private int _tickWindowOffset;
 		private int ClampedTickOffset => Math.Clamp(_tickWindowOffset, 0, MaxTickWindow - 1);
-		private double TickWindowOffsetFillPercent => ClampedTickOffset * 100.0 / MaxTickWindow;
 
 		// Matches SimulationEngine.MaxRecentBars.
 		private const int MaxBarWindow = 300;
 		private int _barWindowSize = 50;
 		private int ClampedBarWindow => Math.Clamp(_barWindowSize, 1, MaxBarWindow);
-		private double BarWindowFillPercent => ClampedBarWindow * 100.0 / MaxBarWindow;
 
 		// Bars back from the most recent bar to the end of the window -- same idea as Profiler's
 		// Offset, but bounded by the live RecentBars ring buffer instead of arbitrary loaded history.
 		private int _barWindowOffset;
 		private int ClampedBarOffset => Math.Clamp(_barWindowOffset, 0, MaxBarWindow - 1);
-		private double BarWindowOffsetFillPercent => ClampedBarOffset * 100.0 / MaxBarWindow;
 
 		// Slices RecentBars/RecentBarHistograms to end Offset bars back from the live edge --
 		// every width-based window below reads from this so Offset moves them all together.

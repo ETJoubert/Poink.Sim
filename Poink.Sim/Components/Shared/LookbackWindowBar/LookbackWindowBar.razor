@@ -1,0 +1,18 @@
+@namespace Poink.Sim.Components.Shared.LookbackWindowBar
+@using System.Globalization
+
+<div class="lkbk-bar">
+    <span class="lkbk-title">@Label</span>
+    <div class="lkbk-rail" @ref="_railRef"
+         data-max="@MaxWindow" data-width="@Width" data-offset="@Offset" data-min-width="@MinWidth"
+         title="@RailTitle">
+        <div class="lkbk-track"></div>
+        <div class="lkbk-fill"
+             style="right: @(OffsetFillPercent.ToString("0.##", CultureInfo.InvariantCulture))%; width: @(Math.Min(FillPercent, 100 - OffsetFillPercent).ToString("0.##", CultureInfo.InvariantCulture))%"></div>
+    </div>
+    <input class="lkbk-input" type="number" min="@MinWidth" max="@MaxWindow" value="@Width"
+           @oninput="OnWidthInput" title="@SizeInputTitle" />
+    <span class="lkbk-title" title="@OffsetLabelTitle">OFFSET</span>
+    <input class="lkbk-input" type="number" min="0" max="@(Math.Max(0, MaxWindow - 1))" value="@Offset"
+           @oninput="OnOffsetInput" title="@OffsetInputTitle" />
+</div>

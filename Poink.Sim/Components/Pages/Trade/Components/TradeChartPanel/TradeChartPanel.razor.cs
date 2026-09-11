@@ -97,10 +97,8 @@ namespace Poink.Sim.Components.Pages.Trade
 		)? _xgridKey;
 
 		private int ClampedBarWindow => Math.Clamp(_barWindowSize, 1, MaxBarWindow);
-		private double BarWindowFillPercent => ClampedBarWindow * 100.0 / MaxBarWindow;
 
 		private int ClampedBarOffset => Math.Clamp(_barWindowOffset, 0, MaxBarWindow - 1);
-		private double BarWindowOffsetFillPercent => ClampedBarOffset * 100.0 / MaxBarWindow;
 
 		// Fits the chart once on the initial history load, then latches true so live ticks
 		// update the bars in place without resetting the user's own pan/zoom.

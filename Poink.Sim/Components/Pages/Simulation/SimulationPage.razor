@@ -5,6 +5,7 @@
 @using Poink.Sim.Components.Shared.BrainIoPanel
 @using Poink.Sim.Components.Shared.DataTable
 @using Poink.Sim.Components.Shared.DateRangeSlider
+@using Poink.Sim.Components.Shared.LookbackWindowBar
 @using Poink.Sim.Components.Shared.SimTimeline
 @using Poink.Sim.Components.Shared.StatisticsPanel
 @using Poink.Sim.Components.Shared.TickDataSource
@@ -16,7 +17,6 @@
 @using Poink.Sim.Models
 @using Poink.Sim.Components.Shared.Icon
 @using Poink.Sim.Components.Shared.ViewDatatable
-@using System.Globalization
 
 <div class="sim-page">
 
@@ -388,48 +388,24 @@
                             </div>
                         </div>
 
-                        <div class="sim-window-bar">
-                            @if (s.Config.Aggregate)
-                            {
-                                <span class="sim-window-title">LOOKBACK WINDOW</span>
-                                <div class="sim-window-rail"
-                                     title="The highlighted segment is the window itself -- its right edge is Offset bars back from now, its left edge Offset+Width bars back">
-                                    <div class="sim-window-track"></div>
-                                    <div class="sim-window-fill"
-                                         style="right: @(BarWindowOffsetFillPercent.ToString("0.##", CultureInfo.InvariantCulture))%; width: @(Math.Min(BarWindowFillPercent, 100 - BarWindowOffsetFillPercent).ToString("0.##", CultureInfo.InvariantCulture))%"></div>
-                                    <input type="range" class="sim-window-slider" min="1" max="@MaxBarWindow" step="1"
-                                           @bind="_barWindowSize" @bind:event="oninput"
-                                           title="Number of bars the window spans -- their price histograms drive the volume profile window, and the bar itself drives the chart's window-start marker" />
-                                </div>
-                                <input class="sim-window-input" type="number" min="1" max="@MaxBarWindow" @bind="_barWindowSize"
-                                       @bind:event="oninput" title="Number of bars the window spans" />
-                                <span class="sim-window-title"
-                                      title="Bars back from the most recent bar to the end of the window -- 0 keeps the window anchored to now">OFFSET</span>
-                                <input class="sim-window-input" type="number" min="0" max="@(MaxBarWindow - 1)"
-                                       @bind="_barWindowOffset" @bind:event="oninput"
-                                       title="Bars back from the most recent bar to the end of the window" />
-                            }
-                            else
-                            {
-                                <span class="sim-window-title">TICK WINDOW</span>
-                                <div class="sim-window-rail"
-                                     title="The highlighted segment is the window itself -- its right edge is Offset ticks back from now, its left edge Offset+Width ticks back">
-                                    <div class="sim-window-track"></div>
-                                    <div class="sim-window-fill"
-                                         style="right: @(TickWindowOffsetFillPercent.ToString("0.##", CultureInfo.InvariantCulture))%; width: @(Math.Min(TickWindowFillPercent, 100 - TickWindowOffsetFillPercent).ToString("0.##", CultureInfo.InvariantCulture))%"></div>
-                                    <input type="range" class="sim-window-slider" min="0" max="@MaxTickWindow" step="1"
-                                           @bind="_tickWindowSize" @bind:event="oninput"
-                                           title="Number of ticks the window spans -- drives the volume profile window" />
-                                </div>
-                                <input class="sim-window-input" type="number" min="0" max="@MaxTickWindow" @bind="_tickWindowSize"
-                                       @bind:event="oninput" title="Number of ticks the window spans" />
-                                <span class="sim-window-title"
-                                      title="Ticks back from the most recent tick to the end of the window -- 0 keeps the window anchored to now">OFFSET</span>
-                                <input class="sim-window-input" type="number" min="0" max="@(MaxTickWindow - 1)"
-                                       @bind="_tickWindowOffset" @bind:event="oninput"
-                                       title="Ticks back from the most recent tick to the end of the window" />
-                            }
-                        </div>
+                        @if (s.Config.Aggregate)
+                        {
+                            <LookbackWindowBar Label="LOOKBACK WINDOW" MaxWindow="MaxBarWindow" MinWidth="10"
+                                                @bind-Width="_barWindowSize" @bind-Offset="_barWindowOffset"
+                                                RailTitle="The highlighted segment is the window itself -- drag either edge to resize it, or drag the bar to move the whole window; its right edge is Offset bars back from now, its left edge Offset+Width bars back"
+                                                SizeInputTitle="Number of bars the window spans -- their price histograms drive the volume profile window, and the bar itself drives the chart's window-start marker"
+                                                OffsetLabelTitle="Bars back from the most recent bar to the end of the window -- 0 keeps the window anchored to now"
+                                                OffsetInputTitle="Bars back from the most recent bar to the end of the window" />
+                        }
+                        else
+                        {
+                            <LookbackWindowBar Label="TICK WINDOW" MaxWindow="MaxTickWindow" MinWidth="10"
+                                                @bind-Width="_tickWindowSize" @bind-Offset="_tickWindowOffset"
+                                                RailTitle="The highlighted segment is the window itself -- drag either edge to resize it, or drag the bar to move the whole window; its right edge is Offset ticks back from now, its left edge Offset+Width ticks back"
+                                                SizeInputTitle="Number of ticks the window spans -- drives the volume profile window"
+                                                OffsetLabelTitle="Ticks back from the most recent tick to the end of the window -- 0 keeps the window anchored to now"
+                                                OffsetInputTitle="Ticks back from the most recent tick to the end of the window" />
+                        }
 
                         <div class="sim-chart" @ref="_chartRowRef">
                             @if (_showMainChart)

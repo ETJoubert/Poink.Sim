@@ -1,7 +1,7 @@
 @namespace Poink.Sim.Components.Pages.Trade
 @using Poink.Sim.Components.Charts
+@using Poink.Sim.Components.Shared.LookbackWindowBar
 @using Poink.Sim.Services.CTrader
-@using System.Globalization
 
 @if (SymbolId is not null)
 {
@@ -32,25 +32,12 @@
                         title="Time-at-price histogram over the lookback window">Time profile</button>
             </div>
         </div>
-        <div class="trade-window-bar">
-            <span class="trade-window-title">LOOKBACK WINDOW</span>
-            <div class="trade-window-rail"
-                 title="The highlighted segment is the window itself -- its right edge is Offset bars back from now, its left edge Offset+Width bars back">
-                <div class="trade-window-track"></div>
-                <div class="trade-window-fill"
-                     style="right: @(BarWindowOffsetFillPercent.ToString("0.##", CultureInfo.InvariantCulture))%; width: @(Math.Min(BarWindowFillPercent, 100 - BarWindowOffsetFillPercent).ToString("0.##", CultureInfo.InvariantCulture))%"></div>
-                <input type="range" class="trade-window-slider" min="1" max="@MaxBarWindow" step="1"
-                       @bind="_barWindowSize" @bind:event="oninput"
-                       title="Number of bars the window spans -- drives the chart's window-start marker, the indicator overlays and the XGrid footprint" />
-            </div>
-            <input class="trade-window-input" type="number" min="1" max="@MaxBarWindow" @bind="_barWindowSize"
-                   @bind:event="oninput" title="Number of bars the window spans" />
-            <span class="trade-window-title"
-                  title="Bars back from the most recent bar to the end of the window -- 0 keeps the window anchored to now">OFFSET</span>
-            <input class="trade-window-input" type="number" min="0" max="@(MaxBarWindow - 1)"
-                   @bind="_barWindowOffset" @bind:event="oninput"
-                   title="Bars back from the most recent bar to the end of the window" />
-        </div>
+        <LookbackWindowBar Label="LOOKBACK WINDOW" MaxWindow="MaxBarWindow" MinWidth="10"
+                            @bind-Width="_barWindowSize" @bind-Offset="_barWindowOffset"
+                            RailTitle="The highlighted segment is the window itself -- drag either edge to resize it, or drag the bar to move the whole window; its right edge is Offset bars back from now, its left edge Offset+Width bars back"
+                            SizeInputTitle="Number of bars the window spans -- drives the chart's window-start marker, the indicator overlays and the XGrid footprint"
+                            OffsetLabelTitle="Bars back from the most recent bar to the end of the window -- 0 keeps the window anchored to now"
+                            OffsetInputTitle="Bars back from the most recent bar to the end of the window" />
         @if (_chartLoading)
         {
             <p class="trade-chart-status">Loading history...</p>
