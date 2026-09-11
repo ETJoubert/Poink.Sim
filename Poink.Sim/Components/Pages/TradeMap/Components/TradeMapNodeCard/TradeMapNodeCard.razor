@@ -1,0 +1,23 @@
+@namespace Poink.Sim.Components.TradeMap
+@using Poink.Sim.Components.Pages.TradeMap.Models
+
+<div class="@CardClass" title="@Tooltip" role="button" tabindex="0" @onclick="RaiseSelected" @onclick:stopPropagation="true" @onkeydown="HandleKeyDown">
+    <div class="tmnc-head">
+        <span class="tmnc-eyebrow">@KindLabel</span>
+        <span class="tmnc-title">
+            @if (Node.Kind == TradeMapPartKind.Interface)
+            {
+                <span class="tmnc-lollipop"></span>
+            }
+            @Node.Title
+        </span>
+    </div>
+
+    @foreach (var port in Ports)
+    {
+        <div class="@PortClass(port)" style="@PortStyle(port)" title="@port.Tooltip">
+            <span class="tmnc-port-dot"></span>
+            <span class="tmnc-port-label">@port.Label</span>
+        </div>
+    }
+</div>

@@ -1,0 +1,40 @@
+@namespace Poink.Sim.Components.TradeMap
+@using Poink.Sim.Components.Pages.TradeMap.Models
+
+<div class="tmc-viewport" @ref="_viewportRef" title="Trade map: hand-authored diagram of the /trade page. Click a card to trace its connectors and open its detail panel, click empty space to clear. Drag empty space to pan. Scroll to zoom." @onclick="RaiseBackgroundClicked" @onwheel="HandleWheel" @onwheel:preventDefault="true">
+    <div class="tmc-space" style="@SpaceStyle">
+        <div class="tmc-canvas" style="@CanvasStyle">
+
+            @foreach (var node in Nodes)
+            {
+                <div class="@NodeWrapperClass(node)" style="@NodeStyle(node)">
+                    <TradeMapNodeCard Node="node"
+                                      Ports="PortsFor(node)"
+                                      IsSelected="@(SelectedId == node.Id)"
+                                      IsDimmed="@IsDimmed(node.Id)"
+                                      OnSelected="RaiseNodeSelected" />
+                </div>
+            }
+
+            <svg class="tmc-edges" viewBox="@ViewBox" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <marker id="tmc-ah-control" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                        <path d="M0,0 L8,4 L0,8 Z" class="tmc-arrow-control" />
+                    </marker>
+                    <marker id="tmc-ah-display" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                        <path d="M0,0 L8,4 L0,8 Z" class="tmc-arrow-display" />
+                    </marker>
+                </defs>
+
+                @foreach (var edgeLayout in _edgeLayouts)
+                {
+                    <g class="@EdgeClass(edgeLayout)">
+                        <title>@EdgeTooltip(edgeLayout.Edge)</title>
+                        <path class="tmc-flow-path" d="@edgeLayout.Path"
+                              marker-end="@(edgeLayout.Edge.Kind == TradeMapSignalKind.Control ? "url(#tmc-ah-control)" : "url(#tmc-ah-display)")" />
+                    </g>
+                }
+            </svg>
+        </div>
+    </div>
+</div>

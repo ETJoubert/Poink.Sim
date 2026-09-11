@@ -1,0 +1,205 @@
+.tmnc-card {
+  --tmnc-color: var(--color-primary);
+  position: relative;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg-tab);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-left: 3px solid var(--tmnc-color);
+  border-radius: var(--border-radius-sm);
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
+}
+
+.tmnc-card:hover {
+  border-color: color-mix(in srgb, var(--tmnc-color) 60%, transparent);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--tmnc-color) 28%, transparent);
+  transform: translateY(-1px);
+}
+
+.tmnc-card:focus-visible {
+  outline: 1px solid var(--tmnc-color);
+  outline-offset: 2px;
+}
+
+.tmnc-selected {
+  border-color: var(--tmnc-color);
+  background: color-mix(in srgb, var(--tmnc-color) 8%, var(--color-bg-tab));
+  box-shadow:
+    0 0 20px color-mix(in srgb, var(--tmnc-color) 45%, transparent),
+    inset 0 0 14px color-mix(in srgb, var(--tmnc-color) 8%, transparent);
+}
+
+.tmnc-dimmed {
+  opacity: 0.16;
+}
+
+.tmnc-head {
+  height: 40px;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  padding: 4px 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--tmnc-color) 20%, transparent);
+  border-radius: var(--border-radius-sm) var(--border-radius-sm) 0 0;
+  background: color-mix(in srgb, var(--tmnc-color) 6%, transparent);
+}
+
+.tmnc-eyebrow {
+  font-family: var(--font-body);
+  font-size: 8px;
+  font-weight: bold;
+  letter-spacing: 0.12em;
+  color: color-mix(in srgb, var(--tmnc-color) 70%, white);
+  opacity: 0.85;
+}
+
+.tmnc-title {
+  font-family: var(--font-heading);
+  font-size: 12px;
+  font-weight: bold;
+  letter-spacing: 0.01em;
+  color: var(--tmnc-color);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tmnc-page {
+  --tmnc-color: var(--color-accent);
+  border-style: dashed;
+  border-left-style: solid;
+  background: color-mix(in srgb, var(--color-accent) 5%, var(--color-bg-dark));
+}
+
+.tmnc-page .tmnc-head {
+  border-bottom-style: dashed;
+}
+
+.tmnc-panel { --tmnc-color: var(--color-primary); }
+.tmnc-driver { --tmnc-color: var(--color-secondary); }
+.tmnc-helper { --tmnc-color: #9fb2c9; }
+.tmnc-api { --tmnc-color: var(--color-warning); }
+.tmnc-data { --tmnc-color: var(--color-error); }
+.tmnc-userspace { --tmnc-color: #c99fe0; }
+.tmnc-coordinator { --tmnc-color: #7ee787; }
+
+/* A provided interface: dashed like .tmnc-page's "abstract, not concrete" treatment, plus a UML lollipop
+   dot on the title, so it reads as a contract rather than a part -- square, so it doesn't fight the ports. */
+.tmnc-interface {
+  --tmnc-color: #56d4dd;
+  border-style: dashed;
+  border-left-style: solid;
+}
+
+.tmnc-interface .tmnc-head {
+  border-bottom-style: dashed;
+}
+
+.tmnc-lollipop {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--tmnc-color);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--tmnc-color) 65%, transparent);
+  margin-right: 5px;
+  vertical-align: middle;
+}
+
+/*
+ * Side (left/right) is independent of direction (in/out): a Display port keeps input-left/output-right
+ * (forward, toward the display), a Control port flips to input-right/output-left (backward, toward the
+ * action's source) -- see TradeMapCanvas's port-anchor build. Side controls position/alignment; direction
+ * controls dot fill and label emphasis.
+ */
+.tmnc-port {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 16px;
+  max-width: 42%;
+  transform: translateY(-50%);
+  cursor: help;
+  z-index: 6;
+}
+
+.tmnc-port-left {
+  left: -5px;
+  flex-direction: row;
+  padding-right: 4px;
+}
+
+.tmnc-port-right {
+  right: -5px;
+  flex-direction: row-reverse;
+  padding-left: 4px;
+}
+
+.tmnc-port-dot {
+  flex-shrink: 0;
+  width: 9px;
+  height: 9px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.tmnc-port-in .tmnc-port-dot {
+  background: var(--color-bg-dark);
+  border: 1.5px solid var(--tmnc-color);
+}
+
+.tmnc-port-out .tmnc-port-dot {
+  background: var(--tmnc-color);
+  border: 1px solid var(--color-bg-dark);
+  box-shadow: 0 0 7px color-mix(in srgb, var(--tmnc-color) 65%, transparent);
+}
+
+.tmnc-port-open .tmnc-port-dot {
+  border-style: dashed;
+  border-color: rgba(255, 255, 255, 0.4);
+  background: var(--color-bg-dark);
+  box-shadow: none;
+}
+
+.tmnc-port-label {
+  font-family: var(--font-body);
+  font-size: 8px;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.62);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tmnc-port-out .tmnc-port-label {
+  color: color-mix(in srgb, var(--tmnc-color) 78%, white);
+}
+
+.tmnc-port-right .tmnc-port-label {
+  text-align: right;
+}
+
+.tmnc-port-open .tmnc-port-label {
+  color: rgba(255, 255, 255, 0.3);
+  font-style: italic;
+}
+
+.tmnc-port:hover .tmnc-port-dot {
+  transform: scale(1.4);
+  box-shadow: 0 0 12px var(--tmnc-color);
+}
+
+.tmnc-port:hover .tmnc-port-label {
+  color: var(--tmnc-color);
+}
