@@ -159,6 +159,20 @@ namespace Poink.CTrader
                 CtidTraderAccountId = ctidTraderAccountId
             }, cancellationToken);
 
+        public Task<ProtoOADealListRes> GetDealsAsync(long ctidTraderAccountId, DateTimeOffset from, DateTimeOffset to, int? maxRows = null, CancellationToken cancellationToken = default)
+        {
+            var request = new ProtoOADealListReq
+            {
+                CtidTraderAccountId = ctidTraderAccountId,
+                FromTimestamp = from.ToUnixTimeMilliseconds(),
+                ToTimestamp = to.ToUnixTimeMilliseconds()
+            };
+            if (maxRows.HasValue)
+                request.MaxRows = maxRows.Value;
+
+            return SendAndWaitAsync<ProtoOADealListRes>(request, cancellationToken);
+        }
+
         // A new order's first execution event is usually ACCEPTED before a later FILLED/REJECTED
         // one - only these three are "done", so NewOrderAsync doesn't resolve on an interim event.
         private static bool IsTerminalOrderEvent(ProtoOAExecutionType type) =>
