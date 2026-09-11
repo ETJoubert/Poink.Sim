@@ -21,6 +21,7 @@ namespace Poink.Sim.Services.CTrader
 			IWatchlistAccess,
 			ITickStreamAccess,
 			ITradeExecutionAccess,
+			ITradeHistoryAccess,
 			IAccountAccess,
 			IAsyncDisposable
 	{
@@ -35,6 +36,12 @@ namespace Poink.Sim.Services.CTrader
 
 		/// <summary>Upper bound on paged ProtoOAGetTickData requests per side, so one fetch cannot hammer the API unbounded.</summary>
 		private const int MaxTickPages = 200;
+
+		/// <summary>Upper bound on paged ProtoOADealList requests, so one fetch cannot hammer the API unbounded.</summary>
+		private const int MaxDealPages = 50;
+
+		/// <summary>Deals requested per ProtoOADealList page.</summary>
+		private const int DealPageSize = 100;
 
 		/// <summary>
 		/// Minimum spacing between historical requests. cTrader caps historical data requests (trendbars and
@@ -679,6 +686,80 @@ namespace Poink.Sim.Services.CTrader
 			{
 				_historyRateGate.Release();
 			}
+		}
+
+		async Task<IReadOnlyList<CTraderDealInfo>> ITradeHistoryAccess.GetClosedDealsAsync(
+			DateTime fromUtc,
+			DateTime toUtc,
+			CancellationToken cancellationToken
+		)
+		{
+			if (_client is null || SelectedAccountId is not { } accountId || toUtc <= fromUtc)
+				return Array.Empty<CTraderDealInfo>();
+
+			await _historyGate.WaitAsync(cancellationToken);
+			try
+			{
+				var deals = new List<CTraderDealInfo>();
+				var windowTo = toUtc;
+
+				for (var page = 0; page < MaxDealPages; page++)
+				{
+					await ThrottleHistoricalAsync(cancellationToken);
+					var response = await _client.GetDealsAsync(accountId, fromUtc, windowTo, DealPageSize, cancellationToken);
+					if (response.Deal.Count == 0)
+						break;
+
+					deals.AddRange(
+					response.Deal
+						.Where(d => d.DealStatus == ProtoOADealStatus.Filled && d.ClosePositionDetail is not null)
+						.Select(ToDealInfo)
+				);
+
+					var oldest = DateTimeOffset.FromUnixTimeMilliseconds(response.Deal.Min(d => d.ExecutionTimestamp)).UtcDateTime;
+					if (!response.HasMore || oldest <= fromUtc)
+						break;
+
+					windowTo = oldest.AddMilliseconds(-1);
+				}
+
+				deals.Sort((a, b) => b.ExecutionTimeUtc.CompareTo(a.ExecutionTimeUtc));
+
+				_logger.LogInformation(
+					"cTrader: fetched {DealCount} closed deal(s) for account {AccountId} ({From:u}..{To:u}).",
+					deals.Count,
+					accountId,
+					fromUtc,
+					toUtc
+				);
+
+				return deals;
+			}
+			finally
+			{
+				_historyGate.Release();
+			}
+		}
+
+		private CTraderDealInfo ToDealInfo(ProtoOADeal deal)
+		{
+			var symbolName = Symbols.FirstOrDefault(s => s.SymbolId == deal.SymbolId)?.SymbolName ?? $"Symbol {deal.SymbolId}";
+			var close = deal.ClosePositionDetail;
+			var closeScale = close is null ? 1.0 : Math.Pow(10, close.MoneyDigits);
+
+			return new CTraderDealInfo(
+				deal.DealId,
+				deal.PositionId,
+				deal.SymbolId,
+				symbolName,
+				deal.TradeSide == ProtoOATradeSide.Buy,
+				deal.Volume / 100.0,
+				deal.ExecutionPrice,
+				DateTimeOffset.FromUnixTimeMilliseconds(deal.ExecutionTimestamp).UtcDateTime,
+				close is null ? null : close.GrossProfit / closeScale,
+				close is null ? null : close.Commission / closeScale,
+				close is null ? null : close.Swap / closeScale
+			);
 		}
 
 		public async ValueTask DisposeAsync()

@@ -80,5 +80,12 @@ namespace Poink.CTrader
         /// also arrive unprompted as <c>ProtoOATraderUpdatedEvent</c> on <see cref="Messages"/>.
         /// </summary>
         Task<ProtoOATraderRes> GetTraderAsync(long ctidTraderAccountId, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Requires <see cref="AuthorizeAccountAsync"/> first. Returns one newest-first chunk of closed
+        /// deals in the given window; page older data by moving <paramref name="to"/> before the oldest
+        /// deal received while <c>ProtoOADealListRes.HasMore</c> is true.
+        /// </summary>
+        Task<ProtoOADealListRes> GetDealsAsync(long ctidTraderAccountId, DateTimeOffset from, DateTimeOffset to, int? maxRows = null, CancellationToken cancellationToken = default);
     }
 }

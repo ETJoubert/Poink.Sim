@@ -67,6 +67,7 @@ public static class ServiceCollectionExtensions
 		services.AddSingleton<IWatchlistAccess>(sp => sp.GetRequiredService<CTraderSessionService>());
 		services.AddSingleton<ITickStreamAccess>(sp => sp.GetRequiredService<CTraderSessionService>());
 		services.AddSingleton<ITradeExecutionAccess>(sp => sp.GetRequiredService<CTraderSessionService>());
+		services.AddSingleton<ITradeHistoryAccess>(sp => sp.GetRequiredService<CTraderSessionService>());
 		services.AddSingleton<IAccountAccess>(sp => sp.GetRequiredService<CTraderSessionService>());
 
 		return services;

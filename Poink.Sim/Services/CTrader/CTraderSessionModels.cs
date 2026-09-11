@@ -56,4 +56,19 @@ namespace Poink.Sim.Services.CTrader
 
 	/// <summary>Outcome of a PlaceOrderAsync/CloseSymbolAsync call, meant to be shown to the user as-is.</summary>
 	public sealed record CTraderOrderResult(bool Success, string Message);
+
+	/// <summary>A position-closing deal from account history, as returned by <see cref="ITradeHistoryAccess.GetClosedDealsAsync"/>.</summary>
+	public sealed record CTraderDealInfo(
+		long DealId,
+		long PositionId,
+		long SymbolId,
+		string SymbolName,
+		bool IsLong,
+		double Volume,
+		double ExecutionPrice,
+		DateTime ExecutionTimeUtc,
+		double? RealizedPnl,
+		double? Commission,
+		double? Swap
+	);
 }

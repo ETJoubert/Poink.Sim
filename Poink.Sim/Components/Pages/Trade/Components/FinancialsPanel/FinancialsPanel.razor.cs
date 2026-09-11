@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 using Poink.Sim.Components.Pages.Trade.Helpers;
 using Poink.Sim.Models;
@@ -10,6 +12,17 @@ namespace Poink.Sim.Components.Pages.Trade
 	/// <summary>Open positions plus account financials for the live Trade page -- owns the derived figures (equity, margin, P/L); CTraderSessionService only supplies Positions and Balance.</summary>
 	public partial class FinancialsPanel : ComponentBase
 	{
+		private static readonly TimeSpan HistoryLookback = TimeSpan.FromDays(30);
+
+		private enum FinancialsTab
+		{
+			Positions,
+			History,
+		}
+
+		[Inject]
+		private ITradeHistoryAccess History { get; set; } = null!;
+
 		[Parameter, EditorRequired]
 		public IReadOnlyList<CTraderPositionInfo> Positions { get; set; } = System.Array.Empty<CTraderPositionInfo>();
 
@@ -57,6 +70,49 @@ namespace Poink.Sim.Components.Pages.Trade
 
 		private double? FreeMargin => Equity is { } equity && MarginUsed is { } used ? equity - used : null;
 
+		private FinancialsTab _activeTab = FinancialsTab.Positions;
+		private IReadOnlyList<CTraderDealInfo> _closedDeals = Array.Empty<CTraderDealInfo>();
+		private bool _historyLoading;
+		private string? _historyError;
+
+		private void SelectTab(FinancialsTab tab)
+		{
+			_activeTab = tab;
+			if (tab == FinancialsTab.History)
+				_ = LoadHistoryAsync();
+		}
+
+		private async Task LoadHistoryAsync()
+		{
+			_historyLoading = true;
+			_historyError = null;
+			StateHasChanged();
+			try
+			{
+				var toUtc = DateTime.UtcNow;
+				_closedDeals = await History.GetClosedDealsAsync(toUtc - HistoryLookback, toUtc);
+			}
+			catch (Exception ex)
+			{
+				_closedDeals = Array.Empty<CTraderDealInfo>();
+				_historyError = ex.Message;
+			}
+			finally
+			{
+				_historyLoading = false;
+			}
+		}
+
 		private static string Money(double? value) => value?.ToString("N2") ?? "—";
+
+		private static string SignedMoney(double? value) => value is { } v ? $"{(v >= 0 ? "+" : "")}{v:N2}" : "—";
+
+		private static string PnlCssClass(double? value) =>
+			value switch
+			{
+				> 0 => "fp-value-positive",
+				< 0 => "fp-value-negative",
+				_ => "",
+			};
 	}
 }
