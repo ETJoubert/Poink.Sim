@@ -1,0 +1,9 @@
+@namespace Poink.Sim.Components.Shared.PopoutButton
+@using Poink.Sim.Components.Shared.Icon
+
+<button type="button" class="popout-button" @ref="_buttonRef"
+        data-popout-url="@Url" data-popout-name="@WindowName"
+        data-popout-width="@Width" data-popout-height="@Height"
+        title="@Title">
+    <Icon Name="box-arrow-up-right" Class="popout-button-icon" />
+</button>

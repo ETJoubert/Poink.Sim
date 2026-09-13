@@ -1,12 +1,14 @@
 @namespace Poink.Sim.Components.Pages.Trade
 @using Poink.Sim.Components.Charts
+@using Poink.Sim.Components.Shared.BarSizeSelect
 @using Poink.Sim.Components.Shared.LookbackWindowBar
+@using Poink.Sim.Components.Shared.PopoutButton
 @using Poink.Sim.Services.CTrader
 
 @if (SymbolId is not null)
 {
     <div class="trade-chart-panel">
-        <div class="trade-chart-toolbar">
+        <header class="trade-chart-panel-header">
             <div class="trade-overlay-toggles" title="Toggle the computed chart overlays -- Point of Control/Value Area and a cumulative VWAP line">
                 <span class="trade-overlay-toggles-label">Indicators</span>
                 <button type="button" class="trade-overlay-toggle-btn trade-overlay-toggle-btn-lines @(_showProfileChartLines ? "active" : "")"
@@ -16,6 +18,9 @@
                         @onclick="() => _showVwap = !_showVwap"
                         title="Show a cumulative volume-weighted average price line on the chart, over the same bar window as the lookback slider">VWAP</button>
             </div>
+            <BarSizeSelect Value="BarSizeSeconds" ValueChanged="HandleBarSizeChanged"
+                           Label="Aggregation"
+                           Title="Bar size the chart's live history and tick stream are aggregated into" />
             <div class="trade-panel-toggles" title="Show or hide chart panels">
                 <span class="trade-panel-toggles-label">Panels</span>
                 <button type="button" class="trade-panel-toggle-btn @(_showMainChart ? "active" : "")"
@@ -31,7 +36,9 @@
                         @onclick="() => _showTimeProfile = !_showTimeProfile"
                         title="Time-at-price histogram over the lookback window">Time profile</button>
             </div>
-        </div>
+            <PopoutButton Url="@PopoutUrl" WindowName="@PopoutWindowName"
+                          Title="Open this chart in its own window" />
+        </header>
         <LookbackWindowBar Label="LOOKBACK WINDOW" MaxWindow="MaxBarWindow" MinWidth="10"
                             @bind-Width="_barWindowSize" @bind-Offset="_barWindowOffset"
                             RailTitle="The highlighted segment is the window itself -- drag either edge to resize it, or drag the bar to move the whole window; its right edge is Offset bars back from now, its left edge Offset+Width bars back"

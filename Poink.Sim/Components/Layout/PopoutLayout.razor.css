@@ -1,0 +1,8 @@
+.popout-layout {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    padding: 8px;
+    box-sizing: border-box;
+    background: var(--color-bg-terminal);
+}

@@ -47,6 +47,9 @@ namespace Poink.Sim.Components.Pages.Trade
 		public int BarSizeSeconds { get; set; } = 60;
 
 		[Parameter]
+		public EventCallback<int> BarSizeSecondsChanged { get; set; }
+
+		[Parameter]
 		public ChartPanelSettings? InitialSettings { get; set; }
 
 		public ChartPanelSettings CurrentSettings =>
@@ -96,6 +99,12 @@ namespace Poink.Sim.Components.Pages.Trade
 			double LastClose
 		)? _xgridKey;
 
+		private string PopoutUrl => SymbolId is { } id
+			? ChartPopoutUrlHelper.BuildUrl(id, SymbolName, BarSizeSeconds, CurrentSettings)
+			: "";
+
+		private string PopoutWindowName => $"poink-chart-popout-{SymbolId}";
+
 		private int ClampedBarWindow => Math.Clamp(_barWindowSize, 1, MaxBarWindow);
 
 		private int ClampedBarOffset => Math.Clamp(_barWindowOffset, 0, MaxBarWindow - 1);
@@ -136,6 +145,8 @@ namespace Poink.Sim.Components.Pages.Trade
 			else
 				ResetChart();
 		}
+
+		private Task HandleBarSizeChanged(int seconds) => BarSizeSecondsChanged.InvokeAsync(seconds);
 
 		private void ApplySettings(ChartPanelSettings settings)
 		{

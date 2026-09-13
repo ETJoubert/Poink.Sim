@@ -1,0 +1,26 @@
+.popout-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    flex-shrink: 0;
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--color-secondary) 35%, transparent);
+    border-radius: var(--border-radius-sm);
+    color: var(--color-secondary);
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.popout-button:hover {
+    background: color-mix(in srgb, var(--color-secondary) 15%, transparent);
+    color: var(--color-primary);
+    border-color: var(--color-primary);
+}
+
+::deep .popout-button-icon {
+    width: 13px;
+    height: 13px;
+}
