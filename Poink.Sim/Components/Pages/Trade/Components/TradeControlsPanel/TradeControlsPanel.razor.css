@@ -143,7 +143,6 @@
     font-size: 12px;
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    padding: 7px 10px;
     border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
     border-left-width: 0;
     background: transparent;

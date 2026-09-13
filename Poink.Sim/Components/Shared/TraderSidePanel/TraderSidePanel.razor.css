@@ -43,3 +43,42 @@
     min-height: 0;
     overflow-y: auto;
 }
+
+.tsp-collapsed-icons {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.tsp-collapsed-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    flex-shrink: 0;
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--color-secondary) 35%, transparent);
+    border-radius: var(--border-radius-sm);
+    color: var(--color-secondary);
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.tsp-collapsed-icon:hover {
+    background: color-mix(in srgb, var(--color-secondary) 15%, transparent);
+    color: var(--color-primary);
+    border-color: var(--color-primary);
+}
+
+.tsp-collapsed-icon.active {
+    color: var(--color-accent);
+    border-color: var(--color-accent);
+}
+
+::deep .tsp-collapsed-icon-svg {
+    width: 12px;
+    height: 12px;
+}

@@ -164,3 +164,7 @@
     flex: 1;
     min-height: 0;
 }
+
+.trade-right-side-panel-collapsed .trade-right-side-panel-content {
+    padding: 0 4px 8px;
+}
