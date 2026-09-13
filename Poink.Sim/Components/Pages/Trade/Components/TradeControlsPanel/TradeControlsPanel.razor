@@ -35,38 +35,67 @@
         </div>
     </div>
 
-    <label class="tc-field" title="Position size in units">
-        Volume
-        <input class="tc-input" type="number" min="0" step="0.01" @bind="_volumeUnits" @bind:event="oninput"
-               disabled="@_busy" />
-    </label>
+    <div class="tc-field" title="Position size -- entered directly, or solved from a stop-loss distance and a percent of balance risked">
+        <div class="tc-field-head">
+            <span>Volume</span>
+            <div class="tc-toggle-group tc-toggle-group-sm" role="group">
+                <button type="button" class="tc-toggle @(_volumeSizingMode == VolumeSizingMode.Manual ? "active" : "")"
+                        @onclick="() => _volumeSizingMode = VolumeSizingMode.Manual"
+                        title="Enter the position size directly">MANUAL</button>
+                <button type="button" class="tc-toggle @(_volumeSizingMode == VolumeSizingMode.Risk ? "active" : "")"
+                        @onclick="SwitchToRiskSizing"
+                        title="Solve the position size from the stop loss distance and a percent of balance risked">RISK</button>
+            </div>
+        </div>
+        @if (_volumeSizingMode == VolumeSizingMode.Manual)
+        {
+            <input class="tc-input" type="number" min="0" step="0.01" @bind="_volumeUnits" @bind:event="oninput"
+                   disabled="@_busy" title="Position size in units" />
+        }
+        else
+        {
+            <div class="tc-input-row" title="Position size solved from the stop loss and risk percent, rounded to the nearest 0.01">
+                <input class="tc-input" value="@(CalculatedVolume is { } v ? v.ToString("F2") : "--")" readonly disabled />
+            </div>
+            <div class="tc-input-row">
+                <input class="tc-input" type="number" min="0" step="0.1" placeholder="% balance to risk"
+                       @bind="_riskPercent" @bind:event="oninput" disabled="@_busy"
+                       title="Percent of account balance to risk if the stop loss is hit -- volume is solved to match" />
+                <button type="button" class="tc-clear" @onclick="() => _riskPercent = null"
+                        disabled="@(_riskPercent is null)" title="Clear the risk percent">×</button>
+            </div>
+        }
+    </div>
 
     <div class="tc-field" title="Optional stop loss -- entered as a pip distance or as a percent of balance lost if it is hit">
         <div class="tc-field-head">
             <span>Stop loss</span>
-            <div class="tc-toggle-group tc-toggle-group-sm" role="group">
-                <button type="button" class="tc-toggle @(_stopLossMode == SizingMode.Pips ? "active" : "")"
-                        @onclick="() => _stopLossMode = SizingMode.Pips"
-                        title="Enter the stop as a distance in pips">PIPS</button>
-                <button type="button" class="tc-toggle @(_stopLossMode == SizingMode.PercentBalance ? "active" : "")"
-                        @onclick="() => _stopLossMode = SizingMode.PercentBalance"
-                        title="Enter the stop as a percent of account balance lost if it is hit">% BALANCE</button>
-            </div>
+            @if (_volumeSizingMode == VolumeSizingMode.Manual)
+            {
+                <div class="tc-toggle-group tc-toggle-group-sm" role="group">
+                    <button type="button" class="tc-toggle @(_stopLossMode == SizingMode.Pips ? "active" : "")"
+                            @onclick="() => _stopLossMode = SizingMode.Pips"
+                            title="Enter the stop as a distance in pips">PIPS</button>
+                    <button type="button" class="tc-toggle @(_stopLossMode == SizingMode.PercentBalance ? "active" : "")"
+                            @onclick="() => _stopLossMode = SizingMode.PercentBalance"
+                            title="Enter the stop as a percent of account balance lost if it is hit">% BALANCE</button>
+                </div>
+            }
         </div>
         <div class="tc-input-row">
-            @if (_stopLossMode == SizingMode.Pips)
-            {
-                <input class="tc-input" type="number" min="0" step="1" @bind="_stopLossPips" @bind:event="oninput"
-                       title="Distance in pips from the entry to the stop, on the losing side" />
-                <button type="button" class="tc-clear" @onclick="() => _stopLossPips = null"
-                        disabled="@(_stopLossPips is null)" title="Clear the stop loss">×</button>
-            }
-            else
+            @if (_volumeSizingMode == VolumeSizingMode.Manual && _stopLossMode == SizingMode.PercentBalance)
             {
                 <input class="tc-input" type="number" min="0" step="0.1" @bind="_stopLossPercent" @bind:event="oninput"
                        title="Percent of account balance lost if the stop is hit" />
                 <button type="button" class="tc-clear" @onclick="() => _stopLossPercent = null"
                         disabled="@(_stopLossPercent is null)" title="Clear the stop loss">×</button>
+            }
+            else
+            {
+                <input class="tc-input" type="number" min="0" step="1" @bind="_stopLossPips" @bind:event="oninput"
+                       title="Distance in pips from the entry to the stop, on the losing side" />
+                <button type="button" class="tc-clear" @onclick="() => _stopLossPips = null"
+                        disabled="@(_stopLossPips is null)" title="Clear the stop loss">×</button>
             }
         </div>
     </div>

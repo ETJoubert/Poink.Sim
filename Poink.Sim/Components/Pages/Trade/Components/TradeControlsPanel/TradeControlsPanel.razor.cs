@@ -1,3 +1,4 @@
+using System;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
@@ -44,10 +45,20 @@ namespace Poink.Sim.Components.Pages.Trade
 			PercentBalance,
 		}
 
+		private enum VolumeSizingMode
+		{
+			Manual,
+			Risk,
+		}
+
+		private const double VolumeStep = 0.01;
+
 		private OrderType _orderType = OrderType.Market;
 		private bool _isLong = true;
 		private double _triggerPrice;
+		private VolumeSizingMode _volumeSizingMode = VolumeSizingMode.Manual;
 		private double? _volumeUnits = 0.01;
+		private double? _riskPercent;
 		private SizingMode _stopLossMode = SizingMode.Pips;
 		private double? _stopLossPips;
 		private double? _stopLossPercent;
@@ -67,7 +78,36 @@ namespace Poink.Sim.Components.Pages.Trade
 			: _triggerPrice > 0 ? _triggerPrice
 			: null;
 
-		private double Volume => _volumeUnits ?? 0;
+		private double Volume =>
+			_volumeSizingMode == VolumeSizingMode.Risk ? CalculatedVolume ?? 0 : _volumeUnits ?? 0;
+
+		/// <summary>
+		/// Position size solved from the stop-loss pip distance and the percent of balance risked,
+		/// rounded to the nearest <see cref="VolumeStep"/>. Null when any input is missing.
+		/// </summary>
+		private double? CalculatedVolume
+		{
+			get
+			{
+				if (EntryReferencePrice is not { } entry || entry <= 0)
+					return null;
+				if (_stopLossPips is not { } pips || pips <= 0)
+					return null;
+				if (_riskPercent is not { } percent || percent <= 0)
+					return null;
+				if (Session.Balance is not { } balance || balance <= 0)
+					return null;
+
+				double stopPrice = RiskHelper.StopLossPriceFromPips(Direction, entry, pips, PipSize);
+				double riskAmount = percent / 100.0 * balance;
+				double rawSize = RiskHelper.SizeForRisk(riskAmount, entry, stopPrice);
+				if (rawSize <= 0)
+					return null;
+
+				double rounded = Math.Round(Math.Round(rawSize / VolumeStep) * VolumeStep, 2);
+				return rounded > 0 ? rounded : null;
+			}
+		}
 
 		private bool HasStopLoss =>
 			_stopLossMode == SizingMode.Pips ? _stopLossPips is not null : _stopLossPercent is not null;
@@ -133,9 +173,14 @@ namespace Poink.Sim.Components.Pages.Trade
 				SetStatus("No symbol selected.", isError: true);
 				return;
 			}
-			if (_volumeUnits is not (> 0))
+			if (Volume <= 0)
 			{
-				SetStatus("Enter a volume greater than zero.", isError: true);
+				SetStatus(
+					_volumeSizingMode == VolumeSizingMode.Risk
+						? "Enter a stop loss and a percent of balance to risk so the volume can be solved."
+						: "Enter a volume greater than zero.",
+					isError: true
+				);
 				return;
 			}
 			if (_orderType != OrderType.Market && _triggerPrice <= 0)
@@ -160,7 +205,7 @@ namespace Poink.Sim.Components.Pages.Trade
 				var result = await TradeExecution.PlaceOrderAsync(
 					symbolId,
 					isLong,
-					_volumeUnits.Value,
+					Volume,
 					_orderType switch
 					{
 						OrderType.Limit => CTraderOrderType.Limit,
@@ -179,12 +224,20 @@ namespace Poink.Sim.Components.Pages.Trade
 			}
 		}
 
+		private void SwitchToRiskSizing()
+		{
+			_volumeSizingMode = VolumeSizingMode.Risk;
+			_stopLossMode = SizingMode.Pips;
+		}
+
 		private void ResetDraft()
 		{
 			_status = null;
 			_orderType = OrderType.Market;
 			_triggerPrice = 0;
+			_volumeSizingMode = VolumeSizingMode.Manual;
 			_volumeUnits = 0.01;
+			_riskPercent = null;
 			_stopLossMode = SizingMode.Pips;
 			_stopLossPips = null;
 			_stopLossPercent = null;
