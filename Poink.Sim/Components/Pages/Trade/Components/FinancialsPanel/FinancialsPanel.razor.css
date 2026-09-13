@@ -37,6 +37,61 @@
     border-bottom-color: var(--color-accent);
 }
 
+.fp-tab-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    flex-shrink: 0;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--color-secondary);
+    cursor: pointer;
+}
+
+.fp-tab-icon:hover {
+    color: var(--color-primary);
+}
+
+.fp-tab-icon.active {
+    color: var(--color-accent);
+    border-bottom-color: var(--color-accent);
+}
+
+::deep .fp-tab-icon-svg {
+    width: 13px;
+    height: 13px;
+}
+
+.fp-collapse-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    margin: 4px 6px 4px auto;
+    padding: 0;
+    flex-shrink: 0;
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
+    border-radius: var(--border-radius-sm);
+    color: var(--color-secondary);
+    cursor: pointer;
+}
+
+.fp-collapse-toggle:hover {
+    color: var(--color-primary);
+    border-color: var(--color-primary);
+}
+
+::deep .fp-collapse-toggle-icon {
+    width: 12px;
+    height: 12px;
+}
+
 .fp-history {
     flex: 1;
     min-height: 0;

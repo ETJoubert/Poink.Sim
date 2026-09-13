@@ -1,31 +1,55 @@
 @namespace Poink.Sim.Components.Shared.TraderSidePanel
+@using Poink.Sim.Components.Shared.Icon
 @using Poink.Sim.Components.Shared.PlaceholderPanel
 
-<div class="tsp-panel">
-    <div class="tsp-tabs">
-        <button type="button" class="tsp-tab @(_activeTab == SidePanelTab.Trade ? "active" : "")"
-                @onclick="() => _activeTab = SidePanelTab.Trade"
-                title="Manual order entry and open-position controls">TRADE</button>
-        <button type="button" class="tsp-tab @(_activeTab == SidePanelTab.Policies ? "active" : "")"
-                @onclick="() => _activeTab = SidePanelTab.Policies"
-                title="Risk policy configuration">POLICIES</button>
-        <button type="button" class="tsp-tab @(_activeTab == SidePanelTab.Robot ? "active" : "")"
-                @onclick="() => _activeTab = SidePanelTab.Robot"
-                title="Automated trading robot">ROBOT</button>
+@if (Collapsed)
+{
+    <div class="tsp-collapsed-icons">
+        <button type="button" class="tsp-collapsed-icon @(_activeTab == SidePanelTab.Trade ? "active" : "")"
+                @onclick="() => SelectTabAndExpand(SidePanelTab.Trade)"
+                title="Manual order entry and open-position controls">
+            <Icon Name="cash-stack" Class="tsp-collapsed-icon-svg" />
+        </button>
+        <button type="button" class="tsp-collapsed-icon @(_activeTab == SidePanelTab.Policies ? "active" : "")"
+                @onclick="() => SelectTabAndExpand(SidePanelTab.Policies)"
+                title="Risk policy configuration">
+            <Icon Name="shield-lock-fill" Class="tsp-collapsed-icon-svg" />
+        </button>
+        <button type="button" class="tsp-collapsed-icon @(_activeTab == SidePanelTab.Robot ? "active" : "")"
+                @onclick="() => SelectTabAndExpand(SidePanelTab.Robot)"
+                title="Automated trading robot">
+            <Icon Name="cpu-fill" Class="tsp-collapsed-icon-svg" />
+        </button>
     </div>
+}
+else
+{
+    <div class="tsp-panel">
+        <div class="tsp-tabs">
+            <button type="button" class="tsp-tab @(_activeTab == SidePanelTab.Trade ? "active" : "")"
+                    @onclick="() => _activeTab = SidePanelTab.Trade"
+                    title="Manual order entry and open-position controls">TRADE</button>
+            <button type="button" class="tsp-tab @(_activeTab == SidePanelTab.Policies ? "active" : "")"
+                    @onclick="() => _activeTab = SidePanelTab.Policies"
+                    title="Risk policy configuration">POLICIES</button>
+            <button type="button" class="tsp-tab @(_activeTab == SidePanelTab.Robot ? "active" : "")"
+                    @onclick="() => _activeTab = SidePanelTab.Robot"
+                    title="Automated trading robot">ROBOT</button>
+        </div>
 
-    <div class="tsp-content">
-        @if (_activeTab == SidePanelTab.Trade)
-        {
-            @TradeTab
-        }
-        else if (_activeTab == SidePanelTab.Policies)
-        {
-            <PlaceholderPanel Title="POLICIES" Message="Risk policy configuration is coming soon." />
-        }
-        else
-        {
-            <PlaceholderPanel Title="ROBOT" Message="Automated trading robot controls are coming soon." />
-        }
+        <div class="tsp-content">
+            @if (_activeTab == SidePanelTab.Trade)
+            {
+                @TradeTab
+            }
+            else if (_activeTab == SidePanelTab.Policies)
+            {
+                <PlaceholderPanel Title="POLICIES" Message="Risk policy configuration is coming soon." />
+            }
+            else
+            {
+                <PlaceholderPanel Title="ROBOT" Message="Automated trading robot controls are coming soon." />
+            }
+        </div>
     </div>
-</div>
+}

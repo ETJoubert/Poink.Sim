@@ -622,25 +622,22 @@
                             <span class="sim-right-side-panel-label">@SelectedTrader.Label</span>
                         }
                     </div>
-                    @if (!_traderControlsCollapsed)
-                    {
-                        <div class="sim-right-side-panel-content">
-                            <TraderSidePanel>
-                                <TradeTab>
-                                    <TraderControlsPanel TraderId="SelectedTrader?.Id"
-                                                         PositionSummary="SelectedPositionSummary"
-                                                         PendingSummary="SelectedPendingSummary"
-                                                         Cash="SelectedTrader?.Capital.Cash ?? 0"
-                                                         Leverage="SelectedTrader?.Leverage ?? 1"
-                                                         StopOutLevelPercent="SelectedTrader?.StopOutLevelPercent ?? 50"
-                                                         PipSize="_snapshot?.Config.PipSize ?? 0.01"
-                                                         CurrentPrice="_snapshot?.CurrentPrice"
-                                                         CurrentBid="_snapshot?.CurrentBid"
-                                                         CurrentAsk="_snapshot?.CurrentAsk" />
-                                </TradeTab>
-                            </TraderSidePanel>
-                        </div>
-                    }
+                    <div class="sim-right-side-panel-content">
+                        <TraderSidePanel Collapsed="_traderControlsCollapsed" OnExpandRequested="() => _traderControlsCollapsed = false">
+                            <TradeTab>
+                                <TraderControlsPanel TraderId="SelectedTrader?.Id"
+                                                     PositionSummary="SelectedPositionSummary"
+                                                     PendingSummary="SelectedPendingSummary"
+                                                     Cash="SelectedTrader?.Capital.Cash ?? 0"
+                                                     Leverage="SelectedTrader?.Leverage ?? 1"
+                                                     StopOutLevelPercent="SelectedTrader?.StopOutLevelPercent ?? 50"
+                                                     PipSize="_snapshot?.Config.PipSize ?? 0.01"
+                                                     CurrentPrice="_snapshot?.CurrentPrice"
+                                                     CurrentBid="_snapshot?.CurrentBid"
+                                                     CurrentAsk="_snapshot?.CurrentAsk" />
+                            </TradeTab>
+                        </TraderSidePanel>
+                    </div>
                 </aside>
             }
         </div>

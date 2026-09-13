@@ -58,18 +58,15 @@
                         <span class="trade-right-side-panel-label">@Coordinator.ChartSymbolName</span>
                     }
                 </div>
-                @if (!Coordinator.RightPanelCollapsed)
-                {
-                    <div class="trade-right-side-panel-content">
-                        <TraderSidePanel>
-                            <TradeTab>
-                                <TradeControlsPanel SymbolId="Coordinator.ChartSymbolId" SymbolName="Coordinator.ChartSymbolName"
-                                                     CurrentBid="ChartQuote?.Bid" CurrentAsk="ChartQuote?.Ask"
-                                                     PipSize="ChartPipSize" />
-                            </TradeTab>
-                        </TraderSidePanel>
-                    </div>
-                }
+                <div class="trade-right-side-panel-content">
+                    <TraderSidePanel Collapsed="Coordinator.RightPanelCollapsed" OnExpandRequested="Coordinator.ToggleRightPanel">
+                        <TradeTab>
+                            <TradeControlsPanel SymbolId="Coordinator.ChartSymbolId" SymbolName="Coordinator.ChartSymbolName"
+                                                 CurrentBid="ChartQuote?.Bid" CurrentAsk="ChartQuote?.Ask"
+                                                 PipSize="ChartPipSize" />
+                        </TradeTab>
+                    </TraderSidePanel>
+                </div>
             </aside>
         }
     </div>

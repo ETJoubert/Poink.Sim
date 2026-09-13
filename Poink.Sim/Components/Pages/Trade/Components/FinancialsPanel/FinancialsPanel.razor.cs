@@ -74,6 +74,7 @@ namespace Poink.Sim.Components.Pages.Trade
 		private IReadOnlyList<CTraderDealInfo> _closedDeals = Array.Empty<CTraderDealInfo>();
 		private bool _historyLoading;
 		private string? _historyError;
+		private bool _tableCollapsed;
 
 		private void SelectTab(FinancialsTab tab)
 		{
@@ -81,6 +82,16 @@ namespace Poink.Sim.Components.Pages.Trade
 			if (tab == FinancialsTab.History)
 				_ = LoadHistoryAsync();
 		}
+
+		// Positions/History can collapse to save vertical space; the financials summary below
+		// (balance/equity/margin/P&L) always stays visible regardless.
+		private void SelectTabAndExpand(FinancialsTab tab)
+		{
+			SelectTab(tab);
+			_tableCollapsed = false;
+		}
+
+		private void ToggleTableCollapsed() => _tableCollapsed = !_tableCollapsed;
 
 		private async Task LoadHistoryAsync()
 		{

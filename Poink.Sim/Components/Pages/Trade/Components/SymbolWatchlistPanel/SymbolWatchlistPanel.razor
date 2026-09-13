@@ -7,11 +7,29 @@
             title="@(Collapsed ? "Expand the symbols panel" : "Collapse the symbols panel")">
         <Icon Name="@(Collapsed ? "chevron-right" : "chevron-left")" Class="trade-sidepanel-toggle-icon" />
     </button>
-    @if (!Collapsed && !IsConnected)
+    @if (Collapsed)
+    {
+        @if (IsConnected)
+        {
+            <div class="trade-sidepanel-collapsed-icons">
+                <button type="button" class="trade-sidepanel-collapsed-icon @(_sidepanelTab == SidepanelTab.Symbols ? "active" : "")"
+                        @onclick="() => SelectTabAndExpand(SidepanelTab.Symbols)"
+                        title="Search the account's symbols and add them to your watchlist">
+                    <Icon Name="search" Class="trade-sidepanel-collapsed-icon-svg" />
+                </button>
+                <button type="button" class="trade-sidepanel-collapsed-icon @(_sidepanelTab == SidepanelTab.Watchlist ? "active" : "")"
+                        @onclick="() => SelectTabAndExpand(SidepanelTab.Watchlist)"
+                        title="Symbols you are streaming -- live bid/ask update in real time">
+                    <Icon Name="eye-fill" Class="trade-sidepanel-collapsed-icon-svg" />
+                </button>
+            </div>
+        }
+    }
+    else if (!IsConnected)
     {
         <p class="trade-sidepanel-empty">Log in to load the account's symbols and stream live prices.</p>
     }
-    else if (!Collapsed)
+    else
     {
         <div class="trade-sidepanel-tabs">
             <button type="button" class="trade-sidepanel-tab @(_sidepanelTab == SidepanelTab.Symbols ? "active" : "")"

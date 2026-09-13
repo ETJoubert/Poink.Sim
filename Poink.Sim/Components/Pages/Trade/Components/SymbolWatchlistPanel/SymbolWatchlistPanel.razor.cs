@@ -133,6 +133,12 @@ namespace Poink.Sim.Components.Pages.Trade
 
 		private void SelectTab(SidepanelTab tab) => _sidepanelTab = tab;
 
+		private Task SelectTabAndExpand(SidepanelTab tab)
+		{
+			_sidepanelTab = tab;
+			return ToggleCollapsed();
+		}
+
 		// No toggle selected shows everything, matching today's name-only-filter behavior.
 		private void ToggleCategoryBucket(SymbolCategoryBucket bucket)
 		{

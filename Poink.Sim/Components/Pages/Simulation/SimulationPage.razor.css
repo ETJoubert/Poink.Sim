@@ -396,6 +396,10 @@
     min-height: 0;
 }
 
+.sim-right-side-panel-collapsed .sim-right-side-panel-content {
+    padding: 0 4px 8px;
+}
+
 .sim-controls {
     display: flex;
     align-items: center;
