@@ -69,9 +69,61 @@
     color: var(--color-primary);
 }
 
+.tc-field-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.tc-input-row {
+    display: flex;
+    align-items: stretch;
+    gap: 4px;
+}
+
+.tc-input-row .tc-input {
+    flex: 1;
+    min-width: 0;
+}
+
+.tc-clear {
+    flex: 0 0 auto;
+    width: 26px;
+    font-size: 0.95rem;
+    line-height: 1;
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
+    border-radius: 4px;
+    color: var(--color-secondary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.tc-clear:hover:not(:disabled) {
+    color: var(--color-error);
+    border-color: color-mix(in srgb, var(--color-error) 50%, transparent);
+    background: color-mix(in srgb, var(--color-error) 12%, transparent);
+}
+
+.tc-clear:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
 .tc-toggle-group {
     display: flex;
     gap: 0;
+}
+
+.tc-toggle-group-sm {
+    flex: 0 0 auto;
+}
+
+.tc-toggle-group-sm .tc-toggle {
+    flex: 0 0 auto;
+    padding: 3px 8px;
+    font-size: 10px;
 }
 
 .tc-toggle {
@@ -150,6 +202,20 @@
     font-size: 0.85rem;
     font-weight: bold;
     color: var(--color-primary);
+}
+
+.tc-preview-row.loss .tc-preview-value {
+    color: var(--color-error);
+}
+
+.tc-preview-row.gain .tc-preview-value {
+    color: var(--color-success);
+}
+
+.tc-preview-pct {
+    font-size: 0.7rem;
+    font-weight: normal;
+    color: var(--color-secondary);
 }
 
 .tc-actions {

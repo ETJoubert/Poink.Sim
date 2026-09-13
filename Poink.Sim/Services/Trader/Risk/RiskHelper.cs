@@ -120,9 +120,19 @@ internal static class RiskHelper
 		double leverage,
 		double entryPrice,
 		double riskAmount
+	) => StopLossPriceForSizeRisk(direction, PositionSize(cash, capitalFraction, leverage, entryPrice), entryPrice, riskAmount);
+
+	/// <summary>
+	/// Absolute stop-loss price whose hit costs exactly <paramref name="riskAmount"/> for a known position
+	/// size. Returns null when the size gives no basis to distribute the risk over.
+	/// </summary>
+	public static double? StopLossPriceForSizeRisk(
+		PositionDirection direction,
+		double size,
+		double entryPrice,
+		double riskAmount
 	)
 	{
-		double size = PositionSize(cash, capitalFraction, leverage, entryPrice);
 		if (size <= 0)
 			return null;
 		double adverseMove = riskAmount / size;
@@ -151,9 +161,19 @@ internal static class RiskHelper
 		double leverage,
 		double entryPrice,
 		double rewardAmount
+	) => TakeProfitPriceForSizeReward(direction, PositionSize(cash, capitalFraction, leverage, entryPrice), entryPrice, rewardAmount);
+
+	/// <summary>
+	/// Absolute take-profit price whose hit gains exactly <paramref name="rewardAmount"/> for a known position
+	/// size. Returns null when the size gives no basis to distribute the reward over.
+	/// </summary>
+	public static double? TakeProfitPriceForSizeReward(
+		PositionDirection direction,
+		double size,
+		double entryPrice,
+		double rewardAmount
 	)
 	{
-		double size = PositionSize(cash, capitalFraction, leverage, entryPrice);
 		if (size <= 0)
 			return null;
 		double favorableMove = rewardAmount / size;

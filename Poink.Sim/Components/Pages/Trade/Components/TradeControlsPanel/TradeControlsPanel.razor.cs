@@ -15,7 +15,10 @@ namespace Poink.Sim.Components.Pages.Trade
 	public partial class TradeControlsPanel : ComponentBase
 	{
 		[Inject]
-		private ITradeExecutionAccess Session { get; set; } = null!;
+		private ITradeExecutionAccess TradeExecution { get; set; } = null!;
+
+		[Inject]
+		private ITickStreamAccess Session { get; set; } = null!;
 
 		[Inject]
 		private IJSRuntime JS { get; set; } = null!;
@@ -35,12 +38,22 @@ namespace Poink.Sim.Components.Pages.Trade
 		[Parameter]
 		public double PipSize { get; set; } = 0.0001;
 
+		private enum SizingMode
+		{
+			Pips,
+			PercentBalance,
+		}
+
 		private OrderType _orderType = OrderType.Market;
 		private bool _isLong = true;
 		private double _triggerPrice;
-		private double? _volumeUnits;
+		private double? _volumeUnits = 0.01;
+		private SizingMode _stopLossMode = SizingMode.Pips;
 		private double? _stopLossPips;
+		private double? _stopLossPercent;
+		private SizingMode _takeProfitMode = SizingMode.Pips;
 		private double? _takeProfitPips;
+		private double? _takeProfitPercent;
 		private string? _status;
 		private bool _statusIsError;
 		private bool _busy;
@@ -54,15 +67,61 @@ namespace Poink.Sim.Components.Pages.Trade
 			: _triggerPrice > 0 ? _triggerPrice
 			: null;
 
-		private double? StopLossPrice =>
-			EntryReferencePrice is { } entry && _stopLossPips is { } pips
-				? RiskHelper.StopLossPriceFromPips(Direction, entry, pips, PipSize)
+		private double Volume => _volumeUnits ?? 0;
+
+		private bool HasStopLoss =>
+			_stopLossMode == SizingMode.Pips ? _stopLossPips is not null : _stopLossPercent is not null;
+
+		private double? StopLossPrice
+		{
+			get
+			{
+				if (EntryReferencePrice is not { } entry || entry <= 0)
+					return null;
+				return _stopLossMode == SizingMode.Pips
+					? _stopLossPips is { } pips
+						? RiskHelper.StopLossPriceFromPips(Direction, entry, pips, PipSize)
+						: null
+					: _stopLossPercent is { } percent
+						? RiskHelper.StopLossPriceForSizeRisk(Direction, Volume, entry, percent / 100.0 * (Session.Balance ?? 0))
+						: null;
+			}
+		}
+
+		private double? TakeProfitPrice
+		{
+			get
+			{
+				if (EntryReferencePrice is not { } entry || entry <= 0)
+					return null;
+				return _takeProfitMode == SizingMode.Pips
+					? _takeProfitPips is { } pips
+						? RiskHelper.TakeProfitPriceFromPips(Direction, entry, pips, PipSize)
+						: null
+					: _takeProfitPercent is { } percent
+						? RiskHelper.TakeProfitPriceForSizeReward(Direction, Volume, entry, percent / 100.0 * (Session.Balance ?? 0))
+						: null;
+			}
+		}
+
+		private double? ProjectedLoss =>
+			StopLossPrice is { } stop && EntryReferencePrice is { } entry
+				? RiskHelper.RiskOnStop(Direction, Volume, entry, stop)
 				: null;
 
-		private double? TakeProfitPrice =>
-			EntryReferencePrice is { } entry && _takeProfitPips is { } pips
-				? RiskHelper.TakeProfitPriceFromPips(Direction, entry, pips, PipSize)
+		private double? ProjectedProfit =>
+			TakeProfitPrice is { } target && EntryReferencePrice is { } entry
+				? -RiskHelper.RiskOnStop(Direction, Volume, entry, target)
 				: null;
+
+		private double? ProjectedLossPercent =>
+			ProjectedLoss is { } loss && Session.Balance is > 0 ? loss / Session.Balance.Value : null;
+
+		private double? ProjectedProfitPercent =>
+			ProjectedProfit is { } profit && Session.Balance is > 0 ? profit / Session.Balance.Value : null;
+
+		private double? RewardToRisk =>
+			ProjectedLoss is { } risk && risk > 0 && ProjectedProfit is { } reward && reward > 0 ? reward / risk : null;
 
 		private async Task SubmitEntry(bool isLong)
 		{
@@ -86,7 +145,7 @@ namespace Poink.Sim.Components.Pages.Trade
 			}
 
 			if (
-				Session.UseLiveEnvironment
+				TradeExecution.UseLiveEnvironment
 				&& !await JS.InvokeAsync<bool>(
 					"confirm",
 					$"Place a LIVE {(isLong ? "BUY" : "SELL")} order for {SymbolName ?? "this symbol"}?"
@@ -98,7 +157,7 @@ namespace Poink.Sim.Components.Pages.Trade
 			StateHasChanged();
 			try
 			{
-				var result = await Session.PlaceOrderAsync(
+				var result = await TradeExecution.PlaceOrderAsync(
 					symbolId,
 					isLong,
 					_volumeUnits.Value,
@@ -120,27 +179,18 @@ namespace Poink.Sim.Components.Pages.Trade
 			}
 		}
 
-		private async Task SubmitCloseOrCancel()
+		private void ResetDraft()
 		{
 			_status = null;
-
-			if (SymbolId is not { } symbolId)
-			{
-				SetStatus("No symbol selected.", isError: true);
-				return;
-			}
-
-			_busy = true;
-			StateHasChanged();
-			try
-			{
-				var result = await Session.CloseSymbolAsync(symbolId);
-				SetStatus(result.Message, !result.Success);
-			}
-			finally
-			{
-				_busy = false;
-			}
+			_orderType = OrderType.Market;
+			_triggerPrice = 0;
+			_volumeUnits = 0.01;
+			_stopLossMode = SizingMode.Pips;
+			_stopLossPips = null;
+			_stopLossPercent = null;
+			_takeProfitMode = SizingMode.Pips;
+			_takeProfitPips = null;
+			_takeProfitPercent = null;
 		}
 
 		private void SetStatus(string message, bool isError)

@@ -41,15 +41,65 @@
                disabled="@_busy" />
     </label>
 
-    <label class="tc-field" title="Optional stop loss distance in pips from the entry">
-        Stop loss (pips)
-        <input class="tc-input" type="number" min="0" step="1" @bind="_stopLossPips" @bind:event="oninput" />
-    </label>
+    <div class="tc-field" title="Optional stop loss -- entered as a pip distance or as a percent of balance lost if it is hit">
+        <div class="tc-field-head">
+            <span>Stop loss</span>
+            <div class="tc-toggle-group tc-toggle-group-sm" role="group">
+                <button type="button" class="tc-toggle @(_stopLossMode == SizingMode.Pips ? "active" : "")"
+                        @onclick="() => _stopLossMode = SizingMode.Pips"
+                        title="Enter the stop as a distance in pips">PIPS</button>
+                <button type="button" class="tc-toggle @(_stopLossMode == SizingMode.PercentBalance ? "active" : "")"
+                        @onclick="() => _stopLossMode = SizingMode.PercentBalance"
+                        title="Enter the stop as a percent of account balance lost if it is hit">% BALANCE</button>
+            </div>
+        </div>
+        <div class="tc-input-row">
+            @if (_stopLossMode == SizingMode.Pips)
+            {
+                <input class="tc-input" type="number" min="0" step="1" @bind="_stopLossPips" @bind:event="oninput"
+                       title="Distance in pips from the entry to the stop, on the losing side" />
+                <button type="button" class="tc-clear" @onclick="() => _stopLossPips = null"
+                        disabled="@(_stopLossPips is null)" title="Clear the stop loss">×</button>
+            }
+            else
+            {
+                <input class="tc-input" type="number" min="0" step="0.1" @bind="_stopLossPercent" @bind:event="oninput"
+                       title="Percent of account balance lost if the stop is hit" />
+                <button type="button" class="tc-clear" @onclick="() => _stopLossPercent = null"
+                        disabled="@(_stopLossPercent is null)" title="Clear the stop loss">×</button>
+            }
+        </div>
+    </div>
 
-    <label class="tc-field" title="Optional take profit distance in pips from the entry">
-        Take profit (pips)
-        <input class="tc-input" type="number" min="0" step="1" @bind="_takeProfitPips" @bind:event="oninput" />
-    </label>
+    <div class="tc-field" title="Optional take profit -- entered as a pip distance or as a percent of balance gained if it is hit">
+        <div class="tc-field-head">
+            <span>Take profit</span>
+            <div class="tc-toggle-group tc-toggle-group-sm" role="group">
+                <button type="button" class="tc-toggle @(_takeProfitMode == SizingMode.Pips ? "active" : "")"
+                        @onclick="() => _takeProfitMode = SizingMode.Pips"
+                        title="Enter the target as a distance in pips">PIPS</button>
+                <button type="button" class="tc-toggle @(_takeProfitMode == SizingMode.PercentBalance ? "active" : "")"
+                        @onclick="() => _takeProfitMode = SizingMode.PercentBalance"
+                        title="Enter the target as a percent of account balance gained if it is hit">% BALANCE</button>
+            </div>
+        </div>
+        <div class="tc-input-row">
+            @if (_takeProfitMode == SizingMode.Pips)
+            {
+                <input class="tc-input" type="number" min="0" step="1" @bind="_takeProfitPips" @bind:event="oninput"
+                       title="Distance in pips from the entry to the target, on the winning side" />
+                <button type="button" class="tc-clear" @onclick="() => _takeProfitPips = null"
+                        disabled="@(_takeProfitPips is null)" title="Clear the take profit">×</button>
+            }
+            else
+            {
+                <input class="tc-input" type="number" min="0" step="0.1" @bind="_takeProfitPercent" @bind:event="oninput"
+                       title="Percent of account balance gained if the target is hit" />
+                <button type="button" class="tc-clear" @onclick="() => _takeProfitPercent = null"
+                        disabled="@(_takeProfitPercent is null)" title="Clear the take profit">×</button>
+            }
+        </div>
+    </div>
 
     <div class="tc-preview">
         <div class="tc-preview-row" title="Market price at the time of entry, or the Limit/Stop trigger price">
@@ -64,6 +114,59 @@
             <span class="tc-preview-label">Take profit</span>
             <span class="tc-preview-value">@(TakeProfitPrice is { } tp ? tp.ToString("N5") : "--")</span>
         </div>
+
+        @if (ProjectedLoss is { } loss)
+        {
+            <div class="tc-preview-row @(loss > 0 ? "loss" : "gain")"
+                 title="Money lost if the stop loss is hit, for this volume from the entry price">
+                <span class="tc-preview-label">Projected loss</span>
+                <span class="tc-preview-value">
+                    @($"{(loss > 0 ? "-" : "+")}{Math.Abs(loss):N2}")
+                    @if (ProjectedLossPercent is { } pct)
+                    {
+                        <span class="tc-preview-pct">(@($"{Math.Abs(pct):P1}") of balance)</span>
+                    }
+                </span>
+            </div>
+        }
+        else if (HasStopLoss)
+        {
+            <div class="tc-preview-row loss"
+                 title="An entry price is needed to project the stop loss -- enter a trigger price, or wait for a market quote">
+                <span class="tc-preview-label">Projected loss</span>
+                <span class="tc-preview-value">--</span>
+            </div>
+        }
+        else
+        {
+            <div class="tc-preview-row loss" title="No stop loss set -- this position has unlimited downside">
+                <span class="tc-preview-label">Projected loss</span>
+                <span class="tc-preview-value">no stop set</span>
+            </div>
+        }
+
+        @if (ProjectedProfit is { } profit)
+        {
+            <div class="tc-preview-row gain"
+                 title="Money gained if the take profit is hit, for this volume from the entry price">
+                <span class="tc-preview-label">Projected profit</span>
+                <span class="tc-preview-value">
+                    @($"+{Math.Abs(profit):N2}")
+                    @if (ProjectedProfitPercent is { } pct)
+                    {
+                        <span class="tc-preview-pct">(@($"{Math.Abs(pct):P1}") of balance)</span>
+                    }
+                </span>
+            </div>
+        }
+
+        @if (RewardToRisk is { } ratio)
+        {
+            <div class="tc-preview-row" title="Reward-to-risk ratio -- projected take-profit gain divided by the stop-loss loss">
+                <span class="tc-preview-label">Reward : risk</span>
+                <span class="tc-preview-value">@($"{ratio:N2} : 1")</span>
+            </div>
+        }
     </div>
 
     <div class="tc-actions">
@@ -71,9 +174,9 @@
                 disabled="@_busy" title="Submit this entry to cTrader using the selected direction, order type, size, SL and TP">
             @(_busy ? "PLACING..." : "PLACE")
         </button>
-        <button class="tc-btn tc-btn-warn" @onclick="SubmitCloseOrCancel" disabled="@_busy"
-                title="Close every open position and cancel every pending order for this symbol">
-            @(_busy ? "WORKING..." : "CLOSE / CANCEL")
+        <button class="tc-btn tc-btn-warn" @onclick="ResetDraft" disabled="@_busy"
+                title="Clear this draft and reset it back to its defaults">
+            CANCEL
         </button>
     </div>
 
