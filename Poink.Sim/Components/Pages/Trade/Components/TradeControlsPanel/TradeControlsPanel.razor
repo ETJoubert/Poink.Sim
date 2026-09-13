@@ -130,72 +130,80 @@
         </div>
     </div>
 
-    <div class="tc-preview">
-        <div class="tc-preview-row" title="Market price at the time of entry, or the Limit/Stop trigger price">
-            <span class="tc-preview-label">Entry</span>
-            <span class="tc-preview-value">@(EntryReferencePrice is { } e ? e.ToString("N5") : "--")</span>
-        </div>
-        <div class="tc-preview-row">
-            <span class="tc-preview-label">Stop loss</span>
-            <span class="tc-preview-value">@(StopLossPrice is { } sl ? sl.ToString("N5") : "--")</span>
-        </div>
-        <div class="tc-preview-row">
-            <span class="tc-preview-label">Take profit</span>
-            <span class="tc-preview-value">@(TakeProfitPrice is { } tp ? tp.ToString("N5") : "--")</span>
-        </div>
+    <div class="tc-preview" title="Entry, stop, and target prices for this draft">
+        <span class="tc-preview-title">Entry</span>
+        @{
+            RenderFragment entryRow =
+                @<tr title="Market price at the time of entry, or the Limit/Stop trigger price -- distance to the current market price">
+                    <td class="tc-table-label">Entry</td>
+                    <td>@(EntryReferencePrice is { } e ? e.ToString("N5") : "--")</td>
+                    <td>@FormatPips(EntryDistancePips)</td>
+                </tr>;
+            RenderFragment stopLossRow =
+                @<tr class="loss" title="Stop loss price, with its distance from entry on the losing side">
+                    <td class="tc-table-label">SL</td>
+                    <td>@(StopLossPrice is { } sl ? sl.ToString("N5") : "--")</td>
+                    <td>@FormatPips(StopLossDistancePips)</td>
+                </tr>;
+            RenderFragment takeProfitRow =
+                @<tr class="gain" title="Take profit price, with its distance from entry on the winning side">
+                    <td class="tc-table-label">TP</td>
+                    <td>@(TakeProfitPrice is { } tp ? tp.ToString("N5") : "--")</td>
+                    <td>@FormatPips(TakeProfitDistancePips)</td>
+                </tr>;
+        }
+        <table class="tc-table">
+            <thead>
+                <tr>
+                    <th></th>
+                    <th>Price</th>
+                    <th>Dist(pips)</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (_isLong)
+                {
+                    @takeProfitRow
+                    @entryRow
+                    @stopLossRow
+                }
+                else
+                {
+                    @stopLossRow
+                    @entryRow
+                    @takeProfitRow
+                }
+            </tbody>
+        </table>
+    </div>
 
-        @if (ProjectedLoss is { } loss)
-        {
-            <div class="tc-preview-row @(loss > 0 ? "loss" : "gain")"
-                 title="Money lost if the stop loss is hit, for this volume from the entry price">
-                <span class="tc-preview-label">Projected loss</span>
-                <span class="tc-preview-value">
-                    @($"{(loss > 0 ? "-" : "+")}{Math.Abs(loss):N2}")
-                    @if (ProjectedLossPercent is { } pct)
-                    {
-                        <span class="tc-preview-pct">(@($"{Math.Abs(pct):P1}") of balance)</span>
-                    }
-                </span>
-            </div>
-        }
-        else if (HasStopLoss)
-        {
-            <div class="tc-preview-row loss"
-                 title="An entry price is needed to project the stop loss -- enter a trigger price, or wait for a market quote">
-                <span class="tc-preview-label">Projected loss</span>
-                <span class="tc-preview-value">--</span>
-            </div>
-        }
-        else
-        {
-            <div class="tc-preview-row loss" title="No stop loss set -- this position has unlimited downside">
-                <span class="tc-preview-label">Projected loss</span>
-                <span class="tc-preview-value">no stop set</span>
-            </div>
-        }
-
-        @if (ProjectedProfit is { } profit)
-        {
-            <div class="tc-preview-row gain"
-                 title="Money gained if the take profit is hit, for this volume from the entry price">
-                <span class="tc-preview-label">Projected profit</span>
-                <span class="tc-preview-value">
-                    @($"+{Math.Abs(profit):N2}")
-                    @if (ProjectedProfitPercent is { } pct)
-                    {
-                        <span class="tc-preview-pct">(@($"{Math.Abs(pct):P1}") of balance)</span>
-                    }
-                </span>
-            </div>
-        }
-
-        @if (RewardToRisk is { } ratio)
-        {
-            <div class="tc-preview-row" title="Reward-to-risk ratio -- projected take-profit gain divided by the stop-loss loss">
-                <span class="tc-preview-label">Reward : risk</span>
-                <span class="tc-preview-value">@($"{ratio:N2} : 1")</span>
-            </div>
-        }
+    <div class="tc-preview" title="Projected outcome for this draft">
+        <span class="tc-preview-title">Projections</span>
+        <table class="tc-table">
+            <thead>
+                <tr>
+                    <th></th>
+                    <th>Value</th>
+                    <th>% Balance</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr class="@LossRowClass" title="@LossRowTitle">
+                    <td class="tc-table-label">Loss</td>
+                    <td>@LossValueText</td>
+                    <td>@LossPercentText</td>
+                </tr>
+                <tr class="gain" title="Money gained if the take profit is hit, for this volume from the entry price">
+                    <td class="tc-table-label">Profit</td>
+                    <td>@ProfitValueText</td>
+                    <td>@ProfitPercentText</td>
+                </tr>
+                <tr title="Reward-to-risk ratio -- projected take-profit gain divided by the stop-loss loss">
+                    <td class="tc-table-label">RR</td>
+                    <td colspan="2">@RewardToRiskText</td>
+                </tr>
+            </tbody>
+        </table>
     </div>
 
     <div class="tc-actions">

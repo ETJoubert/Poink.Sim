@@ -184,38 +184,62 @@
     font-family: var(--font-mono, monospace);
 }
 
-.tc-preview-row {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 8px;
+.tc-preview-title {
+    font-size: 0.62rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-secondary);
+    opacity: 0.75;
 }
 
-.tc-preview-label {
+.tc-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.tc-table th {
+    font-size: 0.6rem;
+    font-weight: normal;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-secondary);
+    text-align: right;
+    padding: 0 4px 3px;
+}
+
+.tc-table th:first-child {
+    text-align: left;
+}
+
+.tc-table td {
+    padding: 3px 4px;
+    font-size: 0.82rem;
+    font-weight: bold;
+    text-align: right;
+    color: var(--color-primary);
+    white-space: nowrap;
+}
+
+.tc-table tr:not(:last-child) td {
+    border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 12%, transparent);
+}
+
+.tc-table td.tc-table-label {
+    text-align: left;
     font-size: 0.68rem;
+    font-weight: normal;
     text-transform: uppercase;
     letter-spacing: 0.06em;
     color: var(--color-secondary);
 }
 
-.tc-preview-value {
-    font-size: 0.85rem;
-    font-weight: bold;
-    color: var(--color-primary);
-}
-
-.tc-preview-row.loss .tc-preview-value {
+.tc-table tr.loss td:not(.tc-table-label) {
     color: var(--color-error);
 }
 
-.tc-preview-row.gain .tc-preview-value {
+.tc-table tr.gain td:not(.tc-table-label) {
     color: var(--color-success);
-}
-
-.tc-preview-pct {
-    font-size: 0.7rem;
-    font-weight: normal;
-    color: var(--color-secondary);
 }
 
 .tc-actions {

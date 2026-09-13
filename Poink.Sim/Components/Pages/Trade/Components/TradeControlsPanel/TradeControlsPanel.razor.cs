@@ -100,12 +100,7 @@ namespace Poink.Sim.Components.Pages.Trade
 
 				double stopPrice = RiskHelper.StopLossPriceFromPips(Direction, entry, pips, PipSize);
 				double riskAmount = percent / 100.0 * balance;
-				double rawSize = RiskHelper.SizeForRisk(riskAmount, entry, stopPrice);
-				if (rawSize <= 0)
-					return null;
-
-				double rounded = Math.Round(Math.Round(rawSize / VolumeStep) * VolumeStep, 2);
-				return rounded > 0 ? rounded : null;
+				return RiskHelper.SizeForRiskRounded(riskAmount, entry, stopPrice, VolumeStep);
 			}
 		}
 
@@ -151,17 +146,58 @@ namespace Poink.Sim.Components.Pages.Trade
 
 		private double? ProjectedProfit =>
 			TakeProfitPrice is { } target && EntryReferencePrice is { } entry
-				? -RiskHelper.RiskOnStop(Direction, Volume, entry, target)
+				? RiskHelper.RewardOnTarget(Direction, Volume, entry, target)
 				: null;
 
 		private double? ProjectedLossPercent =>
-			ProjectedLoss is { } loss && Session.Balance is > 0 ? loss / Session.Balance.Value : null;
+			ProjectedLoss is { } loss && Session.Balance is > 0 ? RiskHelper.RiskFraction(loss, Session.Balance.Value) : null;
 
 		private double? ProjectedProfitPercent =>
-			ProjectedProfit is { } profit && Session.Balance is > 0 ? profit / Session.Balance.Value : null;
+			ProjectedProfit is { } profit && Session.Balance is > 0
+				? RiskHelper.RiskFraction(profit, Session.Balance.Value)
+				: null;
 
 		private double? RewardToRisk =>
-			ProjectedLoss is { } risk && risk > 0 && ProjectedProfit is { } reward && reward > 0 ? reward / risk : null;
+			ProjectedLoss is { } risk && ProjectedProfit is { } reward ? RiskHelper.RewardToRiskRatio(risk, reward) : null;
+
+		private double? EntryDistancePips =>
+			EntryReferencePrice is { } entry && MarketFillPrice is { } market
+				? RiskHelper.PriceDistanceInPips(entry, market, PipSize)
+				: null;
+
+		private double? StopLossDistancePips =>
+			StopLossPrice is { } stop && EntryReferencePrice is { } entry
+				? RiskHelper.PriceDistanceInPips(entry, stop, PipSize)
+				: null;
+
+		private double? TakeProfitDistancePips =>
+			TakeProfitPrice is { } target && EntryReferencePrice is { } entry
+				? RiskHelper.PriceDistanceInPips(target, entry, PipSize)
+				: null;
+
+		private static string FormatPips(double? pips) => pips is { } value ? $"{value:N1}" : "--";
+
+		private string LossRowClass => ProjectedLoss is { } loss ? (loss > 0 ? "loss" : "gain") : "loss";
+
+		private string LossRowTitle =>
+			ProjectedLoss is not null
+				? "Money lost if the stop loss is hit, for this volume from the entry price"
+				: HasStopLoss
+					? "An entry price is needed to project the stop loss -- enter a trigger price, or wait for a market quote"
+					: "No stop loss set -- this position has unlimited downside";
+
+		private string LossValueText =>
+			ProjectedLoss is { } loss ? $"{(loss > 0 ? "-" : "+")}{Math.Abs(loss):N2}"
+			: HasStopLoss ? "--"
+			: "no stop set";
+
+		private string LossPercentText => ProjectedLossPercent is { } pct ? $"{Math.Abs(pct):P1}" : "--";
+
+		private string ProfitValueText => ProjectedProfit is { } profit ? $"+{Math.Abs(profit):N2}" : "--";
+
+		private string ProfitPercentText => ProjectedProfitPercent is { } pct ? $"{Math.Abs(pct):P1}" : "--";
+
+		private string RewardToRiskText => RewardToRisk is { } ratio ? $"{ratio:N2} : 1" : "--";
 
 		private async Task SubmitEntry(bool isLong)
 		{

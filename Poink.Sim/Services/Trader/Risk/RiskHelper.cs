@@ -22,6 +22,13 @@ internal static class RiskHelper
 	}
 
 	/// <summary>
+	/// Money gained when a target is hit for a position of <paramref name="size"/> units.
+	/// Positive result is a gain; a negative result means the target sits on the losing side.
+	/// </summary>
+	public static double RewardOnTarget(PositionDirection direction, double size, double entryPrice, double targetPrice) =>
+		-RiskOnStop(direction, size, entryPrice, targetPrice);
+
+	/// <summary>
 	/// Units a capital-fraction entry produces under leverage at <paramref name="entryPrice"/>.
 	/// </summary>
 	public static double PositionSize(double cash, double capitalFraction, double leverage, double entryPrice)
@@ -78,6 +85,32 @@ internal static class RiskHelper
 		double distance = Math.Abs(entryPrice - stopLossPrice);
 		return distance > 0 ? riskAmount / distance : 0;
 	}
+
+	/// <summary>
+	/// Units needed so a stop hit costs exactly <paramref name="riskAmount"/>, rounded to the nearest
+	/// <paramref name="volumeStep"/>. Returns null when the inputs give no basis to size against, or the
+	/// rounded result is zero.
+	/// </summary>
+	public static double? SizeForRiskRounded(
+		double riskAmount,
+		double entryPrice,
+		double stopLossPrice,
+		double volumeStep
+	)
+	{
+		double rawSize = SizeForRisk(riskAmount, entryPrice, stopLossPrice);
+		if (rawSize <= 0)
+			return null;
+		double rounded = RoundToStep(rawSize, volumeStep);
+		return rounded > 0 ? rounded : null;
+	}
+
+	/// <summary>
+	/// Nearest multiple of <paramref name="step"/> to <paramref name="value"/>, cleaned of floating-point
+	/// residue. Returns <paramref name="value"/> unchanged when the step is non-positive.
+	/// </summary>
+	public static double RoundToStep(double value, double step) =>
+		step > 0 ? Math.Round(Math.Round(value / step) * step, 8) : value;
 
 	/// <summary>
 	/// Capital fraction needed so a stop hit costs exactly <paramref name="riskAmount"/>, under leverage.
@@ -184,6 +217,18 @@ internal static class RiskHelper
 	/// Risk as a fraction of equity. Returns 0 when equity is non-positive.
 	/// </summary>
 	public static double RiskFraction(double riskAmount, double equity) => equity > 0 ? riskAmount / equity : 0;
+
+	/// <summary>
+	/// Reward divided by risk. Null when either side is non-positive, since the ratio is undefined
+	/// (no risk to divide by) or meaningless (the trade isn't a risk/reward pair).
+	/// </summary>
+	public static double? RewardToRiskRatio(double risk, double reward) => risk > 0 && reward > 0 ? reward / risk : null;
+
+	/// <summary>
+	/// Distance between two prices, expressed in pips.
+	/// </summary>
+	public static double PriceDistanceInPips(double priceA, double priceB, double pipSize) =>
+		Math.Abs(priceA - priceB) / pipSize;
 
 	/// <summary>
 	/// Money lost when this open position's stop is hit. Returns 0 when no stop is set.
