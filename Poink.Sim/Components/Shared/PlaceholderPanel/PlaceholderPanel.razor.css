@@ -1,0 +1,20 @@
+.ph-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 24px 8px;
+    text-align: center;
+    color: var(--color-secondary);
+}
+
+.ph-title {
+    font-family: var(--font-heading);
+    font-size: 0.72rem;
+    font-weight: bold;
+    letter-spacing: 0.1em;
+    color: var(--color-accent);
+}
+
+.ph-message {
+    font-size: 0.8rem;
+}

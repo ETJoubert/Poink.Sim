@@ -3,6 +3,7 @@
 @using Poink.Sim.Services.CTrader
 @using Poink.Sim.Components.Shared.Icon
 @using Poink.Sim.Components.Shared.BarSizeSelect
+@using Poink.Sim.Components.Shared.TraderSidePanel
 
 <div class="trade-page">
 
@@ -51,23 +52,26 @@
         @if (Coordinator.IsConnected)
         {
             <aside class="trade-right-side-panel @(Coordinator.RightPanelCollapsed ? "trade-right-side-panel-collapsed" : "")">
-                <button type="button" class="trade-right-side-panel-toggle" @onclick="Coordinator.ToggleRightPanel"
-                        title="@(Coordinator.RightPanelCollapsed ? "Expand trader controls" : "Collapse trader controls")">
-                    <Icon Name="@(Coordinator.RightPanelCollapsed ? "chevron-left" : "chevron-right")" Class="trade-right-side-panel-toggle-icon" />
-                </button>
+                <div class="trade-right-side-panel-header">
+                    <button type="button" class="trade-right-side-panel-toggle" @onclick="Coordinator.ToggleRightPanel"
+                            title="@(Coordinator.RightPanelCollapsed ? "Expand trader controls" : "Collapse trader controls")">
+                        <Icon Name="@(Coordinator.RightPanelCollapsed ? "chevron-left" : "chevron-right")" Class="trade-right-side-panel-toggle-icon" />
+                    </button>
+                    @if (!Coordinator.RightPanelCollapsed && Coordinator.ChartSymbolName is not null)
+                    {
+                        <span class="trade-right-side-panel-label">@Coordinator.ChartSymbolName</span>
+                    }
+                </div>
                 @if (!Coordinator.RightPanelCollapsed)
                 {
                     <div class="trade-right-side-panel-content">
-                        <div class="trade-section-header">
-                            <span class="trade-section-title">TRADER CONTROLS</span>
-                            @if (Coordinator.ChartSymbolName is not null)
-                            {
-                                <span class="trade-section-count">@Coordinator.ChartSymbolName</span>
-                            }
-                        </div>
-                        <TradeControlsPanel SymbolId="Coordinator.ChartSymbolId" SymbolName="Coordinator.ChartSymbolName"
-                                             CurrentBid="ChartQuote?.Bid" CurrentAsk="ChartQuote?.Ask"
-                                             PipSize="ChartPipSize" />
+                        <TraderSidePanel>
+                            <TradeTab>
+                                <TradeControlsPanel SymbolId="Coordinator.ChartSymbolId" SymbolName="Coordinator.ChartSymbolName"
+                                                     CurrentBid="ChartQuote?.Bid" CurrentAsk="ChartQuote?.Ask"
+                                                     PipSize="ChartPipSize" />
+                            </TradeTab>
+                        </TraderSidePanel>
                     </div>
                 }
             </aside>

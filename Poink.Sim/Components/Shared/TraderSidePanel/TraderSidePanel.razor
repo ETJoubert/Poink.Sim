@@ -1,0 +1,31 @@
+@namespace Poink.Sim.Components.Shared.TraderSidePanel
+@using Poink.Sim.Components.Shared.PlaceholderPanel
+
+<div class="tsp-panel">
+    <div class="tsp-tabs">
+        <button type="button" class="tsp-tab @(_activeTab == SidePanelTab.Trade ? "active" : "")"
+                @onclick="() => _activeTab = SidePanelTab.Trade"
+                title="Manual order entry and open-position controls">TRADE</button>
+        <button type="button" class="tsp-tab @(_activeTab == SidePanelTab.Policies ? "active" : "")"
+                @onclick="() => _activeTab = SidePanelTab.Policies"
+                title="Risk policy configuration">POLICIES</button>
+        <button type="button" class="tsp-tab @(_activeTab == SidePanelTab.Robot ? "active" : "")"
+                @onclick="() => _activeTab = SidePanelTab.Robot"
+                title="Automated trading robot">ROBOT</button>
+    </div>
+
+    <div class="tsp-content">
+        @if (_activeTab == SidePanelTab.Trade)
+        {
+            @TradeTab
+        }
+        else if (_activeTab == SidePanelTab.Policies)
+        {
+            <PlaceholderPanel Title="POLICIES" Message="Risk policy configuration is coming soon." />
+        }
+        else
+        {
+            <PlaceholderPanel Title="ROBOT" Message="Automated trading robot controls are coming soon." />
+        }
+    </div>
+</div>

@@ -1,0 +1,45 @@
+.tsp-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    height: 100%;
+}
+
+.tsp-tabs {
+    display: flex;
+    flex-shrink: 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+.tsp-tab {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 6px;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--color-secondary);
+    font-family: var(--font-heading);
+    font-size: 0.68rem;
+    font-weight: bold;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+}
+
+.tsp-tab:hover {
+    color: var(--color-primary);
+}
+
+.tsp-tab.active {
+    color: var(--color-accent);
+    border-bottom-color: var(--color-accent);
+}
+
+.tsp-content {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+}
