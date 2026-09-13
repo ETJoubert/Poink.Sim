@@ -2,7 +2,6 @@
 @namespace Poink.Sim.Components.Pages.Trade
 @using Poink.Sim.Services.CTrader
 @using Poink.Sim.Components.Shared.Icon
-@using Poink.Sim.Components.Shared.BarSizeSelect
 @using Poink.Sim.Components.Shared.TraderSidePanel
 
 <div class="trade-page">
@@ -17,9 +16,6 @@
             {
                 <div class="trade-header-chart">
                     <span class="trade-chart-title">@Coordinator.ChartSymbolName</span>
-                    <BarSizeSelect @bind-Value="Coordinator.BarSizeSeconds"
-                                   Label="Aggregation"
-                                   Title="Bar size the chart's live history and tick stream are aggregated into" />
                 </div>
             }
 
@@ -35,7 +31,7 @@
 
         <main class="trade-main">
             <TradeChartPanel @ref="_chartPanelRef" SymbolId="Coordinator.ChartSymbolId" SymbolName="Coordinator.ChartSymbolName"
-                              BarSizeSeconds="Coordinator.BarSizeSeconds" InitialSettings="Coordinator.PendingChartSettings" />
+                              @bind-BarSizeSeconds="Coordinator.BarSizeSeconds" InitialSettings="Coordinator.PendingChartSettings" />
 
             @if (Coordinator.IsConnected)
             {
@@ -77,5 +73,4 @@
             </aside>
         }
     </div>
-
 </div>

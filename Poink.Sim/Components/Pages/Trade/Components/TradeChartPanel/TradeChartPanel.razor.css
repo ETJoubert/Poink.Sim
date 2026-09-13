@@ -18,7 +18,7 @@
     color: var(--color-accent);
 }
 
-.trade-chart-toolbar {
+.trade-chart-panel-header {
     display: flex;
     align-items: center;
     gap: 14px;

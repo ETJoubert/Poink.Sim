@@ -1,0 +1,8 @@
+@page "/trade/popout/chart"
+@namespace Poink.Sim.Components.Pages.Trade
+@layout Poink.Sim.Components.Layout.PopoutLayout
+
+<PageTitle>@(SymbolName ?? "Chart") - Poink.Sim</PageTitle>
+
+<TradeChartPanel SymbolId="SymbolId" SymbolName="SymbolName"
+                  @bind-BarSizeSeconds="BarSizeSeconds" InitialSettings="InitialSettings" />
