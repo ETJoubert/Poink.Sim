@@ -99,6 +99,9 @@ namespace Poink.Sim.Services.CTrader
 
 		public double? Balance { get; private set; }
 
+		/// <summary>Account leverage as a ratio (e.g. 50 for 1:50), decoded from cTrader's leverageInCents.</summary>
+		public double? Leverage { get; private set; }
+
 		public IReadOnlyList<CTraderSymbolInfo> Symbols { get; private set; } = Array.Empty<CTraderSymbolInfo>();
 
 		public IReadOnlyList<CTraderPositionInfo> Positions
@@ -884,6 +887,7 @@ namespace Poink.Sim.Services.CTrader
 		private void ApplyTrader(ProtoOATrader trader)
 		{
 			Balance = trader.Balance / Math.Pow(10, trader.MoneyDigits);
+			Leverage = trader.LeverageInCents > 0 ? trader.LeverageInCents / 100.0 : null;
 			Changed?.Invoke();
 		}
 
@@ -1134,6 +1138,7 @@ namespace Poink.Sim.Services.CTrader
 			Symbols = Array.Empty<CTraderSymbolInfo>();
 			SelectedAccountId = null;
 			Balance = null;
+			Leverage = null;
 
 			if (_client is not null)
 			{

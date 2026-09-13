@@ -68,7 +68,7 @@
                             title="Enter the position size directly">MANUAL</button>
                     <button type="button" class="tcp-toggle @(_volumeSizingMode == VolumeSizingMode.Risk ? "active" : "")"
                             @onclick="SwitchToRiskSizing"
-                            title="Solve the position size from the stop loss distance and a percent of cash risked">RISK</button>
+                            title="Solve the position size from the stop loss distance and a percent of cash risked">% CASH</button>
                 </div>
             </div>
             @if (_volumeSizingMode == VolumeSizingMode.Manual)
@@ -100,8 +100,8 @@
             }
             else
             {
-                <div class="tcp-input-row" title="Percent of cash committed as margin, solved from the stop loss and risk percent below">
-                    <input class="tcp-input" value="@(CalculatedCapitalFraction is { } cf ? cf.ToString("P1") : "--")" readonly disabled />
+                <div class="tcp-calculated" title="Percent of cash committed as margin, solved from the stop loss and risk percent below">
+                    @(CalculatedCapitalFraction is { } cf ? cf.ToString("P1") : "--")
                 </div>
                 <div class="tcp-input-row">
                     <input class="tcp-input" type="number" min="0" step="0.1" placeholder="% cash to risk"
@@ -235,8 +235,14 @@
                 </thead>
                 <tbody>
                     <tr title="Margin committed against cash -- capital fraction x cash">
-                        <td class="tcp-table-label">Margin used</td>
-                        <td colspan="2">@MarginUsedText</td>
+                        <td class="tcp-table-label">Margin use</td>
+                        <td>@MarginUsedText</td>
+                        <td>@MarginUsedPercentText</td>
+                    </tr>
+                    <tr title="Cash left uncommitted after this position's margin">
+                        <td class="tcp-table-label">Margin free</td>
+                        <td>@MarginFreeText</td>
+                        <td>@MarginFreePercentText</td>
                     </tr>
                     <tr class="@LossRow.RowClass" title="@LossRow.Title">
                         <td class="tcp-table-label">@LossRow.Label</td>

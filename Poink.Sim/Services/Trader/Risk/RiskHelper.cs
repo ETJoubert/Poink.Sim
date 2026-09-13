@@ -40,6 +40,13 @@ internal static class RiskHelper
 	}
 
 	/// <summary>
+	/// Margin committed for a position of <paramref name="size"/> units at <paramref name="entryPrice"/>,
+	/// under leverage. Returns 0 when leverage is non-positive.
+	/// </summary>
+	public static double MarginRequired(double size, double entryPrice, double leverage) =>
+		leverage > 0 ? size * entryPrice / leverage : 0;
+
+	/// <summary>
 	/// Money lost when a stop is hit for a capital-fraction entry, evaluated before it opens.
 	/// </summary>
 	public static double ProjectedRiskOnStop(

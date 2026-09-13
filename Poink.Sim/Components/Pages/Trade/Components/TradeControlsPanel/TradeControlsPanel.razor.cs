@@ -160,6 +160,20 @@ namespace Poink.Sim.Components.Pages.Trade
 		private double? RewardToRisk =>
 			ProjectedLoss is { } risk && ProjectedProfit is { } reward ? RiskHelper.RewardToRiskRatio(risk, reward) : null;
 
+		private double? MarginUsed =>
+			EntryReferencePrice is { } entry && Session.Leverage is { } leverage
+				? RiskHelper.MarginRequired(Volume, entry, leverage)
+				: null;
+
+		private double? MarginFree =>
+			MarginUsed is { } used && Session.Balance is { } balance ? balance - used : null;
+
+		private double? MarginUsedPercent =>
+			MarginUsed is { } used && Session.Balance is > 0 ? RiskHelper.RiskFraction(used, Session.Balance.Value) : null;
+
+		private double? MarginFreePercent =>
+			MarginFree is { } free && Session.Balance is > 0 ? RiskHelper.RiskFraction(free, Session.Balance.Value) : null;
+
 		private double? EntryDistancePips =>
 			EntryReferencePrice is { } entry && MarketFillPrice is { } market
 				? RiskHelper.PriceDistanceInPips(entry, market, PipSize)
@@ -198,6 +212,14 @@ namespace Poink.Sim.Components.Pages.Trade
 		private string ProfitPercentText => ProjectedProfitPercent is { } pct ? $"{Math.Abs(pct):P1}" : "--";
 
 		private string RewardToRiskText => RewardToRisk is { } ratio ? $"{ratio:N2} : 1" : "--";
+
+		private string MarginUsedText => MarginUsed is { } used ? $"{used:N2}" : "--";
+
+		private string MarginUsedPercentText => MarginUsedPercent is { } pct ? $"{pct:P1}" : "--";
+
+		private string MarginFreeText => MarginFree is { } free ? $"{free:N2}" : "--";
+
+		private string MarginFreePercentText => MarginFreePercent is { } pct ? $"{pct:P1}" : "--";
 
 		private async Task SubmitEntry(bool isLong)
 		{

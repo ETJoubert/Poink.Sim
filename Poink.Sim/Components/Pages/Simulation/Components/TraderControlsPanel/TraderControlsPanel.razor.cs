@@ -177,6 +177,12 @@ namespace Poink.Sim.Components.Simulation
 
 		private double MarginUsed => Math.Clamp(CapitalFraction, 0, 1) * Cash;
 
+		private double MarginFree => Cash - MarginUsed;
+
+		private double MarginUsedPercent => RiskHelper.RiskFraction(MarginUsed, Cash);
+
+		private double MarginFreePercent => RiskHelper.RiskFraction(MarginFree, Cash);
+
 		private double? ProjectedLoss =>
 			StopLossPrice is { } stop && EntryReferencePrice is { } entry
 				? RiskHelper.ProjectedRiskOnStop(Direction, Cash, CapitalFraction, Leverage, entry, stop)
@@ -214,6 +220,12 @@ namespace Poink.Sim.Components.Simulation
 		private static string FormatPips(double? pips) => pips is { } value ? $"{value:N1}" : "--";
 
 		private string MarginUsedText => $"{MarginUsed:N2}";
+
+		private string MarginUsedPercentText => $"{MarginUsedPercent:P1}";
+
+		private string MarginFreeText => $"{MarginFree:N2}";
+
+		private string MarginFreePercentText => $"{MarginFreePercent:P1}";
 
 		/// <summary>
 		/// Label, value, percent, row class and tooltip for the loss row -- a projected loss once a stop and

@@ -44,7 +44,7 @@
                         title="Enter the position size directly">MANUAL</button>
                 <button type="button" class="tc-toggle @(_volumeSizingMode == VolumeSizingMode.Risk ? "active" : "")"
                         @onclick="SwitchToRiskSizing"
-                        title="Solve the position size from the stop loss distance and a percent of balance risked">RISK</button>
+                        title="Solve the position size from the stop loss distance and a percent of balance risked">% BALANCE</button>
             </div>
         </div>
         @if (_volumeSizingMode == VolumeSizingMode.Manual)
@@ -54,8 +54,8 @@
         }
         else
         {
-            <div class="tc-input-row" title="Position size solved from the stop loss and risk percent, rounded to the nearest 0.01">
-                <input class="tc-input" value="@(CalculatedVolume is { } v ? v.ToString("F2") : "--")" readonly disabled />
+            <div class="tc-calculated" title="Position size solved from the stop loss and risk percent, rounded to the nearest 0.01">
+                @(CalculatedVolume is { } v ? v.ToString("F2") : "--")
             </div>
             <div class="tc-input-row">
                 <input class="tc-input" type="number" min="0" step="0.1" placeholder="% balance to risk"
@@ -188,6 +188,16 @@
                 </tr>
             </thead>
             <tbody>
+                <tr title="Margin this position will commit, based on the account's leverage">
+                    <td class="tc-table-label">Margin use</td>
+                    <td>@MarginUsedText</td>
+                    <td>@MarginUsedPercentText</td>
+                </tr>
+                <tr title="Balance left uncommitted after this position's margin">
+                    <td class="tc-table-label">Margin free</td>
+                    <td>@MarginFreeText</td>
+                    <td>@MarginFreePercentText</td>
+                </tr>
                 <tr class="@LossRowClass" title="@LossRowTitle">
                     <td class="tc-table-label">Loss</td>
                     <td>@LossValueText</td>

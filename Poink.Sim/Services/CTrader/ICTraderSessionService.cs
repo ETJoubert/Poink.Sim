@@ -25,6 +25,9 @@ namespace Poink.Sim.Services.CTrader
 		/// <summary>Account balance, pushed live by cTrader. Derived figures (equity, margin, P/L) are computed by FinancialsPanel from this and <see cref="Positions"/>.</summary>
 		double? Balance { get; }
 
+		/// <summary>Account leverage as a ratio (e.g. 50 for 1:50), pushed live by cTrader.</summary>
+		double? Leverage { get; }
+
 		IReadOnlyList<CTraderPositionInfo> Positions { get; }
 
 		IReadOnlyList<CTraderSymbolInfo> Symbols { get; }

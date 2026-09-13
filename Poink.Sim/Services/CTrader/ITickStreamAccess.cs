@@ -17,6 +17,9 @@ namespace Poink.Sim.Services.CTrader
 		/// <summary>Account balance, pushed live by cTrader.</summary>
 		double? Balance { get; }
 
+		/// <summary>Account leverage as a ratio (e.g. 50 for 1:50), pushed live by cTrader.</summary>
+		double? Leverage { get; }
+
 		IReadOnlyList<CTraderPositionInfo> Positions { get; }
 
 		/// <summary>Every symbol with a live quote subscription -- the watchlist plus every open position's symbol.</summary>

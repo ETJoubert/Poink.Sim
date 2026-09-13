@@ -82,6 +82,16 @@
     gap: 4px;
 }
 
+.tc-calculated {
+    font-size: 0.85rem;
+    padding: 4px 6px;
+    background: color-mix(in srgb, var(--color-primary) 6%, transparent);
+    border: 1px dashed color-mix(in srgb, var(--color-primary) 30%, transparent);
+    border-radius: 4px;
+    color: var(--color-secondary);
+    font-family: var(--font-mono, monospace);
+}
+
 .tc-input-row .tc-input {
     flex: 1;
     min-width: 0;
