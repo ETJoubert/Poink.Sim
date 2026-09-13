@@ -151,8 +151,8 @@ namespace Poink.Sim.Components.Pages
 		private bool _showVolumeProfile;
 		private bool _showTimeProfile;
 		private bool _showEquityCurve;
-		private bool _showTraderControls = true;
 		private bool _showRiskPolicies = true;
+		private bool _traderControlsCollapsed;
 
 		private int _xgridPipCount = 20;
 		private int _xgridColCount = 20;
@@ -171,16 +171,6 @@ namespace Poink.Sim.Components.Pages
 			_showEquityCurve
 			&& (_showMainChart || (s.Config.Aggregate && _showXGrid) || _showVolumeProfile || _showTimeProfile);
 
-		private bool ShowTraderControlsDivider(SimulationSnapshot s) =>
-			_showTraderControls
-			&& (
-				_showMainChart
-				|| (s.Config.Aggregate && _showXGrid)
-				|| _showVolumeProfile
-				|| _showTimeProfile
-				|| _showEquityCurve
-			);
-
 		private bool ShowRiskPoliciesDivider(SimulationSnapshot s) =>
 			_showRiskPolicies
 			&& s.RiskPolicies.Count > 0
@@ -190,7 +180,6 @@ namespace Poink.Sim.Components.Pages
 				|| _showVolumeProfile
 				|| _showTimeProfile
 				|| _showEquityCurve
-				|| _showTraderControls
 			);
 
 		private XGridResult? _xgridCache;
@@ -510,6 +499,16 @@ namespace Poink.Sim.Components.Pages
 
 		private bool SelectedTraderIsManual => SelectedTrader?.Mode == TraderControlMode.Manual;
 
+		private void ToggleSelectedTraderMode()
+		{
+			if (SelectedTrader is not { } trader)
+				return;
+			SimulationService.SetTraderMode(
+				trader.Id,
+				SelectedTraderIsManual ? TraderControlMode.Auto : TraderControlMode.Manual
+			);
+		}
+
 		private List<EquityCurveSample> SelectedTraderEquityCurveSamples
 		{
 			get
@@ -700,7 +699,6 @@ namespace Poink.Sim.Components.Pages
 		private ElementReference _chartDividerRef;
 		private ElementReference _chartDividerRef2;
 		private ElementReference _chartDividerRefEquityCurve;
-		private ElementReference _chartDividerRefTrader;
 		private ElementReference _chartDividerRefRisk;
 		private ElementReference _chartHDividerRef;
 		private IJSObjectReference? _dividerResizeInstance;
@@ -817,7 +815,6 @@ namespace Poink.Sim.Components.Pages
 			if (_showVolumeProfile) keys.Add("volume");
 			if (_showTimeProfile) keys.Add("time");
 			if (_showEquityCurve) keys.Add("equity");
-			if (_showTraderControls) keys.Add("trader");
 			if (_showRiskPolicies && s.RiskPolicies.Count > 0) keys.Add("risk");
 			return keys;
 		}
@@ -851,8 +848,6 @@ namespace Poink.Sim.Components.Pages
 					await _dividerResizeInstance.InvokeVoidAsync("bindChartDivider", _chartDividerRef2);
 				if (ShowEquityCurveDivider(_snapshot))
 					await _dividerResizeInstance.InvokeVoidAsync("bindChartDivider", _chartDividerRefEquityCurve);
-				if (ShowTraderControlsDivider(_snapshot))
-					await _dividerResizeInstance.InvokeVoidAsync("bindChartDivider", _chartDividerRefTrader);
 				if (ShowRiskPoliciesDivider(_snapshot))
 					await _dividerResizeInstance.InvokeVoidAsync("bindChartDivider", _chartDividerRefRisk);
 				await _dividerResizeInstance.InvokeVoidAsync("bindHeight", _chartHDividerRef);

@@ -2,23 +2,6 @@
 @using Poink.Sim.Models
 
 <div class="tcp-panel">
-    <div class="tcp-header">
-        <span class="tcp-title">TRADER CONTROLS</span>
-        @if (TraderId is not null)
-        {
-            @if (IsManual)
-            {
-                <button class="tcp-btn tcp-btn-toggle active" @onclick="ToggleManualMode"
-                        title="Hand this trader back to the Brain">MANUAL</button>
-            }
-            else
-            {
-                <button class="tcp-btn tcp-btn-toggle" @onclick="ToggleManualMode"
-                        title="Take manual control -- the Brain stops deciding for this trader">AUTO</button>
-            }
-        }
-    </div>
-
     @if (TraderId is null)
     {
         <p class="tcp-hint">No trader selected.</p>
@@ -76,60 +59,89 @@
             </div>
         </div>
 
-        <div class="tcp-field" title="Position size -- entered as exact units or as a percent of cash committed as margin">
+        <div class="tcp-field" title="Position size -- entered directly, or solved from a stop-loss distance and a percent of cash risked">
             <div class="tcp-field-head">
                 <span>Volume</span>
                 <div class="tcp-toggle-group tcp-toggle-group-sm" role="group">
-                    <button type="button" class="tcp-toggle @(_volumeMode == VolumeMode.Set ? "active" : "")"
-                            @onclick="() => _volumeMode = VolumeMode.Set"
-                            title="Enter the exact position size in units">SET</button>
-                    <button type="button" class="tcp-toggle @(_volumeMode == VolumeMode.PercentCash ? "active" : "")"
-                            @onclick="() => _volumeMode = VolumeMode.PercentCash"
-                            title="Enter the position size as a percent of cash committed as margin">% CASH</button>
+                    <button type="button" class="tcp-toggle @(_volumeSizingMode == VolumeSizingMode.Manual ? "active" : "")"
+                            @onclick="() => _volumeSizingMode = VolumeSizingMode.Manual"
+                            title="Enter the position size directly">MANUAL</button>
+                    <button type="button" class="tcp-toggle @(_volumeSizingMode == VolumeSizingMode.Risk ? "active" : "")"
+                            @onclick="SwitchToRiskSizing"
+                            title="Solve the position size from the stop loss distance and a percent of cash risked">RISK</button>
                 </div>
             </div>
-            <div class="tcp-input-row">
-                @if (_volumeMode == VolumeMode.Set)
-                {
-                    <input class="tcp-input" type="number" min="0" step="0.01" @bind="_volumeUnits" @bind:event="oninput"
-                           title="Exact position size in units" />
-                    <button type="button" class="tcp-clear" @onclick="() => _volumeUnits = null"
-                            disabled="@(_volumeUnits is null)" title="Clear the volume">×</button>
-                }
-                else
-                {
-                    <input class="tcp-input" type="number" min="0.01" max="100" step="1" @bind="_capitalPercent" @bind:event="oninput"
-                           title="Percent of cash committed as margin" />
-                }
-            </div>
+            @if (_volumeSizingMode == VolumeSizingMode.Manual)
+            {
+                <div class="tcp-field-head">
+                    <div class="tcp-toggle-group tcp-toggle-group-sm" role="group">
+                        <button type="button" class="tcp-toggle @(_volumeMode == VolumeMode.Set ? "active" : "")"
+                                @onclick="() => _volumeMode = VolumeMode.Set"
+                                title="Enter the exact position size in units">SET</button>
+                        <button type="button" class="tcp-toggle @(_volumeMode == VolumeMode.PercentCash ? "active" : "")"
+                                @onclick="() => _volumeMode = VolumeMode.PercentCash"
+                                title="Enter the position size as a percent of cash committed as margin">% CASH</button>
+                    </div>
+                </div>
+                <div class="tcp-input-row">
+                    @if (_volumeMode == VolumeMode.Set)
+                    {
+                        <input class="tcp-input" type="number" min="0" step="0.01" @bind="_volumeUnits" @bind:event="oninput"
+                               title="Exact position size in units" />
+                        <button type="button" class="tcp-clear" @onclick="() => _volumeUnits = null"
+                                disabled="@(_volumeUnits is null)" title="Clear the volume">×</button>
+                    }
+                    else
+                    {
+                        <input class="tcp-input" type="number" min="0.01" max="100" step="1" @bind="_capitalPercent" @bind:event="oninput"
+                               title="Percent of cash committed as margin" />
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="tcp-input-row" title="Percent of cash committed as margin, solved from the stop loss and risk percent below">
+                    <input class="tcp-input" value="@(CalculatedCapitalFraction is { } cf ? cf.ToString("P1") : "--")" readonly disabled />
+                </div>
+                <div class="tcp-input-row">
+                    <input class="tcp-input" type="number" min="0" step="0.1" placeholder="% cash to risk"
+                           @bind="_riskPercent" @bind:event="oninput"
+                           title="Percent of cash to risk if the stop loss is hit -- volume is solved to match" />
+                    <button type="button" class="tcp-clear" @onclick="() => _riskPercent = null"
+                            disabled="@(_riskPercent is null)" title="Clear the risk percent">×</button>
+                </div>
+            }
         </div>
 
         <div class="tcp-field" title="Optional stop loss -- entered as a pip distance or as a percent of cash risked if it is hit">
             <div class="tcp-field-head">
                 <span>Stop loss</span>
-                <div class="tcp-toggle-group tcp-toggle-group-sm" role="group">
-                    <button type="button" class="tcp-toggle @(_stopLossMode == SizingMode.Pips ? "active" : "")"
-                            @onclick="() => _stopLossMode = SizingMode.Pips"
-                            title="Enter the stop as a distance in pips">PIPS</button>
-                    <button type="button" class="tcp-toggle @(_stopLossMode == SizingMode.PercentCash ? "active" : "")"
-                            @onclick="() => _stopLossMode = SizingMode.PercentCash"
-                            title="Enter the stop as a percent of cash lost if it is hit">% CASH</button>
-                </div>
+                @if (_volumeSizingMode == VolumeSizingMode.Manual)
+                {
+                    <div class="tcp-toggle-group tcp-toggle-group-sm" role="group">
+                        <button type="button" class="tcp-toggle @(_stopLossMode == SizingMode.Pips ? "active" : "")"
+                                @onclick="() => _stopLossMode = SizingMode.Pips"
+                                title="Enter the stop as a distance in pips">PIPS</button>
+                        <button type="button" class="tcp-toggle @(_stopLossMode == SizingMode.PercentCash ? "active" : "")"
+                                @onclick="() => _stopLossMode = SizingMode.PercentCash"
+                                title="Enter the stop as a percent of cash lost if it is hit">% CASH</button>
+                    </div>
+                }
             </div>
             <div class="tcp-input-row">
-                @if (_stopLossMode == SizingMode.Pips)
-                {
-                    <input class="tcp-input" type="number" min="0" step="1" @bind="_stopLossPips" @bind:event="oninput"
-                           title="Distance in pips from the entry to the stop, on the losing side" />
-                    <button type="button" class="tcp-clear" @onclick="() => _stopLossPips = null"
-                            disabled="@(_stopLossPips is null)" title="Clear the stop loss">×</button>
-                }
-                else
+                @if (_volumeSizingMode == VolumeSizingMode.Manual && _stopLossMode == SizingMode.PercentCash)
                 {
                     <input class="tcp-input" type="number" min="0" step="0.1" @bind="_stopLossPercent" @bind:event="oninput"
                            title="Percent of cash lost if the stop is hit" />
                     <button type="button" class="tcp-clear" @onclick="() => _stopLossPercent = null"
                             disabled="@(_stopLossPercent is null)" title="Clear the stop loss">×</button>
+                }
+                else
+                {
+                    <input class="tcp-input" type="number" min="0" step="1" @bind="_stopLossPips" @bind:event="oninput"
+                           title="Distance in pips from the entry to the stop, on the losing side" />
+                    <button type="button" class="tcp-clear" @onclick="() => _stopLossPips = null"
+                            disabled="@(_stopLossPips is null)" title="Clear the stop loss">×</button>
                 }
             </div>
         </div>
@@ -164,10 +176,85 @@
             </div>
         </div>
 
-        <RiskPanel IsLong="_isLong" IsMarketOrder="_orderType == OrderType.Market"
-                   Cash="Cash" CapitalFraction="CapitalFraction" Leverage="Leverage"
-                   EntryPrice="EntryReferencePrice" StopLossPrice="StopLossPrice" TakeProfitPrice="TakeProfitPrice"
-                   HasStopLoss="HasStopLoss" StopOutLevelPercent="StopOutLevelPercent" />
+        <div class="tcp-preview" title="Entry, stop, and target prices for this draft">
+            <span class="tcp-preview-title">Entry</span>
+            @{
+                RenderFragment entryRow =
+                    @<tr title="Market price at the time of entry, or the Limit/Stop trigger price -- distance to the current market price">
+                        <td class="tcp-table-label">Entry</td>
+                        <td>@(EntryReferencePrice is { } e ? e.ToString("N5") : "--")</td>
+                        <td>@FormatPips(EntryDistancePips)</td>
+                    </tr>;
+                RenderFragment stopLossRow =
+                    @<tr class="loss" title="Stop loss price, with its distance from entry on the losing side">
+                        <td class="tcp-table-label">SL</td>
+                        <td>@(StopLossPrice is { } sl ? sl.ToString("N5") : "--")</td>
+                        <td>@FormatPips(StopLossDistancePips)</td>
+                    </tr>;
+                RenderFragment takeProfitRow =
+                    @<tr class="gain" title="Take profit price, with its distance from entry on the winning side">
+                        <td class="tcp-table-label">TP</td>
+                        <td>@(TakeProfitPrice is { } tp ? tp.ToString("N5") : "--")</td>
+                        <td>@FormatPips(TakeProfitDistancePips)</td>
+                    </tr>;
+            }
+            <table class="tcp-table">
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th>Price</th>
+                        <th>Dist(pips)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (_isLong)
+                    {
+                        @takeProfitRow
+                        @entryRow
+                        @stopLossRow
+                    }
+                    else
+                    {
+                        @stopLossRow
+                        @entryRow
+                        @takeProfitRow
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="tcp-preview" title="Projected size and outcome for this draft">
+            <span class="tcp-preview-title">Projections</span>
+            <table class="tcp-table">
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th>Value</th>
+                        <th>% Cash</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr title="Margin committed against cash -- capital fraction x cash">
+                        <td class="tcp-table-label">Margin used</td>
+                        <td colspan="2">@MarginUsedText</td>
+                    </tr>
+                    <tr class="@LossRow.RowClass" title="@LossRow.Title">
+                        <td class="tcp-table-label">@LossRow.Label</td>
+                        <td>@LossRow.Value</td>
+                        <td>@LossRow.Percent</td>
+                    </tr>
+                    <tr class="gain" title="Money gained if the take profit is hit for this volume from the entry price">
+                        <td class="tcp-table-label">Profit</td>
+                        <td>@ProfitValueText</td>
+                        <td>@ProfitPercentText</td>
+                    </tr>
+                    <tr title="Reward-to-risk ratio -- projected take-profit gain divided by the stop-loss risk">
+                        <td class="tcp-table-label">RR</td>
+                        <td colspan="2">@RewardToRiskText</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
 
         <div class="tcp-actions">
             <button class="tcp-btn @(_isLong ? "tcp-buy" : "tcp-sell")" @onclick="() => SubmitEntry(_isLong)"

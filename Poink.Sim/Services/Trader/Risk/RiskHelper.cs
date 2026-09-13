@@ -132,6 +132,22 @@ internal static class RiskHelper
 	}
 
 	/// <summary>
+	/// Capital fraction needed so a stop hit costs exactly <paramref name="riskAmount"/>, under leverage.
+	/// Null when the inputs give no basis to size against, or the required fraction exceeds 100% of cash.
+	/// </summary>
+	public static double? CapitalFractionForRiskBounded(
+		double riskAmount,
+		double cash,
+		double leverage,
+		double entryPrice,
+		double stopLossPrice
+	)
+	{
+		double fraction = CapitalFractionForRisk(riskAmount, cash, leverage, entryPrice, stopLossPrice);
+		return fraction is > 0 and <= 1 ? fraction : null;
+	}
+
+	/// <summary>
 	/// Absolute stop-loss price a pip distance places, on the losing side of the entry:
 	/// below entry for a long, above entry for a short.
 	/// </summary>

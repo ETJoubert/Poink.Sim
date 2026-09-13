@@ -307,6 +307,14 @@
                         <SimTimeline />
 
                         <div class="sim-controls-right">
+                            @if (SelectedTrader is not null)
+                            {
+                                <button class="sim-ctrl-btn sim-ctrl-btn-toggle @(SelectedTraderIsManual ? "active" : "")"
+                                        @onclick="ToggleSelectedTraderMode"
+                                        title="@(SelectedTraderIsManual ? "Hand this trader back to the Brain" : "Take manual control -- the Brain stops deciding for this trader")">
+                                    @(SelectedTraderIsManual ? "MANUAL" : "AUTO")
+                                </button>
+                            }
                             <span class="sim-toolbar-divider"></span>
 
                             <button class="sim-ctrl-btn sim-ctrl-btn-warn" @onclick="UnloadSim">NEW SIMULATION</button>
@@ -376,9 +384,6 @@
                                 <button type="button" class="sim-overlay-toggle-btn @(_showEquityCurve ? "active" : "")"
                                         @onclick="() => _showEquityCurve = !_showEquityCurve"
                                         title="Equity over time for the selected trader, with the best/worst equity reached during the currently open trade">Equity curve</button>
-                                <button type="button" class="sim-overlay-toggle-btn @(_showTraderControls ? "active" : "")"
-                                        @onclick="() => _showTraderControls = !_showTraderControls"
-                                        title="Manual order entry and open-position controls for the selected trader">Trader controls</button>
                                 @if (s.RiskPolicies.Count > 0)
                                 {
                                     <button type="button" class="sim-overlay-toggle-btn @(_showRiskPolicies ? "active" : "")"
@@ -528,26 +533,6 @@
                                     <EquityCurve Samples="SelectedTraderEquityCurveSamples" />
                                 </div>
                             }
-                            @if (_showTraderControls)
-                            {
-                                @if (ShowTraderControlsDivider(s))
-                                {
-                                    <div class="sim-chart-divider" @ref="_chartDividerRefTrader" data-min-width="160"
-                                         title="Drag to resize"></div>
-                                }
-                                <div class="sim-chart-side sim-chart-side-scroll">
-                                    <TraderControlsPanel TraderId="SelectedTrader?.Id"
-                                                         IsManual="SelectedTraderIsManual" PositionSummary="SelectedPositionSummary"
-                                                         PendingSummary="SelectedPendingSummary"
-                                                         Cash="SelectedTrader?.Capital.Cash ?? 0"
-                                                         Leverage="SelectedTrader?.Leverage ?? 1"
-                                                         StopOutLevelPercent="SelectedTrader?.StopOutLevelPercent ?? 50"
-                                                         PipSize="_snapshot?.Config.PipSize ?? 0.01"
-                                                         CurrentPrice="_snapshot?.CurrentPrice"
-                                                         CurrentBid="_snapshot?.CurrentBid"
-                                                         CurrentAsk="_snapshot?.CurrentAsk" />
-                                </div>
-                            }
                             @if (_showRiskPolicies && s.RiskPolicies.Count > 0)
                             {
                                 @if (ShowRiskPoliciesDivider(s))
@@ -622,5 +607,37 @@
                     }
                 }
             </div>
+
+            @if (_snapshot is not null)
+            {
+                <aside class="sim-right-side-panel @(_traderControlsCollapsed ? "sim-right-side-panel-collapsed" : "")">
+                    <button type="button" class="sim-right-side-panel-toggle" @onclick="() => _traderControlsCollapsed = !_traderControlsCollapsed"
+                            title="@(_traderControlsCollapsed ? "Expand trader controls" : "Collapse trader controls")">
+                        <Icon Name="@(_traderControlsCollapsed ? "chevron-left" : "chevron-right")" Class="sim-right-side-panel-toggle-icon" />
+                    </button>
+                    @if (!_traderControlsCollapsed)
+                    {
+                        <div class="sim-right-side-panel-content">
+                            <div class="sim-section-header">
+                                <span class="sim-section-title">TRADER CONTROLS</span>
+                                @if (SelectedTrader is not null)
+                                {
+                                    <span class="sim-section-count">@SelectedTrader.Label</span>
+                                }
+                            </div>
+                            <TraderControlsPanel TraderId="SelectedTrader?.Id"
+                                                 PositionSummary="SelectedPositionSummary"
+                                                 PendingSummary="SelectedPendingSummary"
+                                                 Cash="SelectedTrader?.Capital.Cash ?? 0"
+                                                 Leverage="SelectedTrader?.Leverage ?? 1"
+                                                 StopOutLevelPercent="SelectedTrader?.StopOutLevelPercent ?? 50"
+                                                 PipSize="_snapshot?.Config.PipSize ?? 0.01"
+                                                 CurrentPrice="_snapshot?.CurrentPrice"
+                                                 CurrentBid="_snapshot?.CurrentBid"
+                                                 CurrentAsk="_snapshot?.CurrentAsk" />
+                        </div>
+                    }
+                </aside>
+            }
         </div>
     </div>

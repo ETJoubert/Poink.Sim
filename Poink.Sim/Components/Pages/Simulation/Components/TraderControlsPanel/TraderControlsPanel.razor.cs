@@ -1,7 +1,7 @@
+using System;
 using Microsoft.AspNetCore.Components;
 using Poink.Sim.Models;
 using Poink.Sim.Simulation;
-using Poink.Sim.Trader;
 using Poink.Sim.Trader.Risk;
 
 namespace Poink.Sim.Components.Simulation
@@ -13,9 +13,6 @@ namespace Poink.Sim.Components.Simulation
 
 		[Parameter]
 		public int? TraderId { get; set; }
-
-		[Parameter]
-		public bool IsManual { get; set; }
 
 		[Parameter]
 		public string? PositionSummary { get; set; }
@@ -56,12 +53,20 @@ namespace Poink.Sim.Components.Simulation
 			PercentCash,
 		}
 
+		private enum VolumeSizingMode
+		{
+			Manual,
+			Risk,
+		}
+
 		private OrderType _orderType = OrderType.Market;
 		private bool _isLong = true;
 		private double _triggerPrice;
+		private VolumeSizingMode _volumeSizingMode = VolumeSizingMode.Manual;
 		private VolumeMode _volumeMode = VolumeMode.PercentCash;
 		private double? _volumeUnits;
 		private double _capitalPercent = 50;
+		private double? _riskPercent;
 		private SizingMode _stopLossMode = SizingMode.Pips;
 		private double? _stopLossPips;
 		private double? _stopLossPercent;
@@ -80,18 +85,43 @@ namespace Poink.Sim.Components.Simulation
 			: null;
 
 		private double CapitalFraction =>
-			_volumeMode switch
+			_volumeSizingMode == VolumeSizingMode.Risk
+				? CalculatedCapitalFraction ?? 0
+				: _volumeMode switch
+				{
+					VolumeMode.PercentCash => _capitalPercent / 100.0,
+					VolumeMode.Set => EntryReferencePrice is { } entry
+					&& entry > 0
+					&& Cash > 0
+					&& Leverage > 0
+					&& _volumeUnits is { } units
+						? units * entry / Leverage / Cash
+						: 0,
+					_ => 0,
+				};
+
+		/// <summary>
+		/// Capital fraction solved from the stop-loss pip distance and the percent of cash risked.
+		/// Null when any input is missing, or the required fraction exceeds 100% of cash.
+		/// </summary>
+		private double? CalculatedCapitalFraction
+		{
+			get
 			{
-				VolumeMode.PercentCash => _capitalPercent / 100.0,
-				VolumeMode.Set => EntryReferencePrice is { } entry
-				&& entry > 0
-				&& Cash > 0
-				&& Leverage > 0
-				&& _volumeUnits is { } units
-					? units * entry / Leverage / Cash
-					: 0,
-				_ => 0,
-			};
+				if (EntryReferencePrice is not { } entry || entry <= 0)
+					return null;
+				if (_stopLossPips is not { } pips || pips <= 0)
+					return null;
+				if (_riskPercent is not { } percent || percent <= 0)
+					return null;
+				if (Cash <= 0)
+					return null;
+
+				double stopPrice = RiskHelper.StopLossPriceFromPips(Direction, entry, pips, PipSize);
+				double riskAmount = percent / 100.0 * Cash;
+				return RiskHelper.CapitalFractionForRiskBounded(riskAmount, Cash, Leverage, entry, stopPrice);
+			}
+		}
 
 		private bool HasStopLoss =>
 			_stopLossMode == SizingMode.Pips ? _stopLossPips is not null : _stopLossPercent is not null;
@@ -142,11 +172,98 @@ namespace Poink.Sim.Components.Simulation
 			}
 		}
 
-		private void ToggleManualMode()
+		private double? Volume =>
+			EntryReferencePrice is { } entry && entry > 0 ? RiskHelper.PositionSize(Cash, CapitalFraction, Leverage, entry) : null;
+
+		private double MarginUsed => Math.Clamp(CapitalFraction, 0, 1) * Cash;
+
+		private double? ProjectedLoss =>
+			StopLossPrice is { } stop && EntryReferencePrice is { } entry
+				? RiskHelper.ProjectedRiskOnStop(Direction, Cash, CapitalFraction, Leverage, entry, stop)
+				: null;
+
+		private double? ProjectedProfit =>
+			TakeProfitPrice is { } target && EntryReferencePrice is { } entry && Volume is { } size
+				? RiskHelper.RewardOnTarget(Direction, size, entry, target)
+				: null;
+
+		private double? ProjectedLossPercent =>
+			ProjectedLoss is { } loss && Cash > 0 ? RiskHelper.RiskFraction(loss, Cash) : null;
+
+		private double? ProjectedProfitPercent =>
+			ProjectedProfit is { } profit && Cash > 0 ? RiskHelper.RiskFraction(profit, Cash) : null;
+
+		private double? RewardToRisk =>
+			ProjectedLoss is { } risk && ProjectedProfit is { } reward ? RiskHelper.RewardToRiskRatio(risk, reward) : null;
+
+		private double? EntryDistancePips =>
+			EntryReferencePrice is { } entry && MarketFillPrice is { } market
+				? RiskHelper.PriceDistanceInPips(entry, market, PipSize)
+				: null;
+
+		private double? StopLossDistancePips =>
+			StopLossPrice is { } stop && EntryReferencePrice is { } entry
+				? RiskHelper.PriceDistanceInPips(entry, stop, PipSize)
+				: null;
+
+		private double? TakeProfitDistancePips =>
+			TakeProfitPrice is { } target && EntryReferencePrice is { } entry
+				? RiskHelper.PriceDistanceInPips(target, entry, PipSize)
+				: null;
+
+		private static string FormatPips(double? pips) => pips is { } value ? $"{value:N1}" : "--";
+
+		private string MarginUsedText => $"{MarginUsed:N2}";
+
+		/// <summary>
+		/// Label, value, percent, row class and tooltip for the loss row -- a projected loss once a stop and
+		/// entry are known, "--" while only the stop is set, or the margin stop-out ceiling when no stop is set.
+		/// </summary>
+		private (string Label, string Value, string Percent, string RowClass, string Title) LossRow
 		{
-			if (TraderId is not { } id)
-				return;
-			Service.SetTraderMode(id, IsManual ? TraderControlMode.Auto : TraderControlMode.Manual);
+			get
+			{
+				if (ProjectedLoss is { } loss)
+				{
+					string value = $"{(loss > 0 ? "-" : "+")}{Math.Abs(loss):N2}";
+					string percent = ProjectedLossPercent is { } pct ? $"{Math.Abs(pct):P1}" : "--";
+					return (
+						"Loss",
+						value,
+						percent,
+						loss > 0 ? "loss" : "gain",
+						"Money lost if the stop is hit for this volume at this leverage from the entry price"
+					);
+				}
+				if (HasStopLoss)
+				{
+					string title =
+						_orderType == OrderType.Market
+							? "A market price is needed to project the stop risk -- start playback"
+							: "Enter a trigger price to project the stop risk";
+					return ("Loss", "--", "--", "loss", title);
+				}
+
+				return (
+					"Loss",
+					"None",
+					$"{StopOutLevelPercent:0.#}%",
+					"loss",
+					$"No stop set -- max loss before the {StopOutLevelPercent:0.#}% margin stop-out force-closes the position"
+				);
+			}
+		}
+
+		private string ProfitValueText => ProjectedProfit is { } profit ? $"+{Math.Abs(profit):N2}" : "--";
+
+		private string ProfitPercentText => ProjectedProfitPercent is { } pct ? $"{Math.Abs(pct):P1}" : "--";
+
+		private string RewardToRiskText => RewardToRisk is { } ratio ? $"{ratio:N2} : 1" : "--";
+
+		private void SwitchToRiskSizing()
+		{
+			_volumeSizingMode = VolumeSizingMode.Risk;
+			_stopLossMode = SizingMode.Pips;
 		}
 
 		private void SubmitEntry(bool isLong)
@@ -159,7 +276,10 @@ namespace Poink.Sim.Components.Simulation
 			}
 			if (CapitalFraction is <= 0 or > 1)
 			{
-				_error = "volume must resolve to between 0 and 100% of cash";
+				_error =
+					_volumeSizingMode == VolumeSizingMode.Risk
+						? "enter a stop loss and a percent of cash to risk so the size can be solved"
+						: "volume must resolve to between 0 and 100% of cash";
 				return;
 			}
 			if (_orderType != OrderType.Market && _triggerPrice <= 0)
