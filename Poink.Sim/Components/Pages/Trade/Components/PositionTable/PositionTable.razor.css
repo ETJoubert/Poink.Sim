@@ -71,6 +71,71 @@
     color: var(--color-secondary);
 }
 
+.pt-group-row th {
+    position: static;
+    padding: 3px 8px;
+}
+
+.pt-group-header {
+    text-align: center;
+    font-size: 0.58rem;
+    font-weight: bold;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.pt-group-start {
+    border-left: 1px solid color-mix(in srgb, var(--color-primary) 18%, transparent);
+}
+
+.pt-group-position {
+    background: color-mix(in srgb, var(--color-neutral) 6%, transparent);
+}
+
+.pt-group-position.pt-group-header {
+    color: var(--color-neutral);
+}
+
+.pt-group-risk {
+    background: color-mix(in srgb, var(--color-warning) 7%, transparent);
+}
+
+.pt-group-risk.pt-group-header {
+    color: var(--color-warning);
+}
+
+.pt-group-projections {
+    background: color-mix(in srgb, var(--color-info) 7%, transparent);
+}
+
+.pt-group-projections.pt-group-header {
+    color: var(--color-info);
+}
+
+.pt-group-time {
+    background: color-mix(in srgb, var(--color-tertiary) 6%, transparent);
+}
+
+.pt-group-time.pt-group-header {
+    color: var(--color-tertiary);
+}
+
+.pt-group-net {
+    background: color-mix(in srgb, var(--color-accent) 7%, transparent);
+}
+
+.pt-group-net.pt-group-header {
+    color: var(--color-accent);
+}
+
+.pt-group-actions {
+    background: color-mix(in srgb, var(--color-secondary) 5%, transparent);
+}
+
+.pt-group-actions.pt-group-header {
+    color: var(--color-secondary);
+}
+
 .pt-close-cell {
     width: 1%;
     text-align: right;

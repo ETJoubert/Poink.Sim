@@ -11,12 +11,19 @@
     {
         <table class="pt-table">
             <thead>
+                <tr class="pt-group-row">
+                    @foreach (var group in ColumnGroups)
+                    {
+                        <th class="pt-group-header pt-group-@Slug(group.Name) pt-group-start" colspan="@group.Columns.Count">@group.Name</th>
+                    }
+                    <th class="pt-group-header pt-group-actions pt-group-start">Actions</th>
+                </tr>
                 <tr>
                     @foreach (var column in Columns)
                     {
-                        <th>@column.Header</th>
+                        <th class="@HeaderCellClass(column)">@column.Header</th>
                     }
-                    <th></th>
+                    <th class="pt-group-actions pt-group-start"></th>
                 </tr>
             </thead>
             <tbody>
@@ -25,9 +32,9 @@
                     <tr class="pt-row" @onclick="() => SelectAsync(row)" title="View @row.SymbolName's chart">
                         @foreach (var column in Columns)
                         {
-                            <td class="@column.CssClass?.Invoke(row)" title="@column.Title?.Invoke(row)">@column.Value(row)</td>
+                            <td class="@BodyCellClass(column, row)" title="@column.Title?.Invoke(row)">@column.Value(row)</td>
                         }
-                        <td class="pt-close-cell">
+                        <td class="pt-group-actions pt-group-start pt-close-cell">
                             <button class="pt-close-btn" @onclick="() => CloseAsync(row)" @onclick:stopPropagation="true"
                                     title="Close this position">
                                 <Icon Name="x-lg" Class="pt-close-icon" />
