@@ -43,6 +43,8 @@ public readonly record struct XGridResult(
 	int MaxAbsDelta,
 	double MaxDistanceValue,
 	double MaxAbsDeltaDistance,
+	double MaxUpDistance,
+	double MaxDownDistance,
 	double SBuy,
 	double SSell,
 	IReadOnlyList<double> NetByColumn,
@@ -174,6 +176,8 @@ internal static class XGridStats
 		var maxAbsDelta = 0;
 		var maxDistanceValue = 0.0;
 		var maxAbsDeltaDistance = 0.0;
+		var maxUpDistance = 0.0;
+		var maxDownDistance = 0.0;
 		var sBuy = 0.0;
 		var sSell = 0.0;
 		var netByColumn = new List<double>(colCount);
@@ -226,6 +230,10 @@ internal static class XGridStats
 				var absDeltaDistance = Math.Abs(upDistances[r] - downDistances[r]);
 				if (absDeltaDistance > maxAbsDeltaDistance)
 					maxAbsDeltaDistance = absDeltaDistance;
+				if (upDistances[r] > maxUpDistance)
+					maxUpDistance = upDistances[r];
+				if (downDistances[r] > maxDownDistance)
+					maxDownDistance = downDistances[r];
 				cells.Add(
 					new XGridCell(counts[r], upCounts[r], downCounts[r], upDistances[r], downDistances[r], value)
 				);
@@ -284,6 +292,8 @@ internal static class XGridStats
 			maxAbsDelta,
 			maxDistanceValue,
 			maxAbsDeltaDistance,
+			maxUpDistance,
+			maxDownDistance,
 			sBuy,
 			sSell,
 			netByColumn,
@@ -442,9 +452,22 @@ internal static class XGridStats
 
 	public static bool IsDownAtPoc(XGridResult grid) => IsLevelAtLevel(grid.DownPeak, grid.Poc);
 
-	public static double CellValue(XGridResult grid, (int Row, int Col) cell, XGridSpectrumMetric metric)
+	public static double CellValue(
+		XGridResult grid,
+		(int Row, int Col) cell,
+		XGridSpectrumMetric metric,
+		bool distanceWeighted = false
+	)
 	{
 		XGridCell c = grid.Columns[cell.Col].Cells[cell.Row];
+		if (distanceWeighted)
+			return metric switch
+			{
+				XGridSpectrumMetric.Up => c.UpDistance,
+				XGridSpectrumMetric.Down => c.DownDistance,
+				XGridSpectrumMetric.Delta => c.UpDistance - c.DownDistance,
+				_ => c.UpDistance + c.DownDistance,
+			};
 		return metric switch
 		{
 			XGridSpectrumMetric.Up => c.UpCount,
@@ -456,32 +479,49 @@ internal static class XGridStats
 
 	// The grid-wide ceiling for a metric -- Delta uses the signed metric's absolute ceiling
 	// since both its directions are judged against the same peak imbalance.
-	public static double MaxCellValue(XGridResult grid, XGridSpectrumMetric metric) =>
-		metric switch
+	public static double MaxCellValue(XGridResult grid, XGridSpectrumMetric metric, bool distanceWeighted = false)
+	{
+		if (distanceWeighted)
+			return metric switch
+			{
+				XGridSpectrumMetric.Up => grid.MaxUpDistance,
+				XGridSpectrumMetric.Down => grid.MaxDownDistance,
+				XGridSpectrumMetric.Delta => grid.MaxAbsDeltaDistance,
+				_ => grid.MaxDistanceValue,
+			};
+		return metric switch
 		{
 			XGridSpectrumMetric.Up => grid.MaxUpCount,
 			XGridSpectrumMetric.Down => grid.MaxDownCount,
 			XGridSpectrumMetric.Delta => grid.MaxAbsDelta,
 			_ => grid.MaxValue,
 		};
+	}
 
 	/// <summary>
 	/// Every (row, col) cell with a nonzero metric value, ordered least to most by it. Zero cells are
 	/// excluded rather than sorted to the front -- a footprint grid is mostly empty, so including them
 	/// would flatten the curve into a long zero run.
 	/// </summary>
-	public static (int Row, int Col)[] CellOrder(XGridResult grid, XGridSpectrumMetric metric)
+	public static (int Row, int Col)[] CellOrder(
+		XGridResult grid,
+		XGridSpectrumMetric metric,
+		bool distanceWeighted = false
+	)
 	{
 		int rows = grid.RowLow.Count,
 			cols = grid.Columns.Count;
 		var cells = new List<(int Row, int Col)>(rows * cols);
 		for (var c = 0; c < cols; c++)
 		for (var r = 0; r < rows; r++)
-			if (CellValue(grid, (r, c), metric) != 0)
+			if (CellValue(grid, (r, c), metric, distanceWeighted) != 0)
 				cells.Add((r, c));
 
 		var order = cells.ToArray();
-		Array.Sort(order, (a, b) => CellValue(grid, a, metric).CompareTo(CellValue(grid, b, metric)));
+		Array.Sort(
+			order,
+			(a, b) => CellValue(grid, a, metric, distanceWeighted).CompareTo(CellValue(grid, b, metric, distanceWeighted))
+		);
 		return order;
 	}
 
@@ -496,7 +536,7 @@ internal static class XGridStats
 
 	// Delta's Max-mode ceiling for one side's sign only, so the larger side's imbalance can't
 	// suppress highlights on the smaller side via the shared grid-wide MaxAbsDelta.
-	public static double MaxAbsDeltaOnSide(XGridResult grid, bool positive)
+	public static double MaxAbsDeltaOnSide(XGridResult grid, bool positive, bool distanceWeighted = false)
 	{
 		int rows = grid.RowLow.Count,
 			cols = grid.Columns.Count;
@@ -504,7 +544,7 @@ internal static class XGridStats
 		for (var c = 0; c < cols; c++)
 		for (var r = 0; r < rows; r++)
 		{
-			double value = CellValue(grid, (r, c), XGridSpectrumMetric.Delta);
+			double value = CellValue(grid, (r, c), XGridSpectrumMetric.Delta, distanceWeighted);
 			if (positive ? value <= 0 : value >= 0)
 				continue;
 			double abs = positive ? value : -value;
@@ -523,7 +563,8 @@ internal static class XGridStats
 		XGridResult grid,
 		XGridSpectrumMetric metric,
 		double percent,
-		XGridHighlightMode mode = XGridHighlightMode.Rank
+		XGridHighlightMode mode = XGridHighlightMode.Rank,
+		bool distanceWeighted = false
 	)
 	{
 		if (CurrentCell(grid) is not { } cell)
@@ -531,12 +572,12 @@ internal static class XGridStats
 
 		if (mode == XGridHighlightMode.Max)
 		{
-			double value = CellValue(grid, cell, metric);
-			double max = MaxCellValue(grid, metric);
+			double value = CellValue(grid, cell, metric, distanceWeighted);
+			double max = MaxCellValue(grid, metric, distanceWeighted);
 			return value > 0 && max > 0 && value >= MaxModeThreshold(max, percent);
 		}
 
-		var order = CellOrder(grid, metric);
+		var order = CellOrder(grid, metric, distanceWeighted);
 		int rank = Array.IndexOf(order, cell);
 		if (rank < 0)
 			return false;
@@ -555,7 +596,8 @@ internal static class XGridStats
 		XGridResult grid,
 		double percent,
 		bool positive,
-		XGridHighlightMode mode = XGridHighlightMode.Rank
+		XGridHighlightMode mode = XGridHighlightMode.Rank,
+		bool distanceWeighted = false
 	)
 	{
 		if (CurrentCell(grid) is not { } cell)
@@ -563,15 +605,15 @@ internal static class XGridStats
 
 		if (mode == XGridHighlightMode.Max)
 		{
-			double deltaMax = CellValue(grid, cell, XGridSpectrumMetric.Delta);
-			double max = MaxAbsDeltaOnSide(grid, positive);
+			double deltaMax = CellValue(grid, cell, XGridSpectrumMetric.Delta, distanceWeighted);
+			double max = MaxAbsDeltaOnSide(grid, positive, distanceWeighted);
 			if (max <= 0)
 				return false;
 			double threshold = MaxModeThreshold(max, percent);
 			return positive ? deltaMax >= threshold && deltaMax > 0 : -deltaMax >= threshold && deltaMax < 0;
 		}
 
-		var order = CellOrder(grid, XGridSpectrumMetric.Delta);
+		var order = CellOrder(grid, XGridSpectrumMetric.Delta, distanceWeighted);
 		int rank = Array.IndexOf(order, cell);
 		if (rank < 0)
 			return false;
@@ -582,7 +624,7 @@ internal static class XGridStats
 		if (!inSlice)
 			return false;
 
-		double deltaRank = CellValue(grid, cell, XGridSpectrumMetric.Delta);
+		double deltaRank = CellValue(grid, cell, XGridSpectrumMetric.Delta, distanceWeighted);
 		return positive ? deltaRank > 0 : deltaRank < 0;
 	}
 

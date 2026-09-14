@@ -76,55 +76,59 @@
         <button class="xgrid-delta-toggle @(Spectrum.HighlightsEnabled ? "active" : "")" @onclick="ToggleHighlightsEnabled"
                 title="Quickly turn every Highlights control below off or back on, without clearing any of their settings">@(Spectrum.HighlightsEnabled ? "ON" : "OFF")</button>
         <span class="xgrid-row-divider"></span>
-        <button class="xgrid-delta-toggle @(Spectrum.HighlightMode == XGridHighlightMode.Max ? "active" : "")" @onclick="ToggleHighlightMode"
-                title="@(Spectrum.HighlightMode == XGridHighlightMode.Max ? "Max mode: highlights every cell at least Percent% of that metric's grid-wide peak value -- click for Rank mode" : "Rank mode: highlights exactly the top Percent% of cells by that metric, regardless of their values -- click for Max mode")">@(Spectrum.HighlightMode == XGridHighlightMode.Max ? "Max" : "Rank")</button>
-        <label class="xgrid-control" title="Shared percent threshold for Total/Up/Down/Delta+/Delta- -- 10 highlights the top 10% for every enabled metric">
-            <input type="number" min="0" max="100" step="1" @bind:get="Spectrum.TotalPercent" @bind:set="SetSharedPercent" @bind:event="oninput" />
-            <span>%</span>
-        </label>
+        <div class="xgrid-control-group">
+            <button class="xgrid-delta-toggle @(Display.ShadeDelta ? "active" : "")" @onclick="() => SetDisplay(Display with { ShadeDelta = !Display.ShadeDelta })"
+                    title="Shade green when up ticks lead, red when down ticks lead, brighter with a larger imbalance. Replaces the tick-count shading while active.">Up/Dn</button>
+            <button class="xgrid-delta-toggle @(Display.DistanceWeighted ? "active" : "")" @onclick="() => SetDisplay(Display with { DistanceWeighted = !Display.DistanceWeighted })"
+                    title="Weight each tick by the price distance it moved instead of counting it as one. Applies to whichever shading mode is active.">&times;Dist</button>
+        </div>
         <span class="xgrid-row-divider"></span>
-        <button class="xgrid-delta-toggle @(Spectrum.TotalShow ? "active" : "")" @onclick="() => SetSpectrum(Spectrum with { TotalShow = !Spectrum.TotalShow })"
-                title="Highlight the border of the top Percent% of cells by total tick count">Total</button>
-        <button class="xgrid-delta-toggle xgrid-delta-toggle-up @(Spectrum.UpShow ? "active" : "")" @onclick="() => SetSpectrum(Spectrum with { UpShow = !Spectrum.UpShow })"
-                title="Highlight the border of the top Percent% of cells by up-tick count">Up</button>
-        <button class="xgrid-delta-toggle xgrid-delta-toggle-down @(Spectrum.DownShow ? "active" : "")" @onclick="() => SetSpectrum(Spectrum with { DownShow = !Spectrum.DownShow })"
-                title="Highlight the border of the top Percent% of cells by down-tick count">Down</button>
-        <button class="xgrid-delta-toggle xgrid-delta-toggle-pos @(Spectrum.DeltaPosShow ? "active" : "")" @onclick="() => SetSpectrum(Spectrum with { DeltaPosShow = !Spectrum.DeltaPosShow })"
-                title="Highlight the border of the top Percent% most buy-heavy cells, ranked by up-minus-down tick delta across every nonzero-delta cell">&Delta;+</button>
-        <button class="xgrid-delta-toggle xgrid-delta-toggle-neg @(Spectrum.DeltaNegShow ? "active" : "")" @onclick="() => SetSpectrum(Spectrum with { DeltaNegShow = !Spectrum.DeltaNegShow })"
-                title="Highlight the border of the top Percent% most sell-heavy cells, ranked by down-minus-up tick delta across every nonzero-delta cell">&Delta;-</button>
-
-        <span class="xgrid-row-divider"></span>
-        <button class="xgrid-delta-toggle @(LowPointOverlay.Mode == XGridPeakMode.Adaptive ? "active" : "")" @onclick="() => SetSharedMode(LowPointOverlay.Mode == XGridPeakMode.Fixed ? XGridPeakMode.Adaptive : XGridPeakMode.Fixed)"
-                title="@(LowPointOverlay.Mode == XGridPeakMode.Adaptive ? "Adaptive: keeps the top Percent% most prominent lows/highs found in the current view -- click for Fixed" : "Fixed: keeps every low/high whose prominence clears the row threshold -- click for Adaptive")">@(LowPointOverlay.Mode == XGridPeakMode.Adaptive ? "Adapt" : "Fixed")</button>
-        @if (LowPointOverlay.Mode == XGridPeakMode.Adaptive)
-        {
-            <label class="xgrid-control" title="Shared percent of the most prominent lows/highs to keep in the current view -- 20 keeps the top 20%">
-                <input type="number" min="0" max="100" step="1" @bind:get="LowPointOverlay.AdaptivePercent" @bind:set="SetSharedAdaptivePercent" @bind:event="oninput" />
+        <div class="xgrid-control-group">
+            <button class="xgrid-delta-toggle @(Spectrum.HighlightMode == XGridHighlightMode.Max ? "active" : "")" @onclick="ToggleHighlightMode"
+                    title="@(Spectrum.HighlightMode == XGridHighlightMode.Max ? "Max mode: highlights every cell at least Percent% of that metric's grid-wide peak value -- click for Rank mode" : "Rank mode: highlights exactly the top Percent% of cells by that metric, regardless of their values -- click for Max mode")">@(Spectrum.HighlightMode == XGridHighlightMode.Max ? "Max" : "Rank")</button>
+            <button class="xgrid-delta-toggle @(Spectrum.DistanceWeighted ? "active" : "")" @onclick="() => SetSpectrum(Spectrum with { DistanceWeighted = !Spectrum.DistanceWeighted })"
+                    title="Weight Total/Up/Down/Delta+/Delta- by the price distance each tick moved instead of counting it as one.">&times;Dist</button>
+            <label class="xgrid-control" title="Shared percent threshold for Total/Up/Down/Delta+/Delta- -- 10 highlights the top 10% for every enabled metric">
+                <input type="number" min="0" max="100" step="1" @bind:get="Spectrum.TotalPercent" @bind:set="SetSharedPercent" @bind:event="oninput" />
                 <span>%</span>
             </label>
-        }
-        else
-        {
-            <label class="xgrid-control" title="Shared minimum prominence (rows) a low/high must clear -- its drop/rise to the higher/lower of its two nearest neighbours">
-                <input type="number" min="0" step="0.5" @bind:get="LowPointOverlay.MinProminence" @bind:set="SetSharedProminence" @bind:event="oninput" />
-                <span>prom</span>
-            </label>
-        }
-        <label class="xgrid-control" title="Shared minimum columns between two kept lows/highs -- the stronger (higher-prominence) one wins when two are closer than this">
-            <input type="number" min="1" max="500" step="1" @bind:get="LowPointOverlay.MinDistance" @bind:set="SetSharedDistance" @bind:event="oninput" />
-            <span>dist</span>
-        </label>
-        <button class="xgrid-delta-toggle xgrid-delta-toggle-low @(LowPointOverlay.ShowHighlight ? "active" : "")" @onclick="() => SetLowPointOverlay(LowPointOverlay with { ShowHighlight = !LowPointOverlay.ShowHighlight })"
-                title="Mark local swing lows: a low must out-drop its neighbours by at least the prominence (Fixed) or rank in the top Percent% found (Adaptive), and survivors within the distance of a stronger low are dropped">Low</button>
-        <button class="xgrid-delta-toggle xgrid-delta-toggle-high @(HighPointOverlay.ShowHighlight ? "active" : "")" @onclick="() => SetHighPointOverlay(HighPointOverlay with { ShowHighlight = !HighPointOverlay.ShowHighlight })"
-                title="Mark local swing highs: a high must out-rise its neighbours by at least the prominence (Fixed) or rank in the top Percent% found (Adaptive), and survivors within the distance of a stronger high are dropped">High</button>
-
+            <button class="xgrid-delta-toggle @(Spectrum.TotalShow ? "active" : "")" @onclick="() => SetSpectrum(Spectrum with { TotalShow = !Spectrum.TotalShow })"
+                    title="Highlight the border of the top Percent% of cells by total tick count">Total</button>
+            <button class="xgrid-delta-toggle xgrid-delta-toggle-up @(Spectrum.UpShow ? "active" : "")" @onclick="() => SetSpectrum(Spectrum with { UpShow = !Spectrum.UpShow })"
+                    title="Highlight the border of the top Percent% of cells by up-tick count">Up</button>
+            <button class="xgrid-delta-toggle xgrid-delta-toggle-down @(Spectrum.DownShow ? "active" : "")" @onclick="() => SetSpectrum(Spectrum with { DownShow = !Spectrum.DownShow })"
+                    title="Highlight the border of the top Percent% of cells by down-tick count">Down</button>
+            <button class="xgrid-delta-toggle xgrid-delta-toggle-pos @(Spectrum.DeltaPosShow ? "active" : "")" @onclick="() => SetSpectrum(Spectrum with { DeltaPosShow = !Spectrum.DeltaPosShow })"
+                    title="Highlight the border of the top Percent% most buy-heavy cells, ranked by up-minus-down tick delta across every nonzero-delta cell">&Delta;+</button>
+            <button class="xgrid-delta-toggle xgrid-delta-toggle-neg @(Spectrum.DeltaNegShow ? "active" : "")" @onclick="() => SetSpectrum(Spectrum with { DeltaNegShow = !Spectrum.DeltaNegShow })"
+                    title="Highlight the border of the top Percent% most sell-heavy cells, ranked by down-minus-up tick delta across every nonzero-delta cell">&Delta;-</button>
+        </div>
         <span class="xgrid-row-divider"></span>
-        <span class="xgrid-delta-label" title="Shade each block by its up-minus-down tick balance instead of its raw tick count.">Delta</span>
-        <button class="xgrid-delta-toggle @(Display.ShadeDelta ? "active" : "")" @onclick="() => SetDisplay(Display with { ShadeDelta = !Display.ShadeDelta })"
-                title="Shade green when up ticks lead, red when down ticks lead, brighter with a larger imbalance. Replaces the tick-count shading while active.">Up/Dn</button>
-        <button class="xgrid-delta-toggle @(Display.DistanceWeighted ? "active" : "")" @onclick="() => SetDisplay(Display with { DistanceWeighted = !Display.DistanceWeighted })"
-                title="Weight each tick by the price distance it moved instead of counting it as one. Applies to whichever shading mode is active.">&times;Dist</button>
+        <div class="xgrid-control-group">
+            <button class="xgrid-delta-toggle @(LowPointOverlay.Mode == XGridPeakMode.Adaptive ? "active" : "")" @onclick="() => SetSharedMode(LowPointOverlay.Mode == XGridPeakMode.Fixed ? XGridPeakMode.Adaptive : XGridPeakMode.Fixed)"
+                    title="@(LowPointOverlay.Mode == XGridPeakMode.Adaptive ? "Adaptive: keeps the top Percent% most prominent lows/highs found in the current view -- click for Fixed" : "Fixed: keeps every low/high whose prominence clears the row threshold -- click for Adaptive")">@(LowPointOverlay.Mode == XGridPeakMode.Adaptive ? "Adapt" : "Fixed")</button>
+            @if (LowPointOverlay.Mode == XGridPeakMode.Adaptive)
+            {
+                <label class="xgrid-control" title="Shared percent of the most prominent lows/highs to keep in the current view -- 20 keeps the top 20%">
+                    <input type="number" min="0" max="100" step="1" @bind:get="LowPointOverlay.AdaptivePercent" @bind:set="SetSharedAdaptivePercent" @bind:event="oninput" />
+                    <span>%</span>
+                </label>
+            }
+            else
+            {
+                <label class="xgrid-control" title="Shared minimum prominence (rows) a low/high must clear -- its drop/rise to the higher/lower of its two nearest neighbours">
+                    <input type="number" min="0" step="0.5" @bind:get="LowPointOverlay.MinProminence" @bind:set="SetSharedProminence" @bind:event="oninput" />
+                    <span>prom</span>
+                </label>
+            }
+            <label class="xgrid-control" title="Shared minimum columns between two kept lows/highs -- the stronger (higher-prominence) one wins when two are closer than this">
+                <input type="number" min="1" max="500" step="1" @bind:get="LowPointOverlay.MinDistance" @bind:set="SetSharedDistance" @bind:event="oninput" />
+                <span>dist</span>
+            </label>
+            <button class="xgrid-delta-toggle xgrid-delta-toggle-low @(LowPointOverlay.ShowHighlight ? "active" : "")" @onclick="() => SetLowPointOverlay(LowPointOverlay with { ShowHighlight = !LowPointOverlay.ShowHighlight })"
+                    title="Mark local swing lows: a low must out-drop its neighbours by at least the prominence (Fixed) or rank in the top Percent% found (Adaptive), and survivors within the distance of a stronger low are dropped">Low</button>
+            <button class="xgrid-delta-toggle xgrid-delta-toggle-high @(HighPointOverlay.ShowHighlight ? "active" : "")" @onclick="() => SetHighPointOverlay(HighPointOverlay with { ShowHighlight = !HighPointOverlay.ShowHighlight })"
+                    title="Mark local swing highs: a high must out-rise its neighbours by at least the prominence (Fixed) or rank in the top Percent% found (Adaptive), and survivors within the distance of a stronger high are dropped">High</button>
+        </div>
     </div>
 </div>

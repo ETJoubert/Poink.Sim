@@ -29,7 +29,7 @@ namespace Poink.Sim.Components.Charts
 				XGridSpectrumMetric.Down => (Spectrum.DownPercent, Spectrum.HighlightMode),
 				_ => (Spectrum.TotalPercent, Spectrum.HighlightMode),
 			};
-			return XGridStats.IsCurrentInTopPercent(Grid, metric, percent, mode);
+			return XGridStats.IsCurrentInTopPercent(Grid, metric, percent, mode, Spectrum.DistanceWeighted);
 		}
 
 		// Same reuse rationale as CurrentSignal, against whichever Delta overlay matches the sign.
@@ -38,7 +38,8 @@ namespace Poink.Sim.Components.Charts
 				Grid,
 				positive ? Spectrum.DeltaPosPercent : Spectrum.DeltaNegPercent,
 				positive,
-				Spectrum.HighlightMode
+				Spectrum.HighlightMode,
+				Spectrum.DistanceWeighted
 			);
 	}
 }
