@@ -1,0 +1,104 @@
+@namespace Poink.Sim.Components.Shared.FinancialsPanel
+@using Poink.Sim.Components.Shared.Icon
+
+<div class="fp-panel">
+    <div class="fp-tabs">
+        @if (_tableCollapsed)
+        {
+            <button type="button" class="fp-tab-icon @(_activeTab == FinancialsTab.Positions ? "active" : "")"
+                    @onclick="() => SelectTabAndExpand(FinancialsTab.Positions)"
+                    title="Currently open positions">
+                <Icon Name="list-ul" Class="fp-tab-icon-svg" />
+            </button>
+            <button type="button" class="fp-tab-icon @(_activeTab == FinancialsTab.History ? "active" : "")"
+                    @onclick="() => SelectTabAndExpand(FinancialsTab.History)"
+                    title="@HistoryTabTitle">
+                <Icon Name="file-earmark-fill" Class="fp-tab-icon-svg" />
+            </button>
+            <button type="button" class="fp-tab-icon @(_activeTab == FinancialsTab.Statistics ? "active" : "")"
+                    @onclick="() => SelectTabAndExpand(FinancialsTab.Statistics)"
+                    title="Trade outcome statistics derived from closed-trade history">
+                <Icon Name="bar-chart-steps" Class="fp-tab-icon-svg" />
+            </button>
+        }
+        else
+        {
+            <button type="button" class="fp-tab @(_activeTab == FinancialsTab.Positions ? "active" : "")"
+                    @onclick="() => SelectTab(FinancialsTab.Positions)"
+                    title="Currently open positions">
+                POSITIONS <span class="trade-section-count">@PositionsCount</span>
+            </button>
+            <button type="button" class="fp-tab @(_activeTab == FinancialsTab.History ? "active" : "")"
+                    @onclick="() => SelectTab(FinancialsTab.History)"
+                    title="@HistoryTabTitle">
+                HISTORY <span class="trade-section-count">@HistoryCount</span>
+            </button>
+            <button type="button" class="fp-tab @(_activeTab == FinancialsTab.Statistics ? "active" : "")"
+                    @onclick="() => SelectTab(FinancialsTab.Statistics)"
+                    title="Trade outcome statistics derived from closed-trade history">
+                STATISTICS
+            </button>
+        }
+        <button type="button" class="fp-collapse-toggle" @onclick="ToggleTableCollapsed"
+                title="@(_tableCollapsed ? "Expand positions/history" : "Collapse positions/history")">
+            <Icon Name="@(_tableCollapsed ? "chevron-right" : "chevron-down")" Class="fp-collapse-toggle-icon" />
+        </button>
+    </div>
+
+    @if (!_tableCollapsed)
+    {
+        @if (_activeTab == FinancialsTab.Positions)
+        {
+            @PositionsContent
+        }
+        else if (_activeTab == FinancialsTab.History)
+        {
+            @HistoryContent
+        }
+        else
+        {
+            @StatisticsContent
+        }
+    }
+
+    <div class="fp-financials" title="@FinancialsSummaryTitle">
+        <div class="fp-card" title="Live account balance and equity">
+            <div class="fp-item" title="Live account balance">
+                <span class="fp-label">Balance</span>
+                <span class="fp-value">@Money(Balance)</span>
+            </div>
+            <div class="fp-item" title="Derived as Balance + Unrealized P/L">
+                <span class="fp-label">Equity</span>
+                <span class="fp-value">@Money(Equity)</span>
+            </div>
+        </div>
+
+        <div class="fp-card" title="Margin figures across every open position">
+            <div class="fp-item" title="Sum of used margin across every open position">
+                <span class="fp-label">Margin Used</span>
+                <span class="fp-value">@Money(MarginUsed)</span>
+            </div>
+            <div class="fp-item" title="Derived as Equity / Margin Used">
+                <span class="fp-label">Margin Level</span>
+                <span class="fp-value">@Money(MarginLevel)</span>
+            </div>
+            <div class="fp-item" title="Derived as Equity - Margin Used">
+                <span class="fp-label">Free Margin</span>
+                <span class="fp-value">@Money(FreeMargin)</span>
+            </div>
+        </div>
+
+        <div class="fp-card" title="Realized and unrealized profit/loss">
+            <div class="fp-item-group">
+                @RealizedContent
+            </div>
+            <div class="fp-item" title="Sum of each open position's price difference from the current market times its volume">
+                <span class="fp-label">Unrealized</span>
+                <span class="fp-value">
+                    @Money(UnrealizedPnl)
+                    <span class="fp-value-pct" title="Unrealized P/L as a percentage of balance">@SignedPercent(UnrealizedPnlPercentOfBalance)</span>
+                </span>
+            </div>
+        </div>
+    </div>
+</div>

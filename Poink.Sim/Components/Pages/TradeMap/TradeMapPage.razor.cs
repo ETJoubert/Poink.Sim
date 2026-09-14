@@ -572,7 +572,7 @@ namespace Poink.Sim.Components.Pages.TradeMap
 				Y: 550,
 				W: 340,
 				H: 170,
-				Detail: ["renders PositionTable", "no injected services, pure props", "calc: PositionPnlHelper"],
+				Detail: ["shared with Simulation -- no injects, pure props + RenderFragment content", "calc: TradePage (Equity/Margin/Unrealized)"],
 				Inputs:
 				[
 					new TradeMapPort("tick stream"),
@@ -599,8 +599,8 @@ namespace Poink.Sim.Components.Pages.TradeMap
 				H: 120,
 				Detail:
 				[
-					"row rendering, nested in Financials",
-					"calc: PositionPnlHelper (PipDifference, UnrealizedPnl)",
+					"row rendering, nested in Financials -- shared with Simulation",
+					"pure props (pre-built rows); calc: TradePage (PositionPnlHelper/PositionRiskHelper)",
 				],
 				Inputs: [new TradeMapPort("position rows"), new TradeMapPort("user input")],
 				Outputs: [new TradeMapPort("row selected"), new TradeMapPort("row closed")]

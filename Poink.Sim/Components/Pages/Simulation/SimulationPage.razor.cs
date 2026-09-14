@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 using Poink.Sim.Components.Charts;
+using Poink.Sim.Components.Shared.PositionTable;
 using Poink.Sim.Components.Shared.TradeConsole;
 using Poink.Sim.Helpers;
 using Poink.Sim.Models;
@@ -100,7 +101,9 @@ namespace Poink.Sim.Components.Pages
 
 		private bool _setupCollapsed;
 		private int? _selectedTraderId;
-		private LogTab _activeLogTab;
+
+		// Limbo along with the TRADERS/BRAIN/INPUTS-OUTPUTS tabs in the markup -- a later piece reconnects both.
+		// private LogTab _activeLogTab;
 
 		// Matches SimulationEngine.MaxRecentTicks.
 		private const int MaxTickWindow = 5000;
@@ -1159,16 +1162,6 @@ namespace Poink.Sim.Components.Pages
 			: s.IsPlaying ? "sim-state-playing"
 			: "sim-state-paused";
 
-		private static string PnlClass(double v) =>
-			v switch
-			{
-				> 0 => "sim-pnl-positive",
-				< 0 => "sim-pnl-negative",
-				_ => "",
-			};
-
-		private static string Money(double v) => v.ToString("N2");
-
 		private static string PriceStr(double? v) => v is null ? "—" : v.Value.ToString("F5");
 
 		private sealed record TickRow(string Time, string Bid, string Ask, string Mid);
@@ -1273,27 +1266,8 @@ namespace Poink.Sim.Components.Pages
 					.Reverse()
 					.ToList();
 
-		private static string DecisionLogCellClass(DecisionLogRow item, string propName) =>
-			propName switch
-			{
-				nameof(DecisionLogRow.RealizedPnl) => item.RealizedPnl is { } v ? DataTablePnlClass(v) : "",
-				_ => "",
-			};
-
-		private sealed record OpenPositionRow(
-			string Direction,
-			string Size,
-			string EntryPrice,
-			string EntryTime,
-			double? UnrealizedPnl
-		);
-
-		private static string PositionCellClass(OpenPositionRow item, string propName) =>
-			propName switch
-			{
-				nameof(OpenPositionRow.UnrealizedPnl) => item.UnrealizedPnl is { } v ? DataTablePnlClass(v) : "",
-				_ => "",
-			};
+		private double? RealizedPnlPercentOfBalance() =>
+			SelectedTrader is { } trader && trader.Capital.Cash != 0 ? trader.Capital.RealizedPnl / trader.Capital.Cash * 100 : null;
 
 		private TradeStatistics? Stats =>
 			SelectedTrader is not { } trader
@@ -1302,42 +1276,79 @@ namespace Poink.Sim.Components.Pages
 
 		private IReadOnlyList<StatGroup> StatGroups => Stats?.Groups ?? [];
 
-		private List<OpenPositionRow> OpenPositionRows
+		private IReadOnlyList<PositionRowViewModel<Position>> PositionRows
 		{
 			get
 			{
-				if (SelectedTrader?.Position is { } pos)
-					return new List<OpenPositionRow>
-					{
-						new OpenPositionRow(
-							pos.Direction.ToString(),
-							pos.Size.ToString("F4"),
-							pos.EntryPrice.ToString("F5"),
-							pos.EntryTime.ToString("HH:mm:ss"),
-							_snapshot?.CurrentBid is { } bid && _snapshot?.CurrentAsk is { } ask
-								? pos.UnrealizedPnl(bid, ask)
-								: null
-						),
-					};
-
-				if (SelectedTrader?.PendingOrder is { } pending)
-					return new List<OpenPositionRow>
-					{
-						new OpenPositionRow(
-							$"{pending.Direction} (PENDING {pending.OrderType})",
-							"--",
-							pending.TriggerPrice.ToString("F5"),
-							pending.CreatedTime.ToString("HH:mm:ss"),
-							null
-						),
-					};
-
-				return new List<OpenPositionRow>();
+				if (_snapshot is not { } snapshot || SelectedTrader is not { } trader || trader.Position is not { } position)
+					return Array.Empty<PositionRowViewModel<Position>>();
+				return new[] { ToPositionRow(position, snapshot, trader) };
 			}
 		}
 
-		// Reused for both an open position and a resting pending order -- SimulationAction.Close
-		// already handles either case, and a trader can only ever have one or the other at a time.
-		private void CloseOrCancelSelectedTrader(OpenPositionRow row) => CloseSelectedTrader("manual");
+		private static PositionRowViewModel<Position> ToPositionRow(Position position, SimulationSnapshot snapshot, TraderSnapshot trader)
+		{
+			bool isLong = position.Direction == PositionDirection.Long;
+			double pipSize = snapshot.Config.PipSize;
+			double? currentPrice = (isLong ? snapshot.CurrentBid : snapshot.CurrentAsk) ?? snapshot.CurrentPrice;
+			double? pips =
+				currentPrice is { } price && pipSize > 0
+					? (isLong ? price - position.EntryPrice : position.EntryPrice - price) / pipSize
+					: null;
+			double? pnl =
+				snapshot.CurrentBid is { } bid && snapshot.CurrentAsk is { } ask ? position.UnrealizedPnl(bid, ask) : null;
+			double? projectedProfit =
+				position.TakeProfitPrice is { } tp
+					? RiskHelper.RewardOnTarget(position.Direction, position.Size, position.EntryPrice, tp)
+					: null;
+			double? projectedLoss =
+				position.StopLossPrice is { } sl
+					? RiskHelper.RiskOnStop(position.Direction, position.Size, position.EntryPrice, sl)
+					: null;
+			double? rewardToRisk =
+				projectedLoss is { } risk && projectedProfit is { } reward ? RiskHelper.RewardToRiskRatio(risk, reward) : null;
+			double? percentToTakeProfit = ProgressTowardTarget(position.EntryPrice, position.TakeProfitPrice, pips, pipSize, favorable: true);
+			double? percentToStopLoss = ProgressTowardTarget(position.EntryPrice, position.StopLossPrice, pips, pipSize, favorable: false);
+			double? percentNet = pnl is { } value && trader.Capital.Cash > 0 ? RiskHelper.RiskFraction(value, trader.Capital.Cash) * 100 : null;
+			var duration = (snapshot.CurrentTimestampUtc ?? DateTime.UtcNow) - position.EntryTime;
+
+			return new PositionRowViewModel<Position>(
+				position,
+				snapshot.Config.Table,
+				isLong,
+				isLong ? "LONG" : "SHORT",
+				position.Size.ToString("N2"),
+				position.EntryPrice.ToString("N5"),
+				pips,
+				PositionRowFormat.PipsLabel(pips),
+				pnl,
+				PositionRowFormat.PnlLabel(pnl),
+				position.EntryTime.ToString("HH:mm:ss"),
+				position.StopLossPrice?.ToString("N5") ?? "—",
+				position.TakeProfitPrice?.ToString("N5") ?? "—",
+				projectedProfit,
+				PositionRowFormat.MoneyLabel(projectedProfit),
+				projectedLoss,
+				PositionRowFormat.MoneyLabel(-projectedLoss),
+				percentToTakeProfit,
+				PositionRowFormat.PercentLabel(percentToTakeProfit),
+				percentToStopLoss,
+				PositionRowFormat.PercentLabel(percentToStopLoss),
+				rewardToRisk,
+				PositionRowFormat.RewardToRiskLabel(rewardToRisk),
+				percentNet,
+				PositionRowFormat.PercentLabel(percentNet),
+				PositionRowFormat.DurationLabel(duration)
+			);
+		}
+
+		/// <summary>Progress from entry toward a target price, as a percent of the entry-to-target pip distance.</summary>
+		private static double? ProgressTowardTarget(double entryPrice, double? targetPrice, double? movedPips, double pipSize, bool favorable)
+		{
+			if (targetPrice is not { } target || pipSize <= 0 || movedPips is not { } moved)
+				return null;
+			double totalPips = Math.Abs(target - entryPrice) / pipSize;
+			return totalPips <= 0 ? null : (favorable ? moved : -moved) / totalPips * 100;
+		}
 	}
 }
