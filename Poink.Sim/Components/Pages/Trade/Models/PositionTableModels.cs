@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Poink.Sim.Services.CTrader;
 
 namespace Poink.Sim.Components.Pages.Trade.Models
@@ -17,7 +18,20 @@ namespace Poink.Sim.Components.Pages.Trade.Models
 		string PnlDisplay,
 		string Opened,
 		string StopLoss,
-		string TakeProfit
+		string TakeProfit,
+		double? ProjectedProfit,
+		string ProjectedProfitDisplay,
+		double? ProjectedLoss,
+		string ProjectedLossDisplay,
+		double? PercentToTakeProfit,
+		string PercentToTakeProfitDisplay,
+		double? PercentToStopLoss,
+		string PercentToStopLossDisplay,
+		double? RewardToRisk,
+		string RewardToRiskDisplay,
+		double? PercentNet,
+		string PercentNetDisplay,
+		string DurationDisplay
 	);
 
 	/// <summary>One PositionTable column: pairs its header with the cell(s) it renders, so a reorder or addition can't leave the header row out of sync with the body -- the bug this replaced.</summary>
@@ -27,4 +41,7 @@ namespace Poink.Sim.Components.Pages.Trade.Models
 		Func<PositionRowViewModel, string>? CssClass = null,
 		Func<PositionRowViewModel, string>? Title = null
 	);
+
+	/// <summary>A named band of adjacent PositionTable columns, rendered as a spanning label above them.</summary>
+	public sealed record PositionColumnGroup(string Name, IReadOnlyList<PositionColumn> Columns);
 }
