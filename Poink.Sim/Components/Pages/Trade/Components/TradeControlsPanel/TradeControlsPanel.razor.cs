@@ -13,7 +13,7 @@ namespace Poink.Sim.Components.Pages.Trade
 	/// TraderControlsPanel (order type, direction, volume, SL/TP) but submits through
 	/// ICTraderSessionService instead of a simulated trader.
 	/// </summary>
-	public partial class TradeControlsPanel : ComponentBase
+	public partial class TradeControlsPanel : ComponentBase, IDisposable
 	{
 		[Inject]
 		private ITradeExecutionAccess TradeExecution { get; set; } = null!;
@@ -23,6 +23,9 @@ namespace Poink.Sim.Components.Pages.Trade
 
 		[Inject]
 		private IJSRuntime JS { get; set; } = null!;
+
+		[Inject]
+		private ITradeDraftService TradeDraft { get; set; } = null!;
 
 		[Parameter]
 		public long? SymbolId { get; set; }
@@ -68,6 +71,7 @@ namespace Poink.Sim.Components.Pages.Trade
 		private string? _status;
 		private bool _statusIsError;
 		private bool _busy;
+		private bool _draftActive;
 
 		private PositionDirection Direction => _isLong ? PositionDirection.Long : PositionDirection.Short;
 
@@ -221,6 +225,24 @@ namespace Poink.Sim.Components.Pages.Trade
 
 		private string MarginFreePercentText => MarginFreePercent is { } pct ? $"{pct:P1}" : "--";
 
+		protected override void OnAfterRender(bool firstRender)
+		{
+			if (!_draftActive)
+				return;
+
+			if (SymbolId is { } symbolId && EntryReferencePrice is { } entry)
+				TradeDraft.Update(new TradeDraft(symbolId, _isLong, entry, Volume, StopLossPrice, TakeProfitPrice));
+			else
+				TradeDraft.Clear();
+		}
+
+		private void ToggleDraft()
+		{
+			_draftActive = !_draftActive;
+			if (!_draftActive)
+				TradeDraft.Clear();
+		}
+
 		private async Task SubmitEntry(bool isLong)
 		{
 			_isLong = isLong;
@@ -275,6 +297,11 @@ namespace Poink.Sim.Components.Pages.Trade
 					TakeProfitPrice
 				);
 				SetStatus(result.Message, !result.Success);
+				if (result.Success)
+				{
+					_draftActive = false;
+					TradeDraft.Clear();
+				}
 			}
 			finally
 			{
@@ -309,5 +336,7 @@ namespace Poink.Sim.Components.Pages.Trade
 			_status = message;
 			_statusIsError = isError;
 		}
+
+		public void Dispose() => TradeDraft.Clear();
 	}
 }

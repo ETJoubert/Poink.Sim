@@ -98,6 +98,13 @@ namespace Poink.Sim.Components.Charts
 		[Parameter]
 		public EventCallback<string> OnPositionClosed { get; set; }
 
+		/// <summary>
+		/// A host-owned draft preview, drawn the same way as the user's own click-built draft --
+		/// only used while the user isn't actively building one of their own (see BuildPayload).
+		/// </summary>
+		[Parameter]
+		public XGridExternalDraft? ExternalDraft { get; set; }
+
 		// Working values behind the right-margin panel -- entry price from the clicked cell,
 		// optional SL/TP pinned by a follow-up click while armed. Null when the panel is shut.
 		private sealed class OrderDraft
@@ -360,6 +367,15 @@ namespace Poink.Sim.Components.Charts
 				if (order.StopLoss is { } slPrice)
 					draftLines.Add(new { y = PriceToRowF(grid, slPrice), kind = "sl" });
 				if (order.TakeProfit is { } tpPrice)
+					draftLines.Add(new { y = PriceToRowF(grid, tpPrice), kind = "tp" });
+				draft = new { lines = draftLines };
+			}
+			else if (ExternalDraft is { } ext)
+			{
+				var draftLines = new List<object> { new { y = PriceToRowF(grid, ext.EntryPrice), kind = "entry" } };
+				if (ext.StopLoss is { } slPrice)
+					draftLines.Add(new { y = PriceToRowF(grid, slPrice), kind = "sl" });
+				if (ext.TakeProfit is { } tpPrice)
 					draftLines.Add(new { y = PriceToRowF(grid, tpPrice), kind = "tp" });
 				draft = new { lines = draftLines };
 			}

@@ -66,6 +66,25 @@ namespace Poink.Sim.Components.Pages.Trade
 				})
 				.ToList();
 
+		public static List<ChartHorizontalLine> PositionLines(IReadOnlyList<CTraderPositionInfo> positions, long? symbolId) =>
+			positions
+				.Where(p => p.SymbolId == symbolId)
+				.Select(p => new ChartHorizontalLine(p.EntryPrice, $"{(p.IsLong ? "LONG" : "SHORT")} {p.EntryPrice:N5}", "position"))
+				.ToList();
+
+		public static List<ChartHorizontalLine> DraftLines(TradeDraft? draft, long? symbolId)
+		{
+			if (draft is not { } d || d.SymbolId != symbolId)
+				return new();
+
+			var lines = new List<ChartHorizontalLine> { new(d.EntryPrice, $"DRAFT {(d.IsLong ? "LONG" : "SHORT")}", "draft") };
+			if (d.StopLossPrice is { } sl)
+				lines.Add(new ChartHorizontalLine(sl, "DRAFT SL", "draft"));
+			if (d.TakeProfitPrice is { } tp)
+				lines.Add(new ChartHorizontalLine(tp, "DRAFT TP", "draft"));
+			return lines;
+		}
+
 		public static List<ChartHorizontalLine> ProfileLevelLines(bool showProfileChartLines, List<WeightedPriceSample> mergedSamples)
 		{
 			if (!showProfileChartLines)

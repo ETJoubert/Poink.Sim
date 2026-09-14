@@ -832,6 +832,10 @@ export function create(container, minimapContainer, dotNetRef, interactive) {
         // sign rather than by draw tool.
         win: style.getPropertyValue('--color-success').trim() || accentColor,
         loss: style.getPropertyValue('--color-error').trim() || accentColor,
+        // TradeChartPanel's open-position and draft-order preview lines (see
+        // ChartWindowHelper.PositionLines/DraftLines) -- each its own unclaimed badge colour.
+        position: style.getPropertyValue('--color-badge-1').trim() || accentColor,
+        draft: style.getPropertyValue('--color-badge-3').trim() || accentColor,
     };
 
     // Trade-action markers (see MarketChart.razor.cs's Markers parameter) --

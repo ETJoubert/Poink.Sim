@@ -95,6 +95,7 @@ public static class ServiceCollectionExtensions
 	public static IServiceCollection BuildTradePageServices(this IServiceCollection services)
 	{
 		services.AddScoped<ITradeCoordinator, TradeCoordinator>();
+		services.AddScoped<ITradeDraftService, TradeDraftService>();
 
 		return services;
 	}

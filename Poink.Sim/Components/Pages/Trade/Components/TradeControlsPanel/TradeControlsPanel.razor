@@ -2,6 +2,14 @@
 @using Poink.Sim.Models
 
 <div class="tc-panel">
+    <div class="tc-field" title="Preview this order's entry, stop loss and take profit live on the chart and XGrid while you edit it">
+        <div class="tc-field-head">
+            <span>Draft preview</span>
+            <button type="button" class="tc-toggle @(_draftActive ? "active" : "")" @onclick="ToggleDraft"
+                    title="Show this draft on the chart and XGrid as you edit it">@(_draftActive ? "ON" : "OFF")</button>
+        </div>
+    </div>
+
     <div class="tc-field" title="Market fills immediately; Limit/Stop queue a pending order until price crosses the trigger">
         Order type
         <div class="tc-toggle-group" role="group">

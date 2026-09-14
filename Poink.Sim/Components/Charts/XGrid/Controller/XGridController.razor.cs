@@ -58,6 +58,9 @@ namespace Poink.Sim.Components.Charts
 		[Parameter]
 		public EventCallback<string> OnPositionClosed { get; set; }
 
+		[Parameter]
+		public XGridExternalDraft? ExternalDraft { get; set; }
+
 		private XGridDisplaySettings _display = new();
 		private XGridSpectrumSettings _spectrum = new();
 		private XGridPeakOverlaySettings _lowPointOverlay = new();

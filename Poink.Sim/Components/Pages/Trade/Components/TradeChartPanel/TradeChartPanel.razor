@@ -62,9 +62,7 @@
                         <MarketChartContainer Bars="_chartBars" CurrentBid="ChartQuote?.Bid" CurrentAsk="ChartQuote?.Ask"
                                      KeepView="_chartKeepView" ShowAnnotationTools="false"
                                      WindowStartUtc="WindowStartUtc()" WindowEndUtc="WindowEndUtc()"
-                                     HorizontalLines="ProfileLevelLines()" VwapLine="VwapPoints()"
-                                     EntryPrice="ChartPosition?.EntryPrice" PositionIsLong="ChartPosition?.IsLong"
-                                     StopLossPrice="ChartPosition?.StopLossPrice" TakeProfitPrice="ChartPosition?.TakeProfitPrice" />
+                                     HorizontalLines="ChartOverlayLines()" VwapLine="VwapPoints()" />
                     </div>
                 }
                 @if (_showXGrid)
@@ -74,7 +72,8 @@
                         <div class="trade-chart-divider" @ref="_chartDividerRef" data-min-width="160" title="Drag to resize"></div>
                     }
                     <div class="trade-chart-side">
-                        <XGridController Grid="ComputeXGrid()" Positions="XGridPositions()" @bind-PipCount="_xgridPipCount"
+                        <XGridController Grid="ComputeXGrid()" Positions="XGridPositions()" ExternalDraft="XGridDraft"
+                                          @bind-PipCount="_xgridPipCount"
                                           @bind-ColCount="_xgridColCount" ProfileBarCount="ClampedBarWindow" />
                     </div>
                 }

@@ -37,6 +37,9 @@ namespace Poink.Sim.Components.Pages.Trade
 		[Inject]
 		private IJSRuntime JS { get; set; } = null!;
 
+		[Inject]
+		private ITradeDraftService TradeDraft { get; set; } = null!;
+
 		[Parameter]
 		public long? SymbolId { get; set; }
 
@@ -118,13 +121,13 @@ namespace Poink.Sim.Components.Pages.Trade
 		private CTraderSymbolQuote? ChartQuote =>
 			SymbolId is { } id ? Session.Quotes.FirstOrDefault(q => q.SymbolId == id) : null;
 
-		private CTraderPositionInfo? ChartPosition =>
-			SymbolId is { } id ? Session.Positions.FirstOrDefault(p => p.SymbolId == id) : null;
-
 		protected override void OnInitialized()
 		{
 			Session.TickReceived += OnTickReceived;
+			TradeDraft.Changed += OnDraftChanged;
 		}
+
+		private void OnDraftChanged() => InvokeAsync(StateHasChanged);
 
 		protected override async Task OnParametersSetAsync()
 		{
@@ -445,6 +448,19 @@ namespace Poink.Sim.Components.Pages.Trade
 
 		private List<ChartHorizontalLine> ProfileLevelLines() => ChartWindowHelper.ProfileLevelLines(_showProfileChartLines, MergedBarSamples());
 
+		private List<ChartHorizontalLine> ChartOverlayLines()
+		{
+			var lines = ProfileLevelLines();
+			lines.AddRange(ChartWindowHelper.PositionLines(Session.Positions, SymbolId));
+			lines.AddRange(ChartWindowHelper.DraftLines(TradeDraft.Draft, SymbolId));
+			return lines;
+		}
+
+		private XGridExternalDraft? XGridDraft =>
+			TradeDraft.Draft is { } d && d.SymbolId == SymbolId
+				? new XGridExternalDraft(d.EntryPrice, d.IsLong, d.StopLossPrice, d.TakeProfitPrice)
+				: null;
+
 		private List<ChartLinePoint> VwapPoints() =>
 			ChartWindowHelper.VwapPoints(_showVwap, _chartHlocBars, _chartHistograms, ClampedBarOffset, ClampedBarWindow);
 
@@ -456,6 +472,7 @@ namespace Poink.Sim.Components.Pages.Trade
 		public void Dispose()
 		{
 			Session.TickReceived -= OnTickReceived;
+			TradeDraft.Changed -= OnDraftChanged;
 		}
 
 		public async ValueTask DisposeAsync()
