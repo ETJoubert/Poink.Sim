@@ -89,51 +89,60 @@
 }
 
 .pt-group-position {
-    background: color-mix(in srgb, var(--color-neutral) 6%, transparent);
+    background: color-mix(in srgb, var(--color-neutral) 8%, transparent);
 }
 
-.pt-group-position.pt-group-header {
+.pt-table thead th.pt-group-position {
     color: var(--color-neutral);
 }
 
 .pt-group-risk {
-    background: color-mix(in srgb, var(--color-warning) 7%, transparent);
+    background: color-mix(in srgb, var(--color-warning) 8%, transparent);
 }
 
-.pt-group-risk.pt-group-header {
+.pt-table thead th.pt-group-risk {
     color: var(--color-warning);
 }
 
 .pt-group-projections {
-    background: color-mix(in srgb, var(--color-info) 7%, transparent);
+    background: color-mix(in srgb, var(--color-info) 8%, transparent);
 }
 
-.pt-group-projections.pt-group-header {
+.pt-table thead th.pt-group-projections {
     color: var(--color-info);
 }
 
 .pt-group-time {
-    background: color-mix(in srgb, var(--color-tertiary) 6%, transparent);
+    background: color-mix(in srgb, var(--color-tertiary) 8%, transparent);
 }
 
-.pt-group-time.pt-group-header {
+.pt-table thead th.pt-group-time {
     color: var(--color-tertiary);
 }
 
 .pt-group-net {
-    background: color-mix(in srgb, var(--color-accent) 7%, transparent);
+    background: color-mix(in srgb, var(--color-accent) 8%, transparent);
 }
 
-.pt-group-net.pt-group-header {
+.pt-table thead th.pt-group-net {
     color: var(--color-accent);
 }
 
 .pt-group-actions {
-    background: color-mix(in srgb, var(--color-secondary) 5%, transparent);
+    background: color-mix(in srgb, var(--color-secondary) 8%, transparent);
 }
 
-.pt-group-actions.pt-group-header {
+.pt-table thead th.pt-group-actions {
     color: var(--color-secondary);
+}
+
+.pt-table thead th.pt-group-position,
+.pt-table thead th.pt-group-risk,
+.pt-table thead th.pt-group-projections,
+.pt-table thead th.pt-group-time,
+.pt-table thead th.pt-group-net,
+.pt-table thead th.pt-group-actions {
+    background: color-mix(in srgb, currentColor 16%, var(--color-bg-terminal));
 }
 
 .pt-close-cell {
