@@ -107,8 +107,9 @@
     min-height: 0;
 }
 
-/* The Financials panel is a narrow side panel -- shrink StatisticsPanel's own (roomier,
-   Simulation-page-sized) spacing here rather than in its shared CSS, so Simulation's other uses stay as-is. */
+/* FinancialsPanel is a fixed-height card on both host pages (trade-financials-panel/sim-log-panel are
+   both 280px), so StatisticsPanel's own roomier default spacing is shrunk here rather than in its
+   shared CSS -- applies equally to both hosts since both nest StatisticsPanel inside this same card. */
 .fp-panel ::deep .stp-panel {
     gap: 8px;
 }

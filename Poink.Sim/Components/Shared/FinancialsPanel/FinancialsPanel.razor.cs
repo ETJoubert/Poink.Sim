@@ -98,6 +98,8 @@ namespace Poink.Sim.Components.Shared.FinancialsPanel
 
 		public static string SignedPercent(double? value) => value is { } v ? $"{(v >= 0 ? "+" : "")}{v:N2}%" : "—";
 
+		public static string Percent(double? value) => value is { } v ? $"{v:F1}%" : "—";
+
 		public static string PnlCssClass(double? value) =>
 			value switch
 			{

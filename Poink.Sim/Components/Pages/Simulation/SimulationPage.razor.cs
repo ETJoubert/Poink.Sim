@@ -155,10 +155,10 @@ namespace Poink.Sim.Components.Pages
 		private bool _leftSidePanelCollapsed;
 		private SimLeftPanelTab _activeLeftPanelTab;
 
-		// Sized to grow -- other per-trader views are candidates to join Traders here as sibling tabs later.
 		private enum SimLeftPanelTab
 		{
 			Traders,
+			TraderIo,
 		}
 
 		private int _xgridPipCount = 20;
@@ -1144,13 +1144,6 @@ namespace Poink.Sim.Components.Pages
 
 		private static List<TimedPrice> ToTimedMidPrices(IReadOnlyList<Tick> ticks) =>
 			ticks.Select(t => new TimedPrice(t.Timestamp, (t.Bid + t.Ask) / 2.0)).ToList();
-
-		private static string StateClass(SimulationSnapshot s) =>
-			s.IsFinished ? "sim-state-finished"
-			: s.IsPlaying ? "sim-state-playing"
-			: "sim-state-paused";
-
-		private static string PriceStr(double? v) => v is null ? "—" : v.Value.ToString("F5");
 
 		private sealed record TickRow(string Time, string Bid, string Ask, string Mid);
 

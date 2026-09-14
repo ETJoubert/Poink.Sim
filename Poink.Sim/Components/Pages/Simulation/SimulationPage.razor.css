@@ -38,13 +38,6 @@
     text-shadow: var(--shadow-glow-accent);
 }
 
-.sim-header-mode {
-    font-size: 0.78rem;
-    color: var(--color-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-}
-
 .sim-header-state {
     font-size: 0.68rem;
     font-weight: bold;
@@ -57,26 +50,6 @@
 
 .sim-state-setup {
     color: var(--color-secondary);
-}
-
-.sim-state-playing {
-    color: var(--color-success);
-    text-shadow: 0 0 8px color-mix(in srgb, var(--color-success) 60%, transparent);
-    animation: sim-pulse 1.6s ease-in-out infinite;
-}
-
-.sim-state-paused {
-    color: var(--color-warning);
-}
-
-.sim-state-finished {
-    color: var(--color-secondary);
-    opacity: 0.8;
-}
-
-@keyframes sim-pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.55; }
 }
 
 .sim-stats {
@@ -105,24 +78,6 @@
     font-size: 0.92rem;
     font-weight: 600;
     white-space: nowrap;
-}
-
-.sim-stat-muted {
-    opacity: 0.5;
-    font-weight: 400;
-}
-
-.sim-stat-highlight .sim-stat-value {
-    color: var(--color-success);
-    text-shadow: 0 0 8px color-mix(in srgb, var(--color-success) 50%, transparent);
-}
-
-.sim-pnl-positive {
-    color: var(--color-success);
-}
-
-.sim-pnl-negative {
-    color: var(--color-error);
 }
 
 .sim-setup {

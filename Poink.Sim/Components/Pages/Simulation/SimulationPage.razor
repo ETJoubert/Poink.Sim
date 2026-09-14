@@ -2,6 +2,7 @@
 @page "/simulation"
 @namespace Poink.Sim.Components.Pages
 @using Poink.Sim.Components.Charts
+@using Poink.Sim.Components.Shared.BrainIoPanel
 @using Poink.Sim.Components.Shared.DateRangeSlider
 @using Poink.Sim.Components.Shared.LookbackWindowBar
 @using Poink.Sim.Components.Shared.SimTimeline
@@ -296,7 +297,11 @@
                     {
                         <div class="sim-left-side-panel-tabs">
                             <button type="button" class="sim-left-side-panel-tab @(_activeLeftPanelTab == SimLeftPanelTab.Traders ? "active" : "")"
-                                    @onclick="() => _activeLeftPanelTab = SimLeftPanelTab.Traders">TRADERS</button>
+                                    @onclick="() => _activeLeftPanelTab = SimLeftPanelTab.Traders"
+                                    title="Every trader's live cash/equity/P&L, selectable to drive the right-side controls">TRADERS</button>
+                            <button type="button" class="sim-left-side-panel-tab @(_activeLeftPanelTab == SimLeftPanelTab.TraderIo ? "active" : "")"
+                                    @onclick="() => _activeLeftPanelTab = SimLeftPanelTab.TraderIo"
+                                    title="The selected trader's live brain inputs and output decision distribution">TRADER IO</button>
                         </div>
                         <div class="sim-left-side-panel-content">
                             @if (_activeLeftPanelTab == SimLeftPanelTab.Traders)
@@ -310,6 +315,11 @@
                                                 MarginUsed="trader.Capital.MarginUsed" MarginLevel="trader.Capital.MarginLevel"
                                                 IsSelected="trader.Id == SelectedTrader?.Id" OnSelect="() => SelectTrader(trader.Id)" />
                                 }
+                            }
+                            else if (_activeLeftPanelTab == SimLeftPanelTab.TraderIo)
+                            {
+                                <BrainIoPanel Inputs="SelectedTrader?.Inputs" Outputs="SelectedTrader?.Outputs"
+                                              CurrentPrice="_snapshot?.CurrentPrice" Equity="SelectedTrader?.Capital.Equity" />
                             }
                         </div>
                     }

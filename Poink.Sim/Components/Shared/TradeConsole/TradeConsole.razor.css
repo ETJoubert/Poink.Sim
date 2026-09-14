@@ -245,6 +245,11 @@
     border-color: var(--color-primary);
 }
 
+.tcon-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
 .tcon-btn-warn {
     border-color: color-mix(in srgb, var(--color-warning) 50%, transparent);
     color: var(--color-warning);
