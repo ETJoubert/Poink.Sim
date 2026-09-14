@@ -318,11 +318,17 @@ namespace Poink.Sim.Components.Pages
 		{
 			if (SelectedTrader is not { } trader)
 				return;
-			SimulationService.SubmitManualDecision(
-				trader.Id,
-				new SimulationDecision(SimulationAction.Close, Reason: reason),
-				out _
-			);
+			_consoleError = null;
+			if (
+				!SimulationService.SubmitManualDecision(
+					trader.Id,
+					new SimulationDecision(SimulationAction.Close, Reason: reason),
+					out RiskPolicyDenial? denial
+				)
+			)
+				_consoleError = "close rejected -- no open position or resting order";
+			else if (denial is { } d)
+				_consoleError = $"denied by {d.PolicyName}: {d.Reason}";
 		}
 
 		// Entry price becomes a Limit trigger when it sits on the favourable side of current

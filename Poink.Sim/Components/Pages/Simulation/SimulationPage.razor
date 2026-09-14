@@ -303,8 +303,8 @@
                             {
                                 @foreach (var trader in _snapshot.Traders)
                                 {
-                                    <TraderCard Label="trader.Label" IsManual="TraderIsManual(trader)"
-                                                PositionStatus="TraderPositionStatus(trader)" PositionStatusCssClass="TraderPositionStatusCssClass(trader)"
+                                    <TraderCard Label="@trader.Label" IsManual="TraderIsManual(trader)"
+                                                PositionStatus="@TraderPositionStatus(trader)" PositionStatusCssClass="@TraderPositionStatusCssClass(trader)"
                                                 TradeCount="trader.TradeCount" Cash="trader.Capital.Cash" Equity="trader.Capital.Equity"
                                                 RealizedPnl="trader.Capital.RealizedPnl" UnrealizedPnl="trader.Capital.UnrealizedPnl"
                                                 MarginUsed="trader.Capital.MarginUsed" MarginLevel="trader.Capital.MarginLevel"
@@ -598,7 +598,7 @@
                                               CurrentPrice="_snapshot?.CurrentPrice"
                                               CurrentBid="_snapshot?.CurrentBid"
                                               CurrentAsk="_snapshot?.CurrentAsk"
-                                              StatusMessage="_consoleError" StatusIsError="_consoleError is not null"
+                                              StatusMessage="@_consoleError" StatusIsError="_consoleError is not null"
                                               OnSubmit="HandleConsoleSubmit" />
                             </TradeTab>
                             <PoliciesTab>
