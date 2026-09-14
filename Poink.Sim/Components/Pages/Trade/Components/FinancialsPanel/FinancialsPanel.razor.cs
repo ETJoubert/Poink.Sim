@@ -18,6 +18,7 @@ namespace Poink.Sim.Components.Pages.Trade
 		{
 			Positions,
 			History,
+			Statistics,
 		}
 
 		private enum RealizedWindow
@@ -135,9 +136,12 @@ namespace Poink.Sim.Components.Pages.Trade
 		private void SelectTab(FinancialsTab tab)
 		{
 			_activeTab = tab;
-			if (tab == FinancialsTab.History)
+			if (tab is FinancialsTab.History or FinancialsTab.Statistics)
 				_ = LoadHistoryAsync();
 		}
+
+		// Statistics is derived from the same closed-deal set History shows, rather than a separate fetch.
+		private IReadOnlyList<StatGroup> StatGroups => LiveTradeStatisticsHelper.From(_closedDeals);
 
 		// Positions/History can collapse to save vertical space; the financials summary below
 		// (balance/equity/margin/P&L) always stays visible regardless.

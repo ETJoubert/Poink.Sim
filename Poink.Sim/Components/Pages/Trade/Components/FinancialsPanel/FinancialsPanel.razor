@@ -1,5 +1,6 @@
 @namespace Poink.Sim.Components.Pages.Trade
 @using Poink.Sim.Components.Shared.Icon
+@using Poink.Sim.Components.Shared.StatisticsPanel
 @using Poink.Sim.Services.CTrader
 
 <div class="fp-panel">
@@ -16,6 +17,11 @@
                     title="Closed trades from the last 30 days">
                 <Icon Name="file-earmark-fill" Class="fp-tab-icon-svg" />
             </button>
+            <button type="button" class="fp-tab-icon @(_activeTab == FinancialsTab.Statistics ? "active" : "")"
+                    @onclick="() => SelectTabAndExpand(FinancialsTab.Statistics)"
+                    title="Trade outcome statistics derived from closed-deal history">
+                <Icon Name="bar-chart-steps" Class="fp-tab-icon-svg" />
+            </button>
         }
         else
         {
@@ -28,6 +34,11 @@
                     @onclick="() => SelectTab(FinancialsTab.History)"
                     title="Closed trades from the last 30 days">
                 HISTORY <span class="trade-section-count">@_closedDeals.Count</span>
+            </button>
+            <button type="button" class="fp-tab @(_activeTab == FinancialsTab.Statistics ? "active" : "")"
+                    @onclick="() => SelectTab(FinancialsTab.Statistics)"
+                    title="Trade outcome statistics derived from closed-deal history">
+                STATISTICS
             </button>
         }
         <button type="button" class="fp-collapse-toggle" @onclick="ToggleTableCollapsed"
@@ -42,7 +53,7 @@
         {
             <PositionTable Positions="Positions" Quotes="Quotes" SymbolMetadata="SymbolMetadata" Balance="Balance" OnSelect="OnSelectPosition" OnClose="OnClosePosition" />
         }
-        else
+        else if (_activeTab == FinancialsTab.History)
         {
             <div class="fp-history">
                 @if (_historyLoading)
@@ -88,6 +99,23 @@
                             }
                         </tbody>
                     </table>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="fp-history" title="Derived from the same closed-deal history as the History tab, over the last 30 days">
+                @if (_historyLoading)
+                {
+                    <p class="fp-history-message">Loading closed trades...</p>
+                }
+                else if (_historyError is not null)
+                {
+                    <p class="fp-history-message fp-value-negative">Failed to load history: @_historyError</p>
+                }
+                else
+                {
+                    <StatisticsPanel Groups="StatGroups" EmptyMessage="No closed trades yet." />
                 }
             </div>
         }

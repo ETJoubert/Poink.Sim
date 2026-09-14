@@ -98,6 +98,36 @@
     overflow-y: auto;
 }
 
+/* Trade's Financials panel is a narrow side panel -- shrink StatisticsPanel's own (roomier,
+   Simulation-page-sized) spacing here rather than in its shared CSS, so Simulation stays as-is. */
+.fp-history ::deep .stp-panel {
+    gap: 8px;
+}
+
+.fp-history ::deep .stp-group-header {
+    padding: 5px 10px;
+    font-size: 9px;
+    letter-spacing: 1px;
+}
+
+.fp-history ::deep .stp-item {
+    padding: 4px 10px;
+    gap: 8px;
+}
+
+.fp-history ::deep .stp-item-label {
+    font-size: 10px;
+}
+
+.fp-history ::deep .stp-item-value {
+    font-size: 11px;
+}
+
+.fp-history ::deep .stp-empty {
+    padding: 16px 10px;
+    font-size: 11px;
+}
+
 .fp-history-message {
     padding: 12px 16px;
     font-size: 0.8rem;
