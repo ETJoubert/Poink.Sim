@@ -11,7 +11,7 @@
                 <span class="trade-header-mode">@(SelectedAccount?.IsLive == true ? "LIVE" : "DEMO")</span>
                 <span class="trade-account-number">@(SelectedAccount?.Login.ToString() ?? "—")</span>
                 <span class="trade-header-state @StateClass" title="Current cTrader connection state">
-                    @StateLabel
+                    <span class="trade-state-dot"></span>@StateLabel
                 </span>
                 <Icon Name="chevron-down" Class="trade-account-caret" />
             </button>
