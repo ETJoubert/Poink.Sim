@@ -280,7 +280,7 @@ namespace Poink.Sim.Components.Charts
 			}
 
 			double[]? sweep = null;
-			if (Display.SweepMode != XGridSweepMode.None)
+			if (Display.OverlaysEnabled && Display.SweepMode != XGridSweepMode.None)
 			{
 				sweep = new double[rows];
 				for (var r = 0; r < rows; r++)
@@ -290,7 +290,7 @@ namespace Poink.Sim.Components.Charts
 			var markers = new List<object>();
 			void Add(bool show, XGridLevel? level, string kind)
 			{
-				if (show && level is { } l)
+				if (Display.OverlaysEnabled && show && level is { } l)
 					markers.Add(new { row = l.Row, kind });
 			}
 			Add(Display.ShowPoc, grid.Poc, "poc");
@@ -300,8 +300,11 @@ namespace Poink.Sim.Components.Charts
 			Add(Display.ShowAverage, grid.Average, "avg");
 			Add(Display.ShowMedian, grid.Median, "med");
 
-			var dayLines = Display.ShowDayLines ? IntervalBoundaryColumns(grid, 24) : null;
-			var intervalLines = Display.ShowIntervalLines ? IntervalBoundaryColumns(grid, Display.IntervalHours) : null;
+			var dayLines = Display.OverlaysEnabled && Display.ShowDayLines ? IntervalBoundaryColumns(grid, 24) : null;
+			var intervalLines =
+				Display.OverlaysEnabled && Display.ShowIntervalLines
+					? IntervalBoundaryColumns(grid, Display.IntervalHours)
+					: null;
 
 			static List<object> PointsPayload(IReadOnlyList<(int Row, int Col)> points)
 			{
@@ -310,10 +313,10 @@ namespace Poink.Sim.Components.Charts
 					payload.Add(new { row = pt.Row, col = pt.Col });
 				return payload;
 			}
-			var lowPoints = LowPointOverlay.ShowHighlight
+			var lowPoints = Spectrum.HighlightsEnabled && LowPointOverlay.ShowHighlight
 				? PointsPayload(XGridStats.LowPointCells(grid, LowPointOverlay.Settings))
 				: null;
-			var highPoints = HighPointOverlay.ShowHighlight
+			var highPoints = Spectrum.HighlightsEnabled && HighPointOverlay.ShowHighlight
 				? PointsPayload(XGridStats.HighPointCells(grid, HighPointOverlay.Settings))
 				: null;
 
@@ -384,7 +387,7 @@ namespace Poink.Sim.Components.Charts
 			{
 				rows,
 				cols,
-				mode = Display.ShadeDelta ? "delta" : "count",
+				mode = Spectrum.HighlightsEnabled && Display.ShadeDelta ? "delta" : "count",
 				cells,
 				present,
 				topHighlight = TopHighlightMask(grid, XGridSpectrumMetric.Total),
@@ -483,17 +486,16 @@ namespace Poink.Sim.Components.Charts
 		private double CellIntensity(XGridResult grid, int row, int col)
 		{
 			XGridCell cell = grid.Columns[col].Cells[row];
-			if (Display.ShadeDelta)
+			bool distanceWeighted = Spectrum.HighlightsEnabled && Display.DistanceWeighted;
+			if (Spectrum.HighlightsEnabled && Display.ShadeDelta)
 			{
-				double delta = Display.DistanceWeighted
-					? cell.UpDistance - cell.DownDistance
-					: cell.UpCount - cell.DownCount;
-				double ceiling = Display.DistanceWeighted ? grid.MaxAbsDeltaDistance : grid.MaxAbsDelta;
+				double delta = distanceWeighted ? cell.UpDistance - cell.DownDistance : cell.UpCount - cell.DownCount;
+				double ceiling = distanceWeighted ? grid.MaxAbsDeltaDistance : grid.MaxAbsDelta;
 				return ceiling <= 0 ? 0 : delta / ceiling;
 			}
 
-			double value = Display.DistanceWeighted ? cell.UpDistance + cell.DownDistance : cell.Value;
-			double maxValue = Display.DistanceWeighted ? grid.MaxDistanceValue : grid.MaxValue;
+			double value = distanceWeighted ? cell.UpDistance + cell.DownDistance : cell.Value;
+			double maxValue = distanceWeighted ? grid.MaxDistanceValue : grid.MaxValue;
 			return maxValue <= 0 ? 0 : value / maxValue;
 		}
 
@@ -898,7 +900,7 @@ namespace Poink.Sim.Components.Charts
 		private byte[]? TopHighlightMask(XGridResult grid, XGridSpectrumMetric metric)
 		{
 			var (show, percent) = SpectrumOverlayFor(metric);
-			if (!show)
+			if (!Spectrum.HighlightsEnabled || !show)
 				return null;
 			int rows = grid.RowLow.Count,
 				cols = grid.Columns.Count;
@@ -937,7 +939,7 @@ namespace Poink.Sim.Components.Charts
 		{
 			bool show = positive ? Spectrum.DeltaPosShow : Spectrum.DeltaNegShow;
 			double percent = positive ? Spectrum.DeltaPosPercent : Spectrum.DeltaNegPercent;
-			if (!show)
+			if (!Spectrum.HighlightsEnabled || !show)
 				return null;
 			int rows = grid.RowLow.Count,
 				cols = grid.Columns.Count;

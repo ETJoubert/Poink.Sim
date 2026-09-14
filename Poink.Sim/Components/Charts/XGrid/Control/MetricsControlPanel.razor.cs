@@ -81,13 +81,69 @@ namespace Poink.Sim.Components.Charts
 
 		private Task SetDisplay(XGridDisplaySettings value) => DisplayChanged.InvokeAsync(Display = value);
 
+		private Task ToggleOverlaysEnabled() => SetDisplay(Display with { OverlaysEnabled = !Display.OverlaysEnabled });
+
+		private Task ToggleHighlightsEnabled() =>
+			SetSpectrum(Spectrum with { HighlightsEnabled = !Spectrum.HighlightsEnabled });
+
+		// Master switch turns everything off if either group is currently on, or turns both back on --
+		// it has no memory of its own, since OverlaysEnabled/HighlightsEnabled already are that memory.
+		private Task ToggleAllEnabled()
+		{
+			bool next = !(Display.OverlaysEnabled || Spectrum.HighlightsEnabled);
+			return Task.WhenAll(
+				SetDisplay(Display with { OverlaysEnabled = next }),
+				SetSpectrum(Spectrum with { HighlightsEnabled = next })
+			);
+		}
+
 		private Task SetSpectrum(XGridSpectrumSettings value) => SpectrumChanged.InvokeAsync(Spectrum = value);
+
+		// Total/Up/Down/Delta+/Delta- share one percent threshold rather than five, so setting it
+		// writes every metric's percent field at once.
+		private Task SetSharedPercent(double value) =>
+			SetSpectrum(
+				Spectrum with
+				{
+					TotalPercent = value,
+					UpPercent = value,
+					DownPercent = value,
+					DeltaPosPercent = value,
+					DeltaNegPercent = value,
+				}
+			);
 
 		private Task SetLowPointOverlay(XGridPeakOverlaySettings value) =>
 			LowPointOverlayChanged.InvokeAsync(LowPointOverlay = value);
 
 		private Task SetHighPointOverlay(XGridPeakOverlaySettings value) =>
 			HighPointOverlayChanged.InvokeAsync(HighPointOverlay = value);
+
+		// Low/High share one Mode/Prominence/Distance/AdaptivePercent, so setting any of them writes
+		// both overlays' copies at once -- only each direction's own Show toggle stays independent.
+		private Task SetSharedMode(XGridPeakMode mode) =>
+			Task.WhenAll(
+				SetLowPointOverlay(LowPointOverlay with { Mode = mode }),
+				SetHighPointOverlay(HighPointOverlay with { Mode = mode })
+			);
+
+		private Task SetSharedProminence(double value) =>
+			Task.WhenAll(
+				SetLowPointOverlay(LowPointOverlay with { MinProminence = value }),
+				SetHighPointOverlay(HighPointOverlay with { MinProminence = value })
+			);
+
+		private Task SetSharedDistance(int value) =>
+			Task.WhenAll(
+				SetLowPointOverlay(LowPointOverlay with { MinDistance = value }),
+				SetHighPointOverlay(HighPointOverlay with { MinDistance = value })
+			);
+
+		private Task SetSharedAdaptivePercent(double value) =>
+			Task.WhenAll(
+				SetLowPointOverlay(LowPointOverlay with { AdaptivePercent = value }),
+				SetHighPointOverlay(HighPointOverlay with { AdaptivePercent = value })
+			);
 
 		private Task ToggleHighlightMode() =>
 			SetSpectrum(

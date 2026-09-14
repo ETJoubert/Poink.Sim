@@ -7,6 +7,9 @@ namespace Poink.Sim.Components.Charts
 	/// </summary>
 	public sealed record XGridDisplaySettings
 	{
+		/// <summary>Quick on/off for every overlay below -- disabling doesn't clear any of their settings.</summary>
+		public bool OverlaysEnabled { get; init; } = true;
+
 		public bool ShowPoc { get; init; }
 		public bool ShowVah { get; init; }
 		public bool ShowVal { get; init; }

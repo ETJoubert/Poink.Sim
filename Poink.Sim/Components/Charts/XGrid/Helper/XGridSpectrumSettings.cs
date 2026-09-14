@@ -7,6 +7,9 @@ namespace Poink.Sim.Components.Charts
 	/// </summary>
 	public sealed record XGridSpectrumSettings
 	{
+		/// <summary>Quick on/off for every Highlights control (including Low/High) -- disabling doesn't clear any of their settings.</summary>
+		public bool HighlightsEnabled { get; init; } = true;
+
 		public XGridHighlightMode HighlightMode { get; init; } = XGridHighlightMode.Rank;
 
 		public bool TotalShow { get; init; }
