@@ -38,13 +38,6 @@
     text-shadow: var(--shadow-glow-accent);
 }
 
-.trade-header-chart {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    flex-wrap: wrap;
-}
-
 .trade-body {
     display: flex;
     flex: 1;

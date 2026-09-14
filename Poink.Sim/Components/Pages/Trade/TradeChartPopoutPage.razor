@@ -4,5 +4,5 @@
 
 <PageTitle>@(SymbolName ?? "Chart") - Poink.Sim</PageTitle>
 
-<TradeChartPanel SymbolId="SymbolId" SymbolName="SymbolName"
+<TradeChartPanel SymbolId="SymbolId" SymbolName="@SymbolName"
                   @bind-BarSizeSeconds="BarSizeSeconds" InitialSettings="InitialSettings" />
