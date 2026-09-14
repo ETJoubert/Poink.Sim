@@ -1472,3 +1472,15 @@ input.terminal-input {
   max-width: 420px;
   width: 100%;
 }
+
+/* Global (unscoped) so FinancialsPanel.PnlCssClass's fp-value-positive/negative class names work
+   wherever a host renders them -- Blazor CSS isolation means a scoped ::deep rule in
+   FinancialsPanel.razor.css only reaches markup nested inside its own .fp-panel, not markup like
+   TraderCard's that renders these classes elsewhere on the page. */
+.fp-value-positive {
+  color: var(--color-success);
+}
+
+.fp-value-negative {
+  color: var(--color-error);
+}

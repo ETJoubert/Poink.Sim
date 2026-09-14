@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Components;
+using Poink.Sim.Trader.Risk;
 
 namespace Poink.Sim.Components.Shared.FinancialsPanel
 {
@@ -68,8 +69,7 @@ namespace Poink.Sim.Components.Shared.FinancialsPanel
 		[Parameter]
 		public double? UnrealizedPnl { get; set; }
 
-		private double? UnrealizedPnlPercentOfBalance =>
-			Balance is { } balance and not 0 && UnrealizedPnl is { } pnl ? pnl / balance * 100 : null;
+		private double? UnrealizedPnlPercentOfBalance => RiskHelper.PercentOfBalance(UnrealizedPnl, Balance);
 
 		private FinancialsTab _activeTab = FinancialsTab.Positions;
 		private bool _tableCollapsed;

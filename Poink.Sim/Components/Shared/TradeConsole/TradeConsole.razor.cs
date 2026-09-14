@@ -59,10 +59,7 @@ namespace Poink.Sim.Components.Shared.TradeConsole
 		[Parameter]
 		public bool StatusIsError { get; set; }
 
-		/// <summary>Shows the PREVIEW button and raises <see cref="OnDraftChanged"/> only when true.</summary>
-		[Parameter]
-		public bool EnableDraftPreview { get; set; }
-
+		/// <summary>Shows the PREVIEW button and raises this only while a host has it wired up.</summary>
 		[Parameter]
 		public EventCallback<TradeConsoleDraft?> OnDraftChanged { get; set; }
 
@@ -261,7 +258,7 @@ namespace Poink.Sim.Components.Shared.TradeConsole
 
 		protected override void OnAfterRender(bool firstRender)
 		{
-			if (!EnableDraftPreview || !_draftActive)
+			if (!OnDraftChanged.HasDelegate || !_draftActive)
 				return;
 
 			if (EntryReferencePrice is { } entry)

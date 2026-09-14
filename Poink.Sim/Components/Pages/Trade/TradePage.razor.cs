@@ -11,6 +11,7 @@ using Poink.Sim.Components.Shared.TradeConsole;
 using Poink.Sim.Models;
 using Poink.Sim.Services.CTrader;
 using Poink.Sim.Services.Symbols;
+using Poink.Sim.Trader.Risk;
 
 namespace Poink.Sim.Components.Pages.Trade
 {
@@ -60,7 +61,6 @@ namespace Poink.Sim.Components.Pages.Trade
 		private bool _realizedPickerOpen;
 		private HashSet<long> _knownPositionIds = new();
 
-		private FinancialsPanel.FinancialsTab _activeFinancialsTab = FinancialsPanel.FinancialsTab.Positions;
 		private IReadOnlyList<CTraderDealInfo> _closedDeals = Array.Empty<CTraderDealInfo>();
 		private bool _historyLoading;
 		private string? _historyError;
@@ -131,7 +131,6 @@ namespace Poink.Sim.Components.Pages.Trade
 
 		private void HandleFinancialsTabSelected(FinancialsPanel.FinancialsTab tab)
 		{
-			_activeFinancialsTab = tab;
 			if (tab is FinancialsPanel.FinancialsTab.History or FinancialsPanel.FinancialsTab.Statistics)
 				_ = LoadHistoryAsync();
 		}
@@ -155,8 +154,7 @@ namespace Poink.Sim.Components.Pages.Trade
 
 		private CTraderSymbolQuote? ChartQuoteFor(long symbolId) => Session.Quotes.FirstOrDefault(q => q.SymbolId == symbolId);
 
-		private double? RealizedPnlPercentOfBalance =>
-			Session.Balance is { } balance and not 0 && _realizedPnl is { } pnl ? pnl / balance * 100 : null;
+		private double? RealizedPnlPercentOfBalance => RiskHelper.PercentOfBalance(_realizedPnl, Session.Balance);
 
 		private double? Equity => Session.Balance is { } balance && UnrealizedPnl is { } pnl ? balance + pnl : null;
 
@@ -180,7 +178,7 @@ namespace Poink.Sim.Components.Pages.Trade
 			var percentToTakeProfit = PositionRiskHelper.PercentToTakeProfit(position, quote, metadata);
 			var percentToStopLoss = PositionRiskHelper.PercentToStopLoss(position, quote, metadata);
 			var rewardToRisk = PositionRiskHelper.RewardToRisk(position, metadata);
-			var percentNet = PositionRiskHelper.PercentOfBalance(pnl, Session.Balance);
+			var percentNet = RiskHelper.PercentOfBalance(pnl, Session.Balance);
 			var duration = DateTime.UtcNow - position.OpenTimeUtc;
 
 			return new PositionRowViewModel<CTraderPositionInfo>(

@@ -30,10 +30,6 @@ public static class PositionRiskHelper
 	public static double? PercentToStopLoss(CTraderPositionInfo position, CTraderSymbolQuote? quote, SymbolMetadataModel? metadata) =>
 		Progress(position, quote, metadata, position.StopLossPrice, favorable: false);
 
-	/// <summary>Unrealized P/L as a percent of account balance.</summary>
-	public static double? PercentOfBalance(double? amount, double? balance) =>
-		amount is { } value && balance is > 0 ? RiskHelper.RiskFraction(value, balance.Value) * 100 : null;
-
 	private static double? Progress(
 		CTraderPositionInfo position,
 		CTraderSymbolQuote? quote,

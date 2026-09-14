@@ -179,14 +179,6 @@
     font-weight: bold;
 }
 
-.fp-panel ::deep .fp-value-positive {
-    color: var(--color-success);
-}
-
-.fp-panel ::deep .fp-value-negative {
-    color: var(--color-error);
-}
-
 .fp-financials {
     display: flex;
     align-items: stretch;

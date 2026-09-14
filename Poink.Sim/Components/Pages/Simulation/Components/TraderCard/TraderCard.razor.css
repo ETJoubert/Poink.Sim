@@ -133,13 +133,3 @@
     overflow: hidden;
     text-overflow: ellipsis;
 }
-
-/* FinancialsPanel.PnlCssClass returns these two class names -- CSS isolation is per-file, so this
-   component needs its own copy of the color mapping rather than reaching into FinancialsPanel's. */
-.fp-value-positive {
-    color: var(--color-success);
-}
-
-.fp-value-negative {
-    color: var(--color-error);
-}

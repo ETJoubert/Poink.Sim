@@ -7,9 +7,11 @@ namespace Poink.Sim.Components.Shared.PositionTable
 	{
 		public static string PipsLabel(double? pips) => pips is { } value ? $"{(value >= 0 ? "+" : "")}{value:N1}" : "—";
 
-		public static string PnlLabel(double? pnl) => pnl is { } value ? $"{(value >= 0 ? "+" : "")}{value:N2}" : "—";
+		public static string PnlLabel(double? pnl) =>
+			global::Poink.Sim.Components.Shared.FinancialsPanel.FinancialsPanel.SignedMoney(pnl);
 
-		public static string MoneyLabel(double? value) => value is { } v ? $"{(v >= 0 ? "+" : "")}{v:N2}" : "—";
+		public static string MoneyLabel(double? value) =>
+			global::Poink.Sim.Components.Shared.FinancialsPanel.FinancialsPanel.SignedMoney(value);
 
 		public static string PercentLabel(double? percent) =>
 			percent is { } value ? $"{(value >= 0 ? "+" : "")}{value:N1}%" : "—";

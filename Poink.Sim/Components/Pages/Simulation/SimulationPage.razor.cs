@@ -1201,7 +1201,7 @@ namespace Poink.Sim.Components.Pages
 					.ToList();
 
 		private double? RealizedPnlPercentOfBalance() =>
-			SelectedTrader is { } trader && trader.Capital.Cash != 0 ? trader.Capital.RealizedPnl / trader.Capital.Cash * 100 : null;
+			RiskHelper.PercentOfBalance(SelectedTrader?.Capital.RealizedPnl, SelectedTrader?.Capital.Cash);
 
 		private TradeStatistics? Stats =>
 			SelectedTrader is not { } trader
@@ -1243,7 +1243,7 @@ namespace Poink.Sim.Components.Pages
 				projectedLoss is { } risk && projectedProfit is { } reward ? RiskHelper.RewardToRiskRatio(risk, reward) : null;
 			double? percentToTakeProfit = ProgressTowardTarget(position.EntryPrice, position.TakeProfitPrice, pips, pipSize, favorable: true);
 			double? percentToStopLoss = ProgressTowardTarget(position.EntryPrice, position.StopLossPrice, pips, pipSize, favorable: false);
-			double? percentNet = pnl is { } value && trader.Capital.Cash > 0 ? RiskHelper.RiskFraction(value, trader.Capital.Cash) * 100 : null;
+			double? percentNet = RiskHelper.PercentOfBalance(pnl, trader.Capital.Cash);
 			var duration = (snapshot.CurrentTimestampUtc ?? DateTime.UtcNow) - position.EntryTime;
 
 			return new PositionRowViewModel<Position>(
