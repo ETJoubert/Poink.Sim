@@ -102,6 +102,11 @@
     overflow-y: auto;
 }
 
+.fp-panel ::deep .equity-curve {
+    flex: 1;
+    min-height: 0;
+}
+
 /* The Financials panel is a narrow side panel -- shrink StatisticsPanel's own (roomier,
    Simulation-page-sized) spacing here rather than in its shared CSS, so Simulation's other uses stay as-is. */
 .fp-panel ::deep .stp-panel {

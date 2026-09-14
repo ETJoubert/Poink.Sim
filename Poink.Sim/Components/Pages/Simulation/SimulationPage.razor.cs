@@ -151,13 +151,11 @@ namespace Poink.Sim.Components.Pages
 		private bool _showXGrid;
 		private bool _showVolumeProfile;
 		private bool _showTimeProfile;
-		private bool _showEquityCurve;
 		private bool _traderControlsCollapsed;
 		private bool _leftSidePanelCollapsed;
 		private SimLeftPanelTab _activeLeftPanelTab;
 
-		// Sized to grow -- Brain/Inputs-Outputs (currently in limbo, see the markup comment
-		// near the log panel) are candidates to join Traders here as sibling tabs later.
+		// Sized to grow -- other per-trader views are candidates to join Traders here as sibling tabs later.
 		private enum SimLeftPanelTab
 		{
 			Traders,
@@ -175,10 +173,6 @@ namespace Poink.Sim.Components.Pages
 
 		private bool ShowTimeProfileDivider(SimulationSnapshot s) =>
 			_showTimeProfile && (_showMainChart || (s.Config.Aggregate && _showXGrid) || _showVolumeProfile);
-
-		private bool ShowEquityCurveDivider(SimulationSnapshot s) =>
-			_showEquityCurve
-			&& (_showMainChart || (s.Config.Aggregate && _showXGrid) || _showVolumeProfile || _showTimeProfile);
 
 		private XGridResult? _xgridCache;
 		private (
@@ -735,7 +729,6 @@ namespace Poink.Sim.Components.Pages
 		private ElementReference _chartDividerRefXGrid;
 		private ElementReference _chartDividerRef;
 		private ElementReference _chartDividerRef2;
-		private ElementReference _chartDividerRefEquityCurve;
 		private ElementReference _chartHDividerRef;
 		private IJSObjectReference? _dividerResizeInstance;
 		private HashSet<string> _lastVisibleChartPanels = new();
@@ -805,14 +798,14 @@ namespace Poink.Sim.Components.Pages
 			            divider.addEventListener('pointerup', onUp);
 			        });
 			    }
-			    function bindHeight(divider) {
+			    function bindHeightAfter(divider) {
 			        if (!divider || divider.dataset.bound) return;
 			        divider.dataset.bound = '1';
 			        var minHeight = parseInt(divider.dataset.minHeight, 10) || 160;
 			        var maxHeightVh = parseInt(divider.dataset.maxHeightVh, 10) || 80;
 			        divider.addEventListener('pointerdown', function(e) {
 			            e.preventDefault();
-			            var target = divider.previousElementSibling;
+			            var target = divider.nextElementSibling;
 			            if (!target) return;
 			            var startY = e.clientY;
 			            var startHeight = target.getBoundingClientRect().height;
@@ -821,7 +814,7 @@ namespace Poink.Sim.Components.Pages
 			            divider.classList.add('sim-chart-hdivider-active');
 
 			            function clamp(ev) {
-			                return Math.min(maxHeight, Math.max(minHeight, startHeight + (ev.clientY - startY)));
+			                return Math.min(maxHeight, Math.max(minHeight, startHeight - (ev.clientY - startY)));
 			            }
 			            function onMove(ev) {
 			                target.style.height = clamp(ev) + 'px';
@@ -837,7 +830,7 @@ namespace Poink.Sim.Components.Pages
 			        });
 			    }
 			    return {
-			        bindChartDivider: bindChartDivider, bindHeight: bindHeight,
+			        bindChartDivider: bindChartDivider, bindHeightAfter: bindHeightAfter,
 			        resetChartPanelsEqual: resetChartPanelsEqual,
 			    };
 			})()
@@ -850,7 +843,6 @@ namespace Poink.Sim.Components.Pages
 			if (s.Config.Aggregate && _showXGrid) keys.Add("xgrid");
 			if (_showVolumeProfile) keys.Add("volume");
 			if (_showTimeProfile) keys.Add("time");
-			if (_showEquityCurve) keys.Add("equity");
 			return keys;
 		}
 
@@ -881,9 +873,7 @@ namespace Poink.Sim.Components.Pages
 					await _dividerResizeInstance.InvokeVoidAsync("bindChartDivider", _chartDividerRef);
 				if (ShowTimeProfileDivider(_snapshot))
 					await _dividerResizeInstance.InvokeVoidAsync("bindChartDivider", _chartDividerRef2);
-				if (ShowEquityCurveDivider(_snapshot))
-					await _dividerResizeInstance.InvokeVoidAsync("bindChartDivider", _chartDividerRefEquityCurve);
-				await _dividerResizeInstance.InvokeVoidAsync("bindHeight", _chartHDividerRef);
+				await _dividerResizeInstance.InvokeVoidAsync("bindHeightAfter", _chartHDividerRef);
 			}
 
 			if (

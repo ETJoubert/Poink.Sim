@@ -367,9 +367,6 @@
                                 <button type="button" class="sim-overlay-toggle-btn @(_showTimeProfile ? "active" : "")"
                                         @onclick="() => _showTimeProfile = !_showTimeProfile"
                                         title="Time-at-price histogram over the current window">Time profile</button>
-                                <button type="button" class="sim-overlay-toggle-btn @(_showEquityCurve ? "active" : "")"
-                                        @onclick="() => _showEquityCurve = !_showEquityCurve"
-                                        title="Equity over time for the selected trader, with the best/worst equity reached during the currently open trade">Equity curve</button>
                             </div>
                         </div>
 
@@ -502,20 +499,9 @@
                                     }
                                 </div>
                             }
-                            @if (_showEquityCurve)
-                            {
-                                @if (ShowEquityCurveDivider(s))
-                                {
-                                    <div class="sim-chart-divider" @ref="_chartDividerRefEquityCurve" data-min-width="160"
-                                         title="Drag to resize"></div>
-                                }
-                                <div class="sim-chart-side">
-                                    <EquityCurve Samples="SelectedTraderEquityCurveSamples" />
-                                </div>
-                            }
                         </div>
 
-                        <div class="sim-chart-hdivider" @ref="_chartHDividerRef" data-min-height="160" data-max-height-vh="80"
+                        <div class="sim-chart-hdivider" @ref="_chartHDividerRef" data-min-height="160" data-max-height-vh="70"
                              title="Drag to resize"></div>
                     }
 
@@ -567,6 +553,9 @@
                             <StatisticsContent>
                                 <StatisticsPanel Groups="StatGroups" EmptyMessage="no closed trades yet" />
                             </StatisticsContent>
+                            <EquityContent>
+                                <EquityCurve Samples="SelectedTraderEquityCurveSamples" />
+                            </EquityContent>
                             <RealizedContent>
                                 <div class="fp-item">
                                     <span class="fp-label">Realized</span>

@@ -15,6 +15,7 @@ namespace Poink.Sim.Components.Shared.FinancialsPanel
 			Positions,
 			History,
 			Statistics,
+			Equity,
 		}
 
 		[Parameter]
@@ -25,6 +26,10 @@ namespace Poink.Sim.Components.Shared.FinancialsPanel
 
 		[Parameter]
 		public RenderFragment? StatisticsContent { get; set; }
+
+		/// <summary>Equity-over-time chart -- the tab only appears once a host supplies this.</summary>
+		[Parameter]
+		public RenderFragment? EquityContent { get; set; }
 
 		/// <summary>Realized P/L display -- a plain value, or a host-driven window picker (e.g. Trade's 1H/1D/1W/1M).</summary>
 		[Parameter]

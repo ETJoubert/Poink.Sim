@@ -20,6 +20,14 @@
                     title="Trade outcome statistics derived from closed-trade history">
                 <Icon Name="bar-chart-steps" Class="fp-tab-icon-svg" />
             </button>
+            @if (EquityContent is not null)
+            {
+                <button type="button" class="fp-tab-icon @(_activeTab == FinancialsTab.Equity ? "active" : "")"
+                        @onclick="() => SelectTabAndExpand(FinancialsTab.Equity)"
+                        title="Equity over time">
+                    <Icon Name="graph-up-arrow" Class="fp-tab-icon-svg" />
+                </button>
+            }
         }
         else
         {
@@ -38,6 +46,14 @@
                     title="Trade outcome statistics derived from closed-trade history">
                 STATISTICS
             </button>
+            @if (EquityContent is not null)
+            {
+                <button type="button" class="fp-tab @(_activeTab == FinancialsTab.Equity ? "active" : "")"
+                        @onclick="() => SelectTab(FinancialsTab.Equity)"
+                        title="Equity over time">
+                    EQUITY
+                </button>
+            }
         }
         <button type="button" class="fp-collapse-toggle" @onclick="ToggleTableCollapsed"
                 title="@(_tableCollapsed ? "Expand positions/history" : "Collapse positions/history")">
@@ -54,6 +70,10 @@
         else if (_activeTab == FinancialsTab.History)
         {
             @HistoryContent
+        }
+        else if (_activeTab == FinancialsTab.Equity)
+        {
+            @EquityContent
         }
         else
         {
