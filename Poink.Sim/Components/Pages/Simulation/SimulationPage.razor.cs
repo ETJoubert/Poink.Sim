@@ -157,6 +157,15 @@ namespace Poink.Sim.Components.Pages
 		private bool _showEquityCurve;
 		private bool _showRiskPolicies = true;
 		private bool _traderControlsCollapsed;
+		private bool _leftSidePanelCollapsed;
+		private SimLeftPanelTab _activeLeftPanelTab;
+
+		// Sized to grow -- Brain/Inputs-Outputs (currently in limbo, see the markup comment
+		// near the log panel) are candidates to join Traders here as sibling tabs later.
+		private enum SimLeftPanelTab
+		{
+			Traders,
+		}
 
 		private int _xgridPipCount = 20;
 		private int _xgridColCount = 20;
@@ -536,6 +545,18 @@ namespace Poink.Sim.Components.Pages
 			_selectedTraderId = id;
 			SimulationService.SelectTraderForIo(id);
 		}
+
+		private static bool TraderIsManual(TraderSnapshot trader) => trader.Mode == TraderControlMode.Manual;
+
+		private static string TraderPositionStatus(TraderSnapshot trader) =>
+			trader.Position is { } position ? (position.Direction == PositionDirection.Long ? "LONG" : "SHORT")
+			: trader.PendingOrder is not null ? "PENDING"
+			: "FLAT";
+
+		private static string TraderPositionStatusCssClass(TraderSnapshot trader) =>
+			trader.Position is { } position ? (position.Direction == PositionDirection.Long ? "tcard-status-long" : "tcard-status-short")
+			: trader.PendingOrder is not null ? "tcard-status-pending"
+			: "tcard-status-flat";
 
 		private bool? SelectedPositionIsLong =>
 			SelectedTrader?.Position?.Direction switch
@@ -1181,53 +1202,6 @@ namespace Poink.Sim.Components.Pages
 					)
 					.Reverse()
 					.ToList();
-
-		private sealed record TraderCardItem(
-			int Id,
-			string Trader,
-			double Cash,
-			double Realized,
-			double Unrealized,
-			double Equity,
-			double MarginUsed,
-			double? MarginLevel,
-			string Position,
-			int Trades
-		);
-
-		private List<TraderCardItem> TraderItems =>
-			_snapshot is null
-				? new List<TraderCardItem>()
-				: _snapshot
-					.Traders.Select(t => new TraderCardItem(
-						t.Id,
-						t.Label,
-						t.Capital.Cash,
-						t.Capital.RealizedPnl,
-						t.Capital.UnrealizedPnl,
-						t.Capital.Equity,
-						t.Capital.MarginUsed,
-						t.Capital.MarginLevel,
-						t.Position is null ? "flat" : t.Position.Value.Direction.ToString(),
-						t.TradeCount
-					))
-					.ToList();
-
-		private static string TraderCellClass(TraderCardItem item, string propName) =>
-			propName switch
-			{
-				nameof(TraderCardItem.Realized) => DataTablePnlClass(item.Realized),
-				nameof(TraderCardItem.Unrealized) => DataTablePnlClass(item.Unrealized),
-				_ => "",
-			};
-
-		private static string DataTablePnlClass(double v) =>
-			v switch
-			{
-				> 0 => "data-table-value-positive",
-				< 0 => "data-table-value-negative",
-				_ => "",
-			};
 
 		private sealed record DecisionLogRow(
 			string Time,

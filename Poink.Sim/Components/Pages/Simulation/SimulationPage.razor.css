@@ -400,6 +400,102 @@
     padding: 0 4px 8px;
 }
 
+.sim-left-side-panel {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: 280px;
+    flex-shrink: 0;
+    border-right: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
+    overflow: hidden;
+    transition: width 0.15s ease;
+}
+
+.sim-left-side-panel-collapsed {
+    width: 28px;
+}
+
+.sim-left-side-panel-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    flex-shrink: 0;
+}
+
+.sim-left-side-panel-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    flex-shrink: 0;
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
+    border-radius: var(--border-radius-sm);
+    color: var(--color-secondary);
+    cursor: pointer;
+}
+
+.sim-left-side-panel-toggle:hover {
+    color: var(--color-primary);
+    border-color: var(--color-primary);
+}
+
+::deep .sim-left-side-panel-toggle-icon {
+    width: 12px;
+    height: 12px;
+}
+
+.sim-left-side-panel-label {
+    font-size: 0.72rem;
+    font-weight: bold;
+    color: var(--color-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sim-left-side-panel-tabs {
+    display: flex;
+    flex-shrink: 0;
+    padding: 0 8px;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+.sim-left-side-panel-tab {
+    padding: 6px 4px;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--color-secondary);
+    font-family: var(--font-heading);
+    font-size: 0.64rem;
+    font-weight: bold;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+}
+
+.sim-left-side-panel-tab:hover {
+    color: var(--color-primary);
+}
+
+.sim-left-side-panel-tab.active {
+    color: var(--color-accent);
+    border-bottom-color: var(--color-accent);
+}
+
+.sim-left-side-panel-content {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+}
+
 .sim-controls {
     display: flex;
     align-items: center;

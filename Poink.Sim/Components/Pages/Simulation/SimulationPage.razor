@@ -26,10 +26,7 @@
 
     <div class="sim-topbar">
         <header class="sim-header">
-            <button class="sim-setup-toggle" @onclick="ToggleSetupPanel"
-                    title="@(_setupCollapsed ? "Expand the data range, brain and trader options" : "Collapse the data range, brain and trader options")">
-                <Icon Name="@(_setupCollapsed ? "chevron-right" : "chevron-down")" Class="sim-setup-toggle-icon" />
-            </button>
+         
             @if (_snapshot is null)
             {
                 <div class="sim-header-title">
@@ -59,33 +56,7 @@
             {
                 var s = _snapshot;
                 var trader = SelectedTrader!;
-                <div class="sim-header-title">
-                    <span class="sim-header-symbol">@s.Config.Table</span>
-                    <span class="sim-header-mode">@(s.Config.Aggregate ? $"{BarSizeOptions.Label((int)s.Config.BarSize.TotalSeconds)} bars" : "raw ticks")</span>
-                    @if (s.Config.Aggregate && s.Config.SteppingMode == SimulationSteppingMode.Cell)
-                    {
-                        <span class="sim-header-mode" title="Decisions step on a fixed price band instead of the bar clock">
-                            step: cell (@s.Config.CellWidth.ToString("F5"))
-                        </span>
-                    }
-                    <span class="sim-header-mode">viewing: @trader.Label</span>
-                    <span class="sim-header-state @StateClass(s)">
-                        @(s.IsFinished ? "FINISHED" : s.IsPlaying ? "PLAYING" : "PAUSED")
-                    </span>
-                </div>
                 <div class="sim-stats">
-                    <div class="sim-stat">
-                        <span class="sim-stat-label">price</span>
-                        <span class="sim-stat-value">@PriceStr(s.CurrentPrice)</span>
-                    </div>
-                        <div class="sim-stat">
-                            <span class="sim-stat-label">positions</span>
-                            <span class="sim-stat-value">@(trader.Position is not null ? 1 : 0)</span>
-                        </div>
-                        <div class="sim-stat">
-                            <span class="sim-stat-label">trades</span>
-                            <span class="sim-stat-value">@trader.TradeCount</span>
-                        </div>
                         @if (s.Config.SteppingMode == SimulationSteppingMode.Cell && s.CellState is { } cellStat)
                         {
                             <div class="sim-stat" title="How many times price has crossed into a new cell -- this is what drives decisions instead of the bar clock">
@@ -239,6 +210,10 @@
                 var s = _snapshot;
                 <div class="sim-toolbar">
                     <div class="sim-controls">
+                           <button class="sim-setup-toggle" @onclick="ToggleSetupPanel"
+                    title="@(_setupCollapsed ? "Expand the data range, brain and trader options" : "Collapse the data range, brain and trader options")">
+                <Icon Name="@(_setupCollapsed ? "chevron-right" : "chevron-down")" Class="sim-setup-toggle-icon" />
+            </button>
                         <button class="sim-ctrl-btn sim-ctrl-btn-play" @onclick="TogglePlayPause" disabled="@s.IsFinished">
                             <Icon Name="@(s.IsPlaying ? "pause-fill" : "play-fill")" Class="sim-ctrl-icon" />
                             @(s.IsPlaying ? "PAUSE" : "PLAY")
@@ -305,6 +280,42 @@
         </div>
 
         <div class="sim-body">
+            @if (_snapshot is not null)
+            {
+                <aside class="sim-left-side-panel @(_leftSidePanelCollapsed ? "sim-left-side-panel-collapsed" : "")">
+                    <div class="sim-left-side-panel-header">
+                        <button type="button" class="sim-left-side-panel-toggle" @onclick="() => _leftSidePanelCollapsed = !_leftSidePanelCollapsed"
+                                title="@(_leftSidePanelCollapsed ? "Expand the traders panel" : "Collapse the traders panel")">
+                            <Icon Name="@(_leftSidePanelCollapsed ? "chevron-right" : "chevron-left")" Class="sim-left-side-panel-toggle-icon" />
+                        </button>
+                        @if (!_leftSidePanelCollapsed)
+                        {
+                            <span class="sim-left-side-panel-label">TRADERS <span class="trade-section-count">@_snapshot.Traders.Count</span></span>
+                        }
+                    </div>
+                    @if (!_leftSidePanelCollapsed)
+                    {
+                        <div class="sim-left-side-panel-tabs">
+                            <button type="button" class="sim-left-side-panel-tab @(_activeLeftPanelTab == SimLeftPanelTab.Traders ? "active" : "")"
+                                    @onclick="() => _activeLeftPanelTab = SimLeftPanelTab.Traders">TRADERS</button>
+                        </div>
+                        <div class="sim-left-side-panel-content">
+                            @if (_activeLeftPanelTab == SimLeftPanelTab.Traders)
+                            {
+                                @foreach (var trader in _snapshot.Traders)
+                                {
+                                    <TraderCard Label="trader.Label" IsManual="TraderIsManual(trader)"
+                                                PositionStatus="TraderPositionStatus(trader)" PositionStatusCssClass="TraderPositionStatusCssClass(trader)"
+                                                TradeCount="trader.TradeCount" Cash="trader.Capital.Cash" Equity="trader.Capital.Equity"
+                                                RealizedPnl="trader.Capital.RealizedPnl" UnrealizedPnl="trader.Capital.UnrealizedPnl"
+                                                MarginUsed="trader.Capital.MarginUsed" MarginLevel="trader.Capital.MarginLevel"
+                                                IsSelected="trader.Id == SelectedTrader?.Id" OnSelect="() => SelectTrader(trader.Id)" />
+                                }
+                            }
+                        </div>
+                    }
+                </aside>
+            }
             <div class="sim-main">
 
                 @if (_snapshot is null)
