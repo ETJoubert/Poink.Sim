@@ -174,6 +174,9 @@ function render(ctx, W, H, p, st, canvas) {
     ctx.fillStyle = cssVar('--xgrid-grid-fill', canvas);
     ctx.fillRect(ml, 0, gRight - ml, H - mb);
 
+    // Drawn before the cells so the footprint still reads on top of the tint.
+    drawDraftZones(ctx, L, p);
+
     // cells: byte per cell, 128 = zero; delta mode reads the sign, count mode is >= 128.
     const info = rgb(cssVar('--color-info'));
     const succ = rgb(cssVar('--color-success'));
@@ -490,6 +493,29 @@ function hitPending(p, L, x, y) {
         if (Math.abs(x - rx) < 8 && dy < 8) { best = { qi: i }; bestD = 0; }
     }
     return best;
+}
+
+// Light tint over the entry-to-SL / entry-to-TP price range, painted behind the cells (see
+// render's call order) so the footprint fill still reads on top of it.
+function drawDraftZones(ctx, L, p) {
+    if (!p.draft || !p.draft.lines) return;
+    let entryY = null, slY = null, tpY = null;
+    for (const dl of p.draft.lines) {
+        if (dl.kind === 'entry') entryY = dl.y;
+        else if (dl.kind === 'sl') slY = dl.y;
+        else if (dl.kind === 'tp') tpY = dl.y;
+    }
+    if (entryY == null) return;
+
+    if (tpY != null) fillZone(ctx, L, entryY, tpY, cssVar('--color-success'));
+    if (slY != null) fillZone(ctx, L, entryY, slY, cssVar('--color-error'));
+}
+
+function fillZone(ctx, L, y1, y2, color) {
+    const top = Math.min(y1, y2) * L.ch, bottom = Math.max(y1, y2) * L.ch;
+    if (bottom <= top) return;
+    ctx.fillStyle = `rgba(${rgb(color)},0.12)`;
+    ctx.fillRect(L.ml, top, L.gRight - L.ml, bottom - top);
 }
 
 // Order draft levels drawn across the grid: entry as a solid grey line, stop loss / take
