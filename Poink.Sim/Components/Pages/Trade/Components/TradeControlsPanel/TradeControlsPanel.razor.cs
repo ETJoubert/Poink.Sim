@@ -132,22 +132,30 @@ namespace Poink.Sim.Components.Pages.Trade
 				? pips * PipSize
 				: null;
 
+		/// <summary>
+		/// The symbol's smallest price increment (from its Digits), e.g. 0.01 for a 2-digit symbol.
+		/// SL/TP prices are rounded to this so a %balance-derived price -- or plain float noise from
+		/// pip arithmetic -- never carries more decimals than cTrader accepts for the symbol.
+		/// </summary>
+		private double? PriceStep => Metadata is { } metadata ? 1.0 / Math.Pow(10, metadata.Digits) : null;
+
 		private double? StopLossPrice
 		{
 			get
 			{
 				if (EntryReferencePrice is not { } entry || entry <= 0)
 					return null;
-				return _stopLossMode == SizingMode.Pips
+				double? price = _stopLossMode == SizingMode.Pips
 					? _stopLossPips is { } pips
 						? RiskHelper.StopLossPriceFromPips(Direction, entry, pips, PipSize)
 						: null
 					: _stopLossPercent is { } percent
 						? RiskHelper.StopLossPriceForSizeRisk(Direction, Volume, entry, percent / 100.0 * (Session.Balance ?? 0)) is
-							{ } price
-							? RiskHelper.ClampToMinimumDistance(entry, price, MinStopLossDistancePrice ?? 0)
+							{ } raw
+							? RiskHelper.ClampToMinimumDistance(entry, raw, MinStopLossDistancePrice ?? 0)
 							: null
 						: null;
+				return price is { } p ? RiskHelper.RoundToStep(p, PriceStep ?? 0) : null;
 			}
 		}
 
@@ -157,16 +165,17 @@ namespace Poink.Sim.Components.Pages.Trade
 			{
 				if (EntryReferencePrice is not { } entry || entry <= 0)
 					return null;
-				return _takeProfitMode == SizingMode.Pips
+				double? price = _takeProfitMode == SizingMode.Pips
 					? _takeProfitPips is { } pips
 						? RiskHelper.TakeProfitPriceFromPips(Direction, entry, pips, PipSize)
 						: null
 					: _takeProfitPercent is { } percent
 						? RiskHelper.TakeProfitPriceForSizeReward(Direction, Volume, entry, percent / 100.0 * (Session.Balance ?? 0)) is
-							{ } price
-							? RiskHelper.ClampToMinimumDistance(entry, price, MinTakeProfitDistancePrice ?? 0)
+							{ } raw
+							? RiskHelper.ClampToMinimumDistance(entry, raw, MinTakeProfitDistancePrice ?? 0)
 							: null
 						: null;
+				return price is { } p ? RiskHelper.RoundToStep(p, PriceStep ?? 0) : null;
 			}
 		}
 
