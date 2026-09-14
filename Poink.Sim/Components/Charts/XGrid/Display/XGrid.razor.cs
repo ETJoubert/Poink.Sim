@@ -941,7 +941,7 @@ namespace Poink.Sim.Components.Charts
 
 			if (Spectrum.HighlightMode == XGridHighlightMode.Max)
 			{
-				double max = grid.MaxAbsDelta;
+				double max = XGridStats.MaxAbsDeltaOnSide(grid, positive);
 				if (max <= 0)
 					return mask;
 				double threshold = XGridStats.MaxModeThreshold(max, percent);
