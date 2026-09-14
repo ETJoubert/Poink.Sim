@@ -18,6 +18,7 @@
 @using Poink.Sim.Components.Shared.Icon
 @using Poink.Sim.Components.Shared.ViewDatatable
 @using Poink.Sim.Components.Shared.TraderSidePanel
+@using Poink.Sim.Components.Shared.TradeConsole
 
 <div class="sim-page">
 
@@ -576,7 +577,8 @@
                             else if (_activeLogTab == LogTab.Positions)
                             {
                                 <DataTable TItem="OpenPositionRow" Items="OpenPositionRows" ShowRowNumbers="false"
-                                           ActionsHeader="VIEW" CellClass="PositionCellClass" EmptyMessage="flat" />
+                                           ActionsHeader="CLOSE" CellClass="PositionCellClass" EmptyMessage="flat"
+                                           OnDelete="CloseOrCancelSelectedTrader" />
                             }
                             else if (_activeLogTab == LogTab.Traders)
                             {
@@ -625,16 +627,14 @@
                     <div class="sim-right-side-panel-content">
                         <TraderSidePanel Collapsed="_traderControlsCollapsed" OnExpandRequested="() => _traderControlsCollapsed = false">
                             <TradeTab>
-                                <TraderControlsPanel TraderId="SelectedTrader?.Id"
-                                                     PositionSummary="SelectedPositionSummary"
-                                                     PendingSummary="SelectedPendingSummary"
-                                                     Cash="SelectedTrader?.Capital.Cash ?? 0"
-                                                     Leverage="SelectedTrader?.Leverage ?? 1"
-                                                     StopOutLevelPercent="SelectedTrader?.StopOutLevelPercent ?? 50"
-                                                     PipSize="_snapshot?.Config.PipSize ?? 0.01"
-                                                     CurrentPrice="_snapshot?.CurrentPrice"
-                                                     CurrentBid="_snapshot?.CurrentBid"
-                                                     CurrentAsk="_snapshot?.CurrentAsk" />
+                                <TradeConsole HasSelection="SelectedTrader is not null"
+                                              Balance="SelectedTrader?.Capital.Cash" Leverage="SelectedTrader?.Leverage"
+                                              PipSize="_snapshot?.Config.PipSize ?? 0.01"
+                                              CurrentPrice="_snapshot?.CurrentPrice"
+                                              CurrentBid="_snapshot?.CurrentBid"
+                                              CurrentAsk="_snapshot?.CurrentAsk"
+                                              StatusMessage="_consoleError" StatusIsError="_consoleError is not null"
+                                              OnSubmit="HandleConsoleSubmit" />
                             </TradeTab>
                         </TraderSidePanel>
                     </div>

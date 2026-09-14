@@ -1,42 +1,10 @@
-.tc-panel {
+.tcon-panel {
     display: flex;
     flex-direction: column;
     gap: 10px;
 }
 
-.tc-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-}
-
-.tc-title {
-    font-family: var(--font-heading);
-    font-size: 0.72rem;
-    font-weight: bold;
-    letter-spacing: 0.08em;
-    color: var(--color-secondary);
-    text-transform: uppercase;
-}
-
-.tc-badge {
-    font-size: 0.6rem;
-    font-weight: bold;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    padding: 2px 8px;
-    border-radius: 999px;
-    border: 1px solid color-mix(in srgb, var(--color-secondary) 45%, transparent);
-    color: var(--color-secondary);
-}
-
-.tc-badge-live {
-    border-color: color-mix(in srgb, var(--color-error) 50%, transparent);
-    color: var(--color-error);
-}
-
-.tc-status {
+.tcon-status {
     font-family: var(--font-mono, monospace);
     font-size: 0.78rem;
     color: var(--color-success);
@@ -45,12 +13,12 @@
     border-radius: 4px;
 }
 
-.tc-status-error {
+.tcon-status-error {
     color: var(--color-error);
     border-color: color-mix(in srgb, var(--color-error) 30%, transparent);
 }
 
-.tc-field {
+.tcon-field {
     display: flex;
     flex-direction: column;
     gap: 3px;
@@ -60,7 +28,7 @@
     letter-spacing: 0.04em;
 }
 
-.tc-input {
+.tcon-input {
     font-size: 0.85rem;
     padding: 4px 6px;
     background: var(--color-bg-terminal);
@@ -69,20 +37,20 @@
     color: var(--color-primary);
 }
 
-.tc-field-head {
+.tcon-field-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 8px;
 }
 
-.tc-input-row {
+.tcon-input-row {
     display: flex;
     align-items: stretch;
     gap: 4px;
 }
 
-.tc-calculated {
+.tcon-calculated {
     font-size: 0.85rem;
     padding: 4px 6px;
     background: color-mix(in srgb, var(--color-primary) 6%, transparent);
@@ -92,12 +60,12 @@
     font-family: var(--font-mono, monospace);
 }
 
-.tc-input-row .tc-input {
+.tcon-input-row .tcon-input {
     flex: 1;
     min-width: 0;
 }
 
-.tc-clear {
+.tcon-clear {
     flex: 0 0 auto;
     width: 26px;
     font-size: 0.95rem;
@@ -110,33 +78,33 @@
     transition: all 0.2s ease;
 }
 
-.tc-clear:hover:not(:disabled) {
+.tcon-clear:hover:not(:disabled) {
     color: var(--color-error);
     border-color: color-mix(in srgb, var(--color-error) 50%, transparent);
     background: color-mix(in srgb, var(--color-error) 12%, transparent);
 }
 
-.tc-clear:disabled {
+.tcon-clear:disabled {
     opacity: 0.3;
     cursor: not-allowed;
 }
 
-.tc-toggle-group {
+.tcon-toggle-group {
     display: flex;
     gap: 0;
 }
 
-.tc-toggle-group-sm {
+.tcon-toggle-group-sm {
     flex: 0 0 auto;
 }
 
-.tc-toggle-group-sm .tc-toggle {
+.tcon-toggle-group-sm .tcon-toggle {
     flex: 0 0 auto;
     padding: 3px 8px;
     font-size: 10px;
 }
 
-.tc-toggle {
+.tcon-toggle {
     flex: 1;
     font-family: var(--font-body);
     font-weight: bold;
@@ -151,39 +119,39 @@
     transition: all 0.2s ease;
 }
 
-.tc-toggle:first-child {
+.tcon-toggle:first-child {
     border-left-width: 1px;
     border-top-left-radius: var(--border-radius-sm);
     border-bottom-left-radius: var(--border-radius-sm);
 }
 
-.tc-toggle:last-child {
+.tcon-toggle:last-child {
     border-top-right-radius: var(--border-radius-sm);
     border-bottom-right-radius: var(--border-radius-sm);
 }
 
-.tc-toggle:hover {
+.tcon-toggle:hover {
     color: var(--color-primary);
     background: color-mix(in srgb, var(--color-primary) 10%, transparent);
 }
 
-.tc-toggle.active {
+.tcon-toggle.active {
     background: var(--color-primary);
     color: var(--color-bg-terminal);
     border-color: var(--color-primary);
 }
 
-.tc-toggle-buy.active {
+.tcon-toggle-buy.active {
     background: var(--color-success);
     border-color: var(--color-success);
 }
 
-.tc-toggle-sell.active {
+.tcon-toggle-sell.active {
     background: var(--color-error);
     border-color: var(--color-error);
 }
 
-.tc-preview {
+.tcon-preview {
     display: flex;
     flex-direction: column;
     gap: 4px;
@@ -193,7 +161,7 @@
     font-family: var(--font-mono, monospace);
 }
 
-.tc-preview-title {
+.tcon-preview-title {
     font-size: 0.62rem;
     font-weight: bold;
     text-transform: uppercase;
@@ -202,12 +170,12 @@
     opacity: 0.75;
 }
 
-.tc-table {
+.tcon-table {
     width: 100%;
     border-collapse: collapse;
 }
 
-.tc-table th {
+.tcon-table th {
     font-size: 0.6rem;
     font-weight: normal;
     text-transform: uppercase;
@@ -217,11 +185,11 @@
     padding: 0 4px 3px;
 }
 
-.tc-table th:first-child {
+.tcon-table th:first-child {
     text-align: left;
 }
 
-.tc-table td {
+.tcon-table td {
     padding: 3px 4px;
     font-size: 0.82rem;
     font-weight: bold;
@@ -230,11 +198,11 @@
     white-space: nowrap;
 }
 
-.tc-table tr:not(:last-child) td {
+.tcon-table tr:not(:last-child) td {
     border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 12%, transparent);
 }
 
-.tc-table td.tc-table-label {
+.tcon-table td.tcon-table-label {
     text-align: left;
     font-size: 0.68rem;
     font-weight: normal;
@@ -243,21 +211,21 @@
     color: var(--color-secondary);
 }
 
-.tc-table tr.loss td:not(.tc-table-label) {
+.tcon-table tr.loss td:not(.tcon-table-label) {
     color: var(--color-error);
 }
 
-.tc-table tr.gain td:not(.tc-table-label) {
+.tcon-table tr.gain td:not(.tcon-table-label) {
     color: var(--color-success);
 }
 
-.tc-actions {
+.tcon-actions {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
 }
 
-.tc-btn {
+.tcon-btn {
     font-family: var(--font-body);
     font-weight: bold;
     font-size: 12px;
@@ -272,42 +240,42 @@
     transition: all 0.2s ease;
 }
 
-.tc-btn:hover:not(:disabled) {
+.tcon-btn:hover:not(:disabled) {
     background: color-mix(in srgb, var(--color-primary) 12%, transparent);
     border-color: var(--color-primary);
 }
 
-.tc-btn-warn {
+.tcon-btn-warn {
     border-color: color-mix(in srgb, var(--color-warning) 50%, transparent);
     color: var(--color-warning);
 }
 
-.tc-btn-warn:hover:not(:disabled) {
+.tcon-btn-warn:hover:not(:disabled) {
     background: color-mix(in srgb, var(--color-warning) 14%, transparent);
     border-color: var(--color-warning);
 }
 
-.tc-buy {
+.tcon-buy {
     border-color: color-mix(in srgb, var(--color-success) 50%, transparent);
     color: var(--color-success);
 }
 
-.tc-buy:hover:not(:disabled) {
+.tcon-buy:hover:not(:disabled) {
     background: color-mix(in srgb, var(--color-success) 14%, transparent);
     border-color: var(--color-success);
 }
 
-.tc-sell {
+.tcon-sell {
     border-color: color-mix(in srgb, var(--color-error) 50%, transparent);
     color: var(--color-error);
 }
 
-.tc-sell:hover:not(:disabled) {
+.tcon-sell:hover:not(:disabled) {
     background: color-mix(in srgb, var(--color-error) 14%, transparent);
     border-color: var(--color-error);
 }
 
-.tc-btn-preview.active {
+.tcon-btn-preview.active {
     background: var(--color-primary);
     color: var(--color-bg-terminal);
     border-color: var(--color-primary);

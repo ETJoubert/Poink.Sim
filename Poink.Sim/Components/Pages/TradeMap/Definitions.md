@@ -31,10 +31,12 @@ A connector whose ports already face each other (forward Display, backward Contr
 These two solve different problems and don't compete:
 
 - **Interface segregation controls who can command what** -- it's about outbound capability. Each panel injects only the narrow Interface(s) it actually needs, so `FinancialsPanel` can't accidentally reach `PlaceOrderAsync` just because it's sitting on some shared object.
-- **Interfaces already propagate state on their own** -- a Driver is a singleton that raises its own change events (e.g. `ICTraderSessionService.Changed`), so when `TradeControlsPanel` places an order and the Driver's positions update, any panel holding the relevant Interface finds out directly. No coordinator has to relay that -- it's Observer/pub-sub, not Mediator.
+- **Interfaces already propagate state on their own** -- a Driver is a singleton that raises its own change events (e.g. `ICTraderSessionService.Changed`), so when `TradeChartPanel` places an order and the Driver's positions update, any panel holding the relevant Interface finds out directly. No coordinator has to relay that -- it's Observer/pub-sub, not Mediator.
 - **The Coordinator is what's left over**: state with no Driver owner at all, because it's a pure UI/application notion, not a domain fact. "Which symbol is currently selected" isn't something `ICTraderSessionService` knows or should know -- nothing but the UI layer invented that concept, so it has nowhere else to live.
 
-**Extending a panel's capability later** is additive, not a wall to tear down: if `SymbolWatchlistPanel` later needs to place trades, it just also injects `ITradeExecutionAccess` alongside `IWatchlistAccess` -- a one-line, compiler-checked change. Nothing about `TradeControlsPanel`, the Coordinator, or the underlying Driver has to move.
+**Extending a panel's capability later** is additive, not a wall to tear down: if `SymbolWatchlistPanel` later needs to place trades, it just also injects `ITradeExecutionAccess` alongside `IWatchlistAccess` -- a one-line, compiler-checked change. Nothing about `TradeChartPanel`, the Coordinator, or the underlying Driver has to move.
+
+Not every panel injects a Driver directly, though -- `TradeConsole` (order entry, shared with the Simulation page) takes its account context as plain parameters and hands submissions back via an `EventCallback`, with `TradePage` doing the actual `ITradeExecutionAccess` call. That's a deliberate trade for reusability, not a rule violation: a shared component can't inject a page-specific Driver interface, so parameters/callbacks stand in for DI at that boundary.
 
 ## Terminology notes
 

@@ -1,51 +1,73 @@
 using System;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
-using Microsoft.JSInterop;
-using Poink.Sim.Components.Pages.Trade.Helpers;
 using Poink.Sim.Models;
-using Poink.Sim.Services.CTrader;
-using Poink.Sim.Services.Symbols;
 using Poink.Sim.Trader.Risk;
 
-namespace Poink.Sim.Components.Pages.Trade
+namespace Poink.Sim.Components.Shared.TradeConsole
 {
 	/// <summary>
-	/// Order-entry panel for the live Trade page -- lays out the same fields as Simulation's
-	/// TraderControlsPanel (order type, direction, volume, SL/TP) but submits through
-	/// ICTraderSessionService instead of a simulated trader.
+	/// Order-entry panel shared by the live Trade page and the Simulation page -- order type, direction,
+	/// volume, SL/TP and entry/projection tables. Carries no page-specific backend: submission and the
+	/// optional chart-draft preview are handed back to the host page via callbacks, and it takes account
+	/// context (balance, leverage, quotes) as plain parameters instead of injecting a session service.
 	/// </summary>
-	public partial class TradeControlsPanel : ComponentBase, IDisposable
+	public partial class TradeConsole : ComponentBase
 	{
-		[Inject]
-		private ITradeExecutionAccess TradeExecution { get; set; } = null!;
-
-		[Inject]
-		private ITickStreamAccess Session { get; set; } = null!;
-
-		[Inject]
-		private IJSRuntime JS { get; set; } = null!;
-
-		[Inject]
-		private ITradeDraftService TradeDraft { get; set; } = null!;
-
-		[Inject]
-		private ISymbolMetadataCache MetadataCache { get; set; } = null!;
-
-		[Parameter]
-		public long? SymbolId { get; set; }
-
-		[Parameter]
-		public string? SymbolName { get; set; }
-
 		[Parameter]
 		public double? CurrentBid { get; set; }
 
 		[Parameter]
 		public double? CurrentAsk { get; set; }
 
+		/// <summary>Fallback fill price for callers with no live bid/ask spread (e.g. Simulation's raw-tick mode).</summary>
+		[Parameter]
+		public double? CurrentPrice { get; set; }
+
 		[Parameter]
 		public double PipSize { get; set; } = 0.0001;
+
+		[Parameter]
+		public double? Balance { get; set; }
+
+		[Parameter]
+		public double? Leverage { get; set; }
+
+		/// <summary>The symbol's minimum SL/TP distance from entry, in price terms -- null skips the clamp.</summary>
+		[Parameter]
+		public double? MinStopLossDistancePrice { get; set; }
+
+		[Parameter]
+		public double? MinTakeProfitDistancePrice { get; set; }
+
+		/// <summary>The symbol's smallest price increment, used to round SL/TP prices -- null skips rounding.</summary>
+		[Parameter]
+		public double? PriceStep { get; set; }
+
+		/// <summary>False when the host has nothing to submit against (e.g. Trade with no symbol selected).</summary>
+		[Parameter]
+		public bool HasSelection { get; set; } = true;
+
+		/// <summary>Host-driven -- disables PLACE and shows "PLACING..." while a submission is in flight.</summary>
+		[Parameter]
+		public bool Busy { get; set; }
+
+		/// <summary>Host-driven status line, shown after OnSubmit resolves.</summary>
+		[Parameter]
+		public string? StatusMessage { get; set; }
+
+		[Parameter]
+		public bool StatusIsError { get; set; }
+
+		/// <summary>Shows the PREVIEW button and raises <see cref="OnDraftChanged"/> only when true.</summary>
+		[Parameter]
+		public bool EnableDraftPreview { get; set; }
+
+		[Parameter]
+		public EventCallback<TradeConsoleDraft?> OnDraftChanged { get; set; }
+
+		[Parameter]
+		public EventCallback<TradeConsoleOrderRequest> OnSubmit { get; set; }
 
 		private enum SizingMode
 		{
@@ -73,14 +95,16 @@ namespace Poink.Sim.Components.Pages.Trade
 		private SizingMode _takeProfitMode = SizingMode.Pips;
 		private double? _takeProfitPips;
 		private double? _takeProfitPercent;
-		private string? _status;
-		private bool _statusIsError;
-		private bool _busy;
+		private string? _localError;
 		private bool _draftActive;
+
+		private string? DisplayStatus => _localError ?? StatusMessage;
+
+		private bool DisplayStatusIsError => _localError is not null || StatusIsError;
 
 		private PositionDirection Direction => _isLong ? PositionDirection.Long : PositionDirection.Short;
 
-		private double? MarketFillPrice => _isLong ? CurrentAsk : CurrentBid;
+		private double? MarketFillPrice => (_isLong ? CurrentAsk : CurrentBid) ?? CurrentPrice;
 
 		private double? EntryReferencePrice =>
 			_orderType == OrderType.Market ? MarketFillPrice
@@ -104,7 +128,7 @@ namespace Poink.Sim.Components.Pages.Trade
 					return null;
 				if (_riskPercent is not { } percent || percent <= 0)
 					return null;
-				if (Session.Balance is not { } balance || balance <= 0)
+				if (Balance is not { } balance || balance <= 0)
 					return null;
 
 				double stopPrice = RiskHelper.StopLossPriceFromPips(Direction, entry, pips, PipSize);
@@ -115,29 +139,6 @@ namespace Poink.Sim.Components.Pages.Trade
 
 		private bool HasStopLoss =>
 			_stopLossMode == SizingMode.Pips ? _stopLossPips is not null : _stopLossPercent is not null;
-
-		private SymbolMetadataModel? Metadata => SymbolId is { } symbolId ? MetadataCache.Get(symbolId) : null;
-
-		/// <summary>
-		/// The symbol's minimum SL/TP distance from entry, in price terms. A %balance-derived price
-		/// closer than this would be rejected by cTrader, so it gets pushed out to the minimum.
-		/// </summary>
-		private double? MinStopLossDistancePrice =>
-			Metadata is { } metadata && PositionPnlHelper.MinDistancePips(metadata, metadata.SlDistance) is { } pips
-				? pips * PipSize
-				: null;
-
-		private double? MinTakeProfitDistancePrice =>
-			Metadata is { } metadata && PositionPnlHelper.MinDistancePips(metadata, metadata.TpDistance) is { } pips
-				? pips * PipSize
-				: null;
-
-		/// <summary>
-		/// The symbol's smallest price increment (from its Digits), e.g. 0.01 for a 2-digit symbol.
-		/// SL/TP prices are rounded to this so a %balance-derived price -- or plain float noise from
-		/// pip arithmetic -- never carries more decimals than cTrader accepts for the symbol.
-		/// </summary>
-		private double? PriceStep => Metadata is { } metadata ? 1.0 / Math.Pow(10, metadata.Digits) : null;
 
 		private double? StopLossPrice
 		{
@@ -150,7 +151,7 @@ namespace Poink.Sim.Components.Pages.Trade
 						? RiskHelper.StopLossPriceFromPips(Direction, entry, pips, PipSize)
 						: null
 					: _stopLossPercent is { } percent
-						? RiskHelper.StopLossPriceForSizeRisk(Direction, Volume, entry, percent / 100.0 * (Session.Balance ?? 0)) is
+						? RiskHelper.StopLossPriceForSizeRisk(Direction, Volume, entry, percent / 100.0 * (Balance ?? 0)) is
 							{ } raw
 							? RiskHelper.ClampToMinimumDistance(entry, raw, MinStopLossDistancePrice ?? 0)
 							: null
@@ -170,7 +171,7 @@ namespace Poink.Sim.Components.Pages.Trade
 						? RiskHelper.TakeProfitPriceFromPips(Direction, entry, pips, PipSize)
 						: null
 					: _takeProfitPercent is { } percent
-						? RiskHelper.TakeProfitPriceForSizeReward(Direction, Volume, entry, percent / 100.0 * (Session.Balance ?? 0)) is
+						? RiskHelper.TakeProfitPriceForSizeReward(Direction, Volume, entry, percent / 100.0 * (Balance ?? 0)) is
 							{ } raw
 							? RiskHelper.ClampToMinimumDistance(entry, raw, MinTakeProfitDistancePrice ?? 0)
 							: null
@@ -190,29 +191,26 @@ namespace Poink.Sim.Components.Pages.Trade
 				: null;
 
 		private double? ProjectedLossPercent =>
-			ProjectedLoss is { } loss && Session.Balance is > 0 ? RiskHelper.RiskFraction(loss, Session.Balance.Value) : null;
+			ProjectedLoss is { } loss && Balance is > 0 ? RiskHelper.RiskFraction(loss, Balance.Value) : null;
 
 		private double? ProjectedProfitPercent =>
-			ProjectedProfit is { } profit && Session.Balance is > 0
-				? RiskHelper.RiskFraction(profit, Session.Balance.Value)
-				: null;
+			ProjectedProfit is { } profit && Balance is > 0 ? RiskHelper.RiskFraction(profit, Balance.Value) : null;
 
 		private double? RewardToRisk =>
 			ProjectedLoss is { } risk && ProjectedProfit is { } reward ? RiskHelper.RewardToRiskRatio(risk, reward) : null;
 
 		private double? MarginUsed =>
-			EntryReferencePrice is { } entry && Session.Leverage is { } leverage
+			EntryReferencePrice is { } entry && Leverage is { } leverage
 				? RiskHelper.MarginRequired(Volume, entry, leverage)
 				: null;
 
-		private double? MarginFree =>
-			MarginUsed is { } used && Session.Balance is { } balance ? balance - used : null;
+		private double? MarginFree => MarginUsed is { } used && Balance is { } balance ? balance - used : null;
 
 		private double? MarginUsedPercent =>
-			MarginUsed is { } used && Session.Balance is > 0 ? RiskHelper.RiskFraction(used, Session.Balance.Value) : null;
+			MarginUsed is { } used && Balance is > 0 ? RiskHelper.RiskFraction(used, Balance.Value) : null;
 
 		private double? MarginFreePercent =>
-			MarginFree is { } free && Session.Balance is > 0 ? RiskHelper.RiskFraction(free, Session.Balance.Value) : null;
+			MarginFree is { } free && Balance is > 0 ? RiskHelper.RiskFraction(free, Balance.Value) : null;
 
 		private double? EntryDistancePips =>
 			EntryReferencePrice is { } entry && MarketFillPrice is { } market
@@ -263,86 +261,58 @@ namespace Poink.Sim.Components.Pages.Trade
 
 		protected override void OnAfterRender(bool firstRender)
 		{
-			if (!_draftActive)
+			if (!EnableDraftPreview || !_draftActive)
 				return;
 
-			if (SymbolId is { } symbolId && EntryReferencePrice is { } entry)
-				TradeDraft.Update(new TradeDraft(symbolId, _isLong, entry, Volume, StopLossPrice, TakeProfitPrice));
+			if (EntryReferencePrice is { } entry)
+				_ = OnDraftChanged.InvokeAsync(new TradeConsoleDraft(_isLong, entry, Volume, StopLossPrice, TakeProfitPrice));
 			else
-				TradeDraft.Clear();
+				_ = OnDraftChanged.InvokeAsync(null);
 		}
 
 		private void ToggleDraft()
 		{
 			_draftActive = !_draftActive;
 			if (!_draftActive)
-				TradeDraft.Clear();
+				_ = OnDraftChanged.InvokeAsync(null);
+		}
+
+		/// <summary>Called by the host (via @ref) once its own submission succeeds, to end the live preview.</summary>
+		public void ClearDraftPreview()
+		{
+			if (!_draftActive)
+				return;
+			_draftActive = false;
+			_ = OnDraftChanged.InvokeAsync(null);
 		}
 
 		private async Task SubmitEntry(bool isLong)
 		{
 			_isLong = isLong;
-			_status = null;
+			_localError = null;
 
-			if (SymbolId is not { } symbolId)
+			if (!HasSelection)
 			{
-				SetStatus("No symbol selected.", isError: true);
+				_localError = "No symbol selected.";
 				return;
 			}
 			if (Volume <= 0)
 			{
-				SetStatus(
+				_localError =
 					_volumeSizingMode == VolumeSizingMode.Risk
 						? "Enter a stop loss and a percent of balance to risk so the volume can be solved."
-						: "Enter a volume greater than zero.",
-					isError: true
-				);
+						: "Enter a volume greater than zero.";
 				return;
 			}
 			if (_orderType != OrderType.Market && _triggerPrice <= 0)
 			{
-				SetStatus("Enter a trigger price for a Limit/Stop order.", isError: true);
+				_localError = "Enter a trigger price for a Limit/Stop order.";
 				return;
 			}
 
-			if (
-				TradeExecution.UseLiveEnvironment
-				&& !await JS.InvokeAsync<bool>(
-					"confirm",
-					$"Place a LIVE {(isLong ? "BUY" : "SELL")} order for {SymbolName ?? "this symbol"}?"
-				)
-			)
-				return;
-
-			_busy = true;
-			StateHasChanged();
-			try
-			{
-				var result = await TradeExecution.PlaceOrderAsync(
-					symbolId,
-					isLong,
-					Volume,
-					_orderType switch
-					{
-						OrderType.Limit => CTraderOrderType.Limit,
-						OrderType.Stop => CTraderOrderType.Stop,
-						_ => CTraderOrderType.Market,
-					},
-					_orderType == OrderType.Market ? null : _triggerPrice,
-					StopLossPrice,
-					TakeProfitPrice
-				);
-				SetStatus(result.Message, !result.Success);
-				if (result.Success)
-				{
-					_draftActive = false;
-					TradeDraft.Clear();
-				}
-			}
-			finally
-			{
-				_busy = false;
-			}
+			await OnSubmit.InvokeAsync(
+				new TradeConsoleOrderRequest(isLong, Volume, _orderType, _orderType == OrderType.Market ? null : _triggerPrice, StopLossPrice, TakeProfitPrice)
+			);
 		}
 
 		private void SwitchToRiskSizing()
@@ -353,7 +323,7 @@ namespace Poink.Sim.Components.Pages.Trade
 
 		private void ResetDraft()
 		{
-			_status = null;
+			_localError = null;
 			_orderType = OrderType.Market;
 			_triggerPrice = 0;
 			_volumeSizingMode = VolumeSizingMode.Manual;
@@ -366,13 +336,5 @@ namespace Poink.Sim.Components.Pages.Trade
 			_takeProfitPips = null;
 			_takeProfitPercent = null;
 		}
-
-		private void SetStatus(string message, bool isError)
-		{
-			_status = message;
-			_statusIsError = isError;
-		}
-
-		public void Dispose() => TradeDraft.Clear();
 	}
 }

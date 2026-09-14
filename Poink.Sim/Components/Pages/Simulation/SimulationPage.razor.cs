@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 using Poink.Sim.Components.Charts;
+using Poink.Sim.Components.Shared.TradeConsole;
 using Poink.Sim.Helpers;
 using Poink.Sim.Models;
 using Poink.Sim.Profiler;
@@ -196,7 +197,7 @@ namespace Poink.Sim.Components.Pages
 		)? _xgridKey;
 
 		// Row height comes from the account's own pip size (Config.PipSize, set up before
-		// load, same value TraderControlsPanel uses for SL/TP), not a value XGrid owns itself.
+		// load, same value TradeConsole uses for SL/TP), not a value XGrid owns itself.
 		private XGridResult? ComputeXGrid(SimulationSnapshot s)
 		{
 			if (!s.Config.Aggregate)
@@ -357,6 +358,51 @@ namespace Poink.Sim.Components.Pages
 				Reason: "xgrid"
 			);
 			SimulationService.SubmitManualDecision(trader.Id, decision, out _);
+		}
+
+		private string? _consoleError;
+
+		private void HandleConsoleSubmit(TradeConsoleOrderRequest request)
+		{
+			_consoleError = null;
+			if (SelectedTrader is not { } trader)
+			{
+				_consoleError = "no trader selected";
+				return;
+			}
+
+			double? entry = request.OrderType == OrderType.Market
+				? (request.IsLong ? _snapshot?.CurrentAsk : _snapshot?.CurrentBid) ?? _snapshot?.CurrentPrice
+				: request.TriggerPrice;
+			if (entry is not { } entryPrice || entryPrice <= 0 || trader.Capital.Cash <= 0)
+			{
+				_consoleError = "no market price available yet";
+				return;
+			}
+
+			double capitalFraction = RiskHelper.MarginRequired(request.Volume, entryPrice, trader.Leverage) / trader.Capital.Cash;
+			if (capitalFraction is <= 0 or > 1)
+			{
+				_consoleError = "volume must resolve to between 0 and 100% of cash";
+				return;
+			}
+
+			var action = request.IsLong ? SimulationAction.EnterLong : SimulationAction.EnterShort;
+			var orderType = request.OrderType == OrderType.Market ? (OrderType?)null : request.OrderType;
+			var decision = new SimulationDecision(
+				action,
+				capitalFraction,
+				request.StopLossPrice,
+				request.TakeProfitPrice,
+				orderType,
+				request.TriggerPrice,
+				Reason: "manual"
+			);
+
+			if (!SimulationService.SubmitManualDecision(trader.Id, decision, out RiskPolicyDenial? denial))
+				_consoleError = "order rejected -- already in a position or an order is already resting";
+			else if (denial is { } d)
+				_consoleError = $"denied by {d.PolicyName}: {d.Reason}";
 		}
 
 		private List<WeightedPriceSample> MergedBarSamples(SimulationSnapshot s)
@@ -521,14 +567,6 @@ namespace Poink.Sim.Components.Pages
 				return EquityCurveHelper.Build(timestamps, equity, trader.Trades);
 			}
 		}
-
-		private string? SelectedPositionSummary =>
-			SelectedTrader?.Position is not { } pos ? null : $"{pos.Direction} {pos.Size:F4} @ {pos.EntryPrice:F5}";
-
-		private string? SelectedPendingSummary =>
-			SelectedTrader?.PendingOrder is not { } pending
-				? null
-				: $"PENDING {pending.Direction} {pending.OrderType} @ {pending.TriggerPrice:F5}";
 
 		// ── Lifecycle ──
 
@@ -1264,20 +1302,42 @@ namespace Poink.Sim.Components.Pages
 
 		private IReadOnlyList<StatGroup> StatGroups => Stats?.Groups ?? [];
 
-		private List<OpenPositionRow> OpenPositionRows =>
-			SelectedTrader?.Position is not { } pos
-				? new List<OpenPositionRow>()
-				: new List<OpenPositionRow>
-				{
-					new OpenPositionRow(
-						pos.Direction.ToString(),
-						pos.Size.ToString("F4"),
-						pos.EntryPrice.ToString("F5"),
-						pos.EntryTime.ToString("HH:mm:ss"),
-						_snapshot?.CurrentBid is { } bid && _snapshot?.CurrentAsk is { } ask
-							? pos.UnrealizedPnl(bid, ask)
-							: null
-					),
-				};
+		private List<OpenPositionRow> OpenPositionRows
+		{
+			get
+			{
+				if (SelectedTrader?.Position is { } pos)
+					return new List<OpenPositionRow>
+					{
+						new OpenPositionRow(
+							pos.Direction.ToString(),
+							pos.Size.ToString("F4"),
+							pos.EntryPrice.ToString("F5"),
+							pos.EntryTime.ToString("HH:mm:ss"),
+							_snapshot?.CurrentBid is { } bid && _snapshot?.CurrentAsk is { } ask
+								? pos.UnrealizedPnl(bid, ask)
+								: null
+						),
+					};
+
+				if (SelectedTrader?.PendingOrder is { } pending)
+					return new List<OpenPositionRow>
+					{
+						new OpenPositionRow(
+							$"{pending.Direction} (PENDING {pending.OrderType})",
+							"--",
+							pending.TriggerPrice.ToString("F5"),
+							pending.CreatedTime.ToString("HH:mm:ss"),
+							null
+						),
+					};
+
+				return new List<OpenPositionRow>();
+			}
+		}
+
+		// Reused for both an open position and a resting pending order -- SimulationAction.Close
+		// already handles either case, and a trader can only ever have one or the other at a time.
+		private void CloseOrCancelSelectedTrader(OpenPositionRow row) => CloseSelectedTrader("manual");
 	}
 }

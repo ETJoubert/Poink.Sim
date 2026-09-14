@@ -1,17 +1,17 @@
-@namespace Poink.Sim.Components.Pages.Trade
+@namespace Poink.Sim.Components.Shared.TradeConsole
 @using Poink.Sim.Models
 
-<div class="tc-panel">
-    <div class="tc-field" title="Market fills immediately; Limit/Stop queue a pending order until price crosses the trigger">
+<div class="tcon-panel">
+    <div class="tcon-field" title="Market fills immediately; Limit/Stop queue a pending order until price crosses the trigger">
         Order type
-        <div class="tc-toggle-group" role="group">
-            <button type="button" class="tc-toggle @(_orderType == OrderType.Market ? "active" : "")"
+        <div class="tcon-toggle-group" role="group">
+            <button type="button" class="tcon-toggle @(_orderType == OrderType.Market ? "active" : "")"
                     @onclick="() => _orderType = OrderType.Market"
                     title="Fill immediately at the current market price">Market</button>
-            <button type="button" class="tc-toggle @(_orderType == OrderType.Limit ? "active" : "")"
+            <button type="button" class="tcon-toggle @(_orderType == OrderType.Limit ? "active" : "")"
                     @onclick="() => _orderType = OrderType.Limit"
                     title="Queue a pending order until price reaches the trigger from the favourable side">Limit</button>
-            <button type="button" class="tc-toggle @(_orderType == OrderType.Stop ? "active" : "")"
+            <button type="button" class="tcon-toggle @(_orderType == OrderType.Stop ? "active" : "")"
                     @onclick="() => _orderType = OrderType.Stop"
                     title="Queue a pending order until price breaks through the trigger">Stop</button>
         </div>
@@ -19,140 +19,140 @@
 
     @if (_orderType != OrderType.Market)
     {
-        <label class="tc-field" title="Price level the pending order triggers at">
+        <label class="tcon-field" title="Price level the pending order triggers at">
             Trigger price
-            <input class="tc-input" type="number" step="0.00001" @bind="_triggerPrice" @bind:event="oninput" />
+            <input class="tcon-input" type="number" step="0.00001" @bind="_triggerPrice" @bind:event="oninput" />
         </label>
     }
 
-    <div class="tc-field" title="Direction the Place button submits">
+    <div class="tcon-field" title="Direction the Place button submits">
         Direction
-        <div class="tc-toggle-group" role="group">
-            <button type="button" class="tc-toggle tc-toggle-buy @(_isLong ? "active" : "")"
+        <div class="tcon-toggle-group" role="group">
+            <button type="button" class="tcon-toggle tcon-toggle-buy @(_isLong ? "active" : "")"
                     @onclick="() => _isLong = true" title="Buy on Place">BUY</button>
-            <button type="button" class="tc-toggle tc-toggle-sell @(!_isLong ? "active" : "")"
+            <button type="button" class="tcon-toggle tcon-toggle-sell @(!_isLong ? "active" : "")"
                     @onclick="() => _isLong = false" title="Sell on Place">SELL</button>
         </div>
     </div>
 
-    <div class="tc-field" title="Position size -- entered directly, or solved from a stop-loss distance and a percent of balance risked">
-        <div class="tc-field-head">
+    <div class="tcon-field" title="Position size -- entered directly, or solved from a stop-loss distance and a percent of balance risked">
+        <div class="tcon-field-head">
             <span>Volume</span>
-            <div class="tc-toggle-group tc-toggle-group-sm" role="group">
-                <button type="button" class="tc-toggle @(_volumeSizingMode == VolumeSizingMode.Manual ? "active" : "")"
+            <div class="tcon-toggle-group tcon-toggle-group-sm" role="group">
+                <button type="button" class="tcon-toggle @(_volumeSizingMode == VolumeSizingMode.Manual ? "active" : "")"
                         @onclick="() => _volumeSizingMode = VolumeSizingMode.Manual"
                         title="Enter the position size directly">MANUAL</button>
-                <button type="button" class="tc-toggle @(_volumeSizingMode == VolumeSizingMode.Risk ? "active" : "")"
+                <button type="button" class="tcon-toggle @(_volumeSizingMode == VolumeSizingMode.Risk ? "active" : "")"
                         @onclick="SwitchToRiskSizing"
                         title="Solve the position size from the stop loss distance and a percent of balance risked">% BALANCE</button>
             </div>
         </div>
         @if (_volumeSizingMode == VolumeSizingMode.Manual)
         {
-            <input class="tc-input" type="number" min="0" step="0.01" @bind="_volumeUnits" @bind:event="oninput"
-                   disabled="@_busy" title="Position size in units" />
+            <input class="tcon-input" type="number" min="0" step="0.01" @bind="_volumeUnits" @bind:event="oninput"
+                   disabled="@Busy" title="Position size in units" />
         }
         else
         {
-            <div class="tc-calculated" title="Position size solved from the stop loss and risk percent, rounded to the nearest 0.01">
+            <div class="tcon-calculated" title="Position size solved from the stop loss and risk percent, rounded to the nearest 0.01">
                 @(CalculatedVolume is { } v ? v.ToString("F2") : "--")
             </div>
-            <div class="tc-input-row">
-                <input class="tc-input" type="number" min="0" step="0.1" placeholder="% balance to risk"
-                       @bind="_riskPercent" @bind:event="oninput" disabled="@_busy"
+            <div class="tcon-input-row">
+                <input class="tcon-input" type="number" min="0" step="0.1" placeholder="% balance to risk"
+                       @bind="_riskPercent" @bind:event="oninput" disabled="@Busy"
                        title="Percent of account balance to risk if the stop loss is hit -- volume is solved to match" />
-                <button type="button" class="tc-clear" @onclick="() => _riskPercent = null"
+                <button type="button" class="tcon-clear" @onclick="() => _riskPercent = null"
                         disabled="@(_riskPercent is null)" title="Clear the risk percent">×</button>
             </div>
         }
     </div>
 
-    <div class="tc-field" title="Optional stop loss -- entered as a pip distance or as a percent of balance lost if it is hit">
-        <div class="tc-field-head">
+    <div class="tcon-field" title="Optional stop loss -- entered as a pip distance or as a percent of balance lost if it is hit">
+        <div class="tcon-field-head">
             <span>Stop loss</span>
             @if (_volumeSizingMode == VolumeSizingMode.Manual)
             {
-                <div class="tc-toggle-group tc-toggle-group-sm" role="group">
-                    <button type="button" class="tc-toggle @(_stopLossMode == SizingMode.Pips ? "active" : "")"
+                <div class="tcon-toggle-group tcon-toggle-group-sm" role="group">
+                    <button type="button" class="tcon-toggle @(_stopLossMode == SizingMode.Pips ? "active" : "")"
                             @onclick="() => _stopLossMode = SizingMode.Pips"
                             title="Enter the stop as a distance in pips">PIPS</button>
-                    <button type="button" class="tc-toggle @(_stopLossMode == SizingMode.PercentBalance ? "active" : "")"
+                    <button type="button" class="tcon-toggle @(_stopLossMode == SizingMode.PercentBalance ? "active" : "")"
                             @onclick="() => _stopLossMode = SizingMode.PercentBalance"
                             title="Enter the stop as a percent of account balance lost if it is hit">% BALANCE</button>
                 </div>
             }
         </div>
-        <div class="tc-input-row">
+        <div class="tcon-input-row">
             @if (_volumeSizingMode == VolumeSizingMode.Manual && _stopLossMode == SizingMode.PercentBalance)
             {
-                <input class="tc-input" type="number" min="0" step="0.1" @bind="_stopLossPercent" @bind:event="oninput"
+                <input class="tcon-input" type="number" min="0" step="0.1" @bind="_stopLossPercent" @bind:event="oninput"
                        title="Percent of account balance lost if the stop is hit" />
-                <button type="button" class="tc-clear" @onclick="() => _stopLossPercent = null"
+                <button type="button" class="tcon-clear" @onclick="() => _stopLossPercent = null"
                         disabled="@(_stopLossPercent is null)" title="Clear the stop loss">×</button>
             }
             else
             {
-                <input class="tc-input" type="number" min="0" step="1" @bind="_stopLossPips" @bind:event="oninput"
+                <input class="tcon-input" type="number" min="0" step="1" @bind="_stopLossPips" @bind:event="oninput"
                        title="Distance in pips from the entry to the stop, on the losing side" />
-                <button type="button" class="tc-clear" @onclick="() => _stopLossPips = null"
+                <button type="button" class="tcon-clear" @onclick="() => _stopLossPips = null"
                         disabled="@(_stopLossPips is null)" title="Clear the stop loss">×</button>
             }
         </div>
     </div>
 
-    <div class="tc-field" title="Optional take profit -- entered as a pip distance or as a percent of balance gained if it is hit">
-        <div class="tc-field-head">
+    <div class="tcon-field" title="Optional take profit -- entered as a pip distance or as a percent of balance gained if it is hit">
+        <div class="tcon-field-head">
             <span>Take profit</span>
-            <div class="tc-toggle-group tc-toggle-group-sm" role="group">
-                <button type="button" class="tc-toggle @(_takeProfitMode == SizingMode.Pips ? "active" : "")"
+            <div class="tcon-toggle-group tcon-toggle-group-sm" role="group">
+                <button type="button" class="tcon-toggle @(_takeProfitMode == SizingMode.Pips ? "active" : "")"
                         @onclick="() => _takeProfitMode = SizingMode.Pips"
                         title="Enter the target as a distance in pips">PIPS</button>
-                <button type="button" class="tc-toggle @(_takeProfitMode == SizingMode.PercentBalance ? "active" : "")"
+                <button type="button" class="tcon-toggle @(_takeProfitMode == SizingMode.PercentBalance ? "active" : "")"
                         @onclick="() => _takeProfitMode = SizingMode.PercentBalance"
                         title="Enter the target as a percent of account balance gained if it is hit">% BALANCE</button>
             </div>
         </div>
-        <div class="tc-input-row">
+        <div class="tcon-input-row">
             @if (_takeProfitMode == SizingMode.Pips)
             {
-                <input class="tc-input" type="number" min="0" step="1" @bind="_takeProfitPips" @bind:event="oninput"
+                <input class="tcon-input" type="number" min="0" step="1" @bind="_takeProfitPips" @bind:event="oninput"
                        title="Distance in pips from the entry to the target, on the winning side" />
-                <button type="button" class="tc-clear" @onclick="() => _takeProfitPips = null"
+                <button type="button" class="tcon-clear" @onclick="() => _takeProfitPips = null"
                         disabled="@(_takeProfitPips is null)" title="Clear the take profit">×</button>
             }
             else
             {
-                <input class="tc-input" type="number" min="0" step="0.1" @bind="_takeProfitPercent" @bind:event="oninput"
+                <input class="tcon-input" type="number" min="0" step="0.1" @bind="_takeProfitPercent" @bind:event="oninput"
                        title="Percent of account balance gained if the target is hit" />
-                <button type="button" class="tc-clear" @onclick="() => _takeProfitPercent = null"
+                <button type="button" class="tcon-clear" @onclick="() => _takeProfitPercent = null"
                         disabled="@(_takeProfitPercent is null)" title="Clear the take profit">×</button>
             }
         </div>
     </div>
 
-    <div class="tc-preview" title="Entry, stop, and target prices for this draft">
-        <span class="tc-preview-title">Entry</span>
+    <div class="tcon-preview" title="Entry, stop, and target prices for this draft">
+        <span class="tcon-preview-title">Entry</span>
         @{
             RenderFragment entryRow =
                 @<tr title="Market price at the time of entry, or the Limit/Stop trigger price -- distance to the current market price">
-                    <td class="tc-table-label">Entry</td>
+                    <td class="tcon-table-label">Entry</td>
                     <td>@(EntryReferencePrice is { } e ? e.ToString("N5") : "--")</td>
                     <td>@FormatPips(EntryDistancePips)</td>
                 </tr>;
             RenderFragment stopLossRow =
                 @<tr class="loss" title="Stop loss price, with its distance from entry on the losing side">
-                    <td class="tc-table-label">SL</td>
+                    <td class="tcon-table-label">SL</td>
                     <td>@(StopLossPrice is { } sl ? sl.ToString("N5") : "--")</td>
                     <td>@FormatPips(StopLossDistancePips)</td>
                 </tr>;
             RenderFragment takeProfitRow =
                 @<tr class="gain" title="Take profit price, with its distance from entry on the winning side">
-                    <td class="tc-table-label">TP</td>
+                    <td class="tcon-table-label">TP</td>
                     <td>@(TakeProfitPrice is { } tp ? tp.ToString("N5") : "--")</td>
                     <td>@FormatPips(TakeProfitDistancePips)</td>
                 </tr>;
         }
-        <table class="tc-table">
+        <table class="tcon-table">
             <thead>
                 <tr>
                     <th></th>
@@ -177,9 +177,9 @@
         </table>
     </div>
 
-    <div class="tc-preview" title="Projected outcome for this draft">
-        <span class="tc-preview-title">Projections</span>
-        <table class="tc-table">
+    <div class="tcon-preview" title="Projected outcome for this draft">
+        <span class="tcon-preview-title">Projections</span>
+        <table class="tcon-table">
             <thead>
                 <tr>
                     <th></th>
@@ -189,50 +189,53 @@
             </thead>
             <tbody>
                 <tr title="Margin this position will commit, based on the account's leverage">
-                    <td class="tc-table-label">Margin use</td>
+                    <td class="tcon-table-label">Margin use</td>
                     <td>@MarginUsedText</td>
                     <td>@MarginUsedPercentText</td>
                 </tr>
                 <tr title="Balance left uncommitted after this position's margin">
-                    <td class="tc-table-label">Margin free</td>
+                    <td class="tcon-table-label">Margin free</td>
                     <td>@MarginFreeText</td>
                     <td>@MarginFreePercentText</td>
                 </tr>
                 <tr class="@LossRowClass" title="@LossRowTitle">
-                    <td class="tc-table-label">Loss</td>
+                    <td class="tcon-table-label">Loss</td>
                     <td>@LossValueText</td>
                     <td>@LossPercentText</td>
                 </tr>
                 <tr class="gain" title="Money gained if the take profit is hit, for this volume from the entry price">
-                    <td class="tc-table-label">Profit</td>
+                    <td class="tcon-table-label">Profit</td>
                     <td>@ProfitValueText</td>
                     <td>@ProfitPercentText</td>
                 </tr>
                 <tr title="Reward-to-risk ratio -- projected take-profit gain divided by the stop-loss loss">
-                    <td class="tc-table-label">RR</td>
+                    <td class="tcon-table-label">RR</td>
                     <td colspan="2">@RewardToRiskText</td>
                 </tr>
             </tbody>
         </table>
     </div>
 
-    <div class="tc-actions">
-        <button class="tc-btn @(_isLong ? "tc-buy" : "tc-sell")" @onclick="() => SubmitEntry(_isLong)"
-                disabled="@_busy" title="Submit this entry to cTrader using the selected direction, order type, size, SL and TP">
-            @(_busy ? "PLACING..." : "PLACE")
+    <div class="tcon-actions">
+        <button class="tcon-btn @(_isLong ? "tcon-buy" : "tcon-sell")" @onclick="() => SubmitEntry(_isLong)"
+                disabled="@Busy" title="Submit this entry using the selected direction, order type, size, SL and TP">
+            @(Busy ? "PLACING..." : "PLACE")
         </button>
-        <button type="button" class="tc-btn tc-btn-preview @(_draftActive ? "active" : "")" @onclick="ToggleDraft"
-                title="Show this draft's entry, stop loss and take profit live on the chart and XGrid while you edit it">
-            PREVIEW
-        </button>
-        <button class="tc-btn tc-btn-warn" @onclick="ResetDraft" disabled="@_busy"
+        @if (EnableDraftPreview)
+        {
+            <button type="button" class="tcon-btn tcon-btn-preview @(_draftActive ? "active" : "")" @onclick="ToggleDraft"
+                    title="Show this draft's entry, stop loss and take profit live on the chart while you edit it">
+                PREVIEW
+            </button>
+        }
+        <button class="tcon-btn tcon-btn-warn" @onclick="ResetDraft" disabled="@Busy"
                 title="Clear this draft and reset it back to its defaults">
             CANCEL
         </button>
     </div>
 
-    @if (_status is not null)
+    @if (DisplayStatus is not null)
     {
-        <span class="tc-status @(_statusIsError ? "tc-status-error" : "")">@_status</span>
+        <span class="tcon-status @(DisplayStatusIsError ? "tcon-status-error" : "")">@DisplayStatus</span>
     }
 </div>

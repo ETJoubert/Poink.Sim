@@ -3,6 +3,7 @@
 @using Poink.Sim.Services.CTrader
 @using Poink.Sim.Components.Shared.Icon
 @using Poink.Sim.Components.Shared.TraderSidePanel
+@using Poink.Sim.Components.Shared.TradeConsole
 
 <div class="trade-page">
 
@@ -55,9 +56,12 @@
                 <div class="trade-right-side-panel-content">
                     <TraderSidePanel Collapsed="Coordinator.RightPanelCollapsed" OnExpandRequested="Coordinator.ToggleRightPanel">
                         <TradeTab>
-                            <TradeControlsPanel SymbolId="Coordinator.ChartSymbolId" SymbolName="@Coordinator.ChartSymbolName"
-                                                 CurrentBid="ChartQuote?.Bid" CurrentAsk="ChartQuote?.Ask"
-                                                 PipSize="ChartPipSize" />
+                            <TradeConsole @ref="_consoleRef" HasSelection="Coordinator.ChartSymbolId is not null"
+                                          CurrentBid="ChartQuote?.Bid" CurrentAsk="ChartQuote?.Ask"
+                                          PipSize="ChartPipSize" Balance="Session.Balance" Leverage="Session.Leverage"
+                                          MinStopLossDistancePrice="MinStopLossDistancePrice" MinTakeProfitDistancePrice="MinTakeProfitDistancePrice"
+                                          PriceStep="PriceStep" Busy="_consoleBusy" StatusMessage="_consoleStatus" StatusIsError="_consoleStatusIsError"
+                                          EnableDraftPreview="true" OnDraftChanged="HandleDraftChanged" OnSubmit="HandleConsoleSubmit" />
                         </TradeTab>
                     </TraderSidePanel>
                 </div>
