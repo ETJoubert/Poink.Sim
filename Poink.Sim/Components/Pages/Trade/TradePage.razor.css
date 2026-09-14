@@ -18,7 +18,7 @@
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    padding: 5px 24px 5px;
+    padding: 3px 24px;
     border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
 }
 
@@ -36,13 +36,6 @@
     letter-spacing: 0.08em;
     color: var(--color-accent);
     text-shadow: var(--shadow-glow-accent);
-}
-
-.trade-header-chart {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    flex-wrap: wrap;
 }
 
 .trade-body {

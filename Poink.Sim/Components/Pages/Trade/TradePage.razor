@@ -12,13 +12,6 @@
                 <span class="trade-header-symbol">TRADE</span>
             </div>
 
-            @if (Coordinator.ChartSymbolId is not null)
-            {
-                <div class="trade-header-chart">
-                    <span class="trade-chart-title">@Coordinator.ChartSymbolName</span>
-                </div>
-            }
-
             <TradeAccountMenu />
         </header>
     </div>
@@ -30,7 +23,7 @@
                                @bind-Collapsed="Coordinator.SidepanelCollapsed" />
 
         <main class="trade-main">
-            <TradeChartPanel @ref="_chartPanelRef" SymbolId="Coordinator.ChartSymbolId" SymbolName="Coordinator.ChartSymbolName"
+            <TradeChartPanel @ref="_chartPanelRef" SymbolId="Coordinator.ChartSymbolId" SymbolName="@Coordinator.ChartSymbolName"
                               PipSize="ChartPipSize"
                               @bind-BarSizeSeconds="Coordinator.BarSizeSeconds" InitialSettings="Coordinator.PendingChartSettings" />
 
@@ -62,7 +55,7 @@
                 <div class="trade-right-side-panel-content">
                     <TraderSidePanel Collapsed="Coordinator.RightPanelCollapsed" OnExpandRequested="Coordinator.ToggleRightPanel">
                         <TradeTab>
-                            <TradeControlsPanel SymbolId="Coordinator.ChartSymbolId" SymbolName="Coordinator.ChartSymbolName"
+                            <TradeControlsPanel SymbolId="Coordinator.ChartSymbolId" SymbolName="@Coordinator.ChartSymbolName"
                                                  CurrentBid="ChartQuote?.Bid" CurrentAsk="ChartQuote?.Ask"
                                                  PipSize="ChartPipSize" />
                         </TradeTab>
