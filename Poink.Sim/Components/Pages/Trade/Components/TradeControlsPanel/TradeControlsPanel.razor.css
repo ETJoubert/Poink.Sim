@@ -306,3 +306,9 @@
     background: color-mix(in srgb, var(--color-error) 14%, transparent);
     border-color: var(--color-error);
 }
+
+.tc-btn-preview.active {
+    background: var(--color-primary);
+    color: var(--color-bg-terminal);
+    border-color: var(--color-primary);
+}

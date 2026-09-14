@@ -538,6 +538,7 @@ namespace Poink.Sim.Services.CTrader
 					}
 					catch (CTraderApiException ex)
 					{
+						_logger.LogError(ex, "cTrader: failed to close position {PositionId} for symbol {SymbolId}.", position.PositionId, symbolId);
 						errors.Add($"position {position.PositionId}: {ex.Message}");
 					}
 				}
@@ -551,6 +552,7 @@ namespace Poink.Sim.Services.CTrader
 					}
 					catch (CTraderApiException ex)
 					{
+						_logger.LogError(ex, "cTrader: failed to cancel order {OrderId} for symbol {SymbolId}.", order.OrderId, symbolId);
 						errors.Add($"order {order.OrderId}: {ex.Message}");
 					}
 				}
@@ -591,6 +593,7 @@ namespace Poink.Sim.Services.CTrader
 			}
 			catch (CTraderApiException ex)
 			{
+				_logger.LogError(ex, "cTrader: failed to close position {PositionId}.", positionId);
 				return new CTraderOrderResult(false, ex.Message);
 			}
 			finally
