@@ -902,21 +902,21 @@ namespace Poink.Sim.Components.Charts
 
 			if (Spectrum.HighlightMode == XGridHighlightMode.Max)
 			{
-				double max = XGridStats.MaxCellValue(grid, metric);
+				double max = XGridStats.MaxCellValue(grid, metric, Spectrum.DistanceWeighted);
 				if (max <= 0)
 					return mask;
 				double threshold = XGridStats.MaxModeThreshold(max, percent);
 				for (var r = 0; r < rows; r++)
 				for (var c = 0; c < cols; c++)
 				{
-					double value = XGridStats.CellValue(grid, (r, c), metric);
+					double value = XGridStats.CellValue(grid, (r, c), metric, Spectrum.DistanceWeighted);
 					if (value > 0 && value >= threshold)
 						mask[r * cols + c] = 1;
 				}
 				return mask;
 			}
 
-			var order = XGridStats.CellOrder(grid, metric);
+			var order = XGridStats.CellOrder(grid, metric, Spectrum.DistanceWeighted);
 			int n = order.Length;
 			int count = XGridStats.TopCount(n, percent);
 			for (var i = n - count; i < n; i++)
@@ -941,14 +941,14 @@ namespace Poink.Sim.Components.Charts
 
 			if (Spectrum.HighlightMode == XGridHighlightMode.Max)
 			{
-				double max = XGridStats.MaxAbsDeltaOnSide(grid, positive);
+				double max = XGridStats.MaxAbsDeltaOnSide(grid, positive, Spectrum.DistanceWeighted);
 				if (max <= 0)
 					return mask;
 				double threshold = XGridStats.MaxModeThreshold(max, percent);
 				for (var r = 0; r < rows; r++)
 				for (var c = 0; c < cols; c++)
 				{
-					double value = XGridStats.CellValue(grid, (r, c), XGridSpectrumMetric.Delta);
+					double value = XGridStats.CellValue(grid, (r, c), XGridSpectrumMetric.Delta, Spectrum.DistanceWeighted);
 					bool matches = positive ? value >= threshold && value > 0 : -value >= threshold && value < 0;
 					if (matches)
 						mask[r * cols + c] = 1;
@@ -956,7 +956,7 @@ namespace Poink.Sim.Components.Charts
 				return mask;
 			}
 
-			var order = XGridStats.CellOrder(grid, XGridSpectrumMetric.Delta);
+			var order = XGridStats.CellOrder(grid, XGridSpectrumMetric.Delta, Spectrum.DistanceWeighted);
 			int n = order.Length;
 			int count = XGridStats.TopCount(n, percent);
 			int start = positive ? n - count : 0;
@@ -964,7 +964,7 @@ namespace Poink.Sim.Components.Charts
 			for (var i = start; i < end; i++)
 			{
 				var (row, col) = order[i];
-				double value = XGridStats.CellValue(grid, (row, col), XGridSpectrumMetric.Delta);
+				double value = XGridStats.CellValue(grid, (row, col), XGridSpectrumMetric.Delta, Spectrum.DistanceWeighted);
 				if (positive ? value > 0 : value < 0)
 					mask[row * cols + col] = 1;
 			}

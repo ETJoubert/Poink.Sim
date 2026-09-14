@@ -26,5 +26,8 @@ namespace Poink.Sim.Components.Charts
 
 		public bool DeltaNegShow { get; init; }
 		public double DeltaNegPercent { get; init; } = 10;
+
+		/// <summary>Weight Total/Up/Down/Delta+/Delta- by moved price distance instead of raw tick count.</summary>
+		public bool DistanceWeighted { get; init; }
 	}
 }

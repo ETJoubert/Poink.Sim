@@ -126,6 +126,17 @@
     background: rgba(255, 255, 255, 0.12);
 }
 
+.xgrid-control-group {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 2px 6px;
+    border-radius: var(--border-radius-sm);
+    background: rgba(255, 255, 255, 0.045);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
 .xgrid-overlay-label {
     font-size: 0.56rem;
     color: var(--color-warning);
@@ -170,14 +181,6 @@
     background: var(--color-warning);
     color: var(--color-bg-dark);
     font-weight: bold;
-}
-
-.xgrid-delta-label {
-    font-size: 0.56rem;
-    color: var(--color-secondary);
-    opacity: 0.85;
-    white-space: nowrap;
-    margin-left: 4px;
 }
 
 .xgrid-delta-toggle {
