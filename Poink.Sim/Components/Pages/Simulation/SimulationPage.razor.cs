@@ -102,9 +102,6 @@ namespace Poink.Sim.Components.Pages
 		private bool _setupCollapsed;
 		private int? _selectedTraderId;
 
-		// Limbo along with the TRADERS/BRAIN/INPUTS-OUTPUTS tabs in the markup -- a later piece reconnects both.
-		// private LogTab _activeLogTab;
-
 		// Matches SimulationEngine.MaxRecentTicks.
 		private const int MaxTickWindow = 5000;
 		private int _tickWindowSize = 200;
@@ -155,7 +152,6 @@ namespace Poink.Sim.Components.Pages
 		private bool _showVolumeProfile;
 		private bool _showTimeProfile;
 		private bool _showEquityCurve;
-		private bool _showRiskPolicies = true;
 		private bool _traderControlsCollapsed;
 		private bool _leftSidePanelCollapsed;
 		private SimLeftPanelTab _activeLeftPanelTab;
@@ -183,17 +179,6 @@ namespace Poink.Sim.Components.Pages
 		private bool ShowEquityCurveDivider(SimulationSnapshot s) =>
 			_showEquityCurve
 			&& (_showMainChart || (s.Config.Aggregate && _showXGrid) || _showVolumeProfile || _showTimeProfile);
-
-		private bool ShowRiskPoliciesDivider(SimulationSnapshot s) =>
-			_showRiskPolicies
-			&& s.RiskPolicies.Count > 0
-			&& (
-				_showMainChart
-				|| (s.Config.Aggregate && _showXGrid)
-				|| _showVolumeProfile
-				|| _showTimeProfile
-				|| _showEquityCurve
-			);
 
 		private XGridResult? _xgridCache;
 		private (
@@ -488,16 +473,6 @@ namespace Poink.Sim.Components.Pages
 			return bars.Count > 0 ? bars[^1].OpenTime : null;
 		}
 
-		private enum LogTab
-		{
-			Decisions,
-			Positions,
-			Traders,
-			Brain,
-			InputsOutputs,
-			Statistics,
-		}
-
 		private sealed record SimulationBrainOption(string DisplayName, string BrainName, Guid? ModelId);
 
 		private IReadOnlyList<SimulationBrainOption> SimulationBrainOptions =>
@@ -761,7 +736,6 @@ namespace Poink.Sim.Components.Pages
 		private ElementReference _chartDividerRef;
 		private ElementReference _chartDividerRef2;
 		private ElementReference _chartDividerRefEquityCurve;
-		private ElementReference _chartDividerRefRisk;
 		private ElementReference _chartHDividerRef;
 		private IJSObjectReference? _dividerResizeInstance;
 		private HashSet<string> _lastVisibleChartPanels = new();
@@ -877,7 +851,6 @@ namespace Poink.Sim.Components.Pages
 			if (_showVolumeProfile) keys.Add("volume");
 			if (_showTimeProfile) keys.Add("time");
 			if (_showEquityCurve) keys.Add("equity");
-			if (_showRiskPolicies && s.RiskPolicies.Count > 0) keys.Add("risk");
 			return keys;
 		}
 
@@ -910,8 +883,6 @@ namespace Poink.Sim.Components.Pages
 					await _dividerResizeInstance.InvokeVoidAsync("bindChartDivider", _chartDividerRef2);
 				if (ShowEquityCurveDivider(_snapshot))
 					await _dividerResizeInstance.InvokeVoidAsync("bindChartDivider", _chartDividerRefEquityCurve);
-				if (ShowRiskPoliciesDivider(_snapshot))
-					await _dividerResizeInstance.InvokeVoidAsync("bindChartDivider", _chartDividerRefRisk);
 				await _dividerResizeInstance.InvokeVoidAsync("bindHeight", _chartHDividerRef);
 			}
 

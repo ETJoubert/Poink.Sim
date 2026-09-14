@@ -2,8 +2,6 @@
 @page "/simulation"
 @namespace Poink.Sim.Components.Pages
 @using Poink.Sim.Components.Charts
-@using Poink.Sim.Components.Shared.BrainIoPanel
-@using Poink.Sim.Components.Shared.DataTable
 @using Poink.Sim.Components.Shared.DateRangeSlider
 @using Poink.Sim.Components.Shared.LookbackWindowBar
 @using Poink.Sim.Components.Shared.SimTimeline
@@ -21,6 +19,7 @@
 @using Poink.Sim.Components.Shared.TradeConsole
 @using Poink.Sim.Components.Shared.FinancialsPanel
 @using Poink.Sim.Components.Shared.PositionTable
+@using Poink.Sim.Trader.Risk
 
 <div class="sim-page">
 
@@ -371,12 +370,6 @@
                                 <button type="button" class="sim-overlay-toggle-btn @(_showEquityCurve ? "active" : "")"
                                         @onclick="() => _showEquityCurve = !_showEquityCurve"
                                         title="Equity over time for the selected trader, with the best/worst equity reached during the currently open trade">Equity curve</button>
-                                @if (s.RiskPolicies.Count > 0)
-                                {
-                                    <button type="button" class="sim-overlay-toggle-btn @(_showRiskPolicies ? "active" : "")"
-                                            @onclick="() => _showRiskPolicies = !_showRiskPolicies"
-                                            title="Status of every risk policy gating the selected trader's actions">Risk policies</button>
-                                }
                             </div>
                         </div>
 
@@ -520,55 +513,11 @@
                                     <EquityCurve Samples="SelectedTraderEquityCurveSamples" />
                                 </div>
                             }
-                            @if (_showRiskPolicies && s.RiskPolicies.Count > 0)
-                            {
-                                @if (ShowRiskPoliciesDivider(s))
-                                {
-                                    <div class="sim-chart-divider" @ref="_chartDividerRefRisk" data-min-width="160"
-                                         title="Drag to resize"></div>
-                                }
-                                <div class="sim-chart-side sim-chart-side-scroll">
-                                    <RiskPolicyPanel Policies="s.RiskPolicies" Locked="s.RiskPoliciesLocked"
-                                                     Statuses="SelectedTrader?.RiskPolicyStatuses" LastDenial="SelectedTrader?.LastDenial" />
-                                </div>
-                            }
                         </div>
 
                         <div class="sim-chart-hdivider" @ref="_chartHDividerRef" data-min-height="160" data-max-height-vh="80"
                              title="Drag to resize"></div>
                     }
-
-                    @* Traders/Brain/Inputs-Outputs are in limbo for now -- a later piece relocates them
-                       elsewhere on the page. Backing C# (TraderItems/TraderCardItem/TraderCellClass/
-                       SelectTrader(int)/CurrentBrainIsNeuralNetwork) is left live and uncommented.
-                    <div class="sim-log-tabs">
-                        <button class="sim-tab-btn @(_activeLogTab == LogTab.Traders ? "active" : "")"
-                                @onclick="() => _activeLogTab = LogTab.Traders">TRADERS</button>
-                        <button class="sim-tab-btn @(_activeLogTab == LogTab.Brain ? "active" : "")"
-                                @onclick="() => _activeLogTab = LogTab.Brain">BRAIN</button>
-                        <button class="sim-tab-btn @(_activeLogTab == LogTab.InputsOutputs ? "active" : "")"
-                                @onclick="() => _activeLogTab = LogTab.InputsOutputs">INPUTS/OUTPUTS</button>
-                    </div>
-                    <div class="sim-log-content">
-                        @if (_activeLogTab == LogTab.Traders)
-                        {
-                            <DataTable TItem="TraderCardItem" Items="TraderItems"
-                                       ExcludeProperties="@(new List<string> { "Id" })" ShowRowNumbers="false" ActionsHeader="VIEW"
-                                       CellClass="TraderCellClass" OnView="item => SelectTrader(item.Id)" />
-                        }
-                        else if (_activeLogTab == LogTab.Brain)
-                        {
-                            <BrainInfoCard BrainName="@s.Config.BrainName"
-                                           IsNeuralNetwork="CurrentBrainIsNeuralNetwork(s.Config.BrainName)"
-                                           ActiveSnapshot="TrainingService.GetActiveSnapshot(s.Config.BrainName)" />
-                        }
-                        else if (_activeLogTab == LogTab.InputsOutputs)
-                        {
-                            <BrainIoPanel Inputs="SelectedTrader?.Inputs" Outputs="SelectedTrader?.Outputs"
-                                          CurrentPrice="_snapshot?.CurrentPrice" Equity="SelectedTrader?.Capital.Equity" />
-                        }
-                    </div>
-                    *@
 
                     <div class="sim-log-panel">
                         <FinancialsPanel PositionsCount="PositionRows.Count" HistoryCount="LogRows.Count"
@@ -662,6 +611,16 @@
                                               StatusMessage="_consoleError" StatusIsError="_consoleError is not null"
                                               OnSubmit="HandleConsoleSubmit" />
                             </TradeTab>
+                            <PoliciesTab>
+                                <RiskPolicyPanel Policies="@(_snapshot?.RiskPolicies ?? Array.Empty<RiskPolicySnapshot>())"
+                                                 Locked="_snapshot?.RiskPoliciesLocked ?? false"
+                                                 Statuses="SelectedTrader?.RiskPolicyStatuses" LastDenial="SelectedTrader?.LastDenial" />
+                            </PoliciesTab>
+                            <RobotTab>
+                                <BrainInfoCard BrainName="@(_snapshot?.Config.BrainName ?? string.Empty)"
+                                               IsNeuralNetwork="CurrentBrainIsNeuralNetwork(_snapshot?.Config.BrainName ?? string.Empty)"
+                                               ActiveSnapshot="TrainingService.GetActiveSnapshot(_snapshot?.Config.BrainName ?? string.Empty)" />
+                            </RobotTab>
                         </TraderSidePanel>
                     </div>
                 </aside>
