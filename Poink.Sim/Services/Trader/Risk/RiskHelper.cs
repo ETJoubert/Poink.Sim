@@ -254,6 +254,23 @@ internal static class RiskHelper
 		Math.Abs(priceA - priceB) / pipSize;
 
 	/// <summary>
+	/// Pushes <paramref name="price"/> out to <paramref name="minDistance"/> from <paramref name="entryPrice"/>,
+	/// on whichever side it already sits, when it falls short of a symbol's minimum SL/TP distance.
+	/// Returns <paramref name="price"/> unchanged when the minimum is non-positive or already satisfied.
+	/// </summary>
+	public static double ClampToMinimumDistance(double entryPrice, double price, double minDistance)
+	{
+		if (minDistance <= 0)
+			return price;
+
+		double offset = price - entryPrice;
+		if (Math.Abs(offset) >= minDistance)
+			return price;
+
+		return entryPrice + Math.Sign(offset) * minDistance;
+	}
+
+	/// <summary>
 	/// Money lost when this open position's stop is hit. Returns 0 when no stop is set.
 	/// </summary>
 	public static double RiskOnStop(this Position position) =>

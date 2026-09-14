@@ -9,6 +9,15 @@ public static class PositionPnlHelper
 {
 	public static double PipSize(SymbolMetadataModel metadata) => 1.0 / Math.Pow(10, metadata.PipPosition);
 
+	/// <summary>
+	/// The symbol's minimum SL/TP distance in pips, converted from cTrader's point-based distance.
+	/// Null when the symbol expresses its minimum as a percentage rather than a fixed distance.
+	/// </summary>
+	public static double? MinDistancePips(SymbolMetadataModel metadata, int distancePoints) =>
+		metadata.DistanceSetIn == ProtoOASymbolDistanceType.SymbolDistanceInPoints
+			? distancePoints / Math.Pow(10, metadata.Digits - metadata.PipPosition)
+			: null;
+
 	// Long P/L closes against the bid, short against the ask, matching how cTrader itself marks an open position.
 	public static double? CurrentPrice(CTraderPositionInfo position, CTraderSymbolQuote? quote) =>
 		position.IsLong ? quote?.Bid : quote?.Ask;

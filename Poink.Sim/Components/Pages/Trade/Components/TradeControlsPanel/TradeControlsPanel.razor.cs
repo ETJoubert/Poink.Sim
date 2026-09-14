@@ -2,8 +2,10 @@ using System;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
+using Poink.Sim.Components.Pages.Trade.Helpers;
 using Poink.Sim.Models;
 using Poink.Sim.Services.CTrader;
+using Poink.Sim.Services.Symbols;
 using Poink.Sim.Trader.Risk;
 
 namespace Poink.Sim.Components.Pages.Trade
@@ -26,6 +28,9 @@ namespace Poink.Sim.Components.Pages.Trade
 
 		[Inject]
 		private ITradeDraftService TradeDraft { get; set; } = null!;
+
+		[Inject]
+		private ISymbolMetadataCache MetadataCache { get; set; } = null!;
 
 		[Parameter]
 		public long? SymbolId { get; set; }
@@ -111,6 +116,22 @@ namespace Poink.Sim.Components.Pages.Trade
 		private bool HasStopLoss =>
 			_stopLossMode == SizingMode.Pips ? _stopLossPips is not null : _stopLossPercent is not null;
 
+		private SymbolMetadataModel? Metadata => SymbolId is { } symbolId ? MetadataCache.Get(symbolId) : null;
+
+		/// <summary>
+		/// The symbol's minimum SL/TP distance from entry, in price terms. A %balance-derived price
+		/// closer than this would be rejected by cTrader, so it gets pushed out to the minimum.
+		/// </summary>
+		private double? MinStopLossDistancePrice =>
+			Metadata is { } metadata && PositionPnlHelper.MinDistancePips(metadata, metadata.SlDistance) is { } pips
+				? pips * PipSize
+				: null;
+
+		private double? MinTakeProfitDistancePrice =>
+			Metadata is { } metadata && PositionPnlHelper.MinDistancePips(metadata, metadata.TpDistance) is { } pips
+				? pips * PipSize
+				: null;
+
 		private double? StopLossPrice
 		{
 			get
@@ -122,7 +143,10 @@ namespace Poink.Sim.Components.Pages.Trade
 						? RiskHelper.StopLossPriceFromPips(Direction, entry, pips, PipSize)
 						: null
 					: _stopLossPercent is { } percent
-						? RiskHelper.StopLossPriceForSizeRisk(Direction, Volume, entry, percent / 100.0 * (Session.Balance ?? 0))
+						? RiskHelper.StopLossPriceForSizeRisk(Direction, Volume, entry, percent / 100.0 * (Session.Balance ?? 0)) is
+							{ } price
+							? RiskHelper.ClampToMinimumDistance(entry, price, MinStopLossDistancePrice ?? 0)
+							: null
 						: null;
 			}
 		}
@@ -138,7 +162,10 @@ namespace Poink.Sim.Components.Pages.Trade
 						? RiskHelper.TakeProfitPriceFromPips(Direction, entry, pips, PipSize)
 						: null
 					: _takeProfitPercent is { } percent
-						? RiskHelper.TakeProfitPriceForSizeReward(Direction, Volume, entry, percent / 100.0 * (Session.Balance ?? 0))
+						? RiskHelper.TakeProfitPriceForSizeReward(Direction, Volume, entry, percent / 100.0 * (Session.Balance ?? 0)) is
+							{ } price
+							? RiskHelper.ClampToMinimumDistance(entry, price, MinTakeProfitDistancePrice ?? 0)
+							: null
 						: null;
 			}
 		}
