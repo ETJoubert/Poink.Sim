@@ -44,7 +44,18 @@ else
             }
             else if (_activeTab == SidePanelTab.Policies)
             {
-                <PlaceholderPanel Title="POLICIES" Message="Risk policy configuration is coming soon." />
+                @if (PoliciesTab is not null)
+                {
+                    @PoliciesTab
+                }
+                else
+                {
+                    <PlaceholderPanel Title="POLICIES" Message="Risk policy configuration is coming soon." />
+                }
+            }
+            else if (RobotTab is not null)
+            {
+                @RobotTab
             }
             else
             {

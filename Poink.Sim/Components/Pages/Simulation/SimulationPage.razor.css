@@ -18,7 +18,7 @@
     align-items: center;
     justify-content: flex-start;
     gap: 16px;
-    padding: 5px 24px 5px;
+    padding: 1px 24px 1px;
     border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
 }
 
@@ -38,13 +38,6 @@
     text-shadow: var(--shadow-glow-accent);
 }
 
-.sim-header-mode {
-    font-size: 0.78rem;
-    color: var(--color-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-}
-
 .sim-header-state {
     font-size: 0.68rem;
     font-weight: bold;
@@ -57,26 +50,6 @@
 
 .sim-state-setup {
     color: var(--color-secondary);
-}
-
-.sim-state-playing {
-    color: var(--color-success);
-    text-shadow: 0 0 8px color-mix(in srgb, var(--color-success) 60%, transparent);
-    animation: sim-pulse 1.6s ease-in-out infinite;
-}
-
-.sim-state-paused {
-    color: var(--color-warning);
-}
-
-.sim-state-finished {
-    color: var(--color-secondary);
-    opacity: 0.8;
-}
-
-@keyframes sim-pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.55; }
 }
 
 .sim-stats {
@@ -105,24 +78,6 @@
     font-size: 0.92rem;
     font-weight: 600;
     white-space: nowrap;
-}
-
-.sim-stat-muted {
-    opacity: 0.5;
-    font-weight: 400;
-}
-
-.sim-stat-highlight .sim-stat-value {
-    color: var(--color-success);
-    text-shadow: 0 0 8px color-mix(in srgb, var(--color-success) 50%, transparent);
-}
-
-.sim-pnl-positive {
-    color: var(--color-success);
-}
-
-.sim-pnl-negative {
-    color: var(--color-error);
 }
 
 .sim-setup {
@@ -400,6 +355,102 @@
     padding: 0 4px 8px;
 }
 
+.sim-left-side-panel {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: 280px;
+    flex-shrink: 0;
+    border-right: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
+    overflow: hidden;
+    transition: width 0.15s ease;
+}
+
+.sim-left-side-panel-collapsed {
+    width: 28px;
+}
+
+.sim-left-side-panel-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    flex-shrink: 0;
+}
+
+.sim-left-side-panel-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    flex-shrink: 0;
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
+    border-radius: var(--border-radius-sm);
+    color: var(--color-secondary);
+    cursor: pointer;
+}
+
+.sim-left-side-panel-toggle:hover {
+    color: var(--color-primary);
+    border-color: var(--color-primary);
+}
+
+::deep .sim-left-side-panel-toggle-icon {
+    width: 12px;
+    height: 12px;
+}
+
+.sim-left-side-panel-label {
+    font-size: 0.72rem;
+    font-weight: bold;
+    color: var(--color-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sim-left-side-panel-tabs {
+    display: flex;
+    flex-shrink: 0;
+    padding: 0 8px;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+.sim-left-side-panel-tab {
+    padding: 6px 4px;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--color-secondary);
+    font-family: var(--font-heading);
+    font-size: 0.64rem;
+    font-weight: bold;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+}
+
+.sim-left-side-panel-tab:hover {
+    color: var(--color-primary);
+}
+
+.sim-left-side-panel-tab.active {
+    color: var(--color-accent);
+    border-bottom-color: var(--color-accent);
+}
+
+.sim-left-side-panel-content {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+}
+
 .sim-controls {
     display: flex;
     align-items: center;
@@ -601,6 +652,14 @@
     margin: 1px 5px 1px;
 }
 
+.sim-chart-title {
+    font-family: var(--font-heading);
+    font-size: 0.92rem;
+    font-weight: bold;
+    letter-spacing: 0.06em;
+    color: var(--color-accent);
+}
+
 .sim-overlay-toggles,
 .sim-profile-toggles {
     display: flex;
@@ -694,12 +753,11 @@
 
 .sim-chart {
     display: flex;
-    flex-shrink: 0;
+    flex: 1;
     align-items: stretch;
     gap: 16px;
     padding: 1px 5px 1px;
     height: 280px;
-    min-height: 70vh;
     max-height: 80vh;
     overflow: hidden;
 }
@@ -806,8 +864,12 @@
 .sim-log-panel {
     display: flex;
     flex-direction: column;
-    padding: 18px 24px 24px;
-    flex: 1;
+    flex-shrink: 0;
+    height: 280px;
+    margin: 1px 1px 1px;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
+    border-radius: var(--border-radius-sm);
+    overflow: hidden;
 }
 
 .sim-log-tabs {

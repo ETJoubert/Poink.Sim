@@ -1,12 +1,16 @@
 using System;
 using System.Collections.Generic;
-using Poink.Sim.Services.CTrader;
 
-namespace Poink.Sim.Components.Pages.Trade.Models
+namespace Poink.Sim.Components.Shared.PositionTable
 {
-	/// <summary>Display-ready projection of one open position for PositionTable -- formatting and derived figures are computed once per row, not once per column per render.</summary>
-	public sealed record PositionRowViewModel(
-		CTraderPositionInfo Position,
+	/// <summary>
+	/// Display-ready projection of one open position for PositionTable -- formatting and derived figures
+	/// are computed once per row, not once per column per render. <typeparamref name="TPosition"/> is the
+	/// host's own backend identity (e.g. a cTrader position, or a simulated Position), round-tripped
+	/// through OnSelect/OnClose so PositionTable itself never depends on a specific backend.
+	/// </summary>
+	public sealed record PositionRowViewModel<TPosition>(
+		TPosition Position,
 		string SymbolName,
 		bool IsLong,
 		string Side,
@@ -35,13 +39,13 @@ namespace Poink.Sim.Components.Pages.Trade.Models
 	);
 
 	/// <summary>One PositionTable column: pairs its header with the cell(s) it renders, so a reorder or addition can't leave the header row out of sync with the body -- the bug this replaced.</summary>
-	public sealed record PositionColumn(
+	public sealed record PositionColumn<TPosition>(
 		string Header,
-		Func<PositionRowViewModel, string> Value,
-		Func<PositionRowViewModel, string>? CssClass = null,
-		Func<PositionRowViewModel, string>? Title = null
+		Func<PositionRowViewModel<TPosition>, string> Value,
+		Func<PositionRowViewModel<TPosition>, string>? CssClass = null,
+		Func<PositionRowViewModel<TPosition>, string>? Title = null
 	);
 
 	/// <summary>A named band of adjacent PositionTable columns, rendered as a spanning label above them.</summary>
-	public sealed record PositionColumnGroup(string Name, IReadOnlyList<PositionColumn> Columns);
+	public sealed record PositionColumnGroup<TPosition>(string Name, IReadOnlyList<PositionColumn<TPosition>> Columns);
 }

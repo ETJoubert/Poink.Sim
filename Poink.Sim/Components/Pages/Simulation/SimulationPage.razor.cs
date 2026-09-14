@@ -8,6 +8,8 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 using Poink.Sim.Components.Charts;
+using Poink.Sim.Components.Shared.PositionTable;
+using Poink.Sim.Components.Shared.TradeConsole;
 using Poink.Sim.Helpers;
 using Poink.Sim.Models;
 using Poink.Sim.Profiler;
@@ -99,7 +101,6 @@ namespace Poink.Sim.Components.Pages
 
 		private bool _setupCollapsed;
 		private int? _selectedTraderId;
-		private LogTab _activeLogTab;
 
 		// Matches SimulationEngine.MaxRecentTicks.
 		private const int MaxTickWindow = 5000;
@@ -150,9 +151,15 @@ namespace Poink.Sim.Components.Pages
 		private bool _showXGrid;
 		private bool _showVolumeProfile;
 		private bool _showTimeProfile;
-		private bool _showEquityCurve;
-		private bool _showRiskPolicies = true;
 		private bool _traderControlsCollapsed;
+		private bool _leftSidePanelCollapsed;
+		private SimLeftPanelTab _activeLeftPanelTab;
+
+		private enum SimLeftPanelTab
+		{
+			Traders,
+			TraderIo,
+		}
 
 		private int _xgridPipCount = 20;
 		private int _xgridColCount = 20;
@@ -166,21 +173,6 @@ namespace Poink.Sim.Components.Pages
 
 		private bool ShowTimeProfileDivider(SimulationSnapshot s) =>
 			_showTimeProfile && (_showMainChart || (s.Config.Aggregate && _showXGrid) || _showVolumeProfile);
-
-		private bool ShowEquityCurveDivider(SimulationSnapshot s) =>
-			_showEquityCurve
-			&& (_showMainChart || (s.Config.Aggregate && _showXGrid) || _showVolumeProfile || _showTimeProfile);
-
-		private bool ShowRiskPoliciesDivider(SimulationSnapshot s) =>
-			_showRiskPolicies
-			&& s.RiskPolicies.Count > 0
-			&& (
-				_showMainChart
-				|| (s.Config.Aggregate && _showXGrid)
-				|| _showVolumeProfile
-				|| _showTimeProfile
-				|| _showEquityCurve
-			);
 
 		private XGridResult? _xgridCache;
 		private (
@@ -196,7 +188,7 @@ namespace Poink.Sim.Components.Pages
 		)? _xgridKey;
 
 		// Row height comes from the account's own pip size (Config.PipSize, set up before
-		// load, same value TraderControlsPanel uses for SL/TP), not a value XGrid owns itself.
+		// load, same value TradeConsole uses for SL/TP), not a value XGrid owns itself.
 		private XGridResult? ComputeXGrid(SimulationSnapshot s)
 		{
 			if (!s.Config.Aggregate)
@@ -326,11 +318,17 @@ namespace Poink.Sim.Components.Pages
 		{
 			if (SelectedTrader is not { } trader)
 				return;
-			SimulationService.SubmitManualDecision(
-				trader.Id,
-				new SimulationDecision(SimulationAction.Close, Reason: reason),
-				out _
-			);
+			_consoleError = null;
+			if (
+				!SimulationService.SubmitManualDecision(
+					trader.Id,
+					new SimulationDecision(SimulationAction.Close, Reason: reason),
+					out RiskPolicyDenial? denial
+				)
+			)
+				_consoleError = "close rejected -- no open position or resting order";
+			else if (denial is { } d)
+				_consoleError = $"denied by {d.PolicyName}: {d.Reason}";
 		}
 
 		// Entry price becomes a Limit trigger when it sits on the favourable side of current
@@ -357,6 +355,51 @@ namespace Poink.Sim.Components.Pages
 				Reason: "xgrid"
 			);
 			SimulationService.SubmitManualDecision(trader.Id, decision, out _);
+		}
+
+		private string? _consoleError;
+
+		private void HandleConsoleSubmit(TradeConsoleOrderRequest request)
+		{
+			_consoleError = null;
+			if (SelectedTrader is not { } trader)
+			{
+				_consoleError = "no trader selected";
+				return;
+			}
+
+			double? entry = request.OrderType == OrderType.Market
+				? (request.IsLong ? _snapshot?.CurrentAsk : _snapshot?.CurrentBid) ?? _snapshot?.CurrentPrice
+				: request.TriggerPrice;
+			if (entry is not { } entryPrice || entryPrice <= 0 || trader.Capital.Cash <= 0)
+			{
+				_consoleError = "no market price available yet";
+				return;
+			}
+
+			double capitalFraction = RiskHelper.MarginRequired(request.Volume, entryPrice, trader.Leverage) / trader.Capital.Cash;
+			if (capitalFraction is <= 0 or > 1)
+			{
+				_consoleError = "volume must resolve to between 0 and 100% of cash";
+				return;
+			}
+
+			var action = request.IsLong ? SimulationAction.EnterLong : SimulationAction.EnterShort;
+			var orderType = request.OrderType == OrderType.Market ? (OrderType?)null : request.OrderType;
+			var decision = new SimulationDecision(
+				action,
+				capitalFraction,
+				request.StopLossPrice,
+				request.TakeProfitPrice,
+				orderType,
+				request.TriggerPrice,
+				Reason: "manual"
+			);
+
+			if (!SimulationService.SubmitManualDecision(trader.Id, decision, out RiskPolicyDenial? denial))
+				_consoleError = "order rejected -- already in a position or an order is already resting";
+			else if (denial is { } d)
+				_consoleError = $"denied by {d.PolicyName}: {d.Reason}";
 		}
 
 		private List<WeightedPriceSample> MergedBarSamples(SimulationSnapshot s)
@@ -430,16 +473,6 @@ namespace Poink.Sim.Components.Pages
 			return bars.Count > 0 ? bars[^1].OpenTime : null;
 		}
 
-		private enum LogTab
-		{
-			Decisions,
-			Positions,
-			Traders,
-			Brain,
-			InputsOutputs,
-			Statistics,
-		}
-
 		private sealed record SimulationBrainOption(string DisplayName, string BrainName, Guid? ModelId);
 
 		private IReadOnlyList<SimulationBrainOption> SimulationBrainOptions =>
@@ -488,6 +521,18 @@ namespace Poink.Sim.Components.Pages
 			SimulationService.SelectTraderForIo(id);
 		}
 
+		private static bool TraderIsManual(TraderSnapshot trader) => trader.Mode == TraderControlMode.Manual;
+
+		private static string TraderPositionStatus(TraderSnapshot trader) =>
+			trader.Position is { } position ? (position.Direction == PositionDirection.Long ? "LONG" : "SHORT")
+			: trader.PendingOrder is not null ? "PENDING"
+			: "FLAT";
+
+		private static string TraderPositionStatusCssClass(TraderSnapshot trader) =>
+			trader.Position is { } position ? (position.Direction == PositionDirection.Long ? "tcard-status-long" : "tcard-status-short")
+			: trader.PendingOrder is not null ? "tcard-status-pending"
+			: "tcard-status-flat";
+
 		private bool? SelectedPositionIsLong =>
 			SelectedTrader?.Position?.Direction switch
 			{
@@ -521,14 +566,6 @@ namespace Poink.Sim.Components.Pages
 				return EquityCurveHelper.Build(timestamps, equity, trader.Trades);
 			}
 		}
-
-		private string? SelectedPositionSummary =>
-			SelectedTrader?.Position is not { } pos ? null : $"{pos.Direction} {pos.Size:F4} @ {pos.EntryPrice:F5}";
-
-		private string? SelectedPendingSummary =>
-			SelectedTrader?.PendingOrder is not { } pending
-				? null
-				: $"PENDING {pending.Direction} {pending.OrderType} @ {pending.TriggerPrice:F5}";
 
 		// ── Lifecycle ──
 
@@ -698,8 +735,6 @@ namespace Poink.Sim.Components.Pages
 		private ElementReference _chartDividerRefXGrid;
 		private ElementReference _chartDividerRef;
 		private ElementReference _chartDividerRef2;
-		private ElementReference _chartDividerRefEquityCurve;
-		private ElementReference _chartDividerRefRisk;
 		private ElementReference _chartHDividerRef;
 		private IJSObjectReference? _dividerResizeInstance;
 		private HashSet<string> _lastVisibleChartPanels = new();
@@ -769,14 +804,14 @@ namespace Poink.Sim.Components.Pages
 			            divider.addEventListener('pointerup', onUp);
 			        });
 			    }
-			    function bindHeight(divider) {
+			    function bindHeightAfter(divider) {
 			        if (!divider || divider.dataset.bound) return;
 			        divider.dataset.bound = '1';
 			        var minHeight = parseInt(divider.dataset.minHeight, 10) || 160;
 			        var maxHeightVh = parseInt(divider.dataset.maxHeightVh, 10) || 80;
 			        divider.addEventListener('pointerdown', function(e) {
 			            e.preventDefault();
-			            var target = divider.previousElementSibling;
+			            var target = divider.nextElementSibling;
 			            if (!target) return;
 			            var startY = e.clientY;
 			            var startHeight = target.getBoundingClientRect().height;
@@ -785,7 +820,7 @@ namespace Poink.Sim.Components.Pages
 			            divider.classList.add('sim-chart-hdivider-active');
 
 			            function clamp(ev) {
-			                return Math.min(maxHeight, Math.max(minHeight, startHeight + (ev.clientY - startY)));
+			                return Math.min(maxHeight, Math.max(minHeight, startHeight - (ev.clientY - startY)));
 			            }
 			            function onMove(ev) {
 			                target.style.height = clamp(ev) + 'px';
@@ -801,7 +836,7 @@ namespace Poink.Sim.Components.Pages
 			        });
 			    }
 			    return {
-			        bindChartDivider: bindChartDivider, bindHeight: bindHeight,
+			        bindChartDivider: bindChartDivider, bindHeightAfter: bindHeightAfter,
 			        resetChartPanelsEqual: resetChartPanelsEqual,
 			    };
 			})()
@@ -814,8 +849,6 @@ namespace Poink.Sim.Components.Pages
 			if (s.Config.Aggregate && _showXGrid) keys.Add("xgrid");
 			if (_showVolumeProfile) keys.Add("volume");
 			if (_showTimeProfile) keys.Add("time");
-			if (_showEquityCurve) keys.Add("equity");
-			if (_showRiskPolicies && s.RiskPolicies.Count > 0) keys.Add("risk");
 			return keys;
 		}
 
@@ -846,11 +879,7 @@ namespace Poink.Sim.Components.Pages
 					await _dividerResizeInstance.InvokeVoidAsync("bindChartDivider", _chartDividerRef);
 				if (ShowTimeProfileDivider(_snapshot))
 					await _dividerResizeInstance.InvokeVoidAsync("bindChartDivider", _chartDividerRef2);
-				if (ShowEquityCurveDivider(_snapshot))
-					await _dividerResizeInstance.InvokeVoidAsync("bindChartDivider", _chartDividerRefEquityCurve);
-				if (ShowRiskPoliciesDivider(_snapshot))
-					await _dividerResizeInstance.InvokeVoidAsync("bindChartDivider", _chartDividerRefRisk);
-				await _dividerResizeInstance.InvokeVoidAsync("bindHeight", _chartHDividerRef);
+				await _dividerResizeInstance.InvokeVoidAsync("bindHeightAfter", _chartHDividerRef);
 			}
 
 			if (
@@ -1116,23 +1145,6 @@ namespace Poink.Sim.Components.Pages
 		private static List<TimedPrice> ToTimedMidPrices(IReadOnlyList<Tick> ticks) =>
 			ticks.Select(t => new TimedPrice(t.Timestamp, (t.Bid + t.Ask) / 2.0)).ToList();
 
-		private static string StateClass(SimulationSnapshot s) =>
-			s.IsFinished ? "sim-state-finished"
-			: s.IsPlaying ? "sim-state-playing"
-			: "sim-state-paused";
-
-		private static string PnlClass(double v) =>
-			v switch
-			{
-				> 0 => "sim-pnl-positive",
-				< 0 => "sim-pnl-negative",
-				_ => "",
-			};
-
-		private static string Money(double v) => v.ToString("N2");
-
-		private static string PriceStr(double? v) => v is null ? "—" : v.Value.ToString("F5");
-
 		private sealed record TickRow(string Time, string Bid, string Ask, string Mid);
 
 		private List<object> TickRows =>
@@ -1150,53 +1162,6 @@ namespace Poink.Sim.Components.Pages
 					)
 					.Reverse()
 					.ToList();
-
-		private sealed record TraderCardItem(
-			int Id,
-			string Trader,
-			double Cash,
-			double Realized,
-			double Unrealized,
-			double Equity,
-			double MarginUsed,
-			double? MarginLevel,
-			string Position,
-			int Trades
-		);
-
-		private List<TraderCardItem> TraderItems =>
-			_snapshot is null
-				? new List<TraderCardItem>()
-				: _snapshot
-					.Traders.Select(t => new TraderCardItem(
-						t.Id,
-						t.Label,
-						t.Capital.Cash,
-						t.Capital.RealizedPnl,
-						t.Capital.UnrealizedPnl,
-						t.Capital.Equity,
-						t.Capital.MarginUsed,
-						t.Capital.MarginLevel,
-						t.Position is null ? "flat" : t.Position.Value.Direction.ToString(),
-						t.TradeCount
-					))
-					.ToList();
-
-		private static string TraderCellClass(TraderCardItem item, string propName) =>
-			propName switch
-			{
-				nameof(TraderCardItem.Realized) => DataTablePnlClass(item.Realized),
-				nameof(TraderCardItem.Unrealized) => DataTablePnlClass(item.Unrealized),
-				_ => "",
-			};
-
-		private static string DataTablePnlClass(double v) =>
-			v switch
-			{
-				> 0 => "data-table-value-positive",
-				< 0 => "data-table-value-negative",
-				_ => "",
-			};
 
 		private sealed record DecisionLogRow(
 			string Time,
@@ -1235,27 +1200,8 @@ namespace Poink.Sim.Components.Pages
 					.Reverse()
 					.ToList();
 
-		private static string DecisionLogCellClass(DecisionLogRow item, string propName) =>
-			propName switch
-			{
-				nameof(DecisionLogRow.RealizedPnl) => item.RealizedPnl is { } v ? DataTablePnlClass(v) : "",
-				_ => "",
-			};
-
-		private sealed record OpenPositionRow(
-			string Direction,
-			string Size,
-			string EntryPrice,
-			string EntryTime,
-			double? UnrealizedPnl
-		);
-
-		private static string PositionCellClass(OpenPositionRow item, string propName) =>
-			propName switch
-			{
-				nameof(OpenPositionRow.UnrealizedPnl) => item.UnrealizedPnl is { } v ? DataTablePnlClass(v) : "",
-				_ => "",
-			};
+		private double? RealizedPnlPercentOfBalance() =>
+			RiskHelper.PercentOfBalance(SelectedTrader?.Capital.RealizedPnl, SelectedTrader?.Capital.Cash);
 
 		private TradeStatistics? Stats =>
 			SelectedTrader is not { } trader
@@ -1264,20 +1210,79 @@ namespace Poink.Sim.Components.Pages
 
 		private IReadOnlyList<StatGroup> StatGroups => Stats?.Groups ?? [];
 
-		private List<OpenPositionRow> OpenPositionRows =>
-			SelectedTrader?.Position is not { } pos
-				? new List<OpenPositionRow>()
-				: new List<OpenPositionRow>
-				{
-					new OpenPositionRow(
-						pos.Direction.ToString(),
-						pos.Size.ToString("F4"),
-						pos.EntryPrice.ToString("F5"),
-						pos.EntryTime.ToString("HH:mm:ss"),
-						_snapshot?.CurrentBid is { } bid && _snapshot?.CurrentAsk is { } ask
-							? pos.UnrealizedPnl(bid, ask)
-							: null
-					),
-				};
+		private IReadOnlyList<PositionRowViewModel<Position>> PositionRows
+		{
+			get
+			{
+				if (_snapshot is not { } snapshot || SelectedTrader is not { } trader || trader.Position is not { } position)
+					return Array.Empty<PositionRowViewModel<Position>>();
+				return new[] { ToPositionRow(position, snapshot, trader) };
+			}
+		}
+
+		private static PositionRowViewModel<Position> ToPositionRow(Position position, SimulationSnapshot snapshot, TraderSnapshot trader)
+		{
+			bool isLong = position.Direction == PositionDirection.Long;
+			double pipSize = snapshot.Config.PipSize;
+			double? currentPrice = (isLong ? snapshot.CurrentBid : snapshot.CurrentAsk) ?? snapshot.CurrentPrice;
+			double? pips =
+				currentPrice is { } price && pipSize > 0
+					? (isLong ? price - position.EntryPrice : position.EntryPrice - price) / pipSize
+					: null;
+			double? pnl =
+				snapshot.CurrentBid is { } bid && snapshot.CurrentAsk is { } ask ? position.UnrealizedPnl(bid, ask) : null;
+			double? projectedProfit =
+				position.TakeProfitPrice is { } tp
+					? RiskHelper.RewardOnTarget(position.Direction, position.Size, position.EntryPrice, tp)
+					: null;
+			double? projectedLoss =
+				position.StopLossPrice is { } sl
+					? RiskHelper.RiskOnStop(position.Direction, position.Size, position.EntryPrice, sl)
+					: null;
+			double? rewardToRisk =
+				projectedLoss is { } risk && projectedProfit is { } reward ? RiskHelper.RewardToRiskRatio(risk, reward) : null;
+			double? percentToTakeProfit = ProgressTowardTarget(position.EntryPrice, position.TakeProfitPrice, pips, pipSize, favorable: true);
+			double? percentToStopLoss = ProgressTowardTarget(position.EntryPrice, position.StopLossPrice, pips, pipSize, favorable: false);
+			double? percentNet = RiskHelper.PercentOfBalance(pnl, trader.Capital.Cash);
+			var duration = (snapshot.CurrentTimestampUtc ?? DateTime.UtcNow) - position.EntryTime;
+
+			return new PositionRowViewModel<Position>(
+				position,
+				snapshot.Config.Table,
+				isLong,
+				isLong ? "LONG" : "SHORT",
+				position.Size.ToString("N2"),
+				position.EntryPrice.ToString("N5"),
+				pips,
+				PositionRowFormat.PipsLabel(pips),
+				pnl,
+				PositionRowFormat.PnlLabel(pnl),
+				position.EntryTime.ToString("HH:mm:ss"),
+				position.StopLossPrice?.ToString("N5") ?? "—",
+				position.TakeProfitPrice?.ToString("N5") ?? "—",
+				projectedProfit,
+				PositionRowFormat.MoneyLabel(projectedProfit),
+				projectedLoss,
+				PositionRowFormat.MoneyLabel(-projectedLoss),
+				percentToTakeProfit,
+				PositionRowFormat.PercentLabel(percentToTakeProfit),
+				percentToStopLoss,
+				PositionRowFormat.PercentLabel(percentToStopLoss),
+				rewardToRisk,
+				PositionRowFormat.RewardToRiskLabel(rewardToRisk),
+				percentNet,
+				PositionRowFormat.PercentLabel(percentNet),
+				PositionRowFormat.DurationLabel(duration)
+			);
+		}
+
+		/// <summary>Progress from entry toward a target price, as a percent of the entry-to-target pip distance.</summary>
+		private static double? ProgressTowardTarget(double entryPrice, double? targetPrice, double? movedPips, double pipSize, bool favorable)
+		{
+			if (targetPrice is not { } target || pipSize <= 0 || movedPips is not { } moved)
+				return null;
+			double totalPips = Math.Abs(target - entryPrice) / pipSize;
+			return totalPips <= 0 ? null : (favorable ? moved : -moved) / totalPips * 100;
+		}
 	}
 }

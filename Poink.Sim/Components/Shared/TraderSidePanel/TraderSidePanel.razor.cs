@@ -24,6 +24,14 @@ namespace Poink.Sim.Components.Shared.TraderSidePanel
 		[Parameter]
 		public RenderFragment? TradeTab { get; set; }
 
+		/// <summary>The page-specific risk policy panel shown under the Policies tab -- falls back to a placeholder when unset.</summary>
+		[Parameter]
+		public RenderFragment? PoliciesTab { get; set; }
+
+		/// <summary>The page-specific automation panel shown under the Robot tab -- falls back to a placeholder when unset.</summary>
+		[Parameter]
+		public RenderFragment? RobotTab { get; set; }
+
 		[Parameter]
 		public bool Collapsed { get; set; }
 

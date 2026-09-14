@@ -242,6 +242,12 @@ internal static class RiskHelper
 	public static double RiskFraction(double riskAmount, double equity) => equity > 0 ? riskAmount / equity : 0;
 
 	/// <summary>
+	/// A signed amount as a percent of balance. Null when either is missing or balance is non-positive.
+	/// </summary>
+	public static double? PercentOfBalance(double? amount, double? balance) =>
+		amount is { } value && balance is > 0 ? RiskFraction(value, balance.Value) * 100 : null;
+
+	/// <summary>
 	/// Reward divided by risk. Null when either side is non-positive, since the ratio is undefined
 	/// (no risk to divide by) or meaningless (the trade isn't a risk/reward pair).
 	/// </summary>

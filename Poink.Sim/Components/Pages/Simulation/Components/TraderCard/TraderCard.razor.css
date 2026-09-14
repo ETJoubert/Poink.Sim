@@ -1,0 +1,135 @@
+.tcard {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+    padding: 10px 12px;
+    background: color-mix(in srgb, var(--color-primary) 4%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
+    border-radius: var(--border-radius-md, 8px);
+    text-align: left;
+    font-family: var(--font-body);
+    color: var(--color-primary);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.tcard:hover {
+    border-color: color-mix(in srgb, var(--color-primary) 40%, transparent);
+    background: color-mix(in srgb, var(--color-primary) 7%, transparent);
+}
+
+.tcard-selected {
+    border-color: var(--color-accent);
+    background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-accent) 40%, transparent);
+}
+
+.tcard-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.tcard-label {
+    font-family: var(--font-heading);
+    font-size: 0.78rem;
+    font-weight: bold;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tcard-mode {
+    flex-shrink: 0;
+    font-size: 0.58rem;
+    font-weight: bold;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--color-secondary) 45%, transparent);
+    color: var(--color-secondary);
+}
+
+.tcard-mode-manual {
+    border-color: color-mix(in srgb, var(--color-accent) 55%, transparent);
+    color: var(--color-accent);
+}
+
+.tcard-status-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.tcard-status {
+    font-size: 0.62rem;
+    font-weight: bold;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: var(--border-radius-sm);
+}
+
+.tcard-status-flat {
+    color: var(--color-secondary);
+    background: color-mix(in srgb, var(--color-secondary) 12%, transparent);
+}
+
+.tcard-status-long {
+    color: var(--color-success);
+    background: color-mix(in srgb, var(--color-success) 14%, transparent);
+}
+
+.tcard-status-short {
+    color: var(--color-error);
+    background: color-mix(in srgb, var(--color-error) 14%, transparent);
+}
+
+.tcard-status-pending {
+    color: var(--color-warning);
+    background: color-mix(in srgb, var(--color-warning) 14%, transparent);
+}
+
+.tcard-trades {
+    font-size: 0.62rem;
+    color: var(--color-secondary);
+    opacity: 0.85;
+    white-space: nowrap;
+}
+
+.tcard-stats {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px 12px;
+    padding-top: 4px;
+    border-top: 1px solid color-mix(in srgb, var(--color-primary) 12%, transparent);
+}
+
+.tcard-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+}
+
+.tcard-stat-label {
+    font-size: 0.56rem;
+    font-weight: bold;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-secondary);
+    opacity: 0.85;
+}
+
+.tcard-stat-value {
+    font-variant-numeric: tabular-nums;
+    font-size: 0.76rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}

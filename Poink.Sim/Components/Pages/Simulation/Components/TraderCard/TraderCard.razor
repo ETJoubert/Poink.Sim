@@ -1,0 +1,42 @@
+@namespace Poink.Sim.Components.Simulation
+@using Poink.Sim.Components.Shared.FinancialsPanel
+
+<button type="button" class="tcard @(IsSelected ? "tcard-selected" : "")" @onclick="SelectAsync"
+        title="View @Label">
+    <div class="tcard-header">
+        <span class="tcard-label">@Label</span>
+        <span class="tcard-mode @(IsManual ? "tcard-mode-manual" : "")" title="@(IsManual ? "Manual control -- the Brain is not deciding for this trader" : "The Brain is deciding for this trader")">
+            @(IsManual ? "MANUAL" : "AUTO")
+        </span>
+    </div>
+    <div class="tcard-status-row">
+        <span class="tcard-status @PositionStatusCssClass">@PositionStatus</span>
+        <span class="tcard-trades" title="Completed trades this run">@TradeCount trades</span>
+    </div>
+    <div class="tcard-stats">
+        <div class="tcard-stat" title="Cash balance, excluding any open position's unrealized P/L">
+            <span class="tcard-stat-label">Cash</span>
+            <span class="tcard-stat-value">@FinancialsPanel.Money(Cash)</span>
+        </div>
+        <div class="tcard-stat" title="Derived as Cash + Unrealized P/L">
+            <span class="tcard-stat-label">Equity</span>
+            <span class="tcard-stat-value">@FinancialsPanel.Money(Equity)</span>
+        </div>
+        <div class="tcard-stat" title="Net P/L from closed trades this run">
+            <span class="tcard-stat-label">Realized</span>
+            <span class="tcard-stat-value @FinancialsPanel.PnlCssClass(RealizedPnl)">@FinancialsPanel.SignedMoney(RealizedPnl)</span>
+        </div>
+        <div class="tcard-stat" title="Unrealized P/L on the open position, if any">
+            <span class="tcard-stat-label">Unrealized</span>
+            <span class="tcard-stat-value @FinancialsPanel.PnlCssClass(UnrealizedPnl)">@FinancialsPanel.SignedMoney(UnrealizedPnl)</span>
+        </div>
+        <div class="tcard-stat" title="Margin committed by the open position -- 0 while flat">
+            <span class="tcard-stat-label">Margin Used</span>
+            <span class="tcard-stat-value">@FinancialsPanel.Money(MarginUsed)</span>
+        </div>
+        <div class="tcard-stat" title="Equity ÷ Margin Used -- a stop-out force-closes the position below the configured threshold">
+            <span class="tcard-stat-label">Margin Level</span>
+            <span class="tcard-stat-value">@FinancialsPanel.Percent(MarginLevel)</span>
+        </div>
+    </div>
+</button>

@@ -2,7 +2,11 @@
 @namespace Poink.Sim.Components.Pages.Trade
 @using Poink.Sim.Services.CTrader
 @using Poink.Sim.Components.Shared.Icon
+@using Poink.Sim.Components.Shared.FinancialsPanel
+@using Poink.Sim.Components.Shared.PositionTable
+@using Poink.Sim.Components.Shared.StatisticsPanel
 @using Poink.Sim.Components.Shared.TraderSidePanel
+@using Poink.Sim.Components.Shared.TradeConsole
 
 <div class="trade-page">
 
@@ -31,10 +35,105 @@
             {
                 <div class="trade-chart-hdivider" @ref="_positionsHDividerRef" data-min-height="160" data-max-height-vh="70" title="Drag to resize"></div>
                 <section class="trade-financials-panel" title="Open positions and account financials">
-                    <FinancialsPanel Positions="Session.Positions" Balance="Session.Balance" Quotes="Session.Quotes"
-                                     SymbolMetadata="MetadataCache.Snapshot"
-                                     OnSelectPosition="position => Coordinator.OpenChart(position.SymbolId, position.SymbolName)"
-                                     OnClosePosition="ClosePositionAsync" />
+                    <FinancialsPanel PositionsCount="Session.Positions.Count" HistoryCount="_closedDeals.Count"
+                                     HistoryTabTitle="Closed trades from the last 30 days"
+                                     FinancialsSummaryTitle="Balance updates live from cTrader; Margin Used sums open positions; every open position's symbol streams its own live quote regardless of the watchlist"
+                                     OnTabSelected="HandleFinancialsTabSelected"
+                                     Balance="Session.Balance" Equity="Equity" MarginUsed="MarginUsed" MarginLevel="MarginLevel"
+                                     FreeMargin="FreeMargin" UnrealizedPnl="UnrealizedPnl">
+                        <PositionsContent>
+                            <PositionTable TPosition="CTraderPositionInfo" Rows="PositionRows"
+                                           OnSelect="position => Coordinator.OpenChart(position.SymbolId, position.SymbolName)"
+                                           OnClose="ClosePositionAsync" />
+                        </PositionsContent>
+                        <HistoryContent>
+                            <div class="fp-history">
+                                @if (_historyLoading)
+                                {
+                                    <p class="fp-history-message">Loading closed trades...</p>
+                                }
+                                else if (_historyError is not null)
+                                {
+                                    <p class="fp-history-message fp-value-negative">Failed to load history: @_historyError</p>
+                                }
+                                else if (_closedDeals.Count == 0)
+                                {
+                                    <p class="fp-history-message">No closed trades in the last 30 days.</p>
+                                }
+                                else
+                                {
+                                    <table class="fp-history-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Closed</th>
+                                                <th>Symbol</th>
+                                                <th>Side</th>
+                                                <th>Volume</th>
+                                                <th>Price</th>
+                                                <th title="Commission charged on the closing deal">Commission</th>
+                                                <th title="Swap/rollover charged on the closing deal">Swap</th>
+                                                <th>P/L</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var deal in _closedDeals)
+                                            {
+                                                <tr>
+                                                    <td>@deal.ExecutionTimeUtc.ToLocalTime().ToString("MM-dd HH:mm:ss")</td>
+                                                    <td>@deal.SymbolName</td>
+                                                    <td class="@(deal.IsLong ? "fp-side-long" : "fp-side-short")">@(deal.IsLong ? "LONG" : "SHORT")</td>
+                                                    <td>@deal.Volume.ToString("N2")</td>
+                                                    <td>@deal.ExecutionPrice.ToString("N5")</td>
+                                                    <td>@FinancialsPanel.Money(deal.Commission)</td>
+                                                    <td>@FinancialsPanel.Money(deal.Swap)</td>
+                                                    <td class="@FinancialsPanel.PnlCssClass(deal.RealizedPnl)">@FinancialsPanel.SignedMoney(deal.RealizedPnl)</td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                }
+                            </div>
+                        </HistoryContent>
+                        <StatisticsContent>
+                            <div class="fp-history" title="Derived from the same closed-deal history as the History tab, over the last 30 days">
+                                @if (_historyLoading)
+                                {
+                                    <p class="fp-history-message">Loading closed trades...</p>
+                                }
+                                else if (_historyError is not null)
+                                {
+                                    <p class="fp-history-message fp-value-negative">Failed to load history: @_historyError</p>
+                                }
+                                else
+                                {
+                                    <StatisticsPanel Groups="StatGroups" EmptyMessage="No closed trades yet." />
+                                }
+                            </div>
+                        </StatisticsContent>
+                        <RealizedContent>
+                            <button type="button" class="fp-item fp-item-button" @onclick="ToggleRealizedPicker"
+                                    title="Net P/L, commission and swap from closed deals over the selected window -- click to change it">
+                                <span class="fp-label">Realized (@RealizedWindowLabel(_realizedWindow))</span>
+                                <span class="fp-value @FinancialsPanel.PnlCssClass(_realizedPnl)">
+                                    @(_realizedLoading ? "..." : FinancialsPanel.SignedMoney(_realizedPnl))
+                                    <span class="fp-value-pct" title="Realized P/L as a percentage of balance">@(_realizedLoading ? "" : FinancialsPanel.SignedPercent(RealizedPnlPercentOfBalance))</span>
+                                </span>
+                            </button>
+                            @if (_realizedPickerOpen)
+                            {
+                                <div class="fp-window-picker" role="group">
+                                    <button type="button" class="fp-window-toggle @(_realizedWindow == RealizedWindow.Hour ? "active" : "")"
+                                            @onclick="() => SelectRealizedWindow(RealizedWindow.Hour)" title="Realized P/L over the last hour">1H</button>
+                                    <button type="button" class="fp-window-toggle @(_realizedWindow == RealizedWindow.Day ? "active" : "")"
+                                            @onclick="() => SelectRealizedWindow(RealizedWindow.Day)" title="Realized P/L over the last day">1D</button>
+                                    <button type="button" class="fp-window-toggle @(_realizedWindow == RealizedWindow.Week ? "active" : "")"
+                                            @onclick="() => SelectRealizedWindow(RealizedWindow.Week)" title="Realized P/L over the last week">1W</button>
+                                    <button type="button" class="fp-window-toggle @(_realizedWindow == RealizedWindow.Month ? "active" : "")"
+                                            @onclick="() => SelectRealizedWindow(RealizedWindow.Month)" title="Realized P/L over the last month">1M</button>
+                                </div>
+                            }
+                        </RealizedContent>
+                    </FinancialsPanel>
                 </section>
             }
         </main>
@@ -55,9 +154,12 @@
                 <div class="trade-right-side-panel-content">
                     <TraderSidePanel Collapsed="Coordinator.RightPanelCollapsed" OnExpandRequested="Coordinator.ToggleRightPanel">
                         <TradeTab>
-                            <TradeControlsPanel SymbolId="Coordinator.ChartSymbolId" SymbolName="@Coordinator.ChartSymbolName"
-                                                 CurrentBid="ChartQuote?.Bid" CurrentAsk="ChartQuote?.Ask"
-                                                 PipSize="ChartPipSize" />
+                            <TradeConsole @ref="_consoleRef" HasSelection="Coordinator.ChartSymbolId is not null"
+                                          CurrentBid="ChartQuote?.Bid" CurrentAsk="ChartQuote?.Ask"
+                                          PipSize="ChartPipSize" Balance="Session.Balance" Leverage="Session.Leverage"
+                                          MinStopLossDistancePrice="MinStopLossDistancePrice" MinTakeProfitDistancePrice="MinTakeProfitDistancePrice"
+                                          PriceStep="PriceStep" Busy="_consoleBusy" StatusMessage="@_consoleStatus" StatusIsError="_consoleStatusIsError"
+                                          OnDraftChanged="HandleDraftChanged" OnSubmit="HandleConsoleSubmit" />
                         </TradeTab>
                     </TraderSidePanel>
                 </div>

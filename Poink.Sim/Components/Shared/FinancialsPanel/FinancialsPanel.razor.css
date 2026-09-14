@@ -92,55 +92,65 @@
     height: 12px;
 }
 
-.fp-history {
+/* Positions/History/Statistics tab bodies are host-projected (RenderFragment parameters), so they
+   render as descendants of .fp-panel carrying the host page's own CSS scope, not this component's --
+   ::deep is required for every rule below to reach them. */
+
+.fp-panel ::deep .fp-history {
     flex: 1;
     min-height: 0;
     overflow-y: auto;
 }
 
-/* Trade's Financials panel is a narrow side panel -- shrink StatisticsPanel's own (roomier,
-   Simulation-page-sized) spacing here rather than in its shared CSS, so Simulation stays as-is. */
-.fp-history ::deep .stp-panel {
+.fp-panel ::deep .equity-curve {
+    flex: 1;
+    min-height: 0;
+}
+
+/* FinancialsPanel is a fixed-height card on both host pages (trade-financials-panel/sim-log-panel are
+   both 280px), so StatisticsPanel's own roomier default spacing is shrunk here rather than in its
+   shared CSS -- applies equally to both hosts since both nest StatisticsPanel inside this same card. */
+.fp-panel ::deep .stp-panel {
     gap: 8px;
 }
 
-.fp-history ::deep .stp-group-header {
+.fp-panel ::deep .stp-group-header {
     padding: 5px 10px;
     font-size: 9px;
     letter-spacing: 1px;
 }
 
-.fp-history ::deep .stp-item {
+.fp-panel ::deep .stp-item {
     padding: 4px 10px;
     gap: 8px;
 }
 
-.fp-history ::deep .stp-item-label {
+.fp-panel ::deep .stp-item-label {
     font-size: 10px;
 }
 
-.fp-history ::deep .stp-item-value {
+.fp-panel ::deep .stp-item-value {
     font-size: 11px;
 }
 
-.fp-history ::deep .stp-empty {
+.fp-panel ::deep .stp-empty {
     padding: 16px 10px;
     font-size: 11px;
 }
 
-.fp-history-message {
+.fp-panel ::deep .fp-history-message {
     padding: 12px 16px;
     font-size: 0.8rem;
     color: var(--color-secondary);
 }
 
-.fp-history-table {
+.fp-panel ::deep .fp-history-table {
     width: 100%;
     border-collapse: collapse;
     font-size: 0.78rem;
 }
 
-.fp-history-table thead th {
+.fp-panel ::deep .fp-history-table thead th {
     position: sticky;
     top: 0;
     background: var(--color-bg-terminal);
@@ -153,28 +163,20 @@
     border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
 }
 
-.fp-history-table td {
+.fp-panel ::deep .fp-history-table td {
     border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 6%, transparent);
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
 }
 
-.fp-side-long {
+.fp-panel ::deep .fp-side-long {
     color: var(--color-success);
     font-weight: bold;
 }
 
-.fp-side-short {
+.fp-panel ::deep .fp-side-short {
     color: var(--color-error);
     font-weight: bold;
-}
-
-.fp-value-positive {
-    color: var(--color-success);
-}
-
-.fp-value-negative {
-    color: var(--color-error);
 }
 
 .fp-financials {
@@ -206,7 +208,9 @@
     gap: 1px;
 }
 
-.fp-label {
+/* Realized (RealizedContent) is host-projected too, and reuses these classes to match the
+   Balance/Equity/etc items declared directly below -- ::deep so it works from either side. */
+.fp-panel ::deep .fp-label {
     font-size: 0.58rem;
     font-weight: bold;
     letter-spacing: 0.08em;
@@ -215,24 +219,24 @@
     opacity: 0.85;
 }
 
-.fp-value {
+.fp-panel ::deep .fp-value {
     font-variant-numeric: tabular-nums;
     font-size: 0.82rem;
     color: var(--color-primary);
 }
 
-.fp-value-pct {
+.fp-panel ::deep .fp-value-pct {
     font-size: 0.68rem;
     opacity: 0.75;
 }
 
-.fp-item-group {
+.fp-panel ::deep .fp-item-group {
     position: relative;
     display: flex;
     flex-direction: column;
 }
 
-.fp-item-button {
+.fp-panel ::deep .fp-item-button {
     background: transparent;
     border: none;
     padding: 0;
@@ -240,7 +244,7 @@
     cursor: pointer;
 }
 
-.fp-window-picker {
+.fp-panel ::deep .fp-window-picker {
     position: absolute;
     top: 100%;
     left: 0;
@@ -252,7 +256,7 @@
     overflow: hidden;
 }
 
-.fp-window-toggle {
+.fp-panel ::deep .fp-window-toggle {
     flex: 1;
     font-family: var(--font-body);
     font-weight: bold;
@@ -268,16 +272,16 @@
     transition: all 0.2s ease;
 }
 
-.fp-window-toggle:first-child {
+.fp-panel ::deep .fp-window-toggle:first-child {
     border-left-width: 1px;
 }
 
-.fp-window-toggle:hover {
+.fp-panel ::deep .fp-window-toggle:hover {
     color: var(--color-primary);
     background: color-mix(in srgb, var(--color-primary) 10%, transparent);
 }
 
-.fp-window-toggle.active {
+.fp-panel ::deep .fp-window-toggle.active {
     background: var(--color-primary);
     color: var(--color-bg-terminal);
     border-color: var(--color-primary);

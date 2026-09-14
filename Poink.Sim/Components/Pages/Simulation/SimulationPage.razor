@@ -3,7 +3,6 @@
 @namespace Poink.Sim.Components.Pages
 @using Poink.Sim.Components.Charts
 @using Poink.Sim.Components.Shared.BrainIoPanel
-@using Poink.Sim.Components.Shared.DataTable
 @using Poink.Sim.Components.Shared.DateRangeSlider
 @using Poink.Sim.Components.Shared.LookbackWindowBar
 @using Poink.Sim.Components.Shared.SimTimeline
@@ -18,15 +17,16 @@
 @using Poink.Sim.Components.Shared.Icon
 @using Poink.Sim.Components.Shared.ViewDatatable
 @using Poink.Sim.Components.Shared.TraderSidePanel
+@using Poink.Sim.Components.Shared.TradeConsole
+@using Poink.Sim.Components.Shared.FinancialsPanel
+@using Poink.Sim.Components.Shared.PositionTable
+@using Poink.Sim.Trader.Risk
 
 <div class="sim-page">
 
     <div class="sim-topbar">
         <header class="sim-header">
-            <button class="sim-setup-toggle" @onclick="ToggleSetupPanel"
-                    title="@(_setupCollapsed ? "Expand the data range, brain and trader options" : "Collapse the data range, brain and trader options")">
-                <Icon Name="@(_setupCollapsed ? "chevron-right" : "chevron-down")" Class="sim-setup-toggle-icon" />
-            </button>
+         
             @if (_snapshot is null)
             {
                 <div class="sim-header-title">
@@ -56,61 +56,7 @@
             {
                 var s = _snapshot;
                 var trader = SelectedTrader!;
-                <div class="sim-header-title">
-                    <span class="sim-header-symbol">@s.Config.Table</span>
-                    <span class="sim-header-mode">@(s.Config.Aggregate ? $"{BarSizeOptions.Label((int)s.Config.BarSize.TotalSeconds)} bars" : "raw ticks")</span>
-                    @if (s.Config.Aggregate && s.Config.SteppingMode == SimulationSteppingMode.Cell)
-                    {
-                        <span class="sim-header-mode" title="Decisions step on a fixed price band instead of the bar clock">
-                            step: cell (@s.Config.CellWidth.ToString("F5"))
-                        </span>
-                    }
-                    <span class="sim-header-mode">viewing: @trader.Label</span>
-                    <span class="sim-header-state @StateClass(s)">
-                        @(s.IsFinished ? "FINISHED" : s.IsPlaying ? "PLAYING" : "PAUSED")
-                    </span>
-                </div>
                 <div class="sim-stats">
-                    <div class="sim-stat">
-                        <span class="sim-stat-label">price</span>
-                        <span class="sim-stat-value">@PriceStr(s.CurrentPrice)</span>
-                    </div>
-                    <div class="sim-stat">
-                        <span class="sim-stat-label">cash</span>
-                        <span class="sim-stat-value">@Money(trader.Capital.Cash)</span>
-                    </div>
-                    <div class="sim-stat">
-                        <span class="sim-stat-label">realized</span>
-                        <span
-                        class="sim-stat-value @PnlClass(trader.Capital.RealizedPnl)">@Money(trader.Capital.RealizedPnl)</span>
-                    </div>
-                    <div class="sim-stat">
-                        <span class="sim-stat-label">unrealized</span>
-                        <span
-                        class="sim-stat-value @PnlClass(trader.Capital.UnrealizedPnl)">@Money(trader.Capital.UnrealizedPnl)</span>
-                    </div>
-                    <div class="sim-stat sim-stat-highlight">
-                        <span class="sim-stat-label">equity</span>
-                        <span class="sim-stat-value">@Money(trader.Capital.Equity)</span>
-                    </div>
-                    <div class="sim-stat" title="Margin locked against Equity by the open position -- 0 while flat">
-                        <span class="sim-stat-label">margin used</span>
-                        <span class="sim-stat-value">@Money(trader.Capital.MarginUsed)</span>
-                    </div>
-                    <div class="sim-stat"
-                         title="Equity ÷ Margin Used -- a stop-out force-closes the position below the configured threshold">
-                        <span class="sim-stat-label">margin level</span>
-                        <span class="sim-stat-value">@(trader.Capital.MarginLevel is { } level ? $"{level:F1}%" :
-                                                                                                     "—")</span>
-                        </div>
-                        <div class="sim-stat">
-                            <span class="sim-stat-label">positions</span>
-                            <span class="sim-stat-value">@(trader.Position is not null ? 1 : 0)</span>
-                        </div>
-                        <div class="sim-stat">
-                            <span class="sim-stat-label">trades</span>
-                            <span class="sim-stat-value">@trader.TradeCount</span>
-                        </div>
                         @if (s.Config.SteppingMode == SimulationSteppingMode.Cell && s.CellState is { } cellStat)
                         {
                             <div class="sim-stat" title="How many times price has crossed into a new cell -- this is what drives decisions instead of the bar clock">
@@ -264,6 +210,10 @@
                 var s = _snapshot;
                 <div class="sim-toolbar">
                     <div class="sim-controls">
+                           <button class="sim-setup-toggle" @onclick="ToggleSetupPanel"
+                    title="@(_setupCollapsed ? "Expand the data range, brain and trader options" : "Collapse the data range, brain and trader options")">
+                <Icon Name="@(_setupCollapsed ? "chevron-right" : "chevron-down")" Class="sim-setup-toggle-icon" />
+            </button>
                         <button class="sim-ctrl-btn sim-ctrl-btn-play" @onclick="TogglePlayPause" disabled="@s.IsFinished">
                             <Icon Name="@(s.IsPlaying ? "pause-fill" : "play-fill")" Class="sim-ctrl-icon" />
                             @(s.IsPlaying ? "PAUSE" : "PLAY")
@@ -330,6 +280,51 @@
         </div>
 
         <div class="sim-body">
+            @if (_snapshot is not null)
+            {
+                <aside class="sim-left-side-panel @(_leftSidePanelCollapsed ? "sim-left-side-panel-collapsed" : "")">
+                    <div class="sim-left-side-panel-header">
+                        <button type="button" class="sim-left-side-panel-toggle" @onclick="() => _leftSidePanelCollapsed = !_leftSidePanelCollapsed"
+                                title="@(_leftSidePanelCollapsed ? "Expand the traders panel" : "Collapse the traders panel")">
+                            <Icon Name="@(_leftSidePanelCollapsed ? "chevron-right" : "chevron-left")" Class="sim-left-side-panel-toggle-icon" />
+                        </button>
+                        @if (!_leftSidePanelCollapsed)
+                        {
+                            <span class="sim-left-side-panel-label">TRADERS <span class="trade-section-count">@_snapshot.Traders.Count</span></span>
+                        }
+                    </div>
+                    @if (!_leftSidePanelCollapsed)
+                    {
+                        <div class="sim-left-side-panel-tabs">
+                            <button type="button" class="sim-left-side-panel-tab @(_activeLeftPanelTab == SimLeftPanelTab.Traders ? "active" : "")"
+                                    @onclick="() => _activeLeftPanelTab = SimLeftPanelTab.Traders"
+                                    title="Every trader's live cash/equity/P&L, selectable to drive the right-side controls">TRADERS</button>
+                            <button type="button" class="sim-left-side-panel-tab @(_activeLeftPanelTab == SimLeftPanelTab.TraderIo ? "active" : "")"
+                                    @onclick="() => _activeLeftPanelTab = SimLeftPanelTab.TraderIo"
+                                    title="The selected trader's live brain inputs and output decision distribution">TRADER IO</button>
+                        </div>
+                        <div class="sim-left-side-panel-content">
+                            @if (_activeLeftPanelTab == SimLeftPanelTab.Traders)
+                            {
+                                @foreach (var trader in _snapshot.Traders)
+                                {
+                                    <TraderCard Label="@trader.Label" IsManual="TraderIsManual(trader)"
+                                                PositionStatus="@TraderPositionStatus(trader)" PositionStatusCssClass="@TraderPositionStatusCssClass(trader)"
+                                                TradeCount="trader.TradeCount" Cash="trader.Capital.Cash" Equity="trader.Capital.Equity"
+                                                RealizedPnl="trader.Capital.RealizedPnl" UnrealizedPnl="trader.Capital.UnrealizedPnl"
+                                                MarginUsed="trader.Capital.MarginUsed" MarginLevel="trader.Capital.MarginLevel"
+                                                IsSelected="trader.Id == SelectedTrader?.Id" OnSelect="() => SelectTrader(trader.Id)" />
+                                }
+                            }
+                            else if (_activeLeftPanelTab == SimLeftPanelTab.TraderIo)
+                            {
+                                <BrainIoPanel Inputs="SelectedTrader?.Inputs" Outputs="SelectedTrader?.Outputs"
+                                              CurrentPrice="_snapshot?.CurrentPrice" Equity="SelectedTrader?.Capital.Equity" />
+                            }
+                        </div>
+                    }
+                </aside>
+            }
             <div class="sim-main">
 
                 @if (_snapshot is null)
@@ -348,6 +343,7 @@
                     @if (!_hideChart)
                     {
                         <div class="sim-chart-toolbar">
+                            <span class="sim-chart-title" title="Data table this simulation was loaded from">@s.Config.Table</span>
                             @if (s.Config.Aggregate)
                             {
                                 <div class="sim-overlay-toggles"
@@ -382,15 +378,6 @@
                                 <button type="button" class="sim-overlay-toggle-btn @(_showTimeProfile ? "active" : "")"
                                         @onclick="() => _showTimeProfile = !_showTimeProfile"
                                         title="Time-at-price histogram over the current window">Time profile</button>
-                                <button type="button" class="sim-overlay-toggle-btn @(_showEquityCurve ? "active" : "")"
-                                        @onclick="() => _showEquityCurve = !_showEquityCurve"
-                                        title="Equity over time for the selected trader, with the best/worst equity reached during the currently open trade">Equity curve</button>
-                                @if (s.RiskPolicies.Count > 0)
-                                {
-                                    <button type="button" class="sim-overlay-toggle-btn @(_showRiskPolicies ? "active" : "")"
-                                            @onclick="() => _showRiskPolicies = !_showRiskPolicies"
-                                            title="Status of every risk policy gating the selected trader's actions">Risk policies</button>
-                                }
                             </div>
                         </div>
 
@@ -523,83 +510,73 @@
                                     }
                                 </div>
                             }
-                            @if (_showEquityCurve)
-                            {
-                                @if (ShowEquityCurveDivider(s))
-                                {
-                                    <div class="sim-chart-divider" @ref="_chartDividerRefEquityCurve" data-min-width="160"
-                                         title="Drag to resize"></div>
-                                }
-                                <div class="sim-chart-side">
-                                    <EquityCurve Samples="SelectedTraderEquityCurveSamples" />
-                                </div>
-                            }
-                            @if (_showRiskPolicies && s.RiskPolicies.Count > 0)
-                            {
-                                @if (ShowRiskPoliciesDivider(s))
-                                {
-                                    <div class="sim-chart-divider" @ref="_chartDividerRefRisk" data-min-width="160"
-                                         title="Drag to resize"></div>
-                                }
-                                <div class="sim-chart-side sim-chart-side-scroll">
-                                    <RiskPolicyPanel Policies="s.RiskPolicies" Locked="s.RiskPoliciesLocked"
-                                                     Statuses="SelectedTrader?.RiskPolicyStatuses" LastDenial="SelectedTrader?.LastDenial" />
-                                </div>
-                            }
                         </div>
 
-                        <div class="sim-chart-hdivider" @ref="_chartHDividerRef" data-min-height="160" data-max-height-vh="80"
+                        <div class="sim-chart-hdivider" @ref="_chartHDividerRef" data-min-height="160" data-max-height-vh="70"
                              title="Drag to resize"></div>
                     }
 
                     <div class="sim-log-panel">
-                        <div class="sim-log-tabs">
-                            <button class="sim-tab-btn @(_activeLogTab == LogTab.Traders ? "active" : "")"
-                                    @onclick="() => _activeLogTab = LogTab.Traders">TRADERS</button>
-                            <button class="sim-tab-btn @(_activeLogTab == LogTab.Brain ? "active" : "")"
-                                    @onclick="() => _activeLogTab = LogTab.Brain">BRAIN</button>
-                            <button class="sim-tab-btn @(_activeLogTab == LogTab.InputsOutputs ? "active" : "")"
-                                    @onclick="() => _activeLogTab = LogTab.InputsOutputs">INPUTS/OUTPUTS</button>
-                            <button class="sim-tab-btn @(_activeLogTab == LogTab.Decisions ? "active" : "")"
-                                    @onclick="() => _activeLogTab = LogTab.Decisions">DECISION LOG</button>
-                            <button class="sim-tab-btn @(_activeLogTab == LogTab.Positions ? "active" : "")"
-                                    @onclick="() => _activeLogTab = LogTab.Positions">POSITIONS</button>
-                            <button class="sim-tab-btn @(_activeLogTab == LogTab.Statistics ? "active" : "")"
-                                    @onclick="() => _activeLogTab = LogTab.Statistics">STATISTICS</button>
-                        </div>
-                        <div class="sim-log-content">
-                            @if (_activeLogTab == LogTab.Decisions)
-                            {
-                                <DataTable TItem="DecisionLogRow" Items="LogRows" ShowRowNumbers="false" ActionsHeader="VIEW"
-                                           CellClass="DecisionLogCellClass" EmptyMessage="no decisions yet" />
-                            }
-                            else if (_activeLogTab == LogTab.Positions)
-                            {
-                                <DataTable TItem="OpenPositionRow" Items="OpenPositionRows" ShowRowNumbers="false"
-                                           ActionsHeader="VIEW" CellClass="PositionCellClass" EmptyMessage="flat" />
-                            }
-                            else if (_activeLogTab == LogTab.Traders)
-                            {
-                                <DataTable TItem="TraderCardItem" Items="TraderItems"
-                                           ExcludeProperties="@(new List<string> { "Id" })" ShowRowNumbers="false" ActionsHeader="VIEW"
-                                           CellClass="TraderCellClass" OnView="item => SelectTrader(item.Id)" />
-                            }
-                            else if (_activeLogTab == LogTab.Brain)
-                            {
-                                <BrainInfoCard BrainName="@s.Config.BrainName"
-                                               IsNeuralNetwork="CurrentBrainIsNeuralNetwork(s.Config.BrainName)"
-                                               ActiveSnapshot="TrainingService.GetActiveSnapshot(s.Config.BrainName)" />
-                            }
-                            else if (_activeLogTab == LogTab.InputsOutputs)
-                            {
-                                <BrainIoPanel Inputs="SelectedTrader?.Inputs" Outputs="SelectedTrader?.Outputs"
-                                              CurrentPrice="_snapshot?.CurrentPrice" Equity="SelectedTrader?.Capital.Equity" />
-                            }
-                            else
-                            {
+                        <FinancialsPanel PositionsCount="PositionRows.Count" HistoryCount="LogRows.Count"
+                                         HistoryTabTitle="Decisions logged so far this run"
+                                         FinancialsSummaryTitle="Balance, margin, and realized/unrealized P&L for the selected trader"
+                                         Balance="SelectedTrader?.Capital.Cash" Equity="SelectedTrader?.Capital.Equity" MarginUsed="SelectedTrader?.Capital.MarginUsed"
+                                         MarginLevel="SelectedTrader?.Capital.MarginLevel" FreeMargin="SelectedTrader?.Capital.MarginFree" UnrealizedPnl="SelectedTrader?.Capital.UnrealizedPnl">
+                            <PositionsContent>
+                                <PositionTable TPosition="Position" Rows="PositionRows" OnClose='_ => CloseSelectedTrader("manual")' />
+                            </PositionsContent>
+                            <HistoryContent>
+                                <div class="fp-history">
+                                    @if (LogRows.Count == 0)
+                                    {
+                                        <p class="fp-history-message">No decisions logged yet.</p>
+                                    }
+                                    else
+                                    {
+                                        <table class="fp-history-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Closed</th>
+                                                    <th>Side</th>
+                                                    <th>Volume</th>
+                                                    <th>Price</th>
+                                                    <th title="Commission charged on this decision">Commission</th>
+                                                    <th>P/L</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach (var row in LogRows)
+                                                {
+                                                    <tr>
+                                                        <td>@row.Time</td>
+                                                        <td class="@(row.Direction == "Long" ? "fp-side-long" : "fp-side-short")">@row.Direction.ToUpperInvariant()</td>
+                                                        <td>@row.Size</td>
+                                                        <td>@row.Price</td>
+                                                        <td>@FinancialsPanel.Money(row.Commission)</td>
+                                                        <td class="@FinancialsPanel.PnlCssClass(row.RealizedPnl)">@FinancialsPanel.SignedMoney(row.RealizedPnl)</td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                    }
+                                </div>
+                            </HistoryContent>
+                            <StatisticsContent>
                                 <StatisticsPanel Groups="StatGroups" EmptyMessage="no closed trades yet" />
-                            }
-                        </div>
+                            </StatisticsContent>
+                            <EquityContent>
+                                <EquityCurve Samples="SelectedTraderEquityCurveSamples" />
+                            </EquityContent>
+                            <RealizedContent>
+                                <div class="fp-item">
+                                    <span class="fp-label">Realized</span>
+                                    <span class="fp-value @FinancialsPanel.PnlCssClass(SelectedTrader?.Capital.RealizedPnl)">
+                                        @FinancialsPanel.SignedMoney(SelectedTrader?.Capital.RealizedPnl)
+                                        <span class="fp-value-pct" title="Realized P/L as a percentage of balance">@FinancialsPanel.SignedPercent(RealizedPnlPercentOfBalance())</span>
+                                    </span>
+                                </div>
+                            </RealizedContent>
+                        </FinancialsPanel>
                     </div>
 
                     @if (_error is not null)
@@ -625,17 +602,25 @@
                     <div class="sim-right-side-panel-content">
                         <TraderSidePanel Collapsed="_traderControlsCollapsed" OnExpandRequested="() => _traderControlsCollapsed = false">
                             <TradeTab>
-                                <TraderControlsPanel TraderId="SelectedTrader?.Id"
-                                                     PositionSummary="SelectedPositionSummary"
-                                                     PendingSummary="SelectedPendingSummary"
-                                                     Cash="SelectedTrader?.Capital.Cash ?? 0"
-                                                     Leverage="SelectedTrader?.Leverage ?? 1"
-                                                     StopOutLevelPercent="SelectedTrader?.StopOutLevelPercent ?? 50"
-                                                     PipSize="_snapshot?.Config.PipSize ?? 0.01"
-                                                     CurrentPrice="_snapshot?.CurrentPrice"
-                                                     CurrentBid="_snapshot?.CurrentBid"
-                                                     CurrentAsk="_snapshot?.CurrentAsk" />
+                                <TradeConsole HasSelection="SelectedTrader is not null"
+                                              Balance="SelectedTrader?.Capital.Cash" Leverage="SelectedTrader?.Leverage"
+                                              PipSize="_snapshot?.Config.PipSize ?? 0.01"
+                                              CurrentPrice="_snapshot?.CurrentPrice"
+                                              CurrentBid="_snapshot?.CurrentBid"
+                                              CurrentAsk="_snapshot?.CurrentAsk"
+                                              StatusMessage="@_consoleError" StatusIsError="_consoleError is not null"
+                                              OnSubmit="HandleConsoleSubmit" />
                             </TradeTab>
+                            <PoliciesTab>
+                                <RiskPolicyPanel Policies="@(_snapshot?.RiskPolicies ?? Array.Empty<RiskPolicySnapshot>())"
+                                                 Locked="_snapshot?.RiskPoliciesLocked ?? false"
+                                                 Statuses="SelectedTrader?.RiskPolicyStatuses" LastDenial="SelectedTrader?.LastDenial" />
+                            </PoliciesTab>
+                            <RobotTab>
+                                <BrainInfoCard BrainName="@(_snapshot?.Config.BrainName ?? string.Empty)"
+                                               IsNeuralNetwork="CurrentBrainIsNeuralNetwork(_snapshot?.Config.BrainName ?? string.Empty)"
+                                               ActiveSnapshot="TrainingService.GetActiveSnapshot(_snapshot?.Config.BrainName ?? string.Empty)" />
+                            </RobotTab>
                         </TraderSidePanel>
                     </div>
                 </aside>

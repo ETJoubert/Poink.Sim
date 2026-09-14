@@ -1,9 +1,9 @@
-@namespace Poink.Sim.Components.Pages.Trade
+@namespace Poink.Sim.Components.Shared.PositionTable
 @using Poink.Sim.Components.Shared.Icon
-@using Poink.Sim.Services.CTrader
+@typeparam TPosition
 
 <div class="pt-wrapper">
-    @if (Positions.Count == 0)
+    @if (Rows.Count == 0)
     {
         <p class="pt-empty">No open positions.</p>
     }
