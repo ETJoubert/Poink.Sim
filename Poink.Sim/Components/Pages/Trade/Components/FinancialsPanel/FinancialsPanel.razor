@@ -122,9 +122,25 @@
         </div>
 
         <div class="fp-card" title="Realized and unrealized profit/loss">
-            <div class="fp-item fp-item-placeholder" title="Derived from closed-deal history for the current server day -- not available yet">
-                <span class="fp-label">Realized</span>
-                <span class="fp-value">@Money(RealizedPnl)</span>
+            <div class="fp-item-group">
+                <button type="button" class="fp-item fp-item-button" @onclick="ToggleRealizedPicker"
+                        title="Net P/L, commission and swap from closed deals over the selected window -- click to change it">
+                    <span class="fp-label">Realized (@RealizedWindowLabel(_realizedWindow))</span>
+                    <span class="fp-value @PnlCssClass(_realizedPnl)">@(_realizedLoading ? "..." : SignedMoney(_realizedPnl))</span>
+                </button>
+                @if (_realizedPickerOpen)
+                {
+                    <div class="fp-window-picker" role="group">
+                        <button type="button" class="fp-window-toggle @(_realizedWindow == RealizedWindow.Hour ? "active" : "")"
+                                @onclick="() => SelectRealizedWindow(RealizedWindow.Hour)" title="Realized P/L over the last hour">1H</button>
+                        <button type="button" class="fp-window-toggle @(_realizedWindow == RealizedWindow.Day ? "active" : "")"
+                                @onclick="() => SelectRealizedWindow(RealizedWindow.Day)" title="Realized P/L over the last day">1D</button>
+                        <button type="button" class="fp-window-toggle @(_realizedWindow == RealizedWindow.Week ? "active" : "")"
+                                @onclick="() => SelectRealizedWindow(RealizedWindow.Week)" title="Realized P/L over the last week">1W</button>
+                        <button type="button" class="fp-window-toggle @(_realizedWindow == RealizedWindow.Month ? "active" : "")"
+                                @onclick="() => SelectRealizedWindow(RealizedWindow.Month)" title="Realized P/L over the last month">1M</button>
+                    </div>
+                }
             </div>
             <div class="fp-item" title="Sum of each open position's pip difference from its live quote times its volume">
                 <span class="fp-label">Unrealized</span>

@@ -148,6 +148,8 @@ namespace Poink.Sim.Services.CTrader
 
 		public event Action<MarketTick>? TickReceived;
 
+		public event Action? PositionClosed;
+
 		public Uri? BuildAuthorizationUri() => IsConfigured ? _app.GetAuthUri() : null;
 
 		public async Task CompleteLoginAsync(string authorizationCode, CancellationToken cancellationToken = default)
@@ -947,6 +949,7 @@ namespace Poink.Sim.Services.CTrader
 					}
 					if (SelectedAccountId is { } accountId)
 						_ = RefreshBalanceAsync(accountId, CancellationToken.None);
+					PositionClosed?.Invoke();
 					break;
 				default:
 					return;

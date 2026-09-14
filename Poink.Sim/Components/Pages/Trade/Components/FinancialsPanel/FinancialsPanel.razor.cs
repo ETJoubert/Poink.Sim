@@ -20,8 +20,16 @@ namespace Poink.Sim.Components.Pages.Trade
 			History,
 		}
 
+		private enum RealizedWindow
+		{
+			Hour,
+			Day,
+			Week,
+			Month,
+		}
+
 		[Inject]
-		private ITradeHistoryAccess History { get; set; } = null!;
+		private ITradeHistoryService History { get; set; } = null!;
 
 		[Parameter, EditorRequired]
 		public IReadOnlyList<CTraderPositionInfo> Positions { get; set; } = System.Array.Empty<CTraderPositionInfo>();
@@ -42,7 +50,53 @@ namespace Poink.Sim.Components.Pages.Trade
 		[Parameter]
 		public EventCallback<CTraderPositionInfo> OnClosePosition { get; set; }
 
-		private double? RealizedPnl => null;
+		private RealizedWindow _realizedWindow = RealizedWindow.Day;
+		private double? _realizedPnl;
+		private bool _realizedLoading;
+		private bool _realizedPickerOpen;
+
+		private static TimeSpan ToTimeSpan(RealizedWindow window) =>
+			window switch
+			{
+				RealizedWindow.Hour => TimeSpan.FromHours(1),
+				RealizedWindow.Week => TimeSpan.FromDays(7),
+				RealizedWindow.Month => TimeSpan.FromDays(30),
+				_ => TimeSpan.FromDays(1),
+			};
+
+		private static string RealizedWindowLabel(RealizedWindow window) =>
+			window switch
+			{
+				RealizedWindow.Hour => "1H",
+				RealizedWindow.Week => "1W",
+				RealizedWindow.Month => "1M",
+				_ => "1D",
+			};
+
+		private void ToggleRealizedPicker() => _realizedPickerOpen = !_realizedPickerOpen;
+
+		private async Task SelectRealizedWindow(RealizedWindow window)
+		{
+			_realizedWindow = window;
+			_realizedPickerOpen = false;
+			await LoadRealizedPnlAsync();
+		}
+
+		private async Task LoadRealizedPnlAsync()
+		{
+			_realizedLoading = true;
+			StateHasChanged();
+			try
+			{
+				var toUtc = DateTime.UtcNow;
+				var deals = await History.GetClosedDealsAsync(toUtc - ToTimeSpan(_realizedWindow), toUtc);
+				_realizedPnl = deals.Sum(d => (d.RealizedPnl ?? 0) + (d.Commission ?? 0) + (d.Swap ?? 0));
+			}
+			finally
+			{
+				_realizedLoading = false;
+			}
+		}
 
 		// Every open position's symbol is auto-subscribed independently of the watchlist, so this excludes
 		// a position only in the brief window before its subscription/metadata/first quote lands.
@@ -75,6 +129,8 @@ namespace Poink.Sim.Components.Pages.Trade
 		private bool _historyLoading;
 		private string? _historyError;
 		private bool _tableCollapsed;
+
+		protected override void OnInitialized() => _ = LoadRealizedPnlAsync();
 
 		private void SelectTab(FinancialsTab tab)
 		{

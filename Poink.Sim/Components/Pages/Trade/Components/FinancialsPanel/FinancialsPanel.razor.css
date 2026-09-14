@@ -191,7 +191,59 @@
     color: var(--color-primary);
 }
 
-.fp-item-placeholder .fp-value {
+.fp-item-group {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
+.fp-item-button {
+    background: transparent;
+    border: none;
+    padding: 0;
+    text-align: left;
+    cursor: pointer;
+}
+
+.fp-window-picker {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 1;
+    display: flex;
+    margin-top: 4px;
+    box-shadow: 0 2px 8px color-mix(in srgb, black 30%, transparent);
+    border-radius: var(--border-radius-sm);
+    overflow: hidden;
+}
+
+.fp-window-toggle {
+    flex: 1;
+    font-family: var(--font-body);
+    font-weight: bold;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 4px 8px;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
+    border-left-width: 0;
+    background: var(--color-bg-terminal);
     color: var(--color-secondary);
-    opacity: 0.55;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.fp-window-toggle:first-child {
+    border-left-width: 1px;
+}
+
+.fp-window-toggle:hover {
+    color: var(--color-primary);
+    background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+}
+
+.fp-window-toggle.active {
+    background: var(--color-primary);
+    color: var(--color-bg-terminal);
+    border-color: var(--color-primary);
 }
