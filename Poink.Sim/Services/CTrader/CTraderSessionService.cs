@@ -753,12 +753,14 @@ namespace Poink.Sim.Services.CTrader
 			var close = deal.ClosePositionDetail;
 			var closeScale = close is null ? 1.0 : Math.Pow(10, close.MoneyDigits);
 
+			// Only close-position deals reach here (filtered by the caller): TradeSide is the side of the
+			// closing execution, the opposite of the position that was open -- a long closes on a Sell.
 			return new CTraderDealInfo(
 				deal.DealId,
 				deal.PositionId,
 				deal.SymbolId,
 				symbolName,
-				deal.TradeSide == ProtoOATradeSide.Buy,
+				deal.TradeSide == ProtoOATradeSide.Sell,
 				deal.Volume / 100.0,
 				deal.ExecutionPrice,
 				DateTimeOffset.FromUnixTimeMilliseconds(deal.ExecutionTimestamp).UtcDateTime,
