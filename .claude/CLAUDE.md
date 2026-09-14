@@ -28,10 +28,11 @@ Every response ends with this report. Each section label is bold, sections are s
 2. At the start of any work: Ask if a feature branch or worktree should be created. If feature, create the branch from master. If worktree create branch in its own worktree at a sibling path (`../Poink.Sim-<branch-name>`), so multiple branches can be iterated on in parallel without checkout conflicts.
 3. Build and iterate inside that branch/worktree.
 4. Compilation is permitted. A build is not treated as running the program.
-5. Do not run the current target program after updates are applied except if explicitly asked.
-6. When done, do not commit; provide the Response Report (§0).
-7. When prompted to merge: commit in the branch/worktree, merge the branch into master, then remove the worktree and delete the merged branch.
-8. Pushing to origin is for backup or PR review, not for handing work between local instances; parallel local work is coordinated through worktrees, not through push/pull round-trips.
+5. Agents must build to a separate output directory (e.g. `-o` to a temp or scratch path) rather than the project's default `bin`/`obj`, so a test build never collides with an IDE-managed build or another agent's in-progress build.
+6. Do not run the current target program after updates are applied except if explicitly asked.
+7. When done, do not commit; provide the Response Report (§0).
+8. When prompted to merge: commit in the branch/worktree, merge the branch into master, then remove the worktree and delete the merged branch.
+9. Pushing to origin is for backup or PR review, not for handing work between local instances; parallel local work is coordinated through worktrees, not through push/pull round-trips.
 
 ### 2. Architecture & Organization
 1. Build new things modular, for clear, scalable code.

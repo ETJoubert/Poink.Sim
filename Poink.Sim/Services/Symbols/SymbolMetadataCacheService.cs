@@ -13,6 +13,10 @@ namespace Poink.Sim.Services.Symbols
 		private readonly ISymbolService _symbolService;
 		private readonly Dictionary<long, SymbolMetadataModel> _metadata = new();
 
+		// Symbols cTrader has no metadata for (e.g. archived instruments) so they don't get
+		// re-requested from the API on every watch/position-sync for the rest of the circuit.
+		private readonly HashSet<long> _missing = new();
+
 		// ISymbolService's DbContext is scoped and single-threaded, but multiple callers (watchlist
 		// watch, position sync, order entry) can all request metadata for the same symbol at once.
 		private readonly SemaphoreSlim _gate = new(1, 1);
@@ -28,18 +32,20 @@ namespace Poink.Sim.Services.Symbols
 
 		public async Task EnsureAsync(long symbolId)
 		{
-			if (_metadata.ContainsKey(symbolId))
+			if (_metadata.ContainsKey(symbolId) || _missing.Contains(symbolId))
 				return;
 
 			await _gate.WaitAsync();
 			try
 			{
-				if (_metadata.ContainsKey(symbolId))
+				if (_metadata.ContainsKey(symbolId) || _missing.Contains(symbolId))
 					return;
 
 				var metadata = await _symbolService.GetMetadataAsync(symbolId) ?? await _symbolService.RefreshMetadataFromCTraderAsync(symbolId);
 				if (metadata is not null)
 					_metadata[symbolId] = metadata;
+				else
+					_missing.Add(symbolId);
 			}
 			finally
 			{

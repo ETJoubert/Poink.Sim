@@ -39,6 +39,9 @@ namespace Poink.Sim.Components.Pages.Data
 		private ISymbolService SymbolService { get; set; } = null!;
 
 		[Inject]
+		private ISymbolMetadataCache MetadataCache { get; set; } = null!;
+
+		[Inject]
 		private ILogger<DataPage> Logger { get; set; } = null!;
 
 		private Tab _activeTab = Tab.Ingest;
@@ -57,7 +60,6 @@ namespace Poink.Sim.Components.Pages.Data
 		private bool _symbolsBusy;
 		private string? _symbolsResult;
 
-		private readonly Dictionary<long, SymbolMetadataModel> _metadataCache = new();
 		private readonly HashSet<long> _metadataBusy = new();
 
 		private bool IsConnected => Session.State == CTraderConnectionState.Connected;
@@ -148,8 +150,7 @@ namespace Poink.Sim.Components.Pages.Data
 			}
 		}
 
-		private SymbolMetadataModel? GetMetadata(long symbolId) =>
-			_metadataCache.TryGetValue(symbolId, out var metadata) ? metadata : null;
+		private SymbolMetadataModel? GetMetadata(long symbolId) => MetadataCache.Get(symbolId);
 
 		private bool IsMetadataBusy(long symbolId) => _metadataBusy.Contains(symbolId);
 
@@ -162,9 +163,7 @@ namespace Poink.Sim.Components.Pages.Data
 			Logger.LogInformation("Get Metadata started for symbol {SymbolId}.", symbolId);
 			try
 			{
-				var metadata = await SymbolService.RefreshMetadataFromCTraderAsync(symbolId);
-				if (metadata is not null)
-					_metadataCache[symbolId] = metadata;
+				await MetadataCache.EnsureAsync(symbolId);
 				Logger.LogInformation("Get Metadata finished for symbol {SymbolId}.", symbolId);
 			}
 			catch (Exception ex)

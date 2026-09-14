@@ -238,7 +238,7 @@
                     <CustomActions Context="row">
                         <button class="data-table-action-btn" @onclick="() => GetMetadataAsync(row.SymbolId)"
                                 disabled="@(!IsConnected || IsMetadataBusy(row.SymbolId))"
-                                title="@(IsConnected ? $"Fetch full trading detail for {row.SymbolName} from cTrader" : "Log in on the Trade page first")">
+                                title="@(IsConnected ? $"Load full trading detail for {row.SymbolName} from the database, or cTrader if not saved yet" : "Log in on the Trade page first")">
                             <Icon Name="info-circle" Class="dt-icon" />
                         </button>
                     </CustomActions>
@@ -249,11 +249,11 @@
                         @if (metadata is null)
                         {
                             <p class="data-empty">
-                                No metadata fetched yet.
+                                No metadata loaded yet.
                                 <button class="data-btn data-btn-play" @onclick="() => GetMetadataAsync(row.SymbolId)"
                                         disabled="@(!IsConnected || IsMetadataBusy(row.SymbolId))"
-                                        title="Fetch full trading detail for @row.SymbolName from cTrader">
-                                    @(IsMetadataBusy(row.SymbolId) ? "FETCHING..." : "GET METADATA")
+                                        title="Load full trading detail for @row.SymbolName from the database, or cTrader if not saved yet">
+                                    @(IsMetadataBusy(row.SymbolId) ? "LOADING..." : "GET METADATA")
                                 </button>
                             </p>
                         }
