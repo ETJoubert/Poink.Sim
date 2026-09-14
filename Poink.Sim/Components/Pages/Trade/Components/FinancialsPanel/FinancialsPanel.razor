@@ -154,7 +154,10 @@
                 <button type="button" class="fp-item fp-item-button" @onclick="ToggleRealizedPicker"
                         title="Net P/L, commission and swap from closed deals over the selected window -- click to change it">
                     <span class="fp-label">Realized (@RealizedWindowLabel(_realizedWindow))</span>
-                    <span class="fp-value @PnlCssClass(_realizedPnl)">@(_realizedLoading ? "..." : SignedMoney(_realizedPnl))</span>
+                    <span class="fp-value @PnlCssClass(_realizedPnl)">
+                        @(_realizedLoading ? "..." : SignedMoney(_realizedPnl))
+                        <span class="fp-value-pct" title="Realized P/L as a percentage of balance">@(_realizedLoading ? "" : SignedPercent(RealizedPnlPercentOfBalance))</span>
+                    </span>
                 </button>
                 @if (_realizedPickerOpen)
                 {
@@ -172,7 +175,10 @@
             </div>
             <div class="fp-item" title="Sum of each open position's pip difference from its live quote times its volume">
                 <span class="fp-label">Unrealized</span>
-                <span class="fp-value">@Money(UnrealizedPnl)</span>
+                <span class="fp-value">
+                    @Money(UnrealizedPnl)
+                    <span class="fp-value-pct" title="Unrealized P/L as a percentage of balance">@SignedPercent(UnrealizedPnlPercentOfBalance)</span>
+                </span>
             </div>
         </div>
     </div>

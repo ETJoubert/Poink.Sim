@@ -55,6 +55,7 @@ namespace Poink.Sim.Components.Pages.Trade
 		private double? _realizedPnl;
 		private bool _realizedLoading;
 		private bool _realizedPickerOpen;
+		private HashSet<long> _knownPositionIds = new();
 
 		private static TimeSpan ToTimeSpan(RealizedWindow window) =>
 			window switch
@@ -116,6 +117,12 @@ namespace Poink.Sim.Components.Pages.Trade
 
 		private CTraderSymbolQuote? QuoteFor(long symbolId) => Quotes.FirstOrDefault(q => q.SymbolId == symbolId);
 
+		private double? UnrealizedPnlPercentOfBalance =>
+			Balance is { } balance and not 0 && UnrealizedPnl is { } pnl ? pnl / balance * 100 : null;
+
+		private double? RealizedPnlPercentOfBalance =>
+			Balance is { } balance and not 0 && _realizedPnl is { } pnl ? pnl / balance * 100 : null;
+
 		private double? Equity => Balance is { } balance && UnrealizedPnl is { } pnl ? balance + pnl : null;
 
 		private double? MarginUsed => Positions.Count == 0 ? null : Positions.Sum(p => p.UsedMargin);
@@ -131,7 +138,21 @@ namespace Poink.Sim.Components.Pages.Trade
 		private string? _historyError;
 		private bool _tableCollapsed;
 
-		protected override void OnInitialized() => _ = LoadRealizedPnlAsync();
+		protected override void OnInitialized()
+		{
+			_knownPositionIds = Positions.Select(p => p.PositionId).ToHashSet();
+			_ = LoadRealizedPnlAsync();
+		}
+
+		// A position vanishing from the live list (rather than appearing) means it closed, so the
+		// realized figure -- otherwise only refreshed on init or window change -- is stale until reloaded.
+		protected override void OnParametersSet()
+		{
+			var currentPositionIds = Positions.Select(p => p.PositionId).ToHashSet();
+			if (_knownPositionIds.Any(id => !currentPositionIds.Contains(id)))
+				_ = LoadRealizedPnlAsync();
+			_knownPositionIds = currentPositionIds;
+		}
 
 		private void SelectTab(FinancialsTab tab)
 		{
@@ -177,6 +198,8 @@ namespace Poink.Sim.Components.Pages.Trade
 		private static string Money(double? value) => value?.ToString("N2") ?? "—";
 
 		private static string SignedMoney(double? value) => value is { } v ? $"{(v >= 0 ? "+" : "")}{v:N2}" : "—";
+
+		private static string SignedPercent(double? value) => value is { } v ? $"{(v >= 0 ? "+" : "")}{v:N2}%" : "—";
 
 		private static string PnlCssClass(double? value) =>
 			value switch

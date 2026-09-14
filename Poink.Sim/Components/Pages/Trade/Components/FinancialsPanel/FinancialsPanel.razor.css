@@ -221,6 +221,11 @@
     color: var(--color-primary);
 }
 
+.fp-value-pct {
+    font-size: 0.68rem;
+    opacity: 0.75;
+}
+
 .fp-item-group {
     position: relative;
     display: flex;
