@@ -704,10 +704,10 @@ function onMove(canvas, e) {
         const ln = p.lines[newLine.i];
         if (st.tipKey !== 'L' + newLine.i) {
             st.tipKey = 'L' + newLine.i;
-            tip.textContent = ln.tip || '';
-            tip.style.display = ln.tip ? 'block' : 'none';
+            if (ln.tipRows && ln.tipRows.length) renderTipRows(tip, ln.tipRows);
+            tip.style.display = ln.tipRows && ln.tipRows.length ? 'block' : 'none';
         }
-        if (ln.tip) positionTip(canvas, tip);
+        if (ln.tipRows && ln.tipRows.length) positionTip(canvas, tip);
     } else if (newPos) {
         const ps = p.positions[newPos.pi];
         if (st.tipKey !== 'P' + newPos.pi) {
@@ -762,12 +762,12 @@ function showTip(canvas, tip, key, resolve) {
 }
 
 // One label/value pair per row instead of one long joined string -- assigning textContent
-// elsewhere (line/position/pending/margin tips) already clears these child nodes back out.
+// elsewhere (position/pending/margin tips) already clears these child nodes back out.
 function renderTipRows(tip, rows) {
     tip.textContent = '';
     for (const r of rows) {
         const line = document.createElement('div');
-        line.className = 'xgrid-tip-row';
+        line.className = 'xgrid-tip-row' + (r.tone ? ' ' + r.tone : '');
         const label = document.createElement('span');
         label.className = 'xgrid-tip-label';
         label.textContent = r.label;

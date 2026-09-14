@@ -22,9 +22,6 @@ namespace Poink.Sim.Components.Pages.Trade
 		/// <summary>Hard ceiling on the tick-history window regardless of bar size, so a coarse aggregation can't trigger a huge cTrader tick pull.</summary>
 		private static readonly TimeSpan MaxHistoryLookback = TimeSpan.FromDays(14);
 
-		/// <summary>Bucket width for SimulationBarAggregator's price histogram; also the XGrid pip-size unit until a per-instrument pip size is looked up.</summary>
-		private const double PriceBucketWidth = 0.01;
-
 		/// <summary>Cap on the chart/XGrid lookback window, matching Simulation's bar-window cap.</summary>
 		private const int MaxBarWindow = 300;
 
@@ -45,6 +42,10 @@ namespace Poink.Sim.Components.Pages.Trade
 
 		[Parameter]
 		public string? SymbolName { get; set; }
+
+		/// <summary>Real instrument pip size -- drives the price-histogram bucket width and XGrid's row height/pip-delta measurements alike.</summary>
+		[Parameter]
+		public double PipSize { get; set; } = 0.0001;
 
 		[Parameter]
 		public int BarSizeSeconds { get; set; } = 60;
@@ -99,7 +100,8 @@ namespace Poink.Sim.Components.Pages.Trade
 			int Window,
 			int Count,
 			DateTime LastOpen,
-			double LastClose
+			double LastClose,
+			double PipSize
 		)? _xgridKey;
 
 		private string PopoutUrl => SymbolId is { } id
@@ -290,7 +292,7 @@ namespace Poink.Sim.Components.Pages.Trade
 			_chartLoading = true;
 
 			var barSize = TimeSpan.FromSeconds(BarSizeSeconds);
-			_barAggregator = new SimulationBarAggregator(barSize, PriceBucketWidth);
+			_barAggregator = new SimulationBarAggregator(barSize, PipSize);
 
 			try
 			{
@@ -432,7 +434,8 @@ namespace Poink.Sim.Components.Pages.Trade
 				window,
 				bars.Count,
 				last.OpenTime,
-				last.Close
+				last.Close,
+				PipSize
 			);
 			if (_xgridKey == key && _xgridCache is not null)
 				return _xgridCache;
@@ -440,7 +443,7 @@ namespace Poink.Sim.Components.Pages.Trade
 			var start = bars[bars.Count - window].OpenTime;
 			var end = last.OpenTime;
 			_xgridKey = key;
-			_xgridCache = XGridStats.Compute(bars, histograms, MergedBarSamples(), start, end, _xgridPipCount * PriceBucketWidth, _xgridColCount);
+			_xgridCache = XGridStats.Compute(bars, histograms, MergedBarSamples(), start, end, _xgridPipCount * PipSize, _xgridColCount);
 			return _xgridCache;
 		}
 

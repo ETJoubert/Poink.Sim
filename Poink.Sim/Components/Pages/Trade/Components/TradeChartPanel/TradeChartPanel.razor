@@ -73,7 +73,7 @@
                     }
                     <div class="trade-chart-side">
                         <XGridController Grid="ComputeXGrid()" Positions="XGridPositions()" ExternalDraft="XGridDraft"
-                                          @bind-PipCount="_xgridPipCount"
+                                          PipSize="PipSize" @bind-PipCount="_xgridPipCount"
                                           @bind-ColCount="_xgridColCount" ProfileBarCount="ClampedBarWindow" />
                     </div>
                 }

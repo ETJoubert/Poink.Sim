@@ -31,6 +31,7 @@
 
         <main class="trade-main">
             <TradeChartPanel @ref="_chartPanelRef" SymbolId="Coordinator.ChartSymbolId" SymbolName="Coordinator.ChartSymbolName"
+                              PipSize="ChartPipSize"
                               @bind-BarSizeSeconds="Coordinator.BarSizeSeconds" InitialSettings="Coordinator.PendingChartSettings" />
 
             @if (Coordinator.IsConnected)

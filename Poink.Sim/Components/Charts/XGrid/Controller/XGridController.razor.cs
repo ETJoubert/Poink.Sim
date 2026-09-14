@@ -61,6 +61,9 @@ namespace Poink.Sim.Components.Charts
 		[Parameter]
 		public XGridExternalDraft? ExternalDraft { get; set; }
 
+		[Parameter]
+		public double PipSize { get; set; } = 0.0001;
+
 		private XGridDisplaySettings _display = new();
 		private XGridSpectrumSettings _spectrum = new();
 		private XGridPeakOverlaySettings _lowPointOverlay = new();

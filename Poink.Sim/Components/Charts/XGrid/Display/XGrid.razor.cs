@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
+using Poink.Sim.Trader.Risk;
 
 namespace Poink.Sim.Components.Charts
 {
@@ -11,7 +12,7 @@ namespace Poink.Sim.Components.Charts
 	/// Data/pixels split: every row/column/cell value arrives pre-computed via Grid (see XGridStats.Compute);
 	/// this component turns the active display state into a flat numeric payload and hands it to xGrid.js,
 	/// which paints the footprint onto one canvas instead of one DOM node per cell. Only the grid
-	/// cells/overlays/markers moved to canvas -- the header, toggles, totals and Net bar chart stay declarative markup.
+	/// cells/overlays/markers moved to canvas -- the header, toggles and totals stay declarative markup.
 	/// The pips/cols/overlay/highlight controls that used to live here now belong to MetricsControlPanel;
 	/// Display/Spectrum/LowPointOverlay/HighPointOverlay arrive as read-only parameters from XGridController.
 	/// </summary>
@@ -104,6 +105,10 @@ namespace Poink.Sim.Components.Charts
 		/// </summary>
 		[Parameter]
 		public XGridExternalDraft? ExternalDraft { get; set; }
+
+		/// <summary>Instrument pip size for a measured segment's pip-delta row -- 0.0001 (5-digit FX default) when a host doesn't have a real one to give.</summary>
+		[Parameter]
+		public double PipSize { get; set; } = 0.0001;
 
 		// Working values behind the right-margin panel -- entry price from the clicked cell,
 		// optional SL/TP pinned by a follow-up click while armed. Null when the panel is shut.
@@ -234,9 +239,6 @@ namespace Poink.Sim.Components.Charts
 		private bool _lineMode;
 
 		private void ToggleLineMode() => _lineMode = !_lineMode;
-
-		// Opt-in line graph of NetByColumn under the totals row -- default off like every other overlay.
-		private bool _showNetGraph;
 
 		private IJSObjectReference? _module;
 		private DotNetObjectReference<XGrid>? _dotNetRef;
@@ -463,7 +465,7 @@ namespace Poink.Sim.Components.Charts
 			return $"{dir} @ {FormatTime(pos.OpenTime)} {FormatPrice(pos.OpenPrice)}{close} | {pnl}";
 		}
 
-		private static object LinePayload(XGridResult grid, XGridLine line, bool external, int index) =>
+		private object LinePayload(XGridResult grid, XGridLine line, bool external, int index) =>
 			new
 			{
 				kind = line.Kind switch
@@ -478,7 +480,7 @@ namespace Poink.Sim.Components.Charts
 				y2 = PriceToRowF(grid, line.EndPrice),
 				external,
 				index,
-				tip = LineTip(line),
+				tipRows = LineTipRows(line, PipSize),
 			};
 
 		// Signed -1..1 (delta) or 0..1 (count), same choice of metric and ceiling the CSS-grid
@@ -709,14 +711,74 @@ namespace Poink.Sim.Components.Charts
 
 		private static double RowMid(XGridResult grid, int row) => (grid.RowLow[row] + grid.RowHigh[row]) / 2;
 
-		private static string LineTip(XGridLine line) =>
+		// Duration/pip-delta/%-diff only mean something for a two-point Segment -- Horizontal/Vertical
+		// are single-value reference lines, so they keep one row instead of three fabricated ones.
+		private static IReadOnlyList<XGridTooltipRow> LineTipRows(XGridLine line, double pipSize)
+		{
+			if (line.Kind == XGridLineKind.Vertical)
+				return new[] { new XGridTooltipRow("Time: ", FormatTime(line.StartTime)) };
+			if (line.Kind == XGridLineKind.Horizontal)
+				return new[] { new XGridTooltipRow("Price: ", FormatPrice(line.StartPrice)) };
+
+			double pipDelta = RiskHelper.PriceDistanceInPips(line.StartPrice, line.EndPrice, pipSize);
+			double percentDiff = line.StartPrice == 0 ? 0 : (line.EndPrice - line.StartPrice) / line.StartPrice * 100;
+			return new[]
+			{
+				new XGridTooltipRow("Duration: ", FormatDuration((line.EndTime - line.StartTime).Duration())),
+				new XGridTooltipRow("Pip Δ: ", pipDelta.ToString("F1", CultureInfo.InvariantCulture)),
+				new XGridTooltipRow(
+					"% Diff: ",
+					$"{percentDiff.ToString("+0.00;-0.00;0.00", CultureInfo.InvariantCulture)}%",
+					percentDiff switch
+					{
+						> 0 => "gain",
+						< 0 => "loss",
+						_ => null,
+					}
+				),
+			};
+		}
+
+		private static string LinePillLabel(XGridLine line) =>
 			line.Kind switch
 			{
-				XGridLineKind.Vertical => $"Vertical @ {FormatTime(line.StartTime)}",
-				XGridLineKind.Horizontal => $"Horizontal @ {FormatPrice(line.StartPrice)}",
-				_ => $"Line: {FormatTime(line.StartTime)} @ {FormatPrice(line.StartPrice)} "
-					+ $"-> {FormatTime(line.EndTime)} @ {FormatPrice(line.EndPrice)}",
+				XGridLineKind.Horizontal => $"H {FormatPrice(line.StartPrice)}",
+				XGridLineKind.Vertical => $"V {line.StartTime:HH:mm}",
+				_ => $"{FormatPrice(line.StartPrice)}→{FormatPrice(line.EndPrice)}",
 			};
+
+		private readonly record struct SegmentMeasure(string Duration, string PipDeltaText, string PercentText, bool Positive);
+
+		// Signed (not RiskHelper's absolute PriceDistanceInPips) so the pill can colour by direction,
+		// same green-up/red-down convention as SBuy/SSell and the price axis.
+		private SegmentMeasure? MeasureSegment(XGridLine line)
+		{
+			if (line.Kind != XGridLineKind.Segment)
+				return null;
+
+			double signedPips = (line.EndPrice - line.StartPrice) / PipSize;
+			double percent = line.StartPrice == 0 ? 0 : (line.EndPrice - line.StartPrice) / line.StartPrice * 100;
+			return new SegmentMeasure(
+				CompactDuration((line.EndTime - line.StartTime).Duration()),
+				signedPips.ToString("+0;-0;0", CultureInfo.InvariantCulture),
+				percent.ToString("+0.00;-0.00;0.00", CultureInfo.InvariantCulture),
+				percent >= 0
+			);
+		}
+
+		private static string CompactDuration(TimeSpan span) =>
+			span.TotalDays >= 1 ? $"{(int)span.TotalDays}d"
+			: span.TotalHours >= 1 ? $"{(int)span.TotalHours}h"
+			: span.TotalMinutes >= 1 ? $"{(int)span.TotalMinutes}m"
+			: $"{(int)span.TotalSeconds}s";
+
+		private void RemoveLineAt(int index)
+		{
+			if (index < 0 || index >= _userLines.Count)
+				return;
+			_userLines.RemoveAt(index);
+			StateHasChanged();
+		}
 
 		private static string FormatTime(DateTime time) =>
 			time.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture);
@@ -819,74 +881,6 @@ namespace Poink.Sim.Components.Charts
 			GC.SuppressFinalize(this);
 		}
 
-		private readonly record struct NetBar(string X, string Y, string Width, string Height, bool Positive);
-
-		// One bar per column, drawn from the zero baseline: positive Net rises above it, negative
-		// drops below, mapped onto the same 0..100 viewBox the baseline/crossings use.
-		private static IReadOnlyList<NetBar> NetGraphBars(XGridResult grid)
-		{
-			var series = grid.NetByColumn;
-			var bars = new List<NetBar>(series.Count);
-			if (series.Count == 0)
-				return bars;
-
-			var (min, range) = NetGraphSpan(series);
-			double zeroY = range <= 0 ? 50 : 100 - (0 - min) / range * 100;
-			double slot = 100.0 / series.Count;
-			double gap = slot * 0.15;
-			double width = slot - gap;
-			for (var i = 0; i < series.Count; i++)
-			{
-				double value = series[i];
-				double valueY = range <= 0 ? zeroY : 100 - (value - min) / range * 100;
-				double top = Math.Min(zeroY, valueY);
-				bars.Add(
-					new NetBar(
-						XForm(i * slot + gap / 2),
-						XForm(top),
-						XForm(width),
-						XForm(Math.Abs(zeroY - valueY)),
-						value >= 0
-					)
-				);
-			}
-			return bars;
-		}
-
-		private static string NetGraphZeroY(XGridResult grid)
-		{
-			var (min, range) = NetGraphSpan(grid.NetByColumn);
-			double y = range <= 0 ? 50 : 100 - (0 - min) / range * 100;
-			return y.ToString("0.##", CultureInfo.InvariantCulture);
-		}
-
-		// Every x (0..100 viewBox) where the cumulative Net line touches or crosses zero: an exact
-		// zero point contributes its own x, a sign change contributes the interpolated crossing.
-		private static IReadOnlyList<string> NetGraphZeroCrossings(XGridResult grid)
-		{
-			var series = grid.NetByColumn;
-			var crossings = new List<string>();
-			if (series.Count < 2)
-				return crossings;
-
-			for (var i = 1; i < series.Count; i++)
-			{
-				double a = series[i - 1],
-					b = series[i];
-				double xa = (double)(i - 1) / (series.Count - 1) * 100;
-				double xb = (double)i / (series.Count - 1) * 100;
-				if (a == 0)
-					crossings.Add(XForm(xa));
-				if ((a < 0 && b > 0) || (a > 0 && b < 0))
-					crossings.Add(XForm(xa + a / (a - b) * (xb - xa)));
-			}
-			if (series[^1] == 0)
-				crossings.Add(XForm(100));
-			return crossings;
-		}
-
-		private static string XForm(double x) => x.ToString("0.##", CultureInfo.InvariantCulture);
-
 		private (bool Show, double Percent) SpectrumOverlayFor(XGridSpectrumMetric metric) =>
 			metric switch
 			{
@@ -975,20 +969,6 @@ namespace Poink.Sim.Components.Charts
 					mask[row * cols + col] = 1;
 			}
 			return mask;
-		}
-
-		private static (double Min, double Range) NetGraphSpan(IReadOnlyList<double> series)
-		{
-			double min = 0,
-				max = 0;
-			foreach (var v in series)
-			{
-				if (v < min)
-					min = v;
-				if (v > max)
-					max = v;
-			}
-			return (min, max - min);
 		}
 
 		// Row-uniform -- the sweep metric has no per-column dimension (see

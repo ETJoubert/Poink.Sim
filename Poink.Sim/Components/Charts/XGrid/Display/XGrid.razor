@@ -18,14 +18,32 @@
         </div>
     }
     <div class="xgrid-draw-row">
-        <span class="xgrid-row-label">Graphs</span>
-        <span class="xgrid-draw-label" title="Draw lines over the grid. In Line mode, click a start cell then an end cell to place a segment; the endpoints' borders highlight. Click a bottom-margin cell for a vertical line, a left-margin cell for a horizontal line. Hover a line for its start/end time and price. Right-click a line to remove it.">Draw</span>
-        <button class="xgrid-draw-toggle @(_lineMode ? "active" : "")" @onclick="ToggleLineMode"
-                title="@(_lineMode ? "Exit the line tool -- return to plain hovering" : "Line tool -- click a start cell then an end cell to place a segment")">Line</button>
+        <span class="xgrid-row-label">Measure</span>
         <button class="xgrid-draw-clear" @onclick="ClearLines"
                 title="Remove every line you have drawn -- host-supplied lines are left intact">Clear</button>
-        <button class="xgrid-total-toggle @(_showNetGraph ? "active" : "")" @onclick="() => _showNetGraph = !_showNetGraph"
-                title="Plot cumulative Net (SBuy - SSell) across the range as a line graph">Graph</button>
+        <button class="xgrid-draw-toggle @(_lineMode ? "active" : "")" @onclick="ToggleLineMode"
+                title="@(_lineMode ? "Exit the line tool -- return to plain hovering" : "Line tool -- click a start cell then an end cell to place a segment")">Line</button>
+        <span class="xgrid-draw-label" title="Draw lines over the grid. In Line mode, click a start cell then an end cell to place a segment; the endpoints' borders highlight. Click a bottom-margin cell for a vertical line, a left-margin cell for a horizontal line. Hover a line for its duration, pip delta and percent diff. Right-click a line to remove it.">Draw</span>
+        <div class="xgrid-line-pills">
+            @for (var i = 0; i < _userLines.Count; i++)
+            {
+                var index = i;
+                var line = _userLines[index];
+                <span class="xgrid-line-pill" title="Click × to remove this line">
+                    @if (MeasureSegment(line) is { } m)
+                    {
+                        <span>@m.Duration,</span>
+                        <span class="@(m.Positive ? "xgrid-line-pill-up" : "xgrid-line-pill-down")">@m.PipDeltaText&Delta;,</span>
+                        <span class="@(m.Positive ? "xgrid-line-pill-up" : "xgrid-line-pill-down")">@m.PercentText%</span>
+                    }
+                    else
+                    {
+                        @LinePillLabel(line)
+                    }
+                    <button class="xgrid-line-pill-remove" @onclick="() => RemoveLineAt(index)" title="Remove this line">&times;</button>
+                </span>
+            }
+        </div>
     </div>
     @if (Grid is not { } grid)
     {
@@ -39,23 +57,6 @@
             <span class="xgrid-total xgrid-total-down" title="SSell -- sum of the price before every down tick across the range">SSell @grid.SSell.ToString("F5", CultureInfo.InvariantCulture)</span>
             <span class="xgrid-total xgrid-total-net" title="Net = SBuy minus SSell">Net @((grid.SBuy - grid.SSell).ToString("F5", CultureInfo.InvariantCulture))</span>
         </div>
-        @if (_showNetGraph)
-        {
-            <div class="xgrid-netgraph" title="Cumulative Net per column as bars, one bar per grid column; green above zero, red below; solid line marks zero, vertical lines mark where Net crosses zero">
-                <svg viewBox="0 0 100 100" preserveAspectRatio="none">
-                    @foreach (var bar in NetGraphBars(grid))
-                    {
-                        <rect class="@(bar.Positive ? "xgrid-netgraph-bar-up" : "xgrid-netgraph-bar-down")"
-                              x="@bar.X" y="@bar.Y" width="@bar.Width" height="@bar.Height" />
-                    }
-                    <line class="xgrid-netgraph-zero" x1="0" y1="@NetGraphZeroY(grid)" x2="100" y2="@NetGraphZeroY(grid)" />
-                    @foreach (var x in NetGraphZeroCrossings(grid))
-                    {
-                        <line class="xgrid-netgraph-cross" x1="@x" y1="0" x2="@x" y2="100" />
-                    }
-                </svg>
-            </div>
-        }
         <div class="xgrid-scroll">
             <div class="xgrid-canvas-outer">
                 <div class="xgrid-canvas-wrap">
