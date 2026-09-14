@@ -419,6 +419,62 @@ namespace Poink.Sim.Data.Migrations.PoinkSim
                     b.ToTable("SymbolScheduleIntervals");
                 });
 
+            modelBuilder.Entity("Poink.Sim.Data.Entities.TradeDeal", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("AccountId")
+                        .HasColumnType("bigint");
+
+                    b.Property<double?>("Commission")
+                        .HasColumnType("double precision");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long>("DealId")
+                        .HasColumnType("bigint");
+
+                    b.Property<double>("ExecutionPrice")
+                        .HasColumnType("double precision");
+
+                    b.Property<DateTime>("ExecutionTimeUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsLong")
+                        .HasColumnType("boolean");
+
+                    b.Property<long>("PositionId")
+                        .HasColumnType("bigint");
+
+                    b.Property<double?>("RealizedPnl")
+                        .HasColumnType("double precision");
+
+                    b.Property<double?>("Swap")
+                        .HasColumnType("double precision");
+
+                    b.Property<long>("SymbolId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("SymbolName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<double>("Volume")
+                        .HasColumnType("double precision");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DealId")
+                        .IsUnique();
+
+                    b.HasIndex("AccountId", "ExecutionTimeUtc");
+
+                    b.ToTable("TradeDeals");
+                });
+
             modelBuilder.Entity("Poink.Sim.Data.Entities.TrainingResult", b =>
                 {
                     b.Property<Guid>("Id")

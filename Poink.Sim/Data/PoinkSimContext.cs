@@ -26,5 +26,7 @@ namespace Poink.Sim.Data
 		public DbSet<SymbolHoliday> SymbolHolidays { get; set; }
 
 		public DbSet<SymbolCategory> SymbolCategories { get; set; }
+
+		public DbSet<TradeDeal> TradeDeals { get; set; }
 	}
 }

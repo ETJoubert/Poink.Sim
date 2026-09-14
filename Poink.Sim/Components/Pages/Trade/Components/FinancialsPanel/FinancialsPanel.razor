@@ -1,5 +1,6 @@
 @namespace Poink.Sim.Components.Pages.Trade
 @using Poink.Sim.Components.Shared.Icon
+@using Poink.Sim.Components.Shared.StatisticsPanel
 @using Poink.Sim.Services.CTrader
 
 <div class="fp-panel">
@@ -16,6 +17,11 @@
                     title="Closed trades from the last 30 days">
                 <Icon Name="file-earmark-fill" Class="fp-tab-icon-svg" />
             </button>
+            <button type="button" class="fp-tab-icon @(_activeTab == FinancialsTab.Statistics ? "active" : "")"
+                    @onclick="() => SelectTabAndExpand(FinancialsTab.Statistics)"
+                    title="Trade outcome statistics derived from closed-deal history">
+                <Icon Name="bar-chart-steps" Class="fp-tab-icon-svg" />
+            </button>
         }
         else
         {
@@ -28,6 +34,11 @@
                     @onclick="() => SelectTab(FinancialsTab.History)"
                     title="Closed trades from the last 30 days">
                 HISTORY <span class="trade-section-count">@_closedDeals.Count</span>
+            </button>
+            <button type="button" class="fp-tab @(_activeTab == FinancialsTab.Statistics ? "active" : "")"
+                    @onclick="() => SelectTab(FinancialsTab.Statistics)"
+                    title="Trade outcome statistics derived from closed-deal history">
+                STATISTICS
             </button>
         }
         <button type="button" class="fp-collapse-toggle" @onclick="ToggleTableCollapsed"
@@ -42,7 +53,7 @@
         {
             <PositionTable Positions="Positions" Quotes="Quotes" SymbolMetadata="SymbolMetadata" Balance="Balance" OnSelect="OnSelectPosition" OnClose="OnClosePosition" />
         }
-        else
+        else if (_activeTab == FinancialsTab.History)
         {
             <div class="fp-history">
                 @if (_historyLoading)
@@ -91,6 +102,23 @@
                 }
             </div>
         }
+        else
+        {
+            <div class="fp-history" title="Derived from the same closed-deal history as the History tab, over the last 30 days">
+                @if (_historyLoading)
+                {
+                    <p class="fp-history-message">Loading closed trades...</p>
+                }
+                else if (_historyError is not null)
+                {
+                    <p class="fp-history-message fp-value-negative">Failed to load history: @_historyError</p>
+                }
+                else
+                {
+                    <StatisticsPanel Groups="StatGroups" EmptyMessage="No closed trades yet." />
+                }
+            </div>
+        }
     }
 
     <div class="fp-financials"
@@ -122,9 +150,25 @@
         </div>
 
         <div class="fp-card" title="Realized and unrealized profit/loss">
-            <div class="fp-item fp-item-placeholder" title="Derived from closed-deal history for the current server day -- not available yet">
-                <span class="fp-label">Realized</span>
-                <span class="fp-value">@Money(RealizedPnl)</span>
+            <div class="fp-item-group">
+                <button type="button" class="fp-item fp-item-button" @onclick="ToggleRealizedPicker"
+                        title="Net P/L, commission and swap from closed deals over the selected window -- click to change it">
+                    <span class="fp-label">Realized (@RealizedWindowLabel(_realizedWindow))</span>
+                    <span class="fp-value @PnlCssClass(_realizedPnl)">@(_realizedLoading ? "..." : SignedMoney(_realizedPnl))</span>
+                </button>
+                @if (_realizedPickerOpen)
+                {
+                    <div class="fp-window-picker" role="group">
+                        <button type="button" class="fp-window-toggle @(_realizedWindow == RealizedWindow.Hour ? "active" : "")"
+                                @onclick="() => SelectRealizedWindow(RealizedWindow.Hour)" title="Realized P/L over the last hour">1H</button>
+                        <button type="button" class="fp-window-toggle @(_realizedWindow == RealizedWindow.Day ? "active" : "")"
+                                @onclick="() => SelectRealizedWindow(RealizedWindow.Day)" title="Realized P/L over the last day">1D</button>
+                        <button type="button" class="fp-window-toggle @(_realizedWindow == RealizedWindow.Week ? "active" : "")"
+                                @onclick="() => SelectRealizedWindow(RealizedWindow.Week)" title="Realized P/L over the last week">1W</button>
+                        <button type="button" class="fp-window-toggle @(_realizedWindow == RealizedWindow.Month ? "active" : "")"
+                                @onclick="() => SelectRealizedWindow(RealizedWindow.Month)" title="Realized P/L over the last month">1M</button>
+                    </div>
+                }
             </div>
             <div class="fp-item" title="Sum of each open position's pip difference from its live quote times its volume">
                 <span class="fp-label">Unrealized</span>

@@ -52,7 +52,9 @@ public static class ServiceCollectionExtensions
 	/// cTrader Open API login/connection for the Trade page. Credentials bind from the
 	/// "CTrader" config section (real values supplied via appsettings.Secrets.json -- see
 	/// Poink.CTrader/README.md's "Secrets"). The session holds one live connection and its
-	/// token in memory for this single-user dashboard.
+	/// token in memory for this single-user dashboard. Also registers the DB-first closed-deal
+	/// history cache (ITradeHistoryService), backed by the singleton ITradeDealRepository since
+	/// it must share TradeDealHistoryService's process-wide lifetime (see BuildDatabase).
 	/// </summary>
 	public static IServiceCollection BuildCTraderServices(
 		this IServiceCollection services,
@@ -69,6 +71,10 @@ public static class ServiceCollectionExtensions
 		services.AddSingleton<ITradeExecutionAccess>(sp => sp.GetRequiredService<CTraderSessionService>());
 		services.AddSingleton<ITradeHistoryAccess>(sp => sp.GetRequiredService<CTraderSessionService>());
 		services.AddSingleton<IAccountAccess>(sp => sp.GetRequiredService<CTraderSessionService>());
+
+		services.AddSingleton<ITradeDealRepository, TradeDealRepository>();
+		services.AddSingleton<TradeDealHistoryService>();
+		services.AddSingleton<ITradeHistoryService>(sp => sp.GetRequiredService<TradeDealHistoryService>());
 
 		return services;
 	}
