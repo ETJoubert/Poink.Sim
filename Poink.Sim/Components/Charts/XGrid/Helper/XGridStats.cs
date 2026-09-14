@@ -494,6 +494,26 @@ internal static class XGridStats
 	public static double MaxModeThreshold(double max, double percent) =>
 		max * (1 - Math.Clamp(percent, 0, 100) / 100.0);
 
+	// Delta's Max-mode ceiling for one side's sign only, so the larger side's imbalance can't
+	// suppress highlights on the smaller side via the shared grid-wide MaxAbsDelta.
+	public static double MaxAbsDeltaOnSide(XGridResult grid, bool positive)
+	{
+		int rows = grid.RowLow.Count,
+			cols = grid.Columns.Count;
+		double max = 0;
+		for (var c = 0; c < cols; c++)
+		for (var r = 0; r < rows; r++)
+		{
+			double value = CellValue(grid, (r, c), XGridSpectrumMetric.Delta);
+			if (positive ? value <= 0 : value >= 0)
+				continue;
+			double abs = positive ? value : -value;
+			if (abs > max)
+				max = abs;
+		}
+		return max;
+	}
+
 	/// <summary>
 	/// True when the current (latest) cell's metric value ranks inside the top percent% of every
 	/// nonzero cell on the grid (Rank mode), or is at least percent% of the metric's grid-wide
@@ -544,7 +564,7 @@ internal static class XGridStats
 		if (mode == XGridHighlightMode.Max)
 		{
 			double deltaMax = CellValue(grid, cell, XGridSpectrumMetric.Delta);
-			double max = grid.MaxAbsDelta;
+			double max = MaxAbsDeltaOnSide(grid, positive);
 			if (max <= 0)
 				return false;
 			double threshold = MaxModeThreshold(max, percent);
