@@ -697,6 +697,14 @@
     margin: 1px 5px 1px;
 }
 
+.sim-chart-title {
+    font-family: var(--font-heading);
+    font-size: 0.92rem;
+    font-weight: bold;
+    letter-spacing: 0.06em;
+    color: var(--color-accent);
+}
+
 .sim-overlay-toggles,
 .sim-profile-toggles {
     display: flex;
