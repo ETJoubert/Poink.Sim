@@ -12,6 +12,7 @@ using Poink.Sim.Helpers;
 using Poink.Sim.Repository;
 using Poink.Sim.Services.CTrader;
 using Poink.Sim.Services.MarketData;
+using Poink.Sim.Services.MarketData.Import;
 using Poink.Sim.Services.Symbols;
 using Poink.Sim.Simulation;
 using Poink.Sim.Trader;
@@ -117,6 +118,7 @@ public static class ServiceCollectionExtensions
 		services.AddHostedService<CTraderSessionRestoreService>();
 
 		services.AddSingleton<ITickIngest, TickIngest>();
+		services.AddSingleton<IZTicksImportService, ZTicksImportService>();
 		services.AddSingleton<IHistoricalTickSource, CTraderHistoricalTickSource>();
 		services.AddSingleton<TickBackfillWorker>();
 		services.AddSingleton<ITickBackfillController>(sp => sp.GetRequiredService<TickBackfillWorker>());

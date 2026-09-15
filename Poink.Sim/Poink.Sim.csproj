@@ -59,6 +59,8 @@
 	<ItemGroup>
 		<!-- cTrader Open API backend for the Trade page's live broker login/connection. -->
 		<ProjectReference Include="..\Poink.CTrader\Poink.CTrader.csproj" />
+		<!-- Decodes cTrader's local .zticks backtesting cache for the Data page's Import tab. -->
+		<ProjectReference Include="..\Poink.ZTicks\Poink.ZTicks.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>

@@ -1,0 +1,22 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "Poink.Sim Database",
+      "Group": "Poink.Sim",
+      "Host": "database",
+      "Port": 5432,
+      "MaintenanceDB": "Poink.Sim",
+      "Username": "postgres",
+      "SSLMode": "prefer"
+    },
+    "2": {
+      "Name": "Poink.Sim MarketData",
+      "Group": "Poink.Sim",
+      "Host": "marketdata",
+      "Port": 5432,
+      "MaintenanceDB": "Poink.MarketData",
+      "Username": "postgres",
+      "SSLMode": "prefer"
+    }
+  }
+}
