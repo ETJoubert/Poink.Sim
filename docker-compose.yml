@@ -61,6 +61,22 @@ services:
       - poink-sim-marketdata-data:/var/lib/postgresql
     command: postgres -c shared_preload_libraries=timescaledb
 
+  pgadmin:
+    # Same network as database/marketdata, so it reaches them by container name directly.
+    # Both are pre-registered via pgadmin-servers.json; still asks for the password once.
+    image: dpage/pgadmin4
+    container_name: poink-sim-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5051:80"
+    volumes:
+      - ./pgadmin-servers.json:/pgadmin4/servers.json:ro
+    depends_on:
+      - database
+      - marketdata
+
 volumes:
   poink-sim-database-data:
   poink-sim-marketdata-data:

@@ -17,12 +17,23 @@ namespace Poink.Sim.Services.MarketData.Import
 
 		private readonly ITickIngest _ingest;
 		private readonly ILogger<ZTicksImportService> _logger;
+		private readonly object _startLock = new();
+
+		private volatile bool _isRunning;
+		private CancellationTokenSource? _cts;
 
 		public ZTicksImportService(ITickIngest ingest, ILogger<ZTicksImportService> logger)
 		{
 			_ingest = ingest;
 			_logger = logger;
 		}
+
+		public bool IsRunning => _isRunning;
+		public ZTicksImportProgress? Progress { get; private set; }
+		public ZTicksImportResult? LastResult { get; private set; }
+		public string? LastError { get; private set; }
+
+		public event Action? Changed;
 
 		public async Task<IReadOnlyList<ZTicksPreviewEntry>> PreviewAsync(string cachePath)
 		{
@@ -51,11 +62,53 @@ namespace Poink.Sim.Services.MarketData.Import
 			return entries;
 		}
 
-		public async Task<ZTicksImportResult> ImportAsync(
-			ZTicksImportRequest request,
-			Action<ZTicksImportProgress>? onProgress,
-			CancellationToken cancellationToken = default
-		)
+		public bool StartImport(ZTicksImportRequest request)
+		{
+			CancellationTokenSource cts;
+			lock (_startLock)
+			{
+				if (_isRunning)
+					return false;
+
+				_isRunning = true;
+				Progress = null;
+				LastResult = null;
+				LastError = null;
+				cts = _cts = new CancellationTokenSource();
+			}
+
+			Changed?.Invoke();
+			_ = RunAsync(request, cts);
+			return true;
+		}
+
+		public void CancelImport() => _cts?.Cancel();
+
+		private async Task RunAsync(ZTicksImportRequest request, CancellationTokenSource cts)
+		{
+			try
+			{
+				LastResult = await ImportAsync(request, cts.Token).ConfigureAwait(false);
+			}
+			catch (OperationCanceledException)
+			{
+				LastError = "Import cancelled.";
+				_logger.LogWarning("ZTicks import cancelled for {Symbol}.", request.SymbolName);
+			}
+			catch (Exception ex)
+			{
+				LastError = ex.Message;
+				_logger.LogError(ex, "ZTicks import failed for {Symbol}.", request.SymbolName);
+			}
+			finally
+			{
+				_isRunning = false;
+				cts.Dispose();
+				Changed?.Invoke();
+			}
+		}
+
+		private async Task<ZTicksImportResult> ImportAsync(ZTicksImportRequest request, CancellationToken cancellationToken)
 		{
 			var files = ZTicksCacheScanner.FindFiles(request.CachePath, from: null, to: null);
 			var table = TickTableNaming.ForSymbol(request.SymbolName, request.IsLive);
@@ -111,9 +164,8 @@ namespace Poink.Sim.Services.MarketData.Import
 							_ingest.UpsertDailyStat(table, day, ticks.Count, fileMinUtc, fileMaxUtc);
 
 						var done = Interlocked.Increment(ref filesDone);
-						onProgress?.Invoke(
-							new ZTicksImportProgress((int)done, files.Count, file, Interlocked.Read(ref parsed), Interlocked.Read(ref written))
-						);
+						Progress = new ZTicksImportProgress((int)done, files.Count, file, Interlocked.Read(ref parsed), Interlocked.Read(ref written));
+						Changed?.Invoke();
 						return ValueTask.CompletedTask;
 					}
 				)

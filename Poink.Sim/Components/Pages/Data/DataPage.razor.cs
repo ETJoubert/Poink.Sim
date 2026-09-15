@@ -75,10 +75,7 @@ namespace Poink.Sim.Components.Pages.Data
 		private bool _importCreateTable = true;
 		private IReadOnlyList<ZTicksPreviewEntry> _importPreview = Array.Empty<ZTicksPreviewEntry>();
 		private bool _importScanBusy;
-		private bool _importBusy;
-		private string? _importResult;
-		private ZTicksImportProgress? _importProgress;
-		private CancellationTokenSource? _importCts;
+		private string? _scanResult;
 		private bool _showFolderBrowser;
 
 		private string _dailyStatsTable = string.Empty;
@@ -109,6 +106,7 @@ namespace Poink.Sim.Components.Pages.Data
 		{
 			Backfill.Changed += OnChanged;
 			Session.Changed += OnChanged;
+			ZTicksImport.Changed += OnImportChanged;
 			_refreshTimer = new Timer(_ => OnTick(), null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
 		}
 
@@ -126,6 +124,18 @@ namespace Poink.Sim.Components.Pages.Data
 			catch (Exception ex)
 			{
 				Logger.LogError(ex, "Data page refresh tick failed.");
+			}
+			OnChanged();
+		}
+
+		// Fires from ZTicksImport's own background task, possibly while this page isn't the active tab.
+		private void OnImportChanged()
+		{
+			if (!ZTicksImport.IsRunning)
+			{
+				_registry = Ingest.GetRegistry();
+				if (!string.IsNullOrEmpty(_dailyStatsTable))
+					_dailyStats = Ingest.GetDailyStats(_dailyStatsTable);
 			}
 			OnChanged();
 		}
@@ -353,19 +363,19 @@ namespace Poink.Sim.Components.Pages.Data
 				return;
 
 			_importScanBusy = true;
-			_importResult = null;
+			_scanResult = null;
 			_importPreview = Array.Empty<ZTicksPreviewEntry>();
 			OnChanged();
 			Logger.LogInformation("ZTicks scan started for {Path}.", _importCachePath);
 			try
 			{
 				_importPreview = await ZTicksImport.PreviewAsync(_importCachePath);
-				_importResult = $"Found {_importPreview.Count:N0} file(s), {_importPreview.Sum(e => (long)e.TickCount):N0} tick(s).";
+				_scanResult = $"Found {_importPreview.Count:N0} file(s), {_importPreview.Sum(e => (long)e.TickCount):N0} tick(s).";
 				Logger.LogInformation("ZTicks scan finished: {Count} file(s).", _importPreview.Count);
 			}
 			catch (Exception ex)
 			{
-				_importResult = $"Scan failed: {ex.Message}";
+				_scanResult = $"Scan failed: {ex.Message}";
 				Logger.LogError(ex, "ZTicks scan failed for {Path}.", _importCachePath);
 			}
 			finally
@@ -375,9 +385,9 @@ namespace Poink.Sim.Components.Pages.Data
 			}
 		}
 
-		private async Task RunImportAsync()
+		private void StartImport()
 		{
-			if (_importBusy || _importPreview.Count == 0 || string.IsNullOrWhiteSpace(_importSymbol))
+			if (_importPreview.Count == 0 || string.IsNullOrWhiteSpace(_importSymbol))
 				return;
 
 			var request = new ZTicksImportRequest(
@@ -388,58 +398,18 @@ namespace Poink.Sim.Components.Pages.Data
 				ResolveSymbol(_importSymbol)?.SymbolId ?? 0
 			);
 
-			_importBusy = true;
-			_importResult = null;
-			_importProgress = null;
-			_importCts = new CancellationTokenSource();
-			OnChanged();
+			if (!ZTicksImport.StartImport(request))
+				return;
+
 			Logger.LogInformation(
 				"ZTicks import started: {Symbol} ({Env}) from {Path}.",
 				request.SymbolName,
 				request.IsLive ? "live" : "demo",
 				request.CachePath
 			);
-			try
-			{
-				var result = await ZTicksImport.ImportAsync(
-					request,
-					progress =>
-					{
-						_importProgress = progress;
-						OnChanged();
-					},
-					_importCts.Token
-				);
-				_importResult = $"Wrote {result.RowsWritten:N0} row(s) of {result.TicksParsed:N0} parsed into {result.Table}.";
-				_registry = Ingest.GetRegistry();
-				if (_dailyStatsTable == result.Table)
-					_dailyStats = Ingest.GetDailyStats(result.Table);
-				Logger.LogInformation(
-					"ZTicks import finished: {Table}, {Written} row(s) written.",
-					result.Table,
-					result.RowsWritten
-				);
-			}
-			catch (OperationCanceledException)
-			{
-				_importResult = "Import cancelled.";
-				Logger.LogWarning("ZTicks import cancelled for {Symbol}.", request.SymbolName);
-			}
-			catch (Exception ex)
-			{
-				_importResult = $"Import failed: {ex.Message}";
-				Logger.LogError(ex, "ZTicks import failed for {Symbol}.", request.SymbolName);
-			}
-			finally
-			{
-				_importBusy = false;
-				_importCts?.Dispose();
-				_importCts = null;
-				OnChanged();
-			}
 		}
 
-		private void CancelImport() => _importCts?.Cancel();
+		private void CancelImport() => ZTicksImport.CancelImport();
 
 		private void OpenFolderBrowser()
 		{
@@ -537,15 +507,19 @@ namespace Poink.Sim.Components.Pages.Data
 
 		private static string Count(long value) => value.ToString("N0", CultureInfo.InvariantCulture);
 
+		private static double ImportPercent(ZTicksImportProgress? progress) =>
+			progress is { FilesTotal: > 0 } p ? p.FilesDone * 100.0 / p.FilesTotal : 0;
+
+		private static string Percent(double value) => value.ToString("F0", CultureInfo.InvariantCulture);
+
 		private void OnChanged() => InvokeAsync(StateHasChanged);
 
 		public void Dispose()
 		{
 			Backfill.Changed -= OnChanged;
 			Session.Changed -= OnChanged;
+			ZTicksImport.Changed -= OnImportChanged;
 			_refreshTimer?.Dispose();
-			_importCts?.Cancel();
-			_importCts?.Dispose();
 		}
 
 		private sealed class LoadHistoricState

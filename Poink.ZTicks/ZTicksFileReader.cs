@@ -29,6 +29,10 @@ public static class ZTicksFileReader
 		var count = data.Length / RecordSize;
 		var ticks = new List<TickRecord>(count);
 
+		// Each record updates only one side; the other arrives as a raw 0 -- carry the last value forward.
+		double? lastBid = null;
+		double? lastAsk = null;
+
 		for (var i = 0; i < count; i++)
 		{
 			var offset = i * RecordSize;
@@ -36,13 +40,15 @@ public static class ZTicksFileReader
 			var bidRaw = BitConverter.ToInt64(data, offset + 8);
 			var askRaw = BitConverter.ToInt64(data, offset + 16);
 
-			ticks.Add(
-				new TickRecord(
-					DateTimeOffset.FromUnixTimeMilliseconds(timestampMs).UtcDateTime,
-					bidRaw / PriceScale,
-					askRaw / PriceScale
-				)
-			);
+			if (bidRaw != 0)
+				lastBid = bidRaw / PriceScale;
+			if (askRaw != 0)
+				lastAsk = askRaw / PriceScale;
+
+			if (lastBid is null || lastAsk is null)
+				continue;
+
+			ticks.Add(new TickRecord(DateTimeOffset.FromUnixTimeMilliseconds(timestampMs).UtcDateTime, lastBid.Value, lastAsk.Value));
 		}
 
 		return ticks;

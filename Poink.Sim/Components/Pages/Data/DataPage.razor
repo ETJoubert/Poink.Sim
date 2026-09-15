@@ -425,37 +425,54 @@
 
                 <div class="data-track-controls">
                     <button class="data-btn" @onclick="ScanImportAsync"
-                            disabled="@(_importScanBusy || _importBusy || string.IsNullOrWhiteSpace(_importCachePath))"
+                            disabled="@(_importScanBusy || ZTicksImport.IsRunning || string.IsNullOrWhiteSpace(_importCachePath))"
                             title="Parse the matching .zticks files and show counts without writing to the database">
                         <Icon Name="search" Class="data-btn-icon" />
                         @(_importScanBusy ? "SCANNING..." : "SCAN")
                     </button>
-                    <button class="data-btn data-btn-play" @onclick="RunImportAsync"
-                            disabled="@(_importBusy || _importScanBusy || _importPreview.Count == 0 || string.IsNullOrWhiteSpace(_importSymbol))"
+                    <button class="data-btn data-btn-play" @onclick="StartImport"
+                            disabled="@(ZTicksImport.IsRunning || _importScanBusy || _importPreview.Count == 0 || string.IsNullOrWhiteSpace(_importSymbol))"
                             title="@(string.IsNullOrWhiteSpace(_importSymbol) ? "Enter a symbol name first" : $"Write the scanned files into {(_importIsLive ? "live_ticks_" : "demo_ticks_")}{_importSymbol}")">
                         <Icon Name="cloud-upload" Class="data-btn-icon" />
-                        @(_importBusy ? "IMPORTING..." : "IMPORT")
+                        @(ZTicksImport.IsRunning ? "IMPORTING..." : "IMPORT")
                     </button>
-                    @if (_importBusy)
+                    @if (ZTicksImport.IsRunning)
                     {
                         <button class="data-btn data-btn-warn" @onclick="CancelImport" title="Cancel the running import">
                             <Icon Name="x-lg" Class="data-btn-icon" />
                             CANCEL
                         </button>
                     }
-                    @if (_importResult is not null)
+                    @if (_scanResult is not null)
                     {
-                        <span class="data-hint" title="@_importResult">@_importResult</span>
+                        <span class="data-hint" title="@_scanResult">@_scanResult</span>
                     }
                 </div>
 
-                @if (_importBusy && _importProgress is { } progress)
+                @if (ZTicksImport.IsRunning && ZTicksImport.Progress is { } progress)
+                {
+                    var percent = ImportPercent(progress);
+                    <div class="data-progress" title="@($"{Percent(percent)}% -- {progress.FilesDone}/{progress.FilesTotal} day(s)")">
+                        <div class="data-progress-track">
+                            <div class="data-progress-fill" style="width: @(Percent(percent))%"></div>
+                        </div>
+                        <span class="data-progress-label">
+                            @Percent(percent)% — @progress.FilesDone / @progress.FilesTotal day(s), @Count(progress.TicksParsed) parsed, @Count(progress.RowsWritten) written
+                        </span>
+                    </div>
+                    <p class="data-empty">
+                        Running in the background — safe to switch tabs or navigate away. Last finished: @Path.GetFileName(progress.CurrentFile)
+                    </p>
+                }
+                else if (ZTicksImport.LastResult is { } lastResult)
                 {
                     <p class="data-empty">
-                        @progress.FilesDone / @progress.FilesTotal file(s) done (running in parallel) —
-                        @Count(progress.TicksParsed) parsed, @Count(progress.RowsWritten) written.
-                        Last finished: @Path.GetFileName(progress.CurrentFile)
+                        Last import: wrote @Count(lastResult.RowsWritten) row(s) of @Count(lastResult.TicksParsed) parsed into @lastResult.Table (@Count(lastResult.FilesProcessed) day(s)).
                     </p>
+                }
+                else if (ZTicksImport.LastError is not null)
+                {
+                    <p class="data-empty">Last import failed: @ZTicksImport.LastError</p>
                 }
 
                 @if (_importPreview.Count > 0)
