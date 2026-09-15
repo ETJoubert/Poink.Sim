@@ -1,0 +1,66 @@
+# Everything Poink.Sim needs in one file: the app itself, its EF Core application database,
+# and its market-data (tick) store, each clearly named and on its own native Docker volume.
+# `docker compose up -d database marketdata` covers the normal dev loop (run Poink.Sim with
+# `dotnet run` against these); add `poink-sim` too for a full containerized sanity check of
+# the real published build.
+services:
+  poink-sim:
+    build:
+      context: .
+      dockerfile: Poink.Sim/Dockerfile
+      args:
+        BUILD_CONFIGURATION: Release
+    container_name: poink-sim-instance
+    depends_on:
+      - database
+      - marketdata
+    ports:
+      # Deliberately not 5001 (appsettings.json's CTrader:RedirectUri) -- keeps this
+      # container runnable alongside a local `dotnet run` without a port clash. cTrader
+      # login needs its own redirect URI registered for http://localhost:5000/... to work
+      # from here.
+      - "5000:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__PoinkSim: "Host=database;Port=5432;Username=postgres;Password=postgres;Database=Poink.Sim"
+      ConnectionStrings__PoinkSimMaintenance: "Host=database;Port=5432;Username=postgres;Password=postgres;Database=postgres"
+      ConnectionStrings__PoinkMarketData: "Host=marketdata;Port=5432;Username=postgres;Password=postgres;Database=Poink.MarketData"
+      CTrader__RedirectUri: "http://localhost:5000/ctrader/callback"
+    # Uncomment to enable cTrader login from inside the container -- optional; mounted
+    # read-only from the host rather than baked into the image, so it never ends up in a
+    # layer or gets committed.
+    # volumes:
+    #   - ./appsettings.Secrets.json:/app/appsettings.Secrets.json:ro
+
+  database:
+    # Poink.Sim's own EF Core application database: symbols, trades, brains, trained models.
+    image: timescale/timescaledb:2.23.0-pg18
+    container_name: poink-sim-database
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: Poink.Sim
+    ports:
+      - "5434:5432"
+    volumes:
+      - poink-sim-database-data:/var/lib/postgresql
+    command: postgres -c shared_preload_libraries=timescaledb
+
+  marketdata:
+    # Tick data store (TimescaleDB hypertables) on its own instance/volume, since heavy
+    # import COPY traffic showed real fallocate() flakiness on a Windows-bind-mounted volume.
+    image: timescale/timescaledb:2.23.0-pg18
+    container_name: poink-sim-marketdata
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: Poink.MarketData
+    ports:
+      - "5433:5432"
+    volumes:
+      - poink-sim-marketdata-data:/var/lib/postgresql
+    command: postgres -c shared_preload_libraries=timescaledb
+
+volumes:
+  poink-sim-database-data:
+  poink-sim-marketdata-data:

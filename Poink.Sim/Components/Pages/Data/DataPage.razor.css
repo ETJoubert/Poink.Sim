@@ -191,6 +191,10 @@
     text-align: right;
 }
 
+.data-row-gap td {
+    background: color-mix(in srgb, var(--color-error, #ff5f56) 8%, transparent);
+}
+
 .data-mono {
     font-variant-numeric: tabular-nums;
     color: var(--color-primary);

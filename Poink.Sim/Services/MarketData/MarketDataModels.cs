@@ -54,6 +54,16 @@ namespace Poink.Sim.Services.MarketData
 		DateTime TriggeredAtUtc
 	);
 
+	/// <summary>One calendar day's row count and time bounds for a tick table, used to spot gaps without scanning the table itself.</summary>
+	public sealed record TickDailyStatRow(
+		string Table,
+		DateOnly Day,
+		long RowCount,
+		DateTime? MinUtc,
+		DateTime? MaxUtc,
+		DateTime RefreshedAt
+	);
+
 	public sealed record SymbolIngestStatus(
 		long SymbolId,
 		string SymbolName,

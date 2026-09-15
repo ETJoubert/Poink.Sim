@@ -1,0 +1,74 @@
+@namespace Poink.Sim.Components.Shared.FolderBrowserDialog
+@using Poink.Sim.Components.Shared.Icon
+
+<div class="folder-browser-backdrop" @onclick="OnCancel">
+    <div class="folder-browser" role="dialog" aria-modal="true" @onclick:stopPropagation="true">
+        <div class="folder-browser-title">SELECT FOLDER</div>
+
+        <div class="folder-browser-path-row">
+            <button class="folder-browser-nav-btn" @onclick="NavigateUp" disabled="@(_currentPath is null)"
+                    title="Go up one level">
+                <Icon Name="chevron-left" Class="folder-browser-icon" />
+                UP
+            </button>
+            <button class="folder-browser-nav-btn" @onclick="() => Navigate(null)" disabled="@(_currentPath is null)"
+                    title="Show drives">
+                <Icon Name="folder2-open" Class="folder-browser-icon" />
+                ROOT
+            </button>
+        </div>
+
+        <div class="folder-browser-path-row">
+            <input type="text" class="folder-browser-path-input" value="@_pathInput"
+                   @oninput="e => _pathInput = e.Value?.ToString() ?? string.Empty"
+                   @onkeydown="OnPathInputKeyDown"
+                   title="Type or paste a folder path and press Enter" />
+            <button class="folder-browser-nav-btn" @onclick="NavigateToTypedPath" title="Go to the typed path">
+                <Icon Name="chevron-right" Class="folder-browser-icon" />
+                GO
+            </button>
+        </div>
+
+        @if (_error is not null)
+        {
+            <p class="folder-browser-error">@_error</p>
+        }
+
+        <div class="folder-browser-list">
+            @if (_entries.Count == 0)
+            {
+                <p class="folder-browser-empty">No subfolders here.</p>
+            }
+            else
+            {
+                @foreach (var entry in _entries)
+                {
+                    <button class="folder-browser-row" @onclick="() => Navigate(entry.FullPath)"
+                            title="Open @entry.FullPath">
+                        <Icon Name="folder2-open" Class="folder-browser-icon" />
+                        <span class="folder-browser-name">@entry.Name</span>
+                        @if (entry.ZTicksCount > 0)
+                        {
+                            <span class="folder-browser-badge" title="@entry.ZTicksCount .zticks file(s) directly inside">
+                                @(entry.ZTicksCount >= 1000 ? "999+" : entry.ZTicksCount.ToString())
+                            </span>
+                        }
+                    </button>
+                }
+            }
+        </div>
+
+        <div class="folder-browser-actions">
+            <button type="button" class="folder-browser-btn" @onclick="OnCancel" title="Close without selecting">
+                <Icon Name="x-lg" Class="folder-browser-icon" />
+                CANCEL
+            </button>
+            <button type="button" class="folder-browser-btn folder-browser-btn-play" @onclick="SelectCurrentAsync"
+                    disabled="@(_currentPath is null)"
+                    title="@(_currentPath is null ? "Pick a folder first" : $"Use {_currentPath}")">
+                <Icon Name="check2" Class="folder-browser-icon" />
+                SELECT THIS FOLDER
+            </button>
+        </div>
+    </div>
+</div>

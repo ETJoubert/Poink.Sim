@@ -6,8 +6,14 @@
 @using Poink.Sim.Services.MarketData.Import
 @using Poink.Sim.Components.Shared.Icon
 @using Poink.Sim.Components.Shared.DataTable
+@using Poink.Sim.Components.Shared.FolderBrowserDialog
 
 <div class="data-page">
+
+    @if (_showFolderBrowser)
+    {
+        <FolderBrowserDialog StartPath="@FolderBrowserStartPath()" OnSelect="OnFolderSelected" OnCancel="CloseFolderBrowser" />
+    }
 
     <div class="data-topbar">
         <header class="data-header">
@@ -38,6 +44,7 @@
             <button class="data-tab @(_activeTab == Tab.Symbols ? "active" : "")" @onclick="() => SwitchTab(Tab.Symbols)">SYMBOLS</button>
             <button class="data-tab @(_activeTab == Tab.Log ? "active" : "")" @onclick="() => SwitchTab(Tab.Log)">LOG</button>
             <button class="data-tab @(_activeTab == Tab.Import ? "active" : "")" @onclick="() => SwitchTab(Tab.Import)">IMPORT</button>
+            <button class="data-tab @(_activeTab == Tab.Daily ? "active" : "")" @onclick="() => SwitchTab(Tab.Daily)">DAILY</button>
         </div>
     </div>
 
@@ -368,7 +375,7 @@
                 }
             </section>
         }
-        else
+        else if (_activeTab == Tab.Import)
         {
             <section class="data-panel">
                 <div class="data-panel-header">
@@ -385,6 +392,10 @@
                     <input type="text" class="data-search" placeholder="Cache file or folder path..."
                            value="@_importCachePath" @oninput="e => _importCachePath = e.Value?.ToString() ?? string.Empty"
                            title="A single .zticks file, or a folder of them (e.g. the broker's t1 folder)" />
+                    <button class="data-btn" @onclick="OpenFolderBrowser" title="Browse the server's filesystem for the cache folder">
+                        <Icon Name="folder2-open" Class="data-btn-icon" />
+                        BROWSE
+                    </button>
 
                     <input type="text" class="data-search data-search-narrow" placeholder="Symbol (e.g. USNDAQ100)..."
                            value="@_importSymbol" @oninput="e => _importSymbol = e.Value?.ToString() ?? string.Empty"
@@ -405,13 +416,6 @@
                         <input type="radio" name="importEnv" checked="@(!_importIsLive)" @onchange="() => _importIsLive = false" />
                         Demo
                     </label>
-
-                    <input type="date" class="data-date-input"
-                           value="@_importFrom" @onchange="e => _importFrom = e.Value?.ToString() ?? string.Empty"
-                           title="Skip cache files dated before this (optional)" />
-                    <input type="date" class="data-date-input"
-                           value="@_importTo" @onchange="e => _importTo = e.Value?.ToString() ?? string.Empty"
-                           title="Skip cache files dated after this (optional)" />
 
                     <label class="data-checkbox" title="Create the target table if it does not exist yet (explicit opt-in)">
                         <input type="checkbox" @bind="_importCreateTable" />
@@ -448,8 +452,9 @@
                 @if (_importBusy && _importProgress is { } progress)
                 {
                     <p class="data-empty">
-                        File @progress.FilesDone / @progress.FilesTotal — @Count(progress.TicksParsed) parsed,
-                        @Count(progress.RowsWritten) written. @Path.GetFileName(progress.CurrentFile)
+                        @progress.FilesDone / @progress.FilesTotal file(s) done (running in parallel) —
+                        @Count(progress.TicksParsed) parsed, @Count(progress.RowsWritten) written.
+                        Last finished: @Path.GetFileName(progress.CurrentFile)
                     </p>
                 }
 
@@ -484,6 +489,89 @@
                 else if (!_importScanBusy)
                 {
                     <p class="data-empty">No files scanned yet. Enter a cache path and click Scan.</p>
+                }
+            </section>
+        }
+        else
+        {
+            <section class="data-panel">
+                <div class="data-panel-header">
+                    <span class="data-panel-title">tick_daily_stats</span>
+                    <span class="data-panel-count">@_dailyStats.Count</span>
+                </div>
+
+                <p class="data-empty">
+                    One row per calendar day per table: row count and time bounds, refreshed on each import. A gap
+                    of more than one day between consecutive rows means a day's data (and likely its .zticks file)
+                    is missing — check this instead of scanning the full tick table.
+                </p>
+
+                <div class="data-track-controls">
+                    <select class="data-search data-search-narrow" value="@_dailyStatsTable"
+                            @onchange="e => SelectDailyStatsTable(e.Value?.ToString() ?? string.Empty)"
+                            title="Which tick table's daily rollup to inspect">
+                        <option value="">Select a table...</option>
+                        @foreach (var r in _registry)
+                        {
+                            <option value="@r.Table">@r.Table</option>
+                        }
+                    </select>
+                    @{
+                        var gapCount = CountGaps(_dailyStats);
+                    }
+                    @if (gapCount > 0)
+                    {
+                        <span class="data-state-pill data-state-error"
+                              title="@gapCount day(s) preceded by more than a one-day gap — a .zticks file is likely missing">
+                            @gapCount GAP@(gapCount == 1 ? "" : "S")
+                        </span>
+                    }
+                </div>
+
+                @if (string.IsNullOrEmpty(_dailyStatsTable))
+                {
+                    <p class="data-empty">Pick a table to inspect its daily row counts and time bounds.</p>
+                }
+                else if (_dailyStats.Count == 0)
+                {
+                    <p class="data-empty">No daily stats recorded yet for @_dailyStatsTable. Run an import to populate this table.</p>
+                }
+                else
+                {
+                    <div class="data-table-scroll">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Day</th>
+                                    <th class="data-num">Ticks</th>
+                                    <th>Min (UTC)</th>
+                                    <th>Max (UTC)</th>
+                                    <th>Refreshed (UTC)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @for (var i = 0; i < _dailyStats.Count; i++)
+                                {
+                                    var row = _dailyStats[i];
+                                    var missing = i > 0 ? row.Day.DayNumber - _dailyStats[i - 1].Day.DayNumber - 1 : 0;
+                                    <tr class="@(missing > 0 ? "data-row-gap" : "")">
+                                        <td class="data-mono">
+                                            @row.Day.ToString("yyyy-MM-dd")
+                                            @if (missing > 0)
+                                            {
+                                                <span class="data-state-pill data-state-error"
+                                                      title="@missing day(s) missing before this one">GAP</span>
+                                            }
+                                        </td>
+                                        <td class="data-num data-mono">@Count(row.RowCount)</td>
+                                        <td class="data-mono">@Time(row.MinUtc)</td>
+                                        <td class="data-mono">@Time(row.MaxUtc)</td>
+                                        <td class="data-mono">@Time(row.RefreshedAt)</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
                 }
             </section>
         }

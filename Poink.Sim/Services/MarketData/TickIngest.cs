@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
 using Dapper;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -13,6 +15,9 @@ namespace Poink.Sim.Services.MarketData
 	{
 		private const string RegistryTable = "tick_table_stats";
 		private const string BackfillLogTable = "tick_backfill_log";
+		private const string DailyStatsTable = "tick_daily_stats";
+		private const int MaxTransientRetries = 3;
+		private static readonly TimeSpan TransientRetryDelay = TimeSpan.FromMilliseconds(300);
 
 		private readonly string _connectionString;
 		private readonly ILogger<TickIngest> _logger;
@@ -123,6 +128,34 @@ namespace Poink.Sim.Services.MarketData
 			if (ticks.Count == 0)
 				return 0;
 
+			for (var attempt = 1; ; attempt++)
+			{
+				try
+				{
+					return InsertTicksOnce(table, ticks);
+				}
+				catch (PostgresException ex) when (attempt < MaxTransientRetries && IsTransientFileExtendError(ex))
+				{
+					_logger.LogWarning(
+						ex,
+						"Transient storage error inserting {Count} tick(s) into {Table} (attempt {Attempt}/{Max}); retrying.",
+						ticks.Count,
+						table,
+						attempt,
+						MaxTransientRetries
+					);
+					Thread.Sleep(TransientRetryDelay * attempt);
+				}
+			}
+		}
+
+		// Npgsql wraps Postgres XX000/mdzeroextend failures around the underlying OS call, so the specific
+		// message text is the only way to tell a bind-mount fallocate hiccup apart from a real internal error.
+		private static bool IsTransientFileExtendError(PostgresException ex) =>
+			ex.SqlState == "XX000" && ex.MessageText.Contains("Interrupted system call", StringComparison.OrdinalIgnoreCase);
+
+		private long InsertTicksOnce(string table, IReadOnlyList<Tick> ticks)
+		{
 			using var conn = new NpgsqlConnection(_connectionString);
 			conn.Open();
 
@@ -213,6 +246,35 @@ namespace Poink.Sim.Services.MarketData
 			return conn.Query<BackfillLogEntry>(Sql.SelectBackfillLog).AsList();
 		}
 
+		public void UpsertDailyStat(string table, DateOnly day, long rowCount, DateTime? minUtc, DateTime? maxUtc)
+		{
+			using var conn = new NpgsqlConnection(_connectionString);
+			conn.Open();
+			EnsureTable(conn, Sql.CreateDailyStatsTable);
+			conn.Execute(
+				Sql.UpsertDailyStat,
+				new
+				{
+					table,
+					day = day.ToDateTime(TimeOnly.MinValue),
+					rowCount,
+					min = minUtc,
+					max = maxUtc,
+				}
+			);
+		}
+
+		public IReadOnlyList<TickDailyStatRow> GetDailyStats(string table)
+		{
+			using var conn = new NpgsqlConnection(_connectionString);
+			conn.Open();
+			EnsureTable(conn, Sql.CreateDailyStatsTable);
+			return conn
+				.Query<DailyStatRow>(Sql.SelectDailyStats, new { table })
+				.Select(r => new TickDailyStatRow(r.Table, DateOnly.FromDateTime(r.Day), r.RowCount, r.MinUtc, r.MaxUtc, r.RefreshedAt))
+				.ToList();
+		}
+
 		private static void EnsureRegistryTable(NpgsqlConnection conn) => EnsureTable(conn, Sql.CreateRegistryTable);
 
 		/// <summary>Runs idempotent DDL, tolerating the race where a concurrent caller wins CREATE ... IF NOT EXISTS first.</summary>
@@ -228,6 +290,8 @@ namespace Poink.Sim.Services.MarketData
 		private sealed record RegistryRow(long RowCount, DateTime? MinTimestamp, DateTime? MaxTimestamp);
 
 		private sealed record StatsRow(long Rows, DateTime? MinTime, DateTime? MaxTime);
+
+		private sealed record DailyStatRow(string Table, DateTime Day, long RowCount, DateTime? MinUtc, DateTime? MaxUtc, DateTime RefreshedAt);
 
 		private static class Sql
 		{
@@ -347,6 +411,31 @@ namespace Poink.Sim.Services.MarketData
                           ""symbol_name"" AS ""SymbolName"", ""backfill_from"" AS ""BackfillFrom"", ""backfill_to"" AS ""BackfillTo"",
                           ""record_count"" AS ""RecordCount"", ""trigger_entity"" AS ""TriggerEntity"", ""triggered_at"" AS ""TriggeredAtUtc""
                    FROM ""{BackfillLogTable}"" ORDER BY ""id"" DESC";
+
+			public const string CreateDailyStatsTable =
+				$@"CREATE TABLE IF NOT EXISTS ""{DailyStatsTable}"" (
+                       ""table_name"" TEXT NOT NULL,
+                       ""day"" DATE NOT NULL,
+                       ""row_count"" BIGINT NOT NULL,
+                       ""min_timestamp"" TIMESTAMPTZ,
+                       ""max_timestamp"" TIMESTAMPTZ,
+                       ""refreshed_at"" TIMESTAMPTZ NOT NULL DEFAULT now(),
+                       PRIMARY KEY (""table_name"", ""day"")
+                   );";
+
+			public static string UpsertDailyStat =>
+				$@"INSERT INTO ""{DailyStatsTable}"" (""table_name"", ""day"", ""row_count"", ""min_timestamp"", ""max_timestamp"", ""refreshed_at"")
+                   VALUES (@table, @day, @rowCount, @min, @max, now())
+                   ON CONFLICT (""table_name"", ""day"") DO UPDATE SET
+                       ""row_count"" = EXCLUDED.""row_count"",
+                       ""min_timestamp"" = EXCLUDED.""min_timestamp"",
+                       ""max_timestamp"" = EXCLUDED.""max_timestamp"",
+                       ""refreshed_at"" = now()";
+
+			public static string SelectDailyStats =>
+				$@"SELECT ""table_name"" AS ""Table"", ""day"" AS ""Day"", ""row_count"" AS ""RowCount"",
+                          ""min_timestamp"" AS ""MinUtc"", ""max_timestamp"" AS ""MaxUtc"", ""refreshed_at"" AS ""RefreshedAt""
+                   FROM ""{DailyStatsTable}"" WHERE ""table_name"" = @table ORDER BY ""day""";
 		}
 	}
 }

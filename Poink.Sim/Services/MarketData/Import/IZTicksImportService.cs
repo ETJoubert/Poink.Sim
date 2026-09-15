@@ -8,7 +8,7 @@ namespace Poink.Sim.Services.MarketData.Import
 	/// <summary>Reads cTrader's local .zticks backtesting cache and writes it through ITickIngest.</summary>
 	internal interface IZTicksImportService
 	{
-		Task<IReadOnlyList<ZTicksPreviewEntry>> PreviewAsync(string cachePath, DateOnly? from, DateOnly? to);
+		Task<IReadOnlyList<ZTicksPreviewEntry>> PreviewAsync(string cachePath);
 
 		Task<ZTicksImportResult> ImportAsync(
 			ZTicksImportRequest request,

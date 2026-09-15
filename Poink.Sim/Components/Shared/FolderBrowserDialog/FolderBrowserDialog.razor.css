@@ -1,0 +1,187 @@
+.folder-browser-backdrop {
+    position: fixed;
+    inset: 0;
+    background: color-mix(in srgb, var(--color-bg-dark) 70%, transparent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+}
+
+.folder-browser {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 760px;
+    max-width: 94vw;
+    height: min(680px, 86vh);
+    padding: 20px 22px;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-bg-terminal);
+    box-shadow: 0 0 24px color-mix(in srgb, var(--color-primary) 20%, transparent);
+    overflow: hidden;
+}
+
+.folder-browser-title {
+    flex: none;
+    font-size: 0.78rem;
+    font-weight: bold;
+    letter-spacing: 0.1em;
+    color: var(--color-accent);
+}
+
+.folder-browser-path-row {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.folder-browser-nav-btn {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
+    border-radius: 4px;
+    color: var(--color-secondary);
+    font-family: var(--font-heading);
+    font-size: 0.7rem;
+    font-weight: bold;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+}
+
+.folder-browser-nav-btn:hover:not(:disabled) {
+    color: var(--color-primary);
+    border-color: var(--color-primary);
+}
+
+.folder-browser-nav-btn:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
+.folder-browser-path-input {
+    flex: 1;
+    min-width: 0;
+    padding: 9px 12px;
+    background: var(--color-bg-dark);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
+    border-radius: 4px;
+    color: var(--color-primary);
+    font-size: 0.86rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.folder-browser-path-input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+}
+
+.folder-browser-error {
+    flex: none;
+    font-size: 0.78rem;
+    color: var(--color-error, #ff5f56);
+    margin: 0;
+}
+
+.folder-browser-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 12%, transparent);
+    border-radius: 4px;
+}
+
+.folder-browser-empty {
+    padding: 20px;
+    font-size: 0.84rem;
+    color: var(--color-secondary);
+}
+
+.folder-browser-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 11px 14px;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 6%, transparent);
+    color: var(--color-primary);
+    font-size: 0.86rem;
+    text-align: left;
+    cursor: pointer;
+}
+
+.folder-browser-row:hover {
+    background: color-mix(in srgb, var(--color-primary) 8%, transparent);
+}
+
+.folder-browser-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.folder-browser-badge {
+    flex: none;
+    font-size: 0.68rem;
+    font-weight: bold;
+    color: var(--color-success);
+    padding: 2px 9px;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--color-success) 45%, transparent);
+}
+
+.folder-browser-actions {
+    flex: none;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.folder-browser-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
+    color: var(--color-secondary);
+    border-radius: var(--border-radius-sm);
+    font-family: var(--font-body);
+    font-size: 0.68rem;
+    font-weight: bold;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 10px 18px;
+    cursor: pointer;
+}
+
+.folder-browser-btn:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-secondary) 12%, transparent);
+}
+
+.folder-browser-btn:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+
+.folder-browser-btn-play {
+    color: var(--color-success);
+    border-color: color-mix(in srgb, var(--color-success) 45%, transparent);
+}
+
+.folder-browser-btn-play:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-success) 14%, transparent);
+}
+
+.folder-browser-icon {
+    width: 13px;
+    height: 13px;
+}

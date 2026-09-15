@@ -12,6 +12,9 @@ namespace Poink.Sim.Services.MarketData.Import
 	/// <summary>Writes through the same ITickIngest the live backfill worker uses, so imported history is indistinguishable from streamed ticks.</summary>
 	internal sealed class ZTicksImportService : IZTicksImportService
 	{
+		// Kept modest: a Docker-Desktop bind-mounted data directory can flake under heavy concurrent COPY traffic.
+		private const int MaxParallelFiles = 4;
+
 		private readonly ITickIngest _ingest;
 		private readonly ILogger<ZTicksImportService> _logger;
 
@@ -21,24 +24,32 @@ namespace Poink.Sim.Services.MarketData.Import
 			_logger = logger;
 		}
 
-		public Task<IReadOnlyList<ZTicksPreviewEntry>> PreviewAsync(string cachePath, DateOnly? from, DateOnly? to) =>
-			Task.Run<IReadOnlyList<ZTicksPreviewEntry>>(() =>
-			{
-				var files = ZTicksCacheScanner.FindFiles(cachePath, from, to);
-				return files
-					.Select(file =>
+		public async Task<IReadOnlyList<ZTicksPreviewEntry>> PreviewAsync(string cachePath)
+		{
+			var files = ZTicksCacheScanner.FindFiles(cachePath, from: null, to: null);
+			var entries = new ZTicksPreviewEntry[files.Count];
+
+			await Parallel
+				.ForEachAsync(
+					Enumerable.Range(0, files.Count),
+					new ParallelOptions { MaxDegreeOfParallelism = DegreeOfParallelism(files.Count) },
+					(i, _) =>
 					{
-						var ticks = ZTicksFileReader.Read(file);
-						return new ZTicksPreviewEntry(
-							file,
-							ZTicksCacheScanner.TryParseFileDate(file),
+						var ticks = ZTicksFileReader.Read(files[i]);
+						entries[i] = new ZTicksPreviewEntry(
+							files[i],
+							ZTicksCacheScanner.TryParseFileDate(files[i]),
 							ticks.Count,
 							ticks.Count > 0 ? ticks[0].TimestampUtc : null,
 							ticks.Count > 0 ? ticks[^1].TimestampUtc : null
 						);
-					})
-					.ToList();
-			});
+						return ValueTask.CompletedTask;
+					}
+				)
+				.ConfigureAwait(false);
+
+			return entries;
+		}
 
 		public async Task<ZTicksImportResult> ImportAsync(
 			ZTicksImportRequest request,
@@ -46,7 +57,7 @@ namespace Poink.Sim.Services.MarketData.Import
 			CancellationToken cancellationToken = default
 		)
 		{
-			var files = ZTicksCacheScanner.FindFiles(request.CachePath, request.From, request.To);
+			var files = ZTicksCacheScanner.FindFiles(request.CachePath, from: null, to: null);
 			var table = TickTableNaming.ForSymbol(request.SymbolName, request.IsLive);
 
 			if (!_ingest.TableExists(table))
@@ -60,25 +71,53 @@ namespace Poink.Sim.Services.MarketData.Import
 
 			long parsed = 0;
 			long written = 0;
+			long filesDone = 0;
 			DateTime? minUtc = null;
 			DateTime? maxUtc = null;
+			var boundsLock = new object();
+			var degreeOfParallelism = DegreeOfParallelism(files.Count);
 
-			for (var i = 0; i < files.Count; i++)
-			{
-				cancellationToken.ThrowIfCancellationRequested();
-				var file = files[i];
-				var ticks = await Task.Run(() => ZTicksFileReader.Read(file), cancellationToken).ConfigureAwait(false);
-				parsed += ticks.Count;
+			// Each file is a self-contained day, so files parse and insert concurrently; only the running min/max needs a lock.
+			await Parallel
+				.ForEachAsync(
+					files,
+					new ParallelOptions { MaxDegreeOfParallelism = degreeOfParallelism, CancellationToken = cancellationToken },
+					(file, _) =>
+					{
+						var ticks = ZTicksFileReader.Read(file);
+						Interlocked.Add(ref parsed, ticks.Count);
 
-				if (ticks.Count > 0)
-				{
-					minUtc = minUtc is null || ticks[0].TimestampUtc < minUtc ? ticks[0].TimestampUtc : minUtc;
-					maxUtc = maxUtc is null || ticks[^1].TimestampUtc > maxUtc ? ticks[^1].TimestampUtc : maxUtc;
-					written += _ingest.InsertTicks(table, ticks.Select(t => new Tick(t.TimestampUtc, t.Bid, t.Ask)).ToList());
-				}
+						var fileMinUtc = ticks.Count > 0 ? ticks[0].TimestampUtc : (DateTime?)null;
+						var fileMaxUtc = ticks.Count > 0 ? ticks[^1].TimestampUtc : (DateTime?)null;
 
-				onProgress?.Invoke(new ZTicksImportProgress(i + 1, files.Count, file, parsed, written));
-			}
+						if (ticks.Count > 0)
+						{
+							var fileWritten = _ingest.InsertTicks(
+								table,
+								ticks.Select(t => new Tick(t.TimestampUtc, t.Bid, t.Ask)).ToList()
+							);
+							Interlocked.Add(ref written, fileWritten);
+
+							lock (boundsLock)
+							{
+								if (minUtc is null || fileMinUtc < minUtc)
+									minUtc = fileMinUtc;
+								if (maxUtc is null || fileMaxUtc > maxUtc)
+									maxUtc = fileMaxUtc;
+							}
+						}
+
+						if (ZTicksCacheScanner.TryParseFileDate(file) is { } day)
+							_ingest.UpsertDailyStat(table, day, ticks.Count, fileMinUtc, fileMaxUtc);
+
+						var done = Interlocked.Increment(ref filesDone);
+						onProgress?.Invoke(
+							new ZTicksImportProgress((int)done, files.Count, file, Interlocked.Read(ref parsed), Interlocked.Read(ref written))
+						);
+						return ValueTask.CompletedTask;
+					}
+				)
+				.ConfigureAwait(false);
 
 			if (minUtc is not null && maxUtc is not null)
 			{
@@ -94,14 +133,17 @@ namespace Poink.Sim.Services.MarketData.Import
 			}
 
 			_logger.LogInformation(
-				"ZTicks import finished: {Table}, {Files} file(s), {Parsed} tick(s) parsed, {Written} row(s) written.",
+				"ZTicks import finished: {Table}, {Files} file(s), {Parsed} tick(s) parsed, {Written} row(s) written, parallelism={Parallelism}.",
 				table,
 				files.Count,
 				parsed,
-				written
+				written,
+				degreeOfParallelism
 			);
 
 			return new ZTicksImportResult(files.Count, parsed, written, table);
 		}
+
+		private static int DegreeOfParallelism(int fileCount) => Math.Max(1, Math.Min(MaxParallelFiles, Math.Min(Environment.ProcessorCount, fileCount)));
 	}
 }

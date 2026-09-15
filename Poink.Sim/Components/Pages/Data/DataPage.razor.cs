@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -26,6 +27,7 @@ namespace Poink.Sim.Components.Pages.Data
 			Symbols,
 			Log,
 			Import,
+			Daily,
 		}
 
 		[Inject]
@@ -70,8 +72,6 @@ namespace Poink.Sim.Components.Pages.Data
 		private string _importCachePath = string.Empty;
 		private string _importSymbol = string.Empty;
 		private bool _importIsLive;
-		private string _importFrom = string.Empty;
-		private string _importTo = string.Empty;
 		private bool _importCreateTable = true;
 		private IReadOnlyList<ZTicksPreviewEntry> _importPreview = Array.Empty<ZTicksPreviewEntry>();
 		private bool _importScanBusy;
@@ -79,6 +79,10 @@ namespace Poink.Sim.Components.Pages.Data
 		private string? _importResult;
 		private ZTicksImportProgress? _importProgress;
 		private CancellationTokenSource? _importCts;
+		private bool _showFolderBrowser;
+
+		private string _dailyStatsTable = string.Empty;
+		private IReadOnlyList<TickDailyStatRow> _dailyStats = Array.Empty<TickDailyStatRow>();
 
 		private bool IsConnected => Session.State == CTraderConnectionState.Connected;
 
@@ -116,6 +120,8 @@ namespace Poink.Sim.Components.Pages.Data
 					_registry = Ingest.GetRegistry();
 				else if (_activeTab == Tab.Log)
 					_backfillLog = Ingest.GetBackfillLog();
+				else if (_activeTab == Tab.Daily && !string.IsNullOrEmpty(_dailyStatsTable))
+					_dailyStats = Ingest.GetDailyStats(_dailyStatsTable);
 			}
 			catch (Exception ex)
 			{
@@ -133,6 +139,31 @@ namespace Poink.Sim.Components.Pages.Data
 				_backfillLog = Ingest.GetBackfillLog();
 			else if (tab == Tab.Symbols)
 				_ = LoadSymbolsAsync();
+			else if (tab == Tab.Daily)
+			{
+				_registry = Ingest.GetRegistry();
+				if (string.IsNullOrEmpty(_dailyStatsTable) && _registry.Count > 0)
+					_dailyStatsTable = _registry[0].Table;
+				if (!string.IsNullOrEmpty(_dailyStatsTable))
+					_dailyStats = Ingest.GetDailyStats(_dailyStatsTable);
+			}
+		}
+
+		private void SelectDailyStatsTable(string table)
+		{
+			_dailyStatsTable = table;
+			_dailyStats = string.IsNullOrEmpty(table) ? Array.Empty<TickDailyStatRow>() : Ingest.GetDailyStats(table);
+		}
+
+		private static int CountGaps(IReadOnlyList<TickDailyStatRow> rows)
+		{
+			var gaps = 0;
+			for (var i = 1; i < rows.Count; i++)
+			{
+				if (rows[i].Day.DayNumber - rows[i - 1].Day.DayNumber > 1)
+					gaps++;
+			}
+			return gaps;
 		}
 
 		private async Task LoadSymbolsAsync()
@@ -328,7 +359,7 @@ namespace Poink.Sim.Components.Pages.Data
 			Logger.LogInformation("ZTicks scan started for {Path}.", _importCachePath);
 			try
 			{
-				_importPreview = await ZTicksImport.PreviewAsync(_importCachePath, ParseImportDate(_importFrom), ParseImportDate(_importTo));
+				_importPreview = await ZTicksImport.PreviewAsync(_importCachePath);
 				_importResult = $"Found {_importPreview.Count:N0} file(s), {_importPreview.Sum(e => (long)e.TickCount):N0} tick(s).";
 				Logger.LogInformation("ZTicks scan finished: {Count} file(s).", _importPreview.Count);
 			}
@@ -353,8 +384,6 @@ namespace Poink.Sim.Components.Pages.Data
 				_importCachePath,
 				_importSymbol.Trim(),
 				_importIsLive,
-				ParseImportDate(_importFrom),
-				ParseImportDate(_importTo),
 				_importCreateTable,
 				ResolveSymbol(_importSymbol)?.SymbolId ?? 0
 			);
@@ -383,6 +412,8 @@ namespace Poink.Sim.Components.Pages.Data
 				);
 				_importResult = $"Wrote {result.RowsWritten:N0} row(s) of {result.TicksParsed:N0} parsed into {result.Table}.";
 				_registry = Ingest.GetRegistry();
+				if (_dailyStatsTable == result.Table)
+					_dailyStats = Ingest.GetDailyStats(result.Table);
 				Logger.LogInformation(
 					"ZTicks import finished: {Table}, {Written} row(s) written.",
 					result.Table,
@@ -410,7 +441,40 @@ namespace Poink.Sim.Components.Pages.Data
 
 		private void CancelImport() => _importCts?.Cancel();
 
-		private static DateOnly? ParseImportDate(string value) => DateOnly.TryParse(value, out var date) ? date : null;
+		private void OpenFolderBrowser()
+		{
+			_showFolderBrowser = true;
+			OnChanged();
+		}
+
+		private void CloseFolderBrowser()
+		{
+			_showFolderBrowser = false;
+			OnChanged();
+		}
+
+		private void OnFolderSelected(string path)
+		{
+			_importCachePath = path;
+			_showFolderBrowser = false;
+			OnChanged();
+		}
+
+		private string FolderBrowserStartPath()
+		{
+			if (Directory.Exists(_importCachePath))
+				return _importCachePath;
+			if (File.Exists(_importCachePath))
+				return Path.GetDirectoryName(_importCachePath) ?? DefaultBrowseRoot();
+			return DefaultBrowseRoot();
+		}
+
+		// The cache always lives under this Spotware folder once cTrader has run a backtest, so start there.
+		private static string DefaultBrowseRoot()
+		{
+			var spotwareCache = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Spotware", "Cache");
+			return Directory.Exists(spotwareCache) ? spotwareCache : Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+		}
 
 		private void ForceFlush(long symbolId) => Backfill.ForceFlush(symbolId);
 

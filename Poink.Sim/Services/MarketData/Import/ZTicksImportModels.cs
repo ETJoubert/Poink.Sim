@@ -16,8 +16,6 @@ namespace Poink.Sim.Services.MarketData.Import
 		string CachePath,
 		string SymbolName,
 		bool IsLive,
-		DateOnly? From,
-		DateOnly? To,
 		bool CreateTableIfMissing,
 		long SymbolCode
 	);
