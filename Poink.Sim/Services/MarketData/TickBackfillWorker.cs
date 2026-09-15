@@ -68,7 +68,7 @@ namespace Poink.Sim.Services.MarketData
 
 		public void Track(long symbolId, string symbolName, bool createTable)
 		{
-			var table = _ingest.GetTableForSymbol(symbolName) ?? TickTableNaming.ForSymbol(symbolName);
+			var table = _ingest.GetTableForSymbol(symbolName) ?? TickTableNaming.ForSymbol(symbolName, _session.UseLiveEnvironment);
 			var exists = _ingest.TableExists(table);
 			if (!exists && createTable)
 			{
@@ -125,7 +125,7 @@ namespace Poink.Sim.Services.MarketData
 				return 0;
 			}
 
-			var table = _ingest.GetTableForSymbol(symbolName) ?? TickTableNaming.ForSymbol(symbolName);
+			var table = _ingest.GetTableForSymbol(symbolName) ?? TickTableNaming.ForSymbol(symbolName, _session.UseLiveEnvironment);
 			if (!_ingest.TableExists(table))
 			{
 				_logger.LogWarning(
