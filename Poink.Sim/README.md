@@ -17,6 +17,10 @@ stays independent.
 A visual companion to this doc — `Poink.Sim.Architecture.drawio` (open with
 [draw.io](https://app.diagrams.net/)) — lives alongside it in this folder.
 
+## Local Data source
+
+C:\Users\etjou\AppData\Roaming\Spotware\Cache\FxPro\BacktestingCache\V1\live_23c56ec5\#UK100\t1
+
 ## The four areas
 
 | Area | What it does | Doc |
