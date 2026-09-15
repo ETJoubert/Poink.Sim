@@ -317,7 +317,13 @@ namespace Poink.Sim.Services.CTrader
 						_quotes[symbolId] = new CTraderSymbolQuote(symbolId, info.SymbolName, null, null, null);
 					}
 
-					_logger.LogInformation("cTrader: watching {Symbol} ({SymbolId}).", info.SymbolName, symbolId);
+					_logger.LogInformation(
+						markWatched
+							? "cTrader: watching {Symbol} ({SymbolId})."
+							: "cTrader: streaming {Symbol} ({SymbolId}) to price an open position -- not added to the watchlist.",
+						info.SymbolName,
+						symbolId
+					);
 				}
 
 				Changed?.Invoke();
