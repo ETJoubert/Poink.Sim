@@ -64,35 +64,46 @@
 
 .input-card {
     display: flex;
-    align-items: flex-start;
-    gap: 16px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
     border-radius: var(--border-radius-md);
     padding: 10px 12px;
 }
 
 .input-card-label {
     flex-shrink: 0;
-    min-width: 108px;
-    padding-top: 2px;
     font-size: 0.6rem;
     text-transform: uppercase;
     letter-spacing: 0.08em;
     color: var(--color-secondary);
     opacity: 0.8;
+    padding-bottom: 4px;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-secondary) 15%, transparent);
 }
 
 .input-card-body {
-    flex: 1;
     min-width: 0;
     display: flex;
     flex-wrap: wrap;
     align-items: flex-start;
-    gap: 16px;
+    gap: 10px 14px;
 }
 
 .input-card-price-window {
     background: color-mix(in srgb, var(--color-secondary) 6%, var(--color-bg-terminal));
     border: 1px solid color-mix(in srgb, var(--color-secondary) 25%, transparent);
+}
+
+.input-card-price-window .input-scalars {
+    gap: 2px 8px;
+}
+
+.input-card-price-window .input-scalar {
+    flex-direction: row;
+    align-items: baseline;
+    gap: 4px;
+    width: auto;
 }
 
 .input-card-volume-profile {
@@ -110,12 +121,66 @@
     border: 1px solid color-mix(in srgb, var(--color-tertiary) 25%, transparent);
 }
 
+.input-card-xgrid {
+    background: color-mix(in srgb, var(--color-highlight) 6%, var(--color-bg-terminal));
+    border: 1px solid color-mix(in srgb, var(--color-highlight) 25%, transparent);
+}
+
+.input-xgrid-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 100px;
+}
+
+.input-xgrid-group-title {
+    font-size: 0.58rem;
+    font-weight: bold;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-secondary);
+    opacity: 0.7;
+}
+
+/* --sig-color is set per row (see XGridSignalColors.Var) to mirror the matching signal's
+   colour in XGrid's own live panel (XGridSignalsPanel.razor.css). */
+.input-xgrid-signal {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.6rem;
+    letter-spacing: 0.02em;
+    color: var(--sig-color, var(--color-secondary));
+    opacity: 0.45;
+    white-space: nowrap;
+    transition: opacity 0.15s ease;
+}
+
+.input-xgrid-signal-dot {
+    width: 6px;
+    height: 6px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.5;
+}
+
+.input-xgrid-signal.on {
+    opacity: 1;
+}
+
+.input-xgrid-signal.on .input-xgrid-signal-dot {
+    opacity: 1;
+    box-shadow: 0 0 4px currentColor;
+}
+
 .input-card-shade {
     display: flex;
-    align-items: baseline;
-    gap: 10px;
+    flex-direction: column;
+    gap: 6px;
     border-radius: var(--border-radius-sm);
     padding: 6px 10px;
+    flex: 1 1 100%;
 }
 
 .input-card-volume-profile .input-card-shade-a { background: color-mix(in srgb, var(--color-primary) 12%, transparent); }
