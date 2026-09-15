@@ -9,6 +9,7 @@ using Microsoft.Extensions.Logging;
 using Poink.Sim.Models;
 using Poink.Sim.Services.CTrader;
 using Poink.Sim.Services.MarketData;
+using Poink.Sim.Services.MarketData.Import;
 using Poink.Sim.Services.Symbols;
 
 namespace Poink.Sim.Components.Pages.Data
@@ -24,6 +25,7 @@ namespace Poink.Sim.Components.Pages.Data
 			Registry,
 			Symbols,
 			Log,
+			Import,
 		}
 
 		[Inject]
@@ -31,6 +33,9 @@ namespace Poink.Sim.Components.Pages.Data
 
 		[Inject]
 		private ITickIngest Ingest { get; set; } = null!;
+
+		[Inject]
+		private IZTicksImportService ZTicksImport { get; set; } = null!;
 
 		[Inject]
 		private ICTraderSessionService Session { get; set; } = null!;
@@ -61,6 +66,19 @@ namespace Poink.Sim.Components.Pages.Data
 		private string? _symbolsResult;
 
 		private readonly HashSet<long> _metadataBusy = new();
+
+		private string _importCachePath = string.Empty;
+		private string _importSymbol = string.Empty;
+		private bool _importIsLive;
+		private string _importFrom = string.Empty;
+		private string _importTo = string.Empty;
+		private bool _importCreateTable = true;
+		private IReadOnlyList<ZTicksPreviewEntry> _importPreview = Array.Empty<ZTicksPreviewEntry>();
+		private bool _importScanBusy;
+		private bool _importBusy;
+		private string? _importResult;
+		private ZTicksImportProgress? _importProgress;
+		private CancellationTokenSource? _importCts;
 
 		private bool IsConnected => Session.State == CTraderConnectionState.Connected;
 
@@ -298,6 +316,102 @@ namespace Poink.Sim.Components.Pages.Data
 			}
 		}
 
+		private async Task ScanImportAsync()
+		{
+			if (_importScanBusy || string.IsNullOrWhiteSpace(_importCachePath))
+				return;
+
+			_importScanBusy = true;
+			_importResult = null;
+			_importPreview = Array.Empty<ZTicksPreviewEntry>();
+			OnChanged();
+			Logger.LogInformation("ZTicks scan started for {Path}.", _importCachePath);
+			try
+			{
+				_importPreview = await ZTicksImport.PreviewAsync(_importCachePath, ParseImportDate(_importFrom), ParseImportDate(_importTo));
+				_importResult = $"Found {_importPreview.Count:N0} file(s), {_importPreview.Sum(e => (long)e.TickCount):N0} tick(s).";
+				Logger.LogInformation("ZTicks scan finished: {Count} file(s).", _importPreview.Count);
+			}
+			catch (Exception ex)
+			{
+				_importResult = $"Scan failed: {ex.Message}";
+				Logger.LogError(ex, "ZTicks scan failed for {Path}.", _importCachePath);
+			}
+			finally
+			{
+				_importScanBusy = false;
+				OnChanged();
+			}
+		}
+
+		private async Task RunImportAsync()
+		{
+			if (_importBusy || _importPreview.Count == 0 || string.IsNullOrWhiteSpace(_importSymbol))
+				return;
+
+			var request = new ZTicksImportRequest(
+				_importCachePath,
+				_importSymbol.Trim(),
+				_importIsLive,
+				ParseImportDate(_importFrom),
+				ParseImportDate(_importTo),
+				_importCreateTable,
+				ResolveSymbol(_importSymbol)?.SymbolId ?? 0
+			);
+
+			_importBusy = true;
+			_importResult = null;
+			_importProgress = null;
+			_importCts = new CancellationTokenSource();
+			OnChanged();
+			Logger.LogInformation(
+				"ZTicks import started: {Symbol} ({Env}) from {Path}.",
+				request.SymbolName,
+				request.IsLive ? "live" : "demo",
+				request.CachePath
+			);
+			try
+			{
+				var result = await ZTicksImport.ImportAsync(
+					request,
+					progress =>
+					{
+						_importProgress = progress;
+						OnChanged();
+					},
+					_importCts.Token
+				);
+				_importResult = $"Wrote {result.RowsWritten:N0} row(s) of {result.TicksParsed:N0} parsed into {result.Table}.";
+				_registry = Ingest.GetRegistry();
+				Logger.LogInformation(
+					"ZTicks import finished: {Table}, {Written} row(s) written.",
+					result.Table,
+					result.RowsWritten
+				);
+			}
+			catch (OperationCanceledException)
+			{
+				_importResult = "Import cancelled.";
+				Logger.LogWarning("ZTicks import cancelled for {Symbol}.", request.SymbolName);
+			}
+			catch (Exception ex)
+			{
+				_importResult = $"Import failed: {ex.Message}";
+				Logger.LogError(ex, "ZTicks import failed for {Symbol}.", request.SymbolName);
+			}
+			finally
+			{
+				_importBusy = false;
+				_importCts?.Dispose();
+				_importCts = null;
+				OnChanged();
+			}
+		}
+
+		private void CancelImport() => _importCts?.Cancel();
+
+		private static DateOnly? ParseImportDate(string value) => DateOnly.TryParse(value, out var date) ? date : null;
+
 		private void ForceFlush(long symbolId) => Backfill.ForceFlush(symbolId);
 
 		private void TogglePause()
@@ -366,6 +480,8 @@ namespace Poink.Sim.Components.Pages.Data
 			Backfill.Changed -= OnChanged;
 			Session.Changed -= OnChanged;
 			_refreshTimer?.Dispose();
+			_importCts?.Cancel();
+			_importCts?.Dispose();
 		}
 
 		private sealed class LoadHistoricState
