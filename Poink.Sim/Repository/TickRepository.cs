@@ -158,7 +158,8 @@ internal sealed class TickRepository : ITickRepository
 	private static class Sql
 	{
 		public const string SelectTickTableNames =
-			"SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name LIKE 'ticks_%' ORDER BY table_name";
+			"SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' "
+				+ "AND (table_name LIKE 'live_ticks_%' OR table_name LIKE 'demo_ticks_%') ORDER BY table_name";
 
 		public const string CreateRegistryTable =
 			$@"CREATE TABLE IF NOT EXISTS ""{RegistryTable}"" (
