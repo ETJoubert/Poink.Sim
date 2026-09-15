@@ -19,6 +19,7 @@ namespace Poink.Sim.Components.Pages.Trade
 	internal sealed class TradeCoordinator : ITradeCoordinator, IDisposable
 	{
 		private const string SettingsStorageKey = "poink.trade.setup";
+		private const string WatchlistStorageKeyPrefix = "poink.trade.watchlist.";
 
 		private readonly IWatchlistAccess _watchlistAccess;
 		private readonly ITickStreamAccess _tickStreamAccess;
@@ -27,9 +28,12 @@ namespace Poink.Sim.Components.Pages.Trade
 
 		private string? _lastPersistedSettingsJson;
 		private bool _restorePending;
-		private List<long> _pendingWatchSymbolIds = [];
 		private long? _pendingChartSymbolId;
 		private string? _pendingChartSymbolName;
+
+		private bool _watchlistSynced;
+		private long? _watchlistSyncedAccountId;
+		private string? _lastPersistedWatchlistJson;
 
 		public TradeCoordinator(
 			IWatchlistAccess watchlistAccess,
@@ -105,28 +109,32 @@ namespace Poink.Sim.Components.Pages.Trade
 				RightPanelCollapsed = settings.RightPanelCollapsed;
 				_pendingChartSymbolId = settings.ChartSymbolId;
 				_pendingChartSymbolName = settings.ChartSymbolName;
-				_pendingWatchSymbolIds = settings.WatchedSymbolIds;
 				_restorePending = true;
 
 				if (IsConnected)
-					await ApplyPendingRestoreAsync();
+					ApplyPendingRestore();
 			}
 
 			// Session and its Positions are a long-lived singleton, so navigating back to an already-
 			// connected session raises no Changed event to trigger this -- check once on mount too.
 			if (IsConnected)
+			{
+				await SyncAccountWatchlistAsync();
 				await _metadataCache.EnsureForPositionsAsync(_tickStreamAccess.Positions);
+			}
 		}
 
 		public async Task PersistSettingsIfChangedAsync(ChartPanelSettings? chartSettings)
 		{
 			var settings = BuildSettings(chartSettings);
 			var json = JsonSerializer.Serialize(settings);
-			if (json == _lastPersistedSettingsJson)
-				return;
+			if (json != _lastPersistedSettingsJson)
+			{
+				_lastPersistedSettingsJson = json;
+				await _localStorage.SetItemAsync(SettingsStorageKey, settings);
+			}
 
-			_lastPersistedSettingsJson = json;
-			await _localStorage.SetItemAsync(SettingsStorageKey, settings);
+			await PersistWatchlistIfChangedAsync();
 		}
 
 		private TradePageSettings BuildSettings(ChartPanelSettings? chart) =>
@@ -144,20 +152,60 @@ namespace Poink.Sim.Components.Pages.Trade
 				chart?.XGridColCount ?? 20,
 				ChartSymbolId,
 				ChartSymbolName,
-				[.. _watchlistAccess.Watchlist.Select(q => q.SymbolId)],
 				SidepanelCollapsed,
 				RightPanelCollapsed
 			);
 
-		// Re-subscribes whatever this browser had watched and reopens its last chart -- called once
-		// settings load if already connected, or on the next Connected transition otherwise.
-		private async Task ApplyPendingRestoreAsync()
+		// Reopens the last chart this browser had open -- called once settings load if already
+		// connected, or on the next Connected transition otherwise.
+		private void ApplyPendingRestore()
 		{
 			if (!_restorePending)
 				return;
 			_restorePending = false;
 
-			foreach (var symbolId in _pendingWatchSymbolIds)
+			if (_pendingChartSymbolId is { } id && _pendingChartSymbolName is { } name && ChartSymbolId is null)
+				OpenChart(id, name);
+		}
+
+		private static string WatchlistStorageKey(long accountId) => $"{WatchlistStorageKeyPrefix}{accountId}";
+
+		private async Task PersistWatchlistIfChangedAsync()
+		{
+			if (_watchlistAccess.SelectedAccountId is not { } accountId)
+				return;
+
+			// Mid-switch, SelectedAccountId flips to the new account before its watchlist is
+			// restored -- persisting here would overwrite its storage with a false-empty snapshot.
+			if (!_watchlistSynced || accountId != _watchlistSyncedAccountId)
+				return;
+
+			var symbolIds = _watchlistAccess.Watchlist.Select(q => q.SymbolId).ToList();
+			var json = JsonSerializer.Serialize(symbolIds);
+			if (json == _lastPersistedWatchlistJson)
+				return;
+
+			_lastPersistedWatchlistJson = json;
+			await _localStorage.SetItemAsync(WatchlistStorageKey(accountId), symbolIds);
+		}
+
+		// Re-subscribes whatever this browser had watched for the account now selected -- each
+		// account keeps its own watchlist in storage, so this reruns on every account change.
+		private async Task SyncAccountWatchlistAsync()
+		{
+			var accountId = _watchlistAccess.SelectedAccountId;
+			if (_watchlistSynced && accountId == _watchlistSyncedAccountId)
+				return;
+
+			_watchlistSynced = true;
+			_watchlistSyncedAccountId = accountId;
+			_lastPersistedWatchlistJson = null;
+
+			if (accountId is not { } id)
+				return;
+
+			var symbolIds = await _localStorage.GetItemAsync<List<long>>(WatchlistStorageKey(id)) ?? [];
+			foreach (var symbolId in symbolIds)
 			{
 				if (_watchlistAccess.IsSymbolWatched(symbolId))
 					continue;
@@ -166,8 +214,7 @@ namespace Poink.Sim.Components.Pages.Trade
 				await _metadataCache.EnsureAsync(symbolId);
 			}
 
-			if (_pendingChartSymbolId is { } id && _pendingChartSymbolName is { } name && ChartSymbolId is null)
-				OpenChart(id, name);
+			_lastPersistedWatchlistJson = JsonSerializer.Serialize(symbolIds);
 		}
 
 		private void OnSessionChanged() => _ = HandleSessionChangedAsync();
@@ -177,7 +224,12 @@ namespace Poink.Sim.Components.Pages.Trade
 		private async Task HandleSessionChangedAsync()
 		{
 			if (_restorePending && IsConnected)
-				await ApplyPendingRestoreAsync();
+				ApplyPendingRestore();
+
+			if (IsConnected)
+				await SyncAccountWatchlistAsync();
+			else
+				_watchlistSynced = false;
 
 			await _metadataCache.EnsureForPositionsAsync(_tickStreamAccess.Positions);
 			Changed?.Invoke();

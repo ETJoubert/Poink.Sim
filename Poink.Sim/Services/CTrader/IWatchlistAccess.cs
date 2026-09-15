@@ -13,6 +13,9 @@ namespace Poink.Sim.Services.CTrader
 	{
 		CTraderConnectionState State { get; }
 
+		/// <summary>The account the live watchlist belongs to -- switching accounts empties and re-subscribes it.</summary>
+		long? SelectedAccountId { get; }
+
 		IReadOnlyList<CTraderSymbolInfo> Symbols { get; }
 
 		/// <summary>The user's explicitly-picked watchlist, shown in the Trade page's WATCHING panel.</summary>

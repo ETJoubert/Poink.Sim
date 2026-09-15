@@ -1,11 +1,9 @@
-using System.Collections.Generic;
-
 namespace Poink.Sim.Models
 {
 	/// <summary>
-	/// Snapshot of the Trade page's layout, chart settings and watchlist, persisted to browser
-	/// localStorage so it survives navigating away and back, and so the watchlist can be
-	/// re-subscribed after an app restart empties CTraderSessionService's in-memory watchlist.
+	/// Snapshot of the Trade page's layout and chart settings, persisted to browser localStorage so
+	/// it survives navigating away and back. The watchlist is persisted separately, per account --
+	/// see TradeCoordinator's account-scoped watchlist storage.
 	/// </summary>
 	internal sealed record TradePageSettings(
 		int BarSizeSeconds,
@@ -21,7 +19,6 @@ namespace Poink.Sim.Models
 		int XGridColCount,
 		long? ChartSymbolId,
 		string? ChartSymbolName,
-		List<long> WatchedSymbolIds,
 		bool SidepanelCollapsed,
 		bool RightPanelCollapsed
 	);
