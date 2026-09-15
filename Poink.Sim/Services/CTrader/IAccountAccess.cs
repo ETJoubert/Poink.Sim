@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Poink.Sim.Services.CTrader
@@ -27,5 +28,7 @@ namespace Poink.Sim.Services.CTrader
 		Uri? BuildAuthorizationUri();
 
 		Task LogoutAsync();
+
+		Task SwitchAccountAsync(long accountId, CancellationToken cancellationToken = default);
 	}
 }

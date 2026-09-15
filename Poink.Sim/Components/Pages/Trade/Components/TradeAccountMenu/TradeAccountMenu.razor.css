@@ -138,19 +138,37 @@
     gap: 2px;
 }
 
-.trade-account-row {
+.trade-account-row-btn {
     display: flex;
     align-items: center;
     gap: 8px;
+    width: 100%;
     padding: 6px 8px;
+    border: none;
     border-radius: var(--border-radius-sm);
+    background: transparent;
+    font-family: var(--font-body);
     font-size: 0.8rem;
     color: var(--color-secondary);
+    cursor: pointer;
+    transition: background 0.15s ease;
 }
 
-.trade-account-row-current {
+.trade-account-row-btn:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+}
+
+.trade-account-row-btn:disabled {
+    cursor: default;
+}
+
+.trade-account-row-current .trade-account-row-btn {
     background: color-mix(in srgb, var(--color-accent) 10%, transparent);
     color: var(--color-primary);
+}
+
+.trade-account-row-current .trade-account-row-btn:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-accent) 10%, transparent);
 }
 
 .trade-account-row-type {

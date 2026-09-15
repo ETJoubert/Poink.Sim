@@ -25,14 +25,18 @@
                         @foreach (var account in Session.Accounts)
                         {
                             var isCurrent = account.AccountId == Session.SelectedAccountId;
-                            <li class="trade-account-row @(isCurrent ? "trade-account-row-current" : "")"
-                                title="@(isCurrent ? $"Active account {account.Login}" : $"Account {account.Login}")">
-                                <span class="trade-account-row-type">@(account.IsLive ? "LIVE" : "DEMO")</span>
-                                <span class="trade-account-row-number">@account.Login</span>
-                                @if (isCurrent)
-                                {
-                                    <Icon Name="check2" Class="trade-account-row-check" />
-                                }
+                            <li class="trade-account-row @(isCurrent ? "trade-account-row-current" : "")">
+                                <button type="button" class="trade-account-row-btn"
+                                        disabled="@(isCurrent || _switchingAccount)"
+                                        @onclick="() => SelectAccountAsync(account.AccountId)"
+                                        title="@(isCurrent ? $"Active account {account.Login}" : $"Switch to {(account.IsLive ? "live" : "demo")} account {account.Login}")">
+                                    <span class="trade-account-row-type">@(account.IsLive ? "LIVE" : "DEMO")</span>
+                                    <span class="trade-account-row-number">@account.Login</span>
+                                    @if (isCurrent)
+                                    {
+                                        <Icon Name="check2" Class="trade-account-row-check" />
+                                    }
+                                </button>
                             </li>
                         }
                     </ul>

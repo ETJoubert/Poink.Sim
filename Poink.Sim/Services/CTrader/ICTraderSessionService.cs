@@ -55,6 +55,9 @@ namespace Poink.Sim.Services.CTrader
 
 		Task LogoutAsync();
 
+		/// <summary>Switches the active session to a different account already returned by <see cref="Accounts"/>, reconnecting to the matching live/demo host if needed. No-op if the account is already selected or unknown.</summary>
+		Task SwitchAccountAsync(long accountId, CancellationToken cancellationToken = default);
+
 		/// <summary>Re-fetches the authorized account's symbol list from cTrader and updates <see cref="Symbols"/>. Requires a connected session.</summary>
 		Task<IReadOnlyList<CTraderSymbolInfo>> RefreshSymbolsAsync(CancellationToken cancellationToken = default);
 

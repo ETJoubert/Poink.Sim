@@ -70,6 +70,7 @@ namespace Poink.Sim.Services.CTrader
 		private readonly Dictionary<long, CTraderPositionInfo> _positions = new();
 
 		private CTraderClient? _client;
+		private bool _connectedIsLive;
 		private Token? _token;
 		private IDisposable? _spotSubscription;
 		private IDisposable? _traderUpdatedSubscription;
@@ -137,7 +138,8 @@ namespace Poink.Sim.Services.CTrader
 			}
 		}
 
-		public bool UseLiveEnvironment => _options.UseLiveEnvironment;
+		/// <summary>Whether the account currently authorized is a live account; falls back to the configured preference before a session is connected. This -- not the static config value -- is what gates live-trading confirmations in the UI.</summary>
+		public bool UseLiveEnvironment => _client is not null ? _connectedIsLive : _options.UseLiveEnvironment;
 
 		public bool IsConfigured =>
 			!string.IsNullOrWhiteSpace(_app.ClientId)
@@ -230,6 +232,42 @@ namespace Poink.Sim.Services.CTrader
 				await DeleteTokenAsync();
 				SetState(CTraderConnectionState.Disconnected, "Not connected.");
 				_logger.LogInformation("cTrader: account disconnected and saved token cleared.");
+			}
+			finally
+			{
+				_gate.Release();
+			}
+		}
+
+		public async Task SwitchAccountAsync(long accountId, CancellationToken cancellationToken = default)
+		{
+			if (accountId == SelectedAccountId)
+				return;
+
+			await _gate.WaitAsync(cancellationToken);
+			try
+			{
+				if (_client is null || _token is null || Accounts.FirstOrDefault(a => a.AccountId == accountId) is not { } account)
+					return;
+
+				SetState(CTraderConnectionState.Connecting, $"Switching to account {account.Login}...");
+				ResetAccountState();
+
+				// The new account may sit on the other host (live vs demo), which is a separate connection.
+				if (account.IsLive != _connectedIsLive)
+					await ConnectClientAsync(account.IsLive, cancellationToken);
+
+				await AuthorizeAndLoadSymbolsAsync(account.AccountId, cancellationToken);
+				SetState(
+					CTraderConnectionState.Connected,
+					$"Connected. {Symbols.Count} symbol(s) on account {account.Login}."
+				);
+				_logger.LogInformation("cTrader: switched to account {AccountId}.", accountId);
+			}
+			catch (Exception ex)
+			{
+				SetState(CTraderConnectionState.Failed, $"Failed to switch accounts: {ex.Message}");
+				_logger.LogError(ex, "cTrader: failed to switch to account {AccountId}.", accountId);
 			}
 			finally
 			{
@@ -780,19 +818,15 @@ namespace Poink.Sim.Services.CTrader
 			_historyRateGate.Dispose();
 		}
 
-		private string EnvironmentLabel => UseLiveEnvironment ? "Live" : "Demo";
-
 		private async Task ConnectWithTokenAsync(Token token, CancellationToken cancellationToken)
 		{
 			_token = token;
 
-			SetState(CTraderConnectionState.Connecting, $"Connecting ({EnvironmentLabel})...");
+			SetState(CTraderConnectionState.Connecting, "Connecting...");
 
-			_client = new CTraderClient(_app, UseLiveEnvironment);
-			await _client.ConnectAsync(cancellationToken);
-			_logger.LogInformation("cTrader: application authorized ({Environment}).", EnvironmentLabel);
+			await ConnectClientAsync(_options.UseLiveEnvironment, cancellationToken);
 
-			var accounts = await _client.GetAccountsAsync(token.AccessToken, cancellationToken);
+			var accounts = await _client!.GetAccountsAsync(token.AccessToken, cancellationToken);
 			Accounts = accounts
 				.CtidTraderAccount.Select(a => new CTraderAccountInfo(
 					(long)a.CtidTraderAccountId,
@@ -802,8 +836,16 @@ namespace Poink.Sim.Services.CTrader
 				.ToList();
 			_logger.LogInformation("cTrader: connected with {AccountCount} account(s).", Accounts.Count);
 
-			if (Accounts.FirstOrDefault() is { } account)
+			if (
+				(Accounts.FirstOrDefault(a => a.IsLive == _options.UseLiveEnvironment) ?? Accounts.FirstOrDefault())
+				is { } account
+			)
 			{
+				// cTrader routes account-scoped requests by host (live.ctraderapi.com vs demo.ctraderapi.com);
+				// the token's account list can mix both, so the connection must match the chosen account's kind.
+				if (account.IsLive != _connectedIsLive)
+					await ConnectClientAsync(account.IsLive, cancellationToken);
+
 				await AuthorizeAndLoadSymbolsAsync(account.AccountId, cancellationToken);
 				SetState(
 					CTraderConnectionState.Connected,
@@ -814,6 +856,17 @@ namespace Poink.Sim.Services.CTrader
 			{
 				SetState(CTraderConnectionState.Connected, "Connected, but no trading accounts were returned.");
 			}
+		}
+
+		private async Task ConnectClientAsync(bool useLiveEnvironment, CancellationToken cancellationToken)
+		{
+			if (_client is not null)
+				await _client.DisposeAsync();
+
+			_client = new CTraderClient(_app, useLiveEnvironment);
+			_connectedIsLive = useLiveEnvironment;
+			await _client.ConnectAsync(cancellationToken);
+			_logger.LogInformation("cTrader: application authorized ({Environment}).", useLiveEnvironment ? "Live" : "Demo");
 		}
 
 		private async Task SaveTokenAsync(Token token)
@@ -1123,7 +1176,7 @@ namespace Poink.Sim.Services.CTrader
 			Changed?.Invoke();
 		}
 
-		private async Task DisconnectAsync()
+		private void ResetAccountState()
 		{
 			_spotSubscription?.Dispose();
 			_spotSubscription = null;
@@ -1147,6 +1200,11 @@ namespace Poink.Sim.Services.CTrader
 			SelectedAccountId = null;
 			Balance = null;
 			Leverage = null;
+		}
+
+		private async Task DisconnectAsync()
+		{
+			ResetAccountState();
 
 			if (_client is not null)
 			{
