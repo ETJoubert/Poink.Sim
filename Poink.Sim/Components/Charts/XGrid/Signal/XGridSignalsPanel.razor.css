@@ -1,13 +1,11 @@
 .xgrid-signals-wrapper {
-    --xgrid-bg: rgba(255, 255, 255, 0.015);
-
     flex: 0 0 auto;
     display: flex;
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: var(--border-radius-sm);
-    background: var(--xgrid-bg);
+    border: 1px solid color-mix(in srgb, var(--color-secondary) 25%, transparent);
+    border-radius: var(--border-radius-md);
+    background: color-mix(in srgb, var(--color-secondary) 6%, var(--color-bg-terminal));
     overflow: auto;
-    padding: 6px;
+    padding: 10px 12px;
 }
 
 .xgrid-signals {

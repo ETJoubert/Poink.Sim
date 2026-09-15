@@ -1,10 +1,46 @@
 @namespace Poink.Sim.Components.Shared.BrainIoPanel
 
 <div class="brain-io-section">
+    <div class="brain-io-title">
+        OUTPUTS <span class="brain-io-badge" title="Number of possible choices across every decision the network makes">@(Outputs?.Count ?? 0)</span>
+    </div>
+    @if (Outputs is null)
+    {
+        <span class="reward-chart-empty">no data yet</span>
+    }
+    else
+    {
+        @foreach (var group in OutputGroups)
+        {
+            <div class="action-dist-group">
+                @if (group.Key != "Direction")
+                {
+                    <div class="action-dist-group-label">@group.Key</div>
+                }
+                <div class="action-dist">
+                    @foreach (var o in group)
+                    {
+                        <div class="action-dist-row @(o.IsChosen ? "action-dist-row-chosen" : "")"
+                             title="@(o.IsChosen ? "What the network actually decided" : "")">
+                            <span class="action-dist-label action-dist-@(ActionCssSuffix(o))">@ActionShortLabel(o)</span>
+                            <div class="action-dist-track">
+                                <div class="action-dist-fill action-dist-fill-@(ActionCssSuffix(o))"
+                                     style="width: @(Pct(o.Probability * 100))%"></div>
+                            </div>
+                            <span class="action-dist-pct">@(FormatProbabilityPct(o.Probability))%</span>
+                            <span class="action-dist-raw" title="Raw network output before softmax (logit) -- for evaluating decision methods other than softmax sampling">@(FormatLogit(o.Logit))</span>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    }
+</div>
+
+<div class="brain-io-section">
     <div class="brain-io-title brain-io-title-row">
         <span>
             INPUTS <span class="brain-io-badge" title="Number of input features fed to the network">@(Inputs?.Count ?? 0)</span>
-            <span class="brain-io-subtitle">(what the network sees for this decision)</span>
         </span>
         <label class="brain-io-denorm-toggle"
                title="Show actual price/currency values instead of the network's normalized (bounded ratio) inputs">
@@ -19,25 +55,53 @@
     else
     {
         <div class="input-cards">
-            <div class="input-card input-card-price-window">
-                <div class="input-card-label">PRICE WINDOW</div>
-                <div class="input-card-body">
-                    <div class="input-scalars">
-                        @foreach (var f in PriceWindowFeatures)
+            @if (XGridFeatures.Count > 0)
+            {
+                <div class="input-card input-card-xgrid">
+                    <div class="input-card-label">XGRID</div>
+                    <div class="input-card-body">
+                        @foreach (var group in XGridFeatureGroups)
                         {
-                            <div class="input-scalar">
-                                <span class="input-badge-label">@f.Label</span>
-                                <span
-                                    class="input-badge-value @(f.Value switch { > 0 => "input-positive", < 0 => "input-negative", _ => "" })">
-                                    @FormatInputValue(f)
-                                </span>
+                            <div class="input-xgrid-group">
+                                <span class="input-xgrid-group-title">@group.Key</span>
+                                @foreach (var f in group)
+                                {
+                                    <div class="input-xgrid-signal @(f.Value > 0 ? "on" : "")"
+                                         style="--sig-color: var(@XGridColorVar(f.Label))" title="@XGridTooltip(f.Label)">
+                                        <span class="input-xgrid-signal-dot"></span>
+                                        <span>@XGridDisplayLabel(f.Label)</span>
+                                    </div>
+                                }
                             </div>
                         }
                     </div>
                 </div>
-            </div>
+            }
 
-            <div class="input-card input-card-volume-profile">
+            @if (PriceWindowFeatures.Count > 0)
+            {
+                <div class="input-card input-card-price-window">
+                    <div class="input-card-label">PRICE WINDOW</div>
+                    <div class="input-card-body">
+                        <div class="input-scalars">
+                            @foreach (var f in PriceWindowFeatures)
+                            {
+                                <div class="input-scalar">
+                                    <span class="input-badge-label">@f.Label</span>
+                                    <span
+                                        class="input-badge-value @(f.Value switch { > 0 => "input-positive", < 0 => "input-negative", _ => "" })">
+                                        @FormatInputValue(f)
+                                    </span>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+
+            @if (VolumeProfilePriceFeatures.Count > 0 || VolumeProfileVolumeFeatures.Count > 0)
+            {
+                <div class="input-card input-card-volume-profile">
                 <div class="input-card-label">VOLUME PROFILE</div>
                 <div class="input-card-body">
                     @if (VolumeProfilePriceFeatures.Count > 0)
@@ -77,9 +141,12 @@
                         </div>
                     }
                 </div>
-            </div>
+                </div>
+            }
 
-            <div class="input-card input-card-time-profile">
+            @if (TimeProfilePriceFeatures.Count > 0 || TimeProfileTimeFeatures.Count > 0)
+            {
+                <div class="input-card input-card-time-profile">
                 <div class="input-card-label">TIME PROFILE</div>
                 <div class="input-card-body">
                     @if (TimeProfilePriceFeatures.Count > 0)
@@ -119,63 +186,29 @@
                         </div>
                     }
                 </div>
-            </div>
+                </div>
+            }
 
-            <div class="input-card input-card-trader-state">
-                <div class="input-card-label">TRADER STATE</div>
-                <div class="input-card-body">
-                    <div class="input-scalars">
-                        @foreach (var f in TraderStateFeatures)
-                        {
-                            <div class="input-scalar">
-                                <span class="input-scalar-label">@f.Label</span>
-                                <span
-                                    class="input-scalar-value @(f.Value switch { > 0 => "input-positive", < 0 => "input-negative", _ => "" })">
-                                    @FormatInputValue(f, "N3")
-                                </span>
-                            </div>
-                        }
+            @if (TraderStateFeatures.Count > 0)
+            {
+                <div class="input-card input-card-trader-state">
+                    <div class="input-card-label">TRADER STATE</div>
+                    <div class="input-card-body">
+                        <div class="input-scalars">
+                            @foreach (var f in TraderStateFeatures)
+                            {
+                                <div class="input-scalar">
+                                    <span class="input-scalar-label">@f.Label</span>
+                                    <span
+                                        class="input-scalar-value @(f.Value switch { > 0 => "input-positive", < 0 => "input-negative", _ => "" })">
+                                        @FormatInputValue(f, "N3")
+                                    </span>
+                                </div>
+                            }
+                        </div>
                     </div>
                 </div>
-            </div>
+            }
         </div>
-    }
-</div>
-
-<div class="brain-io-section">
-    <div class="brain-io-title">
-        OUTPUTS <span class="brain-io-badge" title="Number of possible choices across every decision the network makes">@(Outputs?.Count ?? 0)</span>
-        <span class="brain-io-subtitle">(what the network decided for this decision)</span>
-    </div>
-    @if (Outputs is null)
-    {
-        <span class="reward-chart-empty">no data yet</span>
-    }
-    else
-    {
-        @foreach (var group in OutputGroups)
-        {
-            <div class="action-dist-group">
-                @if (group.Key != "Direction")
-                {
-                    <div class="action-dist-group-label">@group.Key</div>
-                }
-                <div class="action-dist">
-                    @foreach (var o in group)
-                    {
-                        <div class="action-dist-row @(o.IsChosen ? "action-dist-row-chosen" : "")"
-                             title="@(o.IsChosen ? "What the network actually decided" : "")">
-                            <span class="action-dist-label action-dist-@(ActionCssSuffix(o))">@ActionShortLabel(o)</span>
-                            <div class="action-dist-track">
-                                <div class="action-dist-fill action-dist-fill-@(ActionCssSuffix(o))"
-                                     style="width: @(Pct(o.Probability * 100))%"></div>
-                            </div>
-                            <span class="action-dist-pct">@(FormatProbabilityPct(o.Probability))%</span>
-                            <span class="action-dist-raw" title="Raw network output before softmax (logit) -- for evaluating decision methods other than softmax sampling">@(FormatLogit(o.Logit))</span>
-                        </div>
-                    }
-                </div>
-            </div>
-        }
     }
 </div>
