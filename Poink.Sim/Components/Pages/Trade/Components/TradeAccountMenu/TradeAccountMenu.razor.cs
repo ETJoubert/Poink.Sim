@@ -46,9 +46,28 @@ namespace Poink.Sim.Components.Pages.Trade
 
 		private void HandleSessionChanged() => InvokeAsync(StateHasChanged);
 
+		private bool _switchingAccount;
+
 		private void ToggleAccountMenu() => _accountMenuOpen = !_accountMenuOpen;
 
 		private void CloseAccountMenu() => _accountMenuOpen = false;
+
+		private async Task SelectAccountAsync(long accountId)
+		{
+			if (accountId == Session.SelectedAccountId || _switchingAccount)
+				return;
+
+			_switchingAccount = true;
+			_accountMenuOpen = false;
+			try
+			{
+				await Session.SwitchAccountAsync(accountId);
+			}
+			finally
+			{
+				_switchingAccount = false;
+			}
+		}
 
 		private void LogIn()
 		{
