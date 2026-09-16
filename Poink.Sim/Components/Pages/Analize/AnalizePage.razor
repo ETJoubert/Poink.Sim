@@ -1,0 +1,76 @@
+@page "/analize"
+@namespace Poink.Sim.Components.Pages.Analize
+@using Poink.Sim.Components.Shared.Icon
+
+<div class="analize-page">
+    <div class="analize-topbar">
+        <header class="analize-header">
+            <span class="analize-title">ANALYSIS</span>
+        </header>
+    </div>
+
+    <div class="analize-body">
+        <aside class="analize-left-side-panel @(_leftPanelCollapsed ? "analize-left-side-panel-collapsed" : "")">
+            <div class="analize-side-panel-header">
+                <button type="button" class="analize-side-panel-toggle" @onclick="() => _leftPanelCollapsed = !_leftPanelCollapsed"
+                        title="@(_leftPanelCollapsed ? "Expand panel" : "Collapse panel")">
+                    <Icon Name="@(_leftPanelCollapsed ? "chevron-right" : "chevron-left")" Class="analize-side-panel-toggle-icon" />
+                </button>
+                @if (!_leftPanelCollapsed)
+                {
+                    <span class="analize-side-panel-label">OVERVIEW</span>
+                }
+            </div>
+            @if (!_leftPanelCollapsed)
+            {
+                <div class="analize-side-panel-tabs">
+                    <button type="button" class="analize-side-panel-tab active" title="Summary of the current analysis context">
+                        SUMMARY
+                    </button>
+                </div>
+                <div class="analize-side-panel-content">
+                    <div class="card analize-card" title="Summary of the current analysis context">
+                        <div class="analize-card-title">Summary</div>
+                        <p class="analize-side-panel-placeholder">placeholder</p>
+                    </div>
+                </div>
+            }
+        </aside>
+
+        <main class="analize-main">
+            <div class="analize-content">
+                <div class="card analize-card analize-card-fill" title="Main analysis view">
+                    <div class="analize-card-title">Analysis</div>
+                    <p class="analize-side-panel-placeholder">placeholder</p>
+                </div>
+            </div>
+        </main>
+
+        <aside class="analize-right-side-panel @(_rightPanelCollapsed ? "analize-right-side-panel-collapsed" : "")">
+            <div class="analize-side-panel-header">
+                <button type="button" class="analize-side-panel-toggle" @onclick="() => _rightPanelCollapsed = !_rightPanelCollapsed"
+                        title="@(_rightPanelCollapsed ? "Expand panel" : "Collapse panel")">
+                    <Icon Name="@(_rightPanelCollapsed ? "chevron-left" : "chevron-right")" Class="analize-side-panel-toggle-icon" />
+                </button>
+                @if (!_rightPanelCollapsed)
+                {
+                    <span class="analize-side-panel-label">DETAILS</span>
+                }
+            </div>
+            @if (!_rightPanelCollapsed)
+            {
+                <div class="analize-side-panel-tabs">
+                    <button type="button" class="analize-side-panel-tab active" title="Details for the current analysis context">
+                        DETAILS
+                    </button>
+                </div>
+                <div class="analize-side-panel-content">
+                    <div class="card analize-card" title="Details for the current analysis context">
+                        <div class="analize-card-title">Details</div>
+                        <p class="analize-side-panel-placeholder">placeholder</p>
+                    </div>
+                </div>
+            }
+        </aside>
+    </div>
+</div>
