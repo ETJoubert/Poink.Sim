@@ -49,6 +49,10 @@ namespace Poink.Sim.Components.Charts
 			return LiveValue(key) ? "match" : "no-match";
 		}
 
+		private int SelectedCount => Rows.Count(row => SelectedKey(row) is not null);
+
+		private int MatchedCount => Rows.Count(row => MatchStatus(row) == "match");
+
 		// Whichever of a row's three keys is currently true against the live grid, if any.
 		private string? LiveKey(XGridRuleRow row) =>
 			row.AboveKey is { } above && LiveValue(above) ? above

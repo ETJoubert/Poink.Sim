@@ -3,6 +3,7 @@
 <div class="xgrid-rule-panel" title="Above/In/Below mask over every XGrid signal, its live state, and whether they match. Each signal can only be in one state at a time, so a row is a 3-way choice">
     <div class="xgrid-rule-toolbar">
         <span class="xgrid-rule-toolbar-status @(IsMatching ? "matching" : "")">@(IsMatching ? "MATCH" : "NO MATCH")</span>
+        <span class="xgrid-rule-toolbar-count" title="Rows currently matching the live grid, out of rows with a selection">@MatchedCount/@SelectedCount</span>
         <button type="button" class="xgrid-rule-copy" @onclick="CopyLiveToSelector" disabled="@(Grid is null)"
                 title="Copy the live grid's current Above/In/Below state into the selector for every row">Copy Live</button>
         <label class="xgrid-rule-percent" title="Top-percent cutoff used by the Top % Total/Up/Down rows">
