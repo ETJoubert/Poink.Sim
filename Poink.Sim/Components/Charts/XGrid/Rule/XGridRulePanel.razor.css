@@ -72,6 +72,14 @@
     text-align: left !important;
 }
 
+.xgrid-rule-head-group {
+    border-bottom: 1px solid color-mix(in srgb, var(--color-secondary) 25%, transparent);
+}
+
+.xgrid-rule-divider {
+    border-left: 1px solid color-mix(in srgb, var(--color-secondary) 20%, transparent);
+}
+
 .xgrid-rule-row {
     color: var(--sig-color, var(--color-secondary));
 }
@@ -132,6 +140,56 @@
 .xgrid-rule-arrow.active {
     opacity: 1;
     text-shadow: 0 0 4px var(--sig-color, currentColor);
+}
+
+.xgrid-rule-live-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--sig-color, currentColor);
+    opacity: 0.3;
+    transition: opacity 0.15s ease;
+}
+
+.xgrid-rule-live-dot.on {
+    opacity: 1;
+    box-shadow: 0 0 4px var(--sig-color, currentColor);
+}
+
+.xgrid-rule-live-arrow {
+    display: inline-block;
+    font-size: 0.5rem;
+    line-height: 1;
+    color: var(--sig-color, currentColor);
+    opacity: 0.3;
+    transition: opacity 0.15s ease;
+}
+
+.xgrid-rule-live-arrow.on {
+    opacity: 1;
+    text-shadow: 0 0 4px var(--sig-color, currentColor);
+}
+
+.xgrid-rule-match-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--color-secondary);
+    opacity: 0.25;
+}
+
+.xgrid-rule-match-dot.match {
+    background: var(--color-success);
+    opacity: 1;
+    box-shadow: 0 0 4px var(--color-success);
+}
+
+.xgrid-rule-match-dot.no-match {
+    background: var(--color-error);
+    opacity: 1;
+    box-shadow: 0 0 4px var(--color-error);
 }
 
 .xgrid-rule-log {

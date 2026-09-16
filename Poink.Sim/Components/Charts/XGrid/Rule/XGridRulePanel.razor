@@ -1,6 +1,6 @@
 @namespace Poink.Sim.Components.Charts
 
-<div class="xgrid-rule-panel" title="Above/In/Below mask over every XGrid signal -- the input side of the rule engine. Each signal can only be in one state at a time, so a row is a 3-way choice">
+<div class="xgrid-rule-panel" title="Above/In/Below mask over every XGrid signal, its live state, and whether they match. Each signal can only be in one state at a time, so a row is a 3-way choice">
     <div class="xgrid-rule-toolbar">
         <span class="xgrid-rule-toolbar-status @(IsMatching ? "matching" : "")">@(IsMatching ? "MATCH" : "NO MATCH")</span>
         <label class="xgrid-rule-percent" title="Top-percent cutoff used by the Top % Total/Up/Down rows">
@@ -11,10 +11,18 @@
     <table class="xgrid-rule-table">
         <thead>
             <tr>
-                <th class="xgrid-rule-head-signal">Signal</th>
+                <th class="xgrid-rule-head-signal" rowspan="2">Signal</th>
+                <th class="xgrid-rule-head-group" colspan="3">Select</th>
+                <th class="xgrid-rule-head-group xgrid-rule-divider" colspan="3">Live</th>
+                <th class="xgrid-rule-divider" rowspan="2" title="Whether the selected constraint currently matches the live grid">Match</th>
+            </tr>
+            <tr>
                 <th title="Select this row's constraint as the subject being above its reference price">&#9650;</th>
                 <th title="Select this row's constraint as the subject's row matching its reference's row">In</th>
                 <th title="Select this row's constraint as the subject being below its reference price">&#9660;</th>
+                <th class="xgrid-rule-divider" title="Live: the subject is currently above its reference price">&#9650;</th>
+                <th title="Live: the subject's row currently matches its reference's row">In</th>
+                <th title="Live: the subject is currently below its reference price">&#9660;</th>
             </tr>
         </thead>
         <tbody>
@@ -42,6 +50,27 @@
                             <button type="button" class="xgrid-rule-arrow @(IsSelected(belowKey) ? "active" : "")"
                                     @onclick="() => Select(row, belowKey)" title="@Tooltip(belowKey)">&#9660;</button>
                         }
+                    </td>
+                    <td class="xgrid-rule-cell xgrid-rule-divider">
+                        @if (row.AboveKey is { } liveAbove)
+                        {
+                            <span class="xgrid-rule-live-arrow @(LiveValue(liveAbove) ? "on" : "")">&#9650;</span>
+                        }
+                    </td>
+                    <td class="xgrid-rule-cell">
+                        @if (row.InKey is { } liveIn)
+                        {
+                            <span class="xgrid-rule-live-dot @(LiveValue(liveIn) ? "on" : "")"></span>
+                        }
+                    </td>
+                    <td class="xgrid-rule-cell">
+                        @if (row.BelowKey is { } liveBelow)
+                        {
+                            <span class="xgrid-rule-live-arrow @(LiveValue(liveBelow) ? "on" : "")">&#9660;</span>
+                        }
+                    </td>
+                    <td class="xgrid-rule-cell xgrid-rule-divider">
+                        <span class="xgrid-rule-match-dot @MatchStatus(row)"></span>
                     </td>
                 </tr>
             }

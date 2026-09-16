@@ -326,16 +326,8 @@
                             }
                             else if (_activeLeftPanelTab == SimLeftPanelTab.RuleEngine)
                             {
-                                var ruleGrid = ComputeXGrid(_snapshot);
-                                <div class="xgrid-rule-layout">
-                                    <XGridRulePanel @bind-EnabledKeys="_ruleEngineEnabledKeys" Grid="ruleGrid"
-                                                    CurrentTimestampUtc="_snapshot.CurrentTimestampUtc" />
-                                    @if (ruleGrid is { } grid)
-                                    {
-                                        <XGridSignalsPanel Grid="grid" />
-                                    }
-                                    <XGridRuleMatchBar EnabledKeys="_ruleEngineEnabledKeys" Grid="ruleGrid" />
-                                </div>
+                                <XGridRulePanel @bind-EnabledKeys="_ruleEngineEnabledKeys" Grid="ComputeXGrid(_snapshot)"
+                                                CurrentTimestampUtc="_snapshot.CurrentTimestampUtc" />
                             }
                         </div>
                     }

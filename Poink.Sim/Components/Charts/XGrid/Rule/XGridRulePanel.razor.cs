@@ -7,8 +7,8 @@ using Microsoft.AspNetCore.Components;
 namespace Poink.Sim.Components.Charts
 {
 	/// <summary>
-	/// Above/In/Below mask table over every XGridSignalCatalog entry -- when every enabled key
-	/// evaluates true against the live Grid, that's a match, logged with its bar timestamp below.
+	/// Above/In/Below mask table over every XGridSignalCatalog entry, with the live grid's own
+	/// Above/In/Below state and a per-row match dot built into the same row for exact alignment.
 	/// </summary>
 	public partial class XGridRulePanel : ComponentBase
 	{
@@ -35,6 +35,22 @@ namespace Poink.Sim.Components.Charts
 		private bool IsSelected(string? key) => key is not null && EnabledKeys.Contains(key);
 
 		private string Tooltip(string? key) => key is null ? "" : XGridSignalCatalog.Get(key).Tooltip;
+
+		// The live grid's own current state for one direction, independent of what's selected.
+		private bool LiveValue(string? key) => key is not null && Grid is { } grid && XGridSignalCatalog.Value(grid, key, _percent);
+
+		private string? SelectedKey(XGridRuleRow row) =>
+			row.AboveKey is { } above && EnabledKeys.Contains(above) ? above
+			: row.InKey is { } inKey && EnabledKeys.Contains(inKey) ? inKey
+			: row.BelowKey is { } below && EnabledKeys.Contains(below) ? below
+			: null;
+
+		private string MatchStatus(XGridRuleRow row)
+		{
+			if (SelectedKey(row) is not { } key)
+				return "unset";
+			return LiveValue(key) ? "match" : "no-match";
+		}
 
 		// AND across every enabled key -- the mask matches only when all its constraints hold at once.
 		private bool IsMatching =>

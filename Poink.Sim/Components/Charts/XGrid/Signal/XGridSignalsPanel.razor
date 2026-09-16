@@ -35,6 +35,16 @@
                 </td>
                 <td class="xgrid-signals-cell"></td>
             </tr>
+            <tr class="xgrid-signals-row">
+                <td class="xgrid-signals-label">&Delta;</td>
+                <td class="xgrid-signals-cell" style="--sig-color: var(--color-badge-1)" title="Current price's cell is in the top @Spectrum.DeltaPosPercent% most buy-heavy cells by up-minus-down delta">
+                    <span class="xgrid-signals-arrow @(CurrentDeltaSignal(true) ? "on" : "")">&#9650;</span>
+                </td>
+                <td class="xgrid-signals-cell"></td>
+                <td class="xgrid-signals-cell" style="--sig-color: var(--color-badge-3)" title="Current price's cell is in the top @Spectrum.DeltaNegPercent% most sell-heavy cells by down-minus-up delta">
+                    <span class="xgrid-signals-arrow @(CurrentDeltaSignal(false) ? "on" : "")">&#9660;</span>
+                </td>
+            </tr>
             @foreach (var row in PositionRows)
             {
                 <tr class="xgrid-signals-row" style="--sig-color: var(@row.ColorVar)">
@@ -50,16 +60,6 @@
                     </td>
                 </tr>
             }
-            <tr class="xgrid-signals-row">
-                <td class="xgrid-signals-label">&Delta;</td>
-                <td class="xgrid-signals-cell" style="--sig-color: var(--color-badge-1)" title="Current price's cell is in the top @Spectrum.DeltaPosPercent% most buy-heavy cells by up-minus-down delta">
-                    <span class="xgrid-signals-arrow @(CurrentDeltaSignal(true) ? "on" : "")">&#9650;</span>
-                </td>
-                <td class="xgrid-signals-cell"></td>
-                <td class="xgrid-signals-cell" style="--sig-color: var(--color-badge-3)" title="Current price's cell is in the top @Spectrum.DeltaNegPercent% most sell-heavy cells by down-minus-up delta">
-                    <span class="xgrid-signals-arrow @(CurrentDeltaSignal(false) ? "on" : "")">&#9660;</span>
-                </td>
-            </tr>
         </tbody>
     </table>
 </div>
