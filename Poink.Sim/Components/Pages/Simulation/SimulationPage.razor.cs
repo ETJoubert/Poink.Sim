@@ -612,8 +612,19 @@ namespace Poink.Sim.Components.Pages
 			_lastHistoryCursorIndex = snapshot?.CursorIndex ?? 0;
 		}
 
-		private IReadOnlyList<HlocAvdtBar> ChartBars(SimulationSnapshot s) =>
-			_historyBars.Count == 0 ? s.RecentBars : _historyBars.Concat(s.RecentBars).ToList();
+		// Deduped by OpenTime, keeping the later (live) copy of any bar that overlaps the
+		// history/live boundary -- lightweight-charts requires strictly unique ascending times.
+		private IReadOnlyList<HlocAvdtBar> ChartBars(SimulationSnapshot s)
+		{
+			if (_historyBars.Count == 0)
+				return s.RecentBars;
+			return _historyBars
+				.Concat(s.RecentBars)
+				.GroupBy(b => b.OpenTime)
+				.Select(g => g.Last())
+				.OrderBy(b => b.OpenTime)
+				.ToList();
+		}
 
 		// MarketChart's OnNearStart -- pulls an older chunk straight from the tick repository,
 		// independent of the engine's own live RecentBars ring buffer.

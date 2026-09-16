@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 using Poink.Sim.Models;
 
@@ -45,6 +46,9 @@ namespace Poink.Sim.Components.Charts
 	{
 		[Inject]
 		private IJSRuntime JSRuntime { get; set; } = null!;
+
+		[Inject]
+		private ILogger<MarketChart> Logger { get; set; } = null!;
 
 		[Parameter]
 		public List<CTraderBarRow> Bars { get; set; } = new();
@@ -384,6 +388,10 @@ namespace Poink.Sim.Components.Charts
 			}
 			catch (ObjectDisposedException) { }
 			catch (JSDisconnectedException) { }
+			catch (JSException ex)
+			{
+				Logger.LogError(ex, "lightweight-charts render call failed for chart {ChartId}", _chartId);
+			}
 		}
 
 		/// <summary>Forwards to OnNearStart, then tells JS it's free to fire again once this round trip finishes.</summary>
