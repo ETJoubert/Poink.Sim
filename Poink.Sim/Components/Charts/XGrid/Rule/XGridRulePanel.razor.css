@@ -23,7 +23,7 @@
     color: var(--color-highlight);
     opacity: 0.9;
     text-align: center;
-    padding: 2px 6px 6px;
+    padding: 2px 4px 4px;
 }
 
 .xgrid-rule-head-signal {
@@ -39,14 +39,14 @@
 }
 
 .xgrid-rule-label {
-    padding: 3px 6px;
+    padding: 2px 6px;
     white-space: nowrap;
     opacity: 0.9;
 }
 
 .xgrid-rule-cell {
     text-align: center;
-    padding: 3px 6px;
+    padding: 2px 4px;
 }
 
 .xgrid-rule-radio {
@@ -67,4 +67,27 @@
     background: var(--sig-color, var(--color-primary));
     border-color: var(--sig-color, var(--color-primary));
     box-shadow: 0 0 4px var(--sig-color, var(--color-primary));
+}
+
+.xgrid-rule-arrow {
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    line-height: 1;
+    font-size: 0.85rem;
+    border: none;
+    background: transparent;
+    color: var(--sig-color, currentColor);
+    opacity: 0.3;
+    cursor: pointer;
+    transition: opacity 0.15s ease;
+}
+
+.xgrid-rule-arrow:hover {
+    opacity: 0.6;
+}
+
+.xgrid-rule-arrow.active {
+    opacity: 1;
+    text-shadow: 0 0 4px var(--sig-color, currentColor);
 }
