@@ -126,54 +126,6 @@
     border: 1px solid color-mix(in srgb, var(--color-highlight) 25%, transparent);
 }
 
-.input-xgrid-group {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    min-width: 100px;
-}
-
-.input-xgrid-group-title {
-    font-size: 0.58rem;
-    font-weight: bold;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--color-secondary);
-    opacity: 0.7;
-}
-
-/* --sig-color is set per row (see XGridSignalColors.Var) to mirror the matching signal's
-   colour in XGrid's own live panel (XGridSignalsPanel.razor.css). */
-.input-xgrid-signal {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 0.6rem;
-    letter-spacing: 0.02em;
-    color: var(--sig-color, var(--color-secondary));
-    opacity: 0.45;
-    white-space: nowrap;
-    transition: opacity 0.15s ease;
-}
-
-.input-xgrid-signal-dot {
-    width: 6px;
-    height: 6px;
-    flex-shrink: 0;
-    border-radius: 50%;
-    background: currentColor;
-    opacity: 0.5;
-}
-
-.input-xgrid-signal.on {
-    opacity: 1;
-}
-
-.input-xgrid-signal.on .input-xgrid-signal-dot {
-    opacity: 1;
-    box-shadow: 0 0 4px currentColor;
-}
-
 .input-card-shade {
     display: flex;
     flex-direction: column;

@@ -9,80 +9,45 @@
             <input type="number" min="0" max="100" step="1" @bind="_percent" />
         </label>
     </div>
-    <table class="xgrid-rule-table">
-        <thead>
-            <tr>
-                <th class="xgrid-rule-head-signal" rowspan="2">Signal</th>
-                <th class="xgrid-rule-head-group" colspan="3">Select</th>
-                <th class="xgrid-rule-head-group xgrid-rule-divider" colspan="3">Live</th>
-                <th class="xgrid-rule-divider xgrid-rule-head-match @(IsMatching ? "matching" : "")" rowspan="2" title="Whether the selected constraint currently matches the live grid -- lights up when every selected row matches">Match</th>
-            </tr>
-            <tr>
-                <th title="Select this row's constraint as the subject being above its reference price">&#9650;</th>
-                <th title="Select this row's constraint as the subject's row matching its reference's row">In</th>
-                <th title="Select this row's constraint as the subject being below its reference price">&#9660;</th>
-                <th class="xgrid-rule-divider" title="Live: the subject is currently above its reference price">&#9650;</th>
-                <th title="Live: the subject's row currently matches its reference's row">In</th>
-                <th title="Live: the subject is currently below its reference price">&#9660;</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var row in Rows)
-            {
-                <tr class="xgrid-rule-row" style="--sig-color: var(@row.ColorVar)">
-                    <td class="xgrid-rule-label">@row.Label</td>
-                    <td class="xgrid-rule-cell">
-                        @if (row.AboveKey is { } aboveKey)
-                        {
-                            <button type="button" class="xgrid-rule-arrow @(IsSelected(aboveKey) ? "active" : "")"
-                                    @onclick="() => Select(row, aboveKey)" title="@Tooltip(aboveKey)">&#9650;</button>
-                        }
-                    </td>
-                    <td class="xgrid-rule-cell">
-                        @if (row.InKey is { } inKey)
-                        {
-                            <button type="button" class="xgrid-rule-radio @(IsSelected(inKey) ? "active" : "")"
-                                    @onclick="() => Select(row, inKey)" title="@Tooltip(inKey)"></button>
-                        }
-                    </td>
-                    <td class="xgrid-rule-cell">
-                        @if (row.BelowKey is { } belowKey)
-                        {
-                            <button type="button" class="xgrid-rule-arrow @(IsSelected(belowKey) ? "active" : "")"
-                                    @onclick="() => Select(row, belowKey)" title="@Tooltip(belowKey)">&#9660;</button>
-                        }
-                    </td>
-                    <td class="xgrid-rule-cell xgrid-rule-divider">
-                        @if (row.AboveKey is { } liveAbove)
-                        {
-                            <span class="xgrid-rule-live-arrow @(LiveValue(liveAbove) ? "on" : "")">&#9650;</span>
-                        }
-                    </td>
-                    <td class="xgrid-rule-cell">
-                        @if (row.InKey is { } liveIn)
-                        {
-                            <span class="xgrid-rule-live-dot @(LiveValue(liveIn) ? "on" : "")"></span>
-                        }
-                    </td>
-                    <td class="xgrid-rule-cell">
-                        @if (row.BelowKey is { } liveBelow)
-                        {
-                            <span class="xgrid-rule-live-arrow @(LiveValue(liveBelow) ? "on" : "")">&#9660;</span>
-                        }
-                    </td>
-                    <td class="xgrid-rule-cell xgrid-rule-divider">
-                        <span class="xgrid-rule-match-dot @MatchStatus(row)"></span>
-                    </td>
-                </tr>
-            }
-        </tbody>
-        <tfoot>
-            <tr>
-                <td colspan="7"></td>
-                <td class="xgrid-rule-foot-count xgrid-rule-divider" title="Rows currently matching the live grid, out of rows with a selection">@MatchedCount/@SelectedCount</td>
-            </tr>
-        </tfoot>
-    </table>
+
+    <div class="xgrid-rule-body">
+        <div class="xgrid-rule-col xgrid-rule-col-input">
+            <span class="xgrid-rule-col-title">Select</span>
+            <XGridSignalInputTable @bind-EnabledKeys="EnabledKeys" Mode="XGridSignalInputMode.Exclusive" />
+        </div>
+        <div class="xgrid-rule-col xgrid-rule-col-output">
+            <span class="xgrid-rule-col-title">Live</span>
+            <XGridSignalOutputTable ValueOf="LiveValue" />
+        </div>
+        <div class="xgrid-rule-col xgrid-rule-col-match">
+            <span class="xgrid-rule-col-title @(IsMatching ? "matching" : "")"
+                  title="Whether the selected constraint currently matches the live grid -- lights up when every selected row matches">Match</span>
+            <table class="xgrid-rule-match-table">
+                <thead>
+                    <tr>
+                        <th class="xgrid-rule-match-head"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in XGridRuleCatalog.Rows)
+                    {
+                        <tr>
+                            <td class="xgrid-rule-match-cell">
+                                <span class="xgrid-rule-match-dot @MatchStatus(row)"></span>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td class="xgrid-rule-foot-count" title="Rows currently matching the live grid, out of rows with a selection">
+                            @MatchedCount/@SelectedCount
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
 
     <div class="xgrid-rule-log" title="Timestamp of the bar each time every enabled signal matched at once">
         <div class="xgrid-rule-log-headrow">

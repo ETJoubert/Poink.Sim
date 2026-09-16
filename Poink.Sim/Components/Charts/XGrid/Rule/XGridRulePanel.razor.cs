@@ -6,7 +6,8 @@ using Microsoft.AspNetCore.Components;
 
 namespace Poink.Sim.Components.Charts
 {
-	/// <summary>Above/In/Below mask table with the live grid's state and a per-row match dot alongside it.</summary>
+	/// <summary>Above/In/Below mask (via XGridSignalInputTable) compared against the live grid's
+	/// own state (via XGridSignalOutputTable), with a per-row Match dot and a match log.</summary>
 	public partial class XGridRulePanel : ComponentBase
 	{
 		private const int MaxLogEntries = 20;
@@ -28,12 +29,6 @@ namespace Poink.Sim.Components.Charts
 		private int _totalMatches;
 		private readonly List<DateTime> _matchLog = new();
 
-		private IReadOnlyList<XGridRuleRow> Rows => XGridRuleCatalog.Rows;
-
-		private bool IsSelected(string? key) => key is not null && EnabledKeys.Contains(key);
-
-		private string Tooltip(string? key) => key is null ? "" : XGridSignalCatalog.Get(key).Tooltip;
-
 		// The live grid's own current state for one direction, independent of what's selected.
 		private bool LiveValue(string? key) => key is not null && Grid is { } grid && XGridSignalCatalog.Value(grid, key, _percent);
 
@@ -50,10 +45,6 @@ namespace Poink.Sim.Components.Charts
 			return LiveValue(key) ? "match" : "no-match";
 		}
 
-		private int SelectedCount => Rows.Count(row => SelectedKey(row) is not null);
-
-		private int MatchedCount => Rows.Count(row => MatchStatus(row) == "match");
-
 		// Whichever of a row's three keys is currently true against the live grid, if any.
 		private string? LiveKey(XGridRuleRow row) =>
 			row.AboveKey is { } above && LiveValue(above) ? above
@@ -61,32 +52,21 @@ namespace Poink.Sim.Components.Charts
 			: row.BelowKey is { } below && LiveValue(below) ? below
 			: null;
 
+		private int SelectedCount => XGridRuleCatalog.Rows.Count(row => SelectedKey(row) is not null);
+
+		private int MatchedCount => XGridRuleCatalog.Rows.Count(row => MatchStatus(row) == "match");
+
 		// AND across every enabled key -- the mask matches only when all its constraints hold at once.
 		private bool IsMatching =>
 			Grid is { } grid
 			&& EnabledKeys.Count > 0
 			&& EnabledKeys.All(key => XGridSignalCatalog.Value(grid, key, _percent));
 
-		// Above/In/Below are mutually exclusive per row; re-selecting the current one clears it back to unset.
-		private async Task Select(XGridRuleRow row, string key)
-		{
-			var wasSelected = IsSelected(key);
-			if (row.AboveKey is not null)
-				EnabledKeys.Remove(row.AboveKey);
-			if (row.InKey is not null)
-				EnabledKeys.Remove(row.InKey);
-			if (row.BelowKey is not null)
-				EnabledKeys.Remove(row.BelowKey);
-			if (!wasSelected)
-				EnabledKeys.Add(key);
-			await EnabledKeysChanged.InvokeAsync(EnabledKeys);
-		}
-
 		private async Task CopyLiveToSelector()
 		{
 			if (Grid is null)
 				return;
-			foreach (var row in Rows)
+			foreach (var row in XGridRuleCatalog.Rows)
 			{
 				if (row.AboveKey is not null)
 					EnabledKeys.Remove(row.AboveKey);

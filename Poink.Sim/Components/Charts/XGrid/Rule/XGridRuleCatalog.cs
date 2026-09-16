@@ -11,10 +11,13 @@ internal readonly record struct XGridRuleRow(
 	string? BelowKey
 );
 
-// Derived from XGridSignalCatalog.All, grouped by RowKey in the catalog's own declaration order.
 internal static class XGridRuleCatalog
 {
-	public static readonly IReadOnlyList<XGridRuleRow> Rows = XGridSignalCatalog.All.GroupBy(d => d.RowKey).Select(ToRow).ToList();
+	public static readonly IReadOnlyList<XGridRuleRow> Rows = BuildRows(XGridSignalCatalog.All);
+
+	// Exposed so XGridSignalOutputTable can derive rows from a filtered subset of conditions.
+	public static IReadOnlyList<XGridRuleRow> BuildRows(IEnumerable<XGridSignalDef> defs) =>
+		defs.GroupBy(d => d.RowKey).Select(ToRow).ToList();
 
 	private static XGridRuleRow ToRow(IGrouping<string, XGridSignalDef> group)
 	{

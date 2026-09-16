@@ -38,26 +38,6 @@ public partial class BrainIoPanel : ComponentBase
 
 	private static string XGridKey(string label) => label["xgrid-".Length..];
 
-	// Catalog lookup, keyed the same way the Brain Builder's own XGrid signal list is (see
-	// XGridSignalCatalog.All), so the input view's grouping/labels/colours stay in lockstep with it.
-	private static readonly Dictionary<string, XGridSignalDef> XGridDefsByKey =
-		XGridSignalCatalog.All.ToDictionary(d => d.Key);
-
-	private static readonly Dictionary<string, int> XGridOrderByKey =
-		XGridSignalCatalog.All.Select((d, i) => (d.Key, i)).ToDictionary(x => x.Key, x => x.i);
-
-	private static string XGridGroup(string label) =>
-		XGridDefsByKey.TryGetValue(XGridKey(label), out var def) ? def.Group : "Other";
-
-	private static string XGridDisplayLabel(string label) =>
-		XGridDefsByKey.TryGetValue(XGridKey(label), out var def) ? def.Label : label;
-
-	private static string XGridTooltip(string label) =>
-		XGridDefsByKey.TryGetValue(XGridKey(label), out var def) ? def.Tooltip : label;
-
-	private static string XGridColorVar(string label) =>
-		XGridDefsByKey.TryGetValue(XGridKey(label), out var def) ? def.ColorVar : "--color-secondary";
-
 	private static bool IsPriceLevelLabel(string label) =>
 		label.Contains("price", System.StringComparison.Ordinal)
 		|| label.Contains("poc", System.StringComparison.Ordinal)
@@ -84,14 +64,14 @@ public partial class BrainIoPanel : ComponentBase
 		?? new List<RlInputFeature>();
 
 	private List<RlInputFeature> XGridFeatures =>
-		Inputs
-			?.Where(f => IsXGridLabel(f.Label))
-			.OrderBy(f => XGridOrderByKey.TryGetValue(XGridKey(f.Label), out var index) ? index : int.MaxValue)
-			.ToList()
-		?? new List<RlInputFeature>();
+		Inputs?.Where(f => IsXGridLabel(f.Label)).ToList() ?? new List<RlInputFeature>();
 
-	private IEnumerable<IGrouping<string, RlInputFeature>> XGridFeatureGroups =>
-		XGridFeatures.GroupBy(f => XGridGroup(f.Label));
+	private IReadOnlyList<string> XGridFeatureKeys => XGridFeatures.Select(f => XGridKey(f.Label)).ToList();
+
+	private Dictionary<string, bool> XGridFeatureValues =>
+		XGridFeatures.ToDictionary(f => XGridKey(f.Label), f => f.Value > 0);
+
+	private bool XGridFeatureValue(string key) => XGridFeatureValues.TryGetValue(key, out var v) && v;
 
 	private List<RlInputFeature> TraderStateFeatures =>
 		Inputs

@@ -1,4 +1,5 @@
 @namespace Poink.Sim.Components.Shared.BrainIoPanel
+@using Poink.Sim.Components.Charts
 
 <div class="brain-io-section">
     <div class="brain-io-title">
@@ -60,20 +61,7 @@
                 <div class="input-card input-card-xgrid">
                     <div class="input-card-label">XGRID</div>
                     <div class="input-card-body">
-                        @foreach (var group in XGridFeatureGroups)
-                        {
-                            <div class="input-xgrid-group">
-                                <span class="input-xgrid-group-title">@group.Key</span>
-                                @foreach (var f in group)
-                                {
-                                    <div class="input-xgrid-signal @(f.Value > 0 ? "on" : "")"
-                                         style="--sig-color: var(@XGridColorVar(f.Label))" title="@XGridTooltip(f.Label)">
-                                        <span class="input-xgrid-signal-dot"></span>
-                                        <span>@XGridDisplayLabel(f.Label)</span>
-                                    </div>
-                                }
-                            </div>
-                        }
+                        <XGridSignalOutputTable Keys="XGridFeatureKeys" ValueOf="XGridFeatureValue" />
                     </div>
                 </div>
             }

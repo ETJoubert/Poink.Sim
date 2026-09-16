@@ -532,38 +532,6 @@ namespace Poink.Sim.Components.Training
 
 		private int TotalXGridSignalCount => XGridSignalCatalog.All.Count;
 
-		private sealed record XGridSignalRow(
-			string Group,
-			string Label,
-			string Tooltip,
-			string ColorVar,
-			Func<bool> Get,
-			Action<bool> Set
-		);
-
-		// One row per catalog entry, so the checkbox rows grow with the catalog instead of
-		// needing a hand-written entry per signal.
-		private IReadOnlyList<XGridSignalRow> XGridSignalRows =>
-			XGridSignalCatalog
-				.All.Select(def => new XGridSignalRow(
-					def.Group,
-					def.Label,
-					def.Tooltip,
-					def.ColorVar,
-					() => _xgridEnabledSignals.Contains(def.Key),
-					v =>
-					{
-						if (v)
-							_xgridEnabledSignals.Add(def.Key);
-						else
-							_xgridEnabledSignals.Remove(def.Key);
-					}
-				))
-				.ToList();
-
-		private IReadOnlyList<IGrouping<string, XGridSignalRow>> XGridSignalGroups =>
-			XGridSignalRows.GroupBy(r => r.Group).ToList();
-
 		private int SelectedXGridSignalCount => _xgridEnabledSignals.Count;
 
 		private bool AnyXGridSignalSelected => SelectedXGridSignalCount > 0;
@@ -571,11 +539,10 @@ namespace Poink.Sim.Components.Training
 		private bool AllXGridSignalsSelected
 		{
 			get => SelectedXGridSignalCount == TotalXGridSignalCount;
-			set
-			{
-				foreach (var row in XGridSignalRows)
-					row.Set(value);
-			}
+			set =>
+				_xgridEnabledSignals = value
+					? new HashSet<string>(XGridSignalCatalog.All.Select(d => d.Key))
+					: new HashSet<string>();
 		}
 
 		private ArchitectureKind _architectureKind = ArchitectureKind.Mlp;
