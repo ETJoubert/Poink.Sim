@@ -156,9 +156,39 @@
     margin: 4px 0 0 2px;
 }
 
+.train-buildbrain-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+.train-buildbrain-tab {
+    padding: 6px 8px;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--color-secondary);
+    font-family: var(--font-heading);
+    font-size: 0.62rem;
+    font-weight: bold;
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.train-buildbrain-tab:hover {
+    color: var(--color-primary);
+}
+
+.train-buildbrain-tab.active {
+    color: var(--color-accent);
+    border-bottom-color: var(--color-accent);
+}
+
 .train-buildbrain-cards {
-    display: grid;
-    grid-template-columns: 2fr repeat(5, 1fr);
+    display: flex;
+    flex-direction: column;
     gap: 14px;
 }
 
@@ -181,7 +211,6 @@
     display: flex;
     flex-direction: column;
     gap: 14px;
-    min-width: 340px;
 }
 
 .train-timeseries-groups {

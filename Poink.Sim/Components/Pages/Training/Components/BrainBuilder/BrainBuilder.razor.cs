@@ -19,9 +19,6 @@ namespace Poink.Sim.Components.Training
 		private ITrainingService Service { get; set; } = default!;
 
 		[Inject]
-		private IRewardPolicyService RewardPolicyService { get; set; } = default!;
-
-		[Inject]
 		private IBrainService BrainService { get; set; } = default!;
 
 		[Parameter]
@@ -96,6 +93,17 @@ namespace Poink.Sim.Components.Training
 
 		private bool _showBuildPanel;
 
+		private BrainBuilderTab _activeBuildTab;
+
+		private enum BrainBuilderTab
+		{
+			Learn,
+			Features,
+			Decide,
+			Struct,
+			Actions,
+		}
+
 		private void StartNewBrain()
 		{
 			ResetBuildFieldsToDefaults();
@@ -139,733 +147,219 @@ namespace Poink.Sim.Components.Training
 
 		private Task OnBrainNameChanged(string name) => BrainNameChanged.InvokeAsync(name);
 
-		private Task OnStrategyChanged(ChangeEventArgs e) => StrategyNameChanged.InvokeAsync(e.Value?.ToString() ?? "");
-
-		private void OnRewardPolicyChanged(ChangeEventArgs e) =>
-			RewardPolicyService.SelectPolicy(e.Value?.ToString() ?? "");
-
-		private Task OnLearningRateChanged(ChangeEventArgs e) =>
-			double.TryParse(e.Value?.ToString(), out var rate)
-				? LearningRateChanged.InvokeAsync(rate)
-				: Task.CompletedTask;
-
 		private void LoadRecipe(string name, BrainRecipe recipe)
 		{
 			_buildBrainName = name;
 			_buildBrainNameAuto = false;
 
-			_includeBarWindow = recipe.EncoderKinds.Contains(EncoderKind.BarWindow);
-			_includeVolumeProfile = recipe.EncoderKinds.Contains(EncoderKind.VolumeProfile);
-			_includeTimeProfile = recipe.EncoderKinds.Contains(EncoderKind.TimeProfile);
-			_includeSessionClock = recipe.EncoderKinds.Contains(EncoderKind.SessionClock);
-			_includeSpreadVolatility = recipe.EncoderKinds.Contains(EncoderKind.SpreadVolatility);
+			var state = new BrainBuilderState
+			{
+				IncludeBarWindow = recipe.EncoderKinds.Contains(EncoderKind.BarWindow),
+				IncludeVolumeProfile = recipe.EncoderKinds.Contains(EncoderKind.VolumeProfile),
+				IncludeTimeProfile = recipe.EncoderKinds.Contains(EncoderKind.TimeProfile),
+				IncludeSessionClock = recipe.EncoderKinds.Contains(EncoderKind.SessionClock),
+				IncludeSpreadVolatility = recipe.EncoderKinds.Contains(EncoderKind.SpreadVolatility),
+				IncludeTraderState = recipe.EncoderKinds.Contains(EncoderKind.TraderState),
+			};
 
 			var sizes = recipe.EncoderSizes ?? new EncoderSizeOptions();
-			_barWindowNormalization = sizes.BarWindowNormalization;
-			_volumeProfileNormalization = sizes.VolumeProfileNormalization;
-			_timeProfileNormalization = sizes.TimeProfileNormalization;
-			_volumeProfileSplitUpDown = sizes.VolumeProfileSplitUpDown;
-			_timeProfileSplitUpDown = sizes.TimeProfileSplitUpDown;
-			_barWindowSize = sizes.BarWindowSize;
-			_volumeProfileBucketCount = sizes.VolumeProfileBucketCount;
-			_timeProfileBucketCount = sizes.TimeProfileBucketCount;
-			_volumeProfileLookbackBars = sizes.VolumeProfileLookbackBars;
-			_timeProfileLookbackBars = sizes.TimeProfileLookbackBars;
-			_spreadVolatilityAtrPeriod = sizes.SpreadVolatilityAtrPeriod;
-			_barWindowZScoreSubWindowSize = sizes.BarWindowZScoreSubWindowSize;
-			_volumeProfileZScoreSubWindowSize = sizes.VolumeProfileZScoreSubWindowSize;
-			_includeTraderStateOutcomes = sizes.TraderStateTradeOutcomeListLength > 0;
-			_includeTraderStatePositionLevel = sizes.TraderStatePositionLevelListLength > 0;
-			_includeTraderStateDirection = sizes.TraderStateDirectionListLength > 0;
-			_traderStateTradeOutcomeListLength =
+			state.BarWindowNormalization = sizes.BarWindowNormalization;
+			state.VolumeProfileNormalization = sizes.VolumeProfileNormalization;
+			state.TimeProfileNormalization = sizes.TimeProfileNormalization;
+			state.VolumeProfileSplitUpDown = sizes.VolumeProfileSplitUpDown;
+			state.TimeProfileSplitUpDown = sizes.TimeProfileSplitUpDown;
+			state.BarWindowSize = sizes.BarWindowSize;
+			state.VolumeProfileBucketCount = sizes.VolumeProfileBucketCount;
+			state.TimeProfileBucketCount = sizes.TimeProfileBucketCount;
+			state.VolumeProfileLookbackBars = sizes.VolumeProfileLookbackBars;
+			state.TimeProfileLookbackBars = sizes.TimeProfileLookbackBars;
+			state.SpreadVolatilityAtrPeriod = sizes.SpreadVolatilityAtrPeriod;
+			state.BarWindowZScoreSubWindowSize = sizes.BarWindowZScoreSubWindowSize;
+			state.VolumeProfileZScoreSubWindowSize = sizes.VolumeProfileZScoreSubWindowSize;
+			state.IncludeTraderStateOutcomes = sizes.TraderStateTradeOutcomeListLength > 0;
+			state.IncludeTraderStatePositionLevel = sizes.TraderStatePositionLevelListLength > 0;
+			state.IncludeTraderStateDirection = sizes.TraderStateDirectionListLength > 0;
+			state.TraderStateTradeOutcomeListLength =
 				sizes.TraderStateTradeOutcomeListLength > 0
 					? sizes.TraderStateTradeOutcomeListLength
-					: _traderStateTradeOutcomeListLength;
-			_traderStatePositionLevelListLength =
+					: _state.TraderStateTradeOutcomeListLength;
+			state.TraderStatePositionLevelListLength =
 				sizes.TraderStatePositionLevelListLength > 0
 					? sizes.TraderStatePositionLevelListLength
-					: _traderStatePositionLevelListLength;
-			_traderStateDirectionListLength =
+					: _state.TraderStatePositionLevelListLength;
+			state.TraderStateDirectionListLength =
 				sizes.TraderStateDirectionListLength > 0
 					? sizes.TraderStateDirectionListLength
-					: _traderStateDirectionListLength;
+					: _state.TraderStateDirectionListLength;
 
-			_traderStateIncludePosition = sizes.TraderStateIncludePosition;
-			_traderStateIncludePositionPrice = sizes.TraderStateIncludePositionPrice;
-			_traderStateIncludePositionTicks = sizes.TraderStateIncludePositionTicks;
-			_traderStateIncludePositionDistance = sizes.TraderStateIncludePositionDistance;
-			_traderStateIncludeCurrentPrice = sizes.TraderStateIncludeCurrentPrice;
-			_traderStateIncludeCash = sizes.TraderStateIncludeCash;
-			_traderStateIncludeRealized = sizes.TraderStateIncludeRealized;
-			_traderStateIncludeUnrealized = sizes.TraderStateIncludeUnrealized;
-			_traderStateIncludeEquity = sizes.TraderStateIncludeEquity;
-			_traderStateIncludeMargin = sizes.TraderStateIncludeMargin;
-			_traderStateIncludeMarginLevel = sizes.TraderStateIncludeMarginLevel;
-			_traderStateIncludePositionCount = sizes.TraderStateIncludePositionCount;
+			state.TraderStateIncludePosition = sizes.TraderStateIncludePosition;
+			state.TraderStateIncludePositionPrice = sizes.TraderStateIncludePositionPrice;
+			state.TraderStateIncludePositionTicks = sizes.TraderStateIncludePositionTicks;
+			state.TraderStateIncludePositionDistance = sizes.TraderStateIncludePositionDistance;
+			state.TraderStateIncludeCurrentPrice = sizes.TraderStateIncludeCurrentPrice;
+			state.TraderStateIncludeCash = sizes.TraderStateIncludeCash;
+			state.TraderStateIncludeRealized = sizes.TraderStateIncludeRealized;
+			state.TraderStateIncludeUnrealized = sizes.TraderStateIncludeUnrealized;
+			state.TraderStateIncludeEquity = sizes.TraderStateIncludeEquity;
+			state.TraderStateIncludeMargin = sizes.TraderStateIncludeMargin;
+			state.TraderStateIncludeMarginLevel = sizes.TraderStateIncludeMarginLevel;
+			state.TraderStateIncludePositionCount = sizes.TraderStateIncludePositionCount;
 
-			_xgridEnabledSignals = sizes.XGridEnabledSignals is { } enabled ? new HashSet<string>(enabled) : [];
-			_xgridTopPercent = sizes.XGridTopPercent;
-			_xgridColCount = sizes.XGridColCount;
-			_xgridRowCount = sizes.XGridRowCount;
-			_xgridPipSize = sizes.XGridPipSize;
-			_xgridWindowBars = sizes.XGridWindowBars;
+			state.XGridEnabledSignals = sizes.XGridEnabledSignals is { } enabled ? new HashSet<string>(enabled) : [];
+			state.XGridTopPercent = sizes.XGridTopPercent;
+			state.XGridColCount = sizes.XGridColCount;
+			state.XGridRowCount = sizes.XGridRowCount;
+			state.XGridPipSize = sizes.XGridPipSize;
+			state.XGridWindowBars = sizes.XGridWindowBars;
 
-			_architectureKind = recipe.ArchitectureKind;
+			state.ArchitectureKind = recipe.ArchitectureKind;
 			switch (recipe.ArchitectureKind)
 			{
 				case ArchitectureKind.Cnn:
-					_cnnKernelSize = recipe.HiddenSizes.Count > 0 ? recipe.HiddenSizes[0] : 3;
-					_cnnChannels = recipe.HiddenSizes.Count > 1 ? recipe.HiddenSizes.Skip(1).ToList() : [16, 32];
-					_cnnKernelSweepSource = recipe.CnnKernelSweepSource;
+					state.CnnKernelSize = recipe.HiddenSizes.Count > 0 ? recipe.HiddenSizes[0] : 3;
+					state.CnnChannels = recipe.HiddenSizes.Count > 1 ? recipe.HiddenSizes.Skip(1).ToList() : [16, 32];
+					state.CnnKernelSweepSource = recipe.CnnKernelSweepSource;
 					break;
 				case ArchitectureKind.Lstm:
-					_lstmHiddenSize = recipe.HiddenSizes.Count > 0 ? recipe.HiddenSizes[0] : 64;
-					_lstmNumLayers = recipe.HiddenSizes.Count > 1 ? recipe.HiddenSizes[1] : 2;
+					state.LstmHiddenSize = recipe.HiddenSizes.Count > 0 ? recipe.HiddenSizes[0] : 64;
+					state.LstmNumLayers = recipe.HiddenSizes.Count > 1 ? recipe.HiddenSizes[1] : 2;
 					break;
 				case ArchitectureKind.Neat:
-					LoadNeatHyperparameters(recipe.NeatHyperparameters ?? new NeatHyperparameters());
+					var h = recipe.NeatHyperparameters ?? new NeatHyperparameters();
+					state.NeatPopulationSize = h.PopulationSize;
+					state.NeatCompatibilityThreshold = h.CompatibilityThreshold;
+					state.NeatExcessCoefficient = h.ExcessCoefficient;
+					state.NeatDisjointCoefficient = h.DisjointCoefficient;
+					state.NeatWeightDiffCoefficient = h.WeightDiffCoefficient;
+					state.NeatSurvivalThreshold = h.SurvivalThreshold;
+					state.NeatWeightMutationRate = h.WeightMutationRate;
+					state.NeatWeightResetChance = h.WeightResetChance;
+					state.NeatWeightPerturbStdDev = h.WeightPerturbStdDev;
+					state.NeatAddConnectionMutationRate = h.AddConnectionMutationRate;
+					state.NeatAddNodeMutationRate = h.AddNodeMutationRate;
+					state.NeatDisableInheritedGeneChance = h.DisableInheritedGeneChance;
+					state.NeatInterspeciesMatingRate = h.InterspeciesMatingRate;
+					state.NeatStagnationGenerations = h.StagnationGenerations;
+					state.NeatElitismMinSpeciesSize = h.ElitismMinSpeciesSize;
 					break;
 				default:
-					_mlpHiddenSizes = recipe.HiddenSizes.Count > 0 ? recipe.HiddenSizes.ToList() : [64];
+					state.MlpHiddenSizes = recipe.HiddenSizes.Count > 0 ? recipe.HiddenSizes.ToList() : [64];
 					break;
 			}
 
 			var actionKinds = recipe.ActionOutputKinds ?? [];
-			_includeVolumeOutput = actionKinds.Contains(ActionOutputKind.Volume);
-			_includeStopLossOutput = actionKinds.Contains(ActionOutputKind.StopLoss);
-			_includeTakeProfitOutput = actionKinds.Contains(ActionOutputKind.TakeProfit);
+			state.IncludeVolumeOutput = actionKinds.Contains(ActionOutputKind.Volume);
+			state.IncludeStopLossOutput = actionKinds.Contains(ActionOutputKind.StopLoss);
+			state.IncludeTakeProfitOutput = actionKinds.Contains(ActionOutputKind.TakeProfit);
 
 			var directions = recipe.EnabledDirections ?? ComposedPolicyBrain.AllDirections;
-			_includeHold = directions.Contains(SimulationAction.Hold);
-			_includeEnterLong = directions.Contains(SimulationAction.EnterLong);
-			_includeEnterShort = directions.Contains(SimulationAction.EnterShort);
-			_includeClose = directions.Contains(SimulationAction.Close);
+			state.IncludeHold = directions.Contains(SimulationAction.Hold);
+			state.IncludeEnterLong = directions.Contains(SimulationAction.EnterLong);
+			state.IncludeEnterShort = directions.Contains(SimulationAction.EnterShort);
+			state.IncludeClose = directions.Contains(SimulationAction.Close);
 
-			_decisionDecoding = recipe.DecisionDecoding;
-			_decisionTemperature = recipe.DecisionTemperature;
+			state.DecisionDecoding = recipe.DecisionDecoding;
+			state.DecisionTemperature = recipe.DecisionTemperature;
 
 			var masks = recipe.EnabledMaskRules ?? BrainCatalog.AllDirectionMaskRuleKinds;
-			_maskPositionRequiredForClose = masks.Contains(DirectionMaskRuleKind.PositionRequiredForClose);
-			_maskFlatRequiredForEntry = masks.Contains(DirectionMaskRuleKind.FlatRequiredForEntry);
-			_maskLongRequiresUpSignal = masks.Contains(DirectionMaskRuleKind.LongRequiresUpSignal);
-			_maskShortRequiresDownSignal = masks.Contains(DirectionMaskRuleKind.ShortRequiresDownSignal);
-			_maskKeyLevelRequiredForClose = masks.Contains(DirectionMaskRuleKind.KeyLevelRequiredForClose);
+			state.MaskPositionRequiredForClose = masks.Contains(DirectionMaskRuleKind.PositionRequiredForClose);
+			state.MaskFlatRequiredForEntry = masks.Contains(DirectionMaskRuleKind.FlatRequiredForEntry);
+			state.MaskLongRequiresUpSignal = masks.Contains(DirectionMaskRuleKind.LongRequiresUpSignal);
+			state.MaskShortRequiresDownSignal = masks.Contains(DirectionMaskRuleKind.ShortRequiresDownSignal);
+			state.MaskKeyLevelRequiredForClose = masks.Contains(DirectionMaskRuleKind.KeyLevelRequiredForClose);
 
-			_decisionMaskResolution = recipe.DecisionMaskResolution;
-			_decisionMaskResolutionSeconds = recipe.DecisionMaskResolutionSeconds;
-			_decisionMaskResolutionCellWidth = recipe.DecisionMaskResolutionCellWidth;
+			state.DecisionMaskResolution = recipe.DecisionMaskResolution;
+			state.DecisionMaskResolutionSeconds = recipe.DecisionMaskResolutionSeconds;
+			state.DecisionMaskResolutionCellWidth = recipe.DecisionMaskResolutionCellWidth;
 			var decisionMasks = recipe.EnabledDecisionMaskRules ?? [];
-			_maskDecisionPriceBelowPoc = decisionMasks.Contains(DecisionMaskRuleKind.PriceBelowPoc);
+			state.MaskDecisionPriceBelowPoc = decisionMasks.Contains(DecisionMaskRuleKind.PriceBelowPoc);
 
+			_state = state;
 			_buildBrainStatus = null;
 		}
 
-		// Mirrors every field's own declared default below -- kept in sync with them so
-		// "+ NEW BRAIN" reproduces exactly the state a fresh BrainBuilder starts in.
+		private BrainBuilderState _state = new();
+
+		// "+ NEW BRAIN" resets every field back to BrainBuilderState's own declared defaults.
 		private void ResetBuildFieldsToDefaults()
 		{
 			_buildBrainName = "";
 			_buildBrainNameAuto = true;
-			_includeBarWindow = true;
-			_includeVolumeProfile = false;
-			_includeTimeProfile = false;
-			_includeSessionClock = false;
-			_includeSpreadVolatility = false;
-			_includeTraderState = false;
-
-			_timeSeriesInputsHidden = true;
-
-			_barWindowNormalization = NormalizationKind.Normalized;
-			_volumeProfileNormalization = NormalizationKind.Normalized;
-			_timeProfileNormalization = NormalizationKind.Normalized;
-
-			_volumeProfileSplitUpDown = false;
-			_timeProfileSplitUpDown = false;
-
-			_barWindowSize = 20;
-			_volumeProfileBucketCount = 20;
-			_timeProfileBucketCount = 20;
-			_volumeProfileLookbackBars = 50;
-			_timeProfileLookbackBars = 50;
-			_spreadVolatilityAtrPeriod = 14;
-			_barWindowZScoreSubWindowSize = 5;
-			_volumeProfileZScoreSubWindowSize = 5;
-
-			_includeTraderStateOutcomes = false;
-			_includeTraderStatePositionLevel = false;
-			_includeTraderStateDirection = false;
-
-			_traderStateTradeOutcomeListLength = 5;
-			_traderStatePositionLevelListLength = 5;
-			_traderStateDirectionListLength = 5;
-
-			_traderStateIncludePosition = true;
-			_traderStateIncludePositionPrice = true;
-			_traderStateIncludePositionTicks = true;
-			_traderStateIncludePositionDistance = true;
-			_traderStateIncludeCurrentPrice = true;
-			_traderStateIncludeCash = true;
-			_traderStateIncludeRealized = true;
-			_traderStateIncludeUnrealized = true;
-			_traderStateIncludeEquity = true;
-			_traderStateIncludeMargin = true;
-			_traderStateIncludeMarginLevel = true;
-			_traderStateIncludePositionCount = true;
-
-			_xgridEnabledSignals = [];
-			_xgridTopPercent = 10;
-			_xgridColCount = 20;
-			_xgridRowCount = 20;
-			_xgridPipSize = 0.01;
-			_xgridWindowBars = 60;
-
-			_decisionMaskResolution = DecisionMaskResolutionKind.PerBar;
-			_decisionMaskResolutionSeconds = 1.0;
-			_decisionMaskResolutionCellWidth = 0.10;
-			_maskDecisionPriceBelowPoc = false;
-
-			_architectureKind = ArchitectureKind.Mlp;
-
-			_mlpHiddenSizes = [64];
-			_lstmHiddenSize = 64;
-			_lstmNumLayers = 2;
-
-			_cnnKernelSize = 3;
-			_cnnChannels = [16, 32];
-			_cnnKernelSweepSource = CnnKernelSweepSource.BarWindow;
-
-			_neatPopulationSize = 150;
-			_neatCompatibilityThreshold = 3.0;
-			_neatExcessCoefficient = 1.0;
-			_neatDisjointCoefficient = 1.0;
-			_neatWeightDiffCoefficient = 0.4;
-			_neatSurvivalThreshold = 0.2;
-			_neatWeightMutationRate = 0.8;
-			_neatWeightResetChance = 0.1;
-			_neatWeightPerturbStdDev = 0.5;
-			_neatAddConnectionMutationRate = 0.05;
-			_neatAddNodeMutationRate = 0.03;
-			_neatDisableInheritedGeneChance = 0.75;
-			_neatInterspeciesMatingRate = 0.001;
-			_neatStagnationGenerations = 15;
-			_neatElitismMinSpeciesSize = 5;
-
-			_includeVolumeOutput = false;
-			_includeStopLossOutput = false;
-			_includeTakeProfitOutput = false;
-
-			_includeHold = true;
-			_includeEnterLong = true;
-			_includeEnterShort = true;
-			_includeClose = true;
-
-			_decisionDecoding = DecisionDecodingKind.Softmax;
-			_decisionTemperature = 1.0;
 			_buildBrainStatus = null;
-
-			_maskPositionRequiredForClose = true;
-			_maskFlatRequiredForEntry = true;
-			_maskLongRequiresUpSignal = true;
-			_maskShortRequiresDownSignal = true;
-			_maskKeyLevelRequiredForClose = true;
+			_state = new BrainBuilderState();
 		}
 
 		private string _buildBrainName = "";
 
 		private bool _buildBrainNameAuto = true;
-		private bool _includeBarWindow = true;
-		private bool _includeVolumeProfile;
-		private bool _includeTimeProfile;
-		private bool _includeSessionClock;
-		private bool _includeSpreadVolatility;
-		private bool _includeTraderState;
-
-		private bool _timeSeriesInputsHidden = true;
-
-		private NormalizationKind _barWindowNormalization = NormalizationKind.Normalized;
-		private NormalizationKind _volumeProfileNormalization = NormalizationKind.Normalized;
-		private NormalizationKind _timeProfileNormalization = NormalizationKind.Normalized;
-
-		private bool _volumeProfileSplitUpDown;
-		private bool _timeProfileSplitUpDown;
-
-		private int _barWindowSize = 20;
-		private int _volumeProfileBucketCount = 20;
-		private int _timeProfileBucketCount = 20;
-		private int _volumeProfileLookbackBars = 50;
-		private int _timeProfileLookbackBars = 50;
-		private int _spreadVolatilityAtrPeriod = 14;
-		private int _barWindowZScoreSubWindowSize = 5;
-		private int _volumeProfileZScoreSubWindowSize = 5;
-
-		private bool _includeTraderStateOutcomes;
-		private bool _includeTraderStatePositionLevel;
-		private bool _includeTraderStateDirection;
-
-		private int _traderStateTradeOutcomeListLength = 5;
-		private int _traderStatePositionLevelListLength = 5;
-		private int _traderStateDirectionListLength = 5;
-
-		private bool AllTraderStateListsSelected
-		{
-			get => _includeTraderStateOutcomes && _includeTraderStatePositionLevel && _includeTraderStateDirection;
-			set
-			{
-				_includeTraderStateOutcomes = value;
-				_includeTraderStatePositionLevel = value;
-				_includeTraderStateDirection = value;
-			}
-		}
-
-		private bool _traderStateIncludePosition = true;
-		private bool _traderStateIncludePositionPrice = true;
-		private bool _traderStateIncludePositionTicks = true;
-		private bool _traderStateIncludePositionDistance = true;
-		private bool _traderStateIncludeCurrentPrice = true;
-		private bool _traderStateIncludeCash = true;
-		private bool _traderStateIncludeRealized = true;
-		private bool _traderStateIncludeUnrealized = true;
-		private bool _traderStateIncludeEquity = true;
-		private bool _traderStateIncludeMargin = true;
-		private bool _traderStateIncludeMarginLevel = true;
-		private bool _traderStateIncludePositionCount = true;
-
-		private sealed record TraderStateFieldRow(string Label, string Tooltip, Func<bool> Get, Action<bool> Set);
-
-		// Drives the Trader State checkbox row from one list instead of 12 near-duplicate
-		// blocks; follows the same fresh-collection-per-access convention as XGridSignalRows.
-		private IReadOnlyList<TraderStateFieldRow> TraderStateFieldRows =>
-			new List<TraderStateFieldRow>
-			{
-				new(
-					"Position",
-					"Direction of the open position: 1 long, -1 short, 0 flat",
-					() => _traderStateIncludePosition,
-					v => _traderStateIncludePosition = v
-				),
-				new(
-					"Position Price",
-					"Entry price of the open position, 0 if flat",
-					() => _traderStateIncludePositionPrice,
-					v => _traderStateIncludePositionPrice = v
-				),
-				new(
-					"Position Ticks",
-					"Ticks the open position has been held, 0 if flat",
-					() => _traderStateIncludePositionTicks,
-					v => _traderStateIncludePositionTicks = v
-				),
-				new(
-					"Position Distance",
-					"Cumulative price distance traveled since the position opened, 0 if flat",
-					() => _traderStateIncludePositionDistance,
-					v => _traderStateIncludePositionDistance = v
-				),
-				new(
-					"Current Price",
-					"Current market price",
-					() => _traderStateIncludeCurrentPrice,
-					v => _traderStateIncludeCurrentPrice = v
-				),
-				new("Cash", "Available cash balance", () => _traderStateIncludeCash, v => _traderStateIncludeCash = v),
-				new(
-					"Realized",
-					"Realized profit/loss booked so far",
-					() => _traderStateIncludeRealized,
-					v => _traderStateIncludeRealized = v
-				),
-				new(
-					"Unrealized",
-					"Unrealized profit/loss on the open position",
-					() => _traderStateIncludeUnrealized,
-					v => _traderStateIncludeUnrealized = v
-				),
-				new(
-					"Equity",
-					"Cash plus unrealized profit/loss",
-					() => _traderStateIncludeEquity,
-					v => _traderStateIncludeEquity = v
-				),
-				new(
-					"Margin",
-					"Margin currently used by the open position",
-					() => _traderStateIncludeMargin,
-					v => _traderStateIncludeMargin = v
-				),
-				new(
-					"Margin Level",
-					"Equity as a percent of margin used",
-					() => _traderStateIncludeMarginLevel,
-					v => _traderStateIncludeMarginLevel = v
-				),
-				new(
-					"Position Count",
-					"1 if a position is open, 0 if flat",
-					() => _traderStateIncludePositionCount,
-					v => _traderStateIncludePositionCount = v
-				),
-			};
-
-		private const int TotalTraderStateFieldCount = 12;
-
-		private int SelectedTraderStateFieldCount => TraderStateFieldRows.Count(r => r.Get());
-
-		private bool AllTraderStateBaseFieldsSelected
-		{
-			get => SelectedTraderStateFieldCount == TotalTraderStateFieldCount;
-			set
-			{
-				foreach (var row in TraderStateFieldRows)
-					row.Set(value);
-			}
-		}
-
-		// Which XGridSignalCatalog.All entries (by Key) are enabled -- one HashSet instead of
-		// one private bool field per signal, so a new catalog entry needs no field added here.
-		private HashSet<string> _xgridEnabledSignals = [];
-
-		private double _xgridTopPercent = 10;
-		private int _xgridColCount = 20;
-		private int _xgridRowCount = 20;
-		private double _xgridPipSize = 0.01;
-		private int _xgridWindowBars = 60;
-
-		private int TotalXGridSignalCount => XGridSignalCatalog.All.Count;
-
-		private int SelectedXGridSignalCount => _xgridEnabledSignals.Count;
-
-		private bool AnyXGridSignalSelected => SelectedXGridSignalCount > 0;
-
-		private bool AllXGridSignalsSelected
-		{
-			get => SelectedXGridSignalCount == TotalXGridSignalCount;
-			set =>
-				_xgridEnabledSignals = value
-					? new HashSet<string>(XGridSignalCatalog.All.Select(d => d.Key))
-					: new HashSet<string>();
-		}
-
-		private ArchitectureKind _architectureKind = ArchitectureKind.Mlp;
-
-		private List<int> _mlpHiddenSizes = [64];
-		private int _lstmHiddenSize = 64;
-		private int _lstmNumLayers = 2;
-
-		private int _cnnKernelSize = 3;
-		private List<int> _cnnChannels = [16, 32];
-		private CnnKernelSweepSource _cnnKernelSweepSource = CnnKernelSweepSource.BarWindow;
-
-		private int _neatPopulationSize = 150;
-		private double _neatCompatibilityThreshold = 3.0;
-		private double _neatExcessCoefficient = 1.0;
-		private double _neatDisjointCoefficient = 1.0;
-		private double _neatWeightDiffCoefficient = 0.4;
-		private double _neatSurvivalThreshold = 0.2;
-		private double _neatWeightMutationRate = 0.8;
-		private double _neatWeightResetChance = 0.1;
-		private double _neatWeightPerturbStdDev = 0.5;
-		private double _neatAddConnectionMutationRate = 0.05;
-		private double _neatAddNodeMutationRate = 0.03;
-		private double _neatDisableInheritedGeneChance = 0.75;
-		private double _neatInterspeciesMatingRate = 0.001;
-		private int _neatStagnationGenerations = 15;
-		private int _neatElitismMinSpeciesSize = 5;
-
-		private void LoadNeatHyperparameters(NeatHyperparameters h)
-		{
-			_neatPopulationSize = h.PopulationSize;
-			_neatCompatibilityThreshold = h.CompatibilityThreshold;
-			_neatExcessCoefficient = h.ExcessCoefficient;
-			_neatDisjointCoefficient = h.DisjointCoefficient;
-			_neatWeightDiffCoefficient = h.WeightDiffCoefficient;
-			_neatSurvivalThreshold = h.SurvivalThreshold;
-			_neatWeightMutationRate = h.WeightMutationRate;
-			_neatWeightResetChance = h.WeightResetChance;
-			_neatWeightPerturbStdDev = h.WeightPerturbStdDev;
-			_neatAddConnectionMutationRate = h.AddConnectionMutationRate;
-			_neatAddNodeMutationRate = h.AddNodeMutationRate;
-			_neatDisableInheritedGeneChance = h.DisableInheritedGeneChance;
-			_neatInterspeciesMatingRate = h.InterspeciesMatingRate;
-			_neatStagnationGenerations = h.StagnationGenerations;
-			_neatElitismMinSpeciesSize = h.ElitismMinSpeciesSize;
-		}
-
-		private NeatHyperparameters CurrentNeatHyperparameters =>
-			new(
-				_neatPopulationSize,
-				_neatCompatibilityThreshold,
-				_neatExcessCoefficient,
-				_neatDisjointCoefficient,
-				_neatWeightDiffCoefficient,
-				_neatSurvivalThreshold,
-				_neatWeightMutationRate,
-				_neatWeightResetChance,
-				_neatWeightPerturbStdDev,
-				_neatAddConnectionMutationRate,
-				_neatAddNodeMutationRate,
-				_neatDisableInheritedGeneChance,
-				_neatInterspeciesMatingRate,
-				_neatStagnationGenerations,
-				_neatElitismMinSpeciesSize
-			);
-
-		private bool _includeVolumeOutput;
-		private bool _includeStopLossOutput;
-		private bool _includeTakeProfitOutput;
-
-		private bool _includeHold = true;
-		private bool _includeEnterLong = true;
-		private bool _includeEnterShort = true;
-		private bool _includeClose = true;
-
-		private DecisionDecodingKind _decisionDecoding = DecisionDecodingKind.Softmax;
-
-		private double _decisionTemperature = 1.0;
 		private string? _buildBrainStatus;
 
-		private bool _maskPositionRequiredForClose = true;
-		private bool _maskFlatRequiredForEntry = true;
-		private bool _maskLongRequiresUpSignal = true;
-		private bool _maskShortRequiresDownSignal = true;
-		private bool _maskKeyLevelRequiredForClose = true;
+		private void SectionChanged() => StateHasChanged();
 
-		private sealed record MaskRuleRow(
-			DirectionMaskRuleKind Kind,
-			string Label,
-			string Tooltip,
-			Func<bool> Get,
-			Action<bool> Set
-		);
+		private IReadOnlyList<int> EffectiveMlpHiddenSizes => _state.MlpHiddenSizes.Where(n => n > 0).ToList();
 
-		// (Kind, Label, Tooltip, Get, Set) per rule -- same "computed property returns a fresh
-		// collection each access" convention as XGridSignalRows/TraderStateFieldRows.
-		private IReadOnlyList<MaskRuleRow> MaskRuleRows =>
-			new List<MaskRuleRow>
-			{
-				new(
-					DirectionMaskRuleKind.PositionRequiredForClose,
-					"Close Requires Position",
-					"Close is illegal unless a position is currently open",
-					() => _maskPositionRequiredForClose,
-					v => _maskPositionRequiredForClose = v
-				),
-				new(
-					DirectionMaskRuleKind.FlatRequiredForEntry,
-					"Entry Requires Flat",
-					"Enter Long / Enter Short are illegal while a position is already open",
-					() => _maskFlatRequiredForEntry,
-					v => _maskFlatRequiredForEntry = v
-				),
-				new(
-					DirectionMaskRuleKind.LongRequiresUpSignal,
-					"Long Requires Up Signal",
-					"Enter Long is illegal unless the xGrid Rank Top % Up signal is active -- has no effect without the XGrid Signals encoder",
-					() => _maskLongRequiresUpSignal,
-					v => _maskLongRequiresUpSignal = v
-				),
-				new(
-					DirectionMaskRuleKind.ShortRequiresDownSignal,
-					"Short Requires Down Signal",
-					"Enter Short is illegal unless the xGrid Rank Top % Down signal is active -- has no effect without the XGrid Signals encoder",
-					() => _maskShortRequiresDownSignal,
-					v => _maskShortRequiresDownSignal = v
-				),
-				new(
-					DirectionMaskRuleKind.KeyLevelRequiredForClose,
-					"Close Requires Key Level",
-					"Close is illegal unless price is currently at POC, VAH, VAL, or VWAP -- has no effect without the XGrid Signals encoder",
-					() => _maskKeyLevelRequiredForClose,
-					v => _maskKeyLevelRequiredForClose = v
-				),
-			};
-
-		private const int TotalMaskRuleCount = 5;
-
-		private int SelectedMaskRuleCount => MaskRuleRows.Count(r => r.Get());
-
-		private bool AllMaskRulesSelected
-		{
-			get => SelectedMaskRuleCount == TotalMaskRuleCount;
-			set
-			{
-				foreach (var row in MaskRuleRows)
-					row.Set(value);
-			}
-		}
-
-		private List<DirectionMaskRuleKind> SelectedMaskRuleKinds =>
-			MaskRuleRows.Where(r => r.Get()).Select(r => r.Kind).ToList();
-
-		private DecisionMaskResolutionKind _decisionMaskResolution = DecisionMaskResolutionKind.PerBar;
-		private double _decisionMaskResolutionSeconds = 1.0;
-		private double _decisionMaskResolutionCellWidth = 0.10;
-
-		private bool _maskDecisionPriceBelowPoc;
-
-		private sealed record DecisionMaskRuleRow(
-			DecisionMaskRuleKind Kind,
-			string Label,
-			string Tooltip,
-			Func<bool> Get,
-			Action<bool> Set
-		);
-
-		// (Kind, Label, Tooltip, Get, Set) per rule -- same convention as MaskRuleRows/XGridSignalRows.
-		private IReadOnlyList<DecisionMaskRuleRow> DecisionMaskRuleRows =>
-			new List<DecisionMaskRuleRow>
-			{
-				new(
-					DecisionMaskRuleKind.PriceBelowPoc,
-					"Price Below POC",
-					"A decision only fires when price is below the trailing window's Point of Control -- has no effect without the XGrid Signals encoder",
-					() => _maskDecisionPriceBelowPoc,
-					v => _maskDecisionPriceBelowPoc = v
-				),
-			};
-
-		private const int TotalDecisionMaskRuleCount = 1;
-
-		private int SelectedDecisionMaskRuleCount => DecisionMaskRuleRows.Count(r => r.Get());
-
-		private bool AllDecisionMaskRulesSelected
-		{
-			get => SelectedDecisionMaskRuleCount == TotalDecisionMaskRuleCount;
-			set
-			{
-				foreach (var row in DecisionMaskRuleRows)
-					row.Set(value);
-			}
-		}
-
-		private List<DecisionMaskRuleKind> SelectedDecisionMaskRuleKinds =>
-			DecisionMaskRuleRows.Where(r => r.Get()).Select(r => r.Kind).ToList();
-
-		private void OnArchitectureKindChanged(ChangeEventArgs e) =>
-			_architectureKind = Enum.Parse<ArchitectureKind>(e.Value?.ToString() ?? nameof(ArchitectureKind.Mlp));
-
-		private void OnCnnKernelSweepSourceChanged(ChangeEventArgs e) =>
-			_cnnKernelSweepSource = Enum.Parse<CnnKernelSweepSource>(
-				e.Value?.ToString() ?? nameof(CnnKernelSweepSource.BarWindow)
-			);
-
-		private void OnDecisionDecodingKindChanged(ChangeEventArgs e) =>
-			_decisionDecoding = Enum.Parse<DecisionDecodingKind>(
-				e.Value?.ToString() ?? nameof(DecisionDecodingKind.Softmax)
-			);
-
-		private void OnBarWindowNormalizationChanged(ChangeEventArgs e) =>
-			_barWindowNormalization = Enum.Parse<NormalizationKind>(
-				e.Value?.ToString() ?? nameof(NormalizationKind.Normalized)
-			);
-
-		private void OnVolumeProfileNormalizationChanged(ChangeEventArgs e) =>
-			_volumeProfileNormalization = Enum.Parse<NormalizationKind>(
-				e.Value?.ToString() ?? nameof(NormalizationKind.Normalized)
-			);
-
-		private void OnTimeProfileNormalizationChanged(ChangeEventArgs e) =>
-			_timeProfileNormalization = Enum.Parse<NormalizationKind>(
-				e.Value?.ToString() ?? nameof(NormalizationKind.Normalized)
-			);
-
-		private IReadOnlyList<int> EffectiveMlpHiddenSizes => _mlpHiddenSizes.Where(n => n > 0).ToList();
-
-		private void AddHiddenLayer() => _mlpHiddenSizes.Add(Math.Max(1, _mlpHiddenSizes[^1] / 2));
-
-		private void AddHiddenLayerOnTop() => _mlpHiddenSizes.Insert(0, _mlpHiddenSizes[0] * 2);
-
-		private void RemoveHiddenLayer(int index)
-		{
-			if (_mlpHiddenSizes.Count <= 1)
-				return;
-			_mlpHiddenSizes.RemoveAt(index);
-		}
-
-		private bool CanRemoveHiddenLayer => _mlpHiddenSizes.Count > 1;
-
-		private void OnHiddenLayerSizeChanged(int index, ChangeEventArgs e)
-		{
-			if (int.TryParse(e.Value?.ToString(), out int size))
-				_mlpHiddenSizes[index] = size;
-		}
-
-		private IReadOnlyList<int> EffectiveCnnChannels => _cnnChannels.Where(n => n > 0).ToList();
-
-		private void AddCnnChannelLayer() => _cnnChannels.Add(_cnnChannels[^1] * 2);
-
-		private void RemoveCnnChannelLayer(int index)
-		{
-			if (_cnnChannels.Count <= 1)
-				return;
-			_cnnChannels.RemoveAt(index);
-		}
-
-		private bool CanRemoveCnnChannelLayer => _cnnChannels.Count > 1;
-
-		private void OnCnnChannelSizeChanged(int index, ChangeEventArgs e)
-		{
-			if (int.TryParse(e.Value?.ToString(), out int size))
-				_cnnChannels[index] = size;
-		}
+		private IReadOnlyList<int> EffectiveCnnChannels => _state.CnnChannels.Where(n => n > 0).ToList();
 
 		private bool CnnSweepSourceIncluded =>
-			_cnnKernelSweepSource == CnnKernelSweepSource.VolumeProfile ? _includeVolumeProfile : _includeBarWindow;
+			_state.CnnKernelSweepSource == CnnKernelSweepSource.VolumeProfile ? _state.IncludeVolumeProfile : _state.IncludeBarWindow;
+
+		private bool AnyXGridSignalSelected => _state.XGridEnabledSignals.Count > 0;
 
 		private bool CanCreateBrain =>
 			!string.IsNullOrWhiteSpace(EffectiveBuildBrainName)
 			&& (
-				_includeBarWindow
-				|| _includeVolumeProfile
-				|| _includeTimeProfile
-				|| _includeSessionClock
-				|| _includeSpreadVolatility
-				|| _includeTraderState
+				_state.IncludeBarWindow
+				|| _state.IncludeVolumeProfile
+				|| _state.IncludeTimeProfile
+				|| _state.IncludeSessionClock
+				|| _state.IncludeSpreadVolatility
+				|| _state.IncludeTraderState
 				|| AnyXGridSignalSelected
 			)
-			&& (_includeHold || _includeEnterLong || _includeEnterShort || _includeClose)
-			&& (_architectureKind != ArchitectureKind.Lstm || _includeBarWindow)
+			&& (_state.IncludeHold || _state.IncludeEnterLong || _state.IncludeEnterShort || _state.IncludeClose)
+			&& (_state.ArchitectureKind != ArchitectureKind.Lstm || _state.IncludeBarWindow)
 			&& (
-				_architectureKind != ArchitectureKind.Cnn
-				|| (CnnSweepSourceIncluded && _cnnKernelSize >= 1 && EffectiveCnnChannels.Count > 0)
+				_state.ArchitectureKind != ArchitectureKind.Cnn
+				|| (CnnSweepSourceIncluded && _state.CnnKernelSize >= 1 && EffectiveCnnChannels.Count > 0)
 			)
-			&& (_architectureKind != ArchitectureKind.Neat || _neatPopulationSize >= 1)
-			&& (!_includeBarWindow || _barWindowSize >= 1)
-			&& (!_includeVolumeProfile || (_volumeProfileBucketCount >= 1 && _volumeProfileLookbackBars >= 1))
-			&& (!_includeTimeProfile || (_timeProfileBucketCount >= 1 && _timeProfileLookbackBars >= 1))
-			&& (!_includeSpreadVolatility || _spreadVolatilityAtrPeriod >= 1)
-			&& (_barWindowNormalization != NormalizationKind.LocalZScore || _barWindowZScoreSubWindowSize >= 1)
-			&& (_volumeProfileNormalization != NormalizationKind.LocalZScore || _volumeProfileZScoreSubWindowSize >= 1)
-			&& (!_includeTraderStateOutcomes || _traderStateTradeOutcomeListLength >= 1)
-			&& (!_includeTraderStatePositionLevel || _traderStatePositionLevelListLength >= 1)
-			&& (!_includeTraderStateDirection || _traderStateDirectionListLength >= 1)
+			&& (_state.ArchitectureKind != ArchitectureKind.Neat || _state.NeatPopulationSize >= 1)
+			&& (!_state.IncludeBarWindow || _state.BarWindowSize >= 1)
+			&& (!_state.IncludeVolumeProfile || (_state.VolumeProfileBucketCount >= 1 && _state.VolumeProfileLookbackBars >= 1))
+			&& (!_state.IncludeTimeProfile || (_state.TimeProfileBucketCount >= 1 && _state.TimeProfileLookbackBars >= 1))
+			&& (!_state.IncludeSpreadVolatility || _state.SpreadVolatilityAtrPeriod >= 1)
+			&& (_state.BarWindowNormalization != NormalizationKind.LocalZScore || _state.BarWindowZScoreSubWindowSize >= 1)
+			&& (_state.VolumeProfileNormalization != NormalizationKind.LocalZScore || _state.VolumeProfileZScoreSubWindowSize >= 1)
+			&& (!_state.IncludeTraderStateOutcomes || _state.TraderStateTradeOutcomeListLength >= 1)
+			&& (!_state.IncludeTraderStatePositionLevel || _state.TraderStatePositionLevelListLength >= 1)
+			&& (!_state.IncludeTraderStateDirection || _state.TraderStateDirectionListLength >= 1)
 			&& (
 				!AnyXGridSignalSelected
 				|| (
-					_xgridColCount >= 1
-					&& _xgridRowCount >= 1
-					&& _xgridPipSize > 0
-					&& _xgridWindowBars >= 1
-					&& _xgridTopPercent is >= 0 and <= 100
+					_state.XGridColCount >= 1
+					&& _state.XGridRowCount >= 1
+					&& _state.XGridPipSize > 0
+					&& _state.XGridWindowBars >= 1
+					&& _state.XGridTopPercent is >= 0 and <= 100
 				)
 			)
-			&& _decisionTemperature > 0;
+			&& _state.DecisionTemperature > 0;
 
 		private IReadOnlyList<EncoderKind> SelectedEncoderKinds
 		{
 			get
 			{
 				var kinds = new List<EncoderKind>();
-				if (_includeBarWindow)
+				if (_state.IncludeBarWindow)
 					kinds.Add(EncoderKind.BarWindow);
-				if (_includeVolumeProfile)
+				if (_state.IncludeVolumeProfile)
 					kinds.Add(EncoderKind.VolumeProfile);
-				if (_includeTimeProfile)
+				if (_state.IncludeTimeProfile)
 					kinds.Add(EncoderKind.TimeProfile);
-				if (_includeSessionClock)
+				if (_state.IncludeSessionClock)
 					kinds.Add(EncoderKind.SessionClock);
-				if (_includeSpreadVolatility)
+				if (_state.IncludeSpreadVolatility)
 					kinds.Add(EncoderKind.SpreadVolatility);
-				if (_includeTraderState)
+				if (_state.IncludeTraderState)
 					kinds.Add(EncoderKind.TraderState);
 				if (AnyXGridSignalSelected)
 					kinds.Add(EncoderKind.XGrid);
@@ -875,69 +369,43 @@ namespace Poink.Sim.Components.Training
 
 		private EncoderSizeOptions CurrentEncoderSizeOptions =>
 			new(
-				BarWindowSize: _barWindowSize,
-				VolumeProfileBucketCount: _volumeProfileBucketCount,
-				TimeProfileBucketCount: _timeProfileBucketCount,
-				VolumeProfileLookbackBars: _volumeProfileLookbackBars,
-				TimeProfileLookbackBars: _timeProfileLookbackBars,
-				BarWindowNormalization: _barWindowNormalization,
-				VolumeProfileNormalization: _volumeProfileNormalization,
-				TimeProfileNormalization: _timeProfileNormalization,
-				SpreadVolatilityAtrPeriod: _spreadVolatilityAtrPeriod,
-				VolumeProfileSplitUpDown: _volumeProfileSplitUpDown,
-				TimeProfileSplitUpDown: _timeProfileSplitUpDown,
-				BarWindowZScoreSubWindowSize: _barWindowZScoreSubWindowSize,
-				VolumeProfileZScoreSubWindowSize: _volumeProfileZScoreSubWindowSize,
-				TraderStateTradeOutcomeListLength: _includeTraderStateOutcomes ? _traderStateTradeOutcomeListLength : 0,
-				TraderStatePositionLevelListLength: _includeTraderStatePositionLevel
-					? _traderStatePositionLevelListLength
+				BarWindowSize: _state.BarWindowSize,
+				VolumeProfileBucketCount: _state.VolumeProfileBucketCount,
+				TimeProfileBucketCount: _state.TimeProfileBucketCount,
+				VolumeProfileLookbackBars: _state.VolumeProfileLookbackBars,
+				TimeProfileLookbackBars: _state.TimeProfileLookbackBars,
+				BarWindowNormalization: _state.BarWindowNormalization,
+				VolumeProfileNormalization: _state.VolumeProfileNormalization,
+				TimeProfileNormalization: _state.TimeProfileNormalization,
+				SpreadVolatilityAtrPeriod: _state.SpreadVolatilityAtrPeriod,
+				VolumeProfileSplitUpDown: _state.VolumeProfileSplitUpDown,
+				TimeProfileSplitUpDown: _state.TimeProfileSplitUpDown,
+				BarWindowZScoreSubWindowSize: _state.BarWindowZScoreSubWindowSize,
+				VolumeProfileZScoreSubWindowSize: _state.VolumeProfileZScoreSubWindowSize,
+				TraderStateTradeOutcomeListLength: _state.IncludeTraderStateOutcomes ? _state.TraderStateTradeOutcomeListLength : 0,
+				TraderStatePositionLevelListLength: _state.IncludeTraderStatePositionLevel
+					? _state.TraderStatePositionLevelListLength
 					: 0,
-				TraderStateDirectionListLength: _includeTraderStateDirection ? _traderStateDirectionListLength : 0,
-				TraderStateIncludePosition: _traderStateIncludePosition,
-				TraderStateIncludePositionPrice: _traderStateIncludePositionPrice,
-				TraderStateIncludePositionTicks: _traderStateIncludePositionTicks,
-				TraderStateIncludePositionDistance: _traderStateIncludePositionDistance,
-				TraderStateIncludeCurrentPrice: _traderStateIncludeCurrentPrice,
-				TraderStateIncludeCash: _traderStateIncludeCash,
-				TraderStateIncludeRealized: _traderStateIncludeRealized,
-				TraderStateIncludeUnrealized: _traderStateIncludeUnrealized,
-				TraderStateIncludeEquity: _traderStateIncludeEquity,
-				TraderStateIncludeMargin: _traderStateIncludeMargin,
-				TraderStateIncludeMarginLevel: _traderStateIncludeMarginLevel,
-				TraderStateIncludePositionCount: _traderStateIncludePositionCount,
-				XGridEnabledSignals: _xgridEnabledSignals.ToList(),
-				XGridTopPercent: _xgridTopPercent,
-				XGridColCount: _xgridColCount,
-				XGridRowCount: _xgridRowCount,
-				XGridPipSize: _xgridPipSize,
-				XGridWindowBars: _xgridWindowBars
+				TraderStateDirectionListLength: _state.IncludeTraderStateDirection ? _state.TraderStateDirectionListLength : 0,
+				TraderStateIncludePosition: _state.TraderStateIncludePosition,
+				TraderStateIncludePositionPrice: _state.TraderStateIncludePositionPrice,
+				TraderStateIncludePositionTicks: _state.TraderStateIncludePositionTicks,
+				TraderStateIncludePositionDistance: _state.TraderStateIncludePositionDistance,
+				TraderStateIncludeCurrentPrice: _state.TraderStateIncludeCurrentPrice,
+				TraderStateIncludeCash: _state.TraderStateIncludeCash,
+				TraderStateIncludeRealized: _state.TraderStateIncludeRealized,
+				TraderStateIncludeUnrealized: _state.TraderStateIncludeUnrealized,
+				TraderStateIncludeEquity: _state.TraderStateIncludeEquity,
+				TraderStateIncludeMargin: _state.TraderStateIncludeMargin,
+				TraderStateIncludeMarginLevel: _state.TraderStateIncludeMarginLevel,
+				TraderStateIncludePositionCount: _state.TraderStateIncludePositionCount,
+				XGridEnabledSignals: _state.XGridEnabledSignals.ToList(),
+				XGridTopPercent: _state.XGridTopPercent,
+				XGridColCount: _state.XGridColCount,
+				XGridRowCount: _state.XGridRowCount,
+				XGridPipSize: _state.XGridPipSize,
+				XGridWindowBars: _state.XGridWindowBars
 			);
-
-		private string VolumeProfileBucketsTooltip =>
-			(_volumeProfileNormalization == NormalizationKind.Raw, _volumeProfileSplitUpDown) switch
-			{
-				(true, true) =>
-					"How many histogram buckets Volume Profile rebins its merged bars into -- each bucket feeds price, up-volume, down-volume, and their diff under Raw+Split, so its input count is this times 4 plus 3 summary values",
-				(true, false) =>
-					"How many histogram buckets Volume Profile rebins its merged bars into -- each bucket feeds price and volume under Raw, so its input count is this times 2 plus 3 summary values",
-				(false, true) =>
-					"How many histogram buckets Volume Profile rebins its merged bars into -- each bucket feeds up-volume, down-volume, and their diff under Split, so its input count is this times 3 plus 3 summary values",
-				(false, false) =>
-					"How many histogram buckets Volume Profile rebins its merged bars into -- its input count is this plus 3 summary values",
-			};
-
-		private string TimeProfileBucketsTooltip =>
-			(_timeProfileNormalization == NormalizationKind.Raw, _timeProfileSplitUpDown) switch
-			{
-				(true, true) =>
-					"How many histogram buckets Time Profile rebins its merged bars into -- each bucket feeds price, up-seconds, down-seconds, and their diff under Raw+Split, so its input count is this times 4 plus 3 summary values",
-				(true, false) =>
-					"How many histogram buckets Time Profile rebins its merged bars into -- each bucket feeds price and seconds under Raw, so its input count is this times 2 plus 3 summary values",
-				(false, true) =>
-					"How many histogram buckets Time Profile rebins its merged bars into -- each bucket feeds up-seconds, down-seconds, and their diff under Split, so its input count is this times 3 plus 3 summary values",
-				(false, false) =>
-					"How many histogram buckets Time Profile rebins its merged bars into -- its input count is this plus 3 summary values",
-			};
 
 		private int TotalInputCount =>
 			SelectedEncoderKinds.Sum(k => BrainCatalog.CreateEncoder(k, CurrentEncoderSizeOptions).FeatureCount);
@@ -953,131 +421,164 @@ namespace Poink.Sim.Components.Training
 		private int TraderStateFeatureCount => FeatureCountFor(EncoderKind.TraderState);
 
 		private int TimeSeriesInputsFeatureCount =>
-			(_includeBarWindow ? BarWindowFeatureCount : 0)
-			+ (_includeVolumeProfile ? VolumeProfileFeatureCount : 0)
-			+ (_includeTimeProfile ? TimeProfileFeatureCount : 0)
-			+ (_includeSessionClock ? SessionClockFeatureCount : 0)
-			+ (_includeSpreadVolatility ? SpreadVolatilityFeatureCount : 0);
+			(_state.IncludeBarWindow ? BarWindowFeatureCount : 0)
+			+ (_state.IncludeVolumeProfile ? VolumeProfileFeatureCount : 0)
+			+ (_state.IncludeTimeProfile ? TimeProfileFeatureCount : 0)
+			+ (_state.IncludeSessionClock ? SessionClockFeatureCount : 0)
+			+ (_state.IncludeSpreadVolatility ? SpreadVolatilityFeatureCount : 0);
 
-		private int? FirstHiddenLayerSize =>
-			_architectureKind switch
-			{
-				ArchitectureKind.Mlp => EffectiveMlpHiddenSizes.Count > 0 ? EffectiveMlpHiddenSizes[0] : null,
-				ArchitectureKind.Cnn => EffectiveCnnChannels.Count > 0 ? EffectiveCnnChannels[0] : null,
-				_ => _lstmHiddenSize,
-			};
+		private const int TotalMaskRuleCount = 5;
 
-		private bool FirstLayerTooSmall => FirstHiddenLayerSize is int size && size < TotalInputCount;
-
-		private const int TotalActionOptionCount = 7;
-
-		private int SelectedActionCount =>
-			DirectionCount
-			+ (_includeVolumeOutput ? 1 : 0)
-			+ (_includeStopLossOutput ? 1 : 0)
-			+ (_includeTakeProfitOutput ? 1 : 0);
-
-		private bool AllActionsSelected
-		{
-			get => SelectedActionCount == TotalActionOptionCount;
-			set
-			{
-				_includeHold = value;
-				_includeEnterLong = value;
-				_includeEnterShort = value;
-				_includeClose = value;
-				_includeVolumeOutput = value;
-				_includeStopLossOutput = value;
-				_includeTakeProfitOutput = value;
-			}
-		}
-
-		private IReadOnlyList<string> EnabledDirectionLabels
+		private List<DirectionMaskRuleKind> SelectedMaskRuleKinds
 		{
 			get
 			{
-				var labels = new List<string>();
-				if (_includeHold)
-					labels.Add("Hold");
-				if (_includeEnterLong)
-					labels.Add("Enter Long");
-				if (_includeEnterShort)
-					labels.Add("Enter Short");
-				if (_includeClose)
-					labels.Add("Close");
-				return labels;
+				var kinds = new List<DirectionMaskRuleKind>();
+				if (_state.MaskPositionRequiredForClose)
+					kinds.Add(DirectionMaskRuleKind.PositionRequiredForClose);
+				if (_state.MaskFlatRequiredForEntry)
+					kinds.Add(DirectionMaskRuleKind.FlatRequiredForEntry);
+				if (_state.MaskLongRequiresUpSignal)
+					kinds.Add(DirectionMaskRuleKind.LongRequiresUpSignal);
+				if (_state.MaskShortRequiresDownSignal)
+					kinds.Add(DirectionMaskRuleKind.ShortRequiresDownSignal);
+				if (_state.MaskKeyLevelRequiredForClose)
+					kinds.Add(DirectionMaskRuleKind.KeyLevelRequiredForClose);
+				return kinds;
 			}
 		}
 
-		private int DirectionCount => EnabledDirectionLabels.Count;
-
-		private int VolumeOutputWidth =>
-			BrainCatalog
-				.CreateActionOutputHead(ActionOutputKind.Volume, ActionOutputEncodingKind.DiscretizedLevels)
-				.OutputWidth;
-
-		private int StopLossOutputWidth =>
-			BrainCatalog
-				.CreateActionOutputHead(ActionOutputKind.StopLoss, ActionOutputEncodingKind.DiscretizedLevels)
-				.OutputWidth;
-
-		private int TakeProfitOutputWidth =>
-			BrainCatalog
-				.CreateActionOutputHead(ActionOutputKind.TakeProfit, ActionOutputEncodingKind.DiscretizedLevels)
-				.OutputWidth;
-
-		private int TotalOutputWidth =>
-			DirectionCount
-			+ (_includeVolumeOutput ? VolumeOutputWidth : 0)
-			+ (_includeStopLossOutput ? StopLossOutputWidth : 0)
-			+ (_includeTakeProfitOutput ? TakeProfitOutputWidth : 0);
-
-		private string DecodingLabel =>
-			_decisionDecoding switch
+		private List<DecisionMaskRuleKind> SelectedDecisionMaskRuleKinds
+		{
+			get
 			{
-				DecisionDecodingKind.HardMax => "hardmax",
-				_ when _decisionTemperature != 1.0 => $"softmax @ T={_decisionTemperature:0.##}",
-				_ => "softmax",
+				var kinds = new List<DecisionMaskRuleKind>();
+				if (_state.MaskDecisionPriceBelowPoc)
+					kinds.Add(DecisionMaskRuleKind.PriceBelowPoc);
+				return kinds;
+			}
+		}
+
+		private NeatHyperparameters CurrentNeatHyperparameters =>
+			new(
+				_state.NeatPopulationSize,
+				_state.NeatCompatibilityThreshold,
+				_state.NeatExcessCoefficient,
+				_state.NeatDisjointCoefficient,
+				_state.NeatWeightDiffCoefficient,
+				_state.NeatSurvivalThreshold,
+				_state.NeatWeightMutationRate,
+				_state.NeatWeightResetChance,
+				_state.NeatWeightPerturbStdDev,
+				_state.NeatAddConnectionMutationRate,
+				_state.NeatAddNodeMutationRate,
+				_state.NeatDisableInheritedGeneChance,
+				_state.NeatInterspeciesMatingRate,
+				_state.NeatStagnationGenerations,
+				_state.NeatElitismMinSpeciesSize
+			);
+
+		private IReadOnlyList<int> CurrentHiddenSizes =>
+			_state.ArchitectureKind switch
+			{
+				ArchitectureKind.Mlp => EffectiveMlpHiddenSizes,
+				ArchitectureKind.Cnn => [_state.CnnKernelSize, .. EffectiveCnnChannels],
+				ArchitectureKind.Neat => [],
+				_ => [_state.LstmHiddenSize, _state.LstmNumLayers],
 			};
+
+		private List<ActionOutputKind> SelectedActionOutputKinds
+		{
+			get
+			{
+				var kinds = new List<ActionOutputKind>();
+				if (_state.IncludeVolumeOutput)
+					kinds.Add(ActionOutputKind.Volume);
+				if (_state.IncludeStopLossOutput)
+					kinds.Add(ActionOutputKind.StopLoss);
+				if (_state.IncludeTakeProfitOutput)
+					kinds.Add(ActionOutputKind.TakeProfit);
+				return kinds;
+			}
+		}
+
+		private List<SimulationAction> SelectedEnabledDirections
+		{
+			get
+			{
+				var directions = new List<SimulationAction>();
+				if (_state.IncludeHold)
+					directions.Add(SimulationAction.Hold);
+				if (_state.IncludeEnterLong)
+					directions.Add(SimulationAction.EnterLong);
+				if (_state.IncludeEnterShort)
+					directions.Add(SimulationAction.EnterShort);
+				if (_state.IncludeClose)
+					directions.Add(SimulationAction.Close);
+				return directions;
+			}
+		}
+
+		private BrainRecipe CurrentRecipe =>
+			new(
+				SelectedEncoderKinds.ToList(),
+				_state.ArchitectureKind,
+				CurrentHiddenSizes.ToList(),
+				SelectedActionOutputKinds.Count > 0 ? SelectedActionOutputKinds : null,
+				ActionOutputEncodingKind.DiscretizedLevels,
+				SelectedEnabledDirections.Count > 0 ? SelectedEnabledDirections : null,
+				CurrentEncoderSizeOptions,
+				_state.DecisionDecoding,
+				_state.DecisionTemperature,
+				_state.CnnKernelSweepSource,
+				SelectedMaskRuleKinds,
+				CurrentNeatHyperparameters,
+				_state.DecisionMaskResolution,
+				_state.DecisionMaskResolutionSeconds,
+				_state.DecisionMaskResolutionCellWidth,
+				SelectedDecisionMaskRuleKinds
+			);
+
+		public BrainRecipe CurrentConfigRecipe => CurrentRecipe;
 
 		private string AutoBuildBrainName
 		{
 			get
 			{
-				string arch = _architectureKind switch
+				string arch = _state.ArchitectureKind switch
 				{
 					ArchitectureKind.Mlp => "MLP",
 					ArchitectureKind.Lstm => "LSTM",
-					_ => _architectureKind.ToString().ToUpperInvariant(),
+					_ => _state.ArchitectureKind.ToString().ToUpperInvariant(),
 				};
 
-				string layers = _architectureKind switch
+				string layers = _state.ArchitectureKind switch
 				{
 					ArchitectureKind.Mlp => string.Join("-", EffectiveMlpHiddenSizes.Select(n => $"L{n}")),
-					ArchitectureKind.Cnn => $"K{_cnnKernelSize}-"
+					ArchitectureKind.Cnn => $"K{_state.CnnKernelSize}-"
 						+ string.Join("-", EffectiveCnnChannels.Select(n => $"C{n}"))
-						+ (_cnnKernelSweepSource == CnnKernelSweepSource.VolumeProfile ? "-sweepVP" : ""),
-					_ => $"H{_lstmHiddenSize}-N{_lstmNumLayers}",
+						+ (_state.CnnKernelSweepSource == CnnKernelSweepSource.VolumeProfile ? "-sweepVP" : ""),
+					_ => $"H{_state.LstmHiddenSize}-N{_state.LstmNumLayers}",
 				};
 
 				var dataParts = new List<string>();
-				if (_includeBarWindow)
-					dataParts.Add(NormalizationTag(_barWindowNormalization, "BW"));
-				if (_includeVolumeProfile)
+				if (_state.IncludeBarWindow)
+					dataParts.Add(NormalizationTag(_state.BarWindowNormalization, "BW"));
+				if (_state.IncludeVolumeProfile)
 				{
-					string vpTag = NormalizationTag(_volumeProfileNormalization, "VP");
-					dataParts.Add(_volumeProfileSplitUpDown ? $"{vpTag}-split" : vpTag);
+					string vpTag = NormalizationTag(_state.VolumeProfileNormalization, "VP");
+					dataParts.Add(_state.VolumeProfileSplitUpDown ? $"{vpTag}-split" : vpTag);
 				}
-				if (_includeTimeProfile)
+				if (_state.IncludeTimeProfile)
 				{
-					string tpTag = _timeProfileNormalization == NormalizationKind.Raw ? "dTPR" : "dTP";
-					dataParts.Add(_timeProfileSplitUpDown ? $"{tpTag}-split" : tpTag);
+					string tpTag = _state.TimeProfileNormalization == NormalizationKind.Raw ? "dTPR" : "dTP";
+					dataParts.Add(_state.TimeProfileSplitUpDown ? $"{tpTag}-split" : tpTag);
 				}
-				if (_includeSessionClock)
+				if (_state.IncludeSessionClock)
 					dataParts.Add("dSC");
-				if (_includeSpreadVolatility)
+				if (_state.IncludeSpreadVolatility)
 					dataParts.Add("dSV");
-				if (_includeTraderState)
+				if (_state.IncludeTraderState)
 					dataParts.Add("dAS");
 				if (AnyXGridSignalSelected)
 					dataParts.Add("dXG");
@@ -1086,26 +587,26 @@ namespace Poink.Sim.Components.Training
 				string name = string.IsNullOrEmpty(layers) ? $"{arch}_{data}" : $"{arch}_{layers}_{data}";
 
 				var actionParts = new List<string>();
-				if (!_includeHold)
+				if (!_state.IncludeHold)
 					actionParts.Add("noHOLD");
-				if (!_includeEnterLong)
+				if (!_state.IncludeEnterLong)
 					actionParts.Add("noLONG");
-				if (!_includeEnterShort)
+				if (!_state.IncludeEnterShort)
 					actionParts.Add("noSHORT");
-				if (!_includeClose)
+				if (!_state.IncludeClose)
 					actionParts.Add("noCLOSE");
-				if (_includeVolumeOutput)
+				if (_state.IncludeVolumeOutput)
 					actionParts.Add("aVOL");
-				if (_includeStopLossOutput)
+				if (_state.IncludeStopLossOutput)
 					actionParts.Add("aSL");
-				if (_includeTakeProfitOutput)
+				if (_state.IncludeTakeProfitOutput)
 					actionParts.Add("aTP");
-				if (_decisionDecoding == DecisionDecodingKind.HardMax)
+				if (_state.DecisionDecoding == DecisionDecodingKind.HardMax)
 					actionParts.Add("hardmax");
-				else if (_decisionTemperature != 1.0)
-					actionParts.Add($"T{_decisionTemperature:0.##}");
-				if (SelectedMaskRuleCount != TotalMaskRuleCount)
-					actionParts.Add($"mask{SelectedMaskRuleCount}");
+				else if (_state.DecisionTemperature != 1.0)
+					actionParts.Add($"T{_state.DecisionTemperature:0.##}");
+				if (SelectedMaskRuleKinds.Count != TotalMaskRuleCount)
+					actionParts.Add($"mask{SelectedMaskRuleKinds.Count}");
 				return actionParts.Count == 0 ? name : $"{name}_{string.Join("-", actionParts)}";
 			}
 		}
@@ -1135,69 +636,6 @@ namespace Poink.Sim.Components.Training
 				_buildBrainName = AutoBuildBrainName;
 		}
 
-		private IReadOnlyList<int> CurrentHiddenSizes =>
-			_architectureKind switch
-			{
-				ArchitectureKind.Mlp => EffectiveMlpHiddenSizes,
-				ArchitectureKind.Cnn => [_cnnKernelSize, .. EffectiveCnnChannels],
-				ArchitectureKind.Neat => [],
-				_ => [_lstmHiddenSize, _lstmNumLayers],
-			};
-
-		private List<ActionOutputKind> SelectedActionOutputKinds
-		{
-			get
-			{
-				var kinds = new List<ActionOutputKind>();
-				if (_includeVolumeOutput)
-					kinds.Add(ActionOutputKind.Volume);
-				if (_includeStopLossOutput)
-					kinds.Add(ActionOutputKind.StopLoss);
-				if (_includeTakeProfitOutput)
-					kinds.Add(ActionOutputKind.TakeProfit);
-				return kinds;
-			}
-		}
-
-		private List<SimulationAction> SelectedEnabledDirections
-		{
-			get
-			{
-				var directions = new List<SimulationAction>();
-				if (_includeHold)
-					directions.Add(SimulationAction.Hold);
-				if (_includeEnterLong)
-					directions.Add(SimulationAction.EnterLong);
-				if (_includeEnterShort)
-					directions.Add(SimulationAction.EnterShort);
-				if (_includeClose)
-					directions.Add(SimulationAction.Close);
-				return directions;
-			}
-		}
-
-		private BrainRecipe CurrentRecipe =>
-			new(
-				SelectedEncoderKinds.ToList(),
-				_architectureKind,
-				CurrentHiddenSizes.ToList(),
-				SelectedActionOutputKinds.Count > 0 ? SelectedActionOutputKinds : null,
-				ActionOutputEncodingKind.DiscretizedLevels,
-				SelectedEnabledDirections.Count > 0 ? SelectedEnabledDirections : null,
-				CurrentEncoderSizeOptions,
-				_decisionDecoding,
-				_decisionTemperature,
-				_cnnKernelSweepSource,
-				SelectedMaskRuleKinds,
-				CurrentNeatHyperparameters,
-				_decisionMaskResolution,
-				_decisionMaskResolutionSeconds,
-				_decisionMaskResolutionCellWidth,
-				SelectedDecisionMaskRuleKinds
-			);
-
-		public BrainRecipe CurrentConfigRecipe => CurrentRecipe;
-
 		private void SaveBrain()
 		{
 			var name = EffectiveBuildBrainName;
@@ -1206,19 +644,19 @@ namespace Poink.Sim.Components.Training
 				BrainService.TryBuildBrain(
 					name,
 					SelectedEncoderKinds,
-					_architectureKind,
+					_state.ArchitectureKind,
 					CurrentHiddenSizes,
 					SelectedActionOutputKinds,
 					SelectedEnabledDirections,
 					CurrentEncoderSizeOptions,
-					_decisionDecoding,
-					_decisionTemperature,
-					_cnnKernelSweepSource,
+					_state.DecisionDecoding,
+					_state.DecisionTemperature,
+					_state.CnnKernelSweepSource,
 					SelectedMaskRuleKinds,
 					CurrentNeatHyperparameters,
-					_decisionMaskResolution,
-					_decisionMaskResolutionSeconds,
-					_decisionMaskResolutionCellWidth,
+					_state.DecisionMaskResolution,
+					_state.DecisionMaskResolutionSeconds,
+					_state.DecisionMaskResolutionCellWidth,
 					SelectedDecisionMaskRuleKinds
 				)
 			)
@@ -1245,19 +683,19 @@ namespace Poink.Sim.Components.Training
 				!BrainService.TryBuildDraftBrain(
 					EffectiveBuildBrainName,
 					SelectedEncoderKinds,
-					_architectureKind,
+					_state.ArchitectureKind,
 					CurrentHiddenSizes,
 					SelectedActionOutputKinds,
 					SelectedEnabledDirections,
 					CurrentEncoderSizeOptions,
-					_decisionDecoding,
-					_decisionTemperature,
-					_cnnKernelSweepSource,
+					_state.DecisionDecoding,
+					_state.DecisionTemperature,
+					_state.CnnKernelSweepSource,
 					SelectedMaskRuleKinds,
 					CurrentNeatHyperparameters,
-					_decisionMaskResolution,
-					_decisionMaskResolutionSeconds,
-					_decisionMaskResolutionCellWidth,
+					_state.DecisionMaskResolution,
+					_state.DecisionMaskResolutionSeconds,
+					_state.DecisionMaskResolutionCellWidth,
 					SelectedDecisionMaskRuleKinds
 				)
 			)

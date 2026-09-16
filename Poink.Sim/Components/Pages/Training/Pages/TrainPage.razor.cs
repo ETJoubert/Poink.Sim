@@ -83,6 +83,25 @@ namespace Poink.Sim.Components.Pages
 
 		private bool _controlsCollapsed;
 
+		private bool _leftPanelCollapsed;
+		private TrainLeftPanelTab _activeLeftPanelTab;
+
+		private enum TrainLeftPanelTab
+		{
+			EpisodeTiming,
+			Trader,
+			BrainConfig,
+		}
+
+		private bool _rightPanelCollapsed;
+		private TrainRightPanelTab _activeRightPanelTab;
+
+		private enum TrainRightPanelTab
+		{
+			TabOne,
+			TabTwo,
+		}
+
 		private List<TrainingResultSummary> _savedResults = [];
 		private string _saveResultsName = "";
 		private bool _showSaveResultsInput;

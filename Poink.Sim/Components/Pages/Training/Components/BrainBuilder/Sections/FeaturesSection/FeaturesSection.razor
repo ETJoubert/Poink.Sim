@@ -1,0 +1,292 @@
+@namespace Poink.Sim.Components.Training
+@using Poink.Sim.Brain.Neural
+@using Poink.Sim.Components.Charts
+
+<div class="train-buildbrain-input-stack">
+    <div class="train-card">
+        <div class="train-card-title-row">
+            <div class="train-card-title"
+                 title="Trailing-history market data sets -- Bar Window, Volume Profile, Time Profile, Session Clock, and Spread + Volatility">
+                Time Series Inputs</div>
+            @if (!_timeSeriesInputsHidden)
+            {
+                <span class="train-card-badge" title="Combined input count from every included set below">
+                    @TimeSeriesInputsFeatureCount</span>
+            }
+            <span class="train-card-title-actions">
+                <button type="button" class="train-btn-toggle" @onclick="() => _timeSeriesInputsHidden = !_timeSeriesInputsHidden"
+                        disabled="@Service.IsRunning" title="Collapse/expand this whole group of input sets">
+                    @(_timeSeriesInputsHidden ? "+ SHOW" : "- HIDE")
+                </button>
+            </span>
+        </div>
+        @if (!_timeSeriesInputsHidden)
+        {
+            <div class="train-timeseries-groups">
+                <div class="train-timeseries-set">
+                    <label class="train-brainrow-field" title="Trailing bar price window">
+                        <input type="checkbox" @bind="State.IncludeBarWindow" @bind:after="NotifyChanged" disabled="@Service.IsRunning" />
+                        Bar Window
+                    </label>
+                    <div class="train-card-fields-row">
+                        <label class="train-brainrow-field"
+                               title="Normalized feeds percent-change-from-current-price; Raw feeds the literal price; Local/Global Z-Score feed each bar's z-score against a sub-window's/the whole window's own mean and standard deviation instead; Binary feeds 1 if a bar's price is higher than the one before it, 0 if lower or equal">
+                            Normalization
+                            <select class="train-brainrow-select" value="@State.BarWindowNormalization"
+                                    @onchange="OnBarWindowNormalizationChanged" disabled="@(Service.IsRunning || !State.IncludeBarWindow)">
+                                <option value="Normalized">Normalized</option>
+                                <option value="Raw">Raw</option>
+                                <option value="LocalZScore">Local Z-Score</option>
+                                <option value="GlobalZScore">Global Z-Score</option>
+                                <option value="Binary">Binary</option>
+                            </select>
+                        </label>
+                        <label class="train-brainrow-field" title="How many trailing bars Bar Window feeds the network -- also its input count, 1 input per bar">
+                            Window
+                            <input class="train-brainrow-input" type="number" min="1" step="1"
+                                   @bind="State.BarWindowSize" @bind:after="NotifyChanged" disabled="@(Service.IsRunning || !State.IncludeBarWindow)" />
+                        </label>
+                        @if (State.BarWindowNormalization == NormalizationKind.LocalZScore)
+                        {
+                            <label class="train-brainrow-field" title="How many trailing bars each independently-normalized Local Z-Score sub-window covers">
+                                Z Sub-Window
+                                <input class="train-brainrow-input" type="number" min="1" step="1"
+                                       @bind="State.BarWindowZScoreSubWindowSize" @bind:after="NotifyChanged" disabled="@(Service.IsRunning || !State.IncludeBarWindow)" />
+                            </label>
+                        }
+                        @if (State.IncludeBarWindow)
+                        {
+                            <span class="train-card-badge" title="Input count contributed by Bar Window -- 1 input per bar">@BarWindowFeatureCount</span>
+                        }
+                    </div>
+                </div>
+
+                <div class="train-timeseries-set">
+                    <label class="train-brainrow-field"
+                           title="Volume histogram + point-of-control/value-area summary, merged from its Window's trailing bars">
+                        <input type="checkbox" @bind="State.IncludeVolumeProfile" @bind:after="NotifyChanged" disabled="@Service.IsRunning" />
+                        Volume Profile
+                    </label>
+                    <div class="train-card-fields-row">
+                        <label class="train-brainrow-field"
+                               title="Normalized feeds a fraction-of-total/percent-offset from current price; Raw feeds exact tick counts and exact price levels; Local/Global Z-Score feed each bucket's volume as a z-score against a sub-window's/the whole profile's own mean and standard deviation instead; Binary feeds 1 if a bucket's volume is higher than the bucket before it, 0 if lower or equal">
+                            Normalization
+                            <select class="train-brainrow-select" value="@State.VolumeProfileNormalization"
+                                    @onchange="OnVolumeProfileNormalizationChanged" disabled="@(Service.IsRunning || !State.IncludeVolumeProfile)">
+                                <option value="Normalized">Normalized</option>
+                                <option value="Raw">Raw</option>
+                                <option value="LocalZScore">Local Z-Score</option>
+                                <option value="GlobalZScore">Global Z-Score</option>
+                                <option value="Binary">Binary</option>
+                            </select>
+                        </label>
+                        <label class="train-brainrow-field" title="How many trailing bars Volume Profile merges into one profile each decision">
+                            Lookback
+                            <input class="train-brainrow-input" type="number" min="1" step="1"
+                                   @bind="State.VolumeProfileLookbackBars" @bind:after="NotifyChanged" disabled="@(Service.IsRunning || !State.IncludeVolumeProfile)" />
+                        </label>
+                        <label class="train-brainrow-field" title="@VolumeProfileBucketsTooltip">
+                            Bucket
+                            <input class="train-brainrow-input" type="number" min="1" step="1"
+                                   @bind="State.VolumeProfileBucketCount" @bind:after="NotifyChanged" disabled="@(Service.IsRunning || !State.IncludeVolumeProfile)" />
+                        </label>
+                        @if (State.VolumeProfileNormalization == NormalizationKind.LocalZScore)
+                        {
+                            <label class="train-brainrow-field" title="How many buckets each independently-normalized Local Z-Score sub-window covers">
+                                Z Sub-Window
+                                <input class="train-brainrow-input" type="number" min="1" step="1"
+                                       @bind="State.VolumeProfileZScoreSubWindowSize" @bind:after="NotifyChanged" disabled="@(Service.IsRunning || !State.IncludeVolumeProfile)" />
+                            </label>
+                        }
+                        <label class="train-brainrow-field"
+                               title="Split each bucket's volume into up-tick/down-tick totals plus their diff, instead of one plain total -- mirrors the Volume Profile chart's own Split up/down toggle">
+                            <input type="checkbox" @bind="State.VolumeProfileSplitUpDown" @bind:after="NotifyChanged" disabled="@(Service.IsRunning || !State.IncludeVolumeProfile)" />
+                            Split Up/Down
+                        </label>
+                        @if (State.IncludeVolumeProfile)
+                        {
+                            <span class="train-card-badge" title="Input count contributed by Volume Profile">@VolumeProfileFeatureCount</span>
+                        }
+                    </div>
+                </div>
+
+                <div class="train-timeseries-set">
+                    <label class="train-brainrow-field"
+                           title="Time-weighted histogram + point-of-control/value-area summary (seconds spent at each price level), merged from its Window's trailing bars">
+                        <input type="checkbox" @bind="State.IncludeTimeProfile" @bind:after="NotifyChanged" disabled="@Service.IsRunning" />
+                        Time Profile
+                    </label>
+                    <div class="train-card-fields-row">
+                        <label class="train-brainrow-field"
+                               title="Normalized feeds a fraction-of-total/percent-offset from current price; Raw feeds exact seconds spent and exact price levels instead">
+                            Normalization
+                            <select class="train-brainrow-select" value="@State.TimeProfileNormalization"
+                                    @onchange="OnTimeProfileNormalizationChanged" disabled="@(Service.IsRunning || !State.IncludeTimeProfile)">
+                                <option value="Normalized">Normalized</option>
+                                <option value="Raw">Raw</option>
+                            </select>
+                        </label>
+                        <label class="train-brainrow-field" title="How many trailing bars Time Profile merges into one profile each decision">
+                            Lookback
+                            <input class="train-brainrow-input" type="number" min="1" step="1"
+                                   @bind="State.TimeProfileLookbackBars" @bind:after="NotifyChanged" disabled="@(Service.IsRunning || !State.IncludeTimeProfile)" />
+                        </label>
+                        <label class="train-brainrow-field" title="@TimeProfileBucketsTooltip">
+                            Bucket
+                            <input class="train-brainrow-input" type="number" min="1" step="1"
+                                   @bind="State.TimeProfileBucketCount" @bind:after="NotifyChanged" disabled="@(Service.IsRunning || !State.IncludeTimeProfile)" />
+                        </label>
+                        <label class="train-brainrow-field"
+                               title="Split each bucket's seconds into up-tick/down-tick totals plus their diff, instead of one plain total -- mirrors the Volume Profile chart's own Split up/down toggle">
+                            <input type="checkbox" @bind="State.TimeProfileSplitUpDown" @bind:after="NotifyChanged" disabled="@(Service.IsRunning || !State.IncludeTimeProfile)" />
+                            Split Up/Down
+                        </label>
+                        @if (State.IncludeTimeProfile)
+                        {
+                            <span class="train-card-badge" title="Input count contributed by Time Profile">@TimeProfileFeatureCount</span>
+                        }
+                    </div>
+                </div>
+
+                <div class="train-timeseries-set">
+                    <label class="train-brainrow-field"
+                           title="Time-of-day and day-of-week as sin/cos pairs -- captures recurring FX session structure (Sydney/Tokyo/London/New York open-close, weekend closure)">
+                        <input type="checkbox" @bind="State.IncludeSessionClock" @bind:after="NotifyChanged" disabled="@Service.IsRunning" />
+                        Session Clock
+                    </label>
+                    @if (State.IncludeSessionClock)
+                    {
+                        <span class="train-card-badge" title="Input count contributed by Session Clock -- fixed 4 values, no configuration">
+                            @SessionClockFeatureCount</span>
+                    }
+                </div>
+
+                <div class="train-timeseries-set">
+                    <label class="train-brainrow-field"
+                           title="Current Bid/Ask spread plus a short trailing Average True Range -- how expensive trading is right now, and how much price is actually moving">
+                        <input type="checkbox" @bind="State.IncludeSpreadVolatility" @bind:after="NotifyChanged" disabled="@Service.IsRunning" />
+                        Spread + Volatility
+                    </label>
+                    <div class="train-card-fields-row">
+                        <label class="train-brainrow-field" title="How many trailing bars the Average True Range figure averages over">
+                            ATR Period
+                            <input class="train-brainrow-input" type="number" min="1" step="1"
+                                   @bind="State.SpreadVolatilityAtrPeriod" @bind:after="NotifyChanged" disabled="@(Service.IsRunning || !State.IncludeSpreadVolatility)" />
+                        </label>
+                        @if (State.IncludeSpreadVolatility)
+                        {
+                            <span class="train-card-badge" title="Input count contributed by Spread + Volatility -- fixed 2 values (spread, ATR)">@SpreadVolatilityFeatureCount</span>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+
+    <div class="train-card">
+        <div class="train-card-title-row">
+            <label class="train-brainrow-field"
+                   title="Own position/capital state -- opt-in, unchecked by default; check it if this brain needs to know whether it already holds a position">
+                <input type="checkbox" @bind="State.IncludeTraderState" @bind:after="NotifyChanged" disabled="@Service.IsRunning" />
+                <span class="train-card-title">Trader State</span>
+            </label>
+            <span class="train-card-badge" title="Input count contributed by Trader State -- the enabled state fields plus the enabled trailing lists below">
+                @TraderStateFeatureCount</span>
+        </div>
+        <div class="train-buildbrain-card-fields">
+            <label class="train-brainrow-field" title="Toggle every state field below on or off at once">
+                <input type="checkbox" @bind="AllTraderStateBaseFieldsSelected" @bind:after="NotifyChanged" disabled="@(Service.IsRunning || !State.IncludeTraderState)" />
+                Select All Fields (@SelectedTraderStateFieldCount/@TotalTraderStateFieldCount)
+            </label>
+            <div class="train-card-fields-row">
+                @foreach (var row in TraderStateFieldRows)
+                {
+                    <label class="train-brainrow-field" title="@row.Tooltip">
+                        <input type="checkbox" checked="@row.Get()"
+                               @onchange="e => OnTraderStateFieldRowChanged(row, e)"
+                               disabled="@(Service.IsRunning || !State.IncludeTraderState)" />
+                        @row.Label
+                    </label>
+                }
+            </div>
+            <label class="train-brainrow-field" title="Toggle every trailing list below on or off at once">
+                <input type="checkbox" @bind="AllTraderStateListsSelected" @bind:after="NotifyChanged" disabled="@(Service.IsRunning || !State.IncludeTraderState)" />
+                Select All Lists
+            </label>
+            <div class="train-card-fields-row">
+                <label class="train-brainrow-field"
+                       title="How many of the most recent closed trades' win(1)/loss(0) outcome Trader State feeds, most-recent-last, zero-padded if fewer trades have closed yet">
+                    <input type="checkbox" @bind="State.IncludeTraderStateOutcomes" @bind:after="NotifyChanged" disabled="@(Service.IsRunning || !State.IncludeTraderState)" />
+                    Outcomes
+                    <input class="train-brainrow-input" type="number" min="1" step="1" @bind="State.TraderStateTradeOutcomeListLength" @bind:after="NotifyChanged"
+                           disabled="@(Service.IsRunning || !State.IncludeTraderState || !State.IncludeTraderStateOutcomes)" />
+                </label>
+                <label class="train-brainrow-field"
+                       title="How many trailing price records since the open position's own entry time Trader State compares against entry price (1 above, 0 at-or-below), most-recent-last, zero-padded -- flat (no position) leaves this list zero-padded regardless">
+                    <input type="checkbox" @bind="State.IncludeTraderStatePositionLevel" @bind:after="NotifyChanged" disabled="@(Service.IsRunning || !State.IncludeTraderState)" />
+                    Level
+                    <input class="train-brainrow-input" type="number" min="1" step="1" @bind="State.TraderStatePositionLevelListLength" @bind:after="NotifyChanged"
+                           disabled="@(Service.IsRunning || !State.IncludeTraderState || !State.IncludeTraderStatePositionLevel)" />
+                </label>
+                <label class="train-brainrow-field"
+                       title="How many of the most recent closed trades' direction (1=Long, 0=Short) Trader State feeds, index-aligned with Outcomes">
+                    <input type="checkbox" @bind="State.IncludeTraderStateDirection" @bind:after="NotifyChanged" disabled="@(Service.IsRunning || !State.IncludeTraderState)" />
+                    Direction
+                    <input class="train-brainrow-input" type="number" min="1" step="1" @bind="State.TraderStateDirectionListLength" @bind:after="NotifyChanged"
+                           disabled="@(Service.IsRunning || !State.IncludeTraderState || !State.IncludeTraderStateDirection)" />
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <div class="train-card train-card-xgrid">
+        <div class="train-card-title-row">
+            <div class="train-card-title"
+                 title="XGrid's boolean footprint signals -- current cell's rank/at/above/below relationship to POC/VAH/VAL/VWAP, computed over a trailing window of bars">
+                XGrid Signals</div>
+            <span class="train-card-badge"
+                  title="How many of the available XGrid signals are enabled">
+                @SelectedXGridSignalCount/@TotalXGridSignalCount</span>
+        </div>
+        <div class="train-buildbrain-card-fields">
+            <label class="train-brainrow-field" title="Toggle every XGrid signal below on or off at once">
+                <input type="checkbox" @bind="AllXGridSignalsSelected" @bind:after="NotifyChanged" disabled="@Service.IsRunning" />
+                Select All
+            </label>
+            <div class="train-card-fields-row">
+                <label class="train-brainrow-field"
+                       title="Percent threshold for the Rank signals -- current cell counts as 'top %' when its tick count ranks in this top percent of every nonzero cell on the grid">
+                    %
+                    <input class="train-brainrow-input" type="number" min="0" max="100" step="1"
+                           @bind="State.XGridTopPercent" @bind:after="NotifyChanged" disabled="@(Service.IsRunning || !AnyXGridSignalSelected)" />
+                </label>
+                <label class="train-brainrow-field"
+                       title="How many columns (time buckets) XGrid's footprint grid is divided into over its trailing Window">
+                    Col
+                    <input class="train-brainrow-input" type="number" min="1" step="1"
+                           @bind="State.XGridColCount" @bind:after="NotifyChanged" disabled="@(Service.IsRunning || !AnyXGridSignalSelected)" />
+                </label>
+                <label class="train-brainrow-field"
+                       title="Row height in pips -- multiplied by Pip below for each row's fixed price height. Rows snap to an absolute price grid, so how many of them XGrid's footprint grid needs is derived from the price range rather than fixed">
+                    Row
+                    <input class="train-brainrow-input" type="number" min="1" step="1"
+                           @bind="State.XGridRowCount" @bind:after="NotifyChanged" disabled="@(Service.IsRunning || !AnyXGridSignalSelected)" />
+                </label>
+                <label class="train-brainrow-field"
+                       title="Price size of one pip -- row height = Row x Pip">
+                    Pip
+                    <input class="train-brainrow-input" type="number" min="0.00001" step="0.001"
+                           @bind="State.XGridPipSize" @bind:after="NotifyChanged" disabled="@(Service.IsRunning || !AnyXGridSignalSelected)" />
+                </label>
+                <label class="train-brainrow-field"
+                       title="How many trailing bars XGrid computes its footprint grid over each decision">
+                    Window
+                    <input class="train-brainrow-input" type="number" min="1" step="1"
+                           @bind="State.XGridWindowBars" @bind:after="NotifyChanged" disabled="@(Service.IsRunning || !AnyXGridSignalSelected)" />
+                </label>
+            </div>
+            <XGridSignalInputTable @bind-EnabledKeys="State.XGridEnabledSignals" @bind-EnabledKeys:after="NotifyChanged"
+                                    Mode="XGridSignalInputMode.Independent" Disabled="Service.IsRunning" />
+        </div>
+    </div>
+</div>
