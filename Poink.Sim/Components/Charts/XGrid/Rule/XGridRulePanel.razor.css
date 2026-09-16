@@ -30,6 +30,29 @@
     text-shadow: 0 0 4px var(--color-success);
 }
 
+.xgrid-rule-copy {
+    font-size: 0.52rem;
+    font-weight: bold;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--color-secondary);
+    background: color-mix(in srgb, var(--color-secondary) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-secondary) 30%, transparent);
+    border-radius: var(--border-radius-sm);
+    padding: 3px 6px;
+    cursor: pointer;
+}
+
+.xgrid-rule-copy:hover:not(:disabled) {
+    color: var(--color-primary);
+    border-color: var(--color-primary);
+}
+
+.xgrid-rule-copy:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+
 .xgrid-rule-percent {
     display: flex;
     align-items: center;

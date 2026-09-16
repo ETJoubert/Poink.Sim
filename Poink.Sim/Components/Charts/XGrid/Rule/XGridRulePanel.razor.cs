@@ -6,10 +6,7 @@ using Microsoft.AspNetCore.Components;
 
 namespace Poink.Sim.Components.Charts
 {
-	/// <summary>
-	/// Above/In/Below mask table over every XGridSignalCatalog entry, with the live grid's own
-	/// Above/In/Below state and a per-row match dot built into the same row for exact alignment.
-	/// </summary>
+	/// <summary>Above/In/Below mask table with the live grid's state and a per-row match dot alongside it.</summary>
 	public partial class XGridRulePanel : ComponentBase
 	{
 		private const int MaxLogEntries = 20;
@@ -52,6 +49,13 @@ namespace Poink.Sim.Components.Charts
 			return LiveValue(key) ? "match" : "no-match";
 		}
 
+		// Whichever of a row's three keys is currently true against the live grid, if any.
+		private string? LiveKey(XGridRuleRow row) =>
+			row.AboveKey is { } above && LiveValue(above) ? above
+			: row.InKey is { } inKey && LiveValue(inKey) ? inKey
+			: row.BelowKey is { } below && LiveValue(below) ? below
+			: null;
+
 		// AND across every enabled key -- the mask matches only when all its constraints hold at once.
 		private bool IsMatching =>
 			Grid is { } grid
@@ -70,6 +74,24 @@ namespace Poink.Sim.Components.Charts
 				EnabledKeys.Remove(row.BelowKey);
 			if (!wasSelected)
 				EnabledKeys.Add(key);
+			await EnabledKeysChanged.InvokeAsync(EnabledKeys);
+		}
+
+		private async Task CopyLiveToSelector()
+		{
+			if (Grid is null)
+				return;
+			foreach (var row in Rows)
+			{
+				if (row.AboveKey is not null)
+					EnabledKeys.Remove(row.AboveKey);
+				if (row.InKey is not null)
+					EnabledKeys.Remove(row.InKey);
+				if (row.BelowKey is not null)
+					EnabledKeys.Remove(row.BelowKey);
+				if (LiveKey(row) is { } key)
+					EnabledKeys.Add(key);
+			}
 			await EnabledKeysChanged.InvokeAsync(EnabledKeys);
 		}
 
