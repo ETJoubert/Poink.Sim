@@ -29,7 +29,7 @@ public readonly record struct XGridLevel(double Price, int Row);
 /// <summary>
 /// Full grid output. SweepLeftToRight/SweepRightToLeft/SweepSum count, per row, how many Volume-Range-sweep
 /// steps landed their window's POC there (see <see cref="XGridStats.Compute"/>). Vah/Val/Vwap/Average/Median/
-/// TotalPeak/UpPeak/DownPeak are null when there isn't enough data for that level; TotalPeak/UpPeak/DownPeak
+/// RegressionLine/TotalPeak/UpPeak/DownPeak are null when there isn't enough data for that level; TotalPeak/UpPeak/DownPeak
 /// are computed independently from Poc and can land on a different row. NetByColumn is the running
 /// cumulative SBuy - SSell, one point per column.
 /// </summary>
@@ -58,6 +58,7 @@ public readonly record struct XGridResult(
 	XGridLevel? Vwap,
 	XGridLevel? Average,
 	XGridLevel? Median,
+	XGridLevel? RegressionLine,
 	XGridLevel? TotalPeak,
 	XGridLevel? UpPeak,
 	XGridLevel? DownPeak,
@@ -265,6 +266,7 @@ internal static class XGridStats
 		}
 		var vwap = ToLevel(totalVolume > 0 ? (double?)(totalPriceVolume / totalVolume) : null);
 		var current = ToLevel(bars[indices[^1]].Close);
+		var regressionLine = ToLevel(ComputeRegressionCurrent(bars, indices));
 
 		XGridLevel? PeakLevel(double[] rowSums)
 		{
@@ -307,11 +309,41 @@ internal static class XGridStats
 			vwap,
 			average,
 			median,
+			regressionLine,
 			totalPeak,
 			upPeak,
 			downPeak,
 			current
 		);
+	}
+
+	// Ordinary-least-squares fit of Close against bar position, evaluated at the last (current) bar.
+	private static double? ComputeRegressionCurrent(IReadOnlyList<HlocAvdtBar> bars, List<int> indices)
+	{
+		int n = indices.Count;
+		if (n < 2)
+			return null;
+
+		double sumX = 0,
+			sumY = 0,
+			sumXY = 0,
+			sumXX = 0;
+		for (var x = 0; x < n; x++)
+		{
+			double y = bars[indices[x]].Close;
+			sumX += x;
+			sumY += y;
+			sumXY += x * y;
+			sumXX += (double)x * x;
+		}
+
+		double denominator = n * sumXX - sumX * sumX;
+		if (denominator == 0)
+			return null;
+
+		double slope = (n * sumXY - sumX * sumY) / denominator;
+		double intercept = (sumY - slope * sumX) / n;
+		return slope * (n - 1) + intercept;
 	}
 
 	// Walks every position of the Volume Range's near border, one raw bar at a time, tallying
@@ -416,6 +448,10 @@ internal static class XGridStats
 	public static bool IsCurrentAboveVwap(XGridResult grid) => IsCurrentAboveLevel(grid, grid.Vwap);
 
 	public static bool IsCurrentBelowVwap(XGridResult grid) => IsCurrentBelowLevel(grid, grid.Vwap);
+
+	public static bool IsCurrentAboveRegressionLine(XGridResult grid) => IsCurrentAboveLevel(grid, grid.RegressionLine);
+
+	public static bool IsCurrentBelowRegressionLine(XGridResult grid) => IsCurrentBelowLevel(grid, grid.RegressionLine);
 
 	// Level-vs-level comparison -- same price-for-above/below, row-for-at split as
 	// IsCurrentAboveLevel/IsCurrentAtLevel, between two computed levels.
@@ -1093,6 +1129,28 @@ internal static class XGridSignalCatalog
 			Tooltip: "Current price is below the latest swing high's price (top % most prominent, adaptive)",
 			Predicate: (g, pct) =>
 				XGridStats.IsCurrentBelowHighLevel(g, new XGridPeakSettings(XGridPeakMode.Adaptive, 0, pct, 10))
+		),
+		new XGridSignalDef(
+			Key: "above-reg",
+			RowKey: "reg",
+			RowLabel: "Reg",
+			ColorVar: "--color-badge-2",
+			Direction: XGridSignalDirection.Above,
+			Group: "Above",
+			Label: "Above Regression",
+			Tooltip: "Current price is above the linear regression line fitted over the trailing window",
+			Predicate: (g, _) => XGridStats.IsCurrentAboveRegressionLine(g)
+		),
+		new XGridSignalDef(
+			Key: "below-reg",
+			RowKey: "reg",
+			RowLabel: "Reg",
+			ColorVar: "--color-badge-2",
+			Direction: XGridSignalDirection.Below,
+			Group: "Below",
+			Label: "Below Regression",
+			Tooltip: "Current price is below the linear regression line fitted over the trailing window",
+			Predicate: (g, _) => XGridStats.IsCurrentBelowRegressionLine(g)
 		),
 		new XGridSignalDef(
 			Key: "vwap-above-poc",
