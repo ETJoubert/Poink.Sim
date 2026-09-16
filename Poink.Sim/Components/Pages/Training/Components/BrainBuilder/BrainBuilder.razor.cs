@@ -96,6 +96,19 @@ namespace Poink.Sim.Components.Training
 
 		private bool _showBuildPanel;
 
+		private BrainBuilderTab _activeBuildTab;
+
+		private enum BrainBuilderTab
+		{
+			Learning,
+			Inputs,
+			DecisionMasking,
+			Structure,
+			Actions,
+			ActionMasking,
+			ActionDecoding,
+		}
+
 		private void StartNewBrain()
 		{
 			ResetBuildFieldsToDefaults();

@@ -157,7 +157,7 @@
     <div class="train-config-group">
         <div class="train-config-group-header">
             <button type="button" class="train-config-collapse-btn" @onclick="ToggleControls"
-                    title="Show/hide the Data Range/Brain Type/.../Trader cards below -- collapse them once a run's parameters are set, to give the panels below more room"
+                    title="Show/hide the Data Range/Brain Type cards below -- collapse them once a run's parameters are set, to give the panels below more room"
                     aria-expanded="@(!_controlsCollapsed)">
                 <Icon Name="@(_controlsCollapsed ? "chevron-right" : "chevron-down")" Class="train-ctrl-icon" />
             </button>
@@ -172,11 +172,42 @@
                                         Disabled="Service.IsRunning" />
                     </div>
                 </div>
-                <div class="train-card train-card-full">
-                    <div class="train-card-title"
-                         title="How much data each episode/run consists of, and optionally which days/times of day an episode's start may fall in">
-                        Episode Timing</div>
-                        <div class="train-card-fields-row">
+                <BrainBuilder @ref="_brainBuilder" @bind-BrainName="_brainName" @bind-StrategyName="_strategyName"
+                              @bind-LearningRate="_learningRate" OnBrainCreated="HandleBrainCreated" />
+            </div>
+        }
+    </div>
+
+    <div class="train-body">
+        <aside class="train-left-side-panel @(_leftPanelCollapsed ? "train-left-side-panel-collapsed" : "")">
+            <div class="train-side-panel-header">
+                <button type="button" class="train-side-panel-toggle" @onclick="() => _leftPanelCollapsed = !_leftPanelCollapsed"
+                        title="@(_leftPanelCollapsed ? "Expand panel" : "Collapse panel")">
+                    <Icon Name="@(_leftPanelCollapsed ? "chevron-right" : "chevron-left")" Class="train-side-panel-toggle-icon" />
+                </button>
+                @if (!_leftPanelCollapsed)
+                {
+                    <span class="train-side-panel-label">RUN SETUP</span>
+                }
+            </div>
+            @if (!_leftPanelCollapsed)
+            {
+                <div class="train-side-panel-tabs">
+                    <button type="button" class="train-side-panel-tab @(_activeLeftPanelTab == TrainLeftPanelTab.EpisodeTiming ? "active" : "")"
+                            @onclick="() => _activeLeftPanelTab = TrainLeftPanelTab.EpisodeTiming"
+                            title="How much data each episode/run consists of, and optionally which days/times of day an episode's start may fall in">
+                        EPISODE TIMING
+                    </button>
+                    <button type="button" class="train-side-panel-tab @(_activeLeftPanelTab == TrainLeftPanelTab.Trader ? "active" : "")"
+                            @onclick="() => _activeLeftPanelTab = TrainLeftPanelTab.Trader"
+                            title="Starting capital, leverage, commission, stop-out and risk policies the simulated Trader begins each episode with">
+                        TRADER
+                    </button>
+                </div>
+                <div class="train-side-panel-content">
+                    @if (_activeLeftPanelTab == TrainLeftPanelTab.EpisodeTiming)
+                    {
+                        <div class="train-card-fields-row train-card-fields-col">
                             <label class="train-brainrow-field">
                                 Episodes
                                 <input class="train-brainrow-input train-brainrow-input-narrow" type="number" min="1"
@@ -227,82 +258,74 @@
 
                             @if (_restrictEpisodeTiming)
                             {
-                                <div class="train-card-fields-row">
-                                    <div class="train-brainrow-field" title="Which days of the week an episode may start on">
-                                        Weekdays
-                                        <div class="train-weekday-row">
-                                            @foreach (var day in WeekdayDisplayOrder)
-                                            {
-                                                <button type="button"
-                                                        class="train-btn-toggle @(_allowedWeekdays.Contains(day) ? "train-btn-toggle-active" : "")"
-                                                        @onclick="@(() => ToggleWeekday(day))" disabled="@Service.IsRunning"
-                                                        title="@day.ToString()">
-                                                    @WeekdayAbbreviation(day)
-                                                </button>
-                                            }
-                                        </div>
+                                <div class="train-brainrow-field" title="Which days of the week an episode may start on">
+                                    Weekdays
+                                    <div class="train-weekday-row">
+                                        @foreach (var day in WeekdayDisplayOrder)
+                                        {
+                                            <button type="button"
+                                                    class="train-btn-toggle @(_allowedWeekdays.Contains(day) ? "train-btn-toggle-active" : "")"
+                                                    @onclick="@(() => ToggleWeekday(day))" disabled="@Service.IsRunning"
+                                                    title="@day.ToString()">
+                                                @WeekdayAbbreviation(day)
+                                            </button>
+                                        }
                                     </div>
-                                    <label class="train-brainrow-field"
-                                           title="Time-of-day window an episode's decisions span, on each eligible day -- 24:00 means end of day">
-                                        Session
-                                        <input class="train-brainrow-input train-brainrow-input-narrow" type="text"
-                                               placeholder="00:00" @bind="SessionStartText" disabled="@Service.IsRunning" />
-                                        to
-                                        <input class="train-brainrow-input train-brainrow-input-narrow" type="text"
-                                               placeholder="24:00" @bind="SessionEndText" disabled="@Service.IsRunning" />
-                                    </label>
                                 </div>
+                                <label class="train-brainrow-field"
+                                       title="Time-of-day window an episode's decisions span, on each eligible day -- 24:00 means end of day">
+                                    Session
+                                    <input class="train-brainrow-input train-brainrow-input-narrow" type="text"
+                                           placeholder="00:00" @bind="SessionStartText" disabled="@Service.IsRunning" />
+                                    to
+                                    <input class="train-brainrow-input train-brainrow-input-narrow" type="text"
+                                           placeholder="24:00" @bind="SessionEndText" disabled="@Service.IsRunning" />
+                                </label>
                             }
                         </div>
-                    </div>
-
-                    <BrainBuilder @ref="_brainBuilder" @bind-BrainName="_brainName" @bind-StrategyName="_strategyName"
-                                  @bind-LearningRate="_learningRate" OnBrainCreated="HandleBrainCreated" />
-
-
-
-                    <div class="train-card train-card-full">
-                        <div class="train-card-title" title="Starting capital the simulated Trader begins each episode with">
-                            Trader</div>
-                            <div class="train-card-fields-row">
-                                <label class="train-brainrow-field">
-                                    Starting cash
-                                    <input class="train-brainrow-input" type="number" min="1" step="100" @bind="_startingCash"
-                                           disabled="@Service.IsRunning" />
-                                </label>
-                                <label class="train-brainrow-field"
-                                       title="Notional exposure per unit of margin committed -- 1 means no leverage">
-                                    Leverage
-                                    <input class="train-brainrow-input" type="number" min="1" step="1" @bind="_leverage"
-                                           disabled="@Service.IsRunning" />
-                                </label>
-                                <label class="train-brainrow-field"
-                                       title="Commission charged per fill, as a percent of that fill's notional value">
-                                    Commission %
-                                    <input class="train-brainrow-input" type="number" min="0" step="0.01"
-                                           @bind="_commissionRatePercent" disabled="@Service.IsRunning" />
-                                </label>
-                                <label class="train-brainrow-field"
-                                       title="Force-close the open position when Margin Level (Equity ÷ Margin Used) drops below this percent">
-                                    Stop-out %
-                                    <input class="train-brainrow-input" type="number" min="1" max="100" step="1"
-                                           @bind="_stopOutLevelPercent" disabled="@Service.IsRunning" />
-                                </label>
-                            </div>
+                    }
+                    else
+                    {
+                        <div class="train-card-fields-row train-card-fields-col">
+                            <label class="train-brainrow-field">
+                                Starting cash
+                                <input class="train-brainrow-input" type="number" min="1" step="100" @bind="_startingCash"
+                                       disabled="@Service.IsRunning" />
+                            </label>
+                            <label class="train-brainrow-field"
+                                   title="Notional exposure per unit of margin committed -- 1 means no leverage">
+                                Leverage
+                                <input class="train-brainrow-input" type="number" min="1" step="1" @bind="_leverage"
+                                       disabled="@Service.IsRunning" />
+                            </label>
+                            <label class="train-brainrow-field"
+                                   title="Commission charged per fill, as a percent of that fill's notional value">
+                                Commission %
+                                <input class="train-brainrow-input" type="number" min="0" step="0.01"
+                                       @bind="_commissionRatePercent" disabled="@Service.IsRunning" />
+                            </label>
+                            <label class="train-brainrow-field"
+                                   title="Force-close the open position when Margin Level (Equity ÷ Margin Used) drops below this percent">
+                                Stop-out %
+                                <input class="train-brainrow-input" type="number" min="1" max="100" step="1"
+                                       @bind="_stopOutLevelPercent" disabled="@Service.IsRunning" />
+                            </label>
                             @if (RiskPolicyService.AvailablePolicies.Count > 0)
                             {
-                                <div class="train-card-fields-row"
+                                <div class="train-brainrow-field"
                                      title="Risk policies gate every trade action -- permit, deny or resize it -- and supervise open positions during each episode">
-                                    <span class="train-brainrow-field">Risk policies</span>
+                                    Risk policies
                                     <PolicySelector Available="RiskPolicyService.AvailablePolicies" Selected="_selectedRiskPolicies"
                                                     Disabled="Service.IsRunning" OnChanged="StateHasChanged" />
                                 </div>
                             }
                         </div>
-                    </div>
-                }
-            </div>
+                    }
+                </div>
+            }
+        </aside>
 
+        <div class="train-main">
             <div class="train-tabs">
                 <button type="button" class="train-btn-toggle @(_activeTab == TrainTab.Live ? "train-btn-toggle-active" : "")"
                         @onclick="() => _activeTab = TrainTab.Live"
@@ -402,3 +425,34 @@
                     </div>
                 }
             </div>
+
+            <aside class="train-right-side-panel @(_rightPanelCollapsed ? "train-right-side-panel-collapsed" : "")">
+                <div class="train-side-panel-header">
+                    <button type="button" class="train-side-panel-toggle" @onclick="() => _rightPanelCollapsed = !_rightPanelCollapsed"
+                            title="@(_rightPanelCollapsed ? "Expand panel" : "Collapse panel")">
+                        <Icon Name="@(_rightPanelCollapsed ? "chevron-left" : "chevron-right")" Class="train-side-panel-toggle-icon" />
+                    </button>
+                    @if (!_rightPanelCollapsed)
+                    {
+                        <span class="train-side-panel-label">PANEL</span>
+                    }
+                </div>
+                @if (!_rightPanelCollapsed)
+                {
+                    <div class="train-side-panel-tabs">
+                        <button type="button" class="train-side-panel-tab @(_activeRightPanelTab == TrainRightPanelTab.TabOne ? "active" : "")"
+                                @onclick="() => _activeRightPanelTab = TrainRightPanelTab.TabOne" title="Placeholder tab">
+                            TAB 1
+                        </button>
+                        <button type="button" class="train-side-panel-tab @(_activeRightPanelTab == TrainRightPanelTab.TabTwo ? "active" : "")"
+                                @onclick="() => _activeRightPanelTab = TrainRightPanelTab.TabTwo" title="Placeholder tab">
+                            TAB 2
+                        </button>
+                    </div>
+                    <div class="train-side-panel-content">
+                        <p class="train-side-panel-placeholder">placeholder</p>
+                    </div>
+                }
+            </aside>
+        </div>
+    </div>

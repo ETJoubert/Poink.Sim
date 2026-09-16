@@ -85,37 +85,78 @@
                     <span class="train-brainrow-error">@_buildBrainStatus</span>
                 }
 
-                <div class="train-card-fields-row">
-                    <label class="train-brainrow-field">
-                        Strategy
-                        <select class="train-brainrow-select" value="@StrategyName" @onchange="OnStrategyChanged"
-                                disabled="@Service.IsRunning">
-                            @foreach (var name in Service.StrategyNames)
-                            {
-                                <option value="@name">@name</option>
-                            }
-                        </select>
-                    </label>
-                    <label class="train-brainrow-field"
-                           title="Which rules shape the per-decision reward -- Equity Drift is the raw, unshaped baseline; Trading Rules adds loss-aversion, an anti-churn entry cost, and a max-holding-time penalty on top of it">
-                        Reward Policy
-                        <select class="train-brainrow-select" value="@RewardPolicyService.SelectedPolicyName" @onchange="OnRewardPolicyChanged"
-                                disabled="@Service.IsRunning">
-                            @foreach (var name in RewardPolicyService.PolicyNames)
-                            {
-                                <option value="@name">@name</option>
-                            }
-                        </select>
-                    </label>
-                    <label class="train-brainrow-field">
-                        Learning rate
-                        <input class="train-brainrow-input" type="number" min="0.00001" step="0.0001"
-                               value="@LearningRate.ToString(System.Globalization.CultureInfo.InvariantCulture)"
-                               @onchange="OnLearningRateChanged" disabled="@Service.IsRunning" />
-                    </label>
+                <div class="train-buildbrain-tabs">
+                    <button type="button" class="train-buildbrain-tab @(_activeBuildTab == BrainBuilderTab.Learning ? "active" : "")"
+                            @onclick="() => _activeBuildTab = BrainBuilderTab.Learning" title="Strategy, reward policy, and learning rate">
+                        LEARNING
+                    </button>
+                    <button type="button" class="train-buildbrain-tab @(_activeBuildTab == BrainBuilderTab.Inputs ? "active" : "")"
+                            @onclick="() => _activeBuildTab = BrainBuilderTab.Inputs"
+                            title="Time-series inputs, trader state, and XGrid signals fed into the network">
+                        INPUTS
+                    </button>
+                    <button type="button" class="train-buildbrain-tab @(_activeBuildTab == BrainBuilderTab.DecisionMasking ? "active" : "")"
+                            @onclick="() => _activeBuildTab = BrainBuilderTab.DecisionMasking"
+                            title="Gates whether this brain's network is even asked to decide">
+                        DECISION MASKING
+                    </button>
+                    <button type="button" class="train-buildbrain-tab @(_activeBuildTab == BrainBuilderTab.Structure ? "active" : "")"
+                            @onclick="() => _activeBuildTab = BrainBuilderTab.Structure"
+                            title="Network shape applied to the inputs selected on the Inputs tab">
+                        STRUCTURE
+                    </button>
+                    <button type="button" class="train-buildbrain-tab @(_activeBuildTab == BrainBuilderTab.Actions ? "active" : "")"
+                            @onclick="() => _activeBuildTab = BrainBuilderTab.Actions"
+                            title="Which decisions this brain's network is allowed to make">
+                        ACTIONS
+                    </button>
+                    <button type="button" class="train-buildbrain-tab @(_activeBuildTab == BrainBuilderTab.ActionMasking ? "active" : "")"
+                            @onclick="() => _activeBuildTab = BrainBuilderTab.ActionMasking"
+                            title="Hard legality rules enforced on the network's raw logits before Softmax">
+                        ACTION MASKING
+                    </button>
+                    <button type="button" class="train-buildbrain-tab @(_activeBuildTab == BrainBuilderTab.ActionDecoding ? "active" : "")"
+                            @onclick="() => _activeBuildTab = BrainBuilderTab.ActionDecoding"
+                            title="How the network's raw output logits become each enabled decision">
+                        ACTION DECODING
+                    </button>
                 </div>
 
                 <div class="train-buildbrain-cards">
+                    @if (_activeBuildTab == BrainBuilderTab.Learning)
+                    {
+                        <div class="train-card-fields-row">
+                            <label class="train-brainrow-field">
+                                Strategy
+                                <select class="train-brainrow-select" value="@StrategyName" @onchange="OnStrategyChanged"
+                                        disabled="@Service.IsRunning">
+                                    @foreach (var name in Service.StrategyNames)
+                                    {
+                                        <option value="@name">@name</option>
+                                    }
+                                </select>
+                            </label>
+                            <label class="train-brainrow-field"
+                                   title="Which rules shape the per-decision reward -- Equity Drift is the raw, unshaped baseline; Trading Rules adds loss-aversion, an anti-churn entry cost, and a max-holding-time penalty on top of it">
+                                Reward Policy
+                                <select class="train-brainrow-select" value="@RewardPolicyService.SelectedPolicyName" @onchange="OnRewardPolicyChanged"
+                                        disabled="@Service.IsRunning">
+                                    @foreach (var name in RewardPolicyService.PolicyNames)
+                                    {
+                                        <option value="@name">@name</option>
+                                    }
+                                </select>
+                            </label>
+                            <label class="train-brainrow-field">
+                                Learning rate
+                                <input class="train-brainrow-input" type="number" min="0.00001" step="0.0001"
+                                       value="@LearningRate.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                                       @onchange="OnLearningRateChanged" disabled="@Service.IsRunning" />
+                            </label>
+                        </div>
+                    }
+                    else if (_activeBuildTab == BrainBuilderTab.Inputs)
+                    {
                     <div class="train-buildbrain-input-stack">
                         <div class="train-card">
                             <div class="train-card-title-row">
@@ -404,7 +445,9 @@
                                                                 </div>
                                                             </div>
                                                             </div>
-
+                    }
+                    else if (_activeBuildTab == BrainBuilderTab.DecisionMasking)
+                    {
                                                             <div class="train-card">
                                                                 <div class="train-card-title-row">
                                                                     <div class="train-card-title"
@@ -459,7 +502,9 @@
                                                                             }
                                                                         </div>
                                                                     </div>
-
+                    }
+                    else if (_activeBuildTab == BrainBuilderTab.Structure)
+                    {
                                                             <div class="train-card">
                                                                 <div class="train-card-title-row">
                                                                     <div class="train-card-title" title="Network shape applied to the inputs selected on the left">
@@ -664,7 +709,9 @@
                                                                             }
                                                                         </div>
                                                                     </div>
-
+                    }
+                    else if (_activeBuildTab == BrainBuilderTab.Actions)
+                    {
                                                                     <div class="train-card">
                                                                         <div class="train-card-title-row">
                                                                             <div class="train-card-title"
@@ -710,7 +757,9 @@
                                                                                     </label>
                                                                                 </div>
                                                                             </div>
-
+                    }
+                    else if (_activeBuildTab == BrainBuilderTab.ActionMasking)
+                    {
                                                                             <div class="train-card">
                                                                                 <div class="train-card-title-row">
                                                                                     <div class="train-card-title"
@@ -736,8 +785,9 @@
                                                                                             }
                                                                                         </div>
                                                                                     </div>
-
-
+                    }
+                    else if (_activeBuildTab == BrainBuilderTab.ActionDecoding)
+                    {
                                                                             <div class="train-card">
                                                                                 <div class="train-card-title-row">
                                                                                     <div class="train-card-title"
@@ -797,8 +847,8 @@
                                                                                             }
                                                                                         </div>
                                                                                     </div>
+                    }
                                                                                 </div>
-
                                                                             </div>
                                                                         }
                                                                     </div>
