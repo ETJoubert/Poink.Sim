@@ -549,7 +549,7 @@ namespace Poink.Sim.Components.Training
 					def.Group,
 					def.Label,
 					def.Tooltip,
-					XGridSignalColors.Var(def.Key),
+					def.ColorVar,
 					() => _xgridEnabledSignals.Contains(def.Key),
 					v =>
 					{

@@ -60,7 +60,7 @@ namespace Poink.Sim.Components.Charts
 			{
 				new PositionRow(
 					"POC",
-					XGridSignalColors.Var(XGridSignalCatalog.Keys.AtPoc),
+					XGridSignalCatalog.Get(XGridSignalCatalog.Keys.AtPoc).ColorVar,
 					XGridStats.IsCurrentAbovePoc(Grid),
 					XGridStats.IsCurrentAtPoc(Grid),
 					XGridStats.IsCurrentBelowPoc(Grid),
@@ -70,7 +70,7 @@ namespace Poink.Sim.Components.Charts
 				),
 				new PositionRow(
 					"VAH",
-					XGridSignalColors.Var(XGridSignalCatalog.Keys.AtVah),
+					XGridSignalCatalog.Get(XGridSignalCatalog.Keys.AtVah).ColorVar,
 					XGridStats.IsCurrentAboveVah(Grid),
 					XGridStats.IsCurrentAtVah(Grid),
 					XGridStats.IsCurrentBelowVah(Grid),
@@ -80,7 +80,7 @@ namespace Poink.Sim.Components.Charts
 				),
 				new PositionRow(
 					"VAL",
-					XGridSignalColors.Var(XGridSignalCatalog.Keys.AtVal),
+					XGridSignalCatalog.Get(XGridSignalCatalog.Keys.AtVal).ColorVar,
 					XGridStats.IsCurrentAboveVal(Grid),
 					XGridStats.IsCurrentAtVal(Grid),
 					XGridStats.IsCurrentBelowVal(Grid),
@@ -90,7 +90,7 @@ namespace Poink.Sim.Components.Charts
 				),
 				new PositionRow(
 					"VWAP",
-					XGridSignalColors.Var(XGridSignalCatalog.Keys.AtVwap),
+					XGridSignalCatalog.Get(XGridSignalCatalog.Keys.AtVwap).ColorVar,
 					XGridStats.IsCurrentAboveVwap(Grid),
 					XGridStats.IsCurrentAtVwap(Grid),
 					XGridStats.IsCurrentBelowVwap(Grid),
@@ -100,7 +100,7 @@ namespace Poink.Sim.Components.Charts
 				),
 				new PositionRow(
 					"LOW",
-					XGridSignalColors.Var("at-low"),
+					XGridSignalCatalog.Get("at-low").ColorVar,
 					XGridStats.IsCurrentAboveLowLevel(Grid, LowPointOverlay.Settings),
 					XGridStats.IsCurrentAtLowLevel(Grid, LowPointOverlay.Settings),
 					XGridStats.IsCurrentBelowLowLevel(Grid, LowPointOverlay.Settings),
@@ -110,7 +110,7 @@ namespace Poink.Sim.Components.Charts
 				),
 				new PositionRow(
 					"HIGH",
-					XGridSignalColors.Var("at-high"),
+					XGridSignalCatalog.Get("at-high").ColorVar,
 					XGridStats.IsCurrentAboveHighLevel(Grid, HighPointOverlay.Settings),
 					XGridStats.IsCurrentAtHighLevel(Grid, HighPointOverlay.Settings),
 					XGridStats.IsCurrentBelowHighLevel(Grid, HighPointOverlay.Settings),
@@ -120,7 +120,7 @@ namespace Poink.Sim.Components.Charts
 				),
 				new PositionRow(
 					"VWAP/POC",
-					XGridSignalColors.Var("vwap-at-poc"),
+					XGridSignalCatalog.Get("vwap-at-poc").ColorVar,
 					XGridStats.IsVwapAbovePoc(Grid),
 					XGridStats.IsVwapAtPoc(Grid),
 					XGridStats.IsVwapBelowPoc(Grid),
@@ -130,7 +130,7 @@ namespace Poink.Sim.Components.Charts
 				),
 				new PositionRow(
 					"TOTAL/POC",
-					XGridSignalColors.Var("total-at-poc"),
+					XGridSignalCatalog.Get("total-at-poc").ColorVar,
 					XGridStats.IsTotalAbovePoc(Grid),
 					XGridStats.IsTotalAtPoc(Grid),
 					XGridStats.IsTotalBelowPoc(Grid),
@@ -140,7 +140,7 @@ namespace Poink.Sim.Components.Charts
 				),
 				new PositionRow(
 					"UP/POC",
-					XGridSignalColors.Var("up-at-poc"),
+					XGridSignalCatalog.Get("up-at-poc").ColorVar,
 					XGridStats.IsUpAbovePoc(Grid),
 					XGridStats.IsUpAtPoc(Grid),
 					XGridStats.IsUpBelowPoc(Grid),
@@ -150,7 +150,7 @@ namespace Poink.Sim.Components.Charts
 				),
 				new PositionRow(
 					"DOWN/POC",
-					XGridSignalColors.Var("down-at-poc"),
+					XGridSignalCatalog.Get("down-at-poc").ColorVar,
 					XGridStats.IsDownAbovePoc(Grid),
 					XGridStats.IsDownAtPoc(Grid),
 					XGridStats.IsDownBelowPoc(Grid),

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Poink.Sim.Components.Charts;
 
@@ -10,28 +11,22 @@ internal readonly record struct XGridRuleRow(
 	string? BelowKey
 );
 
-// Above/In/Below triads for the Rule Engine table, ordered to match XGridSignalsPanel's rows.
+// Derived from XGridSignalCatalog.All, grouped by RowKey in the catalog's own declaration order.
 internal static class XGridRuleCatalog
 {
-	public static readonly IReadOnlyList<XGridRuleRow> Rows = new[]
-	{
-		Row("Top % Total", null, "rank-top-total", null),
-		Row("Top % Up", null, XGridSignalCatalog.Keys.RankTopPercentUp, null),
-		Row("Top % Down", null, XGridSignalCatalog.Keys.RankTopPercentDown, null),
-		Row("Delta Up", null, XGridSignalCatalog.Keys.DeltaUp, null),
-		Row("Delta Down", null, XGridSignalCatalog.Keys.DeltaDown, null),
-		Row("POC", "above-poc", XGridSignalCatalog.Keys.AtPoc, XGridSignalCatalog.Keys.BelowPoc),
-		Row("VAH", "above-vah", XGridSignalCatalog.Keys.AtVah, "below-vah"),
-		Row("VAL", "above-val", XGridSignalCatalog.Keys.AtVal, "below-val"),
-		Row("VWAP", "above-vwap", XGridSignalCatalog.Keys.AtVwap, "below-vwap"),
-		Row("Low", "above-low", "at-low", "below-low"),
-		Row("High", "above-high", "at-high", "below-high"),
-		Row("VWAP/POC", "vwap-above-poc", "vwap-at-poc", "vwap-below-poc"),
-		Row("Total/POC", "total-above-poc", "total-at-poc", "total-below-poc"),
-		Row("Up/POC", "up-above-poc", "up-at-poc", "up-below-poc"),
-		Row("Down/POC", "down-above-poc", "down-at-poc", "down-below-poc"),
-	};
+	public static readonly IReadOnlyList<XGridRuleRow> Rows = XGridSignalCatalog.All.GroupBy(d => d.RowKey).Select(ToRow).ToList();
 
-	private static XGridRuleRow Row(string label, string? aboveKey, string? inKey, string? belowKey) =>
-		new(label, XGridSignalColors.Var(inKey ?? aboveKey ?? belowKey!), aboveKey, inKey, belowKey);
+	private static XGridRuleRow ToRow(IGrouping<string, XGridSignalDef> group)
+	{
+		string? KeyFor(XGridSignalDirection direction) => group.FirstOrDefault(d => d.Direction == direction)?.Key;
+
+		var first = group.First();
+		return new XGridRuleRow(
+			first.RowLabel,
+			first.ColorVar,
+			KeyFor(XGridSignalDirection.Above),
+			KeyFor(XGridSignalDirection.In),
+			KeyFor(XGridSignalDirection.Below)
+		);
+	}
 }

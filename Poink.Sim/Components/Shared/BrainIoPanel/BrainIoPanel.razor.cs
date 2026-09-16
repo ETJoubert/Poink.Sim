@@ -55,7 +55,8 @@ public partial class BrainIoPanel : ComponentBase
 	private static string XGridTooltip(string label) =>
 		XGridDefsByKey.TryGetValue(XGridKey(label), out var def) ? def.Tooltip : label;
 
-	private static string XGridColorVar(string label) => XGridSignalColors.Var(XGridKey(label));
+	private static string XGridColorVar(string label) =>
+		XGridDefsByKey.TryGetValue(XGridKey(label), out var def) ? def.ColorVar : "--color-secondary";
 
 	private static bool IsPriceLevelLabel(string label) =>
 		label.Contains("price", System.StringComparison.Ordinal)
