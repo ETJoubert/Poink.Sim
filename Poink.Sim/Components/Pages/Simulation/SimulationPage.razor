@@ -282,7 +282,7 @@
         <div class="sim-body">
             @if (_snapshot is not null)
             {
-                <aside class="sim-left-side-panel @(_leftSidePanelCollapsed ? "sim-left-side-panel-collapsed" : "")">
+                <aside class="sim-left-side-panel @(_leftSidePanelCollapsed ? "sim-left-side-panel-collapsed" : "") @(!_leftSidePanelCollapsed && _activeLeftPanelTab == SimLeftPanelTab.RuleEngine ? "sim-left-side-panel-wide" : "")">
                     <div class="sim-left-side-panel-header">
                         <button type="button" class="sim-left-side-panel-toggle" @onclick="() => _leftSidePanelCollapsed = !_leftSidePanelCollapsed"
                                 title="@(_leftSidePanelCollapsed ? "Expand the traders panel" : "Collapse the traders panel")">
@@ -326,8 +326,16 @@
                             }
                             else if (_activeLeftPanelTab == SimLeftPanelTab.RuleEngine)
                             {
-                                <XGridRulePanel @bind-EnabledKeys="_ruleEngineEnabledKeys" Grid="ComputeXGrid(_snapshot)"
-                                                CurrentTimestampUtc="_snapshot.CurrentTimestampUtc" />
+                                var ruleGrid = ComputeXGrid(_snapshot);
+                                <div class="xgrid-rule-layout">
+                                    <XGridRulePanel @bind-EnabledKeys="_ruleEngineEnabledKeys" Grid="ruleGrid"
+                                                    CurrentTimestampUtc="_snapshot.CurrentTimestampUtc" />
+                                    @if (ruleGrid is { } grid)
+                                    {
+                                        <XGridSignalsPanel Grid="grid" />
+                                    }
+                                    <XGridRuleMatchBar EnabledKeys="_ruleEngineEnabledKeys" Grid="ruleGrid" />
+                                </div>
                             }
                         </div>
                     }

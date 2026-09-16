@@ -370,6 +370,10 @@
     width: 28px;
 }
 
+.sim-left-side-panel-wide {
+    width: 620px;
+}
+
 .sim-left-side-panel-header {
     display: flex;
     align-items: center;
@@ -449,6 +453,18 @@
     overflow-y: auto;
     flex: 1;
     min-height: 0;
+}
+
+.xgrid-rule-layout {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.xgrid-rule-layout ::deep .xgrid-rule-panel,
+.xgrid-rule-layout ::deep .xgrid-signals-wrapper {
+    flex: 1 1 0;
+    min-width: 0;
 }
 
 .sim-controls {

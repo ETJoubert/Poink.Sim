@@ -1,0 +1,11 @@
+@namespace Poink.Sim.Components.Charts
+
+<div class="xgrid-rule-match-bar" title="Per-row match status -- green matches the live grid, red doesn't, grey is unselected">
+    <div class="xgrid-rule-match-header">&#9679;</div>
+    @foreach (var row in Rows)
+    {
+        <div class="xgrid-rule-match-row" title="@Title(row)">
+            <span class="xgrid-rule-match-dot @Status(row)"></span>
+        </div>
+    }
+</div>
