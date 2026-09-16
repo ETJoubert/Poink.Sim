@@ -16,27 +16,6 @@
     margin-bottom: 8px;
 }
 
-.xgrid-rule-toolbar-status {
-    font-size: 0.52rem;
-    font-weight: bold;
-    letter-spacing: 0.08em;
-    color: var(--color-secondary);
-    opacity: 0.5;
-}
-
-.xgrid-rule-toolbar-status.matching {
-    color: var(--color-success);
-    opacity: 1;
-    text-shadow: 0 0 4px var(--color-success);
-}
-
-.xgrid-rule-toolbar-count {
-    font-size: 0.56rem;
-    font-variant-numeric: tabular-nums;
-    color: var(--color-secondary);
-    opacity: 0.7;
-}
-
 .xgrid-rule-copy {
     font-size: 0.52rem;
     font-weight: bold;
@@ -108,6 +87,12 @@
 
 .xgrid-rule-divider {
     border-left: 1px solid color-mix(in srgb, var(--color-secondary) 20%, transparent);
+}
+
+.xgrid-rule-head-match.matching {
+    color: var(--color-success);
+    background: color-mix(in srgb, var(--color-success) 18%, transparent);
+    text-shadow: 0 0 4px var(--color-success);
 }
 
 .xgrid-rule-row {
@@ -222,10 +207,27 @@
     box-shadow: 0 0 4px var(--color-error);
 }
 
+.xgrid-rule-foot-count {
+    text-align: center;
+    padding: 3px 4px;
+    font-size: 0.56rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--color-secondary);
+    opacity: 0.7;
+    border-top: 1px solid color-mix(in srgb, var(--color-secondary) 15%, transparent);
+}
+
 .xgrid-rule-log {
     margin-top: 10px;
     padding-top: 8px;
     border-top: 1px solid color-mix(in srgb, var(--color-secondary) 25%, transparent);
+}
+
+.xgrid-rule-log-headrow {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 4px;
 }
 
 .xgrid-rule-log-header {
@@ -236,7 +238,13 @@
     text-transform: uppercase;
     color: var(--color-highlight);
     opacity: 0.9;
-    margin-bottom: 4px;
+}
+
+.xgrid-rule-log-total {
+    font-size: 0.56rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--color-secondary);
+    opacity: 0.7;
 }
 
 .xgrid-rule-log-empty {

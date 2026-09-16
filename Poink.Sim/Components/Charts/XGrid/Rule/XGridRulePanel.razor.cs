@@ -25,6 +25,7 @@ namespace Poink.Sim.Components.Charts
 
 		private double _percent = 10;
 		private bool _wasMatching;
+		private int _totalMatches;
 		private readonly List<DateTime> _matchLog = new();
 
 		private IReadOnlyList<XGridRuleRow> Rows => XGridRuleCatalog.Rows;
@@ -105,6 +106,7 @@ namespace Poink.Sim.Components.Charts
 			var isMatching = IsMatching;
 			if (isMatching && !_wasMatching && CurrentTimestampUtc is { } timestamp)
 			{
+				_totalMatches++;
 				_matchLog.Insert(0, timestamp);
 				if (_matchLog.Count > MaxLogEntries)
 					_matchLog.RemoveRange(MaxLogEntries, _matchLog.Count - MaxLogEntries);

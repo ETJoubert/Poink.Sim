@@ -2,8 +2,6 @@
 
 <div class="xgrid-rule-panel" title="Above/In/Below mask over every XGrid signal, its live state, and whether they match. Each signal can only be in one state at a time, so a row is a 3-way choice">
     <div class="xgrid-rule-toolbar">
-        <span class="xgrid-rule-toolbar-status @(IsMatching ? "matching" : "")">@(IsMatching ? "MATCH" : "NO MATCH")</span>
-        <span class="xgrid-rule-toolbar-count" title="Rows currently matching the live grid, out of rows with a selection">@MatchedCount/@SelectedCount</span>
         <button type="button" class="xgrid-rule-copy" @onclick="CopyLiveToSelector" disabled="@(Grid is null)"
                 title="Copy the live grid's current Above/In/Below state into the selector for every row">Copy Live</button>
         <label class="xgrid-rule-percent" title="Top-percent cutoff used by the Top % Total/Up/Down rows">
@@ -17,7 +15,7 @@
                 <th class="xgrid-rule-head-signal" rowspan="2">Signal</th>
                 <th class="xgrid-rule-head-group" colspan="3">Select</th>
                 <th class="xgrid-rule-head-group xgrid-rule-divider" colspan="3">Live</th>
-                <th class="xgrid-rule-divider" rowspan="2" title="Whether the selected constraint currently matches the live grid">Match</th>
+                <th class="xgrid-rule-divider xgrid-rule-head-match @(IsMatching ? "matching" : "")" rowspan="2" title="Whether the selected constraint currently matches the live grid -- lights up when every selected row matches">Match</th>
             </tr>
             <tr>
                 <th title="Select this row's constraint as the subject being above its reference price">&#9650;</th>
@@ -78,10 +76,19 @@
                 </tr>
             }
         </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="7"></td>
+                <td class="xgrid-rule-foot-count xgrid-rule-divider" title="Rows currently matching the live grid, out of rows with a selection">@MatchedCount/@SelectedCount</td>
+            </tr>
+        </tfoot>
     </table>
 
     <div class="xgrid-rule-log" title="Timestamp of the bar each time every enabled signal matched at once">
-        <span class="xgrid-rule-log-header">Match Log</span>
+        <div class="xgrid-rule-log-headrow">
+            <span class="xgrid-rule-log-header">Match Log</span>
+            <span class="xgrid-rule-log-total" title="Total number of times every enabled signal has matched at once">Total: @_totalMatches</span>
+        </div>
         @if (_matchLog.Count == 0)
         {
             <span class="xgrid-rule-log-empty">No matches yet</span>
