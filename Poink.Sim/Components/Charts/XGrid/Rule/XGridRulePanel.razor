@@ -1,0 +1,43 @@
+@namespace Poink.Sim.Components.Charts
+
+<div class="xgrid-rule-panel" title="Above/In/Below mask over every XGrid signal -- the input side of the rule engine. Each signal can only be in one state at a time, so a row is a 3-way choice">
+    <table class="xgrid-rule-table">
+        <thead>
+            <tr>
+                <th class="xgrid-rule-head-signal">Signal</th>
+                <th title="Select this row's constraint as the subject being above its reference price">Above</th>
+                <th title="Select this row's constraint as the subject's row matching its reference's row">In</th>
+                <th title="Select this row's constraint as the subject being below its reference price">Below</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var row in Rows)
+            {
+                <tr class="xgrid-rule-row" style="--sig-color: var(@row.ColorVar)">
+                    <td class="xgrid-rule-label">@row.Label</td>
+                    <td class="xgrid-rule-cell">
+                        @if (row.AboveKey is { } aboveKey)
+                        {
+                            <button type="button" class="xgrid-rule-radio @(IsSelected(aboveKey) ? "active" : "")"
+                                    @onclick="() => Select(row, aboveKey)" title="@Tooltip(aboveKey)"></button>
+                        }
+                    </td>
+                    <td class="xgrid-rule-cell">
+                        @if (row.InKey is { } inKey)
+                        {
+                            <button type="button" class="xgrid-rule-radio @(IsSelected(inKey) ? "active" : "")"
+                                    @onclick="() => Select(row, inKey)" title="@Tooltip(inKey)"></button>
+                        }
+                    </td>
+                    <td class="xgrid-rule-cell">
+                        @if (row.BelowKey is { } belowKey)
+                        {
+                            <button type="button" class="xgrid-rule-radio @(IsSelected(belowKey) ? "active" : "")"
+                                    @onclick="() => Select(row, belowKey)" title="@Tooltip(belowKey)"></button>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>

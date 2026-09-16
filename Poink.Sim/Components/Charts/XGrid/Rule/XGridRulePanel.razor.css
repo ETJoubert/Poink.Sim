@@ -1,0 +1,70 @@
+.xgrid-rule-panel {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid color-mix(in srgb, var(--color-secondary) 25%, transparent);
+    border-radius: var(--border-radius-md);
+    background: color-mix(in srgb, var(--color-secondary) 6%, var(--color-bg-terminal));
+    overflow: auto;
+    padding: 10px 12px;
+}
+
+.xgrid-rule-table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 0.6rem;
+    letter-spacing: 0.03em;
+}
+
+.xgrid-rule-table th {
+    font-size: 0.52rem;
+    font-weight: bold;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-highlight);
+    opacity: 0.9;
+    text-align: center;
+    padding: 2px 6px 6px;
+}
+
+.xgrid-rule-head-signal {
+    text-align: left !important;
+}
+
+.xgrid-rule-row {
+    color: var(--sig-color, var(--color-secondary));
+}
+
+.xgrid-rule-row + .xgrid-rule-row {
+    border-top: 1px solid color-mix(in srgb, var(--color-secondary) 15%, transparent);
+}
+
+.xgrid-rule-label {
+    padding: 3px 6px;
+    white-space: nowrap;
+    opacity: 0.9;
+}
+
+.xgrid-rule-cell {
+    text-align: center;
+    padding: 3px 6px;
+}
+
+.xgrid-rule-radio {
+    width: 12px;
+    height: 12px;
+    padding: 0;
+    border: 1px solid color-mix(in srgb, var(--sig-color, var(--color-secondary)) 60%, transparent);
+    border-radius: 50%;
+    background: transparent;
+    cursor: pointer;
+}
+
+.xgrid-rule-radio:hover {
+    border-color: var(--sig-color, var(--color-primary));
+}
+
+.xgrid-rule-radio.active {
+    background: var(--sig-color, var(--color-primary));
+    border-color: var(--sig-color, var(--color-primary));
+    box-shadow: 0 0 4px var(--sig-color, var(--color-primary));
+}
