@@ -1,0 +1,205 @@
+@namespace Poink.Sim.Components.Training
+@using Poink.Sim.Brain.Neural
+
+<div class="train-card">
+    <div class="train-card-title-row">
+        <div class="train-card-title" title="Network shape applied to the inputs selected on the Features tab">
+            Structure</div>
+        @if (FirstLayerTooSmall)
+        {
+            <span class="train-card-badge train-card-badge-warn"
+                  title="@($"First hidden layer ({FirstHiddenLayerSize}) is narrower than the network's {TotalInputCount} inputs -- a bottleneck compressing them before any transformation")">
+                &#9888; @FirstHiddenLayerSize &lt; @TotalInputCount</span>
+        }
+    </div>
+    <div class="train-buildbrain-card-fields">
+        <label class="train-brainrow-field"
+               title="Network shape applied to the combined features selected above">
+            Architecture
+            <select class="train-brainrow-select" @bind="State.ArchitectureKind" @bind:after="NotifyChanged" disabled="@Service.IsRunning">
+                <option value="Mlp">MLP</option>
+                <option value="Lstm">LSTM</option>
+                <option value="Cnn">CNN</option>
+                <option value="Neat">NEAT</option>
+            </select>
+        </label>
+        @if (State.ArchitectureKind == ArchitectureKind.Mlp)
+        {
+            <div class="train-hiddenlayers">
+                <button type="button" class="train-btn-toggle" @onclick="AddHiddenLayerOnTop"
+                        disabled="@Service.IsRunning"
+                        title="Add another hidden layer, inserted above layer 1 -- defaults to double layer 1's size">
+                    + ADD LAYER
+                </button>
+                @for (int i = 0; i < State.MlpHiddenSizes.Count; i++)
+                {
+                    var index = i;
+                    <label class="train-brainrow-field" title="@($"Size of hidden layer {index + 1}")">
+                        Layer @(index + 1)
+                        <span class="train-hiddenlayer-controls">
+                            <input class="train-brainrow-input train-brainrow-input-right" type="number" min="1"
+                                   step="1" value="@State.MlpHiddenSizes[index]"
+                                   @oninput="e => OnHiddenLayerSizeChanged(index, e)" disabled="@Service.IsRunning" />
+                            <button type="button" class="train-btn-remove-layer"
+                                    @onclick="() => RemoveHiddenLayer(index)"
+                                    disabled="@(Service.IsRunning || !CanRemoveHiddenLayer)"
+                                    title="@(CanRemoveHiddenLayer ? "Remove this layer" : "At least one hidden layer is required")">
+                                &#215;
+                            </button>
+                        </span>
+                    </label>
+                }
+                <button type="button" class="train-btn-toggle" @onclick="AddHiddenLayer"
+                        disabled="@Service.IsRunning"
+                        title="Add another hidden layer, stacked after the ones above -- defaults to half the last layer's size">
+                    + ADD LAYER
+                </button>
+            </div>
+        }
+        else if (State.ArchitectureKind == ArchitectureKind.Lstm)
+        {
+            <label class="train-brainrow-field" title="LSTM hidden state size">
+                Hidden size
+                <input class="train-brainrow-input train-brainrow-input-right" type="number" min="1"
+                       @bind="State.LstmHiddenSize" @bind:after="NotifyChanged" disabled="@Service.IsRunning" />
+            </label>
+            <label class="train-brainrow-field" title="Number of stacked LSTM layers">
+                LSTM layers
+                <input class="train-brainrow-input train-brainrow-input-right" type="number" min="1"
+                       @bind="State.LstmNumLayers" @bind:after="NotifyChanged" disabled="@Service.IsRunning" />
+            </label>
+            @if (!State.IncludeBarWindow)
+            {
+                <span class="train-brainrow-error">LSTM needs Bar Window for its sequence</span>
+            }
+        }
+        else if (State.ArchitectureKind == ArchitectureKind.Cnn)
+        {
+            <label class="train-brainrow-field"
+                   title="Which selected input set the convolution kernel actually sweeps over -- Bar Window (default) slides over the trailing price window; Volume Profile instead slides over its price-ordered histogram buckets, with everything else (including Bar Window if also selected) fed as plain scalars alongside the pooled conv output">
+                Kernel sweeps
+                <select class="train-brainrow-select" @bind="State.CnnKernelSweepSource" @bind:after="NotifyChanged" disabled="@Service.IsRunning">
+                    <option value="BarWindow">Bar Window</option>
+                    <option value="VolumeProfile">Volume Profile</option>
+                </select>
+            </label>
+            <label class="train-brainrow-field"
+                   title="Convolution kernel width applied to every conv layer -- odd sizes (3, 5, 7, ...) keep the window's time length unchanged through each layer">
+                Kernel size
+                <input class="train-brainrow-input train-brainrow-input-right" type="number" min="1" step="2"
+                       @bind="State.CnnKernelSize" @bind:after="NotifyChanged" disabled="@Service.IsRunning" />
+            </label>
+            <div class="train-hiddenlayers">
+                @for (int i = 0; i < State.CnnChannels.Count; i++)
+                {
+                    var index = i;
+                    <label class="train-brainrow-field"
+                           title="@($"Output channel count of conv layer {index + 1}")">
+                        Layer @(index + 1)
+                        <span class="train-hiddenlayer-controls">
+                            <input class="train-brainrow-input train-brainrow-input-right" type="number" min="1"
+                                   step="1" value="@State.CnnChannels[index]"
+                                   @oninput="e => OnCnnChannelSizeChanged(index, e)" disabled="@Service.IsRunning" />
+                            <button type="button" class="train-btn-remove-layer"
+                                    @onclick="() => RemoveCnnChannelLayer(index)"
+                                    disabled="@(Service.IsRunning || !CanRemoveCnnChannelLayer)"
+                                    title="@(CanRemoveCnnChannelLayer ? "Remove this layer" : "At least one conv layer is required")">
+                                &#215;
+                            </button>
+                        </span>
+                    </label>
+                }
+                <button type="button" class="train-btn-toggle" @onclick="AddCnnChannelLayer"
+                        disabled="@Service.IsRunning"
+                        title="Add another conv layer, stacked after the ones above -- defaults to double the last layer's channel count">
+                    + ADD LAYER
+                </button>
+            </div>
+            @if (!CnnSweepSourceIncluded)
+            {
+                <span class="train-brainrow-error">
+                    CNN needs @(State.CnnKernelSweepSource == CnnKernelSweepSource.VolumeProfile ? "Volume Profile" :
+                                     "Bar Window") for its sequence
+                </span>
+            }
+        }
+        else if (State.ArchitectureKind == ArchitectureKind.Neat)
+        {
+            <label class="train-brainrow-field" title="Number of candidate networks (genomes) evaluated per generation -- higher explores more per generation at the cost of one training episode per genome">
+                Population size
+                <input class="train-brainrow-input train-brainrow-input-right" type="number" min="1" step="1"
+                       @bind="State.NeatPopulationSize" @bind:after="NotifyChanged" disabled="@Service.IsRunning" />
+            </label>
+            <label class="train-brainrow-field" title="How similar two genomes must be to share a species -- lower creates more, smaller species; higher creates fewer, broader ones">
+                Compatibility threshold
+                <input class="train-brainrow-input train-brainrow-input-right" type="number" min="0" step="0.1"
+                       @bind="State.NeatCompatibilityThreshold" @bind:after="NotifyChanged" disabled="@Service.IsRunning" />
+            </label>
+            <label class="train-brainrow-field" title="Weight given to excess genes (structural genes beyond the other genome's highest innovation number) when computing compatibility distance">
+                Excess coefficient
+                <input class="train-brainrow-input train-brainrow-input-right" type="number" min="0" step="0.1"
+                       @bind="State.NeatExcessCoefficient" @bind:after="NotifyChanged" disabled="@Service.IsRunning" />
+            </label>
+            <label class="train-brainrow-field" title="Weight given to disjoint genes (structural genes that don't match between two genomes) when computing compatibility distance">
+                Disjoint coefficient
+                <input class="train-brainrow-input train-brainrow-input-right" type="number" min="0" step="0.1"
+                       @bind="State.NeatDisjointCoefficient" @bind:after="NotifyChanged" disabled="@Service.IsRunning" />
+            </label>
+            <label class="train-brainrow-field" title="Weight given to the average connection-weight difference between matching genes when computing compatibility distance">
+                Weight diff coefficient
+                <input class="train-brainrow-input train-brainrow-input-right" type="number" min="0" step="0.1"
+                       @bind="State.NeatWeightDiffCoefficient" @bind:after="NotifyChanged" disabled="@Service.IsRunning" />
+            </label>
+            <label class="train-brainrow-field" title="A species is culled if its best fitness hasn't improved in this many generations">
+                Stagnation generations
+                <input class="train-brainrow-input train-brainrow-input-right" type="number" min="1" step="1"
+                       @bind="State.NeatStagnationGenerations" @bind:after="NotifyChanged" disabled="@Service.IsRunning" />
+            </label>
+            <label class="train-brainrow-field" title="A species at or above this size automatically carries its best genome into the next generation unchanged">
+                Elitism min species size
+                <input class="train-brainrow-input train-brainrow-input-right" type="number" min="1" step="1"
+                       @bind="State.NeatElitismMinSpeciesSize" @bind:after="NotifyChanged" disabled="@Service.IsRunning" />
+            </label>
+            <label class="train-brainrow-field" title="Fraction of each species, ranked by fitness, allowed to breed the next generation">
+                Survival threshold
+                <input class="train-brainrow-input train-brainrow-input-right" type="number" min="0" max="1" step="0.01"
+                       @bind="State.NeatSurvivalThreshold" @bind:after="NotifyChanged" disabled="@Service.IsRunning" />
+            </label>
+            <label class="train-brainrow-field" title="Chance a child's second parent is drawn from a different species instead of its own">
+                Interspecies mating rate
+                <input class="train-brainrow-input train-brainrow-input-right" type="number" min="0" max="1" step="0.001"
+                       @bind="State.NeatInterspeciesMatingRate" @bind:after="NotifyChanged" disabled="@Service.IsRunning" />
+            </label>
+            <label class="train-brainrow-field" title="Chance a child's connection weights are mutated at all">
+                Weight mutation rate
+                <input class="train-brainrow-input train-brainrow-input-right" type="number" min="0" max="1" step="0.01"
+                       @bind="State.NeatWeightMutationRate" @bind:after="NotifyChanged" disabled="@Service.IsRunning" />
+            </label>
+            <label class="train-brainrow-field" title="When weights mutate, the chance a given connection gets a brand new random weight instead of being perturbed">
+                Weight reset chance
+                <input class="train-brainrow-input train-brainrow-input-right" type="number" min="0" max="1" step="0.01"
+                       @bind="State.NeatWeightResetChance" @bind:after="NotifyChanged" disabled="@Service.IsRunning" />
+            </label>
+            <label class="train-brainrow-field" title="Standard deviation of the random nudge applied to a connection weight during perturbation">
+                Weight perturb std dev
+                <input class="train-brainrow-input train-brainrow-input-right" type="number" min="0" step="0.01"
+                       @bind="State.NeatWeightPerturbStdDev" @bind:after="NotifyChanged" disabled="@Service.IsRunning" />
+            </label>
+            <label class="train-brainrow-field" title="Chance a new connection is added between two previously unconnected nodes">
+                Add connection rate
+                <input class="train-brainrow-input train-brainrow-input-right" type="number" min="0" max="1" step="0.01"
+                       @bind="State.NeatAddConnectionMutationRate" @bind:after="NotifyChanged" disabled="@Service.IsRunning" />
+            </label>
+            <label class="train-brainrow-field" title="Chance an existing connection is split by inserting a new node into it">
+                Add node rate
+                <input class="train-brainrow-input train-brainrow-input-right" type="number" min="0" max="1" step="0.01"
+                       @bind="State.NeatAddNodeMutationRate" @bind:after="NotifyChanged" disabled="@Service.IsRunning" />
+            </label>
+            <label class="train-brainrow-field" title="Chance a gene inherited from crossover, disabled in either parent, stays disabled in the child">
+                Disable inherited gene chance
+                <input class="train-brainrow-input train-brainrow-input-right" type="number" min="0" max="1" step="0.01"
+                       @bind="State.NeatDisableInheritedGeneChance" @bind:after="NotifyChanged" disabled="@Service.IsRunning" />
+            </label>
+        }
+    </div>
+</div>

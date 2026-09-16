@@ -1,0 +1,31 @@
+@namespace Poink.Sim.Components.Training
+
+<div class="train-card-fields-row">
+    <label class="train-brainrow-field">
+        Strategy
+        <select class="train-brainrow-select" value="@StrategyName" @onchange="OnStrategyChanged"
+                disabled="@Service.IsRunning">
+            @foreach (var name in Service.StrategyNames)
+            {
+                <option value="@name">@name</option>
+            }
+        </select>
+    </label>
+    <label class="train-brainrow-field"
+           title="Which rules shape the per-decision reward -- Equity Drift is the raw, unshaped baseline; Trading Rules adds loss-aversion, an anti-churn entry cost, and a max-holding-time penalty on top of it">
+        Reward Policy
+        <select class="train-brainrow-select" value="@RewardPolicyService.SelectedPolicyName" @onchange="OnRewardPolicyChanged"
+                disabled="@Service.IsRunning">
+            @foreach (var name in RewardPolicyService.PolicyNames)
+            {
+                <option value="@name">@name</option>
+            }
+        </select>
+    </label>
+    <label class="train-brainrow-field">
+        Learning rate
+        <input class="train-brainrow-input" type="number" min="0.00001" step="0.0001"
+               value="@LearningRate.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+               @onchange="OnLearningRateChanged" disabled="@Service.IsRunning" />
+    </label>
+</div>

@@ -90,6 +90,7 @@ namespace Poink.Sim.Components.Pages
 		{
 			EpisodeTiming,
 			Trader,
+			BrainConfig,
 		}
 
 		private bool _rightPanelCollapsed;

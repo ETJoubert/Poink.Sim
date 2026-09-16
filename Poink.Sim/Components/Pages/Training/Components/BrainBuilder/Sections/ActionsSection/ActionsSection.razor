@@ -1,0 +1,133 @@
+@namespace Poink.Sim.Components.Training
+@using Poink.Sim.Brain.Neural
+
+<div class="train-card">
+    <div class="train-card-title-row">
+        <div class="train-card-title"
+             title="Which decisions this brain's network is allowed to make -- every one below is optional">
+            Actions</div>
+        <span class="train-card-badge"
+              title="How many of the @TotalActionOptionCount available action decisions are enabled">
+            @SelectedActionCount/@TotalActionOptionCount</span>
+    </div>
+    <div class="train-buildbrain-card-fields">
+        <label class="train-brainrow-field" title="Toggle every action decision below on or off at once">
+            <input type="checkbox" @bind="AllActionsSelected" @bind:after="NotifyChanged" disabled="@Service.IsRunning" />
+            Select All
+        </label>
+        <label class="train-brainrow-field" title="Network can choose to do nothing this tick">
+            <input type="checkbox" @bind="State.IncludeHold" @bind:after="NotifyChanged" disabled="@Service.IsRunning" /> Hold
+        </label>
+        <label class="train-brainrow-field" title="Network can open a long position">
+            <input type="checkbox" @bind="State.IncludeEnterLong" @bind:after="NotifyChanged" disabled="@Service.IsRunning" />
+            Enter Long
+        </label>
+        <label class="train-brainrow-field" title="Network can open a short position">
+            <input type="checkbox" @bind="State.IncludeEnterShort" @bind:after="NotifyChanged" disabled="@Service.IsRunning" />
+            Enter Short
+        </label>
+        <label class="train-brainrow-field"
+               title="Network can close an open position (or cancel a resting order)">
+            <input type="checkbox" @bind="State.IncludeClose" @bind:after="NotifyChanged" disabled="@Service.IsRunning" /> Close
+        </label>
+        <label class="train-brainrow-field"
+               title="Network picks position size (25/50/75/100% of cash) for each entry, instead of a fixed 50%">
+            <input type="checkbox" @bind="State.IncludeVolumeOutput" @bind:after="NotifyChanged" disabled="@Service.IsRunning" />
+            Volume
+        </label>
+        <label class="train-brainrow-field"
+               title="Network picks a stop-loss distance (or none) for each entry">
+            <input type="checkbox" @bind="State.IncludeStopLossOutput" @bind:after="NotifyChanged" disabled="@Service.IsRunning" /> Stop Loss
+        </label>
+        <label class="train-brainrow-field"
+               title="Network picks a take-profit distance (or none) for each entry">
+            <input type="checkbox" @bind="State.IncludeTakeProfitOutput" @bind:after="NotifyChanged" disabled="@Service.IsRunning" /> Take
+            Profit
+        </label>
+    </div>
+</div>
+
+<div class="train-card">
+    <div class="train-card-title-row">
+        <div class="train-card-title"
+             title="Hard legality rules enforced on the network's raw logits before Softmax -- an illegal action gets exactly 0% probability, guaranteed, rather than being left for the network to learn to avoid">
+            Action Masking</div>
+        <span class="train-card-badge"
+              title="How many of the @TotalMaskRuleCount available masking rules are enabled">
+            @SelectedMaskRuleCount/@TotalMaskRuleCount</span>
+    </div>
+    <div class="train-buildbrain-card-fields">
+        <label class="train-brainrow-field" title="Toggle every masking rule below on or off at once">
+            <input type="checkbox" @bind="AllMaskRulesSelected" @bind:after="NotifyChanged" disabled="@Service.IsRunning" />
+            Select All
+        </label>
+        @foreach (var row in MaskRuleRows)
+        {
+            <label class="train-brainrow-field" title="@row.Tooltip">
+                <input type="checkbox" checked="@row.Get()"
+                       @onchange="e => OnMaskRuleRowChanged(row, e)"
+                       disabled="@Service.IsRunning" />
+                @row.Label
+            </label>
+        }
+    </div>
+</div>
+
+<div class="train-card">
+    <div class="train-card-title-row">
+        <div class="train-card-title"
+             title="How the network's raw output logits become each enabled decision above -- every group below is decoded independently via its own softmax distribution, not one joint choice across all of them">
+            Action Decoding</div>
+        <span class="train-card-badge"
+              title="Total network output width: every enabled group's softmax width, summed">
+            @TotalOutputWidth</span>
+    </div>
+    <div class="train-buildbrain-card-fields">
+        <label class="train-brainrow-field"
+               title="Softmax always samples stochastically, weighted by probability -- what training needs for exploration. HardMax instead always picks the highest-probability choice, deterministically -- for evaluating the policy the network actually learned. Applies to every group below.">
+            Decoding Mode
+            <select class="train-brainrow-select" @bind="State.DecisionDecoding" @bind:after="NotifyChanged" disabled="@Service.IsRunning">
+                <option value="Softmax">Softmax (stochastic)</option>
+                <option value="HardMax">HardMax (argmax)</option>
+            </select>
+        </label>
+        <label class="train-brainrow-field"
+               title="Divides each group's raw logits before Softmax -- below 1 sharpens the distribution toward its highest choice (less exploration, closer to HardMax); above 1 flattens it toward uniform (more exploration). 1 is unscaled (today's original behavior). No effect under HardMax, which always takes the highest choice regardless.">
+            Temperature
+            <input class="train-brainrow-input" type="number" min="0.01" step="0.1"
+                   @bind="State.DecisionTemperature" @bind:after="NotifyChanged"
+                   disabled="@(Service.IsRunning || State.DecisionDecoding == DecisionDecodingKind.HardMax)" />
+        </label>
+    </div>
+    <div class="train-buildbrain-card-fields train-buildbrain-card-fields-end">
+        <label class="train-brainrow-field"
+               title="@($"Softmax over the {DirectionCount} enabled direction(s): {string.Join(" / ", EnabledDirectionLabels)}")">
+            Direction
+            <span class="train-decoding-value">@DirectionCount-way @DecodingLabel</span>
+        </label>
+        @if (State.IncludeVolumeOutput)
+        {
+            <label class="train-brainrow-field"
+                   title="Softmax over 4 capital-fraction levels: 25% / 50% / 75% / 100%">
+                Volume
+                <span class="train-decoding-value">@VolumeOutputWidth-way @DecodingLabel</span>
+            </label>
+        }
+        @if (State.IncludeStopLossOutput)
+        {
+            <label class="train-brainrow-field"
+                   title="Softmax over 4 stop-loss distances: None / Tight / Medium / Wide">
+                Stop Loss
+                <span class="train-decoding-value">@StopLossOutputWidth-way @DecodingLabel</span>
+            </label>
+        }
+        @if (State.IncludeTakeProfitOutput)
+        {
+            <label class="train-brainrow-field"
+                   title="Softmax over 4 take-profit distances: None / Tight / Medium / Wide">
+                Take Profit
+                <span class="train-decoding-value">@TakeProfitOutputWidth-way @DecodingLabel</span>
+            </label>
+        }
+    </div>
+</div>
