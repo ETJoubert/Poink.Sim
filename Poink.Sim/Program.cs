@@ -7,6 +7,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Poink.Sim.Analysis;
 using Poink.Sim.Data;
 using Poink.Sim.Diagnostics;
 using Poink.Sim.Helpers;
@@ -29,6 +30,7 @@ builder.Services.BuildTrainingServices();
 builder.Services.BuildSimulationServices();
 
 builder.Services.AddSingleton<IProfilerService, ProfilerService>();
+builder.Services.AddSingleton<ITimeAboveBelowAnalysisService, TimeAboveBelowAnalysisService>();
 builder.Services.AddScoped<ILocalStorageHelper, LocalStorageHelper>();
 builder.Services.BuildTradePageServices();
 builder.Services.BuildCodeGraphServices();

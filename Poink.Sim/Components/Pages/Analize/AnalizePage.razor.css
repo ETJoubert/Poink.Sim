@@ -190,3 +190,139 @@
     color: var(--color-secondary);
     opacity: 0.7;
 }
+
+.analize-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.72rem;
+    color: var(--color-secondary);
+}
+
+.analize-input {
+    background: var(--color-bg-terminal);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 45%, transparent);
+    color: var(--color-primary);
+    padding: 4px 6px;
+    border-radius: var(--border-radius-sm);
+    font-family: var(--font-body);
+    font-size: 12px;
+    width: 100px;
+    transition: all 0.2s ease;
+}
+
+.analize-input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--color-primary) 40%, transparent);
+}
+
+.analize-btn {
+    font-family: var(--font-body);
+    font-weight: bold;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 7px 14px;
+    border-radius: var(--border-radius-sm);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 45%, transparent);
+    background: transparent;
+    color: var(--color-primary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.analize-btn:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+    border-color: var(--color-primary);
+}
+
+.analize-btn-run {
+    border-color: var(--color-success);
+    color: var(--color-success);
+    background: color-mix(in srgb, var(--color-success) 14%, transparent);
+}
+
+.analize-btn-run:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-success) 24%, transparent);
+}
+
+.analize-btn-cancel {
+    border-color: color-mix(in srgb, var(--color-warning) 50%, transparent);
+    color: var(--color-warning);
+}
+
+.analize-btn-cancel:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-warning) 14%, transparent);
+    border-color: var(--color-warning);
+}
+
+.analize-progress {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.analize-progress-bar {
+    flex: 1;
+    height: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.analize-progress-fill {
+    height: 100%;
+    background: var(--color-secondary);
+    box-shadow: var(--shadow-glow-secondary);
+    transition: width 0.2s ease;
+}
+
+.analize-progress-text {
+    font-size: 0.68rem;
+    color: var(--color-secondary);
+    white-space: nowrap;
+}
+
+.analize-error {
+    color: var(--color-error, #ff5f56);
+    font-size: 0.72rem;
+    margin: 0;
+}
+
+.analize-note {
+    color: var(--color-secondary);
+    font-size: 0.72rem;
+    margin: 0;
+    opacity: 0.8;
+}
+
+.analize-stat {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 0.72rem;
+}
+
+.analize-stat-label {
+    color: var(--color-secondary);
+    opacity: 0.8;
+    text-transform: uppercase;
+    font-size: 0.62rem;
+    letter-spacing: 0.06em;
+}
+
+.analize-stat-value {
+    font-weight: 600;
+    color: var(--color-primary);
+}
+
+.analize-caption {
+    font-size: 0.68rem;
+    color: var(--color-secondary);
+    opacity: 0.75;
+    margin: 6px 0 0;
+    flex-shrink: 0;
+}

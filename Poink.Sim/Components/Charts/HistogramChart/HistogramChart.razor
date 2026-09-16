@@ -1,0 +1,30 @@
+@namespace Poink.Sim.Components.Charts
+
+<div class="hist-wrapper">
+    <div class="hist-header">
+        <span class="hist-title">@Title</span>
+        @if (TotalCount > 0)
+        {
+            <span class="hist-header-count" title="Total samples in this distribution">@TotalCount.ToString("N0") samples</span>
+        }
+    </div>
+    <div class="hist-body">
+        @if (Bins.Count == 0 || TotalCount == 0)
+        {
+            <div class="hist-empty">@EmptyMessage</div>
+        }
+        else
+        {
+            @foreach (var bin in Bins)
+            {
+                <div class="hist-row" title="@($"{FormatRange(bin)}: {bin.Count:N0} samples")">
+                    <span class="hist-row-label">@FormatRange(bin)</span>
+                    <div class="hist-row-track">
+                        <div class="hist-row-bar" style="width: @(BarWidthPercent(bin.Count, MaxCount))%"></div>
+                    </div>
+                    <span class="hist-row-count">@bin.Count.ToString("N0")</span>
+                </div>
+            }
+        }
+    </div>
+</div>
