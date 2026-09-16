@@ -1,7 +1,6 @@
 namespace Poink.Sim.Components.Charts;
 
-// Maps XGridSignalCatalog keys to the CSS colour variable their signal uses in XGrid's own
-// live panel, so other UI listing these signals can mirror the same colours.
+// Maps XGridSignalCatalog keys to the CSS colour variable their signal uses across the UI.
 internal static class XGridSignalColors
 {
 	public static string Var(string key) =>
@@ -11,6 +10,8 @@ internal static class XGridSignalColors
 				"--color-success",
 			XGridSignalCatalog.Keys.RankTopPercentDown or "down-at-poc" or "down-above-poc" or "down-below-poc" =>
 				"--color-error",
+			XGridSignalCatalog.Keys.DeltaUp => "--color-badge-1",
+			XGridSignalCatalog.Keys.DeltaDown => "--color-badge-3",
 			XGridSignalCatalog.Keys.AtPoc
 			or "above-poc"
 			or XGridSignalCatalog.Keys.BelowPoc

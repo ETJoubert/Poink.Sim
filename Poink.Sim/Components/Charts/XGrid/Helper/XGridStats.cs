@@ -809,6 +809,8 @@ internal static class XGridSignalCatalog
 	{
 		public const string RankTopPercentUp = "rank-top-up";
 		public const string RankTopPercentDown = "rank-top-down";
+		public const string DeltaUp = "delta-up";
+		public const string DeltaDown = "delta-down";
 		public const string AtPoc = "at-poc";
 		public const string AtVah = "at-vah";
 		public const string AtVal = "at-val";
@@ -838,6 +840,20 @@ internal static class XGridSignalCatalog
 			"Top % Down",
 			"Current cell's down-tick count ranks in the top % of every nonzero cell (Down metric)",
 			(g, pct) => XGridStats.IsCurrentInTopPercent(g, XGridSpectrumMetric.Down, pct)
+		),
+		new XGridSignalDef(
+			Keys.DeltaUp,
+			"Rank",
+			"Delta Up",
+			"Current price's cell ranks in the top % most buy-heavy cells by up-minus-down delta",
+			(g, pct) => XGridStats.IsCurrentInDeltaPercent(g, pct, positive: true)
+		),
+		new XGridSignalDef(
+			Keys.DeltaDown,
+			"Rank",
+			"Delta Down",
+			"Current price's cell ranks in the top % most sell-heavy cells by down-minus-up delta",
+			(g, pct) => XGridStats.IsCurrentInDeltaPercent(g, pct, positive: false)
 		),
 		new XGridSignalDef(
 			Keys.AtPoc,

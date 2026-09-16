@@ -18,6 +18,8 @@ internal static class XGridRuleCatalog
 		Row("Top % Total", null, "rank-top-total", null),
 		Row("Top % Up", null, XGridSignalCatalog.Keys.RankTopPercentUp, null),
 		Row("Top % Down", null, XGridSignalCatalog.Keys.RankTopPercentDown, null),
+		Row("Delta Up", null, XGridSignalCatalog.Keys.DeltaUp, null),
+		Row("Delta Down", null, XGridSignalCatalog.Keys.DeltaDown, null),
 		Row("POC", "above-poc", XGridSignalCatalog.Keys.AtPoc, XGridSignalCatalog.Keys.BelowPoc),
 		Row("VAH", "above-vah", XGridSignalCatalog.Keys.AtVah, "below-vah"),
 		Row("VAL", "above-val", XGridSignalCatalog.Keys.AtVal, "below-val"),
