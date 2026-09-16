@@ -1,6 +1,13 @@
 @namespace Poink.Sim.Components.Charts
 
 <div class="xgrid-rule-panel" title="Above/In/Below mask over every XGrid signal -- the input side of the rule engine. Each signal can only be in one state at a time, so a row is a 3-way choice">
+    <div class="xgrid-rule-toolbar">
+        <span class="xgrid-rule-toolbar-status @(IsMatching ? "matching" : "")">@(IsMatching ? "MATCH" : "NO MATCH")</span>
+        <label class="xgrid-rule-percent" title="Top-percent cutoff used by the Top % Total/Up/Down rows">
+            Top %
+            <input type="number" min="0" max="100" step="1" @bind="_percent" />
+        </label>
+    </div>
     <table class="xgrid-rule-table">
         <thead>
             <tr>
@@ -40,4 +47,21 @@
             }
         </tbody>
     </table>
+
+    <div class="xgrid-rule-log" title="Timestamp of the bar each time every enabled signal matched at once">
+        <span class="xgrid-rule-log-header">Match Log</span>
+        @if (_matchLog.Count == 0)
+        {
+            <span class="xgrid-rule-log-empty">No matches yet</span>
+        }
+        else
+        {
+            <ul class="xgrid-rule-log-list">
+                @foreach (var timestamp in _matchLog)
+                {
+                    <li class="xgrid-rule-log-item">@timestamp.ToString("yyyy-MM-dd HH:mm:ss")</li>
+                }
+            </ul>
+        }
+    </div>
 </div>
