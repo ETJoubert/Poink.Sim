@@ -301,6 +301,7 @@ namespace Poink.Sim.Components.Charts
 			Add(Display.ShowVwap, grid.Vwap, "vwap");
 			Add(Display.ShowAverage, grid.Average, "avg");
 			Add(Display.ShowMedian, grid.Median, "med");
+			Add(Display.ShowRegressionLine, grid.RegressionLine, "reg");
 
 			var dayLines = Display.OverlaysEnabled && Display.ShowDayLines ? IntervalBoundaryColumns(grid, 24) : null;
 			var intervalLines =
@@ -536,6 +537,7 @@ namespace Poink.Sim.Components.Charts
 			Note(Display.ShowVwap, grid.Vwap, "VWAP");
 			Note(Display.ShowAverage, grid.Average, "AVG");
 			Note(Display.ShowMedian, grid.Median, "MED");
+			Note(Display.ShowRegressionLine, grid.RegressionLine, "REG");
 			if (grid.Current is { } current && current.Row == row)
 				levels.Add("current");
 			if (levels.Count > 0)

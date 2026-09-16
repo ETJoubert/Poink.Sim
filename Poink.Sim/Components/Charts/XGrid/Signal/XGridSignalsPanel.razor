@@ -45,6 +45,16 @@
                     <span class="xgrid-signals-arrow @(CurrentDeltaSignal(false) ? "on" : "")">&#9660;</span>
                 </td>
             </tr>
+            <tr class="xgrid-signals-row" style="--sig-color: var(--color-badge-1)">
+                <td class="xgrid-signals-label">REG</td>
+                <td class="xgrid-signals-cell" title="Current price is above the linear regression line fitted over the trailing window">
+                    <span class="xgrid-signals-arrow @(CurrentAboveRegressionSignal ? "on" : "")">&#9650;</span>
+                </td>
+                <td class="xgrid-signals-cell"></td>
+                <td class="xgrid-signals-cell" title="Current price is below the linear regression line fitted over the trailing window">
+                    <span class="xgrid-signals-arrow @(CurrentBelowRegressionSignal ? "on" : "")">&#9660;</span>
+                </td>
+            </tr>
             @foreach (var row in PositionRows)
             {
                 <tr class="xgrid-signals-row" style="--sig-color: var(@row.ColorVar)">

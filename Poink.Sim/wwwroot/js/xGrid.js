@@ -31,6 +31,7 @@ function markerVar(kind) {
         case 'vwap': return '--color-tertiary';
         case 'avg': return '--color-badge-2';
         case 'med': return '--color-neutral';
+        case 'reg': return '--color-badge-1';
         default: return '--color-secondary';
     }
 }

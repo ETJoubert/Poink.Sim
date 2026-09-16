@@ -43,6 +43,10 @@ namespace Poink.Sim.Components.Charts
 				Spectrum.DistanceWeighted
 			);
 
+		private bool CurrentAboveRegressionSignal => XGridStats.IsCurrentAboveRegressionLine(Grid);
+
+		private bool CurrentBelowRegressionSignal => XGridStats.IsCurrentBelowRegressionLine(Grid);
+
 		// Above/In/Below readout for one subject-vs-reference pair, mirroring XGridRuleCatalog's row shape.
 		private readonly record struct PositionRow(
 			string Label,
