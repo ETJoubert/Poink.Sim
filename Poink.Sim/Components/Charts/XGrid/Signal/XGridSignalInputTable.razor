@@ -1,0 +1,41 @@
+@namespace Poink.Sim.Components.Charts
+
+<table class="xgrid-input-table">
+    <thead>
+        <tr>
+            <th class="xgrid-input-head-signal">Signal</th>
+            <th title="Toggle this row's constraint as the subject being above its reference price">&#9650;</th>
+            <th title="Toggle this row's constraint as the subject's row matching its reference's row">In</th>
+            <th title="Toggle this row's constraint as the subject being below its reference price">&#9660;</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var row in Rows)
+        {
+            <tr class="xgrid-input-row" style="--sig-color: var(@row.ColorVar)">
+                <td class="xgrid-input-label">@row.Label</td>
+                <td class="xgrid-input-cell">
+                    @if (row.AboveKey is { } aboveKey)
+                    {
+                        <button type="button" class="xgrid-input-arrow @(IsSelected(aboveKey) ? "active" : "")"
+                                @onclick="() => Toggle(row, aboveKey)" disabled="@Disabled" title="@Tooltip(aboveKey)">&#9650;</button>
+                    }
+                </td>
+                <td class="xgrid-input-cell">
+                    @if (row.InKey is { } inKey)
+                    {
+                        <button type="button" class="xgrid-input-radio @(IsSelected(inKey) ? "active" : "")"
+                                @onclick="() => Toggle(row, inKey)" disabled="@Disabled" title="@Tooltip(inKey)"></button>
+                    }
+                </td>
+                <td class="xgrid-input-cell">
+                    @if (row.BelowKey is { } belowKey)
+                    {
+                        <button type="button" class="xgrid-input-arrow @(IsSelected(belowKey) ? "active" : "")"
+                                @onclick="() => Toggle(row, belowKey)" disabled="@Disabled" title="@Tooltip(belowKey)">&#9660;</button>
+                    }
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>

@@ -61,6 +61,8 @@
                 title="Highlight the row containing the range's mean price">AVG</button>
         <button class="xgrid-level-toggle xgrid-level-toggle-med @(Display.ShowMedian ? "active" : "")" @onclick="() => SetDisplay(Display with { ShowMedian = !Display.ShowMedian })"
                 title="Highlight the row containing the range's median price">MED</button>
+        <button class="xgrid-level-toggle xgrid-level-toggle-reg @(Display.ShowRegressionLine ? "active" : "")" @onclick="() => SetDisplay(Display with { ShowRegressionLine = !Display.ShowRegressionLine })"
+                title="Highlight the row containing the linear regression line fitted over the trailing window">REG</button>
         <span class="xgrid-row-divider"></span>
         <button class="xgrid-level-toggle xgrid-level-toggle-day @(Display.ShowDayLines ? "active" : "")" @onclick="() => SetDisplay(Display with { ShowDayLines = !Display.ShowDayLines })"
                 title="Draw a dashed vertical line at every day rollover (midnight)">Day</button>

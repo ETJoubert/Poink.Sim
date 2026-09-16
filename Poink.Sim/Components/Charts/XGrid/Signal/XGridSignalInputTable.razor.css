@@ -1,0 +1,92 @@
+.xgrid-input-table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 0.6rem;
+    letter-spacing: 0.03em;
+}
+
+.xgrid-input-table th {
+    height: 20px;
+    font-size: 0.52rem;
+    font-weight: bold;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-highlight);
+    opacity: 0.9;
+    text-align: center;
+    padding: 2px 4px;
+}
+
+.xgrid-input-head-signal {
+    text-align: left !important;
+}
+
+.xgrid-input-row {
+    color: var(--sig-color, var(--color-secondary));
+}
+
+.xgrid-input-row + .xgrid-input-row {
+    border-top: 1px solid color-mix(in srgb, var(--color-secondary) 15%, transparent);
+}
+
+.xgrid-input-label {
+    height: 26px;
+    padding: 0 6px;
+    white-space: nowrap;
+    opacity: 0.9;
+}
+
+.xgrid-input-cell {
+    height: 26px;
+    text-align: center;
+    padding: 0 4px;
+}
+
+.xgrid-input-radio {
+    width: 12px;
+    height: 12px;
+    padding: 0;
+    border: 1px solid color-mix(in srgb, var(--sig-color, var(--color-secondary)) 60%, transparent);
+    border-radius: 50%;
+    background: transparent;
+    cursor: pointer;
+}
+
+.xgrid-input-radio:hover {
+    border-color: var(--sig-color, var(--color-primary));
+}
+
+.xgrid-input-radio.active {
+    background: var(--sig-color, var(--color-primary));
+    border-color: var(--sig-color, var(--color-primary));
+    box-shadow: 0 0 4px var(--sig-color, var(--color-primary));
+}
+
+.xgrid-input-arrow {
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    line-height: 1;
+    font-size: 0.85rem;
+    border: none;
+    background: transparent;
+    color: var(--sig-color, currentColor);
+    opacity: 0.3;
+    cursor: pointer;
+    transition: opacity 0.15s ease;
+}
+
+.xgrid-input-arrow:hover {
+    opacity: 0.6;
+}
+
+.xgrid-input-arrow.active {
+    opacity: 1;
+    text-shadow: 0 0 4px var(--sig-color, currentColor);
+}
+
+.xgrid-input-radio:disabled,
+.xgrid-input-arrow:disabled {
+    cursor: default;
+    opacity: 0.15;
+}

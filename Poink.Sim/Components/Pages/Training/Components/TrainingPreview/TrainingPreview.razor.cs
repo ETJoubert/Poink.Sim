@@ -158,8 +158,8 @@ namespace Poink.Sim.Components.Training
 				_ => "",
 			};
 
-		// XGrid signal values carry their own colour (see XGridSignalColors) instead of the
-		// generic on/off green/grey every other kind uses.
+		// XGrid signal values carry their own colour (see XGridSignalDef.ColorVar) instead of
+		// the generic on/off green/grey every other kind uses.
 		private static string SignalValueClass(string? colorVar, string? kind) =>
 			colorVar is null ? ValueKindClass(kind) : kind == "on" ? "tp-value-signal tp-value-signal-on" : "tp-value-signal";
 
@@ -901,15 +901,10 @@ namespace Poink.Sim.Components.Training
 			var values = new List<ProfileValue>(signals.Count);
 			for (int i = 0; i < signals.Count; i++)
 			{
-				string label = XGridSignalCatalog.Get(signals[i]).Label;
+				var def = XGridSignalCatalog.Get(signals[i]);
 				bool on = isOn(i);
 				values.Add(
-					new ProfileValue(
-						label,
-						on ? "on" : "off",
-						$"{label}: {(on ? "true" : "false")}",
-						XGridSignalColors.Var(signals[i])
-					)
+					new ProfileValue(def.Label, on ? "on" : "off", $"{def.Label}: {(on ? "true" : "false")}", def.ColorVar)
 				);
 			}
 			return values;

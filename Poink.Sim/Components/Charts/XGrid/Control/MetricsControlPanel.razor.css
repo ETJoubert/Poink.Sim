@@ -380,6 +380,21 @@
     font-weight: bold;
 }
 
+.xgrid-level-toggle-reg {
+    color: var(--color-badge-1);
+    border: 1px solid color-mix(in srgb, var(--color-badge-1) 35%, transparent);
+}
+
+.xgrid-level-toggle-reg:hover {
+    background: color-mix(in srgb, var(--color-badge-1) 15%, transparent);
+}
+
+.xgrid-level-toggle-reg.active {
+    background: var(--color-badge-1);
+    color: var(--color-bg-dark);
+    font-weight: bold;
+}
+
 .xgrid-level-toggle-day {
     color: var(--color-highlight);
     border: 1px solid color-mix(in srgb, var(--color-highlight) 35%, transparent);

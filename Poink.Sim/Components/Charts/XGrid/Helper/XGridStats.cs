@@ -29,7 +29,7 @@ public readonly record struct XGridLevel(double Price, int Row);
 /// <summary>
 /// Full grid output. SweepLeftToRight/SweepRightToLeft/SweepSum count, per row, how many Volume-Range-sweep
 /// steps landed their window's POC there (see <see cref="XGridStats.Compute"/>). Vah/Val/Vwap/Average/Median/
-/// TotalPeak/UpPeak/DownPeak are null when there isn't enough data for that level; TotalPeak/UpPeak/DownPeak
+/// RegressionLine/TotalPeak/UpPeak/DownPeak are null when there isn't enough data for that level; TotalPeak/UpPeak/DownPeak
 /// are computed independently from Poc and can land on a different row. NetByColumn is the running
 /// cumulative SBuy - SSell, one point per column.
 /// </summary>
@@ -58,6 +58,7 @@ public readonly record struct XGridResult(
 	XGridLevel? Vwap,
 	XGridLevel? Average,
 	XGridLevel? Median,
+	XGridLevel? RegressionLine,
 	XGridLevel? TotalPeak,
 	XGridLevel? UpPeak,
 	XGridLevel? DownPeak,
@@ -265,6 +266,7 @@ internal static class XGridStats
 		}
 		var vwap = ToLevel(totalVolume > 0 ? (double?)(totalPriceVolume / totalVolume) : null);
 		var current = ToLevel(bars[indices[^1]].Close);
+		var regressionLine = ToLevel(ComputeRegressionCurrent(bars, indices));
 
 		XGridLevel? PeakLevel(double[] rowSums)
 		{
@@ -307,11 +309,41 @@ internal static class XGridStats
 			vwap,
 			average,
 			median,
+			regressionLine,
 			totalPeak,
 			upPeak,
 			downPeak,
 			current
 		);
+	}
+
+	// Ordinary-least-squares fit of Close against bar position, evaluated at the last (current) bar.
+	private static double? ComputeRegressionCurrent(IReadOnlyList<HlocAvdtBar> bars, List<int> indices)
+	{
+		int n = indices.Count;
+		if (n < 2)
+			return null;
+
+		double sumX = 0,
+			sumY = 0,
+			sumXY = 0,
+			sumXX = 0;
+		for (var x = 0; x < n; x++)
+		{
+			double y = bars[indices[x]].Close;
+			sumX += x;
+			sumY += y;
+			sumXY += x * y;
+			sumXX += (double)x * x;
+		}
+
+		double denominator = n * sumXX - sumX * sumX;
+		if (denominator == 0)
+			return null;
+
+		double slope = (n * sumXY - sumX * sumY) / denominator;
+		double intercept = (sumY - slope * sumX) / n;
+		return slope * (n - 1) + intercept;
 	}
 
 	// Walks every position of the Volume Range's near border, one raw bar at a time, tallying
@@ -416,6 +448,10 @@ internal static class XGridStats
 	public static bool IsCurrentAboveVwap(XGridResult grid) => IsCurrentAboveLevel(grid, grid.Vwap);
 
 	public static bool IsCurrentBelowVwap(XGridResult grid) => IsCurrentBelowLevel(grid, grid.Vwap);
+
+	public static bool IsCurrentAboveRegressionLine(XGridResult grid) => IsCurrentAboveLevel(grid, grid.RegressionLine);
+
+	public static bool IsCurrentBelowRegressionLine(XGridResult grid) => IsCurrentBelowLevel(grid, grid.RegressionLine);
 
 	// Level-vs-level comparison -- same price-for-above/below, row-for-at split as
 	// IsCurrentAboveLevel/IsCurrentAtLevel, between two computed levels.
@@ -791,16 +827,31 @@ internal static class XGridStats
 // toggle identity, Group/Label/Tooltip drive the Brain Builder checkbox UI.
 internal delegate bool XGridSignalPredicate(XGridResult grid, double percent);
 
+// Above/In/Below groups a row's related conditions for table-style UI (Rule Engine); a
+// row with only one condition (Rank-style) always uses In, by convention.
+internal enum XGridSignalDirection
+{
+	Above,
+	In,
+	Below,
+}
+
+// RowKey/RowLabel/ColorVar/Direction are this condition's place in a display row -- every row
+// with the same RowKey (see XGridRuleCatalog) is declared together below, in display order.
 internal sealed record XGridSignalDef(
 	string Key,
+	string RowKey,
+	string RowLabel,
+	string ColorVar,
+	XGridSignalDirection Direction,
 	string Group,
 	string Label,
 	string Tooltip,
 	XGridSignalPredicate Predicate
 );
 
-// Shared by the Brain Builder's XGrid input encoder and any future live overlay toggle, so
-// neither has to re-derive the signal list.
+// The single source of truth for every XGrid signal -- Rule Engine rows, Brain Builder's
+// checkboxes, and Brain IO's readout all project off this list instead of redeclaring it.
 internal static class XGridSignalCatalog
 {
 	// Well-known keys referenced by identity elsewhere in code (mask rules) -- everything else
@@ -809,6 +860,8 @@ internal static class XGridSignalCatalog
 	{
 		public const string RankTopPercentUp = "rank-top-up";
 		public const string RankTopPercentDown = "rank-top-down";
+		public const string DeltaUp = "delta-up";
+		public const string DeltaDown = "delta-down";
 		public const string AtPoc = "at-poc";
 		public const string AtVah = "at-vah";
 		public const string AtVal = "at-val";
@@ -819,235 +872,417 @@ internal static class XGridSignalCatalog
 	public static readonly IReadOnlyList<XGridSignalDef> All = new[]
 	{
 		new XGridSignalDef(
-			"rank-top-total",
-			"Rank",
-			"Top % Total",
-			"Current cell's total tick count ranks in the top % of every nonzero cell on the grid",
-			(g, pct) => XGridStats.IsCurrentInTopPercent(g, XGridSpectrumMetric.Total, pct)
+			Key: "rank-top-total",
+			RowKey: "rank-total",
+			RowLabel: "Top % Total",
+			ColorVar: "--color-secondary",
+			Direction: XGridSignalDirection.In,
+			Group: "Rank",
+			Label: "Top % Total",
+			Tooltip: "Current cell's total tick count ranks in the top % of every nonzero cell on the grid",
+			Predicate: (g, pct) => XGridStats.IsCurrentInTopPercent(g, XGridSpectrumMetric.Total, pct)
 		),
 		new XGridSignalDef(
-			Keys.RankTopPercentUp,
-			"Rank",
-			"Top % Up",
-			"Current cell's up-tick count ranks in the top % of every nonzero cell (Up metric)",
-			(g, pct) => XGridStats.IsCurrentInTopPercent(g, XGridSpectrumMetric.Up, pct)
+			Key: Keys.RankTopPercentUp,
+			RowKey: "rank-up",
+			RowLabel: "Top % Up",
+			ColorVar: "--color-success",
+			Direction: XGridSignalDirection.In,
+			Group: "Rank",
+			Label: "Top % Up",
+			Tooltip: "Current cell's up-tick count ranks in the top % of every nonzero cell (Up metric)",
+			Predicate: (g, pct) => XGridStats.IsCurrentInTopPercent(g, XGridSpectrumMetric.Up, pct)
 		),
 		new XGridSignalDef(
-			Keys.RankTopPercentDown,
-			"Rank",
-			"Top % Down",
-			"Current cell's down-tick count ranks in the top % of every nonzero cell (Down metric)",
-			(g, pct) => XGridStats.IsCurrentInTopPercent(g, XGridSpectrumMetric.Down, pct)
+			Key: Keys.RankTopPercentDown,
+			RowKey: "rank-down",
+			RowLabel: "Top % Down",
+			ColorVar: "--color-error",
+			Direction: XGridSignalDirection.In,
+			Group: "Rank",
+			Label: "Top % Down",
+			Tooltip: "Current cell's down-tick count ranks in the top % of every nonzero cell (Down metric)",
+			Predicate: (g, pct) => XGridStats.IsCurrentInTopPercent(g, XGridSpectrumMetric.Down, pct)
 		),
 		new XGridSignalDef(
-			Keys.AtPoc,
-			"At",
-			"At POC",
-			"Current price's row matches the Point of Control's row",
-			(g, _) => XGridStats.IsCurrentAtPoc(g)
+			Key: Keys.DeltaUp,
+			RowKey: "delta-up",
+			RowLabel: "Delta Up",
+			ColorVar: "--color-badge-1",
+			Direction: XGridSignalDirection.In,
+			Group: "Rank",
+			Label: "Delta Up",
+			Tooltip: "Current price's cell ranks in the top % most buy-heavy cells by up-minus-down delta",
+			Predicate: (g, pct) => XGridStats.IsCurrentInDeltaPercent(g, pct, positive: true)
 		),
 		new XGridSignalDef(
-			Keys.AtVah,
-			"At",
-			"At VAH",
-			"Current price's row matches the Value Area High's row",
-			(g, _) => XGridStats.IsCurrentAtVah(g)
+			Key: Keys.DeltaDown,
+			RowKey: "delta-down",
+			RowLabel: "Delta Down",
+			ColorVar: "--color-badge-3",
+			Direction: XGridSignalDirection.In,
+			Group: "Rank",
+			Label: "Delta Down",
+			Tooltip: "Current price's cell ranks in the top % most sell-heavy cells by down-minus-up delta",
+			Predicate: (g, pct) => XGridStats.IsCurrentInDeltaPercent(g, pct, positive: false)
 		),
 		new XGridSignalDef(
-			Keys.AtVal,
-			"At",
-			"At VAL",
-			"Current price's row matches the Value Area Low's row",
-			(g, _) => XGridStats.IsCurrentAtVal(g)
+			Key: "above-poc",
+			RowKey: "poc",
+			RowLabel: "POC",
+			ColorVar: "--color-primary",
+			Direction: XGridSignalDirection.Above,
+			Group: "Above",
+			Label: "Above POC",
+			Tooltip: "Current price is above the Point of Control's price",
+			Predicate: (g, _) => XGridStats.IsCurrentAbovePoc(g)
 		),
 		new XGridSignalDef(
-			Keys.AtVwap,
-			"At",
-			"At VWAP",
-			"Current price's row matches the VWAP's row",
-			(g, _) => XGridStats.IsCurrentAtVwap(g)
+			Key: Keys.AtPoc,
+			RowKey: "poc",
+			RowLabel: "POC",
+			ColorVar: "--color-primary",
+			Direction: XGridSignalDirection.In,
+			Group: "At",
+			Label: "At POC",
+			Tooltip: "Current price's row matches the Point of Control's row",
+			Predicate: (g, _) => XGridStats.IsCurrentAtPoc(g)
 		),
 		new XGridSignalDef(
-			"at-low",
-			"At",
-			"At Low",
-			"Current price's row matches the latest swing low's row (top % most prominent, adaptive)",
-			(g, pct) => XGridStats.IsCurrentAtLowLevel(g, new XGridPeakSettings(XGridPeakMode.Adaptive, 0, pct, 10))
+			Key: Keys.BelowPoc,
+			RowKey: "poc",
+			RowLabel: "POC",
+			ColorVar: "--color-primary",
+			Direction: XGridSignalDirection.Below,
+			Group: "Below",
+			Label: "Below POC",
+			Tooltip: "Current price is below the Point of Control's price",
+			Predicate: (g, _) => XGridStats.IsCurrentBelowPoc(g)
 		),
 		new XGridSignalDef(
-			"at-high",
-			"At",
-			"At High",
-			"Current price's row matches the latest swing high's row (top % most prominent, adaptive)",
-			(g, pct) => XGridStats.IsCurrentAtHighLevel(g, new XGridPeakSettings(XGridPeakMode.Adaptive, 0, pct, 10))
+			Key: "above-vah",
+			RowKey: "vah",
+			RowLabel: "VAH",
+			ColorVar: "--color-highlight",
+			Direction: XGridSignalDirection.Above,
+			Group: "Above",
+			Label: "Above VAH",
+			Tooltip: "Current price is above the Value Area High's price",
+			Predicate: (g, _) => XGridStats.IsCurrentAboveVah(g)
 		),
 		new XGridSignalDef(
-			"above-poc",
-			"Above",
-			"Above POC",
-			"Current price is above the Point of Control's price",
-			(g, _) => XGridStats.IsCurrentAbovePoc(g)
+			Key: Keys.AtVah,
+			RowKey: "vah",
+			RowLabel: "VAH",
+			ColorVar: "--color-highlight",
+			Direction: XGridSignalDirection.In,
+			Group: "At",
+			Label: "At VAH",
+			Tooltip: "Current price's row matches the Value Area High's row",
+			Predicate: (g, _) => XGridStats.IsCurrentAtVah(g)
 		),
 		new XGridSignalDef(
-			"above-vah",
-			"Above",
-			"Above VAH",
-			"Current price is above the Value Area High's price",
-			(g, _) => XGridStats.IsCurrentAboveVah(g)
+			Key: "below-vah",
+			RowKey: "vah",
+			RowLabel: "VAH",
+			ColorVar: "--color-highlight",
+			Direction: XGridSignalDirection.Below,
+			Group: "Below",
+			Label: "Below VAH",
+			Tooltip: "Current price is below the Value Area High's price",
+			Predicate: (g, _) => XGridStats.IsCurrentBelowVah(g)
 		),
 		new XGridSignalDef(
-			"above-val",
-			"Above",
-			"Above VAL",
-			"Current price is above the Value Area Low's price",
-			(g, _) => XGridStats.IsCurrentAboveVal(g)
+			Key: "above-val",
+			RowKey: "val",
+			RowLabel: "VAL",
+			ColorVar: "--color-highlight",
+			Direction: XGridSignalDirection.Above,
+			Group: "Above",
+			Label: "Above VAL",
+			Tooltip: "Current price is above the Value Area Low's price",
+			Predicate: (g, _) => XGridStats.IsCurrentAboveVal(g)
 		),
 		new XGridSignalDef(
-			"above-vwap",
-			"Above",
-			"Above VWAP",
-			"Current price is above the VWAP's price",
-			(g, _) => XGridStats.IsCurrentAboveVwap(g)
+			Key: Keys.AtVal,
+			RowKey: "val",
+			RowLabel: "VAL",
+			ColorVar: "--color-highlight",
+			Direction: XGridSignalDirection.In,
+			Group: "At",
+			Label: "At VAL",
+			Tooltip: "Current price's row matches the Value Area Low's row",
+			Predicate: (g, _) => XGridStats.IsCurrentAtVal(g)
 		),
 		new XGridSignalDef(
-			"above-low",
-			"Above",
-			"Above Low",
-			"Current price is above the latest swing low's price (top % most prominent, adaptive)",
-			(g, pct) => XGridStats.IsCurrentAboveLowLevel(g, new XGridPeakSettings(XGridPeakMode.Adaptive, 0, pct, 10))
+			Key: "below-val",
+			RowKey: "val",
+			RowLabel: "VAL",
+			ColorVar: "--color-highlight",
+			Direction: XGridSignalDirection.Below,
+			Group: "Below",
+			Label: "Below VAL",
+			Tooltip: "Current price is below the Value Area Low's price",
+			Predicate: (g, _) => XGridStats.IsCurrentBelowVal(g)
 		),
 		new XGridSignalDef(
-			"above-high",
-			"Above",
-			"Above High",
-			"Current price is above the latest swing high's price (top % most prominent, adaptive)",
-			(g, pct) => XGridStats.IsCurrentAboveHighLevel(g, new XGridPeakSettings(XGridPeakMode.Adaptive, 0, pct, 10))
+			Key: "above-vwap",
+			RowKey: "vwap",
+			RowLabel: "VWAP",
+			ColorVar: "--color-tertiary",
+			Direction: XGridSignalDirection.Above,
+			Group: "Above",
+			Label: "Above VWAP",
+			Tooltip: "Current price is above the VWAP's price",
+			Predicate: (g, _) => XGridStats.IsCurrentAboveVwap(g)
 		),
 		new XGridSignalDef(
-			Keys.BelowPoc,
-			"Below",
-			"Below POC",
-			"Current price is below the Point of Control's price",
-			(g, _) => XGridStats.IsCurrentBelowPoc(g)
+			Key: Keys.AtVwap,
+			RowKey: "vwap",
+			RowLabel: "VWAP",
+			ColorVar: "--color-tertiary",
+			Direction: XGridSignalDirection.In,
+			Group: "At",
+			Label: "At VWAP",
+			Tooltip: "Current price's row matches the VWAP's row",
+			Predicate: (g, _) => XGridStats.IsCurrentAtVwap(g)
 		),
 		new XGridSignalDef(
-			"below-vah",
-			"Below",
-			"Below VAH",
-			"Current price is below the Value Area High's price",
-			(g, _) => XGridStats.IsCurrentBelowVah(g)
+			Key: "below-vwap",
+			RowKey: "vwap",
+			RowLabel: "VWAP",
+			ColorVar: "--color-tertiary",
+			Direction: XGridSignalDirection.Below,
+			Group: "Below",
+			Label: "Below VWAP",
+			Tooltip: "Current price is below the VWAP's price",
+			Predicate: (g, _) => XGridStats.IsCurrentBelowVwap(g)
 		),
 		new XGridSignalDef(
-			"below-val",
-			"Below",
-			"Below VAL",
-			"Current price is below the Value Area Low's price",
-			(g, _) => XGridStats.IsCurrentBelowVal(g)
+			Key: "above-low",
+			RowKey: "low",
+			RowLabel: "Low",
+			ColorVar: "--color-badge-4",
+			Direction: XGridSignalDirection.Above,
+			Group: "Above",
+			Label: "Above Low",
+			Tooltip: "Current price is above the latest swing low's price (top % most prominent, adaptive)",
+			Predicate: (g, pct) =>
+				XGridStats.IsCurrentAboveLowLevel(g, new XGridPeakSettings(XGridPeakMode.Adaptive, 0, pct, 10))
 		),
 		new XGridSignalDef(
-			"below-vwap",
-			"Below",
-			"Below VWAP",
-			"Current price is below the VWAP's price",
-			(g, _) => XGridStats.IsCurrentBelowVwap(g)
+			Key: "at-low",
+			RowKey: "low",
+			RowLabel: "Low",
+			ColorVar: "--color-badge-4",
+			Direction: XGridSignalDirection.In,
+			Group: "At",
+			Label: "At Low",
+			Tooltip: "Current price's row matches the latest swing low's row (top % most prominent, adaptive)",
+			Predicate: (g, pct) =>
+				XGridStats.IsCurrentAtLowLevel(g, new XGridPeakSettings(XGridPeakMode.Adaptive, 0, pct, 10))
 		),
 		new XGridSignalDef(
-			"below-low",
-			"Below",
-			"Below Low",
-			"Current price is below the latest swing low's price (top % most prominent, adaptive)",
-			(g, pct) => XGridStats.IsCurrentBelowLowLevel(g, new XGridPeakSettings(XGridPeakMode.Adaptive, 0, pct, 10))
+			Key: "below-low",
+			RowKey: "low",
+			RowLabel: "Low",
+			ColorVar: "--color-badge-4",
+			Direction: XGridSignalDirection.Below,
+			Group: "Below",
+			Label: "Below Low",
+			Tooltip: "Current price is below the latest swing low's price (top % most prominent, adaptive)",
+			Predicate: (g, pct) =>
+				XGridStats.IsCurrentBelowLowLevel(g, new XGridPeakSettings(XGridPeakMode.Adaptive, 0, pct, 10))
 		),
 		new XGridSignalDef(
-			"below-high",
-			"Below",
-			"Below High",
-			"Current price is below the latest swing high's price (top % most prominent, adaptive)",
-			(g, pct) => XGridStats.IsCurrentBelowHighLevel(g, new XGridPeakSettings(XGridPeakMode.Adaptive, 0, pct, 10))
+			Key: "above-high",
+			RowKey: "high",
+			RowLabel: "High",
+			ColorVar: "--color-badge-5",
+			Direction: XGridSignalDirection.Above,
+			Group: "Above",
+			Label: "Above High",
+			Tooltip: "Current price is above the latest swing high's price (top % most prominent, adaptive)",
+			Predicate: (g, pct) =>
+				XGridStats.IsCurrentAboveHighLevel(g, new XGridPeakSettings(XGridPeakMode.Adaptive, 0, pct, 10))
 		),
 		new XGridSignalDef(
-			"vwap-at-poc",
-			"Vs POC",
-			"VWAP At POC",
-			"VWAP's row matches the Point of Control's row",
-			(g, _) => XGridStats.IsVwapAtPoc(g)
+			Key: "at-high",
+			RowKey: "high",
+			RowLabel: "High",
+			ColorVar: "--color-badge-5",
+			Direction: XGridSignalDirection.In,
+			Group: "At",
+			Label: "At High",
+			Tooltip: "Current price's row matches the latest swing high's row (top % most prominent, adaptive)",
+			Predicate: (g, pct) =>
+				XGridStats.IsCurrentAtHighLevel(g, new XGridPeakSettings(XGridPeakMode.Adaptive, 0, pct, 10))
 		),
 		new XGridSignalDef(
-			"vwap-above-poc",
-			"Vs POC",
-			"VWAP Above POC",
-			"VWAP's price is above the Point of Control's price",
-			(g, _) => XGridStats.IsVwapAbovePoc(g)
+			Key: "below-high",
+			RowKey: "high",
+			RowLabel: "High",
+			ColorVar: "--color-badge-5",
+			Direction: XGridSignalDirection.Below,
+			Group: "Below",
+			Label: "Below High",
+			Tooltip: "Current price is below the latest swing high's price (top % most prominent, adaptive)",
+			Predicate: (g, pct) =>
+				XGridStats.IsCurrentBelowHighLevel(g, new XGridPeakSettings(XGridPeakMode.Adaptive, 0, pct, 10))
 		),
 		new XGridSignalDef(
-			"vwap-below-poc",
-			"Vs POC",
-			"VWAP Below POC",
-			"VWAP's price is below the Point of Control's price",
-			(g, _) => XGridStats.IsVwapBelowPoc(g)
+			Key: "above-reg",
+			RowKey: "reg",
+			RowLabel: "Reg",
+			ColorVar: "--color-badge-1",
+			Direction: XGridSignalDirection.Above,
+			Group: "Above",
+			Label: "Above Regression",
+			Tooltip: "Current price is above the linear regression line fitted over the trailing window",
+			Predicate: (g, _) => XGridStats.IsCurrentAboveRegressionLine(g)
 		),
 		new XGridSignalDef(
-			"total-at-poc",
-			"Vs POC",
-			"Total At POC",
-			"The grid's own total tick-count peak row matches the Point of Control's row",
-			(g, _) => XGridStats.IsTotalAtPoc(g)
+			Key: "below-reg",
+			RowKey: "reg",
+			RowLabel: "Reg",
+			ColorVar: "--color-badge-1",
+			Direction: XGridSignalDirection.Below,
+			Group: "Below",
+			Label: "Below Regression",
+			Tooltip: "Current price is below the linear regression line fitted over the trailing window",
+			Predicate: (g, _) => XGridStats.IsCurrentBelowRegressionLine(g)
 		),
 		new XGridSignalDef(
-			"total-above-poc",
-			"Vs POC",
-			"Total Above POC",
-			"The grid's own total tick-count peak row is above the Point of Control's price",
-			(g, _) => XGridStats.IsTotalAbovePoc(g)
+			Key: "vwap-above-poc",
+			RowKey: "vwap-poc",
+			RowLabel: "VWAP/POC",
+			ColorVar: "--color-tertiary",
+			Direction: XGridSignalDirection.Above,
+			Group: "Vs POC",
+			Label: "VWAP Above POC",
+			Tooltip: "VWAP's price is above the Point of Control's price",
+			Predicate: (g, _) => XGridStats.IsVwapAbovePoc(g)
 		),
 		new XGridSignalDef(
-			"total-below-poc",
-			"Vs POC",
-			"Total Below POC",
-			"The grid's own total tick-count peak row is below the Point of Control's price",
-			(g, _) => XGridStats.IsTotalBelowPoc(g)
+			Key: "vwap-at-poc",
+			RowKey: "vwap-poc",
+			RowLabel: "VWAP/POC",
+			ColorVar: "--color-tertiary",
+			Direction: XGridSignalDirection.In,
+			Group: "Vs POC",
+			Label: "VWAP At POC",
+			Tooltip: "VWAP's row matches the Point of Control's row",
+			Predicate: (g, _) => XGridStats.IsVwapAtPoc(g)
 		),
 		new XGridSignalDef(
-			"up-at-poc",
-			"Vs POC",
-			"Up At POC",
-			"The grid's own up-tick peak row matches the Point of Control's row",
-			(g, _) => XGridStats.IsUpAtPoc(g)
+			Key: "vwap-below-poc",
+			RowKey: "vwap-poc",
+			RowLabel: "VWAP/POC",
+			ColorVar: "--color-tertiary",
+			Direction: XGridSignalDirection.Below,
+			Group: "Vs POC",
+			Label: "VWAP Below POC",
+			Tooltip: "VWAP's price is below the Point of Control's price",
+			Predicate: (g, _) => XGridStats.IsVwapBelowPoc(g)
 		),
 		new XGridSignalDef(
-			"up-above-poc",
-			"Vs POC",
-			"Up Above POC",
-			"The grid's own up-tick peak row is above the Point of Control's price",
-			(g, _) => XGridStats.IsUpAbovePoc(g)
+			Key: "total-above-poc",
+			RowKey: "total-poc",
+			RowLabel: "Total/POC",
+			ColorVar: "--color-primary",
+			Direction: XGridSignalDirection.Above,
+			Group: "Vs POC",
+			Label: "Total Above POC",
+			Tooltip: "The grid's own total tick-count peak row is above the Point of Control's price",
+			Predicate: (g, _) => XGridStats.IsTotalAbovePoc(g)
 		),
 		new XGridSignalDef(
-			"up-below-poc",
-			"Vs POC",
-			"Up Below POC",
-			"The grid's own up-tick peak row is below the Point of Control's price",
-			(g, _) => XGridStats.IsUpBelowPoc(g)
+			Key: "total-at-poc",
+			RowKey: "total-poc",
+			RowLabel: "Total/POC",
+			ColorVar: "--color-primary",
+			Direction: XGridSignalDirection.In,
+			Group: "Vs POC",
+			Label: "Total At POC",
+			Tooltip: "The grid's own total tick-count peak row matches the Point of Control's row",
+			Predicate: (g, _) => XGridStats.IsTotalAtPoc(g)
 		),
 		new XGridSignalDef(
-			"down-at-poc",
-			"Vs POC",
-			"Down At POC",
-			"The grid's own down-tick peak row matches the Point of Control's row",
-			(g, _) => XGridStats.IsDownAtPoc(g)
+			Key: "total-below-poc",
+			RowKey: "total-poc",
+			RowLabel: "Total/POC",
+			ColorVar: "--color-primary",
+			Direction: XGridSignalDirection.Below,
+			Group: "Vs POC",
+			Label: "Total Below POC",
+			Tooltip: "The grid's own total tick-count peak row is below the Point of Control's price",
+			Predicate: (g, _) => XGridStats.IsTotalBelowPoc(g)
 		),
 		new XGridSignalDef(
-			"down-above-poc",
-			"Vs POC",
-			"Down Above POC",
-			"The grid's own down-tick peak row is above the Point of Control's price",
-			(g, _) => XGridStats.IsDownAbovePoc(g)
+			Key: "up-above-poc",
+			RowKey: "up-poc",
+			RowLabel: "Up/POC",
+			ColorVar: "--color-success",
+			Direction: XGridSignalDirection.Above,
+			Group: "Vs POC",
+			Label: "Up Above POC",
+			Tooltip: "The grid's own up-tick peak row is above the Point of Control's price",
+			Predicate: (g, _) => XGridStats.IsUpAbovePoc(g)
 		),
 		new XGridSignalDef(
-			"down-below-poc",
-			"Vs POC",
-			"Down Below POC",
-			"The grid's own down-tick peak row is below the Point of Control's price",
-			(g, _) => XGridStats.IsDownBelowPoc(g)
+			Key: "up-at-poc",
+			RowKey: "up-poc",
+			RowLabel: "Up/POC",
+			ColorVar: "--color-success",
+			Direction: XGridSignalDirection.In,
+			Group: "Vs POC",
+			Label: "Up At POC",
+			Tooltip: "The grid's own up-tick peak row matches the Point of Control's row",
+			Predicate: (g, _) => XGridStats.IsUpAtPoc(g)
+		),
+		new XGridSignalDef(
+			Key: "up-below-poc",
+			RowKey: "up-poc",
+			RowLabel: "Up/POC",
+			ColorVar: "--color-success",
+			Direction: XGridSignalDirection.Below,
+			Group: "Vs POC",
+			Label: "Up Below POC",
+			Tooltip: "The grid's own up-tick peak row is below the Point of Control's price",
+			Predicate: (g, _) => XGridStats.IsUpBelowPoc(g)
+		),
+		new XGridSignalDef(
+			Key: "down-above-poc",
+			RowKey: "down-poc",
+			RowLabel: "Down/POC",
+			ColorVar: "--color-error",
+			Direction: XGridSignalDirection.Above,
+			Group: "Vs POC",
+			Label: "Down Above POC",
+			Tooltip: "The grid's own down-tick peak row is above the Point of Control's price",
+			Predicate: (g, _) => XGridStats.IsDownAbovePoc(g)
+		),
+		new XGridSignalDef(
+			Key: "down-at-poc",
+			RowKey: "down-poc",
+			RowLabel: "Down/POC",
+			ColorVar: "--color-error",
+			Direction: XGridSignalDirection.In,
+			Group: "Vs POC",
+			Label: "Down At POC",
+			Tooltip: "The grid's own down-tick peak row matches the Point of Control's row",
+			Predicate: (g, _) => XGridStats.IsDownAtPoc(g)
+		),
+		new XGridSignalDef(
+			Key: "down-below-poc",
+			RowKey: "down-poc",
+			RowLabel: "Down/POC",
+			ColorVar: "--color-error",
+			Direction: XGridSignalDirection.Below,
+			Group: "Vs POC",
+			Label: "Down Below POC",
+			Tooltip: "The grid's own down-tick peak row is below the Point of Control's price",
+			Predicate: (g, _) => XGridStats.IsDownBelowPoc(g)
 		),
 	};
 

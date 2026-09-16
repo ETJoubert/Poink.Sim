@@ -370,6 +370,10 @@
     width: 28px;
 }
 
+.sim-left-side-panel-wide {
+    width: 460px;
+}
+
 .sim-left-side-panel-header {
     display: flex;
     align-items: center;

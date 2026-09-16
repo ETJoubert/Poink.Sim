@@ -1,0 +1,38 @@
+@namespace Poink.Sim.Components.Charts
+
+<table class="xgrid-output-table">
+    <thead>
+        <tr>
+            <th class="xgrid-output-head-signal">Signal</th>
+            <th title="Above">&#9650;</th>
+            <th title="In">In</th>
+            <th title="Below">&#9660;</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var row in Rows)
+        {
+            <tr class="xgrid-output-row" style="--sig-color: var(@row.ColorVar)">
+                <td class="xgrid-output-label">@row.Label</td>
+                <td class="xgrid-output-cell">
+                    @if (row.AboveKey is { } aboveKey)
+                    {
+                        <span class="xgrid-output-arrow @(ValueOf(aboveKey) ? "on" : "")" title="@Tooltip(aboveKey)">&#9650;</span>
+                    }
+                </td>
+                <td class="xgrid-output-cell">
+                    @if (row.InKey is { } inKey)
+                    {
+                        <span class="xgrid-output-dot @(ValueOf(inKey) ? "on" : "")" title="@Tooltip(inKey)"></span>
+                    }
+                </td>
+                <td class="xgrid-output-cell">
+                    @if (row.BelowKey is { } belowKey)
+                    {
+                        <span class="xgrid-output-arrow @(ValueOf(belowKey) ? "on" : "")" title="@Tooltip(belowKey)">&#9660;</span>
+                    }
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>

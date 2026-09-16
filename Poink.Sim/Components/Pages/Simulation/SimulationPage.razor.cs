@@ -159,7 +159,12 @@ namespace Poink.Sim.Components.Pages
 		{
 			Traders,
 			TraderIo,
+			RuleEngine,
 		}
+
+		// Above/In/Below mask the Rule Engine tab edits -- keyed by XGridSignalCatalog key,
+		// owned by the page so it survives tab switches.
+		private HashSet<string> _ruleEngineEnabledKeys = new();
 
 		private int _xgridPipCount = 20;
 		private int _xgridColCount = 20;

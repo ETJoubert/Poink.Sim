@@ -282,7 +282,7 @@
         <div class="sim-body">
             @if (_snapshot is not null)
             {
-                <aside class="sim-left-side-panel @(_leftSidePanelCollapsed ? "sim-left-side-panel-collapsed" : "")">
+                <aside class="sim-left-side-panel @(_leftSidePanelCollapsed ? "sim-left-side-panel-collapsed" : "") @(!_leftSidePanelCollapsed && _activeLeftPanelTab == SimLeftPanelTab.RuleEngine ? "sim-left-side-panel-wide" : "")">
                     <div class="sim-left-side-panel-header">
                         <button type="button" class="sim-left-side-panel-toggle" @onclick="() => _leftSidePanelCollapsed = !_leftSidePanelCollapsed"
                                 title="@(_leftSidePanelCollapsed ? "Expand the traders panel" : "Collapse the traders panel")">
@@ -302,6 +302,9 @@
                             <button type="button" class="sim-left-side-panel-tab @(_activeLeftPanelTab == SimLeftPanelTab.TraderIo ? "active" : "")"
                                     @onclick="() => _activeLeftPanelTab = SimLeftPanelTab.TraderIo"
                                     title="The selected trader's live brain inputs and output decision distribution">TRADER IO</button>
+                            <button type="button" class="sim-left-side-panel-tab @(_activeLeftPanelTab == SimLeftPanelTab.RuleEngine ? "active" : "")"
+                                    @onclick="() => _activeLeftPanelTab = SimLeftPanelTab.RuleEngine"
+                                    title="Above/In/Below mask over every XGrid signal -- the input side of the rule engine">RULE ENGINE</button>
                         </div>
                         <div class="sim-left-side-panel-content">
                             @if (_activeLeftPanelTab == SimLeftPanelTab.Traders)
@@ -320,6 +323,11 @@
                             {
                                 <BrainIoPanel Inputs="SelectedTrader?.Inputs" Outputs="SelectedTrader?.Outputs"
                                               CurrentPrice="_snapshot?.CurrentPrice" Equity="SelectedTrader?.Capital.Equity" />
+                            }
+                            else if (_activeLeftPanelTab == SimLeftPanelTab.RuleEngine)
+                            {
+                                <XGridRulePanel @bind-EnabledKeys="_ruleEngineEnabledKeys" Grid="ComputeXGrid(_snapshot)"
+                                                CurrentTimestampUtc="_snapshot.CurrentTimestampUtc" />
                             }
                         </div>
                     }

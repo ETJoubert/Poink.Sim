@@ -1,0 +1,72 @@
+.xgrid-output-table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 0.6rem;
+    letter-spacing: 0.03em;
+}
+
+.xgrid-output-table th {
+    height: 20px;
+    font-size: 0.52rem;
+    font-weight: bold;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-highlight);
+    opacity: 0.9;
+    text-align: center;
+    padding: 2px 4px;
+}
+
+.xgrid-output-head-signal {
+    text-align: left !important;
+}
+
+.xgrid-output-row {
+    color: var(--sig-color, var(--color-secondary));
+}
+
+.xgrid-output-row + .xgrid-output-row {
+    border-top: 1px solid color-mix(in srgb, var(--color-secondary) 15%, transparent);
+}
+
+.xgrid-output-label {
+    height: 26px;
+    padding: 0 6px;
+    white-space: nowrap;
+    opacity: 0.9;
+}
+
+.xgrid-output-cell {
+    height: 26px;
+    text-align: center;
+    padding: 0 4px;
+}
+
+.xgrid-output-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--sig-color, currentColor);
+    opacity: 0.3;
+    transition: opacity 0.15s ease;
+}
+
+.xgrid-output-dot.on {
+    opacity: 1;
+    box-shadow: 0 0 4px var(--sig-color, currentColor);
+}
+
+.xgrid-output-arrow {
+    display: inline-block;
+    font-size: 0.5rem;
+    line-height: 1;
+    color: var(--sig-color, currentColor);
+    opacity: 0.3;
+    transition: opacity 0.15s ease;
+}
+
+.xgrid-output-arrow.on {
+    opacity: 1;
+    text-shadow: 0 0 4px var(--sig-color, currentColor);
+}

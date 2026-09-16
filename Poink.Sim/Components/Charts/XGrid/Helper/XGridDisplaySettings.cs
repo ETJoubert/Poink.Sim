@@ -16,6 +16,7 @@ namespace Poink.Sim.Components.Charts
 		public bool ShowVwap { get; init; }
 		public bool ShowAverage { get; init; }
 		public bool ShowMedian { get; init; }
+		public bool ShowRegressionLine { get; init; }
 		public bool ShowDayLines { get; init; }
 		public bool ShowIntervalLines { get; init; }
 		public int IntervalHours { get; init; } = 4;

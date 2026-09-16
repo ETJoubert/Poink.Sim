@@ -1,6 +1,7 @@
 .xgrid-signals-wrapper {
     flex: 0 0 auto;
     display: flex;
+    flex-direction: column;
     border: 1px solid color-mix(in srgb, var(--color-secondary) 25%, transparent);
     border-radius: var(--border-radius-md);
     background: color-mix(in srgb, var(--color-secondary) 6%, var(--color-bg-terminal));
@@ -8,125 +9,72 @@
     padding: 10px 12px;
 }
 
-.xgrid-signals {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
+.xgrid-signals-table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 0.6rem;
+    letter-spacing: 0.03em;
 }
 
-.xgrid-signals-label {
+.xgrid-signals-table th {
     font-size: 0.52rem;
     font-weight: bold;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--color-highlight);
     opacity: 0.9;
-    white-space: nowrap;
-    margin-bottom: 2px;
+    text-align: center;
+    padding: 2px 4px 4px;
 }
 
-.xgrid-signal {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 0.52rem;
-    letter-spacing: 0.04em;
-    color: var(--color-secondary);
-    opacity: 0.45;
-    white-space: nowrap;
-    transition: opacity 0.15s ease;
+.xgrid-signals-head-signal {
+    text-align: left !important;
 }
 
-.xgrid-signal-dot {
+.xgrid-signals-row {
+    color: var(--sig-color, var(--color-secondary));
+}
+
+.xgrid-signals-row + .xgrid-signals-row {
+    border-top: 1px solid color-mix(in srgb, var(--color-secondary) 15%, transparent);
+}
+
+.xgrid-signals-label {
+    padding: 2px 6px;
+    white-space: nowrap;
+    opacity: 0.9;
+}
+
+.xgrid-signals-cell {
+    text-align: center;
+    padding: 2px 4px;
+}
+
+.xgrid-signals-dot {
+    display: inline-block;
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: currentColor;
-    opacity: 0.5;
-}
-
-.xgrid-signal.on {
-    opacity: 1;
-}
-
-.xgrid-signal.on .xgrid-signal-dot,
-.xgrid-signal-dot.on {
-    opacity: 1;
-    box-shadow: 0 0 4px currentColor;
-}
-
-.xgrid-signal-pos {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 0.52rem;
-    letter-spacing: 0.04em;
-    opacity: 0.85;
-    white-space: nowrap;
-}
-
-.xgrid-signal-arrow {
-    font-size: 0.5rem;
-    line-height: 1;
+    background: var(--sig-color, currentColor);
     opacity: 0.3;
     transition: opacity 0.15s ease;
 }
 
-.xgrid-signal-arrow.on {
+.xgrid-signals-dot.on {
     opacity: 1;
-    text-shadow: 0 0 4px currentColor;
+    box-shadow: 0 0 4px var(--sig-color, currentColor);
 }
 
-.xgrid-signal-up {
-    color: var(--color-success);
+.xgrid-signals-arrow {
+    display: inline-block;
+    font-size: 0.5rem;
+    line-height: 1;
+    color: var(--sig-color, currentColor);
+    opacity: 0.3;
+    transition: opacity 0.15s ease;
 }
 
-.xgrid-signal-down {
-    color: var(--color-error);
-}
-
-.xgrid-signal-delta-pos {
-    color: var(--color-badge-1);
-}
-
-.xgrid-signal-delta-neg {
-    color: var(--color-badge-3);
-}
-
-.xgrid-signal-poc {
-    color: var(--color-primary);
-}
-
-.xgrid-signal-vah,
-.xgrid-signal-val {
-    color: var(--color-highlight);
-}
-
-.xgrid-signal-vwap {
-    color: var(--color-tertiary);
-}
-
-.xgrid-signal-vwap-poc {
-    color: var(--color-tertiary);
-}
-
-.xgrid-signal-low {
-    color: var(--color-badge-4);
-}
-
-.xgrid-signal-high {
-    color: var(--color-badge-5);
-}
-
-.xgrid-signal-total-poc {
-    color: var(--color-primary);
-}
-
-.xgrid-signal-up-poc {
-    color: var(--color-success);
-}
-
-.xgrid-signal-down-poc {
-    color: var(--color-error);
+.xgrid-signals-arrow.on {
+    opacity: 1;
+    text-shadow: 0 0 4px var(--sig-color, currentColor);
 }
