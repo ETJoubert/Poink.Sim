@@ -13,10 +13,15 @@
 }
 
 .analize-header {
-    display: flex;
+    
     align-items: center;
     gap: 12px;
+    flex-wrap: wrap;
     padding: 16px 24px;
+}
+
+.analize-header-data {
+    margin-left: auto;
 }
 
 .analize-title {

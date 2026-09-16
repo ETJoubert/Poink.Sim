@@ -1,11 +1,16 @@
 @page "/analize"
 @namespace Poink.Sim.Components.Pages.Analize
 @using Poink.Sim.Components.Shared.Icon
+@using Poink.Sim.Components.Shared.TickDataSource
 
 <div class="analize-page">
     <div class="analize-topbar">
         <header class="analize-header">
             <span class="analize-title">ANALYSIS</span>
+
+            <div class="analize-header-data">
+                <TickDataSource @bind-Table="_table" @bind-From="_from" @bind-To="_to" />
+            </div>
         </header>
     </div>
 
