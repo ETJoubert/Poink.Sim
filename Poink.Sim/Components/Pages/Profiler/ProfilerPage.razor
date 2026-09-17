@@ -151,7 +151,8 @@
                          title="@(VolumeRangeLabel() is { } xgridLabel
                                                                               ? $"Footprint grid for the selected Lookback Window ({xgridLabel}) -- rows are price buckets, columns are bars"
                                                                               : "Select a Lookback Window to build the footprint grid -- rows are price buckets, columns are bars")">
-                        <XGridController Grid="ComputeXGrid()" @bind-PipCount="_xgridPipCount" @bind-ColCount="_xgridColCount" />
+                        <XGridController Grid="ComputeXGrid()" @bind-PipCount="_xgridPipCount" @bind-ColCount="_xgridColCount"
+                                       ProfileBarCount="_lookbackWidth" />
                     </div>
                 </div>
             }
@@ -222,9 +223,6 @@
                 </div>
             }
         </div>
-
-        <div class="prof-chart-hdivider" @ref="_chartHDividerRef" data-min-height="200" data-max-height-vh="80"
-             title="Drag to resize"></div>
     }
     else if (!_isLoading)
     {
