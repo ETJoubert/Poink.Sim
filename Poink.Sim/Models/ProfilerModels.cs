@@ -7,6 +7,7 @@ internal sealed record ProfilerConfig(string Table, DateTime From, DateTime To, 
 
 internal sealed record ProfilerChunk(
 	IReadOnlyList<HlocAvdtBar> Bars,
+	IReadOnlyList<QuartileBar> QuartileBars,
 	IReadOnlyList<BarPriceHistogram> BarHistograms,
 	DateTime EarliestUtc,
 	int TickCount,

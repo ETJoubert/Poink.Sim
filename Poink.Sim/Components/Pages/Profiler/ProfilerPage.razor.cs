@@ -9,6 +9,7 @@ using Poink.Sim.Components.Charts;
 using Poink.Sim.Models;
 using Poink.Sim.Profiler;
 using Poink.Sim.Repository;
+using Poink.Sim.Services.Charts;
 
 namespace Poink.Sim.Components.Pages
 {
@@ -26,18 +27,26 @@ namespace Poink.Sim.Components.Pages
 		[Inject]
 		private ITRangeReferenceChartRepository TRangeReferenceChartRepository { get; set; } = default!;
 
+		[Inject]
+		private IBarKindChartService BarKindChartService { get; set; } = default!;
+
 		private const int BarsPerFetch = 300;
 
 		private string _table = "";
 		private DateTime _from = DateTime.UtcNow.AddDays(-1);
 		private DateTime _to = DateTime.UtcNow;
 		private int _barSizeSeconds = 60;
+		private BarAggregationKind _barAggregationKind = BarAggregationKind.Ohlc;
+
+		// Cleared after the first range settle so later manual range edits still require LOAD.
+		private bool _autoLoadPending = true;
 
 		private bool _isLoading;
 		private bool _isLoadingMore;
 		private string? _error;
 
 		private PanelTab _activePanelTab;
+		private bool _rightPanelCollapsed = true;
 
 		private enum PanelTab
 		{
@@ -58,6 +67,11 @@ namespace Poink.Sim.Components.Pages
 		/// this list, which a fresh `ToBarRows()` on every render would defeat.
 		/// </summary>
 		private List<CTraderBarRow> _barRows = new();
+
+		private List<QuartileBar> _quartileBars = new();
+
+		// Per-bar median overlay, only populated in Quartile bar-kind mode (see RefreshBarRows).
+		private List<ChartLinePoint> _medianLine = new();
 
 		private List<BarPriceHistogram> _barHistograms = new();
 		private int _tickCount;
@@ -126,7 +140,15 @@ namespace Poink.Sim.Components.Pages
 		private bool _showXGrid = true;
 		private bool _showVolumeProfile = false;
 		private bool _showTimeProfile = false;
-		private bool _showMetricsPanel;
+		private bool _showSubchart = false;
+
+		private int _subchartBarSizeSeconds = 10;
+		private BarAggregationKind _subchartBarKind = BarAggregationKind.Ohlc;
+		private List<CTraderBarRow> _subchartBars = new();
+		private List<ChartLinePoint> _subchartMedianLine = new();
+		private bool _subchartLoading;
+		private string? _subchartError;
+		private (string Table, DateTime Start, DateTime End, int BarWidthSeconds, BarAggregationKind BarKind)? _subchartLoadedFor;
 
 		private HashSet<int> _selectedDrawingIds = new();
 		private HashSet<int> _savedDrawingIds = new();
@@ -151,8 +173,7 @@ namespace Poink.Sim.Components.Pages
 		private ElementReference _chartDividerRefXGrid;
 		private ElementReference _chartDividerRef;
 		private ElementReference _chartDividerRef2;
-		private ElementReference _chartDividerRefMetrics;
-		private ElementReference _chartHDividerRef;
+		private ElementReference _chartDividerRefSubchart;
 		private IJSObjectReference? _dividerResizeInstance;
 		private HashSet<string> _lastVisiblePanels = new();
 
@@ -162,11 +183,21 @@ namespace Poink.Sim.Components.Pages
 			    // percent (not width px) so N panels always sum to 100% regardless of window
 			    // size -- resetEqual splits it evenly, bind's drag only ever moves percent
 			    // between the divider's own two immediate neighbours.
+			    // Net px a divider adds beyond its neighbours' own width: two 16px gaps narrowed
+			    // by its -10px margins, plus its own 6px -- keep in sync with .prof-chart's CSS.
+			    var DIVIDER_CHROME_PX = 18;
 			    function resetEqual(container) {
 			        if (!container) return;
 			        var panels = container.querySelectorAll(':scope > .prof-chart-main, :scope > .prof-chart-side');
 			        if (panels.length === 0) return;
-			        var percent = 100 / panels.length;
+			        var dividerCount = container.querySelectorAll(':scope > .prof-chart-divider').length;
+			        var style = getComputedStyle(container);
+			        var containerWidth = container.getBoundingClientRect().width
+			            - (parseFloat(style.paddingLeft) || 0)
+			            - (parseFloat(style.paddingRight) || 0);
+			        var reservedPercent = containerWidth > 0
+			            ? (dividerCount * DIVIDER_CHROME_PX / containerWidth) * 100 : 0;
+			        var percent = (100 - reservedPercent) / panels.length;
 			        panels.forEach(function(p) { p.style.flex = '0 0 ' + percent + '%'; });
 			    }
 			    function bind(divider) {
@@ -179,7 +210,12 @@ namespace Poink.Sim.Components.Pages
 			            var right = divider.nextElementSibling;
 			            if (!left || !right) return;
 			            var container = divider.parentElement;
-			            var containerWidth = container.getBoundingClientRect().width;
+			            // flex-basis % resolves against the content box, not the border box
+			            // getBoundingClientRect returns -- subtract padding or drags drift right-ward.
+			            var containerStyle = getComputedStyle(container);
+			            var containerWidth = container.getBoundingClientRect().width
+			                - (parseFloat(containerStyle.paddingLeft) || 0)
+			                - (parseFloat(containerStyle.paddingRight) || 0);
 			            var minPercent = (minWidthPx / containerWidth) * 100;
 			            var startX = e.clientX;
 			            var startLeftPercent = (left.getBoundingClientRect().width / containerWidth) * 100;
@@ -206,38 +242,7 @@ namespace Poink.Sim.Components.Pages
 			            divider.addEventListener('pointerup', onUp);
 			        });
 			    }
-			    function bindHeight(divider) {
-			        if (!divider || divider.dataset.bound) return;
-			        divider.dataset.bound = '1';
-			        var minHeight = parseInt(divider.dataset.minHeight, 10) || 160;
-			        var maxHeightVh = parseInt(divider.dataset.maxHeightVh, 10) || 80;
-			        divider.addEventListener('pointerdown', function(e) {
-			            e.preventDefault();
-			            var target = divider.previousElementSibling;
-			            if (!target) return;
-			            var startY = e.clientY;
-			            var startHeight = target.getBoundingClientRect().height;
-			            var maxHeight = (maxHeightVh / 100) * window.innerHeight;
-			            divider.setPointerCapture(e.pointerId);
-			            divider.classList.add('prof-chart-hdivider-active');
-
-			            function clamp(ev) {
-			                return Math.min(maxHeight, Math.max(minHeight, startHeight + (ev.clientY - startY)));
-			            }
-			            function onMove(ev) {
-			                target.style.height = clamp(ev) + 'px';
-			            }
-			            function onUp(ev) {
-			                divider.releasePointerCapture(e.pointerId);
-			                divider.removeEventListener('pointermove', onMove);
-			                divider.removeEventListener('pointerup', onUp);
-			                divider.classList.remove('prof-chart-hdivider-active');
-			            }
-			            divider.addEventListener('pointermove', onMove);
-			            divider.addEventListener('pointerup', onUp);
-			        });
-			    }
-			    return { bind: bind, bindHeight: bindHeight, resetEqual: resetEqual };
+			    return { bind: bind, resetEqual: resetEqual };
 			})()
 			""";
 
@@ -267,10 +272,11 @@ namespace Poink.Sim.Components.Pages
 					await _dividerResizeInstance.InvokeVoidAsync("bind", _chartDividerRef);
 				if (_showTimeProfile)
 					await _dividerResizeInstance.InvokeVoidAsync("bind", _chartDividerRef2);
-				if (_showMetricsPanel)
-					await _dividerResizeInstance.InvokeVoidAsync("bind", _chartDividerRefMetrics);
-				await _dividerResizeInstance.InvokeVoidAsync("bindHeight", _chartHDividerRef);
+				if (_showSubchart)
+					await _dividerResizeInstance.InvokeVoidAsync("bind", _chartDividerRefSubchart);
 			}
+
+			await RefreshSubchartIfNeeded();
 		}
 
 		private HashSet<string> CurrentVisiblePanelKeys()
@@ -280,7 +286,7 @@ namespace Poink.Sim.Components.Pages
 			if (_showXGrid) keys.Add("xgrid");
 			if (_showVolumeProfile) keys.Add("volume");
 			if (_showTimeProfile) keys.Add("time");
-			if (_showMetricsPanel) keys.Add("metrics");
+			if (_showSubchart) keys.Add("subchart");
 			return keys;
 		}
 
@@ -322,7 +328,9 @@ namespace Poink.Sim.Components.Pages
 			_keepView = false;
 			_config = null;
 			_bars = new();
+			_quartileBars = new();
 			_barRows = new();
+			_medianLine = new();
 			_barHistograms = new();
 			_tickCount = 0;
 			_reachedStart = false;
@@ -333,6 +341,9 @@ namespace Poink.Sim.Components.Pages
 			_savedDrawingIds.Clear();
 			_volumeRangeStart = null;
 			_volumeRangeEnd = null;
+			_subchartBars = new();
+			_subchartMedianLine = new();
+			_subchartLoadedFor = null;
 			CancelLabelSelected();
 
 			try
@@ -388,10 +399,69 @@ namespace Poink.Sim.Components.Pages
 		private void ApplyChunk(ProfilerChunk chunk)
 		{
 			_bars = chunk.Bars.Concat(_bars).ToList();
-			_barRows = ToBarRows(_bars);
+			_quartileBars = chunk.QuartileBars.Concat(_quartileBars).ToList();
+			RefreshBarRows();
 			_barHistograms = chunk.BarHistograms.Concat(_barHistograms).ToList();
 			_tickCount += chunk.TickCount;
 			_reachedStart = chunk.ReachedStart;
+		}
+
+		// Volume/Time Profile, XGrid, and VWAP always stay wired to _bars/_barHistograms since those can only be computed from ticks.
+		private void RefreshBarRows()
+		{
+			if (_barAggregationKind == BarAggregationKind.Quartile)
+			{
+				_barRows = ToQuartileBarRows(_quartileBars);
+				_medianLine = _quartileBars.Select(b => new ChartLinePoint(b.OpenTime, b.Median)).ToList();
+			}
+			else
+			{
+				_barRows = ToBarRows(_bars);
+				_medianLine = new();
+			}
+		}
+
+		private async Task OnRangeSettled()
+		{
+			if (!_autoLoadPending || string.IsNullOrWhiteSpace(_table))
+				return;
+
+			_autoLoadPending = false;
+			await Load();
+		}
+
+		// Re-aggregates the active Lookback Window at the subchart's own bar size/kind -- only when
+		// the panel is open and the window/settings actually changed, since this runs every render.
+		private async Task RefreshSubchartIfNeeded()
+		{
+			if (!_showSubchart || _config is null || _volumeRangeStart is not { } start || _volumeRangeEnd is not { } end || _subchartLoading)
+				return;
+
+			var key = (_config.Table, start, end, _subchartBarSizeSeconds, _subchartBarKind);
+			if (_subchartLoadedFor == key)
+				return;
+
+			_subchartLoading = true;
+			_subchartError = null;
+			StateHasChanged();
+
+			try
+			{
+				var (bars, medianLine) = await BarKindChartService.BuildBarsAsync(
+					_config.Table, start, end, _subchartBarSizeSeconds, _subchartBarKind);
+				_subchartBars = bars;
+				_subchartMedianLine = medianLine;
+				_subchartLoadedFor = key;
+			}
+			catch (Exception ex)
+			{
+				_subchartError = ex.Message;
+			}
+			finally
+			{
+				_subchartLoading = false;
+			}
+			StateHasChanged();
 		}
 
 		private void AddHorizontalLine(double price) =>
@@ -844,6 +914,10 @@ namespace Poink.Sim.Components.Pages
 					b.Distance
 				))
 				.ToList();
+
+		// Box plot mapping (Open/Close = Q1/Q3, High/Low = Min/Max), matching Analize's Price tab.
+		private static List<CTraderBarRow> ToQuartileBarRows(IEnumerable<QuartileBar> bars) =>
+			bars.Select(b => new CTraderBarRow(b.OpenTime, b.Q1, b.Max, b.Min, b.Q3, b.Count)).ToList();
 
 		private List<WeightedPriceSample> MergedSamples()
 		{

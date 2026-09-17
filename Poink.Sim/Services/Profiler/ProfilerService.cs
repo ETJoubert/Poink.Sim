@@ -31,6 +31,7 @@ internal sealed class ProfilerService : IProfilerService
 			var stepSpan = TimeSpan.FromTicks(Math.Max(config.BarSize.Ticks, 1) * barCount);
 
 			var bars = new List<HlocAvdtBar>();
+			var quartileBars = new List<QuartileBar>();
 			var histograms = new List<BarPriceHistogram>();
 			var tickCount = 0;
 			var to = beforeUtc;
@@ -51,7 +52,9 @@ internal sealed class ProfilerService : IProfilerService
 				}
 
 				var aggregator = new SimulationBarAggregator(config.BarSize, DefaultPriceBucketWidth);
+				var quartileAggregator = new QuartileBarAggregator(config.BarSize);
 				var stepBars = new List<HlocAvdtBar>();
+				var stepQuartileBars = new List<QuartileBar>();
 				var stepHistograms = new List<BarPriceHistogram>();
 
 				foreach (var tick in _tickRepository.ReadTicks(config.Table, from, to))
@@ -63,6 +66,9 @@ internal sealed class ProfilerService : IProfilerService
 						stepBars.Add(completed.Value.Bar);
 						stepHistograms.Add(completed.Value.Histogram);
 					}
+
+					if (quartileAggregator.Feed(tick) is { } completedQuartile)
+						stepQuartileBars.Add(completedQuartile);
 				}
 
 				if (aggregator.CurrentPartialBar is { } partial)
@@ -71,7 +77,11 @@ internal sealed class ProfilerService : IProfilerService
 					stepHistograms.Add(aggregator.CurrentPartialHistogram!);
 				}
 
+				if (quartileAggregator.CurrentPartialBar is { } partialQuartile)
+					stepQuartileBars.Add(partialQuartile);
+
 				bars.InsertRange(0, stepBars);
+				quartileBars.InsertRange(0, stepQuartileBars);
 				histograms.InsertRange(0, stepHistograms);
 				to = from;
 			}
@@ -86,6 +96,6 @@ internal sealed class ProfilerService : IProfilerService
 				reachedStart
 			);
 
-			return new ProfilerChunk(bars, histograms, to, tickCount, reachedStart);
+			return new ProfilerChunk(bars, quartileBars, histograms, to, tickCount, reachedStart);
 		});
 }

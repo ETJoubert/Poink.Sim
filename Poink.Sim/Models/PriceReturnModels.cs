@@ -3,12 +3,6 @@ using System.Collections.Generic;
 
 namespace Poink.Sim.Models;
 
-internal enum BarAggregationKind
-{
-	Ohlc,
-	Quartile,
-}
-
 internal sealed record PriceReturnRequest(
 	string Table,
 	DateTime From,
@@ -29,7 +23,6 @@ internal sealed record PriceReturnDistributionResult(
 	string ToReturnUnit,
 	IReadOnlyList<PriceReturnSeriesResult>? SeriesBreakdown = null);
 
-// One OHLC value's own independent run; the top-level result above mirrors the Close entry.
 internal sealed record PriceReturnSeriesResult(
 	string Series,
 	long ReturnedCount,
