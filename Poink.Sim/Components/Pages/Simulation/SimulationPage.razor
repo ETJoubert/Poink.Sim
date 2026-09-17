@@ -448,6 +448,7 @@
                                            Pending="XGridPending()" OnOrderPlaced="PlaceXGridOrder"
                                            OnPendingModified="ModifyXGridPending" OnPendingCancelled="CancelXGridPending"
                                            OnPositionClosed="CloseXGridPosition" Lines="CellBandLines(s)"
+                                           ExternalDraft="XGridDraft" PipSize="s.Config.PipSize"
                                            @bind-PipCount="_xgridPipCount" @bind-ColCount="_xgridColCount"
                                            ProfileBarCount="ClampedBarWindow">
                                         <ExpandedControls>
@@ -535,7 +536,11 @@
                                     @if (SnapshotAnchorBar(s) is { } anchorBar)
                                     {
                                         <TimeframeSnapshotChart Table="@s.Config.Table" AnchorEnd="@anchorBar.CloseTime.AddTicks(1)"
-                                                                LatestPrice="anchorBar.Close" />
+                                                                LatestPrice="anchorBar.Close" EntryPrice="SelectedTrader?.Position?.EntryPrice"
+                                                                PositionIsLong="SelectedPositionIsLong" StopLossPrice="SelectedTrader?.Position?.StopLossPrice"
+                                                                TakeProfitPrice="SelectedTrader?.Position?.TakeProfitPrice"
+                                                                DraftEntryPrice="_draft?.EntryPrice" DraftIsLong="_draft?.IsLong"
+                                                                DraftStopLossPrice="_draft?.StopLossPrice" DraftTakeProfitPrice="_draft?.TakeProfitPrice" />
                                     }
                                     else
                                     {
@@ -635,14 +640,14 @@
                     <div class="sim-right-side-panel-content">
                         <TraderSidePanel Collapsed="_traderControlsCollapsed" OnExpandRequested="() => _traderControlsCollapsed = false">
                             <TradeTab>
-                                <TradeConsole HasSelection="SelectedTrader is not null"
+                                <TradeConsole @ref="_consoleRef" HasSelection="SelectedTrader is not null"
                                               Balance="SelectedTrader?.Capital.Cash" Leverage="SelectedTrader?.Leverage"
                                               PipSize="_snapshot?.Config.PipSize ?? 0.01"
                                               CurrentPrice="_snapshot?.CurrentPrice"
                                               CurrentBid="_snapshot?.CurrentBid"
                                               CurrentAsk="_snapshot?.CurrentAsk"
                                               StatusMessage="@_consoleError" StatusIsError="_consoleError is not null"
-                                              OnSubmit="HandleConsoleSubmit" />
+                                              OnSubmit="HandleConsoleSubmit" OnDraftChanged="HandleDraftChanged" />
                             </TradeTab>
                             <PoliciesTab>
                                 <RiskPolicyPanel Policies="@(_snapshot?.RiskPolicies ?? Array.Empty<RiskPolicySnapshot>())"

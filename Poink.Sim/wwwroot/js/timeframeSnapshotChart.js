@@ -19,6 +19,14 @@ export function render(canvas, options) {
         showHighLowLines: !!options.showHighLowLines,
         showVolumeProfile: !!options.showVolumeProfile,
         volumeProfile: Array.from(options.volumeProfile ?? []),
+        entryPrice: options.entryPrice ?? null,
+        positionIsLong: options.positionIsLong ?? null,
+        stopLossPrice: options.stopLossPrice ?? null,
+        takeProfitPrice: options.takeProfitPrice ?? null,
+        draftEntryPrice: options.draftEntryPrice ?? null,
+        draftIsLong: options.draftIsLong ?? null,
+        draftStopLossPrice: options.draftStopLossPrice ?? null,
+        draftTakeProfitPrice: options.draftTakeProfitPrice ?? null,
         highlightWidth: existing?.highlightWidth ?? DEFAULT_HIGHLIGHT_WIDTH,
         hover: existing?.hover ?? null,
     });
@@ -56,7 +64,17 @@ function geometryFor(canvas, entry) {
     const plotRight = PADDING.left + chartWidth;
 
     const prices = entry.bars.flatMap(b => [b.low, b.high]);
-    if (entry.latestPrice !== null) prices.push(entry.latestPrice);
+    [
+        entry.latestPrice,
+        entry.entryPrice,
+        entry.stopLossPrice,
+        entry.takeProfitPrice,
+        entry.draftEntryPrice,
+        entry.draftStopLossPrice,
+        entry.draftTakeProfitPrice,
+    ].forEach(p => {
+        if (p !== null && p !== undefined) prices.push(p);
+    });
     const minPrice = prices.length > 0 ? Math.min(...prices) : 0;
     const maxPrice = prices.length > 0 ? Math.max(...prices) : 1;
     const priceRange = (maxPrice - minPrice) || 1;
@@ -155,6 +173,14 @@ function draw(canvas) {
     const showHighLowLines = entry?.showHighLowLines ?? false;
     const showVolumeProfile = entry?.showVolumeProfile ?? false;
     const volumeProfile = entry?.volumeProfile ?? [];
+    const entryPrice = entry?.entryPrice ?? null;
+    const positionIsLong = entry?.positionIsLong ?? null;
+    const stopLossPrice = entry?.stopLossPrice ?? null;
+    const takeProfitPrice = entry?.takeProfitPrice ?? null;
+    const draftEntryPrice = entry?.draftEntryPrice ?? null;
+    const draftIsLong = entry?.draftIsLong ?? null;
+    const draftStopLossPrice = entry?.draftStopLossPrice ?? null;
+    const draftTakeProfitPrice = entry?.draftTakeProfitPrice ?? null;
     if (bars.length === 0) return;
 
     const bullColor = cssVar('--color-success', '#00ff9d');
@@ -162,12 +188,49 @@ function draw(canvas) {
     const latestColor = cssVar('--color-highlight', '#ffd166');
     const coverageColor = cssVar('--color-secondary', '#00d4ff');
     const volumeColor = cssVar('--color-primary', '#00ff9d');
+    // Same badge colour TradeChartPanel's own draft-order preview lines use (see marketChart.js's
+    // groupColors.draft), so a draft reads the same way across every chart it can appear on.
+    const draftColor = cssVar('--color-badge-3', '#c792ea');
     const gridColor = 'rgba(255,255,255,0.08)';
     const labelColor = 'rgba(255,255,255,0.5)';
 
     const { chartWidth, chartHeight, plotRight, highlightWidth, minPrice, maxPrice, slotWidth, yFor, priceFor, xFor } =
         geometryFor(canvas, entry);
     const bodyWidth = Math.max(1, slotWidth * 0.5);
+
+    // Position zones: translucent fill from Entry to SL (red) and Entry to TP (green), same idea
+    // as XGrid's draft-order zone shading -- drawn first so everything else layers on top of it.
+    if (entryPrice !== null) {
+        const entryY = yFor(entryPrice);
+        const zoneWidth = width - PADDING.left - PADDING.right;
+        ctx.globalAlpha = 0.12;
+        if (stopLossPrice !== null) {
+            const slY = yFor(stopLossPrice);
+            ctx.fillStyle = bearColor;
+            ctx.fillRect(PADDING.left, Math.min(entryY, slY), zoneWidth, Math.abs(slY - entryY));
+        }
+        if (takeProfitPrice !== null) {
+            const tpY = yFor(takeProfitPrice);
+            ctx.fillStyle = bullColor;
+            ctx.fillRect(PADDING.left, Math.min(entryY, tpY), zoneWidth, Math.abs(tpY - entryY));
+        }
+        ctx.globalAlpha = 1;
+    }
+    if (draftEntryPrice !== null) {
+        const draftEntryY = yFor(draftEntryPrice);
+        const zoneWidth = width - PADDING.left - PADDING.right;
+        ctx.globalAlpha = 0.12;
+        ctx.fillStyle = draftColor;
+        if (draftStopLossPrice !== null) {
+            const slY = yFor(draftStopLossPrice);
+            ctx.fillRect(PADDING.left, Math.min(draftEntryY, slY), zoneWidth, Math.abs(slY - draftEntryY));
+        }
+        if (draftTakeProfitPrice !== null) {
+            const tpY = yFor(draftTakeProfitPrice);
+            ctx.fillRect(PADDING.left, Math.min(draftEntryY, tpY), zoneWidth, Math.abs(tpY - draftEntryY));
+        }
+        ctx.globalAlpha = 1;
+    }
 
     if (highlightWidth > 0) {
         // Coverage histogram: each row's bar length is how many displayed bars' High-Low range
@@ -281,6 +344,38 @@ function draw(canvas) {
         ctx.textAlign = 'left';
         ctx.fillText(latestPrice.toFixed(5), width - PADDING.right + 4, y);
     }
+
+    // Position levels: Entry solid/neutral, SL/TP dashed red/green -- same semantics as XGrid and
+    // MarketChart use elsewhere, drawn as a full-width line plus a canvas-text price label.
+    const drawLevelLine = (price, color, label, dashed) => {
+        if (price === null) return;
+        const y = yFor(price);
+        ctx.save();
+        ctx.strokeStyle = color;
+        if (dashed) ctx.setLineDash([4, 3]);
+        ctx.beginPath();
+        ctx.moveTo(PADDING.left, y);
+        ctx.lineTo(width - PADDING.right, y);
+        ctx.stroke();
+        ctx.restore();
+
+        ctx.font = 'bold 11px monospace';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = color;
+        ctx.textAlign = 'left';
+        ctx.fillText(`${label} ${price.toFixed(5)}`, width - PADDING.right + 4, y);
+    };
+    const entryLabel = positionIsLong === true ? 'LONG' : positionIsLong === false ? 'SHORT' : 'ENTRY';
+    drawLevelLine(entryPrice, 'rgba(220,220,220,0.9)', entryLabel, false);
+    drawLevelLine(stopLossPrice, bearColor, 'SL', true);
+    drawLevelLine(takeProfitPrice, bullColor, 'TP', true);
+
+    // Draft preview levels: same entry/SL/TP semantics as the position above, drawn in the
+    // project's shared draft colour so this chart reads the same as XGrid/MarketChart's own previews.
+    const draftEntryLabel = draftIsLong === true ? 'DRAFT LONG' : draftIsLong === false ? 'DRAFT SHORT' : 'DRAFT';
+    drawLevelLine(draftEntryPrice, draftColor, draftEntryLabel, true);
+    drawLevelLine(draftStopLossPrice, draftColor, 'DRAFT SL', true);
+    drawLevelLine(draftTakeProfitPrice, draftColor, 'DRAFT TP', true);
 
     // Crosshair: vertical line snaps to the hovered bar's center (bars are discrete columns, not a
     // continuous series), horizontal line follows the cursor exactly for a precise price readout.

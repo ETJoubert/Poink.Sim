@@ -33,6 +33,32 @@ namespace Poink.Sim.Components.Charts
 		[Parameter]
 		public double? LatestPrice { get; set; }
 
+		/// <summary>Display-only position levels (e.g. the selected trader's open position) -- null hides all four.</summary>
+		[Parameter]
+		public double? EntryPrice { get; set; }
+
+		[Parameter]
+		public bool? PositionIsLong { get; set; }
+
+		[Parameter]
+		public double? StopLossPrice { get; set; }
+
+		[Parameter]
+		public double? TakeProfitPrice { get; set; }
+
+		/// <summary>A not-yet-submitted order previewed alongside any open-position levels above -- e.g. TradeConsole's PREVIEW toggle.</summary>
+		[Parameter]
+		public double? DraftEntryPrice { get; set; }
+
+		[Parameter]
+		public bool? DraftIsLong { get; set; }
+
+		[Parameter]
+		public double? DraftStopLossPrice { get; set; }
+
+		[Parameter]
+		public double? DraftTakeProfitPrice { get; set; }
+
 		private static readonly int[] DefaultSelectedSeconds = { 60, 120, 240, 480, 900, 1800, 3600, 7200 };
 
 		private BarAggregationKind _barKind = BarAggregationKind.Ohlc;
@@ -51,6 +77,14 @@ namespace Poink.Sim.Components.Charts
 		private double? _renderedLatestPrice;
 		private bool _renderedShowHighLowLines;
 		private bool _renderedShowVolumeProfile;
+		private double? _renderedEntryPrice;
+		private bool? _renderedPositionIsLong;
+		private double? _renderedStopLossPrice;
+		private double? _renderedTakeProfitPrice;
+		private double? _renderedDraftEntryPrice;
+		private bool? _renderedDraftIsLong;
+		private double? _renderedDraftStopLossPrice;
+		private double? _renderedDraftTakeProfitPrice;
 		private bool _disposed;
 
 		protected override async Task OnParametersSetAsync() => await RefreshIfNeeded();
@@ -133,12 +167,28 @@ namespace Poink.Sim.Components.Charts
 					|| _renderedLatestPrice != LatestPrice
 					|| _renderedShowHighLowLines != _showHighLowLines
 					|| _renderedShowVolumeProfile != _showVolumeProfile
+					|| _renderedEntryPrice != EntryPrice
+					|| _renderedPositionIsLong != PositionIsLong
+					|| _renderedStopLossPrice != StopLossPrice
+					|| _renderedTakeProfitPrice != TakeProfitPrice
+					|| _renderedDraftEntryPrice != DraftEntryPrice
+					|| _renderedDraftIsLong != DraftIsLong
+					|| _renderedDraftStopLossPrice != DraftStopLossPrice
+					|| _renderedDraftTakeProfitPrice != DraftTakeProfitPrice
 				)
 				{
 					_renderedBars = _bars;
 					_renderedLatestPrice = LatestPrice;
 					_renderedShowHighLowLines = _showHighLowLines;
 					_renderedShowVolumeProfile = _showVolumeProfile;
+					_renderedEntryPrice = EntryPrice;
+					_renderedPositionIsLong = PositionIsLong;
+					_renderedStopLossPrice = StopLossPrice;
+					_renderedTakeProfitPrice = TakeProfitPrice;
+					_renderedDraftEntryPrice = DraftEntryPrice;
+					_renderedDraftIsLong = DraftIsLong;
+					_renderedDraftStopLossPrice = DraftStopLossPrice;
+					_renderedDraftTakeProfitPrice = DraftTakeProfitPrice;
 
 					var options = new
 					{
@@ -155,6 +205,14 @@ namespace Poink.Sim.Components.Charts
 						showHighLowLines = _showHighLowLines,
 						showVolumeProfile = _showVolumeProfile,
 						volumeProfile = _volumeProfile.Select(b => new { low = b.Low, high = b.High, count = b.Count }),
+						entryPrice = EntryPrice,
+						positionIsLong = PositionIsLong,
+						stopLossPrice = StopLossPrice,
+						takeProfitPrice = TakeProfitPrice,
+						draftEntryPrice = DraftEntryPrice,
+						draftIsLong = DraftIsLong,
+						draftStopLossPrice = DraftStopLossPrice,
+						draftTakeProfitPrice = DraftTakeProfitPrice,
 					};
 
 					await _module.InvokeVoidAsync("render", _canvasRef, options);

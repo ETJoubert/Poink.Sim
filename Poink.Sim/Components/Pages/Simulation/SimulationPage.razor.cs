@@ -375,6 +375,15 @@ namespace Poink.Sim.Components.Pages
 		}
 
 		private string? _consoleError;
+		private TradeConsole? _consoleRef;
+
+		/// <summary>The console's live not-yet-submitted order, previewed on the Snapshot chart and XGrid while TradeConsole's PREVIEW toggle is active.</summary>
+		private TradeConsoleDraft? _draft;
+
+		private void HandleDraftChanged(TradeConsoleDraft? draft) => _draft = draft;
+
+		private XGridExternalDraft? XGridDraft =>
+			_draft is { } d ? new XGridExternalDraft(d.EntryPrice, d.IsLong, d.StopLossPrice, d.TakeProfitPrice) : null;
 
 		private void HandleConsoleSubmit(TradeConsoleOrderRequest request)
 		{
@@ -417,6 +426,8 @@ namespace Poink.Sim.Components.Pages
 				_consoleError = "order rejected -- already in a position or an order is already resting";
 			else if (denial is { } d)
 				_consoleError = $"denied by {d.PolicyName}: {d.Reason}";
+			else
+				_consoleRef?.ClearDraftPreview();
 		}
 
 		private List<WeightedPriceSample> MergedBarSamples(SimulationSnapshot s)
@@ -1144,6 +1155,7 @@ namespace Poink.Sim.Components.Pages
 		private void ResetSim()
 		{
 			_keepChartView = false;
+			_draft = null;
 
 			SimulationService.Reset();
 		}
@@ -1152,6 +1164,7 @@ namespace Poink.Sim.Components.Pages
 		{
 			_keepChartView = false;
 			_setupCollapsed = false;
+			_draft = null;
 			SimulationService.Unload();
 		}
 
