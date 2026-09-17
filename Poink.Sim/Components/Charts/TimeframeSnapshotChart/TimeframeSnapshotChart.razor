@@ -1,31 +1,36 @@
 @namespace Poink.Sim.Components.Charts
-@using Poink.Sim.Helpers
 @using Poink.Sim.Models
 
 <div class="tf-snapshot-wrapper">
     <div class="tf-snapshot-header">
-        <span class="tf-snapshot-title">SNAPSHOT</span>
-        <div class="tf-snapshot-toggle-group" title="Choose how each snapshot bar is aggregated">
-            <button type="button" class="tf-snapshot-toggle @(_barKind == BarAggregationKind.Ohlc ? "active" : "")"
-                    @onclick="() => SetBarKind(BarAggregationKind.Ohlc)"
-                    title="Draw each bar's real Open/High/Low/Close">OHLC</button>
-            <button type="button" class="tf-snapshot-toggle @(_barKind == BarAggregationKind.Quartile ? "active" : "")"
-                    @onclick="() => SetBarKind(BarAggregationKind.Quartile)"
-                    title="Draw each bar as a box plot of Min/Q1/Median/Q3/Max">Quartile</button>
-            <button type="button" class="tf-snapshot-toggle @(_barKind == BarAggregationKind.Decile ? "active" : "")"
-                    @onclick="() => SetBarKind(BarAggregationKind.Decile)"
-                    title="Draw each bar as a box plot of Min/D1/D9/Max -- a wider 10/90 percentile band than Quartile's 25/75">Decile</button>
-            <button type="button" class="tf-snapshot-toggle @(_barKind == BarAggregationKind.MeanStdDev ? "active" : "")"
-                    @onclick="() => SetBarKind(BarAggregationKind.MeanStdDev)"
-                    title="Draw each bar as a volatility band -- Open/Close at the mean price, High/Low one standard deviation above/below it">Mean&plusmn;SD</button>
+        <div class="tf-snapshot-row">
+            <span class="tf-snapshot-title">SNAPSHOT</span>
+            <div class="tf-snapshot-toggle-group" title="Choose how each snapshot bar is aggregated">
+                <button type="button" class="tf-snapshot-toggle @(_barKind == BarAggregationKind.Ohlc ? "active" : "")"
+                        @onclick="() => SetBarKind(BarAggregationKind.Ohlc)"
+                        title="Draw each bar's real Open/High/Low/Close">OHLC</button>
+                <button type="button" class="tf-snapshot-toggle @(_barKind == BarAggregationKind.Quartile ? "active" : "")"
+                        @onclick="() => SetBarKind(BarAggregationKind.Quartile)"
+                        title="Draw each bar as a box plot of Min/Q1/Median/Q3/Max">Quartile</button>
+                <button type="button" class="tf-snapshot-toggle @(_barKind == BarAggregationKind.Decile ? "active" : "")"
+                        @onclick="() => SetBarKind(BarAggregationKind.Decile)"
+                        title="Draw each bar as a box plot of Min/D1/D9/Max -- a wider 10/90 percentile band than Quartile's 25/75">Decile</button>
+                <button type="button" class="tf-snapshot-toggle @(_barKind == BarAggregationKind.MeanStdDev ? "active" : "")"
+                        @onclick="() => SetBarKind(BarAggregationKind.MeanStdDev)"
+                        title="Draw each bar as a volatility band -- Open/Close at the mean price, High/Low one standard deviation above/below it">Mean&plusmn;SD</button>
+            </div>
         </div>
-        <span class="tf-snapshot-divider"></span>
-        <div class="tf-snapshot-toggle-group" title="Pick which trailing windows to show -- one bar per selection, all ending at the same anchor time. Same bar sizes as the Aggregation selector above">
-            @foreach (var seconds in BarSizeOptions.Values)
+        <div class="tf-snapshot-row tf-snapshot-timeframe-row"
+             title="Pick which trailing windows to show -- one bar per selection, all ending at the same anchor time">
+            @foreach (var option in SnapshotTimeframeOptions.All)
             {
-                <button type="button" class="tf-snapshot-toggle @(_selectedSeconds.Contains(seconds) ? "active" : "")"
-                        @onclick="() => ToggleTimeframe(seconds)"
-                        title="@($"Show a {BarSizeOptions.Label(seconds)} trailing window bar ending at the anchor time")">@BarSizeOptions.Label(seconds)</button>
+                @if (SnapshotTimeframeOptions.UnitStarts.Contains(option.Seconds))
+                {
+                    <span class="tf-snapshot-divider"></span>
+                }
+                <button type="button" class="tf-snapshot-toggle @(_selectedSeconds.Contains(option.Seconds) ? "active" : "")"
+                        @onclick="() => ToggleTimeframe(option.Seconds)"
+                        title="@($"Show a {option.Label} trailing window bar ending at the anchor time")">@option.Label</button>
             }
         </div>
     </div>

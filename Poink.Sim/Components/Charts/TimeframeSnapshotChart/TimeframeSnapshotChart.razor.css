@@ -11,12 +11,22 @@
 
 .tf-snapshot-header {
     display: flex;
-    align-items: center;
-    gap: 8px;
+    flex-direction: column;
+    gap: 5px;
     padding: 4px 8px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     flex: 0 0 auto;
+}
+
+.tf-snapshot-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     flex-wrap: wrap;
+}
+
+.tf-snapshot-timeframe-row {
+    gap: 3px;
 }
 
 .tf-snapshot-title {

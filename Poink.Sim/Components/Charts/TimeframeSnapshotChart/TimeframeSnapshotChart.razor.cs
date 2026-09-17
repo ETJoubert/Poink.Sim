@@ -4,17 +4,16 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
-using Poink.Sim.Helpers;
 using Poink.Sim.Models;
 using Poink.Sim.Services.Charts;
 
 namespace Poink.Sim.Components.Charts
 {
 	/// <summary>
-	/// Self-contained multi-timeframe comparison chart -- each toggled timeframe (the same doubling
-	/// bar sizes as <see cref="BarSizeOptions"/>, 1m/2m/4m/8m/16m/32m/64m/128m selected by default)
-	/// renders as its own single bar over its own trailing window ending at <see cref="AnchorEnd"/>,
-	/// side by side, via <see cref="ITimeframeSnapshotService"/>.
+	/// Self-contained multi-timeframe comparison chart -- each toggled timeframe (see
+	/// <see cref="SnapshotTimeframeOptions"/>, 1m/2m/4m/8m/15m/30m/1h/2h selected by default) renders
+	/// as its own single bar over its own trailing window ending at <see cref="AnchorEnd"/>, side by
+	/// side, via <see cref="ITimeframeSnapshotService"/>.
 	/// </summary>
 	public partial class TimeframeSnapshotChart : ComponentBase, IAsyncDisposable
 	{
@@ -34,7 +33,7 @@ namespace Poink.Sim.Components.Charts
 		[Parameter]
 		public double? LatestPrice { get; set; }
 
-		private static readonly int[] DefaultSelectedSeconds = { 60, 120, 240, 480, 960, 1920, 3840, 7680 };
+		private static readonly int[] DefaultSelectedSeconds = { 60, 120, 240, 480, 900, 1800, 3600, 7200 };
 
 		private BarAggregationKind _barKind = BarAggregationKind.Ohlc;
 		private HashSet<int> _selectedSeconds = DefaultSelectedSeconds.ToHashSet();
@@ -125,7 +124,7 @@ namespace Poink.Sim.Components.Charts
 
 					var payload = _bars.Select(pair => new
 					{
-						label = BarSizeOptions.Label(pair.LookbackSeconds),
+						label = SnapshotTimeframeOptions.All.First(o => o.Seconds == pair.LookbackSeconds).Label,
 						open = pair.Bar.Open,
 						high = pair.Bar.High,
 						low = pair.Bar.Low,
