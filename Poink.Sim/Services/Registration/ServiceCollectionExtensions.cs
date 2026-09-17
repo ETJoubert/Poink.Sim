@@ -25,7 +25,7 @@ public static class ServiceCollectionExtensions
 {
 	/// <summary>
 	/// EF Postgres context plus every ITickRepository/ITRangeChartRepository/
-	/// ITRangeReferenceChartRepository. Registered singleton to match ITickRepository's
+	/// ITRangeReferenceChartRepository/IAnalysisHistoryRepository. Registered singleton to match ITickRepository's
 	/// requirement to share its loaded-table-list cache across pages --
 	/// SimulationEngine/RlTrainingService both read ticks straight from it (streamed,
 	/// chunk-pruned range/window queries), never materializing a full range in memory.
@@ -45,6 +45,7 @@ public static class ServiceCollectionExtensions
 		services.AddSingleton<ITickRepository, TickRepository>();
 		services.AddSingleton<ITRangeChartRepository, TRangeChartRepository>();
 		services.AddSingleton<ITRangeReferenceChartRepository, TRangeReferenceChartRepository>();
+		services.AddSingleton<IAnalysisHistoryRepository, AnalysisHistoryRepository>();
 
 		return services;
 	}
