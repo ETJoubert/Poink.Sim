@@ -1,0 +1,79 @@
+.tf-snapshot-wrapper {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: var(--border-radius-sm);
+    background: rgba(255, 255, 255, 0.015);
+    overflow: hidden;
+}
+
+.tf-snapshot-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    flex: 0 0 auto;
+    flex-wrap: wrap;
+}
+
+.tf-snapshot-title {
+    font-size: 0.6rem;
+    letter-spacing: 0.1em;
+    color: var(--color-secondary);
+    opacity: 0.85;
+}
+
+.tf-snapshot-divider {
+    width: 1px;
+    height: 14px;
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.tf-snapshot-toggle-group {
+    display: flex;
+    gap: 3px;
+}
+
+.tf-snapshot-toggle {
+    font-family: var(--font-body);
+    font-size: 0.58rem;
+    letter-spacing: 0.02em;
+    color: var(--color-secondary);
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--color-secondary) 35%, transparent);
+    padding: 2px 6px;
+    border-radius: var(--border-radius-sm);
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.tf-snapshot-toggle:hover {
+    background: color-mix(in srgb, var(--color-secondary) 15%, transparent);
+}
+
+.tf-snapshot-toggle.active {
+    background: var(--color-secondary);
+    color: var(--color-bg-dark);
+    font-weight: bold;
+}
+
+.tf-snapshot-chart {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+}
+
+.tf-snapshot-canvas {
+    width: 100%;
+    height: 100%;
+}
+
+.tf-snapshot-empty {
+    margin: auto;
+    font-size: 0.7rem;
+    color: var(--color-secondary);
+    opacity: 0.6;
+}

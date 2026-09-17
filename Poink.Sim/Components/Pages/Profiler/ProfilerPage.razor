@@ -112,6 +112,9 @@
                 <button type="button" class="prof-overlay-toggle-btn @(_showSubchart ? "active" : "")"
                         @onclick="() => _showSubchart = !_showSubchart"
                         title="A second market chart, aggregated with its own bar size/kind, scoped to the selected Lookback Window">Subchart</button>
+                <button type="button" class="prof-overlay-toggle-btn @(_showSnapshot ? "active" : "")"
+                        @onclick="() => _showSnapshot = !_showSnapshot"
+                        title="One OHLC/Quartile bar per toggled timeframe (1m/4m/16m/1h), each a trailing window ending at the selected Lookback Window's right edge">Snapshot</button>
             </div>
         </div>
         <div class="prof-chart-sparkline">
@@ -219,6 +222,23 @@
                                 }
                             </div>
                         </div>
+                    </div>
+                </div>
+            }
+            @if (_showSnapshot)
+            {
+                <div class="prof-chart-divider" @ref="_chartDividerRefSnapshot" data-min-width="200" title="Drag to resize"></div>
+                <div class="prof-chart-side">
+                    <div class="prof-vp"
+                         title="One OHLC/Quartile bar per toggled timeframe, each a trailing window ending at the selected Lookback Window's right edge">
+                        @if (_config is null || _volumeRangeStart is null || _volumeRangeEnd is null)
+                        {
+                            <p class="prof-drawings-empty">Select a Lookback Window to view the snapshot.</p>
+                        }
+                        else
+                        {
+                            <TimeframeSnapshotChart Table="@_config.Table" AnchorEnd="@_volumeRangeEnd.Value" />
+                        }
                     </div>
                 </div>
             }

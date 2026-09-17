@@ -141,6 +141,7 @@ namespace Poink.Sim.Components.Pages
 		private bool _showVolumeProfile = false;
 		private bool _showTimeProfile = false;
 		private bool _showSubchart = false;
+		private bool _showSnapshot = false;
 
 		private int _subchartBarSizeSeconds = 10;
 		private BarAggregationKind _subchartBarKind = BarAggregationKind.Ohlc;
@@ -174,6 +175,7 @@ namespace Poink.Sim.Components.Pages
 		private ElementReference _chartDividerRef;
 		private ElementReference _chartDividerRef2;
 		private ElementReference _chartDividerRefSubchart;
+		private ElementReference _chartDividerRefSnapshot;
 		private IJSObjectReference? _dividerResizeInstance;
 		private HashSet<string> _lastVisiblePanels = new();
 
@@ -274,6 +276,8 @@ namespace Poink.Sim.Components.Pages
 					await _dividerResizeInstance.InvokeVoidAsync("bind", _chartDividerRef2);
 				if (_showSubchart)
 					await _dividerResizeInstance.InvokeVoidAsync("bind", _chartDividerRefSubchart);
+				if (_showSnapshot)
+					await _dividerResizeInstance.InvokeVoidAsync("bind", _chartDividerRefSnapshot);
 			}
 
 			await RefreshSubchartIfNeeded();
@@ -287,6 +291,7 @@ namespace Poink.Sim.Components.Pages
 			if (_showVolumeProfile) keys.Add("volume");
 			if (_showTimeProfile) keys.Add("time");
 			if (_showSubchart) keys.Add("subchart");
+			if (_showSnapshot) keys.Add("snapshot");
 			return keys;
 		}
 
