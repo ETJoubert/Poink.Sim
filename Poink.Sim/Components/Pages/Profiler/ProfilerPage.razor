@@ -32,9 +32,8 @@
 
         <div class="prof-datarow">
             <div class="prof-datarow-field prof-datarow-data">
-                <TickDataSource @bind-Table="_table" @bind-From="_from" @bind-To="_to" Disabled="_isLoading" />
+                <TickDataSource @bind-Table="_table" @bind-From="_from" @bind-To="_to" @bind-To:after="OnRangeSettled" Disabled="_isLoading" />
             </div>
-            <BarSizeSelect @bind-Value="_barSizeSeconds" Disabled="@_isLoading" />
             <div class="prof-datarow-actions">
                 <button class="prof-ctrl-btn prof-ctrl-btn-play" @onclick="Load"
                         disabled="@(_isLoading || _isLoadingMore)"
@@ -52,6 +51,18 @@
     @if (HasData)
     {
         <div class="prof-chart-toolbar">
+            <div class="prof-overlay-toggles prof-agg-toggles" title="How ticks are aggregated into bars for the chart below">
+                <span class="prof-overlay-toggles-label">Aggregation</span>
+                <BarSizeSelect @bind-Value="_barSizeSeconds" Disabled="@_isLoading" />
+                <label class="prof-agg-field" title="OHLC draws each bar's real Open/High/Low/Close; Quartile draws a box plot of Min/Q1/Median/Q3/Max instead -- Volume/Time profile and XGrid always stay computed from raw ticks either way">
+                    Bar kind
+                    <select class="prof-agg-select" @bind="_barAggregationKind" @bind:after="RefreshBarRows" disabled="@_isLoading"
+                            title="OHLC draws each bar's real Open/High/Low/Close; Quartile draws a box plot of Min/Q1/Median/Q3/Max instead -- Volume/Time profile and XGrid always stay computed from raw ticks either way">
+                        <option value="@BarAggregationKind.Ohlc">OHLC</option>
+                        <option value="@BarAggregationKind.Quartile">Quartile</option>
+                    </select>
+                </label>
+            </div>
             <div class="prof-overlay-toggles"
                  title="Toggle the computed chart overlays introduced alongside the volume profile -- these aren't Drawings, so they aren't listed/removable below">
                 <span class="prof-overlay-toggles-label">Overlays</span>
@@ -122,6 +133,7 @@
                     <MarketChartContainer Bars="_barRows" KeepView="_keepView" OnNearStart="LoadMore"
                                  HorizontalLines="AllHorizontalLines()" VerticalLines="AllVerticalLines()"
                                  DiagonalLines="AllDiagonalLines()" RangeFills="AllRangeFills()" VwapLine="VwapPoints()"
+                                 MedianLine="_medianLine"
                                  OnHorizontalLineDrawn="AddHorizontalLine" OnVerticalLineDrawn="AddVerticalLine"
                                  OnDiagonalLineDrawn="AddDiagonalLine" OnTRangeChartDrawn="AddTRangeChart"
                                  OnReferenceLineDrawn="AddReferenceLine" OnVolumeRangeDrawn="SetVolumeRange"

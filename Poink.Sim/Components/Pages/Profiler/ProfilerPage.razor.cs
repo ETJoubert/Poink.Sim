@@ -32,6 +32,10 @@ namespace Poink.Sim.Components.Pages
 		private DateTime _from = DateTime.UtcNow.AddDays(-1);
 		private DateTime _to = DateTime.UtcNow;
 		private int _barSizeSeconds = 60;
+		private BarAggregationKind _barAggregationKind = BarAggregationKind.Ohlc;
+
+		// Cleared after the first range settle so later manual range edits still require LOAD.
+		private bool _autoLoadPending = true;
 
 		private bool _isLoading;
 		private bool _isLoadingMore;
@@ -58,6 +62,11 @@ namespace Poink.Sim.Components.Pages
 		/// this list, which a fresh `ToBarRows()` on every render would defeat.
 		/// </summary>
 		private List<CTraderBarRow> _barRows = new();
+
+		private List<QuartileBar> _quartileBars = new();
+
+		// Per-bar median overlay, only populated in Quartile bar-kind mode (see RefreshBarRows).
+		private List<ChartLinePoint> _medianLine = new();
 
 		private List<BarPriceHistogram> _barHistograms = new();
 		private int _tickCount;
@@ -322,7 +331,9 @@ namespace Poink.Sim.Components.Pages
 			_keepView = false;
 			_config = null;
 			_bars = new();
+			_quartileBars = new();
 			_barRows = new();
+			_medianLine = new();
 			_barHistograms = new();
 			_tickCount = 0;
 			_reachedStart = false;
@@ -388,10 +399,35 @@ namespace Poink.Sim.Components.Pages
 		private void ApplyChunk(ProfilerChunk chunk)
 		{
 			_bars = chunk.Bars.Concat(_bars).ToList();
-			_barRows = ToBarRows(_bars);
+			_quartileBars = chunk.QuartileBars.Concat(_quartileBars).ToList();
+			RefreshBarRows();
 			_barHistograms = chunk.BarHistograms.Concat(_barHistograms).ToList();
 			_tickCount += chunk.TickCount;
 			_reachedStart = chunk.ReachedStart;
+		}
+
+		// Volume/Time Profile, XGrid, and VWAP always stay wired to _bars/_barHistograms since those can only be computed from ticks.
+		private void RefreshBarRows()
+		{
+			if (_barAggregationKind == BarAggregationKind.Quartile)
+			{
+				_barRows = ToQuartileBarRows(_quartileBars);
+				_medianLine = _quartileBars.Select(b => new ChartLinePoint(b.OpenTime, b.Median)).ToList();
+			}
+			else
+			{
+				_barRows = ToBarRows(_bars);
+				_medianLine = new();
+			}
+		}
+
+		private async Task OnRangeSettled()
+		{
+			if (!_autoLoadPending || string.IsNullOrWhiteSpace(_table))
+				return;
+
+			_autoLoadPending = false;
+			await Load();
 		}
 
 		private void AddHorizontalLine(double price) =>
@@ -844,6 +880,10 @@ namespace Poink.Sim.Components.Pages
 					b.Distance
 				))
 				.ToList();
+
+		// Box plot mapping (Open/Close = Q1/Q3, High/Low = Min/Max), matching Analize's Price tab.
+		private static List<CTraderBarRow> ToQuartileBarRows(IEnumerable<QuartileBar> bars) =>
+			bars.Select(b => new CTraderBarRow(b.OpenTime, b.Q1, b.Max, b.Min, b.Q3, b.Count)).ToList();
 
 		private List<WeightedPriceSample> MergedSamples()
 		{
