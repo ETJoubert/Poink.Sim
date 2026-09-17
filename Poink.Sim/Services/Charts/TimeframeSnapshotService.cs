@@ -32,55 +32,77 @@ internal sealed class TimeframeSnapshotService : ITimeframeSnapshotService
 		BarAggregationKind kind
 	) =>
 		Task.Run(() =>
-			lookbackSeconds
-				.Distinct()
-				.OrderBy(seconds => seconds)
-				.Select(seconds => (Seconds: seconds, Bar: BuildBar(table, anchorEnd.AddSeconds(-seconds), anchorEnd, kind)))
-				.Where(pair => pair.Bar is not null)
-				.Select(pair => (pair.Seconds, pair.Bar!))
-				.ToList()
-		);
+		{
+			var distinctSeconds = lookbackSeconds.Distinct().OrderBy(seconds => seconds).ToList();
+			if (distinctSeconds.Count == 0)
+				return new List<(int, CTraderBarRow)>();
 
-	private CTraderBarRow? BuildBar(string table, DateTime from, DateTime to, BarAggregationKind kind)
+			// One scan over the largest window instead of one scan per timeframe -- every smaller
+			// window is a suffix of this same tick list, sliced in memory below.
+			var ticks = _tickRepository.ReadTicks(table, anchorEnd.AddSeconds(-distinctSeconds[^1]), anchorEnd).ToList();
+
+			var result = new List<(int, CTraderBarRow)>(distinctSeconds.Count);
+			foreach (var seconds in distinctSeconds)
+				if (BuildBar(ticks, LowerBound(ticks, anchorEnd.AddSeconds(-seconds)), kind) is { } bar)
+					result.Add((seconds, bar));
+			return result;
+		});
+
+	// First index whose tick timestamp is >= from, via binary search over the timestamp-sorted list.
+	private static int LowerBound(List<Tick> ticks, DateTime from)
 	{
-		DateTime? openTime = null;
+		int lo = 0,
+			hi = ticks.Count;
+		while (lo < hi)
+		{
+			var mid = (lo + hi) / 2;
+			if (ticks[mid].Timestamp < from)
+				lo = mid + 1;
+			else
+				hi = mid;
+		}
+		return lo;
+	}
+
+	private static CTraderBarRow? BuildBar(List<Tick> ticks, int startIndex, BarAggregationKind kind)
+	{
+		if (startIndex >= ticks.Count)
+			return null;
+
+		var openTime = ticks[startIndex].Timestamp;
 		double open = 0,
 			close = 0,
 			prevMid = 0;
-		var prices = new List<double>();
+		var prices = new List<double>(ticks.Count - startIndex);
 		int upVolume = 0,
 			downVolume = 0;
 
-		foreach (var tick in _tickRepository.ReadTicks(table, from, to))
+		for (var i = startIndex; i < ticks.Count; i++)
 		{
-			var mid = (tick.Bid + tick.Ask) / 2.0;
-			if (openTime is null)
+			var mid = (ticks[i].Bid + ticks[i].Ask) / 2.0;
+			if (i == startIndex)
 				open = mid;
 			else if (mid > prevMid)
 				upVolume++;
 			else if (mid < prevMid)
 				downVolume++;
 
-			openTime ??= tick.Timestamp;
 			prevMid = mid;
 			close = mid;
 			prices.Add(mid);
 		}
-
-		if (openTime is null)
-			return null;
 
 		prices.Sort();
 		var mean = prices.Average();
 		return kind switch
 		{
 			BarAggregationKind.Quartile
-				=> new CTraderBarRow(openTime.Value, Percentile(prices, 0.25), prices[^1], prices[0], Percentile(prices, 0.75), prices.Count),
+				=> new CTraderBarRow(openTime, Percentile(prices, 0.25), prices[^1], prices[0], Percentile(prices, 0.75), prices.Count),
 			BarAggregationKind.Decile
-				=> new CTraderBarRow(openTime.Value, Percentile(prices, 0.1), prices[^1], prices[0], Percentile(prices, 0.9), prices.Count),
+				=> new CTraderBarRow(openTime, Percentile(prices, 0.1), prices[^1], prices[0], Percentile(prices, 0.9), prices.Count),
 			BarAggregationKind.MeanStdDev
-				=> new CTraderBarRow(openTime.Value, mean, mean + StdDev(prices, mean), mean - StdDev(prices, mean), mean, prices.Count),
-			_ => new CTraderBarRow(openTime.Value, open, prices[^1], prices[0], close, prices.Count, upVolume, downVolume),
+				=> new CTraderBarRow(openTime, mean, mean + StdDev(prices, mean), mean - StdDev(prices, mean), mean, prices.Count),
+			_ => new CTraderBarRow(openTime, open, prices[^1], prices[0], close, prices.Count, upVolume, downVolume),
 		};
 	}
 
