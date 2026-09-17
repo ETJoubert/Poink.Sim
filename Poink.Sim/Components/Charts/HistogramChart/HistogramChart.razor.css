@@ -123,9 +123,11 @@
     opacity: 0.85;
 }
 
+/* Name | bar | Count | Own% | Grand% -- shared by every metric row and the header row above them,
+   so the three value columns line up vertically like a table despite each row being its own flex/grid line. */
 .hist-multi-series-row {
     display: grid;
-    grid-template-columns: 46px 1fr 80px;
+    grid-template-columns: 46px 1fr 56px 56px 56px;
     align-items: center;
     gap: 8px;
     font-size: 0.66rem;
@@ -140,4 +142,16 @@
 
 .hist-multi-series-row .hist-row-track {
     height: 9px;
+}
+
+.hist-multi-values-header {
+    flex-shrink: 0;
+    color: var(--color-secondary);
+    opacity: 0.65;
+    font-size: 0.62rem;
+}
+
+.hist-values-col {
+    text-align: right;
+    white-space: nowrap;
 }

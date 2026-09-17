@@ -6,10 +6,10 @@ using Microsoft.AspNetCore.Components;
 
 namespace Poink.Sim.Components.Charts
 {
-	// Public because a [Parameter] can't expose a less-accessible type; callers convert from their own internal bin model.
+	/// <summary>Public because a [Parameter] can't expose a less-accessible type; callers convert from their own internal bin model.</summary>
 	public readonly record struct HistogramBar(double Low, double High, long Count);
 
-	// One overlay series for the multi-series view -- Bins must share the same bucket edges as its siblings.
+	/// <summary>One overlay series for the multi-series view -- Bins must share the same bucket edges as its siblings.</summary>
 	public readonly record struct HistogramSeries(string Name, string Color, IReadOnlyList<HistogramBar> Bins);
 
 	public partial class HistogramChart : ComponentBase
@@ -17,7 +17,7 @@ namespace Poink.Sim.Components.Charts
 		[Parameter]
 		public IReadOnlyList<HistogramBar> Bins { get; set; } = Array.Empty<HistogramBar>();
 
-		// When set, overrides Bins entirely and renders a legend plus one colored bar per series per bucket.
+		/// <summary>When set, overrides Bins entirely and renders a legend plus one colored bar per series per bucket.</summary>
 		[Parameter]
 		public IReadOnlyList<HistogramSeries>? Series { get; set; }
 
@@ -54,5 +54,11 @@ namespace Poink.Sim.Components.Charts
 
 		private static string PercentOfSeriesTotalText(long count, long seriesTotal) =>
 			(seriesTotal == 0 ? 0 : count * 100.0 / seriesTotal).ToString("N1");
+
+		// Every metric's every bucket summed together, unlike SeriesTotal's one-metric-only sum.
+		private long GrandTotal => Series is { Count: > 0 } s ? s.Sum(SeriesTotal) : 0;
+
+		private static string PercentOfGrandTotalText(long count, long grandTotal) =>
+			(grandTotal == 0 ? 0 : count * 100.0 / grandTotal).ToString("N1");
 	}
 }
