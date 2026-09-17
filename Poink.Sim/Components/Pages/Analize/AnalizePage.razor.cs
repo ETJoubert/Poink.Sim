@@ -61,8 +61,17 @@ namespace Poink.Sim.Components.Pages.Analize
 		private bool _returnUseAggregation;
 		private int _returnAggregationBarWidthSeconds = 60;
 		private int _returnWindowBars = 30;
-		private string _returnSelectedSeries = "Close";
+		private string _returnSelectedSeries = "All";
 		private static readonly string[] ReturnSeriesNames = { "Open", "High", "Low", "Close" };
+		private static readonly string[] ReturnChartSeriesNames = { "All", "Open", "High", "Low", "Close" };
+
+		private static readonly Dictionary<string, string> ReturnSeriesColors = new()
+		{
+			["Open"] = "var(--color-info)",
+			["High"] = "var(--color-success)",
+			["Low"] = "var(--color-error)",
+			["Close"] = "var(--color-primary)",
+		};
 
 		private List<CTraderBarRow> _marketChartBars = new();
 		private bool _marketChartLoading;
@@ -187,6 +196,17 @@ namespace Poink.Sim.Components.Pages.Analize
 
 		private IReadOnlyList<HistogramBar> ReturnChartBins =>
 			SelectedReturnSeries.Bins.Select(b => new HistogramBar(b.Low, b.High, b.Count)).ToList();
+
+		private IReadOnlyList<HistogramSeries> ReturnAllSeriesChart =>
+			ReturnService.Result?.SeriesBreakdown is { } breakdown
+				? breakdown
+					.Select(s => new HistogramSeries(
+						s.Series,
+						ReturnSeriesColors.GetValueOrDefault(s.Series, "var(--color-secondary)"),
+						s.ToReturnBins.Select(b => new HistogramBar(b.Low, b.High, b.Count)).ToList()
+					))
+					.ToList()
+				: Array.Empty<HistogramSeries>();
 
 		private List<AnalizeBinRow> ReturnResultRows
 		{

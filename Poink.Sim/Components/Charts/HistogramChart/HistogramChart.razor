@@ -3,28 +3,71 @@
 <div class="hist-wrapper">
     <div class="hist-header">
         <span class="hist-title">@Title</span>
-        @if (TotalCount > 0)
+        @if (Series is null && TotalCount > 0)
         {
             <span class="hist-header-count" title="Total samples in this distribution">@TotalCount.ToString("N0") samples</span>
         }
     </div>
-    <div class="hist-body">
-        @if (Bins.Count == 0 || TotalCount == 0)
-        {
-            <div class="hist-empty">@EmptyMessage</div>
-        }
-        else
-        {
-            @foreach (var bin in Bins)
+    @if (Series is { Count: > 0 } series)
+    {
+        <div class="hist-legend">
+            @foreach (var s in series)
             {
-                <div class="hist-row" title="@($"{FormatRange(bin)}: {bin.Count:N0} samples ({PercentOfTotalText(bin.Count)}% of total)")">
-                    <span class="hist-row-label">@FormatRange(bin)</span>
-                    <div class="hist-row-track">
-                        <div class="hist-row-bar" style="width: @(BarWidthPercent(bin.Count, MaxCount))%"></div>
-                    </div>
-                    <span class="hist-row-count">@bin.Count.ToString("N0") <span class="hist-row-percent">(@(PercentOfTotalText(bin.Count))%)</span></span>
-                </div>
+                <span class="hist-legend-item" title="@s.Name">
+                    <span class="hist-legend-swatch" style="background: @s.Color"></span>
+                    @s.Name
+                </span>
             }
-        }
-    </div>
+        </div>
+        <div class="hist-body">
+            @if (SeriesBucketCount == 0)
+            {
+                <div class="hist-empty">@EmptyMessage</div>
+            }
+            else
+            {
+                @for (var i = 0; i < SeriesBucketCount; i++)
+                {
+                    var bucketIndex = i;
+                    <div class="hist-multi-row">
+                        <span class="hist-multi-row-label">@FormatRange(series[0].Bins[bucketIndex])</span>
+                        @foreach (var s in series)
+                        {
+                            var bin = s.Bins[bucketIndex];
+                            var seriesTotal = SeriesTotal(s);
+                            <div class="hist-multi-series-row" title="@($"{s.Name}: {bin.Count:N0} samples ({PercentOfSeriesTotalText(bin.Count, seriesTotal)}% of {s.Name})")">
+                                <span class="hist-multi-series-name" style="color: @s.Color">@s.Name</span>
+                                <div class="hist-row-track">
+                                    <div class="hist-row-bar" style="width: @(BarWidthPercent(bin.Count, SeriesMaxCount))%; background: @s.Color;"></div>
+                                </div>
+                                <span class="hist-row-count">@bin.Count.ToString("N0") <span class="hist-row-percent">(@(PercentOfSeriesTotalText(bin.Count, seriesTotal))%)</span></span>
+                            </div>
+                        }
+                    </div>
+                }
+            }
+        </div>
+    }
+    else
+    {
+        <div class="hist-body">
+            @if (Bins.Count == 0 || TotalCount == 0)
+            {
+                <div class="hist-empty">@EmptyMessage</div>
+            }
+            else
+            {
+                @foreach (var bin in Bins)
+                {
+                    <div class="hist-row" title="@($"{FormatRange(bin)}: {bin.Count:N0} samples ({PercentOfTotalText(bin.Count)}% of total)")">
+                        <span class="hist-row-label">@FormatRange(bin)</span>
+                        <div class="hist-row-track">
+                            <div class="hist-row-bar" style="width: @(BarWidthPercent(bin.Count, MaxCount))%"></div>
+                        </div>
+                        <span class="hist-row-count">@bin.Count.ToString("N0") <span class="hist-row-percent">(@(PercentOfTotalText(bin.Count))%)</span></span>
+                    </div>
+                }
+            }
+        </div>
+    }
 </div>

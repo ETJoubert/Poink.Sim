@@ -9,10 +9,17 @@ namespace Poink.Sim.Components.Charts
 	// Public because a [Parameter] can't expose a less-accessible type; callers convert from their own internal bin model.
 	public readonly record struct HistogramBar(double Low, double High, long Count);
 
+	// One overlay series for the multi-series view -- Bins must share the same bucket edges as its siblings.
+	public readonly record struct HistogramSeries(string Name, string Color, IReadOnlyList<HistogramBar> Bins);
+
 	public partial class HistogramChart : ComponentBase
 	{
 		[Parameter]
 		public IReadOnlyList<HistogramBar> Bins { get; set; } = Array.Empty<HistogramBar>();
+
+		// When set, overrides Bins entirely and renders a legend plus one colored bar per series per bucket.
+		[Parameter]
+		public IReadOnlyList<HistogramSeries>? Series { get; set; }
 
 		[Parameter]
 		public string Title { get; set; } = "DISTRIBUTION";
@@ -30,6 +37,10 @@ namespace Poink.Sim.Components.Charts
 
 		private long MaxCount => Bins.Count == 0 ? 0 : Bins.Max(b => b.Count);
 
+		private int SeriesBucketCount => Series?.Count > 0 ? Series[0].Bins.Count : 0;
+
+		private long SeriesMaxCount => Series is { Count: > 0 } s ? s.SelectMany(x => x.Bins).Select(b => b.Count).DefaultIfEmpty(0).Max() : 0;
+
 		private string FormatRange(HistogramBar bin) =>
 			$"{(bin.Low * ValueScale).ToString("0.#", CultureInfo.InvariantCulture)}-{(bin.High * ValueScale).ToString("0.#", CultureInfo.InvariantCulture)}{ValueUnit}";
 
@@ -38,5 +49,10 @@ namespace Poink.Sim.Components.Charts
 			(maxCount == 0 ? 0 : count * 100.0 / maxCount).ToString("0.##", CultureInfo.InvariantCulture);
 
 		private string PercentOfTotalText(long count) => (TotalCount == 0 ? 0 : count * 100.0 / TotalCount).ToString("N1");
+
+		private static long SeriesTotal(HistogramSeries series) => series.Bins.Sum(b => b.Count);
+
+		private static string PercentOfSeriesTotalText(long count, long seriesTotal) =>
+			(seriesTotal == 0 ? 0 : count * 100.0 / seriesTotal).ToString("N1");
 	}
 }

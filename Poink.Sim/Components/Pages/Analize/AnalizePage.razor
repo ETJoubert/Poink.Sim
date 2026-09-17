@@ -234,17 +234,26 @@
                         @if (ReturnService.Result?.SeriesBreakdown is not null)
                         {
                             <div class="analize-series-tabs">
-                                @foreach (var name in ReturnSeriesNames)
+                                @foreach (var name in ReturnChartSeriesNames)
                                 {
                                     <button type="button" class="analize-btn-toggle @(_returnSelectedSeries == name ? "analize-btn-toggle-active" : "")"
-                                            @onclick="() => _returnSelectedSeries = name" title="Show the @name-based series">
+                                            @onclick="() => _returnSelectedSeries = name"
+                                            title="@(name == "All" ? "Show Open/High/Low/Close together, one color per series" : $"Show the {name}-based series")">
                                         @name
                                     </button>
                                 }
                             </div>
                         }
-                        <HistogramChart Bins="@ReturnChartBins" Title="TIME TO RETURN DISTRIBUTION" ValueUnit="@(SelectedReturnSeries.Unit == "bars" ? " bars" : " min")" ValueScale="1"
-                                         EmptyMessage="Set a window and click RUN (Return Probability) in the left panel to see the distribution" />
+                        @if (_returnSelectedSeries == "All" && ReturnService.Result?.SeriesBreakdown is not null)
+                        {
+                            <HistogramChart Series="@ReturnAllSeriesChart" Title="TIME TO RETURN DISTRIBUTION -- ALL SERIES"
+                                             EmptyMessage="Set a window and click RUN (Return Probability) in the left panel to see the distribution" />
+                        }
+                        else
+                        {
+                            <HistogramChart Bins="@ReturnChartBins" Title="TIME TO RETURN DISTRIBUTION" ValueUnit="@(SelectedReturnSeries.Unit == "bars" ? " bars" : " min")" ValueScale="1"
+                                             EmptyMessage="Set a window and click RUN (Return Probability) in the left panel to see the distribution" />
+                        }
                         @if (ReturnService.Result is { SampleCount: > 0 } returnChartResult)
                         {
                             <p class="analize-caption" title="Bucket counts cover only the points that did return -- see DETAILS for the overall chance">

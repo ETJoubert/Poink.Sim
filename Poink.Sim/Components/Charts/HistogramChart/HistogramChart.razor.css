@@ -33,8 +33,10 @@
     flex-direction: column;
     gap: 3px;
     overflow-y: auto;
+    overflow-x: hidden;
     flex: 1;
     min-height: 0;
+    padding-right: 10px;
 }
 
 .hist-empty {
@@ -46,7 +48,7 @@
 
 .hist-row {
     display: grid;
-    grid-template-columns: 84px 1fr 110px;
+    grid-template-columns: 84px 1fr 128px;
     align-items: center;
     gap: 8px;
     font-size: 0.7rem;
@@ -82,4 +84,60 @@
 
 .hist-row-percent {
     opacity: 0.7;
+}
+
+.hist-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    flex-shrink: 0;
+    font-size: 0.66rem;
+    color: var(--color-secondary);
+}
+
+.hist-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.hist-legend-swatch {
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    border-radius: 2px;
+}
+
+.hist-multi-row {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 4px 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 8%, transparent);
+}
+
+.hist-multi-row-label {
+    font-size: 0.66rem;
+    font-weight: bold;
+    color: var(--color-secondary);
+    opacity: 0.85;
+}
+
+.hist-multi-series-row {
+    display: grid;
+    grid-template-columns: 46px 1fr 80px;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.66rem;
+}
+
+.hist-multi-series-name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 600;
+}
+
+.hist-multi-series-row .hist-row-track {
+    height: 9px;
 }
