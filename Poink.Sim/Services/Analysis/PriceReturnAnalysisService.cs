@@ -7,13 +7,17 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Poink.Sim.Models;
 using Poink.Sim.Repository;
+using Poink.Sim.Simulation;
 
 namespace Poink.Sim.Analysis;
 
 internal sealed class PriceReturnAnalysisService : IPriceReturnAnalysisService
 {
-	private const int BucketCount = 20;
+	private const int DefaultBucketCount = 20;
 	private const int ProgressReportInterval = 5_000;
+
+	// Only used by SimulationBarAggregator's discarded histogram side-channel; aggregation mode never reads it.
+	private const double PriceBucketWidth = 0.01;
 
 	// A start point's fate depends only on ticks up to windowSpan past it, so the range splits into
 	// WorkerCount independent chunks, computed in parallel, then merges into one result.
@@ -42,7 +46,14 @@ internal sealed class PriceReturnAnalysisService : IPriceReturnAnalysisService
 
 	public bool TryStart(PriceReturnRequest request)
 	{
-		if (string.IsNullOrWhiteSpace(request.Table) || request.To <= request.From || request.WindowMinutes <= 0)
+		if (string.IsNullOrWhiteSpace(request.Table) || request.To <= request.From)
+			return false;
+		if (request.AggregationBarWidthSeconds is { } barWidthSeconds)
+		{
+			if (barWidthSeconds <= 0 || request.AggregationWindowBars is not { } windowBars || windowBars <= 0)
+				return false;
+		}
+		else if (request.WindowMinutes <= 0)
 			return false;
 
 		lock (_lock)
@@ -60,11 +71,13 @@ internal sealed class PriceReturnAnalysisService : IPriceReturnAnalysisService
 		OnChanged?.Invoke();
 
 		_logger.LogInformation(
-			"Price-return analysis started: table={Table} from={From} to={To} window={WindowMinutes}m",
+			"Price-return analysis started: table={Table} from={From} to={To} window={WindowMinutes}m aggregationBarSeconds={AggregationBarWidthSeconds} aggregationWindowBars={AggregationWindowBars}",
 			request.Table,
 			request.From,
 			request.To,
-			request.WindowMinutes
+			request.WindowMinutes,
+			request.AggregationBarWidthSeconds,
+			request.AggregationWindowBars
 		);
 
 		_ = Task.Run(() => Run(request));
@@ -111,14 +124,19 @@ internal sealed class PriceReturnAnalysisService : IPriceReturnAnalysisService
 		}
 	}
 
-	private PriceReturnDistributionResult Compute(PriceReturnRequest request)
+	private PriceReturnDistributionResult Compute(PriceReturnRequest request) =>
+		request.AggregationBarWidthSeconds is { } barWidthSeconds
+			? ComputeFromBars(request, TimeSpan.FromSeconds(barWidthSeconds), request.AggregationWindowBars!.Value)
+			: ComputeFromTicks(request);
+
+	private PriceReturnDistributionResult ComputeFromTicks(PriceReturnRequest request)
 	{
 		var windowSpan = TimeSpan.FromMinutes(request.WindowMinutes);
 		var totalTicks = _tickRepository.CountTicks(request.Table, request.From, request.To.Add(windowSpan));
 		_processedCount = 0;
 
 		var chunks = SplitIntoChunks(request.From, request.To, WorkerCount);
-		var chunkResults = new List<(bool Returned, double MinutesToReturn)>[chunks.Count];
+		var chunkResults = new List<(bool Returned, double Value)>[chunks.Count];
 
 		try
 		{
@@ -141,11 +159,11 @@ internal sealed class PriceReturnAnalysisService : IPriceReturnAnalysisService
 			ProgressPercent = 100;
 		OnChanged?.Invoke();
 
-		var results = new List<(bool Returned, double MinutesToReturn)>(chunkResults.Sum(c => c.Count));
+		var results = new List<(bool Returned, double Value)>(chunkResults.Sum(c => c.Count));
 		foreach (var chunk in chunkResults)
 			results.AddRange(chunk);
 
-		return BuildResult(results, request.WindowMinutes);
+		return BuildResult(results, request.WindowMinutes, DefaultBucketCount, "min");
 	}
 
 	// Half-open per chunk ([from, to)) except the last, which keeps the overall range's own closed
@@ -166,7 +184,7 @@ internal sealed class PriceReturnAnalysisService : IPriceReturnAnalysisService
 
 	// Streams a chunk's ticks once; for every tick in it the forward window [t, t+X] is watched via
 	// a running min/max -- once that range spans back over the start price, the point has "returned".
-	private List<(bool Returned, double MinutesToReturn)> ComputeChunk(
+	private List<(bool Returned, double Value)> ComputeChunk(
 		string table,
 		DateTime chunkFrom,
 		DateTime chunkTo,
@@ -176,7 +194,7 @@ internal sealed class PriceReturnAnalysisService : IPriceReturnAnalysisService
 	)
 	{
 		var open = new List<OpenStart>();
-		var results = new List<(bool Returned, double MinutesToReturn)>();
+		var results = new List<(bool Returned, double Value)>();
 
 		foreach (var tick in _tickRepository.ReadTicks(table, chunkFrom, chunkTo.Add(windowSpan)))
 		{
@@ -235,30 +253,165 @@ internal sealed class PriceReturnAnalysisService : IPriceReturnAnalysisService
 		return results;
 	}
 
+	// Aggregation has no clock, just bar positions, so windowBars counts subsequent bars, not minutes.
+	// Runs once per OHLC value: that value on the starting bar, checked against later bars' own true traded range (Low/High).
+	private PriceReturnDistributionResult ComputeFromBars(PriceReturnRequest request, TimeSpan barSize, int windowBars)
+	{
+		var windowSpan = TimeSpan.FromTicks(barSize.Ticks * windowBars);
+		var bars = AggregateBars(request.Table, request.From, request.To.Add(windowSpan), barSize);
+
+		var closeResults = ComputeSeriesFromBars(bars, barSize, windowBars, request.From, request.To, b => b.Close);
+		var openSeries = ToSeriesResult("Open", ComputeSeriesFromBars(bars, barSize, windowBars, request.From, request.To, b => b.Open), windowBars, windowBars);
+		var highSeries = ToSeriesResult("High", ComputeSeriesFromBars(bars, barSize, windowBars, request.From, request.To, b => b.High), windowBars, windowBars);
+		var lowSeries = ToSeriesResult("Low", ComputeSeriesFromBars(bars, barSize, windowBars, request.From, request.To, b => b.Low), windowBars, windowBars);
+		var closeSeries = ToSeriesResult("Close", closeResults, windowBars, windowBars);
+
+		lock (_lock)
+			ProgressPercent = 100;
+		OnChanged?.Invoke();
+
+		var closeResult = BuildResult(closeResults, windowBars, windowBars, "bars");
+		return closeResult with { SeriesBreakdown = new[] { openSeries, highSeries, lowSeries, closeSeries } };
+	}
+
+	// Scans forward from each starting bar, at most windowBars bars, for the first later bar whose
+	// [Low, High] contains the reference value; a window running past the data we have is dropped.
+	private List<(bool Returned, double Value)> ComputeSeriesFromBars(
+		List<HlocAvdtBar> bars,
+		TimeSpan barSize,
+		int windowBars,
+		DateTime from,
+		DateTime to,
+		Func<HlocAvdtBar, double> selectStartValue
+	)
+	{
+		var results = new List<(bool Returned, double Value)>();
+
+		for (var i = 0; i < bars.Count; i++)
+		{
+			if (_cancelRequested)
+				throw new OperationCanceledException();
+
+			var barEndTime = bars[i].OpenTime + barSize;
+			if (barEndTime < from || barEndTime > to)
+				continue;
+
+			var lastIndex = i + windowBars;
+			if (lastIndex >= bars.Count)
+				continue;
+
+			var startValue = selectStartValue(bars[i]);
+			var runningMin = double.PositiveInfinity;
+			var runningMax = double.NegativeInfinity;
+			var returnedAtOffset = -1;
+			for (var j = i + 1; j <= lastIndex; j++)
+			{
+				if (bars[j].Low < runningMin)
+					runningMin = bars[j].Low;
+				if (bars[j].High > runningMax)
+					runningMax = bars[j].High;
+				if (runningMin <= startValue && runningMax >= startValue)
+				{
+					returnedAtOffset = j - i;
+					break;
+				}
+			}
+
+			// 0-indexed (bar 1 after the start = offset 0) so it buckets 1:1 with ComputeStats' bucketCount=windowBars.
+			results.Add(returnedAtOffset > 0 ? (true, returnedAtOffset - 1) : (false, 0));
+		}
+
+		return results;
+	}
+
+	private List<HlocAvdtBar> AggregateBars(string table, DateTime from, DateTime to, TimeSpan barSize)
+	{
+		var totalTicks = _tickRepository.CountTicks(table, from, to);
+		long processed = 0;
+
+		var aggregator = new SimulationBarAggregator(barSize, PriceBucketWidth);
+		var bars = new List<HlocAvdtBar>();
+		foreach (var tick in _tickRepository.ReadTicks(table, from, to))
+		{
+			if (_cancelRequested)
+				throw new OperationCanceledException();
+
+			if (aggregator.Feed(tick) is { } completed)
+				bars.Add(completed.Bar);
+
+			processed++;
+			if (processed % ProgressReportInterval == 0)
+			{
+				lock (_lock)
+					ProgressPercent = totalTicks > 0 ? Math.Min(90, processed * 90.0 / totalTicks) : 0;
+				OnChanged?.Invoke();
+			}
+		}
+		if (aggregator.CurrentPartialBar is { } partial)
+			bars.Add(partial);
+
+		return bars;
+	}
+
 	private static PriceReturnDistributionResult BuildResult(
-		List<(bool Returned, double MinutesToReturn)> results,
-		double windowMinutes
+		List<(bool Returned, double Value)> results,
+		double windowSpanUnits,
+		int bucketCount,
+		string unit
+	)
+	{
+		var stats = ComputeStats(results, windowSpanUnits, bucketCount);
+		return new PriceReturnDistributionResult(
+			stats.SampleCount,
+			stats.ReturnedCount,
+			stats.Probability,
+			stats.Mean,
+			stats.Median,
+			stats.Bins,
+			unit
+		);
+	}
+
+	private static PriceReturnSeriesResult ToSeriesResult(
+		string series,
+		List<(bool Returned, double Value)> results,
+		double windowSpanUnits,
+		int bucketCount
+	)
+	{
+		var stats = ComputeStats(results, windowSpanUnits, bucketCount);
+		return new PriceReturnSeriesResult(series, stats.ReturnedCount, stats.Probability, stats.Mean, stats.Median, stats.Bins);
+	}
+
+	private static (long SampleCount, long ReturnedCount, double Probability, double Mean, double Median, List<HistogramBin> Bins) ComputeStats(
+		List<(bool Returned, double Value)> results,
+		double windowSpanUnits,
+		int bucketCount
 	)
 	{
 		if (results.Count == 0)
-			return new PriceReturnDistributionResult(0, 0, 0, 0, 0, Array.Empty<HistogramBin>());
+			return (0, 0, 0, 0, 0, new List<HistogramBin>());
 
-		var returnedTimes = results.Where(r => r.Returned).Select(r => r.MinutesToReturn).OrderBy(t => t).ToList();
-		var probability = (double)returnedTimes.Count / results.Count;
-		var mean = returnedTimes.Count > 0 ? returnedTimes.Average() : 0;
-		var median = returnedTimes.Count > 0 ? returnedTimes[returnedTimes.Count / 2] : 0;
+		var returnedValues = results.Where(r => r.Returned).Select(r => r.Value).OrderBy(v => v).ToList();
+		var probability = (double)returnedValues.Count / results.Count;
+		var mean = returnedValues.Count > 0 ? returnedValues.Average() : 0;
+		var median = returnedValues.Count > 0 ? returnedValues[returnedValues.Count / 2] : 0;
 
-		var counts = new long[BucketCount];
-		foreach (var minutes in returnedTimes)
-			counts[(int)Math.Clamp(minutes / windowMinutes * BucketCount, 0, BucketCount - 1)]++;
+		var counts = new long[bucketCount];
+		foreach (var value in returnedValues)
+			counts[(int)Math.Clamp(value / windowSpanUnits * bucketCount, 0, bucketCount - 1)]++;
 
-		var bins = new List<HistogramBin>(BucketCount);
-		for (var i = 0; i < BucketCount; i++)
+		var bins = new List<HistogramBin>(bucketCount);
+		for (var i = 0; i < bucketCount; i++)
 			bins.Add(
-				new HistogramBin((double)i / BucketCount * windowMinutes, (double)(i + 1) / BucketCount * windowMinutes, counts[i])
+				new HistogramBin(
+					(double)i / bucketCount * windowSpanUnits,
+					(double)(i + 1) / bucketCount * windowSpanUnits,
+					counts[i]
+				)
 			);
 
-		return new PriceReturnDistributionResult(results.Count, returnedTimes.Count, probability, mean, median, bins);
+		return (results.Count, returnedValues.Count, probability, mean, median, bins);
 	}
 
 	private sealed class OpenStart

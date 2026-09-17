@@ -127,11 +127,31 @@
 
                         @if (!_returnCardCollapsed)
                         {
-                            <label class="analize-field" title="How many minutes forward to watch for price returning to its starting point">
-                                Window (minutes)
-                                <input class="analize-input" type="number" min="1" step="1" @bind="_returnWindowMinutes"
-                                       disabled="@ReturnService.IsRunning" />
+                            <label class="analize-field analize-field-row"
+                                   title="Run the same check on aggregated HLOC bars instead of raw ticks -- far fewer points, using each bar's High/Low, at the cost of return-time precision">
+                                <input type="checkbox" @bind="_returnUseAggregation" disabled="@ReturnService.IsRunning" />
+                                Aggregation
                             </label>
+
+                            @if (_returnUseAggregation)
+                            {
+                                <BarSizeSelect @bind-Value="_returnAggregationBarWidthSeconds" Disabled="@ReturnService.IsRunning" Label="Bar width" />
+                                <label class="analize-field"
+                                       title="How many bars forward to watch, as a whole multiple of the bar width above -- so the window always ends exactly on a bar edge">
+                                    Window (bars)
+                                    <input class="analize-input" type="number" min="1" step="1" @bind="_returnWindowBars"
+                                           disabled="@ReturnService.IsRunning" />
+                                </label>
+                                <p class="analize-caption">= @(ReturnWindowBarsMinutesText) min, @_returnWindowBars buckets (1 per bar)</p>
+                            }
+                            else
+                            {
+                                <label class="analize-field" title="How many minutes forward to watch for price returning to its starting point">
+                                    Window (minutes)
+                                    <input class="analize-input" type="number" min="1" step="1" @bind="_returnWindowMinutes"
+                                           disabled="@ReturnService.IsRunning" />
+                                </label>
+                            }
 
                             @if (!ReturnService.IsRunning)
                             {
@@ -169,7 +189,7 @@
                             @if (ReturnService.Result is { SampleCount: > 0 } returnSummary)
                             {
                                 <p class="analize-caption">
-                                    @((returnSummary.ReturnProbability * 100).ToString("N1"))% chance of returning within @_returnWindowMinutes min
+                                    @((returnSummary.ReturnProbability * 100).ToString("N1"))% chance of returning within @ReturnEffectiveWindowText
                                 </p>
                             }
                         }
@@ -211,7 +231,19 @@
                 else if (_activeMainTab == AnalizeMainTab.Chart)
                 {
                     <div class="card analize-card analize-card-fill" title="Time-to-return distribution for the selected data and window">
-                        <HistogramChart Bins="@ReturnChartBins" Title="TIME TO RETURN DISTRIBUTION" ValueUnit=" min" ValueScale="1"
+                        @if (ReturnService.Result?.SeriesBreakdown is not null)
+                        {
+                            <div class="analize-series-tabs">
+                                @foreach (var name in ReturnSeriesNames)
+                                {
+                                    <button type="button" class="analize-btn-toggle @(_returnSelectedSeries == name ? "analize-btn-toggle-active" : "")"
+                                            @onclick="() => _returnSelectedSeries = name" title="Show the @name-based series">
+                                        @name
+                                    </button>
+                                }
+                            </div>
+                        }
+                        <HistogramChart Bins="@ReturnChartBins" Title="TIME TO RETURN DISTRIBUTION" ValueUnit="@(SelectedReturnSeries.Unit == "bars" ? " bars" : " min")" ValueScale="1"
                                          EmptyMessage="Set a window and click RUN (Return Probability) in the left panel to see the distribution" />
                         @if (ReturnService.Result is { SampleCount: > 0 } returnChartResult)
                         {
@@ -232,6 +264,18 @@
                 else if (_activeMainTab == AnalizeMainTab.Results)
                 {
                     <div class="card analize-card analize-card-fill" title="Raw bucket counts (returned points only) for the most recently completed run">
+                        @if (ReturnService.Result?.SeriesBreakdown is not null)
+                        {
+                            <div class="analize-series-tabs">
+                                @foreach (var name in ReturnSeriesNames)
+                                {
+                                    <button type="button" class="analize-btn-toggle @(_returnSelectedSeries == name ? "analize-btn-toggle-active" : "")"
+                                            @onclick="() => _returnSelectedSeries = name" title="Show the @name-based series">
+                                        @name
+                                    </button>
+                                }
+                            </div>
+                        }
                         <DataTable TItem="AnalizeBinRow" Items="@ReturnResultRows" ShowActions="false" ShowRowNumbers="false"
                                    EmptyMessage="Set a window and click RUN (Return Probability) in the left panel to see results" />
                     </div>
@@ -347,12 +391,36 @@
                                 </div>
                                 <div class="analize-stat" title="Among points that did return -- how long it took">
                                     <span class="analize-stat-label">mean / median time to return</span>
-                                    <span class="analize-stat-value">@(result.MeanMinutesToReturn.ToString("N1")) / @(result.MedianMinutesToReturn.ToString("N1")) min</span>
+                                    <span class="analize-stat-value">@(FormatToReturnValue(result.MeanToReturn, result.ToReturnUnit)) / @(FormatToReturnValue(result.MedianToReturn, result.ToReturnUnit))</span>
                                 </div>
                                 <div class="analize-stat">
                                     <span class="analize-stat-label">window</span>
-                                    <span class="analize-stat-value">@_returnWindowMinutes min</span>
+                                    <span class="analize-stat-value">@ReturnEffectiveWindowText</span>
                                 </div>
+                                <div class="analize-stat" title="Whether this run watched raw ticks or aggregated HLOC bars">
+                                    <span class="analize-stat-label">mode</span>
+                                    <span class="analize-stat-value">@(_returnUseAggregation ? $"{_returnAggregationBarWidthSeconds}s bars" : "tick-level")</span>
+                                </div>
+                                @if (result.SeriesBreakdown is { } breakdown)
+                                {
+                                    <div class="analize-ohlc-table" title="Each OHLC value run as its own independent series against its own starting bar's value">
+                                        <div class="analize-ohlc-row analize-ohlc-header">
+                                            <span></span>
+                                            <span>chance</span>
+                                            <span>returned</span>
+                                            <span>mean</span>
+                                        </div>
+                                        @foreach (var series in breakdown)
+                                        {
+                                            <div class="analize-ohlc-row @(series.Series == _returnSelectedSeries ? "analize-ohlc-row-selected" : "")">
+                                                <span class="analize-ohlc-label">@series.Series</span>
+                                                <span>@((series.ReturnProbability * 100).ToString("N1"))%</span>
+                                                <span>@series.ReturnedCount.ToString("N0")</span>
+                                                <span>@FormatToReturnValue(series.MeanToReturn, result.ToReturnUnit)</span>
+                                            </div>
+                                        }
+                                    </div>
+                                }
                                 @if (ReturnService.Elapsed is { } elapsed)
                                 {
                                     <div class="analize-stat">

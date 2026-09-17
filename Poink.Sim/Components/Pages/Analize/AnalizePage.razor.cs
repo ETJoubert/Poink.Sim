@@ -58,6 +58,11 @@ namespace Poink.Sim.Components.Pages.Analize
 		private double _returnWindowMinutes = 30;
 		private string? _returnStartError;
 		private bool _returnCardCollapsed;
+		private bool _returnUseAggregation;
+		private int _returnAggregationBarWidthSeconds = 60;
+		private int _returnWindowBars = 30;
+		private string _returnSelectedSeries = "Close";
+		private static readonly string[] ReturnSeriesNames = { "Open", "High", "Low", "Close" };
 
 		private List<CTraderBarRow> _marketChartBars = new();
 		private bool _marketChartLoading;
@@ -118,14 +123,29 @@ namespace Poink.Sim.Components.Pages.Analize
 				_returnStartError = "To must be after From";
 				return;
 			}
-			if (_returnWindowMinutes <= 0)
+
+			PriceReturnRequest request;
+			if (_returnUseAggregation)
 			{
-				_returnStartError = "window must be greater than 0";
-				return;
+				if (_returnWindowBars <= 0)
+				{
+					_returnStartError = "window (bars) must be greater than 0";
+					return;
+				}
+				request = new PriceReturnRequest(_table, _from, _to, 0, _returnAggregationBarWidthSeconds, _returnWindowBars);
+			}
+			else
+			{
+				if (_returnWindowMinutes <= 0)
+				{
+					_returnStartError = "window must be greater than 0";
+					return;
+				}
+				request = new PriceReturnRequest(_table, _from, _to, _returnWindowMinutes);
 			}
 
 			_activeAnalysis = ActiveAnalysis.ReturnProbability;
-			if (!ReturnService.TryStart(new PriceReturnRequest(_table, _from, _to, _returnWindowMinutes)))
+			if (!ReturnService.TryStart(request))
 				_returnStartError = "analysis is already running";
 		}
 
@@ -148,21 +168,51 @@ namespace Poink.Sim.Components.Pages.Analize
 		private static string FormatPercentBinRange(HistogramBin bin) =>
 			$"{(bin.Low * 100).ToString("0.#", CultureInfo.InvariantCulture)}-{(bin.High * 100).ToString("0.#", CultureInfo.InvariantCulture)}%";
 
-		private IReadOnlyList<HistogramBar> ReturnChartBins =>
-			ReturnService.Result is { } result
-				? result.MinutesToReturnBins.Select(b => new HistogramBar(b.Low, b.High, b.Count)).ToList()
-				: Array.Empty<HistogramBar>();
+		// Aggregation mode carries a per-series breakdown (Open/High/Low/Close); tick mode has none,
+		// so the top-level (Close-equivalent) bins are used directly.
+		private (IReadOnlyList<HistogramBin> Bins, long ReturnedCount, string Unit) SelectedReturnSeries
+		{
+			get
+			{
+				if (ReturnService.Result is not { } result)
+					return (Array.Empty<HistogramBin>(), 0, "min");
+				if (result.SeriesBreakdown is { } breakdown)
+				{
+					var series = breakdown.FirstOrDefault(s => s.Series == _returnSelectedSeries) ?? breakdown[0];
+					return (series.ToReturnBins, series.ReturnedCount, result.ToReturnUnit);
+				}
+				return (result.ToReturnBins, result.ReturnedCount, result.ToReturnUnit);
+			}
+		}
 
-		private List<AnalizeBinRow> ReturnResultRows =>
-			ReturnService.Result is { ReturnedCount: > 0 } result
-				? result
-					.MinutesToReturnBins.Select(b => new AnalizeBinRow(
-						FormatMinutesBinRange(b),
-						b.Count.ToString("N0"),
-						(b.Count * 100.0 / result.ReturnedCount).ToString("N1") + "%"
-					))
-					.ToList()
-				: new List<AnalizeBinRow>();
+		private IReadOnlyList<HistogramBar> ReturnChartBins =>
+			SelectedReturnSeries.Bins.Select(b => new HistogramBar(b.Low, b.High, b.Count)).ToList();
+
+		private List<AnalizeBinRow> ReturnResultRows
+		{
+			get
+			{
+				var (bins, returnedCount, unit) = SelectedReturnSeries;
+				return returnedCount == 0
+					? new List<AnalizeBinRow>()
+					: bins
+						.Select(b => new AnalizeBinRow(
+							FormatToReturnBinRange(b, unit),
+							b.Count.ToString("N0"),
+							(b.Count * 100.0 / returnedCount).ToString("N1") + "%"
+						))
+						.ToList();
+			}
+		}
+
+		private static string FormatToReturnBinRange(HistogramBin bin, string unit) =>
+			unit == "bars"
+				? $"bar {(bin.Low + 1).ToString("0.#", CultureInfo.InvariantCulture)}"
+				: FormatMinutesBinRange(bin);
+
+		// Bars are stored 0-indexed for bucketing; +1 shows the human-friendly "1st bar after start" count.
+		private static string FormatToReturnValue(double value, string unit) =>
+			unit == "bars" ? $"{(value + 1).ToString("N1")} bars" : $"{value.ToString("N1")} min";
 
 		private static string FormatMinutesBinRange(HistogramBin bin) =>
 			$"{bin.Low.ToString("0.#", CultureInfo.InvariantCulture)}-{bin.High.ToString("0.#", CultureInfo.InvariantCulture)}m";
@@ -172,6 +222,11 @@ namespace Poink.Sim.Components.Pages.Analize
 			TimeAboveBelowService.ProgressPercent.ToString("0.#", CultureInfo.InvariantCulture);
 
 		private string ReturnProgressPercentText => ReturnService.ProgressPercent.ToString("0.#", CultureInfo.InvariantCulture);
+
+		private string ReturnWindowBarsMinutesText => (_returnAggregationBarWidthSeconds * _returnWindowBars / 60.0).ToString("N1");
+
+		private string ReturnEffectiveWindowText =>
+			_returnUseAggregation ? $"{_returnWindowBars} bars ({ReturnWindowBarsMinutesText} min)" : $"{_returnWindowMinutes} min";
 
 		private async Task SelectPriceTab()
 		{

@@ -85,7 +85,7 @@
     flex-direction: column;
     flex: 1;
     min-height: 0;
-    padding: 20px 24px 32px;
+    padding: 10px 10px 10px;
 }
 
 .analize-card {
@@ -308,6 +308,12 @@
     color: var(--color-secondary);
 }
 
+.analize-field-row {
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+}
+
 .analize-input {
     background: var(--color-bg-terminal);
     border: 1px solid color-mix(in srgb, var(--color-primary) 45%, transparent);
@@ -441,4 +447,47 @@
     align-items: center;
     gap: 10px;
     flex-shrink: 0;
+}
+
+.analize-series-tabs {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+    margin-bottom: 8px;
+}
+
+.analize-ohlc-table {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 0.68rem;
+}
+
+.analize-ohlc-row {
+    display: grid;
+    grid-template-columns: 44px 1fr 1fr 1fr;
+    gap: 6px;
+    padding: 3px 4px;
+    border-radius: var(--border-radius-sm);
+}
+
+.analize-ohlc-header {
+    color: var(--color-secondary);
+    opacity: 0.7;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: 0.6rem;
+}
+
+.analize-ohlc-label {
+    font-weight: bold;
+    color: var(--color-secondary);
+}
+
+.analize-ohlc-row-selected {
+    background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+
+.analize-ohlc-row-selected .analize-ohlc-label {
+    color: var(--color-accent);
 }
