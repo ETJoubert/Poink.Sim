@@ -14,6 +14,39 @@ namespace Poink.Sim.Components.Pages.Analize
 {
 	internal sealed record AnalizeBinRow(string Range, string Count, string PercentOfTotal);
 
+	// Top-level (not nested in AnalizePage) and public because AnalysisDetailCard's [Parameter]
+	// can't expose a less-accessible type -- a Razor component's generated class is always public.
+	public enum ActiveAnalysis
+	{
+		TimeAboveBelow,
+		ReturnProbability,
+	}
+
+	public sealed record AnalysisSeriesSummaryView(string Series, long ReturnedCount, double ReturnProbability, double MeanToReturn, double MedianToReturn);
+
+	// Bin-free view of one run's scalar stats -- shared by the live DETAILS panel, Session cards,
+	// and History cards, the last of which must stay cheap to list without fetching every row's bins.
+	public sealed record AnalysisDetailView(
+		ActiveAnalysis AnalysisType,
+		string Label,
+		DateTime? SavedAtUtc,
+		TimeSpan? Elapsed,
+		long SampleCount,
+		string WindowText,
+		double? MeanFractionAbove,
+		double? MedianFractionAbove,
+		double? StdDevFractionAbove,
+		double? MinFractionAbove,
+		double? MaxFractionAbove,
+		long? ReturnedCount,
+		double? ReturnProbability,
+		double? MeanToReturn,
+		double? MedianToReturn,
+		string? ToReturnUnit,
+		string? Mode,
+		IReadOnlyList<AnalysisSeriesSummaryView>? SeriesBreakdown
+	);
+
 	public partial class AnalizePage : ComponentBase, IDisposable
 	{
 		// Only used by SimulationBarAggregator's discarded histogram side-channel; the price chart never reads it.
@@ -26,11 +59,29 @@ namespace Poink.Sim.Components.Pages.Analize
 			Price,
 		}
 
-		private enum ActiveAnalysis
+		private enum AnalizeLeftTab
 		{
-			TimeAboveBelow,
-			ReturnProbability,
+			Analyses,
+			Session,
+			History,
 		}
+
+		private sealed record TimeAboveBelowView(TimeAboveBelowRequest Request, TimeAboveBelowDistributionResult Result, TimeSpan? Elapsed);
+
+		private sealed record ReturnView(PriceReturnRequest Request, PriceReturnDistributionResult Result, TimeSpan? Elapsed);
+
+		private sealed record SessionEntry(
+			Guid Id,
+			ActiveAnalysis AnalysisType,
+			string Label,
+			DateTime RanAtUtc,
+			TimeSpan? Elapsed,
+			TimeAboveBelowRequest? TimeAboveBelowRequest,
+			TimeAboveBelowDistributionResult? TimeAboveBelowResult,
+			PriceReturnRequest? ReturnRequest,
+			PriceReturnDistributionResult? ReturnResult,
+			long? SavedHistoryId
+		);
 
 		[Inject]
 		private ITimeAboveBelowAnalysisService TimeAboveBelowService { get; set; } = default!;
@@ -41,6 +92,9 @@ namespace Poink.Sim.Components.Pages.Analize
 		[Inject]
 		private ITickRepository TickRepository { get; set; } = default!;
 
+		[Inject]
+		private IAnalysisHistoryRepository AnalysisHistoryRepository { get; set; } = default!;
+
 		private bool _leftPanelCollapsed;
 		private bool _rightPanelCollapsed;
 
@@ -49,7 +103,18 @@ namespace Poink.Sim.Components.Pages.Analize
 		private DateTime _to = DateTime.UtcNow;
 
 		private AnalizeMainTab _activeMainTab;
+		private AnalizeLeftTab _activeLeftTab;
 		private ActiveAnalysis _activeAnalysis;
+
+		private readonly List<SessionEntry> _sessionEntries = new();
+		private List<AnalysisHistoryRecord> _historyEntries = new();
+		private TimeAboveBelowView? _pinnedTimeAboveBelow;
+		private ReturnView? _pinnedReturn;
+		private long? _pinnedHistoryId;
+		private bool _timeAboveBelowWasRunning;
+		private bool _returnWasRunning;
+		private TimeAboveBelowRequest? _lastTimeAboveBelowRequest;
+		private PriceReturnRequest? _lastReturnRequest;
 
 		private double _timeAboveBelowWindowMinutes = 60;
 		private string? _timeAboveBelowStartError;
@@ -96,6 +161,9 @@ namespace Poink.Sim.Components.Pages.Analize
 		{
 			TimeAboveBelowService.OnChanged += HandleServiceChanged;
 			ReturnService.OnChanged += HandleServiceChanged;
+			_timeAboveBelowWasRunning = TimeAboveBelowService.IsRunning;
+			_returnWasRunning = ReturnService.IsRunning;
+			LoadHistory();
 		}
 
 		public void Dispose()
@@ -104,7 +172,59 @@ namespace Poink.Sim.Components.Pages.Analize
 			ReturnService.OnChanged -= HandleServiceChanged;
 		}
 
-		private void HandleServiceChanged() => InvokeAsync(StateHasChanged);
+		// Session cards only exist in this page's memory, so a completed run is captured here, the
+		// one place both services' running-to-done transition is observed.
+		private void HandleServiceChanged()
+		{
+			if (_timeAboveBelowWasRunning && !TimeAboveBelowService.IsRunning
+				&& TimeAboveBelowService.Result is { SampleCount: > 0 } tabResult
+				&& _lastTimeAboveBelowRequest is { } tabRequest)
+			{
+				_sessionEntries.Insert(
+					0,
+					new SessionEntry(
+						Guid.NewGuid(),
+						ActiveAnalysis.TimeAboveBelow,
+						BuildAutoLabel(tabRequest.Table, tabRequest.From, tabRequest.To),
+						DateTime.UtcNow,
+						TimeAboveBelowService.Elapsed,
+						tabRequest,
+						tabResult,
+						null,
+						null,
+						null
+					)
+				);
+			}
+			_timeAboveBelowWasRunning = TimeAboveBelowService.IsRunning;
+
+			if (_returnWasRunning && !ReturnService.IsRunning
+				&& ReturnService.Result is { SampleCount: > 0 } returnResult
+				&& _lastReturnRequest is { } returnRequest)
+			{
+				_sessionEntries.Insert(
+					0,
+					new SessionEntry(
+						Guid.NewGuid(),
+						ActiveAnalysis.ReturnProbability,
+						BuildAutoLabel(returnRequest.Table, returnRequest.From, returnRequest.To),
+						DateTime.UtcNow,
+						ReturnService.Elapsed,
+						null,
+						null,
+						returnRequest,
+						returnResult,
+						null
+					)
+				);
+			}
+			_returnWasRunning = ReturnService.IsRunning;
+
+			InvokeAsync(StateHasChanged);
+		}
+
+		private static string BuildAutoLabel(string table, DateTime from, DateTime to) =>
+			$"{table} {from:yyyy-MM-dd HH:mm} to {to:yyyy-MM-dd HH:mm}";
 
 		private void RunTimeAboveBelow()
 		{
@@ -127,7 +247,11 @@ namespace Poink.Sim.Components.Pages.Analize
 			}
 
 			_activeAnalysis = ActiveAnalysis.TimeAboveBelow;
-			if (!TimeAboveBelowService.TryStart(new TimeAboveBelowRequest(_table, _from, _to, _timeAboveBelowWindowMinutes)))
+			ClearPin();
+			var request = new TimeAboveBelowRequest(_table, _from, _to, _timeAboveBelowWindowMinutes);
+			if (TimeAboveBelowService.TryStart(request))
+				_lastTimeAboveBelowRequest = request;
+			else
 				_timeAboveBelowStartError = "analysis is already running";
 		}
 
@@ -167,22 +291,54 @@ namespace Poink.Sim.Components.Pages.Analize
 			}
 
 			_activeAnalysis = ActiveAnalysis.ReturnProbability;
-			if (!ReturnService.TryStart(request))
+			ClearPin();
+			if (ReturnService.TryStart(request))
+				_lastReturnRequest = request;
+			else
 				_returnStartError = "analysis is already running";
 		}
 
+		// Null pin => show whatever the live singleton service currently holds; a Session/History
+		// selection pins a specific run so it survives the live service moving on to a new one.
+		private TimeAboveBelowView? CurrentTimeAboveBelowView =>
+			_pinnedTimeAboveBelow
+			?? (TimeAboveBelowService.Result is { SampleCount: > 0 } result
+				? new TimeAboveBelowView(new TimeAboveBelowRequest(_table, _from, _to, _timeAboveBelowWindowMinutes), result, TimeAboveBelowService.Elapsed)
+				: null);
+
+		private ReturnView? CurrentReturnView =>
+			_pinnedReturn
+			?? (ReturnService.Result is { SampleCount: > 0 } result ? new ReturnView(CurrentLiveReturnRequest(), result, ReturnService.Elapsed) : null);
+
+		private PriceReturnRequest CurrentLiveReturnRequest() =>
+			_returnUseAggregation
+				? new PriceReturnRequest(_table, _from, _to, 0, _returnAggregationBarWidthSeconds, _returnWindowBars, _returnAggregationKind)
+				: new PriceReturnRequest(_table, _from, _to, _returnWindowMinutes);
+
+		private void ClearPin()
+		{
+			_pinnedTimeAboveBelow = null;
+			_pinnedReturn = null;
+			_pinnedHistoryId = null;
+		}
+
+		private AnalysisDetailView? CurrentDetailView =>
+			_activeAnalysis == ActiveAnalysis.TimeAboveBelow
+				? (CurrentTimeAboveBelowView is { } tabView ? BuildDetailView(tabView, "Details", null) : null)
+				: (CurrentReturnView is { } returnView ? BuildDetailView(returnView, "Details", null) : null);
+
 		private IReadOnlyList<HistogramBar> TimeAboveBelowChartBins =>
-			TimeAboveBelowService.Result is { } result
-				? result.Bins.Select(b => new HistogramBar(b.Low, b.High, b.Count)).ToList()
+			CurrentTimeAboveBelowView is { } view
+				? view.Result.Bins.Select(b => new HistogramBar(b.Low, b.High, b.Count)).ToList()
 				: Array.Empty<HistogramBar>();
 
 		private List<AnalizeBinRow> TimeAboveBelowResultRows =>
-			TimeAboveBelowService.Result is { SampleCount: > 0 } result
-				? result
-					.Bins.Select(b => new AnalizeBinRow(
+			CurrentTimeAboveBelowView is { } view
+				? view
+					.Result.Bins.Select(b => new AnalizeBinRow(
 						FormatPercentBinRange(b),
 						b.Count.ToString("N0"),
-						(b.Count * 100.0 / result.SampleCount).ToString("N1") + "%"
+						(b.Count * 100.0 / view.Result.SampleCount).ToString("N1") + "%"
 					))
 					.ToList()
 				: new List<AnalizeBinRow>();
@@ -196,8 +352,9 @@ namespace Poink.Sim.Components.Pages.Analize
 		{
 			get
 			{
-				if (ReturnService.Result is not { } result)
+				if (CurrentReturnView is not { } view)
 					return (Array.Empty<HistogramBin>(), 0, "min");
+				var result = view.Result;
 				if (result.SeriesBreakdown is { } breakdown)
 				{
 					var series = breakdown.FirstOrDefault(s => s.Series == _returnSelectedSeries) ?? breakdown[0];
@@ -211,7 +368,7 @@ namespace Poink.Sim.Components.Pages.Analize
 			SelectedReturnSeries.Bins.Select(b => new HistogramBar(b.Low, b.High, b.Count)).ToList();
 
 		private IReadOnlyList<HistogramSeries> ReturnAllSeriesChart =>
-			ReturnService.Result?.SeriesBreakdown is { } breakdown
+			CurrentReturnView?.Result.SeriesBreakdown is { } breakdown
 				? breakdown
 					.Select(s => new HistogramSeries(
 						s.Series,
@@ -243,10 +400,6 @@ namespace Poink.Sim.Components.Pages.Analize
 				? $"bar {(bin.Low + 1).ToString("0.#", CultureInfo.InvariantCulture)}"
 				: FormatMinutesBinRange(bin);
 
-		// Bars are stored 0-indexed for bucketing; +1 shows the human-friendly "1st bar after start" count.
-		private static string FormatToReturnValue(double value, string unit) =>
-			unit == "bars" ? $"{(value + 1).ToString("N1")} bars" : $"{value.ToString("N1")} min";
-
 		private static string FormatMinutesBinRange(HistogramBin bin) =>
 			$"{bin.Low.ToString("0.#", CultureInfo.InvariantCulture)}-{bin.High.ToString("0.#", CultureInfo.InvariantCulture)}m";
 
@@ -260,6 +413,215 @@ namespace Poink.Sim.Components.Pages.Analize
 
 		private string ReturnEffectiveWindowText =>
 			_returnUseAggregation ? $"{_returnWindowBars} bars ({ReturnWindowBarsMinutesText} min)" : $"{_returnWindowMinutes} min";
+
+		private static string FormatReturnWindowText(PriceReturnRequest r) => FormatReturnWindowText(r.AggregationBarWidthSeconds, r.AggregationWindowBars, r.WindowMinutes);
+
+		private static string FormatReturnWindowText(int? aggregationBarWidthSeconds, int? aggregationWindowBars, double? windowMinutes) =>
+			aggregationBarWidthSeconds is { } barSeconds && aggregationWindowBars is { } bars
+				? $"{bars} bars ({(barSeconds * bars / 60.0).ToString("N1")} min)"
+				: $"{windowMinutes} min";
+
+		private static string FormatReturnModeText(PriceReturnRequest r) => FormatReturnModeText(r.AggregationBarWidthSeconds, r.AggregationKind.ToString());
+
+		private static string FormatReturnModeText(int? aggregationBarWidthSeconds, string? aggregationKind) =>
+			aggregationBarWidthSeconds is { } barSeconds ? $"{barSeconds}s {aggregationKind} bars" : "tick-level";
+
+		private static AnalysisDetailView BuildDetailView(TimeAboveBelowView view, string label, DateTime? timestampUtc) =>
+			new(
+				ActiveAnalysis.TimeAboveBelow,
+				label,
+				timestampUtc,
+				view.Elapsed,
+				view.Result.SampleCount,
+				$"{view.Request.WindowMinutes} min",
+				view.Result.MeanFractionAbove,
+				view.Result.MedianFractionAbove,
+				view.Result.StdDevFractionAbove,
+				view.Result.MinFractionAbove,
+				view.Result.MaxFractionAbove,
+				null,
+				null,
+				null,
+				null,
+				null,
+				null,
+				null
+			);
+
+		private static AnalysisDetailView BuildDetailView(ReturnView view, string label, DateTime? timestampUtc) =>
+			new(
+				ActiveAnalysis.ReturnProbability,
+				label,
+				timestampUtc,
+				view.Elapsed,
+				view.Result.SampleCount,
+				FormatReturnWindowText(view.Request),
+				null,
+				null,
+				null,
+				null,
+				null,
+				view.Result.ReturnedCount,
+				view.Result.ReturnProbability,
+				view.Result.MeanToReturn,
+				view.Result.MedianToReturn,
+				view.Result.ToReturnUnit,
+				FormatReturnModeText(view.Request),
+				view.Result.SeriesBreakdown?.Select(s => new AnalysisSeriesSummaryView(s.Series, s.ReturnedCount, s.ReturnProbability, s.MeanToReturn, s.MedianToReturn)).ToList()
+			);
+
+		private static AnalysisDetailView BuildDetailView(SessionEntry entry) =>
+			entry.AnalysisType == ActiveAnalysis.TimeAboveBelow
+				? BuildDetailView(new TimeAboveBelowView(entry.TimeAboveBelowRequest!, entry.TimeAboveBelowResult!, entry.Elapsed), entry.Label, entry.RanAtUtc)
+				: BuildDetailView(new ReturnView(entry.ReturnRequest!, entry.ReturnResult!, entry.Elapsed), entry.Label, entry.RanAtUtc);
+
+		private static AnalysisDetailView BuildDetailView(AnalysisHistoryRecord record) =>
+			record.AnalysisType == "TimeAboveBelow"
+				? new AnalysisDetailView(
+					ActiveAnalysis.TimeAboveBelow,
+					record.Label,
+					record.SavedAtUtc,
+					null,
+					record.SampleCount,
+					$"{record.WindowMinutes} min",
+					record.MeanFractionAbove,
+					record.MedianFractionAbove,
+					record.StdDevFractionAbove,
+					record.MinFractionAbove,
+					record.MaxFractionAbove,
+					null,
+					null,
+					null,
+					null,
+					null,
+					null,
+					null
+				)
+				: new AnalysisDetailView(
+					ActiveAnalysis.ReturnProbability,
+					record.Label,
+					record.SavedAtUtc,
+					null,
+					record.SampleCount,
+					FormatReturnWindowText(record.AggregationBarWidthSeconds, record.AggregationWindowBars, record.WindowMinutes),
+					null,
+					null,
+					null,
+					null,
+					null,
+					record.ReturnedCount,
+					record.ReturnProbability,
+					record.MeanToReturn,
+					record.MedianToReturn,
+					record.ToReturnUnit,
+					FormatReturnModeText(record.AggregationBarWidthSeconds, record.AggregationKind),
+					record.SeriesBreakdown?.Select(s => new AnalysisSeriesSummaryView(s.Series, s.ReturnedCount, s.ReturnProbability, s.MeanToReturn, s.MedianToReturn)).ToList()
+				);
+
+		private void SaveSessionEntry(SessionEntry entry)
+		{
+			if (entry.SavedHistoryId is not null)
+				return;
+
+			var id =
+				entry.AnalysisType == ActiveAnalysis.TimeAboveBelow
+					? AnalysisHistoryRepository.SaveTimeAboveBelow(entry.Label, entry.TimeAboveBelowRequest!, entry.TimeAboveBelowResult!)
+					: AnalysisHistoryRepository.SaveReturnProbability(entry.Label, entry.ReturnRequest!, entry.ReturnResult!);
+
+			var index = _sessionEntries.IndexOf(entry);
+			if (index >= 0)
+				_sessionEntries[index] = entry with { SavedHistoryId = id };
+
+			LoadHistory();
+		}
+
+		private void SelectSessionEntry(SessionEntry entry)
+		{
+			if (entry.AnalysisType == ActiveAnalysis.TimeAboveBelow)
+				_pinnedTimeAboveBelow = new TimeAboveBelowView(entry.TimeAboveBelowRequest!, entry.TimeAboveBelowResult!, entry.Elapsed);
+			else
+				_pinnedReturn = new ReturnView(entry.ReturnRequest!, entry.ReturnResult!, entry.Elapsed);
+
+			_pinnedHistoryId = entry.SavedHistoryId;
+			_activeAnalysis = entry.AnalysisType;
+			_activeMainTab = AnalizeMainTab.Chart;
+		}
+
+		private void LoadHistory() => _historyEntries = AnalysisHistoryRepository.ListHistory();
+
+		// The only place a history entry's bins are fetched -- the History list itself stays cheap by
+		// rendering straight off ListHistory()'s scalar-only rows.
+		private void LoadHistoryEntry(long id)
+		{
+			var detail = AnalysisHistoryRepository.GetDetail(id);
+			var record = detail.Record;
+
+			if (record.AnalysisType == "TimeAboveBelow")
+			{
+				var request = new TimeAboveBelowRequest(record.TableName, record.FromUtc, record.ToUtc, record.WindowMinutes ?? 0);
+				var result = new TimeAboveBelowDistributionResult(
+					record.SampleCount,
+					record.MeanFractionAbove ?? 0,
+					record.MedianFractionAbove ?? 0,
+					record.StdDevFractionAbove ?? 0,
+					record.MinFractionAbove ?? 0,
+					record.MaxFractionAbove ?? 0,
+					detail.Bins.Select(b => new HistogramBin(b.Low, b.High, b.Count)).ToList()
+				);
+				_pinnedTimeAboveBelow = new TimeAboveBelowView(request, result, null);
+				_activeAnalysis = ActiveAnalysis.TimeAboveBelow;
+			}
+			else
+			{
+				var aggregationKind = record.AggregationKind is { } kind ? Enum.Parse<BarAggregationKind>(kind) : BarAggregationKind.Ohlc;
+				var request = new PriceReturnRequest(
+					record.TableName,
+					record.FromUtc,
+					record.ToUtc,
+					record.WindowMinutes ?? 0,
+					record.AggregationBarWidthSeconds,
+					record.AggregationWindowBars,
+					aggregationKind
+				);
+				IReadOnlyList<HistogramBin> topBins = detail.Bins.Where(b => b.Series is null).Select(b => new HistogramBin(b.Low, b.High, b.Count)).ToList();
+				var seriesBreakdown =
+					record.SeriesBreakdown is { Count: > 0 } summaries
+						? summaries
+							.Select(s => new PriceReturnSeriesResult(
+								s.Series,
+								s.ReturnedCount,
+								s.ReturnProbability,
+								s.MeanToReturn,
+								s.MedianToReturn,
+								detail.Bins.Where(b => b.Series == s.Series).Select(b => new HistogramBin(b.Low, b.High, b.Count)).ToList()
+							))
+							.ToList()
+						: null;
+				var result = new PriceReturnDistributionResult(
+					record.SampleCount,
+					record.ReturnedCount ?? 0,
+					record.ReturnProbability ?? 0,
+					record.MeanToReturn ?? 0,
+					record.MedianToReturn ?? 0,
+					topBins,
+					record.ToReturnUnit ?? "min",
+					seriesBreakdown
+				);
+				_pinnedReturn = new ReturnView(request, result, null);
+				_activeAnalysis = ActiveAnalysis.ReturnProbability;
+			}
+
+			_pinnedHistoryId = id;
+			_activeMainTab = AnalizeMainTab.Chart;
+		}
+
+		private void DeleteHistoryEntry(long id)
+		{
+			AnalysisHistoryRepository.DeleteHistory(id);
+			if (_pinnedHistoryId == id)
+				ClearPin();
+			LoadHistory();
+		}
 
 		private async Task SelectPriceTab()
 		{

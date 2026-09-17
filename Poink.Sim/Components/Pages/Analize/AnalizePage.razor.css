@@ -88,7 +88,7 @@
     padding: 10px 10px 10px;
 }
 
-.analize-card {
+::deep .analize-card {
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -106,7 +106,7 @@
     box-shadow: 0 0 14px color-mix(in srgb, var(--color-accent) 25%, transparent);
 }
 
-.analize-card-title {
+::deep .analize-card-title {
     flex: 1;
     font-size: 0.62rem;
     font-weight: bold;
@@ -115,7 +115,7 @@
     color: var(--color-accent);
 }
 
-.analize-card-title-row {
+::deep .analize-card-title-row {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -294,7 +294,7 @@
     min-height: 0;
 }
 
-.analize-side-panel-placeholder {
+::deep .analize-side-panel-placeholder {
     font-size: 0.72rem;
     color: var(--color-secondary);
     opacity: 0.7;
@@ -413,7 +413,7 @@
     opacity: 0.8;
 }
 
-.analize-stat {
+::deep .analize-stat {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -421,7 +421,7 @@
     font-size: 0.72rem;
 }
 
-.analize-stat-label {
+::deep .analize-stat-label {
     color: var(--color-secondary);
     opacity: 0.8;
     text-transform: uppercase;
@@ -429,7 +429,7 @@
     letter-spacing: 0.06em;
 }
 
-.analize-stat-value {
+::deep .analize-stat-value {
     font-weight: 600;
     color: var(--color-primary);
 }
@@ -456,14 +456,14 @@
     margin-bottom: 8px;
 }
 
-.analize-ohlc-table {
+::deep .analize-ohlc-table {
     display: flex;
     flex-direction: column;
     gap: 2px;
     font-size: 0.68rem;
 }
 
-.analize-ohlc-row {
+::deep .analize-ohlc-row {
     display: grid;
     grid-template-columns: 44px 1fr 1fr 1fr;
     gap: 6px;
@@ -471,7 +471,7 @@
     border-radius: var(--border-radius-sm);
 }
 
-.analize-ohlc-header {
+::deep .analize-ohlc-header {
     color: var(--color-secondary);
     opacity: 0.7;
     text-transform: uppercase;
@@ -479,15 +479,62 @@
     font-size: 0.6rem;
 }
 
-.analize-ohlc-label {
+::deep .analize-ohlc-label {
     font-weight: bold;
     color: var(--color-secondary);
 }
 
-.analize-ohlc-row-selected {
+::deep .analize-ohlc-row-selected {
     background: color-mix(in srgb, var(--color-accent) 12%, transparent);
 }
 
-.analize-ohlc-row-selected .analize-ohlc-label {
+::deep .analize-ohlc-row-selected .analize-ohlc-label {
+    color: var(--color-accent);
+}
+
+::deep .analysis-detail-card-timestamp {
+    font-size: 0.6rem;
+    color: var(--color-secondary);
+    opacity: 0.75;
+    white-space: nowrap;
+}
+
+::deep .analysis-detail-card-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.analysis-detail-card-saved-badge {
+    font-size: 0.56rem;
+    font-weight: bold;
+    letter-spacing: 0.06em;
+    color: var(--color-success);
+    border: 1px solid var(--color-success);
+    border-radius: 999px;
+    padding: 2px 8px;
+}
+
+::deep .analysis-detail-card-clickable {
+    cursor: pointer;
+}
+
+::deep .analysis-detail-card-clickable:hover {
+    border-color: var(--color-secondary);
+    box-shadow: 0 0 10px color-mix(in srgb, var(--color-secondary) 20%, transparent);
+}
+
+.analysis-detail-pinned-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin: 10px 10px 0;
+    padding: 6px 10px;
+    border: 1px solid color-mix(in srgb, var(--color-accent) 40%, transparent);
+    border-radius: var(--border-radius-sm);
+    background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+    font-size: 0.68rem;
     color: var(--color-accent);
 }

@@ -1,0 +1,115 @@
+@namespace Poink.Sim.Components.Pages.Analize
+
+<div class="card analize-card analysis-detail-card @(Clickable ? "analysis-detail-card-clickable" : "")"
+     title="@(Clickable ? "Click to load this run" : "Stats for the most recently completed run")" @onclick="HandleCardClick">
+    <div class="analize-card-title-row">
+        <span class="analize-card-title">@(ShowLabelHeader && Snapshot is not null ? Snapshot.Label : Title)</span>
+        @if (ShowLabelHeader && Snapshot?.SavedAtUtc is { } timestampUtc)
+        {
+            <span class="analysis-detail-card-timestamp">@timestampUtc.ToLocalTime().ToString("g")</span>
+        }
+        @if (Actions is not null)
+        {
+            <div class="analysis-detail-card-actions" @onclick:stopPropagation="true">
+                @Actions
+            </div>
+        }
+    </div>
+
+    @if (Snapshot is null)
+    {
+        <p class="analize-side-panel-placeholder">@EmptyMessage</p>
+    }
+    else if (Snapshot.AnalysisType == ActiveAnalysis.TimeAboveBelow)
+    {
+        <div class="analize-stat">
+            <span class="analize-stat-label">samples</span>
+            <span class="analize-stat-value">@Snapshot.SampleCount.ToString("N0")</span>
+        </div>
+        <div class="analize-stat">
+            <span class="analize-stat-label">mean time above / below</span>
+            <span class="analize-stat-value">@(FormatFractionPercentText(Snapshot.MeanFractionAbove!.Value))% / @((100 - Snapshot.MeanFractionAbove!.Value * 100).ToString("N1"))%</span>
+        </div>
+        <div class="analize-stat">
+            <span class="analize-stat-label">median time above / below</span>
+            <span class="analize-stat-value">@(FormatFractionPercentText(Snapshot.MedianFractionAbove!.Value))% / @((100 - Snapshot.MedianFractionAbove!.Value * 100).ToString("N1"))%</span>
+        </div>
+        <div class="analize-stat">
+            <span class="analize-stat-label">std dev</span>
+            <span class="analize-stat-value">@(FormatFractionPercentText(Snapshot.StdDevFractionAbove!.Value))%</span>
+        </div>
+        <div class="analize-stat" title="Across all points -- the widest and narrowest time-above shares seen">
+            <span class="analize-stat-label">min / max above</span>
+            <span class="analize-stat-value">@(FormatFractionPercentText(Snapshot.MinFractionAbove!.Value))% / @(FormatFractionPercentText(Snapshot.MaxFractionAbove!.Value))%</span>
+        </div>
+        <div class="analize-stat" title="Same points, expressed as time below instead -- always 100% minus time above">
+            <span class="analize-stat-label">min / max below</span>
+            <span class="analize-stat-value">@((100 - Snapshot.MaxFractionAbove!.Value * 100).ToString("N1"))% / @((100 - Snapshot.MinFractionAbove!.Value * 100).ToString("N1"))%</span>
+        </div>
+        <div class="analize-stat">
+            <span class="analize-stat-label">window</span>
+            <span class="analize-stat-value">@Snapshot.WindowText</span>
+        </div>
+        @if (Snapshot.Elapsed is { } elapsed)
+        {
+            <div class="analize-stat">
+                <span class="analize-stat-label">compute time</span>
+                <span class="analize-stat-value">@elapsed.ToString("g")</span>
+            </div>
+        }
+    }
+    else
+    {
+        <div class="analize-stat" title="Chance that price ever touches back to its own starting price within the window">
+            <span class="analize-stat-label">return probability</span>
+            <span class="analize-stat-value">@(FormatFractionPercentText(Snapshot.ReturnProbability!.Value))%</span>
+        </div>
+        <div class="analize-stat">
+            <span class="analize-stat-label">samples</span>
+            <span class="analize-stat-value">@Snapshot.SampleCount.ToString("N0")</span>
+        </div>
+        <div class="analize-stat">
+            <span class="analize-stat-label">returned</span>
+            <span class="analize-stat-value">@Snapshot.ReturnedCount!.Value.ToString("N0")</span>
+        </div>
+        <div class="analize-stat" title="Among points that did return -- how long it took">
+            <span class="analize-stat-label">mean / median time to return</span>
+            <span class="analize-stat-value">@(FormatToReturnValueText(Snapshot.MeanToReturn!.Value)) / @(FormatToReturnValueText(Snapshot.MedianToReturn!.Value))</span>
+        </div>
+        <div class="analize-stat">
+            <span class="analize-stat-label">window</span>
+            <span class="analize-stat-value">@Snapshot.WindowText</span>
+        </div>
+        <div class="analize-stat" title="Whether this run watched raw ticks or aggregated bars, and which bar kind">
+            <span class="analize-stat-label">mode</span>
+            <span class="analize-stat-value">@Snapshot.Mode</span>
+        </div>
+        @if (Snapshot.SeriesBreakdown is { } breakdown)
+        {
+            <div class="analize-ohlc-table" title="Each series run as its own independent run against its own starting bar's value">
+                <div class="analize-ohlc-row analize-ohlc-header">
+                    <span></span>
+                    <span>chance</span>
+                    <span>returned</span>
+                    <span>mean</span>
+                </div>
+                @foreach (var series in breakdown)
+                {
+                    <div class="analize-ohlc-row @(series.Series == SelectedSeries ? "analize-ohlc-row-selected" : "")">
+                        <span class="analize-ohlc-label">@series.Series</span>
+                        <span>@(FormatFractionPercentText(series.ReturnProbability))%</span>
+                        <span>@series.ReturnedCount.ToString("N0")</span>
+                        <span>@FormatToReturnValueText(series.MeanToReturn)</span>
+                    </div>
+                }
+            </div>
+        }
+        @if (Snapshot.Elapsed is { } elapsed)
+        {
+            <div class="analize-stat">
+                <span class="analize-stat-label">compute time</span>
+                <span class="analize-stat-value">@elapsed.ToString("g")</span>
+            </div>
+        }
+    }
+</div>
