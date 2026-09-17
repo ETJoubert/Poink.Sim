@@ -6,17 +6,17 @@ Master is the core branch. Its own working tree stays on master; feature work ne
 ### Initialize
 1. After prompt state action
 2. Start Workflow by asking if straight to master, branch, or worktree.
-3. There are different task types, branch naming depends on the type.:
-- Feature: New stuff
-- Fix: Fixing things that are broken
-- Update: Modifications
+3. There are different task types; branch naming depends on the type and always uses that type's prefix:
+- `feature/<name>`: New stuff
+- `fix/<name>`: Fixing things that are broken
+- `update/<name>`: Modifications
 
 ### 0. Response Report
 Every response ends with this report. Each section label is bold, sections are separated by a line break. Compliance and Concerns are prefixed with ✅ for a good state and ❌ for a bad one.
 1. **Abstract:** a one-line TLDR of the work.
 2. **Compliance:** ✅ COMPLIED Full or Partial (with reason), or ❌ DEVIATED [indexes ; delimited] with a reason per index.
 3. **Git:** the current git status.
-4. **Details:** short What changed, Why, and How it was done: Each in sub-section label is italic.
+4. **Details:** Briefly for each question type: What changed, Why, and How it was done: Each in sub-section label is italic.
 5. **Usage:** how to use it, when the work is a new feature.
 6. **Concerns:** ✅ None, or ❌ followed by each concern.
 7. **Mitigations:** If Workflow compliance failed, recommend actions to mitigate in future. 
@@ -24,15 +24,17 @@ Every response ends with this report. Each section label is bold, sections are s
 9. **Finally:** State Next workflow steps
 
 ### 1. Workflow
-1. 
-2. At the start of any work: Ask if a feature branch or worktree should be created. If feature, create the branch from master. If worktree create branch in its own worktree at a sibling path (`../Poink.Sim-<branch-name>`), so multiple branches can be iterated on in parallel without checkout conflicts.
-3. Build and iterate inside that branch/worktree.
-4. Compilation is permitted. A build is not treated as running the program.
-5. Agents must build to a separate output directory (e.g. `-o` to a temp or scratch path) rather than the project's default `bin`/`obj`, so a test build never collides with an IDE-managed build or another agent's in-progress build.
-6. Do not run the current target program after updates are applied except if explicitly asked.
-7. When done, do not commit; provide the Response Report (§0).
-8. When prompted to merge: commit in the branch/worktree, merge the branch into master, then remove the worktree and delete the merged branch.
-9. Pushing to origin is for backup or PR review, not for handing work between local instances; parallel local work is coordinated through worktrees, not through push/pull round-trips.
+1. Never commit unless the user explicitly says to commit in that request. Approval given earlier in the conversation, or for a different piece of work, does not carry over.
+2. Never merge unless the user explicitly says to merge in that request. Committing and merging are separate permissions -- being told to commit does not imply merge, and vice versa.
+3. At the start of any work: Ask if a feature branch or worktree should be created. If a branch, create it from master, named with its task-type prefix (`feature/<name>`, `fix/<name>`, or `update/<name>` -- see Initialize). If a worktree, create the same kind of prefixed branch in its own worktree at a sibling path (`../Poink.Sim-<branch-name>`), so multiple branches can be iterated on in parallel without checkout conflicts.
+4. Build and iterate inside that branch/worktree.
+5. Compilation is permitted. A build is not treated as running the program.
+6. Agents must build to a separate output directory (e.g. `-o` to a temp or scratch path) rather than the project's default `bin`/`obj`, so a test build never collides with an IDE-managed build or another agent's in-progress build.
+7. Do not run the current target program after updates are applied except if explicitly asked.
+8. After each piece of work, provide the Response Report (§0), whether or not anything was committed.
+9. When explicitly asked to commit: commit in the current branch/worktree. This alone does not merge anything.
+10. When explicitly asked to merge: merge the branch into master, then clean up -- delete the merged branch, and also remove its worktree if the work used one.
+11. Pushing to origin is for backup or PR review, not for handing work between local instances; parallel local work is coordinated through worktrees, not through push/pull round-trips.
 
 ### 2. Architecture & Organization
 1. Build new things modular, for clear, scalable code.
