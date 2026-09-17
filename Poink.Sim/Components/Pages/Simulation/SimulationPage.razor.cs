@@ -151,6 +151,7 @@ namespace Poink.Sim.Components.Pages
 		private bool _showXGrid;
 		private bool _showVolumeProfile;
 		private bool _showTimeProfile;
+		private bool _showSnapshot;
 		private bool _traderControlsCollapsed;
 		private bool _leftSidePanelCollapsed;
 		private SimLeftPanelTab _activeLeftPanelTab;
@@ -178,6 +179,17 @@ namespace Poink.Sim.Components.Pages
 
 		private bool ShowTimeProfileDivider(SimulationSnapshot s) =>
 			_showTimeProfile && (_showMainChart || (s.Config.Aggregate && _showXGrid) || _showVolumeProfile);
+
+		private bool ShowSnapshotDivider(SimulationSnapshot s) =>
+			_showSnapshot && (_showMainChart || (s.Config.Aggregate && _showXGrid) || _showVolumeProfile || _showTimeProfile);
+
+		// The live window's rightmost bar -- CloseTime/Close (not OpenTime) so Snapshot's tick-level
+		// query reaches through the whole bar instead of stopping at its start.
+		private HlocAvdtBar? SnapshotAnchorBar(SimulationSnapshot s)
+		{
+			var (bars, _) = WindowedBarData(s);
+			return bars.Count > 0 ? bars[^1] : null;
+		}
 
 		private XGridResult? _xgridCache;
 		private (
@@ -751,6 +763,7 @@ namespace Poink.Sim.Components.Pages
 		private ElementReference _chartDividerRefXGrid;
 		private ElementReference _chartDividerRef;
 		private ElementReference _chartDividerRef2;
+		private ElementReference _chartDividerRefSnapshot;
 		private ElementReference _chartHDividerRef;
 		private IJSObjectReference? _dividerResizeInstance;
 		private HashSet<string> _lastVisibleChartPanels = new();
@@ -865,6 +878,7 @@ namespace Poink.Sim.Components.Pages
 			if (s.Config.Aggregate && _showXGrid) keys.Add("xgrid");
 			if (_showVolumeProfile) keys.Add("volume");
 			if (_showTimeProfile) keys.Add("time");
+			if (_showSnapshot) keys.Add("snapshot");
 			return keys;
 		}
 
@@ -895,6 +909,8 @@ namespace Poink.Sim.Components.Pages
 					await _dividerResizeInstance.InvokeVoidAsync("bindChartDivider", _chartDividerRef);
 				if (ShowTimeProfileDivider(_snapshot))
 					await _dividerResizeInstance.InvokeVoidAsync("bindChartDivider", _chartDividerRef2);
+				if (ShowSnapshotDivider(_snapshot))
+					await _dividerResizeInstance.InvokeVoidAsync("bindChartDivider", _chartDividerRefSnapshot);
 				await _dividerResizeInstance.InvokeVoidAsync("bindHeightAfter", _chartHDividerRef);
 			}
 

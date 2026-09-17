@@ -778,6 +778,13 @@
     overflow-y: auto;
 }
 
+.sim-drawings-empty {
+    margin: 0;
+    font-size: 0.75rem;
+    color: var(--color-secondary);
+    opacity: 0.7;
+}
+
 /* Risk Policies is a natural-height form rather than an auto-fitting chart,
    so unlike its .sim-chart-side siblings it needs its own scroll/padding. */
 .sim-chart-side-scroll {

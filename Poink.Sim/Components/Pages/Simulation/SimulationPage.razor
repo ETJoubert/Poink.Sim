@@ -386,6 +386,12 @@
                                 <button type="button" class="sim-overlay-toggle-btn @(_showTimeProfile ? "active" : "")"
                                         @onclick="() => _showTimeProfile = !_showTimeProfile"
                                         title="Time-at-price histogram over the current window">Time profile</button>
+                                @if (s.Config.Aggregate)
+                                {
+                                    <button type="button" class="sim-overlay-toggle-btn @(_showSnapshot ? "active" : "")"
+                                            @onclick="() => _showSnapshot = !_showSnapshot"
+                                            title="One OHLC/Quartile bar per toggled timeframe, each a trailing window ending at the current Lookback Window's right edge">Snapshot</button>
+                                }
                             </div>
                         </div>
 
@@ -515,6 +521,25 @@
                                     {
                                         <TickTimeProfileChart Ticks="ToTimedMidPrices(WindowedTicks(s))" CurrentPrice="s.CurrentPrice"
                                                               WindowSize="ClampedTickWindow" />
+                                    }
+                                </div>
+                            }
+                            @if (s.Config.Aggregate && _showSnapshot)
+                            {
+                                @if (ShowSnapshotDivider(s))
+                                {
+                                    <div class="sim-chart-divider" @ref="_chartDividerRefSnapshot" data-min-width="160"
+                                         title="Drag to resize"></div>
+                                }
+                                <div class="sim-chart-side">
+                                    @if (SnapshotAnchorBar(s) is { } anchorBar)
+                                    {
+                                        <TimeframeSnapshotChart Table="@s.Config.Table" AnchorEnd="@anchorBar.CloseTime.AddTicks(1)"
+                                                                LatestPrice="anchorBar.Close" />
+                                    }
+                                    else
+                                    {
+                                        <p class="sim-drawings-empty">No bars in the current Lookback Window yet.</p>
                                     }
                                 </div>
                             }
