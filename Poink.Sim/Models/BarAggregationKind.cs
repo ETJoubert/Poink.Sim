@@ -4,4 +4,6 @@ internal enum BarAggregationKind
 {
 	Ohlc,
 	Quartile,
+	Decile,
+	MeanStdDev,
 }

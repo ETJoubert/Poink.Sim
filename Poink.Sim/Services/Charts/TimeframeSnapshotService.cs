@@ -71,9 +71,17 @@ internal sealed class TimeframeSnapshotService : ITimeframeSnapshotService
 			return null;
 
 		prices.Sort();
-		return kind == BarAggregationKind.Quartile
-			? new CTraderBarRow(openTime.Value, Percentile(prices, 0.25), prices[^1], prices[0], Percentile(prices, 0.75), prices.Count)
-			: new CTraderBarRow(openTime.Value, open, prices[^1], prices[0], close, prices.Count, upVolume, downVolume);
+		var mean = prices.Average();
+		return kind switch
+		{
+			BarAggregationKind.Quartile
+				=> new CTraderBarRow(openTime.Value, Percentile(prices, 0.25), prices[^1], prices[0], Percentile(prices, 0.75), prices.Count),
+			BarAggregationKind.Decile
+				=> new CTraderBarRow(openTime.Value, Percentile(prices, 0.1), prices[^1], prices[0], Percentile(prices, 0.9), prices.Count),
+			BarAggregationKind.MeanStdDev
+				=> new CTraderBarRow(openTime.Value, mean, mean + StdDev(prices, mean), mean - StdDev(prices, mean), mean, prices.Count),
+			_ => new CTraderBarRow(openTime.Value, open, prices[^1], prices[0], close, prices.Count, upVolume, downVolume),
+		};
 	}
 
 	// Linear interpolation between closest ranks -- matches Excel's PERCENTILE.INC and NumPy's default method.
@@ -91,4 +99,7 @@ internal sealed class TimeframeSnapshotService : ITimeframeSnapshotService
 		var weight = rank - lowerIndex;
 		return sortedValues[lowerIndex] + (sortedValues[upperIndex] - sortedValues[lowerIndex]) * weight;
 	}
+
+	private static double StdDev(List<double> values, double mean) =>
+		values.Count <= 1 ? 0 : Math.Sqrt(values.Sum(v => (v - mean) * (v - mean)) / values.Count);
 }

@@ -574,6 +574,16 @@ namespace Poink.Sim.Components.Pages
 			_lookbackOffset = _bars.Count - 1 - endIndex;
 		}
 
+		// _volumeRangeEnd is an OpenTime boundary for bar-keyed consumers; Snapshot needs this
+		// bar's CloseTime/Close instead, or it'd cut off before the bar it's supposed to include.
+		private HlocAvdtBar? SnapshotAnchorBar()
+		{
+			if (_volumeRangeEnd is not { } end)
+				return null;
+			var index = _bars.FindLastIndex(b => b.OpenTime <= end);
+			return index >= 0 ? _bars[index] : null;
+		}
+
 		// Sparkline's drag callback -- fires continuously as the user drags the window's body
 		// (pan, width unchanged) or either edge (resize), not just once on release.
 		private void OnWindowChanged((int Width, int Offset) window)

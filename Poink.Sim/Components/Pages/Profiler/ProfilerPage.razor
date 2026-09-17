@@ -231,13 +231,17 @@
                 <div class="prof-chart-side">
                     <div class="prof-vp"
                          title="One OHLC/Quartile bar per toggled timeframe, each a trailing window ending at the selected Lookback Window's right edge">
-                        @if (_config is null || _volumeRangeStart is null || _volumeRangeEnd is null)
+                        @{
+                            var anchorBar = SnapshotAnchorBar();
+                        }
+                        @if (_config is null || _volumeRangeStart is null || anchorBar is null)
                         {
                             <p class="prof-drawings-empty">Select a Lookback Window to view the snapshot.</p>
                         }
                         else
                         {
-                            <TimeframeSnapshotChart Table="@_config.Table" AnchorEnd="@_volumeRangeEnd.Value" />
+                            @* ITickRepository's "to" is exclusive, so +1 tick keeps the anchor bar's own closing tick inside the window. *@
+                            <TimeframeSnapshotChart Table="@_config.Table" AnchorEnd="@anchorBar.Value.CloseTime.AddTicks(1)" LatestPrice="anchorBar.Value.Close" />
                         }
                     </div>
                 </div>

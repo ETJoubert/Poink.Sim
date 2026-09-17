@@ -4,15 +4,17 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
+using Poink.Sim.Helpers;
 using Poink.Sim.Models;
 using Poink.Sim.Services.Charts;
 
 namespace Poink.Sim.Components.Charts
 {
 	/// <summary>
-	/// Self-contained multi-timeframe comparison chart -- each toggled timeframe (1m/4m/16m/1h by
-	/// default) renders as its own single OHLC/Quartile bar over its own trailing window ending at
-	/// <see cref="AnchorEnd"/>, side by side, via <see cref="ITimeframeSnapshotService"/>.
+	/// Self-contained multi-timeframe comparison chart -- each toggled timeframe (the same doubling
+	/// bar sizes as <see cref="BarSizeOptions"/>, 1m/2m/4m/8m/16m/32m/64m/128m selected by default)
+	/// renders as its own single bar over its own trailing window ending at <see cref="AnchorEnd"/>,
+	/// side by side, via <see cref="ITimeframeSnapshotService"/>.
 	/// </summary>
 	public partial class TimeframeSnapshotChart : ComponentBase, IAsyncDisposable
 	{
@@ -28,8 +30,14 @@ namespace Poink.Sim.Components.Charts
 		[Parameter]
 		public DateTime AnchorEnd { get; set; } = DateTime.UtcNow;
 
+		/// <summary>Drawn as a dashed horizontal line across every bar -- null hides it.</summary>
+		[Parameter]
+		public double? LatestPrice { get; set; }
+
+		private static readonly int[] DefaultSelectedSeconds = { 60, 120, 240, 480, 960, 1920, 3840, 7680 };
+
 		private BarAggregationKind _barKind = BarAggregationKind.Ohlc;
-		private HashSet<int> _selectedSeconds = SnapshotTimeframeOptions.All.Select(t => t.Seconds).ToHashSet();
+		private HashSet<int> _selectedSeconds = DefaultSelectedSeconds.ToHashSet();
 		private List<(int LookbackSeconds, CTraderBarRow Bar)> _bars = new();
 		private (string Table, DateTime AnchorEnd, BarAggregationKind BarKind, string SelectedKey)? _loadedFor;
 		private bool _loading;
@@ -38,6 +46,7 @@ namespace Poink.Sim.Components.Charts
 		private ElementReference _canvasRef;
 		private IJSObjectReference? _module;
 		private List<(int LookbackSeconds, CTraderBarRow Bar)>? _renderedBars;
+		private double? _renderedLatestPrice;
 		private bool _disposed;
 
 		protected override async Task OnParametersSetAsync() => await RefreshIfNeeded();
@@ -109,20 +118,21 @@ namespace Poink.Sim.Components.Charts
 						return;
 				}
 
-				if (!ReferenceEquals(_renderedBars, _bars))
+				if (!ReferenceEquals(_renderedBars, _bars) || _renderedLatestPrice != LatestPrice)
 				{
 					_renderedBars = _bars;
+					_renderedLatestPrice = LatestPrice;
 
 					var payload = _bars.Select(pair => new
 					{
-						label = SnapshotTimeframeOptions.All.First(o => o.Seconds == pair.LookbackSeconds).Label,
+						label = BarSizeOptions.Label(pair.LookbackSeconds),
 						open = pair.Bar.Open,
 						high = pair.Bar.High,
 						low = pair.Bar.Low,
 						close = pair.Bar.Close,
 					});
 
-					await _module.InvokeVoidAsync("render", _canvasRef, payload);
+					await _module.InvokeVoidAsync("render", _canvasRef, payload, LatestPrice);
 				}
 			}
 			catch (JSDisconnectedException) { }

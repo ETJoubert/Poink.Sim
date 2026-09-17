@@ -6,8 +6,8 @@ const PADDING = { top: 10, right: 64, bottom: 20, left: 8 };
 
 const state = new Map();
 
-export function render(canvas, bars) {
-    state.set(canvas, { bars: Array.from(bars) });
+export function render(canvas, bars, latestPrice) {
+    state.set(canvas, { bars: Array.from(bars), latestPrice: latestPrice ?? null });
     draw(canvas);
 }
 
@@ -32,19 +32,24 @@ function draw(canvas) {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, width, height);
 
-    const bars = state.get(canvas)?.bars ?? [];
+    const entry = state.get(canvas);
+    const bars = entry?.bars ?? [];
+    const latestPrice = entry?.latestPrice ?? null;
     if (bars.length === 0) return;
 
     const bullColor = cssVar('--color-success', '#00ff9d');
     const bearColor = cssVar('--color-error', '#ff5f56');
+    const latestColor = cssVar('--color-highlight', '#ffd166');
     const gridColor = 'rgba(255,255,255,0.08)';
     const labelColor = 'rgba(255,255,255,0.5)';
 
     const chartWidth = width - PADDING.left - PADDING.right;
     const chartHeight = height - PADDING.top - PADDING.bottom;
 
-    const minPrice = Math.min(...bars.map(b => b.low));
-    const maxPrice = Math.max(...bars.map(b => b.high));
+    const prices = bars.flatMap(b => [b.low, b.high]);
+    if (latestPrice !== null) prices.push(latestPrice);
+    const minPrice = Math.min(...prices);
+    const maxPrice = Math.max(...prices);
     const priceRange = (maxPrice - minPrice) || 1;
 
     const slotWidth = chartWidth / bars.length;
@@ -89,4 +94,22 @@ function draw(canvas) {
         ctx.textBaseline = 'top';
         ctx.fillText(bar.label, x, height - PADDING.bottom + 4);
     });
+
+    if (latestPrice !== null) {
+        const y = yFor(latestPrice);
+        ctx.save();
+        ctx.strokeStyle = latestColor;
+        ctx.setLineDash([4, 3]);
+        ctx.beginPath();
+        ctx.moveTo(PADDING.left, y);
+        ctx.lineTo(width - PADDING.right, y);
+        ctx.stroke();
+        ctx.restore();
+
+        ctx.font = 'bold 11px monospace';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = latestColor;
+        ctx.textAlign = 'left';
+        ctx.fillText(latestPrice.toFixed(5), width - PADDING.right + 4, y);
+    }
 }
