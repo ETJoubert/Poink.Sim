@@ -37,9 +37,10 @@ namespace Poink.Sim.Components.Charts
 
 		private BarAggregationKind _barKind = BarAggregationKind.Ohlc;
 		private bool _showHighLowLines;
-		private SnapshotWeightMode _weightMode = SnapshotWeightMode.Count;
+		private bool _showVolumeProfile;
 		private HashSet<int> _selectedSeconds = DefaultSelectedSeconds.ToHashSet();
 		private List<(int LookbackSeconds, CTraderBarRow Bar)> _bars = new();
+		private IReadOnlyList<VolumeProfileBucket> _volumeProfile = Array.Empty<VolumeProfileBucket>();
 		private (string Table, DateTime AnchorEnd, BarAggregationKind BarKind, string SelectedKey)? _loadedFor;
 		private bool _loading;
 		private string? _error;
@@ -49,7 +50,7 @@ namespace Poink.Sim.Components.Charts
 		private List<(int LookbackSeconds, CTraderBarRow Bar)>? _renderedBars;
 		private double? _renderedLatestPrice;
 		private bool _renderedShowHighLowLines;
-		private SnapshotWeightMode _renderedWeightMode;
+		private bool _renderedShowVolumeProfile;
 		private bool _disposed;
 
 		protected override async Task OnParametersSetAsync() => await RefreshIfNeeded();
@@ -64,7 +65,7 @@ namespace Poink.Sim.Components.Charts
 
 		private void ToggleHighLowLines() => _showHighLowLines = !_showHighLowLines;
 
-		private void SetWeightMode(SnapshotWeightMode mode) => _weightMode = mode;
+		private void ToggleVolumeProfile() => _showVolumeProfile = !_showVolumeProfile;
 
 		private async Task ToggleTimeframe(int seconds)
 		{
@@ -97,7 +98,9 @@ namespace Poink.Sim.Components.Charts
 
 			try
 			{
-				_bars = await SnapshotService.BuildSnapshotBarsAsync(Table, AnchorEnd, _selectedSeconds, _barKind);
+				var result = await SnapshotService.BuildSnapshotBarsAsync(Table, AnchorEnd, _selectedSeconds, _barKind);
+				_bars = result.Bars;
+				_volumeProfile = result.VolumeProfile;
 				_loadedFor = key;
 			}
 			catch (Exception ex)
@@ -129,40 +132,31 @@ namespace Poink.Sim.Components.Charts
 					!ReferenceEquals(_renderedBars, _bars)
 					|| _renderedLatestPrice != LatestPrice
 					|| _renderedShowHighLowLines != _showHighLowLines
-					|| _renderedWeightMode != _weightMode
+					|| _renderedShowVolumeProfile != _showVolumeProfile
 				)
 				{
 					_renderedBars = _bars;
 					_renderedLatestPrice = LatestPrice;
 					_renderedShowHighLowLines = _showHighLowLines;
-					_renderedWeightMode = _weightMode;
+					_renderedShowVolumeProfile = _showVolumeProfile;
 
-					var payload = _bars.Select(pair => new
+					var options = new
 					{
-						label = SnapshotTimeframeOptions.All.First(o => o.Seconds == pair.LookbackSeconds).Label,
-						seconds = pair.LookbackSeconds,
-						volume = pair.Bar.Volume,
-						open = pair.Bar.Open,
-						high = pair.Bar.High,
-						low = pair.Bar.Low,
-						close = pair.Bar.Close,
-					});
-
-					var weightMode = _weightMode switch
-					{
-						SnapshotWeightMode.Duration => "duration",
-						SnapshotWeightMode.Volume => "volume",
-						_ => "count",
+						bars = _bars.Select(pair => new
+						{
+							label = SnapshotTimeframeOptions.All.First(o => o.Seconds == pair.LookbackSeconds).Label,
+							open = pair.Bar.Open,
+							high = pair.Bar.High,
+							low = pair.Bar.Low,
+							close = pair.Bar.Close,
+						}),
+						latestPrice = LatestPrice,
+						showHighLowLines = _showHighLowLines,
+						showVolumeProfile = _showVolumeProfile,
+						volumeProfile = _volumeProfile.Select(b => new { low = b.Low, high = b.High, count = b.Count }),
 					};
 
-					await _module.InvokeVoidAsync(
-						"render",
-						_canvasRef,
-						payload,
-						LatestPrice,
-						_showHighLowLines,
-						weightMode
-					);
+					await _module.InvokeVoidAsync("render", _canvasRef, options);
 				}
 			}
 			catch (JSDisconnectedException) { }

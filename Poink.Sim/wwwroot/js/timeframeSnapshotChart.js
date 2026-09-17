@@ -11,13 +11,14 @@ const state = new Map();
 const resizeDrag = new WeakMap();
 const resizeBound = new WeakSet();
 
-export function render(canvas, bars, latestPrice, showHighLowLines, weightMode) {
+export function render(canvas, options) {
     const existing = state.get(canvas);
     state.set(canvas, {
-        bars: Array.from(bars),
-        latestPrice: latestPrice ?? null,
-        showHighLowLines: !!showHighLowLines,
-        weightMode: weightMode ?? 'count',
+        bars: Array.from(options.bars ?? []),
+        latestPrice: options.latestPrice ?? null,
+        showHighLowLines: !!options.showHighLowLines,
+        showVolumeProfile: !!options.showVolumeProfile,
+        volumeProfile: Array.from(options.volumeProfile ?? []),
         highlightWidth: existing?.highlightWidth ?? DEFAULT_HIGHLIGHT_WIDTH,
     });
     bindResize(canvas);
@@ -33,10 +34,14 @@ function cssVar(name, fallback) {
     return value || fallback;
 }
 
-// The highlight margin's left edge, in canvas CSS pixels -- null while there's no margin to drag (H/L off).
+function hasMargin(entry) {
+    return !!entry && entry.bars.length > 0 && (entry.showHighLowLines || entry.showVolumeProfile);
+}
+
+// The highlight margin's left edge, in canvas CSS pixels -- null while there's no margin to drag.
 function highlightBoundaryX(canvas) {
     const entry = state.get(canvas);
-    if (!entry?.showHighLowLines || entry.bars.length === 0) return null;
+    if (!hasMargin(entry)) return null;
     return (canvas.clientWidth || 600) - PADDING.right - entry.highlightWidth;
 }
 
@@ -98,17 +103,19 @@ function draw(canvas) {
     const bars = entry?.bars ?? [];
     const latestPrice = entry?.latestPrice ?? null;
     const showHighLowLines = entry?.showHighLowLines ?? false;
-    const weightMode = entry?.weightMode ?? 'count';
+    const showVolumeProfile = entry?.showVolumeProfile ?? false;
+    const volumeProfile = entry?.volumeProfile ?? [];
     if (bars.length === 0) return;
 
     const bullColor = cssVar('--color-success', '#00ff9d');
     const bearColor = cssVar('--color-error', '#ff5f56');
     const latestColor = cssVar('--color-highlight', '#ffd166');
-    const highlightBarColor = cssVar('--color-secondary', '#00d4ff');
+    const coverageColor = cssVar('--color-secondary', '#00d4ff');
+    const volumeColor = cssVar('--color-primary', '#00ff9d');
     const gridColor = 'rgba(255,255,255,0.08)';
     const labelColor = 'rgba(255,255,255,0.5)';
 
-    const highlightWidth = showHighLowLines ? entry.highlightWidth : 0;
+    const highlightWidth = hasMargin(entry) ? entry.highlightWidth : 0;
     const chartWidth = width - PADDING.left - PADDING.right - highlightWidth;
     const chartHeight = height - PADDING.top - PADDING.bottom;
     const plotRight = PADDING.left + chartWidth;
@@ -126,27 +133,36 @@ function draw(canvas) {
     const priceFor = y => minPrice + (1 - (y - PADDING.top) / chartHeight) * priceRange;
     const xFor = index => PADDING.left + index * slotWidth + slotWidth / 2;
 
-    // Right-margin coverage histogram: each row's bar length is how much of the bars' High-Low
-    // range covers that price, so it reads as "where the timeframes' ranges pile up" next to the
-    // H/L lines feeding it. weightMode picks what each bar counts as: 1 each (count), its own
-    // timeframe length (duration -- a 7d bar dominates regardless of how much actually traded),
-    // or its tick count (volume -- reflects how much actually traded in that window instead).
-    if (showHighLowLines) {
-        const weightOf =
-            weightMode === 'duration' ? bar => bar.seconds
-            : weightMode === 'volume' ? bar => bar.volume
-            : () => 1;
-        const totalWeight = bars.reduce((sum, b) => sum + weightOf(b), 0);
-        ctx.fillStyle = highlightBarColor;
-        ctx.globalAlpha = 0.55;
-        for (let y = PADDING.top; y < PADDING.top + chartHeight; y++) {
-            const price = priceFor(y + 0.5);
-            const covered = bars.filter(b => price >= b.low && price <= b.high);
-            const coverage = totalWeight > 0 ? covered.reduce((sum, b) => sum + weightOf(b), 0) / totalWeight : 0;
-            if (coverage <= 0) continue;
-            ctx.fillRect(plotRight, y, coverage * highlightWidth, 1);
+    if (highlightWidth > 0) {
+        // Coverage histogram: each row's bar length is how many displayed bars' High-Low range
+        // covers that price, so it reads as "where the timeframes' ranges pile up".
+        if (showHighLowLines) {
+            ctx.fillStyle = coverageColor;
+            ctx.globalAlpha = 0.55;
+            for (let y = PADDING.top; y < PADDING.top + chartHeight; y++) {
+                const price = priceFor(y + 0.5);
+                const coverage = bars.filter(b => price >= b.low && price <= b.high).length / bars.length;
+                if (coverage <= 0) continue;
+                ctx.fillRect(plotRight, y, coverage * highlightWidth, 1);
+            }
+            ctx.globalAlpha = 1;
         }
-        ctx.globalAlpha = 1;
+
+        // Real tick-volume profile: one bar per price bucket, length proportional to that
+        // bucket's share of the busiest bucket -- same count/maxCount convention as the
+        // project's other volume profile charts.
+        if (showVolumeProfile && volumeProfile.length > 0) {
+            const maxCount = Math.max(...volumeProfile.map(b => b.count));
+            ctx.fillStyle = volumeColor;
+            ctx.globalAlpha = 0.55;
+            volumeProfile.forEach(bucket => {
+                const top = yFor(bucket.high);
+                const bottom = yFor(bucket.low);
+                const barWidth = maxCount > 0 ? (bucket.count / maxCount) * highlightWidth : 0;
+                ctx.fillRect(plotRight, top, barWidth, Math.max(1, bottom - top));
+            });
+            ctx.globalAlpha = 1;
+        }
 
         ctx.strokeStyle = gridColor;
         ctx.beginPath();
