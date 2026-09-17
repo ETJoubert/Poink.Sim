@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace Poink.Sim.Models;
 
-internal enum PriceReturnAggregationKind
+internal enum BarAggregationKind
 {
 	Ohlc,
 	Quartile,
@@ -16,7 +16,7 @@ internal sealed record PriceReturnRequest(
 	double WindowMinutes,
 	int? AggregationBarWidthSeconds = null,
 	int? AggregationWindowBars = null,
-	PriceReturnAggregationKind AggregationKind = PriceReturnAggregationKind.Ohlc);
+	BarAggregationKind AggregationKind = BarAggregationKind.Ohlc);
 
 // ToReturnUnit is "min" (tick mode) or "bars" (aggregation -- no clock, just bar positions).
 internal sealed record PriceReturnDistributionResult(

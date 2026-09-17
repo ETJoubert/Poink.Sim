@@ -59,7 +59,7 @@ namespace Poink.Sim.Components.Pages.Analize
 		private string? _returnStartError;
 		private bool _returnCardCollapsed;
 		private bool _returnUseAggregation;
-		private PriceReturnAggregationKind _returnAggregationKind = PriceReturnAggregationKind.Ohlc;
+		private BarAggregationKind _returnAggregationKind = BarAggregationKind.Ohlc;
 		private int _returnAggregationBarWidthSeconds = 60;
 		private int _returnWindowBars = 30;
 		private string _returnSelectedSeries = "All";
@@ -67,7 +67,7 @@ namespace Poink.Sim.Components.Pages.Analize
 		private static readonly string[] QuartileSeriesNames = { "Min", "Q1", "Median", "Q3", "Max" };
 
 		private string[] ReturnSeriesNames =>
-			_returnAggregationKind == PriceReturnAggregationKind.Quartile ? QuartileSeriesNames : OhlcSeriesNames;
+			_returnAggregationKind == BarAggregationKind.Quartile ? QuartileSeriesNames : OhlcSeriesNames;
 
 		private string[] ReturnChartSeriesNames => new[] { "All" }.Concat(ReturnSeriesNames).ToArray();
 
@@ -88,7 +88,8 @@ namespace Poink.Sim.Components.Pages.Analize
 		private bool _marketChartLoading;
 		private string? _marketChartError;
 		private int _marketChartBarWidthSeconds = 60;
-		private (string Table, DateTime From, DateTime To, int BarWidthSeconds)? _marketChartLoadedFor;
+		private BarAggregationKind _marketChartBarKind = BarAggregationKind.Ohlc;
+		private (string Table, DateTime From, DateTime To, int BarWidthSeconds, BarAggregationKind BarKind)? _marketChartLoadedFor;
 
 		protected override void OnInitialized()
 		{
@@ -262,7 +263,7 @@ namespace Poink.Sim.Components.Pages.Analize
 		private async Task SelectPriceTab()
 		{
 			_activeMainTab = AnalizeMainTab.Price;
-			if (_marketChartLoadedFor != (_table, _from, _to, _marketChartBarWidthSeconds))
+			if (_marketChartLoadedFor != (_table, _from, _to, _marketChartBarWidthSeconds, _marketChartBarKind))
 				await LoadMarketChartAsync();
 		}
 
@@ -286,11 +287,12 @@ namespace Poink.Sim.Components.Pages.Analize
 			var from = _from;
 			var to = _to;
 			var barWidthSeconds = _marketChartBarWidthSeconds;
+			var barKind = _marketChartBarKind;
 
 			try
 			{
-				_marketChartBars = await Task.Run(() => FetchMarketChartBars(table, from, to, barWidthSeconds));
-				_marketChartLoadedFor = (table, from, to, barWidthSeconds);
+				_marketChartBars = await Task.Run(() => FetchMarketChartBars(table, from, to, barWidthSeconds, barKind));
+				_marketChartLoadedFor = (table, from, to, barWidthSeconds, barKind);
 			}
 			catch (Exception ex)
 			{
@@ -302,7 +304,12 @@ namespace Poink.Sim.Components.Pages.Analize
 			}
 		}
 
-		private List<CTraderBarRow> FetchMarketChartBars(string table, DateTime from, DateTime to, int barWidthSeconds)
+		private List<CTraderBarRow> FetchMarketChartBars(string table, DateTime from, DateTime to, int barWidthSeconds, BarAggregationKind barKind) =>
+			barKind == BarAggregationKind.Quartile
+				? FetchQuartileMarketChartBars(table, from, to, barWidthSeconds)
+				: FetchOhlcMarketChartBars(table, from, to, barWidthSeconds);
+
+		private List<CTraderBarRow> FetchOhlcMarketChartBars(string table, DateTime from, DateTime to, int barWidthSeconds)
 		{
 			var aggregator = new SimulationBarAggregator(TimeSpan.FromSeconds(barWidthSeconds), PriceBucketWidth);
 			var bars = new List<HlocAvdtBar>();
@@ -315,6 +322,21 @@ namespace Poink.Sim.Components.Pages.Analize
 			return bars
 				.Select(b => new CTraderBarRow(b.OpenTime, b.Open, b.High, b.Low, b.Close, b.Volume, b.UpVolume, b.DownVolume, b.Distance))
 				.ToList();
+		}
+
+		// Reuses the candlestick chart as a box plot: Open/Close carry Q1/Q3 (the IQR box) and
+		// High/Low carry Min/Max (the whiskers); the price toolbar caption spells this mapping out for the viewer.
+		private List<CTraderBarRow> FetchQuartileMarketChartBars(string table, DateTime from, DateTime to, int barWidthSeconds)
+		{
+			var aggregator = new QuartileBarAggregator(TimeSpan.FromSeconds(barWidthSeconds));
+			var bars = new List<QuartileBar>();
+			foreach (var tick in TickRepository.ReadTicks(table, from, to))
+				if (aggregator.Feed(tick) is { } completed)
+					bars.Add(completed);
+			if (aggregator.CurrentPartialBar is { } partial)
+				bars.Add(partial);
+
+			return bars.Select(b => new CTraderBarRow(b.OpenTime, b.Q1, b.Max, b.Min, b.Q3, b.Count)).ToList();
 		}
 	}
 }

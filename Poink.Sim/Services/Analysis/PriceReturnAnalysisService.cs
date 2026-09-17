@@ -256,7 +256,7 @@ internal sealed class PriceReturnAnalysisService : IPriceReturnAnalysisService
 
 	// Aggregation has no clock, just bar positions, so windowBars counts subsequent bars, not minutes.
 	private PriceReturnDistributionResult ComputeFromBars(PriceReturnRequest request, TimeSpan barSize, int windowBars) =>
-		request.AggregationKind == PriceReturnAggregationKind.Quartile
+		request.AggregationKind == BarAggregationKind.Quartile
 			? ComputeFromQuartileBars(request, barSize, windowBars)
 			: ComputeFromOhlcBars(request, barSize, windowBars);
 

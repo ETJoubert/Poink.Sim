@@ -140,8 +140,8 @@
                                        title="OHLC checks each bar's Open/High/Low/Close; Quartile checks each bar's Min/Q1/Median/Q3/Max five-number summary instead">
                                     Bar kind
                                     <select class="analize-input" @bind="_returnAggregationKind" disabled="@ReturnService.IsRunning">
-                                        <option value="@PriceReturnAggregationKind.Ohlc">OHLC</option>
-                                        <option value="@PriceReturnAggregationKind.Quartile">Quartile</option>
+                                        <option value="@BarAggregationKind.Ohlc">OHLC</option>
+                                        <option value="@BarAggregationKind.Quartile">Quartile</option>
                                     </select>
                                 </label>
                                 <BarSizeSelect @bind-Value="_returnAggregationBarWidthSeconds" Disabled="@ReturnService.IsRunning" Label="Bar width" />
@@ -303,11 +303,25 @@
                     <div class="card analize-card analize-card-fill" title="Price chart for the selected symbol and date range">
                         <div class="analize-price-toolbar">
                             <BarSizeSelect @bind-Value="_marketChartBarWidthSeconds" Disabled="_marketChartLoading" />
+                            <label class="analize-field analize-field-row"
+                                   title="OHLC draws each bar's real Open/High/Low/Close; Quartile draws a box plot instead, using each bar's Min/Q1/Q3/Max">
+                                Bar kind
+                                <select class="analize-input" @bind="_marketChartBarKind" disabled="@_marketChartLoading">
+                                    <option value="@BarAggregationKind.Ohlc">OHLC</option>
+                                    <option value="@BarAggregationKind.Quartile">Quartile</option>
+                                </select>
+                            </label>
                             <button type="button" class="analize-btn" @onclick="LoadMarketChartAsync" disabled="@_marketChartLoading"
-                                    title="Reload the price chart for the current symbol, date range and bar width">
+                                    title="Reload the price chart for the current symbol, date range, bar width and bar kind">
                                 @(_marketChartLoading ? "LOADING..." : "RELOAD")
                             </button>
                         </div>
+                        @if (_marketChartBarKind == BarAggregationKind.Quartile)
+                        {
+                            <p class="analize-caption" title="The chart has no dedicated box-plot series, so each bar's five-number summary is drawn through the candle shape instead">
+                                quartile box plot -- candle body is Q1-Q3, wicks are Min-Max (hover shows them labeled O/H/L/C)
+                            </p>
+                        }
                         @if (_marketChartError is not null)
                         {
                             <p class="analize-error">@_marketChartError</p>
