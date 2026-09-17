@@ -59,11 +59,17 @@ namespace Poink.Sim.Components.Pages.Analize
 		private string? _returnStartError;
 		private bool _returnCardCollapsed;
 		private bool _returnUseAggregation;
+		private PriceReturnAggregationKind _returnAggregationKind = PriceReturnAggregationKind.Ohlc;
 		private int _returnAggregationBarWidthSeconds = 60;
 		private int _returnWindowBars = 30;
 		private string _returnSelectedSeries = "All";
-		private static readonly string[] ReturnSeriesNames = { "Open", "High", "Low", "Close" };
-		private static readonly string[] ReturnChartSeriesNames = { "All", "Open", "High", "Low", "Close" };
+		private static readonly string[] OhlcSeriesNames = { "Open", "High", "Low", "Close" };
+		private static readonly string[] QuartileSeriesNames = { "Min", "Q1", "Median", "Q3", "Max" };
+
+		private string[] ReturnSeriesNames =>
+			_returnAggregationKind == PriceReturnAggregationKind.Quartile ? QuartileSeriesNames : OhlcSeriesNames;
+
+		private string[] ReturnChartSeriesNames => new[] { "All" }.Concat(ReturnSeriesNames).ToArray();
 
 		private static readonly Dictionary<string, string> ReturnSeriesColors = new()
 		{
@@ -71,6 +77,11 @@ namespace Poink.Sim.Components.Pages.Analize
 			["High"] = "var(--color-success)",
 			["Low"] = "var(--color-error)",
 			["Close"] = "var(--color-primary)",
+			["Min"] = "var(--color-error)",
+			["Q1"] = "var(--color-info)",
+			["Median"] = "var(--color-primary)",
+			["Q3"] = "var(--color-secondary)",
+			["Max"] = "var(--color-success)",
 		};
 
 		private List<CTraderBarRow> _marketChartBars = new();
@@ -141,7 +152,7 @@ namespace Poink.Sim.Components.Pages.Analize
 					_returnStartError = "window (bars) must be greater than 0";
 					return;
 				}
-				request = new PriceReturnRequest(_table, _from, _to, 0, _returnAggregationBarWidthSeconds, _returnWindowBars);
+				request = new PriceReturnRequest(_table, _from, _to, 0, _returnAggregationBarWidthSeconds, _returnWindowBars, _returnAggregationKind);
 			}
 			else
 			{

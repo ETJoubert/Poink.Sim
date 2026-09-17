@@ -71,13 +71,14 @@ internal sealed class PriceReturnAnalysisService : IPriceReturnAnalysisService
 		OnChanged?.Invoke();
 
 		_logger.LogInformation(
-			"Price-return analysis started: table={Table} from={From} to={To} window={WindowMinutes}m aggregationBarSeconds={AggregationBarWidthSeconds} aggregationWindowBars={AggregationWindowBars}",
+			"Price-return analysis started: table={Table} from={From} to={To} window={WindowMinutes}m aggregationBarSeconds={AggregationBarWidthSeconds} aggregationWindowBars={AggregationWindowBars} aggregationKind={AggregationKind}",
 			request.Table,
 			request.From,
 			request.To,
 			request.WindowMinutes,
 			request.AggregationBarWidthSeconds,
-			request.AggregationWindowBars
+			request.AggregationWindowBars,
+			request.AggregationKind
 		);
 
 		_ = Task.Run(() => Run(request));
@@ -254,16 +255,36 @@ internal sealed class PriceReturnAnalysisService : IPriceReturnAnalysisService
 	}
 
 	// Aggregation has no clock, just bar positions, so windowBars counts subsequent bars, not minutes.
+	private PriceReturnDistributionResult ComputeFromBars(PriceReturnRequest request, TimeSpan barSize, int windowBars) =>
+		request.AggregationKind == PriceReturnAggregationKind.Quartile
+			? ComputeFromQuartileBars(request, barSize, windowBars)
+			: ComputeFromOhlcBars(request, barSize, windowBars);
+
 	// Runs once per OHLC value: that value on the starting bar, checked against later bars' own true traded range (Low/High).
-	private PriceReturnDistributionResult ComputeFromBars(PriceReturnRequest request, TimeSpan barSize, int windowBars)
+	private PriceReturnDistributionResult ComputeFromOhlcBars(PriceReturnRequest request, TimeSpan barSize, int windowBars)
 	{
 		var windowSpan = TimeSpan.FromTicks(barSize.Ticks * windowBars);
 		var bars = AggregateBars(request.Table, request.From, request.To.Add(windowSpan), barSize);
 
-		var closeResults = ComputeSeriesFromBars(bars, barSize, windowBars, request.From, request.To, b => b.Close);
-		var openSeries = ToSeriesResult("Open", ComputeSeriesFromBars(bars, barSize, windowBars, request.From, request.To, b => b.Open), windowBars, windowBars);
-		var highSeries = ToSeriesResult("High", ComputeSeriesFromBars(bars, barSize, windowBars, request.From, request.To, b => b.High), windowBars, windowBars);
-		var lowSeries = ToSeriesResult("Low", ComputeSeriesFromBars(bars, barSize, windowBars, request.From, request.To, b => b.Low), windowBars, windowBars);
+		var closeResults = ComputeSeriesFromBars(bars, barSize, windowBars, request.From, request.To, b => b.OpenTime, b => b.Low, b => b.High, b => b.Close);
+		var openSeries = ToSeriesResult(
+			"Open",
+			ComputeSeriesFromBars(bars, barSize, windowBars, request.From, request.To, b => b.OpenTime, b => b.Low, b => b.High, b => b.Open),
+			windowBars,
+			windowBars
+		);
+		var highSeries = ToSeriesResult(
+			"High",
+			ComputeSeriesFromBars(bars, barSize, windowBars, request.From, request.To, b => b.OpenTime, b => b.Low, b => b.High, b => b.High),
+			windowBars,
+			windowBars
+		);
+		var lowSeries = ToSeriesResult(
+			"Low",
+			ComputeSeriesFromBars(bars, barSize, windowBars, request.From, request.To, b => b.OpenTime, b => b.Low, b => b.High, b => b.Low),
+			windowBars,
+			windowBars
+		);
 		var closeSeries = ToSeriesResult("Close", closeResults, windowBars, windowBars);
 
 		lock (_lock)
@@ -274,15 +295,60 @@ internal sealed class PriceReturnAnalysisService : IPriceReturnAnalysisService
 		return closeResult with { SeriesBreakdown = new[] { openSeries, highSeries, lowSeries, closeSeries } };
 	}
 
+	// Same principle as the OHLC path, but the starting/reference value and the later bars' traded
+	// range both come from each bar's Min/Q1/Median/Q3/Max five-number summary instead of Open/High/Low/Close.
+	private PriceReturnDistributionResult ComputeFromQuartileBars(PriceReturnRequest request, TimeSpan barSize, int windowBars)
+	{
+		var windowSpan = TimeSpan.FromTicks(barSize.Ticks * windowBars);
+		var bars = AggregateQuartileBars(request.Table, request.From, request.To.Add(windowSpan), barSize);
+
+		var medianResults = ComputeSeriesFromBars(bars, barSize, windowBars, request.From, request.To, b => b.OpenTime, b => b.Min, b => b.Max, b => b.Median);
+		var minSeries = ToSeriesResult(
+			"Min",
+			ComputeSeriesFromBars(bars, barSize, windowBars, request.From, request.To, b => b.OpenTime, b => b.Min, b => b.Max, b => b.Min),
+			windowBars,
+			windowBars
+		);
+		var q1Series = ToSeriesResult(
+			"Q1",
+			ComputeSeriesFromBars(bars, barSize, windowBars, request.From, request.To, b => b.OpenTime, b => b.Min, b => b.Max, b => b.Q1),
+			windowBars,
+			windowBars
+		);
+		var medianSeries = ToSeriesResult("Median", medianResults, windowBars, windowBars);
+		var q3Series = ToSeriesResult(
+			"Q3",
+			ComputeSeriesFromBars(bars, barSize, windowBars, request.From, request.To, b => b.OpenTime, b => b.Min, b => b.Max, b => b.Q3),
+			windowBars,
+			windowBars
+		);
+		var maxSeries = ToSeriesResult(
+			"Max",
+			ComputeSeriesFromBars(bars, barSize, windowBars, request.From, request.To, b => b.OpenTime, b => b.Min, b => b.Max, b => b.Max),
+			windowBars,
+			windowBars
+		);
+
+		lock (_lock)
+			ProgressPercent = 100;
+		OnChanged?.Invoke();
+
+		var medianResult = BuildResult(medianResults, windowBars, windowBars, "bars");
+		return medianResult with { SeriesBreakdown = new[] { minSeries, q1Series, medianSeries, q3Series, maxSeries } };
+	}
+
 	// Scans forward from each starting bar, at most windowBars bars, for the first later bar whose
-	// [Low, High] contains the reference value; a window running past the data we have is dropped.
-	private List<(bool Returned, double Value)> ComputeSeriesFromBars(
-		List<HlocAvdtBar> bars,
+	// selected [low, high] range contains the reference value; a window running past the data we have is dropped.
+	private List<(bool Returned, double Value)> ComputeSeriesFromBars<TBar>(
+		List<TBar> bars,
 		TimeSpan barSize,
 		int windowBars,
 		DateTime from,
 		DateTime to,
-		Func<HlocAvdtBar, double> selectStartValue
+		Func<TBar, DateTime> selectOpenTime,
+		Func<TBar, double> selectLow,
+		Func<TBar, double> selectHigh,
+		Func<TBar, double> selectStartValue
 	)
 	{
 		var results = new List<(bool Returned, double Value)>();
@@ -292,7 +358,7 @@ internal sealed class PriceReturnAnalysisService : IPriceReturnAnalysisService
 			if (_cancelRequested)
 				throw new OperationCanceledException();
 
-			var barEndTime = bars[i].OpenTime + barSize;
+			var barEndTime = selectOpenTime(bars[i]) + barSize;
 			if (barEndTime < from || barEndTime > to)
 				continue;
 
@@ -306,10 +372,12 @@ internal sealed class PriceReturnAnalysisService : IPriceReturnAnalysisService
 			var returnedAtOffset = -1;
 			for (var j = i + 1; j <= lastIndex; j++)
 			{
-				if (bars[j].Low < runningMin)
-					runningMin = bars[j].Low;
-				if (bars[j].High > runningMax)
-					runningMax = bars[j].High;
+				var low = selectLow(bars[j]);
+				var high = selectHigh(bars[j]);
+				if (low < runningMin)
+					runningMin = low;
+				if (high > runningMax)
+					runningMax = high;
 				if (runningMin <= startValue && runningMax >= startValue)
 				{
 					returnedAtOffset = j - i;
@@ -322,6 +390,35 @@ internal sealed class PriceReturnAnalysisService : IPriceReturnAnalysisService
 		}
 
 		return results;
+	}
+
+	private List<QuartileBar> AggregateQuartileBars(string table, DateTime from, DateTime to, TimeSpan barSize)
+	{
+		var totalTicks = _tickRepository.CountTicks(table, from, to);
+		long processed = 0;
+
+		var aggregator = new QuartileBarAggregator(barSize);
+		var bars = new List<QuartileBar>();
+		foreach (var tick in _tickRepository.ReadTicks(table, from, to))
+		{
+			if (_cancelRequested)
+				throw new OperationCanceledException();
+
+			if (aggregator.Feed(tick) is { } completed)
+				bars.Add(completed);
+
+			processed++;
+			if (processed % ProgressReportInterval == 0)
+			{
+				lock (_lock)
+					ProgressPercent = totalTicks > 0 ? Math.Min(90, processed * 90.0 / totalTicks) : 0;
+				OnChanged?.Invoke();
+			}
+		}
+		if (aggregator.CurrentPartialBar is { } partial)
+			bars.Add(partial);
+
+		return bars;
 	}
 
 	private List<HlocAvdtBar> AggregateBars(string table, DateTime from, DateTime to, TimeSpan barSize)

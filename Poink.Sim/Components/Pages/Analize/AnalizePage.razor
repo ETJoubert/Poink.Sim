@@ -5,6 +5,7 @@
 @using Poink.Sim.Components.Shared.DataTable
 @using Poink.Sim.Components.Shared.Icon
 @using Poink.Sim.Components.Shared.TickDataSource
+@using Poink.Sim.Models
 
 <div class="analize-page">
     <div class="analize-topbar">
@@ -128,13 +129,21 @@
                         @if (!_returnCardCollapsed)
                         {
                             <label class="analize-field analize-field-row"
-                                   title="Run the same check on aggregated HLOC bars instead of raw ticks -- far fewer points, using each bar's High/Low, at the cost of return-time precision">
+                                   title="Run the same check on aggregated bars instead of raw ticks -- far fewer points, using each bar's traded range, at the cost of return-time precision">
                                 <input type="checkbox" @bind="_returnUseAggregation" disabled="@ReturnService.IsRunning" />
                                 Aggregation
                             </label>
 
                             @if (_returnUseAggregation)
                             {
+                                <label class="analize-field"
+                                       title="OHLC checks each bar's Open/High/Low/Close; Quartile checks each bar's Min/Q1/Median/Q3/Max five-number summary instead">
+                                    Bar kind
+                                    <select class="analize-input" @bind="_returnAggregationKind" disabled="@ReturnService.IsRunning">
+                                        <option value="@PriceReturnAggregationKind.Ohlc">OHLC</option>
+                                        <option value="@PriceReturnAggregationKind.Quartile">Quartile</option>
+                                    </select>
+                                </label>
                                 <BarSizeSelect @bind-Value="_returnAggregationBarWidthSeconds" Disabled="@ReturnService.IsRunning" Label="Bar width" />
                                 <label class="analize-field"
                                        title="How many bars forward to watch, as a whole multiple of the bar width above -- so the window always ends exactly on a bar edge">
@@ -238,7 +247,7 @@
                                 {
                                     <button type="button" class="analize-btn-toggle @(_returnSelectedSeries == name ? "analize-btn-toggle-active" : "")"
                                             @onclick="() => _returnSelectedSeries = name"
-                                            title="@(name == "All" ? "Show Open/High/Low/Close together, one color per series" : $"Show the {name}-based series")">
+                                            title="@(name == "All" ? $"Show {string.Join('/', ReturnSeriesNames)} together, one color per series" : $"Show the {name}-based series")">
                                         @name
                                     </button>
                                 }
@@ -406,13 +415,13 @@
                                     <span class="analize-stat-label">window</span>
                                     <span class="analize-stat-value">@ReturnEffectiveWindowText</span>
                                 </div>
-                                <div class="analize-stat" title="Whether this run watched raw ticks or aggregated HLOC bars">
+                                <div class="analize-stat" title="Whether this run watched raw ticks or aggregated bars, and which bar kind">
                                     <span class="analize-stat-label">mode</span>
-                                    <span class="analize-stat-value">@(_returnUseAggregation ? $"{_returnAggregationBarWidthSeconds}s bars" : "tick-level")</span>
+                                    <span class="analize-stat-value">@(_returnUseAggregation ? $"{_returnAggregationBarWidthSeconds}s {_returnAggregationKind} bars" : "tick-level")</span>
                                 </div>
                                 @if (result.SeriesBreakdown is { } breakdown)
                                 {
-                                    <div class="analize-ohlc-table" title="Each OHLC value run as its own independent series against its own starting bar's value">
+                                    <div class="analize-ohlc-table" title="Each series run as its own independent run against its own starting bar's value">
                                         <div class="analize-ohlc-row analize-ohlc-header">
                                             <span></span>
                                             <span>chance</span>
