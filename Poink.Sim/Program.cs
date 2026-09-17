@@ -12,6 +12,7 @@ using Poink.Sim.Data;
 using Poink.Sim.Diagnostics;
 using Poink.Sim.Helpers;
 using Poink.Sim.Profiler;
+using Poink.Sim.Services.Charts;
 using Poink.Sim.Services.CTrader;
 using Poink.Sim.Services.Registration;
 
@@ -30,6 +31,7 @@ builder.Services.BuildTrainingServices();
 builder.Services.BuildSimulationServices();
 
 builder.Services.AddSingleton<IProfilerService, ProfilerService>();
+builder.Services.AddSingleton<IBarKindChartService, BarKindChartService>();
 builder.Services.AddSingleton<ITimeAboveBelowAnalysisService, TimeAboveBelowAnalysisService>();
 builder.Services.AddSingleton<IPriceReturnAnalysisService, PriceReturnAnalysisService>();
 builder.Services.AddScoped<ILocalStorageHelper, LocalStorageHelper>();

@@ -55,6 +55,25 @@
     border: 1px solid currentColor;
 }
 
+.prof-subchart-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.prof-subchart-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+}
+
+.prof-subchart-chart {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
 .prof-agg-field {
     display: flex;
     align-items: center;

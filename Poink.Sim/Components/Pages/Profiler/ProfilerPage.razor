@@ -107,9 +107,9 @@
                         @onclick="() => _showVolumeProfile = !_showVolumeProfile" title="Volume-at-price histogram over the current window">Volume profile</button>
                 <button type="button" class="prof-overlay-toggle-btn @(_showTimeProfile ? "active" : "")"
                         @onclick="() => _showTimeProfile = !_showTimeProfile" title="Time-at-price histogram over the current window">Time profile</button>
-                <button type="button" class="prof-overlay-toggle-btn @(_showMetricsPanel ? "active" : "")"
-                        @onclick="() => _showMetricsPanel = !_showMetricsPanel"
-                        title="Standalone panel of XGrid's measurement controls (pips/cols, overlays, spectrum highlights) -- not wired to the chart, for review only">Metrics</button>
+                <button type="button" class="prof-overlay-toggle-btn @(_showSubchart ? "active" : "")"
+                        @onclick="() => _showSubchart = !_showSubchart"
+                        title="A second market chart, aggregated with its own bar size/kind, scoped to the selected Lookback Window">Subchart</button>
             </div>
         </div>
         <div class="prof-chart-sparkline">
@@ -180,12 +180,42 @@
                     </div>
                 </div>
             }
-            @if (_showMetricsPanel)
+            @if (_showSubchart)
             {
-                <div class="prof-chart-divider" @ref="_chartDividerRefMetrics" data-min-width="200" title="Drag to resize"></div>
+                <div class="prof-chart-divider" @ref="_chartDividerRefSubchart" data-min-width="200" title="Drag to resize"></div>
                 <div class="prof-chart-side">
-                    <div class="prof-vp" title="XGrid's measurement controls, extracted into their own panel for review -- not bound to the chart or XGrid above">
-                        <MetricsControlPanel />
+                    <div class="prof-vp" title="A second market chart scoped to the selected Lookback Window, aggregated independently of the main chart above">
+                        <div class="prof-subchart-panel">
+                            <div class="prof-subchart-toolbar">
+                                <BarSizeSelect @bind-Value="_subchartBarSizeSeconds" Disabled="@_subchartLoading" />
+                                <label class="prof-agg-field" title="OHLC draws each bar's real Open/High/Low/Close; Quartile draws a box plot of Min/Q1/Median/Q3/Max instead">
+                                    Bar kind
+                                    <select class="prof-agg-select" @bind="_subchartBarKind" disabled="@_subchartLoading"
+                                            title="OHLC draws each bar's real Open/High/Low/Close; Quartile draws a box plot of Min/Q1/Median/Q3/Max instead">
+                                        <option value="@BarAggregationKind.Ohlc">OHLC</option>
+                                        <option value="@BarAggregationKind.Quartile">Quartile</option>
+                                    </select>
+                                </label>
+                            </div>
+                            <div class="prof-subchart-chart">
+                                @if (_volumeRangeStart is null || _volumeRangeEnd is null)
+                                {
+                                    <p class="prof-drawings-empty">Select a Lookback Window to view the subchart.</p>
+                                }
+                                else if (_subchartError is not null)
+                                {
+                                    <p class="prof-drawings-empty">@_subchartError</p>
+                                }
+                                else if (_subchartLoading && _subchartBars.Count == 0)
+                                {
+                                    <p class="prof-drawings-empty">Loading...</p>
+                                }
+                                else
+                                {
+                                    <MarketChartContainer Bars="_subchartBars" MedianLine="_subchartMedianLine" ShowAnnotationTools="false" />
+                                }
+                            </div>
+                        </div>
                     </div>
                 </div>
             }

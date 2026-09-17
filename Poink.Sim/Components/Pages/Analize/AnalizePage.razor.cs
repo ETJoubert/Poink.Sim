@@ -8,7 +8,7 @@ using Poink.Sim.Analysis;
 using Poink.Sim.Components.Charts;
 using Poink.Sim.Models;
 using Poink.Sim.Repository;
-using Poink.Sim.Simulation;
+using Poink.Sim.Services.Charts;
 
 namespace Poink.Sim.Components.Pages.Analize
 {
@@ -49,9 +49,6 @@ namespace Poink.Sim.Components.Pages.Analize
 
 	public partial class AnalizePage : ComponentBase, IDisposable
 	{
-		// Only used by SimulationBarAggregator's discarded histogram side-channel; the price chart never reads it.
-		private const double PriceBucketWidth = 0.01;
-
 		private enum AnalizeMainTab
 		{
 			Chart,
@@ -90,10 +87,10 @@ namespace Poink.Sim.Components.Pages.Analize
 		private IPriceReturnAnalysisService ReturnService { get; set; } = default!;
 
 		[Inject]
-		private ITickRepository TickRepository { get; set; } = default!;
+		private IAnalysisHistoryRepository AnalysisHistoryRepository { get; set; } = default!;
 
 		[Inject]
-		private IAnalysisHistoryRepository AnalysisHistoryRepository { get; set; } = default!;
+		private IBarKindChartService BarKindChartService { get; set; } = default!;
 
 		private bool _leftPanelCollapsed;
 		private bool _rightPanelCollapsed;
@@ -654,7 +651,7 @@ namespace Poink.Sim.Components.Pages.Analize
 
 			try
 			{
-				var (bars, medianLine) = await Task.Run(() => FetchMarketChartBars(table, from, to, barWidthSeconds, barKind));
+				var (bars, medianLine) = await BarKindChartService.BuildBarsAsync(table, from, to, barWidthSeconds, barKind);
 				_marketChartBars = bars;
 				_marketChartMedianLine = medianLine;
 				_marketChartLoadedFor = (table, from, to, barWidthSeconds, barKind);
@@ -667,54 +664,6 @@ namespace Poink.Sim.Components.Pages.Analize
 			{
 				_marketChartLoading = false;
 			}
-		}
-
-		private (List<CTraderBarRow> Bars, List<ChartLinePoint> MedianLine) FetchMarketChartBars(
-			string table,
-			DateTime from,
-			DateTime to,
-			int barWidthSeconds,
-			BarAggregationKind barKind
-		) =>
-			barKind == BarAggregationKind.Quartile
-				? FetchQuartileMarketChartBars(table, from, to, barWidthSeconds)
-				: (FetchOhlcMarketChartBars(table, from, to, barWidthSeconds), new List<ChartLinePoint>());
-
-		private List<CTraderBarRow> FetchOhlcMarketChartBars(string table, DateTime from, DateTime to, int barWidthSeconds)
-		{
-			var aggregator = new SimulationBarAggregator(TimeSpan.FromSeconds(barWidthSeconds), PriceBucketWidth);
-			var bars = new List<HlocAvdtBar>();
-			foreach (var tick in TickRepository.ReadTicks(table, from, to))
-				if (aggregator.Feed(tick) is { } completed)
-					bars.Add(completed.Bar);
-			if (aggregator.CurrentPartialBar is { } partial)
-				bars.Add(partial);
-
-			return bars
-				.Select(b => new CTraderBarRow(b.OpenTime, b.Open, b.High, b.Low, b.Close, b.Volume, b.UpVolume, b.DownVolume, b.Distance))
-				.ToList();
-		}
-
-		// Reuses the candlestick chart as a box plot (Open/Close = Q1/Q3, High/Low = Min/Max, see the price
-		// toolbar caption); Median has no room left in that OHLC shape, so it rides along as its own overlay line.
-		private (List<CTraderBarRow> Bars, List<ChartLinePoint> MedianLine) FetchQuartileMarketChartBars(
-			string table,
-			DateTime from,
-			DateTime to,
-			int barWidthSeconds
-		)
-		{
-			var aggregator = new QuartileBarAggregator(TimeSpan.FromSeconds(barWidthSeconds));
-			var bars = new List<QuartileBar>();
-			foreach (var tick in TickRepository.ReadTicks(table, from, to))
-				if (aggregator.Feed(tick) is { } completed)
-					bars.Add(completed);
-			if (aggregator.CurrentPartialBar is { } partial)
-				bars.Add(partial);
-
-			var rows = bars.Select(b => new CTraderBarRow(b.OpenTime, b.Q1, b.Max, b.Min, b.Q3, b.Count)).ToList();
-			var medianLine = bars.Select(b => new ChartLinePoint(b.OpenTime, b.Median)).ToList();
-			return (rows, medianLine);
 		}
 	}
 }

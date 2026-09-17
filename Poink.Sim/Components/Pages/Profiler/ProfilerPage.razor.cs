@@ -9,6 +9,7 @@ using Poink.Sim.Components.Charts;
 using Poink.Sim.Models;
 using Poink.Sim.Profiler;
 using Poink.Sim.Repository;
+using Poink.Sim.Services.Charts;
 
 namespace Poink.Sim.Components.Pages
 {
@@ -25,6 +26,9 @@ namespace Poink.Sim.Components.Pages
 
 		[Inject]
 		private ITRangeReferenceChartRepository TRangeReferenceChartRepository { get; set; } = default!;
+
+		[Inject]
+		private IBarKindChartService BarKindChartService { get; set; } = default!;
 
 		private const int BarsPerFetch = 300;
 
@@ -135,7 +139,15 @@ namespace Poink.Sim.Components.Pages
 		private bool _showXGrid = true;
 		private bool _showVolumeProfile = false;
 		private bool _showTimeProfile = false;
-		private bool _showMetricsPanel;
+		private bool _showSubchart = false;
+
+		private int _subchartBarSizeSeconds = 10;
+		private BarAggregationKind _subchartBarKind = BarAggregationKind.Ohlc;
+		private List<CTraderBarRow> _subchartBars = new();
+		private List<ChartLinePoint> _subchartMedianLine = new();
+		private bool _subchartLoading;
+		private string? _subchartError;
+		private (string Table, DateTime Start, DateTime End, int BarWidthSeconds, BarAggregationKind BarKind)? _subchartLoadedFor;
 
 		private HashSet<int> _selectedDrawingIds = new();
 		private HashSet<int> _savedDrawingIds = new();
@@ -160,7 +172,7 @@ namespace Poink.Sim.Components.Pages
 		private ElementReference _chartDividerRefXGrid;
 		private ElementReference _chartDividerRef;
 		private ElementReference _chartDividerRef2;
-		private ElementReference _chartDividerRefMetrics;
+		private ElementReference _chartDividerRefSubchart;
 		private ElementReference _chartHDividerRef;
 		private IJSObjectReference? _dividerResizeInstance;
 		private HashSet<string> _lastVisiblePanels = new();
@@ -276,10 +288,12 @@ namespace Poink.Sim.Components.Pages
 					await _dividerResizeInstance.InvokeVoidAsync("bind", _chartDividerRef);
 				if (_showTimeProfile)
 					await _dividerResizeInstance.InvokeVoidAsync("bind", _chartDividerRef2);
-				if (_showMetricsPanel)
-					await _dividerResizeInstance.InvokeVoidAsync("bind", _chartDividerRefMetrics);
+				if (_showSubchart)
+					await _dividerResizeInstance.InvokeVoidAsync("bind", _chartDividerRefSubchart);
 				await _dividerResizeInstance.InvokeVoidAsync("bindHeight", _chartHDividerRef);
 			}
+
+			await RefreshSubchartIfNeeded();
 		}
 
 		private HashSet<string> CurrentVisiblePanelKeys()
@@ -289,7 +303,7 @@ namespace Poink.Sim.Components.Pages
 			if (_showXGrid) keys.Add("xgrid");
 			if (_showVolumeProfile) keys.Add("volume");
 			if (_showTimeProfile) keys.Add("time");
-			if (_showMetricsPanel) keys.Add("metrics");
+			if (_showSubchart) keys.Add("subchart");
 			return keys;
 		}
 
@@ -344,6 +358,9 @@ namespace Poink.Sim.Components.Pages
 			_savedDrawingIds.Clear();
 			_volumeRangeStart = null;
 			_volumeRangeEnd = null;
+			_subchartBars = new();
+			_subchartMedianLine = new();
+			_subchartLoadedFor = null;
 			CancelLabelSelected();
 
 			try
@@ -428,6 +445,40 @@ namespace Poink.Sim.Components.Pages
 
 			_autoLoadPending = false;
 			await Load();
+		}
+
+		// Re-aggregates the active Lookback Window at the subchart's own bar size/kind -- only when
+		// the panel is open and the window/settings actually changed, since this runs every render.
+		private async Task RefreshSubchartIfNeeded()
+		{
+			if (!_showSubchart || _config is null || _volumeRangeStart is not { } start || _volumeRangeEnd is not { } end || _subchartLoading)
+				return;
+
+			var key = (_config.Table, start, end, _subchartBarSizeSeconds, _subchartBarKind);
+			if (_subchartLoadedFor == key)
+				return;
+
+			_subchartLoading = true;
+			_subchartError = null;
+			StateHasChanged();
+
+			try
+			{
+				var (bars, medianLine) = await BarKindChartService.BuildBarsAsync(
+					_config.Table, start, end, _subchartBarSizeSeconds, _subchartBarKind);
+				_subchartBars = bars;
+				_subchartMedianLine = medianLine;
+				_subchartLoadedFor = key;
+			}
+			catch (Exception ex)
+			{
+				_subchartError = ex.Message;
+			}
+			finally
+			{
+				_subchartLoading = false;
+			}
+			StateHasChanged();
 		}
 
 		private void AddHorizontalLine(double price) =>
