@@ -318,8 +318,8 @@
                         </div>
                         @if (_marketChartBarKind == BarAggregationKind.Quartile)
                         {
-                            <p class="analize-caption" title="The chart has no dedicated box-plot series, so each bar's five-number summary is drawn through the candle shape instead">
-                                quartile box plot -- candle body is Q1-Q3, wicks are Min-Max (hover shows them labeled O/H/L/C)
+                            <p class="analize-caption" title="The chart has no dedicated box-plot series, so each bar's five-number summary is drawn through the candle shape plus a dotted overlay line">
+                                quartile box plot -- candle body is Q1-Q3, wicks are Min-Max (hover shows them labeled O/H/L/C), dotted line is the Median
                             </p>
                         }
                         @if (_marketChartError is not null)
@@ -332,7 +332,7 @@
                         }
                         else
                         {
-                            <MarketChartContainer Bars="_marketChartBars" Interactive="false" />
+                            <MarketChartContainer Bars="_marketChartBars" MedianLine="_marketChartMedianLine" Interactive="false" />
                         }
                     </div>
                 }

@@ -769,6 +769,15 @@ export function create(container, minimapContainer, dotNetRef, interactive) {
         crosshairMarkerVisible: false, title: 'VWAP',
     });
 
+    // Median overlay -- same shape as VWAP above, but its own series/colour so the two can
+    // be shown at once; feeds AnalizePage's quartile-bar box plot (see MarketChart.razor.cs's
+    // MedianLine parameter), which has no other way to surface a bar's Median value.
+    const medianColor = getComputedStyle(container).getPropertyValue('--color-neutral').trim() || '#9a9a9a';
+    const medianSeries = chart.addSeries(LightweightCharts.LineSeries, {
+        color: medianColor, lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dotted,
+        priceLineVisible: false, lastValueVisible: true, crosshairMarkerVisible: false, title: 'Median',
+    });
+
     const tooltip = document.createElement('div');
     tooltip.style.cssText =
         'display:none;position:absolute;pointer-events:none;z-index:5;' +
@@ -787,12 +796,14 @@ export function create(container, minimapContainer, dotNetRef, interactive) {
 
         const vol = param.seriesData.get(volumeSeries);
         const vwap = param.seriesData.get(vwapSeries);
+        const median = param.seriesData.get(medianSeries);
         const d = new Date(param.time * 1000);
         tooltip.innerHTML =
             `<div>${d.toISOString().slice(0, 16).replace('T', ' ')}</div>` +
             `<div>O ${bar.open.toFixed(2)}  H ${bar.high.toFixed(2)}  L ${bar.low.toFixed(2)}  C ${bar.close.toFixed(2)}</div>` +
             (vol ? `<div>Vol ${vol.value.toLocaleString()}</div>` : '') +
-            (vwap ? `<div>VWAP ${vwap.value.toFixed(5)}</div>` : '');
+            (vwap ? `<div>VWAP ${vwap.value.toFixed(5)}</div>` : '') +
+            (median ? `<div>Median ${median.value.toFixed(5)}</div>` : '');
 
         tooltip.style.display = 'block';
         const left = Math.min(param.point.x + 12, container.clientWidth - tooltip.offsetWidth - 8);
@@ -875,7 +886,7 @@ export function create(container, minimapContainer, dotNetRef, interactive) {
 
     const id = crypto.randomUUID();
     const entry = {
-        chart, candleSeries, volumeSeries, vwapSeries, tooltip, verticalLines, diagonalLines, rangeFills, actionMarkers, accentColor, groupColors,
+        chart, candleSeries, volumeSeries, vwapSeries, medianSeries, tooltip, verticalLines, diagonalLines, rangeFills, actionMarkers, accentColor, groupColors,
         horizontalLineObjs: [], dotNetRef, hasData: false, pendingLoadMore: false,
         drawMode: null, drawClicks: [], bars: [], minimap: null,
         windowLine, windowEndLine, slColor, tpColor, entryColor: accentColor,
@@ -1048,6 +1059,13 @@ export function setVwapLine(id, points) {
     const entry = instances.get(id);
     if (!entry) return;
     entry.vwapSeries.setData(points.map(p => ({ time: p.time, value: p.price })));
+}
+
+// points: [{ time, price }] -- see MarketChart.razor.cs's MedianLine parameter.
+export function setMedianLine(id, points) {
+    const entry = instances.get(id);
+    if (!entry) return;
+    entry.medianSeries.setData(points.map(p => ({ time: p.time, value: p.price })));
 }
 
 function updatePriceLine(series, line, price, color, title, lineStyle = LightweightCharts.LineStyle.Dashed) {

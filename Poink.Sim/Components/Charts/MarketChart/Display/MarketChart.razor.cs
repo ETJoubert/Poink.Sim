@@ -115,6 +115,10 @@ namespace Poink.Sim.Components.Charts
 		[Parameter]
 		public IReadOnlyList<ChartLinePoint> VwapLine { get; set; } = Array.Empty<ChartLinePoint>();
 
+		/// <summary>Second price overlay, same shape as <see cref="VwapLine"/> -- see AnalizePage's quartile-bar box plot.</summary>
+		[Parameter]
+		public IReadOnlyList<ChartLinePoint> MedianLine { get; set; } = Array.Empty<ChartLinePoint>();
+
 		/// <summary>Caller owns the canonical lines lists and is expected to append + pass the updated list back down.</summary>
 		[Parameter]
 		public EventCallback<double> OnHorizontalLineDrawn { get; set; }
@@ -164,6 +168,7 @@ namespace Poink.Sim.Components.Charts
 		private IReadOnlyList<ChartRangeFill>? _renderedRangeFills;
 		private IReadOnlyList<ChartMarker>? _renderedMarkers;
 		private IReadOnlyList<ChartLinePoint>? _renderedVwapLine;
+		private IReadOnlyList<ChartLinePoint>? _renderedMedianLine;
 		private double? _renderedBid;
 		private double? _renderedAsk;
 		private double? _renderedEntryPrice;
@@ -240,6 +245,20 @@ namespace Poink.Sim.Components.Charts
 						price = p.Price,
 					});
 					await _module.InvokeVoidAsync("setVwapLine", _chartId, vwapPoints);
+				}
+
+				if (_disposed)
+					return;
+
+				if (_module is not null && _chartId is not null && !ReferenceEquals(_renderedMedianLine, MedianLine))
+				{
+					_renderedMedianLine = MedianLine;
+					var medianPoints = MedianLine.Select(p => new
+					{
+						time = new DateTimeOffset(p.TimeUtc, TimeSpan.Zero).ToUnixTimeSeconds(),
+						price = p.Price,
+					});
+					await _module.InvokeVoidAsync("setMedianLine", _chartId, medianPoints);
 				}
 
 				if (_disposed)

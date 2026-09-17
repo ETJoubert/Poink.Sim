@@ -85,6 +85,7 @@ namespace Poink.Sim.Components.Pages.Analize
 		};
 
 		private List<CTraderBarRow> _marketChartBars = new();
+		private List<ChartLinePoint> _marketChartMedianLine = new();
 		private bool _marketChartLoading;
 		private string? _marketChartError;
 		private int _marketChartBarWidthSeconds = 60;
@@ -291,7 +292,9 @@ namespace Poink.Sim.Components.Pages.Analize
 
 			try
 			{
-				_marketChartBars = await Task.Run(() => FetchMarketChartBars(table, from, to, barWidthSeconds, barKind));
+				var (bars, medianLine) = await Task.Run(() => FetchMarketChartBars(table, from, to, barWidthSeconds, barKind));
+				_marketChartBars = bars;
+				_marketChartMedianLine = medianLine;
 				_marketChartLoadedFor = (table, from, to, barWidthSeconds, barKind);
 			}
 			catch (Exception ex)
@@ -304,10 +307,16 @@ namespace Poink.Sim.Components.Pages.Analize
 			}
 		}
 
-		private List<CTraderBarRow> FetchMarketChartBars(string table, DateTime from, DateTime to, int barWidthSeconds, BarAggregationKind barKind) =>
+		private (List<CTraderBarRow> Bars, List<ChartLinePoint> MedianLine) FetchMarketChartBars(
+			string table,
+			DateTime from,
+			DateTime to,
+			int barWidthSeconds,
+			BarAggregationKind barKind
+		) =>
 			barKind == BarAggregationKind.Quartile
 				? FetchQuartileMarketChartBars(table, from, to, barWidthSeconds)
-				: FetchOhlcMarketChartBars(table, from, to, barWidthSeconds);
+				: (FetchOhlcMarketChartBars(table, from, to, barWidthSeconds), new List<ChartLinePoint>());
 
 		private List<CTraderBarRow> FetchOhlcMarketChartBars(string table, DateTime from, DateTime to, int barWidthSeconds)
 		{
@@ -324,9 +333,14 @@ namespace Poink.Sim.Components.Pages.Analize
 				.ToList();
 		}
 
-		// Reuses the candlestick chart as a box plot: Open/Close carry Q1/Q3 (the IQR box) and
-		// High/Low carry Min/Max (the whiskers); the price toolbar caption spells this mapping out for the viewer.
-		private List<CTraderBarRow> FetchQuartileMarketChartBars(string table, DateTime from, DateTime to, int barWidthSeconds)
+		// Reuses the candlestick chart as a box plot (Open/Close = Q1/Q3, High/Low = Min/Max, see the price
+		// toolbar caption); Median has no room left in that OHLC shape, so it rides along as its own overlay line.
+		private (List<CTraderBarRow> Bars, List<ChartLinePoint> MedianLine) FetchQuartileMarketChartBars(
+			string table,
+			DateTime from,
+			DateTime to,
+			int barWidthSeconds
+		)
 		{
 			var aggregator = new QuartileBarAggregator(TimeSpan.FromSeconds(barWidthSeconds));
 			var bars = new List<QuartileBar>();
@@ -336,7 +350,9 @@ namespace Poink.Sim.Components.Pages.Analize
 			if (aggregator.CurrentPartialBar is { } partial)
 				bars.Add(partial);
 
-			return bars.Select(b => new CTraderBarRow(b.OpenTime, b.Q1, b.Max, b.Min, b.Q3, b.Count)).ToList();
+			var rows = bars.Select(b => new CTraderBarRow(b.OpenTime, b.Q1, b.Max, b.Min, b.Q3, b.Count)).ToList();
+			var medianLine = bars.Select(b => new ChartLinePoint(b.OpenTime, b.Median)).ToList();
+			return (rows, medianLine);
 		}
 	}
 }

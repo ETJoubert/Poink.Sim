@@ -73,6 +73,9 @@ namespace Poink.Sim.Components.Charts
 		public IReadOnlyList<ChartLinePoint> VwapLine { get; set; } = Array.Empty<ChartLinePoint>();
 
 		[Parameter]
+		public IReadOnlyList<ChartLinePoint> MedianLine { get; set; } = Array.Empty<ChartLinePoint>();
+
+		[Parameter]
 		public EventCallback<double> OnHorizontalLineDrawn { get; set; }
 
 		[Parameter]
