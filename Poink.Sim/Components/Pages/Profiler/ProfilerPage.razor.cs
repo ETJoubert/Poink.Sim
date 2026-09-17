@@ -46,6 +46,7 @@ namespace Poink.Sim.Components.Pages
 		private string? _error;
 
 		private PanelTab _activePanelTab;
+		private bool _rightPanelCollapsed;
 
 		private enum PanelTab
 		{

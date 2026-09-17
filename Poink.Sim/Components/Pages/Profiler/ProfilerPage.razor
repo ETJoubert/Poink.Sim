@@ -48,6 +48,8 @@
         </div>
     </div>
 
+    <div class="prof-body">
+    <main class="prof-main">
     @if (HasData)
     {
         <div class="prof-chart-toolbar">
@@ -228,19 +230,31 @@
     {
         <p class="prof-empty">Pick a symbol and date range above, then LOAD to view its bar chart and volume profile.</p>
     }
+    </main>
 
-    <div class="prof-log-panel">
-
-        <div class="prof-log-tabs">
-            <button class="prof-tab-btn @(_activePanelTab == PanelTab.Drawings ? "active" : "")"
+    <aside class="prof-right-side-panel @(_rightPanelCollapsed ? "prof-right-side-panel-collapsed" : "")">
+        <div class="prof-side-panel-header">
+            <button type="button" class="prof-side-panel-toggle" @onclick="() => _rightPanelCollapsed = !_rightPanelCollapsed"
+                    title="@(_rightPanelCollapsed ? "Expand panel" : "Collapse panel")">
+                <Icon Name="@(_rightPanelCollapsed ? "chevron-left" : "chevron-right")" Class="prof-side-panel-toggle-icon" />
+            </button>
+            @if (!_rightPanelCollapsed)
+            {
+                <span class="prof-side-panel-label">DRAWINGS</span>
+            }
+        </div>
+        @if (!_rightPanelCollapsed)
+        {
+        <div class="prof-side-panel-tabs">
+            <button class="prof-side-panel-tab @(_activePanelTab == PanelTab.Drawings ? "active" : "")"
                     @onclick="() => _activePanelTab = PanelTab.Drawings">DRAWINGS</button>
-            <button class="prof-tab-btn @(_activePanelTab == PanelTab.SavedTRangeCharts ? "active" : "")"
+            <button class="prof-side-panel-tab @(_activePanelTab == PanelTab.SavedTRangeCharts ? "active" : "")"
                     @onclick="() => _activePanelTab = PanelTab.SavedTRangeCharts">SAVED T-RANGE CHARTS</button>
-            <button class="prof-tab-btn @(_activePanelTab == PanelTab.SavedTRangeReferenceCharts ? "active" : "")"
+            <button class="prof-side-panel-tab @(_activePanelTab == PanelTab.SavedTRangeReferenceCharts ? "active" : "")"
                     @onclick="() => _activePanelTab = PanelTab.SavedTRangeReferenceCharts">SAVED T-RANGE REFERENCE
                 CHARTS</button>
             </div>
-            <div class="prof-log-content">
+            <div class="prof-side-panel-content">
                 @if (_activePanelTab == PanelTab.Drawings)
                 {
                     <div class="prof-drawings-panel" title="Everything drawn on the chart via the toolbar">
@@ -437,6 +451,7 @@
                         </div>
                     }
                 </div>
-            </div>
-
-        </div>
+            }
+        </aside>
+    </div>
+</div>

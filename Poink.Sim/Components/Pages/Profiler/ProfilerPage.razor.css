@@ -4,6 +4,18 @@
     min-height: 100%;
 }
 
+.prof-body {
+    display: flex;
+    align-items: stretch;
+}
+
+.prof-main {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+}
+
 .prof-topbar {
     position: sticky;
     top: 0;
@@ -329,11 +341,72 @@
     background: var(--color-primary);
 }
 
-.prof-log-panel {
+.prof-right-side-panel {
+    position: relative;
     display: flex;
     flex-direction: column;
-    padding: 18px 24px 24px;
+    width: 340px;
+    flex-shrink: 0;
+    border-left: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
+    overflow: hidden;
+    transition: width 0.15s ease;
+}
+
+.prof-right-side-panel-collapsed {
+    width: 28px;
+}
+
+.prof-side-panel-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    flex-shrink: 0;
+}
+
+.prof-side-panel-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    flex-shrink: 0;
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
+    border-radius: var(--border-radius-sm);
+    color: var(--color-secondary);
+    cursor: pointer;
+}
+
+.prof-side-panel-toggle:hover {
+    color: var(--color-primary);
+    border-color: var(--color-primary);
+}
+
+::deep .prof-side-panel-toggle-icon {
+    width: 12px;
+    height: 12px;
+}
+
+.prof-side-panel-label {
+    font-size: 0.72rem;
+    font-weight: bold;
+    color: var(--color-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.prof-side-panel-content {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px 16px 24px;
+    overflow-y: auto;
     flex: 1;
+    min-height: 0;
+    min-width: 0;
 }
 
 .prof-chart-toolbar {
@@ -482,7 +555,7 @@
     color: var(--color-bg-dark);
 }
 
-.prof-log-tabs {
+.prof-side-panel-tabs {
     display: flex;
     align-items: center;
     gap: 4px;
@@ -491,7 +564,7 @@
     border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
 }
 
-.prof-tab-btn {
+.prof-side-panel-tab {
     font-family: var(--font-body);
     font-weight: bold;
     font-size: 11px;
@@ -507,19 +580,15 @@
     transition: all 0.2s ease;
 }
 
-.prof-tab-btn:hover {
+.prof-side-panel-tab:hover {
     opacity: 1;
 }
 
-.prof-tab-btn.active {
+.prof-side-panel-tab.active {
     opacity: 1;
     color: var(--color-primary);
     border-bottom-color: var(--color-primary);
     text-shadow: 0 0 8px color-mix(in srgb, var(--color-primary) 45%, transparent);
-}
-
-.prof-log-content {
-    min-width: 0;
 }
 
 .prof-drawings-panel {
