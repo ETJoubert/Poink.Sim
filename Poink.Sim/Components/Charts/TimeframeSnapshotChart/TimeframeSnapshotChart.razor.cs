@@ -36,6 +36,7 @@ namespace Poink.Sim.Components.Charts
 		private static readonly int[] DefaultSelectedSeconds = { 60, 120, 240, 480, 900, 1800, 3600, 7200 };
 
 		private BarAggregationKind _barKind = BarAggregationKind.Ohlc;
+		private bool _showHighLowLines;
 		private HashSet<int> _selectedSeconds = DefaultSelectedSeconds.ToHashSet();
 		private List<(int LookbackSeconds, CTraderBarRow Bar)> _bars = new();
 		private (string Table, DateTime AnchorEnd, BarAggregationKind BarKind, string SelectedKey)? _loadedFor;
@@ -46,6 +47,7 @@ namespace Poink.Sim.Components.Charts
 		private IJSObjectReference? _module;
 		private List<(int LookbackSeconds, CTraderBarRow Bar)>? _renderedBars;
 		private double? _renderedLatestPrice;
+		private bool _renderedShowHighLowLines;
 		private bool _disposed;
 
 		protected override async Task OnParametersSetAsync() => await RefreshIfNeeded();
@@ -57,6 +59,8 @@ namespace Poink.Sim.Components.Charts
 			_barKind = kind;
 			await RefreshIfNeeded();
 		}
+
+		private void ToggleHighLowLines() => _showHighLowLines = !_showHighLowLines;
 
 		private async Task ToggleTimeframe(int seconds)
 		{
@@ -117,10 +121,15 @@ namespace Poink.Sim.Components.Charts
 						return;
 				}
 
-				if (!ReferenceEquals(_renderedBars, _bars) || _renderedLatestPrice != LatestPrice)
+				if (
+					!ReferenceEquals(_renderedBars, _bars)
+					|| _renderedLatestPrice != LatestPrice
+					|| _renderedShowHighLowLines != _showHighLowLines
+				)
 				{
 					_renderedBars = _bars;
 					_renderedLatestPrice = LatestPrice;
+					_renderedShowHighLowLines = _showHighLowLines;
 
 					var payload = _bars.Select(pair => new
 					{
@@ -131,7 +140,7 @@ namespace Poink.Sim.Components.Charts
 						close = pair.Bar.Close,
 					});
 
-					await _module.InvokeVoidAsync("render", _canvasRef, payload, LatestPrice);
+					await _module.InvokeVoidAsync("render", _canvasRef, payload, LatestPrice, _showHighLowLines);
 				}
 			}
 			catch (JSDisconnectedException) { }

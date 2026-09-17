@@ -19,6 +19,10 @@
                         @onclick="() => SetBarKind(BarAggregationKind.MeanStdDev)"
                         title="Draw each bar as a volatility band -- Open/Close at the mean price, High/Low one standard deviation above/below it">Mean&plusmn;SD</button>
             </div>
+            <span class="tf-snapshot-divider"></span>
+            <button type="button" class="tf-snapshot-toggle @(_showHighLowLines ? "active" : "")"
+                    @onclick="ToggleHighLowLines"
+                    title="Project every bar's High and Low as dashed lines across the whole chart, so you can compare every timeframe's high/low at a glance">H/L</button>
         </div>
         <div class="tf-snapshot-row tf-snapshot-timeframe-row"
              title="Pick which trailing windows to show -- one bar per selection, all ending at the same anchor time">

@@ -6,8 +6,8 @@ const PADDING = { top: 10, right: 64, bottom: 20, left: 8 };
 
 const state = new Map();
 
-export function render(canvas, bars, latestPrice) {
-    state.set(canvas, { bars: Array.from(bars), latestPrice: latestPrice ?? null });
+export function render(canvas, bars, latestPrice, showHighLowLines) {
+    state.set(canvas, { bars: Array.from(bars), latestPrice: latestPrice ?? null, showHighLowLines: !!showHighLowLines });
     draw(canvas);
 }
 
@@ -35,6 +35,7 @@ function draw(canvas) {
     const entry = state.get(canvas);
     const bars = entry?.bars ?? [];
     const latestPrice = entry?.latestPrice ?? null;
+    const showHighLowLines = entry?.showHighLowLines ?? false;
     if (bars.length === 0) return;
 
     const bullColor = cssVar('--color-success', '#00ff9d');
@@ -72,6 +73,26 @@ function draw(canvas) {
         ctx.textAlign = 'left';
         ctx.fillText(price.toFixed(5), width - PADDING.right + 4, y);
     });
+
+    if (showHighLowLines) {
+        ctx.save();
+        ctx.setLineDash([3, 3]);
+        ctx.globalAlpha = 0.35;
+        bars.forEach(bar => {
+            [
+                [bar.high, bullColor],
+                [bar.low, bearColor],
+            ].forEach(([price, color]) => {
+                const y = yFor(price);
+                ctx.strokeStyle = color;
+                ctx.beginPath();
+                ctx.moveTo(PADDING.left, y);
+                ctx.lineTo(width - PADDING.right, y);
+                ctx.stroke();
+            });
+        });
+        ctx.restore();
+    }
 
     bars.forEach((bar, i) => {
         const x = xFor(i);
