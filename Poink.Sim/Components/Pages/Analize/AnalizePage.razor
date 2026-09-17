@@ -255,7 +255,7 @@
                         }
                         @if (_returnSelectedSeries == "All" && ReturnService.Result?.SeriesBreakdown is not null)
                         {
-                            <HistogramChart Series="@ReturnAllSeriesChart" Title="TIME TO RETURN DISTRIBUTION -- ALL SERIES"
+                            <HistogramChart Series="@ReturnAllSeriesChart" SampleCount="@ReturnService.Result?.SampleCount" Title="TIME TO RETURN DISTRIBUTION -- ALL SERIES"
                                              EmptyMessage="Set a window and click RUN (Return Probability) in the left panel to see the distribution" />
                         }
                         else

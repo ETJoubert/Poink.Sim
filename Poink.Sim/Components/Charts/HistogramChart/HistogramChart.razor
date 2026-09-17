@@ -26,7 +26,7 @@
                 <span></span>
                 <span class="hist-values-col">Count</span>
                 <span class="hist-values-col" title="This metric's share of its own total across every bucket">Own %</span>
-                <span class="hist-values-col" title="This metric's share of the grand total across every metric and every bucket">Grand %</span>
+                <span class="hist-values-col" title="This bucket's share of the run's total samples">Grand %</span>
             </div>
         }
         <div class="hist-body">
@@ -47,7 +47,7 @@
                             var bin = s.Bins[bucketIndex];
                             var seriesTotal = SeriesTotal(s);
                             <div class="hist-multi-series-row"
-                                 title="@($"{s.Name}: {bin.Count:N0} samples ({PercentOfSeriesTotalText(bin.Count, seriesTotal)}% of {s.Name}'s own total, {PercentOfGrandTotalText(bin.Count, grandTotal)}% of the grand total)")">
+                                 title="@($"{s.Name}: {bin.Count:N0} samples ({PercentOfSeriesTotalText(bin.Count, seriesTotal)}% of {s.Name}'s own total, {PercentOfGrandTotalText(bin.Count, grandTotal)}% of total samples)")">
                                 <span class="hist-multi-series-name" style="color: @s.Color">@s.Name</span>
                                 <div class="hist-row-track">
                                     <div class="hist-row-bar" style="width: @(BarWidthPercent(bin.Count, SeriesMaxCount))%; background: @s.Color;"></div>

@@ -33,6 +33,10 @@ namespace Poink.Sim.Components.Charts
 		[Parameter]
 		public string EmptyMessage { get; set; } = "no data yet";
 
+		/// <summary>Total samples the multi-series run was computed over; drives Grand % when set. Falls back to the summed series bins when omitted.</summary>
+		[Parameter]
+		public long? SampleCount { get; set; }
+
 		private long TotalCount => Bins.Sum(b => b.Count);
 
 		private long MaxCount => Bins.Count == 0 ? 0 : Bins.Max(b => b.Count);
@@ -55,8 +59,8 @@ namespace Poink.Sim.Components.Charts
 		private static string PercentOfSeriesTotalText(long count, long seriesTotal) =>
 			(seriesTotal == 0 ? 0 : count * 100.0 / seriesTotal).ToString("N1");
 
-		// Every metric's every bucket summed together, unlike SeriesTotal's one-metric-only sum.
-		private long GrandTotal => Series is { Count: > 0 } s ? s.Sum(SeriesTotal) : 0;
+		// SampleCount reflects the run's actual sample size; summed series bins would double-count across metrics.
+		private long GrandTotal => SampleCount ?? (Series is { Count: > 0 } s ? s.Sum(SeriesTotal) : 0);
 
 		private static string PercentOfGrandTotalText(long count, long grandTotal) =>
 			(grandTotal == 0 ? 0 : count * 100.0 / grandTotal).ToString("N1");
