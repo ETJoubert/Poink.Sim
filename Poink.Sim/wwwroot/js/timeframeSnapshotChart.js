@@ -2,7 +2,7 @@
 // selected timeframe as an OHLC/Quartile box, labelled underneath by its timeframe instead of a
 // timestamp, since each bar summarizes its own overlapping trailing window rather than a
 // sequential time series (see candlestickChart.js for the time-series version).
-const PADDING = { top: 10, right: 64, bottom: 20, left: 8 };
+const PADDING = { top: 22, right: 64, bottom: 20, left: 8 };
 const DEFAULT_HIGHLIGHT_WIDTH = 48;
 const MIN_HIGHLIGHT_WIDTH = 8;
 const RESIZE_HIT_RADIUS = 4;
@@ -20,6 +20,7 @@ export function render(canvas, options) {
         showVolumeProfile: !!options.showVolumeProfile,
         volumeProfile: Array.from(options.volumeProfile ?? []),
         highlightWidth: existing?.highlightWidth ?? DEFAULT_HIGHLIGHT_WIDTH,
+        hover: existing?.hover ?? null,
     });
     bindResize(canvas);
     draw(canvas);
@@ -45,19 +46,55 @@ function highlightBoundaryX(canvas) {
     return (canvas.clientWidth || 600) - PADDING.right - entry.highlightWidth;
 }
 
-// Drag-to-resize the highlight margin -- same pointer-capture pattern as the project's chart
-// dividers, but hit-tested against a canvas coordinate instead of a dedicated DOM element.
+// Layout shared by draw() and hover hit-testing, so the crosshair always lines up with what's drawn.
+function geometryFor(canvas, entry) {
+    const width = canvas.clientWidth || 600;
+    const height = canvas.clientHeight || 240;
+    const highlightWidth = hasMargin(entry) ? entry.highlightWidth : 0;
+    const chartWidth = width - PADDING.left - PADDING.right - highlightWidth;
+    const chartHeight = height - PADDING.top - PADDING.bottom;
+    const plotRight = PADDING.left + chartWidth;
+
+    const prices = entry.bars.flatMap(b => [b.low, b.high]);
+    if (entry.latestPrice !== null) prices.push(entry.latestPrice);
+    const minPrice = prices.length > 0 ? Math.min(...prices) : 0;
+    const maxPrice = prices.length > 0 ? Math.max(...prices) : 1;
+    const priceRange = (maxPrice - minPrice) || 1;
+    const slotWidth = entry.bars.length > 0 ? chartWidth / entry.bars.length : chartWidth;
+
+    return {
+        width,
+        height,
+        chartWidth,
+        chartHeight,
+        plotRight,
+        highlightWidth,
+        minPrice,
+        maxPrice,
+        priceRange,
+        slotWidth,
+        yFor: price => PADDING.top + chartHeight - ((price - minPrice) / priceRange) * chartHeight,
+        priceFor: y => minPrice + (1 - (y - PADDING.top) / chartHeight) * priceRange,
+        xFor: index => PADDING.left + index * slotWidth + slotWidth / 2,
+    };
+}
+
+// Drag-to-resize the highlight margin (same pointer-capture pattern as the project's chart
+// dividers, hit-tested against a canvas coordinate instead of a dedicated DOM element) and,
+// when not dragging, track the hovered bar/price for the crosshair readout.
 function bindResize(canvas) {
     if (resizeBound.has(canvas)) return;
     resizeBound.add(canvas);
 
     canvas.addEventListener('pointermove', e => {
+        const entry = state.get(canvas);
+        if (!entry) return;
         const rect = canvas.getBoundingClientRect();
         const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
         const drag = resizeDrag.get(canvas);
 
         if (drag?.dragging) {
-            const entry = state.get(canvas);
             const maxWidth = Math.max(MIN_HIGHLIGHT_WIDTH, rect.width * 0.5);
             const delta = drag.startX - x;
             entry.highlightWidth = Math.min(maxWidth, Math.max(MIN_HIGHLIGHT_WIDTH, drag.startWidth + delta));
@@ -67,6 +104,11 @@ function bindResize(canvas) {
 
         const boundaryX = highlightBoundaryX(canvas);
         canvas.style.cursor = boundaryX !== null && Math.abs(x - boundaryX) <= RESIZE_HIT_RADIUS ? 'col-resize' : 'default';
+
+        const geo = geometryFor(canvas, entry);
+        const inPlot = entry.bars.length > 0 && x >= PADDING.left && x <= geo.plotRight && y >= PADDING.top && y <= PADDING.top + geo.chartHeight;
+        entry.hover = inPlot ? { index: Math.min(entry.bars.length - 1, Math.max(0, Math.floor((x - PADDING.left) / geo.slotWidth))), y } : null;
+        draw(canvas);
     });
 
     canvas.addEventListener('pointerdown', e => {
@@ -83,6 +125,14 @@ function bindResize(canvas) {
         if (resizeDrag.get(canvas)?.dragging) {
             canvas.releasePointerCapture(e.pointerId);
             resizeDrag.set(canvas, { dragging: false });
+        }
+    });
+
+    canvas.addEventListener('pointerleave', () => {
+        const entry = state.get(canvas);
+        if (entry?.hover) {
+            entry.hover = null;
+            draw(canvas);
         }
     });
 }
@@ -115,23 +165,9 @@ function draw(canvas) {
     const gridColor = 'rgba(255,255,255,0.08)';
     const labelColor = 'rgba(255,255,255,0.5)';
 
-    const highlightWidth = hasMargin(entry) ? entry.highlightWidth : 0;
-    const chartWidth = width - PADDING.left - PADDING.right - highlightWidth;
-    const chartHeight = height - PADDING.top - PADDING.bottom;
-    const plotRight = PADDING.left + chartWidth;
-
-    const prices = bars.flatMap(b => [b.low, b.high]);
-    if (latestPrice !== null) prices.push(latestPrice);
-    const minPrice = Math.min(...prices);
-    const maxPrice = Math.max(...prices);
-    const priceRange = (maxPrice - minPrice) || 1;
-
-    const slotWidth = chartWidth / bars.length;
+    const { chartWidth, chartHeight, plotRight, highlightWidth, minPrice, maxPrice, slotWidth, yFor, priceFor, xFor } =
+        geometryFor(canvas, entry);
     const bodyWidth = Math.max(1, slotWidth * 0.5);
-
-    const yFor = price => PADDING.top + chartHeight - ((price - minPrice) / priceRange) * chartHeight;
-    const priceFor = y => minPrice + (1 - (y - PADDING.top) / chartHeight) * priceRange;
-    const xFor = index => PADDING.left + index * slotWidth + slotWidth / 2;
 
     if (highlightWidth > 0) {
         // Coverage histogram: each row's bar length is how many displayed bars' High-Low range
@@ -244,5 +280,55 @@ function draw(canvas) {
         ctx.fillStyle = latestColor;
         ctx.textAlign = 'left';
         ctx.fillText(latestPrice.toFixed(5), width - PADDING.right + 4, y);
+    }
+
+    // Crosshair: vertical line snaps to the hovered bar's center (bars are discrete columns, not a
+    // continuous series), horizontal line follows the cursor exactly for a precise price readout.
+    if (entry.hover) {
+        const bar = bars[entry.hover.index];
+        const x = xFor(entry.hover.index);
+        const cursorY = Math.min(Math.max(entry.hover.y, PADDING.top), PADDING.top + chartHeight);
+        const cursorPrice = priceFor(cursorY);
+
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+        ctx.setLineDash([2, 2]);
+        ctx.beginPath();
+        ctx.moveTo(x, PADDING.top);
+        ctx.lineTo(x, PADDING.top + chartHeight);
+        ctx.moveTo(PADDING.left, cursorY);
+        ctx.lineTo(width - PADDING.right, cursorY);
+        ctx.stroke();
+        ctx.restore();
+
+        const priceText = cursorPrice.toFixed(5);
+        ctx.font = 'bold 11px monospace';
+        ctx.textBaseline = 'middle';
+        const tagWidth = ctx.measureText(priceText).width + 8;
+        ctx.fillStyle = 'rgba(0,0,0,0.75)';
+        ctx.fillRect(width - PADDING.right + 2, cursorY - 8, tagWidth, 16);
+        ctx.fillStyle = '#fff';
+        ctx.textAlign = 'left';
+        ctx.fillText(priceText, width - PADDING.right + 6, cursorY);
+
+        ctx.font = '11px monospace';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = labelColor;
+        let readout =
+            `${bar.label}   O ${bar.open.toFixed(5)}   H ${bar.high.toFixed(5)}   ` +
+            `L ${bar.low.toFixed(5)}   C ${bar.close.toFixed(5)}   Vol ${bar.volume.toLocaleString()}`;
+
+        if (showHighLowLines) {
+            const hlCount = bars.filter(b => cursorPrice >= b.low && cursorPrice <= b.high).length;
+            readout += `   HL ${hlCount}/${bars.length}`;
+        }
+
+        if (showVolumeProfile && volumeProfile.length > 0) {
+            const bucket = volumeProfile.find(b => cursorPrice >= b.low && cursorPrice <= b.high);
+            readout += `   VP ${(bucket?.count ?? 0).toLocaleString()}`;
+        }
+
+        ctx.fillText(readout, PADDING.left, PADDING.top / 2);
     }
 }

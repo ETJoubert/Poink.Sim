@@ -149,6 +149,7 @@ namespace Poink.Sim.Components.Charts
 							high = pair.Bar.High,
 							low = pair.Bar.Low,
 							close = pair.Bar.Close,
+							volume = pair.Bar.Volume,
 						}),
 						latestPrice = LatestPrice,
 						showHighLowLines = _showHighLowLines,
