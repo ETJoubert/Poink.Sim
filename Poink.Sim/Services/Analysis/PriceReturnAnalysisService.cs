@@ -351,103 +351,178 @@ internal sealed class PriceReturnAnalysisService : IPriceReturnAnalysisService
 		Func<TBar, double> selectStartValue
 	)
 	{
-		var results = new List<(bool Returned, double Value)>();
+		if (bars.Count == 0)
+			return new List<(bool Returned, double Value)>();
 
-		for (var i = 0; i < bars.Count; i++)
+		var chunkCount = Math.Min(WorkerCount, bars.Count);
+		var chunkResults = new List<(bool Returned, double Value)>[chunkCount];
+
+		try
 		{
-			if (_cancelRequested)
-				throw new OperationCanceledException();
-
-			var barEndTime = selectOpenTime(bars[i]) + barSize;
-			if (barEndTime < from || barEndTime > to)
-				continue;
-
-			var lastIndex = i + windowBars;
-			if (lastIndex >= bars.Count)
-				continue;
-
-			var startValue = selectStartValue(bars[i]);
-			var runningMin = double.PositiveInfinity;
-			var runningMax = double.NegativeInfinity;
-			var returnedAtOffset = -1;
-			for (var j = i + 1; j <= lastIndex; j++)
-			{
-				var low = selectLow(bars[j]);
-				var high = selectHigh(bars[j]);
-				if (low < runningMin)
-					runningMin = low;
-				if (high > runningMax)
-					runningMax = high;
-				if (runningMin <= startValue && runningMax >= startValue)
+			Parallel.For(
+				0,
+				chunkCount,
+				chunkIndex =>
 				{
-					returnedAtOffset = j - i;
-					break;
+					var results = new List<(bool Returned, double Value)>();
+					for (var i = chunkIndex; i < bars.Count; i += chunkCount)
+					{
+						if (_cancelRequested)
+							throw new OperationCanceledException();
+
+						var barEndTime = selectOpenTime(bars[i]) + barSize;
+						if (barEndTime < from || barEndTime > to)
+							continue;
+
+						var lastIndex = i + windowBars;
+						if (lastIndex >= bars.Count)
+							continue;
+
+						var startValue = selectStartValue(bars[i]);
+						var runningMin = double.PositiveInfinity;
+						var runningMax = double.NegativeInfinity;
+						var returnedAtOffset = -1;
+						for (var j = i + 1; j <= lastIndex; j++)
+						{
+							var low = selectLow(bars[j]);
+							var high = selectHigh(bars[j]);
+							if (low < runningMin)
+								runningMin = low;
+							if (high > runningMax)
+								runningMax = high;
+							if (runningMin <= startValue && runningMax >= startValue)
+							{
+								returnedAtOffset = j - i;
+								break;
+							}
+						}
+
+						// 0-indexed (bar 1 after the start = offset 0) so it buckets 1:1 with ComputeStats' bucketCount=windowBars.
+						results.Add(returnedAtOffset > 0 ? (true, returnedAtOffset - 1) : (false, 0));
+					}
+					chunkResults[chunkIndex] = results;
 				}
-			}
-
-			// 0-indexed (bar 1 after the start = offset 0) so it buckets 1:1 with ComputeStats' bucketCount=windowBars.
-			results.Add(returnedAtOffset > 0 ? (true, returnedAtOffset - 1) : (false, 0));
+			);
+		}
+		catch (AggregateException ex) when (ex.Flatten().InnerExceptions.Any(e => e is OperationCanceledException))
+		{
+			throw new OperationCanceledException();
 		}
 
-		return results;
+		var merged = new List<(bool Returned, double Value)>(chunkResults.Sum(c => c.Count));
+		foreach (var chunk in chunkResults)
+			merged.AddRange(chunk);
+		return merged;
 	}
 
-	private List<QuartileBar> AggregateQuartileBars(string table, DateTime from, DateTime to, TimeSpan barSize)
+	private List<QuartileBar> AggregateQuartileBars(string table, DateTime from, DateTime to, TimeSpan barSize) =>
+		AggregateInParallel(
+			table,
+			from,
+			to,
+			barSize,
+			() => new QuartileBarAggregator(barSize),
+			(QuartileBarAggregator aggregator, Tick tick) => aggregator.Feed(tick),
+			aggregator => aggregator.CurrentPartialBar
+		);
+
+	private List<HlocAvdtBar> AggregateBars(string table, DateTime from, DateTime to, TimeSpan barSize) =>
+		AggregateInParallel(
+			table,
+			from,
+			to,
+			barSize,
+			() => new SimulationBarAggregator(barSize, PriceBucketWidth),
+			(SimulationBarAggregator aggregator, Tick tick) => aggregator.Feed(tick)?.Bar,
+			aggregator => aggregator.CurrentPartialBar
+		);
+
+	// Chunk boundaries are bar-aligned (see SplitIntoBarAlignedChunks), so each chunk's trailing
+	// CurrentPartialBar is a genuinely complete bar, not the true partial one at the range's very end.
+	private List<TBar> AggregateInParallel<TAggregator, TBar>(
+		string table,
+		DateTime from,
+		DateTime to,
+		TimeSpan barSize,
+		Func<TAggregator> createAggregator,
+		Func<TAggregator, Tick, TBar?> feed,
+		Func<TAggregator, TBar?> currentPartialBar
+	)
+		where TBar : struct
 	{
 		var totalTicks = _tickRepository.CountTicks(table, from, to);
-		long processed = 0;
+		_processedCount = 0;
 
-		var aggregator = new QuartileBarAggregator(barSize);
-		var bars = new List<QuartileBar>();
-		foreach (var tick in _tickRepository.ReadTicks(table, from, to))
+		var chunks = SplitIntoBarAlignedChunks(from, to, barSize, WorkerCount);
+		var chunkResults = new List<TBar>[chunks.Count];
+
+		try
 		{
-			if (_cancelRequested)
-				throw new OperationCanceledException();
+			Parallel.For(
+				0,
+				chunks.Count,
+				i =>
+				{
+					var (chunkFrom, chunkTo) = chunks[i];
+					var aggregator = createAggregator();
+					var bars = new List<TBar>();
 
-			if (aggregator.Feed(tick) is { } completed)
-				bars.Add(completed);
+					foreach (var tick in _tickRepository.ReadTicks(table, chunkFrom, chunkTo))
+					{
+						if (_cancelRequested)
+							throw new OperationCanceledException();
 
-			processed++;
-			if (processed % ProgressReportInterval == 0)
-			{
-				lock (_lock)
-					ProgressPercent = totalTicks > 0 ? Math.Min(90, processed * 90.0 / totalTicks) : 0;
-				OnChanged?.Invoke();
-			}
+						if (feed(aggregator, tick) is { } completed)
+							bars.Add(completed);
+
+						var processed = Interlocked.Increment(ref _processedCount);
+						if (processed % ProgressReportInterval == 0)
+						{
+							lock (_lock)
+								ProgressPercent = totalTicks > 0 ? Math.Min(90, processed * 90.0 / totalTicks) : 0;
+							OnChanged?.Invoke();
+						}
+					}
+					if (currentPartialBar(aggregator) is { } partial)
+						bars.Add(partial);
+
+					chunkResults[i] = bars;
+				}
+			);
 		}
-		if (aggregator.CurrentPartialBar is { } partial)
-			bars.Add(partial);
+		catch (AggregateException ex) when (ex.Flatten().InnerExceptions.Any(e => e is OperationCanceledException))
+		{
+			throw new OperationCanceledException();
+		}
 
-		return bars;
+		var result = new List<TBar>(chunkResults.Sum(c => c.Count));
+		foreach (var chunk in chunkResults)
+			result.AddRange(chunk);
+		return result;
 	}
 
-	private List<HlocAvdtBar> AggregateBars(string table, DateTime from, DateTime to, TimeSpan barSize)
+	// Boundaries land on a bar edge (a multiple of barSize.Ticks, the same reference the aggregators
+	// bucket by) so a chunk's ticks never split a bar across the parallel workers.
+	private static List<(DateTime From, DateTime To)> SplitIntoBarAlignedChunks(DateTime from, DateTime to, TimeSpan barSize, int count)
 	{
-		var totalTicks = _tickRepository.CountTicks(table, from, to);
-		long processed = 0;
-
-		var aggregator = new SimulationBarAggregator(barSize, PriceBucketWidth);
-		var bars = new List<HlocAvdtBar>();
-		foreach (var tick in _tickRepository.ReadTicks(table, from, to))
+		var chunkTicks = (to - from).Ticks / count;
+		var chunks = new List<(DateTime From, DateTime To)>(count);
+		var start = from;
+		for (var i = 0; i < count; i++)
 		{
-			if (_cancelRequested)
-				throw new OperationCanceledException();
-
-			if (aggregator.Feed(tick) is { } completed)
-				bars.Add(completed.Bar);
-
-			processed++;
-			if (processed % ProgressReportInterval == 0)
+			DateTime end;
+			if (i == count - 1)
+				end = to;
+			else
 			{
-				lock (_lock)
-					ProgressPercent = totalTicks > 0 ? Math.Min(90, processed * 90.0 / totalTicks) : 0;
-				OnChanged?.Invoke();
+				var rawTicks = start.AddTicks(chunkTicks).Ticks;
+				var alignedTicks = Math.Clamp(rawTicks - rawTicks % barSize.Ticks, start.Ticks, to.Ticks);
+				end = new DateTime(alignedTicks, start.Kind);
 			}
+			chunks.Add((start, end));
+			start = end;
 		}
-		if (aggregator.CurrentPartialBar is { } partial)
-			bars.Add(partial);
-
-		return bars;
+		return chunks;
 	}
 
 	private static PriceReturnDistributionResult BuildResult(
