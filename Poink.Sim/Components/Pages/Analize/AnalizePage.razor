@@ -1,6 +1,8 @@
 @page "/analize"
 @namespace Poink.Sim.Components.Pages.Analize
 @using Poink.Sim.Components.Charts
+@using Poink.Sim.Components.Shared.BarSizeSelect
+@using Poink.Sim.Components.Shared.DataTable
 @using Poink.Sim.Components.Shared.Icon
 @using Poink.Sim.Components.Shared.TickDataSource
 
@@ -83,17 +85,66 @@
         </aside>
 
         <main class="analize-main">
+            <div class="analize-tabs">
+                <button type="button" class="analize-btn-toggle @(_activeMainTab == AnalizeMainTab.Chart ? "analize-btn-toggle-active" : "")"
+                        @onclick="() => _activeMainTab = AnalizeMainTab.Chart" title="Bar chart view of the distribution">
+                    CHART
+                </button>
+                <button type="button" class="analize-btn-toggle @(_activeMainTab == AnalizeMainTab.Results ? "analize-btn-toggle-active" : "")"
+                        @onclick="() => _activeMainTab = AnalizeMainTab.Results" title="Raw bucket counts as a table">
+                    RESULTS
+                </button>
+                <button type="button" class="analize-btn-toggle @(_activeMainTab == AnalizeMainTab.Price ? "analize-btn-toggle-active" : "")"
+                        @onclick="SelectPriceTab" title="Price chart for the selected symbol and date range">
+                    PRICE
+                </button>
+            </div>
+
             <div class="analize-content">
-                <div class="card analize-card analize-card-fill" title="Time-above distribution for the selected data and window">
-                    <HistogramChart Bins="@ChartBins" Title="TIME ABOVE DISTRIBUTION" ValueUnit="%" ValueScale="100"
-                                     EmptyMessage="Set a window and click RUN in the left panel to see the distribution" />
-                    @if (AnalysisService.Result is { SampleCount: > 0 })
-                    {
-                        <p class="analize-caption" title="Each point's time above and time below the same window always add up to 100%">
-                            each bucket's mirror (100% minus its value) is that same time spent below -- see DETAILS for both explicitly
-                        </p>
-                    }
-                </div>
+                @if (_activeMainTab == AnalizeMainTab.Chart)
+                {
+                    <div class="card analize-card analize-card-fill" title="Time-above distribution for the selected data and window">
+                        <HistogramChart Bins="@ChartBins" Title="TIME ABOVE DISTRIBUTION" ValueUnit="%" ValueScale="100"
+                                         EmptyMessage="Set a window and click RUN in the left panel to see the distribution" />
+                        @if (AnalysisService.Result is { SampleCount: > 0 })
+                        {
+                            <p class="analize-caption" title="Each point's time above and time below the same window always add up to 100%">
+                                each bucket's mirror (100% minus its value) is that same time spent below -- see DETAILS for both explicitly
+                            </p>
+                        }
+                    </div>
+                }
+                else if (_activeMainTab == AnalizeMainTab.Results)
+                {
+                    <div class="card analize-card analize-card-fill" title="Raw bucket counts for the most recently completed run">
+                        <DataTable TItem="AnalizeBinRow" Items="@ResultRows" ShowActions="false" ShowRowNumbers="false"
+                                   EmptyMessage="Set a window and click RUN in the left panel to see results" />
+                    </div>
+                }
+                else
+                {
+                    <div class="card analize-card analize-card-fill" title="Price chart for the selected symbol and date range">
+                        <div class="analize-price-toolbar">
+                            <BarSizeSelect @bind-Value="_marketChartBarWidthSeconds" Disabled="_marketChartLoading" />
+                            <button type="button" class="analize-btn" @onclick="LoadMarketChartAsync" disabled="@_marketChartLoading"
+                                    title="Reload the price chart for the current symbol, date range and bar width">
+                                @(_marketChartLoading ? "LOADING..." : "RELOAD")
+                            </button>
+                        </div>
+                        @if (_marketChartError is not null)
+                        {
+                            <p class="analize-error">@_marketChartError</p>
+                        }
+                        @if (_marketChartBars.Count == 0)
+                        {
+                            <p class="analize-side-panel-placeholder">@(_marketChartLoading ? "loading..." : "no bars for this range")</p>
+                        }
+                        else
+                        {
+                            <MarketChartContainer Bars="_marketChartBars" Interactive="false" />
+                        }
+                    </div>
+                }
             </div>
         </main>
 

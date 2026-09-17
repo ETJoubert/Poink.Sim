@@ -47,6 +47,39 @@
     min-width: 0;
 }
 
+.analize-tabs {
+    display: flex;
+    gap: 8px;
+    padding: 16px 24px 0;
+    flex-shrink: 0;
+}
+
+.analize-btn-toggle {
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
+    color: var(--color-secondary);
+    border-radius: var(--border-radius-sm);
+    font-family: var(--font-body);
+    font-size: 0.62rem;
+    font-weight: bold;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 7px 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.analize-btn-toggle:hover {
+    background: color-mix(in srgb, var(--color-secondary) 12%, transparent);
+    box-shadow: var(--shadow-glow-secondary);
+}
+
+.analize-btn-toggle-active {
+    background: color-mix(in srgb, var(--color-primary) 22%, transparent);
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+}
+
 .analize-content {
     display: flex;
     flex-direction: column;
@@ -324,5 +357,12 @@
     color: var(--color-secondary);
     opacity: 0.75;
     margin: 6px 0 0;
+    flex-shrink: 0;
+}
+
+.analize-price-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
     flex-shrink: 0;
 }
