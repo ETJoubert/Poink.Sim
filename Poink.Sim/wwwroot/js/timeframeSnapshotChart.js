@@ -3,11 +3,24 @@
 // timestamp, since each bar summarizes its own overlapping trailing window rather than a
 // sequential time series (see candlestickChart.js for the time-series version).
 const PADDING = { top: 10, right: 64, bottom: 20, left: 8 };
+const DEFAULT_HIGHLIGHT_WIDTH = 48;
+const MIN_HIGHLIGHT_WIDTH = 8;
+const RESIZE_HIT_RADIUS = 4;
 
 const state = new Map();
+const resizeDrag = new WeakMap();
+const resizeBound = new WeakSet();
 
-export function render(canvas, bars, latestPrice, showHighLowLines) {
-    state.set(canvas, { bars: Array.from(bars), latestPrice: latestPrice ?? null, showHighLowLines: !!showHighLowLines });
+export function render(canvas, bars, latestPrice, showHighLowLines, weightMode) {
+    const existing = state.get(canvas);
+    state.set(canvas, {
+        bars: Array.from(bars),
+        latestPrice: latestPrice ?? null,
+        showHighLowLines: !!showHighLowLines,
+        weightMode: weightMode ?? 'count',
+        highlightWidth: existing?.highlightWidth ?? DEFAULT_HIGHLIGHT_WIDTH,
+    });
+    bindResize(canvas);
     draw(canvas);
 }
 
@@ -18,6 +31,55 @@ export function dispose(canvas) {
 function cssVar(name, fallback) {
     const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
     return value || fallback;
+}
+
+// The highlight margin's left edge, in canvas CSS pixels -- null while there's no margin to drag (H/L off).
+function highlightBoundaryX(canvas) {
+    const entry = state.get(canvas);
+    if (!entry?.showHighLowLines || entry.bars.length === 0) return null;
+    return (canvas.clientWidth || 600) - PADDING.right - entry.highlightWidth;
+}
+
+// Drag-to-resize the highlight margin -- same pointer-capture pattern as the project's chart
+// dividers, but hit-tested against a canvas coordinate instead of a dedicated DOM element.
+function bindResize(canvas) {
+    if (resizeBound.has(canvas)) return;
+    resizeBound.add(canvas);
+
+    canvas.addEventListener('pointermove', e => {
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const drag = resizeDrag.get(canvas);
+
+        if (drag?.dragging) {
+            const entry = state.get(canvas);
+            const maxWidth = Math.max(MIN_HIGHLIGHT_WIDTH, rect.width * 0.5);
+            const delta = drag.startX - x;
+            entry.highlightWidth = Math.min(maxWidth, Math.max(MIN_HIGHLIGHT_WIDTH, drag.startWidth + delta));
+            draw(canvas);
+            return;
+        }
+
+        const boundaryX = highlightBoundaryX(canvas);
+        canvas.style.cursor = boundaryX !== null && Math.abs(x - boundaryX) <= RESIZE_HIT_RADIUS ? 'col-resize' : 'default';
+    });
+
+    canvas.addEventListener('pointerdown', e => {
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const boundaryX = highlightBoundaryX(canvas);
+        if (boundaryX === null || Math.abs(x - boundaryX) > RESIZE_HIT_RADIUS) return;
+
+        canvas.setPointerCapture(e.pointerId);
+        resizeDrag.set(canvas, { dragging: true, startX: x, startWidth: state.get(canvas).highlightWidth });
+    });
+
+    canvas.addEventListener('pointerup', e => {
+        if (resizeDrag.get(canvas)?.dragging) {
+            canvas.releasePointerCapture(e.pointerId);
+            resizeDrag.set(canvas, { dragging: false });
+        }
+    });
 }
 
 function draw(canvas) {
@@ -36,16 +98,20 @@ function draw(canvas) {
     const bars = entry?.bars ?? [];
     const latestPrice = entry?.latestPrice ?? null;
     const showHighLowLines = entry?.showHighLowLines ?? false;
+    const weightMode = entry?.weightMode ?? 'count';
     if (bars.length === 0) return;
 
     const bullColor = cssVar('--color-success', '#00ff9d');
     const bearColor = cssVar('--color-error', '#ff5f56');
     const latestColor = cssVar('--color-highlight', '#ffd166');
+    const highlightBarColor = cssVar('--color-secondary', '#00d4ff');
     const gridColor = 'rgba(255,255,255,0.08)';
     const labelColor = 'rgba(255,255,255,0.5)';
 
-    const chartWidth = width - PADDING.left - PADDING.right;
+    const highlightWidth = showHighLowLines ? entry.highlightWidth : 0;
+    const chartWidth = width - PADDING.left - PADDING.right - highlightWidth;
     const chartHeight = height - PADDING.top - PADDING.bottom;
+    const plotRight = PADDING.left + chartWidth;
 
     const prices = bars.flatMap(b => [b.low, b.high]);
     if (latestPrice !== null) prices.push(latestPrice);
@@ -57,7 +123,37 @@ function draw(canvas) {
     const bodyWidth = Math.max(1, slotWidth * 0.5);
 
     const yFor = price => PADDING.top + chartHeight - ((price - minPrice) / priceRange) * chartHeight;
+    const priceFor = y => minPrice + (1 - (y - PADDING.top) / chartHeight) * priceRange;
     const xFor = index => PADDING.left + index * slotWidth + slotWidth / 2;
+
+    // Right-margin coverage histogram: each row's bar length is how much of the bars' High-Low
+    // range covers that price, so it reads as "where the timeframes' ranges pile up" next to the
+    // H/L lines feeding it. weightMode picks what each bar counts as: 1 each (count), its own
+    // timeframe length (duration -- a 7d bar dominates regardless of how much actually traded),
+    // or its tick count (volume -- reflects how much actually traded in that window instead).
+    if (showHighLowLines) {
+        const weightOf =
+            weightMode === 'duration' ? bar => bar.seconds
+            : weightMode === 'volume' ? bar => bar.volume
+            : () => 1;
+        const totalWeight = bars.reduce((sum, b) => sum + weightOf(b), 0);
+        ctx.fillStyle = highlightBarColor;
+        ctx.globalAlpha = 0.55;
+        for (let y = PADDING.top; y < PADDING.top + chartHeight; y++) {
+            const price = priceFor(y + 0.5);
+            const covered = bars.filter(b => price >= b.low && price <= b.high);
+            const coverage = totalWeight > 0 ? covered.reduce((sum, b) => sum + weightOf(b), 0) / totalWeight : 0;
+            if (coverage <= 0) continue;
+            ctx.fillRect(plotRight, y, coverage * highlightWidth, 1);
+        }
+        ctx.globalAlpha = 1;
+
+        ctx.strokeStyle = gridColor;
+        ctx.beginPath();
+        ctx.moveTo(plotRight, PADDING.top);
+        ctx.lineTo(plotRight, PADDING.top + chartHeight);
+        ctx.stroke();
+    }
 
     ctx.font = '11px monospace';
     ctx.textBaseline = 'middle';

@@ -37,6 +37,7 @@ namespace Poink.Sim.Components.Charts
 
 		private BarAggregationKind _barKind = BarAggregationKind.Ohlc;
 		private bool _showHighLowLines;
+		private SnapshotWeightMode _weightMode = SnapshotWeightMode.Count;
 		private HashSet<int> _selectedSeconds = DefaultSelectedSeconds.ToHashSet();
 		private List<(int LookbackSeconds, CTraderBarRow Bar)> _bars = new();
 		private (string Table, DateTime AnchorEnd, BarAggregationKind BarKind, string SelectedKey)? _loadedFor;
@@ -48,6 +49,7 @@ namespace Poink.Sim.Components.Charts
 		private List<(int LookbackSeconds, CTraderBarRow Bar)>? _renderedBars;
 		private double? _renderedLatestPrice;
 		private bool _renderedShowHighLowLines;
+		private SnapshotWeightMode _renderedWeightMode;
 		private bool _disposed;
 
 		protected override async Task OnParametersSetAsync() => await RefreshIfNeeded();
@@ -61,6 +63,8 @@ namespace Poink.Sim.Components.Charts
 		}
 
 		private void ToggleHighLowLines() => _showHighLowLines = !_showHighLowLines;
+
+		private void SetWeightMode(SnapshotWeightMode mode) => _weightMode = mode;
 
 		private async Task ToggleTimeframe(int seconds)
 		{
@@ -125,22 +129,40 @@ namespace Poink.Sim.Components.Charts
 					!ReferenceEquals(_renderedBars, _bars)
 					|| _renderedLatestPrice != LatestPrice
 					|| _renderedShowHighLowLines != _showHighLowLines
+					|| _renderedWeightMode != _weightMode
 				)
 				{
 					_renderedBars = _bars;
 					_renderedLatestPrice = LatestPrice;
 					_renderedShowHighLowLines = _showHighLowLines;
+					_renderedWeightMode = _weightMode;
 
 					var payload = _bars.Select(pair => new
 					{
 						label = SnapshotTimeframeOptions.All.First(o => o.Seconds == pair.LookbackSeconds).Label,
+						seconds = pair.LookbackSeconds,
+						volume = pair.Bar.Volume,
 						open = pair.Bar.Open,
 						high = pair.Bar.High,
 						low = pair.Bar.Low,
 						close = pair.Bar.Close,
 					});
 
-					await _module.InvokeVoidAsync("render", _canvasRef, payload, LatestPrice, _showHighLowLines);
+					var weightMode = _weightMode switch
+					{
+						SnapshotWeightMode.Duration => "duration",
+						SnapshotWeightMode.Volume => "volume",
+						_ => "count",
+					};
+
+					await _module.InvokeVoidAsync(
+						"render",
+						_canvasRef,
+						payload,
+						LatestPrice,
+						_showHighLowLines,
+						weightMode
+					);
 				}
 			}
 			catch (JSDisconnectedException) { }

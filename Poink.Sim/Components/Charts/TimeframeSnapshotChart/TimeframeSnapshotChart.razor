@@ -23,6 +23,20 @@
             <button type="button" class="tf-snapshot-toggle @(_showHighLowLines ? "active" : "")"
                     @onclick="ToggleHighLowLines"
                     title="Project every bar's High and Low as dashed lines across the whole chart, so you can compare every timeframe's high/low at a glance">H/L</button>
+            @if (_showHighLowLines)
+            {
+                <div class="tf-snapshot-toggle-group" title="How the right-margin coverage histogram weighs each bar">
+                    <button type="button" class="tf-snapshot-toggle @(_weightMode == SnapshotWeightMode.Count ? "active" : "")"
+                            @onclick="() => SetWeightMode(SnapshotWeightMode.Count)"
+                            title="Count every bar equally, regardless of its timeframe or how many ticks fed it">Count</button>
+                    <button type="button" class="tf-snapshot-toggle @(_weightMode == SnapshotWeightMode.Duration ? "active" : "")"
+                            @onclick="() => SetWeightMode(SnapshotWeightMode.Duration)"
+                            title="Weight each bar by its timeframe length, so higher timeframes dominate the histogram regardless of how much actually traded">Duration</button>
+                    <button type="button" class="tf-snapshot-toggle @(_weightMode == SnapshotWeightMode.Volume ? "active" : "")"
+                            @onclick="() => SetWeightMode(SnapshotWeightMode.Volume)"
+                            title="Weight each bar by its tick count (Volume), so the histogram reflects how much actually traded in that window rather than how long the window spans">Volume</button>
+                </div>
+            }
         </div>
         <div class="tf-snapshot-row tf-snapshot-timeframe-row"
              title="Pick which trailing windows to show -- one bar per selection, all ending at the same anchor time">
