@@ -32,52 +32,146 @@
             @if (!_leftPanelCollapsed)
             {
                 <div class="analize-side-panel-tabs">
-                    <button type="button" class="analize-side-panel-tab active" title="Configure and run the time-above/below distribution analysis">
-                        TIME ABOVE/BELOW
+                    <button type="button" class="analize-side-panel-tab active" title="Configure and run an analysis">
+                        ANALYSES
                     </button>
                 </div>
                 <div class="analize-side-panel-content">
-                    <div class="card analize-card" title="For each point in time, what fraction of the next X minutes is price above that point">
-                        <div class="analize-card-title">Time Above/Below Distribution</div>
-
-                        <label class="analize-field" title="How many minutes forward to look from each point in the series">
-                            Window (minutes)
-                            <input class="analize-input" type="number" min="1" step="1" @bind="_windowMinutes"
-                                   disabled="@AnalysisService.IsRunning" />
-                        </label>
-
-                        @if (!AnalysisService.IsRunning)
-                        {
-                            <button type="button" class="analize-btn analize-btn-run" @onclick="RunAnalysis"
-                                    title="Streams every tick in the selected symbol/date range and computes the distribution -- can take a while on large ranges">
-                                RUN
+                    <div class="card analize-card @(_activeAnalysis == ActiveAnalysis.TimeAboveBelow ? "analize-card-active" : "")"
+                         title="For each point in time, what fraction of the next X minutes is price above that point">
+                        <div class="analize-card-title-row">
+                            <button type="button" class="analize-card-collapse-btn"
+                                    @onclick="() => _timeAboveBelowCardCollapsed = !_timeAboveBelowCardCollapsed"
+                                    title="@(_timeAboveBelowCardCollapsed ? "Expand" : "Collapse")">
+                                <Icon Name="@(_timeAboveBelowCardCollapsed ? "chevron-right" : "chevron-down")" Class="analize-card-collapse-icon" />
                             </button>
-                        }
-                        else
+                            <span class="analize-card-title">Time Above/Below Distribution</span>
+                            @if (_activeAnalysis == ActiveAnalysis.TimeAboveBelow)
+                            {
+                                <span class="analize-card-active-badge" title="Shown in the main and DETAILS panels">ACTIVE</span>
+                            }
+                            else
+                            {
+                                <button type="button" class="analize-card-view-btn" @onclick="() => _activeAnalysis = ActiveAnalysis.TimeAboveBelow"
+                                        title="Show this analysis's results in the main and DETAILS panels">
+                                    VIEW
+                                </button>
+                            }
+                        </div>
+
+                        @if (!_timeAboveBelowCardCollapsed)
                         {
-                            <button type="button" class="analize-btn analize-btn-cancel" @onclick="() => AnalysisService.Cancel()"
-                                    title="Stop the analysis currently in progress">
-                                CANCEL
-                            </button>
-                            <div class="analize-progress">
-                                <div class="analize-progress-bar">
-                                    <div class="analize-progress-fill" style="width: @(ProgressPercentText)%"></div>
+                            <label class="analize-field" title="How many minutes forward to look from each point in the series">
+                                Window (minutes)
+                                <input class="analize-input" type="number" min="1" step="1" @bind="_timeAboveBelowWindowMinutes"
+                                       disabled="@TimeAboveBelowService.IsRunning" />
+                            </label>
+
+                            @if (!TimeAboveBelowService.IsRunning)
+                            {
+                                <button type="button" class="analize-btn analize-btn-run" @onclick="RunTimeAboveBelow"
+                                        title="Streams every tick in the selected symbol/date range and computes the distribution -- can take a while on large ranges">
+                                    RUN
+                                </button>
+                            }
+                            else
+                            {
+                                <button type="button" class="analize-btn analize-btn-cancel" @onclick="() => TimeAboveBelowService.Cancel()"
+                                        title="Stop the analysis currently in progress">
+                                    CANCEL
+                                </button>
+                                <div class="analize-progress">
+                                    <div class="analize-progress-bar">
+                                        <div class="analize-progress-fill" style="width: @(TimeAboveBelowProgressPercentText)%"></div>
+                                    </div>
+                                    <span class="analize-progress-text">@(TimeAboveBelowProgressPercentText)%</span>
                                 </div>
-                                <span class="analize-progress-text">@(ProgressPercentText)%</span>
-                            </div>
-                        }
+                            }
 
-                        @if (_startError is not null)
-                        {
-                            <p class="analize-error">@_startError</p>
+                            @if (_timeAboveBelowStartError is not null)
+                            {
+                                <p class="analize-error">@_timeAboveBelowStartError</p>
+                            }
+                            @if (TimeAboveBelowService.Error is not null)
+                            {
+                                <p class="analize-error">@TimeAboveBelowService.Error</p>
+                            }
+                            @if (TimeAboveBelowService.WasCancelled)
+                            {
+                                <p class="analize-note">cancelled</p>
+                            }
                         }
-                        @if (AnalysisService.Error is not null)
+                    </div>
+
+                    <div class="card analize-card @(_activeAnalysis == ActiveAnalysis.ReturnProbability ? "analize-card-active" : "")"
+                         title="For each point in time, does price ever come back to that same price within the next X minutes">
+                        <div class="analize-card-title-row">
+                            <button type="button" class="analize-card-collapse-btn"
+                                    @onclick="() => _returnCardCollapsed = !_returnCardCollapsed"
+                                    title="@(_returnCardCollapsed ? "Expand" : "Collapse")">
+                                <Icon Name="@(_returnCardCollapsed ? "chevron-right" : "chevron-down")" Class="analize-card-collapse-icon" />
+                            </button>
+                            <span class="analize-card-title">Return Probability</span>
+                            @if (_activeAnalysis == ActiveAnalysis.ReturnProbability)
+                            {
+                                <span class="analize-card-active-badge" title="Shown in the main and DETAILS panels">ACTIVE</span>
+                            }
+                            else
+                            {
+                                <button type="button" class="analize-card-view-btn" @onclick="() => _activeAnalysis = ActiveAnalysis.ReturnProbability"
+                                        title="Show this analysis's results in the main and DETAILS panels">
+                                    VIEW
+                                </button>
+                            }
+                        </div>
+
+                        @if (!_returnCardCollapsed)
                         {
-                            <p class="analize-error">@AnalysisService.Error</p>
-                        }
-                        @if (AnalysisService.WasCancelled)
-                        {
-                            <p class="analize-note">cancelled</p>
+                            <label class="analize-field" title="How many minutes forward to watch for price returning to its starting point">
+                                Window (minutes)
+                                <input class="analize-input" type="number" min="1" step="1" @bind="_returnWindowMinutes"
+                                       disabled="@ReturnService.IsRunning" />
+                            </label>
+
+                            @if (!ReturnService.IsRunning)
+                            {
+                                <button type="button" class="analize-btn analize-btn-run" @onclick="RunReturnProbability"
+                                        title="Streams every tick in the selected symbol/date range and computes the return probability -- can take a while on large ranges">
+                                    RUN
+                                </button>
+                            }
+                            else
+                            {
+                                <button type="button" class="analize-btn analize-btn-cancel" @onclick="() => ReturnService.Cancel()"
+                                        title="Stop the analysis currently in progress">
+                                    CANCEL
+                                </button>
+                                <div class="analize-progress">
+                                    <div class="analize-progress-bar">
+                                        <div class="analize-progress-fill" style="width: @(ReturnProgressPercentText)%"></div>
+                                    </div>
+                                    <span class="analize-progress-text">@(ReturnProgressPercentText)%</span>
+                                </div>
+                            }
+
+                            @if (_returnStartError is not null)
+                            {
+                                <p class="analize-error">@_returnStartError</p>
+                            }
+                            @if (ReturnService.Error is not null)
+                            {
+                                <p class="analize-error">@ReturnService.Error</p>
+                            }
+                            @if (ReturnService.WasCancelled)
+                            {
+                                <p class="analize-note">cancelled</p>
+                            }
+                            @if (ReturnService.Result is { SampleCount: > 0 } returnSummary)
+                            {
+                                <p class="analize-caption">
+                                    @((returnSummary.ReturnProbability * 100).ToString("N1"))% chance of returning within @_returnWindowMinutes min
+                                </p>
+                            }
                         }
                     </div>
                 </div>
@@ -101,12 +195,12 @@
             </div>
 
             <div class="analize-content">
-                @if (_activeMainTab == AnalizeMainTab.Chart)
+                @if (_activeMainTab == AnalizeMainTab.Chart && _activeAnalysis == ActiveAnalysis.TimeAboveBelow)
                 {
                     <div class="card analize-card analize-card-fill" title="Time-above distribution for the selected data and window">
-                        <HistogramChart Bins="@ChartBins" Title="TIME ABOVE DISTRIBUTION" ValueUnit="%" ValueScale="100"
-                                         EmptyMessage="Set a window and click RUN in the left panel to see the distribution" />
-                        @if (AnalysisService.Result is { SampleCount: > 0 })
+                        <HistogramChart Bins="@TimeAboveBelowChartBins" Title="TIME ABOVE DISTRIBUTION" ValueUnit="%" ValueScale="100"
+                                         EmptyMessage="Set a window and click RUN (Time Above/Below) in the left panel to see the distribution" />
+                        @if (TimeAboveBelowService.Result is { SampleCount: > 0 })
                         {
                             <p class="analize-caption" title="Each point's time above and time below the same window always add up to 100%">
                                 each bucket's mirror (100% minus its value) is that same time spent below -- see DETAILS for both explicitly
@@ -114,11 +208,32 @@
                         }
                     </div>
                 }
-                else if (_activeMainTab == AnalizeMainTab.Results)
+                else if (_activeMainTab == AnalizeMainTab.Chart)
+                {
+                    <div class="card analize-card analize-card-fill" title="Time-to-return distribution for the selected data and window">
+                        <HistogramChart Bins="@ReturnChartBins" Title="TIME TO RETURN DISTRIBUTION" ValueUnit=" min" ValueScale="1"
+                                         EmptyMessage="Set a window and click RUN (Return Probability) in the left panel to see the distribution" />
+                        @if (ReturnService.Result is { SampleCount: > 0 } returnChartResult)
+                        {
+                            <p class="analize-caption" title="Bucket counts cover only the points that did return -- see DETAILS for the overall chance">
+                                @((returnChartResult.ReturnProbability * 100).ToString("N1"))% of points returned at all;
+                                buckets show how long that took for those that did -- see DETAILS for the full breakdown
+                            </p>
+                        }
+                    </div>
+                }
+                else if (_activeMainTab == AnalizeMainTab.Results && _activeAnalysis == ActiveAnalysis.TimeAboveBelow)
                 {
                     <div class="card analize-card analize-card-fill" title="Raw bucket counts for the most recently completed run">
-                        <DataTable TItem="AnalizeBinRow" Items="@ResultRows" ShowActions="false" ShowRowNumbers="false"
-                                   EmptyMessage="Set a window and click RUN in the left panel to see results" />
+                        <DataTable TItem="AnalizeBinRow" Items="@TimeAboveBelowResultRows" ShowActions="false" ShowRowNumbers="false"
+                                   EmptyMessage="Set a window and click RUN (Time Above/Below) in the left panel to see results" />
+                    </div>
+                }
+                else if (_activeMainTab == AnalizeMainTab.Results)
+                {
+                    <div class="card analize-card analize-card-fill" title="Raw bucket counts (returned points only) for the most recently completed run">
+                        <DataTable TItem="AnalizeBinRow" Items="@ReturnResultRows" ShowActions="false" ShowRowNumbers="false"
+                                   EmptyMessage="Set a window and click RUN (Return Probability) in the left panel to see results" />
                     </div>
                 }
                 else
@@ -169,47 +284,87 @@
                 <div class="analize-side-panel-content">
                     <div class="card analize-card" title="Stats for the most recently completed run">
                         <div class="analize-card-title">Details</div>
-                        @if (AnalysisService.Result is { } result && result.SampleCount > 0)
+                        @if (_activeAnalysis == ActiveAnalysis.TimeAboveBelow)
                         {
-                            <div class="analize-stat">
-                                <span class="analize-stat-label">samples</span>
-                                <span class="analize-stat-value">@result.SampleCount.ToString("N0")</span>
-                            </div>
-                            <div class="analize-stat">
-                                <span class="analize-stat-label">mean time above / below</span>
-                                <span class="analize-stat-value">@((result.MeanFractionAbove * 100).ToString("N1"))% / @((100 - result.MeanFractionAbove * 100).ToString("N1"))%</span>
-                            </div>
-                            <div class="analize-stat">
-                                <span class="analize-stat-label">median time above / below</span>
-                                <span class="analize-stat-value">@((result.MedianFractionAbove * 100).ToString("N1"))% / @((100 - result.MedianFractionAbove * 100).ToString("N1"))%</span>
-                            </div>
-                            <div class="analize-stat">
-                                <span class="analize-stat-label">std dev</span>
-                                <span class="analize-stat-value">@((result.StdDevFractionAbove * 100).ToString("N1"))%</span>
-                            </div>
-                            <div class="analize-stat" title="Across all points -- the widest and narrowest time-above shares seen">
-                                <span class="analize-stat-label">min / max above</span>
-                                <span class="analize-stat-value">@((result.MinFractionAbove * 100).ToString("N1"))% / @((result.MaxFractionAbove * 100).ToString("N1"))%</span>
-                            </div>
-                            <div class="analize-stat" title="Same points, expressed as time below instead -- always 100% minus time above">
-                                <span class="analize-stat-label">min / max below</span>
-                                <span class="analize-stat-value">@((100 - result.MaxFractionAbove * 100).ToString("N1"))% / @((100 - result.MinFractionAbove * 100).ToString("N1"))%</span>
-                            </div>
-                            <div class="analize-stat">
-                                <span class="analize-stat-label">window</span>
-                                <span class="analize-stat-value">@_windowMinutes min</span>
-                            </div>
-                            @if (AnalysisService.Elapsed is { } elapsed)
+                            @if (TimeAboveBelowService.Result is { } result && result.SampleCount > 0)
                             {
                                 <div class="analize-stat">
-                                    <span class="analize-stat-label">compute time</span>
-                                    <span class="analize-stat-value">@elapsed.ToString("g")</span>
+                                    <span class="analize-stat-label">samples</span>
+                                    <span class="analize-stat-value">@result.SampleCount.ToString("N0")</span>
                                 </div>
+                                <div class="analize-stat">
+                                    <span class="analize-stat-label">mean time above / below</span>
+                                    <span class="analize-stat-value">@((result.MeanFractionAbove * 100).ToString("N1"))% / @((100 - result.MeanFractionAbove * 100).ToString("N1"))%</span>
+                                </div>
+                                <div class="analize-stat">
+                                    <span class="analize-stat-label">median time above / below</span>
+                                    <span class="analize-stat-value">@((result.MedianFractionAbove * 100).ToString("N1"))% / @((100 - result.MedianFractionAbove * 100).ToString("N1"))%</span>
+                                </div>
+                                <div class="analize-stat">
+                                    <span class="analize-stat-label">std dev</span>
+                                    <span class="analize-stat-value">@((result.StdDevFractionAbove * 100).ToString("N1"))%</span>
+                                </div>
+                                <div class="analize-stat" title="Across all points -- the widest and narrowest time-above shares seen">
+                                    <span class="analize-stat-label">min / max above</span>
+                                    <span class="analize-stat-value">@((result.MinFractionAbove * 100).ToString("N1"))% / @((result.MaxFractionAbove * 100).ToString("N1"))%</span>
+                                </div>
+                                <div class="analize-stat" title="Same points, expressed as time below instead -- always 100% minus time above">
+                                    <span class="analize-stat-label">min / max below</span>
+                                    <span class="analize-stat-value">@((100 - result.MaxFractionAbove * 100).ToString("N1"))% / @((100 - result.MinFractionAbove * 100).ToString("N1"))%</span>
+                                </div>
+                                <div class="analize-stat">
+                                    <span class="analize-stat-label">window</span>
+                                    <span class="analize-stat-value">@_timeAboveBelowWindowMinutes min</span>
+                                </div>
+                                @if (TimeAboveBelowService.Elapsed is { } elapsed)
+                                {
+                                    <div class="analize-stat">
+                                        <span class="analize-stat-label">compute time</span>
+                                        <span class="analize-stat-value">@elapsed.ToString("g")</span>
+                                    </div>
+                                }
+                            }
+                            else
+                            {
+                                <p class="analize-side-panel-placeholder">no completed run yet</p>
                             }
                         }
                         else
                         {
-                            <p class="analize-side-panel-placeholder">no completed run yet</p>
+                            @if (ReturnService.Result is { } result && result.SampleCount > 0)
+                            {
+                                <div class="analize-stat" title="Chance that price ever touches back to its own starting price within the window">
+                                    <span class="analize-stat-label">return probability</span>
+                                    <span class="analize-stat-value">@((result.ReturnProbability * 100).ToString("N1"))%</span>
+                                </div>
+                                <div class="analize-stat">
+                                    <span class="analize-stat-label">samples</span>
+                                    <span class="analize-stat-value">@result.SampleCount.ToString("N0")</span>
+                                </div>
+                                <div class="analize-stat">
+                                    <span class="analize-stat-label">returned</span>
+                                    <span class="analize-stat-value">@result.ReturnedCount.ToString("N0")</span>
+                                </div>
+                                <div class="analize-stat" title="Among points that did return -- how long it took">
+                                    <span class="analize-stat-label">mean / median time to return</span>
+                                    <span class="analize-stat-value">@(result.MeanMinutesToReturn.ToString("N1")) / @(result.MedianMinutesToReturn.ToString("N1")) min</span>
+                                </div>
+                                <div class="analize-stat">
+                                    <span class="analize-stat-label">window</span>
+                                    <span class="analize-stat-value">@_returnWindowMinutes min</span>
+                                </div>
+                                @if (ReturnService.Elapsed is { } elapsed)
+                                {
+                                    <div class="analize-stat">
+                                        <span class="analize-stat-label">compute time</span>
+                                        <span class="analize-stat-value">@elapsed.ToString("g")</span>
+                                    </div>
+                                }
+                            }
+                            else
+                            {
+                                <p class="analize-side-panel-placeholder">no completed run yet</p>
+                            }
                         }
                     </div>
                 </div>

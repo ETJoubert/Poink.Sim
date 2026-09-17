@@ -36,5 +36,7 @@ namespace Poink.Sim.Components.Charts
 		// CSS rejects a comma decimal separator, so this can't use the current (possibly non-US) culture.
 		private static string BarWidthPercent(long count, long maxCount) =>
 			(maxCount == 0 ? 0 : count * 100.0 / maxCount).ToString("0.##", CultureInfo.InvariantCulture);
+
+		private string PercentOfTotalText(long count) => (TotalCount == 0 ? 0 : count * 100.0 / TotalCount).ToString("N1");
 	}
 }

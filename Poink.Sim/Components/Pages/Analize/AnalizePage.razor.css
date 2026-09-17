@@ -92,6 +92,8 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
+    padding: 12px;
+    transition: border-color 0.15s ease;
 }
 
 .analize-card-fill {
@@ -99,12 +101,86 @@
     min-height: 0;
 }
 
+.analize-card-active {
+    border-color: var(--color-accent);
+    box-shadow: 0 0 14px color-mix(in srgb, var(--color-accent) 25%, transparent);
+}
+
 .analize-card-title {
+    flex: 1;
     font-size: 0.62rem;
     font-weight: bold;
     letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--color-accent);
+}
+
+.analize-card-title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: -12px -12px 0;
+    padding: 8px 12px;
+    background: color-mix(in srgb, var(--color-primary) 6%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 20%, transparent);
+    border-radius: var(--border-radius-md) var(--border-radius-md) 0 0;
+}
+
+.analize-card-collapse-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    flex-shrink: 0;
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
+    border-radius: var(--border-radius-sm);
+    color: var(--color-secondary);
+    cursor: pointer;
+}
+
+.analize-card-collapse-btn:hover {
+    color: var(--color-primary);
+    border-color: var(--color-primary);
+}
+
+::deep .analize-card-collapse-icon {
+    width: 10px;
+    height: 10px;
+}
+
+.analize-card-active-badge {
+    font-size: 0.58rem;
+    font-weight: bold;
+    letter-spacing: 0.08em;
+    color: var(--color-accent);
+    border: 1px solid var(--color-accent);
+    border-radius: 999px;
+    padding: 2px 8px;
+    flex-shrink: 0;
+}
+
+.analize-card-view-btn {
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--color-secondary) 40%, transparent);
+    color: var(--color-secondary);
+    border-radius: 999px;
+    font-size: 0.58rem;
+    font-weight: bold;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all 0.2s ease;
+}
+
+.analize-card-view-btn:hover {
+    background: color-mix(in srgb, var(--color-secondary) 15%, transparent);
+    color: var(--color-primary);
+    border-color: var(--color-primary);
 }
 
 .analize-left-side-panel {

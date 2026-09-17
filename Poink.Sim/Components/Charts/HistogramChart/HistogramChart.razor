@@ -17,12 +17,12 @@
         {
             @foreach (var bin in Bins)
             {
-                <div class="hist-row" title="@($"{FormatRange(bin)}: {bin.Count:N0} samples")">
+                <div class="hist-row" title="@($"{FormatRange(bin)}: {bin.Count:N0} samples ({PercentOfTotalText(bin.Count)}% of total)")">
                     <span class="hist-row-label">@FormatRange(bin)</span>
                     <div class="hist-row-track">
                         <div class="hist-row-bar" style="width: @(BarWidthPercent(bin.Count, MaxCount))%"></div>
                     </div>
-                    <span class="hist-row-count">@bin.Count.ToString("N0")</span>
+                    <span class="hist-row-count">@bin.Count.ToString("N0") <span class="hist-row-percent">(@(PercentOfTotalText(bin.Count))%)</span></span>
                 </div>
             }
         }

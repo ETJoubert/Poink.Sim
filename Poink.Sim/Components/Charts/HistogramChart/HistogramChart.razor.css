@@ -46,7 +46,7 @@
 
 .hist-row {
     display: grid;
-    grid-template-columns: 84px 1fr 56px;
+    grid-template-columns: 84px 1fr 110px;
     align-items: center;
     gap: 8px;
     font-size: 0.7rem;
@@ -78,4 +78,8 @@
     text-align: right;
     color: var(--color-secondary);
     white-space: nowrap;
+}
+
+.hist-row-percent {
+    opacity: 0.7;
 }
