@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Poink.Sim.Models;
@@ -14,10 +15,15 @@ internal sealed class PriceReturnAnalysisService : IPriceReturnAnalysisService
 	private const int BucketCount = 20;
 	private const int ProgressReportInterval = 5_000;
 
+	// A start point's fate depends only on ticks up to windowSpan past it, so the range splits into
+	// WorkerCount independent chunks, computed in parallel, then merges into one result.
+	private static readonly int WorkerCount = Math.Clamp(Environment.ProcessorCount, 1, 32);
+
 	private readonly object _lock = new();
 	private readonly ITickRepository _tickRepository;
 	private readonly ILogger<PriceReturnAnalysisService> _logger;
 	private volatile bool _cancelRequested;
+	private long _processedCount;
 
 	public PriceReturnAnalysisService(ITickRepository tickRepository, ILogger<PriceReturnAnalysisService> logger)
 	{
@@ -105,20 +111,74 @@ internal sealed class PriceReturnAnalysisService : IPriceReturnAnalysisService
 		}
 	}
 
-	// Streams ticks once; for every tick in [From, To] the forward window [t, t+X] is watched via a
-	// running min/max -- once that range spans back over the start price, the point has "returned".
 	private PriceReturnDistributionResult Compute(PriceReturnRequest request)
 	{
 		var windowSpan = TimeSpan.FromMinutes(request.WindowMinutes);
-		var readTo = request.To.Add(windowSpan);
+		var totalTicks = _tickRepository.CountTicks(request.Table, request.From, request.To.Add(windowSpan));
+		_processedCount = 0;
 
-		var totalTicks = _tickRepository.CountTicks(request.Table, request.From, readTo);
-		long processed = 0;
+		var chunks = SplitIntoChunks(request.From, request.To, WorkerCount);
+		var chunkResults = new List<(bool Returned, double MinutesToReturn)>[chunks.Count];
 
+		try
+		{
+			Parallel.For(
+				0,
+				chunks.Count,
+				i =>
+				{
+					var (chunkFrom, chunkTo) = chunks[i];
+					chunkResults[i] = ComputeChunk(request.Table, chunkFrom, chunkTo, i == chunks.Count - 1, windowSpan, totalTicks);
+				}
+			);
+		}
+		catch (AggregateException ex) when (ex.Flatten().InnerExceptions.Any(e => e is OperationCanceledException))
+		{
+			throw new OperationCanceledException();
+		}
+
+		lock (_lock)
+			ProgressPercent = 100;
+		OnChanged?.Invoke();
+
+		var results = new List<(bool Returned, double MinutesToReturn)>(chunkResults.Sum(c => c.Count));
+		foreach (var chunk in chunkResults)
+			results.AddRange(chunk);
+
+		return BuildResult(results, request.WindowMinutes);
+	}
+
+	// Half-open per chunk ([from, to)) except the last, which keeps the overall range's own closed
+	// end -- otherwise a tick exactly on a chunk boundary would become a start point in both chunks.
+	private static List<(DateTime From, DateTime To)> SplitIntoChunks(DateTime from, DateTime to, int count)
+	{
+		var chunkTicks = (to - from).Ticks / count;
+		var chunks = new List<(DateTime From, DateTime To)>(count);
+		var start = from;
+		for (var i = 0; i < count; i++)
+		{
+			var end = i == count - 1 ? to : start.AddTicks(chunkTicks);
+			chunks.Add((start, end));
+			start = end;
+		}
+		return chunks;
+	}
+
+	// Streams a chunk's ticks once; for every tick in it the forward window [t, t+X] is watched via
+	// a running min/max -- once that range spans back over the start price, the point has "returned".
+	private List<(bool Returned, double MinutesToReturn)> ComputeChunk(
+		string table,
+		DateTime chunkFrom,
+		DateTime chunkTo,
+		bool isLastChunk,
+		TimeSpan windowSpan,
+		long totalTicks
+	)
+	{
 		var open = new List<OpenStart>();
 		var results = new List<(bool Returned, double MinutesToReturn)>();
 
-		foreach (var tick in _tickRepository.ReadTicks(request.Table, request.From, readTo))
+		foreach (var tick in _tickRepository.ReadTicks(table, chunkFrom, chunkTo.Add(windowSpan)))
 		{
 			if (_cancelRequested)
 				throw new OperationCanceledException();
@@ -149,7 +209,7 @@ internal sealed class PriceReturnAnalysisService : IPriceReturnAnalysisService
 				}
 			}
 
-			if (tick.Timestamp >= request.From && tick.Timestamp <= request.To)
+			if (tick.Timestamp >= chunkFrom && (isLastChunk ? tick.Timestamp <= chunkTo : tick.Timestamp < chunkTo))
 			{
 				open.Add(
 					new OpenStart
@@ -163,7 +223,7 @@ internal sealed class PriceReturnAnalysisService : IPriceReturnAnalysisService
 				);
 			}
 
-			processed++;
+			var processed = Interlocked.Increment(ref _processedCount);
 			if (processed % ProgressReportInterval == 0)
 			{
 				lock (_lock)
@@ -172,11 +232,7 @@ internal sealed class PriceReturnAnalysisService : IPriceReturnAnalysisService
 			}
 		}
 
-		lock (_lock)
-			ProgressPercent = 100;
-		OnChanged?.Invoke();
-
-		return BuildResult(results, request.WindowMinutes);
+		return results;
 	}
 
 	private static PriceReturnDistributionResult BuildResult(
