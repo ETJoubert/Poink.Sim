@@ -181,7 +181,8 @@
     background: color-mix(in srgb, var(--color-success) 14%, transparent);
 }
 
-.folder-browser-icon {
+::deep .folder-browser-icon {
     width: 13px;
     height: 13px;
+    flex: none;
 }

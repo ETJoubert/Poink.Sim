@@ -5,6 +5,11 @@ Tick ingestion for Poink.Sim: it keeps the local Postgres tick store (`PoinkMark
 read history the same way — from the database — while a live in-memory tail stays current from the
 spot stream.
 
+> **Status:** `TickBackfillWorker` / `ITickBackfillController` (live streaming, gap-fill, the Data
+> page's old INGEST tab and Load Historic control) were removed and are pending a rebuild. Everything
+> else below -- `ITickIngest`/`TickIngest`, `IHistoricalTickSource`, `ZTicksImportService`, the
+> Registry/Daily/Log tabs -- is unaffected and still describes the current implementation.
+
 ## Overview
 
 The rich chart tooling (volume/time profiles, XGrid, overlays) is fed by one data shape: a rolling
@@ -45,7 +50,8 @@ Cross-project dependencies:
   merge) under a per-connection historical-rate throttle.
 - `CTraderClient.GetTickDataAsync` (Poink.CTrader) is the one-chunk request following the
   `SendAndWaitAsync` pattern.
-- The Data page (`Components/Pages/Data`) is the monitor + control UI (INGEST / REGISTRY tabs).
+- The Data page (`Components/Pages/Data`) is the monitor UI (REGISTRY tab shows coverage per table
+  and hosts `DataSeriesSyncChart`; SYMBOLS / LOG / IMPORT / DAILY are the other tabs).
 
 ### Per-symbol state machine (`TickBackfillWorker`)
 
@@ -91,13 +97,10 @@ across a closed market; a zero-tick manual backfill is logged, since it is a sin
 
 ### Controls (Data page)
 
-- Global pause/resume of the worker.
-- Track & Stream (creates table on opt-in, subscribes spots, persists).
-- Force flush, untrack. REGISTRY tab shows raw `tick_table_stats`.
-- Load Historic (REGISTRY tab, per row): fetches N days of ticks older than that table's `MinUtc` via
-  `GetTickData` and stores them. The symbol is resolved from the registry's `symbol` column against the
-  connected account's symbol list, so it requires both a connected session and an existing, symbol-mapped
-  table.
+- REGISTRY tab shows raw `tick_table_stats`; selecting a row shows that table's coverage via
+  `DataSeriesSyncChart` (`Services/DataSeriesSync`) above the table.
+- Global pause/resume, Track & Stream, force flush/untrack, and Load Historic were removed with
+  `TickBackfillWorker` -- see the Status note above.
 
 ## Gaps
 

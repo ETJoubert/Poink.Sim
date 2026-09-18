@@ -4,6 +4,7 @@
 @using Poink.Sim.Services.CTrader
 @using Poink.Sim.Services.MarketData
 @using Poink.Sim.Services.MarketData.Import
+@using Poink.Sim.Components.Charts
 @using Poink.Sim.Components.Shared.Icon
 @using Poink.Sim.Components.Shared.DataTable
 @using Poink.Sim.Components.Shared.FolderBrowserDialog
@@ -19,211 +20,254 @@
         <header class="data-header">
             <div class="data-header-title">
                 <span class="data-header-symbol">DATA — TICK INGEST</span>
-                <span class="data-header-state @(Backfill.IsPaused ? "data-state-idle" : "data-state-live")"
-                      title="Backfill worker run state">
-                    @(Backfill.IsPaused ? "PAUSED" : "RUNNING")
-                </span>
             </div>
             <div class="data-header-actions">
                 @if (!IsConnected)
                 {
-                    <span class="data-hint" title="Ticks only stream and backfill while the cTrader session is connected">
+                    <span class="data-hint" title="Some actions on this page need a connected cTrader session">
                         Not connected — log in on the Trade page.
                     </span>
                 }
-                <button class="data-btn @(Backfill.IsPaused ? "data-btn-play" : "data-btn-warn")" @onclick="TogglePause"
-                        title="@(Backfill.IsPaused ? "Resume the backfill worker" : "Pause the backfill worker (buffering continues in memory)")">
-                    <Icon Name="@(Backfill.IsPaused ? "play-fill" : "pause-fill")" Class="data-btn-icon" />
-                    @(Backfill.IsPaused ? "RESUME" : "PAUSE")
-                </button>
             </div>
         </header>
         <div class="data-tabs">
-            <button class="data-tab @(_activeTab == Tab.Ingest ? "active" : "")" @onclick="() => SwitchTab(Tab.Ingest)">INGEST</button>
             <button class="data-tab @(_activeTab == Tab.Registry ? "active" : "")" @onclick="() => SwitchTab(Tab.Registry)">REGISTRY</button>
             <button class="data-tab @(_activeTab == Tab.Symbols ? "active" : "")" @onclick="() => SwitchTab(Tab.Symbols)">SYMBOLS</button>
             <button class="data-tab @(_activeTab == Tab.Log ? "active" : "")" @onclick="() => SwitchTab(Tab.Log)">LOG</button>
-            <button class="data-tab @(_activeTab == Tab.Import ? "active" : "")" @onclick="() => SwitchTab(Tab.Import)">IMPORT</button>
             <button class="data-tab @(_activeTab == Tab.Daily ? "active" : "")" @onclick="() => SwitchTab(Tab.Daily)">DAILY</button>
         </div>
     </div>
 
     <div class="data-body">
 
-        @if (_activeTab == Tab.Ingest)
+        @if (_activeTab == Tab.Registry)
         {
-            <section class="data-panel">
-                <div class="data-panel-header">
-                    <span class="data-panel-title">TRACKED SYMBOLS</span>
-                    <span class="data-panel-count">@Statuses.Count</span>
-                </div>
-
-                @if (Statuses.Count == 0)
-                {
-                    <p class="data-empty">No symbols tracked. Search below and track one to start persisting its ticks.</p>
-                }
-                else
-                {
-                    <div class="data-table-scroll">
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>Symbol</th>
-                                    <th>Table</th>
-                                    <th>State</th>
-                                    <th class="data-num">Rows</th>
-                                    <th>DB max (UTC)</th>
-                                    <th class="data-num">Lag</th>
-                                    <th class="data-num">Buffered</th>
-                                    <th class="data-num">Written</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var s in Statuses)
-                                {
-                                    <tr>
-                                        <td class="data-sym">@s.SymbolName</td>
-                                        <td class="data-mono">@s.Table</td>
-                                        <td><span class="data-state-pill @StateClass(s.State)" title="@(s.LastError ?? StateLabel(s.State))">@StateLabel(s.State)</span></td>
-                                        <td class="data-num data-mono">@Count(s.RowsInDb)</td>
-                                        <td class="data-mono">@Time(s.MaxUtc)</td>
-                                        <td class="data-num data-mono">@Lag(s.LagSeconds)</td>
-                                        <td class="data-num data-mono">@Count(s.Buffered)</td>
-                                        <td class="data-num data-mono">@Count(s.WrittenThisSession)</td>
-                                        <td class="data-row-actions">
-                                            <button class="data-icon-btn" @onclick="() => ForceFlush(s.SymbolId)"
-                                                    title="Flush this symbol's buffer to the database now">
-                                                <Icon Name="cloud-upload" Class="data-btn-icon" />
-                                            </button>
-                                            <button class="data-icon-btn data-icon-btn-warn" @onclick="() => StopTrackingAsync(s)"
-                                                    title="Stop tracking @s.SymbolName (discards its unflushed buffer)">
-                                                <Icon Name="x-lg" Class="data-btn-icon" />
-                                            </button>
-                                        </td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
+            <div class="data-registry-layout">
+                <aside class="data-import-panel">
+                    <div class="data-panel-header">
+                        <span class="data-panel-title">IMPORT ZTICKS CACHE</span>
                     </div>
-                }
-            </section>
 
-            <section class="data-panel">
-                <div class="data-panel-header">
-                    <span class="data-panel-title">TRACK A SYMBOL</span>
-                </div>
+                    <p class="data-empty">
+                        Reads cTrader's local .zticks backtesting cache (a reverse-engineered, undocumented,
+                        but vetted source) and writes it through the same path as live ingest -- always into
+                        the live table, since that's the only data valid for training/simulation.
+                    </p>
 
-                @if (Session.Symbols.Count == 0)
-                {
-                    <p class="data-empty">No symbols loaded. Log in on the Trade page first — the account's symbols load on connect.</p>
-                }
-                else
-                {
-                    <div class="data-track-controls">
-                        <input type="text" class="data-search" placeholder="Search symbols..."
-                               value="@_symbolFilter" @oninput="e => _symbolFilter = e.Value?.ToString() ?? string.Empty"
-                               title="Filter the account's symbols by name" />
-                        <label class="data-checkbox"
-                               title="Create the ticks_<symbol> table if it does not exist yet (explicit opt-in)">
-                            <input type="checkbox" @bind="_createTable" />
+                    <div class="data-track-controls data-track-controls-column">
+                        <input type="text" class="data-search" placeholder="Cache file or folder path..."
+                               value="@_importCachePath" @oninput="e => SetImportCachePath(e.Value?.ToString())"
+                               title="A single .zticks file, or a folder of them (e.g. the broker's t1 folder) -- saved to the registry on import, so it can be re-scanned for a diff later. cTrader's own cache folder naming (...\live_<account>\#<Symbol>\t1) is read for a symbol and live/demo hint." />
+                        <button class="data-btn" @onclick="OpenFolderBrowser" title="Browse the server's filesystem for the cache folder">
+                            <Icon Name="folder2-open" Class="data-btn-icon" />
+                            BROWSE
+                        </button>
+                        @if (_pathIsLive == false)
+                        {
+                            <span class="data-state-pill data-state-error"
+                                  title="This cache path's account-environment folder is named demo_<account> -- importing would write demo-sourced ticks into the live table, which the live-only data policy prohibits. Import is disabled until you point at a live-environment cache.">
+                                DEMO CACHE — IMPORT BLOCKED
+                            </span>
+                        }
+
+                        <input type="text" class="data-search" placeholder="Symbol (e.g. USNDAQ100)..."
+                               value="@_importSymbol" @oninput="e => _importSymbol = e.Value?.ToString() ?? string.Empty"
+                               disabled="@(_selectedRegistryTable is not null)"
+                               list="data-import-symbols"
+                               title="@(_selectedRegistryTable is not null ? "Bound to the selected registry entry -- change the association via the table's Symbol column instead" : "Symbol name as tracked by Poink.Sim; determines the live_ticks_ table -- auto-filled from the cache path's #<Symbol> folder when left blank")" />
+                        <datalist id="data-import-symbols">
+                            @foreach (var symbol in Session.Symbols)
+                            {
+                                <option value="@symbol.SymbolName"></option>
+                            }
+                        </datalist>
+
+                        <label class="data-checkbox" title="Create the target table if it does not exist yet (explicit opt-in)">
+                            <input type="checkbox" @bind="_importCreateTable" />
                             Create table if missing
                         </label>
                     </div>
 
-                    <ul class="data-symbol-list">
-                        @foreach (var symbol in FilteredSymbols)
+                    <div class="data-track-controls data-track-controls-column">
+                        <button class="data-btn" @onclick="ScanImportAsync"
+                                disabled="@(_importScanBusy || ZTicksImport.IsRunning || string.IsNullOrWhiteSpace(_importCachePath))"
+                                title="Parse the matching .zticks files and show counts without writing to the database">
+                            <Icon Name="search" Class="data-btn-icon" />
+                            @(_importScanBusy ? "SCANNING..." : "SCAN")
+                        </button>
+                        <button class="data-btn data-btn-play" @onclick="StartImport"
+                                disabled="@(ZTicksImport.IsRunning || _importScanBusy || _importPreview.Count == 0 || string.IsNullOrWhiteSpace(_importSymbol) || _pathIsLive == false)"
+                                title="@(_pathIsLive == false ? "This cache path looks like a demo backtesting cache -- import is blocked" : string.IsNullOrWhiteSpace(_importSymbol) ? "Enter a symbol name first" : $"Write every scanned file into live_ticks_{_importSymbol}, including days already up to date")">
+                            <Icon Name="cloud-upload" Class="data-btn-icon" />
+                            @(ZTicksImport.IsRunning ? "IMPORTING..." : "IMPORT ALL")
+                        </button>
+                        <button class="data-btn data-btn-play" @onclick="StartImportDiffOnly"
+                                disabled="@(ZTicksImport.IsRunning || _importScanBusy || string.IsNullOrWhiteSpace(_importSymbol) || _pathIsLive == false || _importDiff is not { NeedsImportDates.Count: > 0 })"
+                                title="@DiffOnlyImportTitle">
+                            <Icon Name="cloud-upload" Class="data-btn-icon" />
+                            @(ZTicksImport.IsRunning ? "IMPORTING..." : $"IMPORT DIFF ({_importDiff?.NeedsImportDates.Count ?? 0})")
+                        </button>
+                        @if (ZTicksImport.IsRunning)
                         {
-                            var tracked = IsTracked(symbol.SymbolId);
-                            <li class="data-symbol-row">
-                                <span class="data-symbol-name">@symbol.SymbolName</span>
-                                @if (tracked)
-                                {
-                                    <span class="data-symbol-tracked">tracked</span>
-                                }
-                                else
-                                {
-                                    <button class="data-btn data-btn-play" @onclick="() => TrackAndStreamAsync(symbol)"
-                                            title="Track @symbol.SymbolName and start streaming its ticks into the database">
-                                        <Icon Name="cloud-download" Class="data-btn-icon" />
-                                        TRACK &amp; STREAM
-                                    </button>
-                                }
-                            </li>
+                            <button class="data-btn data-btn-warn" @onclick="CancelImport" title="Cancel the running import">
+                                <Icon Name="x-lg" Class="data-btn-icon" />
+                                CANCEL
+                            </button>
                         }
-                    </ul>
-                }
-            </section>
-        }
-        else if (_activeTab == Tab.Registry)
-        {
-            <section class="data-panel">
-                <div class="data-panel-header">
-                    <span class="data-panel-title">tick_table_stats</span>
-                    <span class="data-panel-count">@_registry.Count</span>
-                </div>
-                <p class="data-empty">
-                    Load Historic fetches ticks older than a table's earliest row via ProtoOAGetTickData and stores
-                    them. Requires a connected session and the table's symbol to resolve against the account's
-                    symbol list.
-                </p>
-                @if (_registry.Count == 0)
-                {
-                    <p class="data-empty">No registry rows.</p>
-                }
-                else
-                {
-                    <div class="data-table-scroll">
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>Table</th>
-                                    <th>Symbol</th>
-                                    <th class="data-num">Rows</th>
-                                    <th>Min (UTC)</th>
-                                    <th>Max (UTC)</th>
-                                    <th>Refreshed (UTC)</th>
-                                    <th>Load Historic</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var r in _registry)
-                                {
-                                    var state = GetHistoricState(r.Table);
-                                    var canLoad = IsConnected && r.MinUtc is not null && ResolveSymbol(r.Symbol) is not null && !state.Busy;
-                                    <tr>
-                                        <td class="data-mono">@r.Table</td>
-                                        <td class="data-sym">
-                                            <input type="text" class="data-symbol-edit"
-                                                   value="@r.Symbol"
-                                                   placeholder="—"
-                                                   @onchange="e => UpdateRegistrySymbolAsync(r.Table, e.Value?.ToString() ?? string.Empty)"
-                                                   title="Symbol name associated with @r.Table in the registry" />
-                                        </td>
-                                        <td class="data-num data-mono">@Count(r.Rows)</td>
-                                        <td class="data-mono">@Time(r.MinUtc)</td>
-                                        <td class="data-mono">@Time(r.MaxUtc)</td>
-                                        <td class="data-mono">@Time(r.RefreshedAt)</td>
-                                        <td class="data-row-actions">
-                                            <input type="number" min="1" class="data-days-input"
-                                                   value="@state.Days"
-                                                   @oninput="e => state.Days = int.TryParse(e.Value?.ToString(), out var d) && d > 0 ? d : state.Days"
-                                                   title="Days of history to fetch before this table's earliest tick (@Time(r.MinUtc))" />
-                                            <button class="data-icon-btn" @onclick="() => LoadHistoricAsync(r)"
-                                                    disabled="@(!canLoad)"
-                                                    title="@(state.Result ?? $"Fetch {state.Days} day(s) of ticks before {Time(r.MinUtc)}")">
-                                                <Icon Name="cloud-download" Class="data-btn-icon" />
-                                            </button>
-                                            <span class="data-state-pill @HistoricStateClass(state)"
-                                                  title="@(state.Result ?? "Not run yet")">@HistoricStateLabel(state)</span>
-                                        </td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
                     </div>
-                }
-            </section>
+                    @if (_scanResult is not null)
+                    {
+                        <p class="data-empty" title="@_scanResult">@_scanResult</p>
+                    }
+
+                    @if (ZTicksImport.IsRunning && ZTicksImport.Progress is { } progress)
+                    {
+                        var percent = ImportPercent(progress);
+                        <div class="data-progress" title="@($"{Percent(percent)}% -- {progress.FilesDone}/{progress.FilesTotal} day(s)")">
+                            <div class="data-progress-track">
+                                <div class="data-progress-fill" style="width: @(Percent(percent))%"></div>
+                            </div>
+                            <span class="data-progress-label">
+                                @Percent(percent)% — @progress.FilesDone / @progress.FilesTotal day(s), @Count(progress.TicksParsed) parsed, @Count(progress.RowsWritten) written
+                            </span>
+                        </div>
+                        <p class="data-empty">
+                            Running in the background — safe to switch tabs or navigate away. Last finished: @Path.GetFileName(progress.CurrentFile)
+                        </p>
+                    }
+                    else if (ZTicksImport.LastResult is { } lastResult)
+                    {
+                        <p class="data-empty">
+                            Last import: wrote @Count(lastResult.RowsWritten) row(s) of @Count(lastResult.TicksParsed) parsed into @lastResult.Table (@Count(lastResult.FilesProcessed) day(s)).
+                        </p>
+                    }
+                    else if (ZTicksImport.LastError is not null)
+                    {
+                        <p class="data-empty">Last import failed: @ZTicksImport.LastError</p>
+                    }
+
+                    @if (_importPreview.Count > 0)
+                    {
+                        <div class="data-table-scroll">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>File</th>
+                                        <th>Date</th>
+                                        <th class="data-num">Ticks</th>
+                                        <th>Min (UTC)</th>
+                                        <th>Max (UTC)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var entry in _importPreview)
+                                    {
+                                        <tr>
+                                            <td class="data-mono">@Path.GetFileName(entry.File)</td>
+                                            <td class="data-mono">@(entry.Date?.ToString("yyyy-MM-dd") ?? "—")</td>
+                                            <td class="data-num data-mono">@Count(entry.TickCount)</td>
+                                            <td class="data-mono">@Time(entry.MinUtc)</td>
+                                            <td class="data-mono">@Time(entry.MaxUtc)</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else if (!_importScanBusy)
+                    {
+                        <p class="data-empty">No files scanned yet. Enter a cache path and click Scan.</p>
+                    }
+                </aside>
+
+                <div class="data-registry-main">
+                    @if (SelectedRegistrySymbol is { } selectedSymbol)
+                    {
+                        <DataSeriesSyncChart SymbolName="@selectedSymbol" RefreshToken="_syncChartRefreshToken" />
+                        @if (_importDiff is { } diff)
+                        {
+                            <div class="data-diff-cards">
+                                <div class="data-diff-card" title="Calendar days in the last scan with no tick_daily_stats row yet -- these are what Import will actually write">
+                                    <span class="data-diff-card-label">DAYS TO IMPORT</span>
+                                    <span class="data-diff-card-value @(diff.DaysMissing > 0 ? "data-diff-warn" : "data-diff-ok")">@diff.DaysMissing</span>
+                                </div>
+                                <div class="data-diff-card" title="Calendar days present in both the scan and tick_daily_stats, but with a different tick count -- likely a partial or interrupted prior import">
+                                    <span class="data-diff-card-label">DAYS MISMATCHED</span>
+                                    <span class="data-diff-card-value @(diff.DaysMismatched > 0 ? "data-diff-warn" : "data-diff-ok")">@diff.DaysMismatched</span>
+                                </div>
+                                <div class="data-diff-card" title="Calendar days already imported with a matching tick count -- Import will skip re-writing these">
+                                    <span class="data-diff-card-label">DAYS UP TO DATE</span>
+                                    <span class="data-diff-card-value data-diff-ok">@diff.DaysMatching</span>
+                                </div>
+                            </div>
+                            @if (diff.DaysMissing > 0)
+                            {
+                                <p class="data-empty">@Count(diff.MissingTickCount) tick(s) across @diff.DaysMissing missing day(s) still to import.</p>
+                            }
+                        }
+                        else if (_importPreview.Count == 0)
+                        {
+                            <p class="data-empty" title="Scan a cache path in the panel on the left to see what's missing from the database">Scan a cache path to check what still needs importing.</p>
+                        }
+                    }
+                    else
+                    {
+                        <p class="data-empty" title="Click a row in the table below to see its live tick coverage">Select a registry entry below to see its live tick coverage.</p>
+                    }
+
+                    <section class="data-panel">
+                        <div class="data-panel-header">
+                            <span class="data-panel-title">tick_table_stats</span>
+                            <span class="data-panel-count">@_registry.Count</span>
+                        </div>
+                        @if (_registry.Count == 0)
+                        {
+                            <p class="data-empty">No registry rows.</p>
+                        }
+                        else
+                        {
+                            <div class="data-table-scroll">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Table</th>
+                                            <th>Symbol</th>
+                                            <th class="data-num">Rows</th>
+                                            <th class="data-num" title="Distinct calendar days recorded in tick_daily_stats for this table">Days</th>
+                                            <th>Min (UTC)</th>
+                                            <th>Max (UTC)</th>
+                                            <th>Refreshed (UTC)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var r in _registry)
+                                        {
+                                            <tr class="data-row-selectable @(r.Table == _selectedRegistryTable ? "data-row-selected" : "")"
+                                                @onclick="() => SelectRegistryEntry(r)"
+                                                title="@(string.IsNullOrEmpty(r.SourcePath) ? "Select to view this table's live tick coverage above" : $"Select to view coverage above -- saved source: {r.SourcePath}")">
+                                                <td class="data-mono">@r.Table</td>
+                                                <td class="data-sym">
+                                                    <input type="text" class="data-symbol-edit"
+                                                           value="@r.Symbol"
+                                                           placeholder="—"
+                                                           @onchange="e => UpdateRegistrySymbolAsync(r.Table, e.Value?.ToString() ?? string.Empty)"
+                                                           @onclick:stopPropagation="true"
+                                                           title="Symbol name associated with @r.Table in the registry" />
+                                                </td>
+                                                <td class="data-num data-mono">@Count(r.Rows)</td>
+                                                <td class="data-num data-mono">@Count(r.DayCount)</td>
+                                                <td class="data-mono">@Time(r.MinUtc)</td>
+                                                <td class="data-mono">@Time(r.MaxUtc)</td>
+                                                <td class="data-mono">@Time(r.RefreshedAt)</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                    </section>
+                </div>
+            </div>
         }
         else if (_activeTab == Tab.Symbols)
         {
@@ -372,140 +416,6 @@
                             </tbody>
                         </table>
                     </div>
-                }
-            </section>
-        }
-        else if (_activeTab == Tab.Import)
-        {
-            <section class="data-panel">
-                <div class="data-panel-header">
-                    <span class="data-panel-title">IMPORT ZTICKS CACHE</span>
-                </div>
-
-                <p class="data-empty">
-                    Reads cTrader's local .zticks backtesting cache (a reverse-engineered, undocumented format) and
-                    writes it through the same path as live ingest, so imported history is indistinguishable from
-                    streamed ticks.
-                </p>
-
-                <div class="data-track-controls">
-                    <input type="text" class="data-search" placeholder="Cache file or folder path..."
-                           value="@_importCachePath" @oninput="e => _importCachePath = e.Value?.ToString() ?? string.Empty"
-                           title="A single .zticks file, or a folder of them (e.g. the broker's t1 folder)" />
-                    <button class="data-btn" @onclick="OpenFolderBrowser" title="Browse the server's filesystem for the cache folder">
-                        <Icon Name="folder2-open" Class="data-btn-icon" />
-                        BROWSE
-                    </button>
-
-                    <input type="text" class="data-search data-search-narrow" placeholder="Symbol (e.g. USNDAQ100)..."
-                           value="@_importSymbol" @oninput="e => _importSymbol = e.Value?.ToString() ?? string.Empty"
-                           list="data-import-symbols"
-                           title="Symbol name as tracked by Poink.Sim; determines the live_ticks_/demo_ticks_ table" />
-                    <datalist id="data-import-symbols">
-                        @foreach (var symbol in Session.Symbols)
-                        {
-                            <option value="@symbol.SymbolName"></option>
-                        }
-                    </datalist>
-
-                    <label class="data-checkbox" title="Import into the live_ticks_ table set">
-                        <input type="radio" name="importEnv" checked="@_importIsLive" @onchange="() => _importIsLive = true" />
-                        Live
-                    </label>
-                    <label class="data-checkbox" title="Import into the demo_ticks_ table set">
-                        <input type="radio" name="importEnv" checked="@(!_importIsLive)" @onchange="() => _importIsLive = false" />
-                        Demo
-                    </label>
-
-                    <label class="data-checkbox" title="Create the target table if it does not exist yet (explicit opt-in)">
-                        <input type="checkbox" @bind="_importCreateTable" />
-                        Create table if missing
-                    </label>
-                </div>
-
-                <div class="data-track-controls">
-                    <button class="data-btn" @onclick="ScanImportAsync"
-                            disabled="@(_importScanBusy || ZTicksImport.IsRunning || string.IsNullOrWhiteSpace(_importCachePath))"
-                            title="Parse the matching .zticks files and show counts without writing to the database">
-                        <Icon Name="search" Class="data-btn-icon" />
-                        @(_importScanBusy ? "SCANNING..." : "SCAN")
-                    </button>
-                    <button class="data-btn data-btn-play" @onclick="StartImport"
-                            disabled="@(ZTicksImport.IsRunning || _importScanBusy || _importPreview.Count == 0 || string.IsNullOrWhiteSpace(_importSymbol))"
-                            title="@(string.IsNullOrWhiteSpace(_importSymbol) ? "Enter a symbol name first" : $"Write the scanned files into {(_importIsLive ? "live_ticks_" : "demo_ticks_")}{_importSymbol}")">
-                        <Icon Name="cloud-upload" Class="data-btn-icon" />
-                        @(ZTicksImport.IsRunning ? "IMPORTING..." : "IMPORT")
-                    </button>
-                    @if (ZTicksImport.IsRunning)
-                    {
-                        <button class="data-btn data-btn-warn" @onclick="CancelImport" title="Cancel the running import">
-                            <Icon Name="x-lg" Class="data-btn-icon" />
-                            CANCEL
-                        </button>
-                    }
-                    @if (_scanResult is not null)
-                    {
-                        <span class="data-hint" title="@_scanResult">@_scanResult</span>
-                    }
-                </div>
-
-                @if (ZTicksImport.IsRunning && ZTicksImport.Progress is { } progress)
-                {
-                    var percent = ImportPercent(progress);
-                    <div class="data-progress" title="@($"{Percent(percent)}% -- {progress.FilesDone}/{progress.FilesTotal} day(s)")">
-                        <div class="data-progress-track">
-                            <div class="data-progress-fill" style="width: @(Percent(percent))%"></div>
-                        </div>
-                        <span class="data-progress-label">
-                            @Percent(percent)% — @progress.FilesDone / @progress.FilesTotal day(s), @Count(progress.TicksParsed) parsed, @Count(progress.RowsWritten) written
-                        </span>
-                    </div>
-                    <p class="data-empty">
-                        Running in the background — safe to switch tabs or navigate away. Last finished: @Path.GetFileName(progress.CurrentFile)
-                    </p>
-                }
-                else if (ZTicksImport.LastResult is { } lastResult)
-                {
-                    <p class="data-empty">
-                        Last import: wrote @Count(lastResult.RowsWritten) row(s) of @Count(lastResult.TicksParsed) parsed into @lastResult.Table (@Count(lastResult.FilesProcessed) day(s)).
-                    </p>
-                }
-                else if (ZTicksImport.LastError is not null)
-                {
-                    <p class="data-empty">Last import failed: @ZTicksImport.LastError</p>
-                }
-
-                @if (_importPreview.Count > 0)
-                {
-                    <div class="data-table-scroll">
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>File</th>
-                                    <th>Date</th>
-                                    <th class="data-num">Ticks</th>
-                                    <th>Min (UTC)</th>
-                                    <th>Max (UTC)</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var entry in _importPreview)
-                                {
-                                    <tr>
-                                        <td class="data-mono">@Path.GetFileName(entry.File)</td>
-                                        <td class="data-mono">@(entry.Date?.ToString("yyyy-MM-dd") ?? "—")</td>
-                                        <td class="data-num data-mono">@Count(entry.TickCount)</td>
-                                        <td class="data-mono">@Time(entry.MinUtc)</td>
-                                        <td class="data-mono">@Time(entry.MaxUtc)</td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
-                }
-                else if (!_importScanBusy)
-                {
-                    <p class="data-empty">No files scanned yet. Enter a cache path and click Scan.</p>
                 }
             </section>
         }

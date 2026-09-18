@@ -36,6 +36,16 @@ public static class ZTicksCacheScanner
 			: null;
 	}
 
+	/// <summary>Every date found under a cache path, for a diff against stored coverage -- no file content is read.</summary>
+	public static IReadOnlyList<DateOnly> FindDates(string cachePath) =>
+		FindFiles(cachePath, from: null, to: null)
+			.Select(TryParseFileDate)
+			.Where(date => date is not null)
+			.Select(date => date!.Value)
+			.Distinct()
+			.OrderBy(date => date)
+			.ToList();
+
 	private static bool IsInRange(DateOnly date, DateOnly? from, DateOnly? to) =>
 		(from is null || date >= from.Value) && (to is null || date <= to.Value);
 }

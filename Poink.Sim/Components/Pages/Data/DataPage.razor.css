@@ -130,6 +130,68 @@
     overflow: hidden;
 }
 
+.data-registry-layout {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+}
+
+.data-import-panel {
+    flex: 0 0 520px;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.data-diff-cards {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.data-diff-card {
+    flex: 1 1 160px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px 14px;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.015);
+}
+
+.data-diff-card-label {
+    font-family: var(--font-heading);
+    font-size: 0.6rem;
+    font-weight: bold;
+    letter-spacing: 0.06em;
+    color: var(--color-secondary);
+}
+
+.data-diff-card-value {
+    font-size: 1.2rem;
+    font-weight: bold;
+    font-variant-numeric: tabular-nums;
+}
+
+.data-diff-ok {
+    color: var(--color-success);
+}
+
+.data-diff-warn {
+    color: var(--color-warning);
+}
+
+.data-registry-main {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    min-width: 0;
+}
+
 .data-panel-header {
     display: flex;
     align-items: center;
@@ -193,6 +255,14 @@
 
 .data-row-gap td {
     background: color-mix(in srgb, var(--color-error, #ff5f56) 8%, transparent);
+}
+
+.data-row-selectable {
+    cursor: pointer;
+}
+
+.data-row-selected td {
+    background: color-mix(in srgb, var(--color-accent) 12%, transparent);
 }
 
 .data-progress {
@@ -292,6 +362,12 @@
     align-items: center;
     gap: 16px;
     padding: 12px 16px;
+}
+
+.data-track-controls-column {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
 }
 
 .data-search {

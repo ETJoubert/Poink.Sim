@@ -26,6 +26,12 @@ namespace Poink.Sim.Services.MarketData
 		/// <summary>Returns every tick_table_stats row for inspection on the Data page.</summary>
 		IReadOnlyList<TickTableStatRow> GetRegistry();
 
+		/// <summary>Reads the saved import source directory for a table's registry row, or null if none is saved.</summary>
+		string? GetSourcePath(string table);
+
+		/// <summary>Records the filesystem path a table's ticks were imported from, so a later diff can check it for new files.</summary>
+		void SetSourcePath(string table, string sourcePath);
+
 		/// <summary>Bulk-appends the ticks (assumed sorted ascending by timestamp) and updates the registry. Returns the row count written.</summary>
 		long InsertTicks(string table, IReadOnlyList<Tick> ticks);
 

@@ -27,6 +27,7 @@ builder.Services.BuildDatabase(builder.Configuration);
 builder.Services.BuildCTraderServices(builder.Configuration);
 builder.Services.BuildSymbolServices();
 builder.Services.BuildBackgroundWorkers();
+builder.Services.BuildDataSeriesSyncServices();
 builder.Services.BuildTrainingServices();
 builder.Services.BuildSimulationServices();
 

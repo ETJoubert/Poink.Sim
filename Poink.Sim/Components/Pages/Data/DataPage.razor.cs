@@ -17,21 +17,13 @@ namespace Poink.Sim.Components.Pages.Data
 {
 	public partial class DataPage : ComponentBase, IDisposable
 	{
-		private const int MaxSymbolResults = 20;
-		private const int DefaultLoadHistoricDays = 1;
-
 		private enum Tab
 		{
-			Ingest,
 			Registry,
 			Symbols,
 			Log,
-			Import,
 			Daily,
 		}
-
-		[Inject]
-		private ITickBackfillController Backfill { get; set; } = null!;
 
 		[Inject]
 		private ITickIngest Ingest { get; set; } = null!;
@@ -51,15 +43,12 @@ namespace Poink.Sim.Components.Pages.Data
 		[Inject]
 		private ILogger<DataPage> Logger { get; set; } = null!;
 
-		private Tab _activeTab = Tab.Ingest;
+		private Tab _activeTab = Tab.Registry;
 
-		private string _symbolFilter = string.Empty;
-		private bool _createTable = true;
 		private Timer? _refreshTimer;
 
-		private readonly Dictionary<string, LoadHistoricState> _loadHistoric = new();
-
 		private IReadOnlyList<TickTableStatRow> _registry = Array.Empty<TickTableStatRow>();
+		private string? _selectedRegistryTable;
 		private IReadOnlyList<BackfillLogEntry> _backfillLog = Array.Empty<BackfillLogEntry>();
 		private string _logSymbolFilter = string.Empty;
 
@@ -71,21 +60,21 @@ namespace Poink.Sim.Components.Pages.Data
 
 		private string _importCachePath = string.Empty;
 		private string _importSymbol = string.Empty;
-		private bool _importIsLive;
+		private bool? _pathIsLive;
 		private bool _importCreateTable = true;
 		private IReadOnlyList<ZTicksPreviewEntry> _importPreview = Array.Empty<ZTicksPreviewEntry>();
 		private bool _importScanBusy;
 		private string? _scanResult;
 		private bool _showFolderBrowser;
+		private int _syncChartRefreshToken;
+		private ImportDiffSummary? _importDiff;
 
 		private string _dailyStatsTable = string.Empty;
 		private IReadOnlyList<TickDailyStatRow> _dailyStats = Array.Empty<TickDailyStatRow>();
 
 		private bool IsConnected => Session.State == CTraderConnectionState.Connected;
 
-		private IReadOnlyList<SymbolIngestStatus> Statuses => Backfill.GetStatuses();
-
-		private IReadOnlyList<CTraderSymbolInfo> FilteredSymbols => Filter(_symbolFilter);
+		private string? SelectedRegistrySymbol => _registry.FirstOrDefault(r => r.Table == _selectedRegistryTable)?.Symbol;
 
 		private IReadOnlyList<BackfillLogEntry> FilteredLog =>
 			string.IsNullOrWhiteSpace(_logSymbolFilter)
@@ -94,20 +83,76 @@ namespace Poink.Sim.Components.Pages.Data
 					.Where(e => e.SymbolName.Contains(_logSymbolFilter, StringComparison.OrdinalIgnoreCase))
 					.ToList();
 
-		private IReadOnlyList<CTraderSymbolInfo> Filter(string term) =>
-			string.IsNullOrWhiteSpace(term)
-				? Array.Empty<CTraderSymbolInfo>()
-				: Session
-					.Symbols.Where(s => s.SymbolName.Contains(term, StringComparison.OrdinalIgnoreCase))
-					.Take(MaxSymbolResults)
-					.ToList();
-
 		protected override void OnInitialized()
 		{
-			Backfill.Changed += OnChanged;
 			Session.Changed += OnChanged;
 			ZTicksImport.Changed += OnImportChanged;
 			_refreshTimer = new Timer(_ => OnTick(), null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+			_registry = Ingest.GetRegistry();
+		}
+
+		private void SelectRegistryEntry(TickTableStatRow row)
+		{
+			if (_selectedRegistryTable == row.Table)
+			{
+				_selectedRegistryTable = null;
+				_importSymbol = string.Empty;
+			}
+			else
+			{
+				_selectedRegistryTable = row.Table;
+				_importSymbol = row.Symbol ?? string.Empty;
+				SetImportCachePath(row.SourcePath ?? string.Empty);
+			}
+
+			// Nothing scanned yet for this selection -- Scan is what produces the data the diff runs on.
+			ClearImportScan();
+			_importDiff = null;
+		}
+
+		/// <summary>
+		/// Normalizes and applies a cache path, reading its cTrader backtesting-cache folder convention --
+		/// e.g. "...\live_23c56ec5\#USNDAQ100\t1" -- for a symbol hint (only applied when not already bound
+		/// to a selected registry row) and a live/demo hint (used to block importing a demo cache into the
+		/// live table).
+		/// </summary>
+		private void SetImportCachePath(string? raw)
+		{
+			_importCachePath = NormalizeCachePath(raw);
+			var (symbol, isLive) = ParseCachePathHints(_importCachePath);
+			_pathIsLive = isLive;
+			if (_selectedRegistryTable is null && string.IsNullOrWhiteSpace(_importSymbol) && symbol is not null)
+				_importSymbol = symbol;
+		}
+
+		/// <summary>Strips surrounding quotes a path pasted from Explorer's address bar or a quoted command line often carries.</summary>
+		private static string NormalizeCachePath(string? raw) => (raw ?? string.Empty).Trim().Trim('"');
+
+		/// <summary>Reads cTrader's "...\{live|demo}_{accountHash}\#{Symbol}\t1" backtesting-cache folder convention, if present.</summary>
+		private static (string? Symbol, bool? IsLive) ParseCachePathHints(string path)
+		{
+			if (string.IsNullOrWhiteSpace(path))
+				return (null, null);
+
+			string? symbol = null;
+			bool? isLive = null;
+			foreach (var segment in path.Split(['\\', '/'], StringSplitOptions.RemoveEmptyEntries))
+			{
+				if (segment.Length > 1 && segment[0] == '#')
+					symbol = segment[1..];
+				else if (segment.StartsWith("live_", StringComparison.OrdinalIgnoreCase))
+					isLive = true;
+				else if (segment.StartsWith("demo_", StringComparison.OrdinalIgnoreCase))
+					isLive = false;
+			}
+
+			return (symbol, isLive);
+		}
+
+		private void ClearImportScan()
+		{
+			_importPreview = Array.Empty<ZTicksPreviewEntry>();
+			_scanResult = null;
 		}
 
 		private void OnTick()
@@ -136,6 +181,11 @@ namespace Poink.Sim.Components.Pages.Data
 				_registry = Ingest.GetRegistry();
 				if (!string.IsNullOrEmpty(_dailyStatsTable))
 					_dailyStats = Ingest.GetDailyStats(_dailyStatsTable);
+				if (ZTicksImport.LastResult is not null)
+				{
+					_syncChartRefreshToken++;
+					RecomputeImportDiff();
+				}
 			}
 			OnChanged();
 		}
@@ -266,30 +316,6 @@ namespace Poink.Sim.Components.Pages.Data
 			DateTime? ChangedAt
 		);
 
-		private async Task TrackAndStreamAsync(CTraderSymbolInfo symbol)
-		{
-			Backfill.Track(symbol.SymbolId, symbol.SymbolName, _createTable);
-			if (IsConnected)
-				await Session.WatchSymbolAsync(symbol.SymbolId);
-		}
-
-		private async Task StopTrackingAsync(SymbolIngestStatus status)
-		{
-			Backfill.Untrack(status.SymbolId);
-			if (IsConnected)
-				await Session.UnwatchSymbolAsync(status.SymbolId);
-		}
-
-		private LoadHistoricState GetHistoricState(string table)
-		{
-			if (!_loadHistoric.TryGetValue(table, out var state))
-			{
-				state = new LoadHistoricState { Days = DefaultLoadHistoricDays };
-				_loadHistoric[table] = state;
-			}
-			return state;
-		}
-
 		private void UpdateRegistrySymbolAsync(string table, string symbolName)
 		{
 			var trimmed = symbolName.Trim();
@@ -303,59 +329,6 @@ namespace Poink.Sim.Components.Pages.Data
 
 		private CTraderSymbolInfo? ResolveSymbol(string? symbolCode) =>
 			symbolCode is null ? null : Session.Symbols.FirstOrDefault(s => s.SymbolName == symbolCode);
-
-		private async Task LoadHistoricAsync(TickTableStatRow row)
-		{
-			var state = GetHistoricState(row.Table);
-			if (state.Busy || row.MinUtc is not { } to)
-				return;
-
-			var symbol = ResolveSymbol(row.Symbol);
-			if (symbol is null)
-			{
-				state.Result = "Symbol not resolved against the connected account's symbol list.";
-				return;
-			}
-
-			var from = to.AddDays(-Math.Max(1, state.Days));
-			state.Busy = true;
-			state.Result = null;
-			Logger.LogInformation(
-				"Load Historic started for {Table} ({Symbol}), {From:u}..{To:u}.",
-				row.Table,
-				symbol.SymbolName,
-				from,
-				to
-			);
-			try
-			{
-				var written = await Backfill.BackfillRangeAsync(symbol.SymbolId, symbol.SymbolName, from, to);
-				state.Result = $"Wrote {written:N0} tick(s) before {Time(to)}.";
-				Logger.LogInformation(
-					"Load Historic finished for {Table} ({Symbol}): {Count} tick(s) written.",
-					row.Table,
-					symbol.SymbolName,
-					written
-				);
-				_registry = Ingest.GetRegistry();
-			}
-			catch (Exception ex)
-			{
-				state.Result = $"Failed: {ex.Message}";
-				Logger.LogError(
-					ex,
-					"Load Historic failed for {Table} ({Symbol}), {From:u}..{To:u}.",
-					row.Table,
-					symbol.SymbolName,
-					from,
-					to
-				);
-			}
-			finally
-			{
-				state.Busy = false;
-			}
-		}
 
 		private async Task ScanImportAsync()
 		{
@@ -380,32 +353,113 @@ namespace Poink.Sim.Components.Pages.Data
 			}
 			finally
 			{
+				RecomputeImportDiff();
 				_importScanBusy = false;
 				OnChanged();
 			}
 		}
 
-		private void StartImport()
+		/// <summary>
+		/// Diffs the last Scan's actual per-day tick counts (real file content, not just filenames) against
+		/// tick_daily_stats for the bound symbol's live table, so Import only has to write what's actually
+		/// missing or incomplete instead of the whole scanned range every time.
+		/// </summary>
+		private void RecomputeImportDiff()
 		{
 			if (_importPreview.Count == 0 || string.IsNullOrWhiteSpace(_importSymbol))
+			{
+				_importDiff = null;
 				return;
+			}
+
+			var table = TickTableNaming.ForSymbol(_importSymbol.Trim(), isLive: true);
+			IReadOnlyList<TickDailyStatRow> dbDays;
+			try
+			{
+				dbDays = Ingest.GetDailyStats(table);
+			}
+			catch (Exception ex)
+			{
+				Logger.LogWarning(ex, "Diff check failed to load daily stats for {Table}.", table);
+				_importDiff = null;
+				return;
+			}
+
+			var dbByDay = dbDays.ToDictionary(d => d.Day, d => d.RowCount);
+			var sourceByDay = _importPreview
+				.Where(e => e.Date is not null)
+				.GroupBy(e => e.Date!.Value)
+				.ToDictionary(g => g.Key, g => g.Sum(e => (long)e.TickCount));
+
+			var missing = 0;
+			var mismatched = 0;
+			var matching = 0;
+			long missingTicks = 0;
+			var needsImport = new HashSet<DateOnly>();
+
+			foreach (var (day, sourceCount) in sourceByDay)
+			{
+				if (!dbByDay.TryGetValue(day, out var dbCount))
+				{
+					missing++;
+					missingTicks += sourceCount;
+					needsImport.Add(day);
+				}
+				else if (sourceCount == dbCount)
+					matching++;
+				else
+				{
+					mismatched++;
+					needsImport.Add(day);
+				}
+			}
+
+			_importDiff = new ImportDiffSummary(missing, mismatched, matching, missingTicks, needsImport);
+		}
+
+		/// <summary>DaysMissing (in source, no DB row) / DaysMismatched (in both, counts differ -- likely a partial prior import) / DaysMatching (already up to date, safe to skip). NeedsImportDates is Missing union Mismatched -- what a diff-only import writes.</summary>
+		private sealed record ImportDiffSummary(int DaysMissing, int DaysMismatched, int DaysMatching, long MissingTickCount, IReadOnlySet<DateOnly> NeedsImportDates);
+
+		private string DiffOnlyImportTitle =>
+			_importDiff is not { } diff
+				? "Scan first to see what needs importing"
+				: diff.NeedsImportDates.Count == 0
+					? "Nothing to import -- every scanned day already matches the database"
+					: $"Write only the {diff.NeedsImportDates.Count} missing/mismatched day(s) into live_ticks_{_importSymbol}, skipping days already up to date";
+
+		private void StartImport() => StartImport(onlyDiff: false);
+
+		private void StartImportDiffOnly() => StartImport(onlyDiff: true);
+
+		private void StartImport(bool onlyDiff)
+		{
+			if (_importPreview.Count == 0 || string.IsNullOrWhiteSpace(_importSymbol) || _pathIsLive == false)
+				return;
+
+			IReadOnlySet<DateOnly>? onlyDates = null;
+			if (onlyDiff)
+			{
+				if (_importDiff is not { NeedsImportDates.Count: > 0 } diff)
+					return;
+				onlyDates = diff.NeedsImportDates;
+			}
 
 			var request = new ZTicksImportRequest(
 				_importCachePath,
 				_importSymbol.Trim(),
-				_importIsLive,
 				_importCreateTable,
-				ResolveSymbol(_importSymbol)?.SymbolId ?? 0
+				ResolveSymbol(_importSymbol)?.SymbolId ?? 0,
+				onlyDates
 			);
 
 			if (!ZTicksImport.StartImport(request))
 				return;
 
 			Logger.LogInformation(
-				"ZTicks import started: {Symbol} ({Env}) from {Path}.",
+				"ZTicks import started: {Symbol} from {Path}{DiffOnly}.",
 				request.SymbolName,
-				request.IsLive ? "live" : "demo",
-				request.CachePath
+				request.CachePath,
+				onlyDates is { } d ? $" ({d.Count} diff day(s) only)" : ""
 			);
 		}
 
@@ -425,7 +479,7 @@ namespace Poink.Sim.Components.Pages.Data
 
 		private void OnFolderSelected(string path)
 		{
-			_importCachePath = path;
+			SetImportCachePath(path);
 			_showFolderBrowser = false;
 			OnChanged();
 		}
@@ -446,64 +500,8 @@ namespace Poink.Sim.Components.Pages.Data
 			return Directory.Exists(spotwareCache) ? spotwareCache : Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
 		}
 
-		private void ForceFlush(long symbolId) => Backfill.ForceFlush(symbolId);
-
-		private void TogglePause()
-		{
-			if (Backfill.IsPaused)
-				Backfill.Resume();
-			else
-				Backfill.Pause();
-		}
-
-		private bool IsTracked(long symbolId) => Statuses.Any(s => s.SymbolId == symbolId);
-
-		private static string StateLabel(TickIngestState state) =>
-			state switch
-			{
-				TickIngestState.NoTable => "NO TABLE",
-				TickIngestState.Idle => "IDLE",
-				TickIngestState.ClosingGap => "CLOSING GAP",
-				TickIngestState.DrainingBuffer => "DRAINING",
-				TickIngestState.TailingLive => "LIVE",
-				TickIngestState.Error => "ERROR",
-				_ => state.ToString().ToUpperInvariant(),
-			};
-
-		private static string StateClass(TickIngestState state) =>
-			state switch
-			{
-				TickIngestState.TailingLive => "data-state-live",
-				TickIngestState.DrainingBuffer => "data-state-live",
-				TickIngestState.ClosingGap => "data-state-gap",
-				TickIngestState.Error => "data-state-error",
-				TickIngestState.NoTable => "data-state-error",
-				_ => "data-state-idle",
-			};
-
-		private static string HistoricStateLabel(LoadHistoricState state) =>
-			state.Busy ? "RUNNING"
-			: state.Result is null ? "IDLE"
-			: state.Result.StartsWith("Failed", StringComparison.Ordinal) ? "FAILED"
-			: "DONE";
-
-		private static string HistoricStateClass(LoadHistoricState state) =>
-			state.Busy ? "data-state-live"
-			: state.Result is null ? "data-state-idle"
-			: state.Result.StartsWith("Failed", StringComparison.Ordinal) ? "data-state-error"
-			: "data-state-live";
-
 		private static string Time(DateTime? utc) =>
 			utc?.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture) ?? "—";
-
-		private static string Lag(double? seconds) =>
-			seconds switch
-			{
-				null => "—",
-				< 60 => $"{seconds.Value:F0}s",
-				< 3600 => $"{seconds.Value / 60:F0}m",
-				_ => $"{seconds.Value / 3600:F1}h",
-			};
 
 		private static string Count(long value) => value.ToString("N0", CultureInfo.InvariantCulture);
 
@@ -516,17 +514,9 @@ namespace Poink.Sim.Components.Pages.Data
 
 		public void Dispose()
 		{
-			Backfill.Changed -= OnChanged;
 			Session.Changed -= OnChanged;
 			ZTicksImport.Changed -= OnImportChanged;
 			_refreshTimer?.Dispose();
-		}
-
-		private sealed class LoadHistoricState
-		{
-			public int Days { get; set; }
-			public bool Busy { get; set; }
-			public string? Result { get; set; }
 		}
 	}
 }

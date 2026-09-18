@@ -1,0 +1,57 @@
+.dssc-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 4px 8px;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 20%, transparent);
+    border-radius: var(--border-radius-sm);
+    background: rgba(255, 255, 255, 0.015);
+}
+
+.dssc-title {
+    font-family: var(--font-body);
+    font-weight: bold;
+    font-size: 0.6rem;
+    letter-spacing: 0.12em;
+    color: var(--color-secondary);
+    opacity: 0.85;
+    flex: 0 0 auto;
+}
+
+.dssc-empty {
+    font-family: var(--font-body);
+    font-size: 0.7rem;
+    color: var(--color-muted);
+}
+
+.dssc-track {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: stretch;
+    gap: 1px;
+    height: 20px;
+    min-width: 0;
+}
+
+.dssc-day {
+    flex: 1 1 0;
+    min-width: 2px;
+    border-radius: 1px;
+}
+
+.dssc-day-in-db {
+    background: var(--color-success);
+}
+
+.dssc-day-in-source {
+    background: var(--color-warning);
+}
+
+.dssc-day-available {
+    background: color-mix(in srgb, var(--color-muted) 40%, transparent);
+}
+
+.dssc-day-current {
+    background: var(--color-info);
+}

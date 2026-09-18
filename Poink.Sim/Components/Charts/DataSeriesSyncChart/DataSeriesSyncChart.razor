@@ -1,0 +1,19 @@
+@namespace Poink.Sim.Components.Charts
+@using Poink.Sim.Services.DataSeriesSync
+
+<div class="dssc-wrapper" title="@RootTooltip">
+    <span class="dssc-title" title="Tick data coverage already in the database versus what's left to load from cTrader">DATA SYNC</span>
+    @if (!_range.HasData)
+    {
+        <span class="dssc-empty" title="No tick data found in the database for this symbol">No data in database</span>
+    }
+    else
+    {
+        <div class="dssc-track">
+            @foreach (var day in _range.Days)
+            {
+                <div class="dssc-day dssc-day-@StatusClass(day.Status)" title="@DayTooltip(day)"></div>
+            }
+        </div>
+    }
+</div>
