@@ -26,6 +26,9 @@
             <button type="button" class="txf-tool-btn txf-tool-btn-volume @(_showVolumeProfile ? "active" : "")"
                     @onclick="ToggleVolumeProfile"
                     title="Overlay a real tick-volume profile in the right margin -- the same price-bucketed tick-count histogram as the Volume profile panel, built from every tick behind the displayed bars">Vol Profile</button>
+            <button type="button" class="txf-tool-btn txf-tool-btn-normalize @(_normalize ? "active" : "")"
+                    @onclick="ToggleNormalize"
+                    title="Show every bar as a percentage deviation from the largest selected timeframe's midpoint instead of its real price, with zero centered on the chart">%</button>
         </div>
         <div class="txf-row txf-timeframe-row"
              title="Pick which trailing windows to show -- one bar per selection, all ending at the same anchor time">

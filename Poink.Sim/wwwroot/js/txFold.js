@@ -33,29 +33,59 @@ const state = new Map();
 const resizeDrag = new WeakMap();
 const resizeBound = new WeakSet();
 
+// Normalize mode redraws every price relative to referencePrice (the largest selected timeframe's
+// own midpoint, 0%) scaled by referenceRange (its own half-range, +-100%) -- so that bar's own
+// High/Low land exactly on +-100%, and any other bar can still land outside that band. Done once
+// here, on the way into state, so the rest of the module never needs to know normalize exists.
+function toDisplayPrice(price, normalize, referencePrice, referenceRange) {
+    if (price === null || price === undefined) return price;
+    return normalize ? ((price - referencePrice) / referenceRange) * 100 : price;
+}
+
 export function render(canvas, options) {
     const existing = state.get(canvas);
+    const normalize = !!options.normalize && !!options.referenceRange;
+    const ref = options.referencePrice;
+    const refRange = options.referenceRange;
+    const toPrice = p => toDisplayPrice(p, normalize, ref, refRange);
     state.set(canvas, {
-        bars: Array.from(options.bars ?? []),
+        bars: Array.from(options.bars ?? []).map(b => ({
+            ...b,
+            open: toPrice(b.open),
+            high: toPrice(b.high),
+            low: toPrice(b.low),
+            close: toPrice(b.close),
+        })),
         barKind: options.barKind ?? 'Ohlc',
-        latestPrice: options.latestPrice ?? null,
+        normalize,
+        latestPrice: toPrice(options.latestPrice ?? null),
         showHighLowLines: !!options.showHighLowLines,
         showVolumeProfile: !!options.showVolumeProfile,
-        volumeProfile: Array.from(options.volumeProfile ?? []),
-        entryPrice: options.entryPrice ?? null,
+        volumeProfile: Array.from(options.volumeProfile ?? []).map(b => ({
+            ...b,
+            low: toPrice(b.low),
+            high: toPrice(b.high),
+        })),
+        entryPrice: toPrice(options.entryPrice ?? null),
         positionIsLong: options.positionIsLong ?? null,
-        stopLossPrice: options.stopLossPrice ?? null,
-        takeProfitPrice: options.takeProfitPrice ?? null,
-        draftEntryPrice: options.draftEntryPrice ?? null,
+        stopLossPrice: toPrice(options.stopLossPrice ?? null),
+        takeProfitPrice: toPrice(options.takeProfitPrice ?? null),
+        draftEntryPrice: toPrice(options.draftEntryPrice ?? null),
         draftIsLong: options.draftIsLong ?? null,
-        draftStopLossPrice: options.draftStopLossPrice ?? null,
-        draftTakeProfitPrice: options.draftTakeProfitPrice ?? null,
+        draftStopLossPrice: toPrice(options.draftStopLossPrice ?? null),
+        draftTakeProfitPrice: toPrice(options.draftTakeProfitPrice ?? null),
         highlightWidth: existing?.highlightWidth ?? DEFAULT_HIGHLIGHT_WIDTH,
         hover: existing?.hover ?? null,
         priceColumnWidth: existing?.priceColumnWidth ?? PADDING.right,
     });
     bindResize(canvas);
     draw(canvas);
+}
+
+// 5 decimal places reads as a real price; normalized values are a % deviation, so 2 decimals
+// plus a suffix reads correctly instead.
+function formatPrice(price, normalize) {
+    return normalize ? `${price.toFixed(2)}%` : price.toFixed(5);
 }
 
 export function dispose(canvas) {
@@ -110,8 +140,13 @@ function geometryFor(canvas, entry) {
     ].forEach(p => {
         if (p !== null && p !== undefined) prices.push(p);
     });
-    const minPrice = prices.length > 0 ? Math.min(...prices) : 0;
-    const maxPrice = prices.length > 0 ? Math.max(...prices) : 1;
+    let minPrice = prices.length > 0 ? Math.min(...prices) : 0;
+    let maxPrice = prices.length > 0 ? Math.max(...prices) : 1;
+    if (entry.normalize) {
+        const maxAbs = Math.max(Math.abs(minPrice), Math.abs(maxPrice));
+        minPrice = -maxAbs;
+        maxPrice = maxAbs;
+    }
     const priceRange = (maxPrice - minPrice) || 1;
     const slotWidth = entry.bars.length > 0 ? chartWidth / entry.bars.length : chartWidth;
 
@@ -392,8 +427,8 @@ function draw(canvas) {
     const draftEntryLabel = draftIsLong === null || draftIsLong === undefined ? 'EN' : '';
 
     const gridPrices = [prelim.minPrice, (prelim.minPrice + prelim.maxPrice) / 2, prelim.maxPrice];
-    const priceSpecs = gridPrices.map(p => ({ price: p, text: p.toFixed(5), bg: axisTickBg, textColor: labelColor, font: '11px monospace' }));
-    if (latestPrice !== null) priceSpecs.push({ price: latestPrice, text: latestPrice.toFixed(5), bg: latestColor, color: latestColor });
+    const priceSpecs = gridPrices.map(p => ({ price: p, text: formatPrice(p, entry.normalize), bg: axisTickBg, textColor: labelColor, font: '11px monospace' }));
+    if (latestPrice !== null) priceSpecs.push({ price: latestPrice, text: formatPrice(latestPrice, entry.normalize), bg: latestColor, color: latestColor });
 
     // Kind-only labels -- no price, no "DFT" -- the line itself (and, for a draft, the badge
     // colour on Entry) already says where and what it is; the tag just needs to say TP/SL/Entry.
@@ -626,15 +661,15 @@ function draw(canvas) {
         ctx.stroke();
         ctx.restore();
 
-        drawPricePill(ctx, priceAxisX, cursorY, cursorPrice.toFixed(5), 'rgba(10,10,10,0.85)', '#ffffff');
+        drawPricePill(ctx, priceAxisX, cursorY, formatPrice(cursorPrice, entry.normalize), 'rgba(10,10,10,0.85)', '#ffffff');
 
         ctx.font = '11px monospace';
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
         ctx.fillStyle = labelColor;
         let readout =
-            `${bar.label}   O ${bar.open.toFixed(5)}   H ${bar.high.toFixed(5)}   ` +
-            `L ${bar.low.toFixed(5)}   C ${bar.close.toFixed(5)}   Vol ${bar.volume.toLocaleString()}`;
+            `${bar.label}   O ${formatPrice(bar.open, entry.normalize)}   H ${formatPrice(bar.high, entry.normalize)}   ` +
+            `L ${formatPrice(bar.low, entry.normalize)}   C ${formatPrice(bar.close, entry.normalize)}   Vol ${bar.volume.toLocaleString()}`;
 
         if (showHighLowLines) {
             const hlCount = bars.filter(b => cursorPrice >= b.low && cursorPrice <= b.high).length;

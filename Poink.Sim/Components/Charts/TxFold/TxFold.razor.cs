@@ -68,6 +68,7 @@ namespace Poink.Sim.Components.Charts
 		private BarAggregationKind _barKind = BarAggregationKind.Ohlc;
 		private bool _showHighLowLines;
 		private bool _showVolumeProfile;
+		private bool _normalize;
 		private HashSet<int> _selectedSeconds = DefaultSelectedSeconds.ToHashSet();
 		private List<TxFoldBar> _bars = new();
 		private IReadOnlyList<TxFoldVolumeBucket> _volumeProfile = Array.Empty<TxFoldVolumeBucket>();
@@ -89,6 +90,7 @@ namespace Poink.Sim.Components.Charts
 		private bool? _renderedDraftIsLong;
 		private double? _renderedDraftStopLossPrice;
 		private double? _renderedDraftTakeProfitPrice;
+		private bool _renderedNormalize;
 		private bool _disposed;
 
 		protected override async Task OnParametersSetAsync() => await RefreshIfNeeded();
@@ -104,6 +106,8 @@ namespace Poink.Sim.Components.Charts
 		private void ToggleHighLowLines() => _showHighLowLines = !_showHighLowLines;
 
 		private void ToggleVolumeProfile() => _showVolumeProfile = !_showVolumeProfile;
+
+		private void ToggleNormalize() => _normalize = !_normalize;
 
 		private async Task ToggleTimeframe(int seconds)
 		{
@@ -189,6 +193,7 @@ namespace Poink.Sim.Components.Charts
 					|| _renderedDraftIsLong != DraftIsLong
 					|| _renderedDraftStopLossPrice != DraftStopLossPrice
 					|| _renderedDraftTakeProfitPrice != DraftTakeProfitPrice
+					|| _renderedNormalize != _normalize
 				)
 				{
 					_renderedBars = _bars;
@@ -203,6 +208,13 @@ namespace Poink.Sim.Components.Charts
 					_renderedDraftIsLong = DraftIsLong;
 					_renderedDraftStopLossPrice = DraftStopLossPrice;
 					_renderedDraftTakeProfitPrice = DraftTakeProfitPrice;
+					_renderedNormalize = _normalize;
+
+					// The largest selected timeframe's own midpoint anchors 0%, its half-range +-100%
+					// -- so its own High/Low land exactly there; other bars can still fall outside it.
+					var largestBar = _bars.OrderByDescending(b => b.LookbackSeconds).First().Bar;
+					var referencePrice = (largestBar.High + largestBar.Low) / 2;
+					var referenceRange = (largestBar.High - largestBar.Low) / 2;
 
 					var options = new
 					{
@@ -217,6 +229,9 @@ namespace Poink.Sim.Components.Charts
 							hasFullCoverage = pair.HasFullCoverage,
 						}),
 						barKind = _barKind.ToString(),
+						normalize = _normalize,
+						referencePrice,
+						referenceRange,
 						latestPrice = LatestPrice,
 						showHighLowLines = _showHighLowLines,
 						showVolumeProfile = _showVolumeProfile,

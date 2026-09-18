@@ -53,6 +53,7 @@
 .txf-tool-btn-coverage { --txf-color: var(--color-secondary); }
 .txf-tool-btn-volume { --txf-color: var(--color-info); }
 .txf-tool-btn-timeframe { --txf-color: var(--color-secondary); }
+.txf-tool-btn-normalize { --txf-color: var(--color-badge-2); }
 
 .txf-tool-btn {
     font-family: var(--font-body);
