@@ -390,7 +390,7 @@
                                 {
                                     <button type="button" class="sim-overlay-toggle-btn @(_showSnapshot ? "active" : "")"
                                             @onclick="() => _showSnapshot = !_showSnapshot"
-                                            title="One OHLC/Quartile bar per toggled timeframe, each a trailing window ending at the current Lookback Window's right edge">Snapshot</button>
+                                            title="One OHLC/Quartile bar per toggled timeframe, each a trailing window ending at the current Lookback Window's right edge">TxFold</button>
                                 }
                             </div>
                         </div>
@@ -535,12 +535,12 @@
                                 <div class="sim-chart-side">
                                     @if (SnapshotAnchorBar(s) is { } anchorBar)
                                     {
-                                        <TimeframeSnapshotChart Table="@s.Config.Table" AnchorEnd="@anchorBar.CloseTime.AddTicks(1)"
-                                                                LatestPrice="anchorBar.Close" EntryPrice="SelectedTrader?.Position?.EntryPrice"
-                                                                PositionIsLong="SelectedPositionIsLong" StopLossPrice="SelectedTrader?.Position?.StopLossPrice"
-                                                                TakeProfitPrice="SelectedTrader?.Position?.TakeProfitPrice"
-                                                                DraftEntryPrice="_draft?.EntryPrice" DraftIsLong="_draft?.IsLong"
-                                                                DraftStopLossPrice="_draft?.StopLossPrice" DraftTakeProfitPrice="_draft?.TakeProfitPrice" />
+                                        <TxFold Table="@s.Config.Table" AnchorEnd="@anchorBar.CloseTime.AddTicks(1)"
+                                                LatestPrice="anchorBar.Close" EntryPrice="SelectedTrader?.Position?.EntryPrice"
+                                                PositionIsLong="SelectedPositionIsLong" StopLossPrice="SelectedTrader?.Position?.StopLossPrice"
+                                                TakeProfitPrice="SelectedTrader?.Position?.TakeProfitPrice"
+                                                DraftEntryPrice="_draft?.EntryPrice" DraftIsLong="_draft?.IsLong"
+                                                DraftStopLossPrice="_draft?.StopLossPrice" DraftTakeProfitPrice="_draft?.TakeProfitPrice" />
                                     }
                                     else
                                     {

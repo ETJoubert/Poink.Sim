@@ -15,7 +15,7 @@ namespace Poink.Sim.Components.Charts
 	/// as its own single bar over its own trailing window ending at <see cref="AnchorEnd"/>, side by
 	/// side, via <see cref="ITimeframeSnapshotService"/>.
 	/// </summary>
-	public partial class TimeframeSnapshotChart : ComponentBase, IAsyncDisposable
+	public partial class TxFold : ComponentBase, IAsyncDisposable
 	{
 		[Inject]
 		private ITimeframeSnapshotService SnapshotService { get; set; } = default!;
@@ -157,7 +157,7 @@ namespace Poink.Sim.Components.Charts
 			{
 				if (_module is null)
 				{
-					_module = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/timeframeSnapshotChart.js");
+					_module = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/txFold.js");
 					if (_disposed)
 						return;
 				}

@@ -1,0 +1,101 @@
+.txf-wrapper {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 20%, transparent);
+    border-radius: var(--border-radius-sm);
+    background: rgba(255, 255, 255, 0.015);
+    overflow: hidden;
+}
+
+.txf-toolbar {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding: 4px 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    flex: 0 0 auto;
+}
+
+.txf-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.txf-timeframe-row {
+    gap: 3px;
+}
+
+.txf-title {
+    font-family: var(--font-body);
+    font-weight: bold;
+    font-size: 0.6rem;
+    letter-spacing: 0.12em;
+    color: var(--color-secondary);
+    opacity: 0.85;
+}
+
+.txf-divider {
+    width: 1px;
+    height: 14px;
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.txf-tool-group {
+    display: flex;
+    gap: 3px;
+}
+
+.txf-tool-btn-kind { --txf-color: var(--color-primary); }
+.txf-tool-btn-coverage { --txf-color: var(--color-secondary); }
+.txf-tool-btn-volume { --txf-color: var(--color-info); }
+.txf-tool-btn-timeframe { --txf-color: var(--color-secondary); }
+
+.txf-tool-btn {
+    font-family: var(--font-body);
+    font-weight: bold;
+    font-size: 0.58rem;
+    letter-spacing: 0.03em;
+    padding: 2px 7px;
+    border-radius: var(--border-radius-sm);
+    border: 1px solid color-mix(in srgb, var(--txf-color, var(--color-secondary)) 40%, transparent);
+    background: transparent;
+    color: var(--txf-color, var(--color-secondary));
+    cursor: pointer;
+    white-space: nowrap;
+    transition: border-color 0.15s ease, filter 0.15s ease, background 0.15s ease;
+}
+
+.txf-tool-btn:hover {
+    border-color: var(--txf-color, var(--color-secondary));
+    filter: brightness(1.2);
+}
+
+.txf-tool-btn.active {
+    background: var(--txf-color, var(--color-secondary));
+    border-color: var(--txf-color, var(--color-secondary));
+    color: var(--color-bg-terminal);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--txf-color, var(--color-secondary)) 55%, transparent);
+}
+
+.txf-chart {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+}
+
+.txf-canvas {
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+}
+
+.txf-empty {
+    margin: auto;
+    font-size: 0.7rem;
+    color: var(--color-secondary);
+    opacity: 0.6;
+}
