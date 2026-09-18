@@ -97,9 +97,15 @@
                         </button>
                         <button class="data-btn data-btn-play" @onclick="StartImport"
                                 disabled="@(ZTicksImport.IsRunning || _importScanBusy || _importPreview.Count == 0 || string.IsNullOrWhiteSpace(_importSymbol) || _pathIsLive == false)"
-                                title="@(_pathIsLive == false ? "This cache path looks like a demo backtesting cache -- import is blocked" : string.IsNullOrWhiteSpace(_importSymbol) ? "Enter a symbol name first" : $"Write the scanned files into live_ticks_{_importSymbol}")">
+                                title="@(_pathIsLive == false ? "This cache path looks like a demo backtesting cache -- import is blocked" : string.IsNullOrWhiteSpace(_importSymbol) ? "Enter a symbol name first" : $"Write every scanned file into live_ticks_{_importSymbol}, including days already up to date")">
                             <Icon Name="cloud-upload" Class="data-btn-icon" />
-                            @(ZTicksImport.IsRunning ? "IMPORTING..." : "IMPORT")
+                            @(ZTicksImport.IsRunning ? "IMPORTING..." : "IMPORT ALL")
+                        </button>
+                        <button class="data-btn data-btn-play" @onclick="StartImportDiffOnly"
+                                disabled="@(ZTicksImport.IsRunning || _importScanBusy || string.IsNullOrWhiteSpace(_importSymbol) || _pathIsLive == false || _importDiff is not { NeedsImportDates.Count: > 0 })"
+                                title="@DiffOnlyImportTitle">
+                            <Icon Name="cloud-upload" Class="data-btn-icon" />
+                            @(ZTicksImport.IsRunning ? "IMPORTING..." : $"IMPORT DIFF ({_importDiff?.NeedsImportDates.Count ?? 0})")
                         </button>
                         @if (ZTicksImport.IsRunning)
                         {

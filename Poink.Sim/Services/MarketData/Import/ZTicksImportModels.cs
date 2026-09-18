@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace Poink.Sim.Services.MarketData.Import
 {
@@ -11,12 +12,17 @@ namespace Poink.Sim.Services.MarketData.Import
 		DateTime? MaxUtc
 	);
 
-	/// <summary>Parameters for one import run: where to read from, and which tick table to write into. Always writes to the live table -- see TickTableNaming.</summary>
+	/// <summary>
+	/// Parameters for one import run: where to read from, and which tick table to write into. Always writes
+	/// to the live table -- see TickTableNaming. OnlyDates, when set, restricts the run to those calendar
+	/// days (e.g. a diff-only import), instead of every file the cache path scans to.
+	/// </summary>
 	internal sealed record ZTicksImportRequest(
 		string CachePath,
 		string SymbolName,
 		bool CreateTableIfMissing,
-		long SymbolCode
+		long SymbolCode,
+		IReadOnlySet<DateOnly>? OnlyDates = null
 	);
 
 	/// <summary>Progress after one file of an import run, for live UI updates.</summary>

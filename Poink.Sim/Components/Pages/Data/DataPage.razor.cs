@@ -395,6 +395,7 @@ namespace Poink.Sim.Components.Pages.Data
 			var mismatched = 0;
 			var matching = 0;
 			long missingTicks = 0;
+			var needsImport = new HashSet<DateOnly>();
 
 			foreach (var (day, sourceCount) in sourceByDay)
 			{
@@ -402,35 +403,64 @@ namespace Poink.Sim.Components.Pages.Data
 				{
 					missing++;
 					missingTicks += sourceCount;
+					needsImport.Add(day);
 				}
 				else if (sourceCount == dbCount)
 					matching++;
 				else
+				{
 					mismatched++;
+					needsImport.Add(day);
+				}
 			}
 
-			_importDiff = new ImportDiffSummary(missing, mismatched, matching, missingTicks);
+			_importDiff = new ImportDiffSummary(missing, mismatched, matching, missingTicks, needsImport);
 		}
 
-		/// <summary>DaysMissing (in source, no DB row -- needs importing) / DaysMismatched (in both, counts differ -- likely a partial prior import) / DaysMatching (already up to date, safe to skip).</summary>
-		private sealed record ImportDiffSummary(int DaysMissing, int DaysMismatched, int DaysMatching, long MissingTickCount);
+		/// <summary>DaysMissing (in source, no DB row) / DaysMismatched (in both, counts differ -- likely a partial prior import) / DaysMatching (already up to date, safe to skip). NeedsImportDates is Missing union Mismatched -- what a diff-only import writes.</summary>
+		private sealed record ImportDiffSummary(int DaysMissing, int DaysMismatched, int DaysMatching, long MissingTickCount, IReadOnlySet<DateOnly> NeedsImportDates);
 
-		private void StartImport()
+		private string DiffOnlyImportTitle =>
+			_importDiff is not { } diff
+				? "Scan first to see what needs importing"
+				: diff.NeedsImportDates.Count == 0
+					? "Nothing to import -- every scanned day already matches the database"
+					: $"Write only the {diff.NeedsImportDates.Count} missing/mismatched day(s) into live_ticks_{_importSymbol}, skipping days already up to date";
+
+		private void StartImport() => StartImport(onlyDiff: false);
+
+		private void StartImportDiffOnly() => StartImport(onlyDiff: true);
+
+		private void StartImport(bool onlyDiff)
 		{
 			if (_importPreview.Count == 0 || string.IsNullOrWhiteSpace(_importSymbol) || _pathIsLive == false)
 				return;
+
+			IReadOnlySet<DateOnly>? onlyDates = null;
+			if (onlyDiff)
+			{
+				if (_importDiff is not { NeedsImportDates.Count: > 0 } diff)
+					return;
+				onlyDates = diff.NeedsImportDates;
+			}
 
 			var request = new ZTicksImportRequest(
 				_importCachePath,
 				_importSymbol.Trim(),
 				_importCreateTable,
-				ResolveSymbol(_importSymbol)?.SymbolId ?? 0
+				ResolveSymbol(_importSymbol)?.SymbolId ?? 0,
+				onlyDates
 			);
 
 			if (!ZTicksImport.StartImport(request))
 				return;
 
-			Logger.LogInformation("ZTicks import started: {Symbol} from {Path}.", request.SymbolName, request.CachePath);
+			Logger.LogInformation(
+				"ZTicks import started: {Symbol} from {Path}{DiffOnly}.",
+				request.SymbolName,
+				request.CachePath,
+				onlyDates is { } d ? $" ({d.Count} diff day(s) only)" : ""
+			);
 		}
 
 		private void CancelImport() => ZTicksImport.CancelImport();
