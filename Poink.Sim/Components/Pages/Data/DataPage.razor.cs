@@ -60,12 +60,14 @@ namespace Poink.Sim.Components.Pages.Data
 
 		private string _importCachePath = string.Empty;
 		private string _importSymbol = string.Empty;
+		private bool? _pathIsLive;
 		private bool _importCreateTable = true;
 		private IReadOnlyList<ZTicksPreviewEntry> _importPreview = Array.Empty<ZTicksPreviewEntry>();
 		private bool _importScanBusy;
 		private string? _scanResult;
 		private bool _showFolderBrowser;
 		private int _syncChartRefreshToken;
+		private ImportDiffSummary? _importDiff;
 
 		private string _dailyStatsTable = string.Empty;
 		private IReadOnlyList<TickDailyStatRow> _dailyStats = Array.Empty<TickDailyStatRow>();
@@ -95,13 +97,62 @@ namespace Poink.Sim.Components.Pages.Data
 			{
 				_selectedRegistryTable = null;
 				_importSymbol = string.Empty;
-				return;
+			}
+			else
+			{
+				_selectedRegistryTable = row.Table;
+				_importSymbol = row.Symbol ?? string.Empty;
+				SetImportCachePath(row.SourcePath ?? string.Empty);
 			}
 
-			_selectedRegistryTable = row.Table;
-			_importSymbol = row.Symbol ?? string.Empty;
-			if (!string.IsNullOrWhiteSpace(row.SourcePath))
-				_importCachePath = row.SourcePath;
+			// Nothing scanned yet for this selection -- Scan is what produces the data the diff runs on.
+			ClearImportScan();
+			_importDiff = null;
+		}
+
+		/// <summary>
+		/// Normalizes and applies a cache path, reading its cTrader backtesting-cache folder convention --
+		/// e.g. "...\live_23c56ec5\#USNDAQ100\t1" -- for a symbol hint (only applied when not already bound
+		/// to a selected registry row) and a live/demo hint (used to block importing a demo cache into the
+		/// live table).
+		/// </summary>
+		private void SetImportCachePath(string? raw)
+		{
+			_importCachePath = NormalizeCachePath(raw);
+			var (symbol, isLive) = ParseCachePathHints(_importCachePath);
+			_pathIsLive = isLive;
+			if (_selectedRegistryTable is null && string.IsNullOrWhiteSpace(_importSymbol) && symbol is not null)
+				_importSymbol = symbol;
+		}
+
+		/// <summary>Strips surrounding quotes a path pasted from Explorer's address bar or a quoted command line often carries.</summary>
+		private static string NormalizeCachePath(string? raw) => (raw ?? string.Empty).Trim().Trim('"');
+
+		/// <summary>Reads cTrader's "...\{live|demo}_{accountHash}\#{Symbol}\t1" backtesting-cache folder convention, if present.</summary>
+		private static (string? Symbol, bool? IsLive) ParseCachePathHints(string path)
+		{
+			if (string.IsNullOrWhiteSpace(path))
+				return (null, null);
+
+			string? symbol = null;
+			bool? isLive = null;
+			foreach (var segment in path.Split(['\\', '/'], StringSplitOptions.RemoveEmptyEntries))
+			{
+				if (segment.Length > 1 && segment[0] == '#')
+					symbol = segment[1..];
+				else if (segment.StartsWith("live_", StringComparison.OrdinalIgnoreCase))
+					isLive = true;
+				else if (segment.StartsWith("demo_", StringComparison.OrdinalIgnoreCase))
+					isLive = false;
+			}
+
+			return (symbol, isLive);
+		}
+
+		private void ClearImportScan()
+		{
+			_importPreview = Array.Empty<ZTicksPreviewEntry>();
+			_scanResult = null;
 		}
 
 		private void OnTick()
@@ -131,7 +182,10 @@ namespace Poink.Sim.Components.Pages.Data
 				if (!string.IsNullOrEmpty(_dailyStatsTable))
 					_dailyStats = Ingest.GetDailyStats(_dailyStatsTable);
 				if (ZTicksImport.LastResult is not null)
+				{
 					_syncChartRefreshToken++;
+					RecomputeImportDiff();
+				}
 			}
 			OnChanged();
 		}
@@ -299,14 +353,71 @@ namespace Poink.Sim.Components.Pages.Data
 			}
 			finally
 			{
+				RecomputeImportDiff();
 				_importScanBusy = false;
 				OnChanged();
 			}
 		}
 
-		private void StartImport()
+		/// <summary>
+		/// Diffs the last Scan's actual per-day tick counts (real file content, not just filenames) against
+		/// tick_daily_stats for the bound symbol's live table, so Import only has to write what's actually
+		/// missing or incomplete instead of the whole scanned range every time.
+		/// </summary>
+		private void RecomputeImportDiff()
 		{
 			if (_importPreview.Count == 0 || string.IsNullOrWhiteSpace(_importSymbol))
+			{
+				_importDiff = null;
+				return;
+			}
+
+			var table = TickTableNaming.ForSymbol(_importSymbol.Trim(), isLive: true);
+			IReadOnlyList<TickDailyStatRow> dbDays;
+			try
+			{
+				dbDays = Ingest.GetDailyStats(table);
+			}
+			catch (Exception ex)
+			{
+				Logger.LogWarning(ex, "Diff check failed to load daily stats for {Table}.", table);
+				_importDiff = null;
+				return;
+			}
+
+			var dbByDay = dbDays.ToDictionary(d => d.Day, d => d.RowCount);
+			var sourceByDay = _importPreview
+				.Where(e => e.Date is not null)
+				.GroupBy(e => e.Date!.Value)
+				.ToDictionary(g => g.Key, g => g.Sum(e => (long)e.TickCount));
+
+			var missing = 0;
+			var mismatched = 0;
+			var matching = 0;
+			long missingTicks = 0;
+
+			foreach (var (day, sourceCount) in sourceByDay)
+			{
+				if (!dbByDay.TryGetValue(day, out var dbCount))
+				{
+					missing++;
+					missingTicks += sourceCount;
+				}
+				else if (sourceCount == dbCount)
+					matching++;
+				else
+					mismatched++;
+			}
+
+			_importDiff = new ImportDiffSummary(missing, mismatched, matching, missingTicks);
+		}
+
+		/// <summary>DaysMissing (in source, no DB row -- needs importing) / DaysMismatched (in both, counts differ -- likely a partial prior import) / DaysMatching (already up to date, safe to skip).</summary>
+		private sealed record ImportDiffSummary(int DaysMissing, int DaysMismatched, int DaysMatching, long MissingTickCount);
+
+		private void StartImport()
+		{
+			if (_importPreview.Count == 0 || string.IsNullOrWhiteSpace(_importSymbol) || _pathIsLive == false)
 				return;
 
 			var request = new ZTicksImportRequest(
@@ -338,7 +449,7 @@ namespace Poink.Sim.Components.Pages.Data
 
 		private void OnFolderSelected(string path)
 		{
-			_importCachePath = path;
+			SetImportCachePath(path);
 			_showFolderBrowser = false;
 			OnChanged();
 		}

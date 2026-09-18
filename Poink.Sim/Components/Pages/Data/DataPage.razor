@@ -56,18 +56,25 @@
 
                     <div class="data-track-controls data-track-controls-column">
                         <input type="text" class="data-search" placeholder="Cache file or folder path..."
-                               value="@_importCachePath" @oninput="e => _importCachePath = e.Value?.ToString() ?? string.Empty"
-                               title="A single .zticks file, or a folder of them (e.g. the broker's t1 folder) -- saved to the registry on import, so it can be re-scanned for a diff later" />
+                               value="@_importCachePath" @oninput="e => SetImportCachePath(e.Value?.ToString())"
+                               title="A single .zticks file, or a folder of them (e.g. the broker's t1 folder) -- saved to the registry on import, so it can be re-scanned for a diff later. cTrader's own cache folder naming (...\live_<account>\#<Symbol>\t1) is read for a symbol and live/demo hint." />
                         <button class="data-btn" @onclick="OpenFolderBrowser" title="Browse the server's filesystem for the cache folder">
                             <Icon Name="folder2-open" Class="data-btn-icon" />
                             BROWSE
                         </button>
+                        @if (_pathIsLive == false)
+                        {
+                            <span class="data-state-pill data-state-error"
+                                  title="This cache path's account-environment folder is named demo_<account> -- importing would write demo-sourced ticks into the live table, which the live-only data policy prohibits. Import is disabled until you point at a live-environment cache.">
+                                DEMO CACHE — IMPORT BLOCKED
+                            </span>
+                        }
 
                         <input type="text" class="data-search" placeholder="Symbol (e.g. USNDAQ100)..."
                                value="@_importSymbol" @oninput="e => _importSymbol = e.Value?.ToString() ?? string.Empty"
                                disabled="@(_selectedRegistryTable is not null)"
                                list="data-import-symbols"
-                               title="@(_selectedRegistryTable is not null ? "Bound to the selected registry entry -- change the association via the table's Symbol column instead" : "Symbol name as tracked by Poink.Sim; determines the live_ticks_ table")" />
+                               title="@(_selectedRegistryTable is not null ? "Bound to the selected registry entry -- change the association via the table's Symbol column instead" : "Symbol name as tracked by Poink.Sim; determines the live_ticks_ table -- auto-filled from the cache path's #<Symbol> folder when left blank")" />
                         <datalist id="data-import-symbols">
                             @foreach (var symbol in Session.Symbols)
                             {
@@ -89,8 +96,8 @@
                             @(_importScanBusy ? "SCANNING..." : "SCAN")
                         </button>
                         <button class="data-btn data-btn-play" @onclick="StartImport"
-                                disabled="@(ZTicksImport.IsRunning || _importScanBusy || _importPreview.Count == 0 || string.IsNullOrWhiteSpace(_importSymbol))"
-                                title="@(string.IsNullOrWhiteSpace(_importSymbol) ? "Enter a symbol name first" : $"Write the scanned files into live_ticks_{_importSymbol}")">
+                                disabled="@(ZTicksImport.IsRunning || _importScanBusy || _importPreview.Count == 0 || string.IsNullOrWhiteSpace(_importSymbol) || _pathIsLive == false)"
+                                title="@(_pathIsLive == false ? "This cache path looks like a demo backtesting cache -- import is blocked" : string.IsNullOrWhiteSpace(_importSymbol) ? "Enter a symbol name first" : $"Write the scanned files into live_ticks_{_importSymbol}")">
                             <Icon Name="cloud-upload" Class="data-btn-icon" />
                             @(ZTicksImport.IsRunning ? "IMPORTING..." : "IMPORT")
                         </button>
@@ -171,6 +178,31 @@
                     @if (SelectedRegistrySymbol is { } selectedSymbol)
                     {
                         <DataSeriesSyncChart SymbolName="@selectedSymbol" RefreshToken="_syncChartRefreshToken" />
+                        @if (_importDiff is { } diff)
+                        {
+                            <div class="data-diff-cards">
+                                <div class="data-diff-card" title="Calendar days in the last scan with no tick_daily_stats row yet -- these are what Import will actually write">
+                                    <span class="data-diff-card-label">DAYS TO IMPORT</span>
+                                    <span class="data-diff-card-value @(diff.DaysMissing > 0 ? "data-diff-warn" : "data-diff-ok")">@diff.DaysMissing</span>
+                                </div>
+                                <div class="data-diff-card" title="Calendar days present in both the scan and tick_daily_stats, but with a different tick count -- likely a partial or interrupted prior import">
+                                    <span class="data-diff-card-label">DAYS MISMATCHED</span>
+                                    <span class="data-diff-card-value @(diff.DaysMismatched > 0 ? "data-diff-warn" : "data-diff-ok")">@diff.DaysMismatched</span>
+                                </div>
+                                <div class="data-diff-card" title="Calendar days already imported with a matching tick count -- Import will skip re-writing these">
+                                    <span class="data-diff-card-label">DAYS UP TO DATE</span>
+                                    <span class="data-diff-card-value data-diff-ok">@diff.DaysMatching</span>
+                                </div>
+                            </div>
+                            @if (diff.DaysMissing > 0)
+                            {
+                                <p class="data-empty">@Count(diff.MissingTickCount) tick(s) across @diff.DaysMissing missing day(s) still to import.</p>
+                            }
+                        }
+                        else if (_importPreview.Count == 0)
+                        {
+                            <p class="data-empty" title="Scan a cache path in the panel on the left to see what's missing from the database">Scan a cache path to check what still needs importing.</p>
+                        }
                     }
                     else
                     {
@@ -195,6 +227,7 @@
                                             <th>Table</th>
                                             <th>Symbol</th>
                                             <th class="data-num">Rows</th>
+                                            <th class="data-num" title="Distinct calendar days recorded in tick_daily_stats for this table">Days</th>
                                             <th>Min (UTC)</th>
                                             <th>Max (UTC)</th>
                                             <th>Refreshed (UTC)</th>
@@ -216,6 +249,7 @@
                                                            title="Symbol name associated with @r.Table in the registry" />
                                                 </td>
                                                 <td class="data-num data-mono">@Count(r.Rows)</td>
+                                                <td class="data-num data-mono">@Count(r.DayCount)</td>
                                                 <td class="data-mono">@Time(r.MinUtc)</td>
                                                 <td class="data-mono">@Time(r.MaxUtc)</td>
                                                 <td class="data-mono">@Time(r.RefreshedAt)</td>

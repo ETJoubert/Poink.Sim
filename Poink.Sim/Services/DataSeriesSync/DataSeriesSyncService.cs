@@ -61,12 +61,7 @@ internal sealed class DataSeriesSyncService : IDataSeriesSyncService
 
 		try
 		{
-			return ZTicksCacheScanner
-				.FindFiles(sourceDirectory, from: null, to: null)
-				.Select(ZTicksCacheScanner.TryParseFileDate)
-				.Where(date => date is not null)
-				.Select(date => date!.Value)
-				.ToHashSet();
+			return ZTicksCacheScanner.FindDates(sourceDirectory).ToHashSet();
 		}
 		catch (Exception ex)
 		{

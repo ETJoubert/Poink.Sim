@@ -32,7 +32,8 @@ namespace Poink.Sim.Services.MarketData
 		long Rows,
 		DateTime? MinUtc,
 		DateTime? MaxUtc,
-		DateTime? RefreshedAt
+		DateTime? RefreshedAt,
+		long DayCount
 	);
 
 	/// <summary>Who caused a backfill: an explicit UI action, or the worker's own gap-closing.</summary>

@@ -120,6 +120,7 @@ namespace Poink.Sim.Services.MarketData
 			using var conn = new NpgsqlConnection(_connectionString);
 			conn.Open();
 			EnsureRegistryTable(conn);
+			EnsureTable(conn, Sql.CreateDailyStatsTable);
 			return conn.Query<TickTableStatRow>(Sql.SelectRegistry).AsList();
 		}
 
@@ -288,7 +289,7 @@ namespace Poink.Sim.Services.MarketData
 			EnsureTable(conn, Sql.CreateDailyStatsTable);
 			return conn
 				.Query<DailyStatRow>(Sql.SelectDailyStats, new { table })
-				.Select(r => new TickDailyStatRow(r.Table, DateOnly.FromDateTime(r.Day), r.RowCount, r.MinUtc, r.MaxUtc, r.RefreshedAt))
+				.Select(r => new TickDailyStatRow(r.Table, r.Day, r.RowCount, r.MinUtc, r.MaxUtc, r.RefreshedAt))
 				.ToList();
 		}
 
@@ -308,7 +309,9 @@ namespace Poink.Sim.Services.MarketData
 
 		private sealed record StatsRow(long Rows, DateTime? MinTime, DateTime? MaxTime);
 
-		private sealed record DailyStatRow(string Table, DateTime Day, long RowCount, DateTime? MinUtc, DateTime? MaxUtc, DateTime RefreshedAt);
+		// Npgsql maps a "date" column to DateOnly (not DateTime) by default -- Day must match that exactly for
+		// Dapper's constructor-based materialization to succeed.
+		private sealed record DailyStatRow(string Table, DateOnly Day, long RowCount, DateTime? MinUtc, DateTime? MaxUtc, DateTime RefreshedAt);
 
 		private static class Sql
 		{
@@ -384,9 +387,10 @@ namespace Poink.Sim.Services.MarketData
                    FROM ""{RegistryTable}"" WHERE ""table_name"" = @table";
 
 			public const string SelectRegistry =
-				$@"SELECT ""table_name"" AS ""Table"", ""symbol"" AS ""Symbol"", ""source_path"" AS ""SourcePath"", ""row_count"" AS ""Rows"",
-                          ""min_timestamp"" AS ""MinUtc"", ""max_timestamp"" AS ""MaxUtc"", ""refreshed_at"" AS ""RefreshedAt""
-                   FROM ""{RegistryTable}"" ORDER BY ""table_name""";
+				$@"SELECT s.""table_name"" AS ""Table"", s.""symbol"" AS ""Symbol"", s.""source_path"" AS ""SourcePath"", s.""row_count"" AS ""Rows"",
+                          s.""min_timestamp"" AS ""MinUtc"", s.""max_timestamp"" AS ""MaxUtc"", s.""refreshed_at"" AS ""RefreshedAt"",
+                          COALESCE((SELECT COUNT(*) FROM ""{DailyStatsTable}"" d WHERE d.""table_name"" = s.""table_name""), 0) AS ""DayCount""
+                   FROM ""{RegistryTable}"" s ORDER BY s.""table_name""";
 
 			public const string SelectSourcePath =
 				$@"SELECT ""source_path"" FROM ""{RegistryTable}"" WHERE ""table_name"" = @table";
