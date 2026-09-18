@@ -114,7 +114,7 @@
                         title="A second market chart, aggregated with its own bar size/kind, scoped to the selected Lookback Window">Subchart</button>
                 <button type="button" class="prof-overlay-toggle-btn @(_showSnapshot ? "active" : "")"
                         @onclick="() => _showSnapshot = !_showSnapshot"
-                        title="One OHLC/Quartile bar per toggled timeframe (1m/4m/16m/1h), each a trailing window ending at the selected Lookback Window's right edge">Snapshot</button>
+                        title="One OHLC/Quartile bar per toggled timeframe (1m/4m/16m/1h), each a trailing window ending at the selected Lookback Window's right edge">TxFold</button>
             </div>
         </div>
         <div class="prof-chart-sparkline">
@@ -241,7 +241,7 @@
                         else
                         {
                             @* ITickRepository's "to" is exclusive, so +1 tick keeps the anchor bar's own closing tick inside the window. *@
-                            <TimeframeSnapshotChart Table="@_config.Table" AnchorEnd="@anchorBar.Value.CloseTime.AddTicks(1)" LatestPrice="anchorBar.Value.Close" />
+                            <TxFold Table="@_config.Table" AnchorEnd="@anchorBar.Value.CloseTime.AddTicks(1)" LatestPrice="anchorBar.Value.Close" />
                         }
                     </div>
                 </div>

@@ -9,13 +9,20 @@ namespace Poink.Sim.Services.Charts;
 
 internal interface ITimeframeSnapshotService
 {
-	Task<List<(int LookbackSeconds, CTraderBarRow Bar)>> BuildSnapshotBarsAsync(
+	Task<SnapshotResult> BuildSnapshotBarsAsync(
 		string table,
 		DateTime anchorEnd,
 		IReadOnlyCollection<int> lookbackSeconds,
 		BarAggregationKind kind
 	);
 }
+
+internal readonly record struct VolumeProfileBucket(double Low, double High, int Count);
+
+internal readonly record struct SnapshotResult(
+	List<(int LookbackSeconds, CTraderBarRow Bar)> Bars,
+	IReadOnlyList<VolumeProfileBucket> VolumeProfile
+);
 
 // Windows overlap by design (each ends at anchorEnd), so BarKindChartService's fixed-epoch
 // bucketing can't be reused -- it would silently split an unaligned range across two buckets.
@@ -25,7 +32,7 @@ internal sealed class TimeframeSnapshotService : ITimeframeSnapshotService
 
 	public TimeframeSnapshotService(ITickRepository tickRepository) => _tickRepository = tickRepository;
 
-	public Task<List<(int LookbackSeconds, CTraderBarRow Bar)>> BuildSnapshotBarsAsync(
+	public Task<SnapshotResult> BuildSnapshotBarsAsync(
 		string table,
 		DateTime anchorEnd,
 		IReadOnlyCollection<int> lookbackSeconds,
@@ -35,18 +42,45 @@ internal sealed class TimeframeSnapshotService : ITimeframeSnapshotService
 		{
 			var distinctSeconds = lookbackSeconds.Distinct().OrderBy(seconds => seconds).ToList();
 			if (distinctSeconds.Count == 0)
-				return new List<(int, CTraderBarRow)>();
+				return new SnapshotResult(new List<(int, CTraderBarRow)>(), Array.Empty<VolumeProfileBucket>());
 
-			// One scan over the largest window instead of one scan per timeframe -- every smaller
-			// window is a suffix of this same tick list, sliced in memory below.
+			// One scan over the largest window, not one per timeframe -- every smaller window is a
+			// suffix of this same tick list (sliced below), and the volume profile shares it too.
 			var ticks = _tickRepository.ReadTicks(table, anchorEnd.AddSeconds(-distinctSeconds[^1]), anchorEnd).ToList();
 
-			var result = new List<(int, CTraderBarRow)>(distinctSeconds.Count);
+			var bars = new List<(int, CTraderBarRow)>(distinctSeconds.Count);
 			foreach (var seconds in distinctSeconds)
 				if (BuildBar(ticks, LowerBound(ticks, anchorEnd.AddSeconds(-seconds)), kind) is { } bar)
-					result.Add((seconds, bar));
-			return result;
+					bars.Add((seconds, bar));
+
+			return new SnapshotResult(bars, BuildVolumeProfile(ticks));
 		});
+
+	// Same uniform-bucket tick-count histogram VolumeProfileStats.Compute uses elsewhere, over the
+	// full tick list rather than a Lookback Window slice of it.
+	private static IReadOnlyList<VolumeProfileBucket> BuildVolumeProfile(List<Tick> ticks)
+	{
+		const int bucketCount = 50;
+		if (ticks.Count == 0)
+			return Array.Empty<VolumeProfileBucket>();
+
+		var prices = ticks.Select(t => (t.Bid + t.Ask) / 2.0).ToList();
+		var min = prices.Min();
+		var max = prices.Max();
+		if (max <= min)
+			return new[] { new VolumeProfileBucket(min, min, prices.Count) };
+
+		var counts = new int[bucketCount];
+		var size = (max - min) / bucketCount;
+		foreach (var price in prices)
+			counts[Math.Clamp((int)((price - min) / size), 0, bucketCount - 1)]++;
+
+		return Enumerable
+			.Range(0, bucketCount)
+			.Where(i => counts[i] > 0)
+			.Select(i => new VolumeProfileBucket(min + size * i, min + size * (i + 1), counts[i]))
+			.ToList();
+	}
 
 	// First index whose tick timestamp is >= from, via binary search over the timestamp-sorted list.
 	private static int LowerBound(List<Tick> ticks, DateTime from)
