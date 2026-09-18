@@ -40,6 +40,10 @@
             <PopoutButton Url="@PopoutUrl" WindowName="@PopoutWindowName"
                           Title="Open this chart in its own window" />
         </header>
+        @if (SymbolName is not null)
+        {
+            <DataSeriesSyncChart SymbolName="@SymbolName" />
+        }
         <LookbackWindowBar Label="LOOKBACK WINDOW" MaxWindow="MaxBarWindow" MinWidth="10"
                             @bind-Width="_barWindowSize" @bind-Offset="_barWindowOffset"
                             RailTitle="The highlighted segment is the window itself -- drag either edge to resize it, or drag the bar to move the whole window; its right edge is Offset bars back from now, its left edge Offset+Width bars back"

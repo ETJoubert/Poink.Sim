@@ -11,6 +11,7 @@ using Poink.Sim.Data;
 using Poink.Sim.Helpers;
 using Poink.Sim.Repository;
 using Poink.Sim.Services.CTrader;
+using Poink.Sim.Services.DataSeriesSync;
 using Poink.Sim.Services.MarketData;
 using Poink.Sim.Services.MarketData.Import;
 using Poink.Sim.Services.Symbols;
@@ -124,6 +125,18 @@ public static class ServiceCollectionExtensions
 		services.AddSingleton<TickBackfillWorker>();
 		services.AddSingleton<ITickBackfillController>(sp => sp.GetRequiredService<TickBackfillWorker>());
 		services.AddHostedService(sp => sp.GetRequiredService<TickBackfillWorker>());
+
+		return services;
+	}
+
+	/// <summary>
+	/// Read-only "database coverage vs. what's left to load" view over the tick store, backing
+	/// DataSeriesSyncChart. Depends on ITickIngest's coverage query, so is registered after
+	/// BuildBackgroundWorkers.
+	/// </summary>
+	public static IServiceCollection BuildDataSeriesSyncServices(this IServiceCollection services)
+	{
+		services.AddSingleton<IDataSeriesSyncService, DataSeriesSyncService>();
 
 		return services;
 	}
