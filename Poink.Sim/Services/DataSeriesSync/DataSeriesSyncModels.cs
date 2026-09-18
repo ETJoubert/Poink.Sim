@@ -7,6 +7,7 @@ namespace Poink.Sim.Services.DataSeriesSync;
 public enum DataSeriesSyncDayStatus
 {
 	InDatabase,
+	AvailableInSource,
 	AvailableToLoad,
 	CurrentDay,
 }
@@ -14,13 +15,15 @@ public enum DataSeriesSyncDayStatus
 public readonly record struct DataSeriesSyncDay(DateOnly Date, DataSeriesSyncDayStatus Status);
 
 /// <summary>
-/// Gap view for one symbol's tick table: the latest day already in the database through today,
-/// with every day in between marked as available to load from cTrader.
+/// Gap view for one symbol's tick table: the latest day already in the database through today.
+/// Days found as a file in the registry's saved import SourceDirectory are AvailableInSource; the
+/// rest are AvailableToLoad (unverified -- would need a live API fetch).
 /// </summary>
 public sealed record DataSeriesSyncRange(
 	string SymbolName,
 	bool HasData,
 	DateOnly? LatestDatabaseDate,
 	DateOnly CurrentDate,
+	string? SourceDirectory,
 	IReadOnlyList<DataSeriesSyncDay> Days
 );

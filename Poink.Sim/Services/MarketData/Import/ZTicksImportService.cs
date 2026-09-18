@@ -111,7 +111,7 @@ namespace Poink.Sim.Services.MarketData.Import
 		private async Task<ZTicksImportResult> ImportAsync(ZTicksImportRequest request, CancellationToken cancellationToken)
 		{
 			var files = ZTicksCacheScanner.FindFiles(request.CachePath, from: null, to: null);
-			var table = TickTableNaming.ForSymbol(request.SymbolName, request.IsLive);
+			var table = TickTableNaming.ForSymbol(request.SymbolName, isLive: true);
 
 			if (!_ingest.TableExists(table))
 			{
@@ -121,6 +121,7 @@ namespace Poink.Sim.Services.MarketData.Import
 			}
 
 			_ingest.AssociateSymbol(table, request.SymbolName);
+			_ingest.SetSourcePath(table, request.CachePath);
 
 			long parsed = 0;
 			long written = 0;

@@ -28,6 +28,7 @@ namespace Poink.Sim.Services.MarketData
 	public sealed record TickTableStatRow(
 		string Table,
 		string? Symbol,
+		string? SourcePath,
 		long Rows,
 		DateTime? MinUtc,
 		DateTime? MaxUtc,

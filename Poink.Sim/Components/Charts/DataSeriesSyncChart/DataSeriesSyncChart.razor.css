@@ -44,6 +44,10 @@
     background: var(--color-success);
 }
 
+.dssc-day-in-source {
+    background: var(--color-warning);
+}
+
 .dssc-day-available {
     background: color-mix(in srgb, var(--color-muted) 40%, transparent);
 }

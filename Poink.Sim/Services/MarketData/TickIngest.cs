@@ -123,6 +123,23 @@ namespace Poink.Sim.Services.MarketData
 			return conn.Query<TickTableStatRow>(Sql.SelectRegistry).AsList();
 		}
 
+		public string? GetSourcePath(string table)
+		{
+			using var conn = new NpgsqlConnection(_connectionString);
+			conn.Open();
+			EnsureRegistryTable(conn);
+			return conn.QuerySingleOrDefault<string>(Sql.SelectSourcePath, new { table });
+		}
+
+		public void SetSourcePath(string table, string sourcePath)
+		{
+			using var conn = new NpgsqlConnection(_connectionString);
+			conn.Open();
+			EnsureRegistryTable(conn);
+			conn.Execute(Sql.UpdateSourcePath, new { table, sourcePath });
+			_logger.LogInformation("Saved import source directory for {Table}.", table);
+		}
+
 		public long InsertTicks(string table, IReadOnlyList<Tick> ticks)
 		{
 			if (ticks.Count == 0)
@@ -327,7 +344,7 @@ namespace Poink.Sim.Services.MarketData
 			public static string SelectTableStats(string table) =>
 				$"SELECT COUNT(*) AS \"Rows\", MIN(\"timestamp\") AS \"MinTime\", MAX(\"timestamp\") AS \"MaxTime\" FROM \"{table}\"";
 
-			// Fresh registries get the symbol column; pre-existing ones are patched with the ALTER.
+			// Fresh registries get the symbol/source_path columns; pre-existing ones are patched with the ALTERs.
 			public const string CreateRegistryTable =
 				$@"CREATE TABLE IF NOT EXISTS ""{RegistryTable}"" (
                        ""table_name"" TEXT PRIMARY KEY,
@@ -335,9 +352,11 @@ namespace Poink.Sim.Services.MarketData
                        ""min_timestamp"" TIMESTAMPTZ,
                        ""max_timestamp"" TIMESTAMPTZ,
                        ""symbol"" TEXT,
+                       ""source_path"" TEXT,
                        ""refreshed_at"" TIMESTAMPTZ NOT NULL DEFAULT now()
                    );
-                   ALTER TABLE ""{RegistryTable}"" ADD COLUMN IF NOT EXISTS ""symbol"" TEXT;";
+                   ALTER TABLE ""{RegistryTable}"" ADD COLUMN IF NOT EXISTS ""symbol"" TEXT;
+                   ALTER TABLE ""{RegistryTable}"" ADD COLUMN IF NOT EXISTS ""source_path"" TEXT;";
 
 			public const string SelectTableForSymbol =
 				$@"SELECT ""table_name"" FROM ""{RegistryTable}"" WHERE ""symbol"" = @symbol ORDER BY ""table_name"" LIMIT 1";
@@ -365,9 +384,15 @@ namespace Poink.Sim.Services.MarketData
                    FROM ""{RegistryTable}"" WHERE ""table_name"" = @table";
 
 			public const string SelectRegistry =
-				$@"SELECT ""table_name"" AS ""Table"", ""symbol"" AS ""Symbol"", ""row_count"" AS ""Rows"",
+				$@"SELECT ""table_name"" AS ""Table"", ""symbol"" AS ""Symbol"", ""source_path"" AS ""SourcePath"", ""row_count"" AS ""Rows"",
                           ""min_timestamp"" AS ""MinUtc"", ""max_timestamp"" AS ""MaxUtc"", ""refreshed_at"" AS ""RefreshedAt""
                    FROM ""{RegistryTable}"" ORDER BY ""table_name""";
+
+			public const string SelectSourcePath =
+				$@"SELECT ""source_path"" FROM ""{RegistryTable}"" WHERE ""table_name"" = @table";
+
+			public const string UpdateSourcePath =
+				$@"UPDATE ""{RegistryTable}"" SET ""source_path"" = @sourcePath, ""refreshed_at"" = now() WHERE ""table_name"" = @table";
 
 			public const string UpsertRegistryAbsolute =
 				$@"INSERT INTO ""{RegistryTable}"" (""table_name"", ""row_count"", ""min_timestamp"", ""max_timestamp"", ""refreshed_at"")

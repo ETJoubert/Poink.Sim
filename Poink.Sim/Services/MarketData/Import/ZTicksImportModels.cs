@@ -11,11 +11,10 @@ namespace Poink.Sim.Services.MarketData.Import
 		DateTime? MaxUtc
 	);
 
-	/// <summary>Parameters for one import run: where to read from, and which tick table to write into.</summary>
+	/// <summary>Parameters for one import run: where to read from, and which tick table to write into. Always writes to the live table -- see TickTableNaming.</summary>
 	internal sealed record ZTicksImportRequest(
 		string CachePath,
 		string SymbolName,
-		bool IsLive,
 		bool CreateTableIfMissing,
 		long SymbolCode
 	);

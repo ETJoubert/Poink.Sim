@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Microsoft.Extensions.Logging;
 using Poink.Sim.Services.MarketData;
+using Poink.ZTicks;
 
 namespace Poink.Sim.Services.DataSeriesSync;
 
@@ -25,9 +27,11 @@ internal sealed class DataSeriesSyncService : IDataSeriesSyncService
 		var currentDate = DateOnly.FromDateTime(DateTime.UtcNow);
 
 		TickCoverage coverage;
+		string? sourceDirectory;
 		try
 		{
 			coverage = _tickIngest.GetCoverage(table);
+			sourceDirectory = _tickIngest.GetSourcePath(table);
 		}
 		catch (Exception ex)
 		{
@@ -39,20 +43,52 @@ internal sealed class DataSeriesSyncService : IDataSeriesSyncService
 			return NoDataRange(symbolName, currentDate);
 
 		var latestDatabaseDate = DateOnly.FromDateTime(coverage.MaxUtc.Value);
-		return new DataSeriesSyncRange(symbolName, true, latestDatabaseDate, currentDate, BuildDays(latestDatabaseDate, currentDate));
+		var sourceDates = ReadSourceDates(sourceDirectory);
+		return new DataSeriesSyncRange(
+			symbolName,
+			true,
+			latestDatabaseDate,
+			currentDate,
+			sourceDirectory,
+			BuildDays(latestDatabaseDate, currentDate, sourceDates)
+		);
+	}
+
+	private HashSet<DateOnly> ReadSourceDates(string? sourceDirectory)
+	{
+		if (string.IsNullOrWhiteSpace(sourceDirectory))
+			return new HashSet<DateOnly>();
+
+		try
+		{
+			return ZTicksCacheScanner
+				.FindFiles(sourceDirectory, from: null, to: null)
+				.Select(ZTicksCacheScanner.TryParseFileDate)
+				.Where(date => date is not null)
+				.Select(date => date!.Value)
+				.ToHashSet();
+		}
+		catch (Exception ex)
+		{
+			_logger.LogWarning(ex, "Failed to scan saved source directory {Directory} for a diff.", sourceDirectory);
+			return new HashSet<DateOnly>();
+		}
 	}
 
 	private static DataSeriesSyncRange NoDataRange(string symbolName, DateOnly currentDate) =>
-		new(symbolName, false, null, currentDate, Array.Empty<DataSeriesSyncDay>());
+		new(symbolName, false, null, currentDate, null, Array.Empty<DataSeriesSyncDay>());
 
-	private static List<DataSeriesSyncDay> BuildDays(DateOnly latestDatabaseDate, DateOnly currentDate)
+	private static List<DataSeriesSyncDay> BuildDays(DateOnly latestDatabaseDate, DateOnly currentDate, HashSet<DateOnly> sourceDates)
 	{
 		var days = new List<DataSeriesSyncDay> { new(latestDatabaseDate, DataSeriesSyncDayStatus.InDatabase) };
 		if (latestDatabaseDate >= currentDate)
 			return days;
 
 		for (var date = latestDatabaseDate.AddDays(1); date < currentDate; date = date.AddDays(1))
-			days.Add(new DataSeriesSyncDay(date, DataSeriesSyncDayStatus.AvailableToLoad));
+		{
+			var status = sourceDates.Contains(date) ? DataSeriesSyncDayStatus.AvailableInSource : DataSeriesSyncDayStatus.AvailableToLoad;
+			days.Add(new DataSeriesSyncDay(date, status));
+		}
 
 		days.Add(new DataSeriesSyncDay(currentDate, DataSeriesSyncDayStatus.CurrentDay));
 		return days;

@@ -22,7 +22,6 @@ namespace Poink.Sim.Components.Pages.Data
 			Registry,
 			Symbols,
 			Log,
-			Import,
 			Daily,
 		}
 
@@ -61,12 +60,12 @@ namespace Poink.Sim.Components.Pages.Data
 
 		private string _importCachePath = string.Empty;
 		private string _importSymbol = string.Empty;
-		private bool _importIsLive;
 		private bool _importCreateTable = true;
 		private IReadOnlyList<ZTicksPreviewEntry> _importPreview = Array.Empty<ZTicksPreviewEntry>();
 		private bool _importScanBusy;
 		private string? _scanResult;
 		private bool _showFolderBrowser;
+		private int _syncChartRefreshToken;
 
 		private string _dailyStatsTable = string.Empty;
 		private IReadOnlyList<TickDailyStatRow> _dailyStats = Array.Empty<TickDailyStatRow>();
@@ -90,8 +89,20 @@ namespace Poink.Sim.Components.Pages.Data
 			_registry = Ingest.GetRegistry();
 		}
 
-		private void SelectRegistryEntry(TickTableStatRow row) =>
-			_selectedRegistryTable = _selectedRegistryTable == row.Table ? null : row.Table;
+		private void SelectRegistryEntry(TickTableStatRow row)
+		{
+			if (_selectedRegistryTable == row.Table)
+			{
+				_selectedRegistryTable = null;
+				_importSymbol = string.Empty;
+				return;
+			}
+
+			_selectedRegistryTable = row.Table;
+			_importSymbol = row.Symbol ?? string.Empty;
+			if (!string.IsNullOrWhiteSpace(row.SourcePath))
+				_importCachePath = row.SourcePath;
+		}
 
 		private void OnTick()
 		{
@@ -119,6 +130,8 @@ namespace Poink.Sim.Components.Pages.Data
 				_registry = Ingest.GetRegistry();
 				if (!string.IsNullOrEmpty(_dailyStatsTable))
 					_dailyStats = Ingest.GetDailyStats(_dailyStatsTable);
+				if (ZTicksImport.LastResult is not null)
+					_syncChartRefreshToken++;
 			}
 			OnChanged();
 		}
@@ -299,7 +312,6 @@ namespace Poink.Sim.Components.Pages.Data
 			var request = new ZTicksImportRequest(
 				_importCachePath,
 				_importSymbol.Trim(),
-				_importIsLive,
 				_importCreateTable,
 				ResolveSymbol(_importSymbol)?.SymbolId ?? 0
 			);
@@ -307,12 +319,7 @@ namespace Poink.Sim.Components.Pages.Data
 			if (!ZTicksImport.StartImport(request))
 				return;
 
-			Logger.LogInformation(
-				"ZTicks import started: {Symbol} ({Env}) from {Path}.",
-				request.SymbolName,
-				request.IsLive ? "live" : "demo",
-				request.CachePath
-			);
+			Logger.LogInformation("ZTicks import started: {Symbol} from {Path}.", request.SymbolName, request.CachePath);
 		}
 
 		private void CancelImport() => ZTicksImport.CancelImport();
