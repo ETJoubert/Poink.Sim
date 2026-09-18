@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 using Poink.Sim.Models;
-using Poink.Sim.Services.Charts;
+using Poink.Sim.Repository;
 
 namespace Poink.Sim.Components.Charts
 {
@@ -13,12 +13,12 @@ namespace Poink.Sim.Components.Charts
 	/// Self-contained multi-timeframe comparison chart -- each toggled timeframe (see
 	/// <see cref="SnapshotTimeframeOptions"/>, 1m/2m/4m/8m/15m/30m/1h/2h selected by default) renders
 	/// as its own single bar over its own trailing window ending at <see cref="AnchorEnd"/>, side by
-	/// side, via <see cref="ITimeframeSnapshotService"/>.
+	/// side, via <see cref="TxFoldStats.Compute"/> over ticks fetched here.
 	/// </summary>
 	public partial class TxFold : ComponentBase, IAsyncDisposable
 	{
 		[Inject]
-		private ITimeframeSnapshotService SnapshotService { get; set; } = default!;
+		private ITickRepository TickRepository { get; set; } = default!;
 
 		[Inject]
 		private IJSRuntime JSRuntime { get; set; } = default!;
@@ -28,6 +28,10 @@ namespace Poink.Sim.Components.Charts
 
 		[Parameter]
 		public DateTime AnchorEnd { get; set; } = DateTime.UtcNow;
+
+		/// <summary>Earliest instant the caller considers "available" (e.g. a simulation's replay start, or a profiler range's start) -- a bar's coverage meter is only ever backed by data from here forward, never by the underlying table's full history.</summary>
+		[Parameter, EditorRequired]
+		public DateTime RangeStart { get; set; }
 
 		/// <summary>Drawn as a dashed horizontal line across every bar -- null hides it.</summary>
 		[Parameter]
@@ -65,15 +69,15 @@ namespace Poink.Sim.Components.Charts
 		private bool _showHighLowLines;
 		private bool _showVolumeProfile;
 		private HashSet<int> _selectedSeconds = DefaultSelectedSeconds.ToHashSet();
-		private List<(int LookbackSeconds, CTraderBarRow Bar)> _bars = new();
-		private IReadOnlyList<VolumeProfileBucket> _volumeProfile = Array.Empty<VolumeProfileBucket>();
-		private (string Table, DateTime AnchorEnd, BarAggregationKind BarKind, string SelectedKey)? _loadedFor;
+		private List<TxFoldBar> _bars = new();
+		private IReadOnlyList<TxFoldVolumeBucket> _volumeProfile = Array.Empty<TxFoldVolumeBucket>();
+		private (string Table, DateTime AnchorEnd, DateTime RangeStart, BarAggregationKind BarKind, string SelectedKey)? _loadedFor;
 		private bool _loading;
 		private string? _error;
 
 		private ElementReference _canvasRef;
 		private IJSObjectReference? _module;
-		private List<(int LookbackSeconds, CTraderBarRow Bar)>? _renderedBars;
+		private List<TxFoldBar>? _renderedBars;
 		private double? _renderedLatestPrice;
 		private bool _renderedShowHighLowLines;
 		private bool _renderedShowVolumeProfile;
@@ -122,7 +126,7 @@ namespace Poink.Sim.Components.Charts
 				return;
 
 			var selectedKey = string.Join(",", _selectedSeconds.OrderBy(s => s));
-			var key = (Table, AnchorEnd, _barKind, selectedKey);
+			var key = (Table, AnchorEnd, RangeStart, _barKind, selectedKey);
 			if (_loadedFor == key)
 				return;
 
@@ -132,7 +136,17 @@ namespace Poink.Sim.Components.Charts
 
 			try
 			{
-				var result = await SnapshotService.BuildSnapshotBarsAsync(Table, AnchorEnd, _selectedSeconds, _barKind);
+				var table = Table;
+				var anchorEnd = AnchorEnd;
+				var rangeStart = RangeStart;
+				var selectedSeconds = _selectedSeconds;
+				var barKind = _barKind;
+				var result = await Task.Run(() =>
+				{
+					var largestSeconds = selectedSeconds.Max();
+					var ticks = TickRepository.ReadTicks(table, anchorEnd.AddSeconds(-largestSeconds), anchorEnd).ToList();
+					return TxFoldStats.Compute(ticks, anchorEnd, rangeStart, selectedSeconds, barKind);
+				});
 				_bars = result.Bars;
 				_volumeProfile = result.VolumeProfile;
 				_loadedFor = key;
@@ -200,7 +214,9 @@ namespace Poink.Sim.Components.Charts
 							low = pair.Bar.Low,
 							close = pair.Bar.Close,
 							volume = pair.Bar.Volume,
+							hasFullCoverage = pair.HasFullCoverage,
 						}),
+						barKind = _barKind.ToString(),
 						latestPrice = LatestPrice,
 						showHighLowLines = _showHighLowLines,
 						showVolumeProfile = _showVolumeProfile,

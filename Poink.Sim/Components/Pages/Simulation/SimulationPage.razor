@@ -535,7 +535,7 @@
                                 <div class="sim-chart-side">
                                     @if (SnapshotAnchorBar(s) is { } anchorBar)
                                     {
-                                        <TxFold Table="@s.Config.Table" AnchorEnd="@anchorBar.CloseTime.AddTicks(1)"
+                                        <TxFold Table="@s.Config.Table" AnchorEnd="@anchorBar.CloseTime.AddTicks(1)" RangeStart="@s.Config.From"
                                                 LatestPrice="anchorBar.Close" EntryPrice="SelectedTrader?.Position?.EntryPrice"
                                                 PositionIsLong="SelectedPositionIsLong" StopLossPrice="SelectedTrader?.Position?.StopLossPrice"
                                                 TakeProfitPrice="SelectedTrader?.Position?.TakeProfitPrice"

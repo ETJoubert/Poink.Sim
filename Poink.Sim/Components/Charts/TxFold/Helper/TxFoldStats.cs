@@ -1,74 +1,62 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
 using Poink.Sim.Models;
 using Poink.Sim.Repository;
 
-namespace Poink.Sim.Services.Charts;
+namespace Poink.Sim.Components.Charts;
 
-internal interface ITimeframeSnapshotService
+internal readonly record struct TxFoldVolumeBucket(double Low, double High, int Count);
+
+internal readonly record struct TxFoldBar(int LookbackSeconds, CTraderBarRow Bar, bool HasFullCoverage);
+
+internal readonly record struct TxFoldSnapshot(List<TxFoldBar> Bars, IReadOnlyList<TxFoldVolumeBucket> VolumeProfile);
+
+// Pure bar/coverage/volume-profile math over ticks the caller already fetched -- kept separate
+// from TxFold.razor.cs, the same split XGridStats.Compute keeps from XGrid.razor.cs.
+internal static class TxFoldStats
 {
-	Task<SnapshotResult> BuildSnapshotBarsAsync(
-		string table,
+	// Windows overlap by design (each ends at anchorEnd), so BarKindChartService's fixed-epoch
+	// bucketing can't be reused -- it would silently split an unaligned range across two buckets.
+	public static TxFoldSnapshot Compute(
+		IReadOnlyList<Tick> ticks,
 		DateTime anchorEnd,
+		DateTime rangeStart,
 		IReadOnlyCollection<int> lookbackSeconds,
 		BarAggregationKind kind
-	);
-}
+	)
+	{
+		var distinctSeconds = lookbackSeconds.Distinct().OrderBy(seconds => seconds).ToList();
+		if (distinctSeconds.Count == 0)
+			return new TxFoldSnapshot(new List<TxFoldBar>(), Array.Empty<TxFoldVolumeBucket>());
 
-internal readonly record struct VolumeProfileBucket(double Low, double High, int Count);
-
-internal readonly record struct SnapshotResult(
-	List<(int LookbackSeconds, CTraderBarRow Bar)> Bars,
-	IReadOnlyList<VolumeProfileBucket> VolumeProfile
-);
-
-// Windows overlap by design (each ends at anchorEnd), so BarKindChartService's fixed-epoch
-// bucketing can't be reused -- it would silently split an unaligned range across two buckets.
-internal sealed class TimeframeSnapshotService : ITimeframeSnapshotService
-{
-	private readonly ITickRepository _tickRepository;
-
-	public TimeframeSnapshotService(ITickRepository tickRepository) => _tickRepository = tickRepository;
-
-	public Task<SnapshotResult> BuildSnapshotBarsAsync(
-		string table,
-		DateTime anchorEnd,
-		IReadOnlyCollection<int> lookbackSeconds,
-		BarAggregationKind kind
-	) =>
-		Task.Run(() =>
+		var bars = new List<TxFoldBar>(distinctSeconds.Count);
+		foreach (var seconds in distinctSeconds)
 		{
-			var distinctSeconds = lookbackSeconds.Distinct().OrderBy(seconds => seconds).ToList();
-			if (distinctSeconds.Count == 0)
-				return new SnapshotResult(new List<(int, CTraderBarRow)>(), Array.Empty<VolumeProfileBucket>());
+			var startIndex = LowerBound(ticks, anchorEnd.AddSeconds(-seconds));
+			if (BuildBar(ticks, startIndex, kind) is { } bar)
+			{
+				var hasFullCoverage = (anchorEnd - rangeStart).TotalSeconds > seconds;
+				bars.Add(new TxFoldBar(seconds, bar, hasFullCoverage));
+			}
+		}
 
-			// One scan over the largest window, not one per timeframe -- every smaller window is a
-			// suffix of this same tick list (sliced below), and the volume profile shares it too.
-			var ticks = _tickRepository.ReadTicks(table, anchorEnd.AddSeconds(-distinctSeconds[^1]), anchorEnd).ToList();
-
-			var bars = new List<(int, CTraderBarRow)>(distinctSeconds.Count);
-			foreach (var seconds in distinctSeconds)
-				if (BuildBar(ticks, LowerBound(ticks, anchorEnd.AddSeconds(-seconds)), kind) is { } bar)
-					bars.Add((seconds, bar));
-
-			return new SnapshotResult(bars, BuildVolumeProfile(ticks));
-		});
+		return new TxFoldSnapshot(bars, BuildVolumeProfile(ticks));
+	}
 
 	// Same uniform-bucket tick-count histogram VolumeProfileStats.Compute uses elsewhere, over the
 	// full tick list rather than a Lookback Window slice of it.
-	private static IReadOnlyList<VolumeProfileBucket> BuildVolumeProfile(List<Tick> ticks)
+	private static IReadOnlyList<TxFoldVolumeBucket> BuildVolumeProfile(IReadOnlyList<Tick> ticks)
 	{
 		const int bucketCount = 50;
 		if (ticks.Count == 0)
-			return Array.Empty<VolumeProfileBucket>();
+			return Array.Empty<TxFoldVolumeBucket>();
 
 		var prices = ticks.Select(t => (t.Bid + t.Ask) / 2.0).ToList();
 		var min = prices.Min();
 		var max = prices.Max();
 		if (max <= min)
-			return new[] { new VolumeProfileBucket(min, min, prices.Count) };
+			return new[] { new TxFoldVolumeBucket(min, min, prices.Count) };
 
 		var counts = new int[bucketCount];
 		var size = (max - min) / bucketCount;
@@ -78,12 +66,11 @@ internal sealed class TimeframeSnapshotService : ITimeframeSnapshotService
 		return Enumerable
 			.Range(0, bucketCount)
 			.Where(i => counts[i] > 0)
-			.Select(i => new VolumeProfileBucket(min + size * i, min + size * (i + 1), counts[i]))
+			.Select(i => new TxFoldVolumeBucket(min + size * i, min + size * (i + 1), counts[i]))
 			.ToList();
 	}
 
-	// First index whose tick timestamp is >= from, via binary search over the timestamp-sorted list.
-	private static int LowerBound(List<Tick> ticks, DateTime from)
+	private static int LowerBound(IReadOnlyList<Tick> ticks, DateTime from)
 	{
 		int lo = 0,
 			hi = ticks.Count;
@@ -98,7 +85,7 @@ internal sealed class TimeframeSnapshotService : ITimeframeSnapshotService
 		return lo;
 	}
 
-	private static CTraderBarRow? BuildBar(List<Tick> ticks, int startIndex, BarAggregationKind kind)
+	private static CTraderBarRow? BuildBar(IReadOnlyList<Tick> ticks, int startIndex, BarAggregationKind kind)
 	{
 		if (startIndex >= ticks.Count)
 			return null;

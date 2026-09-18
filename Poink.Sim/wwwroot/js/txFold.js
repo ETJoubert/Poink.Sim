@@ -10,7 +10,8 @@
 // outermost, flush to the right edge. The position column is a fixed, persistent width -- always
 // reserved, even with nothing in it -- so the plot never resizes just because a draft got toggled
 // on or off, and sized tight to its 2-letter/triangle content so it doesn't sit mostly empty.
-const PADDING = { top: 24, right: 68, bottom: 22, left: 10 };
+const PADDING = { top: 32, right: 68, bottom: 22, left: 10 };
+const CROSSHAIR_TEXT_Y = 10;
 const MIN_PRICE_COLUMN = 68;
 const MAX_PRICE_COLUMN = 120;
 const POSITION_COLUMN_WIDTH = 34;
@@ -25,6 +26,8 @@ const TRIANGLE_SLOT = 12;
 const DEFAULT_HIGHLIGHT_WIDTH = 48;
 const MIN_HIGHLIGHT_WIDTH = 8;
 const RESIZE_HIT_RADIUS = 4;
+const COVERAGE_BAR_HEIGHT = 4;
+const COVERAGE_BAR_GAP = 6;
 
 const state = new Map();
 const resizeDrag = new WeakMap();
@@ -34,6 +37,7 @@ export function render(canvas, options) {
     const existing = state.get(canvas);
     state.set(canvas, {
         bars: Array.from(options.bars ?? []),
+        barKind: options.barKind ?? 'Ohlc',
         latestPrice: options.latestPrice ?? null,
         showHighLowLines: !!options.showHighLowLines,
         showVolumeProfile: !!options.showVolumeProfile,
@@ -362,6 +366,9 @@ function draw(canvas) {
     const latestColor = cssVar('--color-highlight', '#fff01f');
     const coverageColor = cssVar('--color-secondary', '#00d4ff');
     const volumeColor = cssVar('--color-primary', '#00ff9d');
+    // Quartile/Decile/Mean+-SD bars are box plots, not a bull/bear candle -- open vs close doesn't
+    // mean "up" or "down" for them, so they render in the same light blue as the coverage meter.
+    const isStatBarKind = entry.barKind !== 'Ohlc';
     // Same badge colour TradeChartPanel's own open-position lines use (see marketChart.js's
     // groupColors.position), so an open position reads the same way across every chart it appears on.
     const entryColor = cssVar('--color-badge-1', '#b6ff00');
@@ -525,7 +532,7 @@ function draw(canvas) {
     bars.forEach((bar, i) => {
         const x = xFor(i);
         const isBull = bar.close >= bar.open;
-        const color = isBull ? bullColor : bearColor;
+        const color = isStatBarKind ? coverageColor : (isBull ? bullColor : bearColor);
 
         ctx.strokeStyle = color;
         ctx.lineWidth = 1.5;
@@ -542,6 +549,16 @@ function draw(canvas) {
         ctx.fillStyle = color;
         roundedRectPath(ctx, x - bodyWidth / 2, top, bodyWidth, bodyHeight, Math.min(2, bodyWidth / 2));
         ctx.fill();
+
+        // Coverage meter: a binary on/off flag per bar, not a fill gauge -- on only when data
+        // actually reaches back past this bar's selected lookback window, off (drawn as nothing)
+        // otherwise, so there's no partial bar to misread as "mostly enough data".
+        if (bar.hasFullCoverage) {
+            const meterY = PADDING.top - COVERAGE_BAR_GAP - COVERAGE_BAR_HEIGHT;
+            ctx.fillStyle = coverageColor;
+            roundedRectPath(ctx, x - bodyWidth / 2, meterY, bodyWidth, COVERAGE_BAR_HEIGHT, COVERAGE_BAR_HEIGHT / 2);
+            ctx.fill();
+        }
 
         ctx.font = '11px monospace';
         ctx.fillStyle = labelColor;
@@ -629,6 +646,6 @@ function draw(canvas) {
             readout += `   VP ${(bucket?.count ?? 0).toLocaleString()}`;
         }
 
-        ctx.fillText(readout, PADDING.left, PADDING.top / 2);
+        ctx.fillText(readout, PADDING.left, CROSSHAIR_TEXT_Y);
     }
 }

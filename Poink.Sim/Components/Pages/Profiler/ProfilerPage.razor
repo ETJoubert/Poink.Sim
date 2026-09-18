@@ -241,7 +241,7 @@
                         else
                         {
                             @* ITickRepository's "to" is exclusive, so +1 tick keeps the anchor bar's own closing tick inside the window. *@
-                            <TxFold Table="@_config.Table" AnchorEnd="@anchorBar.Value.CloseTime.AddTicks(1)" LatestPrice="anchorBar.Value.Close" />
+                            <TxFold Table="@_config.Table" AnchorEnd="@anchorBar.Value.CloseTime.AddTicks(1)" RangeStart="@_config.From" LatestPrice="anchorBar.Value.Close" />
                         }
                     </div>
                 </div>
