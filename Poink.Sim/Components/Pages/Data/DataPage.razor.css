@@ -195,6 +195,14 @@
     background: color-mix(in srgb, var(--color-error, #ff5f56) 8%, transparent);
 }
 
+.data-row-selectable {
+    cursor: pointer;
+}
+
+.data-row-selected td {
+    background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+
 .data-progress {
     display: flex;
     flex-direction: column;

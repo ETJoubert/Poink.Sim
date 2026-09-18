@@ -110,9 +110,9 @@ public static class ServiceCollectionExtensions
 	}
 
 	/// <summary>
-	/// IHostedService workers: session restore on startup, and the single-writer tick
-	/// backfill worker that persists live cTrader ticks into the PoinkMarketData
-	/// ticks_&lt;symbol&gt; tables and fills the pre-stream gap from ProtoOAGetTickData.
+	/// IHostedService workers: session restore on startup. The tick backfill worker (live
+	/// streaming + gap-fill) was removed pending a rebuild -- ITickIngest stays registered since
+	/// ZTicksImportService still writes through it and DataSeriesSyncService reads its coverage.
 	/// Depends on BuildCTraderServices for CTraderSessionService.
 	/// </summary>
 	public static IServiceCollection BuildBackgroundWorkers(this IServiceCollection services)
@@ -122,9 +122,6 @@ public static class ServiceCollectionExtensions
 		services.AddSingleton<ITickIngest, TickIngest>();
 		services.AddSingleton<IZTicksImportService, ZTicksImportService>();
 		services.AddSingleton<IHistoricalTickSource, CTraderHistoricalTickSource>();
-		services.AddSingleton<TickBackfillWorker>();
-		services.AddSingleton<ITickBackfillController>(sp => sp.GetRequiredService<TickBackfillWorker>());
-		services.AddHostedService(sp => sp.GetRequiredService<TickBackfillWorker>());
 
 		return services;
 	}

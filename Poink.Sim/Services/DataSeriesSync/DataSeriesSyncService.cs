@@ -5,7 +5,7 @@ using Poink.Sim.Services.MarketData;
 
 namespace Poink.Sim.Services.DataSeriesSync;
 
-/// <summary>Reads coverage off ITickIngest's registry rather than backfilling anything itself -- see TickBackfillWorker for the actual sync/write path.</summary>
+/// <summary>Reads coverage off ITickIngest's registry -- write/backfill paths live elsewhere.</summary>
 internal sealed class DataSeriesSyncService : IDataSeriesSyncService
 {
 	private readonly ITickIngest _tickIngest;
