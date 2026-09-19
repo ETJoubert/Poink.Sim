@@ -1,0 +1,278 @@
+.trv2-page {
+    display: flex;
+    flex-direction: column;
+    min-height: 100%;
+}
+
+.trv2-header {
+    padding: 16px 24px 10px;
+}
+
+.trv2-title {
+    font-family: var(--font-heading);
+    font-size: 1.15rem;
+    font-weight: bold;
+    letter-spacing: 0.08em;
+    color: var(--color-accent);
+    text-shadow: var(--shadow-glow-accent);
+}
+
+.trv2-tabs {
+    display: flex;
+    gap: 4px;
+    padding: 0 24px;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+.trv2-tab {
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--color-secondary);
+    font-family: var(--font-heading);
+    font-size: 0.72rem;
+    font-weight: bold;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 10px 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.trv2-tab:hover {
+    color: var(--color-primary);
+}
+
+.trv2-tab-active {
+    color: var(--color-accent);
+    border-bottom-color: var(--color-accent);
+}
+
+.trv2-content {
+    padding: 20px 24px 32px;
+    flex: 1;
+}
+
+.trv2-placeholder {
+    font-size: 0.85rem;
+    color: var(--color-secondary);
+    opacity: 0.8;
+}
+
+.trv2-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 12px;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
+    border-radius: var(--border-radius-sm);
+    background: color-mix(in srgb, var(--color-primary) 4%, transparent);
+}
+
+.trv2-card-nopad {
+    padding: 0;
+    overflow: hidden;
+}
+
+.trv2-card-stack {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(260px, 1fr));
+    align-items: start;
+    gap: 14px;
+}
+
+.trv2-card-title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.trv2-card-title {
+    font-size: 0.62rem;
+    font-weight: bold;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-accent);
+}
+
+.trv2-card-badge {
+    font-size: 0.62rem;
+    color: var(--color-secondary);
+    margin-left: auto;
+}
+
+.trv2-field {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.72rem;
+    color: var(--color-secondary);
+    white-space: nowrap;
+}
+
+.trv2-field-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 16px;
+}
+
+.trv2-input {
+    background: var(--color-bg-terminal);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 45%, transparent);
+    color: var(--color-primary);
+    padding: 4px 6px;
+    border-radius: var(--border-radius-sm);
+    font-family: var(--font-body);
+    font-size: 12px;
+    width: 70px;
+}
+
+.trv2-input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--color-primary) 40%, transparent);
+}
+
+.trv2-select {
+    background: var(--color-bg-terminal);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 45%, transparent);
+    color: var(--color-primary);
+    padding: 4px 6px;
+    border-radius: var(--border-radius-sm);
+    font-family: var(--font-body);
+    font-size: 12px;
+    min-width: 120px;
+}
+
+.trv2-btn {
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
+    color: var(--color-secondary);
+    border-radius: var(--border-radius-sm);
+    font-family: var(--font-body);
+    font-size: 0.62rem;
+    font-weight: bold;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 6px 10px;
+    cursor: pointer;
+    align-self: flex-start;
+}
+
+.trv2-btn:hover {
+    background: color-mix(in srgb, var(--color-secondary) 12%, transparent);
+}
+
+.trv2-btn-remove {
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
+    color: var(--color-secondary);
+    border-radius: var(--border-radius-sm);
+    width: 20px;
+    height: 20px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.trv2-btn-remove:hover:not(:disabled) {
+    color: var(--color-warning);
+    border-color: var(--color-warning);
+}
+
+.trv2-btn-remove:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.trv2-layer-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: flex-start;
+}
+
+.trv2-network-layout {
+    display: grid;
+    grid-template-columns: minmax(240px, 340px) 1fr;
+    align-items: start;
+    gap: 14px;
+}
+
+.trv2-network-svg {
+    width: 100%;
+    height: 220px;
+}
+
+.trv2-network-edge {
+    stroke: var(--color-primary);
+    stroke-width: 0.3;
+    opacity: 0.25;
+}
+
+.trv2-network-node {
+    fill: var(--color-accent);
+    stroke: var(--color-bg-dark);
+    stroke-width: 0.5;
+}
+
+.trv2-network-more {
+    font-size: 5px;
+    fill: var(--color-secondary);
+    text-anchor: middle;
+}
+
+.trv2-network-labels {
+    display: flex;
+    justify-content: space-around;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.trv2-network-label {
+    font-size: 0.62rem;
+    color: var(--color-secondary);
+    white-space: nowrap;
+}
+
+.trv2-decoding-value {
+    color: var(--color-primary);
+    font-weight: 600;
+}
+
+.trv2-results {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.trv2-metrics-panel {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 18px;
+}
+
+.trv2-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.trv2-stat-label {
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-secondary);
+    opacity: 0.8;
+}
+
+.trv2-stat-value {
+    font-size: 0.92rem;
+    font-weight: 600;
+}
+
+.trv2-charts-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+}

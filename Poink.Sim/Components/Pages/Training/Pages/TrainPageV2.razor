@@ -1,0 +1,440 @@
+@page "/train2"
+@namespace Poink.Sim.Components.Pages
+@using Poink.Sim.Brain.Neural
+@using Poink.Sim.Components.Charts
+@using Poink.Sim.Components.Shared.TickDataSource
+@using Poink.Sim.Components.Training
+@using Poink.Sim.Training
+
+<div class="trv2-page">
+    <header class="trv2-header">
+        <span class="trv2-title">TRAINING 2.0</span>
+    </header>
+
+    <div class="trv2-tabs">
+        @foreach (var tab in Tabs)
+        {
+            <button type="button" class="trv2-tab @(_activeTab == tab ? "trv2-tab-active" : "")"
+                    @onclick="() => _activeTab = tab" title="@TabTitle(tab)">
+                @tab.ToString().ToUpperInvariant()
+            </button>
+        }
+    </div>
+
+    <div class="trv2-content">
+        @switch (_activeTab)
+        {
+            case TrainV2Tab.Data:
+                <div class="trv2-card" title="Symbol and date range training data is pulled from">
+                    <TickDataSource @bind-Table="_table" @bind-From="_from" @bind-To="_to" />
+                </div>
+                break;
+            case TrainV2Tab.Features:
+                <div class="trv2-card-stack">
+                    <div class="trv2-card">
+                        <div class="trv2-card-title-row">
+                            <span class="trv2-card-title"
+                                  title="XGrid's boolean footprint signals -- current cell's rank/at/above/below relationship to POC/VAH/VAL/VWAP, computed over a trailing window of bars">
+                                XGrid Signals
+                            </span>
+                            <span class="trv2-card-badge" title="How many of the available XGrid signals are enabled">
+                                @SelectedXGridSignalCount/@TotalXGridSignalCount
+                            </span>
+                        </div>
+                        <label class="trv2-field" title="Toggle every XGrid signal below on or off at once">
+                            <input type="checkbox" checked="@AllXGridSignalsSelected" @onchange="ToggleAllXGridSignals" />
+                            Select All
+                        </label>
+                        <div class="trv2-field-row">
+                            <label class="trv2-field"
+                                   title="Percent threshold for the Rank signals -- current cell counts as 'top %' when its tick count ranks in this top percent of every nonzero cell on the grid">
+                                %
+                                <input class="trv2-input" type="number" min="0" max="100" step="1" @bind="_xGridTopPercent"
+                                       disabled="@(!AnyXGridSignalSelected)" />
+                            </label>
+                            <label class="trv2-field"
+                                   title="How many columns (time buckets) XGrid's footprint grid is divided into over its trailing Window">
+                                Col
+                                <input class="trv2-input" type="number" min="1" step="1" @bind="_xGridColCount"
+                                       disabled="@(!AnyXGridSignalSelected)" />
+                            </label>
+                            <label class="trv2-field"
+                                   title="Row height in pips -- multiplied by Pip below for each row's fixed price height">
+                                Row
+                                <input class="trv2-input" type="number" min="1" step="1" @bind="_xGridRowCount"
+                                       disabled="@(!AnyXGridSignalSelected)" />
+                            </label>
+                            <label class="trv2-field" title="Price size of one pip -- row height = Row x Pip">
+                                Pip
+                                <input class="trv2-input" type="number" min="0.00001" step="0.001" @bind="_xGridPipSize"
+                                       disabled="@(!AnyXGridSignalSelected)" />
+                            </label>
+                            <label class="trv2-field" title="How many trailing bars XGrid computes its footprint grid over each decision">
+                                Window
+                                <input class="trv2-input" type="number" min="1" step="1" @bind="_xGridWindowBars"
+                                       disabled="@(!AnyXGridSignalSelected)" />
+                            </label>
+                        </div>
+                        <XGridSignalInputTable @bind-EnabledKeys="_xGridEnabledSignals" Mode="XGridSignalInputMode.Independent" />
+                    </div>
+
+                    <div class="trv2-card trv2-card-nopad">
+                        <TxFold Table="" RangeStart="DateTime.UtcNow" />
+                    </div>
+
+                    <div class="trv2-card">
+                        <div class="trv2-card-title-row">
+                            <label class="trv2-field" title="Own position/capital state -- whether this brain needs to know if it already holds a position">
+                                <input type="checkbox" @bind="_includeTraderState" />
+                                <span class="trv2-card-title">Trader State</span>
+                            </label>
+                            <span class="trv2-card-badge" title="How many of the available Trader State fields/lists are enabled">
+                                @SelectedTraderStateFieldCount/@TotalTraderStateFieldCount
+                            </span>
+                        </div>
+                        <label class="trv2-field" title="Toggle every state field below on or off at once">
+                            <input type="checkbox" checked="@AllTraderStateFieldsSelected" @onchange="ToggleAllTraderStateFields"
+                                   disabled="@(!_includeTraderState)" />
+                            Select All Fields
+                        </label>
+                        <div class="trv2-field-row">
+                            @foreach (var row in TraderStateFieldRows)
+                            {
+                                <label class="trv2-field" title="@row.Tooltip">
+                                    <input type="checkbox" checked="@row.Get()" @onchange="e => OnTraderStateFieldChanged(row, e)"
+                                           disabled="@(!_includeTraderState)" />
+                                    @row.Label
+                                </label>
+                            }
+                        </div>
+                        <div class="trv2-field-row">
+                            <label class="trv2-field"
+                                   title="How many of the most recent closed trades' win(1)/loss(0) outcome Trader State feeds, most-recent-last, zero-padded if fewer trades have closed yet">
+                                <input type="checkbox" @bind="_includeTraderStateOutcomes" disabled="@(!_includeTraderState)" />
+                                Outcomes
+                                <input class="trv2-input" type="number" min="1" step="1" @bind="_traderStateOutcomeListLength"
+                                       disabled="@(!_includeTraderState || !_includeTraderStateOutcomes)" />
+                            </label>
+                            <label class="trv2-field"
+                                   title="How many trailing price records since the open position's own entry time Trader State compares against entry price, most-recent-last, zero-padded">
+                                <input type="checkbox" @bind="_includeTraderStatePositionLevel" disabled="@(!_includeTraderState)" />
+                                Level
+                                <input class="trv2-input" type="number" min="1" step="1" @bind="_traderStatePositionLevelListLength"
+                                       disabled="@(!_includeTraderState || !_includeTraderStatePositionLevel)" />
+                            </label>
+                            <label class="trv2-field"
+                                   title="How many of the most recent closed trades' direction (1=Long, 0=Short) Trader State feeds, index-aligned with Outcomes">
+                                <input type="checkbox" @bind="_includeTraderStateDirection" disabled="@(!_includeTraderState)" />
+                                Direction
+                                <input class="trv2-input" type="number" min="1" step="1" @bind="_traderStateDirectionListLength"
+                                       disabled="@(!_includeTraderState || !_includeTraderStateDirection)" />
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                break;
+            case TrainV2Tab.Network:
+                <div class="trv2-network-layout">
+                    <div class="trv2-card">
+                        <div class="trv2-card-title-row">
+                            <span class="trv2-card-title" title="Network shape applied to the inputs selected on the Features tab">Network</span>
+                        </div>
+                        <label class="trv2-field" title="Network shape applied to the combined features selected on the Features tab">
+                            Architecture
+                            <select class="trv2-select" @bind="_architectureKind">
+                                <option value="Mlp">MLP</option>
+                                <option value="Lstm">LSTM</option>
+                                <option value="Cnn">CNN</option>
+                            </select>
+                        </label>
+                        @if (_architectureKind == ArchitectureKind.Mlp)
+                        {
+                            <div class="trv2-layer-list">
+                                <button type="button" class="trv2-btn" @onclick="AddMlpLayerOnTop"
+                                        title="Add another hidden layer, inserted above layer 1 -- defaults to double layer 1's size">
+                                    + ADD LAYER
+                                </button>
+                                @for (var i = 0; i < _mlpHiddenSizes.Count; i++)
+                                {
+                                    var index = i;
+                                    <label class="trv2-field" title="@($"Size of hidden layer {index + 1}")">
+                                        Layer @(index + 1)
+                                        <input class="trv2-input" type="number" min="1" step="1" value="@_mlpHiddenSizes[index]"
+                                               @oninput="e => OnMlpLayerSizeChanged(index, e)" />
+                                        <button type="button" class="trv2-btn-remove"
+                                                @onclick="() => RemoveMlpLayer(index)"
+                                                disabled="@(_mlpHiddenSizes.Count <= 1)"
+                                                title="@(_mlpHiddenSizes.Count > 1 ? "Remove this layer" : "At least one hidden layer is required")">
+                                            &#215;
+                                        </button>
+                                    </label>
+                                }
+                                <button type="button" class="trv2-btn" @onclick="AddMlpLayer"
+                                        title="Add another hidden layer, stacked after the ones above -- defaults to half the last layer's size">
+                                    + ADD LAYER
+                                </button>
+                            </div>
+                        }
+                        else if (_architectureKind == ArchitectureKind.Lstm)
+                        {
+                            <label class="trv2-field" title="LSTM hidden state size">
+                                Hidden size
+                                <input class="trv2-input" type="number" min="1" @bind="_lstmHiddenSize" />
+                            </label>
+                            <label class="trv2-field" title="Number of stacked LSTM layers">
+                                LSTM layers
+                                <input class="trv2-input" type="number" min="1" @bind="_lstmNumLayers" />
+                            </label>
+                        }
+                        else if (_architectureKind == ArchitectureKind.Cnn)
+                        {
+                            <label class="trv2-field"
+                                   title="Which selected input set the convolution kernel actually sweeps over -- Bar Window (default) slides over the trailing price window; Volume Profile instead slides over its price-ordered histogram buckets">
+                                Kernel sweeps
+                                <select class="trv2-select" @bind="_cnnKernelSweepSource">
+                                    <option value="BarWindow">Bar Window</option>
+                                    <option value="VolumeProfile">Volume Profile</option>
+                                </select>
+                            </label>
+                            <label class="trv2-field"
+                                   title="Convolution kernel width applied to every conv layer -- odd sizes (3, 5, 7, ...) keep the window's time length unchanged through each layer">
+                                Kernel size
+                                <input class="trv2-input" type="number" min="1" step="2" @bind="_cnnKernelSize" />
+                            </label>
+                            <div class="trv2-layer-list">
+                                @for (var i = 0; i < _cnnChannels.Count; i++)
+                                {
+                                    var index = i;
+                                    <label class="trv2-field" title="@($"Output channel count of conv layer {index + 1}")">
+                                        Layer @(index + 1)
+                                        <input class="trv2-input" type="number" min="1" step="1" value="@_cnnChannels[index]"
+                                               @oninput="e => OnCnnChannelSizeChanged(index, e)" />
+                                        <button type="button" class="trv2-btn-remove"
+                                                @onclick="() => RemoveCnnChannelLayer(index)"
+                                                disabled="@(_cnnChannels.Count <= 1)"
+                                                title="@(_cnnChannels.Count > 1 ? "Remove this layer" : "At least one conv layer is required")">
+                                            &#215;
+                                        </button>
+                                    </label>
+                                }
+                                <button type="button" class="trv2-btn" @onclick="AddCnnChannelLayer"
+                                        title="Add another conv layer, stacked after the ones above -- defaults to double the last layer's channel count">
+                                    + ADD LAYER
+                                </button>
+                            </div>
+                        }
+                    </div>
+
+                    <div class="trv2-card">
+                        <div class="trv2-card-title-row">
+                            <span class="trv2-card-title" title="Node-per-layer view of the hidden layers configured on the left -- each dot is one unit, capped visually past 7 per layer">Hidden Layers</span>
+                        </div>
+                        @if (NetworkColumns.Count == 0)
+                        {
+                            <p class="trv2-placeholder">No hidden layers configured.</p>
+                        }
+                        else
+                        {
+                            <svg viewBox="0 0 100 100" preserveAspectRatio="none" class="trv2-network-svg">
+                                @foreach (var edge in NetworkEdges)
+                                {
+                                    <line x1="@Coord(edge.X1)" y1="@Coord(edge.Y1)" x2="@Coord(edge.X2)" y2="@Coord(edge.Y2)"
+                                          class="trv2-network-edge" />
+                                }
+                                @foreach (var column in NetworkColumns)
+                                {
+                                    @foreach (var dot in column.Dots)
+                                    {
+                                        @if (dot.MoreCount is not null)
+                                        {
+                                            @((MarkupString)MoreDotSvg(dot))
+                                        }
+                                        else
+                                        {
+                                            <circle cx="@Coord(dot.X)" cy="@Coord(dot.Y)" r="2.4" class="trv2-network-node" />
+                                        }
+                                    }
+                                }
+                            </svg>
+                            <div class="trv2-network-labels">
+                                @foreach (var column in NetworkColumns)
+                                {
+                                    <span class="trv2-network-label" title="@($"{column.Label}: {column.Size} units")">@column.Label (@column.Size)</span>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+                break;
+            case TrainV2Tab.Output:
+                <div class="trv2-card-stack">
+                    <div class="trv2-card">
+                        <div class="trv2-card-title-row">
+                            <span class="trv2-card-title" title="Which decisions this brain's network is allowed to make -- every one below is optional">Actions</span>
+                            <span class="trv2-card-badge" title="How many of the @TotalActionOptionCount available action decisions are enabled">
+                                @SelectedActionCount/@TotalActionOptionCount
+                            </span>
+                        </div>
+                        <label class="trv2-field" title="Toggle every action decision below on or off at once">
+                            <input type="checkbox" checked="@AllActionsSelected" @onchange="ToggleAllActions" />
+                            Select All
+                        </label>
+                        <label class="trv2-field" title="Network can choose to do nothing this tick">
+                            <input type="checkbox" @bind="_includeHold" /> Hold
+                        </label>
+                        <label class="trv2-field" title="Network can open a long position">
+                            <input type="checkbox" @bind="_includeEnterLong" /> Enter Long
+                        </label>
+                        <label class="trv2-field" title="Network can open a short position">
+                            <input type="checkbox" @bind="_includeEnterShort" /> Enter Short
+                        </label>
+                        <label class="trv2-field" title="Network can close an open position (or cancel a resting order)">
+                            <input type="checkbox" @bind="_includeClose" /> Close
+                        </label>
+                        <label class="trv2-field" title="Network picks position size (25/50/75/100% of cash) for each entry, instead of a fixed 50%">
+                            <input type="checkbox" @bind="_includeVolumeOutput" /> Volume
+                        </label>
+                        <label class="trv2-field" title="Network picks a stop-loss distance (or none) for each entry">
+                            <input type="checkbox" @bind="_includeStopLossOutput" /> Stop Loss
+                        </label>
+                        <label class="trv2-field" title="Network picks a take-profit distance (or none) for each entry">
+                            <input type="checkbox" @bind="_includeTakeProfitOutput" /> Take Profit
+                        </label>
+                    </div>
+
+                    <div class="trv2-card">
+                        <div class="trv2-card-title-row">
+                            <span class="trv2-card-title"
+                                  title="Hard legality rules enforced on the network's raw logits before Softmax -- an illegal action gets exactly 0% probability, guaranteed, rather than being left for the network to learn to avoid">
+                                Action Masking
+                            </span>
+                            <span class="trv2-card-badge" title="How many of the @TotalMaskRuleCount available masking rules are enabled">
+                                @SelectedMaskRuleCount/@TotalMaskRuleCount
+                            </span>
+                        </div>
+                        <label class="trv2-field" title="Toggle every masking rule below on or off at once">
+                            <input type="checkbox" checked="@AllMaskRulesSelected" @onchange="ToggleAllMaskRules" />
+                            Select All
+                        </label>
+                        @foreach (var row in MaskRuleRows)
+                        {
+                            <label class="trv2-field" title="@row.Tooltip">
+                                <input type="checkbox" checked="@row.Get()" @onchange="e => OnMaskRuleFieldChanged(row, e)" />
+                                @row.Label
+                            </label>
+                        }
+                    </div>
+
+                    <div class="trv2-card">
+                        <div class="trv2-card-title-row">
+                            <span class="trv2-card-title"
+                                  title="How the network's raw output logits become each enabled decision above -- every group below is decoded independently via its own softmax distribution, not one joint choice across all of them">
+                                Action Decoding
+                            </span>
+                            <span class="trv2-card-badge" title="Total network output width: every enabled group's softmax width, summed">
+                                @TotalOutputWidth
+                            </span>
+                        </div>
+                        <label class="trv2-field"
+                               title="Softmax always samples stochastically, weighted by probability -- what training needs for exploration. HardMax instead always picks the highest-probability choice, deterministically. Applies to every group below.">
+                            Decoding Mode
+                            <select class="trv2-select" @bind="_decisionDecoding">
+                                <option value="Softmax">Softmax (stochastic)</option>
+                                <option value="HardMax">HardMax (argmax)</option>
+                            </select>
+                        </label>
+                        <label class="trv2-field"
+                               title="Divides each group's raw logits before Softmax -- below 1 sharpens the distribution toward its highest choice; above 1 flattens it toward uniform. No effect under HardMax.">
+                            Temperature
+                            <input class="trv2-input" type="number" min="0.01" step="0.1" @bind="_decisionTemperature"
+                                   disabled="@(_decisionDecoding == DecisionDecodingKind.HardMax)" />
+                        </label>
+                        <div class="trv2-field-row">
+                            <label class="trv2-field" title="@($"Softmax over the {DirectionCount} enabled direction(s): {string.Join(" / ", EnabledDirectionLabels)}")">
+                                Direction
+                                <span class="trv2-decoding-value">@DirectionCount-way @DecodingLabel</span>
+                            </label>
+                            @if (_includeVolumeOutput)
+                            {
+                                <label class="trv2-field" title="Softmax over 4 capital-fraction levels: 25% / 50% / 75% / 100%">
+                                    Volume
+                                    <span class="trv2-decoding-value">@VolumeOutputWidth-way @DecodingLabel</span>
+                                </label>
+                            }
+                            @if (_includeStopLossOutput)
+                            {
+                                <label class="trv2-field" title="Softmax over 4 stop-loss distances: None / Tight / Medium / Wide">
+                                    Stop Loss
+                                    <span class="trv2-decoding-value">@StopLossOutputWidth-way @DecodingLabel</span>
+                                </label>
+                            }
+                            @if (_includeTakeProfitOutput)
+                            {
+                                <label class="trv2-field" title="Softmax over 4 take-profit distances: None / Tight / Medium / Wide">
+                                    Take Profit
+                                    <span class="trv2-decoding-value">@TakeProfitOutputWidth-way @DecodingLabel</span>
+                                </label>
+                            }
+                        </div>
+                    </div>
+                </div>
+                break;
+            case TrainV2Tab.Results:
+                <div class="trv2-results">
+                    <div class="trv2-card trv2-metrics-panel">
+                        <div class="trv2-stat">
+                            <span class="trv2-stat-label" title="Mean reward across the retained rolling window of episodes">recent avg reward</span>
+                            <span class="trv2-stat-value">@PlaceholderMetric.ToString("N2")</span>
+                        </div>
+                        <div class="trv2-stat">
+                            <span class="trv2-stat-label" title="Highest single-episode reward seen this run">best episode</span>
+                            <span class="trv2-stat-value">@PlaceholderMetric.ToString("N2")</span>
+                        </div>
+                        <div class="trv2-stat">
+                            <span class="trv2-stat-label" title="Lowest single-episode reward seen this run">worst episode</span>
+                            <span class="trv2-stat-value">@PlaceholderMetric.ToString("N2")</span>
+                        </div>
+                        <div class="trv2-stat">
+                            <span class="trv2-stat-label" title="Percent of retained episodes with positive reward">win rate</span>
+                            <span class="trv2-stat-value">@PlaceholderMetric.ToString("N0")%</span>
+                        </div>
+                        <div class="trv2-stat">
+                            <span class="trv2-stat-label" title="Median reward across the retained rolling window of episodes">median reward</span>
+                            <span class="trv2-stat-value">@PlaceholderMetric.ToString("N2")</span>
+                        </div>
+                        <div class="trv2-stat">
+                            <span class="trv2-stat-label" title="Standard deviation of reward across the retained rolling window of episodes">reward std dev</span>
+                            <span class="trv2-stat-value">@PlaceholderMetric.ToString("N2")</span>
+                        </div>
+                        <div class="trv2-stat">
+                            <span class="trv2-stat-label" title="Best episode minus worst episode">reward spread</span>
+                            <span class="trv2-stat-value">@PlaceholderMetric.ToString("N2")</span>
+                        </div>
+                    </div>
+
+                    <div class="trv2-charts-grid">
+                        <div class="trv2-card">
+                            <span class="trv2-card-title">Reward</span>
+                            <RewardChart Episodes="_placeholderEpisodes" IsRunning="false" />
+                        </div>
+                        <div class="trv2-card">
+                            <span class="trv2-card-title" title="Rolling-window median -- less noisy than raw reward">Median Reward</span>
+                            <TrendLineChart Episodes="_placeholderEpisodes" IsRunning="false"
+                                            Aggregate="@RlEpisodeMetricStats.Median" ColorVariant="median" />
+                        </div>
+                        <div class="trv2-card">
+                            <span class="trv2-card-title" title="Rolling-window spread -- falling means training is stabilizing">Reward Std Dev</span>
+                            <TrendLineChart Episodes="_placeholderEpisodes" IsRunning="false"
+                                            Aggregate="@RlEpisodeMetricStats.StdDev" ColorVariant="stddev" />
+                        </div>
+                        <div class="trv2-card">
+                            <span class="trv2-card-title" title="Rolling-window % of episodes with positive reward">Win Rate</span>
+                            <TrendLineChart Episodes="_placeholderEpisodes" IsRunning="false"
+                                            Aggregate="@RlEpisodeMetricStats.WinRate" ColorVariant="winrate" ValueFormat="N0" ValueSuffix="%" />
+                        </div>
+                    </div>
+                </div>
+                break;
+        }
+    </div>
+</div>
