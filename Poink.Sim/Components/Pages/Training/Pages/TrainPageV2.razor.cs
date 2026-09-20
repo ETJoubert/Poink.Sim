@@ -5,6 +5,8 @@ using System.Linq;
 using Microsoft.AspNetCore.Components;
 using Poink.Sim.Brain.Neural;
 using Poink.Sim.Components.Charts;
+using Poink.Sim.Models;
+using Poink.Sim.Trader.Risk;
 using Poink.Sim.Training;
 
 namespace Poink.Sim.Components.Pages
@@ -19,6 +21,7 @@ namespace Poink.Sim.Components.Pages
 			Features,
 			Network,
 			Output,
+			Training,
 			Results,
 			Playback,
 		}
@@ -29,6 +32,7 @@ namespace Poink.Sim.Components.Pages
 			TrainV2Tab.Features,
 			TrainV2Tab.Network,
 			TrainV2Tab.Output,
+			TrainV2Tab.Training,
 			TrainV2Tab.Results,
 			TrainV2Tab.Playback,
 		];
@@ -42,6 +46,7 @@ namespace Poink.Sim.Components.Pages
 				TrainV2Tab.Features => "Which encoders transform pulled data into the input vector",
 				TrainV2Tab.Network => "The architecture that consumes the feature vector",
 				TrainV2Tab.Output => "How the network's raw outputs map to trade actions",
+				TrainV2Tab.Training => "How episodes are timed/sampled, and the trader each one starts with",
 				TrainV2Tab.Results => "Run training and review live/saved results",
 				TrainV2Tab.Playback => "Replay a single episode bar by bar across the chart panels below",
 				_ => "",
@@ -447,6 +452,106 @@ namespace Poink.Sim.Components.Pages
 				_ when _decisionTemperature != 1.0 => $"softmax @ T={_decisionTemperature:0.##}",
 				_ => "softmax",
 			};
+
+		#endregion
+
+		#region Training
+
+		// Episode Timing -- mirrors TrainPage's Episode Timing panel.
+		private int _episodeCount = 1000;
+		private int _episodeBars = 20;
+		private int _barWidthSeconds = 60;
+		private SimulationSteppingMode _steppingMode = SimulationSteppingMode.Bar;
+		private double _cellWidth = 0.10;
+
+		// Off by default, so an episode may start anywhere in the Data tab's range. Weekday and
+		// session are independent, combinable filters.
+		private bool _restrictEpisodeTiming;
+		private readonly HashSet<DayOfWeek> _allowedWeekdays = [.. Enum.GetValues<DayOfWeek>()];
+		private TimeSpan _sessionStart = TimeSpan.Zero;
+		private TimeSpan _sessionEnd = TimeSpan.FromHours(24);
+
+		private static readonly DayOfWeek[] WeekdayDisplayOrder =
+		[
+			DayOfWeek.Monday,
+			DayOfWeek.Tuesday,
+			DayOfWeek.Wednesday,
+			DayOfWeek.Thursday,
+			DayOfWeek.Friday,
+			DayOfWeek.Saturday,
+			DayOfWeek.Sunday,
+		];
+
+		// When restricted, Bars/episode derives from session length / bar width instead of being picked directly.
+		private int EffectiveEpisodeBars =>
+			_restrictEpisodeTiming ? (int)((_sessionEnd - _sessionStart).TotalSeconds / _barWidthSeconds) : _episodeBars;
+
+		private void ToggleRestrictEpisodeTiming(ChangeEventArgs e) => _restrictEpisodeTiming = e.Value is true;
+
+		private void ToggleWeekday(DayOfWeek day)
+		{
+			if (!_allowedWeekdays.Remove(day))
+				_allowedWeekdays.Add(day);
+		}
+
+		private static string WeekdayAbbreviation(DayOfWeek day) =>
+			day switch
+			{
+				DayOfWeek.Monday => "Mo",
+				DayOfWeek.Tuesday => "Tu",
+				DayOfWeek.Wednesday => "We",
+				DayOfWeek.Thursday => "Th",
+				DayOfWeek.Friday => "Fr",
+				DayOfWeek.Saturday => "Sa",
+				DayOfWeek.Sunday => "Su",
+				_ => "",
+			};
+
+		private string SessionStartText
+		{
+			get => EpisodeTimeConstraint.FormatClock(_sessionStart);
+			set
+			{
+				if (TimeSpan.TryParse(value, out var parsed))
+					_sessionStart = parsed;
+			}
+		}
+
+		private string SessionEndText
+		{
+			get => EpisodeTimeConstraint.FormatClock(_sessionEnd);
+			set
+			{
+				if (value.Trim() is "24:00" or "24:00:00" or "24")
+					_sessionEnd = TimeSpan.FromHours(24);
+				else if (TimeSpan.TryParse(value, out var parsed))
+					_sessionEnd = parsed;
+			}
+		}
+
+		// Trader Setup -- mirrors TrainPage's Trader panel.
+		private double _startingCash = 10_000;
+		private double _leverage = 1;
+		private double _commissionRatePercent;
+		private double _stopOutLevelPercent = 50;
+
+		private readonly List<string> _selectedRiskPolicies = [];
+
+		[Inject]
+		private IRiskPolicyService RiskPolicyService { get; set; } = default!;
+
+		// Learning -- mirrors BrainBuilder's LearnSection, NEAT excluded from the strategy options.
+		private static readonly string[] TrainingStrategyOptions =
+		[
+			"Policy Gradient (REINFORCE)",
+			"Policy Gradient (Per-Decision)",
+		];
+
+		private static readonly string[] RewardPolicyOptions = ["Equity Drift (default)", "Hit Rate"];
+
+		private string _trainingStrategyName = TrainingStrategyOptions[0];
+		private string _rewardPolicyName = RewardPolicyOptions[0];
+		private double _learningRate = 0.001;
 
 		#endregion
 

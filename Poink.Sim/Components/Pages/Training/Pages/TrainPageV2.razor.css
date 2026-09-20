@@ -81,6 +81,17 @@
     gap: 14px;
 }
 
+.trv2-weekday-row {
+    display: flex;
+    gap: 4px;
+}
+
+.trv2-toggle-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
 .trv2-card-title-row {
     display: flex;
     align-items: center;

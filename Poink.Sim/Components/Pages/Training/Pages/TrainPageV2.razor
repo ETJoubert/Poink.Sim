@@ -2,8 +2,11 @@
 @namespace Poink.Sim.Components.Pages
 @using Poink.Sim.Brain.Neural
 @using Poink.Sim.Components.Charts
+@using Poink.Sim.Components.Shared.BarSizeSelect
+@using Poink.Sim.Components.Shared.PolicySelector
 @using Poink.Sim.Components.Shared.TickDataSource
 @using Poink.Sim.Components.Training
+@using Poink.Sim.Models
 @using Poink.Sim.Training
 
 <div class="trv2-page">
@@ -376,6 +379,138 @@
                                 </label>
                             }
                         </div>
+                    </div>
+                </div>
+                break;
+            case TrainV2Tab.Training:
+                <div class="trv2-card-stack">
+                    <div class="trv2-card">
+                        <div class="trv2-card-title-row">
+                            <span class="trv2-card-title" title="How many episodes to run, and what span of data each one covers">Episode Timing</span>
+                        </div>
+                        <label class="trv2-field">
+                            Episodes
+                            <input class="trv2-input" type="number" min="1" @bind="_episodeCount" />
+                        </label>
+                        @if (_restrictEpisodeTiming)
+                        {
+                            <label class="trv2-field"
+                                   title="Derived from the session length ÷ bar width while timing is restricted -- an episode's decisions span exactly the configured day/session, so this isn't picked independently">
+                                Bars/episode
+                                <span class="trv2-decoding-value">@EffectiveEpisodeBars</span>
+                            </label>
+                        }
+                        else
+                        {
+                            <label class="trv2-field"
+                                   title="How many bars one episode runs for -- ticks are fetched to cover this many bars, then the episode stops once the last one completes">
+                                Bars/episode
+                                <input class="trv2-input" type="number" min="1" @bind="_episodeBars" />
+                            </label>
+                        }
+                        <BarSizeSelect @bind-Value="_barWidthSeconds" Label="Bar width"
+                                       Title="Time span of one bar -- also determines how much wall-clock time an episode's fetched ticks need to cover" />
+                        <label class="trv2-field"
+                               title="Bar steps a decision on each bar's close. Cell steps on a fixed-width price band instead, the moment price moves into a different band">
+                            Step
+                            <select class="trv2-select" @bind="_steppingMode">
+                                <option value="@SimulationSteppingMode.Bar">bar</option>
+                                <option value="@SimulationSteppingMode.Cell">cell</option>
+                            </select>
+                        </label>
+                        @if (_steppingMode == SimulationSteppingMode.Cell)
+                        {
+                            <label class="trv2-field" title="Fixed price width of each cell -- a decision fires when price crosses from one cell into the next">
+                                Cell width
+                                <input class="trv2-input" type="number" min="0.00001" step="0.01" @bind="_cellWidth" />
+                            </label>
+                        }
+                        <label class="trv2-field"
+                               title="Turn on to restrict episodes to specific weekdays and/or a daily time-of-day session -- off means an episode may start anywhere in the Data tab's range, including across midnight">
+                            <input type="checkbox" checked="@_restrictEpisodeTiming" @onchange="ToggleRestrictEpisodeTiming" />
+                            Restrict timing
+                        </label>
+                        @if (_restrictEpisodeTiming)
+                        {
+                            <label class="trv2-field" title="Which days of the week an episode may start on">
+                                Weekdays
+                                <div class="trv2-weekday-row">
+                                    @foreach (var day in WeekdayDisplayOrder)
+                                    {
+                                        <button type="button" class="trv2-panel-toggle-btn @(_allowedWeekdays.Contains(day) ? "active" : "")"
+                                                @onclick="@(() => ToggleWeekday(day))" title="@day.ToString()">
+                                            @WeekdayAbbreviation(day)
+                                        </button>
+                                    }
+                                </div>
+                            </label>
+                            <label class="trv2-field" title="Time-of-day window an episode's decisions span, on each eligible day -- 24:00 means end of day">
+                                Session
+                                <input class="trv2-input" type="text" placeholder="00:00" @bind="SessionStartText" />
+                                to
+                                <input class="trv2-input" type="text" placeholder="24:00" @bind="SessionEndText" />
+                            </label>
+                        }
+                    </div>
+
+                    <div class="trv2-card">
+                        <div class="trv2-card-title-row">
+                            <span class="trv2-card-title" title="Starting capital, leverage, commission, stop-out and risk policies the simulated trader begins each episode with">Trader Setup</span>
+                        </div>
+                        <label class="trv2-field">
+                            Starting cash
+                            <input class="trv2-input" type="number" min="1" step="100" @bind="_startingCash" />
+                        </label>
+                        <label class="trv2-field" title="Notional exposure per unit of margin committed -- 1 means no leverage">
+                            Leverage
+                            <input class="trv2-input" type="number" min="1" step="1" @bind="_leverage" />
+                        </label>
+                        <label class="trv2-field" title="Commission charged per fill, as a percent of that fill's notional value">
+                            Commission %
+                            <input class="trv2-input" type="number" min="0" step="0.01" @bind="_commissionRatePercent" />
+                        </label>
+                        <label class="trv2-field" title="Force-close the open position when Margin Level (Equity ÷ Margin Used) drops below this percent">
+                            Stop-out %
+                            <input class="trv2-input" type="number" min="1" max="100" step="1" @bind="_stopOutLevelPercent" />
+                        </label>
+                        @if (RiskPolicyService.AvailablePolicies.Count > 0)
+                        {
+                            <label class="trv2-field" title="Risk policies gate every trade action -- permit, deny or resize it -- and supervise open positions during each episode">
+                                Risk policies
+                                <PolicySelector Available="RiskPolicyService.AvailablePolicies" Selected="_selectedRiskPolicies" />
+                            </label>
+                        }
+                    </div>
+
+                    <div class="trv2-card">
+                        <div class="trv2-card-title-row">
+                            <span class="trv2-card-title" title="Which RL algorithm trains the network, how its reward is shaped, and its learning rate">Learning</span>
+                        </div>
+                        <label class="trv2-field" title="Which reinforcement-learning algorithm updates the network's weights each episode -- NEAT is parked/excluded here">
+                            Strategy
+                            <div class="trv2-toggle-row">
+                                @foreach (var name in TrainingStrategyOptions)
+                                {
+                                    <button type="button" class="trv2-panel-toggle-btn @(_trainingStrategyName == name ? "active" : "")"
+                                            @onclick="() => _trainingStrategyName = name" title="@name">@name</button>
+                                }
+                            </div>
+                        </label>
+                        <label class="trv2-field"
+                               title="Which rules shape the per-decision reward -- Equity Drift is the raw, unshaped baseline; Hit Rate rewards net direction correctness instead">
+                            Reward Policy
+                            <div class="trv2-toggle-row">
+                                @foreach (var name in RewardPolicyOptions)
+                                {
+                                    <button type="button" class="trv2-panel-toggle-btn @(_rewardPolicyName == name ? "active" : "")"
+                                            @onclick="() => _rewardPolicyName = name" title="@name">@name</button>
+                                }
+                            </div>
+                        </label>
+                        <label class="trv2-field" title="Step size the optimizer applies to each weight update">
+                            Learning rate
+                            <input class="trv2-input" type="number" min="0.00001" step="0.0001" @bind="_learningRate" />
+                        </label>
                     </div>
                 </div>
                 break;
