@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 using Poink.Sim.Brain.Neural;
 using Poink.Sim.Components.Charts;
+using Poink.Sim.Components.Pages.Trade.Helpers;
 using Poink.Sim.Models;
 using Poink.Sim.Repository;
 using Poink.Sim.Services.Symbols;
@@ -110,13 +111,14 @@ namespace Poink.Sim.Components.Pages
 
 		#region Features
 
-		// XGrid Signals -- mirrors BrainBuilder's FeaturesSection XGrid card.
+		// XGrid Signals -- mirrors BrainBuilder's FeaturesSection XGrid card, except Pip (derived from
+		// the Data tab's selected symbol, not a free input) and Window (equal to Col, not separate).
 		private HashSet<string> _xGridEnabledSignals = [];
 		private double _xGridTopPercent = 10;
 		private int _xGridColCount = 20;
 		private int _xGridRowCount = 20;
-		private double _xGridPipSize = 0.01;
-		private int _xGridWindowBars = 60;
+
+		private double XGridPipSize => SelectedSymbolMetadata is { } metadata ? PositionPnlHelper.PipSize(metadata) : 0.0001;
 
 		private bool AnyXGridSignalSelected => _xGridEnabledSignals.Count > 0;
 

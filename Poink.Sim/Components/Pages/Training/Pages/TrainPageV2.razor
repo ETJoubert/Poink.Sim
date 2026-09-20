@@ -133,7 +133,7 @@
                     <div class="trv2-card">
                         <div class="trv2-card-title-row">
                             <span class="trv2-card-title"
-                                  title="XGrid's boolean footprint signals -- current cell's rank/at/above/below relationship to POC/VAH/VAL/VWAP, computed over a trailing window of bars">
+                                  title="XGrid's boolean footprint signals -- current cell's rank/at/above/below relationship to POC/VAH/VAL/VWAP, computed over a trailing window of Col bars">
                                 XGrid Signals
                             </span>
                             <span class="trv2-card-badge" title="How many of the available XGrid signals are enabled">
@@ -152,26 +152,20 @@
                                        disabled="@(!AnyXGridSignalSelected)" />
                             </label>
                             <label class="trv2-field"
-                                   title="How many columns (time buckets) XGrid's footprint grid is divided into over its trailing Window">
+                                   title="How many columns (time buckets) XGrid's footprint grid is divided into -- also sets the trailing window, one bar per column">
                                 Col
                                 <input class="trv2-input" type="number" min="1" step="1" @bind="_xGridColCount"
                                        disabled="@(!AnyXGridSignalSelected)" />
                             </label>
                             <label class="trv2-field"
-                                   title="Row height in pips -- multiplied by Pip below for each row's fixed price height">
+                                   title="Row height in pips -- multiplied by the selected symbol's own pip size (Data tab) for each row's fixed price height">
                                 Row
                                 <input class="trv2-input" type="number" min="1" step="1" @bind="_xGridRowCount"
                                        disabled="@(!AnyXGridSignalSelected)" />
                             </label>
-                            <label class="trv2-field" title="Price size of one pip -- row height = Row x Pip">
+                            <label class="trv2-field" title="Price size of one pip, derived from the symbol selected on the Data tab -- select a symbol there to set this">
                                 Pip
-                                <input class="trv2-input" type="number" min="0.00001" step="0.001" @bind="_xGridPipSize"
-                                       disabled="@(!AnyXGridSignalSelected)" />
-                            </label>
-                            <label class="trv2-field" title="How many trailing bars XGrid computes its footprint grid over each decision">
-                                Window
-                                <input class="trv2-input" type="number" min="1" step="1" @bind="_xGridWindowBars"
-                                       disabled="@(!AnyXGridSignalSelected)" />
+                                <span class="trv2-decoding-value">@XGridPipSize.ToString("0.#####")</span>
                             </label>
                         </div>
                         <XGridSignalInputTable @bind-EnabledKeys="_xGridEnabledSignals" Mode="XGridSignalInputMode.Independent" />
