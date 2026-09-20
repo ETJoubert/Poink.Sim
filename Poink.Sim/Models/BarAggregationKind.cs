@@ -1,6 +1,6 @@
 namespace Poink.Sim.Models;
 
-internal enum BarAggregationKind
+public enum BarAggregationKind
 {
 	Ohlc,
 	Quartile,

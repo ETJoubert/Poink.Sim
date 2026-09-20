@@ -260,6 +260,44 @@
     font-weight: 600;
 }
 
+.trv2-txfold-features {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 12px;
+    border-top: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+.trv2-txfold-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.trv2-txfold-grid-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.trv2-txfold-grid-label {
+    width: 36px;
+    flex-shrink: 0;
+    font-size: 0.68rem;
+    font-weight: bold;
+    color: var(--color-secondary);
+}
+
+.trv2-txfold-grid-cell {
+    flex: 1;
+    text-align: center;
+    padding: 3px 0;
+    font-size: 0.68rem;
+    color: var(--color-primary);
+    background: color-mix(in srgb, var(--color-primary) 8%, transparent);
+    border-radius: var(--border-radius-sm);
+}
+
 .trv2-results {
     display: flex;
     flex-direction: column;

@@ -65,11 +65,22 @@ namespace Poink.Sim.Components.Charts
 
 		private static readonly int[] DefaultSelectedSeconds = { 60, 120, 240, 480, 900, 1800, 3600, 7200 };
 
-		private BarAggregationKind _barKind = BarAggregationKind.Ohlc;
+		/// <summary>Which trailing windows render, one bar per selection -- bindable so a host can read/drive the toolbar's own selection (e.g. to show a feature count elsewhere) without duplicating it.</summary>
+		[Parameter]
+		public HashSet<int> SelectedSeconds { get; set; } = DefaultSelectedSeconds.ToHashSet();
+
+		[Parameter]
+		public EventCallback<HashSet<int>> SelectedSecondsChanged { get; set; }
+
+		[Parameter]
+		public BarAggregationKind BarKind { get; set; } = BarAggregationKind.Ohlc;
+
+		[Parameter]
+		public EventCallback<BarAggregationKind> BarKindChanged { get; set; }
+
 		private bool _showHighLowLines;
 		private bool _showVolumeProfile;
 		private bool _normalize;
-		private HashSet<int> _selectedSeconds = DefaultSelectedSeconds.ToHashSet();
 		private List<TxFoldBar> _bars = new();
 		private IReadOnlyList<TxFoldVolumeBucket> _volumeProfile = Array.Empty<TxFoldVolumeBucket>();
 		private (string Table, DateTime AnchorEnd, DateTime RangeStart, BarAggregationKind BarKind, string SelectedKey)? _loadedFor;
@@ -97,9 +108,10 @@ namespace Poink.Sim.Components.Charts
 
 		private async Task SetBarKind(BarAggregationKind kind)
 		{
-			if (_barKind == kind)
+			if (BarKind == kind)
 				return;
-			_barKind = kind;
+			BarKind = kind;
+			await BarKindChanged.InvokeAsync(BarKind);
 			await RefreshIfNeeded();
 		}
 
@@ -111,16 +123,17 @@ namespace Poink.Sim.Components.Charts
 
 		private async Task ToggleTimeframe(int seconds)
 		{
-			if (_selectedSeconds.Contains(seconds))
+			if (SelectedSeconds.Contains(seconds))
 			{
-				if (_selectedSeconds.Count == 1)
+				if (SelectedSeconds.Count == 1)
 					return;
-				_selectedSeconds.Remove(seconds);
+				SelectedSeconds.Remove(seconds);
 			}
 			else
 			{
-				_selectedSeconds.Add(seconds);
+				SelectedSeconds.Add(seconds);
 			}
+			await SelectedSecondsChanged.InvokeAsync(SelectedSeconds);
 			await RefreshIfNeeded();
 		}
 
@@ -129,8 +142,8 @@ namespace Poink.Sim.Components.Charts
 			if (string.IsNullOrWhiteSpace(Table) || _loading)
 				return;
 
-			var selectedKey = string.Join(",", _selectedSeconds.OrderBy(s => s));
-			var key = (Table, AnchorEnd, RangeStart, _barKind, selectedKey);
+			var selectedKey = string.Join(",", SelectedSeconds.OrderBy(s => s));
+			var key = (Table, AnchorEnd, RangeStart, BarKind, selectedKey);
 			if (_loadedFor == key)
 				return;
 
@@ -143,8 +156,8 @@ namespace Poink.Sim.Components.Charts
 				var table = Table;
 				var anchorEnd = AnchorEnd;
 				var rangeStart = RangeStart;
-				var selectedSeconds = _selectedSeconds;
-				var barKind = _barKind;
+				var selectedSeconds = SelectedSeconds;
+				var barKind = BarKind;
 				var result = await Task.Run(() =>
 				{
 					var largestSeconds = selectedSeconds.Max();
@@ -228,7 +241,7 @@ namespace Poink.Sim.Components.Charts
 							volume = pair.Bar.Volume,
 							hasFullCoverage = pair.HasFullCoverage,
 						}),
-						barKind = _barKind.ToString(),
+						barKind = BarKind.ToString(),
 						normalize = _normalize,
 						referencePrice,
 						referenceRange,

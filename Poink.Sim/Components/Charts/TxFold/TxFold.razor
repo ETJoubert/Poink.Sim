@@ -6,16 +6,16 @@
         <div class="txf-row">
             <span class="txf-title">TXFOLD</span>
             <div class="txf-tool-group" title="Choose how each snapshot bar is aggregated">
-                <button type="button" class="txf-tool-btn txf-tool-btn-kind @(_barKind == BarAggregationKind.Ohlc ? "active" : "")"
+                <button type="button" class="txf-tool-btn txf-tool-btn-kind @(BarKind == BarAggregationKind.Ohlc ? "active" : "")"
                         @onclick="() => SetBarKind(BarAggregationKind.Ohlc)"
                         title="Draw each bar's real Open/High/Low/Close">OHLC</button>
-                <button type="button" class="txf-tool-btn txf-tool-btn-kind @(_barKind == BarAggregationKind.Quartile ? "active" : "")"
+                <button type="button" class="txf-tool-btn txf-tool-btn-kind @(BarKind == BarAggregationKind.Quartile ? "active" : "")"
                         @onclick="() => SetBarKind(BarAggregationKind.Quartile)"
                         title="Draw each bar as a box plot of Min/Q1/Median/Q3/Max">Quartile</button>
-                <button type="button" class="txf-tool-btn txf-tool-btn-kind @(_barKind == BarAggregationKind.Decile ? "active" : "")"
+                <button type="button" class="txf-tool-btn txf-tool-btn-kind @(BarKind == BarAggregationKind.Decile ? "active" : "")"
                         @onclick="() => SetBarKind(BarAggregationKind.Decile)"
                         title="Draw each bar as a box plot of Min/D1/D9/Max -- a wider 10/90 percentile band than Quartile's 25/75">Decile</button>
-                <button type="button" class="txf-tool-btn txf-tool-btn-kind @(_barKind == BarAggregationKind.MeanStdDev ? "active" : "")"
+                <button type="button" class="txf-tool-btn txf-tool-btn-kind @(BarKind == BarAggregationKind.MeanStdDev ? "active" : "")"
                         @onclick="() => SetBarKind(BarAggregationKind.MeanStdDev)"
                         title="Draw each bar as a volatility band -- Open/Close at the mean price, High/Low one standard deviation above/below it">Mean&plusmn;SD</button>
             </div>
@@ -38,7 +38,7 @@
                 {
                     <span class="txf-divider"></span>
                 }
-                <button type="button" class="txf-tool-btn txf-tool-btn-timeframe @(_selectedSeconds.Contains(option.Seconds) ? "active" : "")"
+                <button type="button" class="txf-tool-btn txf-tool-btn-timeframe @(SelectedSeconds.Contains(option.Seconds) ? "active" : "")"
                         @onclick="() => ToggleTimeframe(option.Seconds)"
                         title="@($"Show a {option.Label} trailing window bar ending at the anchor time")">@option.Label</button>
             }

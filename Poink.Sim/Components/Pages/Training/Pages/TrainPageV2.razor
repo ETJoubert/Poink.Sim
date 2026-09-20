@@ -172,7 +172,37 @@
                     </div>
 
                     <div class="trv2-card trv2-card-nopad">
-                        <TxFold Table="" RangeStart="DateTime.UtcNow" />
+                        <TxFold Table="" RangeStart="DateTime.UtcNow" @bind-SelectedSeconds="_txFoldSelectedSeconds"
+                                @bind-BarKind="_txFoldBarKind" />
+                        <div class="trv2-txfold-features">
+                            <div class="trv2-card-title-row">
+                                <span class="trv2-card-title" title="One row per timeframe selected above -- the 4 values TxFold feeds the network for that timeframe">
+                                    Features
+                                </span>
+                                <span class="trv2-card-badge" title="Total inputs contributed by TxFold -- 4 per selected timeframe">
+                                    @(_txFoldSelectedSeconds.Count * 4)
+                                </span>
+                            </div>
+                            @if (_txFoldSelectedSeconds.Count == 0)
+                            {
+                                <p class="trv2-placeholder">none selected</p>
+                            }
+                            else
+                            {
+                                <div class="trv2-txfold-grid">
+                                    @foreach (var seconds in _txFoldSelectedSeconds.OrderBy(s => s))
+                                    {
+                                        <div class="trv2-txfold-grid-row">
+                                            <span class="trv2-txfold-grid-label">@TxFoldTimeframeLabel(seconds)</span>
+                                            @foreach (var field in TxFoldFieldLabels(_txFoldBarKind))
+                                            {
+                                                <span class="trv2-txfold-grid-cell">@field</span>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
                     </div>
 
                     <div class="trv2-card">

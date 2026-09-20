@@ -242,6 +242,25 @@ namespace Poink.Sim.Components.Pages
 
 		private void OnTraderStateFieldChanged(TraderStateFieldRow row, ChangeEventArgs e) => row.Set(e.Value is true);
 
+		// TxFold -- the real TxFold chart component owns its own toolbar/selection (bound here so the
+		// Features grid below can read it); the grid itself shows field labels only, no fetched data.
+		private HashSet<int> _txFoldSelectedSeconds = [60, 120, 240, 480, 900, 1800, 3600, 7200];
+		private BarAggregationKind _txFoldBarKind = BarAggregationKind.Ohlc;
+
+		private static string TxFoldTimeframeLabel(int seconds) =>
+			SnapshotTimeframeOptions.All.FirstOrDefault(o => o.Seconds == seconds).Label;
+
+		// Every kind stores exactly 4 values per bar -- Quartile/Decile/MeanStdDev just relabel the
+		// same 4 slots (see TxFoldStats.BuildBar) rather than adding a 5th.
+		private static string[] TxFoldFieldLabels(BarAggregationKind kind) =>
+			kind switch
+			{
+				BarAggregationKind.Quartile => ["Q1", "Max", "Min", "Q3"],
+				BarAggregationKind.Decile => ["D1", "Max", "Min", "D9"],
+				BarAggregationKind.MeanStdDev => ["Mean", "+SD", "-SD", "Mean"],
+				_ => ["O", "H", "L", "C"],
+			};
+
 		#endregion
 
 		#region Network
