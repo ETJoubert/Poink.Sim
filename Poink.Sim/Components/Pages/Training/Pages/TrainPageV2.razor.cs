@@ -20,6 +20,7 @@ namespace Poink.Sim.Components.Pages
 			Network,
 			Output,
 			Results,
+			Playback,
 		}
 
 		private static readonly TrainV2Tab[] Tabs =
@@ -29,6 +30,7 @@ namespace Poink.Sim.Components.Pages
 			TrainV2Tab.Network,
 			TrainV2Tab.Output,
 			TrainV2Tab.Results,
+			TrainV2Tab.Playback,
 		];
 
 		private TrainV2Tab _activeTab = TrainV2Tab.Data;
@@ -41,6 +43,7 @@ namespace Poink.Sim.Components.Pages
 				TrainV2Tab.Network => "The architecture that consumes the feature vector",
 				TrainV2Tab.Output => "How the network's raw outputs map to trade actions",
 				TrainV2Tab.Results => "Run training and review live/saved results",
+				TrainV2Tab.Playback => "Replay a single episode bar by bar across the chart panels below",
 				_ => "",
 			};
 
@@ -453,6 +456,32 @@ namespace Poink.Sim.Components.Pages
 		// empty placeholder rather than a live run.
 		private const double PlaceholderMetric = 0;
 		private static readonly List<RlEpisodeMetric> _placeholderEpisodes = [];
+
+		#endregion
+
+		#region Playback
+
+		// Wireframe only -- mirrors EpisodePlayback's controls/panel toggles, not wired to a real replay.
+		private bool _isPlaying;
+
+		private static readonly double[] PlaybackSpeedOptions = { 0.25, 0.5, 1, 2, 5, 10, 25 };
+
+		private int _playbackSpeedIndex = 2;
+
+		private bool _showPlaybackMarketChart = true;
+		private bool _showPlaybackXGrid = true;
+		private bool _showPlaybackTxFold = true;
+		private bool _showPlaybackEquityCurve = true;
+
+		private void TogglePlayback() => _isPlaying = !_isPlaying;
+
+		private void DecreasePlaybackSpeed() => _playbackSpeedIndex = Math.Max(0, _playbackSpeedIndex - 1);
+
+		private void IncreasePlaybackSpeed() =>
+			_playbackSpeedIndex = Math.Min(PlaybackSpeedOptions.Length - 1, _playbackSpeedIndex + 1);
+
+		private static string FormatPlaybackSpeed(double speed) =>
+			(speed < 1 ? speed.ToString("0.##", CultureInfo.InvariantCulture) : speed.ToString("0", CultureInfo.InvariantCulture)) + "x";
 
 		#endregion
 	}

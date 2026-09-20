@@ -276,3 +276,120 @@
     grid-template-columns: repeat(2, 1fr);
     gap: 14px;
 }
+
+.trv2-playback {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.trv2-playback-controls {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 16px;
+}
+
+.trv2-btn-play {
+    color: var(--color-success);
+    border-color: color-mix(in srgb, var(--color-success) 50%, transparent);
+}
+
+.trv2-btn-play:hover {
+    background: color-mix(in srgb, var(--color-success) 14%, transparent);
+}
+
+.trv2-playback-speed {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.trv2-playback-speed-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
+    border-radius: var(--border-radius-sm);
+    color: var(--color-secondary);
+    cursor: pointer;
+}
+
+.trv2-playback-speed-btn:hover:not(:disabled) {
+    color: var(--color-primary);
+    border-color: var(--color-primary);
+}
+
+.trv2-playback-speed-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.trv2-playback-speed-value {
+    font-size: 0.72rem;
+    color: var(--color-secondary);
+    min-width: 28px;
+    text-align: center;
+}
+
+.trv2-playback-progress {
+    font-size: 0.72rem;
+    color: var(--color-secondary);
+    white-space: nowrap;
+}
+
+.trv2-panel-toggles {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 5px 10px;
+    background: color-mix(in srgb, var(--color-secondary) 6%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-secondary) 30%, transparent);
+    border-radius: var(--border-radius-sm);
+}
+
+.trv2-panel-toggles-label {
+    font-size: 0.6rem;
+    font-weight: bold;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-secondary);
+    opacity: 0.9;
+}
+
+.trv2-panel-toggle-btn {
+    font-family: var(--font-body);
+    font-size: 0.62rem;
+    letter-spacing: 0.02em;
+    color: var(--color-secondary);
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--color-secondary) 35%, transparent);
+    padding: 2px 7px;
+    border-radius: var(--border-radius-sm);
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.trv2-panel-toggle-btn:hover {
+    background: color-mix(in srgb, var(--color-secondary) 15%, transparent);
+}
+
+.trv2-panel-toggle-btn.active {
+    background: var(--color-secondary);
+    color: var(--color-bg-dark);
+    font-weight: bold;
+}
+
+.trv2-playback-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+}
+
+.trv2-playback-panel {
+    min-height: 260px;
+}

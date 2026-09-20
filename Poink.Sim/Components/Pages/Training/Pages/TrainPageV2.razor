@@ -435,6 +435,87 @@
                     </div>
                 </div>
                 break;
+            case TrainV2Tab.Playback:
+                <div class="trv2-playback">
+                    <div class="trv2-card trv2-playback-controls">
+                        <button type="button" class="trv2-btn trv2-btn-play" @onclick="TogglePlayback"
+                                title="@(_isPlaying ? "Pause the replay" : "Replay this episode from the start, bar by bar, so you can watch the trader trade")">
+                            @(_isPlaying ? "PAUSE" : "PLAY")
+                        </button>
+                        <div class="trv2-playback-speed" title="Replay speed -- how many bars reveal per second">
+                            <button type="button" class="trv2-playback-speed-btn" @onclick="DecreasePlaybackSpeed"
+                                    disabled="@(_playbackSpeedIndex == 0)" title="Slower">-</button>
+                            <span class="trv2-playback-speed-value">@FormatPlaybackSpeed(PlaybackSpeedOptions[_playbackSpeedIndex])</span>
+                            <button type="button" class="trv2-playback-speed-btn" @onclick="IncreasePlaybackSpeed"
+                                    disabled="@(_playbackSpeedIndex == PlaybackSpeedOptions.Length - 1)" title="Faster">+</button>
+                        </div>
+                        <span class="trv2-playback-progress" title="Bar revealed so far / total bars in this episode">bar 0/0</span>
+                        <div class="trv2-stat" title="Trades won so far in this episode">
+                            <span class="trv2-stat-label">won</span>
+                            <span class="trv2-stat-value">0</span>
+                        </div>
+                        <div class="trv2-stat" title="Trades lost so far in this episode">
+                            <span class="trv2-stat-label">lost</span>
+                            <span class="trv2-stat-value">0</span>
+                        </div>
+                        <div class="trv2-stat" title="Buy (enter long) decisions so far in this episode">
+                            <span class="trv2-stat-label">buys</span>
+                            <span class="trv2-stat-value">0</span>
+                        </div>
+                        <div class="trv2-stat" title="Sell (enter short) decisions so far in this episode">
+                            <span class="trv2-stat-label">sells</span>
+                            <span class="trv2-stat-value">0</span>
+                        </div>
+                        <div class="trv2-stat" title="Equity at the currently revealed bar">
+                            <span class="trv2-stat-label">equity</span>
+                            <span class="trv2-stat-value">&mdash;</span>
+                        </div>
+                    </div>
+
+                    <div class="trv2-panel-toggles" title="Show or hide each chart panel below">
+                        <span class="trv2-panel-toggles-label">Panels</span>
+                        <button type="button" class="trv2-panel-toggle-btn @(_showPlaybackMarketChart ? "active" : "")"
+                                @onclick="() => _showPlaybackMarketChart = !_showPlaybackMarketChart"
+                                title="Show or hide the main price chart">Chart</button>
+                        <button type="button" class="trv2-panel-toggle-btn @(_showPlaybackXGrid ? "active" : "")"
+                                @onclick="() => _showPlaybackXGrid = !_showPlaybackXGrid"
+                                title="Show or hide the footprint grid">XGrid</button>
+                        <button type="button" class="trv2-panel-toggle-btn @(_showPlaybackTxFold ? "active" : "")"
+                                @onclick="() => _showPlaybackTxFold = !_showPlaybackTxFold"
+                                title="Show or hide the multi-timeframe TxFold snapshot">TxFold</button>
+                        <button type="button" class="trv2-panel-toggle-btn @(_showPlaybackEquityCurve ? "active" : "")"
+                                @onclick="() => _showPlaybackEquityCurve = !_showPlaybackEquityCurve"
+                                title="Show or hide the equity curve">Equity curve</button>
+                    </div>
+
+                    <div class="trv2-playback-grid">
+                        @if (_showPlaybackMarketChart)
+                        {
+                            <div class="trv2-card trv2-card-nopad trv2-playback-panel">
+                                <MarketChartContainer Interactive="false" />
+                            </div>
+                        }
+                        @if (_showPlaybackXGrid)
+                        {
+                            <div class="trv2-card trv2-card-nopad trv2-playback-panel">
+                                <XGridController />
+                            </div>
+                        }
+                        @if (_showPlaybackTxFold)
+                        {
+                            <div class="trv2-card trv2-card-nopad trv2-playback-panel">
+                                <TxFold Table="" RangeStart="DateTime.UtcNow" />
+                            </div>
+                        }
+                        @if (_showPlaybackEquityCurve)
+                        {
+                            <div class="trv2-card trv2-card-nopad trv2-playback-panel">
+                                <EquityCurve />
+                            </div>
+                        }
+                    </div>
+                </div>
+                break;
         }
     </div>
 </div>
