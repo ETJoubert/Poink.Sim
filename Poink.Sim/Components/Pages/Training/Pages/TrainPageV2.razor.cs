@@ -2,10 +2,13 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 using Poink.Sim.Brain.Neural;
 using Poink.Sim.Components.Charts;
 using Poink.Sim.Models;
+using Poink.Sim.Repository;
+using Poink.Sim.Services.Symbols;
 using Poink.Sim.Trader.Risk;
 using Poink.Sim.Training;
 
@@ -59,6 +62,49 @@ namespace Poink.Sim.Components.Pages
 		private string _table = "";
 		private DateTime _from = DateTime.UtcNow.AddDays(-1);
 		private DateTime _to = DateTime.UtcNow;
+
+		[Inject]
+		private ITickRepository TickRepository { get; set; } = default!;
+
+		// Same lookup TickDataSource itself uses -- MaxTime is null both when nothing's cached yet
+		// and when _table matches nothing, so that's the "found?" check below.
+		private (string Table, long Rows, DateTime? MinTime, DateTime? MaxTime) SelectedTableMeta =>
+			TickRepository.CachedTables.FirstOrDefault(t => t.Table == _table);
+
+		private long? _selectedRangeTickCount;
+
+		private void CountSelectedRangeTicks() => _selectedRangeTickCount = TickRepository.CountTicks(_table, _from, _to);
+
+		private static string FormatSpan(TimeSpan span) =>
+			span.TotalDays >= 1 ? $"{span.TotalDays:0.#} days" : $"{span.TotalHours:0.#} hours";
+
+		[Inject]
+		private ISymbolMetadataCache SymbolMetadataCache { get; set; } = default!;
+
+		private SymbolModel? _selectedSymbol;
+		private bool _loadingSymbolMetadata;
+
+		private SymbolMetadataModel? SelectedSymbolMetadata =>
+			_selectedSymbol is null ? null : SymbolMetadataCache.Get(_selectedSymbol.SymbolId);
+
+		// SymbolDataSelector already resolved the symbol via the catalog -- this just fetches its
+		// trading metadata (pip size, volume limits, etc.) for the Details card.
+		private async Task OnSelectedSymbolChanged(SymbolModel? symbol)
+		{
+			_selectedSymbol = symbol;
+			if (symbol is null)
+				return;
+
+			_loadingSymbolMetadata = true;
+			try
+			{
+				await SymbolMetadataCache.EnsureAsync(symbol.SymbolId);
+			}
+			finally
+			{
+				_loadingSymbolMetadata = false;
+			}
+		}
 
 		#endregion
 

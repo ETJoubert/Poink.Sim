@@ -1,0 +1,59 @@
+@namespace Poink.Sim.Components.Shared.SymbolDataSelector
+@using Poink.Sim.Components.Shared.DateRangeSlider
+
+<div class="sds-row">
+    <div class="sds-search-field">
+        <input class="sds-search-input" type="text" placeholder="Search symbol..." value="@_searchText"
+               @oninput="OnSearchInput" @onfocus="OpenDropdown" disabled="@(Disabled || _loadingTables)"
+               aria-label="Symbol search" />
+        @if (_dropdownOpen)
+        {
+            <div class="sds-dropdown-backdrop" @onclick="CloseDropdown"></div>
+            <div class="sds-dropdown">
+                @if (_loadingTables)
+                {
+                    <div class="sds-dropdown-empty">loading symbols...</div>
+                }
+                else if (FilteredOptions.Count == 0)
+                {
+                    <div class="sds-dropdown-empty">no matching symbols with tick data</div>
+                }
+                else
+                {
+                    @foreach (var option in FilteredOptions)
+                    {
+                        <button type="button" class="sds-dropdown-item @(option.SymbolName == _selectedSymbolName ? "active" : "")"
+                                @onclick="() => SelectOption(option)">
+                            <span class="sds-dropdown-item-name">@option.SymbolName</span>
+                            @if (option.Symbol is not null)
+                            {
+                                <span class="sds-dropdown-item-desc">@option.Symbol.Description</span>
+                            }
+                            <span class="sds-dropdown-item-meta">@option.Rows.ToString("N0") rows</span>
+                        </button>
+                    }
+                }
+            </div>
+        }
+    </div>
+    <button class="sds-btn" @onclick="RecountTables" disabled="@(Disabled || _loadingTables)"
+            title="Rescans every ticks_* table (COUNT/MIN/MAX) and refreshes stored row counts -- slow, only needed after new data has been written">
+        @(_loadingTables ? "RECOUNTING..." : "RECOUNT")
+    </button>
+
+    @if (SelectedOption is not null)
+    {
+        <div class="sds-range">
+            <DateRangeSlider Min="SliderMin" Max="SliderMax" From="From" FromChanged="@(v => FromChanged.InvokeAsync(v))"
+                             To="To" ToChanged="@(v => ToChanged.InvokeAsync(v))" Disabled="@(Disabled || _loadingTables)" />
+        </div>
+    }
+</div>
+@if (SelectedOption is null)
+{
+    <span class="sds-empty">Search and select a symbol above to pick its data range.</span>
+}
+@if (_tableListFailed)
+{
+    <p class="sds-error">Tick table list unavailable (Postgres down?).</p>
+}

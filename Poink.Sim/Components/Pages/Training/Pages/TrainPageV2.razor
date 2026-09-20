@@ -2,10 +2,11 @@
 @namespace Poink.Sim.Components.Pages
 @using Poink.Sim.Brain.Neural
 @using Poink.Sim.Components.Charts
+@using Poink.Sim.Components.Pages.Trade.Helpers
 @using Poink.Sim.Components.Shared.BarSizeSelect
 @using Poink.Sim.Components.Shared.Icon
 @using Poink.Sim.Components.Shared.PolicySelector
-@using Poink.Sim.Components.Shared.TickDataSource
+@using Poink.Sim.Components.Shared.SymbolDataSelector
 @using Poink.Sim.Components.Training
 @using Poink.Sim.Models
 @using Poink.Sim.Training
@@ -30,7 +31,101 @@
         {
             case TrainV2Tab.Data:
                 <div class="trv2-card" title="Symbol and date range training data is pulled from">
-                    <TickDataSource @bind-Table="_table" @bind-From="_from" @bind-To="_to" />
+                    <SymbolDataSelector @bind-Table="_table" @bind-From="_from" @bind-To="_to"
+                                         SelectedSymbolChanged="OnSelectedSymbolChanged" />
+                </div>
+
+                <div class="trv2-card trv2-details-card" title="Metadata for the selected symbol/table">
+                    <div class="trv2-card-title-row">
+                        <span class="trv2-card-title">Details</span>
+                    </div>
+                    @if (SelectedTableMeta.MaxTime is null)
+                    {
+                        <p class="trv2-placeholder">Select a symbol above to see its metadata.</p>
+                    }
+                    else
+                    {
+                        <div class="trv2-field-row">
+                            <div class="trv2-stat" title="Table this symbol's ticks are stored in">
+                                <span class="trv2-stat-label">table</span>
+                                <span class="trv2-stat-value">@SelectedTableMeta.Table</span>
+                            </div>
+                            <div class="trv2-stat" title="Total ticks stored for this symbol">
+                                <span class="trv2-stat-label">rows</span>
+                                <span class="trv2-stat-value">@SelectedTableMeta.Rows.ToString("N0")</span>
+                            </div>
+                            <div class="trv2-stat" title="Earliest tick available for this symbol">
+                                <span class="trv2-stat-label">available from</span>
+                                <span class="trv2-stat-value">@(SelectedTableMeta.MinTime?.ToString("yyyy-MM-dd HH:mm") ?? "-")</span>
+                            </div>
+                            <div class="trv2-stat" title="Latest tick available for this symbol">
+                                <span class="trv2-stat-label">available to</span>
+                                <span class="trv2-stat-value">@(SelectedTableMeta.MaxTime?.ToString("yyyy-MM-dd HH:mm") ?? "-")</span>
+                            </div>
+                            <div class="trv2-stat" title="Span of the From/To range picked above">
+                                <span class="trv2-stat-label">selected span</span>
+                                <span class="trv2-stat-value">@FormatSpan(_to - _from)</span>
+                            </div>
+                            @if (_selectedRangeTickCount is not null)
+                            {
+                                <div class="trv2-stat" title="Exact tick count within the selected From/To range">
+                                    <span class="trv2-stat-label">ticks in range</span>
+                                    <span class="trv2-stat-value">@_selectedRangeTickCount.Value.ToString("N0")</span>
+                                </div>
+                            }
+                        </div>
+                        <button type="button" class="trv2-btn" @onclick="CountSelectedRangeTicks"
+                                title="Count exact ticks within the selected From/To range -- runs a database query">
+                            COUNT TICKS IN RANGE
+                        </button>
+
+                        <div class="trv2-details-divider"></div>
+
+                        @if (_loadingSymbolMetadata)
+                        {
+                            <p class="trv2-placeholder">loading symbol metadata...</p>
+                        }
+                        else if (_selectedSymbol is null)
+                        {
+                            <p class="trv2-placeholder">no symbol selected yet.</p>
+                        }
+                        else
+                        {
+                            <div class="trv2-field-row">
+                                <div class="trv2-stat" title="Symbol selected above">
+                                    <span class="trv2-stat-label">symbol</span>
+                                    <span class="trv2-stat-value">@_selectedSymbol.SymbolName</span>
+                                </div>
+                                <div class="trv2-stat" title="Category this symbol belongs to">
+                                    <span class="trv2-stat-label">description</span>
+                                    <span class="trv2-stat-value">@_selectedSymbol.Description</span>
+                                </div>
+                                @if (SelectedSymbolMetadata is { } metadata)
+                                {
+                                    <div class="trv2-stat" title="Decimal places this symbol's price is quoted to">
+                                        <span class="trv2-stat-label">digits</span>
+                                        <span class="trv2-stat-value">@metadata.Digits</span>
+                                    </div>
+                                    <div class="trv2-stat" title="Price size of one pip, derived from this symbol's pip position">
+                                        <span class="trv2-stat-label">pip size</span>
+                                        <span class="trv2-stat-value">@PositionPnlHelper.PipSize(metadata).ToString("0.#####")</span>
+                                    </div>
+                                    <div class="trv2-stat" title="Minimum/maximum/step volume this symbol accepts per order">
+                                        <span class="trv2-stat-label">volume min/max/step</span>
+                                        <span class="trv2-stat-value">@metadata.MinVolume / @metadata.MaxVolume / @metadata.StepVolume</span>
+                                    </div>
+                                    <div class="trv2-stat" title="Units per lot">
+                                        <span class="trv2-stat-label">lot size</span>
+                                        <span class="trv2-stat-value">@metadata.LotSize</span>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <p class="trv2-placeholder">no trading metadata cached for this symbol yet -- needs a cTrader session to fetch it once</p>
+                                }
+                            </div>
+                        }
+                    }
                 </div>
                 break;
             case TrainV2Tab.Features:

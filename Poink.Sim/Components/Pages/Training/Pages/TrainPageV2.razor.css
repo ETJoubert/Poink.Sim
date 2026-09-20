@@ -69,6 +69,15 @@
     background: color-mix(in srgb, var(--color-primary) 4%, transparent);
 }
 
+.trv2-details-card {
+    margin-top: 14px;
+}
+
+.trv2-details-divider {
+    border-top: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
+    margin: 4px 0;
+}
+
 .trv2-card-nopad {
     padding: 0;
     overflow: hidden;
