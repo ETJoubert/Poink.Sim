@@ -22,7 +22,7 @@ namespace Poink.Sim.Components.Pages
 			Network,
 			Output,
 			Training,
-			Results,
+			Run,
 			Playback,
 		}
 
@@ -33,7 +33,7 @@ namespace Poink.Sim.Components.Pages
 			TrainV2Tab.Network,
 			TrainV2Tab.Output,
 			TrainV2Tab.Training,
-			TrainV2Tab.Results,
+			TrainV2Tab.Run,
 			TrainV2Tab.Playback,
 		];
 
@@ -47,7 +47,7 @@ namespace Poink.Sim.Components.Pages
 				TrainV2Tab.Network => "The architecture that consumes the feature vector",
 				TrainV2Tab.Output => "How the network's raw outputs map to trade actions",
 				TrainV2Tab.Training => "How episodes are timed/sampled, and the trader each one starts with",
-				TrainV2Tab.Results => "Run training and review live/saved results",
+				TrainV2Tab.Run => "Start/pause/step the run and review live/saved results",
 				TrainV2Tab.Playback => "Replay a single episode bar by bar across the chart panels below",
 				_ => "",
 			};
@@ -382,12 +382,13 @@ namespace Poink.Sim.Components.Pages
 			+ (_includeStopLossOutput ? StopLossOutputWidth : 0)
 			+ (_includeTakeProfitOutput ? TakeProfitOutputWidth : 0);
 
-		// Action Masking -- mirrors BrainBuilder's ActionsSection Action Masking card.
-		private bool _maskPositionRequiredForClose = true;
-		private bool _maskFlatRequiredForEntry = true;
-		private bool _maskLongRequiresUpSignal = true;
-		private bool _maskShortRequiresDownSignal = true;
-		private bool _maskKeyLevelRequiredForClose = true;
+		// Action Masking -- mirrors BrainBuilder's ActionsSection Action Masking card, but defaults
+		// every rule off here rather than on.
+		private bool _maskPositionRequiredForClose;
+		private bool _maskFlatRequiredForEntry;
+		private bool _maskLongRequiresUpSignal;
+		private bool _maskShortRequiresDownSignal;
+		private bool _maskKeyLevelRequiredForClose;
 
 		private sealed record MaskRuleRow(string Label, string Tooltip, Func<bool> Get, Action<bool> Set);
 
@@ -553,14 +554,54 @@ namespace Poink.Sim.Components.Pages
 		private string _rewardPolicyName = RewardPolicyOptions[0];
 		private double _learningRate = 0.001;
 
+		// Decision Masking -- mirrors BrainBuilder's DecideSection. Gates whether the network is even
+		// asked to decide, as opposed to Action Masking (Output tab) which restricts choices afterward.
+		private DecisionMaskResolutionKind _decisionMaskResolution = DecisionMaskResolutionKind.PerBar;
+		private double _decisionMaskResolutionSeconds = 1.0;
+		private double _decisionMaskResolutionCellWidth = 0.10;
+		private bool _maskDecisionPriceBelowPoc;
+
+		private const int TotalDecisionMaskRuleCount = 1;
+
+		private int SelectedDecisionMaskRuleCount => _maskDecisionPriceBelowPoc ? 1 : 0;
+
 		#endregion
 
-		#region Results
+		#region Run
 
 		// Wireframe only -- no ITrainingService wiring yet, so the panel/charts render against an
 		// empty placeholder rather than a live run.
 		private const double PlaceholderMetric = 0;
 		private static readonly List<RlEpisodeMetric> _placeholderEpisodes = [];
+
+		// Run controls -- mirrors TrainPage's Start/Step/Reset/Pause/Resume/Stop toolbar, not wired
+		// to a real run.
+		private bool _isRunning;
+		private bool _isPaused;
+
+		private void StartRun()
+		{
+			_isRunning = true;
+			_isPaused = false;
+		}
+
+		private void StepRun() { }
+
+		private void ResetRun()
+		{
+			_isRunning = false;
+			_isPaused = false;
+		}
+
+		private void PauseRun() => _isPaused = true;
+
+		private void ResumeRun() => _isPaused = false;
+
+		private void StopRun()
+		{
+			_isRunning = false;
+			_isPaused = false;
+		}
 
 		#endregion
 

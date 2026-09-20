@@ -310,6 +310,67 @@
     background: color-mix(in srgb, var(--color-success) 14%, transparent);
 }
 
+.trv2-btn-warn {
+    border-color: color-mix(in srgb, var(--color-warning) 50%, transparent);
+    color: var(--color-warning);
+}
+
+.trv2-btn-warn:hover {
+    background: color-mix(in srgb, var(--color-warning) 14%, transparent);
+    border-color: var(--color-warning);
+}
+
+.trv2-run-controls {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
+
+::deep .trv2-run-icon {
+    width: 13px;
+    height: 13px;
+    vertical-align: -2px;
+    margin-right: 3px;
+}
+
+.trv2-progress {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1 1 240px;
+    min-width: 200px;
+}
+
+.trv2-progress-bar {
+    flex: 1;
+    max-width: 480px;
+    height: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.trv2-progress-fill {
+    height: 100%;
+    background: var(--color-secondary);
+    box-shadow: var(--shadow-glow-secondary);
+    transition: width 0.2s ease;
+}
+
+.trv2-progress-text {
+    font-size: 0.75rem;
+    color: var(--color-secondary);
+    white-space: nowrap;
+}
+
+.trv2-progress-rate {
+    font-size: 0.75rem;
+    color: var(--color-muted);
+    white-space: nowrap;
+}
+
 .trv2-playback-speed {
     display: flex;
     align-items: center;
