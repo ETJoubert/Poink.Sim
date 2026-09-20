@@ -90,6 +90,10 @@
     gap: 14px;
 }
 
+.trv2-card-span-all {
+    grid-column: 1 / -1;
+}
+
 .trv2-weekday-row {
     display: flex;
     gap: 4px;
@@ -128,6 +132,22 @@
     font-size: 0.72rem;
     color: var(--color-secondary);
     white-space: nowrap;
+}
+
+.trv2-subgroup {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-top: 8px;
+    border-top: 1px solid color-mix(in srgb, var(--color-primary) 18%, transparent);
+}
+
+.trv2-subgroup-title {
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-secondary);
+    opacity: 0.8;
 }
 
 .trv2-field-row {
@@ -219,45 +239,59 @@
     gap: 14px;
 }
 
-.trv2-network-svg {
-    width: 100%;
-    height: 220px;
+.trv2-network-columns {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 18px;
 }
 
-.trv2-network-edge {
-    stroke: var(--color-primary);
-    stroke-width: 0.3;
-    opacity: 0.25;
+.trv2-network-column {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
 }
 
-.trv2-network-node {
-    fill: var(--color-accent);
-    stroke: var(--color-bg-dark);
-    stroke-width: 0.5;
+.trv2-network-stack {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+}
+
+.trv2-network-unit {
+    width: 16px;
+    height: 16px;
+    background: var(--color-accent);
+    border-radius: 2px;
 }
 
 .trv2-network-more {
-    font-size: 5px;
-    fill: var(--color-secondary);
-    text-anchor: middle;
-}
-
-.trv2-network-labels {
-    display: flex;
-    justify-content: space-around;
-    flex-wrap: wrap;
-    gap: 8px;
+    font-size: 0.62rem;
+    color: var(--color-secondary);
 }
 
 .trv2-network-label {
     font-size: 0.62rem;
+    font-weight: bold;
+    letter-spacing: 0.08em;
     color: var(--color-secondary);
-    white-space: nowrap;
+}
+
+.trv2-network-size {
+    font-size: 0.72rem;
+    color: var(--color-primary);
 }
 
 .trv2-decoding-value {
     color: var(--color-primary);
     font-weight: 600;
+}
+
+.trv2-warning {
+    font-size: 0.72rem;
+    color: var(--color-warning);
 }
 
 .trv2-txfold-features {

@@ -135,20 +135,18 @@ namespace Poink.Sim.Components.Pages
 		}
 
 		// Trader State -- mirrors BrainBuilder's FeaturesSection Trader State card.
-		private bool _includeTraderState;
-
-		private bool _traderStateIncludePosition = true;
-		private bool _traderStateIncludePositionPrice = true;
-		private bool _traderStateIncludePositionTicks = true;
-		private bool _traderStateIncludePositionDistance = true;
-		private bool _traderStateIncludeCurrentPrice = true;
-		private bool _traderStateIncludeCash = true;
-		private bool _traderStateIncludeRealized = true;
-		private bool _traderStateIncludeUnrealized = true;
-		private bool _traderStateIncludeEquity = true;
-		private bool _traderStateIncludeMargin = true;
-		private bool _traderStateIncludeMarginLevel = true;
-		private bool _traderStateIncludePositionCount = true;
+		private bool _traderStateIncludePosition;
+		private bool _traderStateIncludePositionPrice;
+		private bool _traderStateIncludePositionTicks;
+		private bool _traderStateIncludePositionDistance;
+		private bool _traderStateIncludeCurrentPrice;
+		private bool _traderStateIncludeCash;
+		private bool _traderStateIncludeRealized;
+		private bool _traderStateIncludeUnrealized;
+		private bool _traderStateIncludeEquity;
+		private bool _traderStateIncludeMargin;
+		private bool _traderStateIncludeMarginLevel;
+		private bool _traderStateIncludePositionCount;
 
 		private bool _includeTraderStateOutcomes;
 		private bool _includeTraderStatePositionLevel;
@@ -160,9 +158,8 @@ namespace Poink.Sim.Components.Pages
 
 		private sealed record TraderStateFieldRow(string Label, string Tooltip, Func<bool> Get, Action<bool> Set);
 
-		private IReadOnlyList<TraderStateFieldRow> TraderStateFieldRows =>
-			new List<TraderStateFieldRow>
-			{
+		private IReadOnlyList<TraderStateFieldRow> PositionFieldRows =>
+			[
 				new(
 					"Position",
 					"Direction of the open position: 1 long, -1 short, 0 flat",
@@ -193,6 +190,16 @@ namespace Poink.Sim.Components.Pages
 					() => _traderStateIncludeCurrentPrice,
 					v => _traderStateIncludeCurrentPrice = v
 				),
+				new(
+					"Position Count",
+					"1 if a position is open, 0 if flat",
+					() => _traderStateIncludePositionCount,
+					v => _traderStateIncludePositionCount = v
+				),
+			];
+
+		private IReadOnlyList<TraderStateFieldRow> AccountFieldRows =>
+			[
 				new("Cash", "Available cash balance", () => _traderStateIncludeCash, v => _traderStateIncludeCash = v),
 				new(
 					"Realized",
@@ -219,24 +226,20 @@ namespace Poink.Sim.Components.Pages
 					() => _traderStateIncludeMarginLevel,
 					v => _traderStateIncludeMarginLevel = v
 				),
-				new(
-					"Position Count",
-					"1 if a position is open, 0 if flat",
-					() => _traderStateIncludePositionCount,
-					v => _traderStateIncludePositionCount = v
-				),
-			};
+			];
+
+		private IReadOnlyList<TraderStateFieldRow> TraderStateFieldRows => [.. PositionFieldRows, .. AccountFieldRows];
 
 		private const int TotalTraderStateFieldCount = 12;
 
 		private int SelectedTraderStateFieldCount => TraderStateFieldRows.Count(r => r.Get());
 
-		private bool AllTraderStateFieldsSelected => SelectedTraderStateFieldCount == TotalTraderStateFieldCount;
+		private static bool AllFieldsSelected(IReadOnlyList<TraderStateFieldRow> rows) => rows.All(r => r.Get());
 
-		private void ToggleAllTraderStateFields(ChangeEventArgs e)
+		private static void SetAllFields(IReadOnlyList<TraderStateFieldRow> rows, ChangeEventArgs e)
 		{
 			var value = e.Value is true;
-			foreach (var row in TraderStateFieldRows)
+			foreach (var row in rows)
 				row.Set(value);
 		}
 
@@ -260,6 +263,52 @@ namespace Poink.Sim.Components.Pages
 				BarAggregationKind.MeanStdDev => ["Mean", "+SD", "-SD", "Mean"],
 				_ => ["O", "H", "L", "C"],
 			};
+
+		// Picked on the Features tab because it sets XGrid's window; the Training tab reads it for Episode span.
+		private int _barWidthSeconds = 60;
+
+		private const int TxFoldValuesPerTimeframe = 4;
+
+		private int TxFoldFeatureCount => _txFoldSelectedSeconds.Count * TxFoldValuesPerTimeframe;
+
+		private int TraderStateFeatureCount =>
+			SelectedTraderStateFieldCount
+			+ (_includeTraderStateOutcomes ? _traderStateOutcomeListLength : 0)
+			+ (_includeTraderStatePositionLevel ? _traderStatePositionLevelListLength : 0)
+			+ (_includeTraderStateDirection ? _traderStateDirectionListLength : 0);
+
+		private int TotalFeatureCount => SelectedXGridSignalCount + TxFoldFeatureCount + TraderStateFeatureCount;
+
+		// XGrid's trailing window is one bar per column, so its span depends on the Training tab's bar width.
+		private TimeSpan XGridWindow =>
+			AnyXGridSignalSelected ? TimeSpan.FromSeconds((double)_xGridColCount * _barWidthSeconds) : TimeSpan.Zero;
+
+		private TimeSpan TxFoldWindow => TimeSpan.FromSeconds(_txFoldSelectedSeconds.Max());
+
+		// Trader State needs no history window -- account state is meaningful from the first tick.
+		private IReadOnlyList<(string Source, TimeSpan Window)> FeatureWindows =>
+			[("XGrid Signals", XGridWindow), ("TxFold", TxFoldWindow)];
+
+		private (string Source, TimeSpan Window) LargestFeatureWindow => FeatureWindows.MaxBy(w => w.Window);
+
+		private TimeSpan MinimumDataWindow => LargestFeatureWindow.Window;
+
+		private static string FormatWindow(TimeSpan window)
+		{
+			if (window == TimeSpan.Zero)
+				return "0";
+
+			var parts = new List<string>();
+			if (window.Days > 0)
+				parts.Add($"{window.Days}d");
+			if (window.Hours > 0)
+				parts.Add($"{window.Hours}h");
+			if (window.Minutes > 0)
+				parts.Add($"{window.Minutes}m");
+			if (window.Seconds > 0)
+				parts.Add($"{window.Seconds}s");
+			return string.Join(" ", parts);
+		}
 
 		#endregion
 
@@ -304,15 +353,14 @@ namespace Poink.Sim.Components.Pages
 				_cnnChannels[index] = size;
 		}
 
-		// One column per hidden layer, one dot per unit (capped visually), fully connected mesh between
-		// adjacent columns -- deliberately its own visual, not TrainingPreview's per-layer bar chart.
-		private const int MaxVisibleDots = 7;
+		// One column per hidden layer, one stacked square per unit (capped visually) --
+		// deliberately its own visual, not TrainingPreview's per-layer bar chart.
+		private const int MaxVisibleUnits = 7;
 
-		private sealed record NetworkDot(double X, double Y, int? MoreCount);
-
-		private sealed record NetworkColumn(string Label, int Size, List<NetworkDot> Dots);
-
-		private sealed record NetworkEdge(double X1, double Y1, double X2, double Y2);
+		private sealed record NetworkColumn(string Label, int Size, int VisibleUnits)
+		{
+			public int HiddenUnits => Size - VisibleUnits;
+		}
 
 		private List<NetworkColumn> NetworkColumns
 		{
@@ -327,58 +375,15 @@ namespace Poink.Sim.Components.Pages
 					_ => _mlpHiddenSizes.Select((s, i) => ($"L{i + 1}", s)).ToList(),
 				};
 
-				var columns = new List<NetworkColumn>();
-				for (var i = 0; i < layers.Count; i++)
-				{
-					var (label, size) = layers[i];
-					if (size <= 0)
-						continue;
-					var x = layers.Count == 1 ? 50 : 15 + i / (double)(layers.Count - 1) * 70;
-					columns.Add(new NetworkColumn(label, size, BuildDots(x, size)));
-				}
-				return columns;
+				return layers
+					.Where(layer => layer.Item2 > 0)
+					.Select(layer => new NetworkColumn(layer.Item1, layer.Item2, VisibleUnitCount(layer.Item2)))
+					.ToList();
 			}
 		}
 
-		private static List<NetworkDot> BuildDots(double x, int size)
-		{
-			var hasMore = size > MaxVisibleDots;
-			var shown = hasMore ? MaxVisibleDots - 1 : size;
-
-			var dots = new List<NetworkDot>();
-			for (var i = 0; i < shown; i++)
-			{
-				var y = shown == 1 ? 50 : 15 + i / (double)(shown - 1) * 70;
-				dots.Add(new NetworkDot(x, y, null));
-			}
-			if (hasMore)
-				dots.Add(new NetworkDot(x, 90, size - shown));
-			return dots;
-		}
-
-		private List<NetworkEdge> NetworkEdges
-		{
-			get
-			{
-				var columns = NetworkColumns;
-				var edges = new List<NetworkEdge>();
-				for (var i = 0; i < columns.Count - 1; i++)
-				{
-					var from = columns[i].Dots.Where(d => d.MoreCount is null);
-					var to = columns[i + 1].Dots.Where(d => d.MoreCount is null);
-					foreach (var a in from)
-					foreach (var b in to)
-						edges.Add(new NetworkEdge(a.X, a.Y, b.X, b.Y));
-				}
-				return edges;
-			}
-		}
-
-		private static string Coord(double value) => value.ToString("0.##", CultureInfo.InvariantCulture);
-
-		// <text> can't carry attributes directly in a .razor file (RZ1023), so it's built as markup here instead.
-		private static string MoreDotSvg(NetworkDot dot) =>
-			$"<text x=\"{Coord(dot.X)}\" y=\"{Coord(dot.Y)}\" class=\"trv2-network-more\">+{dot.MoreCount}</text>";
+		// A "+N" label takes the last visible slot when the layer is too big to draw in full.
+		private static int VisibleUnitCount(int size) => size > MaxVisibleUnits ? MaxVisibleUnits - 1 : size;
 
 		#endregion
 
@@ -527,8 +532,8 @@ namespace Poink.Sim.Components.Pages
 
 		// Episode Timing -- mirrors TrainPage's Episode Timing panel.
 		private int _episodeCount = 1000;
-		private int _episodeBars = 20;
-		private int _barWidthSeconds = 60;
+		private int _trainingBars = 20;
+		private int _visibleBars = 120;
 		private SimulationSteppingMode _steppingMode = SimulationSteppingMode.Bar;
 		private double _cellWidth = 0.10;
 
@@ -550,9 +555,23 @@ namespace Poink.Sim.Components.Pages
 			DayOfWeek.Sunday,
 		];
 
-		// When restricted, Bars/episode derives from session length / bar width instead of being picked directly.
-		private int EffectiveEpisodeBars =>
-			_restrictEpisodeTiming ? (int)((_sessionEnd - _sessionStart).TotalSeconds / _barWidthSeconds) : _episodeBars;
+		// When restricted, Training bars derives from session length / bar width instead of being picked directly.
+		private int EffectiveTrainingBars =>
+			_restrictEpisodeTiming ? (int)((_sessionEnd - _sessionStart).TotalSeconds / _barWidthSeconds) : _trainingBars;
+
+		private int EpisodeBars => _visibleBars + EffectiveTrainingBars;
+
+		private TimeSpan VisibleWindow => TimeSpan.FromSeconds((double)_visibleBars * _barWidthSeconds);
+
+		private int MinimumVisibleBars => (int)Math.Ceiling(MinimumDataWindow.TotalSeconds / _barWidthSeconds);
+
+		private bool VisibleBarsCoverFeatures => _visibleBars >= MinimumVisibleBars;
+
+		// Cell stepping fires on price moves rather than the clock, so its episode has no fixed duration.
+		private TimeSpan? EpisodeSpan =>
+			_steppingMode == SimulationSteppingMode.Bar ? TimeSpan.FromSeconds((double)EpisodeBars * _barWidthSeconds) : null;
+
+		private static string FormatOptionalWindow(TimeSpan? window) => window is { } value ? FormatWindow(value) : "-";
 
 		private void ToggleRestrictEpisodeTiming(ChangeEventArgs e) => _restrictEpisodeTiming = e.Value is true;
 
@@ -623,6 +642,20 @@ namespace Poink.Sim.Components.Pages
 
 		// Decision Masking -- mirrors BrainBuilder's DecideSection. Gates whether the network is even
 		// asked to decide, as opposed to Action Masking (Output tab) which restricts choices afterward.
+		private sealed record DecisionMaskResolutionOption(DecisionMaskResolutionKind Kind, string Label, string Tooltip);
+
+		private static readonly DecisionMaskResolutionOption[] DecisionMaskResolutionOptions =
+		[
+			new(DecisionMaskResolutionKind.PerBar, "Once per bar", "Check the rules once, when each bar closes"),
+			new(DecisionMaskResolutionKind.EverySeconds, "Every X seconds", "Check the rules on a fixed time interval"),
+			new(DecisionMaskResolutionKind.PerTick, "Every tick", "Check the rules on every incoming tick"),
+			new(
+				DecisionMaskResolutionKind.OnCellWidthChange,
+				"On cell width change",
+				"Check the rules whenever price crosses into a different fixed-width price cell"
+			),
+		];
+
 		private DecisionMaskResolutionKind _decisionMaskResolution = DecisionMaskResolutionKind.PerBar;
 		private double _decisionMaskResolutionSeconds = 1.0;
 		private double _decisionMaskResolutionCellWidth = 0.10;

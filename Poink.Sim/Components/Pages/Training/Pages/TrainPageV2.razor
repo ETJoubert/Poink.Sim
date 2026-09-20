@@ -8,6 +8,7 @@
 @using Poink.Sim.Components.Shared.PolicySelector
 @using Poink.Sim.Components.Shared.SymbolDataSelector
 @using Poink.Sim.Components.Training
+@using Poink.Sim.Helpers
 @using Poink.Sim.Models
 @using Poink.Sim.Training
 
@@ -130,6 +131,32 @@
                 break;
             case TrainV2Tab.Features:
                 <div class="trv2-card-stack">
+                    <div class="trv2-card trv2-card-span-all"
+                         title="Totals across every feature source below -- the count sizes the network's input layer, the window limits how much history each episode needs before its first decision">
+                        <div class="trv2-card-title-row">
+                            <span class="trv2-card-title">Summary</span>
+                        </div>
+                        <div class="trv2-field-row">
+                            <BarSizeSelect @bind-Value="_barWidthSeconds" Label="Bar width"
+                                           Title="Time span of one bar -- sets XGrid's window (Col x bar width) and how much wall-clock time an episode's fetched ticks need to cover" />
+                            <div class="trv2-stat"
+                                 title="@($"XGrid Signals {SelectedXGridSignalCount} + TxFold {TxFoldFeatureCount} + Trader State {TraderStateFeatureCount}")">
+                                <span class="trv2-stat-label">features</span>
+                                <span class="trv2-stat-value">@TotalFeatureCount</span>
+                            </div>
+                            <div class="trv2-stat"
+                                 title="@($"Longest history any source needs before it can produce a full input vector -- set by {LargestFeatureWindow.Source}. XGrid Signals {FormatWindow(XGridWindow)} (Col x bar width), TxFold {FormatWindow(TxFoldWindow)} (largest timeframe)")">
+                                <span class="trv2-stat-label">min data window</span>
+                                <span class="trv2-stat-value">@FormatWindow(MinimumDataWindow)</span>
+                            </div>
+                            <div class="trv2-stat"
+                                 title="@($"Min data window ÷ bar width ({BarSizeOptions.Label(_barWidthSeconds)}), rounded up -- the least Visible bars the Training tab needs")">
+                                <span class="trv2-stat-label">min visible bars</span>
+                                <span class="trv2-stat-value">@MinimumVisibleBars</span>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="trv2-card">
                         <div class="trv2-card-title-row">
                             <span class="trv2-card-title"
@@ -207,51 +234,71 @@
 
                     <div class="trv2-card">
                         <div class="trv2-card-title-row">
-                            <label class="trv2-field" title="Own position/capital state -- whether this brain needs to know if it already holds a position">
-                                <input type="checkbox" @bind="_includeTraderState" />
-                                <span class="trv2-card-title">Trader State</span>
-                            </label>
+                            <span class="trv2-card-title" title="Own position/capital state -- whether this brain needs to know if it already holds a position">Trader State</span>
                             <span class="trv2-card-badge" title="How many of the available Trader State fields/lists are enabled">
                                 @SelectedTraderStateFieldCount/@TotalTraderStateFieldCount
                             </span>
                         </div>
-                        <label class="trv2-field" title="Toggle every state field below on or off at once">
-                            <input type="checkbox" checked="@AllTraderStateFieldsSelected" @onchange="ToggleAllTraderStateFields"
-                                   disabled="@(!_includeTraderState)" />
-                            Select All Fields
-                        </label>
-                        <div class="trv2-field-row">
-                            @foreach (var row in TraderStateFieldRows)
-                            {
-                                <label class="trv2-field" title="@row.Tooltip">
-                                    <input type="checkbox" checked="@row.Get()" @onchange="e => OnTraderStateFieldChanged(row, e)"
-                                           disabled="@(!_includeTraderState)" />
-                                    @row.Label
+                        <div class="trv2-subgroup">
+                            <div class="trv2-card-title-row">
+                                <span class="trv2-subgroup-title" title="Features describing the open position and the price it is measured against">Position</span>
+                                <label class="trv2-field" title="Toggle every position field below on or off at once">
+                                    <input type="checkbox" checked="@AllFieldsSelected(PositionFieldRows)" @onchange="e => SetAllFields(PositionFieldRows, e)" />
+                                    Select All Fields
                                 </label>
-                            }
+                            </div>
+                            <div class="trv2-field-row">
+                                @foreach (var row in PositionFieldRows)
+                                {
+                                    <label class="trv2-field" title="@row.Tooltip">
+                                        <input type="checkbox" checked="@row.Get()" @onchange="e => OnTraderStateFieldChanged(row, e)" />
+                                        @row.Label
+                                    </label>
+                                }
+                            </div>
+                            <div class="trv2-field-row">
+                                <label class="trv2-field"
+                                       title="How many trailing price records since the open position's own entry time Trader State compares against entry price, most-recent-last, zero-padded">
+                                    <input type="checkbox" @bind="_includeTraderStatePositionLevel" />
+                                    Level
+                                    <input class="trv2-input" type="number" min="1" step="1" @bind="_traderStatePositionLevelListLength"
+                                           disabled="@(!_includeTraderStatePositionLevel)" />
+                                </label>
+                            </div>
                         </div>
-                        <div class="trv2-field-row">
-                            <label class="trv2-field"
-                                   title="How many of the most recent closed trades' win(1)/loss(0) outcome Trader State feeds, most-recent-last, zero-padded if fewer trades have closed yet">
-                                <input type="checkbox" @bind="_includeTraderStateOutcomes" disabled="@(!_includeTraderState)" />
-                                Outcomes
-                                <input class="trv2-input" type="number" min="1" step="1" @bind="_traderStateOutcomeListLength"
-                                       disabled="@(!_includeTraderState || !_includeTraderStateOutcomes)" />
-                            </label>
-                            <label class="trv2-field"
-                                   title="How many trailing price records since the open position's own entry time Trader State compares against entry price, most-recent-last, zero-padded">
-                                <input type="checkbox" @bind="_includeTraderStatePositionLevel" disabled="@(!_includeTraderState)" />
-                                Level
-                                <input class="trv2-input" type="number" min="1" step="1" @bind="_traderStatePositionLevelListLength"
-                                       disabled="@(!_includeTraderState || !_includeTraderStatePositionLevel)" />
-                            </label>
-                            <label class="trv2-field"
-                                   title="How many of the most recent closed trades' direction (1=Long, 0=Short) Trader State feeds, index-aligned with Outcomes">
-                                <input type="checkbox" @bind="_includeTraderStateDirection" disabled="@(!_includeTraderState)" />
-                                Direction
-                                <input class="trv2-input" type="number" min="1" step="1" @bind="_traderStateDirectionListLength"
-                                       disabled="@(!_includeTraderState || !_includeTraderStateDirection)" />
-                            </label>
+                        <div class="trv2-subgroup">
+                            <div class="trv2-card-title-row">
+                                <span class="trv2-subgroup-title" title="Features describing the trader's capital, profit/loss, margin and closed-trade history">Account</span>
+                                <label class="trv2-field" title="Toggle every account field below on or off at once">
+                                    <input type="checkbox" checked="@AllFieldsSelected(AccountFieldRows)" @onchange="e => SetAllFields(AccountFieldRows, e)" />
+                                    Select All Fields
+                                </label>
+                            </div>
+                            <div class="trv2-field-row">
+                                @foreach (var row in AccountFieldRows)
+                                {
+                                    <label class="trv2-field" title="@row.Tooltip">
+                                        <input type="checkbox" checked="@row.Get()" @onchange="e => OnTraderStateFieldChanged(row, e)" />
+                                        @row.Label
+                                    </label>
+                                }
+                            </div>
+                            <div class="trv2-field-row">
+                                <label class="trv2-field"
+                                       title="How many of the most recent closed trades' win(1)/loss(0) outcome Trader State feeds, most-recent-last, zero-padded if fewer trades have closed yet">
+                                    <input type="checkbox" @bind="_includeTraderStateOutcomes" />
+                                    Outcomes
+                                    <input class="trv2-input" type="number" min="1" step="1" @bind="_traderStateOutcomeListLength"
+                                           disabled="@(!_includeTraderStateOutcomes)" />
+                                </label>
+                                <label class="trv2-field"
+                                       title="How many of the most recent closed trades' direction (1=Long, 0=Short) Trader State feeds, index-aligned with Outcomes">
+                                    <input type="checkbox" @bind="_includeTraderStateDirection" />
+                                    Direction
+                                    <input class="trv2-input" type="number" min="1" step="1" @bind="_traderStateDirectionListLength"
+                                           disabled="@(!_includeTraderStateDirection)" />
+                                </label>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -350,7 +397,7 @@
 
                     <div class="trv2-card">
                         <div class="trv2-card-title-row">
-                            <span class="trv2-card-title" title="Node-per-layer view of the hidden layers configured on the left -- each dot is one unit, capped visually past 7 per layer">Hidden Layers</span>
+                            <span class="trv2-card-title" title="Node-per-layer view of the hidden layers configured on the left -- each square is one unit, capped visually past 7 per layer">Hidden Layers</span>
                         </div>
                         @if (NetworkColumns.Count == 0)
                         {
@@ -358,31 +405,23 @@
                         }
                         else
                         {
-                            <svg viewBox="0 0 100 100" preserveAspectRatio="none" class="trv2-network-svg">
-                                @foreach (var edge in NetworkEdges)
-                                {
-                                    <line x1="@Coord(edge.X1)" y1="@Coord(edge.Y1)" x2="@Coord(edge.X2)" y2="@Coord(edge.Y2)"
-                                          class="trv2-network-edge" />
-                                }
+                            <div class="trv2-network-columns">
                                 @foreach (var column in NetworkColumns)
                                 {
-                                    @foreach (var dot in column.Dots)
-                                    {
-                                        @if (dot.MoreCount is not null)
-                                        {
-                                            @((MarkupString)MoreDotSvg(dot))
-                                        }
-                                        else
-                                        {
-                                            <circle cx="@Coord(dot.X)" cy="@Coord(dot.Y)" r="2.4" class="trv2-network-node" />
-                                        }
-                                    }
-                                }
-                            </svg>
-                            <div class="trv2-network-labels">
-                                @foreach (var column in NetworkColumns)
-                                {
-                                    <span class="trv2-network-label" title="@($"{column.Label}: {column.Size} units")">@column.Label (@column.Size)</span>
+                                    <div class="trv2-network-column" title="@($"{column.Label}: {column.Size} units")">
+                                        <span class="trv2-network-label">@column.Label</span>
+                                        <div class="trv2-network-stack">
+                                            @for (var i = 0; i < column.VisibleUnits; i++)
+                                            {
+                                                <span class="trv2-network-unit"></span>
+                                            }
+                                            @if (column.HiddenUnits > 0)
+                                            {
+                                                <span class="trv2-network-more">+@column.HiddenUnits</span>
+                                            }
+                                        </div>
+                                        <span class="trv2-network-size">@column.Size</span>
+                                    </div>
                                 }
                             </div>
                         }
@@ -516,20 +555,40 @@
                         {
                             <label class="trv2-field"
                                    title="Derived from the session length ÷ bar width while timing is restricted -- an episode's decisions span exactly the configured day/session, so this isn't picked independently">
-                                Bars/episode
-                                <span class="trv2-decoding-value">@EffectiveEpisodeBars</span>
+                                Training bars
+                                <span class="trv2-decoding-value">@EffectiveTrainingBars</span>
                             </label>
                         }
                         else
                         {
                             <label class="trv2-field"
-                                   title="How many bars one episode runs for -- ticks are fetched to cover this many bars, then the episode stops once the last one completes">
-                                Bars/episode
-                                <input class="trv2-input" type="number" min="1" @bind="_episodeBars" />
+                                   title="How many bars the episode steps through making decisions -- the episode stops once the last training bar completes">
+                                Training bars
+                                <input class="trv2-input" type="number" min="1" @bind="_trainingBars" />
                             </label>
                         }
-                        <BarSizeSelect @bind-Value="_barWidthSeconds" Label="Bar width"
-                                       Title="Time span of one bar -- also determines how much wall-clock time an episode's fetched ticks need to cover" />
+                        <label class="trv2-field"
+                               title="@($"Bars of history visible before the first training bar ({FormatWindow(VisibleWindow)} at the current bar width) -- must cover the Features tab's min data window, {MinimumVisibleBars} bars")">
+                            Visible bars
+                            <input class="trv2-input" type="number" min="@MinimumVisibleBars" @bind="_visibleBars" />
+                        </label>
+                        @if (!VisibleBarsCoverFeatures)
+                        {
+                            <span class="trv2-warning"
+                                  title="The selected features need more history than these bars provide -- raise Visible bars or trim features on the Features tab">
+                                fewer than the features' min data window (@MinimumVisibleBars bars)
+                            </span>
+                        }
+                        <label class="trv2-field"
+                               title="Total bars one episode needs -- visible bars + training bars">
+                            Episode bars
+                            <span class="trv2-decoding-value">@EpisodeBars</span>
+                        </label>
+                        <label class="trv2-field"
+                               title="Time the episode's bars cover -- episode bars x bar width (Features tab). Not defined while stepping by cell">
+                            Episode span
+                            <span class="trv2-decoding-value">@FormatOptionalWindow(EpisodeSpan)</span>
+                        </label>
                         <label class="trv2-field"
                                title="Bar steps a decision on each bar's close. Cell steps on a fixed-width price band instead, the moment price moves into a different band">
                             Step
@@ -645,12 +704,13 @@
                         </div>
                         <label class="trv2-field" title="How often the rules below get checked -- a decision only ever fires on a resolution tick, and only when every enabled rule also passes">
                             Resolution
-                            <select class="trv2-select" @bind="_decisionMaskResolution">
-                                <option value="@DecisionMaskResolutionKind.PerBar">Once per bar</option>
-                                <option value="@DecisionMaskResolutionKind.EverySeconds">Every X seconds</option>
-                                <option value="@DecisionMaskResolutionKind.PerTick">Every tick</option>
-                                <option value="@DecisionMaskResolutionKind.OnCellWidthChange">On cell width change</option>
-                            </select>
+                            <div class="trv2-toggle-row">
+                                @foreach (var option in DecisionMaskResolutionOptions)
+                                {
+                                    <button type="button" class="trv2-panel-toggle-btn @(_decisionMaskResolution == option.Kind ? "active" : "")"
+                                            @onclick="() => _decisionMaskResolution = option.Kind" title="@option.Tooltip">@option.Label</button>
+                                }
+                            </div>
                         </label>
                         @if (_decisionMaskResolution == DecisionMaskResolutionKind.EverySeconds)
                         {
