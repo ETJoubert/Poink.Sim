@@ -13,20 +13,25 @@ namespace Poink.Sim.Services.Symbols
 {
 	public sealed class SymbolService : ISymbolService
 	{
-		private readonly PoinkSimContext _context;
+		private readonly IDbContextFactory<PoinkSimContext> _contextFactory;
 		private readonly ICTraderSessionService _session;
 		private readonly ILogger<SymbolService> _logger;
 
-		public SymbolService(PoinkSimContext context, ICTraderSessionService session, ILogger<SymbolService> logger)
+		public SymbolService(
+			IDbContextFactory<PoinkSimContext> contextFactory,
+			ICTraderSessionService session,
+			ILogger<SymbolService> logger
+		)
 		{
-			_context = context;
+			_contextFactory = contextFactory;
 			_session = session;
 			_logger = logger;
 		}
 
 		public async Task<IReadOnlyList<SymbolModel>> ListAsync(CancellationToken cancellationToken = default)
 		{
-			var entities = await _context.Symbols.OrderBy(s => s.SymbolName).ToListAsync(cancellationToken);
+			await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
+			var entities = await context.Symbols.OrderBy(s => s.SymbolName).ToListAsync(cancellationToken);
 
 			return entities.Select(ToModel).ToList();
 		}
@@ -38,7 +43,9 @@ namespace Poink.Sim.Services.Symbols
 			_logger.LogInformation("Refreshing symbols from cTrader...");
 
 			var fetched = await _session.RefreshSymbolsAsync(cancellationToken);
-			var existing = await _context.Symbols.ToDictionaryAsync(s => s.SymbolId, cancellationToken);
+
+			await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
+			var existing = await context.Symbols.ToDictionaryAsync(s => s.SymbolId, cancellationToken);
 			var now = DateTime.UtcNow;
 
 			foreach (var symbol in fetched)
@@ -56,7 +63,7 @@ namespace Poink.Sim.Services.Symbols
 				}
 				else
 				{
-					_context.Symbols.Add(
+					context.Symbols.Add(
 						new Data.Entities.Symbol
 						{
 							Id = Guid.NewGuid(),
@@ -74,7 +81,7 @@ namespace Poink.Sim.Services.Symbols
 				}
 			}
 
-			await _context.SaveChangesAsync(cancellationToken);
+			await context.SaveChangesAsync(cancellationToken);
 
 			_logger.LogInformation("Refreshed {SymbolCount} symbol(s) from cTrader.", fetched.Count);
 
@@ -101,7 +108,8 @@ namespace Poink.Sim.Services.Symbols
 			CancellationToken cancellationToken = default
 		)
 		{
-			var entity = await _context
+			await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
+			var entity = await context
 				.SymbolMetadata.Include(m => m.ScheduleIntervals)
 				.Include(m => m.Holidays)
 				.FirstOrDefaultAsync(m => m.SymbolId == symbolId, cancellationToken);
@@ -123,7 +131,8 @@ namespace Poink.Sim.Services.Symbols
 				return null;
 			}
 
-			var entity = await _context
+			await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
+			var entity = await context
 				.SymbolMetadata.Include(m => m.ScheduleIntervals)
 				.Include(m => m.Holidays)
 				.FirstOrDefaultAsync(m => m.SymbolId == symbolId, cancellationToken);
@@ -132,7 +141,7 @@ namespace Poink.Sim.Services.Symbols
 			if (entity is null)
 			{
 				entity = new Data.Entities.SymbolMetadata { Id = Guid.NewGuid(), SymbolId = symbolId, CreatedAt = now };
-				_context.SymbolMetadata.Add(entity);
+				context.SymbolMetadata.Add(entity);
 			}
 			else
 			{
@@ -209,7 +218,7 @@ namespace Poink.Sim.Services.Symbols
 				);
 			}
 
-			await _context.SaveChangesAsync(cancellationToken);
+			await context.SaveChangesAsync(cancellationToken);
 
 			_logger.LogInformation("Refreshed metadata for symbol {SymbolId}.", symbolId);
 
@@ -218,7 +227,8 @@ namespace Poink.Sim.Services.Symbols
 
 		public async Task<IReadOnlyList<SymbolCategoryModel>> ListCategoriesAsync(CancellationToken cancellationToken = default)
 		{
-			var entities = await _context.SymbolCategories.OrderBy(c => c.Name).ToListAsync(cancellationToken);
+			await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
+			var entities = await context.SymbolCategories.OrderBy(c => c.Name).ToListAsync(cancellationToken);
 
 			return entities.Select(ToCategoryModel).ToList();
 		}
@@ -231,7 +241,9 @@ namespace Poink.Sim.Services.Symbols
 
 			var (categories, assetClasses) = await _session.GetSymbolCategoriesAsync(cancellationToken);
 			var assetClassNames = assetClasses.ToDictionary(a => a.Id, a => a.Name);
-			var existing = await _context.SymbolCategories.ToDictionaryAsync(c => c.SymbolCategoryId, cancellationToken);
+
+			await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
+			var existing = await context.SymbolCategories.ToDictionaryAsync(c => c.SymbolCategoryId, cancellationToken);
 			var now = DateTime.UtcNow;
 
 			foreach (var category in categories)
@@ -249,7 +261,7 @@ namespace Poink.Sim.Services.Symbols
 				}
 				else
 				{
-					_context.SymbolCategories.Add(
+					context.SymbolCategories.Add(
 						new Data.Entities.SymbolCategory
 						{
 							Id = Guid.NewGuid(),
@@ -264,7 +276,7 @@ namespace Poink.Sim.Services.Symbols
 				}
 			}
 
-			await _context.SaveChangesAsync(cancellationToken);
+			await context.SaveChangesAsync(cancellationToken);
 
 			var result = await ListCategoriesAsync(cancellationToken);
 			_logger.LogInformation(
