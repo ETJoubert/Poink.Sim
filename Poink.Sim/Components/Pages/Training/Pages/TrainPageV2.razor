@@ -736,6 +736,125 @@
                 break;
             case TrainV2Tab.Run:
                 <div class="trv2-results">
+                    <div class="trv2-summary-section">
+                        <div class="trv2-card-title-row">
+                            <span class="trv2-card-title" title="Snapshot of the options selected on each tab -- check these before starting a run">
+                                Options Summary
+                            </span>
+                            <button type="button" class="trv2-btn" @onclick="() => _optionsSummaryCollapsed = !_optionsSummaryCollapsed"
+                                    title="Collapse/expand the options summary">
+                                @(_optionsSummaryCollapsed ? "+ SHOW" : "- HIDE")
+                            </button>
+                        </div>
+                        @if (!_optionsSummaryCollapsed)
+                        {
+                            <div class="trv2-card-stack">
+                                <div class="trv2-card" title="Symbol and date range training data is pulled from -- set on the Data tab">
+                                    <div class="trv2-card-title-row">
+                                        <span class="trv2-card-title">Data</span>
+                                    </div>
+                                    @if (_selectedSymbol is null)
+                                    {
+                                        <p class="trv2-placeholder">no symbol selected yet</p>
+                                    }
+                                    else
+                                    {
+                                        <div class="trv2-stat" title="Symbol selected on the Data tab">
+                                            <span class="trv2-stat-label">symbol</span>
+                                            <span class="trv2-stat-value">@_selectedSymbol.SymbolName</span>
+                                        </div>
+                                    }
+                                    <div class="trv2-stat" title="Date range training data is pulled from">
+                                        <span class="trv2-stat-label">range</span>
+                                        <span class="trv2-stat-value">@_from.ToString("yyyy-MM-dd") to @_to.ToString("yyyy-MM-dd") (@FormatSpan(_to - _from))</span>
+                                    </div>
+                                </div>
+
+                                <div class="trv2-card" title="Which encoders transform pulled data into the input vector -- set on the Features tab">
+                                    <div class="trv2-card-title-row">
+                                        <span class="trv2-card-title">Features</span>
+                                        <span class="trv2-card-badge" title="Total input count fed to the network">@TotalFeatureCount inputs</span>
+                                    </div>
+                                    <div class="trv2-stat" title="XGrid signals enabled, of those available">
+                                        <span class="trv2-stat-label">xgrid signals</span>
+                                        <span class="trv2-stat-value">@SelectedXGridSignalCount/@TotalXGridSignalCount</span>
+                                    </div>
+                                    <div class="trv2-stat" title="TxFold timeframes selected, 4 values each">
+                                        <span class="trv2-stat-label">txfold</span>
+                                        <span class="trv2-stat-value">@_txFoldSelectedSeconds.Count timeframes (@TxFoldFeatureCount)</span>
+                                    </div>
+                                    <div class="trv2-stat" title="Trader State fields/lists enabled, of those available">
+                                        <span class="trv2-stat-label">trader state</span>
+                                        <span class="trv2-stat-value">@SelectedTraderStateFieldCount/@TotalTraderStateFieldCount</span>
+                                    </div>
+                                    <div class="trv2-stat" title="Longest history any feature source needs before it can produce a full input vector">
+                                        <span class="trv2-stat-label">min data window</span>
+                                        <span class="trv2-stat-value">@FormatWindow(MinimumDataWindow)</span>
+                                    </div>
+                                </div>
+
+                                <div class="trv2-card" title="Architecture that consumes the feature vector -- set on the Network tab">
+                                    <div class="trv2-card-title-row">
+                                        <span class="trv2-card-title">Network</span>
+                                    </div>
+                                    <div class="trv2-stat" title="Network architecture kind">
+                                        <span class="trv2-stat-label">architecture</span>
+                                        <span class="trv2-stat-value">@_architectureKind</span>
+                                    </div>
+                                    <div class="trv2-stat" title="Hidden layer shape">
+                                        <span class="trv2-stat-label">layers</span>
+                                        <span class="trv2-stat-value">@NetworkSummaryText</span>
+                                    </div>
+                                </div>
+
+                                <div class="trv2-card" title="How the network's raw outputs map to trade actions -- set on the Output tab">
+                                    <div class="trv2-card-title-row">
+                                        <span class="trv2-card-title">Output</span>
+                                        <span class="trv2-card-badge" title="Total network output width -- every enabled group's softmax width, summed">@TotalOutputWidth-wide</span>
+                                    </div>
+                                    <div class="trv2-stat" title="Action decisions enabled, of those available">
+                                        <span class="trv2-stat-label">actions</span>
+                                        <span class="trv2-stat-value">@SelectedActionCount/@TotalActionOptionCount</span>
+                                    </div>
+                                    <div class="trv2-stat" title="Action masking rules enabled, of those available">
+                                        <span class="trv2-stat-label">masking rules</span>
+                                        <span class="trv2-stat-value">@SelectedMaskRuleCount/@TotalMaskRuleCount</span>
+                                    </div>
+                                    <div class="trv2-stat" title="Decoding mode applied to every output group">
+                                        <span class="trv2-stat-label">decoding</span>
+                                        <span class="trv2-stat-value">@DecodingLabel</span>
+                                    </div>
+                                </div>
+
+                                <div class="trv2-card" title="How episodes are timed/sampled, and the trader each one starts with -- set on the Training tab">
+                                    <div class="trv2-card-title-row">
+                                        <span class="trv2-card-title">Training</span>
+                                    </div>
+                                    <div class="trv2-stat" title="Number of episodes this run will train for">
+                                        <span class="trv2-stat-label">episodes</span>
+                                        <span class="trv2-stat-value">@_episodeCount</span>
+                                    </div>
+                                    <div class="trv2-stat" title="Total bars one episode needs, and the wall-clock time they cover">
+                                        <span class="trv2-stat-label">episode span</span>
+                                        <span class="trv2-stat-value">@EpisodeBars bars (@FormatOptionalWindow(EpisodeSpan))</span>
+                                    </div>
+                                    <div class="trv2-stat" title="Starting cash and leverage the simulated trader begins each episode with">
+                                        <span class="trv2-stat-label">trader</span>
+                                        <span class="trv2-stat-value">@_startingCash.ToString("N0") cash, @_leverage.ToString("0.#")x</span>
+                                    </div>
+                                    <div class="trv2-stat" title="RL strategy and reward policy driving learning">
+                                        <span class="trv2-stat-label">learning</span>
+                                        <span class="trv2-stat-value">@_trainingStrategyName / @_rewardPolicyName</span>
+                                    </div>
+                                    <div class="trv2-stat" title="Decision-gating rules enabled, of those available -- opposite of Action Masking">
+                                        <span class="trv2-stat-label">decision masking</span>
+                                        <span class="trv2-stat-value">@SelectedDecisionMaskRuleCount/@TotalDecisionMaskRuleCount</span>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+
                     <div class="trv2-card trv2-run-controls">
                         @if (!_isRunning)
                         {

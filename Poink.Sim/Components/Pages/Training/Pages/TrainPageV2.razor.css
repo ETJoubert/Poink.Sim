@@ -338,6 +338,12 @@
     gap: 14px;
 }
 
+.trv2-summary-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
 .trv2-metrics-panel {
     flex-direction: row;
     flex-wrap: wrap;

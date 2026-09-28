@@ -887,6 +887,17 @@ namespace Poink.Sim.Components.Pages
 		private bool _isRunning;
 		private bool _isPaused;
 		private string? _runError;
+		private bool _optionsSummaryCollapsed;
+
+		// Compact architecture-shape label for the Options Summary card -- NetworkColumns is the
+		// visual (squares) version of this same data.
+		private string NetworkSummaryText =>
+			_architectureKind switch
+			{
+				ArchitectureKind.Lstm => $"{_lstmNumLayers} x {_lstmHiddenSize} (LSTM)",
+				ArchitectureKind.Cnn => $"{string.Join(" -> ", _cnnChannels)} (CNN, kernel {_cnnKernelSize})",
+				_ => string.Join(" -> ", _mlpHiddenSizes),
+			};
 
 		private CancellationTokenSource? _runCancellation;
 		private MlpNetwork? _runNetwork;
