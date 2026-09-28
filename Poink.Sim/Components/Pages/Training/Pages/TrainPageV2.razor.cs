@@ -913,7 +913,10 @@ namespace Poink.Sim.Components.Pages
 		private MlpNetwork? _runNetwork;
 		private ActionSpace? _runActionSpace;
 
+		// Render reads _episodeMetricsSnapshot (atomically-swapped, never mutated in place) instead
+		// of this background-thread-mutated list, same pattern as LiveUiState.
 		private readonly List<RlEpisodeMetric> _episodeMetrics = [];
+		private IReadOnlyList<RlEpisodeMetric> _episodeMetricsSnapshot = [];
 		private readonly Queue<double> _recentRewards = new();
 		private readonly Queue<double> _recentEpisodeDurations = new();
 		private int _episodesCompleted;
@@ -927,11 +930,11 @@ namespace Poink.Sim.Components.Pages
 		private double RunProgressPercent =>
 			TargetEpisodeCount == 0 ? 0 : Math.Min(100.0, _episodesCompleted * 100.0 / TargetEpisodeCount);
 
-		private double WinRatePercent => _episodeMetrics.Count == 0 ? 0 : RlEpisodeMetricStats.WinRate(_episodeMetrics);
+		private double WinRatePercent => _episodeMetricsSnapshot.Count == 0 ? 0 : RlEpisodeMetricStats.WinRate(_episodeMetricsSnapshot);
 
-		private double MedianReward => _episodeMetrics.Count == 0 ? 0 : RlEpisodeMetricStats.Median(_episodeMetrics);
+		private double MedianReward => _episodeMetricsSnapshot.Count == 0 ? 0 : RlEpisodeMetricStats.Median(_episodeMetricsSnapshot);
 
-		private double RewardStdDev => _episodeMetrics.Count == 0 ? 0 : RlEpisodeMetricStats.StdDev(_episodeMetrics);
+		private double RewardStdDev => _episodeMetricsSnapshot.Count == 0 ? 0 : RlEpisodeMetricStats.StdDev(_episodeMetricsSnapshot);
 
 		private double RewardSpread => _episodeMetrics.Count == 0 ? 0 : _bestReward - _worstReward;
 
@@ -1031,6 +1034,7 @@ namespace Poink.Sim.Components.Pages
 			_episodeMetrics.Add(new RlEpisodeMetric(_episodesCompleted, result.Reward, result.FinalCapital.Equity));
 			if (_episodeMetrics.Count > MaxRetainedEpisodes)
 				_episodeMetrics.RemoveAt(0);
+			_episodeMetricsSnapshot = _episodeMetrics.ToArray();
 		}
 
 		private async Task StepRun()
@@ -1064,6 +1068,7 @@ namespace Poink.Sim.Components.Pages
 			_runNetwork = null;
 			_runActionSpace = null;
 			_episodeMetrics.Clear();
+			_episodeMetricsSnapshot = [];
 			_recentRewards.Clear();
 			_recentEpisodeDurations.Clear();
 			_episodesCompleted = 0;
