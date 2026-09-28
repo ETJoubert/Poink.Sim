@@ -180,6 +180,7 @@ public static class ServiceCollectionExtensions
 		services.AddSingleton<DataProvider>();
 		services.AddSingleton<FeatureAssembler>();
 		services.AddSingleton<ActionAssembler>();
+		services.AddSingleton<NetworkAssembler>();
 
 		return services;
 	}
