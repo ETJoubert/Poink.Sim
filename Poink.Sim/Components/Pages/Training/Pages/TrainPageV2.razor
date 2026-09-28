@@ -782,62 +782,66 @@
                         }
                         <div class="trv2-progress">
                             <div class="trv2-progress-bar">
-                                <div class="trv2-progress-fill" style="width: 0%"></div>
+                                <div class="trv2-progress-fill" style="width: @(RunProgressPercent.ToString("0.#"))%"></div>
                             </div>
-                            <span class="trv2-progress-text">0 / 0 episodes (0%)</span>
-                            <span class="trv2-progress-rate" title="Rolling episodes/sec over the most recent episodes -- pause/step time isn't counted">0.00 eps</span>
+                            <span class="trv2-progress-text">@_episodesCompleted / @TargetEpisodeCount episodes (@RunProgressPercent.ToString("0")%)</span>
+                            <span class="trv2-progress-rate" title="Rolling episodes/sec over the most recent episodes -- pause/step time isn't counted">@_episodesPerSecond.ToString("0.00") eps</span>
                         </div>
+                        @if (_runError is not null)
+                        {
+                            <p class="trv2-warning" title="@_runError">Run stopped: @_runError</p>
+                        }
                     </div>
 
                     <div class="trv2-card trv2-metrics-panel">
                         <div class="trv2-stat">
                             <span class="trv2-stat-label" title="Mean reward across the retained rolling window of episodes">recent avg reward</span>
-                            <span class="trv2-stat-value">@PlaceholderMetric.ToString("N2")</span>
+                            <span class="trv2-stat-value">@_recentAverageReward.ToString("N2")</span>
                         </div>
                         <div class="trv2-stat">
                             <span class="trv2-stat-label" title="Highest single-episode reward seen this run">best episode</span>
-                            <span class="trv2-stat-value">@PlaceholderMetric.ToString("N2")</span>
+                            <span class="trv2-stat-value">@_bestReward.ToString("N2")</span>
                         </div>
                         <div class="trv2-stat">
                             <span class="trv2-stat-label" title="Lowest single-episode reward seen this run">worst episode</span>
-                            <span class="trv2-stat-value">@PlaceholderMetric.ToString("N2")</span>
+                            <span class="trv2-stat-value">@_worstReward.ToString("N2")</span>
                         </div>
                         <div class="trv2-stat">
                             <span class="trv2-stat-label" title="Percent of retained episodes with positive reward">win rate</span>
-                            <span class="trv2-stat-value">@PlaceholderMetric.ToString("N0")%</span>
+                            <span class="trv2-stat-value">@WinRatePercent.ToString("N0")%</span>
                         </div>
                         <div class="trv2-stat">
                             <span class="trv2-stat-label" title="Median reward across the retained rolling window of episodes">median reward</span>
-                            <span class="trv2-stat-value">@PlaceholderMetric.ToString("N2")</span>
+                            <span class="trv2-stat-value">@MedianReward.ToString("N2")</span>
                         </div>
                         <div class="trv2-stat">
                             <span class="trv2-stat-label" title="Standard deviation of reward across the retained rolling window of episodes">reward std dev</span>
-                            <span class="trv2-stat-value">@PlaceholderMetric.ToString("N2")</span>
+                            <span class="trv2-stat-value">@RewardStdDev.ToString("N2")</span>
                         </div>
                         <div class="trv2-stat">
                             <span class="trv2-stat-label" title="Best episode minus worst episode">reward spread</span>
-                            <span class="trv2-stat-value">@PlaceholderMetric.ToString("N2")</span>
+                            <span class="trv2-stat-value">@RewardSpread.ToString("N2")</span>
                         </div>
                     </div>
 
                     <div class="trv2-charts-grid">
                         <div class="trv2-card">
                             <span class="trv2-card-title">Reward</span>
-                            <RewardChart Episodes="_placeholderEpisodes" IsRunning="false" />
+                            <RewardChart Episodes="_episodeMetrics" IsRunning="@_isRunning" />
                         </div>
                         <div class="trv2-card">
                             <span class="trv2-card-title" title="Rolling-window median -- less noisy than raw reward">Median Reward</span>
-                            <TrendLineChart Episodes="_placeholderEpisodes" IsRunning="false"
+                            <TrendLineChart Episodes="_episodeMetrics" IsRunning="@_isRunning"
                                             Aggregate="@RlEpisodeMetricStats.Median" ColorVariant="median" />
                         </div>
                         <div class="trv2-card">
                             <span class="trv2-card-title" title="Rolling-window spread -- falling means training is stabilizing">Reward Std Dev</span>
-                            <TrendLineChart Episodes="_placeholderEpisodes" IsRunning="false"
+                            <TrendLineChart Episodes="_episodeMetrics" IsRunning="@_isRunning"
                                             Aggregate="@RlEpisodeMetricStats.StdDev" ColorVariant="stddev" />
                         </div>
                         <div class="trv2-card">
                             <span class="trv2-card-title" title="Rolling-window % of episodes with positive reward">Win Rate</span>
-                            <TrendLineChart Episodes="_placeholderEpisodes" IsRunning="false"
+                            <TrendLineChart Episodes="_episodeMetrics" IsRunning="@_isRunning"
                                             Aggregate="@RlEpisodeMetricStats.WinRate" ColorVariant="winrate" ValueFormat="N0" ValueSuffix="%" />
                         </div>
                     </div>

@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 using Poink.Sim.Brain.Neural;
@@ -13,13 +15,16 @@ using Poink.Sim.Models;
 using Poink.Sim.Models.TrainingModels;
 using Poink.Sim.Repository;
 using Poink.Sim.Services.Symbols;
+using Poink.Sim.Services.TrainingEngine;
 using Poink.Sim.Trader.Risk;
 using Poink.Sim.Training;
 
 namespace Poink.Sim.Components.Pages
 {
-	public partial class TrainPageV2 : ComponentBase
+	public partial class TrainPageV2 : ComponentBase, IDisposable
 	{
+		public void Dispose() => _runCancellation?.Cancel();
+
 		#region Tabs
 
 		private enum TrainV2Tab
@@ -868,28 +873,169 @@ namespace Poink.Sim.Components.Pages
 
 		#region Run
 
-		// Wireframe only -- no ITrainingService wiring yet, so the panel/charts render against an
-		// empty placeholder rather than a live run.
-		private const double PlaceholderMetric = 0;
-		private static readonly List<RlEpisodeMetric> _placeholderEpisodes = [];
+		[Inject]
+		private TrainingEngineService TrainingEngineService { get; set; } = default!;
 
-		// Run controls -- mirrors TrainPage's Start/Step/Reset/Pause/Resume/Stop toolbar, not wired
-		// to a real run.
+		[Inject]
+		private ActionAssembler ActionAssembler { get; set; } = default!;
+
+		// Matches TrainingService's own windows (RecentRewardWindow/MaxMetricsLog), for consistent
+		// UI behavior between the old and new pages.
+		private const int RecentRewardWindow = 20;
+		private const int MaxRetainedEpisodes = 500;
+
 		private bool _isRunning;
 		private bool _isPaused;
+		private string? _runError;
+
+		private CancellationTokenSource? _runCancellation;
+		private MlpNetwork? _runNetwork;
+		private ActionSpace? _runActionSpace;
+
+		private readonly List<RlEpisodeMetric> _episodeMetrics = [];
+		private readonly Queue<double> _recentRewards = new();
+		private readonly Queue<double> _recentEpisodeDurations = new();
+		private int _episodesCompleted;
+		private double _bestReward;
+		private double _worstReward;
+		private double _recentAverageReward;
+		private double _episodesPerSecond;
+
+		private int TargetEpisodeCount => CurrentTrainingOptions.Training.EpisodeTiming.EpisodeCount;
+
+		private double RunProgressPercent =>
+			TargetEpisodeCount == 0 ? 0 : Math.Min(100.0, _episodesCompleted * 100.0 / TargetEpisodeCount);
+
+		private double WinRatePercent => _episodeMetrics.Count == 0 ? 0 : RlEpisodeMetricStats.WinRate(_episodeMetrics);
+
+		private double MedianReward => _episodeMetrics.Count == 0 ? 0 : RlEpisodeMetricStats.Median(_episodeMetrics);
+
+		private double RewardStdDev => _episodeMetrics.Count == 0 ? 0 : RlEpisodeMetricStats.StdDev(_episodeMetrics);
+
+		private double RewardSpread => _episodeMetrics.Count == 0 ? 0 : _bestReward - _worstReward;
 
 		private void StartRun()
 		{
+			if (_isRunning)
+				return;
+
 			_isRunning = true;
 			_isPaused = false;
+			_runError = null;
+			_runCancellation = new CancellationTokenSource();
+			var options = CurrentTrainingOptions;
+			var token = _runCancellation.Token;
+
+			_ = Task.Run(() => RunTrainingLoopAsync(options, token));
 		}
 
-		private void StepRun() { }
+		private async Task RunTrainingLoopAsync(TrainingOptionsModel options, CancellationToken cancellationToken)
+		{
+			try
+			{
+				EnsureRunNetwork(options);
+
+				var random = new Random();
+				for (var i = 0; i < options.Training.EpisodeTiming.EpisodeCount; i++)
+				{
+					while (_isPaused)
+					{
+						if (cancellationToken.IsCancellationRequested)
+							return;
+						await Task.Delay(200, cancellationToken);
+					}
+					cancellationToken.ThrowIfCancellationRequested();
+
+					RunOneEpisode(options, random);
+					await InvokeAsync(StateHasChanged);
+				}
+			}
+			catch (OperationCanceledException)
+			{
+				// Expected when Stop cancels the token mid-run.
+			}
+			catch (Exception ex)
+			{
+				_runError = ex.Message;
+			}
+			finally
+			{
+				_isRunning = false;
+				_isPaused = false;
+				await InvokeAsync(StateHasChanged);
+			}
+		}
+
+		private void EnsureRunNetwork(TrainingOptionsModel options)
+		{
+			if (_runNetwork is not null && _runActionSpace is not null)
+				return;
+
+			var random = new Random();
+			_runActionSpace = ActionAssembler.Assemble(options.Output);
+			_runNetwork = TrainingEngineService.BuildNetwork(options, _runActionSpace, random);
+		}
+
+		private void RunOneEpisode(TrainingOptionsModel options, Random random)
+		{
+			var stopwatch = Stopwatch.StartNew();
+			var result = TrainingEngineService.RunEpisode(options, _runNetwork!, _runActionSpace!, random);
+			stopwatch.Stop();
+
+			_episodesCompleted++;
+			_bestReward = _episodesCompleted == 1 ? result.Reward : Math.Max(_bestReward, result.Reward);
+			_worstReward = _episodesCompleted == 1 ? result.Reward : Math.Min(_worstReward, result.Reward);
+
+			_recentRewards.Enqueue(result.Reward);
+			if (_recentRewards.Count > RecentRewardWindow)
+				_recentRewards.Dequeue();
+			_recentAverageReward = _recentRewards.Average();
+
+			_recentEpisodeDurations.Enqueue(stopwatch.Elapsed.TotalSeconds);
+			if (_recentEpisodeDurations.Count > RecentRewardWindow)
+				_recentEpisodeDurations.Dequeue();
+			var durationSum = _recentEpisodeDurations.Sum();
+			_episodesPerSecond = durationSum > 0 ? _recentEpisodeDurations.Count / durationSum : 0;
+
+			_episodeMetrics.Add(new RlEpisodeMetric(_episodesCompleted, result.Reward, result.FinalCapital.Equity));
+			if (_episodeMetrics.Count > MaxRetainedEpisodes)
+				_episodeMetrics.RemoveAt(0);
+		}
+
+		private void StepRun()
+		{
+			if (_isRunning)
+				return;
+
+			try
+			{
+				var options = CurrentTrainingOptions;
+				EnsureRunNetwork(options);
+				RunOneEpisode(options, new Random());
+				_runError = null;
+			}
+			catch (Exception ex)
+			{
+				_runError = ex.Message;
+			}
+		}
 
 		private void ResetRun()
 		{
+			_runCancellation?.Cancel();
 			_isRunning = false;
 			_isPaused = false;
+			_runNetwork = null;
+			_runActionSpace = null;
+			_episodeMetrics.Clear();
+			_recentRewards.Clear();
+			_recentEpisodeDurations.Clear();
+			_episodesCompleted = 0;
+			_bestReward = 0;
+			_worstReward = 0;
+			_recentAverageReward = 0;
+			_episodesPerSecond = 0;
+			_runError = null;
 		}
 
 		private void PauseRun() => _isPaused = true;
@@ -898,6 +1044,7 @@ namespace Poink.Sim.Components.Pages
 
 		private void StopRun()
 		{
+			_runCancellation?.Cancel();
 			_isRunning = false;
 			_isPaused = false;
 		}
