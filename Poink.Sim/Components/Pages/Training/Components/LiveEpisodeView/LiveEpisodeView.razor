@@ -94,7 +94,7 @@
         @if (_showMarketChart)
         {
             <div class="lev-card lev-card-nopad lev-panel" title="Live price chart built from the current episode's ticks">
-                <MarketChartContainer Bars="Bars" Interactive="false" CurrentBid="@Bid" CurrentAsk="@Ask" />
+                <MarketChartContainer Bars="Bars" Interactive="false" LiveMode="true" CurrentBid="@Bid" CurrentAsk="@Ask" />
             </div>
         }
         @if (_showXGrid)

@@ -1070,43 +1070,45 @@ namespace Poink.Sim.Components.Pages
 		private const int MaxLiveEquityPoints = 2000;
 		private static readonly TimeSpan LiveUiUpdateThrottle = TimeSpan.FromMilliseconds(150);
 
-		private LiveEpisodeSnapshot? _liveSnapshot;
-		private readonly List<CTraderBarRow> _liveBars = [];
-		private readonly List<DateTime> _liveEquityTimestamps = [];
-		private readonly List<double> _liveEquityValues = [];
-		private DateTime _lastLiveUiUpdateUtc = DateTime.MinValue;
-		private int _liveActionCount;
+		// One atomically-swapped, fully-immutable snapshot, not several separately-mutated fields --
+		// OnLiveDecision runs on the background training thread while the page renders on its own.
+		private sealed record LiveUiState(
+			LiveEpisodeSnapshot Snapshot,
+			IReadOnlyList<CTraderBarRow> Bars,
+			IReadOnlyList<DateTime> EquityTimestamps,
+			IReadOnlyList<double> EquityValues,
+			int ActionCount
+		);
 
-		private void ResetLiveEpisodeState()
-		{
-			_liveSnapshot = null;
-			_liveBars.Clear();
-			_liveEquityTimestamps.Clear();
-			_liveEquityValues.Clear();
-			_liveActionCount = 0;
-		}
+		private LiveUiState? _liveState;
+		private DateTime _lastLiveUiUpdateUtc = DateTime.MinValue;
+
+		private void ResetLiveEpisodeState() => _liveState = null;
 
 		// RunEpisode's onDecision callback -- fires on the background training-loop thread, once per
 		// decision, so UI refreshes are throttled here rather than on every call.
 		private void OnLiveDecision(LiveEpisodeSnapshot snapshot)
 		{
-			_liveSnapshot = snapshot;
-			_liveActionCount++;
+			var previous = _liveState;
 
+			var bars = previous?.Bars ?? [];
 			if (snapshot.ClosedBar is { } closed)
 			{
-				_liveBars.Add(closed);
-				if (_liveBars.Count > MaxLiveBars)
-					_liveBars.RemoveAt(0);
+				var updatedBars = new List<CTraderBarRow>(bars) { closed };
+				if (updatedBars.Count > MaxLiveBars)
+					updatedBars.RemoveAt(0);
+				bars = updatedBars;
 			}
 
-			_liveEquityTimestamps.Add(snapshot.Timestamp);
-			_liveEquityValues.Add(snapshot.Capital.Equity);
-			if (_liveEquityTimestamps.Count > MaxLiveEquityPoints)
+			var timestamps = new List<DateTime>(previous?.EquityTimestamps ?? []) { snapshot.Timestamp };
+			var values = new List<double>(previous?.EquityValues ?? []) { snapshot.Capital.Equity };
+			if (timestamps.Count > MaxLiveEquityPoints)
 			{
-				_liveEquityTimestamps.RemoveAt(0);
-				_liveEquityValues.RemoveAt(0);
+				timestamps.RemoveAt(0);
+				values.RemoveAt(0);
 			}
+
+			_liveState = new LiveUiState(snapshot, bars, timestamps, values, (previous?.ActionCount ?? 0) + 1);
 
 			var now = DateTime.UtcNow;
 			if (now - _lastLiveUiUpdateUtc < LiveUiUpdateThrottle)
@@ -1117,37 +1119,32 @@ namespace Poink.Sim.Components.Pages
 		}
 
 		// Includes the in-progress bar so the chart's last candle keeps updating between closes.
-		private List<CTraderBarRow> LiveChartBars => _liveSnapshot is { } s ? [.. _liveBars, s.CurrentBar] : _liveBars;
+		private static List<CTraderBarRow> BuildLiveChartBars(LiveUiState? live) =>
+			live is { } s ? [.. s.Bars, s.Snapshot.CurrentBar] : [];
 
-		private IReadOnlyList<EquityCurveSample> LiveEquitySamples =>
-			EquityCurveHelper.Build(_liveEquityTimestamps, _liveEquityValues, _liveSnapshot?.ClosedTrades ?? []);
+		private static IReadOnlyList<EquityCurveSample> BuildLiveEquitySamples(LiveUiState? live) =>
+			live is null ? [] : EquityCurveHelper.Build(live.EquityTimestamps, live.EquityValues, live.Snapshot.ClosedTrades);
 
-		private IReadOnlyList<FeatureDisplayRow> LiveFeatureRows =>
-			_liveSnapshot is { } s ? FeatureDisplayFormatter.Build(s.Features, _txFoldBarKind) : [];
+		private IReadOnlyList<FeatureDisplayRow> BuildLiveFeatureRows(LiveUiState? live) =>
+			live is { } s ? FeatureDisplayFormatter.Build(s.Snapshot.Features, _txFoldBarKind) : [];
 
-		private TimeSpan? LiveTimePassed => _liveSnapshot is { } s ? s.Timestamp - s.EpisodeStart : null;
+		private static TimeSpan? BuildLiveTimePassed(LiveUiState? live) =>
+			live is { } s ? s.Snapshot.Timestamp - s.Snapshot.EpisodeStart : null;
 
 		// Direction is the only group the engine decides today (Volume/StopLoss/TakeProfit throw if
 		// enabled) -- feeds BrainIoPanel, the same action-distribution card the old training page uses.
-		private IReadOnlyList<RlOutputFeature>? LiveOutputFeatures
+		private IReadOnlyList<RlOutputFeature>? BuildLiveOutputFeatures(LiveUiState? live)
 		{
-			get
-			{
-				if (_liveSnapshot is not { } s || _runActionSpace is not { } actionSpace)
-					return null;
+			if (live is null || _runActionSpace is not { } actionSpace)
+				return null;
 
-				var probabilities = actionSpace.Probabilities(s.RawDirectionOutputs);
-				return actionSpace
-					.Directions.Select(
-						(direction, i) => new RlOutputFeature(
-							direction.ToString(),
-							probabilities[i],
-							direction == s.Action,
-							s.RawDirectionOutputs[i]
-						)
-					)
-					.ToList();
-			}
+			var s = live.Snapshot;
+			var probabilities = actionSpace.Probabilities(s.RawDirectionOutputs);
+			return actionSpace
+				.Directions.Select(
+					(direction, i) => new RlOutputFeature(direction.ToString(), probabilities[i], direction == s.Action, s.RawDirectionOutputs[i])
+				)
+				.ToList();
 		}
 
 		// Speed governs the actual training loop's pace (RunEpisode's decisionDelay), not just redraws.

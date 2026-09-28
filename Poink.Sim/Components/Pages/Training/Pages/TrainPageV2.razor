@@ -967,20 +967,23 @@
                 </div>
                 break;
             case TrainV2Tab.Live:
+            {
+                var live = _liveState;
                 <LiveEpisodeView IsRunning="@_isRunning" IsPaused="@_isPaused" RunError="@_runError"
                                  OnPlayPause="ToggleLiveRun" OnStep="StepRun" OnReset="ResetRun"
                                  SpeedLabel="@LiveSpeedLabel(LiveSpeedOptions[_liveSpeedIndex])"
                                  CanDecreaseSpeed="@(_liveSpeedIndex > 0)" CanIncreaseSpeed="@(_liveSpeedIndex < LiveSpeedOptions.Length - 1)"
                                  OnDecreaseSpeed="DecreaseLiveSpeed" OnIncreaseSpeed="IncreaseLiveSpeed"
                                  EpisodesCompleted="_episodesCompleted" TargetEpisodeCount="TargetEpisodeCount"
-                                 HasSnapshot="@(_liveSnapshot is not null)"
-                                 Timestamp="@_liveSnapshot?.Timestamp" TimePassed="LiveTimePassed" ActionCount="_liveActionCount"
-                                 Bid="@(_liveSnapshot?.Bid ?? 0)" Ask="@(_liveSnapshot?.Ask ?? 0)"
-                                 LastAction="@_liveSnapshot?.Action" ActionOutputs="LiveOutputFeatures" Cash="@(_liveSnapshot?.Capital.Cash ?? 0)"
-                                 Equity="@(_liveSnapshot?.Capital.Equity ?? 0)" RealizedPnl="@(_liveSnapshot?.Capital.RealizedPnl ?? 0)"
-                                 UnrealizedPnl="@(_liveSnapshot?.Capital.UnrealizedPnl ?? 0)" Table="@_table"
-                                 Bars="LiveChartBars" EquitySamples="LiveEquitySamples" FeatureRows="LiveFeatureRows" />
+                                 HasSnapshot="@(live is not null)"
+                                 Timestamp="@live?.Snapshot.Timestamp" TimePassed="BuildLiveTimePassed(live)" ActionCount="@(live?.ActionCount ?? 0)"
+                                 Bid="@(live?.Snapshot.Bid ?? 0)" Ask="@(live?.Snapshot.Ask ?? 0)"
+                                 LastAction="@live?.Snapshot.Action" ActionOutputs="BuildLiveOutputFeatures(live)" Cash="@(live?.Snapshot.Capital.Cash ?? 0)"
+                                 Equity="@(live?.Snapshot.Capital.Equity ?? 0)" RealizedPnl="@(live?.Snapshot.Capital.RealizedPnl ?? 0)"
+                                 UnrealizedPnl="@(live?.Snapshot.Capital.UnrealizedPnl ?? 0)" Table="@_table"
+                                 Bars="BuildLiveChartBars(live)" EquitySamples="BuildLiveEquitySamples(live)" FeatureRows="BuildLiveFeatureRows(live)" />
                 break;
+            }
         }
     </div>
 </div>
