@@ -1068,7 +1068,6 @@ namespace Poink.Sim.Components.Pages
 
 		private const int MaxLiveBars = 500;
 		private const int MaxLiveEquityPoints = 2000;
-		private static readonly TimeSpan LiveUiUpdateThrottle = TimeSpan.FromMilliseconds(150);
 
 		// One atomically-swapped, fully-immutable snapshot, not several separately-mutated fields --
 		// OnLiveDecision runs on the background training thread while the page renders on its own.
@@ -1081,12 +1080,10 @@ namespace Poink.Sim.Components.Pages
 		);
 
 		private LiveUiState? _liveState;
-		private DateTime _lastLiveUiUpdateUtc = DateTime.MinValue;
 
 		private void ResetLiveEpisodeState() => _liveState = null;
 
-		// RunEpisode's onDecision callback -- fires on the background training-loop thread, once per
-		// decision, so UI refreshes are throttled here rather than on every call.
+		// RunEpisode's onDecision callback -- fires on the background training-loop thread, once per decision.
 		private void OnLiveDecision(LiveEpisodeSnapshot snapshot)
 		{
 			var previous = _liveState;
@@ -1110,11 +1107,6 @@ namespace Poink.Sim.Components.Pages
 
 			_liveState = new LiveUiState(snapshot, bars, timestamps, values, (previous?.ActionCount ?? 0) + 1);
 
-			var now = DateTime.UtcNow;
-			if (now - _lastLiveUiUpdateUtc < LiveUiUpdateThrottle)
-				return;
-
-			_lastLiveUiUpdateUtc = now;
 			_ = InvokeAsync(StateHasChanged);
 		}
 
