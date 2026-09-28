@@ -178,6 +178,7 @@ public static class ServiceCollectionExtensions
 	public static IServiceCollection BuildTrainingEngineServices(this IServiceCollection services)
 	{
 		services.AddSingleton<DataProvider>();
+		services.AddSingleton<FeatureAssembler>();
 
 		return services;
 	}
