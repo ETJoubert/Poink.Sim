@@ -90,6 +90,11 @@
     gap: 14px;
 }
 
+/* Options Summary has exactly 5 cards (Data/Features/Network/Output/Training) -- narrower than the default 3-col stack so all five fit on one row. */
+.trv2-summary-grid {
+    grid-template-columns: repeat(5, minmax(180px, 1fr));
+}
+
 .trv2-card-span-all {
     grid-column: 1 / -1;
 }
