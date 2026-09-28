@@ -1078,6 +1078,7 @@ namespace Poink.Sim.Components.Pages
 		private readonly List<DateTime> _liveEquityTimestamps = [];
 		private readonly List<double> _liveEquityValues = [];
 		private DateTime _lastLiveUiUpdateUtc = DateTime.MinValue;
+		private int _liveActionCount;
 
 		private void ResetLiveEpisodeState()
 		{
@@ -1085,6 +1086,7 @@ namespace Poink.Sim.Components.Pages
 			_liveBars.Clear();
 			_liveEquityTimestamps.Clear();
 			_liveEquityValues.Clear();
+			_liveActionCount = 0;
 		}
 
 		// RunEpisode's onDecision callback -- fires on the background training-loop thread, once per
@@ -1092,6 +1094,7 @@ namespace Poink.Sim.Components.Pages
 		private void OnLiveDecision(LiveEpisodeSnapshot snapshot)
 		{
 			_liveSnapshot = snapshot;
+			_liveActionCount++;
 
 			if (snapshot.ClosedBar is { } closed)
 			{
@@ -1124,6 +1127,31 @@ namespace Poink.Sim.Components.Pages
 
 		private IReadOnlyList<FeatureDisplayRow> LiveFeatureRows =>
 			_liveSnapshot is { } s ? FeatureDisplayFormatter.Build(s.Features, _txFoldBarKind) : [];
+
+		private TimeSpan? LiveTimePassed => _liveSnapshot is { } s ? s.Timestamp - s.EpisodeStart : null;
+
+		// Direction is the only group the engine decides today (Volume/StopLoss/TakeProfit throw if
+		// enabled) -- feeds BrainIoPanel, the same action-distribution card the old training page uses.
+		private IReadOnlyList<RlOutputFeature>? LiveOutputFeatures
+		{
+			get
+			{
+				if (_liveSnapshot is not { } s || _runActionSpace is not { } actionSpace)
+					return null;
+
+				var probabilities = actionSpace.Probabilities(s.RawDirectionOutputs);
+				return actionSpace
+					.Directions.Select(
+						(direction, i) => new RlOutputFeature(
+							direction.ToString(),
+							probabilities[i],
+							direction == s.Action,
+							s.RawDirectionOutputs[i]
+						)
+					)
+					.ToList();
+			}
+		}
 
 		// Speed governs the actual training loop's pace (RunEpisode's decisionDelay), not just redraws.
 		// A null step is MAX -- decisionDelay becomes exactly zero, real unthrottled training speed.

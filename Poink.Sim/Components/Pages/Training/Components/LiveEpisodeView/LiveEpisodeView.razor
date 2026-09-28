@@ -1,5 +1,6 @@
 @namespace Poink.Sim.Components.Training
 @using Poink.Sim.Components.Charts
+@using Poink.Sim.Components.Shared.BrainIoPanel
 @using Poink.Sim.Components.Shared.Icon
 
 <div class="lev-root">
@@ -24,6 +25,9 @@
             <span class="lev-speed-value">@SpeedLabel</span>
             <button type="button" class="lev-speed-btn" @onclick="OnIncreaseSpeed" disabled="@(!CanIncreaseSpeed)" title="Faster">+</button>
         </div>
+        <span class="lev-episode-count" title="Episodes completed this run, out of the configured target">
+            @EpisodesCompleted / @TargetEpisodeCount episodes
+        </span>
     </div>
     @if (RunError is not null)
     {
@@ -41,13 +45,17 @@
                 <span class="lev-stat-label">time</span>
                 <span class="lev-stat-value">@Timestamp?.ToString("yyyy-MM-dd HH:mm:ss")</span>
             </div>
-            <div class="lev-stat" title="Most recent bid / ask">
-                <span class="lev-stat-label">bid / ask</span>
-                <span class="lev-stat-value">@Bid.ToString("0.#####") / @Ask.ToString("0.#####")</span>
+            <div class="lev-stat" title="Simulated time elapsed since this episode started">
+                <span class="lev-stat-label">time passed</span>
+                <span class="lev-stat-value">@FormatTimePassed(TimePassed)</span>
             </div>
             <div class="lev-stat" title="Action chosen on the most recent decision">
                 <span class="lev-stat-label">last action</span>
                 <span class="lev-stat-value">@LastAction</span>
+            </div>
+            <div class="lev-stat" title="Decisions made so far this episode">
+                <span class="lev-stat-label">actions</span>
+                <span class="lev-stat-value">@ActionCount</span>
             </div>
             <div class="lev-stat" title="Current equity -- cash plus unrealized profit/loss">
                 <span class="lev-stat-label">equity</span>
@@ -78,6 +86,8 @@
                 @onclick="() => _showEquityCurve = !_showEquityCurve" title="Show or hide this episode's equity curve">Equity curve</button>
         <button type="button" class="lev-panel-toggle-btn @(_showFeatures ? "active" : "")"
                 @onclick="() => _showFeatures = !_showFeatures" title="Show or hide the current feature values">Features</button>
+        <button type="button" class="lev-panel-toggle-btn @(_showActions ? "active" : "")"
+                @onclick="() => _showActions = !_showActions" title="Show or hide the network's action probability distribution">Actions</button>
     </div>
 
     <div class="lev-grid">
@@ -135,6 +145,12 @@
                         }
                     </div>
                 }
+            </div>
+        }
+        @if (_showActions)
+        {
+            <div class="lev-card lev-panel" title="The network's action probability distribution on the most recent decision -- same card the old training page uses">
+                <BrainIoPanel Outputs="ActionOutputs" CurrentPrice="@((Bid + Ask) / 2)" Equity="@Equity" />
             </div>
         }
     </div>

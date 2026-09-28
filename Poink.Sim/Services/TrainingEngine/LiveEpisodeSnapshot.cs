@@ -11,6 +11,7 @@ namespace Poink.Sim.Services.TrainingEngine;
 /// since the caller may read it from a different thread than the one still appending to it.
 /// </summary>
 internal sealed record LiveEpisodeSnapshot(
+	DateTime EpisodeStart,
 	DateTime Timestamp,
 	double Bid,
 	double Ask,
@@ -18,6 +19,7 @@ internal sealed record LiveEpisodeSnapshot(
 	CTraderBarRow? ClosedBar,
 	FeatureModel Features,
 	SimulationAction Action,
+	IReadOnlyList<float> RawDirectionOutputs,
 	CapitalState Capital,
 	IReadOnlyList<Trade> ClosedTrades
 );

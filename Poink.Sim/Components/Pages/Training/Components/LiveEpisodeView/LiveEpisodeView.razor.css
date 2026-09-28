@@ -91,6 +91,12 @@
     text-align: center;
 }
 
+.lev-episode-count {
+    font-size: 0.72rem;
+    color: var(--color-secondary);
+    white-space: nowrap;
+}
+
 .lev-warning {
     font-size: 0.72rem;
     color: var(--color-warning);

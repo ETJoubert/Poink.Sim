@@ -972,9 +972,11 @@
                                  SpeedLabel="@LiveSpeedLabel(LiveSpeedOptions[_liveSpeedIndex])"
                                  CanDecreaseSpeed="@(_liveSpeedIndex > 0)" CanIncreaseSpeed="@(_liveSpeedIndex < LiveSpeedOptions.Length - 1)"
                                  OnDecreaseSpeed="DecreaseLiveSpeed" OnIncreaseSpeed="IncreaseLiveSpeed"
+                                 EpisodesCompleted="_episodesCompleted" TargetEpisodeCount="TargetEpisodeCount"
                                  HasSnapshot="@(_liveSnapshot is not null)"
-                                 Timestamp="@_liveSnapshot?.Timestamp" Bid="@(_liveSnapshot?.Bid ?? 0)" Ask="@(_liveSnapshot?.Ask ?? 0)"
-                                 LastAction="@_liveSnapshot?.Action" Cash="@(_liveSnapshot?.Capital.Cash ?? 0)"
+                                 Timestamp="@_liveSnapshot?.Timestamp" TimePassed="LiveTimePassed" ActionCount="_liveActionCount"
+                                 Bid="@(_liveSnapshot?.Bid ?? 0)" Ask="@(_liveSnapshot?.Ask ?? 0)"
+                                 LastAction="@_liveSnapshot?.Action" ActionOutputs="LiveOutputFeatures" Cash="@(_liveSnapshot?.Capital.Cash ?? 0)"
                                  Equity="@(_liveSnapshot?.Capital.Equity ?? 0)" RealizedPnl="@(_liveSnapshot?.Capital.RealizedPnl ?? 0)"
                                  UnrealizedPnl="@(_liveSnapshot?.Capital.UnrealizedPnl ?? 0)" Table="@_table"
                                  Bars="LiveChartBars" EquitySamples="LiveEquitySamples" FeatureRows="LiveFeatureRows" />

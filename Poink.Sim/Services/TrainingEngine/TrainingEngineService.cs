@@ -154,6 +154,7 @@ internal sealed class TrainingEngineService
 
 			onDecision?.Invoke(
 				new LiveEpisodeSnapshot(
+					episodeStart,
 					tick.Timestamp,
 					bid,
 					ask,
@@ -161,6 +162,7 @@ internal sealed class TrainingEngineService
 					justClosedBar,
 					featureModel,
 					action,
+					rawOutputs[..actionSpace.DirectionOutputWidth],
 					capitalAfter,
 					[.. trader.TradeLog]
 				)

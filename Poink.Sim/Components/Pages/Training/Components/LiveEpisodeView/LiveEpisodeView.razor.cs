@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Microsoft.AspNetCore.Components;
+using Poink.Sim.Brain.Neural;
 using Poink.Sim.Components.Charts;
 using Poink.Sim.Helpers;
 using Poink.Sim.Models;
@@ -44,10 +45,22 @@ namespace Poink.Sim.Components.Training
 		public EventCallback OnIncreaseSpeed { get; set; }
 
 		[Parameter]
+		public int EpisodesCompleted { get; set; }
+
+		[Parameter]
+		public int TargetEpisodeCount { get; set; }
+
+		[Parameter]
 		public bool HasSnapshot { get; set; }
 
 		[Parameter]
 		public DateTime? Timestamp { get; set; }
+
+		[Parameter]
+		public TimeSpan? TimePassed { get; set; }
+
+		[Parameter]
+		public int ActionCount { get; set; }
 
 		[Parameter]
 		public double Bid { get; set; }
@@ -57,6 +70,9 @@ namespace Poink.Sim.Components.Training
 
 		[Parameter]
 		public SimulationAction? LastAction { get; set; }
+
+		[Parameter]
+		public IReadOnlyList<RlOutputFeature>? ActionOutputs { get; set; }
 
 		[Parameter]
 		public double Cash { get; set; }
@@ -87,5 +103,14 @@ namespace Poink.Sim.Components.Training
 		private bool _showTxFold = true;
 		private bool _showEquityCurve = true;
 		private bool _showFeatures = true;
+		private bool _showActions = true;
+
+		private static string FormatTimePassed(TimeSpan? span) =>
+			span switch
+			{
+				null => "-",
+				{ TotalHours: >= 1 } s => $"{(int)s.TotalHours}h {s.Minutes}m",
+				{ } s => $"{(int)s.TotalMinutes}m {s.Seconds}s",
+			};
 	}
 }
