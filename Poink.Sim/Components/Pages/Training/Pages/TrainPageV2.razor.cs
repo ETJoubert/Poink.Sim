@@ -35,6 +35,7 @@ namespace Poink.Sim.Components.Pages
 			Output,
 			Training,
 			Run,
+			Live,
 			Playback,
 		}
 
@@ -46,6 +47,7 @@ namespace Poink.Sim.Components.Pages
 			TrainV2Tab.Output,
 			TrainV2Tab.Training,
 			TrainV2Tab.Run,
+			TrainV2Tab.Live,
 			TrainV2Tab.Playback,
 		];
 
@@ -60,6 +62,7 @@ namespace Poink.Sim.Components.Pages
 				TrainV2Tab.Output => "How the network's raw outputs map to trade actions",
 				TrainV2Tab.Training => "How episodes are timed/sampled, and the trader each one starts with",
 				TrainV2Tab.Run => "Start/pause/step the run and review live/saved results",
+				TrainV2Tab.Live => "Watch the charts, equity curve and feature values for the episode currently in progress",
 				TrainV2Tab.Playback => "Replay a single episode bar by bar across the chart panels below",
 				_ => "",
 			};
@@ -282,20 +285,6 @@ namespace Poink.Sim.Components.Pages
 		// Features grid below can read it); the grid itself shows field labels only, no fetched data.
 		private HashSet<int> _txFoldSelectedSeconds = [60, 120, 240, 480, 900, 1800, 3600, 7200];
 		private BarAggregationKind _txFoldBarKind = BarAggregationKind.Ohlc;
-
-		private static string TxFoldTimeframeLabel(int seconds) =>
-			SnapshotTimeframeOptions.All.FirstOrDefault(o => o.Seconds == seconds).Label;
-
-		// Every kind stores exactly 4 values per bar -- Quartile/Decile/MeanStdDev just relabel the
-		// same 4 slots (see TxFoldStats.BuildBar) rather than adding a 5th.
-		private static string[] TxFoldFieldLabels(BarAggregationKind kind) =>
-			kind switch
-			{
-				BarAggregationKind.Quartile => ["Q1", "Max", "Min", "Q3"],
-				BarAggregationKind.Decile => ["D1", "Max", "Min", "D9"],
-				BarAggregationKind.MeanStdDev => ["Mean", "+SD", "-SD", "Mean"],
-				_ => ["O", "H", "L", "C"],
-			};
 
 		// Picked on the Features tab because it sets XGrid's window; the Training tab reads it for Episode span.
 		private int _barWidthSeconds = 60;
@@ -989,8 +978,9 @@ namespace Poink.Sim.Components.Pages
 
 		private void RunOneEpisode(TrainingOptionsModel options, Random random)
 		{
+			ResetLiveEpisodeState();
 			var stopwatch = Stopwatch.StartNew();
-			var result = TrainingEngineService.RunEpisode(options, _runNetwork!, _runActionSpace!, random);
+			var result = TrainingEngineService.RunEpisode(options, _runNetwork!, _runActionSpace!, random, OnLiveDecision);
 			stopwatch.Stop();
 
 			_episodesCompleted++;
@@ -1047,6 +1037,7 @@ namespace Poink.Sim.Components.Pages
 			_recentAverageReward = 0;
 			_episodesPerSecond = 0;
 			_runError = null;
+			ResetLiveEpisodeState();
 		}
 
 		private void PauseRun() => _isPaused = true;
@@ -1059,6 +1050,66 @@ namespace Poink.Sim.Components.Pages
 			_isRunning = false;
 			_isPaused = false;
 		}
+
+		#endregion
+
+		#region Live
+
+		private const int MaxLiveBars = 500;
+		private const int MaxLiveEquityPoints = 2000;
+		private static readonly TimeSpan LiveUiUpdateThrottle = TimeSpan.FromMilliseconds(150);
+
+		private LiveEpisodeSnapshot? _liveSnapshot;
+		private readonly List<CTraderBarRow> _liveBars = [];
+		private readonly List<DateTime> _liveEquityTimestamps = [];
+		private readonly List<double> _liveEquityValues = [];
+		private DateTime _lastLiveUiUpdateUtc = DateTime.MinValue;
+
+		private void ResetLiveEpisodeState()
+		{
+			_liveSnapshot = null;
+			_liveBars.Clear();
+			_liveEquityTimestamps.Clear();
+			_liveEquityValues.Clear();
+		}
+
+		// RunEpisode's onDecision callback -- fires on the background training-loop thread, once per
+		// decision, so UI refreshes are throttled here rather than on every call.
+		private void OnLiveDecision(LiveEpisodeSnapshot snapshot)
+		{
+			_liveSnapshot = snapshot;
+
+			if (snapshot.ClosedBar is { } closed)
+			{
+				_liveBars.Add(closed);
+				if (_liveBars.Count > MaxLiveBars)
+					_liveBars.RemoveAt(0);
+			}
+
+			_liveEquityTimestamps.Add(snapshot.Timestamp);
+			_liveEquityValues.Add(snapshot.Capital.Equity);
+			if (_liveEquityTimestamps.Count > MaxLiveEquityPoints)
+			{
+				_liveEquityTimestamps.RemoveAt(0);
+				_liveEquityValues.RemoveAt(0);
+			}
+
+			var now = DateTime.UtcNow;
+			if (now - _lastLiveUiUpdateUtc < LiveUiUpdateThrottle)
+				return;
+
+			_lastLiveUiUpdateUtc = now;
+			_ = InvokeAsync(StateHasChanged);
+		}
+
+		// Includes the in-progress bar so the chart's last candle keeps updating between closes.
+		private List<CTraderBarRow> LiveChartBars => _liveSnapshot is { } s ? [.. _liveBars, s.CurrentBar] : _liveBars;
+
+		private IReadOnlyList<EquityCurveSample> LiveEquitySamples =>
+			EquityCurveHelper.Build(_liveEquityTimestamps, _liveEquityValues, _liveSnapshot?.ClosedTrades ?? []);
+
+		private IReadOnlyList<FeatureDisplayRow> LiveFeatureRows =>
+			_liveSnapshot is { } s ? FeatureDisplayFormatter.Build(s.Features, _txFoldBarKind) : [];
 
 		#endregion
 
@@ -1125,51 +1176,8 @@ namespace Poink.Sim.Components.Pages
 				)
 			);
 
-		private sealed record FeatureDisplayRow(string Section, string Label, string Value);
-
-		private IReadOnlyList<FeatureDisplayRow> FeatureDisplayRows => BuildFeatureDisplayRows(PlaceholderFeatureModel);
-
-		// Reflection-driven so this panel doesn't need updating when FeatureModel's shape changes;
-		// XGridSignalsFeature/TxFoldFeature are walked as dictionaries since their keys vary per selection.
-		private IReadOnlyList<FeatureDisplayRow> BuildFeatureDisplayRows(FeatureModel model)
-		{
-			var rows = new List<FeatureDisplayRow>();
-			foreach (var section in typeof(FeatureModel).GetProperties())
-			{
-				switch (section.GetValue(model))
-				{
-					case XGridSignalsFeature xGrid:
-						foreach (var (key, value) in xGrid.SignalValues)
-							rows.Add(new FeatureDisplayRow(section.Name, key, value.ToString("0.###")));
-						break;
-					case TxFoldFeature txFold:
-						foreach (var (seconds, values) in txFold.ValuesBySeconds.OrderBy(kv => kv.Key))
-						{
-							var labels = TxFoldFieldLabels(_txFoldBarKind);
-							for (var i = 0; i < values.Length; i++)
-								rows.Add(new FeatureDisplayRow(section.Name, $"{TxFoldTimeframeLabel(seconds)} {labels[i]}", values[i].ToString("0.###")));
-						}
-						break;
-					case { } feature:
-						foreach (var property in feature.GetType().GetProperties())
-						{
-							var value = property.GetValue(feature);
-							if (value is not null)
-								rows.Add(new FeatureDisplayRow(section.Name, property.Name, FormatFeatureValue(value)));
-						}
-						break;
-				}
-			}
-			return rows;
-		}
-
-		private static string FormatFeatureValue(object value) =>
-			value switch
-			{
-				IReadOnlyList<double> list => string.Join(", ", list.Select(v => v.ToString("0.###"))),
-				double number => number.ToString("0.###"),
-				_ => value.ToString() ?? "",
-			};
+		private IReadOnlyList<FeatureDisplayRow> FeatureDisplayRows =>
+			FeatureDisplayFormatter.Build(PlaceholderFeatureModel, _txFoldBarKind);
 
 		#endregion
 

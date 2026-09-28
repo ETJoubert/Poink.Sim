@@ -220,8 +220,8 @@
                                     @foreach (var seconds in _txFoldSelectedSeconds.OrderBy(s => s))
                                     {
                                         <div class="trv2-txfold-grid-row">
-                                            <span class="trv2-txfold-grid-label">@TxFoldTimeframeLabel(seconds)</span>
-                                            @foreach (var field in TxFoldFieldLabels(_txFoldBarKind))
+                                            <span class="trv2-txfold-grid-label">@FeatureDisplayFormatter.TimeframeLabel(seconds)</span>
+                                            @foreach (var field in FeatureDisplayFormatter.TxFoldFieldLabels(_txFoldBarKind))
                                             {
                                                 <span class="trv2-txfold-grid-cell">@field</span>
                                             }
@@ -965,6 +965,14 @@
                         </div>
                     </div>
                 </div>
+                break;
+            case TrainV2Tab.Live:
+                <LiveEpisodeView IsRunning="@_isRunning" HasSnapshot="@(_liveSnapshot is not null)"
+                                 Timestamp="@_liveSnapshot?.Timestamp" Bid="@(_liveSnapshot?.Bid ?? 0)" Ask="@(_liveSnapshot?.Ask ?? 0)"
+                                 LastAction="@_liveSnapshot?.Action" Cash="@(_liveSnapshot?.Capital.Cash ?? 0)"
+                                 Equity="@(_liveSnapshot?.Capital.Equity ?? 0)" RealizedPnl="@(_liveSnapshot?.Capital.RealizedPnl ?? 0)"
+                                 UnrealizedPnl="@(_liveSnapshot?.Capital.UnrealizedPnl ?? 0)" Table="@_table"
+                                 Bars="LiveChartBars" EquitySamples="LiveEquitySamples" FeatureRows="LiveFeatureRows" />
                 break;
             case TrainV2Tab.Playback:
                 <div class="trv2-playback">

@@ -1,0 +1,171 @@
+.lev-root {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.lev-placeholder {
+    font-size: 0.85rem;
+    color: var(--color-secondary);
+    opacity: 0.8;
+}
+
+.lev-status-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 18px;
+    padding: 10px 12px;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
+    border-radius: var(--border-radius-sm);
+    background: color-mix(in srgb, var(--color-primary) 4%, transparent);
+}
+
+.lev-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.lev-stat-label {
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-secondary);
+    opacity: 0.8;
+}
+
+.lev-stat-value {
+    font-size: 0.92rem;
+    font-weight: 600;
+}
+
+.lev-panel-toggles {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 5px 10px;
+    background: color-mix(in srgb, var(--color-secondary) 6%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-secondary) 30%, transparent);
+    border-radius: var(--border-radius-sm);
+}
+
+.lev-panel-toggles-label {
+    font-size: 0.6rem;
+    font-weight: bold;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-secondary);
+    opacity: 0.9;
+}
+
+.lev-panel-toggle-btn {
+    font-family: var(--font-body);
+    font-size: 0.62rem;
+    letter-spacing: 0.02em;
+    color: var(--color-secondary);
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--color-secondary) 35%, transparent);
+    padding: 2px 7px;
+    border-radius: var(--border-radius-sm);
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.lev-panel-toggle-btn:hover {
+    background: color-mix(in srgb, var(--color-secondary) 15%, transparent);
+}
+
+.lev-panel-toggle-btn.active {
+    background: var(--color-secondary);
+    color: var(--color-bg-dark);
+    font-weight: bold;
+}
+
+.lev-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+}
+
+.lev-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 12px;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
+    border-radius: var(--border-radius-sm);
+    background: color-mix(in srgb, var(--color-primary) 4%, transparent);
+}
+
+.lev-card-nopad {
+    padding: 0;
+    overflow: hidden;
+}
+
+.lev-panel {
+    min-height: 260px;
+}
+
+.lev-card-title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.lev-card-title {
+    font-size: 0.62rem;
+    font-weight: bold;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-accent);
+}
+
+.lev-card-badge {
+    font-size: 0.62rem;
+    color: var(--color-secondary);
+    margin-left: auto;
+}
+
+.lev-features {
+    overflow-y: auto;
+}
+
+.lev-features-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 4px 0;
+}
+
+.lev-features-section-title {
+    display: block;
+    font-size: 0.68rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-secondary);
+    margin-bottom: 4px;
+}
+
+.lev-features-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 3px 0;
+    font-size: 0.72rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 8%, transparent);
+}
+
+.lev-features-label {
+    color: var(--color-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.lev-features-value {
+    color: var(--color-primary);
+    font-weight: 600;
+    flex-shrink: 0;
+}

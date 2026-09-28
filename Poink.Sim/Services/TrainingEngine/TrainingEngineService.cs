@@ -72,7 +72,13 @@ internal sealed class TrainingEngineService
 		return results;
 	}
 
-	public EpisodeResult RunEpisode(TrainingOptionsModel options, MlpNetwork network, ActionSpace actionSpace, Random random)
+	public EpisodeResult RunEpisode(
+		TrainingOptionsModel options,
+		MlpNetwork network,
+		ActionSpace actionSpace,
+		Random random,
+		Action<LiveEpisodeSnapshot>? onDecision = null
+	)
 	{
 		if (options.Output.Actions.IncludeVolumeOutput || options.Output.Actions.IncludeStopLossOutput || options.Output.Actions.IncludeTakeProfitOutput)
 			throw new NotSupportedException("Volume/StopLoss/TakeProfit outputs aren't wired to trade execution yet -- disable them until they are.");
@@ -100,12 +106,14 @@ internal sealed class TrainingEngineService
 		var steps = new List<EpisodeStep>();
 		var traces = new List<DecisionTrace>();
 		var totalReward = 0.0;
+		var barBuilder = new LiveBarBuilder(options.BarWidthSeconds);
 
 		foreach (var tick in ticks)
 		{
 			ticksSoFar.Add(tick);
 			var bid = tick.Bid;
 			var ask = tick.Ask;
+			var (currentBar, justClosedBar) = barBuilder.Feed(tick);
 
 			trader.Advance(bid, ask, tick.Timestamp);
 
@@ -114,18 +122,38 @@ internal sealed class TrainingEngineService
 
 			var equityBefore = trader.Snapshot(bid, ask).Equity;
 
-			var vector = _featureAssembler.Flatten(
-				_featureAssembler.Assemble(options.Features, ticksSoFar, tick.Timestamp, episodeStart, BuildTraderStateSnapshot(trader, bid, ask))
+			var featureModel = _featureAssembler.Assemble(
+				options.Features,
+				ticksSoFar,
+				tick.Timestamp,
+				episodeStart,
+				BuildTraderStateSnapshot(trader, bid, ask)
 			);
+			var vector = _featureAssembler.Flatten(featureModel);
 			var (rawOutputs, activations) = network.ForwardWithActivations(vector.Values);
 			var actionIndex = ChooseActionIndex(rawOutputs, actionSpace, random);
 			var action = actionSpace.Directions[actionIndex];
 			var execution = trader.Apply(new SimulationDecision(action, CapitalFraction: 1.0), bid, ask, tick.Timestamp);
 
-			var reward = trader.Snapshot(bid, ask).Equity - equityBefore;
+			var capitalAfter = trader.Snapshot(bid, ask);
+			var reward = capitalAfter.Equity - equityBefore;
 			totalReward += reward;
 			steps.Add(new EpisodeStep(tick.Timestamp, action, execution, reward));
 			traces.Add(new DecisionTrace(activations, rawOutputs, actionIndex, reward));
+
+			onDecision?.Invoke(
+				new LiveEpisodeSnapshot(
+					tick.Timestamp,
+					bid,
+					ask,
+					currentBar,
+					justClosedBar,
+					featureModel,
+					action,
+					capitalAfter,
+					[.. trader.TradeLog]
+				)
+			);
 		}
 
 		_learner.Learn(network, actionSpace, traces, options.Training.Learning);
