@@ -15,6 +15,7 @@ using Poink.Sim.Services.DataSeriesSync;
 using Poink.Sim.Services.MarketData;
 using Poink.Sim.Services.MarketData.Import;
 using Poink.Sim.Services.Symbols;
+using Poink.Sim.Services.TrainingEngine;
 using Poink.Sim.Simulation;
 using Poink.Sim.Trader;
 using Poink.Sim.Trader.Risk;
@@ -164,6 +165,19 @@ public static class ServiceCollectionExtensions
 
 		services.AddSingleton<INeuralWeightsRepository, NeuralWeightsRepository>();
 		services.AddSingleton<INeuralWeightsService, NeuralWeightsService>();
+
+		return services;
+	}
+
+	/// <summary>
+	/// TrainPageV2's rebuilt training backend -- a fresh pipeline (data provider, feature/action/
+	/// network assemblers, decision masking, training engine) that shares no code with
+	/// BuildTrainingServices' BrainCatalog-based stack above, by design. Concrete classes only, no
+	/// interfaces, since each has exactly one implementation.
+	/// </summary>
+	public static IServiceCollection BuildTrainingEngineServices(this IServiceCollection services)
+	{
+		services.AddSingleton<DataProvider>();
 
 		return services;
 	}

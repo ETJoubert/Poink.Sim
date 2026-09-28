@@ -29,6 +29,7 @@ builder.Services.BuildSymbolServices();
 builder.Services.BuildBackgroundWorkers();
 builder.Services.BuildDataSeriesSyncServices();
 builder.Services.BuildTrainingServices();
+builder.Services.BuildTrainingEngineServices();
 builder.Services.BuildSimulationServices();
 
 builder.Services.AddSingleton<IProfilerService, ProfilerService>();
