@@ -970,21 +970,21 @@
                     <div class="trv2-charts-grid">
                         <div class="trv2-card">
                             <span class="trv2-card-title">Reward</span>
-                            <RewardChart Episodes="_episodeMetrics" IsRunning="@_isRunning" />
+                            <RewardChart Episodes="_episodeMetricsSnapshot" IsRunning="@_isRunning" />
                         </div>
                         <div class="trv2-card">
                             <span class="trv2-card-title" title="Rolling-window median -- less noisy than raw reward">Median Reward</span>
-                            <TrendLineChart Episodes="_episodeMetrics" IsRunning="@_isRunning"
+                            <TrendLineChart Episodes="_episodeMetricsSnapshot" IsRunning="@_isRunning"
                                             Aggregate="@RlEpisodeMetricStats.Median" ColorVariant="median" />
                         </div>
                         <div class="trv2-card">
                             <span class="trv2-card-title" title="Rolling-window spread -- falling means training is stabilizing">Reward Std Dev</span>
-                            <TrendLineChart Episodes="_episodeMetrics" IsRunning="@_isRunning"
+                            <TrendLineChart Episodes="_episodeMetricsSnapshot" IsRunning="@_isRunning"
                                             Aggregate="@RlEpisodeMetricStats.StdDev" ColorVariant="stddev" />
                         </div>
                         <div class="trv2-card">
                             <span class="trv2-card-title" title="Rolling-window % of episodes with positive reward">Win Rate</span>
-                            <TrendLineChart Episodes="_episodeMetrics" IsRunning="@_isRunning"
+                            <TrendLineChart Episodes="_episodeMetricsSnapshot" IsRunning="@_isRunning"
                                             Aggregate="@RlEpisodeMetricStats.WinRate" ColorVariant="winrate" ValueFormat="N0" ValueSuffix="%" />
                         </div>
                     </div>
