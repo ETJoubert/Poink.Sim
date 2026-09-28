@@ -1144,6 +1144,9 @@ namespace Poink.Sim.Components.Pages
 		private IReadOnlyList<FeatureDisplayRow> BuildLiveFeatureRows(LiveUiState? live) =>
 			live is { } s ? FeatureDisplayFormatter.Build(s.Snapshot.Features, _txFoldBarKind) : [];
 
+		private IReadOnlyList<TxFoldGridRow> BuildLiveTxFoldRows(LiveUiState? live) =>
+			live is { } s ? FeatureDisplayFormatter.BuildTxFoldGrid(s.Snapshot.Features, _txFoldBarKind) : [];
+
 		private static TimeSpan? BuildLiveTimePassed(LiveUiState? live) =>
 			live is { } s ? s.Snapshot.Timestamp - s.Snapshot.EpisodeStart : null;
 

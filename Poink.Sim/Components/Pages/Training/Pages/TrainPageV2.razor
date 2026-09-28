@@ -1005,7 +1005,8 @@
                                  LastAction="@live?.Snapshot.Action" ActionOutputs="BuildLiveOutputFeatures(live)" Cash="@(live?.Snapshot.Capital.Cash ?? 0)"
                                  Equity="@(live?.Snapshot.Capital.Equity ?? 0)" RealizedPnl="@(live?.Snapshot.Capital.RealizedPnl ?? 0)"
                                  UnrealizedPnl="@(live?.Snapshot.Capital.UnrealizedPnl ?? 0)" Table="@_table"
-                                 Bars="BuildLiveChartBars(live)" EquitySamples="BuildLiveEquitySamples(live)" FeatureRows="BuildLiveFeatureRows(live)" />
+                                 Bars="BuildLiveChartBars(live)" EquitySamples="BuildLiveEquitySamples(live)" FeatureRows="BuildLiveFeatureRows(live)"
+                                 TxFoldRows="BuildLiveTxFoldRows(live)" />
                 break;
             }
         }
