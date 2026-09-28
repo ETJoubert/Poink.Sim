@@ -54,6 +54,12 @@
 .txf-tool-btn-volume { --txf-color: var(--color-info); }
 .txf-tool-btn-timeframe { --txf-color: var(--color-secondary); }
 .txf-tool-btn-normalize { --txf-color: var(--color-badge-2); }
+.txf-tool-btn-level-poc { --txf-color: var(--color-primary); }
+.txf-tool-btn-level-vah, .txf-tool-btn-level-val { --txf-color: var(--color-highlight); }
+.txf-tool-btn-level-vwap { --txf-color: var(--color-tertiary); }
+.txf-tool-btn-level-average { --txf-color: var(--color-badge-2); }
+.txf-tool-btn-level-median { --txf-color: var(--color-neutral); }
+.txf-tool-btn-level-regression { --txf-color: var(--color-badge-1); }
 
 .txf-tool-btn {
     font-family: var(--font-body);

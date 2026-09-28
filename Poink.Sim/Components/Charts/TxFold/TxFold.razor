@@ -29,6 +29,13 @@
             <button type="button" class="txf-tool-btn txf-tool-btn-normalize @(Normalize ? "active" : "")"
                     @onclick="ToggleNormalize"
                     title="Show every bar as a percentage deviation from the largest selected timeframe's midpoint instead of its real price, with zero centered on the chart -- also normalizes the network inputs the same way when selected on the Features tab">%</button>
+            <span class="txf-divider"></span>
+            @foreach (var option in TxFoldLevelOptions.All)
+            {
+                <button type="button" class="txf-tool-btn txf-tool-btn-level-@(option.Kind.ToString().ToLowerInvariant()) @(ShownLevels.Contains(option.Kind) ? "active" : "")"
+                        @onclick="() => ToggleLevel(option.Kind)"
+                        title="@option.Tooltip">@option.Label</button>
+            }
         </div>
         <div class="txf-row txf-timeframe-row"
              title="Pick which trailing windows to show -- one bar per selection, all ending at the same anchor time">
