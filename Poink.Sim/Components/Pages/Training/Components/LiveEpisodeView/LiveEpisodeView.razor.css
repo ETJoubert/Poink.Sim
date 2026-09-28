@@ -4,6 +4,98 @@
     gap: 14px;
 }
 
+.lev-controls {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
+    border-radius: var(--border-radius-sm);
+    background: color-mix(in srgb, var(--color-primary) 4%, transparent);
+}
+
+.lev-btn {
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
+    color: var(--color-secondary);
+    border-radius: var(--border-radius-sm);
+    font-family: var(--font-body);
+    font-size: 0.62rem;
+    font-weight: bold;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 6px 10px;
+    cursor: pointer;
+}
+
+.lev-btn:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-secondary) 12%, transparent);
+}
+
+.lev-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.lev-btn-play {
+    color: var(--color-success);
+    border-color: color-mix(in srgb, var(--color-success) 50%, transparent);
+}
+
+.lev-btn-play:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-success) 14%, transparent);
+}
+
+::deep .lev-run-icon {
+    width: 13px;
+    height: 13px;
+    vertical-align: -2px;
+    margin-right: 3px;
+}
+
+.lev-speed {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.lev-speed-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
+    border-radius: var(--border-radius-sm);
+    color: var(--color-secondary);
+    cursor: pointer;
+}
+
+.lev-speed-btn:hover:not(:disabled) {
+    color: var(--color-primary);
+    border-color: var(--color-primary);
+}
+
+.lev-speed-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.lev-speed-value {
+    font-size: 0.72rem;
+    color: var(--color-secondary);
+    min-width: 28px;
+    text-align: center;
+}
+
+.lev-warning {
+    font-size: 0.72rem;
+    color: var(--color-warning);
+}
+
 .lev-placeholder {
     font-size: 0.85rem;
     color: var(--color-secondary);

@@ -14,6 +14,36 @@ namespace Poink.Sim.Components.Training
 		public bool IsRunning { get; set; }
 
 		[Parameter]
+		public bool IsPaused { get; set; }
+
+		[Parameter]
+		public string? RunError { get; set; }
+
+		[Parameter]
+		public EventCallback OnPlayPause { get; set; }
+
+		[Parameter]
+		public EventCallback OnStep { get; set; }
+
+		[Parameter]
+		public EventCallback OnReset { get; set; }
+
+		[Parameter]
+		public string SpeedLabel { get; set; } = "1x";
+
+		[Parameter]
+		public bool CanDecreaseSpeed { get; set; }
+
+		[Parameter]
+		public bool CanIncreaseSpeed { get; set; }
+
+		[Parameter]
+		public EventCallback OnDecreaseSpeed { get; set; }
+
+		[Parameter]
+		public EventCallback OnIncreaseSpeed { get; set; }
+
+		[Parameter]
 		public bool HasSnapshot { get; set; }
 
 		[Parameter]

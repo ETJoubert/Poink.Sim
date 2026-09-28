@@ -946,7 +946,7 @@ namespace Poink.Sim.Components.Pages
 					}
 					cancellationToken.ThrowIfCancellationRequested();
 
-					RunOneEpisode(options, random);
+					await RunOneEpisode(options, random, cancellationToken);
 					await InvokeAsync(StateHasChanged);
 				}
 			}
@@ -976,11 +976,20 @@ namespace Poink.Sim.Components.Pages
 			_runNetwork = TrainingEngineService.BuildNetwork(options, _runActionSpace, random);
 		}
 
-		private void RunOneEpisode(TrainingOptionsModel options, Random random)
+		private async Task RunOneEpisode(TrainingOptionsModel options, Random random, CancellationToken cancellationToken)
 		{
 			ResetLiveEpisodeState();
 			var stopwatch = Stopwatch.StartNew();
-			var result = TrainingEngineService.RunEpisode(options, _runNetwork!, _runActionSpace!, random, OnLiveDecision);
+			var result = await TrainingEngineService.RunEpisode(
+				options,
+				_runNetwork!,
+				_runActionSpace!,
+				random,
+				OnLiveDecision,
+				() => LiveDecisionDelay,
+				() => _isPaused,
+				cancellationToken
+			);
 			stopwatch.Stop();
 
 			_episodesCompleted++;
@@ -1003,17 +1012,22 @@ namespace Poink.Sim.Components.Pages
 				_episodeMetrics.RemoveAt(0);
 		}
 
-		private void StepRun()
+		private async Task StepRun()
 		{
-			if (_isRunning)
+			if (_isRunning && !_isPaused)
 				return;
 
 			try
 			{
 				var options = CurrentTrainingOptions;
 				EnsureRunNetwork(options);
-				RunOneEpisode(options, new Random());
+				_runCancellation = new CancellationTokenSource();
+				await RunOneEpisode(options, new Random(), _runCancellation.Token);
 				_runError = null;
+			}
+			catch (OperationCanceledException)
+			{
+				// Expected when Reset cancels mid-step.
 			}
 			catch (Exception ex)
 			{
@@ -1110,6 +1124,34 @@ namespace Poink.Sim.Components.Pages
 
 		private IReadOnlyList<FeatureDisplayRow> LiveFeatureRows =>
 			_liveSnapshot is { } s ? FeatureDisplayFormatter.Build(s.Features, _txFoldBarKind) : [];
+
+		// Speed governs the actual training loop's pace (RunEpisode's decisionDelay), not just redraws.
+		// A null step is MAX -- decisionDelay becomes exactly zero, real unthrottled training speed.
+		private static readonly double?[] LiveSpeedOptions = { 0.1, 1, 10, 100, 1000, null };
+		private const double LiveBaseDecisionDelayMs = 200;
+
+		private int _liveSpeedIndex = 1;
+
+		private TimeSpan LiveDecisionDelay =>
+			LiveSpeedOptions[_liveSpeedIndex] is { } multiplier ? TimeSpan.FromMilliseconds(LiveBaseDecisionDelayMs / multiplier) : TimeSpan.Zero;
+
+		private static string LiveSpeedLabel(double? multiplier) => multiplier is { } value ? FormatPlaybackSpeed(value) : "MAX";
+
+		private void DecreaseLiveSpeed() => _liveSpeedIndex = Math.Max(0, _liveSpeedIndex - 1);
+
+		private void IncreaseLiveSpeed() => _liveSpeedIndex = Math.Min(LiveSpeedOptions.Length - 1, _liveSpeedIndex + 1);
+
+		// Single Play/Pause toggle for the Live tab, mirroring Playback's button -- Start/Pause/Resume
+		// stay separate methods since the Run tab still shows them as distinct buttons.
+		private void ToggleLiveRun()
+		{
+			if (_isPaused)
+				ResumeRun();
+			else if (_isRunning)
+				PauseRun();
+			else
+				StartRun();
+		}
 
 		#endregion
 

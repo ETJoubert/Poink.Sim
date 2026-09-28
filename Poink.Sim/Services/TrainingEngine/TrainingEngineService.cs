@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Poink.Sim.Models;
 using Poink.Sim.Models.TrainingModels;
@@ -60,24 +62,29 @@ internal sealed class TrainingEngineService
 
 	// Runs EpisodeCount episodes against one network, learning between them -- unlike calling
 	// RunEpisode standalone with a fresh network each time, which would just repeat random rollouts.
-	public IReadOnlyList<EpisodeResult> Train(TrainingOptionsModel options, Random random)
+	public async Task<IReadOnlyList<EpisodeResult>> Train(TrainingOptionsModel options, Random random)
 	{
 		var actionSpace = _actionAssembler.Assemble(options.Output);
 		var network = BuildNetwork(options, actionSpace, random);
 
 		var results = new List<EpisodeResult>(options.Training.EpisodeTiming.EpisodeCount);
 		for (var i = 0; i < options.Training.EpisodeTiming.EpisodeCount; i++)
-			results.Add(RunEpisode(options, network, actionSpace, random));
+			results.Add(await RunEpisode(options, network, actionSpace, random));
 
 		return results;
 	}
 
-	public EpisodeResult RunEpisode(
+	// decisionDelay/isPaused/cancellationToken back the Live tab's Play/Pause/Speed controls, all
+	// re-read every decision (not snapshotted) so changing Speed mid-episode takes effect immediately.
+	public async Task<EpisodeResult> RunEpisode(
 		TrainingOptionsModel options,
 		MlpNetwork network,
 		ActionSpace actionSpace,
 		Random random,
-		Action<LiveEpisodeSnapshot>? onDecision = null
+		Action<LiveEpisodeSnapshot>? onDecision = null,
+		Func<TimeSpan>? decisionDelay = null,
+		Func<bool>? isPaused = null,
+		CancellationToken cancellationToken = default
 	)
 	{
 		if (options.Output.Actions.IncludeVolumeOutput || options.Output.Actions.IncludeStopLossOutput || options.Output.Actions.IncludeTakeProfitOutput)
@@ -120,6 +127,10 @@ internal sealed class TrainingEngineService
 			if (!decisionMask.ShouldDecide(tick.Timestamp))
 				continue;
 
+			while (isPaused is not null && isPaused())
+				await Task.Delay(150, cancellationToken);
+			cancellationToken.ThrowIfCancellationRequested();
+
 			var equityBefore = trader.Snapshot(bid, ask).Equity;
 
 			var featureModel = _featureAssembler.Assemble(
@@ -154,6 +165,10 @@ internal sealed class TrainingEngineService
 					[.. trader.TradeLog]
 				)
 			);
+
+			var delay = decisionDelay?.Invoke() ?? TimeSpan.Zero;
+			if (delay > TimeSpan.Zero)
+				await Task.Delay(delay, cancellationToken);
 		}
 
 		_learner.Learn(network, actionSpace, traces, options.Training.Learning);

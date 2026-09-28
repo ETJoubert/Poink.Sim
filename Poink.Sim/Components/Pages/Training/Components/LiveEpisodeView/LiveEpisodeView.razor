@@ -1,7 +1,35 @@
 @namespace Poink.Sim.Components.Training
 @using Poink.Sim.Components.Charts
+@using Poink.Sim.Components.Shared.Icon
 
 <div class="lev-root">
+    <div class="lev-controls">
+        <button type="button" class="lev-btn lev-btn-play" @onclick="OnPlayPause"
+                title="@(IsRunning && !IsPaused ? "Pause training" : IsPaused ? "Resume training from where it paused" : "Start training")">
+            <Icon Name="@(IsRunning && !IsPaused ? "pause-fill" : "play-fill")" Class="lev-run-icon" />
+            @(IsRunning && !IsPaused ? "PAUSE" : "PLAY")
+        </button>
+        <button type="button" class="lev-btn" @onclick="OnStep" disabled="@(IsRunning && !IsPaused)"
+                title="Run exactly one episode, live, then pause -- lets you watch a single episode from the start">
+            <Icon Name="skip-end-fill" Class="lev-run-icon" />
+            STEP
+        </button>
+        <button type="button" class="lev-btn" @onclick="OnReset"
+                title="Stop training and clear this run's progress -- the Data/Features/Network/Output/Training setup stays as configured">
+            <Icon Name="arrow-clockwise" Class="lev-run-icon" />
+            RESET
+        </button>
+        <div class="lev-speed" title="How fast the live episode plays -- lower values slow decisions down so you can actually watch them; higher values approach real training speed">
+            <button type="button" class="lev-speed-btn" @onclick="OnDecreaseSpeed" disabled="@(!CanDecreaseSpeed)" title="Slower">-</button>
+            <span class="lev-speed-value">@SpeedLabel</span>
+            <button type="button" class="lev-speed-btn" @onclick="OnIncreaseSpeed" disabled="@(!CanIncreaseSpeed)" title="Faster">+</button>
+        </div>
+    </div>
+    @if (RunError is not null)
+    {
+        <p class="lev-warning" title="@RunError">Run stopped: @RunError</p>
+    }
+
     @if (!HasSnapshot)
     {
         <p class="lev-placeholder">@(IsRunning ? "waiting for the first decision..." : "start a run on the Run tab to see live episode data here")</p>

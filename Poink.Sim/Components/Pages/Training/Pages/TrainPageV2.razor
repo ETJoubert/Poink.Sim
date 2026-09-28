@@ -967,7 +967,12 @@
                 </div>
                 break;
             case TrainV2Tab.Live:
-                <LiveEpisodeView IsRunning="@_isRunning" HasSnapshot="@(_liveSnapshot is not null)"
+                <LiveEpisodeView IsRunning="@_isRunning" IsPaused="@_isPaused" RunError="@_runError"
+                                 OnPlayPause="ToggleLiveRun" OnStep="StepRun" OnReset="ResetRun"
+                                 SpeedLabel="@LiveSpeedLabel(LiveSpeedOptions[_liveSpeedIndex])"
+                                 CanDecreaseSpeed="@(_liveSpeedIndex > 0)" CanIncreaseSpeed="@(_liveSpeedIndex < LiveSpeedOptions.Length - 1)"
+                                 OnDecreaseSpeed="DecreaseLiveSpeed" OnIncreaseSpeed="IncreaseLiveSpeed"
+                                 HasSnapshot="@(_liveSnapshot is not null)"
                                  Timestamp="@_liveSnapshot?.Timestamp" Bid="@(_liveSnapshot?.Bid ?? 0)" Ask="@(_liveSnapshot?.Ask ?? 0)"
                                  LastAction="@_liveSnapshot?.Action" Cash="@(_liveSnapshot?.Capital.Cash ?? 0)"
                                  Equity="@(_liveSnapshot?.Capital.Equity ?? 0)" RealizedPnl="@(_liveSnapshot?.Capital.RealizedPnl ?? 0)"
