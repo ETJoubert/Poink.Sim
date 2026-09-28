@@ -2,11 +2,13 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 using Poink.Sim.Brain.Neural;
 using Poink.Sim.Components.Charts;
 using Poink.Sim.Components.Pages.Trade.Helpers;
+using Poink.Sim.Helpers;
 using Poink.Sim.Models;
 using Poink.Sim.Models.TrainingModels;
 using Poink.Sim.Repository;
@@ -83,6 +85,9 @@ namespace Poink.Sim.Components.Pages
 		[Inject]
 		private ISymbolMetadataCache SymbolMetadataCache { get; set; } = default!;
 
+		[Inject]
+		private ISymbolService SymbolService { get; set; } = default!;
+
 		private SymbolModel? _selectedSymbol;
 		private bool _loadingSymbolMetadata;
 
@@ -109,6 +114,26 @@ namespace Poink.Sim.Components.Pages
 		}
 
 		private DataOptionsModel CurrentDataOptions => new(_table, _from, _to, _selectedSymbol?.SymbolId);
+
+		private void ApplyDataOptions(DataOptionsModel options)
+		{
+			_table = options.Table;
+			_from = options.From;
+			_to = options.To;
+		}
+
+		// SymbolDataSelector resolves Table back to a symbol on its own (ResolvePreselectedTable), but
+		// doesn't notify the host -- restoring _selectedSymbol itself needs its own catalog lookup.
+		private async Task ApplySelectedSymbolAsync(long? symbolId)
+		{
+			if (symbolId is null)
+				return;
+
+			var symbols = await SymbolService.ListAsync();
+			var match = symbols.FirstOrDefault(s => s.SymbolId == symbolId);
+			if (match is not null)
+				await OnSelectedSymbolChanged(match);
+		}
 
 		#endregion
 
@@ -342,6 +367,38 @@ namespace Poink.Sim.Components.Pages
 
 		private FeatureOptionsModel CurrentFeatureOptions => new(CurrentXGridSignalsOptions, CurrentTxFoldOptions, CurrentTraderStateOptions);
 
+		private void ApplyFeatureOptions(FeatureOptionsModel options)
+		{
+			_xGridEnabledSignals = [.. options.XGridSignals.EnabledSignals];
+			_xGridTopPercent = options.XGridSignals.TopPercent;
+			_xGridColCount = options.XGridSignals.ColCount;
+			_xGridRowCount = options.XGridSignals.RowCount;
+
+			if (options.TxFold.SelectedSeconds is { } seconds)
+				_txFoldSelectedSeconds = [.. seconds];
+			_txFoldBarKind = options.TxFold.BarKind;
+
+			var traderState = options.TraderState;
+			_traderStateIncludePosition = traderState.IncludePosition;
+			_traderStateIncludePositionPrice = traderState.IncludePositionPrice;
+			_traderStateIncludePositionTicks = traderState.IncludePositionTicks;
+			_traderStateIncludePositionDistance = traderState.IncludePositionDistance;
+			_traderStateIncludeCurrentPrice = traderState.IncludeCurrentPrice;
+			_traderStateIncludeCash = traderState.IncludeCash;
+			_traderStateIncludeRealized = traderState.IncludeRealized;
+			_traderStateIncludeUnrealized = traderState.IncludeUnrealized;
+			_traderStateIncludeEquity = traderState.IncludeEquity;
+			_traderStateIncludeMargin = traderState.IncludeMargin;
+			_traderStateIncludeMarginLevel = traderState.IncludeMarginLevel;
+			_traderStateIncludePositionCount = traderState.IncludePositionCount;
+			_includeTraderStateOutcomes = traderState.IncludeOutcomes;
+			_includeTraderStatePositionLevel = traderState.IncludePositionLevel;
+			_includeTraderStateDirection = traderState.IncludeDirection;
+			_traderStateOutcomeListLength = traderState.OutcomeListLength;
+			_traderStatePositionLevelListLength = traderState.PositionLevelListLength;
+			_traderStateDirectionListLength = traderState.DirectionListLength;
+		}
+
 		#endregion
 
 		#region Network
@@ -419,6 +476,17 @@ namespace Poink.Sim.Components.Pages
 
 		private NetworkOptionsModel CurrentNetworkOptions =>
 			new(_architectureKind, [.. _mlpHiddenSizes], _lstmHiddenSize, _lstmNumLayers, _cnnKernelSize, [.. _cnnChannels], _cnnKernelSweepSource);
+
+		private void ApplyNetworkOptions(NetworkOptionsModel options)
+		{
+			_architectureKind = options.ArchitectureKind;
+			_mlpHiddenSizes = options.MlpHiddenSizes is { } mlp ? [.. mlp] : [64];
+			_lstmHiddenSize = options.LstmHiddenSize;
+			_lstmNumLayers = options.LstmNumLayers;
+			_cnnKernelSize = options.CnnKernelSize;
+			_cnnChannels = options.CnnChannels is { } cnn ? [.. cnn] : [16, 32];
+			_cnnKernelSweepSource = options.CnnKernelSweepSource;
+		}
 
 		#endregion
 
@@ -576,6 +644,26 @@ namespace Poink.Sim.Components.Pages
 		private ActionDecodingOptionsModel CurrentActionDecodingOptions => new(_decisionDecoding, _decisionTemperature);
 
 		private OutputOptionsModel CurrentOutputOptions => new(CurrentActionsOptions, CurrentActionMaskingOptions, CurrentActionDecodingOptions);
+
+		private void ApplyOutputOptions(OutputOptionsModel options)
+		{
+			_includeHold = options.Actions.IncludeHold;
+			_includeEnterLong = options.Actions.IncludeEnterLong;
+			_includeEnterShort = options.Actions.IncludeEnterShort;
+			_includeClose = options.Actions.IncludeClose;
+			_includeVolumeOutput = options.Actions.IncludeVolumeOutput;
+			_includeStopLossOutput = options.Actions.IncludeStopLossOutput;
+			_includeTakeProfitOutput = options.Actions.IncludeTakeProfitOutput;
+
+			_maskPositionRequiredForClose = options.ActionMasking.PositionRequiredForClose;
+			_maskFlatRequiredForEntry = options.ActionMasking.FlatRequiredForEntry;
+			_maskLongRequiresUpSignal = options.ActionMasking.LongRequiresUpSignal;
+			_maskShortRequiresDownSignal = options.ActionMasking.ShortRequiresDownSignal;
+			_maskKeyLevelRequiredForClose = options.ActionMasking.KeyLevelRequiredForClose;
+
+			_decisionDecoding = options.ActionDecoding.DecisionDecoding;
+			_decisionTemperature = options.ActionDecoding.DecisionTemperature;
+		}
 
 		#endregion
 
@@ -740,6 +828,42 @@ namespace Poink.Sim.Components.Pages
 		private TrainingTabOptionsModel CurrentTrainingTabOptions =>
 			new(CurrentEpisodeTimingOptions, CurrentTraderSetupOptions, CurrentLearningOptions, CurrentDecisionMaskingOptions);
 
+		private void ApplyTrainingTabOptions(TrainingTabOptionsModel options)
+		{
+			var episodeTiming = options.EpisodeTiming;
+			_episodeCount = episodeTiming.EpisodeCount;
+			_trainingBars = episodeTiming.TrainingBars;
+			_visibleBars = episodeTiming.VisibleBars;
+			_steppingMode = episodeTiming.SteppingMode;
+			_cellWidth = episodeTiming.CellWidth;
+			_restrictEpisodeTiming = episodeTiming.RestrictEpisodeTiming;
+			_allowedWeekdays.Clear();
+			foreach (var day in episodeTiming.AllowedWeekdays ?? Enum.GetValues<DayOfWeek>())
+				_allowedWeekdays.Add(day);
+			_sessionStart = episodeTiming.SessionStart;
+			_sessionEnd = episodeTiming.SessionEnd ?? TimeSpan.FromHours(24);
+
+			var traderSetup = options.TraderSetup;
+			_startingCash = traderSetup.StartingCash;
+			_leverage = traderSetup.Leverage;
+			_commissionRatePercent = traderSetup.CommissionRatePercent;
+			_stopOutLevelPercent = traderSetup.StopOutLevelPercent;
+			_selectedRiskPolicies.Clear();
+			if (traderSetup.SelectedRiskPolicies is { } policies)
+				_selectedRiskPolicies.AddRange(policies);
+
+			var learning = options.Learning;
+			_trainingStrategyName = learning.TrainingStrategyName;
+			_rewardPolicyName = learning.RewardPolicyName;
+			_learningRate = learning.LearningRate;
+
+			var decisionMasking = options.DecisionMasking;
+			_decisionMaskResolution = decisionMasking.DecisionMaskResolution;
+			_decisionMaskResolutionSeconds = decisionMasking.DecisionMaskResolutionSeconds;
+			_decisionMaskResolutionCellWidth = decisionMasking.DecisionMaskResolutionCellWidth;
+			_maskDecisionPriceBelowPoc = decisionMasking.MaskDecisionPriceBelowPoc;
+		}
+
 		#endregion
 
 		#region Run
@@ -807,9 +931,68 @@ namespace Poink.Sim.Components.Pages
 		private PlaybackOptionsModel CurrentPlaybackOptions =>
 			new(_playbackSpeedIndex, _showPlaybackMarketChart, _showPlaybackXGrid, _showPlaybackTxFold, _showPlaybackEquityCurve);
 
+		private void ApplyPlaybackOptions(PlaybackOptionsModel options)
+		{
+			_playbackSpeedIndex = options.PlaybackSpeedIndex;
+			_showPlaybackMarketChart = options.ShowMarketChart;
+			_showPlaybackXGrid = options.ShowXGrid;
+			_showPlaybackTxFold = options.ShowTxFold;
+			_showPlaybackEquityCurve = options.ShowEquityCurve;
+		}
+
 		#endregion
 
 		#region Options
+
+		[Inject]
+		private ILocalStorageHelper LocalStorage { get; set; } = default!;
+
+		// Round-trips through localStorage since this component's own fields don't survive
+		// navigation; persisting is diffed against _lastPersistedOptionsJson to avoid write spam.
+		private const string OptionsStorageKey = "poink.train2.options";
+
+		private string? _lastPersistedOptionsJson;
+
+		protected override async Task OnAfterRenderAsync(bool firstRender)
+		{
+			if (firstRender)
+			{
+				await LoadPersistedOptionsAsync();
+				return;
+			}
+
+			await PersistOptionsIfChangedAsync();
+		}
+
+		private async Task LoadPersistedOptionsAsync()
+		{
+			var options = await LocalStorage.GetItemAsync<TrainingOptionsModel>(OptionsStorageKey);
+			if (options is null)
+				return;
+
+			ApplyDataOptions(options.Data);
+			ApplyFeatureOptions(options.Features);
+			ApplyNetworkOptions(options.Network);
+			ApplyOutputOptions(options.Output);
+			ApplyTrainingTabOptions(options.Training);
+			ApplyPlaybackOptions(options.Playback);
+			_barWidthSeconds = options.BarWidthSeconds;
+
+			await ApplySelectedSymbolAsync(options.Data.SymbolId);
+
+			_lastPersistedOptionsJson = JsonSerializer.Serialize(CurrentTrainingOptions);
+			StateHasChanged();
+		}
+
+		private async Task PersistOptionsIfChangedAsync()
+		{
+			var json = JsonSerializer.Serialize(CurrentTrainingOptions);
+			if (json == _lastPersistedOptionsJson)
+				return;
+
+			_lastPersistedOptionsJson = json;
+			await LocalStorage.SetItemAsync(OptionsStorageKey, CurrentTrainingOptions);
+		}
 
 		private TrainingOptionsModel CurrentTrainingOptions =>
 			new(
