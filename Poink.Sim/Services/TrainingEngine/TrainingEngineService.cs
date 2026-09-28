@@ -16,7 +16,7 @@ namespace Poink.Sim.Services.TrainingEngine;
 /// each episode's recorded decisions to PolicyGradientLearner afterward. Each episode steps Data
 /// Provider's ticks through Feature Assembler, the network, Action Assembler's decoded action, and
 /// the existing ITrader (position/P&amp;L/commission accounting -- reused like ITickRepository, not
-/// NN-specific), gated by DecisionMask. Reward is plain equity drift, summed inline.
+/// NN-specific), gated by DecisionMask. Reward is each decision's equity drift until the next one.
 ///
 /// Not built yet: Volume/StopLoss/TakeProfit outputs (RunEpisode throws if any are enabled --
 /// CapitalFraction is fixed at 1.0, market orders only). Trader State's Outcomes/PositionLevel/
@@ -74,8 +74,8 @@ internal sealed class TrainingEngineService
 		return results;
 	}
 
-	// decisionDelay/isPaused/cancellationToken back the Live tab's Play/Pause/Speed controls, all
-	// re-read every decision (not snapshotted) so changing Speed mid-episode takes effect immediately.
+	// Reward for a decision is the equity drift while it's in force, resolved once the next decision
+	// arrives -- not a same-tick delta around Apply, which would miss all holding-period P&L.
 	public async Task<EpisodeResult> RunEpisode(
 		TrainingOptionsModel options,
 		MlpNetwork network,
@@ -115,6 +115,8 @@ internal sealed class TrainingEngineService
 		var totalReward = 0.0;
 		var barBuilder = new LiveBarBuilder(options.BarWidthSeconds);
 
+		var previousDecisionEquity = trader.Snapshot(ticks[0].Bid, ticks[0].Ask).Equity;
+
 		foreach (var tick in ticks)
 		{
 			ticksSoFar.Add(tick);
@@ -131,7 +133,13 @@ internal sealed class TrainingEngineService
 				await Task.Delay(150, cancellationToken);
 			cancellationToken.ThrowIfCancellationRequested();
 
-			var equityBefore = trader.Snapshot(bid, ask).Equity;
+			if (steps.Count > 0)
+			{
+				var reward = trader.Snapshot(bid, ask).Equity - previousDecisionEquity;
+				totalReward += reward;
+				steps[^1] = steps[^1] with { EquityDelta = reward };
+				traces[^1] = traces[^1] with { Reward = reward };
+			}
 
 			var featureModel = _featureAssembler.Assemble(
 				options.Features,
@@ -147,10 +155,9 @@ internal sealed class TrainingEngineService
 			var execution = trader.Apply(new SimulationDecision(action, CapitalFraction: 1.0), bid, ask, tick.Timestamp);
 
 			var capitalAfter = trader.Snapshot(bid, ask);
-			var reward = capitalAfter.Equity - equityBefore;
-			totalReward += reward;
-			steps.Add(new EpisodeStep(tick.Timestamp, action, execution, reward));
-			traces.Add(new DecisionTrace(activations, rawOutputs, actionIndex, reward));
+			previousDecisionEquity = capitalAfter.Equity;
+			steps.Add(new EpisodeStep(tick.Timestamp, action, execution, EquityDelta: 0));
+			traces.Add(new DecisionTrace(activations, rawOutputs, actionIndex, Reward: 0));
 
 			onDecision?.Invoke(
 				new LiveEpisodeSnapshot(
@@ -171,6 +178,12 @@ internal sealed class TrainingEngineService
 			var delay = decisionDelay?.Invoke() ?? TimeSpan.Zero;
 			if (delay > TimeSpan.Zero)
 				await Task.Delay(delay, cancellationToken);
+		}
+
+		if (steps.Count > 0)
+		{
+			steps.RemoveAt(steps.Count - 1);
+			traces.RemoveAt(traces.Count - 1);
 		}
 
 		_learner.Learn(network, actionSpace, traces, options.Training.Learning);
