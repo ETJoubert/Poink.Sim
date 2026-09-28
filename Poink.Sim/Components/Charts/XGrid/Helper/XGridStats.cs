@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Poink.Sim.Helpers;
 using Poink.Sim.Models;
 
 namespace Poink.Sim.Components.Charts;
@@ -250,23 +251,20 @@ internal static class XGridStats
 
 		XGridLevel? ToLevel(double? price) => price is { } p ? new XGridLevel(p, RowOf(p)) : null;
 
-		var profileLevels = VolumeProfileStats.Compute(samples);
-		var poc = ToLevel(profileLevels?.Poc);
-		var vah = ToLevel(profileLevels?.ValueAreaHigh);
-		var val = ToLevel(profileLevels?.ValueAreaLow);
-		var average = ToLevel(VolumeProfileStats.ComputeAverage(samples));
-		var median = ToLevel(VolumeProfileStats.ComputeMedian(samples));
+		var priceStats = RangeStatsHelper.Compute(samples, s => s.Price, s => (double)s.Count);
+		var poc = ToLevel(priceStats?.Poc);
+		var vah = ToLevel(priceStats?.Vah);
+		var val = ToLevel(priceStats?.Val);
+		var average = ToLevel(priceStats?.Average);
+		var median = ToLevel(priceStats?.Median);
 
-		double totalVolume = 0,
-			totalPriceVolume = 0;
-		foreach (var i in indices)
-		{
-			totalPriceVolume += bars[i].Average * bars[i].Volume;
-			totalVolume += bars[i].Volume;
-		}
-		var vwap = ToLevel(totalVolume > 0 ? (double?)(totalPriceVolume / totalVolume) : null);
+		var barsInRange = indices.Select(i => bars[i]).ToList();
+		var totalVolume = barsInRange.Sum(b => (double)b.Volume);
+		var vwapStats = RangeStatsHelper.Compute(barsInRange, b => b.Average, b => (double)b.Volume);
+		var vwap = ToLevel(totalVolume > 0 ? vwapStats?.Vwap : null);
 		var current = ToLevel(bars[indices[^1]].Close);
-		var regressionLine = ToLevel(ComputeRegressionCurrent(bars, indices));
+		var regressionStats = barsInRange.Count >= 2 ? RangeStatsHelper.Compute(barsInRange, b => b.Close) : null;
+		var regressionLine = ToLevel(regressionStats?.Regression);
 
 		XGridLevel? PeakLevel(double[] rowSums)
 		{
@@ -315,35 +313,6 @@ internal static class XGridStats
 			downPeak,
 			current
 		);
-	}
-
-	// Ordinary-least-squares fit of Close against bar position, evaluated at the last (current) bar.
-	private static double? ComputeRegressionCurrent(IReadOnlyList<HlocAvdtBar> bars, List<int> indices)
-	{
-		int n = indices.Count;
-		if (n < 2)
-			return null;
-
-		double sumX = 0,
-			sumY = 0,
-			sumXY = 0,
-			sumXX = 0;
-		for (var x = 0; x < n; x++)
-		{
-			double y = bars[indices[x]].Close;
-			sumX += x;
-			sumY += y;
-			sumXY += x * y;
-			sumXX += (double)x * x;
-		}
-
-		double denominator = n * sumXX - sumX * sumX;
-		if (denominator == 0)
-			return null;
-
-		double slope = (n * sumXY - sumX * sumY) / denominator;
-		double intercept = (sumY - slope * sumX) / n;
-		return slope * (n - 1) + intercept;
 	}
 
 	// Walks every position of the Volume Range's near border, one raw bar at a time, tallying
