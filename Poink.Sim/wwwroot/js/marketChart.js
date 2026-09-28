@@ -1054,6 +1054,39 @@ export function setData(id, bars, resetView) {
     drawMinimap(entry);
 }
 
+// Incremental live-tick path (MarketChart.razor.cs's LiveMode): updates the in-progress last
+// bar in place, or appends bar.time as a new one, via lightweight-charts' own series.update()
+// rather than setData()+fitContent() -- the library's real-time path, so price autoscale keeps
+// applying every tick without a full view refit, and the timeline naturally tracks the newest
+// bar at the right edge instead of jumping/rescaling on every call (the "never worked properly"
+// live-chart jitter came from calling fitContent() on every tick, not just genuinely new data).
+export function updateBar(id, bar) {
+    const entry = instances.get(id);
+    if (!entry) return;
+
+    // Belt-and-suspenders: series.update() throws if bar.time is older than the series' last point.
+    // The .NET side should never hand this an out-of-order bar, but a throw here would abort the
+    // whole render pass, so a stale bar is dropped instead -- the next genuine change resyncs it.
+    const bars = entry.bars || [];
+    const lastTime = bars.length > 0 ? bars[bars.length - 1].time : null;
+    if (lastTime !== null && bar.time < lastTime) {
+        console.warn('marketChart: dropped an out-of-order live bar update', { lastTime, barTime: bar.time });
+        return;
+    }
+
+    entry.candleSeries.update({ time: bar.time, open: bar.open, high: bar.high, low: bar.low, close: bar.close });
+    entry.volumeSeries.update({ time: bar.time, value: bar.volume, color: bar.close >= bar.open ? upColor : downColor });
+
+    if (lastTime === bar.time) {
+        bars[bars.length - 1] = bar;
+    } else {
+        bars.push(bar);
+    }
+    entry.bars = bars;
+    entry.hasData = true;
+    drawMinimap(entry);
+}
+
 // points: [{ time, price }] -- see MarketChart.razor.cs's VwapLine parameter.
 export function setVwapLine(id, points) {
     const entry = instances.get(id);

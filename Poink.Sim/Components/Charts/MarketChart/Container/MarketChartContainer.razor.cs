@@ -52,6 +52,9 @@ namespace Poink.Sim.Components.Charts
 		public bool KeepView { get; set; }
 
 		[Parameter]
+		public bool LiveMode { get; set; }
+
+		[Parameter]
 		public EventCallback OnNearStart { get; set; }
 
 		[Parameter]

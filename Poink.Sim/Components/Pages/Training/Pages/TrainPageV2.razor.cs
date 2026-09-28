@@ -35,7 +35,7 @@ namespace Poink.Sim.Components.Pages
 			Output,
 			Training,
 			Run,
-			Playback,
+			Live,
 		}
 
 		private static readonly TrainV2Tab[] Tabs =
@@ -46,7 +46,7 @@ namespace Poink.Sim.Components.Pages
 			TrainV2Tab.Output,
 			TrainV2Tab.Training,
 			TrainV2Tab.Run,
-			TrainV2Tab.Playback,
+			TrainV2Tab.Live,
 		];
 
 		private TrainV2Tab _activeTab = TrainV2Tab.Data;
@@ -60,7 +60,7 @@ namespace Poink.Sim.Components.Pages
 				TrainV2Tab.Output => "How the network's raw outputs map to trade actions",
 				TrainV2Tab.Training => "How episodes are timed/sampled, and the trader each one starts with",
 				TrainV2Tab.Run => "Start/pause/step the run and review live/saved results",
-				TrainV2Tab.Playback => "Replay a single episode bar by bar across the chart panels below",
+				TrainV2Tab.Live => "Watch the charts, equity curve and feature values for the episode currently in progress",
 				_ => "",
 			};
 
@@ -282,20 +282,6 @@ namespace Poink.Sim.Components.Pages
 		// Features grid below can read it); the grid itself shows field labels only, no fetched data.
 		private HashSet<int> _txFoldSelectedSeconds = [60, 120, 240, 480, 900, 1800, 3600, 7200];
 		private BarAggregationKind _txFoldBarKind = BarAggregationKind.Ohlc;
-
-		private static string TxFoldTimeframeLabel(int seconds) =>
-			SnapshotTimeframeOptions.All.FirstOrDefault(o => o.Seconds == seconds).Label;
-
-		// Every kind stores exactly 4 values per bar -- Quartile/Decile/MeanStdDev just relabel the
-		// same 4 slots (see TxFoldStats.BuildBar) rather than adding a 5th.
-		private static string[] TxFoldFieldLabels(BarAggregationKind kind) =>
-			kind switch
-			{
-				BarAggregationKind.Quartile => ["Q1", "Max", "Min", "Q3"],
-				BarAggregationKind.Decile => ["D1", "Max", "Min", "D9"],
-				BarAggregationKind.MeanStdDev => ["Mean", "+SD", "-SD", "Mean"],
-				_ => ["O", "H", "L", "C"],
-			};
 
 		// Picked on the Features tab because it sets XGrid's window; the Training tab reads it for Episode span.
 		private int _barWidthSeconds = 60;
@@ -957,7 +943,7 @@ namespace Poink.Sim.Components.Pages
 					}
 					cancellationToken.ThrowIfCancellationRequested();
 
-					RunOneEpisode(options, random);
+					await RunOneEpisode(options, random, cancellationToken);
 					await InvokeAsync(StateHasChanged);
 				}
 			}
@@ -987,10 +973,20 @@ namespace Poink.Sim.Components.Pages
 			_runNetwork = TrainingEngineService.BuildNetwork(options, _runActionSpace, random);
 		}
 
-		private void RunOneEpisode(TrainingOptionsModel options, Random random)
+		private async Task RunOneEpisode(TrainingOptionsModel options, Random random, CancellationToken cancellationToken)
 		{
+			ResetLiveEpisodeState();
 			var stopwatch = Stopwatch.StartNew();
-			var result = TrainingEngineService.RunEpisode(options, _runNetwork!, _runActionSpace!, random);
+			var result = await TrainingEngineService.RunEpisode(
+				options,
+				_runNetwork!,
+				_runActionSpace!,
+				random,
+				OnLiveDecision,
+				() => LiveDecisionDelay,
+				() => _isPaused,
+				cancellationToken
+			);
 			stopwatch.Stop();
 
 			_episodesCompleted++;
@@ -1013,17 +1009,22 @@ namespace Poink.Sim.Components.Pages
 				_episodeMetrics.RemoveAt(0);
 		}
 
-		private void StepRun()
+		private async Task StepRun()
 		{
-			if (_isRunning)
+			if (_isRunning && !_isPaused)
 				return;
 
 			try
 			{
 				var options = CurrentTrainingOptions;
 				EnsureRunNetwork(options);
-				RunOneEpisode(options, new Random());
+				_runCancellation = new CancellationTokenSource();
+				await RunOneEpisode(options, new Random(), _runCancellation.Token);
 				_runError = null;
+			}
+			catch (OperationCanceledException)
+			{
+				// Expected when Reset cancels mid-step.
 			}
 			catch (Exception ex)
 			{
@@ -1047,6 +1048,7 @@ namespace Poink.Sim.Components.Pages
 			_recentAverageReward = 0;
 			_episodesPerSecond = 0;
 			_runError = null;
+			ResetLiveEpisodeState();
 		}
 
 		private void PauseRun() => _isPaused = true;
@@ -1062,114 +1064,111 @@ namespace Poink.Sim.Components.Pages
 
 		#endregion
 
-		#region Playback
+		#region Live
 
-		// Wireframe only -- mirrors EpisodePlayback's controls/panel toggles, not wired to a real replay.
-		private bool _isPlaying;
+		private const int MaxLiveBars = 500;
+		private const int MaxLiveEquityPoints = 2000;
 
-		private static readonly double[] PlaybackSpeedOptions = { 0.25, 0.5, 1, 2, 5, 10, 25 };
+		// One atomically-swapped, fully-immutable snapshot, not several separately-mutated fields --
+		// OnLiveDecision runs on the background training thread while the page renders on its own.
+		private sealed record LiveUiState(
+			LiveEpisodeSnapshot Snapshot,
+			IReadOnlyList<CTraderBarRow> Bars,
+			IReadOnlyList<DateTime> EquityTimestamps,
+			IReadOnlyList<double> EquityValues,
+			int ActionCount
+		);
 
-		private int _playbackSpeedIndex = 2;
+		private LiveUiState? _liveState;
 
-		private bool _showPlaybackMarketChart = true;
-		private bool _showPlaybackXGrid = true;
-		private bool _showPlaybackTxFold = true;
-		private bool _showPlaybackEquityCurve = true;
-		private bool _showPlaybackFeatures = true;
+		private void ResetLiveEpisodeState() => _liveState = null;
 
-		private void TogglePlayback() => _isPlaying = !_isPlaying;
+		// RunEpisode's onDecision callback -- fires on the background training-loop thread, once per decision.
+		private void OnLiveDecision(LiveEpisodeSnapshot snapshot)
+		{
+			var previous = _liveState;
 
-		private void DecreasePlaybackSpeed() => _playbackSpeedIndex = Math.Max(0, _playbackSpeedIndex - 1);
+			var bars = previous?.Bars ?? [];
+			if (snapshot.ClosedBar is { } closed)
+			{
+				var updatedBars = new List<CTraderBarRow>(bars) { closed };
+				if (updatedBars.Count > MaxLiveBars)
+					updatedBars.RemoveAt(0);
+				bars = updatedBars;
+			}
 
-		private void IncreasePlaybackSpeed() =>
-			_playbackSpeedIndex = Math.Min(PlaybackSpeedOptions.Length - 1, _playbackSpeedIndex + 1);
+			var timestamps = new List<DateTime>(previous?.EquityTimestamps ?? []) { snapshot.Timestamp };
+			var values = new List<double>(previous?.EquityValues ?? []) { snapshot.Capital.Equity };
+			if (timestamps.Count > MaxLiveEquityPoints)
+			{
+				timestamps.RemoveAt(0);
+				values.RemoveAt(0);
+			}
 
-		private static string FormatPlaybackSpeed(double speed) =>
+			_liveState = new LiveUiState(snapshot, bars, timestamps, values, (previous?.ActionCount ?? 0) + 1);
+
+			_ = InvokeAsync(StateHasChanged);
+		}
+
+		// Includes the in-progress bar so the chart's last candle keeps updating between closes.
+		private static List<CTraderBarRow> BuildLiveChartBars(LiveUiState? live) =>
+			live is { } s ? [.. s.Bars, s.Snapshot.CurrentBar] : [];
+
+		private static IReadOnlyList<EquityCurveSample> BuildLiveEquitySamples(LiveUiState? live) =>
+			live is null ? [] : EquityCurveHelper.Build(live.EquityTimestamps, live.EquityValues, live.Snapshot.ClosedTrades);
+
+		private IReadOnlyList<FeatureDisplayRow> BuildLiveFeatureRows(LiveUiState? live) =>
+			live is { } s ? FeatureDisplayFormatter.Build(s.Snapshot.Features, _txFoldBarKind) : [];
+
+		private static TimeSpan? BuildLiveTimePassed(LiveUiState? live) =>
+			live is { } s ? s.Snapshot.Timestamp - s.Snapshot.EpisodeStart : null;
+
+		// Direction is the only group the engine decides today (Volume/StopLoss/TakeProfit throw if
+		// enabled) -- feeds BrainIoPanel, the same action-distribution card the old training page uses.
+		private IReadOnlyList<RlOutputFeature>? BuildLiveOutputFeatures(LiveUiState? live)
+		{
+			if (live is null || _runActionSpace is not { } actionSpace)
+				return null;
+
+			var s = live.Snapshot;
+			var probabilities = actionSpace.Probabilities(s.RawDirectionOutputs);
+			return actionSpace
+				.Directions.Select(
+					(direction, i) => new RlOutputFeature(direction.ToString(), probabilities[i], direction == s.Action, s.RawDirectionOutputs[i])
+				)
+				.ToList();
+		}
+
+		// Speed governs the actual training loop's pace (RunEpisode's decisionDelay), not just redraws.
+		// A null step is MAX -- decisionDelay becomes exactly zero, real unthrottled training speed.
+		private static readonly double?[] LiveSpeedOptions = { 0.1, 1, 10, 100, 1000, null };
+		private const double LiveBaseDecisionDelayMs = 200;
+
+		private int _liveSpeedIndex = 1;
+
+		private TimeSpan LiveDecisionDelay =>
+			LiveSpeedOptions[_liveSpeedIndex] is { } multiplier ? TimeSpan.FromMilliseconds(LiveBaseDecisionDelayMs / multiplier) : TimeSpan.Zero;
+
+		private static string LiveSpeedLabel(double? multiplier) => multiplier is { } value ? FormatSpeedMultiplier(value) : "MAX";
+
+		private static string FormatSpeedMultiplier(double speed) =>
 			(speed < 1 ? speed.ToString("0.##", CultureInfo.InvariantCulture) : speed.ToString("0", CultureInfo.InvariantCulture)) + "x";
 
-		private PlaybackOptionsModel CurrentPlaybackOptions =>
-			new(_playbackSpeedIndex, _showPlaybackMarketChart, _showPlaybackXGrid, _showPlaybackTxFold, _showPlaybackEquityCurve, _showPlaybackFeatures);
+		private void DecreaseLiveSpeed() => _liveSpeedIndex = Math.Max(0, _liveSpeedIndex - 1);
 
-		private void ApplyPlaybackOptions(PlaybackOptionsModel options)
+		private void IncreaseLiveSpeed() => _liveSpeedIndex = Math.Min(LiveSpeedOptions.Length - 1, _liveSpeedIndex + 1);
+
+		// Single Play/Pause toggle for the Live tab -- Start/Pause/Resume stay separate methods
+		// since the Run tab still shows them as distinct buttons.
+		private void ToggleLiveRun()
 		{
-			_playbackSpeedIndex = options.PlaybackSpeedIndex;
-			_showPlaybackMarketChart = options.ShowMarketChart;
-			_showPlaybackXGrid = options.ShowXGrid;
-			_showPlaybackTxFold = options.ShowTxFold;
-			_showPlaybackEquityCurve = options.ShowEquityCurve;
-			_showPlaybackFeatures = options.ShowFeatures;
+			if (_isPaused)
+				ResumeRun();
+			else if (_isRunning)
+				PauseRun();
+			else
+				StartRun();
 		}
-
-		// Wireframe only -- built from the Features tab's current selections with zeroed values,
-		// since no live episode is running yet to source real per-step data from.
-		private FeatureModel PlaceholderFeatureModel =>
-			new(
-				new XGridSignalsFeature(_xGridEnabledSignals.ToDictionary(key => key, _ => 0.0)),
-				new TxFoldFeature(_txFoldSelectedSeconds.ToDictionary(seconds => seconds, _ => new float[TxFoldValuesPerTimeframe])),
-				new TraderStateFeature(
-					_traderStateIncludePosition ? 0 : null,
-					_traderStateIncludePositionPrice ? 0 : null,
-					_traderStateIncludePositionTicks ? 0 : null,
-					_traderStateIncludePositionDistance ? 0 : null,
-					_traderStateIncludeCurrentPrice ? 0 : null,
-					_traderStateIncludeCash ? 0 : null,
-					_traderStateIncludeRealized ? 0 : null,
-					_traderStateIncludeUnrealized ? 0 : null,
-					_traderStateIncludeEquity ? 0 : null,
-					_traderStateIncludeMargin ? 0 : null,
-					_traderStateIncludeMarginLevel ? 0 : null,
-					_traderStateIncludePositionCount ? 0 : null,
-					_includeTraderStateOutcomes ? new double[_traderStateOutcomeListLength] : null,
-					_includeTraderStatePositionLevel ? new double[_traderStatePositionLevelListLength] : null,
-					_includeTraderStateDirection ? new double[_traderStateDirectionListLength] : null
-				)
-			);
-
-		private sealed record FeatureDisplayRow(string Section, string Label, string Value);
-
-		private IReadOnlyList<FeatureDisplayRow> FeatureDisplayRows => BuildFeatureDisplayRows(PlaceholderFeatureModel);
-
-		// Reflection-driven so this panel doesn't need updating when FeatureModel's shape changes;
-		// XGridSignalsFeature/TxFoldFeature are walked as dictionaries since their keys vary per selection.
-		private IReadOnlyList<FeatureDisplayRow> BuildFeatureDisplayRows(FeatureModel model)
-		{
-			var rows = new List<FeatureDisplayRow>();
-			foreach (var section in typeof(FeatureModel).GetProperties())
-			{
-				switch (section.GetValue(model))
-				{
-					case XGridSignalsFeature xGrid:
-						foreach (var (key, value) in xGrid.SignalValues)
-							rows.Add(new FeatureDisplayRow(section.Name, key, value.ToString("0.###")));
-						break;
-					case TxFoldFeature txFold:
-						foreach (var (seconds, values) in txFold.ValuesBySeconds.OrderBy(kv => kv.Key))
-						{
-							var labels = TxFoldFieldLabels(_txFoldBarKind);
-							for (var i = 0; i < values.Length; i++)
-								rows.Add(new FeatureDisplayRow(section.Name, $"{TxFoldTimeframeLabel(seconds)} {labels[i]}", values[i].ToString("0.###")));
-						}
-						break;
-					case { } feature:
-						foreach (var property in feature.GetType().GetProperties())
-						{
-							var value = property.GetValue(feature);
-							if (value is not null)
-								rows.Add(new FeatureDisplayRow(section.Name, property.Name, FormatFeatureValue(value)));
-						}
-						break;
-				}
-			}
-			return rows;
-		}
-
-		private static string FormatFeatureValue(object value) =>
-			value switch
-			{
-				IReadOnlyList<double> list => string.Join(", ", list.Select(v => v.ToString("0.###"))),
-				double number => number.ToString("0.###"),
-				_ => value.ToString() ?? "",
-			};
 
 		#endregion
 
@@ -1206,7 +1205,6 @@ namespace Poink.Sim.Components.Pages
 			ApplyNetworkOptions(options.Network);
 			ApplyOutputOptions(options.Output);
 			ApplyTrainingTabOptions(options.Training);
-			ApplyPlaybackOptions(options.Playback);
 			_barWidthSeconds = options.BarWidthSeconds;
 
 			await ApplySelectedSymbolAsync(options.Data.SymbolId);
@@ -1232,7 +1230,6 @@ namespace Poink.Sim.Components.Pages
 				CurrentNetworkOptions,
 				CurrentOutputOptions,
 				CurrentTrainingTabOptions,
-				CurrentPlaybackOptions,
 				_barWidthSeconds
 			);
 

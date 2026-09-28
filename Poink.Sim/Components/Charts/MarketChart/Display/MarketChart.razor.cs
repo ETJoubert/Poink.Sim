@@ -93,6 +93,15 @@ namespace Poink.Sim.Components.Charts
 		[Parameter]
 		public bool KeepView { get; set; }
 
+		/// <summary>
+		/// A Bars update that only changed/appended the last bar updates that one bar in place
+		/// (lightweight-charts' own real-time path) instead of replacing the whole dataset and
+		/// re-fitting the view -- for a chart fed one streaming episode's ticks, where a full
+		/// setData()+fitContent() on every tick is what previously made the view jitter/rescale.
+		/// </summary>
+		[Parameter]
+		public bool LiveMode { get; set; }
+
 		/// <summary>Fires when panning/zooming nears the oldest loaded bar, so the caller can prepend an older chunk.</summary>
 		[Parameter]
 		public EventCallback OnNearStart { get; set; }
@@ -220,17 +229,18 @@ namespace Poink.Sim.Components.Charts
 
 				if (_module is not null && _chartId is not null && !ReferenceEquals(_renderedBars, Bars))
 				{
-					_renderedBars = Bars;
-					var payload = Bars.Select(b => new
+					var change = ClassifyBarsChange(_renderedBars, Bars);
+					if (LiveMode && change is BarsChange.LastBarUpdated or BarsChange.BarAppended)
 					{
-						time = new DateTimeOffset(b.TimeUtc, TimeSpan.Zero).ToUnixTimeSeconds(),
-						open = b.Open,
-						high = b.High,
-						low = b.Low,
-						close = b.Close,
-						volume = b.Volume,
-					});
-					await _module.InvokeVoidAsync("setData", _chartId, payload, !KeepView);
+						await _module.InvokeVoidAsync("updateBar", _chartId, ToJsBar(Bars[^1]));
+						_renderedBars = Bars;
+					}
+					else if (change != BarsChange.None)
+					{
+						var payload = Bars.Select(ToJsBar);
+						await _module.InvokeVoidAsync("setData", _chartId, payload, !KeepView);
+						_renderedBars = Bars;
+					}
 				}
 
 				if (_disposed)
@@ -483,6 +493,51 @@ namespace Poink.Sim.Components.Charts
 			if (OnDrawFinished.HasDelegate)
 				await OnDrawFinished.InvokeAsync();
 		}
+
+		private enum BarsChange
+		{
+			None,
+			LastBarUpdated,
+			BarAppended,
+			Reset,
+		}
+
+		// Content-based, not ReferenceEquals -- a caller rebuilding Bars fresh every render (e.g. a
+		// computed property) must not force a full setData()/fitContent() when nothing actually changed.
+		private static BarsChange ClassifyBarsChange(List<CTraderBarRow>? previous, List<CTraderBarRow> current)
+		{
+			if (previous is null || current.Count == 0)
+				return BarsChange.Reset;
+
+			if (current.Count == previous.Count)
+			{
+				for (var i = 0; i < current.Count - 1; i++)
+					if (current[i] != previous[i])
+						return BarsChange.Reset;
+				return current[^1] == previous[^1] ? BarsChange.None : BarsChange.LastBarUpdated;
+			}
+
+			if (current.Count == previous.Count + 1)
+			{
+				for (var i = 0; i < previous.Count; i++)
+					if (current[i] != previous[i])
+						return BarsChange.Reset;
+				return BarsChange.BarAppended;
+			}
+
+			return BarsChange.Reset;
+		}
+
+		private static object ToJsBar(CTraderBarRow b) =>
+			new
+			{
+				time = new DateTimeOffset(b.TimeUtc, TimeSpan.Zero).ToUnixTimeSeconds(),
+				open = b.Open,
+				high = b.High,
+				low = b.Low,
+				close = b.Close,
+				volume = b.Volume,
+			};
 
 		private static Task InvokeIfBound<T>(EventCallback<T> callback, T value) =>
 			callback.HasDelegate ? callback.InvokeAsync(value) : Task.CompletedTask;

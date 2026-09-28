@@ -1,0 +1,157 @@
+@namespace Poink.Sim.Components.Training
+@using Poink.Sim.Components.Charts
+@using Poink.Sim.Components.Shared.BrainIoPanel
+@using Poink.Sim.Components.Shared.Icon
+
+<div class="lev-root">
+    <div class="lev-controls">
+        <button type="button" class="lev-btn lev-btn-play" @onclick="OnPlayPause"
+                title="@(IsRunning && !IsPaused ? "Pause training" : IsPaused ? "Resume training from where it paused" : "Start training")">
+            <Icon Name="@(IsRunning && !IsPaused ? "pause-fill" : "play-fill")" Class="lev-run-icon" />
+            @(IsRunning && !IsPaused ? "PAUSE" : "PLAY")
+        </button>
+        <button type="button" class="lev-btn" @onclick="OnStep" disabled="@(IsRunning && !IsPaused)"
+                title="Run exactly one episode, live, then pause -- lets you watch a single episode from the start">
+            <Icon Name="skip-end-fill" Class="lev-run-icon" />
+            STEP
+        </button>
+        <button type="button" class="lev-btn" @onclick="OnReset"
+                title="Stop training and clear this run's progress -- the Data/Features/Network/Output/Training setup stays as configured">
+            <Icon Name="arrow-clockwise" Class="lev-run-icon" />
+            RESET
+        </button>
+        <div class="lev-speed" title="How fast the live episode plays -- lower values slow decisions down so you can actually watch them; higher values approach real training speed">
+            <button type="button" class="lev-speed-btn" @onclick="OnDecreaseSpeed" disabled="@(!CanDecreaseSpeed)" title="Slower">-</button>
+            <span class="lev-speed-value">@SpeedLabel</span>
+            <button type="button" class="lev-speed-btn" @onclick="OnIncreaseSpeed" disabled="@(!CanIncreaseSpeed)" title="Faster">+</button>
+        </div>
+        <span class="lev-episode-count" title="Episodes completed this run, out of the configured target">
+            @EpisodesCompleted / @TargetEpisodeCount episodes
+        </span>
+    </div>
+    @if (RunError is not null)
+    {
+        <p class="lev-warning" title="@RunError">Run stopped: @RunError</p>
+    }
+
+    @if (!HasSnapshot)
+    {
+        <p class="lev-placeholder">@(IsRunning ? "waiting for the first decision..." : "start a run on the Run tab to see live episode data here")</p>
+    }
+    else
+    {
+        <div class="lev-status-row">
+            <div class="lev-stat" title="Timestamp of the most recent decision">
+                <span class="lev-stat-label">time</span>
+                <span class="lev-stat-value">@Timestamp?.ToString("yyyy-MM-dd HH:mm:ss")</span>
+            </div>
+            <div class="lev-stat" title="Simulated time elapsed since this episode started">
+                <span class="lev-stat-label">time passed</span>
+                <span class="lev-stat-value">@FormatTimePassed(TimePassed)</span>
+            </div>
+            <div class="lev-stat" title="Action chosen on the most recent decision">
+                <span class="lev-stat-label">last action</span>
+                <span class="lev-stat-value">@LastAction</span>
+            </div>
+            <div class="lev-stat" title="Decisions made so far this episode">
+                <span class="lev-stat-label">actions</span>
+                <span class="lev-stat-value">@ActionCount</span>
+            </div>
+            <div class="lev-stat" title="Current equity -- cash plus unrealized profit/loss">
+                <span class="lev-stat-label">equity</span>
+                <span class="lev-stat-value">@Equity.ToString("N2")</span>
+            </div>
+            <div class="lev-stat" title="Realized profit/loss booked so far this episode">
+                <span class="lev-stat-label">realized</span>
+                <span class="lev-stat-value">@RealizedPnl.ToString("N2")</span>
+            </div>
+            <div class="lev-stat" title="Unrealized profit/loss on the currently open position">
+                <span class="lev-stat-label">unrealized</span>
+                <span class="lev-stat-value">@UnrealizedPnl.ToString("N2")</span>
+            </div>
+        </div>
+    }
+
+    <div class="lev-panel-toggles" title="Show or hide each panel below">
+        <span class="lev-panel-toggles-label">Panels</span>
+        <button type="button" class="lev-panel-toggle-btn @(_showMarketChart ? "active" : "")"
+                @onclick="() => _showMarketChart = !_showMarketChart" title="Show or hide the live price chart">Chart</button>
+        <button type="button" class="lev-panel-toggle-btn @(_showXGrid ? "active" : "")"
+                @onclick="() => _showXGrid = !_showXGrid"
+                title="Show or hide the footprint grid -- not wired to live data yet, XGrid Signals feature encoding is still deferred">XGrid</button>
+        <button type="button" class="lev-panel-toggle-btn @(_showTxFold ? "active" : "")"
+                @onclick="() => _showTxFold = !_showTxFold"
+                title="Show or hide the multi-timeframe TxFold snapshot, anchored to the episode's current time">TxFold</button>
+        <button type="button" class="lev-panel-toggle-btn @(_showEquityCurve ? "active" : "")"
+                @onclick="() => _showEquityCurve = !_showEquityCurve" title="Show or hide this episode's equity curve">Equity curve</button>
+        <button type="button" class="lev-panel-toggle-btn @(_showFeatures ? "active" : "")"
+                @onclick="() => _showFeatures = !_showFeatures" title="Show or hide the current feature values">Features</button>
+        <button type="button" class="lev-panel-toggle-btn @(_showActions ? "active" : "")"
+                @onclick="() => _showActions = !_showActions" title="Show or hide the network's action probability distribution">Actions</button>
+    </div>
+
+    <div class="lev-grid">
+        @if (_showMarketChart)
+        {
+            <div class="lev-card lev-card-nopad lev-panel" title="Live price chart built from the current episode's ticks">
+                <MarketChartContainer Bars="Bars" Interactive="false" LiveMode="true" CurrentBid="@Bid" CurrentAsk="@Ask" />
+            </div>
+        }
+        @if (_showXGrid)
+        {
+            <div class="lev-card lev-card-nopad lev-panel">
+                <XGridController />
+                <p class="lev-placeholder">XGrid Signals live view isn't wired yet -- its feature encoding is still deferred (see Features tab).</p>
+            </div>
+        }
+        @if (_showTxFold)
+        {
+            <div class="lev-card lev-card-nopad lev-panel" title="TxFold snapshot for the episode's symbol, anchored to the current decision's time">
+                <TxFold Table="@Table" AnchorEnd="@(Timestamp ?? DateTime.UtcNow)" RangeStart="@(Timestamp ?? DateTime.UtcNow)" />
+            </div>
+        }
+        @if (_showEquityCurve)
+        {
+            <div class="lev-card lev-card-nopad lev-panel" title="Equity over time for the episode currently in progress">
+                <EquityCurve Samples="EquitySamples" />
+            </div>
+        }
+        @if (_showFeatures)
+        {
+            <div class="lev-card lev-panel lev-features" title="Every enabled feature's current value for the most recent decision, grouped by source">
+                <div class="lev-card-title-row">
+                    <span class="lev-card-title">Features</span>
+                    <span class="lev-card-badge" title="Total feature values shown below">@FeatureRows.Count</span>
+                </div>
+                @if (FeatureRows.Count == 0)
+                {
+                    <p class="lev-placeholder">none yet</p>
+                }
+                else
+                {
+                    <div class="lev-features-grid">
+                        @foreach (var group in FeatureRows.GroupBy(r => r.Section))
+                        {
+                            <div class="lev-features-section">
+                                <span class="lev-features-section-title">@group.Key</span>
+                                @foreach (var row in group)
+                                {
+                                    <div class="lev-features-row" title="@row.Label">
+                                        <span class="lev-features-label">@row.Label</span>
+                                        <span class="lev-features-value">@row.Value</span>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        }
+        @if (_showActions)
+        {
+            <div class="lev-card lev-panel" title="The network's action probability distribution on the most recent decision -- same card the old training page uses">
+                <BrainIoPanel Outputs="ActionOutputs" CurrentPrice="@((Bid + Ask) / 2)" Equity="@Equity" />
+            </div>
+        }
+    </div>
+</div>

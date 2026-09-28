@@ -11,7 +11,6 @@ namespace Poink.Sim.Models.TrainingModels
 		NetworkOptionsModel Network,
 		OutputOptionsModel Output,
 		TrainingTabOptionsModel Training,
-		PlaybackOptionsModel Playback,
 		int BarWidthSeconds = 60
 	);
 }
