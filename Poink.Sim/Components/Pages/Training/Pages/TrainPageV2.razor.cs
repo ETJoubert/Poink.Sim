@@ -36,7 +36,6 @@ namespace Poink.Sim.Components.Pages
 			Training,
 			Run,
 			Live,
-			Playback,
 		}
 
 		private static readonly TrainV2Tab[] Tabs =
@@ -48,7 +47,6 @@ namespace Poink.Sim.Components.Pages
 			TrainV2Tab.Training,
 			TrainV2Tab.Run,
 			TrainV2Tab.Live,
-			TrainV2Tab.Playback,
 		];
 
 		private TrainV2Tab _activeTab = TrainV2Tab.Data;
@@ -63,7 +61,6 @@ namespace Poink.Sim.Components.Pages
 				TrainV2Tab.Training => "How episodes are timed/sampled, and the trader each one starts with",
 				TrainV2Tab.Run => "Start/pause/step the run and review live/saved results",
 				TrainV2Tab.Live => "Watch the charts, equity curve and feature values for the episode currently in progress",
-				TrainV2Tab.Playback => "Replay a single episode bar by bar across the chart panels below",
 				_ => "",
 			};
 
@@ -1163,14 +1160,17 @@ namespace Poink.Sim.Components.Pages
 		private TimeSpan LiveDecisionDelay =>
 			LiveSpeedOptions[_liveSpeedIndex] is { } multiplier ? TimeSpan.FromMilliseconds(LiveBaseDecisionDelayMs / multiplier) : TimeSpan.Zero;
 
-		private static string LiveSpeedLabel(double? multiplier) => multiplier is { } value ? FormatPlaybackSpeed(value) : "MAX";
+		private static string LiveSpeedLabel(double? multiplier) => multiplier is { } value ? FormatSpeedMultiplier(value) : "MAX";
+
+		private static string FormatSpeedMultiplier(double speed) =>
+			(speed < 1 ? speed.ToString("0.##", CultureInfo.InvariantCulture) : speed.ToString("0", CultureInfo.InvariantCulture)) + "x";
 
 		private void DecreaseLiveSpeed() => _liveSpeedIndex = Math.Max(0, _liveSpeedIndex - 1);
 
 		private void IncreaseLiveSpeed() => _liveSpeedIndex = Math.Min(LiveSpeedOptions.Length - 1, _liveSpeedIndex + 1);
 
-		// Single Play/Pause toggle for the Live tab, mirroring Playback's button -- Start/Pause/Resume
-		// stay separate methods since the Run tab still shows them as distinct buttons.
+		// Single Play/Pause toggle for the Live tab -- Start/Pause/Resume stay separate methods
+		// since the Run tab still shows them as distinct buttons.
 		private void ToggleLiveRun()
 		{
 			if (_isPaused)
@@ -1180,74 +1180,6 @@ namespace Poink.Sim.Components.Pages
 			else
 				StartRun();
 		}
-
-		#endregion
-
-		#region Playback
-
-		// Wireframe only -- mirrors EpisodePlayback's controls/panel toggles, not wired to a real replay.
-		private bool _isPlaying;
-
-		private static readonly double[] PlaybackSpeedOptions = { 0.25, 0.5, 1, 2, 5, 10, 25 };
-
-		private int _playbackSpeedIndex = 2;
-
-		private bool _showPlaybackMarketChart = true;
-		private bool _showPlaybackXGrid = true;
-		private bool _showPlaybackTxFold = true;
-		private bool _showPlaybackEquityCurve = true;
-		private bool _showPlaybackFeatures = true;
-
-		private void TogglePlayback() => _isPlaying = !_isPlaying;
-
-		private void DecreasePlaybackSpeed() => _playbackSpeedIndex = Math.Max(0, _playbackSpeedIndex - 1);
-
-		private void IncreasePlaybackSpeed() =>
-			_playbackSpeedIndex = Math.Min(PlaybackSpeedOptions.Length - 1, _playbackSpeedIndex + 1);
-
-		private static string FormatPlaybackSpeed(double speed) =>
-			(speed < 1 ? speed.ToString("0.##", CultureInfo.InvariantCulture) : speed.ToString("0", CultureInfo.InvariantCulture)) + "x";
-
-		private PlaybackOptionsModel CurrentPlaybackOptions =>
-			new(_playbackSpeedIndex, _showPlaybackMarketChart, _showPlaybackXGrid, _showPlaybackTxFold, _showPlaybackEquityCurve, _showPlaybackFeatures);
-
-		private void ApplyPlaybackOptions(PlaybackOptionsModel options)
-		{
-			_playbackSpeedIndex = options.PlaybackSpeedIndex;
-			_showPlaybackMarketChart = options.ShowMarketChart;
-			_showPlaybackXGrid = options.ShowXGrid;
-			_showPlaybackTxFold = options.ShowTxFold;
-			_showPlaybackEquityCurve = options.ShowEquityCurve;
-			_showPlaybackFeatures = options.ShowFeatures;
-		}
-
-		// Wireframe only -- built from the Features tab's current selections with zeroed values,
-		// since no live episode is running yet to source real per-step data from.
-		private FeatureModel PlaceholderFeatureModel =>
-			new(
-				new XGridSignalsFeature(_xGridEnabledSignals.ToDictionary(key => key, _ => 0.0)),
-				new TxFoldFeature(_txFoldSelectedSeconds.ToDictionary(seconds => seconds, _ => new float[TxFoldValuesPerTimeframe])),
-				new TraderStateFeature(
-					_traderStateIncludePosition ? 0 : null,
-					_traderStateIncludePositionPrice ? 0 : null,
-					_traderStateIncludePositionTicks ? 0 : null,
-					_traderStateIncludePositionDistance ? 0 : null,
-					_traderStateIncludeCurrentPrice ? 0 : null,
-					_traderStateIncludeCash ? 0 : null,
-					_traderStateIncludeRealized ? 0 : null,
-					_traderStateIncludeUnrealized ? 0 : null,
-					_traderStateIncludeEquity ? 0 : null,
-					_traderStateIncludeMargin ? 0 : null,
-					_traderStateIncludeMarginLevel ? 0 : null,
-					_traderStateIncludePositionCount ? 0 : null,
-					_includeTraderStateOutcomes ? new double[_traderStateOutcomeListLength] : null,
-					_includeTraderStatePositionLevel ? new double[_traderStatePositionLevelListLength] : null,
-					_includeTraderStateDirection ? new double[_traderStateDirectionListLength] : null
-				)
-			);
-
-		private IReadOnlyList<FeatureDisplayRow> FeatureDisplayRows =>
-			FeatureDisplayFormatter.Build(PlaceholderFeatureModel, _txFoldBarKind);
 
 		#endregion
 
@@ -1284,7 +1216,6 @@ namespace Poink.Sim.Components.Pages
 			ApplyNetworkOptions(options.Network);
 			ApplyOutputOptions(options.Output);
 			ApplyTrainingTabOptions(options.Training);
-			ApplyPlaybackOptions(options.Playback);
 			_barWidthSeconds = options.BarWidthSeconds;
 
 			await ApplySelectedSymbolAsync(options.Data.SymbolId);
@@ -1310,7 +1241,6 @@ namespace Poink.Sim.Components.Pages
 				CurrentNetworkOptions,
 				CurrentOutputOptions,
 				CurrentTrainingTabOptions,
-				CurrentPlaybackOptions,
 				_barWidthSeconds
 			);
 
