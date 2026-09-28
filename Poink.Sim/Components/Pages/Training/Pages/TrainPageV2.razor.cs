@@ -917,6 +917,7 @@ namespace Poink.Sim.Components.Pages
 		private bool _showPlaybackXGrid = true;
 		private bool _showPlaybackTxFold = true;
 		private bool _showPlaybackEquityCurve = true;
+		private bool _showPlaybackFeatures = true;
 
 		private void TogglePlayback() => _isPlaying = !_isPlaying;
 
@@ -929,7 +930,7 @@ namespace Poink.Sim.Components.Pages
 			(speed < 1 ? speed.ToString("0.##", CultureInfo.InvariantCulture) : speed.ToString("0", CultureInfo.InvariantCulture)) + "x";
 
 		private PlaybackOptionsModel CurrentPlaybackOptions =>
-			new(_playbackSpeedIndex, _showPlaybackMarketChart, _showPlaybackXGrid, _showPlaybackTxFold, _showPlaybackEquityCurve);
+			new(_playbackSpeedIndex, _showPlaybackMarketChart, _showPlaybackXGrid, _showPlaybackTxFold, _showPlaybackEquityCurve, _showPlaybackFeatures);
 
 		private void ApplyPlaybackOptions(PlaybackOptionsModel options)
 		{
@@ -938,7 +939,79 @@ namespace Poink.Sim.Components.Pages
 			_showPlaybackXGrid = options.ShowXGrid;
 			_showPlaybackTxFold = options.ShowTxFold;
 			_showPlaybackEquityCurve = options.ShowEquityCurve;
+			_showPlaybackFeatures = options.ShowFeatures;
 		}
+
+		// Wireframe only -- built from the Features tab's current selections with zeroed values,
+		// since no live episode is running yet to source real per-step data from.
+		private FeatureModel PlaceholderFeatureModel =>
+			new(
+				new XGridSignalsFeature(_xGridEnabledSignals.ToDictionary(key => key, _ => 0.0)),
+				new TxFoldFeature(_txFoldSelectedSeconds.ToDictionary(seconds => seconds, _ => new float[TxFoldValuesPerTimeframe])),
+				new TraderStateFeature(
+					_traderStateIncludePosition ? 0 : null,
+					_traderStateIncludePositionPrice ? 0 : null,
+					_traderStateIncludePositionTicks ? 0 : null,
+					_traderStateIncludePositionDistance ? 0 : null,
+					_traderStateIncludeCurrentPrice ? 0 : null,
+					_traderStateIncludeCash ? 0 : null,
+					_traderStateIncludeRealized ? 0 : null,
+					_traderStateIncludeUnrealized ? 0 : null,
+					_traderStateIncludeEquity ? 0 : null,
+					_traderStateIncludeMargin ? 0 : null,
+					_traderStateIncludeMarginLevel ? 0 : null,
+					_traderStateIncludePositionCount ? 0 : null,
+					_includeTraderStateOutcomes ? new double[_traderStateOutcomeListLength] : null,
+					_includeTraderStatePositionLevel ? new double[_traderStatePositionLevelListLength] : null,
+					_includeTraderStateDirection ? new double[_traderStateDirectionListLength] : null
+				)
+			);
+
+		private sealed record FeatureDisplayRow(string Section, string Label, string Value);
+
+		private IReadOnlyList<FeatureDisplayRow> FeatureDisplayRows => BuildFeatureDisplayRows(PlaceholderFeatureModel);
+
+		// Reflection-driven so this panel doesn't need updating when FeatureModel's shape changes;
+		// XGridSignalsFeature/TxFoldFeature are walked as dictionaries since their keys vary per selection.
+		private IReadOnlyList<FeatureDisplayRow> BuildFeatureDisplayRows(FeatureModel model)
+		{
+			var rows = new List<FeatureDisplayRow>();
+			foreach (var section in typeof(FeatureModel).GetProperties())
+			{
+				switch (section.GetValue(model))
+				{
+					case XGridSignalsFeature xGrid:
+						foreach (var (key, value) in xGrid.SignalValues)
+							rows.Add(new FeatureDisplayRow(section.Name, key, value.ToString("0.###")));
+						break;
+					case TxFoldFeature txFold:
+						foreach (var (seconds, values) in txFold.ValuesBySeconds.OrderBy(kv => kv.Key))
+						{
+							var labels = TxFoldFieldLabels(_txFoldBarKind);
+							for (var i = 0; i < values.Length; i++)
+								rows.Add(new FeatureDisplayRow(section.Name, $"{TxFoldTimeframeLabel(seconds)} {labels[i]}", values[i].ToString("0.###")));
+						}
+						break;
+					case { } feature:
+						foreach (var property in feature.GetType().GetProperties())
+						{
+							var value = property.GetValue(feature);
+							if (value is not null)
+								rows.Add(new FeatureDisplayRow(section.Name, property.Name, FormatFeatureValue(value)));
+						}
+						break;
+				}
+			}
+			return rows;
+		}
+
+		private static string FormatFeatureValue(object value) =>
+			value switch
+			{
+				IReadOnlyList<double> list => string.Join(", ", list.Select(v => v.ToString("0.###"))),
+				double number => number.ToString("0.###"),
+				_ => value.ToString() ?? "",
+			};
 
 		#endregion
 

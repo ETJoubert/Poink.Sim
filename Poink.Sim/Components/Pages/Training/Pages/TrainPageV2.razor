@@ -894,6 +894,9 @@
                         <button type="button" class="trv2-panel-toggle-btn @(_showPlaybackEquityCurve ? "active" : "")"
                                 @onclick="() => _showPlaybackEquityCurve = !_showPlaybackEquityCurve"
                                 title="Show or hide the equity curve">Equity curve</button>
+                        <button type="button" class="trv2-panel-toggle-btn @(_showPlaybackFeatures ? "active" : "")"
+                                @onclick="() => _showPlaybackFeatures = !_showPlaybackFeatures"
+                                title="Show or hide the feature values panel">Features</button>
                     </div>
 
                     <div class="trv2-playback-grid">
@@ -919,6 +922,40 @@
                         {
                             <div class="trv2-card trv2-card-nopad trv2-playback-panel">
                                 <EquityCurve />
+                            </div>
+                        }
+                        @if (_showPlaybackFeatures)
+                        {
+                            <div class="trv2-card trv2-playback-panel trv2-playback-features">
+                                <div class="trv2-card-title-row">
+                                    <span class="trv2-card-title"
+                                          title="Every enabled feature's current value, grouped by source -- walked via reflection over FeatureModel so this stays in sync with the Features tab automatically">
+                                        Features
+                                    </span>
+                                    <span class="trv2-card-badge" title="Total feature values shown below">@FeatureDisplayRows.Count</span>
+                                </div>
+                                @if (FeatureDisplayRows.Count == 0)
+                                {
+                                    <p class="trv2-placeholder">none selected</p>
+                                }
+                                else
+                                {
+                                    <div class="trv2-features-panel-grid">
+                                        @foreach (var group in FeatureDisplayRows.GroupBy(r => r.Section))
+                                        {
+                                            <div class="trv2-features-panel-section">
+                                                <span class="trv2-features-panel-section-title">@group.Key</span>
+                                                @foreach (var row in group)
+                                                {
+                                                    <div class="trv2-features-panel-row" title="@row.Label">
+                                                        <span class="trv2-features-panel-label">@row.Label</span>
+                                                        <span class="trv2-features-panel-value">@row.Value</span>
+                                                    </div>
+                                                }
+                                            </div>
+                                        }
+                                    </div>
+                                }
                             </div>
                         }
                     </div>

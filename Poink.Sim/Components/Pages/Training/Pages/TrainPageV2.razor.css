@@ -546,3 +546,46 @@
 .trv2-playback-panel {
     min-height: 260px;
 }
+
+.trv2-playback-features {
+    overflow-y: auto;
+}
+
+.trv2-features-panel-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px 12px;
+}
+
+.trv2-features-panel-section-title {
+    display: block;
+    font-size: 0.68rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-secondary);
+    margin-bottom: 4px;
+}
+
+.trv2-features-panel-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 3px 0;
+    font-size: 0.72rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 8%, transparent);
+}
+
+.trv2-features-panel-label {
+    color: var(--color-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.trv2-features-panel-value {
+    color: var(--color-primary);
+    font-weight: 600;
+    flex-shrink: 0;
+}

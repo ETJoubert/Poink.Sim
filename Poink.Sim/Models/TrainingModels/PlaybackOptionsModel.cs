@@ -6,6 +6,7 @@ namespace Poink.Sim.Models.TrainingModels
 		bool ShowMarketChart = true,
 		bool ShowXGrid = true,
 		bool ShowTxFold = true,
-		bool ShowEquityCurve = true
+		bool ShowEquityCurve = true,
+		bool ShowFeatures = true
 	);
 }
