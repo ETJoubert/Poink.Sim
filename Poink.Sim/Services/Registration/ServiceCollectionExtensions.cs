@@ -181,6 +181,7 @@ public static class ServiceCollectionExtensions
 		services.AddSingleton<FeatureAssembler>();
 		services.AddSingleton<ActionAssembler>();
 		services.AddSingleton<NetworkAssembler>();
+		services.AddSingleton<PolicyGradientLearner>();
 		services.AddSingleton<TrainingEngineService>();
 
 		return services;

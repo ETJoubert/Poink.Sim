@@ -37,8 +37,7 @@ internal sealed record ActionSpace(
 		if (DecisionDecoding == DecisionDecodingKind.HardMax)
 			return Directions[ArgMax(rawDirectionOutputs)];
 
-		var probabilities = Softmax(rawDirectionOutputs, DecisionTemperature);
-		return Directions[Sample(probabilities, random)];
+		return Directions[Sample(Probabilities(rawDirectionOutputs), random)];
 	}
 
 	private static int ArgMax(IReadOnlyList<float> values)
@@ -50,8 +49,9 @@ internal sealed record ActionSpace(
 		return best;
 	}
 
-	// Lower temperature sharpens the distribution toward ArgMax, higher flattens it toward
-	// uniform; max-subtraction before exp() keeps this numerically stable.
+	// Also used by the policy-gradient update to weigh each action's contribution to the loss.
+	public double[] Probabilities(IReadOnlyList<float> rawDirectionOutputs) => Softmax(rawDirectionOutputs, DecisionTemperature);
+
 	private static double[] Softmax(IReadOnlyList<float> values, double temperature)
 	{
 		var scale = Math.Max(temperature, 1e-8);

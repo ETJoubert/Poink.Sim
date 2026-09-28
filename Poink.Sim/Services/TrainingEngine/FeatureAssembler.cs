@@ -16,6 +16,8 @@ namespace Poink.Sim.Services.TrainingEngine;
 /// </summary>
 internal sealed class FeatureAssembler
 {
+	private const int TxFoldValuesPerTimeframe = 4;
+
 	public FeatureModel Assemble(
 		FeatureOptionsModel options,
 		IReadOnlyList<Tick> ticks,
@@ -41,6 +43,8 @@ internal sealed class FeatureAssembler
 		);
 	}
 
+	// Every selected timeframe always gets an entry, zeroed when there's too little history --
+	// otherwise the vector's length would shrink early in an episode, breaking the network's fixed input size.
 	private static TxFoldFeature AssembleTxFold(TxFoldOptionsModel options, IReadOnlyList<Tick> ticks, DateTime asOf, DateTime episodeStart)
 	{
 		var selectedSeconds = options.SelectedSeconds ?? [];
@@ -48,7 +52,12 @@ internal sealed class FeatureAssembler
 			return new TxFoldFeature(new Dictionary<int, float[]>());
 
 		var snapshot = TxFoldStats.Compute(ticks, asOf, episodeStart, selectedSeconds, options.BarKind);
-		return new TxFoldFeature(snapshot.Bars.ToDictionary(bar => bar.LookbackSeconds, bar => BarToValues(bar.Bar)));
+		var barsBySeconds = snapshot.Bars.ToDictionary(bar => bar.LookbackSeconds, bar => BarToValues(bar.Bar));
+
+		var values = new Dictionary<int, float[]>();
+		foreach (var seconds in selectedSeconds.Distinct())
+			values[seconds] = barsBySeconds.TryGetValue(seconds, out var bar) ? bar : new float[TxFoldValuesPerTimeframe];
+		return new TxFoldFeature(values);
 	}
 
 	private static float[] BarToValues(CTraderBarRow bar) => [(float)bar.Open, (float)bar.High, (float)bar.Low, (float)bar.Close];
@@ -99,6 +108,41 @@ internal sealed class FeatureAssembler
 		values.AddRange(TraderStateValues(model.TraderState).Select(v => (float)v));
 
 		return new FeatureVector([.. values]);
+	}
+
+	// The flattened vector's length for a given options set, without real tick data -- safe since
+	// AssembleTxFold/AssembleTraderState always produce a fixed shape per selection.
+	public static int ComputeInputSize(FeatureOptionsModel options)
+	{
+		var xGridCount = options.XGridSignals.EnabledSignals.Count;
+		var txFoldCount = (options.TxFold.SelectedSeconds?.Count ?? 0) * TxFoldValuesPerTimeframe;
+		return xGridCount + txFoldCount + TraderStateInputSize(options.TraderState);
+	}
+
+	private static int TraderStateInputSize(TraderStateOptionsModel options)
+	{
+		var scalarCount = new[]
+		{
+			options.IncludePosition,
+			options.IncludePositionPrice,
+			options.IncludePositionTicks,
+			options.IncludePositionDistance,
+			options.IncludeCurrentPrice,
+			options.IncludeCash,
+			options.IncludeRealized,
+			options.IncludeUnrealized,
+			options.IncludeEquity,
+			options.IncludeMargin,
+			options.IncludeMarginLevel,
+			options.IncludePositionCount,
+		}.Count(include => include);
+
+		var listCount =
+			(options.IncludeOutcomes ? options.OutcomeListLength : 0)
+			+ (options.IncludePositionLevel ? options.PositionLevelListLength : 0)
+			+ (options.IncludeDirection ? options.DirectionListLength : 0);
+
+		return scalarCount + listCount;
 	}
 
 	private static IEnumerable<double> TraderStateValues(TraderStateFeature state)

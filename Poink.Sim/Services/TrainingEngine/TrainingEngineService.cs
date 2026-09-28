@@ -10,17 +10,16 @@ using Poink.Sim.Trader.Commission;
 namespace Poink.Sim.Services.TrainingEngine;
 
 /// <summary>
-/// Orchestrates one episode: Data Provider for ticks, Feature Assembler to encode each decision
-/// point, the network for a forward pass, Action Assembler's decoded action applied through the
-/// existing ITrader (position/P&amp;L accounting, not NN-specific -- reused like ITickRepository),
-/// gated by DecisionMask. Reward is plain equity drift, summed inline -- no separate reward-policy
-/// abstraction, per the plan to resolve learning/reward directly in this loop.
+/// Runs training: builds one network up front, then runs EpisodeCount episodes against it, handing
+/// each episode's recorded decisions to PolicyGradientLearner afterward. Each episode steps Data
+/// Provider's ticks through Feature Assembler, the network, Action Assembler's decoded action, and
+/// the existing ITrader (position/P&amp;L/commission accounting -- reused like ITickRepository, not
+/// NN-specific), gated by DecisionMask. Reward is plain equity drift, summed inline.
 ///
-/// Not built yet: gradient-based learning (weights never update, so running more than one episode
-/// wouldn't change anything -- this only runs a single rollout), and Volume/StopLoss/TakeProfit
-/// outputs (RunEpisode throws if any are enabled -- CapitalFraction is fixed at 1.0, market orders
-/// only). Trader State's Outcomes/PositionLevel/Direction history lists are always empty (padded
-/// with zeros by FeatureAssembler) since trade-history semantics for those aren't defined yet.
+/// Not built yet: Volume/StopLoss/TakeProfit outputs (RunEpisode throws if any are enabled --
+/// CapitalFraction is fixed at 1.0, market orders only). Trader State's Outcomes/PositionLevel/
+/// Direction history lists are always empty (padded with zeros by FeatureAssembler) since
+/// trade-history semantics for those aren't defined yet.
 /// </summary>
 internal sealed class TrainingEngineService
 {
@@ -28,6 +27,7 @@ internal sealed class TrainingEngineService
 	private readonly FeatureAssembler _featureAssembler;
 	private readonly ActionAssembler _actionAssembler;
 	private readonly NetworkAssembler _networkAssembler;
+	private readonly PolicyGradientLearner _learner;
 	private readonly ITraderFactory _traderFactory;
 	private readonly ILogger<TrainingEngineService> _logger;
 
@@ -36,6 +36,7 @@ internal sealed class TrainingEngineService
 		FeatureAssembler featureAssembler,
 		ActionAssembler actionAssembler,
 		NetworkAssembler networkAssembler,
+		PolicyGradientLearner learner,
 		ITraderFactory traderFactory,
 		ILogger<TrainingEngineService> logger
 	)
@@ -44,14 +45,38 @@ internal sealed class TrainingEngineService
 		_featureAssembler = featureAssembler;
 		_actionAssembler = actionAssembler;
 		_networkAssembler = networkAssembler;
+		_learner = learner;
 		_traderFactory = traderFactory;
 		_logger = logger;
 	}
 
-	public EpisodeResult RunEpisode(TrainingOptionsModel options, Random random)
+	public MlpNetwork BuildNetwork(TrainingOptionsModel options, ActionSpace actionSpace, Random random) =>
+		_networkAssembler.Assemble(
+			options.Network,
+			FeatureAssembler.ComputeInputSize(options.Features),
+			actionSpace.TotalOutputWidth,
+			random
+		);
+
+	// Runs EpisodeCount episodes against one network, learning between them -- unlike calling
+	// RunEpisode standalone with a fresh network each time, which would just repeat random rollouts.
+	public IReadOnlyList<EpisodeResult> Train(TrainingOptionsModel options, Random random)
+	{
+		var actionSpace = _actionAssembler.Assemble(options.Output);
+		var network = BuildNetwork(options, actionSpace, random);
+
+		var results = new List<EpisodeResult>(options.Training.EpisodeTiming.EpisodeCount);
+		for (var i = 0; i < options.Training.EpisodeTiming.EpisodeCount; i++)
+			results.Add(RunEpisode(options, network, actionSpace, random));
+
+		return results;
+	}
+
+	public EpisodeResult RunEpisode(TrainingOptionsModel options, MlpNetwork network, ActionSpace actionSpace, Random random)
 	{
 		if (options.Output.Actions.IncludeVolumeOutput || options.Output.Actions.IncludeStopLossOutput || options.Output.Actions.IncludeTakeProfitOutput)
 			throw new NotSupportedException("Volume/StopLoss/TakeProfit outputs aren't wired to trade execution yet -- disable them until they are.");
+		PolicyGradientLearner.EnsureSupportedStrategy(options.Training.Learning.TrainingStrategyName);
 
 		var ticks = _dataProvider.GetEpisodeWindow(options.Data, options.Training.EpisodeTiming, options.BarWidthSeconds, random);
 		if (ticks.Count == 0)
@@ -60,7 +85,6 @@ internal sealed class TrainingEngineService
 			return EpisodeResult.Empty;
 		}
 
-		var actionSpace = _actionAssembler.Assemble(options.Output);
 		var trader = _traderFactory.Create(
 			options.Training.TraderSetup.StartingCash,
 			new TraderSettings(
@@ -74,36 +98,16 @@ internal sealed class TrainingEngineService
 		var episodeStart = ticks[0].Timestamp;
 		var ticksSoFar = new List<Tick>(ticks.Count);
 		var steps = new List<EpisodeStep>();
+		var traces = new List<DecisionTrace>();
 		var totalReward = 0.0;
-		MlpNetwork? network = null;
 
-		for (var i = 0; i < ticks.Count; i++)
+		foreach (var tick in ticks)
 		{
-			var tick = ticks[i];
 			ticksSoFar.Add(tick);
 			var bid = tick.Bid;
 			var ask = tick.Ask;
 
 			trader.Advance(bid, ask, tick.Timestamp);
-
-			// Sized off the first tick's own feature vector -- input size depends on how many
-			// TxFold timeframes/XGrid signals are enabled, not a fixed constant.
-			network ??= _networkAssembler.Assemble(
-				options.Network,
-				_featureAssembler
-					.Flatten(
-						_featureAssembler.Assemble(
-							options.Features,
-							ticksSoFar,
-							tick.Timestamp,
-							episodeStart,
-							BuildTraderStateSnapshot(trader, bid, ask)
-						)
-					)
-					.Values.Length,
-				actionSpace.TotalOutputWidth,
-				random
-			);
 
 			if (!decisionMask.ShouldDecide(tick.Timestamp))
 				continue;
@@ -113,17 +117,33 @@ internal sealed class TrainingEngineService
 			var vector = _featureAssembler.Flatten(
 				_featureAssembler.Assemble(options.Features, ticksSoFar, tick.Timestamp, episodeStart, BuildTraderStateSnapshot(trader, bid, ask))
 			);
-			var rawOutputs = network.Forward(vector.Values);
-			var action = actionSpace.DecodeDirection(rawOutputs[..actionSpace.DirectionOutputWidth], random);
+			var (rawOutputs, activations) = network.ForwardWithActivations(vector.Values);
+			var actionIndex = ChooseActionIndex(rawOutputs, actionSpace, random);
+			var action = actionSpace.Directions[actionIndex];
 			var execution = trader.Apply(new SimulationDecision(action, CapitalFraction: 1.0), bid, ask, tick.Timestamp);
 
 			var reward = trader.Snapshot(bid, ask).Equity - equityBefore;
 			totalReward += reward;
 			steps.Add(new EpisodeStep(tick.Timestamp, action, execution, reward));
+			traces.Add(new DecisionTrace(activations, rawOutputs, actionIndex, reward));
 		}
+
+		_learner.Learn(network, actionSpace, traces, options.Training.Learning);
 
 		var lastTick = ticks[^1];
 		return new EpisodeResult(steps, trader.Snapshot(lastTick.Bid, lastTick.Ask), trader.TradeLog, totalReward);
+	}
+
+	// Same action DecodeDirection would pick, but the gradient also needs to know which output
+	// slot it came from -- IReadOnlyList has no IndexOf, so this just walks the short list.
+	private static int ChooseActionIndex(float[] rawOutputs, ActionSpace actionSpace, Random random)
+	{
+		var action = actionSpace.DecodeDirection(rawOutputs[..actionSpace.DirectionOutputWidth], random);
+		var directions = actionSpace.Directions;
+		for (var i = 0; i < directions.Count; i++)
+			if (directions[i] == action)
+				return i;
+		return -1;
 	}
 
 	private static TraderStateSnapshot BuildTraderStateSnapshot(ITrader trader, double bid, double ask)

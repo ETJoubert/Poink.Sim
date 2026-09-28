@@ -1,12 +1,14 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Poink.Sim.Services.TrainingEngine;
 
 /// <summary>
 /// A fully-connected feed-forward network: Dense(input -> hidden[0]) -ReLU-> ... -> Dense(hidden[^1]
-/// -> output), output layer linear (ActionSpace decodes it downstream). Weights/biases are mutable
-/// so the training loop can update them in place; this class only does the forward pass, no gradients.
+/// -> output), output layer linear (ActionSpace decodes it downstream). Weights/biases are public
+/// and mutable so PolicyGradientLearner can update them in place -- this class only knows how to
+/// run itself forward, not how to learn.
 /// </summary>
 internal sealed class MlpNetwork
 {
@@ -36,21 +38,24 @@ internal sealed class MlpNetwork
 		Biases = biases;
 	}
 
-	public float[] Forward(IReadOnlyList<float> input)
+	public float[] Forward(IReadOnlyList<float> input) => ForwardWithActivations(input).Output;
+
+	// Activations[0] is the input, Activations[i+1] is layer i's output -- PolicyGradientLearner
+	// needs the whole chain to backprop, not just the final output.
+	public (float[] Output, List<float[]> Activations) ForwardWithActivations(IReadOnlyList<float> input)
 	{
 		if (input.Count != InputSize)
 			throw new ArgumentException($"Expected {InputSize} inputs, got {input.Count}.", nameof(input));
 
-		var activations = new float[input.Count];
-		for (var i = 0; i < input.Count; i++)
-			activations[i] = input[i];
-
+		var activations = new List<float[]>(Weights.Count + 1) { input.ToArray() };
+		var current = activations[0];
 		for (var layer = 0; layer < Weights.Count; layer++)
 		{
 			var isOutputLayer = layer == Weights.Count - 1;
-			activations = DenseLayer(activations, Weights[layer], Biases[layer], applyRelu: !isOutputLayer);
+			current = DenseLayer(current, Weights[layer], Biases[layer], applyRelu: !isOutputLayer);
+			activations.Add(current);
 		}
-		return activations;
+		return (current, activations);
 	}
 
 	private static float[] DenseLayer(float[] input, float[,] weights, float[] biases, bool applyRelu)
