@@ -179,6 +179,7 @@ public static class ServiceCollectionExtensions
 	{
 		services.AddSingleton<DataProvider>();
 		services.AddSingleton<FeatureAssembler>();
+		services.AddSingleton<ActionAssembler>();
 
 		return services;
 	}
