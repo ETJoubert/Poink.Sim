@@ -8,6 +8,7 @@ using Poink.Sim.Brain.Neural;
 using Poink.Sim.Components.Charts;
 using Poink.Sim.Components.Pages.Trade.Helpers;
 using Poink.Sim.Models;
+using Poink.Sim.Models.TrainingModels;
 using Poink.Sim.Repository;
 using Poink.Sim.Services.Symbols;
 using Poink.Sim.Trader.Risk;
@@ -106,6 +107,8 @@ namespace Poink.Sim.Components.Pages
 				_loadingSymbolMetadata = false;
 			}
 		}
+
+		private DataOptionsModel CurrentDataOptions => new(_table, _from, _to, _selectedSymbol?.SymbolId);
 
 		#endregion
 
@@ -310,6 +313,35 @@ namespace Poink.Sim.Components.Pages
 			return string.Join(" ", parts);
 		}
 
+		private XGridSignalsOptionsModel CurrentXGridSignalsOptions =>
+			new([.. _xGridEnabledSignals], _xGridTopPercent, _xGridColCount, _xGridRowCount);
+
+		private TxFoldOptionsModel CurrentTxFoldOptions => new([.. _txFoldSelectedSeconds], _txFoldBarKind);
+
+		private TraderStateOptionsModel CurrentTraderStateOptions =>
+			new(
+				_traderStateIncludePosition,
+				_traderStateIncludePositionPrice,
+				_traderStateIncludePositionTicks,
+				_traderStateIncludePositionDistance,
+				_traderStateIncludeCurrentPrice,
+				_traderStateIncludeCash,
+				_traderStateIncludeRealized,
+				_traderStateIncludeUnrealized,
+				_traderStateIncludeEquity,
+				_traderStateIncludeMargin,
+				_traderStateIncludeMarginLevel,
+				_traderStateIncludePositionCount,
+				_includeTraderStateOutcomes,
+				_includeTraderStatePositionLevel,
+				_includeTraderStateDirection,
+				_traderStateOutcomeListLength,
+				_traderStatePositionLevelListLength,
+				_traderStateDirectionListLength
+			);
+
+		private FeatureOptionsModel CurrentFeatureOptions => new(CurrentXGridSignalsOptions, CurrentTxFoldOptions, CurrentTraderStateOptions);
+
 		#endregion
 
 		#region Network
@@ -384,6 +416,9 @@ namespace Poink.Sim.Components.Pages
 
 		// A "+N" label takes the last visible slot when the layer is too big to draw in full.
 		private static int VisibleUnitCount(int size) => size > MaxVisibleUnits ? MaxVisibleUnits - 1 : size;
+
+		private NetworkOptionsModel CurrentNetworkOptions =>
+			new(_architectureKind, [.. _mlpHiddenSizes], _lstmHiddenSize, _lstmNumLayers, _cnnKernelSize, [.. _cnnChannels], _cnnKernelSweepSource);
 
 		#endregion
 
@@ -526,6 +561,22 @@ namespace Poink.Sim.Components.Pages
 				_ => "softmax",
 			};
 
+		private ActionsOptionsModel CurrentActionsOptions =>
+			new(_includeHold, _includeEnterLong, _includeEnterShort, _includeClose, _includeVolumeOutput, _includeStopLossOutput, _includeTakeProfitOutput);
+
+		private ActionMaskingOptionsModel CurrentActionMaskingOptions =>
+			new(
+				_maskPositionRequiredForClose,
+				_maskFlatRequiredForEntry,
+				_maskLongRequiresUpSignal,
+				_maskShortRequiresDownSignal,
+				_maskKeyLevelRequiredForClose
+			);
+
+		private ActionDecodingOptionsModel CurrentActionDecodingOptions => new(_decisionDecoding, _decisionTemperature);
+
+		private OutputOptionsModel CurrentOutputOptions => new(CurrentActionsOptions, CurrentActionMaskingOptions, CurrentActionDecodingOptions);
+
 		#endregion
 
 		#region Training
@@ -665,6 +716,30 @@ namespace Poink.Sim.Components.Pages
 
 		private int SelectedDecisionMaskRuleCount => _maskDecisionPriceBelowPoc ? 1 : 0;
 
+		private EpisodeTimingOptionsModel CurrentEpisodeTimingOptions =>
+			new(
+				_episodeCount,
+				_trainingBars,
+				_visibleBars,
+				_steppingMode,
+				_cellWidth,
+				_restrictEpisodeTiming,
+				[.. _allowedWeekdays],
+				_sessionStart,
+				_sessionEnd
+			);
+
+		private TraderSetupOptionsModel CurrentTraderSetupOptions =>
+			new(_startingCash, _leverage, _commissionRatePercent, _stopOutLevelPercent, [.. _selectedRiskPolicies]);
+
+		private LearningOptionsModel CurrentLearningOptions => new(_trainingStrategyName, _rewardPolicyName, _learningRate);
+
+		private DecisionMaskingOptionsModel CurrentDecisionMaskingOptions =>
+			new(_decisionMaskResolution, _decisionMaskResolutionSeconds, _decisionMaskResolutionCellWidth, _maskDecisionPriceBelowPoc);
+
+		private TrainingTabOptionsModel CurrentTrainingTabOptions =>
+			new(CurrentEpisodeTimingOptions, CurrentTraderSetupOptions, CurrentLearningOptions, CurrentDecisionMaskingOptions);
+
 		#endregion
 
 		#region Run
@@ -728,6 +803,24 @@ namespace Poink.Sim.Components.Pages
 
 		private static string FormatPlaybackSpeed(double speed) =>
 			(speed < 1 ? speed.ToString("0.##", CultureInfo.InvariantCulture) : speed.ToString("0", CultureInfo.InvariantCulture)) + "x";
+
+		private PlaybackOptionsModel CurrentPlaybackOptions =>
+			new(_playbackSpeedIndex, _showPlaybackMarketChart, _showPlaybackXGrid, _showPlaybackTxFold, _showPlaybackEquityCurve);
+
+		#endregion
+
+		#region Options
+
+		private TrainingOptionsModel CurrentTrainingOptions =>
+			new(
+				CurrentDataOptions,
+				CurrentFeatureOptions,
+				CurrentNetworkOptions,
+				CurrentOutputOptions,
+				CurrentTrainingTabOptions,
+				CurrentPlaybackOptions,
+				_barWidthSeconds
+			);
 
 		#endregion
 	}

@@ -1,0 +1,57 @@
+using System;
+using System.Collections.Generic;
+using Poink.Sim.Brain.Neural;
+
+namespace Poink.Sim.Models.TrainingModels
+{
+	/// <summary>
+	/// How episodes are timed/sampled. AllowedWeekdays null means every day is allowed; SessionEnd
+	/// null means the session runs to end of day (24:00).
+	/// </summary>
+	internal sealed record EpisodeTimingOptionsModel(
+		int EpisodeCount = 1000,
+		int TrainingBars = 20,
+		int VisibleBars = 120,
+		SimulationSteppingMode SteppingMode = SimulationSteppingMode.Bar,
+		double CellWidth = 0.10,
+		bool RestrictEpisodeTiming = false,
+		IReadOnlyList<DayOfWeek>? AllowedWeekdays = null,
+		TimeSpan SessionStart = default,
+		TimeSpan? SessionEnd = null
+	);
+
+	/// <summary>The trader each episode starts with.</summary>
+	internal sealed record TraderSetupOptionsModel(
+		double StartingCash = 10_000,
+		double Leverage = 1,
+		double CommissionRatePercent = 0,
+		double StopOutLevelPercent = 50,
+		IReadOnlyList<string>? SelectedRiskPolicies = null
+	);
+
+	/// <summary>Which training strategy and reward policy drive learning, and at what rate.</summary>
+	internal sealed record LearningOptionsModel(
+		string TrainingStrategyName = "Policy Gradient (REINFORCE)",
+		string RewardPolicyName = "Equity Drift (default)",
+		double LearningRate = 0.001
+	);
+
+	/// <summary>
+	/// Gates whether the network is even asked to decide, as opposed to Output tab's Action Masking
+	/// which restricts choices afterward.
+	/// </summary>
+	internal sealed record DecisionMaskingOptionsModel(
+		DecisionMaskResolutionKind DecisionMaskResolution = DecisionMaskResolutionKind.PerBar,
+		double DecisionMaskResolutionSeconds = 1.0,
+		double DecisionMaskResolutionCellWidth = 0.10,
+		bool MaskDecisionPriceBelowPoc = false
+	);
+
+	/// <summary>The Training tab's episode timing, trader setup, learning, and decision masking settings.</summary>
+	internal sealed record TrainingTabOptionsModel(
+		EpisodeTimingOptionsModel EpisodeTiming,
+		TraderSetupOptionsModel TraderSetup,
+		LearningOptionsModel Learning,
+		DecisionMaskingOptionsModel DecisionMasking
+	);
+}
