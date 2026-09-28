@@ -22,6 +22,11 @@
     gap: 4px;
     padding: 0 24px;
     border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: var(--color-bg-dark);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
 }
 
 .trv2-tab {
