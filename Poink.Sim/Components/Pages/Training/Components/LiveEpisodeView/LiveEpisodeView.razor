@@ -134,12 +134,33 @@
                         {
                             <div class="lev-features-section">
                                 <span class="lev-features-section-title">@group.Key</span>
-                                @foreach (var row in group)
+                                @if (group.Key == "TxFold")
                                 {
-                                    <div class="lev-features-row" title="@row.Label">
-                                        <span class="lev-features-label">@row.Label</span>
-                                        <span class="lev-features-value">@row.Value</span>
+                                    <div class="lev-txfold-grid">
+                                        @foreach (var row in TxFoldRows)
+                                        {
+                                            <div class="lev-txfold-grid-row">
+                                                <span class="lev-txfold-grid-label">@row.Label</span>
+                                                @foreach (var cell in row.Cells)
+                                                {
+                                                    <span class="lev-txfold-grid-cell" title="@cell.Field">
+                                                        <span class="lev-txfold-grid-cell-field">@cell.Field</span>
+                                                        <span class="lev-txfold-grid-cell-value">@cell.Value</span>
+                                                    </span>
+                                                }
+                                            </div>
+                                        }
                                     </div>
+                                }
+                                else
+                                {
+                                    @foreach (var row in group)
+                                    {
+                                        <div class="lev-features-row" title="@row.Label">
+                                            <span class="lev-features-label">@row.Label</span>
+                                            <span class="lev-features-value">@row.Value</span>
+                                        </div>
+                                    }
                                 }
                             </div>
                         }

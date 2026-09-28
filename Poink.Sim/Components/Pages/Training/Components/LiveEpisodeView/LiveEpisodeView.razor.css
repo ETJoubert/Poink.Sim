@@ -267,3 +267,46 @@
     font-weight: 600;
     flex-shrink: 0;
 }
+
+/* Mirrors TrainPageV2's Features tab trv2-txfold-grid preview, but each cell also carries the field's live value. */
+.lev-txfold-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.lev-txfold-grid-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.lev-txfold-grid-label {
+    width: 36px;
+    flex-shrink: 0;
+    font-size: 0.68rem;
+    font-weight: bold;
+    color: var(--color-secondary);
+}
+
+.lev-txfold-grid-cell {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    padding: 3px 0;
+    border-radius: var(--border-radius-sm);
+    background: color-mix(in srgb, var(--color-primary) 8%, transparent);
+}
+
+.lev-txfold-grid-cell-field {
+    font-size: 0.6rem;
+    color: var(--color-secondary);
+}
+
+.lev-txfold-grid-cell-value {
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: var(--color-primary);
+}

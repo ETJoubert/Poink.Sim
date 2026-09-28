@@ -22,6 +22,11 @@
     gap: 4px;
     padding: 0 24px;
     border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: var(--color-bg-dark);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
 }
 
 .trv2-tab {
@@ -88,6 +93,11 @@
     grid-template-columns: repeat(3, minmax(260px, 1fr));
     align-items: start;
     gap: 14px;
+}
+
+/* Options Summary has exactly 5 cards (Data/Features/Network/Output/Training) -- narrower than the default 3-col stack so all five fit on one row. */
+.trv2-summary-grid {
+    grid-template-columns: repeat(5, minmax(180px, 1fr));
 }
 
 .trv2-card-span-all {

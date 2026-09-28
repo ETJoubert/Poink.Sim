@@ -78,9 +78,27 @@ namespace Poink.Sim.Components.Charts
 		[Parameter]
 		public EventCallback<BarAggregationKind> BarKindChanged { get; set; }
 
-		private bool _showHighLowLines;
-		private bool _showVolumeProfile;
-		private bool _normalize;
+		/// <summary>Projects every bar's High/Low as dashed lines and a right-margin coverage histogram; bindable so TrainPageV2's Features tab can also drive FeatureOptionsModel.TxFold.IncludeHighLow from the same toggle.</summary>
+		[Parameter]
+		public bool ShowHighLowLines { get; set; }
+
+		[Parameter]
+		public EventCallback<bool> ShowHighLowLinesChanged { get; set; }
+
+		/// <summary>Overlays the tick-volume profile in the right margin; bindable so TrainPageV2's Features tab can also drive FeatureOptionsModel.TxFold.IncludeVolumeProfile from the same toggle.</summary>
+		[Parameter]
+		public bool ShowVolumeProfile { get; set; }
+
+		[Parameter]
+		public EventCallback<bool> ShowVolumeProfileChanged { get; set; }
+
+		/// <summary>Draws every bar as a percentage deviation from the largest selected timeframe's midpoint instead of its real price; bindable so TrainPageV2's Features tab can also drive FeatureOptionsModel.TxFold.Normalize from the same toggle.</summary>
+		[Parameter]
+		public bool Normalize { get; set; }
+
+		[Parameter]
+		public EventCallback<bool> NormalizeChanged { get; set; }
+
 		private List<TxFoldBar> _bars = new();
 		private IReadOnlyList<TxFoldVolumeBucket> _volumeProfile = Array.Empty<TxFoldVolumeBucket>();
 		private (string Table, DateTime AnchorEnd, DateTime RangeStart, BarAggregationKind BarKind, string SelectedKey)? _loadedFor;
@@ -115,11 +133,23 @@ namespace Poink.Sim.Components.Charts
 			await RefreshIfNeeded();
 		}
 
-		private void ToggleHighLowLines() => _showHighLowLines = !_showHighLowLines;
+		private Task ToggleHighLowLines()
+		{
+			ShowHighLowLines = !ShowHighLowLines;
+			return ShowHighLowLinesChanged.InvokeAsync(ShowHighLowLines);
+		}
 
-		private void ToggleVolumeProfile() => _showVolumeProfile = !_showVolumeProfile;
+		private Task ToggleVolumeProfile()
+		{
+			ShowVolumeProfile = !ShowVolumeProfile;
+			return ShowVolumeProfileChanged.InvokeAsync(ShowVolumeProfile);
+		}
 
-		private void ToggleNormalize() => _normalize = !_normalize;
+		private Task ToggleNormalize()
+		{
+			Normalize = !Normalize;
+			return NormalizeChanged.InvokeAsync(Normalize);
+		}
 
 		private async Task ToggleTimeframe(int seconds)
 		{
@@ -196,8 +226,8 @@ namespace Poink.Sim.Components.Charts
 				if (
 					!ReferenceEquals(_renderedBars, _bars)
 					|| _renderedLatestPrice != LatestPrice
-					|| _renderedShowHighLowLines != _showHighLowLines
-					|| _renderedShowVolumeProfile != _showVolumeProfile
+					|| _renderedShowHighLowLines != ShowHighLowLines
+					|| _renderedShowVolumeProfile != ShowVolumeProfile
 					|| _renderedEntryPrice != EntryPrice
 					|| _renderedPositionIsLong != PositionIsLong
 					|| _renderedStopLossPrice != StopLossPrice
@@ -206,13 +236,13 @@ namespace Poink.Sim.Components.Charts
 					|| _renderedDraftIsLong != DraftIsLong
 					|| _renderedDraftStopLossPrice != DraftStopLossPrice
 					|| _renderedDraftTakeProfitPrice != DraftTakeProfitPrice
-					|| _renderedNormalize != _normalize
+					|| _renderedNormalize != Normalize
 				)
 				{
 					_renderedBars = _bars;
 					_renderedLatestPrice = LatestPrice;
-					_renderedShowHighLowLines = _showHighLowLines;
-					_renderedShowVolumeProfile = _showVolumeProfile;
+					_renderedShowHighLowLines = ShowHighLowLines;
+					_renderedShowVolumeProfile = ShowVolumeProfile;
 					_renderedEntryPrice = EntryPrice;
 					_renderedPositionIsLong = PositionIsLong;
 					_renderedStopLossPrice = StopLossPrice;
@@ -221,7 +251,7 @@ namespace Poink.Sim.Components.Charts
 					_renderedDraftIsLong = DraftIsLong;
 					_renderedDraftStopLossPrice = DraftStopLossPrice;
 					_renderedDraftTakeProfitPrice = DraftTakeProfitPrice;
-					_renderedNormalize = _normalize;
+					_renderedNormalize = Normalize;
 
 					// The largest selected timeframe's own midpoint anchors 0%, its half-range +-100%
 					// -- so its own High/Low land exactly there; other bars can still fall outside it.
@@ -242,12 +272,12 @@ namespace Poink.Sim.Components.Charts
 							hasFullCoverage = pair.HasFullCoverage,
 						}),
 						barKind = BarKind.ToString(),
-						normalize = _normalize,
+						normalize = Normalize,
 						referencePrice,
 						referenceRange,
 						latestPrice = LatestPrice,
-						showHighLowLines = _showHighLowLines,
-						showVolumeProfile = _showVolumeProfile,
+						showHighLowLines = ShowHighLowLines,
+						showVolumeProfile = ShowVolumeProfile,
 						volumeProfile = _volumeProfile.Select(b => new { low = b.Low, high = b.High, count = b.Count }),
 						entryPrice = EntryPrice,
 						positionIsLong = PositionIsLong,

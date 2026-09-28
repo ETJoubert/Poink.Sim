@@ -200,16 +200,26 @@
 
                     <div class="trv2-card trv2-card-nopad">
                         <TxFold Table="" RangeStart="DateTime.UtcNow" @bind-SelectedSeconds="_txFoldSelectedSeconds"
-                                @bind-BarKind="_txFoldBarKind" />
+                                @bind-BarKind="_txFoldBarKind" @bind-ShowHighLowLines="_txFoldIncludeHighLow"
+                                @bind-ShowVolumeProfile="_txFoldIncludeVolumeProfile" @bind-Normalize="_txFoldNormalize" />
                         <div class="trv2-txfold-features">
                             <div class="trv2-card-title-row">
-                                <span class="trv2-card-title" title="One row per timeframe selected above -- the 4 values TxFold feeds the network for that timeframe">
+                                <span class="trv2-card-title" title="One row per timeframe selected above, plus the shared Volume Profile block when enabled">
                                     Features
                                 </span>
-                                <span class="trv2-card-badge" title="Total inputs contributed by TxFold -- 4 per selected timeframe">
-                                    @(_txFoldSelectedSeconds.Count * 4)
+                                <span class="trv2-card-badge" title="Total inputs contributed by TxFold">
+                                    @TxFoldFeatureCount
                                 </span>
                             </div>
+                            <label class="trv2-field" title="How many buckets the Volume Profile feature is split into, each expressed as that bucket's tick count relative to the busiest bucket (% of max) -- only used when Vol Profile is enabled above">
+                                Vol Profile buckets
+                                <input class="trv2-input" type="number" min="1" step="1" @bind="_txFoldVolumeProfileBucketCount"
+                                       disabled="@(!_txFoldIncludeVolumeProfile)" />
+                            </label>
+                            <label class="trv2-field" title="Adds the most recent tick's mid price as one extra network input -- a plain price when % is off above, a percentage of the largest selected timeframe's range (same as every other TxFold value) when % is on">
+                                <input type="checkbox" @bind="_txFoldIncludeCurrentPrice" />
+                                Current Price
+                            </label>
                             @if (_txFoldSelectedSeconds.Count == 0)
                             {
                                 <p class="trv2-placeholder">none selected</p>
@@ -221,10 +231,24 @@
                                     {
                                         <div class="trv2-txfold-grid-row">
                                             <span class="trv2-txfold-grid-label">@FeatureDisplayFormatter.TimeframeLabel(seconds)</span>
-                                            @foreach (var field in FeatureDisplayFormatter.TxFoldFieldLabels(_txFoldBarKind))
+                                            @foreach (var field in FeatureDisplayFormatter.TxFoldFieldLabels(_txFoldBarKind, _txFoldIncludeHighLow))
                                             {
                                                 <span class="trv2-txfold-grid-cell">@field</span>
                                             }
+                                        </div>
+                                    }
+                                    @if (_txFoldIncludeVolumeProfile)
+                                    {
+                                        <div class="trv2-txfold-grid-row">
+                                            <span class="trv2-txfold-grid-label">Vol Profile</span>
+                                            <span class="trv2-txfold-grid-cell">@_txFoldVolumeProfileBucketCount buckets, % of max</span>
+                                        </div>
+                                    }
+                                    @if (_txFoldIncludeCurrentPrice)
+                                    {
+                                        <div class="trv2-txfold-grid-row">
+                                            <span class="trv2-txfold-grid-label">Current Price</span>
+                                            <span class="trv2-txfold-grid-cell">@(_txFoldNormalize ? "% of range" : "raw price")</span>
                                         </div>
                                     }
                                 </div>
@@ -748,7 +772,7 @@
                         </div>
                         @if (!_optionsSummaryCollapsed)
                         {
-                            <div class="trv2-card-stack">
+                            <div class="trv2-card-stack trv2-summary-grid">
                                 <div class="trv2-card" title="Symbol and date range training data is pulled from -- set on the Data tab">
                                     <div class="trv2-card-title-row">
                                         <span class="trv2-card-title">Data</span>
@@ -779,7 +803,7 @@
                                         <span class="trv2-stat-label">xgrid signals</span>
                                         <span class="trv2-stat-value">@SelectedXGridSignalCount/@TotalXGridSignalCount</span>
                                     </div>
-                                    <div class="trv2-stat" title="TxFold timeframes selected, 4 values each">
+                                    <div class="trv2-stat" title="TxFold timeframes selected, plus High/Low and Volume Profile when enabled">
                                         <span class="trv2-stat-label">txfold</span>
                                         <span class="trv2-stat-value">@_txFoldSelectedSeconds.Count timeframes (@TxFoldFeatureCount)</span>
                                     </div>
@@ -981,7 +1005,8 @@
                                  LastAction="@live?.Snapshot.Action" ActionOutputs="BuildLiveOutputFeatures(live)" Cash="@(live?.Snapshot.Capital.Cash ?? 0)"
                                  Equity="@(live?.Snapshot.Capital.Equity ?? 0)" RealizedPnl="@(live?.Snapshot.Capital.RealizedPnl ?? 0)"
                                  UnrealizedPnl="@(live?.Snapshot.Capital.UnrealizedPnl ?? 0)" Table="@_table"
-                                 Bars="BuildLiveChartBars(live)" EquitySamples="BuildLiveEquitySamples(live)" FeatureRows="BuildLiveFeatureRows(live)" />
+                                 Bars="BuildLiveChartBars(live)" EquitySamples="BuildLiveEquitySamples(live)" FeatureRows="BuildLiveFeatureRows(live)"
+                                 TxFoldRows="BuildLiveTxFoldRows(live)" />
                 break;
             }
         }

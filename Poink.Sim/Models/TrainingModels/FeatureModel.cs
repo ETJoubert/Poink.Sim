@@ -11,9 +11,15 @@ namespace Poink.Sim.Models.TrainingModels
 
 	/// <summary>
 	/// TxFold feature values -- four values per timeframe selected in
-	/// FeatureOptionsModel.TxFold.SelectedSeconds, keyed by timeframe seconds.
+	/// FeatureOptionsModel.TxFold.SelectedSeconds (six when IncludeHighLow is set), keyed by
+	/// timeframe seconds, plus a shared VolumeProfile block (empty when IncludeVolumeProfile isn't
+	/// set) and CurrentPrice (null when IncludeCurrentPrice isn't set).
 	/// </summary>
-	internal sealed record TxFoldFeature(IReadOnlyDictionary<int, float[]> ValuesBySeconds);
+	internal sealed record TxFoldFeature(
+		IReadOnlyDictionary<int, float[]> ValuesBySeconds,
+		IReadOnlyList<float> VolumeProfile,
+		float? CurrentPrice
+	);
 
 	/// <summary>
 	/// Trader State feature values -- mirrors TraderStateOptionsModel's fields 1:1, null where the

@@ -49,18 +49,60 @@ internal sealed class FeatureAssembler
 	{
 		var selectedSeconds = options.SelectedSeconds ?? [];
 		if (selectedSeconds.Count == 0)
-			return new TxFoldFeature(new Dictionary<int, float[]>());
+			return new TxFoldFeature(new Dictionary<int, float[]>(), [], null);
 
 		var snapshot = TxFoldStats.Compute(ticks, asOf, episodeStart, selectedSeconds, options.BarKind);
-		var barsBySeconds = snapshot.Bars.ToDictionary(bar => bar.LookbackSeconds, bar => BarToValues(bar.Bar));
+		var valuesPerTimeframe = ValuesPerTimeframe(options);
+
+		// Largest selected timeframe's true High/Low anchors 0/+-1 -- mirrors the chart's "%" toggle,
+		// but off TrueHigh/TrueLow so it stays meaningful when BarKind repurposes the bar's own slots.
+		double? referencePrice = null;
+		double? referenceRange = null;
+		if (options.Normalize && snapshot.Bars.Count > 0)
+		{
+			var referenceBar = snapshot.Bars.OrderByDescending(b => b.LookbackSeconds).First();
+			referencePrice = (referenceBar.TrueHigh + referenceBar.TrueLow) / 2;
+			referenceRange = (referenceBar.TrueHigh - referenceBar.TrueLow) / 2;
+		}
+
+		var barsBySeconds = snapshot.Bars.ToDictionary(
+			bar => bar.LookbackSeconds,
+			bar => BarToValues(bar, options.IncludeHighLow, referencePrice, referenceRange)
+		);
 
 		var values = new Dictionary<int, float[]>();
 		foreach (var seconds in selectedSeconds.Distinct())
-			values[seconds] = barsBySeconds.TryGetValue(seconds, out var bar) ? bar : new float[TxFoldValuesPerTimeframe];
-		return new TxFoldFeature(values);
+			values[seconds] = barsBySeconds.TryGetValue(seconds, out var bar) ? bar : new float[valuesPerTimeframe];
+
+		var volumeProfile = options.IncludeVolumeProfile
+			? TxFoldStats.BuildVolumeProfileFeature(ticks, options.VolumeProfileBucketCount)
+			: [];
+
+		float? currentPrice = null;
+		if (options.IncludeCurrentPrice)
+		{
+			var lastMid = ticks.Count > 0 ? (ticks[^1].Bid + ticks[^1].Ask) / 2.0 : 0.0;
+			currentPrice = (float)Normalize(lastMid, referencePrice, referenceRange);
+		}
+
+		return new TxFoldFeature(values, volumeProfile, currentPrice);
 	}
 
-	private static float[] BarToValues(CTraderBarRow bar) => [(float)bar.Open, (float)bar.High, (float)bar.Low, (float)bar.Close];
+	private static int ValuesPerTimeframe(TxFoldOptionsModel options) => TxFoldValuesPerTimeframe + (options.IncludeHighLow ? 2 : 0);
+
+	// referenceRange is null (raw, unnormalized) unless Normalize is on and a reference bar exists.
+	private static double Normalize(double value, double? referencePrice, double? referenceRange) =>
+		referencePrice is { } price && referenceRange is > 0 ? (value - price) / referenceRange.Value : value;
+
+	private static float[] BarToValues(TxFoldBar bar, bool includeHighLow, double? referencePrice, double? referenceRange)
+	{
+		float N(double value) => (float)Normalize(value, referencePrice, referenceRange);
+
+		if (!includeHighLow)
+			return [N(bar.Bar.Open), N(bar.Bar.High), N(bar.Bar.Low), N(bar.Bar.Close)];
+
+		return [N(bar.Bar.Open), N(bar.Bar.High), N(bar.Bar.Low), N(bar.Bar.Close), N(bar.TrueHigh), N(bar.TrueLow)];
+	}
 
 	private static TraderStateFeature AssembleTraderState(TraderStateOptionsModel options, TraderStateSnapshot snapshot) =>
 		new(
@@ -104,6 +146,9 @@ internal sealed class FeatureAssembler
 
 		foreach (var (_, bar) in model.TxFold.ValuesBySeconds.OrderBy(kv => kv.Key))
 			values.AddRange(bar);
+		values.AddRange(model.TxFold.VolumeProfile);
+		if (model.TxFold.CurrentPrice is { } currentPrice)
+			values.Add(currentPrice);
 
 		values.AddRange(TraderStateValues(model.TraderState).Select(v => (float)v));
 
@@ -115,8 +160,11 @@ internal sealed class FeatureAssembler
 	public static int ComputeInputSize(FeatureOptionsModel options)
 	{
 		var xGridCount = options.XGridSignals.EnabledSignals.Count;
-		var txFoldCount = (options.TxFold.SelectedSeconds?.Count ?? 0) * TxFoldValuesPerTimeframe;
-		return xGridCount + txFoldCount + TraderStateInputSize(options.TraderState);
+		var selectedCount = options.TxFold.SelectedSeconds?.Count ?? 0;
+		var txFoldCount = selectedCount * ValuesPerTimeframe(options.TxFold);
+		var volumeProfileCount = options.TxFold.IncludeVolumeProfile ? options.TxFold.VolumeProfileBucketCount : 0;
+		var currentPriceCount = selectedCount > 0 && options.TxFold.IncludeCurrentPrice ? 1 : 0;
+		return xGridCount + txFoldCount + volumeProfileCount + currentPriceCount + TraderStateInputSize(options.TraderState);
 	}
 
 	private static int TraderStateInputSize(TraderStateOptionsModel options)

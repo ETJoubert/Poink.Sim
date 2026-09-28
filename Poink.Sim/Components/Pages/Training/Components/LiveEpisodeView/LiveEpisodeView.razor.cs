@@ -98,6 +98,10 @@ namespace Poink.Sim.Components.Training
 		[Parameter]
 		public IReadOnlyList<FeatureDisplayRow> FeatureRows { get; set; } = [];
 
+		/// <summary>TxFold's own grid-shaped rows, rendered separately from FeatureRows so it matches the Features tab preview's per-timeframe grid layout instead of a flat label/value list.</summary>
+		[Parameter]
+		public IReadOnlyList<TxFoldGridRow> TxFoldRows { get; set; } = [];
+
 		private bool _showMarketChart = true;
 		private bool _showXGrid;
 		private bool _showTxFold = true;
