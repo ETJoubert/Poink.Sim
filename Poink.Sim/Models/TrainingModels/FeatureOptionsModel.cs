@@ -16,9 +16,21 @@ namespace Poink.Sim.Models.TrainingModels
 
 	/// <summary>
 	/// TxFold encoder settings -- one selected timeframe per element, four values per timeframe
-	/// (see TxFoldStats.BuildBar).
+	/// (see TxFoldStats.BuildBar), plus two more per timeframe when IncludeHighLow is set, a shared
+	/// VolumeProfileBucketCount-length block when IncludeVolumeProfile is set, and one shared scalar
+	/// when IncludeCurrentPrice is set. Normalize rescales every one of those values (including
+	/// CurrentPrice) relative to the largest selected timeframe's true High/Low, same math the
+	/// TxFold chart's own "%" toggle uses for display.
 	/// </summary>
-	internal sealed record TxFoldOptionsModel(IReadOnlyList<int>? SelectedSeconds = null, BarAggregationKind BarKind = BarAggregationKind.Ohlc);
+	internal sealed record TxFoldOptionsModel(
+		IReadOnlyList<int>? SelectedSeconds = null,
+		BarAggregationKind BarKind = BarAggregationKind.Ohlc,
+		bool IncludeHighLow = false,
+		bool IncludeVolumeProfile = false,
+		int VolumeProfileBucketCount = 20,
+		bool IncludeCurrentPrice = false,
+		bool Normalize = false
+	);
 
 	/// <summary>
 	/// Trader State encoder settings -- which account/position fields are included, plus the

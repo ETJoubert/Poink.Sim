@@ -8,7 +8,9 @@ namespace Poink.Sim.Components.Charts;
 
 internal readonly record struct TxFoldVolumeBucket(double Low, double High, int Count);
 
-internal readonly record struct TxFoldBar(int LookbackSeconds, CTraderBarRow Bar, bool HasFullCoverage);
+/// <summary>TrueHigh/TrueLow are the window's real min/max mid-price, independent of BarKind -- for
+/// Quartile/Decile/MeanStdDev, Bar's own High/Low slots hold statistical bounds instead.</summary>
+internal readonly record struct TxFoldBar(int LookbackSeconds, CTraderBarRow Bar, bool HasFullCoverage, double TrueHigh, double TrueLow);
 
 internal readonly record struct TxFoldSnapshot(List<TxFoldBar> Bars, IReadOnlyList<TxFoldVolumeBucket> VolumeProfile);
 
@@ -34,14 +36,42 @@ internal static class TxFoldStats
 		foreach (var seconds in distinctSeconds)
 		{
 			var startIndex = LowerBound(ticks, anchorEnd.AddSeconds(-seconds));
-			if (BuildBar(ticks, startIndex, kind) is { } bar)
+			if (BuildBar(ticks, startIndex, kind) is { } result)
 			{
 				var hasFullCoverage = (anchorEnd - rangeStart).TotalSeconds > seconds;
-				bars.Add(new TxFoldBar(seconds, bar, hasFullCoverage));
+				bars.Add(new TxFoldBar(seconds, result.Bar, hasFullCoverage, result.TrueHigh, result.TrueLow));
 			}
 		}
 
 		return new TxFoldSnapshot(bars, BuildVolumeProfile(ticks));
+	}
+
+	// Fixed-length and bucket-count-scaled (% of that set's busiest bucket), not raw tick counts.
+	public static float[] BuildVolumeProfileFeature(IReadOnlyList<Tick> ticks, int bucketCount)
+	{
+		if (bucketCount <= 0)
+			return [];
+		if (ticks.Count == 0)
+			return new float[bucketCount];
+
+		var prices = ticks.Select(t => (t.Bid + t.Ask) / 2.0).ToList();
+		var min = prices.Min();
+		var max = prices.Max();
+
+		var counts = new int[bucketCount];
+		if (max <= min)
+		{
+			counts[0] = prices.Count;
+		}
+		else
+		{
+			var size = (max - min) / bucketCount;
+			foreach (var price in prices)
+				counts[Math.Clamp((int)((price - min) / size), 0, bucketCount - 1)]++;
+		}
+
+		var maxCount = counts.Max();
+		return maxCount > 0 ? counts.Select(c => (float)c / maxCount).ToArray() : new float[bucketCount];
 	}
 
 	// Same uniform-bucket tick-count histogram VolumeProfileStats.Compute uses elsewhere, over the
@@ -85,7 +115,11 @@ internal static class TxFoldStats
 		return lo;
 	}
 
-	private static CTraderBarRow? BuildBar(IReadOnlyList<Tick> ticks, int startIndex, BarAggregationKind kind)
+	private static (CTraderBarRow Bar, double TrueHigh, double TrueLow)? BuildBar(
+		IReadOnlyList<Tick> ticks,
+		int startIndex,
+		BarAggregationKind kind
+	)
 	{
 		if (startIndex >= ticks.Count)
 			return null;
@@ -115,16 +149,19 @@ internal static class TxFoldStats
 
 		prices.Sort();
 		var mean = prices.Average();
-		return kind switch
+		var trueHigh = prices[^1];
+		var trueLow = prices[0];
+		CTraderBarRow bar = kind switch
 		{
 			BarAggregationKind.Quartile
-				=> new CTraderBarRow(openTime, Percentile(prices, 0.25), prices[^1], prices[0], Percentile(prices, 0.75), prices.Count),
+				=> new CTraderBarRow(openTime, Percentile(prices, 0.25), trueHigh, trueLow, Percentile(prices, 0.75), prices.Count),
 			BarAggregationKind.Decile
-				=> new CTraderBarRow(openTime, Percentile(prices, 0.1), prices[^1], prices[0], Percentile(prices, 0.9), prices.Count),
+				=> new CTraderBarRow(openTime, Percentile(prices, 0.1), trueHigh, trueLow, Percentile(prices, 0.9), prices.Count),
 			BarAggregationKind.MeanStdDev
 				=> new CTraderBarRow(openTime, mean, mean + StdDev(prices, mean), mean - StdDev(prices, mean), mean, prices.Count),
-			_ => new CTraderBarRow(openTime, open, prices[^1], prices[0], close, prices.Count, upVolume, downVolume),
+			_ => new CTraderBarRow(openTime, open, trueHigh, trueLow, close, prices.Count, upVolume, downVolume),
 		};
+		return (bar, trueHigh, trueLow);
 	}
 
 	// Linear interpolation between closest ranks -- matches Excel's PERCENTILE.INC and NumPy's default method.

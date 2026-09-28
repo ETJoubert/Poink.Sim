@@ -282,13 +282,23 @@ namespace Poink.Sim.Components.Pages
 		// Features grid below can read it); the grid itself shows field labels only, no fetched data.
 		private HashSet<int> _txFoldSelectedSeconds = [60, 120, 240, 480, 900, 1800, 3600, 7200];
 		private BarAggregationKind _txFoldBarKind = BarAggregationKind.Ohlc;
+		private bool _txFoldIncludeHighLow;
+		private bool _txFoldIncludeVolumeProfile;
+		private int _txFoldVolumeProfileBucketCount = 20;
+		private bool _txFoldIncludeCurrentPrice;
+		private bool _txFoldNormalize;
 
 		// Picked on the Features tab because it sets XGrid's window; the Training tab reads it for Episode span.
 		private int _barWidthSeconds = 60;
 
 		private const int TxFoldValuesPerTimeframe = 4;
 
-		private int TxFoldFeatureCount => _txFoldSelectedSeconds.Count * TxFoldValuesPerTimeframe;
+		private int TxFoldValuesPerTimeframeSelected => TxFoldValuesPerTimeframe + (_txFoldIncludeHighLow ? 2 : 0);
+
+		private int TxFoldFeatureCount =>
+			_txFoldSelectedSeconds.Count * TxFoldValuesPerTimeframeSelected
+			+ (_txFoldIncludeVolumeProfile ? _txFoldVolumeProfileBucketCount : 0)
+			+ (_txFoldSelectedSeconds.Count > 0 && _txFoldIncludeCurrentPrice ? 1 : 0);
 
 		private int TraderStateFeatureCount =>
 			SelectedTraderStateFieldCount
@@ -332,7 +342,16 @@ namespace Poink.Sim.Components.Pages
 		private XGridSignalsOptionsModel CurrentXGridSignalsOptions =>
 			new([.. _xGridEnabledSignals], _xGridTopPercent, _xGridColCount, _xGridRowCount);
 
-		private TxFoldOptionsModel CurrentTxFoldOptions => new([.. _txFoldSelectedSeconds], _txFoldBarKind);
+		private TxFoldOptionsModel CurrentTxFoldOptions =>
+			new(
+				[.. _txFoldSelectedSeconds],
+				_txFoldBarKind,
+				_txFoldIncludeHighLow,
+				_txFoldIncludeVolumeProfile,
+				_txFoldVolumeProfileBucketCount,
+				_txFoldIncludeCurrentPrice,
+				_txFoldNormalize
+			);
 
 		private TraderStateOptionsModel CurrentTraderStateOptions =>
 			new(
@@ -368,6 +387,11 @@ namespace Poink.Sim.Components.Pages
 			if (options.TxFold.SelectedSeconds is { } seconds)
 				_txFoldSelectedSeconds = [.. seconds];
 			_txFoldBarKind = options.TxFold.BarKind;
+			_txFoldIncludeHighLow = options.TxFold.IncludeHighLow;
+			_txFoldIncludeVolumeProfile = options.TxFold.IncludeVolumeProfile;
+			_txFoldVolumeProfileBucketCount = options.TxFold.VolumeProfileBucketCount;
+			_txFoldIncludeCurrentPrice = options.TxFold.IncludeCurrentPrice;
+			_txFoldNormalize = options.TxFold.Normalize;
 
 			var traderState = options.TraderState;
 			_traderStateIncludePosition = traderState.IncludePosition;
