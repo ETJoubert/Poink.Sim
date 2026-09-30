@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Poink.Sim.Components.Charts;
 using Poink.Sim.Models;
 
 namespace Poink.Sim.Models.TrainingModels
@@ -17,10 +18,12 @@ namespace Poink.Sim.Models.TrainingModels
 	/// <summary>
 	/// TxFold encoder settings -- one selected timeframe per element, four values per timeframe
 	/// (see TxFoldStats.BuildBar), plus two more per timeframe when IncludeHighLow is set, a shared
-	/// VolumeProfileBucketCount-length block when IncludeVolumeProfile is set, and one shared scalar
-	/// when IncludeCurrentPrice is set. Normalize rescales every one of those values (including
-	/// CurrentPrice) relative to the largest selected timeframe's true High/Low, same math the
-	/// TxFold chart's own "%" toggle uses for display.
+	/// VolumeProfileBucketCount-length block when IncludeVolumeProfile is set, one shared scalar
+	/// when IncludeCurrentPrice is set, and one shared scalar per level in IncludedLevels (POC/VAH/
+	/// VAL/VWAP/AVE/MED/REG, computed once over the ticks behind the displayed bars, same as the
+	/// TxFold chart's own overlay toggles). Normalize rescales every one of those values (including
+	/// CurrentPrice and the levels) relative to the largest selected timeframe's true High/Low, same
+	/// math the TxFold chart's own "%" toggle uses for display.
 	/// </summary>
 	internal sealed record TxFoldOptionsModel(
 		IReadOnlyList<int>? SelectedSeconds = null,
@@ -29,33 +32,14 @@ namespace Poink.Sim.Models.TrainingModels
 		bool IncludeVolumeProfile = false,
 		int VolumeProfileBucketCount = 20,
 		bool IncludeCurrentPrice = false,
+		IReadOnlyList<TxFoldLevelKind>? IncludedLevels = null,
 		bool Normalize = false
 	);
 
 	/// <summary>
-	/// Trader State encoder settings -- which account/position fields are included, plus the
-	/// trailing list lengths for Outcomes/PositionLevel/Direction history.
+	/// Trader State encoder settings -- unrealized profit/loss as a percent of cash balance.
 	/// </summary>
-	internal sealed record TraderStateOptionsModel(
-		bool IncludePosition = false,
-		bool IncludePositionPrice = false,
-		bool IncludePositionTicks = false,
-		bool IncludePositionDistance = false,
-		bool IncludeCurrentPrice = false,
-		bool IncludeCash = false,
-		bool IncludeRealized = false,
-		bool IncludeUnrealized = false,
-		bool IncludeEquity = false,
-		bool IncludeMargin = false,
-		bool IncludeMarginLevel = false,
-		bool IncludePositionCount = false,
-		bool IncludeOutcomes = false,
-		bool IncludePositionLevel = false,
-		bool IncludeDirection = false,
-		int OutcomeListLength = 5,
-		int PositionLevelListLength = 5,
-		int DirectionListLength = 5
-	);
+	internal sealed record TraderStateOptionsModel(bool IncludeUnrealized = false);
 
 	/// <summary>
 	/// The Features tab's encoder selections -- TrainPageV2's counterpart to EncoderSizeOptions,

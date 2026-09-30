@@ -46,6 +46,22 @@ internal static class TxFoldStats
 		return new TxFoldSnapshot(bars, BuildVolumeProfile(ticks), levels);
 	}
 
+	// Shared by the chart's own level overlay (TxFold.razor.cs) and FeatureAssembler's level feature values.
+	public static double? LevelValue(RangeStatsResult? levels, TxFoldLevelKind kind) =>
+		levels is not { } l
+			? null
+			: kind switch
+			{
+				TxFoldLevelKind.Poc => l.Poc,
+				TxFoldLevelKind.Vah => l.Vah,
+				TxFoldLevelKind.Val => l.Val,
+				TxFoldLevelKind.Vwap => l.Vwap,
+				TxFoldLevelKind.Average => l.Average,
+				TxFoldLevelKind.Median => l.Median,
+				TxFoldLevelKind.Regression => l.Regression,
+				_ => null,
+			};
+
 	// Fixed-length and bucket-count-scaled (% of that set's busiest bucket), not raw tick counts.
 	public static float[] BuildVolumeProfileFeature(IReadOnlyList<Tick> ticks, int bucketCount)
 	{

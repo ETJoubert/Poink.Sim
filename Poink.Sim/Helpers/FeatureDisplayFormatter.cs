@@ -41,6 +41,8 @@ namespace Poink.Sim.Helpers
 							rows.Add(new FeatureDisplayRow(section.Name, $"Vol Profile [{i}]", txFold.VolumeProfile[i].ToString("0.###")));
 						if (txFold.CurrentPrice is { } currentPrice)
 							rows.Add(new FeatureDisplayRow(section.Name, "Current Price", currentPrice.ToString("0.###")));
+						foreach (var (kind, value) in txFold.Levels.OrderBy(kv => kv.Key))
+							rows.Add(new FeatureDisplayRow(section.Name, LevelLabel(kind), value.ToString("0.###")));
 						break;
 					case { } feature:
 						foreach (var property in feature.GetType().GetProperties())
@@ -78,10 +80,18 @@ namespace Poink.Sim.Helpers
 			if (txFold.CurrentPrice is { } currentPrice)
 				rows.Add(new TxFoldGridRow("Current Price", [new TxFoldGridCell("px", currentPrice.ToString("0.###"))]));
 
+			if (txFold.Levels.Count > 0)
+			{
+				var cells = txFold.Levels.OrderBy(kv => kv.Key).Select(kv => new TxFoldGridCell(LevelLabel(kv.Key), kv.Value.ToString("0.###"))).ToList();
+				rows.Add(new TxFoldGridRow("Levels", cells));
+			}
+
 			return rows;
 		}
 
 		public static string TimeframeLabel(int seconds) => SnapshotTimeframeOptions.All.FirstOrDefault(o => o.Seconds == seconds).Label;
+
+		public static string LevelLabel(TxFoldLevelKind kind) => TxFoldLevelOptions.All.First(o => o.Kind == kind).Label;
 
 		// Every kind stores exactly 4 values per bar (6 when IncludeHighLow adds the window's true High/Low) -- these just relabel the slots.
 		public static string[] TxFoldFieldLabels(BarAggregationKind kind, bool includeHighLow = false)

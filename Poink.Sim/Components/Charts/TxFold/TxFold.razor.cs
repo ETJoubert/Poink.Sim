@@ -101,7 +101,8 @@ namespace Poink.Sim.Components.Charts
 		public EventCallback<bool> NormalizeChanged { get; set; }
 
 		/// <summary>Which POC/VAH/VAL/VWAP/AVE/MED/REG overlays render as reference lines across the whole
-		/// chart, computed once over the ticks behind the displayed bars -- bindable, same rationale as SelectedSeconds.</summary>
+		/// chart, computed once over the ticks behind the displayed bars -- bindable so TrainPageV2's
+		/// Features tab can also drive FeatureOptionsModel.TxFold.IncludedLevels from the same toggle.</summary>
 		[Parameter]
 		public HashSet<TxFoldLevelKind> ShownLevels { get; set; } = new();
 
@@ -169,20 +170,7 @@ namespace Poink.Sim.Components.Charts
 			return ShownLevelsChanged.InvokeAsync(ShownLevels);
 		}
 
-		private double? LevelPrice(TxFoldLevelKind kind) =>
-			_levels is not { } levels
-				? null
-				: kind switch
-				{
-					TxFoldLevelKind.Poc => levels.Poc,
-					TxFoldLevelKind.Vah => levels.Vah,
-					TxFoldLevelKind.Val => levels.Val,
-					TxFoldLevelKind.Vwap => levels.Vwap,
-					TxFoldLevelKind.Average => levels.Average,
-					TxFoldLevelKind.Median => levels.Median,
-					TxFoldLevelKind.Regression => levels.Regression,
-					_ => null,
-				};
+		private double? LevelPrice(TxFoldLevelKind kind) => TxFoldStats.LevelValue(_levels, kind);
 
 		private async Task ToggleTimeframe(int seconds)
 		{

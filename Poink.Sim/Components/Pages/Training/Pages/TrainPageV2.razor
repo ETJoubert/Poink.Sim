@@ -201,7 +201,8 @@
                     <div class="trv2-card trv2-card-nopad">
                         <TxFold Table="" RangeStart="DateTime.UtcNow" @bind-SelectedSeconds="_txFoldSelectedSeconds"
                                 @bind-BarKind="_txFoldBarKind" @bind-ShowHighLowLines="_txFoldIncludeHighLow"
-                                @bind-ShowVolumeProfile="_txFoldIncludeVolumeProfile" @bind-Normalize="_txFoldNormalize" />
+                                @bind-ShowVolumeProfile="_txFoldIncludeVolumeProfile" @bind-Normalize="_txFoldNormalize"
+                                @bind-ShownLevels="_txFoldIncludedLevels" />
                         <div class="trv2-txfold-features">
                             <div class="trv2-card-title-row">
                                 <span class="trv2-card-title" title="One row per timeframe selected above, plus the shared Volume Profile block when enabled">
@@ -220,6 +221,9 @@
                                 <input type="checkbox" @bind="_txFoldIncludeCurrentPrice" />
                                 Current Price
                             </label>
+                            <p class="trv2-placeholder" title="Each toggled level adds one extra network input, computed once over the ticks behind the displayed bars -- same price-or-% rule as Current Price">
+                                POC/VAH/VAL/VWAP/AVE/MED/REG above add one input each per level toggled on the chart's own toolbar
+                            </p>
                             @if (_txFoldSelectedSeconds.Count == 0)
                             {
                                 <p class="trv2-placeholder">none selected</p>
@@ -251,6 +255,16 @@
                                             <span class="trv2-txfold-grid-cell">@(_txFoldNormalize ? "% of range" : "raw price")</span>
                                         </div>
                                     }
+                                    @if (_txFoldIncludedLevels.Count > 0)
+                                    {
+                                        <div class="trv2-txfold-grid-row">
+                                            <span class="trv2-txfold-grid-label">Levels</span>
+                                            @foreach (var level in TxFoldLevelOptions.All.Where(o => _txFoldIncludedLevels.Contains(o.Kind)))
+                                            {
+                                                <span class="trv2-txfold-grid-cell" title="@level.Tooltip">@level.Label</span>
+                                            }
+                                        </div>
+                                    }
                                 </div>
                             }
                         </div>
@@ -259,70 +273,15 @@
                     <div class="trv2-card">
                         <div class="trv2-card-title-row">
                             <span class="trv2-card-title" title="Own position/capital state -- whether this brain needs to know if it already holds a position">Trader State</span>
-                            <span class="trv2-card-badge" title="How many of the available Trader State fields/lists are enabled">
+                            <span class="trv2-card-badge" title="How many of the available Trader State fields are enabled">
                                 @SelectedTraderStateFieldCount/@TotalTraderStateFieldCount
                             </span>
                         </div>
-                        <div class="trv2-subgroup">
-                            <div class="trv2-card-title-row">
-                                <span class="trv2-subgroup-title" title="Features describing the open position and the price it is measured against">Position</span>
-                                <label class="trv2-field" title="Toggle every position field below on or off at once">
-                                    <input type="checkbox" checked="@AllFieldsSelected(PositionFieldRows)" @onchange="e => SetAllFields(PositionFieldRows, e)" />
-                                    Select All Fields
-                                </label>
-                            </div>
-                            <div class="trv2-field-row">
-                                @foreach (var row in PositionFieldRows)
-                                {
-                                    <label class="trv2-field" title="@row.Tooltip">
-                                        <input type="checkbox" checked="@row.Get()" @onchange="e => OnTraderStateFieldChanged(row, e)" />
-                                        @row.Label
-                                    </label>
-                                }
-                            </div>
-                            <div class="trv2-field-row">
-                                <label class="trv2-field"
-                                       title="How many trailing price records since the open position's own entry time Trader State compares against entry price, most-recent-last, zero-padded">
-                                    <input type="checkbox" @bind="_includeTraderStatePositionLevel" />
-                                    Level
-                                    <input class="trv2-input" type="number" min="1" step="1" @bind="_traderStatePositionLevelListLength"
-                                           disabled="@(!_includeTraderStatePositionLevel)" />
-                                </label>
-                            </div>
-                        </div>
-                        <div class="trv2-subgroup">
-                            <div class="trv2-card-title-row">
-                                <span class="trv2-subgroup-title" title="Features describing the trader's capital, profit/loss, margin and closed-trade history">Account</span>
-                                <label class="trv2-field" title="Toggle every account field below on or off at once">
-                                    <input type="checkbox" checked="@AllFieldsSelected(AccountFieldRows)" @onchange="e => SetAllFields(AccountFieldRows, e)" />
-                                    Select All Fields
-                                </label>
-                            </div>
-                            <div class="trv2-field-row">
-                                @foreach (var row in AccountFieldRows)
-                                {
-                                    <label class="trv2-field" title="@row.Tooltip">
-                                        <input type="checkbox" checked="@row.Get()" @onchange="e => OnTraderStateFieldChanged(row, e)" />
-                                        @row.Label
-                                    </label>
-                                }
-                            </div>
-                            <div class="trv2-field-row">
-                                <label class="trv2-field"
-                                       title="How many of the most recent closed trades' win(1)/loss(0) outcome Trader State feeds, most-recent-last, zero-padded if fewer trades have closed yet">
-                                    <input type="checkbox" @bind="_includeTraderStateOutcomes" />
-                                    Outcomes
-                                    <input class="trv2-input" type="number" min="1" step="1" @bind="_traderStateOutcomeListLength"
-                                           disabled="@(!_includeTraderStateOutcomes)" />
-                                </label>
-                                <label class="trv2-field"
-                                       title="How many of the most recent closed trades' direction (1=Long, 0=Short) Trader State feeds, index-aligned with Outcomes">
-                                    <input type="checkbox" @bind="_includeTraderStateDirection" />
-                                    Direction
-                                    <input class="trv2-input" type="number" min="1" step="1" @bind="_traderStateDirectionListLength"
-                                           disabled="@(!_includeTraderStateDirection)" />
-                                </label>
-                            </div>
+                        <div class="trv2-field-row">
+                            <label class="trv2-field" title="Unrealized profit/loss on the open position as a percent of cash balance, 0 when flat">
+                                <input type="checkbox" @bind="_traderStateIncludeUnrealized" />
+                                Unrealized
+                            </label>
                         </div>
                     </div>
                 </div>
