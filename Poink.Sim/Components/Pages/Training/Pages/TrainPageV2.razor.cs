@@ -446,12 +446,9 @@ namespace Poink.Sim.Components.Pages
 			+ (_includeTakeProfitOutput ? TakeProfitOutputWidth : 0);
 
 		// Action Masking -- mirrors BrainBuilder's ActionsSection Action Masking card, but defaults
-		// every rule off here rather than on.
+		// every rule off here rather than on. The XGrid-dependent rules are left out for now.
 		private bool _maskPositionRequiredForClose;
 		private bool _maskFlatRequiredForEntry;
-		private bool _maskLongRequiresUpSignal;
-		private bool _maskShortRequiresDownSignal;
-		private bool _maskKeyLevelRequiredForClose;
 
 		private sealed record MaskRuleRow(string Label, string Tooltip, Func<bool> Get, Action<bool> Set);
 
@@ -470,29 +467,11 @@ namespace Poink.Sim.Components.Pages
 					() => _maskFlatRequiredForEntry,
 					v => _maskFlatRequiredForEntry = v
 				),
-				new(
-					"Long Requires Up Signal",
-					"Enter Long is illegal unless the xGrid Rank Top % Up signal is active -- has no effect without the XGrid Signals encoder",
-					() => _maskLongRequiresUpSignal,
-					v => _maskLongRequiresUpSignal = v
-				),
-				new(
-					"Short Requires Down Signal",
-					"Enter Short is illegal unless the xGrid Rank Top % Down signal is active -- has no effect without the XGrid Signals encoder",
-					() => _maskShortRequiresDownSignal,
-					v => _maskShortRequiresDownSignal = v
-				),
-				new(
-					"Close Requires Key Level",
-					"Close is illegal unless price is currently at POC, VAH, VAL, or VWAP -- has no effect without the XGrid Signals encoder",
-					() => _maskKeyLevelRequiredForClose,
-					v => _maskKeyLevelRequiredForClose = v
-				),
 			};
 
 		private void OnMaskRuleFieldChanged(MaskRuleRow row, ChangeEventArgs e) => row.Set(e.Value is true);
 
-		private const int TotalMaskRuleCount = 5;
+		private const int TotalMaskRuleCount = 2;
 
 		private int SelectedMaskRuleCount => MaskRuleRows.Count(r => r.Get());
 
@@ -521,13 +500,7 @@ namespace Poink.Sim.Components.Pages
 			new(_includeHold, _includeEnterLong, _includeEnterShort, _includeClose, _includeVolumeOutput, _includeStopLossOutput, _includeTakeProfitOutput);
 
 		private ActionMaskingOptionsModel CurrentActionMaskingOptions =>
-			new(
-				_maskPositionRequiredForClose,
-				_maskFlatRequiredForEntry,
-				_maskLongRequiresUpSignal,
-				_maskShortRequiresDownSignal,
-				_maskKeyLevelRequiredForClose
-			);
+			new(_maskPositionRequiredForClose, _maskFlatRequiredForEntry);
 
 		private ActionDecodingOptionsModel CurrentActionDecodingOptions => new(_decisionDecoding, _decisionTemperature);
 
@@ -545,9 +518,6 @@ namespace Poink.Sim.Components.Pages
 
 			_maskPositionRequiredForClose = options.ActionMasking.PositionRequiredForClose;
 			_maskFlatRequiredForEntry = options.ActionMasking.FlatRequiredForEntry;
-			_maskLongRequiresUpSignal = options.ActionMasking.LongRequiresUpSignal;
-			_maskShortRequiresDownSignal = options.ActionMasking.ShortRequiresDownSignal;
-			_maskKeyLevelRequiredForClose = options.ActionMasking.KeyLevelRequiredForClose;
 
 			_decisionDecoding = options.ActionDecoding.DecisionDecoding;
 			_decisionTemperature = options.ActionDecoding.DecisionTemperature;

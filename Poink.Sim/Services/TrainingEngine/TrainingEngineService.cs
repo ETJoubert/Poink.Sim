@@ -153,7 +153,8 @@ internal sealed class TrainingEngineService
 				BuildTraderStateSnapshot(trader, bid, ask)
 			);
 			var vector = _featureAssembler.Flatten(featureModel);
-			var (rawOutputs, activations) = network.ForwardWithActivations(vector.Values);
+			var (forwardOutputs, activations) = network.ForwardWithActivations(vector.Values);
+			var rawOutputs = MaskIllegalDirections(forwardOutputs, actionSpace, trader.CurrentPosition, options.Output.ActionMasking);
 			var actionIndex = ChooseActionIndex(rawOutputs, actionSpace, random);
 			var action = actionSpace.Directions[actionIndex];
 			var execution = trader.Apply(new SimulationDecision(action, CapitalFraction: 1.0), bid, ask, tick.Timestamp);
@@ -194,6 +195,33 @@ internal sealed class TrainingEngineService
 
 		var lastTick = ticks[^1];
 		return new EpisodeResult(steps, trader.Snapshot(lastTick.Bid, lastTick.Ask), trader.TradeLog, totalReward);
+	}
+
+	private const float IllegalDirectionPenalty = -1e9f;
+
+	// Applied to the logits themselves (not just filtered out after sampling) so an illegal
+	// direction is also excluded from the softmax PolicyGradientLearner trains on.
+	private static float[] MaskIllegalDirections(
+		float[] rawOutputs,
+		ActionSpace actionSpace,
+		Position? position,
+		ActionMaskingOptionsModel masking
+	)
+	{
+		var masked = (float[])rawOutputs.Clone();
+		for (var i = 0; i < actionSpace.DirectionOutputWidth; i++)
+			if (!IsLegalDirection(actionSpace.Directions[i], position, masking))
+				masked[i] = IllegalDirectionPenalty;
+		return masked;
+	}
+
+	private static bool IsLegalDirection(SimulationAction action, Position? position, ActionMaskingOptionsModel masking)
+	{
+		if (masking.PositionRequiredForClose && action == SimulationAction.Close && position is null)
+			return false;
+		if (masking.FlatRequiredForEntry && action is SimulationAction.EnterLong or SimulationAction.EnterShort && position is not null)
+			return false;
+		return true;
 	}
 
 	// Same action DecodeDirection would pick, but the gradient also needs to know which output
