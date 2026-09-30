@@ -9,20 +9,16 @@ namespace Poink.Sim.Components.Charts;
 
 internal readonly record struct TxFoldVolumeBucket(double Low, double High, int Count);
 
-/// <summary>TrueHigh/TrueLow are the window's real min/max mid-price, independent of BarKind -- for
-/// Quartile/Decile/MeanStdDev, Bar's own High/Low slots hold statistical bounds instead.</summary>
 internal readonly record struct TxFoldBar(int LookbackSeconds, CTraderBarRow Bar, bool HasFullCoverage, double TrueHigh, double TrueLow);
 
 /// <summary>Levels is null only when there are no ticks at all -- unlike Poc/Vah/Val inside it,
 /// which can independently be null just from too little data for a meaningful value area.</summary>
 internal readonly record struct TxFoldSnapshot(List<TxFoldBar> Bars, IReadOnlyList<TxFoldVolumeBucket> VolumeProfile, RangeStatsResult? Levels);
 
-// Pure bar/coverage/volume-profile math over ticks the caller already fetched -- kept separate
-// from TxFold.razor.cs, the same split XGridStats.Compute keeps from XGrid.razor.cs.
+// Bar/coverage/volume-profile math over already-fetched ticks, kept separate from TxFold.razor.cs.
 internal static class TxFoldStats
 {
-	// Windows overlap by design (each ends at anchorEnd), so BarKindChartService's fixed-epoch
-	// bucketing can't be reused -- it would silently split an unaligned range across two buckets.
+	// Windows overlap by design (each ends at anchorEnd), so BarKindChartService's fixed-epoch bucketing can't be reused.
 	public static TxFoldSnapshot Compute(
 		IReadOnlyList<Tick> ticks,
 		DateTime anchorEnd,
@@ -39,7 +35,7 @@ internal static class TxFoldStats
 		foreach (var seconds in distinctSeconds)
 		{
 			var startIndex = LowerBound(ticks, anchorEnd.AddSeconds(-seconds));
-			if (BuildBar(ticks, startIndex, kind) is { } result)
+			if (BarAggregator.Aggregate(ticks, startIndex, kind) is { } result)
 			{
 				var hasFullCoverage = (anchorEnd - rangeStart).TotalSeconds > seconds;
 				bars.Add(new TxFoldBar(seconds, result.Bar, hasFullCoverage, result.TrueHigh, result.TrueLow));
@@ -87,72 +83,4 @@ internal static class TxFoldStats
 		}
 		return lo;
 	}
-
-	private static (CTraderBarRow Bar, double TrueHigh, double TrueLow)? BuildBar(
-		IReadOnlyList<Tick> ticks,
-		int startIndex,
-		BarAggregationKind kind
-	)
-	{
-		if (startIndex >= ticks.Count)
-			return null;
-
-		var openTime = ticks[startIndex].Timestamp;
-		double open = 0,
-			close = 0,
-			prevMid = 0;
-		var prices = new List<double>(ticks.Count - startIndex);
-		int upVolume = 0,
-			downVolume = 0;
-
-		for (var i = startIndex; i < ticks.Count; i++)
-		{
-			var mid = (ticks[i].Bid + ticks[i].Ask) / 2.0;
-			if (i == startIndex)
-				open = mid;
-			else if (mid > prevMid)
-				upVolume++;
-			else if (mid < prevMid)
-				downVolume++;
-
-			prevMid = mid;
-			close = mid;
-			prices.Add(mid);
-		}
-
-		prices.Sort();
-		var mean = prices.Average();
-		var trueHigh = prices[^1];
-		var trueLow = prices[0];
-		CTraderBarRow bar = kind switch
-		{
-			BarAggregationKind.Quartile
-				=> new CTraderBarRow(openTime, Percentile(prices, 0.25), trueHigh, trueLow, Percentile(prices, 0.75), prices.Count),
-			BarAggregationKind.Decile
-				=> new CTraderBarRow(openTime, Percentile(prices, 0.1), trueHigh, trueLow, Percentile(prices, 0.9), prices.Count),
-			BarAggregationKind.MeanStdDev
-				=> new CTraderBarRow(openTime, mean, mean + StdDev(prices, mean), mean - StdDev(prices, mean), mean, prices.Count),
-			_ => new CTraderBarRow(openTime, open, trueHigh, trueLow, close, prices.Count, upVolume, downVolume),
-		};
-		return (bar, trueHigh, trueLow);
-	}
-
-	// Linear interpolation between closest ranks -- matches Excel's PERCENTILE.INC and NumPy's default method.
-	private static double Percentile(List<double> sortedValues, double fraction)
-	{
-		if (sortedValues.Count == 1)
-			return sortedValues[0];
-
-		var rank = fraction * (sortedValues.Count - 1);
-		var lowerIndex = (int)Math.Floor(rank);
-		var upperIndex = (int)Math.Ceiling(rank);
-		if (lowerIndex == upperIndex)
-			return sortedValues[lowerIndex];
-
-		var weight = rank - lowerIndex;
-		return sortedValues[lowerIndex] + (sortedValues[upperIndex] - sortedValues[lowerIndex]) * weight;
-	}
-
-	private static double StdDev(List<double> values, double mean) =>
-		values.Count <= 1 ? 0 : Math.Sqrt(values.Sum(v => (v - mean) * (v - mean)) / values.Count);
 }
