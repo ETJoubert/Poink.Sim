@@ -47,12 +47,14 @@ internal sealed class PolicyGradientLearner
 
 		if (learning.TrainingStrategyName == PerDecisionStrategyName)
 		{
+			// N separate full-rate steps would otherwise scale this episode's total update by N.
+			var perStepLearningRate = learning.LearningRate / traces.Count;
 			for (var i = 0; i < traces.Count; i++)
 			{
 				var advantage = NormalizedAdvantage(returns[i], mean, std);
 				var gradient = PolicyGradient(traces[i].RawOutputs, actionSpace, traces[i].ActionIndex, advantage, entropyCoefficient);
 				var (weightGradients, biasGradients) = Backward(network, traces[i].Activations, gradient);
-				ApplyGradients(network, weightGradients, biasGradients, learning.LearningRate);
+				ApplyGradients(network, weightGradients, biasGradients, perStepLearningRate);
 			}
 			return;
 		}
