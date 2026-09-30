@@ -11,7 +11,10 @@ internal readonly record struct RangeStatsResult(
     double Vwap,
     double Average,
     double Median,
-    double Regression
+    double Regression,
+    double Max,
+    double Min,
+    int Count
 );
 
 // Same volume-profile bucketing VolumeProfileStats.Compute uses, generalized with a weight selector
@@ -49,7 +52,10 @@ internal static class RangeStatsHelper
             ComputeWeightedMean(prices, weights, totalWeight),
             prices.Average(),
             ComputeWeightedMedian(prices, weights, totalWeight),
-            ComputeRegressionAtLastIndex(prices)
+            ComputeRegressionAtLastIndex(prices),
+            prices.Max(),
+            prices.Min(),
+            items.Count
         );
     }
 
