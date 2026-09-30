@@ -20,7 +20,7 @@
         @foreach (var tab in VisibleTabs)
         {
             <button type="button" class="trv2-tab @(_activeTab == tab ? "trv2-tab-active" : "")"
-                    @onclick="() => _activeTab = tab" title="@TabTitle(tab)">
+                    @onclick="() => SelectTab(tab)" title="@TabTitle(tab)">
                 @tab.ToString().ToUpperInvariant()
             </button>
         }
@@ -524,9 +524,40 @@
                 break;
             case TrainV2Tab.Training:
                 <div class="trv2-card-stack">
-                    <div class="trv2-card">
+                    <div class="trv2-card trv2-card-span-all">
                         <div class="trv2-card-title-row">
                             <span class="trv2-card-title" title="How many episodes to run, and what span of data each one covers">Episode Timing</span>
+                        </div>
+                        <div class="trv2-preview-sparkline">
+                            @if (_previewConfig is not null && !_previewReachedStart)
+                            {
+                                <button class="trv2-preview-load-older-btn" @onclick="LoadMorePreview"
+                                        disabled="@(_previewLoading || _previewLoadingMore)"
+                                        title="Fetch the next older chunk of history">
+                                    <Icon Name="chevron-left" Class="trv2-preview-load-older-icon" />
+                                </button>
+                            }
+                            <MarketChartSparkline Bars="_previewBarRows" />
+                        </div>
+                        <div class="trv2-preview-chart">
+                            @if (string.IsNullOrWhiteSpace(_table))
+                            {
+                                <p class="trv2-placeholder">Select a symbol and range on the Data tab to preview it here.</p>
+                            }
+                            else if (_previewLoading)
+                            {
+                                <p class="trv2-placeholder">Loading preview...</p>
+                            }
+                            else if (_previewError is not null)
+                            {
+                                <p class="trv2-placeholder">@_previewError</p>
+                            }
+                            else
+                            {
+                                <MarketChartContainer Bars="_previewBarRows" ShowAnnotationTools="false" KeepView="_previewKeepView"
+                                                       OnNearStart="LoadMorePreview" OnVolumeRangeDrawn="SetPreviewWindow"
+                                                       HasVolumeRange="_previewWindowStart is not null" OnVolumeRangeCleared="ClearPreviewWindow" />
+                            }
                         </div>
                         <label class="trv2-field">
                             Episodes

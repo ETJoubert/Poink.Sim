@@ -13,6 +13,7 @@ using Poink.Sim.Components.Pages.Trade.Helpers;
 using Poink.Sim.Helpers;
 using Poink.Sim.Models;
 using Poink.Sim.Models.TrainingModels;
+using Poink.Sim.Profiler;
 using Poink.Sim.Repository;
 using Poink.Sim.Services.Symbols;
 using Poink.Sim.Services.TrainingEngine;
@@ -53,6 +54,13 @@ namespace Poink.Sim.Components.Pages
 
 		// Background mode leaves Live with nothing current to show (see RunOneEpisode) -- hidden, not just disabled.
 		private IEnumerable<TrainV2Tab> VisibleTabs => _backgroundMode ? Tabs.Where(t => t != TrainV2Tab.Live) : Tabs;
+
+		private void SelectTab(TrainV2Tab tab)
+		{
+			_activeTab = tab;
+			if (tab == TrainV2Tab.Training)
+				_ = EnsurePreviewLoadedAsync();
+		}
 
 		private static string TabTitle(TrainV2Tab tab) =>
 			tab switch
@@ -582,6 +590,116 @@ namespace Poink.Sim.Components.Pages
 		private bool VisibleBarsCoverFeatures => _visibleBars >= MinimumVisibleBars;
 
 		private TimeSpan EpisodeSpan => TimeSpan.FromSeconds((double)EpisodeBars * _barWidthSeconds);
+
+		// Episode Timing preview -- a read-only look at the Data tab's selected range, reusing
+		// ProfilerPage's chunked backfill so panning the chart loads older history on demand.
+		[Inject]
+		private IProfilerService ProfilerService { get; set; } = default!;
+
+		private const int PreviewBarsPerFetch = 300;
+
+		private ProfilerConfig? _previewConfig;
+		private List<HlocAvdtBar> _previewBars = new();
+		private List<CTraderBarRow> _previewBarRows = new();
+		private bool _previewLoading;
+		private bool _previewLoadingMore;
+		private bool _previewReachedStart;
+		private bool _previewKeepView;
+		private string? _previewError;
+
+		// Not consumed yet -- the Lookback Window drawn on the preview chart will anchor episode
+		// sampling to a specific slice of the range in a follow-up, replacing today's random start.
+		private DateTime? _previewWindowStart;
+		private DateTime? _previewWindowEnd;
+
+		private async Task EnsurePreviewLoadedAsync()
+		{
+			if (string.IsNullOrWhiteSpace(_table))
+				return;
+
+			var config = new ProfilerConfig(_table, _from, _to, TimeSpan.FromSeconds(_barWidthSeconds));
+			if (_previewConfig == config)
+				return;
+
+			_previewConfig = config;
+			_previewBars = new();
+			_previewBarRows = new();
+			_previewReachedStart = false;
+			_previewKeepView = false;
+			_previewError = null;
+			_previewLoading = true;
+
+			try
+			{
+				var chunk = await ProfilerService.LoadAsync(config, config.To, PreviewBarsPerFetch);
+				ApplyPreviewChunk(chunk);
+			}
+			catch (Exception ex)
+			{
+				_previewError = ex.Message;
+			}
+			finally
+			{
+				_previewLoading = false;
+			}
+			StateHasChanged();
+		}
+
+		private async Task LoadMorePreview()
+		{
+			_previewKeepView = true;
+			if (_previewConfig is null || _previewReachedStart || _previewLoadingMore)
+				return;
+
+			_previewLoadingMore = true;
+			try
+			{
+				var cursor = _previewBars.Count > 0 ? _previewBars[0].OpenTime : _previewConfig.To;
+				var chunk = await ProfilerService.LoadAsync(_previewConfig, cursor, PreviewBarsPerFetch);
+				ApplyPreviewChunk(chunk);
+			}
+			catch (Exception ex)
+			{
+				_previewError = ex.Message;
+			}
+			finally
+			{
+				_previewLoadingMore = false;
+			}
+		}
+
+		private void ApplyPreviewChunk(ProfilerChunk chunk)
+		{
+			_previewBars = chunk.Bars.Concat(_previewBars).ToList();
+			_previewBarRows = ToBarRows(_previewBars);
+			_previewReachedStart = chunk.ReachedStart;
+		}
+
+		private static List<CTraderBarRow> ToBarRows(IEnumerable<HlocAvdtBar> bars) =>
+			bars.Select(b => new CTraderBarRow(
+					b.OpenTime,
+					b.Open,
+					b.High,
+					b.Low,
+					b.Close,
+					b.Volume,
+					b.UpVolume,
+					b.DownVolume,
+					b.Distance
+				))
+				.ToList();
+
+		private void SetPreviewWindow(ChartTimeRange range)
+		{
+			_previewWindowStart = range.TimeUtc1 <= range.TimeUtc2 ? range.TimeUtc1 : range.TimeUtc2;
+			_previewWindowEnd = range.TimeUtc1 <= range.TimeUtc2 ? range.TimeUtc2 : range.TimeUtc1;
+		}
+
+		private void ClearPreviewWindow()
+		{
+			_previewWindowStart = null;
+			_previewWindowEnd = null;
+		}
 
 		private void ToggleRestrictEpisodeTiming(ChangeEventArgs e) => _restrictEpisodeTiming = e.Value is true;
 
