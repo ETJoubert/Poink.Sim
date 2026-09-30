@@ -163,7 +163,7 @@ namespace Poink.Sim.Components.Pages
 			RuleEngine,
 		}
 
-		// Above/In/Below mask the Rule Engine tab edits -- keyed by XGridSignalCatalog key,
+		// Above/In/Below mask the Rule Engine tab edits -- keyed by RuleEngineHelper key,
 		// owned by the page so it survives tab switches.
 		private HashSet<string> _ruleEngineEnabledKeys = new();
 
@@ -242,6 +242,25 @@ namespace Poink.Sim.Components.Pages
 				_xgridColCount
 			);
 			return _xgridCache;
+		}
+
+		// Baseline rule-engine signals (POC/VAH/VAL/VWAP) computed straight off RangeStatsHelper via
+		// RuleEngineHelper -- no XGrid row/column grid involved, unlike ComputeXGrid above.
+		private RuleEngineResult? ComputeRuleEngine(SimulationSnapshot s)
+		{
+			var (bars, _) = WindowedBarData(s);
+			if (bars.Count == 0 || s.CurrentPrice is not { } currentPrice)
+				return null;
+			return RuleEngineHelper.Compute(
+				MergedBarSamples(s),
+				w => w.Price,
+				w => (double)w.Count,
+				bars,
+				b => b.Average,
+				b => (double)b.Volume,
+				b => b.Close,
+				currentPrice
+			);
 		}
 
 		// Recomputed each render so live P&L colouring on the open position stays current;

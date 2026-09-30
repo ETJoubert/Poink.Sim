@@ -2,8 +2,7 @@ namespace Poink.Sim.Components.Charts
 {
 	/// <summary>
 	/// Swing-low/-high overlay config for one direction, shared between MetricsControlPanel (editing)
-	/// and XGrid/XGridSignalsPanel (ranking via <see cref="Settings"/>). Immutable for the same reason
-	/// as XGridDisplaySettings.
+	/// and XGrid (ranking via <see cref="Settings"/>). Immutable for the same reason as XGridDisplaySettings.
 	/// </summary>
 	public sealed record XGridPeakOverlaySettings
 	{

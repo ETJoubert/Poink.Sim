@@ -2,8 +2,8 @@ namespace Poink.Sim.Components.Charts
 {
 	/// <summary>
 	/// The rank/highlight overlay toggles for XGrid's Total/Up/Down/Delta+/Delta- spectrums, shared
-	/// between MetricsControlPanel (editing), XGrid (canvas highlight borders), and XGridSignalsPanel
-	/// (current-cell signal dots). Immutable for the same reason as XGridDisplaySettings.
+	/// between MetricsControlPanel (editing) and XGrid (canvas highlight borders). Immutable for the
+	/// same reason as XGridDisplaySettings.
 	/// </summary>
 	public sealed record XGridSpectrumSettings
 	{

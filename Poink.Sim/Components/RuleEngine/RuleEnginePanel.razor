@@ -1,0 +1,73 @@
+@namespace Poink.Sim.Components.RuleEngine
+
+<div class="rule-engine-panel" title="Above/In/Below mask over the baseline signals (POC/VAH/VAL/VWAP), their live state, and whether they match">
+    <div class="rule-engine-toolbar">
+        <button type="button" class="rule-engine-copy" @onclick="CopyLiveToSelector" disabled="@(Result is null)"
+                title="Copy the live Above/In/Below state into the selector for every row">Copy Live</button>
+    </div>
+
+    <table class="rule-engine-table">
+        <thead>
+            <tr>
+                <th class="rule-engine-head-signal">Signal</th>
+                <th title="Above">&#9650;</th>
+                <th title="In">In</th>
+                <th title="Below">&#9660;</th>
+                <th class="@(IsMatching ? "matching" : "")" title="Whether the selected constraint currently matches the live value -- lights up when every selected row matches">Match</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var row in Rows)
+            {
+                <tr class="rule-engine-row" style="--sig-color: var(@row.ColorVar)">
+                    <td class="rule-engine-label">@row.RowLabel</td>
+                    <td class="rule-engine-cell" @onclick="() => Toggle(row, row.AboveKey)" title="@($"Select Above {row.RowLabel} for the rule mask")">
+                        <span class="rule-engine-select @(SelectedKey(row) == row.AboveKey ? "selected" : "")">
+                            <span class="rule-engine-arrow @(row.Above ? "on" : "")">&#9650;</span>
+                        </span>
+                    </td>
+                    <td class="rule-engine-cell" @onclick="() => Toggle(row, row.InKey)" title="@($"Select At {row.RowLabel} for the rule mask")">
+                        <span class="rule-engine-select @(SelectedKey(row) == row.InKey ? "selected" : "")">
+                            <span class="rule-engine-dot @(row.In ? "on" : "")"></span>
+                        </span>
+                    </td>
+                    <td class="rule-engine-cell" @onclick="() => Toggle(row, row.BelowKey)" title="@($"Select Below {row.RowLabel} for the rule mask")">
+                        <span class="rule-engine-select @(SelectedKey(row) == row.BelowKey ? "selected" : "")">
+                            <span class="rule-engine-arrow @(row.Below ? "on" : "")">&#9660;</span>
+                        </span>
+                    </td>
+                    <td class="rule-engine-match-cell" title="Whether this row's selection currently matches its live value">
+                        <span class="rule-engine-match-dot @MatchStatus(row)"></span>
+                    </td>
+                </tr>
+            }
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="5" class="rule-engine-foot-count" title="Rows currently matching their live value, out of rows with a selection">
+                    @MatchedCount/@SelectedCount matching
+                </td>
+            </tr>
+        </tfoot>
+    </table>
+
+    <div class="rule-engine-log" title="Timestamp each time every enabled signal matched at once">
+        <div class="rule-engine-log-headrow">
+            <span class="rule-engine-log-header">Match Log</span>
+            <span class="rule-engine-log-total" title="Total number of times every enabled signal has matched at once">Total: @_totalMatches</span>
+        </div>
+        @if (_matchLog.Count == 0)
+        {
+            <span class="rule-engine-log-empty">No matches yet</span>
+        }
+        else
+        {
+            <ul class="rule-engine-log-list">
+                @foreach (var timestamp in _matchLog)
+                {
+                    <li class="rule-engine-log-item">@timestamp.ToString("yyyy-MM-dd HH:mm:ss")</li>
+                }
+            </ul>
+        }
+    </div>
+</div>

@@ -304,7 +304,7 @@
                                     title="The selected trader's live brain inputs and output decision distribution">TRADER IO</button>
                             <button type="button" class="sim-left-side-panel-tab @(_activeLeftPanelTab == SimLeftPanelTab.RuleEngine ? "active" : "")"
                                     @onclick="() => _activeLeftPanelTab = SimLeftPanelTab.RuleEngine"
-                                    title="Above/In/Below mask over every XGrid signal -- the input side of the rule engine">RULE ENGINE</button>
+                                    title="Above/In/Below mask over the baseline signals (POC/VAH/VAL/VWAP) -- the input side of the rule engine">RULE ENGINE</button>
                         </div>
                         <div class="sim-left-side-panel-content">
                             @if (_activeLeftPanelTab == SimLeftPanelTab.Traders)
@@ -326,8 +326,8 @@
                             }
                             else if (_activeLeftPanelTab == SimLeftPanelTab.RuleEngine)
                             {
-                                <XGridRulePanel @bind-EnabledKeys="_ruleEngineEnabledKeys" Grid="ComputeXGrid(_snapshot)"
-                                                CurrentTimestampUtc="_snapshot.CurrentTimestampUtc" />
+                                <RuleEnginePanel @bind-EnabledKeys="_ruleEngineEnabledKeys" Result="ComputeRuleEngine(_snapshot)"
+                                                 CurrentTimestampUtc="_snapshot.CurrentTimestampUtc" />
                             }
                         </div>
                     }
