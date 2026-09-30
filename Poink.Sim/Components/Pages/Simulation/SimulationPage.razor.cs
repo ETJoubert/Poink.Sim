@@ -163,9 +163,13 @@ namespace Poink.Sim.Components.Pages
 			RuleEngine,
 		}
 
-		// Above/In/Below mask the Rule Engine tab edits -- keyed by XGridSignalCatalog key,
+		// Above/In/Below mask the Rule Engine tab edits -- keyed by RuleEngineHelper key,
 		// owned by the page so it survives tab switches.
 		private HashSet<string> _ruleEngineEnabledKeys = new();
+		private double _ruleEngineXGridPercent = 10;
+
+		// Shared with the Snapshot tab's own TxFold chart so both evaluate/display the same timeframes.
+		private HashSet<int> _txFoldSelectedSeconds = new() { 60, 120, 240, 480, 900, 1800, 3600, 7200 };
 
 		private int _xgridPipCount = 20;
 		private int _xgridColCount = 20;
@@ -242,6 +246,27 @@ namespace Poink.Sim.Components.Pages
 				_xgridColCount
 			);
 			return _xgridCache;
+		}
+
+		// Baseline signals come straight off RangeStatsHelper; the XGrid rank/delta rows ride along
+		// on top by handing RuleEngineHelper the same grid ComputeXGrid builds for the chart itself.
+		private RuleEngineResult? ComputeRuleEngine(SimulationSnapshot s)
+		{
+			var (bars, _) = WindowedBarData(s);
+			if (bars.Count == 0 || s.CurrentPrice is not { } currentPrice)
+				return null;
+			return RuleEngineHelper.Compute(
+				MergedBarSamples(s),
+				w => w.Price,
+				w => (double)w.Count,
+				bars,
+				b => b.Average,
+				b => (double)b.Volume,
+				b => b.Close,
+				currentPrice,
+				ComputeXGrid(s),
+				_ruleEngineXGridPercent
+			);
 		}
 
 		// Recomputed each render so live P&L colouring on the open position stays current;
