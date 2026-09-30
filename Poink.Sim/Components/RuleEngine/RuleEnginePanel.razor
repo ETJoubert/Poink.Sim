@@ -37,6 +37,16 @@
                     @RowTemplate(row)
                 }
             }
+            @if (TxFoldSignalRows.Any())
+            {
+                <tr class="rule-engine-group-row" title="One row per selected TxFold timeframe -- Above/Below its mean +/- one-stddev band, In between them">
+                    <td colspan="5" class="rule-engine-group-label">TXFOLD</td>
+                </tr>
+                @foreach (var row in TxFoldSignalRows)
+                {
+                    @RowTemplate(row)
+                }
+            }
         </tbody>
         <tfoot>
             <tr>

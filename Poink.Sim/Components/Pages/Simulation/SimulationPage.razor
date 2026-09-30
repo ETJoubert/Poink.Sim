@@ -304,7 +304,7 @@
                                     title="The selected trader's live brain inputs and output decision distribution">TRADER IO</button>
                             <button type="button" class="sim-left-side-panel-tab @(_activeLeftPanelTab == SimLeftPanelTab.RuleEngine ? "active" : "")"
                                     @onclick="() => _activeLeftPanelTab = SimLeftPanelTab.RuleEngine"
-                                    title="Above/In/Below mask over the baseline signals (POC/VAH/VAL/VWAP/Median/Regression) and XGrid's Top %/Delta rows -- the input side of the rule engine">RULE ENGINE</button>
+                                    title="Above/In/Below mask over the baseline signals (POC/VAH/VAL/VWAP/Median/Regression), XGrid's Top %/Delta rows, and TxFold's per-timeframe mean+/-stddev rows -- the input side of the rule engine">RULE ENGINE</button>
                         </div>
                         <div class="sim-left-side-panel-content">
                             @if (_activeLeftPanelTab == SimLeftPanelTab.Traders)
@@ -327,7 +327,9 @@
                             else if (_activeLeftPanelTab == SimLeftPanelTab.RuleEngine)
                             {
                                 <RuleEnginePanel @bind-EnabledKeys="_ruleEngineEnabledKeys" @bind-XGridPercent="_ruleEngineXGridPercent"
-                                                 Result="ComputeRuleEngine(_snapshot)" CurrentTimestampUtc="_snapshot.CurrentTimestampUtc" />
+                                                 Result="ComputeRuleEngine(_snapshot)" CurrentTimestampUtc="_snapshot.CurrentTimestampUtc"
+                                                 TxFoldTable="@_snapshot.Config.Table" TxFoldAnchorEnd="SnapshotAnchorBar(_snapshot)?.CloseTime.AddTicks(1)"
+                                                 TxFoldRangeStart="_snapshot.Config.From" TxFoldSelectedSeconds="_txFoldSelectedSeconds" />
                             }
                         </div>
                     }
@@ -536,6 +538,7 @@
                                     @if (SnapshotAnchorBar(s) is { } anchorBar)
                                     {
                                         <TxFold Table="@s.Config.Table" AnchorEnd="@anchorBar.CloseTime.AddTicks(1)" RangeStart="@s.Config.From"
+                                                @bind-SelectedSeconds="_txFoldSelectedSeconds"
                                                 LatestPrice="anchorBar.Close" EntryPrice="SelectedTrader?.Position?.EntryPrice"
                                                 PositionIsLong="SelectedPositionIsLong" StopLossPrice="SelectedTrader?.Position?.StopLossPrice"
                                                 TakeProfitPrice="SelectedTrader?.Position?.TakeProfitPrice"

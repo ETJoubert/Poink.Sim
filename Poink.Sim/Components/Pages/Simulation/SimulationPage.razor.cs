@@ -168,6 +168,9 @@ namespace Poink.Sim.Components.Pages
 		private HashSet<string> _ruleEngineEnabledKeys = new();
 		private double _ruleEngineXGridPercent = 10;
 
+		// Shared with the Snapshot tab's own TxFold chart so both evaluate/display the same timeframes.
+		private HashSet<int> _txFoldSelectedSeconds = new() { 60, 120, 240, 480, 900, 1800, 3600, 7200 };
+
 		private int _xgridPipCount = 20;
 		private int _xgridColCount = 20;
 

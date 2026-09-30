@@ -1,8 +1,16 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Poink.Sim.Components.Charts;
 
 namespace Poink.Sim.Helpers;
+
+public enum RuleSignalGroup
+{
+    Baseline,
+    XGrid,
+    TxFold,
+}
 
 public readonly record struct RuleSignalRow(
     string RowLabel,
@@ -13,7 +21,7 @@ public readonly record struct RuleSignalRow(
     bool Above,
     bool In,
     bool Below,
-    bool IsXGridSignal
+    RuleSignalGroup Group
 );
 
 public readonly record struct RuleEngineResult(
@@ -57,6 +65,16 @@ internal static class RuleEngineHelper
         public const string DeltaDownIn = "delta-down-in";
     }
 
+    // Per-timeframe TxFold rows are keyed dynamically since which timeframes exist depends on selection.
+    public static class TxFoldKeys
+    {
+        public static string Above(int seconds) => $"txfold-{seconds}-above";
+
+        public static string In(int seconds) => $"txfold-{seconds}-in";
+
+        public static string Below(int seconds) => $"txfold-{seconds}-below";
+    }
+
     public static RuleEngineResult Compute<TSample, TBar>(
         IReadOnlyList<TSample> volumeSamples,
         Func<TSample, double> samplePrice,
@@ -97,6 +115,29 @@ internal static class RuleEngineHelper
         return new RuleEngineResult(poc, vah, val, vwap, median, regression, currentPrice, rows);
     }
 
+    // Above/Below/In (inclusive) each bar's mean +/- one-stddev band -- true high/low would always
+    // contain currentPrice, so bars must come from BarAggregationKind.MeanStdDev (see RefreshTxFoldIfNeeded).
+    public static IReadOnlyList<RuleSignalRow> TxFoldRows(IReadOnlyList<TxFoldBar> bars, double currentPrice) =>
+        bars.OrderBy(b => b.LookbackSeconds).Select(b => TxFoldRow(b, currentPrice)).ToList();
+
+    private static RuleSignalRow TxFoldRow(TxFoldBar bar, double currentPrice)
+    {
+        var label = SnapshotTimeframeOptions.All.First(o => o.Seconds == bar.LookbackSeconds).Label.ToUpperInvariant();
+        var upperBand = bar.Bar.High;
+        var lowerBand = bar.Bar.Low;
+        return new RuleSignalRow(
+            label,
+            "--color-secondary",
+            TxFoldKeys.Above(bar.LookbackSeconds),
+            TxFoldKeys.In(bar.LookbackSeconds),
+            TxFoldKeys.Below(bar.LookbackSeconds),
+            currentPrice > upperBand,
+            currentPrice >= lowerBand && currentPrice <= upperBand,
+            currentPrice < lowerBand,
+            RuleSignalGroup.TxFold
+        );
+    }
+
     // Rank-style (single In state, no Above/Below) -- same predicates XGridSignalCatalog's Rank group
     // uses, called directly rather than re-derived so the two stay in lockstep.
     private static IEnumerable<RuleSignalRow> XGridRows(XGridResult grid, double percent)
@@ -134,7 +175,7 @@ internal static class RuleEngineHelper
     }
 
     private static RuleSignalRow RankRow(string label, string colorVar, string inKey, bool value) =>
-        new(label, colorVar, null, inKey, null, false, value, false, IsXGridSignal: true);
+        new(label, colorVar, null, inKey, null, false, value, false, RuleSignalGroup.XGrid);
 
     private static RuleSignalRow Row(
         string label,
@@ -154,6 +195,6 @@ internal static class RuleEngineHelper
             level is { } l && currentPrice > l,
             level is { } l2 && currentPrice == l2,
             level is { } l3 && currentPrice < l3,
-            IsXGridSignal: false
+            RuleSignalGroup.Baseline
         );
 }
