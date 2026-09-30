@@ -30,7 +30,7 @@ namespace Poink.Sim.Models.TrainingModels
 	/// matching option was not enabled, so reflection can pair each value with the option that
 	/// produced it.
 	/// </summary>
-	internal sealed record TraderStateFeature(double? Unrealized, double? Realized);
+	internal sealed record TraderStateFeature(double? Unrealized, double? Realized, IReadOnlyList<double>? PreviousTradesRealized);
 
 	/// <summary>
 	/// The Features tab's computed values for one step, structured (not flattened) so a display

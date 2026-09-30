@@ -181,11 +181,15 @@ namespace Poink.Sim.Components.Pages
 		// Trader State -- deliberately minimal: unrealized/realized P/L as a percent of cash balance (zero both when flat and when flat P/L).
 		private bool _traderStateIncludeUnrealized;
 		private bool _traderStateIncludeRealized;
+		private bool _traderStateIncludePreviousTradesRealized;
+		private int _traderStatePreviousTradesCount = 5;
 
-		private const int TotalTraderStateFieldCount = 2;
+		private const int TotalTraderStateFieldCount = 3;
 
 		private int SelectedTraderStateFieldCount =>
-			(_traderStateIncludeUnrealized ? 1 : 0) + (_traderStateIncludeRealized ? 1 : 0);
+			(_traderStateIncludeUnrealized ? 1 : 0)
+			+ (_traderStateIncludeRealized ? 1 : 0)
+			+ (_traderStateIncludePreviousTradesRealized ? 1 : 0);
 
 		// TxFold -- the real TxFold chart component owns its own toolbar/selection (bound here so the
 		// Features grid below can read it); the grid itself shows field labels only, no fetched data.
@@ -211,7 +215,10 @@ namespace Poink.Sim.Components.Pages
 			+ (_txFoldSelectedSeconds.Count > 0 && _txFoldIncludeCurrentPrice ? 1 : 0)
 			+ (_txFoldSelectedSeconds.Count > 0 ? _txFoldIncludedLevels.Count : 0);
 
-		private int TraderStateFeatureCount => SelectedTraderStateFieldCount;
+		private int TraderStateFeatureCount =>
+			(_traderStateIncludeUnrealized ? 1 : 0)
+			+ (_traderStateIncludeRealized ? 1 : 0)
+			+ (_traderStateIncludePreviousTradesRealized ? _traderStatePreviousTradesCount : 0);
 
 		private int TotalFeatureCount => SelectedXGridSignalCount + TxFoldFeatureCount + TraderStateFeatureCount;
 
@@ -261,7 +268,8 @@ namespace Poink.Sim.Components.Pages
 				_txFoldNormalize
 			);
 
-		private TraderStateOptionsModel CurrentTraderStateOptions => new(_traderStateIncludeUnrealized, _traderStateIncludeRealized);
+		private TraderStateOptionsModel CurrentTraderStateOptions =>
+			new(_traderStateIncludeUnrealized, _traderStateIncludeRealized, _traderStateIncludePreviousTradesRealized, _traderStatePreviousTradesCount);
 
 		private FeatureOptionsModel CurrentFeatureOptions => new(CurrentXGridSignalsOptions, CurrentTxFoldOptions, CurrentTraderStateOptions);
 
@@ -285,6 +293,8 @@ namespace Poink.Sim.Components.Pages
 
 			_traderStateIncludeUnrealized = options.TraderState.IncludeUnrealized;
 			_traderStateIncludeRealized = options.TraderState.IncludeRealized;
+			_traderStateIncludePreviousTradesRealized = options.TraderState.IncludePreviousTradesRealized;
+			_traderStatePreviousTradesCount = options.TraderState.PreviousTradesCount;
 		}
 
 		#endregion

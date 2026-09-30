@@ -104,8 +104,17 @@ internal sealed class FeatureAssembler
 	private static TraderStateFeature AssembleTraderState(TraderStateOptionsModel options, TraderStateSnapshot snapshot) =>
 		new(
 			options.IncludeUnrealized ? snapshot.Unrealized : null,
-			options.IncludeRealized ? snapshot.Realized : null
+			options.IncludeRealized ? snapshot.Realized : null,
+			options.IncludePreviousTradesRealized ? PreviousTradesRealized(snapshot, options.PreviousTradesCount) : null
 		);
+
+	// Fixed length regardless of how many trades have actually closed -- ComputeInputSize needs a
+	// shape independent of live data, so a short episode's missing trades are zero-padded.
+	private static IReadOnlyList<double> PreviousTradesRealized(TraderStateSnapshot snapshot, int count) =>
+	[
+		.. snapshot.PreviousTradesRealized.Take(count),
+		.. Enumerable.Repeat(0.0, Math.Max(0, count - snapshot.PreviousTradesRealized.Count)),
+	];
 
 	// Order is fixed (XGrid Signals, then TxFold, then Trader State; each sorted/positional within
 	// itself) so the same FeatureOptionsModel always produces a vector Network Assembler can size.
@@ -142,7 +151,9 @@ internal sealed class FeatureAssembler
 	}
 
 	private static int TraderStateInputSize(TraderStateOptionsModel options) =>
-		(options.IncludeUnrealized ? 1 : 0) + (options.IncludeRealized ? 1 : 0);
+		(options.IncludeUnrealized ? 1 : 0)
+		+ (options.IncludeRealized ? 1 : 0)
+		+ (options.IncludePreviousTradesRealized ? options.PreviousTradesCount : 0);
 
 	private static IEnumerable<double> TraderStateValues(TraderStateFeature state)
 	{
@@ -150,5 +161,8 @@ internal sealed class FeatureAssembler
 			yield return unrealized;
 		if (state.Realized is { } realized)
 			yield return realized;
+		if (state.PreviousTradesRealized is { } previousTrades)
+			foreach (var value in previousTrades)
+				yield return value;
 	}
 }

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -239,9 +240,14 @@ internal sealed class TrainingEngineService
 	private static TraderStateSnapshot BuildTraderStateSnapshot(ITrader trader, double bid, double ask)
 	{
 		var snapshot = trader.Snapshot(bid, ask);
+		var previousTradesRealized = trader.TradeLog
+			.Reverse()
+			.Select(t => RiskHelper.PercentOfBalance(t.RealizedPnl, trader.Cash) ?? 0)
+			.ToList();
 		return new(
 			RiskHelper.PercentOfBalance(snapshot.UnrealizedPnl, trader.Cash) ?? 0,
-			RiskHelper.PercentOfBalance(snapshot.RealizedPnl, trader.Cash) ?? 0
+			RiskHelper.PercentOfBalance(snapshot.RealizedPnl, trader.Cash) ?? 0,
+			previousTradesRealized
 		);
 	}
 }

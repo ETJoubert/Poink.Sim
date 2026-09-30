@@ -37,9 +37,16 @@ namespace Poink.Sim.Models.TrainingModels
 	);
 
 	/// <summary>
-	/// Trader State encoder settings -- unrealized/realized profit/loss as a percent of cash balance.
+	/// Trader State encoder settings -- unrealized/realized profit/loss as a percent of cash balance,
+	/// plus each of the last PreviousTradesCount closed trades' own realized P/L (also percent of
+	/// balance, most recent first, zero-padded if fewer trades have closed yet).
 	/// </summary>
-	internal sealed record TraderStateOptionsModel(bool IncludeUnrealized = false, bool IncludeRealized = false);
+	internal sealed record TraderStateOptionsModel(
+		bool IncludeUnrealized = false,
+		bool IncludeRealized = false,
+		bool IncludePreviousTradesRealized = false,
+		int PreviousTradesCount = 5
+	);
 
 	/// <summary>
 	/// The Features tab's encoder selections -- TrainPageV2's counterpart to EncoderSizeOptions,

@@ -285,6 +285,17 @@
                                 <input type="checkbox" @bind="_traderStateIncludeRealized" />
                                 Realized
                             </label>
+                            <label class="trv2-field" title="Realized P/L of each of the last N closed trades, as a percent of cash balance -- most recent first, zero-padded if fewer than N trades have closed yet this episode">
+                                <input type="checkbox" @bind="_traderStateIncludePreviousTradesRealized" />
+                                Previous Trades Realized
+                            </label>
+                            @if (_traderStateIncludePreviousTradesRealized)
+                            {
+                                <label class="trv2-field" title="How many of the most recent closed trades to include">
+                                    Count
+                                    <input class="trv2-input" type="number" min="1" step="1" @bind="_traderStatePreviousTradesCount" />
+                                </label>
+                            }
                         </div>
                     </div>
                 </div>
