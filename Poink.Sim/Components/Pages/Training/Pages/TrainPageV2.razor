@@ -222,7 +222,6 @@
                                 Current Price
                             </label>
                             <p class="trv2-placeholder" title="Each toggled level adds one extra network input, computed once over the ticks behind the displayed bars -- same price-or-% rule as Current Price">
-                                POC/VAH/VAL/VWAP/AVE/MED/REG above add one input each per level toggled on the chart's own toolbar
                             </p>
                             @if (_txFoldSelectedSeconds.Count == 0)
                             {
@@ -882,6 +881,12 @@
                                 STOP
                             </button>
                         }
+                        <div class="trv2-speed" title="How fast episodes play -- same speed setting as the Live tab, lower values slow decisions down so you can watch them; higher values approach real training speed">
+                            <button type="button" class="trv2-speed-btn" @onclick="DecreaseLiveSpeed" disabled="@(_liveSpeedIndex == 0)" title="Slower">-</button>
+                            <span class="trv2-speed-value">@LiveSpeedLabel(LiveSpeedOptions[_liveSpeedIndex])</span>
+                            <button type="button" class="trv2-speed-btn" @onclick="IncreaseLiveSpeed" disabled="@(_liveSpeedIndex >= LiveSpeedOptions.Length - 1)" title="Faster">+</button>
+                            <button type="button" class="trv2-speed-btn trv2-speed-btn-max" @onclick="MaxLiveSpeed" disabled="@(_liveSpeedIndex >= LiveSpeedOptions.Length - 1)" title="Jump straight to max speed">MAX</button>
+                        </div>
                         <div class="trv2-progress">
                             <div class="trv2-progress-bar">
                                 <div class="trv2-progress-fill" style="width: @(RunProgressPercent.ToString("0.#"))%"></div>
@@ -956,16 +961,18 @@
                                  OnPlayPause="ToggleLiveRun" OnStep="StepRun" OnReset="ResetRun"
                                  SpeedLabel="@LiveSpeedLabel(LiveSpeedOptions[_liveSpeedIndex])"
                                  CanDecreaseSpeed="@(_liveSpeedIndex > 0)" CanIncreaseSpeed="@(_liveSpeedIndex < LiveSpeedOptions.Length - 1)"
-                                 OnDecreaseSpeed="DecreaseLiveSpeed" OnIncreaseSpeed="IncreaseLiveSpeed"
+                                 OnDecreaseSpeed="DecreaseLiveSpeed" OnIncreaseSpeed="IncreaseLiveSpeed" OnMaxSpeed="MaxLiveSpeed"
                                  EpisodesCompleted="_episodesCompleted" TargetEpisodeCount="TargetEpisodeCount"
                                  HasSnapshot="@(live is not null)"
                                  Timestamp="@live?.Snapshot.Timestamp" TimePassed="BuildLiveTimePassed(live)" ActionCount="@(live?.ActionCount ?? 0)"
                                  Bid="@(live?.Snapshot.Bid ?? 0)" Ask="@(live?.Snapshot.Ask ?? 0)"
                                  LastAction="@live?.Snapshot.Action" ActionOutputs="BuildLiveOutputFeatures(live)" Cash="@(live?.Snapshot.Capital.Cash ?? 0)"
                                  Equity="@(live?.Snapshot.Capital.Equity ?? 0)" RealizedPnl="@(live?.Snapshot.Capital.RealizedPnl ?? 0)"
-                                 UnrealizedPnl="@(live?.Snapshot.Capital.UnrealizedPnl ?? 0)" Table="@_table"
+                                 UnrealizedPnl="@(live?.Snapshot.Capital.UnrealizedPnl ?? 0)" TradeCount="@(live?.Snapshot.ClosedTrades.Count ?? 0)" Table="@_table"
                                  Bars="BuildLiveChartBars(live)" EquitySamples="BuildLiveEquitySamples(live)" FeatureRows="BuildLiveFeatureRows(live)"
-                                 TxFoldRows="BuildLiveTxFoldRows(live)" />
+                                 TxFoldRows="BuildLiveTxFoldRows(live)"
+                                 @bind-ShowMarketChart="_liveShowMarketChart" @bind-ShowXGrid="_liveShowXGrid" @bind-ShowTxFold="_liveShowTxFold"
+                                 @bind-ShowEquityCurve="_liveShowEquityCurve" @bind-ShowFeatures="_liveShowFeatures" @bind-ShowActions="_liveShowActions" />
                 break;
             }
         }

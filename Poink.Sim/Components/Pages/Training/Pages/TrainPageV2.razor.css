@@ -418,6 +418,50 @@
     margin-right: 3px;
 }
 
+.trv2-speed {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.trv2-speed-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
+    border-radius: var(--border-radius-sm);
+    color: var(--color-secondary);
+    cursor: pointer;
+}
+
+.trv2-speed-btn:hover:not(:disabled) {
+    color: var(--color-primary);
+    border-color: var(--color-primary);
+}
+
+.trv2-speed-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.trv2-speed-btn-max {
+    width: auto;
+    padding: 0 6px;
+    font-size: 0.6rem;
+    font-weight: bold;
+    letter-spacing: 0.04em;
+}
+
+.trv2-speed-value {
+    font-size: 0.72rem;
+    color: var(--color-secondary);
+    min-width: 28px;
+    text-align: center;
+}
+
 .trv2-progress {
     display: flex;
     align-items: center;

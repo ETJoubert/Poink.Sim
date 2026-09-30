@@ -784,7 +784,12 @@ namespace Poink.Sim.Components.Pages
 		private double _recentAverageReward;
 		private double _episodesPerSecond;
 
-		private int TargetEpisodeCount => CurrentTrainingOptions.Training.EpisodeTiming.EpisodeCount;
+		// Captured once per run session (see EnsureRunNetwork) so editing the Training tab's episode
+		// count mid-run can't retarget the progress bar away from what RunTrainingLoopAsync captured.
+		private int _runTargetEpisodeCount;
+
+		private int TargetEpisodeCount =>
+			_runTargetEpisodeCount > 0 ? _runTargetEpisodeCount : CurrentTrainingOptions.Training.EpisodeTiming.EpisodeCount;
 
 		private double RunProgressPercent =>
 			TargetEpisodeCount == 0 ? 0 : Math.Min(100.0, _episodesCompleted * 100.0 / TargetEpisodeCount);
@@ -854,6 +859,7 @@ namespace Poink.Sim.Components.Pages
 			if (_runNetwork is not null && _runActionSpace is not null)
 				return;
 
+			_runTargetEpisodeCount = options.Training.EpisodeTiming.EpisodeCount;
 			var random = new Random();
 			_runActionSpace = ActionAssembler.Assemble(options.Output);
 			_runNetwork = TrainingEngineService.BuildNetwork(options, _runActionSpace, random);
@@ -926,6 +932,7 @@ namespace Poink.Sim.Components.Pages
 			_isPaused = false;
 			_runNetwork = null;
 			_runActionSpace = null;
+			_runTargetEpisodeCount = 0;
 			_episodeMetrics.Clear();
 			_episodeMetricsSnapshot = [];
 			_recentRewards.Clear();
@@ -968,6 +975,15 @@ namespace Poink.Sim.Components.Pages
 		);
 
 		private LiveUiState? _liveState;
+
+		// Owned here (not as LiveEpisodeView's own local state) so the panel selection survives
+		// switching away from the Live tab and back -- that recreates LiveEpisodeView from scratch.
+		private bool _liveShowMarketChart = true;
+		private bool _liveShowXGrid;
+		private bool _liveShowTxFold = true;
+		private bool _liveShowEquityCurve = true;
+		private bool _liveShowFeatures = true;
+		private bool _liveShowActions = true;
 
 		private void ResetLiveEpisodeState() => _liveState = null;
 
@@ -1048,6 +1064,8 @@ namespace Poink.Sim.Components.Pages
 		private void DecreaseLiveSpeed() => _liveSpeedIndex = Math.Max(0, _liveSpeedIndex - 1);
 
 		private void IncreaseLiveSpeed() => _liveSpeedIndex = Math.Min(LiveSpeedOptions.Length - 1, _liveSpeedIndex + 1);
+
+		private void MaxLiveSpeed() => _liveSpeedIndex = LiveSpeedOptions.Length - 1;
 
 		// Single Play/Pause toggle for the Live tab -- Start/Pause/Resume stay separate methods
 		// since the Run tab still shows them as distinct buttons.
