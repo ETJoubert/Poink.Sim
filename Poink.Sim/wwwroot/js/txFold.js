@@ -66,6 +66,7 @@ export function render(canvas, options) {
             low: toPrice(b.low),
             high: toPrice(b.high),
         })),
+        levels: Array.from(options.levels ?? []).map(l => ({ ...l, price: toPrice(l.price) })),
         entryPrice: toPrice(options.entryPrice ?? null),
         positionIsLong: options.positionIsLong ?? null,
         stopLossPrice: toPrice(options.stopLossPrice ?? null),
@@ -95,6 +96,20 @@ export function dispose(canvas) {
 function cssVar(name, fallback) {
     const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
     return value || fallback;
+}
+
+// Same kind-to-colour mapping xGrid.js's markerVar uses, so POC/VAH/VAL/etc. read the same across charts.
+function levelColor(kind) {
+    switch (kind) {
+        case 'poc': return cssVar('--color-primary', '#00ff9d');
+        case 'vah':
+        case 'val': return cssVar('--color-highlight', '#fff01f');
+        case 'vwap': return cssVar('--color-tertiary', '#bd00ff');
+        case 'average': return cssVar('--color-badge-2', '#ffa500');
+        case 'median': return cssVar('--color-neutral', '#9a9a9a');
+        case 'regression': return cssVar('--color-badge-1', '#b6ff00');
+        default: return cssVar('--color-secondary', '#00d4ff');
+    }
 }
 
 function hasMargin(entry) {
@@ -137,6 +152,7 @@ function geometryFor(canvas, entry) {
         entry.draftEntryPrice,
         entry.draftStopLossPrice,
         entry.draftTakeProfitPrice,
+        ...entry.levels.map(l => l.price),
     ].forEach(p => {
         if (p !== null && p !== undefined) prices.push(p);
     });
@@ -384,6 +400,7 @@ function draw(canvas) {
     if (bars.length === 0) return;
 
     const latestPrice = entry.latestPrice;
+    const levels = entry.levels;
     const showHighLowLines = entry.showHighLowLines;
     const showVolumeProfile = entry.showVolumeProfile;
     const volumeProfile = entry.volumeProfile;
@@ -429,6 +446,11 @@ function draw(canvas) {
     const gridPrices = [prelim.minPrice, (prelim.minPrice + prelim.maxPrice) / 2, prelim.maxPrice];
     const priceSpecs = gridPrices.map(p => ({ price: p, text: formatPrice(p, entry.normalize), bg: axisTickBg, textColor: labelColor, font: '11px monospace' }));
     if (latestPrice !== null) priceSpecs.push({ price: latestPrice, text: formatPrice(latestPrice, entry.normalize), bg: latestColor, color: latestColor });
+    levels.forEach(l => {
+        if (l.price === null || l.price === undefined) return;
+        const color = levelColor(l.kind);
+        priceSpecs.push({ price: l.price, text: l.label, bg: color, color });
+    });
 
     // Kind-only labels -- no price, no "DFT" -- the line itself (and, for a draft, the badge
     // colour on Entry) already says where and what it is; the tag just needs to say TP/SL/Entry.
@@ -619,6 +641,9 @@ function draw(canvas) {
         ctx.restore();
     };
     drawLevelLine(latestPrice, latestColor, true);
+    levels.forEach(l => {
+        if (l.price !== null && l.price !== undefined) drawLevelLine(l.price, levelColor(l.kind), true);
+    });
     drawLevelLine(entryPrice, entryColor, false);
     drawLevelLine(stopLossPrice, bearColor, true);
     drawLevelLine(takeProfitPrice, bullColor, true);

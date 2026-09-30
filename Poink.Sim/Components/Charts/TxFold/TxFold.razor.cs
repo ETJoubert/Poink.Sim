@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
+using Poink.Sim.Helpers;
 using Poink.Sim.Models;
 using Poink.Sim.Repository;
 
@@ -99,8 +100,17 @@ namespace Poink.Sim.Components.Charts
 		[Parameter]
 		public EventCallback<bool> NormalizeChanged { get; set; }
 
+		/// <summary>Which POC/VAH/VAL/VWAP/AVE/MED/REG overlays render as reference lines across the whole
+		/// chart, computed once over the ticks behind the displayed bars -- bindable, same rationale as SelectedSeconds.</summary>
+		[Parameter]
+		public HashSet<TxFoldLevelKind> ShownLevels { get; set; } = new();
+
+		[Parameter]
+		public EventCallback<HashSet<TxFoldLevelKind>> ShownLevelsChanged { get; set; }
+
 		private List<TxFoldBar> _bars = new();
 		private IReadOnlyList<TxFoldVolumeBucket> _volumeProfile = Array.Empty<TxFoldVolumeBucket>();
+		private RangeStatsResult? _levels;
 		private (string Table, DateTime AnchorEnd, DateTime RangeStart, BarAggregationKind BarKind, string SelectedKey)? _loadedFor;
 		private bool _loading;
 		private string? _error;
@@ -120,6 +130,7 @@ namespace Poink.Sim.Components.Charts
 		private double? _renderedDraftStopLossPrice;
 		private double? _renderedDraftTakeProfitPrice;
 		private bool _renderedNormalize;
+		private string _renderedShownLevelsKey = "";
 		private bool _disposed;
 
 		protected override async Task OnParametersSetAsync() => await RefreshIfNeeded();
@@ -150,6 +161,28 @@ namespace Poink.Sim.Components.Charts
 			Normalize = !Normalize;
 			return NormalizeChanged.InvokeAsync(Normalize);
 		}
+
+		private Task ToggleLevel(TxFoldLevelKind kind)
+		{
+			if (!ShownLevels.Remove(kind))
+				ShownLevels.Add(kind);
+			return ShownLevelsChanged.InvokeAsync(ShownLevels);
+		}
+
+		private double? LevelPrice(TxFoldLevelKind kind) =>
+			_levels is not { } levels
+				? null
+				: kind switch
+				{
+					TxFoldLevelKind.Poc => levels.Poc,
+					TxFoldLevelKind.Vah => levels.Vah,
+					TxFoldLevelKind.Val => levels.Val,
+					TxFoldLevelKind.Vwap => levels.Vwap,
+					TxFoldLevelKind.Average => levels.Average,
+					TxFoldLevelKind.Median => levels.Median,
+					TxFoldLevelKind.Regression => levels.Regression,
+					_ => null,
+				};
 
 		private async Task ToggleTimeframe(int seconds)
 		{
@@ -196,6 +229,7 @@ namespace Poink.Sim.Components.Charts
 				});
 				_bars = result.Bars;
 				_volumeProfile = result.VolumeProfile;
+				_levels = result.Levels;
 				_loadedFor = key;
 			}
 			catch (Exception ex)
@@ -223,6 +257,7 @@ namespace Poink.Sim.Components.Charts
 						return;
 				}
 
+				var shownLevelsKey = string.Join(",", ShownLevels.OrderBy(k => k));
 				if (
 					!ReferenceEquals(_renderedBars, _bars)
 					|| _renderedLatestPrice != LatestPrice
@@ -237,6 +272,7 @@ namespace Poink.Sim.Components.Charts
 					|| _renderedDraftStopLossPrice != DraftStopLossPrice
 					|| _renderedDraftTakeProfitPrice != DraftTakeProfitPrice
 					|| _renderedNormalize != Normalize
+					|| _renderedShownLevelsKey != shownLevelsKey
 				)
 				{
 					_renderedBars = _bars;
@@ -252,6 +288,7 @@ namespace Poink.Sim.Components.Charts
 					_renderedDraftStopLossPrice = DraftStopLossPrice;
 					_renderedDraftTakeProfitPrice = DraftTakeProfitPrice;
 					_renderedNormalize = Normalize;
+					_renderedShownLevelsKey = shownLevelsKey;
 
 					// The largest selected timeframe's own midpoint anchors 0%, its half-range +-100%
 					// -- so its own High/Low land exactly there; other bars can still fall outside it.
@@ -279,6 +316,10 @@ namespace Poink.Sim.Components.Charts
 						showHighLowLines = ShowHighLowLines,
 						showVolumeProfile = ShowVolumeProfile,
 						volumeProfile = _volumeProfile.Select(b => new { low = b.Low, high = b.High, count = b.Count }),
+						levels = TxFoldLevelOptions.All
+							.Where(o => ShownLevels.Contains(o.Kind))
+							.Select(o => new { kind = o.Kind.ToString().ToLowerInvariant(), label = o.Label, price = LevelPrice(o.Kind) })
+							.Where(l => l.price is not null),
 						entryPrice = EntryPrice,
 						positionIsLong = PositionIsLong,
 						stopLossPrice = StopLossPrice,

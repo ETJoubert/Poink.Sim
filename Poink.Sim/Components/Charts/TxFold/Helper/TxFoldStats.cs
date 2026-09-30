@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Poink.Sim.Helpers;
 using Poink.Sim.Models;
 using Poink.Sim.Repository;
 
@@ -12,7 +13,9 @@ internal readonly record struct TxFoldVolumeBucket(double Low, double High, int 
 /// Quartile/Decile/MeanStdDev, Bar's own High/Low slots hold statistical bounds instead.</summary>
 internal readonly record struct TxFoldBar(int LookbackSeconds, CTraderBarRow Bar, bool HasFullCoverage, double TrueHigh, double TrueLow);
 
-internal readonly record struct TxFoldSnapshot(List<TxFoldBar> Bars, IReadOnlyList<TxFoldVolumeBucket> VolumeProfile);
+/// <summary>Levels is null only when there are no ticks at all -- unlike Poc/Vah/Val inside it,
+/// which can independently be null just from too little data for a meaningful value area.</summary>
+internal readonly record struct TxFoldSnapshot(List<TxFoldBar> Bars, IReadOnlyList<TxFoldVolumeBucket> VolumeProfile, RangeStatsResult? Levels);
 
 // Pure bar/coverage/volume-profile math over ticks the caller already fetched -- kept separate
 // from TxFold.razor.cs, the same split XGridStats.Compute keeps from XGrid.razor.cs.
@@ -30,7 +33,7 @@ internal static class TxFoldStats
 	{
 		var distinctSeconds = lookbackSeconds.Distinct().OrderBy(seconds => seconds).ToList();
 		if (distinctSeconds.Count == 0)
-			return new TxFoldSnapshot(new List<TxFoldBar>(), Array.Empty<TxFoldVolumeBucket>());
+			return new TxFoldSnapshot(new List<TxFoldBar>(), Array.Empty<TxFoldVolumeBucket>(), null);
 
 		var bars = new List<TxFoldBar>(distinctSeconds.Count);
 		foreach (var seconds in distinctSeconds)
@@ -43,7 +46,8 @@ internal static class TxFoldStats
 			}
 		}
 
-		return new TxFoldSnapshot(bars, BuildVolumeProfile(ticks));
+		var levels = RangeStatsHelper.Compute(ticks, t => (t.Bid + t.Ask) / 2.0);
+		return new TxFoldSnapshot(bars, BuildVolumeProfile(ticks), levels);
 	}
 
 	// Fixed-length and bucket-count-scaled (% of that set's busiest bucket), not raw tick counts.
