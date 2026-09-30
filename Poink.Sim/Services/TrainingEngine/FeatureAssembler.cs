@@ -102,7 +102,10 @@ internal sealed class FeatureAssembler
 	}
 
 	private static TraderStateFeature AssembleTraderState(TraderStateOptionsModel options, TraderStateSnapshot snapshot) =>
-		new(options.IncludeUnrealized ? snapshot.Unrealized : null);
+		new(
+			options.IncludeUnrealized ? snapshot.Unrealized : null,
+			options.IncludeRealized ? snapshot.Realized : null
+		);
 
 	// Order is fixed (XGrid Signals, then TxFold, then Trader State; each sorted/positional within
 	// itself) so the same FeatureOptionsModel always produces a vector Network Assembler can size.
@@ -138,11 +141,14 @@ internal sealed class FeatureAssembler
 		return xGridCount + txFoldCount + volumeProfileCount + currentPriceCount + levelsCount + TraderStateInputSize(options.TraderState);
 	}
 
-	private static int TraderStateInputSize(TraderStateOptionsModel options) => options.IncludeUnrealized ? 1 : 0;
+	private static int TraderStateInputSize(TraderStateOptionsModel options) =>
+		(options.IncludeUnrealized ? 1 : 0) + (options.IncludeRealized ? 1 : 0);
 
 	private static IEnumerable<double> TraderStateValues(TraderStateFeature state)
 	{
-		if (state.Unrealized is { } value)
-			yield return value;
+		if (state.Unrealized is { } unrealized)
+			yield return unrealized;
+		if (state.Realized is { } realized)
+			yield return realized;
 	}
 }

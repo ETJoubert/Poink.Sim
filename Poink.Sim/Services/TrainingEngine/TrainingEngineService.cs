@@ -208,6 +208,12 @@ internal sealed class TrainingEngineService
 		return -1;
 	}
 
-	private static TraderStateSnapshot BuildTraderStateSnapshot(ITrader trader, double bid, double ask) =>
-		new(RiskHelper.PercentOfBalance(trader.Snapshot(bid, ask).UnrealizedPnl, trader.Cash) ?? 0);
+	private static TraderStateSnapshot BuildTraderStateSnapshot(ITrader trader, double bid, double ask)
+	{
+		var snapshot = trader.Snapshot(bid, ask);
+		return new(
+			RiskHelper.PercentOfBalance(snapshot.UnrealizedPnl, trader.Cash) ?? 0,
+			RiskHelper.PercentOfBalance(snapshot.RealizedPnl, trader.Cash) ?? 0
+		);
+	}
 }

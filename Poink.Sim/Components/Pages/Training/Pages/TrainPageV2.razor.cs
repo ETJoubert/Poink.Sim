@@ -178,12 +178,14 @@ namespace Poink.Sim.Components.Pages
 				e.Value is true ? XGridSignalCatalog.All.Select(d => d.Key).ToHashSet() : [];
 		}
 
-		// Trader State -- deliberately minimal: unrealized P/L as a percent of cash balance (zero both when flat and when flat P/L).
+		// Trader State -- deliberately minimal: unrealized/realized P/L as a percent of cash balance (zero both when flat and when flat P/L).
 		private bool _traderStateIncludeUnrealized;
+		private bool _traderStateIncludeRealized;
 
-		private const int TotalTraderStateFieldCount = 1;
+		private const int TotalTraderStateFieldCount = 2;
 
-		private int SelectedTraderStateFieldCount => _traderStateIncludeUnrealized ? 1 : 0;
+		private int SelectedTraderStateFieldCount =>
+			(_traderStateIncludeUnrealized ? 1 : 0) + (_traderStateIncludeRealized ? 1 : 0);
 
 		// TxFold -- the real TxFold chart component owns its own toolbar/selection (bound here so the
 		// Features grid below can read it); the grid itself shows field labels only, no fetched data.
@@ -259,7 +261,7 @@ namespace Poink.Sim.Components.Pages
 				_txFoldNormalize
 			);
 
-		private TraderStateOptionsModel CurrentTraderStateOptions => new(_traderStateIncludeUnrealized);
+		private TraderStateOptionsModel CurrentTraderStateOptions => new(_traderStateIncludeUnrealized, _traderStateIncludeRealized);
 
 		private FeatureOptionsModel CurrentFeatureOptions => new(CurrentXGridSignalsOptions, CurrentTxFoldOptions, CurrentTraderStateOptions);
 
@@ -282,6 +284,7 @@ namespace Poink.Sim.Components.Pages
 			_txFoldNormalize = options.TxFold.Normalize;
 
 			_traderStateIncludeUnrealized = options.TraderState.IncludeUnrealized;
+			_traderStateIncludeRealized = options.TraderState.IncludeRealized;
 		}
 
 		#endregion
