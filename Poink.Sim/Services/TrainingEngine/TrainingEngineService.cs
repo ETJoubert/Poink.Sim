@@ -8,6 +8,7 @@ using Poink.Sim.Models.TrainingModels;
 using Poink.Sim.Repository;
 using Poink.Sim.Trader;
 using Poink.Sim.Trader.Commission;
+using Poink.Sim.Trader.Risk;
 
 namespace Poink.Sim.Services.TrainingEngine;
 
@@ -19,9 +20,7 @@ namespace Poink.Sim.Services.TrainingEngine;
 /// NN-specific), gated by DecisionMask. Reward is each decision's equity drift until the next one.
 ///
 /// Not built yet: Volume/StopLoss/TakeProfit outputs (RunEpisode throws if any are enabled --
-/// CapitalFraction is fixed at 1.0, market orders only). Trader State's Outcomes/PositionLevel/
-/// Direction history lists are always empty (padded with zeros by FeatureAssembler) since
-/// trade-history semantics for those aren't defined yet.
+/// CapitalFraction is fixed at 1.0, market orders only).
 /// </summary>
 internal sealed class TrainingEngineService
 {
@@ -204,27 +203,6 @@ internal sealed class TrainingEngineService
 		return -1;
 	}
 
-	private static TraderStateSnapshot BuildTraderStateSnapshot(ITrader trader, double bid, double ask)
-	{
-		var capital = trader.Snapshot(bid, ask);
-		var position = trader.CurrentPosition;
-
-		return new TraderStateSnapshot(
-			position is { } p ? (p.Direction == PositionDirection.Long ? 1.0 : -1.0) : 0.0,
-			position?.EntryPrice ?? 0,
-			position?.TicksHeld ?? 0,
-			position?.CumulativeDistance ?? 0,
-			(bid + ask) / 2.0,
-			trader.Cash,
-			trader.RealizedPnl,
-			capital.UnrealizedPnl,
-			capital.Equity,
-			trader.MarginUsed,
-			capital.MarginLevel ?? 0,
-			position is null ? 0 : 1,
-			[],
-			[],
-			[]
-		);
-	}
+	private static TraderStateSnapshot BuildTraderStateSnapshot(ITrader trader, double bid, double ask) =>
+		new(RiskHelper.PercentOfBalance(trader.Snapshot(bid, ask).UnrealizedPnl, trader.Cash) ?? 0);
 }

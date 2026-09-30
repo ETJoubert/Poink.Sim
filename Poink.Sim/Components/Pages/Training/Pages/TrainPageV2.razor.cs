@@ -167,116 +167,12 @@ namespace Poink.Sim.Components.Pages
 				e.Value is true ? XGridSignalCatalog.All.Select(d => d.Key).ToHashSet() : [];
 		}
 
-		// Trader State -- mirrors BrainBuilder's FeaturesSection Trader State card.
-		private bool _traderStateIncludePosition;
-		private bool _traderStateIncludePositionPrice;
-		private bool _traderStateIncludePositionTicks;
-		private bool _traderStateIncludePositionDistance;
-		private bool _traderStateIncludeCurrentPrice;
-		private bool _traderStateIncludeCash;
-		private bool _traderStateIncludeRealized;
+		// Trader State -- deliberately minimal: unrealized P/L as a percent of cash balance (zero both when flat and when flat P/L).
 		private bool _traderStateIncludeUnrealized;
-		private bool _traderStateIncludeEquity;
-		private bool _traderStateIncludeMargin;
-		private bool _traderStateIncludeMarginLevel;
-		private bool _traderStateIncludePositionCount;
 
-		private bool _includeTraderStateOutcomes;
-		private bool _includeTraderStatePositionLevel;
-		private bool _includeTraderStateDirection;
+		private const int TotalTraderStateFieldCount = 1;
 
-		private int _traderStateOutcomeListLength = 5;
-		private int _traderStatePositionLevelListLength = 5;
-		private int _traderStateDirectionListLength = 5;
-
-		private sealed record TraderStateFieldRow(string Label, string Tooltip, Func<bool> Get, Action<bool> Set);
-
-		private IReadOnlyList<TraderStateFieldRow> PositionFieldRows =>
-			[
-				new(
-					"Position",
-					"Direction of the open position: 1 long, -1 short, 0 flat",
-					() => _traderStateIncludePosition,
-					v => _traderStateIncludePosition = v
-				),
-				new(
-					"Position Price",
-					"Entry price of the open position, 0 if flat",
-					() => _traderStateIncludePositionPrice,
-					v => _traderStateIncludePositionPrice = v
-				),
-				new(
-					"Position Ticks",
-					"Ticks the open position has been held, 0 if flat",
-					() => _traderStateIncludePositionTicks,
-					v => _traderStateIncludePositionTicks = v
-				),
-				new(
-					"Position Distance",
-					"Cumulative price distance traveled since the position opened, 0 if flat",
-					() => _traderStateIncludePositionDistance,
-					v => _traderStateIncludePositionDistance = v
-				),
-				new(
-					"Current Price",
-					"Current market price",
-					() => _traderStateIncludeCurrentPrice,
-					v => _traderStateIncludeCurrentPrice = v
-				),
-				new(
-					"Position Count",
-					"1 if a position is open, 0 if flat",
-					() => _traderStateIncludePositionCount,
-					v => _traderStateIncludePositionCount = v
-				),
-			];
-
-		private IReadOnlyList<TraderStateFieldRow> AccountFieldRows =>
-			[
-				new("Cash", "Available cash balance", () => _traderStateIncludeCash, v => _traderStateIncludeCash = v),
-				new(
-					"Realized",
-					"Realized profit/loss booked so far",
-					() => _traderStateIncludeRealized,
-					v => _traderStateIncludeRealized = v
-				),
-				new(
-					"Unrealized",
-					"Unrealized profit/loss on the open position",
-					() => _traderStateIncludeUnrealized,
-					v => _traderStateIncludeUnrealized = v
-				),
-				new("Equity", "Cash plus unrealized profit/loss", () => _traderStateIncludeEquity, v => _traderStateIncludeEquity = v),
-				new(
-					"Margin",
-					"Margin currently used by the open position",
-					() => _traderStateIncludeMargin,
-					v => _traderStateIncludeMargin = v
-				),
-				new(
-					"Margin Level",
-					"Equity as a percent of margin used",
-					() => _traderStateIncludeMarginLevel,
-					v => _traderStateIncludeMarginLevel = v
-				),
-			];
-
-		private IReadOnlyList<TraderStateFieldRow> TraderStateFieldRows => [.. PositionFieldRows, .. AccountFieldRows];
-
-		private const int TotalTraderStateFieldCount = 12;
-
-		private int SelectedTraderStateFieldCount => TraderStateFieldRows.Count(r => r.Get());
-
-		private static bool AllFieldsSelected(IReadOnlyList<TraderStateFieldRow> rows) => rows.All(r => r.Get());
-
-		private static void SetAllFields(IReadOnlyList<TraderStateFieldRow> rows, ChangeEventArgs e)
-		{
-			var value = e.Value is true;
-			foreach (var row in rows)
-				row.Set(value);
-		}
-
-		private void OnTraderStateFieldChanged(TraderStateFieldRow row, ChangeEventArgs e) => row.Set(e.Value is true);
+		private int SelectedTraderStateFieldCount => _traderStateIncludeUnrealized ? 1 : 0;
 
 		// TxFold -- the real TxFold chart component owns its own toolbar/selection (bound here so the
 		// Features grid below can read it); the grid itself shows field labels only, no fetched data.
@@ -286,6 +182,7 @@ namespace Poink.Sim.Components.Pages
 		private bool _txFoldIncludeVolumeProfile;
 		private int _txFoldVolumeProfileBucketCount = 20;
 		private bool _txFoldIncludeCurrentPrice;
+		private HashSet<TxFoldLevelKind> _txFoldIncludedLevels = [];
 		private bool _txFoldNormalize;
 
 		// Picked on the Features tab because it sets XGrid's window; the Training tab reads it for Episode span.
@@ -298,13 +195,10 @@ namespace Poink.Sim.Components.Pages
 		private int TxFoldFeatureCount =>
 			_txFoldSelectedSeconds.Count * TxFoldValuesPerTimeframeSelected
 			+ (_txFoldIncludeVolumeProfile ? _txFoldVolumeProfileBucketCount : 0)
-			+ (_txFoldSelectedSeconds.Count > 0 && _txFoldIncludeCurrentPrice ? 1 : 0);
+			+ (_txFoldSelectedSeconds.Count > 0 && _txFoldIncludeCurrentPrice ? 1 : 0)
+			+ (_txFoldSelectedSeconds.Count > 0 ? _txFoldIncludedLevels.Count : 0);
 
-		private int TraderStateFeatureCount =>
-			SelectedTraderStateFieldCount
-			+ (_includeTraderStateOutcomes ? _traderStateOutcomeListLength : 0)
-			+ (_includeTraderStatePositionLevel ? _traderStatePositionLevelListLength : 0)
-			+ (_includeTraderStateDirection ? _traderStateDirectionListLength : 0);
+		private int TraderStateFeatureCount => SelectedTraderStateFieldCount;
 
 		private int TotalFeatureCount => SelectedXGridSignalCount + TxFoldFeatureCount + TraderStateFeatureCount;
 
@@ -350,30 +244,11 @@ namespace Poink.Sim.Components.Pages
 				_txFoldIncludeVolumeProfile,
 				_txFoldVolumeProfileBucketCount,
 				_txFoldIncludeCurrentPrice,
+				[.. _txFoldIncludedLevels],
 				_txFoldNormalize
 			);
 
-		private TraderStateOptionsModel CurrentTraderStateOptions =>
-			new(
-				_traderStateIncludePosition,
-				_traderStateIncludePositionPrice,
-				_traderStateIncludePositionTicks,
-				_traderStateIncludePositionDistance,
-				_traderStateIncludeCurrentPrice,
-				_traderStateIncludeCash,
-				_traderStateIncludeRealized,
-				_traderStateIncludeUnrealized,
-				_traderStateIncludeEquity,
-				_traderStateIncludeMargin,
-				_traderStateIncludeMarginLevel,
-				_traderStateIncludePositionCount,
-				_includeTraderStateOutcomes,
-				_includeTraderStatePositionLevel,
-				_includeTraderStateDirection,
-				_traderStateOutcomeListLength,
-				_traderStatePositionLevelListLength,
-				_traderStateDirectionListLength
-			);
+		private TraderStateOptionsModel CurrentTraderStateOptions => new(_traderStateIncludeUnrealized);
 
 		private FeatureOptionsModel CurrentFeatureOptions => new(CurrentXGridSignalsOptions, CurrentTxFoldOptions, CurrentTraderStateOptions);
 
@@ -391,27 +266,11 @@ namespace Poink.Sim.Components.Pages
 			_txFoldIncludeVolumeProfile = options.TxFold.IncludeVolumeProfile;
 			_txFoldVolumeProfileBucketCount = options.TxFold.VolumeProfileBucketCount;
 			_txFoldIncludeCurrentPrice = options.TxFold.IncludeCurrentPrice;
+			if (options.TxFold.IncludedLevels is { } levels)
+				_txFoldIncludedLevels = [.. levels];
 			_txFoldNormalize = options.TxFold.Normalize;
 
-			var traderState = options.TraderState;
-			_traderStateIncludePosition = traderState.IncludePosition;
-			_traderStateIncludePositionPrice = traderState.IncludePositionPrice;
-			_traderStateIncludePositionTicks = traderState.IncludePositionTicks;
-			_traderStateIncludePositionDistance = traderState.IncludePositionDistance;
-			_traderStateIncludeCurrentPrice = traderState.IncludeCurrentPrice;
-			_traderStateIncludeCash = traderState.IncludeCash;
-			_traderStateIncludeRealized = traderState.IncludeRealized;
-			_traderStateIncludeUnrealized = traderState.IncludeUnrealized;
-			_traderStateIncludeEquity = traderState.IncludeEquity;
-			_traderStateIncludeMargin = traderState.IncludeMargin;
-			_traderStateIncludeMarginLevel = traderState.IncludeMarginLevel;
-			_traderStateIncludePositionCount = traderState.IncludePositionCount;
-			_includeTraderStateOutcomes = traderState.IncludeOutcomes;
-			_includeTraderStatePositionLevel = traderState.IncludePositionLevel;
-			_includeTraderStateDirection = traderState.IncludeDirection;
-			_traderStateOutcomeListLength = traderState.OutcomeListLength;
-			_traderStatePositionLevelListLength = traderState.PositionLevelListLength;
-			_traderStateDirectionListLength = traderState.DirectionListLength;
+			_traderStateIncludeUnrealized = options.TraderState.IncludeUnrealized;
 		}
 
 		#endregion
