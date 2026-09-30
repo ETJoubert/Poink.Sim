@@ -607,10 +607,28 @@ namespace Poink.Sim.Components.Pages
 		private bool _previewKeepView;
 		private string? _previewError;
 
-		// Not consumed yet -- the Lookback Window drawn on the preview chart will anchor episode
-		// sampling to a specific slice of the range in a follow-up, replacing today's random start.
+		// Consumed by DataProvider when SamplingMode is WindowSelected -- see CurrentEpisodeTimingOptions.
 		private DateTime? _previewWindowStart;
 		private DateTime? _previewWindowEnd;
+
+		private sealed record EpisodeSamplingModeOption(EpisodeSamplingMode Mode, string Label, string Tooltip);
+
+		private static readonly EpisodeSamplingModeOption[] EpisodeSamplingModeOptions =
+		[
+			new(EpisodeSamplingMode.RandomFromSet, "Random from set",
+				"Each episode starts at a random point within the Data tab's selected range, sized/positioned by the fields below"),
+			new(EpisodeSamplingMode.EntireSet, "Entire set",
+				"Every episode runs over the Data tab's whole selected range, start to finish"),
+			new(EpisodeSamplingMode.WindowSelected, "Window selected",
+				"Every episode runs over the exact range marked with the LOOKBACK WINDOW tool on the chart below"),
+		];
+
+		private EpisodeSamplingMode _episodeSamplingMode = EpisodeSamplingMode.RandomFromSet;
+
+		private List<ChartRangeFill> PreviewRangeFills() =>
+			_previewWindowStart is { } start && _previewWindowEnd is { } end
+				? [new ChartRangeFill(start, end, "LOOKBACK WINDOW", "volume")]
+				: [];
 
 		private async Task EnsurePreviewLoadedAsync()
 		{
@@ -802,7 +820,10 @@ namespace Poink.Sim.Components.Pages
 				_restrictEpisodeTiming,
 				[.. _allowedWeekdays],
 				_sessionStart,
-				_sessionEnd
+				_sessionEnd,
+				_episodeSamplingMode,
+				_previewWindowStart,
+				_previewWindowEnd
 			);
 
 		private TraderSetupOptionsModel CurrentTraderSetupOptions =>
@@ -828,6 +849,9 @@ namespace Poink.Sim.Components.Pages
 				_allowedWeekdays.Add(day);
 			_sessionStart = episodeTiming.SessionStart;
 			_sessionEnd = episodeTiming.SessionEnd ?? TimeSpan.FromHours(24);
+			_episodeSamplingMode = episodeTiming.SamplingMode;
+			_previewWindowStart = episodeTiming.WindowStart;
+			_previewWindowEnd = episodeTiming.WindowEnd;
 
 			var traderSetup = options.TraderSetup;
 			_startingCash = traderSetup.StartingCash;

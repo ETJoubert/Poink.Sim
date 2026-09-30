@@ -4,9 +4,19 @@ using Poink.Sim.Brain.Neural;
 
 namespace Poink.Sim.Models.TrainingModels
 {
+	/// <summary>Which slice of the Data tab's selected range each episode is fetched from.</summary>
+	internal enum EpisodeSamplingMode
+	{
+		RandomFromSet,
+		EntireSet,
+		WindowSelected,
+	}
+
 	/// <summary>
 	/// How episodes are timed/sampled. AllowedWeekdays null means every day is allowed; SessionEnd
-	/// null means the session runs to end of day (24:00).
+	/// null means the session runs to end of day (24:00). TrainingBars/VisibleBars/RestrictEpisodeTiming
+	/// only apply to <see cref="EpisodeSamplingMode.RandomFromSet"/> -- the other modes fetch an exact,
+	/// already-known range instead of sizing/positioning a random one.
 	/// </summary>
 	internal sealed record EpisodeTimingOptionsModel(
 		int EpisodeCount = 1000,
@@ -15,7 +25,10 @@ namespace Poink.Sim.Models.TrainingModels
 		bool RestrictEpisodeTiming = false,
 		IReadOnlyList<DayOfWeek>? AllowedWeekdays = null,
 		TimeSpan SessionStart = default,
-		TimeSpan? SessionEnd = null
+		TimeSpan? SessionEnd = null,
+		EpisodeSamplingMode SamplingMode = EpisodeSamplingMode.RandomFromSet,
+		DateTime? WindowStart = null,
+		DateTime? WindowEnd = null
 	);
 
 	/// <summary>The trader each episode starts with.</summary>

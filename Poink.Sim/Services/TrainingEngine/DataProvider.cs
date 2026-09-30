@@ -8,9 +8,10 @@ using Poink.Sim.Repository;
 namespace Poink.Sim.Services.TrainingEngine;
 
 /// <summary>
-/// Supplies one episode's worth of tick data for training -- resolves DataOptionsModel's range and
-/// EpisodeTimingOptionsModel's weekday/session restriction into an actual window, then reads it from
-/// ITickRepository. Continuous/streaming feeding is a separate mode, not implemented here yet.
+/// Supplies one episode's worth of tick data for training. EpisodeSamplingMode picks how: the entire
+/// selected range, an explicit Lookback Window, or (the default) a random window sized/positioned from
+/// EpisodeTimingOptionsModel, honoring its weekday/session restriction. Continuous/streaming feeding is
+/// a separate mode, not implemented here yet.
 /// </summary>
 internal sealed class DataProvider
 {
@@ -32,11 +33,25 @@ internal sealed class DataProvider
 		Random random
 	)
 	{
-		var fetchSpan = TimeSpan.FromSeconds((double)EpisodeBars(episodeTiming, barWidthSeconds) * barWidthSeconds);
+		switch (episodeTiming.SamplingMode)
+		{
+			case EpisodeSamplingMode.EntireSet:
+				return _tickRepository.ReadTicks(data.Table, data.From, data.To).ToList();
 
-		return episodeTiming.RestrictEpisodeTiming
-			? RandomConstrainedWindow(data, episodeTiming, fetchSpan, random)
-			: RandomUnrestrictedWindow(data, fetchSpan, random);
+			case EpisodeSamplingMode.WindowSelected:
+				if (episodeTiming.WindowStart is not { } windowStart || episodeTiming.WindowEnd is not { } windowEnd)
+				{
+					_logger.LogWarning("DataProvider: no Lookback Window selected for {Table}, skipping episode", data.Table);
+					return [];
+				}
+				return _tickRepository.ReadTicks(data.Table, windowStart, windowEnd).ToList();
+
+			default:
+				var fetchSpan = TimeSpan.FromSeconds((double)EpisodeBars(episodeTiming, barWidthSeconds) * barWidthSeconds);
+				return episodeTiming.RestrictEpisodeTiming
+					? RandomConstrainedWindow(data, episodeTiming, fetchSpan, random)
+					: RandomUnrestrictedWindow(data, fetchSpan, random);
+		}
 	}
 
 	// Mirrors TrainPageV2's own EffectiveTrainingBars/EpisodeBars calc, since this is the same
