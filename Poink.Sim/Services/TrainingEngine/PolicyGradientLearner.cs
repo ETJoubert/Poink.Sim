@@ -8,15 +8,17 @@ namespace Poink.Sim.Services.TrainingEngine;
 /// <summary>
 /// Turns one episode's recorded decisions into a network weight update. REINFORCE: discount
 /// rewards into returns, normalize by the episode's own mean/std as a variance-reducing baseline,
-/// backprop each step's advantage-weighted softmax gradient, apply one averaged SGD update. Only
-/// "Policy Gradient (REINFORCE)" is implemented; other strategy names throw. No entropy-bonus
-/// regularization -- a known simplification, left out rather than guessed at.
+/// backprop each step's advantage-weighted softmax gradient plus an entropy bonus (ported from
+/// PolicyGradientTrainingStrategy: coefficient 0.01, annealed linearly to 0 by training progress),
+/// apply one averaged SGD update. Only "Policy Gradient (REINFORCE)" is implemented; other
+/// strategy names throw.
 /// </summary>
 internal sealed class PolicyGradientLearner
 {
 	public const string ReinforceStrategyName = "Policy Gradient (REINFORCE)";
 
 	private const double DiscountFactor = 0.99;
+	private const double InitialEntropyCoefficient = 0.01;
 
 	public static void EnsureSupportedStrategy(string strategyName)
 	{
@@ -24,7 +26,8 @@ internal sealed class PolicyGradientLearner
 			throw new NotSupportedException($"{strategyName} isn't implemented yet -- only {ReinforceStrategyName} is built so far.");
 	}
 
-	public void Learn(MlpNetwork network, ActionSpace actionSpace, IReadOnlyList<DecisionTrace> traces, LearningOptionsModel learning)
+	// progress is 0 at the run's first episode, 1 at its last.
+	public void Learn(MlpNetwork network, ActionSpace actionSpace, IReadOnlyList<DecisionTrace> traces, LearningOptionsModel learning, double progress = 0.0)
 	{
 		EnsureSupportedStrategy(learning.TrainingStrategyName);
 		if (traces.Count == 0)
@@ -33,12 +36,15 @@ internal sealed class PolicyGradientLearner
 		var returns = DiscountedReturns(traces);
 		var mean = returns.Average();
 		var std = Math.Sqrt(returns.Select(r => (r - mean) * (r - mean)).Average());
+		var entropyCoefficient = learning.UseEntropyBonus ? InitialEntropyCoefficient * (1.0 - Math.Clamp(progress, 0.0, 1.0)) : 0.0;
 
 		var steps = new List<(List<float[]> Activations, float[] OutputGradient)>(traces.Count);
 		for (var i = 0; i < traces.Count; i++)
 		{
 			var advantage = (returns[i] - mean) / (std + 1e-8);
-			steps.Add((traces[i].Activations, PolicyGradient(traces[i].RawOutputs, actionSpace, traces[i].ActionIndex, advantage)));
+			steps.Add(
+				(traces[i].Activations, PolicyGradient(traces[i].RawOutputs, actionSpace, traces[i].ActionIndex, advantage, entropyCoefficient))
+			);
 		}
 
 		ApplyGradient(network, steps, learning.LearningRate);
@@ -56,22 +62,37 @@ internal sealed class PolicyGradientLearner
 		return returns;
 	}
 
-	// Standard softmax-cross-entropy gradient (probability - one-hot), scaled by advantage and by
-	// 1/T for the temperature division's chain rule. Continuous output slots stay zero -- untrained.
-	private static float[] PolicyGradient(float[] rawOutputs, ActionSpace actionSpace, int actionIndex, double advantage)
+	// Softmax-cross-entropy gradient (probability - one-hot) times advantage, plus the entropy
+	// bonus's own gradient p_i * (log p_i + H) -- both over T for the temperature chain rule.
+	private static float[] PolicyGradient(
+		float[] rawOutputs,
+		ActionSpace actionSpace,
+		int actionIndex,
+		double advantage,
+		double entropyCoefficient
+	)
 	{
 		var directionWidth = actionSpace.DirectionOutputWidth;
 		var probabilities = actionSpace.Probabilities(rawOutputs[..directionWidth]);
 		var temperatureScale = Math.Max(actionSpace.DecisionTemperature, 1e-8);
+		var entropy = Entropy(probabilities);
 
 		var gradient = new float[rawOutputs.Length];
 		for (var i = 0; i < directionWidth; i++)
 		{
 			var indicator = i == actionIndex ? 1.0 : 0.0;
-			gradient[i] = (float)(advantage * (probabilities[i] - indicator) / temperatureScale);
+			var policyGradient = advantage * (probabilities[i] - indicator);
+			var entropyGradient = entropyCoefficient * probabilities[i] * (LogProbability(probabilities[i]) + entropy);
+			gradient[i] = (float)((policyGradient + entropyGradient) / temperatureScale);
 		}
 		return gradient;
 	}
+
+	// Shannon entropy of the direction distribution, maximized by the entropy bonus.
+	private static double Entropy(double[] probabilities) => -probabilities.Sum(p => p * LogProbability(p));
+
+	// Floors probability so log(0) can't turn 0 * log(0) into NaN instead of its analytic limit of 0.
+	private static double LogProbability(double probability) => Math.Log(Math.Max(probability, 1e-12));
 
 	// Backpropagates and averages one episode's worth of steps into a single update, matching
 	// REINFORCE's one gradient over the whole episode's mean loss, not a step per decision.

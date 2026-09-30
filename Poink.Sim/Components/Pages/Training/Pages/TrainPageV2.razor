@@ -672,6 +672,11 @@
                             Learning rate
                             <input class="trv2-input" type="number" min="0.00001" step="0.0001" @bind="_learningRate" />
                         </label>
+                        <label class="trv2-field"
+                               title="Adds an exploration bonus to the loss so the policy doesn't collapse onto one action too early -- coefficient 0.01, annealed linearly to 0 by the run's last episode">
+                            <input type="checkbox" @bind="_useEntropyBonus" />
+                            Entropy Bonus
+                        </label>
                     </div>
 
                     <div class="trv2-card">
@@ -824,9 +829,9 @@
                                         <span class="trv2-stat-label">trader</span>
                                         <span class="trv2-stat-value">@_startingCash.ToString("N0") cash, @_leverage.ToString("0.#")x</span>
                                     </div>
-                                    <div class="trv2-stat" title="RL strategy and reward policy driving learning">
+                                    <div class="trv2-stat" title="RL strategy and reward policy driving learning, plus whether the entropy exploration bonus is on">
                                         <span class="trv2-stat-label">learning</span>
-                                        <span class="trv2-stat-value">@_trainingStrategyName / @_rewardPolicyName</span>
+                                        <span class="trv2-stat-value">@_trainingStrategyName / @_rewardPolicyName@(_useEntropyBonus ? " +entropy" : "")</span>
                                     </div>
                                     <div class="trv2-stat" title="Decision-gating rules enabled, of those available -- opposite of Action Masking">
                                         <span class="trv2-stat-label">decision masking</span>

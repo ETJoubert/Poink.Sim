@@ -655,6 +655,7 @@ namespace Poink.Sim.Components.Pages
 		private string _trainingStrategyName = TrainingStrategyOptions[0];
 		private string _rewardPolicyName = RewardPolicyOptions[0];
 		private double _learningRate = 0.001;
+		private bool _useEntropyBonus = true;
 
 		// Decision Masking -- mirrors BrainBuilder's DecideSection. Gates whether the network is even
 		// asked to decide, as opposed to Action Masking (Output tab) which restricts choices afterward.
@@ -697,7 +698,7 @@ namespace Poink.Sim.Components.Pages
 		private TraderSetupOptionsModel CurrentTraderSetupOptions =>
 			new(_startingCash, _leverage, _commissionRatePercent, _stopOutLevelPercent, [.. _selectedRiskPolicies]);
 
-		private LearningOptionsModel CurrentLearningOptions => new(_trainingStrategyName, _rewardPolicyName, _learningRate);
+		private LearningOptionsModel CurrentLearningOptions => new(_trainingStrategyName, _rewardPolicyName, _learningRate, _useEntropyBonus);
 
 		private DecisionMaskingOptionsModel CurrentDecisionMaskingOptions =>
 			new(_decisionMaskResolution, _decisionMaskResolutionSeconds, _decisionMaskResolutionCellWidth, _maskDecisionPriceBelowPoc);
@@ -733,6 +734,7 @@ namespace Poink.Sim.Components.Pages
 			_trainingStrategyName = learning.TrainingStrategyName;
 			_rewardPolicyName = learning.RewardPolicyName;
 			_learningRate = learning.LearningRate;
+			_useEntropyBonus = learning.UseEntropyBonus;
 
 			var decisionMasking = options.DecisionMasking;
 			_decisionMaskResolution = decisionMasking.DecisionMaskResolution;
@@ -882,11 +884,14 @@ namespace Poink.Sim.Components.Pages
 		{
 			ResetLiveEpisodeState();
 			var stopwatch = Stopwatch.StartNew();
+			var episodeCount = TargetEpisodeCount;
+			var progress = episodeCount > 1 ? (double)_episodesCompleted / (episodeCount - 1) : 1.0;
 			var result = await TrainingEngineService.RunEpisode(
 				options,
 				_runNetwork!,
 				_runActionSpace!,
 				random,
+				progress,
 				_backgroundMode ? null : OnLiveDecision,
 				() => _backgroundMode ? TimeSpan.Zero : LiveDecisionDelay,
 				() => _isPaused,

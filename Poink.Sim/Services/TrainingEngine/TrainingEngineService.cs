@@ -66,9 +66,13 @@ internal sealed class TrainingEngineService
 		var actionSpace = _actionAssembler.Assemble(options.Output);
 		var network = BuildNetwork(options, actionSpace, random);
 
-		var results = new List<EpisodeResult>(options.Training.EpisodeTiming.EpisodeCount);
-		for (var i = 0; i < options.Training.EpisodeTiming.EpisodeCount; i++)
-			results.Add(await RunEpisode(options, network, actionSpace, random));
+		var episodeCount = options.Training.EpisodeTiming.EpisodeCount;
+		var results = new List<EpisodeResult>(episodeCount);
+		for (var i = 0; i < episodeCount; i++)
+		{
+			var progress = episodeCount > 1 ? (double)i / (episodeCount - 1) : 1.0;
+			results.Add(await RunEpisode(options, network, actionSpace, random, progress));
+		}
 
 		return results;
 	}
@@ -80,6 +84,7 @@ internal sealed class TrainingEngineService
 		MlpNetwork network,
 		ActionSpace actionSpace,
 		Random random,
+		double progress = 0.0,
 		Action<LiveEpisodeSnapshot>? onDecision = null,
 		Func<TimeSpan>? decisionDelay = null,
 		Func<bool>? isPaused = null,
@@ -185,7 +190,7 @@ internal sealed class TrainingEngineService
 			traces.RemoveAt(traces.Count - 1);
 		}
 
-		_learner.Learn(network, actionSpace, traces, options.Training.Learning);
+		_learner.Learn(network, actionSpace, traces, options.Training.Learning, progress);
 
 		var lastTick = ticks[^1];
 		return new EpisodeResult(steps, trader.Snapshot(lastTick.Bid, lastTick.Ask), trader.TradeLog, totalReward);
