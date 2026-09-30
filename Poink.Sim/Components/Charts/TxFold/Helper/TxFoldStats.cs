@@ -58,49 +58,18 @@ internal static class TxFoldStats
 		if (ticks.Count == 0)
 			return new float[bucketCount];
 
-		var prices = ticks.Select(t => (t.Bid + t.Ask) / 2.0).ToList();
-		var min = prices.Min();
-		var max = prices.Max();
-
-		var counts = new int[bucketCount];
-		if (max <= min)
-		{
-			counts[0] = prices.Count;
-		}
-		else
-		{
-			var size = (max - min) / bucketCount;
-			foreach (var price in prices)
-				counts[Math.Clamp((int)((price - min) / size), 0, bucketCount - 1)]++;
-		}
-
-		var maxCount = counts.Max();
-		return maxCount > 0 ? counts.Select(c => (float)c / maxCount).ToArray() : new float[bucketCount];
+		var buckets = RangeStatsHelper.BucketSamples(ticks, t => (t.Bid + t.Ask) / 2.0, bucketCount);
+		var maxWeight = buckets.Max(b => b.Weight);
+		return maxWeight > 0 ? buckets.Select(b => (float)(b.Weight / maxWeight)).ToArray() : new float[bucketCount];
 	}
 
-	// Same uniform-bucket tick-count histogram VolumeProfileStats.Compute uses elsewhere, over the
-	// full tick list rather than a Lookback Window slice of it.
 	private static IReadOnlyList<TxFoldVolumeBucket> BuildVolumeProfile(IReadOnlyList<Tick> ticks)
 	{
 		const int bucketCount = 50;
-		if (ticks.Count == 0)
-			return Array.Empty<TxFoldVolumeBucket>();
-
-		var prices = ticks.Select(t => (t.Bid + t.Ask) / 2.0).ToList();
-		var min = prices.Min();
-		var max = prices.Max();
-		if (max <= min)
-			return new[] { new TxFoldVolumeBucket(min, min, prices.Count) };
-
-		var counts = new int[bucketCount];
-		var size = (max - min) / bucketCount;
-		foreach (var price in prices)
-			counts[Math.Clamp((int)((price - min) / size), 0, bucketCount - 1)]++;
-
-		return Enumerable
-			.Range(0, bucketCount)
-			.Where(i => counts[i] > 0)
-			.Select(i => new TxFoldVolumeBucket(min + size * i, min + size * (i + 1), counts[i]))
+		return RangeStatsHelper
+			.BucketSamples(ticks, t => (t.Bid + t.Ask) / 2.0, bucketCount)
+			.Where(b => b.Weight > 0)
+			.Select(b => new TxFoldVolumeBucket(b.Low, b.High, (int)b.Weight))
 			.ToList();
 	}
 

@@ -19,6 +19,8 @@ internal readonly record struct RangeStatsResult(
 
 internal readonly record struct ValueAreaResult(double Poc, double Vah, double Val);
 
+internal readonly record struct PriceBucket(double Low, double High, double Weight);
+
 // Same volume-profile bucketing VolumeProfileStats.Compute uses, generalized with a weight selector
 // so it produces a true VWAP for volume-bearing items (e.g. bars) and a plain mean for unweighted ones (e.g. ticks).
 internal static class RangeStatsHelper
@@ -61,6 +63,46 @@ internal static class RangeStatsHelper
         );
     }
 
+    // Splits raw samples into bucketCount uniform buckets across their observed price range -- the
+    // histogram step charts render directly, shared with the bucketing Compute uses for its own POC/VAH/VAL.
+    public static IReadOnlyList<PriceBucket> BucketSamples<T>(
+        IReadOnlyList<T> items,
+        Func<T, double> priceSelector,
+        int bucketCount,
+        Func<T, double>? weightSelector = null
+    )
+    {
+        if (items.Count == 0 || bucketCount <= 0)
+            return Array.Empty<PriceBucket>();
+
+        var prices = new double[items.Count];
+        var weights = new double[items.Count];
+        for (var i = 0; i < items.Count; i++)
+        {
+            prices[i] = priceSelector(items[i]);
+            weights[i] = weightSelector?.Invoke(items[i]) ?? 1.0;
+        }
+
+        var min = prices.Min();
+        var max = prices.Max();
+        if (max <= min)
+        {
+            var degenerate = new PriceBucket[bucketCount];
+            degenerate[0] = new PriceBucket(min, min, weights.Sum());
+            for (var i = 1; i < bucketCount; i++)
+                degenerate[i] = new PriceBucket(min, min, 0);
+            return degenerate;
+        }
+
+        var size = (max - min) / bucketCount;
+        var bucketWeights = BucketWeights(prices, weights, min, size, bucketCount);
+
+        var buckets = new PriceBucket[bucketCount];
+        for (var i = 0; i < bucketCount; i++)
+            buckets[i] = new PriceBucket(min + size * i, min + size * (i + 1), bucketWeights[i]);
+        return buckets;
+    }
+
     // For callers that already hold a fixed-width bucket histogram (e.g. BarPriceHistogram.Merge) instead
     // of raw samples -- same POC/widen-to-value-area algorithm as Compute, applied directly to their buckets.
     public static ValueAreaResult? ComputeValueArea<T>(
@@ -100,12 +142,7 @@ internal static class RangeStatsHelper
             return (min, min, min);
 
         var size = (max - min) / BucketCount;
-        var bucketWeights = new double[BucketCount];
-        for (var i = 0; i < prices.Length; i++)
-        {
-            var bucket = Math.Clamp((int)((prices[i] - min) / size), 0, BucketCount - 1);
-            bucketWeights[bucket] += weights[i];
-        }
+        var bucketWeights = BucketWeights(prices, weights, min, size, BucketCount);
 
         var targetWeight = totalWeight * ValueAreaFraction;
         var (pocIndex, lowIndex, highIndex) = WidenValueArea(bucketWeights, targetWeight);
@@ -114,6 +151,17 @@ internal static class RangeStatsHelper
         double vah = min + size * (highIndex + 1);
         double val = min + size * lowIndex;
         return (poc, vah, val);
+    }
+
+    private static double[] BucketWeights(double[] prices, double[] weights, double min, double size, int bucketCount)
+    {
+        var bucketWeights = new double[bucketCount];
+        for (var i = 0; i < prices.Length; i++)
+        {
+            var bucket = Math.Clamp((int)((prices[i] - min) / size), 0, bucketCount - 1);
+            bucketWeights[bucket] += weights[i];
+        }
+        return bucketWeights;
     }
 
     // Finds the highest-weight bucket, then greedily widens outward (favoring the heavier side on ties)
