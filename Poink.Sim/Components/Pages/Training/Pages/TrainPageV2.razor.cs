@@ -51,6 +51,9 @@ namespace Poink.Sim.Components.Pages
 
 		private TrainV2Tab _activeTab = TrainV2Tab.Data;
 
+		// Background mode leaves Live with nothing current to show (see RunOneEpisode) -- hidden, not just disabled.
+		private IEnumerable<TrainV2Tab> VisibleTabs => _backgroundMode ? Tabs.Where(t => t != TrainV2Tab.Live) : Tabs;
+
 		private static string TabTitle(TrainV2Tab tab) =>
 			tab switch
 			{
@@ -772,6 +775,16 @@ namespace Poink.Sim.Components.Pages
 		private MlpNetwork? _runNetwork;
 		private ActionSpace? _runActionSpace;
 
+		// Forces max speed and skips onDecision entirely -- see RunOneEpisode.
+		private bool _backgroundMode;
+
+		private void ToggleBackgroundMode()
+		{
+			_backgroundMode = !_backgroundMode;
+			if (_backgroundMode && _activeTab == TrainV2Tab.Live)
+				_activeTab = TrainV2Tab.Run;
+		}
+
 		// Render reads _episodeMetricsSnapshot (atomically-swapped, never mutated in place) instead
 		// of this background-thread-mutated list, same pattern as LiveUiState.
 		private readonly List<RlEpisodeMetric> _episodeMetrics = [];
@@ -874,8 +887,8 @@ namespace Poink.Sim.Components.Pages
 				_runNetwork!,
 				_runActionSpace!,
 				random,
-				OnLiveDecision,
-				() => LiveDecisionDelay,
+				_backgroundMode ? null : OnLiveDecision,
+				() => _backgroundMode ? TimeSpan.Zero : LiveDecisionDelay,
 				() => _isPaused,
 				cancellationToken
 			);
