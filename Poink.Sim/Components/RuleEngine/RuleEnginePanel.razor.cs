@@ -7,8 +7,9 @@ using Poink.Sim.Helpers;
 
 namespace Poink.Sim.Components.RuleEngine
 {
-	/// <summary>Above/In/Below mask over the baseline rule-engine signals (POC/VAH/VAL/VWAP) compared
-	/// against their live state, with a per-row Match dot and a match log.</summary>
+	/// <summary>Above/In/Below mask over the rule-engine signals (baseline POC/VAH/VAL/VWAP/Median/Regression,
+	/// plus XGrid's rank/delta rows when a grid is supplied) compared against their live state, with a
+	/// per-row Match dot and a match log.</summary>
 	public partial class RuleEnginePanel : ComponentBase
 	{
 		private const int MaxLogEntries = 20;
@@ -23,6 +24,12 @@ namespace Poink.Sim.Components.RuleEngine
 		public RuleEngineResult? Result { get; set; }
 
 		[Parameter]
+		public double XGridPercent { get; set; } = 10;
+
+		[Parameter]
+		public EventCallback<double> XGridPercentChanged { get; set; }
+
+		[Parameter]
 		public DateTime? CurrentTimestampUtc { get; set; }
 
 		private bool _wasMatching;
@@ -31,15 +38,19 @@ namespace Poink.Sim.Components.RuleEngine
 
 		private IReadOnlyList<RuleSignalRow> Rows => Result?.Rows ?? Array.Empty<RuleSignalRow>();
 
+		private IEnumerable<RuleSignalRow> BaselineRows => Rows.Where(row => !row.IsXGridSignal);
+
+		private IEnumerable<RuleSignalRow> XGridSignalRows => Rows.Where(row => row.IsXGridSignal);
+
 		private bool LiveValue(RuleSignalRow row, string key) =>
 			key == row.AboveKey ? row.Above
 			: key == row.InKey ? row.In
 			: key == row.BelowKey && row.Below;
 
 		private string? SelectedKey(RuleSignalRow row) =>
-			EnabledKeys.Contains(row.AboveKey) ? row.AboveKey
+			row.AboveKey is { } above && EnabledKeys.Contains(above) ? above
 			: EnabledKeys.Contains(row.InKey) ? row.InKey
-			: EnabledKeys.Contains(row.BelowKey) ? row.BelowKey
+			: row.BelowKey is { } below && EnabledKeys.Contains(below) ? below
 			: null;
 
 		private string MatchStatus(RuleSignalRow row) =>
@@ -63,12 +74,21 @@ namespace Poink.Sim.Components.RuleEngine
 			&& EnabledKeys.Count > 0
 			&& Rows.All(row => SelectedKey(row) is not { } key || LiveValue(row, key));
 
-		private async Task Toggle(RuleSignalRow row, string key)
+		private void ClearRow(RuleSignalRow row)
 		{
-			var wasSelected = SelectedKey(row) == key;
-			EnabledKeys.Remove(row.AboveKey);
+			if (row.AboveKey is { } above)
+				EnabledKeys.Remove(above);
 			EnabledKeys.Remove(row.InKey);
-			EnabledKeys.Remove(row.BelowKey);
+			if (row.BelowKey is { } below)
+				EnabledKeys.Remove(below);
+		}
+
+		private async Task Toggle(RuleSignalRow row, string? key)
+		{
+			if (key is null)
+				return;
+			var wasSelected = SelectedKey(row) == key;
+			ClearRow(row);
 			if (!wasSelected)
 				EnabledKeys.Add(key);
 			await EnabledKeysChanged.InvokeAsync(EnabledKeys);
@@ -80,13 +100,17 @@ namespace Poink.Sim.Components.RuleEngine
 				return;
 			foreach (var row in Rows)
 			{
-				EnabledKeys.Remove(row.AboveKey);
-				EnabledKeys.Remove(row.InKey);
-				EnabledKeys.Remove(row.BelowKey);
+				ClearRow(row);
 				if (LiveKey(row) is { } key)
 					EnabledKeys.Add(key);
 			}
 			await EnabledKeysChanged.InvokeAsync(EnabledKeys);
+		}
+
+		private async Task SetXGridPercent(ChangeEventArgs e)
+		{
+			if (double.TryParse(e.Value?.ToString(), out var value))
+				await XGridPercentChanged.InvokeAsync(value);
 		}
 
 		// Edge-triggered: logs the timestamp a match first appears, not every render it still holds.

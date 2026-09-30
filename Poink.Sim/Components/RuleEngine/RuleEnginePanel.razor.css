@@ -10,8 +10,30 @@
 
 .rule-engine-toolbar {
     display: flex;
-    justify-content: flex-end;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
     margin-bottom: 8px;
+}
+
+.rule-engine-percent {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.52rem;
+    letter-spacing: 0.04em;
+    color: var(--color-secondary);
+    white-space: nowrap;
+}
+
+.rule-engine-percent input {
+    width: 40px;
+    font-size: 0.6rem;
+    background: color-mix(in srgb, var(--color-secondary) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-secondary) 30%, transparent);
+    border-radius: var(--border-radius-sm);
+    color: inherit;
+    padding: 1px 3px;
 }
 
 .rule-engine-copy {
@@ -86,7 +108,10 @@
 
 .rule-engine-select {
     display: inline-flex;
-    padding: 2px 4px;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
     border-radius: var(--border-radius-sm);
 }
 
@@ -117,6 +142,20 @@
 .rule-engine-dot.on {
     opacity: 1;
     box-shadow: 0 0 4px var(--sig-color);
+}
+
+.rule-engine-group-row {
+    border-top: 1px solid color-mix(in srgb, var(--color-secondary) 25%, transparent);
+}
+
+.rule-engine-group-label {
+    padding: 6px 6px 4px;
+    font-size: 0.5rem;
+    font-weight: bold;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-highlight);
+    opacity: 0.75;
 }
 
 .rule-engine-match-cell {

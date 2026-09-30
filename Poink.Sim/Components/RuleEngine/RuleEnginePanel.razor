@@ -1,9 +1,15 @@
 @namespace Poink.Sim.Components.RuleEngine
+@using System.Linq
+@using Poink.Sim.Helpers
 
-<div class="rule-engine-panel" title="Above/In/Below mask over the baseline signals (POC/VAH/VAL/VWAP), their live state, and whether they match">
+<div class="rule-engine-panel" title="Above/In/Below mask over the rule-engine signals, their live state, and whether they match">
     <div class="rule-engine-toolbar">
         <button type="button" class="rule-engine-copy" @onclick="CopyLiveToSelector" disabled="@(Result is null)"
                 title="Copy the live Above/In/Below state into the selector for every row">Copy Live</button>
+        <label class="rule-engine-percent" title="Top-percent cutoff used by the XGrid Top %/Delta rows below">
+            Top %
+            <input type="number" min="0" max="100" step="1" value="@XGridPercent" @onchange="SetXGridPercent" />
+        </label>
     </div>
 
     <table class="rule-engine-table">
@@ -17,29 +23,19 @@
             </tr>
         </thead>
         <tbody>
-            @foreach (var row in Rows)
+            @foreach (var row in BaselineRows)
             {
-                <tr class="rule-engine-row" style="--sig-color: var(@row.ColorVar)">
-                    <td class="rule-engine-label">@row.RowLabel</td>
-                    <td class="rule-engine-cell" @onclick="() => Toggle(row, row.AboveKey)" title="@($"Select Above {row.RowLabel} for the rule mask")">
-                        <span class="rule-engine-select @(SelectedKey(row) == row.AboveKey ? "selected" : "")">
-                            <span class="rule-engine-arrow @(row.Above ? "on" : "")">&#9650;</span>
-                        </span>
-                    </td>
-                    <td class="rule-engine-cell" @onclick="() => Toggle(row, row.InKey)" title="@($"Select At {row.RowLabel} for the rule mask")">
-                        <span class="rule-engine-select @(SelectedKey(row) == row.InKey ? "selected" : "")">
-                            <span class="rule-engine-dot @(row.In ? "on" : "")"></span>
-                        </span>
-                    </td>
-                    <td class="rule-engine-cell" @onclick="() => Toggle(row, row.BelowKey)" title="@($"Select Below {row.RowLabel} for the rule mask")">
-                        <span class="rule-engine-select @(SelectedKey(row) == row.BelowKey ? "selected" : "")">
-                            <span class="rule-engine-arrow @(row.Below ? "on" : "")">&#9660;</span>
-                        </span>
-                    </td>
-                    <td class="rule-engine-match-cell" title="Whether this row's selection currently matches its live value">
-                        <span class="rule-engine-match-dot @MatchStatus(row)"></span>
-                    </td>
+                @RowTemplate(row)
+            }
+            @if (XGridSignalRows.Any())
+            {
+                <tr class="rule-engine-group-row" title="Signals that depend on XGrid's own row/column grid, separate from the baseline signals above">
+                    <td colspan="5" class="rule-engine-group-label">XGRID</td>
                 </tr>
+                @foreach (var row in XGridSignalRows)
+                {
+                    @RowTemplate(row)
+                }
             }
         </tbody>
         <tfoot>
@@ -71,3 +67,42 @@
         }
     </div>
 </div>
+
+@code {
+    private RenderFragment<RuleSignalRow> RowTemplate => row =>
+        @<tr class="rule-engine-row" style="--sig-color: var(@row.ColorVar)">
+            <td class="rule-engine-label">@row.RowLabel</td>
+            @if (row.AboveKey is { } aboveKey)
+            {
+                <td class="rule-engine-cell" @onclick="() => Toggle(row, aboveKey)" title="@($"Select Above {row.RowLabel} for the rule mask")">
+                    <span class="rule-engine-select @(SelectedKey(row) == aboveKey ? "selected" : "")">
+                        <span class="rule-engine-arrow @(row.Above ? "on" : "")">&#9650;</span>
+                    </span>
+                </td>
+            }
+            else
+            {
+                <td class="rule-engine-cell"></td>
+            }
+            <td class="rule-engine-cell" @onclick="() => Toggle(row, row.InKey)" title="@($"Select {row.RowLabel} for the rule mask")">
+                <span class="rule-engine-select @(SelectedKey(row) == row.InKey ? "selected" : "")">
+                    <span class="rule-engine-dot @(row.In ? "on" : "")"></span>
+                </span>
+            </td>
+            @if (row.BelowKey is { } belowKey)
+            {
+                <td class="rule-engine-cell" @onclick="() => Toggle(row, belowKey)" title="@($"Select Below {row.RowLabel} for the rule mask")">
+                    <span class="rule-engine-select @(SelectedKey(row) == belowKey ? "selected" : "")">
+                        <span class="rule-engine-arrow @(row.Below ? "on" : "")">&#9660;</span>
+                    </span>
+                </td>
+            }
+            else
+            {
+                <td class="rule-engine-cell"></td>
+            }
+            <td class="rule-engine-match-cell" title="Whether this row's selection currently matches its live value">
+                <span class="rule-engine-match-dot @MatchStatus(row)"></span>
+            </td>
+        </tr>;
+}

@@ -166,6 +166,7 @@ namespace Poink.Sim.Components.Pages
 		// Above/In/Below mask the Rule Engine tab edits -- keyed by RuleEngineHelper key,
 		// owned by the page so it survives tab switches.
 		private HashSet<string> _ruleEngineEnabledKeys = new();
+		private double _ruleEngineXGridPercent = 10;
 
 		private int _xgridPipCount = 20;
 		private int _xgridColCount = 20;
@@ -244,8 +245,8 @@ namespace Poink.Sim.Components.Pages
 			return _xgridCache;
 		}
 
-		// Baseline rule-engine signals (POC/VAH/VAL/VWAP) computed straight off RangeStatsHelper via
-		// RuleEngineHelper -- no XGrid row/column grid involved, unlike ComputeXGrid above.
+		// Baseline signals come straight off RangeStatsHelper; the XGrid rank/delta rows ride along
+		// on top by handing RuleEngineHelper the same grid ComputeXGrid builds for the chart itself.
 		private RuleEngineResult? ComputeRuleEngine(SimulationSnapshot s)
 		{
 			var (bars, _) = WindowedBarData(s);
@@ -259,7 +260,9 @@ namespace Poink.Sim.Components.Pages
 				b => b.Average,
 				b => (double)b.Volume,
 				b => b.Close,
-				currentPrice
+				currentPrice,
+				ComputeXGrid(s),
+				_ruleEngineXGridPercent
 			);
 		}
 
