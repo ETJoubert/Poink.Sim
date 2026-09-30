@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
 using Poink.Sim.Components.Charts;
+using Poink.Sim.Helpers;
 using Poink.Sim.Models;
 using Poink.Sim.Profiler;
 using Poink.Sim.Repository;
@@ -848,17 +849,10 @@ namespace Poink.Sim.Components.Pages
 					? _bars.Where(b => b.OpenTime >= start && b.OpenTime <= end)
 					: _bars;
 
-			var points = new List<ChartLinePoint>();
-			double cumulativePriceVolume = 0,
-				cumulativeVolume = 0;
-			foreach (var bar in bars)
-			{
-				cumulativePriceVolume += bar.Average * bar.Volume;
-				cumulativeVolume += bar.Volume;
-				if (cumulativeVolume > 0)
-					points.Add(new ChartLinePoint(bar.OpenTime, cumulativePriceVolume / cumulativeVolume));
-			}
-			return points;
+			return VectorStatsHelper
+				.Vwap(bars, b => b.OpenTime, b => b.Average, b => b.Volume)
+				.Select(p => new ChartLinePoint(p.TimeUtc, p.Value))
+				.ToList();
 		}
 
 		private List<ChartVerticalLine> AllVerticalLines() =>

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Poink.Sim.Components.Charts;
+using Poink.Sim.Helpers;
 using Poink.Sim.Models;
 using Poink.Sim.Services.CTrader;
 
@@ -113,17 +114,10 @@ namespace Poink.Sim.Components.Pages.Trade
 			var (bars, _) = WindowedBarData(hlocBars, histograms, clampedOffset);
 			var windowBars = bars.Count > clampedWindow ? bars.Skip(bars.Count - clampedWindow) : bars;
 
-			var points = new List<ChartLinePoint>();
-			double cumulativePriceVolume = 0,
-				cumulativeVolume = 0;
-			foreach (var bar in windowBars)
-			{
-				cumulativePriceVolume += bar.Average * bar.Volume;
-				cumulativeVolume += bar.Volume;
-				if (cumulativeVolume > 0)
-					points.Add(new ChartLinePoint(bar.OpenTime, cumulativePriceVolume / cumulativeVolume));
-			}
-			return points;
+			return VectorStatsHelper
+				.Vwap(windowBars, b => b.OpenTime, b => b.Average, b => b.Volume)
+				.Select(p => new ChartLinePoint(p.TimeUtc, p.Value))
+				.ToList();
 		}
 
 		public static DateTime? WindowStartUtc(

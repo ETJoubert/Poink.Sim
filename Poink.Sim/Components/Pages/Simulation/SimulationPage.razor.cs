@@ -470,17 +470,10 @@ namespace Poink.Sim.Components.Pages
 			var (bars, _) = WindowedBarData(s);
 			var windowBars = bars.Count > ClampedBarWindow ? bars.Skip(bars.Count - ClampedBarWindow) : bars;
 
-			var points = new List<ChartLinePoint>();
-			double cumulativePriceVolume = 0,
-				cumulativeVolume = 0;
-			foreach (var bar in windowBars)
-			{
-				cumulativePriceVolume += bar.Average * bar.Volume;
-				cumulativeVolume += bar.Volume;
-				if (cumulativeVolume > 0)
-					points.Add(new ChartLinePoint(bar.OpenTime, cumulativePriceVolume / cumulativeVolume));
-			}
-			return points;
+			return VectorStatsHelper
+				.Vwap(windowBars, b => b.OpenTime, b => b.Average, b => b.Volume)
+				.Select(p => new ChartLinePoint(p.TimeUtc, p.Value))
+				.ToList();
 		}
 
 		private DateTime? WindowStartUtc(SimulationSnapshot s)
