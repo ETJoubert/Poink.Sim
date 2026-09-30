@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Poink.Sim.Helpers;
 
 namespace Poink.Sim.Models;
 
@@ -140,45 +141,8 @@ internal static class VolumeProfileAnalysis
 		IReadOnlyList<(double Price, int Count, int UpCount, int DownCount)> buckets,
 		double bucketWidth,
 		double valueAreaFraction = 0.70
-	)
-	{
-		if (buckets.Count == 0)
-			return null;
-
-		var ordered = buckets.OrderBy(b => b.Price).ToList();
-		long totalVolume = ordered.Sum(b => (long)b.Count);
-		if (totalVolume == 0)
-			return null;
-
-		int pocIndex = 0;
-		for (int i = 1; i < ordered.Count; i++)
-			if (ordered[i].Count > ordered[pocIndex].Count)
-				pocIndex = i;
-
-		int lowIdx = pocIndex,
-			highIdx = pocIndex;
-		long includedVolume = ordered[pocIndex].Count;
-		long target = (long)Math.Ceiling(totalVolume * valueAreaFraction);
-		while (includedVolume < target && (lowIdx > 0 || highIdx < ordered.Count - 1))
-		{
-			long belowVolume = lowIdx > 0 ? ordered[lowIdx - 1].Count : -1;
-			long aboveVolume = highIdx < ordered.Count - 1 ? ordered[highIdx + 1].Count : -1;
-			if (aboveVolume >= belowVolume)
-			{
-				highIdx++;
-				includedVolume += ordered[highIdx].Count;
-			}
-			else
-			{
-				lowIdx--;
-				includedVolume += ordered[lowIdx].Count;
-			}
-		}
-
-		return new VolumeProfileSummary(
-			ordered[pocIndex].Price + bucketWidth / 2.0,
-			ordered[highIdx].Price + bucketWidth,
-			ordered[lowIdx].Price
-		);
-	}
+	) =>
+		RangeStatsHelper.ComputeValueArea(buckets, b => b.Price, b => b.Count, bucketWidth, valueAreaFraction) is { } area
+			? new VolumeProfileSummary(area.Poc, area.Vah, area.Val)
+			: null;
 }

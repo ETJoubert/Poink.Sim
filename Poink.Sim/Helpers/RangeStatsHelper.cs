@@ -17,6 +17,8 @@ internal readonly record struct RangeStatsResult(
     int Count
 );
 
+internal readonly record struct ValueAreaResult(double Poc, double Vah, double Val);
+
 // Same volume-profile bucketing VolumeProfileStats.Compute uses, generalized with a weight selector
 // so it produces a true VWAP for volume-bearing items (e.g. bars) and a plain mean for unweighted ones (e.g. ticks).
 internal static class RangeStatsHelper
@@ -59,6 +61,34 @@ internal static class RangeStatsHelper
         );
     }
 
+    // For callers that already hold a fixed-width bucket histogram (e.g. BarPriceHistogram.Merge) instead
+    // of raw samples -- same POC/widen-to-value-area algorithm as Compute, applied directly to their buckets.
+    public static ValueAreaResult? ComputeValueArea<T>(
+        IReadOnlyList<T> buckets,
+        Func<T, double> priceSelector,
+        Func<T, double> weightSelector,
+        double bucketWidth,
+        double valueAreaFraction = ValueAreaFraction
+    )
+    {
+        if (buckets.Count == 0)
+            return null;
+
+        var ordered = buckets.OrderBy(priceSelector).ToList();
+        var weights = ordered.Select(weightSelector).ToArray();
+        var totalWeight = weights.Sum();
+        if (totalWeight <= 0)
+            return null;
+
+        var targetWeight = Math.Ceiling(totalWeight * valueAreaFraction);
+        var (pocIndex, lowIndex, highIndex) = WidenValueArea(weights, targetWeight);
+
+        var poc = priceSelector(ordered[pocIndex]) + bucketWidth / 2.0;
+        var vah = priceSelector(ordered[highIndex]) + bucketWidth;
+        var val = priceSelector(ordered[lowIndex]);
+        return new ValueAreaResult(poc, vah, val);
+    }
+
     private static (double? Poc, double? Vah, double? Val) ComputeVolumeProfile(double[] prices, double[] weights, double totalWeight)
     {
         if (totalWeight < BucketCount * MinSamplesPerBucket)
@@ -77,20 +107,32 @@ internal static class RangeStatsHelper
             bucketWeights[bucket] += weights[i];
         }
 
+        var targetWeight = totalWeight * ValueAreaFraction;
+        var (pocIndex, lowIndex, highIndex) = WidenValueArea(bucketWeights, targetWeight);
+
+        double poc = min + size * (pocIndex + 0.5);
+        double vah = min + size * (highIndex + 1);
+        double val = min + size * lowIndex;
+        return (poc, vah, val);
+    }
+
+    // Finds the highest-weight bucket, then greedily widens outward (favoring the heavier side on ties)
+    // until targetWeight is covered or both edges are reached.
+    private static (int PocIndex, int LowIndex, int HighIndex) WidenValueArea(double[] bucketWeights, double targetWeight)
+    {
         var pocIndex = 0;
-        for (var i = 1; i < BucketCount; i++)
+        for (var i = 1; i < bucketWeights.Length; i++)
             if (bucketWeights[i] > bucketWeights[pocIndex])
                 pocIndex = i;
 
-        var targetWeight = totalWeight * ValueAreaFraction;
         var coveredWeight = bucketWeights[pocIndex];
         var lowIndex = pocIndex;
         var highIndex = pocIndex;
 
-        while (coveredWeight < targetWeight && (lowIndex > 0 || highIndex < BucketCount - 1))
+        while (coveredWeight < targetWeight && (lowIndex > 0 || highIndex < bucketWeights.Length - 1))
         {
             var nextLowWeight = lowIndex > 0 ? bucketWeights[lowIndex - 1] : -1;
-            var nextHighWeight = highIndex < BucketCount - 1 ? bucketWeights[highIndex + 1] : -1;
+            var nextHighWeight = highIndex < bucketWeights.Length - 1 ? bucketWeights[highIndex + 1] : -1;
 
             if (nextHighWeight >= nextLowWeight)
             {
@@ -104,10 +146,7 @@ internal static class RangeStatsHelper
             }
         }
 
-        double poc = min + size * (pocIndex + 0.5);
-        double vah = min + size * (highIndex + 1);
-        double val = min + size * lowIndex;
-        return (poc, vah, val);
+        return (pocIndex, lowIndex, highIndex);
     }
 
     private static double ComputeWeightedMean(double[] prices, double[] weights, double totalWeight)
