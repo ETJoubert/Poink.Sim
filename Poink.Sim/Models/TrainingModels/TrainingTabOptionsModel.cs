@@ -29,11 +29,13 @@ namespace Poink.Sim.Models.TrainingModels
 		IReadOnlyList<string>? SelectedRiskPolicies = null
 	);
 
-	/// <summary>Which training strategy and reward policy drive learning, and at what rate.</summary>
+	/// <summary>Which training strategy and reward policy drive learning, at what rate, and whether
+	/// an entropy bonus encourages exploration (anneals to 0 over the run -- see PolicyGradientLearner).</summary>
 	internal sealed record LearningOptionsModel(
 		string TrainingStrategyName = "Policy Gradient (REINFORCE)",
 		string RewardPolicyName = "Equity Drift (default)",
-		double LearningRate = 0.001
+		double LearningRate = 0.001,
+		bool UseEntropyBonus = true
 	);
 
 	/// <summary>
