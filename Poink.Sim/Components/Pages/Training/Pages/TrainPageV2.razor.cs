@@ -550,8 +550,6 @@ namespace Poink.Sim.Components.Pages
 		private int _episodeCount = 1000;
 		private int _trainingBars = 20;
 		private int _visibleBars = 120;
-		private SimulationSteppingMode _steppingMode = SimulationSteppingMode.Bar;
-		private double _cellWidth = 0.10;
 
 		// Off by default, so an episode may start anywhere in the Data tab's range. Weekday and
 		// session are independent, combinable filters.
@@ -583,11 +581,7 @@ namespace Poink.Sim.Components.Pages
 
 		private bool VisibleBarsCoverFeatures => _visibleBars >= MinimumVisibleBars;
 
-		// Cell stepping fires on price moves rather than the clock, so its episode has no fixed duration.
-		private TimeSpan? EpisodeSpan =>
-			_steppingMode == SimulationSteppingMode.Bar ? TimeSpan.FromSeconds((double)EpisodeBars * _barWidthSeconds) : null;
-
-		private static string FormatOptionalWindow(TimeSpan? window) => window is { } value ? FormatWindow(value) : "-";
+		private TimeSpan EpisodeSpan => TimeSpan.FromSeconds((double)EpisodeBars * _barWidthSeconds);
 
 		private void ToggleRestrictEpisodeTiming(ChangeEventArgs e) => _restrictEpisodeTiming = e.Value is true;
 
@@ -687,8 +681,6 @@ namespace Poink.Sim.Components.Pages
 				_episodeCount,
 				_trainingBars,
 				_visibleBars,
-				_steppingMode,
-				_cellWidth,
 				_restrictEpisodeTiming,
 				[.. _allowedWeekdays],
 				_sessionStart,
@@ -712,8 +704,6 @@ namespace Poink.Sim.Components.Pages
 			_episodeCount = episodeTiming.EpisodeCount;
 			_trainingBars = episodeTiming.TrainingBars;
 			_visibleBars = episodeTiming.VisibleBars;
-			_steppingMode = episodeTiming.SteppingMode;
-			_cellWidth = episodeTiming.CellWidth;
 			_restrictEpisodeTiming = episodeTiming.RestrictEpisodeTiming;
 			_allowedWeekdays.Clear();
 			foreach (var day in episodeTiming.AllowedWeekdays ?? Enum.GetValues<DayOfWeek>())

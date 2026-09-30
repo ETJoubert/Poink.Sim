@@ -12,8 +12,6 @@ namespace Poink.Sim.Models.TrainingModels
 		int EpisodeCount = 1000,
 		int TrainingBars = 20,
 		int VisibleBars = 120,
-		SimulationSteppingMode SteppingMode = SimulationSteppingMode.Bar,
-		double CellWidth = 0.10,
 		bool RestrictEpisodeTiming = false,
 		IReadOnlyList<DayOfWeek>? AllowedWeekdays = null,
 		TimeSpan SessionStart = default,

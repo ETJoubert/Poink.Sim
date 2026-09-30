@@ -9,7 +9,6 @@
 @using Poink.Sim.Components.Shared.SymbolDataSelector
 @using Poink.Sim.Components.Training
 @using Poink.Sim.Helpers
-@using Poink.Sim.Models
 @using Poink.Sim.Training
 
 <div class="trv2-page">
@@ -567,25 +566,10 @@
                             <span class="trv2-decoding-value">@EpisodeBars</span>
                         </label>
                         <label class="trv2-field"
-                               title="Time the episode's bars cover -- episode bars x bar width (Features tab). Not defined while stepping by cell">
+                               title="Time the episode's bars cover -- episode bars x bar width (Features tab)">
                             Episode span
-                            <span class="trv2-decoding-value">@FormatOptionalWindow(EpisodeSpan)</span>
+                            <span class="trv2-decoding-value">@FormatWindow(EpisodeSpan)</span>
                         </label>
-                        <label class="trv2-field"
-                               title="Bar steps a decision on each bar's close. Cell steps on a fixed-width price band instead, the moment price moves into a different band">
-                            Step
-                            <select class="trv2-select" @bind="_steppingMode">
-                                <option value="@SimulationSteppingMode.Bar">bar</option>
-                                <option value="@SimulationSteppingMode.Cell">cell</option>
-                            </select>
-                        </label>
-                        @if (_steppingMode == SimulationSteppingMode.Cell)
-                        {
-                            <label class="trv2-field" title="Fixed price width of each cell -- a decision fires when price crosses from one cell into the next">
-                                Cell width
-                                <input class="trv2-input" type="number" min="0.00001" step="0.01" @bind="_cellWidth" />
-                            </label>
-                        }
                         <label class="trv2-field"
                                title="Turn on to restrict episodes to specific weekdays and/or a daily time-of-day session -- off means an episode may start anywhere in the Data tab's range, including across midnight">
                             <input type="checkbox" checked="@_restrictEpisodeTiming" @onchange="ToggleRestrictEpisodeTiming" />
@@ -823,7 +807,7 @@
                                     </div>
                                     <div class="trv2-stat" title="Total bars one episode needs, and the wall-clock time they cover">
                                         <span class="trv2-stat-label">episode span</span>
-                                        <span class="trv2-stat-value">@EpisodeBars bars (@FormatOptionalWindow(EpisodeSpan))</span>
+                                        <span class="trv2-stat-value">@EpisodeBars bars (@FormatWindow(EpisodeSpan))</span>
                                     </div>
                                     <div class="trv2-stat" title="Starting cash and leverage the simulated trader begins each episode with">
                                         <span class="trv2-stat-label">trader</span>
