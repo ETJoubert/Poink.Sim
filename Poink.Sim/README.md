@@ -73,8 +73,10 @@ UI state — each is its own page(s) and its own DI-registered service(s).
   `ITRangeReferenceChartRepository` (Profiler's saved chart annotations).
 - **`Models/`** — Domain and read-model shapes shared across areas
   (`HlocAvdtBar`, `BarPriceHistogram`, `SimulationAccount`,
-  `SimulationDecision`, `SimulationSnapshot`, `VolumeProfileAnalysis`,
-  `TimeProfileAnalysis`).
+  `SimulationDecision`, `SimulationSnapshot`, `VolumeProfileAnalysis`).
+- **`Helpers/`** — Pure calculation helpers shared across areas
+  (`RangeStatsHelper`/`VectorStatsHelper` for scalar/vector tick and bar
+  measurements, `BarAggregator`, `TimeProfileHelper`).
 - **`Program.cs`** — DI wiring for all four areas: `ITickRepository`/
   `INetworkRepository`/`IModelRepository`/chart repositories and the two fixed
   heuristic Brain instances are singletons shared process-wide (every neural

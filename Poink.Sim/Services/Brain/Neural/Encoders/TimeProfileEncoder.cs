@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using Poink.Sim.Helpers;
 using Poink.Sim.Models;
 
 namespace Poink.Sim.Brain.Neural;
@@ -112,7 +113,7 @@ internal sealed class TimeProfileEncoder : IObservationEncoder
 
 		if (_normalization == NormalizationKind.Raw && _splitUpDown)
 		{
-			var (up, down, diff, prices) = TimeProfileAnalysis.BuildRawSplitHistogram(merged, _bucketCount);
+			var (up, down, diff, prices) = TimeProfileHelper.BuildRawSplitHistogram(merged, _bucketCount);
 			for (int i = 0; i < _bucketCount; i++)
 			{
 				features[i * 4] = _priceNormalizer.Normalize(prices[i], observation);
@@ -123,7 +124,7 @@ internal sealed class TimeProfileEncoder : IObservationEncoder
 		}
 		else if (_normalization == NormalizationKind.Raw)
 		{
-			var (seconds, prices) = TimeProfileAnalysis.BuildRawHistogram(merged, _bucketCount);
+			var (seconds, prices) = TimeProfileHelper.BuildRawHistogram(merged, _bucketCount);
 			for (int i = 0; i < _bucketCount; i++)
 			{
 				features[i * 2] = _priceNormalizer.Normalize(prices[i], observation);
@@ -132,7 +133,7 @@ internal sealed class TimeProfileEncoder : IObservationEncoder
 		}
 		else if (_splitUpDown)
 		{
-			var (up, down, diff) = TimeProfileAnalysis.BuildRelativeSplitHistogram(merged, _bucketCount);
+			var (up, down, diff) = TimeProfileHelper.BuildRelativeSplitHistogram(merged, _bucketCount);
 			for (int i = 0; i < _bucketCount; i++)
 			{
 				features[i * 3] = _bucketNormalizer.Normalize(up[i], observation);
@@ -142,12 +143,12 @@ internal sealed class TimeProfileEncoder : IObservationEncoder
 		}
 		else
 		{
-			var histogram = TimeProfileAnalysis.BuildRelativeHistogram(merged, _bucketCount);
+			var histogram = TimeProfileHelper.BuildRelativeHistogram(merged, _bucketCount);
 			for (int i = 0; i < _bucketCount; i++)
 				features[i] = _bucketNormalizer.Normalize(histogram[i], observation);
 		}
 
-		if (TimeProfileAnalysis.ComputeSummary(merged, bucketWidth, ValueAreaFraction) is { } summary)
+		if (TimeProfileHelper.ComputeSummary(merged, bucketWidth, ValueAreaFraction) is { } summary)
 		{
 			features[_bucketFeatureCount + 0] = _priceNormalizer.Normalize(summary.PointOfControl, observation);
 			features[_bucketFeatureCount + 1] = _priceNormalizer.Normalize(summary.ValueAreaHigh, observation);

@@ -110,7 +110,8 @@ internal static class RangeStatsHelper
         Func<T, double> priceSelector,
         Func<T, double> weightSelector,
         double bucketWidth,
-        double valueAreaFraction = ValueAreaFraction
+        double valueAreaFraction = ValueAreaFraction,
+        bool roundTargetUp = true
     )
     {
         if (buckets.Count == 0)
@@ -122,7 +123,9 @@ internal static class RangeStatsHelper
         if (totalWeight <= 0)
             return null;
 
-        var targetWeight = Math.Ceiling(totalWeight * valueAreaFraction);
+        // Ceiling suits integer counts (a fractional target would let a whole extra bucket's
+        // worth slip under the bar); continuous weights like dwell seconds want the raw fraction.
+        var targetWeight = roundTargetUp ? Math.Ceiling(totalWeight * valueAreaFraction) : totalWeight * valueAreaFraction;
         var (pocIndex, lowIndex, highIndex) = WidenValueArea(weights, targetWeight);
 
         var poc = priceSelector(ordered[pocIndex]) + bucketWidth / 2.0;
@@ -186,7 +189,7 @@ internal static class RangeStatsHelper
 
     // Finds the highest-weight bucket, then greedily widens outward (favoring the heavier side on ties)
     // until targetWeight is covered or both edges are reached.
-    private static (int PocIndex, int LowIndex, int HighIndex) WidenValueArea(double[] bucketWeights, double targetWeight)
+    internal static (int PocIndex, int LowIndex, int HighIndex) WidenValueArea(double[] bucketWeights, double targetWeight)
     {
         var pocIndex = 0;
         for (var i = 1; i < bucketWeights.Length; i++)

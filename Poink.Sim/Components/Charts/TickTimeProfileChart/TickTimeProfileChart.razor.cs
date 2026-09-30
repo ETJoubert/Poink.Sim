@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using Microsoft.AspNetCore.Components;
+using Poink.Sim.Helpers;
 
 namespace Poink.Sim.Components.Charts
 {
@@ -88,7 +89,7 @@ namespace Poink.Sim.Components.Charts
 		}
 
 		private TimeProfileLevels? Levels =>
-			ShowLevels ? TimeProfileStats.Compute(WeightedSamples ?? PlainSamples()) : null;
+			ShowLevels ? TimeProfileHelper.Compute(WeightedSamples ?? PlainSamples(), s => s.Price, s => s.Count, s => s.Seconds) : null;
 
 		private static string DiffClass(double diff) =>
 			diff switch
@@ -159,17 +160,10 @@ namespace Poink.Sim.Components.Charts
 					};
 				}
 
-				var seconds = new double[bucketCount];
-				var upSeconds = new double[bucketCount];
-				var downSeconds = new double[bucketCount];
 				double size = (max - min) / bucketCount;
-				foreach (var s in samples)
-				{
-					var idx = Math.Clamp((int)((s.Price - min) / size), 0, bucketCount - 1);
-					seconds[idx] += s.Seconds;
-					upSeconds[idx] += s.UpSeconds;
-					downSeconds[idx] += s.DownSeconds;
-				}
+				var seconds = RangeStatsHelper.BucketWeights(samples, s => s.Price, s => s.Seconds, min, size, bucketCount);
+				var upSeconds = RangeStatsHelper.BucketWeights(samples, s => s.Price, s => s.UpSeconds, min, size, bucketCount);
+				var downSeconds = RangeStatsHelper.BucketWeights(samples, s => s.Price, s => s.DownSeconds, min, size, bucketCount);
 
 				// Clamped rather than excluded when out of range -- the current price can
 				// briefly sit outside the window's own range right as the window slides.

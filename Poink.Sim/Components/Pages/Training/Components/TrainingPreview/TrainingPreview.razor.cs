@@ -410,7 +410,7 @@ namespace Poink.Sim.Components.Training
 				return [];
 
 			int bucketCount = Math.Clamp(sizes.TimeProfileBucketCount, 1, ProfileMaxRows);
-			var (seconds, prices) = TimeProfileAnalysis.BuildRawHistogram(merged, bucketCount);
+			var (seconds, prices) = TimeProfileHelper.BuildRawHistogram(merged, bucketCount);
 			double maxSeconds = seconds.Length == 0 ? 0 : seconds.Max();
 			if (maxSeconds <= 0)
 				return [];
@@ -497,7 +497,7 @@ namespace Poink.Sim.Components.Training
 			int bucketCount = sizes.TimeProfileBucketCount;
 			if (sizes.TimeProfileSplitUpDown)
 			{
-				var (up, down, diff, _) = TimeProfileAnalysis.BuildRawSplitHistogram(merged, bucketCount);
+				var (up, down, diff, _) = TimeProfileHelper.BuildRawSplitHistogram(merged, bucketCount);
 				for (int i = 0; i < bucketCount; i++)
 				{
 					values.Add(new(FormatSeconds(up[i]), "up", $"Bucket {i} up seconds"));
@@ -507,12 +507,12 @@ namespace Poink.Sim.Components.Training
 			}
 			else
 			{
-				var (seconds, _) = TimeProfileAnalysis.BuildRawHistogram(merged, bucketCount);
+				var (seconds, _) = TimeProfileHelper.BuildRawHistogram(merged, bucketCount);
 				for (int i = 0; i < bucketCount; i++)
 					values.Add(new(FormatSeconds(seconds[i]), "seconds", $"Bucket {i} seconds"));
 			}
 
-			if (TimeProfileAnalysis.ComputeSummary(merged, episodeHistograms[^1].BucketWidth) is { } summary)
+			if (TimeProfileHelper.ComputeSummary(merged, episodeHistograms[^1].BucketWidth) is { } summary)
 			{
 				values.Add(new(FormatPrice(summary.PointOfControl), "summary", "Point of Control"));
 				values.Add(new(FormatPrice(summary.ValueAreaHigh), "summary", "Value Area High"));
@@ -654,7 +654,7 @@ namespace Poink.Sim.Components.Training
 
 			if (isRaw && sizes.TimeProfileSplitUpDown)
 			{
-				var (up, down, diff, prices) = TimeProfileAnalysis.BuildRawSplitHistogram(merged, bucketCount);
+				var (up, down, diff, prices) = TimeProfileHelper.BuildRawSplitHistogram(merged, bucketCount);
 				for (int i = 0; i < bucketCount; i++)
 				{
 					values.Add(new(FormatPrice(prices[i]), "price", $"Bucket {i} price"));
@@ -665,7 +665,7 @@ namespace Poink.Sim.Components.Training
 			}
 			else if (isRaw)
 			{
-				var (seconds, prices) = TimeProfileAnalysis.BuildRawHistogram(merged, bucketCount);
+				var (seconds, prices) = TimeProfileHelper.BuildRawHistogram(merged, bucketCount);
 				for (int i = 0; i < bucketCount; i++)
 				{
 					values.Add(new(FormatPrice(prices[i]), "price", $"Bucket {i} price"));
@@ -674,7 +674,7 @@ namespace Poink.Sim.Components.Training
 			}
 			else if (sizes.TimeProfileSplitUpDown)
 			{
-				var (up, down, diff) = TimeProfileAnalysis.BuildRelativeSplitHistogram(merged, bucketCount);
+				var (up, down, diff) = TimeProfileHelper.BuildRelativeSplitHistogram(merged, bucketCount);
 				for (int i = 0; i < bucketCount; i++)
 				{
 					values.Add(new(FormatFraction(up[i]), "up", $"Bucket {i} up"));
@@ -684,12 +684,12 @@ namespace Poink.Sim.Components.Training
 			}
 			else
 			{
-				var fractions = TimeProfileAnalysis.BuildRelativeHistogram(merged, bucketCount);
+				var fractions = TimeProfileHelper.BuildRelativeHistogram(merged, bucketCount);
 				for (int i = 0; i < bucketCount; i++)
 					values.Add(new(FormatFraction(fractions[i]), "seconds", $"Bucket {i}"));
 			}
 
-			if (TimeProfileAnalysis.ComputeSummary(merged, episodeHistograms[^1].BucketWidth) is { } summary)
+			if (TimeProfileHelper.ComputeSummary(merged, episodeHistograms[^1].BucketWidth) is { } summary)
 			{
 				string Fmt(double p) => isRaw ? FormatPrice(p) : FormatOffsetPercent(p, currentPrice);
 				values.Add(new(Fmt(summary.PointOfControl), "summary", "Point of Control"));
