@@ -298,3 +298,8 @@
 .action-dist-row-chosen .action-dist-raw {
     opacity: 0.85;
 }
+
+.action-dist-raw-blocked {
+    color: var(--color-warning);
+    opacity: 0.85;
+}

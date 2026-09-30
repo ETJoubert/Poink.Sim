@@ -23,6 +23,10 @@ internal sealed class PolicyGradientLearner
 	private const double DiscountFactor = 0.99;
 	private const double InitialEntropyCoefficient = 0.01;
 
+	// Bounds the z-score below -- a low-variance episode can otherwise divide by a near-zero std
+	// and produce a runaway advantage that saturates the output logits in one update.
+	private const double MaxAdvantageMagnitude = 10.0;
+
 	public static void EnsureSupportedStrategy(string strategyName)
 	{
 		if (!SupportedStrategyNames.Contains(strategyName))
@@ -43,12 +47,14 @@ internal sealed class PolicyGradientLearner
 
 		if (learning.TrainingStrategyName == PerDecisionStrategyName)
 		{
+			// N separate full-rate steps would otherwise scale this episode's total update by N.
+			var perStepLearningRate = learning.LearningRate / traces.Count;
 			for (var i = 0; i < traces.Count; i++)
 			{
-				var advantage = (returns[i] - mean) / (std + 1e-8);
+				var advantage = NormalizedAdvantage(returns[i], mean, std);
 				var gradient = PolicyGradient(traces[i].RawOutputs, actionSpace, traces[i].ActionIndex, advantage, entropyCoefficient);
 				var (weightGradients, biasGradients) = Backward(network, traces[i].Activations, gradient);
-				ApplyGradients(network, weightGradients, biasGradients, learning.LearningRate);
+				ApplyGradients(network, weightGradients, biasGradients, perStepLearningRate);
 			}
 			return;
 		}
@@ -56,7 +62,7 @@ internal sealed class PolicyGradientLearner
 		var steps = new List<(List<float[]> Activations, float[] OutputGradient)>(traces.Count);
 		for (var i = 0; i < traces.Count; i++)
 		{
-			var advantage = (returns[i] - mean) / (std + 1e-8);
+			var advantage = NormalizedAdvantage(returns[i], mean, std);
 			steps.Add(
 				(traces[i].Activations, PolicyGradient(traces[i].RawOutputs, actionSpace, traces[i].ActionIndex, advantage, entropyCoefficient))
 			);
@@ -76,6 +82,9 @@ internal sealed class PolicyGradientLearner
 		}
 		return returns;
 	}
+
+	private static double NormalizedAdvantage(double episodeReturn, double mean, double std) =>
+		Math.Clamp((episodeReturn - mean) / (std + 1e-8), -MaxAdvantageMagnitude, MaxAdvantageMagnitude);
 
 	// Softmax-cross-entropy gradient (probability - one-hot) times advantage, plus the entropy
 	// bonus's own gradient p_i * (log p_i + H) -- both over T for the temperature chain rule.
