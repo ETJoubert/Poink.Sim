@@ -29,7 +29,8 @@
                                      style="width: @(Pct(o.Probability * 100))%"></div>
                             </div>
                             <span class="action-dist-pct">@(FormatProbabilityPct(o.Probability))%</span>
-                            <span class="action-dist-raw" title="Raw network output before softmax (logit) -- for evaluating decision methods other than softmax sampling">@(FormatLogit(o.Logit))</span>
+                            <span class="action-dist-raw @(IsBlockedLogit(o.Logit) ? "action-dist-raw-blocked" : "")"
+                                  title="@(IsBlockedLogit(o.Logit) ? "Blocked by Action Masking -- illegal in the current state" : "Raw network output before softmax (logit) -- for evaluating decision methods other than softmax sampling")">@(FormatLogit(o.Logit))</span>
                         </div>
                     }
                 </div>

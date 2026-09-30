@@ -102,7 +102,14 @@ public partial class BrainIoPanel : ComponentBase
 	private static string FormatProbabilityPct(double probability) =>
 		(probability * 100).ToString("N1", CultureInfo.InvariantCulture);
 
-	private static string FormatLogit(double logit) => logit.ToString("+0.00;-0.00;0.00", CultureInfo.InvariantCulture);
+	// Action Masking drives an illegal direction's logit deeply negative (-1e9) rather than removing
+	// it -- well below anything a real forward pass produces, so this threshold reads as "blocked".
+	private const double BlockedLogitThreshold = -1_000_000;
+
+	private static bool IsBlockedLogit(double logit) => logit <= BlockedLogitThreshold;
+
+	private static string FormatLogit(double logit) =>
+		IsBlockedLogit(logit) ? "✕" : logit.ToString("+0.00;-0.00;0.00", CultureInfo.InvariantCulture);
 
 	private static string ActionShortLabel(RlOutputFeature o) =>
 		o.Group == "Direction" ? ActionShortLabel(o.Label) : o.Label;
