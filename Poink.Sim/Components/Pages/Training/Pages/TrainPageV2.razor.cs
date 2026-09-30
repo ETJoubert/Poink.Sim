@@ -13,6 +13,7 @@ using Poink.Sim.Components.Pages.Trade.Helpers;
 using Poink.Sim.Helpers;
 using Poink.Sim.Models;
 using Poink.Sim.Models.TrainingModels;
+using Poink.Sim.Profiler;
 using Poink.Sim.Repository;
 using Poink.Sim.Services.Symbols;
 using Poink.Sim.Services.TrainingEngine;
@@ -53,6 +54,13 @@ namespace Poink.Sim.Components.Pages
 
 		// Background mode leaves Live with nothing current to show (see RunOneEpisode) -- hidden, not just disabled.
 		private IEnumerable<TrainV2Tab> VisibleTabs => _backgroundMode ? Tabs.Where(t => t != TrainV2Tab.Live) : Tabs;
+
+		private void SelectTab(TrainV2Tab tab)
+		{
+			_activeTab = tab;
+			if (tab == TrainV2Tab.Training)
+				_ = EnsurePreviewLoadedAsync();
+		}
 
 		private static string TabTitle(TrainV2Tab tab) =>
 			tab switch
@@ -550,8 +558,6 @@ namespace Poink.Sim.Components.Pages
 		private int _episodeCount = 1000;
 		private int _trainingBars = 20;
 		private int _visibleBars = 120;
-		private SimulationSteppingMode _steppingMode = SimulationSteppingMode.Bar;
-		private double _cellWidth = 0.10;
 
 		// Off by default, so an episode may start anywhere in the Data tab's range. Weekday and
 		// session are independent, combinable filters.
@@ -583,11 +589,147 @@ namespace Poink.Sim.Components.Pages
 
 		private bool VisibleBarsCoverFeatures => _visibleBars >= MinimumVisibleBars;
 
-		// Cell stepping fires on price moves rather than the clock, so its episode has no fixed duration.
-		private TimeSpan? EpisodeSpan =>
-			_steppingMode == SimulationSteppingMode.Bar ? TimeSpan.FromSeconds((double)EpisodeBars * _barWidthSeconds) : null;
+		private TimeSpan EpisodeSpan => TimeSpan.FromSeconds((double)EpisodeBars * _barWidthSeconds);
 
-		private static string FormatOptionalWindow(TimeSpan? window) => window is { } value ? FormatWindow(value) : "-";
+		// Episode Timing preview -- a read-only look at the Data tab's selected range, reusing
+		// ProfilerPage's chunked backfill so panning the chart loads older history on demand.
+		[Inject]
+		private IProfilerService ProfilerService { get; set; } = default!;
+
+		private const int PreviewBarsPerFetch = 300;
+
+		private ProfilerConfig? _previewConfig;
+		private List<HlocAvdtBar> _previewBars = new();
+		private List<CTraderBarRow> _previewBarRows = new();
+		private bool _previewLoading;
+		private bool _previewLoadingMore;
+		private bool _previewReachedStart;
+		private bool _previewKeepView;
+		private string? _previewError;
+
+		// Consumed by DataProvider when SamplingMode is WindowSelected -- see CurrentEpisodeTimingOptions.
+		private DateTime? _previewWindowStart;
+		private DateTime? _previewWindowEnd;
+
+		private sealed record EpisodeSamplingModeOption(EpisodeSamplingMode Mode, string Label, string Tooltip);
+
+		private static readonly EpisodeSamplingModeOption[] EpisodeSamplingModeOptions =
+		[
+			new(EpisodeSamplingMode.RandomFromSet, "Random from set",
+				"Each episode starts at a random point within the Data tab's selected range, sized/positioned by the fields below"),
+			new(EpisodeSamplingMode.EntireSet, "Entire set",
+				"Every episode runs over the Data tab's whole selected range, start to finish"),
+			new(EpisodeSamplingMode.WindowSelected, "Window selected",
+				"Every episode runs over the exact range marked with the LOOKBACK WINDOW tool on the chart below"),
+		];
+
+		private EpisodeSamplingMode _episodeSamplingMode = EpisodeSamplingMode.RandomFromSet;
+
+		private List<ChartRangeFill> PreviewRangeFills() =>
+			_previewWindowStart is { } start && _previewWindowEnd is { } end
+				? [new ChartRangeFill(start, end, "LOOKBACK WINDOW", "volume")]
+				: [];
+
+		// The marked window itself is the episode's training set -- Visible bars is still a separate
+		// lead-in DataProvider fetches before it, same as RandomFromSet.
+		private int WindowTrainingBarCount =>
+			_previewWindowStart is { } start && _previewWindowEnd is { } end
+				? _previewBars.Count(b => b.OpenTime >= start && b.OpenTime <= end)
+				: 0;
+
+		private int WindowEpisodeBars => WindowTrainingBarCount + _visibleBars;
+
+		private async Task EnsurePreviewLoadedAsync()
+		{
+			if (string.IsNullOrWhiteSpace(_table))
+				return;
+
+			var config = new ProfilerConfig(_table, _from, _to, TimeSpan.FromSeconds(_barWidthSeconds));
+			if (_previewConfig == config)
+				return;
+
+			_previewConfig = config;
+			_previewBars = new();
+			_previewBarRows = new();
+			_previewReachedStart = false;
+			_previewKeepView = false;
+			_previewError = null;
+			_previewLoading = true;
+
+			try
+			{
+				var chunk = await ProfilerService.LoadAsync(config, config.To, PreviewBarsPerFetch);
+				ApplyPreviewChunk(chunk);
+			}
+			catch (Exception ex)
+			{
+				_previewError = ex.Message;
+			}
+			finally
+			{
+				_previewLoading = false;
+			}
+
+			// Skip if the user already navigated away -- re-rendering another tab here races its own lifecycle.
+			if (_activeTab == TrainV2Tab.Training)
+				StateHasChanged();
+		}
+
+		private async Task LoadMorePreview()
+		{
+			_previewKeepView = true;
+			if (_previewConfig is null || _previewReachedStart || _previewLoadingMore)
+				return;
+
+			_previewLoadingMore = true;
+			try
+			{
+				var cursor = _previewBars.Count > 0 ? _previewBars[0].OpenTime : _previewConfig.To;
+				var chunk = await ProfilerService.LoadAsync(_previewConfig, cursor, PreviewBarsPerFetch);
+				ApplyPreviewChunk(chunk);
+			}
+			catch (Exception ex)
+			{
+				_previewError = ex.Message;
+			}
+			finally
+			{
+				_previewLoadingMore = false;
+			}
+		}
+
+		private void ApplyPreviewChunk(ProfilerChunk chunk)
+		{
+			_previewBars = chunk.Bars.Concat(_previewBars).ToList();
+			_previewBarRows = ToBarRows(_previewBars);
+			_previewReachedStart = chunk.ReachedStart;
+		}
+
+		private static List<CTraderBarRow> ToBarRows(IEnumerable<HlocAvdtBar> bars) =>
+			bars.Select(b => new CTraderBarRow(
+					b.OpenTime,
+					b.Open,
+					b.High,
+					b.Low,
+					b.Close,
+					b.Volume,
+					b.UpVolume,
+					b.DownVolume,
+					b.Distance
+				))
+				.ToList();
+
+		private void SetPreviewWindow(ChartTimeRange range)
+		{
+			_previewWindowStart = range.TimeUtc1 <= range.TimeUtc2 ? range.TimeUtc1 : range.TimeUtc2;
+			_previewWindowEnd = range.TimeUtc1 <= range.TimeUtc2 ? range.TimeUtc2 : range.TimeUtc1;
+		}
+
+		private void ClearPreviewWindow()
+		{
+			_previewWindowStart = null;
+			_previewWindowEnd = null;
+		}
 
 		private void ToggleRestrictEpisodeTiming(ChangeEventArgs e) => _restrictEpisodeTiming = e.Value is true;
 
@@ -687,12 +829,13 @@ namespace Poink.Sim.Components.Pages
 				_episodeCount,
 				_trainingBars,
 				_visibleBars,
-				_steppingMode,
-				_cellWidth,
 				_restrictEpisodeTiming,
 				[.. _allowedWeekdays],
 				_sessionStart,
-				_sessionEnd
+				_sessionEnd,
+				_episodeSamplingMode,
+				_previewWindowStart,
+				_previewWindowEnd
 			);
 
 		private TraderSetupOptionsModel CurrentTraderSetupOptions =>
@@ -712,14 +855,15 @@ namespace Poink.Sim.Components.Pages
 			_episodeCount = episodeTiming.EpisodeCount;
 			_trainingBars = episodeTiming.TrainingBars;
 			_visibleBars = episodeTiming.VisibleBars;
-			_steppingMode = episodeTiming.SteppingMode;
-			_cellWidth = episodeTiming.CellWidth;
 			_restrictEpisodeTiming = episodeTiming.RestrictEpisodeTiming;
 			_allowedWeekdays.Clear();
 			foreach (var day in episodeTiming.AllowedWeekdays ?? Enum.GetValues<DayOfWeek>())
 				_allowedWeekdays.Add(day);
 			_sessionStart = episodeTiming.SessionStart;
 			_sessionEnd = episodeTiming.SessionEnd ?? TimeSpan.FromHours(24);
+			_episodeSamplingMode = episodeTiming.SamplingMode;
+			_previewWindowStart = episodeTiming.WindowStart;
+			_previewWindowEnd = episodeTiming.WindowEnd;
 
 			var traderSetup = options.TraderSetup;
 			_startingCash = traderSetup.StartingCash;

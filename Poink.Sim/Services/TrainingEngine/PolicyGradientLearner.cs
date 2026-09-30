@@ -6,24 +6,27 @@ using Poink.Sim.Models.TrainingModels;
 namespace Poink.Sim.Services.TrainingEngine;
 
 /// <summary>
-/// Turns one episode's recorded decisions into a network weight update. REINFORCE: discount
-/// rewards into returns, normalize by the episode's own mean/std as a variance-reducing baseline,
-/// backprop each step's advantage-weighted softmax gradient plus an entropy bonus (ported from
-/// PolicyGradientTrainingStrategy: coefficient 0.01, annealed linearly to 0 by training progress),
-/// apply one averaged SGD update. Only "Policy Gradient (REINFORCE)" is implemented; other
-/// strategy names throw.
+/// Turns one episode's recorded decisions into a network weight update: discount rewards into
+/// returns, normalize by the episode's own mean/std as a variance-reducing baseline, then backprop
+/// each step's advantage-weighted softmax gradient plus an entropy bonus (ported from
+/// PolicyGradientTrainingStrategy: coefficient 0.01, annealed linearly to 0 by training progress).
+/// REINFORCE averages every step's gradient into one SGD update; Per-Decision instead applies one
+/// update per step, immediately, so later steps in the episode train against already-updated weights.
 /// </summary>
 internal sealed class PolicyGradientLearner
 {
 	public const string ReinforceStrategyName = "Policy Gradient (REINFORCE)";
+	public const string PerDecisionStrategyName = "Policy Gradient (Per-Decision)";
+
+	private static readonly string[] SupportedStrategyNames = [ReinforceStrategyName, PerDecisionStrategyName];
 
 	private const double DiscountFactor = 0.99;
 	private const double InitialEntropyCoefficient = 0.01;
 
 	public static void EnsureSupportedStrategy(string strategyName)
 	{
-		if (strategyName != ReinforceStrategyName)
-			throw new NotSupportedException($"{strategyName} isn't implemented yet -- only {ReinforceStrategyName} is built so far.");
+		if (!SupportedStrategyNames.Contains(strategyName))
+			throw new NotSupportedException($"{strategyName} isn't implemented yet -- only {string.Join(", ", SupportedStrategyNames)} are built so far.");
 	}
 
 	// progress is 0 at the run's first episode, 1 at its last.
@@ -37,6 +40,18 @@ internal sealed class PolicyGradientLearner
 		var mean = returns.Average();
 		var std = Math.Sqrt(returns.Select(r => (r - mean) * (r - mean)).Average());
 		var entropyCoefficient = learning.UseEntropyBonus ? InitialEntropyCoefficient * (1.0 - Math.Clamp(progress, 0.0, 1.0)) : 0.0;
+
+		if (learning.TrainingStrategyName == PerDecisionStrategyName)
+		{
+			for (var i = 0; i < traces.Count; i++)
+			{
+				var advantage = (returns[i] - mean) / (std + 1e-8);
+				var gradient = PolicyGradient(traces[i].RawOutputs, actionSpace, traces[i].ActionIndex, advantage, entropyCoefficient);
+				var (weightGradients, biasGradients) = Backward(network, traces[i].Activations, gradient);
+				ApplyGradients(network, weightGradients, biasGradients, learning.LearningRate);
+			}
+			return;
+		}
 
 		var steps = new List<(List<float[]> Activations, float[] OutputGradient)>(traces.Count);
 		for (var i = 0; i < traces.Count; i++)

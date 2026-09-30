@@ -9,7 +9,7 @@
 @using Poink.Sim.Components.Shared.SymbolDataSelector
 @using Poink.Sim.Components.Training
 @using Poink.Sim.Helpers
-@using Poink.Sim.Models
+@using Poink.Sim.Models.TrainingModels
 @using Poink.Sim.Training
 
 <div class="trv2-page">
@@ -21,7 +21,7 @@
         @foreach (var tab in VisibleTabs)
         {
             <button type="button" class="trv2-tab @(_activeTab == tab ? "trv2-tab-active" : "")"
-                    @onclick="() => _activeTab = tab" title="@TabTitle(tab)">
+                    @onclick="() => SelectTab(tab)" title="@TabTitle(tab)">
                 @tab.ToString().ToUpperInvariant()
             </button>
         }
@@ -525,93 +525,171 @@
                 break;
             case TrainV2Tab.Training:
                 <div class="trv2-card-stack">
-                    <div class="trv2-card">
+                    <div class="trv2-card trv2-card-span-all">
                         <div class="trv2-card-title-row">
                             <span class="trv2-card-title" title="How many episodes to run, and what span of data each one covers">Episode Timing</span>
                         </div>
-                        <label class="trv2-field">
-                            Episodes
-                            <input class="trv2-input" type="number" min="1" @bind="_episodeCount" />
-                        </label>
-                        @if (_restrictEpisodeTiming)
-                        {
-                            <label class="trv2-field"
-                                   title="Derived from the session length ÷ bar width while timing is restricted -- an episode's decisions span exactly the configured day/session, so this isn't picked independently">
-                                Training bars
-                                <span class="trv2-decoding-value">@EffectiveTrainingBars</span>
-                            </label>
-                        }
-                        else
-                        {
-                            <label class="trv2-field"
-                                   title="How many bars the episode steps through making decisions -- the episode stops once the last training bar completes">
-                                Training bars
-                                <input class="trv2-input" type="number" min="1" @bind="_trainingBars" />
-                            </label>
-                        }
-                        <label class="trv2-field"
-                               title="@($"Bars of history visible before the first training bar ({FormatWindow(VisibleWindow)} at the current bar width) -- must cover the Features tab's min data window, {MinimumVisibleBars} bars")">
-                            Visible bars
-                            <input class="trv2-input" type="number" min="@MinimumVisibleBars" @bind="_visibleBars" />
-                        </label>
-                        @if (!VisibleBarsCoverFeatures)
-                        {
-                            <span class="trv2-warning"
-                                  title="The selected features need more history than these bars provide -- raise Visible bars or trim features on the Features tab">
-                                fewer than the features' min data window (@MinimumVisibleBars bars)
-                            </span>
-                        }
-                        <label class="trv2-field"
-                               title="Total bars one episode needs -- visible bars + training bars">
-                            Episode bars
-                            <span class="trv2-decoding-value">@EpisodeBars</span>
-                        </label>
-                        <label class="trv2-field"
-                               title="Time the episode's bars cover -- episode bars x bar width (Features tab). Not defined while stepping by cell">
-                            Episode span
-                            <span class="trv2-decoding-value">@FormatOptionalWindow(EpisodeSpan)</span>
-                        </label>
-                        <label class="trv2-field"
-                               title="Bar steps a decision on each bar's close. Cell steps on a fixed-width price band instead, the moment price moves into a different band">
-                            Step
-                            <select class="trv2-select" @bind="_steppingMode">
-                                <option value="@SimulationSteppingMode.Bar">bar</option>
-                                <option value="@SimulationSteppingMode.Cell">cell</option>
-                            </select>
-                        </label>
-                        @if (_steppingMode == SimulationSteppingMode.Cell)
-                        {
-                            <label class="trv2-field" title="Fixed price width of each cell -- a decision fires when price crosses from one cell into the next">
-                                Cell width
-                                <input class="trv2-input" type="number" min="0.00001" step="0.01" @bind="_cellWidth" />
-                            </label>
-                        }
-                        <label class="trv2-field"
-                               title="Turn on to restrict episodes to specific weekdays and/or a daily time-of-day session -- off means an episode may start anywhere in the Data tab's range, including across midnight">
-                            <input type="checkbox" checked="@_restrictEpisodeTiming" @onchange="ToggleRestrictEpisodeTiming" />
-                            Restrict timing
-                        </label>
-                        @if (_restrictEpisodeTiming)
-                        {
-                            <label class="trv2-field" title="Which days of the week an episode may start on">
-                                Weekdays
-                                <div class="trv2-weekday-row">
-                                    @foreach (var day in WeekdayDisplayOrder)
+                        <div class="trv2-episode-timing-layout">
+                            <div class="trv2-episode-timing-fields">
+                                <label class="trv2-field" title="Which slice of the Data tab's selected range each episode is fetched from">
+                                    Episode mode
+                                    <div class="trv2-toggle-row">
+                                        @foreach (var option in EpisodeSamplingModeOptions)
+                                        {
+                                            <button type="button" class="trv2-panel-toggle-btn @(_episodeSamplingMode == option.Mode ? "active" : "")"
+                                                    @onclick="() => _episodeSamplingMode = option.Mode" title="@option.Tooltip">@option.Label</button>
+                                        }
+                                    </div>
+                                </label>
+                                <label class="trv2-field">
+                                    Episodes
+                                    <input class="trv2-input" type="number" min="1" @bind="_episodeCount" />
+                                </label>
+                                @if (_episodeSamplingMode == EpisodeSamplingMode.RandomFromSet)
+                                {
+                                    @if (_restrictEpisodeTiming)
                                     {
-                                        <button type="button" class="trv2-panel-toggle-btn @(_allowedWeekdays.Contains(day) ? "active" : "")"
-                                                @onclick="@(() => ToggleWeekday(day))" title="@day.ToString()">
-                                            @WeekdayAbbreviation(day)
+                                        <label class="trv2-field"
+                                               title="Derived from the session length ÷ bar width while timing is restricted -- an episode's decisions span exactly the configured day/session, so this isn't picked independently">
+                                            Training bars
+                                            <span class="trv2-decoding-value">@EffectiveTrainingBars</span>
+                                        </label>
+                                    }
+                                    else
+                                    {
+                                        <label class="trv2-field"
+                                               title="How many bars the episode steps through making decisions -- the episode stops once the last training bar completes">
+                                            Training bars
+                                            <input class="trv2-input" type="number" min="1" @bind="_trainingBars" />
+                                        </label>
+                                    }
+                                    <label class="trv2-field"
+                                           title="@($"Bars of history visible before the first training bar ({FormatWindow(VisibleWindow)} at the current bar width) -- must cover the Features tab's min data window, {MinimumVisibleBars} bars")">
+                                        Visible bars
+                                        <input class="trv2-input" type="number" min="@MinimumVisibleBars" @bind="_visibleBars" />
+                                    </label>
+                                    @if (!VisibleBarsCoverFeatures)
+                                    {
+                                        <span class="trv2-warning"
+                                              title="The selected features need more history than these bars provide -- raise Visible bars or trim features on the Features tab">
+                                            fewer than the features' min data window (@MinimumVisibleBars bars)
+                                        </span>
+                                    }
+                                    <label class="trv2-field"
+                                           title="Total bars one episode needs -- visible bars + training bars">
+                                        Episode bars
+                                        <span class="trv2-decoding-value">@EpisodeBars</span>
+                                    </label>
+                                    <label class="trv2-field"
+                                           title="Time the episode's bars cover -- episode bars x bar width (Features tab)">
+                                        Episode span
+                                        <span class="trv2-decoding-value">@FormatWindow(EpisodeSpan)</span>
+                                    </label>
+                                    <label class="trv2-field"
+                                           title="Turn on to restrict episodes to specific weekdays and/or a daily time-of-day session -- off means an episode may start anywhere in the Data tab's range, including across midnight">
+                                        <input type="checkbox" checked="@_restrictEpisodeTiming" @onchange="ToggleRestrictEpisodeTiming" />
+                                        Restrict timing
+                                    </label>
+                                    @if (_restrictEpisodeTiming)
+                                    {
+                                        <label class="trv2-field" title="Which days of the week an episode may start on">
+                                            Weekdays
+                                            <div class="trv2-weekday-row">
+                                                @foreach (var day in WeekdayDisplayOrder)
+                                                {
+                                                    <button type="button" class="trv2-panel-toggle-btn @(_allowedWeekdays.Contains(day) ? "active" : "")"
+                                                            @onclick="@(() => ToggleWeekday(day))" title="@day.ToString()">
+                                                        @WeekdayAbbreviation(day)
+                                                    </button>
+                                                }
+                                            </div>
+                                        </label>
+                                        <label class="trv2-field" title="Time-of-day window an episode's decisions span, on each eligible day -- 24:00 means end of day">
+                                            Session
+                                            <input class="trv2-input" type="text" placeholder="00:00" @bind="SessionStartText" />
+                                            to
+                                            <input class="trv2-input" type="text" placeholder="24:00" @bind="SessionEndText" />
+                                        </label>
+                                    }
+                                }
+                                else if (_episodeSamplingMode == EpisodeSamplingMode.EntireSet)
+                                {
+                                    <label class="trv2-field" title="Every episode runs over the Data tab's whole selected range, start to finish">
+                                        Episode data
+                                        <span class="trv2-decoding-value">entire range (@FormatSpan(_to - _from))</span>
+                                    </label>
+                                }
+                                else
+                                {
+                                    @if (_previewWindowStart is { } windowStart && _previewWindowEnd is { } windowEnd)
+                                    {
+                                        <label class="trv2-field" title="Range marked with the LOOKBACK WINDOW tool on the chart">
+                                            Episode data
+                                            <span class="trv2-decoding-value">@FormatSpan(windowEnd - windowStart)</span>
+                                        </label>
+                                        <label class="trv2-field"
+                                               title="@($"Bars of history visible before the training set begins ({FormatWindow(VisibleWindow)} at the current bar width) -- must cover the Features tab's min data window, {MinimumVisibleBars} bars")">
+                                            Visible bars
+                                            <input class="trv2-input" type="number" min="@MinimumVisibleBars" @bind="_visibleBars" />
+                                        </label>
+                                        @if (!VisibleBarsCoverFeatures)
+                                        {
+                                            <span class="trv2-warning"
+                                                  title="The selected features need more history than these bars provide -- raise Visible bars or trim features on the Features tab">
+                                                fewer than the features' min data window (@MinimumVisibleBars bars)
+                                            </span>
+                                        }
+                                        <label class="trv2-field" title="Bars inside the marked window -- this is the episode's training set">
+                                            Training set
+                                            <span class="trv2-decoding-value">@WindowTrainingBarCount bars</span>
+                                        </label>
+                                        <label class="trv2-field" title="Total bars one episode needs -- visible bars + training set">
+                                            Episode bars
+                                            <span class="trv2-decoding-value">@WindowEpisodeBars</span>
+                                        </label>
+                                    }
+                                    else
+                                    {
+                                        <span class="trv2-warning" title="Use the chart's LOOKBACK WINDOW tool to mark the range every episode will run over">
+                                            no window selected yet -- draw one on the chart
+                                        </span>
+                                    }
+                                }
+                            </div>
+                            <div class="trv2-episode-timing-preview">
+                                <div class="trv2-preview-sparkline">
+                                    @if (_previewConfig is not null && !_previewReachedStart)
+                                    {
+                                        <button class="trv2-preview-load-older-btn" @onclick="LoadMorePreview"
+                                                disabled="@(_previewLoading || _previewLoadingMore)"
+                                                title="Fetch the next older chunk of history">
+                                            <Icon Name="chevron-left" Class="trv2-preview-load-older-icon" />
                                         </button>
                                     }
+                                    <MarketChartSparkline Bars="_previewBarRows" />
                                 </div>
-                            </label>
-                            <label class="trv2-field" title="Time-of-day window an episode's decisions span, on each eligible day -- 24:00 means end of day">
-                                Session
-                                <input class="trv2-input" type="text" placeholder="00:00" @bind="SessionStartText" />
-                                to
-                                <input class="trv2-input" type="text" placeholder="24:00" @bind="SessionEndText" />
-                            </label>
-                        }
+                                <div class="trv2-preview-chart">
+                                    @if (string.IsNullOrWhiteSpace(_table))
+                                    {
+                                        <p class="trv2-placeholder">Select a symbol and range on the Data tab to preview it here.</p>
+                                    }
+                                    else if (_previewLoading)
+                                    {
+                                        <p class="trv2-placeholder">Loading preview...</p>
+                                    }
+                                    else if (_previewError is not null)
+                                    {
+                                        <p class="trv2-placeholder">@_previewError</p>
+                                    }
+                                    else
+                                    {
+                                        <MarketChartContainer Bars="_previewBarRows" ShowAnnotationTools="false" KeepView="_previewKeepView"
+                                                               RangeFills="PreviewRangeFills()" OnNearStart="LoadMorePreview" OnVolumeRangeDrawn="SetPreviewWindow"
+                                                               HasVolumeRange="_previewWindowStart is not null" OnVolumeRangeCleared="ClearPreviewWindow" />
+                                    }
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="trv2-card">
@@ -823,7 +901,7 @@
                                     </div>
                                     <div class="trv2-stat" title="Total bars one episode needs, and the wall-clock time they cover">
                                         <span class="trv2-stat-label">episode span</span>
-                                        <span class="trv2-stat-value">@EpisodeBars bars (@FormatOptionalWindow(EpisodeSpan))</span>
+                                        <span class="trv2-stat-value">@EpisodeBars bars (@FormatWindow(EpisodeSpan))</span>
                                     </div>
                                     <div class="trv2-stat" title="Starting cash and leverage the simulated trader begins each episode with">
                                         <span class="trv2-stat-label">trader</span>
