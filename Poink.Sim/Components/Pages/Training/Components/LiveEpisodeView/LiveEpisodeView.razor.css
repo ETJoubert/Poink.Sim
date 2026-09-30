@@ -84,6 +84,14 @@
     cursor: not-allowed;
 }
 
+.lev-speed-btn-max {
+    width: auto;
+    padding: 0 6px;
+    font-size: 0.6rem;
+    font-weight: bold;
+    letter-spacing: 0.04em;
+}
+
 .lev-speed-value {
     font-size: 0.72rem;
     color: var(--color-secondary);
@@ -108,20 +116,23 @@
     opacity: 0.8;
 }
 
+/* Grid, not flex-wrap -- each stat gets its own fixed-track column so a value's width changing
+   (e.g. "last action" or the timestamp) can never shift where any other stat sits. */
 .lev-status-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 18px;
-    padding: 10px 12px;
-    border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
-    border-radius: var(--border-radius-sm);
-    background: color-mix(in srgb, var(--color-primary) 4%, transparent);
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+    gap: 10px;
 }
 
 .lev-stat {
     display: flex;
     flex-direction: column;
     gap: 2px;
+    min-width: 0;
+    padding: 8px 10px;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
+    border-radius: var(--border-radius-sm);
+    background: color-mix(in srgb, var(--color-primary) 4%, transparent);
 }
 
 .lev-stat-label {
@@ -135,6 +146,9 @@
 .lev-stat-value {
     font-size: 0.92rem;
     font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .lev-panel-toggles {
@@ -178,6 +192,16 @@
     background: var(--color-secondary);
     color: var(--color-bg-dark);
     font-weight: bold;
+}
+
+.lev-panel-toggle-btn-hideall {
+    margin-left: auto;
+    color: var(--color-warning);
+    border-color: color-mix(in srgb, var(--color-warning) 40%, transparent);
+}
+
+.lev-panel-toggle-btn-hideall:hover {
+    background: color-mix(in srgb, var(--color-warning) 14%, transparent);
 }
 
 .lev-grid {
