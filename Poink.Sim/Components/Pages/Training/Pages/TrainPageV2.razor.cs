@@ -669,7 +669,10 @@ namespace Poink.Sim.Components.Pages
 			{
 				_previewLoading = false;
 			}
-			StateHasChanged();
+
+			// Skip if the user already navigated away -- re-rendering another tab here races its own lifecycle.
+			if (_activeTab == TrainV2Tab.Training)
+				StateHasChanged();
 		}
 
 		private async Task LoadMorePreview()
