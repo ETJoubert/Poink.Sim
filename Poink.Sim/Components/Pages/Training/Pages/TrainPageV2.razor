@@ -627,6 +627,26 @@
                                             Episode data
                                             <span class="trv2-decoding-value">@FormatSpan(windowEnd - windowStart)</span>
                                         </label>
+                                        <label class="trv2-field"
+                                               title="@($"Bars of history visible before the training set begins ({FormatWindow(VisibleWindow)} at the current bar width) -- must cover the Features tab's min data window, {MinimumVisibleBars} bars")">
+                                            Visible bars
+                                            <input class="trv2-input" type="number" min="@MinimumVisibleBars" @bind="_visibleBars" />
+                                        </label>
+                                        @if (!VisibleBarsCoverFeatures)
+                                        {
+                                            <span class="trv2-warning"
+                                                  title="The selected features need more history than these bars provide -- raise Visible bars or trim features on the Features tab">
+                                                fewer than the features' min data window (@MinimumVisibleBars bars)
+                                            </span>
+                                        }
+                                        <label class="trv2-field" title="Bars inside the marked window -- this is the episode's training set">
+                                            Training set
+                                            <span class="trv2-decoding-value">@WindowTrainingBarCount bars</span>
+                                        </label>
+                                        <label class="trv2-field" title="Total bars one episode needs -- visible bars + training set">
+                                            Episode bars
+                                            <span class="trv2-decoding-value">@WindowEpisodeBars</span>
+                                        </label>
                                     }
                                     else
                                     {

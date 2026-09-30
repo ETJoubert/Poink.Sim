@@ -44,7 +44,9 @@ internal sealed class DataProvider
 					_logger.LogWarning("DataProvider: no Lookback Window selected for {Table}, skipping episode", data.Table);
 					return [];
 				}
-				return _tickRepository.ReadTicks(data.Table, windowStart, windowEnd).ToList();
+				// The marked window is the training set; Visible bars is still fetched as a lead-in before it, same as RandomFromSet.
+				var visibleSpan = TimeSpan.FromSeconds((double)episodeTiming.VisibleBars * barWidthSeconds);
+				return _tickRepository.ReadTicks(data.Table, windowStart - visibleSpan, windowEnd).ToList();
 
 			default:
 				var fetchSpan = TimeSpan.FromSeconds((double)EpisodeBars(episodeTiming, barWidthSeconds) * barWidthSeconds);

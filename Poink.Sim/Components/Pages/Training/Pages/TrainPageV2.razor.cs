@@ -630,6 +630,15 @@ namespace Poink.Sim.Components.Pages
 				? [new ChartRangeFill(start, end, "LOOKBACK WINDOW", "volume")]
 				: [];
 
+		// The marked window itself is the episode's training set -- Visible bars is still a separate
+		// lead-in DataProvider fetches before it, same as RandomFromSet.
+		private int WindowTrainingBarCount =>
+			_previewWindowStart is { } start && _previewWindowEnd is { } end
+				? _previewBars.Count(b => b.OpenTime >= start && b.OpenTime <= end)
+				: 0;
+
+		private int WindowEpisodeBars => WindowTrainingBarCount + _visibleBars;
+
 		private async Task EnsurePreviewLoadedAsync()
 		{
 			if (string.IsNullOrWhiteSpace(_table))
