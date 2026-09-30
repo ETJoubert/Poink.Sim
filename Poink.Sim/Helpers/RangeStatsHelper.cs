@@ -164,6 +164,26 @@ internal static class RangeStatsHelper
         return bucketWeights;
     }
 
+    // For callers bucketing several weight channels (e.g. total/up/down counts) over the same price
+    // range -- one call per channel, sharing the caller's own min/bucketWidth so bounds stay in sync.
+    public static double[] BucketWeights<T>(
+        IReadOnlyList<T> items,
+        Func<T, double> priceSelector,
+        Func<T, double> weightSelector,
+        double min,
+        double bucketWidth,
+        int bucketCount
+    )
+    {
+        var bucketWeights = new double[bucketCount];
+        foreach (var item in items)
+        {
+            var bucket = Math.Clamp((int)((priceSelector(item) - min) / bucketWidth), 0, bucketCount - 1);
+            bucketWeights[bucket] += weightSelector(item);
+        }
+        return bucketWeights;
+    }
+
     // Finds the highest-weight bucket, then greedily widens outward (favoring the heavier side on ties)
     // until targetWeight is covered or both edges are reached.
     private static (int PocIndex, int LowIndex, int HighIndex) WidenValueArea(double[] bucketWeights, double targetWeight)

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.AspNetCore.Components;
+using Poink.Sim.Helpers;
 
 namespace Poink.Sim.Components.Charts
 {
@@ -127,17 +128,10 @@ namespace Poink.Sim.Components.Charts
 						),
 					};
 
-				var counts = new int[bucketCount];
-				var upCounts = new int[bucketCount];
-				var downCounts = new int[bucketCount];
 				double size = (max - min) / bucketCount;
-				foreach (var s in samples)
-				{
-					var idx = Math.Clamp((int)((s.Price - min) / size), 0, bucketCount - 1);
-					counts[idx] += s.Count;
-					upCounts[idx] += s.UpCount;
-					downCounts[idx] += s.DownCount;
-				}
+				var counts = RangeStatsHelper.BucketWeights(samples, s => s.Price, s => (double)s.Count, min, size, bucketCount);
+				var upCounts = RangeStatsHelper.BucketWeights(samples, s => s.Price, s => (double)s.UpCount, min, size, bucketCount);
+				var downCounts = RangeStatsHelper.BucketWeights(samples, s => s.Price, s => (double)s.DownCount, min, size, bucketCount);
 
 				// Clamped rather than excluded -- pinning it to the nearest edge bucket beats not highlighting anything.
 				var currentIdx = CurrentPrice is { } cp
@@ -160,10 +154,10 @@ namespace Poink.Sim.Components.Charts
 						new Bucket(
 							low,
 							high,
-							counts[i],
+							(int)counts[i],
 							pct,
-							upCounts[i],
-							downCounts[i],
+							(int)upCounts[i],
+							(int)downCounts[i],
 							upPct,
 							downPct,
 							i == currentIdx,
