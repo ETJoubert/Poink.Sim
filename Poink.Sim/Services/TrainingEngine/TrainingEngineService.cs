@@ -87,7 +87,8 @@ internal sealed class TrainingEngineService
 		Random random,
 		double progress = 0.0,
 		Action<LiveEpisodeSnapshot>? onDecision = null,
-		Func<TimeSpan>? decisionDelay = null,
+		Action<LiveTickSnapshot>? onTick = null,
+		Func<TimeSpan>? tickDelay = null,
 		Func<bool>? isPaused = null,
 		CancellationToken cancellationToken = default
 	)
@@ -95,6 +96,9 @@ internal sealed class TrainingEngineService
 		if (options.Output.Actions.IncludeVolumeOutput || options.Output.Actions.IncludeStopLossOutput || options.Output.Actions.IncludeTakeProfitOutput)
 			throw new NotSupportedException("Volume/StopLoss/TakeProfit outputs aren't wired to trade execution yet -- disable them until they are.");
 		PolicyGradientLearner.EnsureSupportedStrategy(options.Training.Learning.TrainingStrategyName);
+		var positionControl = options.Training.TraderSetup.EffectiveControl;
+		if (positionControl.Validate() is { } controlError)
+			throw new InvalidOperationException($"Position Control is invalid: {controlError}");
 
 		var ticks = _dataProvider.GetEpisodeWindow(options.Data, options.Training.EpisodeTiming, options.BarWidthSeconds, random);
 		if (ticks.Count == 0)
@@ -121,6 +125,18 @@ internal sealed class TrainingEngineService
 		var barBuilder = new LiveBarBuilder(options.BarWidthSeconds);
 
 		var previousDecisionEquity = trader.Snapshot(ticks[0].Bid, ticks[0].Ask).Equity;
+		var reportedTradeCount = 0;
+		var owedDelay = TimeSpan.Zero;
+
+		// Sleeps are batched because Task.Delay can't honour sub-timer-resolution waits tick by tick.
+		async Task PaceAsync()
+		{
+			owedDelay += tickDelay?.Invoke() ?? TimeSpan.Zero;
+			if (owedDelay < MinPacingSleep)
+				return;
+			await Task.Delay(owedDelay, cancellationToken);
+			owedDelay = TimeSpan.Zero;
+		}
 
 		foreach (var tick in ticks)
 		{
@@ -131,8 +147,29 @@ internal sealed class TrainingEngineService
 
 			trader.Advance(bid, ask, tick.Timestamp);
 
+			if (onTick is not null)
+			{
+				var tradesChanged = trader.TradeLog.Count != reportedTradeCount;
+				reportedTradeCount = trader.TradeLog.Count;
+				onTick(
+					new LiveTickSnapshot(
+						tick.Timestamp,
+						bid,
+						ask,
+						currentBar,
+						justClosedBar,
+						trader.Snapshot(bid, ask),
+						trader.CurrentPosition,
+						tradesChanged ? [.. trader.TradeLog] : null
+					)
+				);
+			}
+
 			if (!decisionMask.ShouldDecide(tick.Timestamp))
+			{
+				await PaceAsync();
 				continue;
+			}
 
 			while (isPaused is not null && isPaused())
 				await Task.Delay(150, cancellationToken);
@@ -158,7 +195,12 @@ internal sealed class TrainingEngineService
 			var rawOutputs = MaskIllegalDirections(forwardOutputs, actionSpace, trader.CurrentPosition, options.Output.ActionMasking);
 			var actionIndex = ChooseActionIndex(rawOutputs, actionSpace, random);
 			var action = actionSpace.Directions[actionIndex];
-			var execution = trader.Apply(new SimulationDecision(action, CapitalFraction: 1.0), bid, ask, tick.Timestamp);
+			var execution = trader.Apply(
+				PositionControlHelper.BuildDecision(action, positionControl, trader.Cash, options.Training.TraderSetup.Leverage, options.Data.PipSize, bid, ask),
+				bid,
+				ask,
+				tick.Timestamp
+			);
 
 			var capitalAfter = trader.Snapshot(bid, ask);
 			previousDecisionEquity = capitalAfter.Equity;
@@ -177,13 +219,12 @@ internal sealed class TrainingEngineService
 					action,
 					rawOutputs[..actionSpace.DirectionOutputWidth],
 					capitalAfter,
-					[.. trader.TradeLog]
+					[.. trader.TradeLog],
+					trader.CurrentPosition
 				)
 			);
 
-			var delay = decisionDelay?.Invoke() ?? TimeSpan.Zero;
-			if (delay > TimeSpan.Zero)
-				await Task.Delay(delay, cancellationToken);
+			await PaceAsync();
 		}
 
 		if (steps.Count > 0)
@@ -197,6 +238,8 @@ internal sealed class TrainingEngineService
 		var lastTick = ticks[^1];
 		return new EpisodeResult(steps, trader.Snapshot(lastTick.Bid, lastTick.Ask), trader.TradeLog, totalReward);
 	}
+
+	private static readonly TimeSpan MinPacingSleep = TimeSpan.FromMilliseconds(15);
 
 	private const float IllegalDirectionPenalty = -1e9f;
 

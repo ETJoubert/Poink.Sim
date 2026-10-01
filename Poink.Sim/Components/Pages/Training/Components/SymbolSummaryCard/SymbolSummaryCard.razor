@@ -1,0 +1,68 @@
+@namespace Poink.Sim.Components.Pages.Training.Components.SymbolSummaryCard
+@using Poink.Sim.Components.Pages.Trade.Helpers
+
+<div class="ssc-card" title="Trading parameters of the symbol selected on the Data tab">
+    <div class="ssc-title-row">
+        <span class="ssc-title" title="Symbol selected on the Data tab and its trading parameters">Symbol Summary</span>
+    </div>
+    @if (Loading)
+    {
+        <p class="ssc-placeholder">loading symbol metadata...</p>
+    }
+    else if (Symbol is null)
+    {
+        <p class="ssc-placeholder">no symbol selected yet -- pick one on the Data tab.</p>
+    }
+    else
+    {
+        <div class="ssc-row">
+            <div class="ssc-stat" title="Symbol selected on the Data tab">
+                <span class="ssc-stat-label">symbol</span>
+                <span class="ssc-stat-value">@Symbol.SymbolName</span>
+            </div>
+            <div class="ssc-stat" title="Category this symbol belongs to">
+                <span class="ssc-stat-label">description</span>
+                <span class="ssc-stat-value">@Symbol.Description</span>
+            </div>
+            @if (Metadata is { } metadata)
+            {
+                <div class="ssc-stat" title="Decimal places this symbol's price is quoted to">
+                    <span class="ssc-stat-label">digits</span>
+                    <span class="ssc-stat-value">@metadata.Digits</span>
+                </div>
+                <div class="ssc-stat" title="Price size of one pip, derived from this symbol's pip position">
+                    <span class="ssc-stat-label">pip size</span>
+                    <span class="ssc-stat-value">@PositionPnlHelper.PipSize(metadata).ToString("0.#####")</span>
+                </div>
+                <div class="ssc-stat" title="Minimum/maximum/step volume this symbol accepts per order">
+                    <span class="ssc-stat-label">volume min/max/step</span>
+                    <span class="ssc-stat-value">@metadata.MinVolume / @metadata.MaxVolume / @metadata.StepVolume</span>
+                </div>
+                <div class="ssc-stat" title="Units per lot">
+                    <span class="ssc-stat-label">lot size</span>
+                    <span class="ssc-stat-value">@metadata.LotSize</span>
+                </div>
+                <div class="ssc-stat" title="Largest total exposure the broker allows on this symbol">
+                    <span class="ssc-stat-label">max exposure</span>
+                    <span class="ssc-stat-value">@metadata.MaxExposure</span>
+                </div>
+                <div class="ssc-stat" title="Minimum distance a stop-loss / take-profit must sit from the price, in the units the broker defines">
+                    <span class="ssc-stat-label">sl / tp distance</span>
+                    <span class="ssc-stat-value">@metadata.SlDistance / @metadata.TpDistance</span>
+                </div>
+                <div class="ssc-stat" title="Whether short positions can be opened on this symbol">
+                    <span class="ssc-stat-label">short selling</span>
+                    <span class="ssc-stat-value">@(metadata.EnableShortSelling ? "yes" : "no")</span>
+                </div>
+                <div class="ssc-stat" title="Overnight swap charged on long / short positions">
+                    <span class="ssc-stat-label">swap long / short</span>
+                    <span class="ssc-stat-value">@metadata.SwapLong.ToString("0.####") / @metadata.SwapShort.ToString("0.####")</span>
+                </div>
+            }
+            else
+            {
+                <p class="ssc-placeholder">no trading metadata cached for this symbol yet -- needs a cTrader session to fetch it once</p>
+            }
+        </div>
+    }
+</div>

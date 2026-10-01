@@ -1,0 +1,95 @@
+@namespace Poink.Sim.Components.Pages.Training.Components.PositionControlPanel
+@using Poink.Sim.Models.TrainingModels
+
+<div class="tcp-card" title="The trade parameters the trader is allowed to use -- sizing, stop-loss and take-profit applied to every entry">
+    <div class="tcp-title-row">
+        <span class="tcp-title" title="Preconfigure how each position is sized and how much it risks">Position Control</span>
+        <span class="tcp-badge" title="The latest price available for the selected symbol, used to size the position">@(LatestPrice is { } price ? $"@ {price:0.#####}" : "no price yet")</span>
+    </div>
+
+    <label class="tcp-field" title="Fixed Volume trades a set number of units; Risk Per Trade derives the volume so a stop-out loses a set share of balance">
+        Volume
+        <div class="tcp-toggle-row">
+            @foreach (var mode in Enum.GetValues<PositionSizingMode>())
+            {
+                <button type="button" class="tcp-toggle @(Value.SizingMode == mode ? "active" : "")"
+                        @onclick="() => Update(Value with { SizingMode = mode })"
+                        title="@ModeTitle(mode)">@ModeLabel(mode)</button>
+            }
+        </div>
+    </label>
+
+    @if (Value.SizingMode == PositionSizingMode.FixedVolume)
+    {
+        <label class="tcp-field" title="Units traded on every entry -- cut automatically if balance and leverage cannot carry it">
+            Volume (units)
+            <input class="tcp-input" type="number" min="0" step="any"
+                   @bind="_volume" @bind:after="Push" />
+        </label>
+    }
+    else
+    {
+        <label class="tcp-field" title="Share of balance lost if the stop-loss is hit -- volume is derived from this and the stop distance">
+            Risk per trade % of balance
+            <input class="tcp-input" type="number" min="0.01" step="0.25"
+                   @bind="_riskPercent" @bind:after="Push" />
+        </label>
+    }
+
+    <label class="tcp-field" title="Stop-loss distance from the fill price -- 0 means no stop">
+        Stop-loss
+        <div class="tcp-field-group">
+            <input class="tcp-input" type="number" min="0" step="any"
+                   @bind="_stopLoss" @bind:after="Push" />
+            <div class="tcp-toggle-row">
+                @foreach (var unit in Enum.GetValues<StopLossUnit>())
+                {
+                    <button type="button" class="tcp-toggle @(Value.EffectiveStopLossUnit == unit ? "active" : "")"
+                            disabled="@(Value.SizingMode == PositionSizingMode.RiskPerTrade)"
+                            @onclick="() => Update(Value with { StopLossUnit = unit })"
+                            title="@UnitTitle(unit)">@UnitLabel(unit)</button>
+                }
+            </div>
+        </div>
+    </label>
+
+    <label class="tcp-field" title="Take-profit as a percent of balance -- the target price is placed where the position gains this much; 0 means no target">
+        Take-profit % of balance
+        <input class="tcp-input" type="number" min="0" step="0.25"
+               @bind="_takeProfitPercent" @bind:after="Push" />
+    </label>
+
+    @if (Value.Validate() is { } error)
+    {
+        <p class="tcp-error" title="Fix this before starting a run -- the engine refuses invalid position control settings">@error</p>
+    }
+    else
+    {
+        <div class="tcp-stats" title="One entry at the latest price, starting cash and leverage set in Trader Setup">
+            <div class="tcp-stat" title="Units traded@(Preview.MarginLimited ? " -- cut to what the balance and leverage can carry" : "")">
+                <span class="tcp-stat-label">Volume</span>
+                <span class="tcp-stat-value">@(LatestPrice is null ? "--" : Preview.Volume.ToString("0.####") + (Preview.MarginLimited ? " (limited)" : ""))</span>
+            </div>
+            <div class="tcp-stat" title="Market exposure of the position at the latest price">
+                <span class="tcp-stat-label">Exposure</span>
+                <span class="tcp-stat-value">@(LatestPrice is null ? "--" : Preview.Notional.ToString("N2"))</span>
+            </div>
+            <div class="tcp-stat" title="Cash committed as margin (exposure / leverage)">
+                <span class="tcp-stat-label">Margin</span>
+                <span class="tcp-stat-value">@(LatestPrice is null ? "--" : Preview.Margin.ToString("N2"))</span>
+            </div>
+            <div class="tcp-stat" title="Loss if the stop-loss is hit, before commission">
+                <span class="tcp-stat-label">Loss at stop</span>
+                <span class="tcp-stat-value tcp-loss">@(LatestPrice is null || !Value.HasStopLoss ? "--" : Preview.LossAtStop.ToString("N2") + " (" + (Preview.LossAtStop / StartingCash).ToString("P2") + ")")</span>
+            </div>
+            <div class="tcp-stat" title="Profit if the take-profit is hit, before commission">
+                <span class="tcp-stat-label">Profit at target</span>
+                <span class="tcp-stat-value tcp-gain">@(LatestPrice is null || !Value.HasTakeProfit ? "--" : Preview.ProfitAtTarget.ToString("N2"))</span>
+            </div>
+            <div class="tcp-stat" title="Stop-loss and take-profit distance from the fill in pips, and reward divided by risk when both are set">
+                <span class="tcp-stat-label">Stop / target</span>
+                <span class="tcp-stat-value">@DistanceText()</span>
+            </div>
+        </div>
+    }
+</div>

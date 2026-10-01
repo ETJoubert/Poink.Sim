@@ -3,6 +3,8 @@
 @using Poink.Sim.Brain.Neural
 @using Poink.Sim.Components.Charts
 @using Poink.Sim.Components.Pages.Trade.Helpers
+@using Poink.Sim.Components.Pages.Training.Components.SymbolSummaryCard
+@using Poink.Sim.Components.Pages.Training.Components.PositionControlPanel
 @using Poink.Sim.Components.Shared.BarSizeSelect
 @using Poink.Sim.Components.Shared.Icon
 @using Poink.Sim.Components.Shared.PolicySelector
@@ -82,50 +84,7 @@
 
                         <div class="trv2-details-divider"></div>
 
-                        @if (_loadingSymbolMetadata)
-                        {
-                            <p class="trv2-placeholder">loading symbol metadata...</p>
-                        }
-                        else if (_selectedSymbol is null)
-                        {
-                            <p class="trv2-placeholder">no symbol selected yet.</p>
-                        }
-                        else
-                        {
-                            <div class="trv2-field-row">
-                                <div class="trv2-stat" title="Symbol selected above">
-                                    <span class="trv2-stat-label">symbol</span>
-                                    <span class="trv2-stat-value">@_selectedSymbol.SymbolName</span>
-                                </div>
-                                <div class="trv2-stat" title="Category this symbol belongs to">
-                                    <span class="trv2-stat-label">description</span>
-                                    <span class="trv2-stat-value">@_selectedSymbol.Description</span>
-                                </div>
-                                @if (SelectedSymbolMetadata is { } metadata)
-                                {
-                                    <div class="trv2-stat" title="Decimal places this symbol's price is quoted to">
-                                        <span class="trv2-stat-label">digits</span>
-                                        <span class="trv2-stat-value">@metadata.Digits</span>
-                                    </div>
-                                    <div class="trv2-stat" title="Price size of one pip, derived from this symbol's pip position">
-                                        <span class="trv2-stat-label">pip size</span>
-                                        <span class="trv2-stat-value">@PositionPnlHelper.PipSize(metadata).ToString("0.#####")</span>
-                                    </div>
-                                    <div class="trv2-stat" title="Minimum/maximum/step volume this symbol accepts per order">
-                                        <span class="trv2-stat-label">volume min/max/step</span>
-                                        <span class="trv2-stat-value">@metadata.MinVolume / @metadata.MaxVolume / @metadata.StepVolume</span>
-                                    </div>
-                                    <div class="trv2-stat" title="Units per lot">
-                                        <span class="trv2-stat-label">lot size</span>
-                                        <span class="trv2-stat-value">@metadata.LotSize</span>
-                                    </div>
-                                }
-                                else
-                                {
-                                    <p class="trv2-placeholder">no trading metadata cached for this symbol yet -- needs a cTrader session to fetch it once</p>
-                                }
-                            </div>
-                        }
+                        <SymbolSummaryCard Symbol="_selectedSymbol" Metadata="SelectedSymbolMetadata" Loading="_loadingSymbolMetadata" />
                     }
                 </div>
                 break;
@@ -539,7 +498,11 @@
                 </div>
                 break;
             case TrainV2Tab.Training:
-                <div class="trv2-card-stack">
+                <div class="trv2-card-stack trv2-grid-form">
+                    <div class="trv2-card-span-all">
+                        <SymbolSummaryCard Symbol="_selectedSymbol" Metadata="SelectedSymbolMetadata" Loading="_loadingSymbolMetadata" />
+                    </div>
+
                     <div class="trv2-card trv2-card-span-all">
                         <div class="trv2-card-title-row">
                             <span class="trv2-card-title" title="How many episodes to run, and what span of data each one covers">Episode Timing</span>
@@ -602,8 +565,8 @@
                                     </label>
                                     <label class="trv2-field"
                                            title="Turn on to restrict episodes to specific weekdays and/or a daily time-of-day session -- off means an episode may start anywhere in the Data tab's range, including across midnight">
-                                        <input type="checkbox" checked="@_restrictEpisodeTiming" @onchange="ToggleRestrictEpisodeTiming" />
                                         Restrict timing
+                                        <input type="checkbox" checked="@_restrictEpisodeTiming" @onchange="ToggleRestrictEpisodeTiming" />
                                     </label>
                                     @if (_restrictEpisodeTiming)
                                     {
@@ -621,9 +584,11 @@
                                         </label>
                                         <label class="trv2-field" title="Time-of-day window an episode's decisions span, on each eligible day -- 24:00 means end of day">
                                             Session
-                                            <input class="trv2-input" type="text" placeholder="00:00" @bind="SessionStartText" />
-                                            to
-                                            <input class="trv2-input" type="text" placeholder="24:00" @bind="SessionEndText" />
+                                            <div class="trv2-field-group">
+                                                <input class="trv2-input" type="text" placeholder="00:00" @bind="SessionStartText" />
+                                                to
+                                                <input class="trv2-input" type="text" placeholder="24:00" @bind="SessionEndText" />
+                                            </div>
                                         </label>
                                     }
                                 }
@@ -736,6 +701,8 @@
                         }
                     </div>
 
+                    <PositionControlPanel @bind-Value="_positionControl" StartingCash="_startingCash" Leverage="_leverage" LatestPrice="LatestPreviewPrice" PipSize="XGridPipSize" />
+
                     <div class="trv2-card">
                         <div class="trv2-card-title-row">
                             <span class="trv2-card-title" title="Which RL algorithm trains the network, how its reward is shaped, and its learning rate">Learning</span>
@@ -767,8 +734,8 @@
                         </label>
                         <label class="trv2-field"
                                title="Adds an exploration bonus to the loss so the policy doesn't collapse onto one action too early -- coefficient 0.01, annealed linearly to 0 by the run's last episode">
-                            <input type="checkbox" @bind="_useEntropyBonus" />
                             Entropy Bonus
+                            <input type="checkbox" @bind="_useEntropyBonus" />
                         </label>
                     </div>
 
@@ -808,8 +775,8 @@
                         }
                         <label class="trv2-field"
                                title="A decision only fires when price is below the trailing window's Point of Control -- has no effect without the XGrid Signals encoder">
-                            <input type="checkbox" @bind="_maskDecisionPriceBelowPoc" />
                             Price Below POC
+                            <input type="checkbox" @bind="_maskDecisionPriceBelowPoc" />
                         </label>
                     </div>
                 </div>
@@ -1067,6 +1034,9 @@
                                  OnDecreaseSpeed="DecreaseLiveSpeed" OnIncreaseSpeed="IncreaseLiveSpeed" OnMaxSpeed="MaxLiveSpeed"
                                  EpisodesCompleted="_episodesCompleted" TargetEpisodeCount="TargetEpisodeCount"
                                  HasSnapshot="@(live is not null)"
+                                 EpisodeStart="@live?.Snapshot.EpisodeStart"
+                                 PositionVolume="@live?.Snapshot.OpenPosition?.Size" EntryPrice="@live?.Snapshot.OpenPosition?.EntryPrice" PositionIsLong="@(live?.Snapshot.OpenPosition is { } open ? open.Direction == Poink.Sim.Models.PositionDirection.Long : null)"
+                                 StopLossPrice="@live?.Snapshot.OpenPosition?.StopLossPrice" TakeProfitPrice="@live?.Snapshot.OpenPosition?.TakeProfitPrice"
                                  Timestamp="@live?.Snapshot.Timestamp" TimePassed="BuildLiveTimePassed(live)" ActionCount="@(live?.ActionCount ?? 0)"
                                  Bid="@(live?.Snapshot.Bid ?? 0)" Ask="@(live?.Snapshot.Ask ?? 0)"
                                  LastAction="@live?.Snapshot.Action" ActionOutputs="BuildLiveOutputFeatures(live)" Cash="@(live?.Snapshot.Capital.Cash ?? 0)"
