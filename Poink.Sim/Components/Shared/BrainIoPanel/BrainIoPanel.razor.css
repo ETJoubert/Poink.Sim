@@ -267,8 +267,9 @@
 .action-dist-pct {
     font-size: 0.7rem;
     color: var(--color-secondary);
-    width: 32px;
+    width: 56px;
     text-align: right;
+    white-space: nowrap;
     flex-shrink: 0;
 }
 
@@ -290,8 +291,9 @@
     font-variant-numeric: tabular-nums;
     color: var(--color-secondary);
     opacity: 0.6;
-    width: 48px;
+    width: 64px;
     text-align: right;
+    white-space: nowrap;
     flex-shrink: 0;
 }
 
@@ -302,4 +304,13 @@
 .action-dist-raw-blocked {
     color: var(--color-warning);
     opacity: 0.85;
+}
+
+.action-dist-fill-blocked {
+    background: repeating-linear-gradient(135deg, var(--color-warning) 0 4px, transparent 4px 8px);
+    opacity: 0.45;
+}
+
+.action-dist-pct-blocked {
+    color: var(--color-warning);
 }

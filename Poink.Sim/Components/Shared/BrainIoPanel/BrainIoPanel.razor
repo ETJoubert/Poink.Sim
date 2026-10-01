@@ -25,12 +25,13 @@
                              title="@(o.IsChosen ? "What the network actually decided" : "")">
                             <span class="action-dist-label action-dist-@(ActionCssSuffix(o))">@ActionShortLabel(o)</span>
                             <div class="action-dist-track">
-                                <div class="action-dist-fill action-dist-fill-@(ActionCssSuffix(o))"
-                                     style="width: @(Pct(o.Probability * 100))%"></div>
+                                <div class="action-dist-fill action-dist-fill-@(ActionCssSuffix(o)) @(IsBlockedWithPreMask(o) ? "action-dist-fill-blocked" : null)"
+                                     style="width: @(Pct(DisplayProbability(o) * 100))%"></div>
                             </div>
-                            <span class="action-dist-pct">@(FormatProbabilityPct(o.Probability))%</span>
+                            <span class="action-dist-pct @(IsBlockedWithPreMask(o) ? "action-dist-pct-blocked" : "")"
+                                  title="@(IsBlockedWithPreMask(o) ? BlockedTitle(o) : "")">@PercentText(o)</span>
                             <span class="action-dist-raw @(IsBlockedLogit(o.Logit) ? "action-dist-raw-blocked" : "")"
-                                  title="@(IsBlockedLogit(o.Logit) ? "Blocked by Action Masking -- illegal in the current state" : "Raw network output before softmax (logit) -- for evaluating decision methods other than softmax sampling")">@(FormatLogit(o.Logit))</span>
+                                  title="@(IsBlockedLogit(o.Logit) ? BlockedTitle(o) : "Raw network output before softmax (logit) -- for evaluating decision methods other than softmax sampling")">@LogitText(o)</span>
                         </div>
                     }
                 </div>

@@ -1192,6 +1192,8 @@ namespace Poink.Sim.Components.Pages
 				Capital = tick.Capital,
 				OpenPosition = tick.OpenPosition,
 				ClosedTrades = tick.ClosedTrades ?? previous.Snapshot.ClosedTrades,
+				RawDirectionOutputs = tick.RawDirectionOutputs ?? previous.Snapshot.RawDirectionOutputs,
+				PreMaskDirectionOutputs = tick.PreMaskDirectionOutputs ?? previous.Snapshot.PreMaskDirectionOutputs,
 			};
 			_liveState = previous with { Snapshot = snapshot, Bars = bars };
 
@@ -1227,9 +1229,18 @@ namespace Poink.Sim.Components.Pages
 
 			var s = live.Snapshot;
 			var probabilities = actionSpace.Probabilities(s.RawDirectionOutputs);
+			var preMask = s.PreMaskDirectionOutputs ?? s.RawDirectionOutputs;
+			var preMaskProbabilities = actionSpace.Probabilities(preMask);
 			return actionSpace
 				.Directions.Select(
-					(direction, i) => new RlOutputFeature(direction.ToString(), probabilities[i], direction == s.Action, s.RawDirectionOutputs[i])
+					(direction, i) => new RlOutputFeature(
+						direction.ToString(),
+						probabilities[i],
+						direction == s.Action,
+						s.RawDirectionOutputs[i],
+						PreMaskProbability: preMaskProbabilities[i],
+						PreMaskLogit: preMask[i]
+					)
 				)
 				.ToList();
 		}

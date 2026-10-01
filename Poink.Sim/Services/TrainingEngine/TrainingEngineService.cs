@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -127,6 +128,7 @@ internal sealed class TrainingEngineService
 		var previousDecisionEquity = trader.Snapshot(ticks[0].Bid, ticks[0].Ask).Equity;
 		var reportedTradeCount = 0;
 		var owedDelay = TimeSpan.Zero;
+		var previewClock = Stopwatch.StartNew();
 
 		// Sleeps are batched because Task.Delay can't honour sub-timer-resolution waits tick by tick.
 		async Task PaceAsync()
@@ -149,6 +151,9 @@ internal sealed class TrainingEngineService
 
 			if (onTick is not null)
 			{
+				(float[] Masked, float[] PreMask)? preview = previewClock.ElapsedMilliseconds >= PreviewIntervalMs
+					? PreviewDirectionOutputs(options, network, actionSpace, trader, ticksSoFar, episodeStart, tick, previewClock)
+					: null;
 				var tradesChanged = trader.TradeLog.Count != reportedTradeCount;
 				reportedTradeCount = trader.TradeLog.Count;
 				onTick(
@@ -160,7 +165,9 @@ internal sealed class TrainingEngineService
 						justClosedBar,
 						trader.Snapshot(bid, ask),
 						trader.CurrentPosition,
-						tradesChanged ? [.. trader.TradeLog] : null
+						tradesChanged ? [.. trader.TradeLog] : null,
+						preview?.Masked,
+						preview?.PreMask
 					)
 				);
 			}
@@ -220,7 +227,8 @@ internal sealed class TrainingEngineService
 					rawOutputs[..actionSpace.DirectionOutputWidth],
 					capitalAfter,
 					[.. trader.TradeLog],
-					trader.CurrentPosition
+					trader.CurrentPosition,
+					forwardOutputs[..actionSpace.DirectionOutputWidth]
 				)
 			);
 
@@ -237,6 +245,34 @@ internal sealed class TrainingEngineService
 
 		var lastTick = ticks[^1];
 		return new EpisodeResult(steps, trader.Snapshot(lastTick.Bid, lastTick.Ask), trader.TradeLog, totalReward);
+	}
+
+	private const long PreviewIntervalMs = 50;
+
+	// A forward pass over every tick's features is too costly at high playback speeds, so the Live tab's
+	// action preview refreshes on a wall-clock throttle.
+	private (float[] Masked, float[] PreMask) PreviewDirectionOutputs(
+		TrainingOptionsModel options,
+		MlpNetwork network,
+		ActionSpace actionSpace,
+		ITrader trader,
+		IReadOnlyList<Tick> ticksSoFar,
+		DateTime episodeStart,
+		Tick tick,
+		Stopwatch previewClock
+	)
+	{
+		previewClock.Restart();
+		var featureModel = _featureAssembler.Assemble(
+			options.Features,
+			ticksSoFar,
+			tick.Timestamp,
+			episodeStart,
+			BuildTraderStateSnapshot(trader, tick.Bid, tick.Ask)
+		);
+		var outputs = network.Forward(_featureAssembler.Flatten(featureModel).Values);
+		var masked = MaskIllegalDirections(outputs, actionSpace, trader.CurrentPosition, options.Output.ActionMasking);
+		return (masked[..actionSpace.DirectionOutputWidth], outputs[..actionSpace.DirectionOutputWidth]);
 	}
 
 	private static readonly TimeSpan MinPacingSleep = TimeSpan.FromMilliseconds(15);
