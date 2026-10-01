@@ -10,9 +10,6 @@ internal sealed class ActionAssembler
 	public ActionSpace Assemble(OutputOptionsModel options) =>
 		new(
 			EnabledDirections(options.Actions),
-			options.Actions.IncludeVolumeOutput,
-			options.Actions.IncludeStopLossOutput,
-			options.Actions.IncludeTakeProfitOutput,
 			options.ActionDecoding.DecisionDecoding,
 			options.ActionDecoding.DecisionTemperature
 		);

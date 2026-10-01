@@ -37,31 +37,27 @@ namespace Poink.Sim.Models.TrainingModels
 		double Leverage = 1,
 		double CommissionRatePercent = 0,
 		double StopOutLevelPercent = 50,
-		IReadOnlyList<string>? SelectedRiskPolicies = null,
 		PositionControlOptionsModel? Control = null
 	)
 	{
 		public PositionControlOptionsModel EffectiveControl => Control ?? new PositionControlOptionsModel();
 	}
 
-	/// <summary>Which training strategy and reward policy drive learning, at what rate, and whether
+	/// <summary>Which training strategy drives learning, at what rate, and whether
 	/// an entropy bonus encourages exploration (anneals to 0 over the run -- see PolicyGradientLearner).</summary>
 	internal sealed record LearningOptionsModel(
 		string TrainingStrategyName = TrainingStrategyCatalog.ReinforceName,
-		string RewardPolicyName = "Equity Drift (default)",
 		double LearningRate = 0.001,
 		bool UseEntropyBonus = true
 	);
 
 	/// <summary>
 	/// Gates whether the network is even asked to decide, as opposed to Output tab's Action Masking
-	/// which restricts choices afterward.
+	/// which restricts choices afterward. Cell-width resolution isn't supported here.
 	/// </summary>
 	internal sealed record DecisionMaskingOptionsModel(
 		DecisionMaskResolutionKind DecisionMaskResolution = DecisionMaskResolutionKind.PerBar,
-		double DecisionMaskResolutionSeconds = 1.0,
-		double DecisionMaskResolutionCellWidth = 0.10,
-		bool MaskDecisionPriceBelowPoc = false
+		double DecisionMaskResolutionSeconds = 1.0
 	);
 
 	/// <summary>The Training tab's episode timing, trader setup, learning, and decision masking settings.</summary>
