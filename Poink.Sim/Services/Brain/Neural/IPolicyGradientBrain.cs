@@ -22,7 +22,9 @@ public sealed record RlOutputFeature(
 	double Probability,
 	bool IsChosen,
 	double Logit,
-	string Group = "Direction"
+	string Group = "Direction",
+	double? PreMaskProbability = null,
+	double? PreMaskLogit = null
 );
 
 public sealed record NetworkLayerShape(int Units, bool IsRecurrent);

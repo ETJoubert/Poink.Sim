@@ -21,6 +21,9 @@ public partial class BrainIoPanel : ComponentBase
 	[Parameter]
 	public double? Equity { get; set; }
 
+	[Parameter]
+	public bool ShowInputs { get; set; } = true;
+
 	private bool _showDenormalizedInputs;
 
 	private static bool IsPriceWindowLabel(string label) => label.StartsWith("t-", System.StringComparison.Ordinal);
@@ -110,6 +113,22 @@ public partial class BrainIoPanel : ComponentBase
 
 	private static string FormatLogit(double logit) =>
 		IsBlockedLogit(logit) ? "✕" : logit.ToString("+0.00;-0.00;0.00", CultureInfo.InvariantCulture);
+
+	private static bool IsBlockedWithPreMask(RlOutputFeature o) => IsBlockedLogit(o.Logit) && o.PreMaskProbability is not null;
+
+	private static double DisplayProbability(RlOutputFeature o) =>
+		IsBlockedWithPreMask(o) ? o.PreMaskProbability!.Value : o.Probability;
+
+	private static string PercentText(RlOutputFeature o) =>
+		IsBlockedWithPreMask(o) ? $"✕ {FormatProbabilityPct(o.PreMaskProbability!.Value)}%" : $"{FormatProbabilityPct(o.Probability)}%";
+
+	private static string LogitText(RlOutputFeature o) =>
+		IsBlockedWithPreMask(o) && o.PreMaskLogit is { } logit ? $"✕ {FormatLogit(logit)}" : FormatLogit(o.Logit);
+
+	private static string BlockedTitle(RlOutputFeature o) =>
+		o.PreMaskProbability is { } probability
+			? $"Blocked by Action Masking -- illegal in the current state. Before masking this would have been {FormatProbabilityPct(probability)}% (logit {FormatLogit(o.PreMaskLogit ?? 0)})"
+			: "Blocked by Action Masking -- illegal in the current state";
 
 	private static string ActionShortLabel(RlOutputFeature o) =>
 		o.Group == "Direction" ? ActionShortLabel(o.Label) : o.Label;

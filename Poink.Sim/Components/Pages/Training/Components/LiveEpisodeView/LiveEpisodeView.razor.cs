@@ -60,6 +60,10 @@ namespace Poink.Sim.Components.Training
 		[Parameter]
 		public DateTime? Timestamp { get; set; }
 
+		/// <summary>Fraction of the current episode's ticks already played, 0 to 1 -- resets with each new episode.</summary>
+		[Parameter]
+		public double EpisodeProgress { get; set; }
+
 		[Parameter]
 		public DateTime? EpisodeStart { get; set; }
 
@@ -184,6 +188,10 @@ namespace Poink.Sim.Components.Training
 				{ TotalHours: >= 1 } s => $"{(int)s.TotalHours}h {s.Minutes}m",
 				{ } s => $"{(int)s.TotalMinutes}m {s.Seconds}s",
 			};
+
+		private string PositionDirectionText => PositionIsLong switch { true => "LONG", false => "SHORT", _ => "FLAT" };
+
+		private string PositionDirectionCss => PositionIsLong switch { true => "lev-position-long", false => "lev-position-short", _ => "" };
 
 		private double? RiskAtStop => ProjectedPnl(StopLossPrice) is { } pnl ? -pnl : null;
 

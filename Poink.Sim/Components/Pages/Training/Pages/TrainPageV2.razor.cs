@@ -771,11 +771,7 @@ namespace Poink.Sim.Components.Pages
 		private IRiskPolicyService RiskPolicyService { get; set; } = default!;
 
 		// Learning -- mirrors BrainBuilder's LearnSection, NEAT excluded from the strategy options.
-		private static readonly string[] TrainingStrategyOptions =
-		[
-			"Policy Gradient (REINFORCE)",
-			"Policy Gradient (Per-Decision)",
-		];
+		private static readonly IReadOnlyList<string> TrainingStrategyOptions = TrainingStrategyCatalog.Names;
 
 		private static readonly string[] RewardPolicyOptions = ["Equity Drift (default)", "Hit Rate"];
 
@@ -861,7 +857,7 @@ namespace Poink.Sim.Components.Pages
 			_positionControl = traderSetup.EffectiveControl;
 
 			var learning = options.Learning;
-			_trainingStrategyName = learning.TrainingStrategyName;
+			_trainingStrategyName = TrainingStrategyCatalog.Normalize(learning.TrainingStrategyName);
 			_rewardPolicyName = learning.RewardPolicyName;
 			_learningRate = learning.LearningRate;
 			_useEntropyBonus = learning.UseEntropyBonus;
@@ -1025,6 +1021,7 @@ namespace Poink.Sim.Components.Pages
 				_backgroundMode ? null : OnLiveDecision,
 				_backgroundMode ? null : OnLiveTick,
 				() => _backgroundMode ? TimeSpan.Zero : LiveTickDelay,
+				() => _activeTab == TrainV2Tab.Live && _liveShowActions,
 				() => _isPaused,
 				cancellationToken
 			);
@@ -1192,6 +1189,10 @@ namespace Poink.Sim.Components.Pages
 				Capital = tick.Capital,
 				OpenPosition = tick.OpenPosition,
 				ClosedTrades = tick.ClosedTrades ?? previous.Snapshot.ClosedTrades,
+				RawDirectionOutputs = tick.RawDirectionOutputs ?? previous.Snapshot.RawDirectionOutputs,
+				PreMaskDirectionOutputs = tick.PreMaskDirectionOutputs ?? previous.Snapshot.PreMaskDirectionOutputs,
+				TicksProcessed = tick.TicksProcessed,
+				TicksTotal = tick.TicksTotal,
 			};
 			_liveState = previous with { Snapshot = snapshot, Bars = bars };
 
@@ -1215,6 +1216,9 @@ namespace Poink.Sim.Components.Pages
 		private IReadOnlyList<TxFoldGridRow> BuildLiveTxFoldRows(LiveUiState? live) =>
 			live is { } s ? FeatureDisplayFormatter.BuildTxFoldGrid(s.Snapshot.Features, _txFoldBarKind) : [];
 
+		private static double BuildLiveEpisodeProgress(LiveUiState? live) =>
+			live is { Snapshot.TicksTotal: > 0 } s ? (double)s.Snapshot.TicksProcessed / s.Snapshot.TicksTotal : 0;
+
 		private static TimeSpan? BuildLiveTimePassed(LiveUiState? live) =>
 			live is { } s ? s.Snapshot.Timestamp - s.Snapshot.EpisodeStart : null;
 
@@ -1227,9 +1231,18 @@ namespace Poink.Sim.Components.Pages
 
 			var s = live.Snapshot;
 			var probabilities = actionSpace.Probabilities(s.RawDirectionOutputs);
+			var preMask = s.PreMaskDirectionOutputs ?? s.RawDirectionOutputs;
+			var preMaskProbabilities = actionSpace.Probabilities(preMask);
 			return actionSpace
 				.Directions.Select(
-					(direction, i) => new RlOutputFeature(direction.ToString(), probabilities[i], direction == s.Action, s.RawDirectionOutputs[i])
+					(direction, i) => new RlOutputFeature(
+						direction.ToString(),
+						probabilities[i],
+						direction == s.Action,
+						s.RawDirectionOutputs[i],
+						PreMaskProbability: preMaskProbabilities[i],
+						PreMaskLogit: preMask[i]
+					)
 				)
 				.ToList();
 		}

@@ -11,6 +11,8 @@ namespace Poink.Sim.Services.TrainingEngine;
 /// <summary>
 /// Turns FeatureOptionsModel's selections into a FeatureModel (structured, for display/inspection)
 /// and a flattened FeatureVector (for training), from live tick data and a trader-state snapshot.
+/// Every tick-derived feature is computed over the trailing window of the largest selected timeframe only,
+/// so a decision costs the same however long the episode has run.
 /// </summary>
 internal sealed class FeatureAssembler
 {
@@ -47,7 +49,16 @@ internal sealed class FeatureAssembler
 		if (selectedSeconds.Count == 0)
 			return new TxFoldFeature(new Dictionary<int, float[]>(), [], null, new Dictionary<TxFoldLevelKind, float>());
 
-		var snapshot = TxFoldStats.Compute(ticks, asOf, episodeStart, selectedSeconds, options.BarKind);
+		var windowTicks = new TickWindow(ticks, TxFoldStats.WindowStartIndex(ticks, asOf.AddSeconds(-selectedSeconds.Max())));
+		var snapshot = TxFoldStats.Compute(
+			windowTicks,
+			asOf,
+			episodeStart,
+			selectedSeconds,
+			options.BarKind,
+			includeLevels: options.IncludedLevels is { Count: > 0 },
+			includeVolumeProfile: false
+		);
 		var valuesPerTimeframe = ValuesPerTimeframe(options);
 
 		double? referencePrice = null;
@@ -69,7 +80,7 @@ internal sealed class FeatureAssembler
 			values[seconds] = barsBySeconds.TryGetValue(seconds, out var bar) ? bar : new float[valuesPerTimeframe];
 
 		var volumeProfile = options.IncludeVolumeProfile
-			? TxFoldStats.BuildVolumeProfileFeature(ticks, options.VolumeProfileBucketCount)
+			? TxFoldStats.BuildVolumeProfileFeature(windowTicks, options.VolumeProfileBucketCount)
 			: [];
 
 		float? currentPrice = null;

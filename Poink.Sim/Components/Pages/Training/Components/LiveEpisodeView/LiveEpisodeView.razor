@@ -29,6 +29,12 @@
         <span class="lev-episode-count" title="Episodes completed this run, out of the configured target">
             @EpisodesCompleted / @TargetEpisodeCount episodes
         </span>
+        <div class="lev-episode-progress" title="@($"Progress through the current episode's ticks: {EpisodeProgress:P0} -- starts over with each new episode")">
+            <div class="lev-episode-progress-track">
+                <div class="lev-episode-progress-fill" style="width: @((Math.Clamp(EpisodeProgress, 0, 1) * 100).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture))%"></div>
+            </div>
+            <span class="lev-episode-progress-label">@EpisodeProgress.ToString("P0")</span>
+        </div>
     </div>
     @if (RunError is not null)
     {
@@ -69,6 +75,10 @@
             <div class="lev-stat" title="Unrealized profit/loss on the currently open position">
                 <span class="lev-stat-label">unrealized</span>
                 <span class="lev-stat-value">@UnrealizedPnl.ToString("N2")</span>
+            </div>
+            <div class="lev-stat" title="Direction of the currently open position -- flat when none is open">
+                <span class="lev-stat-label">position</span>
+                <span class="lev-stat-value @PositionDirectionCss">@PositionDirectionText</span>
             </div>
             <div class="lev-stat" title="Units of the currently open position">
                 <span class="lev-stat-label">volume</span>
@@ -202,8 +212,8 @@
         }
         @if (ShowActions)
         {
-            <div class="lev-card lev-panel" title="The network's action probability distribution on the most recent decision -- same card the old training page uses">
-                <BrainIoPanel Outputs="ActionOutputs" CurrentPrice="@((Bid + Ask) / 2)" Equity="@Equity" />
+            <div class="lev-card lev-panel" title="The network's action probability distribution at the current tick, refreshed at most every 50 ms and less often when it gets costly, with the last decision's choice highlighted -- the inputs behind it are on the Features card">
+                <BrainIoPanel Outputs="ActionOutputs" ShowInputs="false" CurrentPrice="@((Bid + Ask) / 2)" Equity="@Equity" />
             </div>
         }
     </div>

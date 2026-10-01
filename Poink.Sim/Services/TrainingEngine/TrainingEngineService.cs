@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -89,6 +90,7 @@ internal sealed class TrainingEngineService
 		Action<LiveEpisodeSnapshot>? onDecision = null,
 		Action<LiveTickSnapshot>? onTick = null,
 		Func<TimeSpan>? tickDelay = null,
+		Func<bool>? isActionPreviewWanted = null,
 		Func<bool>? isPaused = null,
 		CancellationToken cancellationToken = default
 	)
@@ -118,15 +120,45 @@ internal sealed class TrainingEngineService
 		var decisionMask = new DecisionMask(options.Training.DecisionMasking);
 
 		var episodeStart = ticks[0].Timestamp;
-		var ticksSoFar = new List<Tick>(ticks.Count);
+		var ticksSoFar = new TickWindow(ticks, 0, 0);
 		var steps = new List<EpisodeStep>();
 		var traces = new List<DecisionTrace>();
+		var learnsOnline = PolicyGradientLearner.LearnsOnline(options.Training.Learning.TrainingStrategyName);
+		var onlineTrainer = learnsOnline
+			? new OnlineTradeTrainer(_learner, network, actionSpace, options.Training.Learning, progress)
+			: null;
+		var settledTradeCount = 0;
 		var totalReward = 0.0;
 		var barBuilder = new LiveBarBuilder(options.BarWidthSeconds);
 
 		var previousDecisionEquity = trader.Snapshot(ticks[0].Bid, ticks[0].Ask).Equity;
 		var reportedTradeCount = 0;
 		var owedDelay = TimeSpan.Zero;
+		IReadOnlyList<Trade> closedTradesCopy = [];
+		var copiedTradeCount = 0;
+
+		IReadOnlyList<Trade> ClosedTradesCopiedOnChange()
+		{
+			if (trader.TradeLog.Count != copiedTradeCount)
+			{
+				closedTradesCopy = [.. trader.TradeLog];
+				copiedTradeCount = closedTradesCopy.Count;
+			}
+			return closedTradesCopy;
+		}
+		var previewClock = Stopwatch.StartNew();
+		var previewInterval = MinPreviewInterval;
+
+		double? SettleClosedTrades()
+		{
+			double? lastClosedPnl = null;
+			while (settledTradeCount < trader.TradeLog.Count)
+			{
+				lastClosedPnl = trader.TradeLog[settledTradeCount++].RealizedPnl;
+				onlineTrainer?.SettleTrade(lastClosedPnl.Value);
+			}
+			return lastClosedPnl;
+		}
 
 		// Sleeps are batched because Task.Delay can't honour sub-timer-resolution waits tick by tick.
 		async Task PaceAsync()
@@ -138,17 +170,30 @@ internal sealed class TrainingEngineService
 			owedDelay = TimeSpan.Zero;
 		}
 
-		foreach (var tick in ticks)
+		for (var tickIndex = 0; tickIndex < ticks.Count; tickIndex++)
 		{
-			ticksSoFar.Add(tick);
+			var tick = ticks[tickIndex];
+			ticksSoFar.ExtendTo(tickIndex + 1);
 			var bid = tick.Bid;
 			var ask = tick.Ask;
 			var (currentBar, justClosedBar) = barBuilder.Feed(tick);
 
 			trader.Advance(bid, ask, tick.Timestamp);
+			SettleClosedTrades();
+
+			var shouldDecide = decisionMask.ShouldDecide(tick.Timestamp);
 
 			if (onTick is not null)
 			{
+				(float[] Masked, float[] PreMask)? preview = null;
+				var previewDue = !shouldDecide && previewClock.Elapsed >= previewInterval && (isActionPreviewWanted?.Invoke() ?? true);
+				if (previewDue)
+				{
+					var previewStarted = Stopwatch.GetTimestamp();
+					preview = PreviewDirectionOutputs(options, network, actionSpace, trader, ticksSoFar, episodeStart, tick);
+					previewInterval = Max(MinPreviewInterval, Stopwatch.GetElapsedTime(previewStarted) * PreviewOverheadFactor);
+					previewClock.Restart();
+				}
 				var tradesChanged = trader.TradeLog.Count != reportedTradeCount;
 				reportedTradeCount = trader.TradeLog.Count;
 				onTick(
@@ -160,12 +205,16 @@ internal sealed class TrainingEngineService
 						justClosedBar,
 						trader.Snapshot(bid, ask),
 						trader.CurrentPosition,
-						tradesChanged ? [.. trader.TradeLog] : null
+						tradesChanged ? [.. trader.TradeLog] : null,
+						preview?.Masked,
+						preview?.PreMask,
+						ticksSoFar.Count,
+						ticks.Count
 					)
 				);
 			}
 
-			if (!decisionMask.ShouldDecide(tick.Timestamp))
+			if (!shouldDecide)
 			{
 				await PaceAsync();
 				continue;
@@ -180,15 +229,19 @@ internal sealed class TrainingEngineService
 				var reward = trader.Snapshot(bid, ask).Equity - previousDecisionEquity;
 				totalReward += reward;
 				steps[^1] = steps[^1] with { EquityDelta = reward };
-				traces[^1] = traces[^1] with { Reward = reward };
+				if (!learnsOnline)
+					traces[^1] = traces[^1] with { Reward = reward };
 			}
+
+			var isChoice = LegalDirectionCount(actionSpace, trader.CurrentPosition, options.Output.ActionMasking) > 1;
+			var wasFlat = trader.CurrentPosition is null;
 
 			var featureModel = _featureAssembler.Assemble(
 				options.Features,
 				ticksSoFar,
 				tick.Timestamp,
 				episodeStart,
-				BuildTraderStateSnapshot(trader, bid, ask)
+				BuildTraderStateSnapshot(trader, bid, ask, options.Features.TraderState.PreviousTradesCount)
 			);
 			var vector = _featureAssembler.Flatten(featureModel);
 			var (forwardOutputs, activations) = network.ForwardWithActivations(vector.Values);
@@ -202,10 +255,16 @@ internal sealed class TrainingEngineService
 				tick.Timestamp
 			);
 
+			var closedTradePnl = SettleClosedTrades();
+
 			var capitalAfter = trader.Snapshot(bid, ask);
 			previousDecisionEquity = capitalAfter.Equity;
 			steps.Add(new EpisodeStep(tick.Timestamp, action, execution, EquityDelta: 0));
-			traces.Add(new DecisionTrace(activations, rawOutputs, actionIndex, Reward: 0));
+			var trace = new DecisionTrace(activations, rawOutputs, actionIndex, Reward: 0);
+			if (!learnsOnline)
+				traces.Add(trace);
+			else if (isChoice)
+				onlineTrainer!.RecordChoice(trace, wasFlat && trader.CurrentPosition is not null, closedTradePnl);
 
 			onDecision?.Invoke(
 				new LiveEpisodeSnapshot(
@@ -219,8 +278,11 @@ internal sealed class TrainingEngineService
 					action,
 					rawOutputs[..actionSpace.DirectionOutputWidth],
 					capitalAfter,
-					[.. trader.TradeLog],
-					trader.CurrentPosition
+					ClosedTradesCopiedOnChange(),
+					trader.CurrentPosition,
+					forwardOutputs[..actionSpace.DirectionOutputWidth],
+					ticksSoFar.Count,
+					ticks.Count
 				)
 			);
 
@@ -230,13 +292,46 @@ internal sealed class TrainingEngineService
 		if (steps.Count > 0)
 		{
 			steps.RemoveAt(steps.Count - 1);
-			traces.RemoveAt(traces.Count - 1);
+			if (!learnsOnline)
+				traces.RemoveAt(traces.Count - 1);
 		}
 
-		_learner.Learn(network, actionSpace, traces, options.Training.Learning, progress);
+		if (!learnsOnline)
+			_learner.Learn(network, actionSpace, traces, options.Training.Learning, progress);
 
 		var lastTick = ticks[^1];
 		return new EpisodeResult(steps, trader.Snapshot(lastTick.Bid, lastTick.Ask), trader.TradeLog, totalReward);
+	}
+
+	private static readonly TimeSpan MinPreviewInterval = TimeSpan.FromMilliseconds(50);
+
+	// Spacing previews at this multiple of their own cost caps their share of training time near 1/factor.
+	private const int PreviewOverheadFactor = 10;
+
+	private static TimeSpan Max(TimeSpan a, TimeSpan b) => a >= b ? a : b;
+
+	// A forward pass over every tick's features is too costly at high playback speeds, so the Live tab's
+	// action preview refreshes on a throttle that backs off as the pass gets slower.
+	private (float[] Masked, float[] PreMask) PreviewDirectionOutputs(
+		TrainingOptionsModel options,
+		MlpNetwork network,
+		ActionSpace actionSpace,
+		ITrader trader,
+		IReadOnlyList<Tick> ticksSoFar,
+		DateTime episodeStart,
+		Tick tick
+	)
+	{
+		var featureModel = _featureAssembler.Assemble(
+			options.Features,
+			ticksSoFar,
+			tick.Timestamp,
+			episodeStart,
+			BuildTraderStateSnapshot(trader, tick.Bid, tick.Ask, options.Features.TraderState.PreviousTradesCount)
+		);
+		var outputs = network.Forward(_featureAssembler.Flatten(featureModel).Values);
+		var masked = MaskIllegalDirections(outputs, actionSpace, trader.CurrentPosition, options.Output.ActionMasking);
+		return (masked[..actionSpace.DirectionOutputWidth], outputs[..actionSpace.DirectionOutputWidth]);
 	}
 
 	private static readonly TimeSpan MinPacingSleep = TimeSpan.FromMilliseconds(15);
@@ -259,6 +354,9 @@ internal sealed class TrainingEngineService
 		return masked;
 	}
 
+	private static int LegalDirectionCount(ActionSpace actionSpace, Position? position, ActionMaskingOptionsModel masking) =>
+		actionSpace.Directions.Count(direction => IsLegalDirection(direction, position, masking));
+
 	private static bool IsLegalDirection(SimulationAction action, Position? position, ActionMaskingOptionsModel masking)
 	{
 		if (masking.PositionRequiredForClose && action == SimulationAction.Close && position is null)
@@ -280,13 +378,13 @@ internal sealed class TrainingEngineService
 		return -1;
 	}
 
-	private static TraderStateSnapshot BuildTraderStateSnapshot(ITrader trader, double bid, double ask)
+	private static TraderStateSnapshot BuildTraderStateSnapshot(ITrader trader, double bid, double ask, int previousTradesCount)
 	{
 		var snapshot = trader.Snapshot(bid, ask);
-		var previousTradesRealized = trader.TradeLog
-			.Reverse()
-			.Select(t => RiskHelper.PercentOfBalance(t.RealizedPnl, trader.Cash) ?? 0)
-			.ToList();
+		var log = trader.TradeLog;
+		var previousTradesRealized = new List<double>(Math.Min(previousTradesCount, log.Count));
+		for (var i = log.Count - 1; i >= 0 && previousTradesRealized.Count < previousTradesCount; i--)
+			previousTradesRealized.Add(RiskHelper.PercentOfBalance(log[i].RealizedPnl, trader.Cash) ?? 0);
 		return new(
 			RiskHelper.PercentOfBalance(snapshot.UnrealizedPnl, trader.Cash) ?? 0,
 			RiskHelper.PercentOfBalance(snapshot.RealizedPnl, trader.Cash) ?? 0,

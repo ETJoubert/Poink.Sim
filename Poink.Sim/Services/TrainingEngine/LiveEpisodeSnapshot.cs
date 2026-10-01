@@ -22,5 +22,8 @@ internal sealed record LiveEpisodeSnapshot(
 	IReadOnlyList<float> RawDirectionOutputs,
 	CapitalState Capital,
 	IReadOnlyList<Trade> ClosedTrades,
-	Position? OpenPosition = null
+	Position? OpenPosition = null,
+	IReadOnlyList<float>? PreMaskDirectionOutputs = null,
+	int TicksProcessed = 0,
+	int TicksTotal = 0
 );

@@ -717,6 +717,29 @@
                                 }
                             </div>
                         </label>
+                        @if (TrainingStrategyCatalog.Find(_trainingStrategyName) is { } strategyInfo)
+                        {
+                            <div class="trv2-info-card" title="What the selected strategy learns from and when it updates the network">
+                                <span class="trv2-info-title" title="Selected strategy">@strategyInfo.Name</span>
+                                <p class="trv2-info-summary" title="What this strategy does">@strategyInfo.Summary</p>
+                                <div class="trv2-info-row" title="What the network is rewarded for">
+                                    <span class="trv2-info-label">Reward</span>
+                                    <span class="trv2-info-text">@strategyInfo.Reward</span>
+                                </div>
+                                <div class="trv2-info-row" title="When the network's weights change">
+                                    <span class="trv2-info-label">Updates</span>
+                                    <span class="trv2-info-text">@strategyInfo.Updates</span>
+                                </div>
+                                <div class="trv2-info-row" title="What the strategy keeps in memory while an episode runs">
+                                    <span class="trv2-info-label">Memory</span>
+                                    <span class="trv2-info-text">@strategyInfo.Memory</span>
+                                </div>
+                                <div class="trv2-info-row" title="Behaviour worth knowing about when reading results">
+                                    <span class="trv2-info-label">Note</span>
+                                    <span class="trv2-info-text">@strategyInfo.Caveat</span>
+                                </div>
+                            </div>
+                        }
                         <label class="trv2-field"
                                title="Which rules shape the per-decision reward -- Equity Drift is the raw, unshaped baseline; Hit Rate rewards net direction correctness instead">
                             Reward Policy
@@ -1033,6 +1056,7 @@
                                  CanDecreaseSpeed="@(_liveSpeedIndex > 0)" CanIncreaseSpeed="@(_liveSpeedIndex < LiveSpeedOptions.Length - 1)"
                                  OnDecreaseSpeed="DecreaseLiveSpeed" OnIncreaseSpeed="IncreaseLiveSpeed" OnMaxSpeed="MaxLiveSpeed"
                                  EpisodesCompleted="_episodesCompleted" TargetEpisodeCount="TargetEpisodeCount"
+                                 EpisodeProgress="BuildLiveEpisodeProgress(live)"
                                  HasSnapshot="@(live is not null)"
                                  EpisodeStart="@live?.Snapshot.EpisodeStart"
                                  PositionVolume="@live?.Snapshot.OpenPosition?.Size" EntryPrice="@live?.Snapshot.OpenPosition?.EntryPrice" PositionIsLong="@(live?.Snapshot.OpenPosition is { } open ? open.Direction == Poink.Sim.Models.PositionDirection.Long : null)"
