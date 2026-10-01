@@ -185,6 +185,10 @@ namespace Poink.Sim.Components.Training
 				{ } s => $"{(int)s.TotalMinutes}m {s.Seconds}s",
 			};
 
+		private string PositionDirectionText => PositionIsLong switch { true => "LONG", false => "SHORT", _ => "FLAT" };
+
+		private string PositionDirectionCss => PositionIsLong switch { true => "lev-position-long", false => "lev-position-short", _ => "" };
+
 		private double? RiskAtStop => ProjectedPnl(StopLossPrice) is { } pnl ? -pnl : null;
 
 		private double? RewardAtTarget => ProjectedPnl(TakeProfitPrice);

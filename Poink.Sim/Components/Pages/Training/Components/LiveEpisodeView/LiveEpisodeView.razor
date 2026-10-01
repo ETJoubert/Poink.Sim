@@ -70,6 +70,10 @@
                 <span class="lev-stat-label">unrealized</span>
                 <span class="lev-stat-value">@UnrealizedPnl.ToString("N2")</span>
             </div>
+            <div class="lev-stat" title="Direction of the currently open position -- flat when none is open">
+                <span class="lev-stat-label">position</span>
+                <span class="lev-stat-value @PositionDirectionCss">@PositionDirectionText</span>
+            </div>
             <div class="lev-stat" title="Units of the currently open position">
                 <span class="lev-stat-label">volume</span>
                 <span class="lev-stat-value">@(PositionVolume?.ToString("0.####") ?? "--")</span>

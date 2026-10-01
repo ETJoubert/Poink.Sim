@@ -85,7 +85,7 @@
 .tcp-error {
     margin: 0;
     font-size: 0.7rem;
-    color: var(--color-danger, #ff5c5c);
+    color: var(--color-error);
 }
 
 .tcp-stats {
@@ -116,9 +116,9 @@
 }
 
 .tcp-loss {
-    color: var(--color-danger, #ff5c5c);
+    color: var(--color-error);
 }
 
 .tcp-gain {
-    color: var(--color-success, #4ade80);
+    color: var(--color-success);
 }
