@@ -87,7 +87,8 @@ internal sealed class TrainingEngineService
 		Random random,
 		double progress = 0.0,
 		Action<LiveEpisodeSnapshot>? onDecision = null,
-		Func<TimeSpan>? decisionDelay = null,
+		Action<LiveTickSnapshot>? onTick = null,
+		Func<TimeSpan>? tickDelay = null,
 		Func<bool>? isPaused = null,
 		CancellationToken cancellationToken = default
 	)
@@ -124,6 +125,18 @@ internal sealed class TrainingEngineService
 		var barBuilder = new LiveBarBuilder(options.BarWidthSeconds);
 
 		var previousDecisionEquity = trader.Snapshot(ticks[0].Bid, ticks[0].Ask).Equity;
+		var reportedTradeCount = 0;
+		var owedDelay = TimeSpan.Zero;
+
+		// Sleeps are batched because Task.Delay can't honour sub-timer-resolution waits tick by tick.
+		async Task PaceAsync()
+		{
+			owedDelay += tickDelay?.Invoke() ?? TimeSpan.Zero;
+			if (owedDelay < MinPacingSleep)
+				return;
+			await Task.Delay(owedDelay, cancellationToken);
+			owedDelay = TimeSpan.Zero;
+		}
 
 		foreach (var tick in ticks)
 		{
@@ -134,8 +147,29 @@ internal sealed class TrainingEngineService
 
 			trader.Advance(bid, ask, tick.Timestamp);
 
+			if (onTick is not null)
+			{
+				var tradesChanged = trader.TradeLog.Count != reportedTradeCount;
+				reportedTradeCount = trader.TradeLog.Count;
+				onTick(
+					new LiveTickSnapshot(
+						tick.Timestamp,
+						bid,
+						ask,
+						currentBar,
+						justClosedBar,
+						trader.Snapshot(bid, ask),
+						trader.CurrentPosition,
+						tradesChanged ? [.. trader.TradeLog] : null
+					)
+				);
+			}
+
 			if (!decisionMask.ShouldDecide(tick.Timestamp))
+			{
+				await PaceAsync();
 				continue;
+			}
 
 			while (isPaused is not null && isPaused())
 				await Task.Delay(150, cancellationToken);
@@ -190,9 +224,7 @@ internal sealed class TrainingEngineService
 				)
 			);
 
-			var delay = decisionDelay?.Invoke() ?? TimeSpan.Zero;
-			if (delay > TimeSpan.Zero)
-				await Task.Delay(delay, cancellationToken);
+			await PaceAsync();
 		}
 
 		if (steps.Count > 0)
@@ -206,6 +238,8 @@ internal sealed class TrainingEngineService
 		var lastTick = ticks[^1];
 		return new EpisodeResult(steps, trader.Snapshot(lastTick.Bid, lastTick.Ask), trader.TradeLog, totalReward);
 	}
+
+	private static readonly TimeSpan MinPacingSleep = TimeSpan.FromMilliseconds(15);
 
 	private const float IllegalDirectionPenalty = -1e9f;
 

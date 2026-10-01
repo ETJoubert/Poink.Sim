@@ -1023,7 +1023,8 @@ namespace Poink.Sim.Components.Pages
 				random,
 				progress,
 				_backgroundMode ? null : OnLiveDecision,
-				() => _backgroundMode ? TimeSpan.Zero : LiveDecisionDelay,
+				_backgroundMode ? null : OnLiveTick,
+				() => _backgroundMode ? TimeSpan.Zero : LiveTickDelay,
 				() => _isPaused,
 				cancellationToken
 			);
@@ -1162,6 +1163,45 @@ namespace Poink.Sim.Components.Pages
 			_ = InvokeAsync(StateHasChanged);
 		}
 
+		private static readonly TimeSpan LiveRenderInterval = TimeSpan.FromMilliseconds(33);
+
+		private long _lastLiveRenderTicks;
+
+		// RunEpisode's onTick callback -- folds the latest tick into the last decision's snapshot so the
+		// status row, position cards and chart move every tick; renders are throttled, state is not.
+		private void OnLiveTick(LiveTickSnapshot tick)
+		{
+			if (_liveState is not { } previous)
+				return;
+
+			var bars = previous.Bars;
+			if (tick.ClosedBar is { } closed)
+			{
+				var updatedBars = new List<CTraderBarRow>(bars) { closed };
+				if (updatedBars.Count > MaxLiveBars)
+					updatedBars.RemoveAt(0);
+				bars = updatedBars;
+			}
+
+			var snapshot = previous.Snapshot with
+			{
+				Timestamp = tick.Timestamp,
+				Bid = tick.Bid,
+				Ask = tick.Ask,
+				CurrentBar = tick.CurrentBar,
+				Capital = tick.Capital,
+				OpenPosition = tick.OpenPosition,
+				ClosedTrades = tick.ClosedTrades ?? previous.Snapshot.ClosedTrades,
+			};
+			_liveState = previous with { Snapshot = snapshot, Bars = bars };
+
+			var now = Stopwatch.GetTimestamp();
+			if (Stopwatch.GetElapsedTime(_lastLiveRenderTicks, now) < LiveRenderInterval)
+				return;
+			_lastLiveRenderTicks = now;
+			_ = InvokeAsync(StateHasChanged);
+		}
+
 		// Includes the in-progress bar so the chart's last candle keeps updating between closes.
 		private static List<CTraderBarRow> BuildLiveChartBars(LiveUiState? live) =>
 			live is { } s ? [.. s.Bars, s.Snapshot.CurrentBar] : [];
@@ -1194,15 +1234,15 @@ namespace Poink.Sim.Components.Pages
 				.ToList();
 		}
 
-		// Speed governs the actual training loop's pace (RunEpisode's decisionDelay), not just redraws.
-		// A null step is MAX -- decisionDelay becomes exactly zero, real unthrottled training speed.
+		// Speed governs the actual training loop's pace (RunEpisode's tickDelay, applied per tick), not just redraws.
+		// A null step is MAX -- tickDelay becomes exactly zero, real unthrottled training speed.
 		private static readonly double?[] LiveSpeedOptions = { 0.1, 1, 10, 100, 1000, null };
-		private const double LiveBaseDecisionDelayMs = 200;
+		private const double LiveBaseTickDelayMs = 20;
 
 		private int _liveSpeedIndex = 1;
 
-		private TimeSpan LiveDecisionDelay =>
-			LiveSpeedOptions[_liveSpeedIndex] is { } multiplier ? TimeSpan.FromMilliseconds(LiveBaseDecisionDelayMs / multiplier) : TimeSpan.Zero;
+		private TimeSpan LiveTickDelay =>
+			LiveSpeedOptions[_liveSpeedIndex] is { } multiplier ? TimeSpan.FromMilliseconds(LiveBaseTickDelayMs / multiplier) : TimeSpan.Zero;
 
 		private static string LiveSpeedLabel(double? multiplier) => multiplier is { } value ? FormatSpeedMultiplier(value) : "MAX";
 
