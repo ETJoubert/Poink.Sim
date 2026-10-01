@@ -29,12 +29,18 @@
 }
 
 .tcp-field {
+    display: grid;
+    grid-template-columns: 8.5rem minmax(0, 1fr);
+    align-items: center;
+    column-gap: 10px;
+    font-size: 0.72rem;
+    color: var(--color-secondary);
+}
+
+.tcp-field-group {
     display: flex;
     align-items: center;
     gap: 6px;
-    font-size: 0.72rem;
-    color: var(--color-secondary);
-    white-space: nowrap;
 }
 
 .tcp-input {

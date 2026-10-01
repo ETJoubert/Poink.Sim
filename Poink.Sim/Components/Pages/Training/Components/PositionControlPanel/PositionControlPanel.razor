@@ -38,16 +38,18 @@
 
     <label class="tcp-field" title="Stop-loss distance from the fill price -- 0 means no stop">
         Stop-loss
-        <input class="tcp-input" type="number" min="0" step="any"
-               @bind="_stopLoss" @bind:after="Push" />
-        <div class="tcp-toggle-row">
-            @foreach (var unit in Enum.GetValues<StopLossUnit>())
-            {
-                <button type="button" class="tcp-toggle @(Value.EffectiveStopLossUnit == unit ? "active" : "")"
-                        disabled="@(Value.SizingMode == PositionSizingMode.RiskPerTrade)"
-                        @onclick="() => Update(Value with { StopLossUnit = unit })"
-                        title="@UnitTitle(unit)">@UnitLabel(unit)</button>
-            }
+        <div class="tcp-field-group">
+            <input class="tcp-input" type="number" min="0" step="any"
+                   @bind="_stopLoss" @bind:after="Push" />
+            <div class="tcp-toggle-row">
+                @foreach (var unit in Enum.GetValues<StopLossUnit>())
+                {
+                    <button type="button" class="tcp-toggle @(Value.EffectiveStopLossUnit == unit ? "active" : "")"
+                            disabled="@(Value.SizingMode == PositionSizingMode.RiskPerTrade)"
+                            @onclick="() => Update(Value with { StopLossUnit = unit })"
+                            title="@UnitTitle(unit)">@UnitLabel(unit)</button>
+                }
+            </div>
         </div>
     </label>
 

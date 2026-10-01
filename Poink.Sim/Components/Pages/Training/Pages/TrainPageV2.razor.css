@@ -104,6 +104,24 @@
     grid-column: 1 / -1;
 }
 
+.trv2-grid-form .trv2-field {
+    display: grid;
+    grid-template-columns: 8.5rem minmax(0, 1fr);
+    align-items: center;
+    column-gap: 10px;
+    white-space: normal;
+}
+
+.trv2-grid-form .trv2-field input[type="checkbox"] {
+    justify-self: start;
+}
+
+.trv2-field-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
 .trv2-episode-timing-layout {
     display: grid;
     grid-template-columns: minmax(220px, 300px) 1fr;

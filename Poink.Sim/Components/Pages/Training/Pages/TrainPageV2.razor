@@ -498,7 +498,7 @@
                 </div>
                 break;
             case TrainV2Tab.Training:
-                <div class="trv2-card-stack">
+                <div class="trv2-card-stack trv2-grid-form">
                     <div class="trv2-card-span-all">
                         <SymbolSummaryCard Symbol="_selectedSymbol" Metadata="SelectedSymbolMetadata" Loading="_loadingSymbolMetadata" />
                     </div>
@@ -565,8 +565,8 @@
                                     </label>
                                     <label class="trv2-field"
                                            title="Turn on to restrict episodes to specific weekdays and/or a daily time-of-day session -- off means an episode may start anywhere in the Data tab's range, including across midnight">
-                                        <input type="checkbox" checked="@_restrictEpisodeTiming" @onchange="ToggleRestrictEpisodeTiming" />
                                         Restrict timing
+                                        <input type="checkbox" checked="@_restrictEpisodeTiming" @onchange="ToggleRestrictEpisodeTiming" />
                                     </label>
                                     @if (_restrictEpisodeTiming)
                                     {
@@ -584,9 +584,11 @@
                                         </label>
                                         <label class="trv2-field" title="Time-of-day window an episode's decisions span, on each eligible day -- 24:00 means end of day">
                                             Session
-                                            <input class="trv2-input" type="text" placeholder="00:00" @bind="SessionStartText" />
-                                            to
-                                            <input class="trv2-input" type="text" placeholder="24:00" @bind="SessionEndText" />
+                                            <div class="trv2-field-group">
+                                                <input class="trv2-input" type="text" placeholder="00:00" @bind="SessionStartText" />
+                                                to
+                                                <input class="trv2-input" type="text" placeholder="24:00" @bind="SessionEndText" />
+                                            </div>
                                         </label>
                                     }
                                 }
@@ -732,8 +734,8 @@
                         </label>
                         <label class="trv2-field"
                                title="Adds an exploration bonus to the loss so the policy doesn't collapse onto one action too early -- coefficient 0.01, annealed linearly to 0 by the run's last episode">
-                            <input type="checkbox" @bind="_useEntropyBonus" />
                             Entropy Bonus
+                            <input type="checkbox" @bind="_useEntropyBonus" />
                         </label>
                     </div>
 
@@ -773,8 +775,8 @@
                         }
                         <label class="trv2-field"
                                title="A decision only fires when price is below the trailing window's Point of Control -- has no effect without the XGrid Signals encoder">
-                            <input type="checkbox" @bind="_maskDecisionPriceBelowPoc" />
                             Price Below POC
+                            <input type="checkbox" @bind="_maskDecisionPriceBelowPoc" />
                         </label>
                     </div>
                 </div>
