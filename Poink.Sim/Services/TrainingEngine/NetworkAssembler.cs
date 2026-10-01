@@ -17,7 +17,7 @@ internal sealed class NetworkAssembler
 		if (options.ArchitectureKind != ArchitectureKind.Mlp)
 			throw new NotSupportedException($"{options.ArchitectureKind} isn't implemented yet -- only Mlp is built so far.");
 
-		var hiddenSizes = options.MlpHiddenSizes is { Count: > 0 } sizes ? sizes : [64];
+		var hiddenSizes = EffectiveHiddenSizes(options);
 		var layerSizes = new List<int> { inputSize };
 		layerSizes.AddRange(hiddenSizes);
 		layerSizes.Add(outputSize);
@@ -33,6 +33,9 @@ internal sealed class NetworkAssembler
 
 		return new MlpNetwork(inputSize, hiddenSizes, outputSize, weights, biases);
 	}
+
+	public static IReadOnlyList<int> EffectiveHiddenSizes(NetworkOptionsModel options) =>
+		options.MlpHiddenSizes is { Count: > 0 } sizes ? sizes : [64];
 
 	// He initialization for ReLU layers, reused for the linear output layer to avoid a second branch.
 	private static (float[,] Weights, float[] Biases) InitializeLayer(int inputSize, int outputSize, Random random)

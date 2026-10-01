@@ -4,6 +4,7 @@
 @using Poink.Sim.Components.Charts
 @using Poink.Sim.Components.Pages.Trade.Helpers
 @using Poink.Sim.Components.Pages.Training.Components.SymbolSummaryCard
+@using Poink.Sim.Components.Pages.Training.Components.TrainedModelsPanel
 @using Poink.Sim.Components.Pages.Training.Components.PositionControlPanel
 @using Poink.Sim.Components.Shared.BarSizeSelect
 @using Poink.Sim.Components.Shared.Icon
@@ -777,6 +778,13 @@
                 break;
             case TrainV2Tab.Run:
                 <div class="trv2-results">
+                    @if (_viewingSavedResults)
+                    {
+                        <div class="trv2-card" title="The Run tab is showing results loaded from the Models tab rather than a live run">
+                            <span class="trv2-card-title">Saved results</span>
+                            <p class="trv2-placeholder">Showing saved results '@_viewedResultsName' -- they clear when a run starts, steps or resets.</p>
+                        </div>
+                    }
                     <div class="trv2-summary-section">
                         <div class="trv2-card-title-row">
                             <span class="trv2-card-title" title="Snapshot of the options selected on each tab -- check these before starting a run">
@@ -1073,6 +1081,16 @@
                                  @bind-ShowEquityCurve="_liveShowEquityCurve" @bind-ShowFeatures="_liveShowFeatures" @bind-ShowActions="_liveShowActions" />
                 break;
             }
+            case TrainV2Tab.Models:
+                <TrainedModelsPanel Models="_savedModels" History="_modelHistory" SelectedModelId="_selectedModelId"
+                                    CanSaveModel="CanSaveModel" SaveModelBlockedReason="@SaveModelBlockedReason"
+                                    CanSaveResults="CanSaveResults" SaveResultsBlockedReason="@SaveResultsBlockedReason"
+                                    CanLoad="CanLoadModels" LoadBlockedReason="@LoadModelsBlockedReason"
+                                    StatusMessage="@_modelsStatus" StatusIsError="_modelsStatusIsError"
+                                    OnSaveModel="SaveModelAsync" OnLoadModel="LoadModelAsync" OnDeleteModel="DeleteModelAsync"
+                                    OnSelectModel="SelectModelAsync" OnSaveResults="SaveResultsAsync"
+                                    OnLoadResults="LoadResultsAsync" OnDeleteResults="DeleteResultsAsync" />
+                break;
         }
     </div>
 </div>

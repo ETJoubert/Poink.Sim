@@ -1,0 +1,64 @@
+@namespace Poink.Sim.Components.Pages.Training.Components.TrainedModelsPanel
+@using Poink.Sim.Components.Shared.DataTable
+
+<div class="tmp-stack">
+    @if (!string.IsNullOrEmpty(StatusMessage))
+    {
+        <div class="tmp-status @(StatusIsError ? "tmp-status-error" : "")" title="Outcome of the last save, load or delete">@StatusMessage</div>
+    }
+
+    <div class="tmp-card" title="Save the model currently set up on the Run tab -- its options and trained weights">
+        <div class="tmp-title-row">
+            <span class="tmp-title" title="Keep the current network so it can be loaded and trained further later">Save Model</span>
+        </div>
+        <label class="tmp-field" title="Name to save under -- saving under an existing name overwrites that model's options and weights, and keeps its history">
+            Name
+            <input class="tmp-input" type="text" placeholder="model name" @bind="_modelName" @bind:event="oninput" />
+        </label>
+        <button type="button" class="tmp-btn" disabled="@(!SaveModelEnabled)" title="@SaveModelTitle" @onclick="SaveModelClicked">
+            @(OverwritesExistingModel ? "OVERWRITE MODEL" : "SAVE MODEL")
+        </button>
+    </div>
+
+    <div class="tmp-card" title="Every saved model -- load one to restore its options and weights, or delete it along with its history">
+        <div class="tmp-title-row">
+            <span class="tmp-title" title="Models saved from the Run tab">Saved Models</span>
+            <span class="tmp-badge" title="How many models are saved">@Models.Count</span>
+        </div>
+        <DataTable TItem="ModelRow" Items="ModelRows" ShowRowNumbers="false" ActionsHeader="ACTIONS"
+                   ExcludeProperties="@(new List<string> { nameof(ModelRow.Id) })" OnDelete="DeleteModelClicked"
+                   EmptyMessage="no saved models yet -- run training, then save the model above">
+            <CustomActions Context="row">
+                <button type="button" class="tmp-row-btn" disabled="@(!CanLoad)" title="@LoadModelTitle" @onclick="() => OnLoadModel.InvokeAsync(row.Id)">LOAD</button>
+                <button type="button" class="tmp-row-btn @(row.Id == SelectedModelId ? "active" : "")" title="Show this model's saved training results below"
+                        @onclick="() => OnSelectModel.InvokeAsync(row.Id)">HISTORY</button>
+            </CustomActions>
+        </DataTable>
+    </div>
+
+    <div class="tmp-card" title="Saved training results for the selected model -- save the Run tab's metrics, or load a saved set back into the Run tab">
+        <div class="tmp-title-row">
+            <span class="tmp-title" title="Training results kept for one model">Training History</span>
+            <span class="tmp-badge" title="The model whose history is shown">@(SelectedModelName ?? "no model selected")</span>
+        </div>
+        @if (SelectedModelId is null)
+        {
+            <p class="tmp-placeholder">Pick a model's HISTORY button above to see and add its training results.</p>
+        }
+        else
+        {
+            <label class="tmp-field" title="Name for the saved results -- left blank, one is generated from the model name, episode count and time">
+                Name
+                <input class="tmp-input" type="text" placeholder="results name (optional)" @bind="_resultsName" @bind:event="oninput" />
+            </label>
+            <button type="button" class="tmp-btn" disabled="@(!CanSaveResults)" title="@SaveResultsTitle" @onclick="SaveResultsClicked">SAVE RESULTS</button>
+            <DataTable TItem="HistoryRow" Items="HistoryRows" ShowRowNumbers="false" ActionsHeader="ACTIONS"
+                       ExcludeProperties="@(new List<string> { nameof(HistoryRow.Id) })" OnDelete="DeleteResultsClicked"
+                       EmptyMessage="no saved results for this model yet">
+                <CustomActions Context="row">
+                    <button type="button" class="tmp-row-btn" disabled="@(!CanLoad)" title="@LoadResultsTitle" @onclick="() => OnLoadResults.InvokeAsync(row.Id)">LOAD</button>
+                </CustomActions>
+            </DataTable>
+        }
+    </div>
+</div>

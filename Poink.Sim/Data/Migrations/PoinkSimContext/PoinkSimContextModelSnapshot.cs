@@ -475,6 +475,90 @@ namespace Poink.Sim.Data.Migrations.PoinkSim
                     b.ToTable("TradeDeals");
                 });
 
+            modelBuilder.Entity("Poink.Sim.Data.Entities.TrainedModel", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ConfigJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("EpisodesTrained")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long>("WeightCount")
+                        .HasColumnType("bigint");
+
+                    b.Property<byte[]>("Weights")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("TrainedModels");
+                });
+
+            modelBuilder.Entity("Poink.Sim.Data.Entities.TrainingHistoryEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<double>("BestReward")
+                        .HasColumnType("double precision");
+
+                    b.Property<string>("ConfigJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("EpisodeMetricsJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<int>("EpisodesCompleted")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ModelEpisodesTrained")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<double>("RecentAverageReward")
+                        .HasColumnType("double precision");
+
+                    b.Property<Guid>("TrainedModelId")
+                        .HasColumnType("uuid");
+
+                    b.Property<double>("WorstReward")
+                        .HasColumnType("double precision");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TrainedModelId");
+
+                    b.ToTable("TrainingHistoryEntries");
+                });
+
             modelBuilder.Entity("Poink.Sim.Data.Entities.TrainingResult", b =>
                 {
                     b.Property<Guid>("Id")
@@ -538,6 +622,17 @@ namespace Poink.Sim.Data.Migrations.PoinkSim
                     b.Navigation("SymbolMetadata");
                 });
 
+            modelBuilder.Entity("Poink.Sim.Data.Entities.TrainingHistoryEntry", b =>
+                {
+                    b.HasOne("Poink.Sim.Data.Entities.TrainedModel", "TrainedModel")
+                        .WithMany("History")
+                        .HasForeignKey("TrainedModelId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("TrainedModel");
+                });
+
             modelBuilder.Entity("Poink.Sim.Data.Entities.NeuralNetwork", b =>
                 {
                     b.Navigation("Weights");
@@ -548,6 +643,11 @@ namespace Poink.Sim.Data.Migrations.PoinkSim
                     b.Navigation("Holidays");
 
                     b.Navigation("ScheduleIntervals");
+                });
+
+            modelBuilder.Entity("Poink.Sim.Data.Entities.TrainedModel", b =>
+                {
+                    b.Navigation("History");
                 });
 #pragma warning restore 612, 618
         }
