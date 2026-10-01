@@ -5,11 +5,11 @@ using Poink.Sim.Models.TrainingModels;
 namespace Poink.Sim.Services.TrainingEngine;
 
 /// <summary>Turns a trader's preconfigured control options into the volume, stop and target of each entry.</summary>
-internal static class TraderControlHelper
+internal static class PositionControlHelper
 {
 	public static SimulationDecision BuildDecision(
 		SimulationAction action,
-		TraderControlOptionsModel control,
+		PositionControlOptionsModel control,
 		double cash,
 		double leverage,
 		double pipSize,
@@ -35,7 +35,7 @@ internal static class TraderControlHelper
 	}
 
 	public static PositionSizingPreview Preview(
-		TraderControlOptionsModel control,
+		PositionControlOptionsModel control,
 		double cash,
 		double leverage,
 		double price,

@@ -1,9 +1,9 @@
-@namespace Poink.Sim.Components.Pages.Training.Components.TraderControlPanel
+@namespace Poink.Sim.Components.Pages.Training.Components.PositionControlPanel
 @using Poink.Sim.Models.TrainingModels
 
 <div class="tcp-card" title="The trade parameters the trader is allowed to use -- sizing, stop-loss and take-profit applied to every entry">
     <div class="tcp-title-row">
-        <span class="tcp-title" title="Preconfigure how each position is sized and how much it risks">Trader Control</span>
+        <span class="tcp-title" title="Preconfigure how each position is sized and how much it risks">Position Control</span>
         <span class="tcp-badge" title="The latest price available for the selected symbol, used to size the position">@(LatestPrice is { } price ? $"@ {price:0.#####}" : "no price yet")</span>
     </div>
 
@@ -59,7 +59,7 @@
 
     @if (Value.Validate() is { } error)
     {
-        <p class="tcp-error" title="Fix this before starting a run -- the engine refuses invalid trader control settings">@error</p>
+        <p class="tcp-error" title="Fix this before starting a run -- the engine refuses invalid position control settings">@error</p>
     }
     else
     {

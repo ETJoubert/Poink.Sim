@@ -38,10 +38,10 @@ namespace Poink.Sim.Models.TrainingModels
 		double CommissionRatePercent = 0,
 		double StopOutLevelPercent = 50,
 		IReadOnlyList<string>? SelectedRiskPolicies = null,
-		TraderControlOptionsModel? Control = null
+		PositionControlOptionsModel? Control = null
 	)
 	{
-		public TraderControlOptionsModel EffectiveControl => Control ?? new TraderControlOptionsModel();
+		public PositionControlOptionsModel EffectiveControl => Control ?? new PositionControlOptionsModel();
 	}
 
 	/// <summary>Which training strategy and reward policy drive learning, at what rate, and whether

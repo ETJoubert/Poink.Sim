@@ -4,15 +4,15 @@ using Microsoft.AspNetCore.Components;
 using Poink.Sim.Models.TrainingModels;
 using Poink.Sim.Services.TrainingEngine;
 
-namespace Poink.Sim.Components.Pages.Training.Components.TraderControlPanel
+namespace Poink.Sim.Components.Pages.Training.Components.PositionControlPanel
 {
-	public partial class TraderControlPanel : ComponentBase
+	public partial class PositionControlPanel : ComponentBase
 	{
 		[Parameter]
-		public TraderControlOptionsModel Value { get; set; } = new();
+		public PositionControlOptionsModel Value { get; set; } = new();
 
 		[Parameter]
-		public EventCallback<TraderControlOptionsModel> ValueChanged { get; set; }
+		public EventCallback<PositionControlOptionsModel> ValueChanged { get; set; }
 
 		[Parameter]
 		public double StartingCash { get; set; } = 10_000;
@@ -26,7 +26,7 @@ namespace Poink.Sim.Components.Pages.Training.Components.TraderControlPanel
 		[Parameter]
 		public double? LatestPrice { get; set; }
 
-		private PositionSizingPreview Preview => TraderControlHelper.Preview(Value, StartingCash, Leverage, LatestPrice ?? 0, PipSize);
+		private PositionSizingPreview Preview => PositionControlHelper.Preview(Value, StartingCash, Leverage, LatestPrice ?? 0, PipSize);
 
 		private static string ModeLabel(PositionSizingMode mode) =>
 			mode == PositionSizingMode.RiskPerTrade ? "% Risk Per Trade" : "Fixed";
@@ -53,7 +53,7 @@ namespace Poink.Sim.Components.Pages.Training.Components.TraderControlPanel
 			return $"{stop} / {target} pips{rewardRisk}";
 		}
 
-		private Task Update(TraderControlOptionsModel value) => ValueChanged.InvokeAsync(value);
+		private Task Update(PositionControlOptionsModel value) => ValueChanged.InvokeAsync(value);
 
 		private double _volume;
 		private double _riskPercent;

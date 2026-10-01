@@ -4,7 +4,7 @@
 @using Poink.Sim.Components.Charts
 @using Poink.Sim.Components.Pages.Trade.Helpers
 @using Poink.Sim.Components.Pages.Training.Components.SymbolSummaryCard
-@using Poink.Sim.Components.Pages.Training.Components.TraderControlPanel
+@using Poink.Sim.Components.Pages.Training.Components.PositionControlPanel
 @using Poink.Sim.Components.Shared.BarSizeSelect
 @using Poink.Sim.Components.Shared.Icon
 @using Poink.Sim.Components.Shared.PolicySelector
@@ -699,7 +699,7 @@
                         }
                     </div>
 
-                    <TraderControlPanel @bind-Value="_traderControl" StartingCash="_startingCash" Leverage="_leverage" LatestPrice="LatestPreviewPrice" PipSize="XGridPipSize" />
+                    <PositionControlPanel @bind-Value="_positionControl" StartingCash="_startingCash" Leverage="_leverage" LatestPrice="LatestPreviewPrice" PipSize="XGridPipSize" />
 
                     <div class="trv2-card">
                         <div class="trv2-card-title-row">

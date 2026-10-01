@@ -19,7 +19,7 @@ namespace Poink.Sim.Models.TrainingModels
 	/// RiskPerTrade derives volume from the stop distance, so its stop is always in pips -- a
 	/// balance-percent stop would make volume and stop depend on each other.
 	/// </summary>
-	public sealed record TraderControlOptionsModel(
+	public sealed record PositionControlOptionsModel(
 		PositionSizingMode SizingMode = PositionSizingMode.FixedVolume,
 		double Volume = 1,
 		double RiskPerTradePercent = 1,

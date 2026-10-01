@@ -95,9 +95,9 @@ internal sealed class TrainingEngineService
 		if (options.Output.Actions.IncludeVolumeOutput || options.Output.Actions.IncludeStopLossOutput || options.Output.Actions.IncludeTakeProfitOutput)
 			throw new NotSupportedException("Volume/StopLoss/TakeProfit outputs aren't wired to trade execution yet -- disable them until they are.");
 		PolicyGradientLearner.EnsureSupportedStrategy(options.Training.Learning.TrainingStrategyName);
-		var traderControl = options.Training.TraderSetup.EffectiveControl;
-		if (traderControl.Validate() is { } controlError)
-			throw new InvalidOperationException($"Trader Control is invalid: {controlError}");
+		var positionControl = options.Training.TraderSetup.EffectiveControl;
+		if (positionControl.Validate() is { } controlError)
+			throw new InvalidOperationException($"Position Control is invalid: {controlError}");
 
 		var ticks = _dataProvider.GetEpisodeWindow(options.Data, options.Training.EpisodeTiming, options.BarWidthSeconds, random);
 		if (ticks.Count == 0)
@@ -162,7 +162,7 @@ internal sealed class TrainingEngineService
 			var actionIndex = ChooseActionIndex(rawOutputs, actionSpace, random);
 			var action = actionSpace.Directions[actionIndex];
 			var execution = trader.Apply(
-				TraderControlHelper.BuildDecision(action, traderControl, trader.Cash, options.Training.TraderSetup.Leverage, options.Data.PipSize, bid, ask),
+				PositionControlHelper.BuildDecision(action, positionControl, trader.Cash, options.Training.TraderSetup.Leverage, options.Data.PipSize, bid, ask),
 				bid,
 				ask,
 				tick.Timestamp

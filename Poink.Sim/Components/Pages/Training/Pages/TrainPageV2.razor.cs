@@ -765,7 +765,7 @@ namespace Poink.Sim.Components.Pages
 		private double _stopOutLevelPercent = 50;
 
 		private readonly List<string> _selectedRiskPolicies = [];
-		private TraderControlOptionsModel _traderControl = new();
+		private PositionControlOptionsModel _positionControl = new();
 
 		[Inject]
 		private IRiskPolicyService RiskPolicyService { get; set; } = default!;
@@ -824,7 +824,7 @@ namespace Poink.Sim.Components.Pages
 			);
 
 		private TraderSetupOptionsModel CurrentTraderSetupOptions =>
-			new(_startingCash, _leverage, _commissionRatePercent, _stopOutLevelPercent, [.. _selectedRiskPolicies], _traderControl);
+			new(_startingCash, _leverage, _commissionRatePercent, _stopOutLevelPercent, [.. _selectedRiskPolicies], _positionControl);
 
 		private LearningOptionsModel CurrentLearningOptions => new(_trainingStrategyName, _rewardPolicyName, _learningRate, _useEntropyBonus);
 
@@ -858,7 +858,7 @@ namespace Poink.Sim.Components.Pages
 			_selectedRiskPolicies.Clear();
 			if (traderSetup.SelectedRiskPolicies is { } policies)
 				_selectedRiskPolicies.AddRange(policies);
-			_traderControl = traderSetup.EffectiveControl;
+			_positionControl = traderSetup.EffectiveControl;
 
 			var learning = options.Learning;
 			_trainingStrategyName = learning.TrainingStrategyName;
