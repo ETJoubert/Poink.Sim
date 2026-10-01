@@ -183,6 +183,11 @@ public static class ServiceCollectionExtensions
 		services.AddSingleton<NetworkAssembler>();
 		services.AddSingleton<PolicyGradientLearner>();
 		services.AddSingleton<TrainingEngineService>();
+		services.AddSingleton<MlpWeightsSerializer>();
+		services.AddSingleton<TrainedModelRepository>();
+		services.AddSingleton<TrainingHistoryRepository>();
+		services.AddSingleton<TrainedModelService>();
+		services.AddSingleton<TrainingHistoryService>();
 
 		return services;
 	}

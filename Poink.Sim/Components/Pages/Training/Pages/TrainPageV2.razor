@@ -4,6 +4,7 @@
 @using Poink.Sim.Components.Charts
 @using Poink.Sim.Components.Pages.Trade.Helpers
 @using Poink.Sim.Components.Pages.Training.Components.SymbolSummaryCard
+@using Poink.Sim.Components.Pages.Training.Components.TrainedModelsPanel
 @using Poink.Sim.Components.Pages.Training.Components.PositionControlPanel
 @using Poink.Sim.Components.Shared.BarSizeSelect
 @using Poink.Sim.Components.Shared.Icon
@@ -19,15 +20,32 @@
     </header>
 
     <div class="trv2-tabs">
-        @foreach (var tab in VisibleTabs)
-        {
-            <button type="button" class="trv2-tab @(_activeTab == tab ? "trv2-tab-active" : "")"
-                    @onclick="() => SelectTab(tab)" title="@TabTitle(tab)">
-                @tab.ToString().ToUpperInvariant()
+        <div class="trv2-tabs-main">
+            @foreach (var tab in VisibleTabs)
+            {
+                <button type="button" class="trv2-tab @(_activeTab == tab ? "trv2-tab-active" : "")"
+                        @onclick="() => SelectTab(tab)" title="@TabTitle(tab)">
+                    @tab.ToString().ToUpperInvariant()
+                </button>
+            }
+        </div>
+        <div class="trv2-tabs-panel @(_modelsPanelCollapsed ? "" : "trv2-tabs-panel-open")">
+            <button type="button" class="trv2-side-panel-toggle" @onclick="ToggleModelsPanel"
+                    title="@(_modelsPanelCollapsed ? "Expand the Models panel" : "Collapse the Models panel")">
+                <Icon Name="@(_modelsPanelCollapsed ? "chevron-left" : "chevron-right")" Class="trv2-side-panel-toggle-icon" />
             </button>
-        }
+            @foreach (var panelTab in Enum.GetValues<ModelsPanelTab>())
+            {
+                <button type="button" class="trv2-tab @(!_modelsPanelCollapsed && _modelsPanelTab == panelTab ? "trv2-tab-active" : "")"
+                        @onclick="() => SelectModelsPanelTabAsync(panelTab)" title="@ModelsPanelTabTitle(panelTab)">
+                    @panelTab.ToString().ToUpperInvariant()
+                </button>
+            }
+        </div>
     </div>
 
+    <div class="trv2-body">
+    <div class="trv2-main">
     <div class="trv2-content">
         @switch (_activeTab)
         {
@@ -777,6 +795,13 @@
                 break;
             case TrainV2Tab.Run:
                 <div class="trv2-results">
+                    @if (_viewingSavedResults)
+                    {
+                        <div class="trv2-card" title="The Run tab is showing results loaded from the Models panel rather than a live run">
+                            <span class="trv2-card-title">Saved results</span>
+                            <p class="trv2-placeholder">Showing saved results '@_viewedResultsName' -- they clear when a run starts, steps or resets.</p>
+                        </div>
+                    }
                     <div class="trv2-summary-section">
                         <div class="trv2-card-title-row">
                             <span class="trv2-card-title" title="Snapshot of the options selected on each tab -- check these before starting a run">
@@ -1074,5 +1099,24 @@
                 break;
             }
         }
+    </div>
+    </div>
+
+    <aside class="trv2-side-panel @(_modelsPanelCollapsed ? "trv2-side-panel-collapsed" : "")">
+        @if (!_modelsPanelCollapsed)
+        {
+            <div class="trv2-side-panel-content">
+                <TrainedModelsPanel Models="_savedModels" History="_modelHistory" SelectedModelId="_selectedModelId"
+                                    ActiveTab="_modelsPanelTab" OnDeselectModel="DeselectModelAsync"
+                                    CanSaveModel="CanSaveModel" SaveModelBlockedReason="@SaveModelBlockedReason"
+                                    CanSaveResults="CanSaveResults" SaveResultsBlockedReason="@SaveResultsBlockedReason"
+                                    CanLoad="CanLoadModels" LoadBlockedReason="@LoadModelsBlockedReason"
+                                    StatusMessage="@_modelsStatus" StatusIsError="_modelsStatusIsError"
+                                    OnSaveModel="SaveModelAsync" OnLoadModel="LoadModelAsync" OnDeleteModel="DeleteModelAsync"
+                                    OnSelectModel="SelectModelAsync" OnSaveResults="SaveResultsAsync"
+                                    OnLoadResults="LoadResultsAsync" OnDeleteResults="DeleteResultsAsync" />
+            </div>
+        }
+    </aside>
     </div>
 </div>

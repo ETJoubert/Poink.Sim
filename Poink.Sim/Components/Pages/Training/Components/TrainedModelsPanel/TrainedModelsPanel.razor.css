@@ -1,0 +1,119 @@
+.tmp-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-width: 0;
+}
+
+.tmp-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 12px;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
+    border-radius: var(--border-radius-sm);
+    background: color-mix(in srgb, var(--color-primary) 4%, transparent);
+}
+
+.tmp-title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.tmp-title {
+    font-size: 0.62rem;
+    font-weight: bold;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-accent);
+}
+
+.tmp-badge {
+    font-size: 0.62rem;
+    color: var(--color-secondary);
+    margin-left: auto;
+}
+
+.tmp-field {
+    display: grid;
+    grid-template-columns: 3.2rem minmax(0, 1fr);
+    align-items: center;
+    column-gap: 10px;
+    font-size: 0.72rem;
+    color: var(--color-secondary);
+}
+
+.tmp-input {
+    background: var(--color-bg-terminal);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 45%, transparent);
+    color: var(--color-primary);
+    padding: 4px 6px;
+    border-radius: var(--border-radius-sm);
+    font-family: var(--font-body);
+    font-size: 12px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.tmp-input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--color-primary) 40%, transparent);
+}
+
+.tmp-btn,
+.tmp-row-btn {
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
+    color: var(--color-secondary);
+    border-radius: var(--border-radius-sm);
+    font-family: var(--font-body);
+    font-size: 0.62rem;
+    font-weight: bold;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 6px 10px;
+    cursor: pointer;
+}
+
+.tmp-btn {
+    align-self: flex-start;
+}
+
+.tmp-btn:hover:not(:disabled),
+.tmp-row-btn:hover:not(:disabled),
+.tmp-row-btn.active {
+    background: color-mix(in srgb, var(--color-secondary) 12%, transparent);
+}
+
+.tmp-btn:disabled,
+.tmp-row-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.tmp-row-btn {
+    padding: 3px 8px;
+    margin-left: 4px;
+}
+
+.tmp-placeholder {
+    font-size: 0.85rem;
+    color: var(--color-secondary);
+    opacity: 0.8;
+    margin: 0;
+}
+
+.tmp-status {
+    font-size: 0.75rem;
+    padding: 6px 10px;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
+    border-radius: var(--border-radius-sm);
+    color: var(--color-primary);
+}
+
+.tmp-status-error {
+    border-color: color-mix(in srgb, var(--color-danger, #e55) 60%, transparent);
+    color: var(--color-danger, #e55);
+}

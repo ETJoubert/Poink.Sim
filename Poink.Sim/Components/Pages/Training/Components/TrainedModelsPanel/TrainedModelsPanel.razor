@@ -1,0 +1,58 @@
+@namespace Poink.Sim.Components.Pages.Training.Components.TrainedModelsPanel
+@using Poink.Sim.Components.Shared.DataTable
+
+<div class="tmp-stack">
+    @if (!string.IsNullOrEmpty(StatusMessage))
+    {
+        <div class="tmp-status @(StatusIsError ? "tmp-status-error" : "")" title="Outcome of the last save, load or delete">@StatusMessage</div>
+    }
+
+    @if (ActiveTab == ModelsPanelTab.Models)
+    {
+        <div class="tmp-card" title="Save the model currently set up on the Run tab -- its options and trained weights">
+            <div class="tmp-title-row">
+                <span class="tmp-title" title="Keep the current network so it can be loaded and trained further later">Save Model</span>
+            </div>
+            <label class="tmp-field" title="Name to save under -- saving under an existing name overwrites that model's options and weights, and keeps its history">
+                Name
+                <input class="tmp-input" type="text" placeholder="model name" @bind="_modelName" @bind:event="oninput" />
+            </label>
+            <button type="button" class="tmp-btn" disabled="@(!SaveModelEnabled)" title="@SaveModelTitle" @onclick="SaveModelClicked">
+                @(OverwritesExistingModel ? "OVERWRITE MODEL" : "SAVE MODEL")
+            </button>
+        </div>
+
+        <DataTable TItem="ModelRow" Items="ModelRows" ShowRowNumbers="false" ActionsHeader="ACTIONS"
+                   CardViewOnly="true" ShowAllCardFields="true" CardTitleProperty="@nameof(ModelRow.Name)"
+                   ExcludeProperties="@(new List<string> { nameof(ModelRow.Id), nameof(ModelRow.Name) })"
+                   OnCardClick="ToggleModelRow" IsCardSelected="IsModelSelected" OnDelete="DeleteModelClicked"
+                   EmptyMessage="no saved models yet -- run training, then save the model above">
+            <CustomActions Context="row">
+                <button type="button" class="tmp-row-btn" disabled="@(!CanLoad)" title="@LoadModelTitle" @onclick="() => OnLoadModel.InvokeAsync(row.Id)">LOAD</button>
+            </CustomActions>
+        </DataTable>
+    }
+    else
+    {
+        <div class="tmp-card" title="Save the Run tab's episode metrics and stats as results for the selected model">
+            <div class="tmp-title-row">
+                <span class="tmp-title" title="Keep this run's results under the selected model">Save Results</span>
+            </div>
+            <label class="tmp-field" title="Name for the saved results -- left blank, one is generated from the model name, episode count and time">
+                Name
+                <input class="tmp-input" type="text" placeholder="results name (optional)" @bind="_resultsName" @bind:event="oninput" />
+            </label>
+            <button type="button" class="tmp-btn" disabled="@(!CanSaveResults)" title="@SaveResultsTitle" @onclick="SaveResultsClicked">SAVE RESULTS</button>
+        </div>
+
+        <DataTable TItem="HistoryRow" Items="HistoryRows" ShowRowNumbers="false" ActionsHeader="ACTIONS"
+                   CardViewOnly="true" ShowAllCardFields="true" CardTitleProperty="@nameof(HistoryRow.Name)"
+                   ExcludeProperties="@(new List<string> { nameof(HistoryRow.Id), nameof(HistoryRow.Name) })"
+                   OnDelete="DeleteResultsClicked"
+                   EmptyMessage="@(SelectedModelId is null ? "no saved results yet" : "no saved results for the selected model -- click its card on the Models tab again to see every model's")">
+            <CustomActions Context="row">
+                <button type="button" class="tmp-row-btn" disabled="@(!CanLoad)" title="@LoadResultsTitle" @onclick="() => OnLoadResults.InvokeAsync(row.Id)">LOAD</button>
+            </CustomActions>
+        </DataTable>
+    }
+</div>

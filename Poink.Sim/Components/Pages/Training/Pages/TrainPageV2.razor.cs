@@ -7,8 +7,10 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.Logging;
 using Poink.Sim.Brain.Neural;
 using Poink.Sim.Components.Charts;
+using Poink.Sim.Components.Pages.Training.Components.TrainedModelsPanel;
 using Poink.Sim.Components.Pages.Trade.Helpers;
 using Poink.Sim.Helpers;
 using Poink.Sim.Models;
@@ -71,8 +73,7 @@ namespace Poink.Sim.Components.Pages
 				TrainV2Tab.Output => "How the network's raw outputs map to trade actions",
 				TrainV2Tab.Training => "How episodes are timed/sampled, and the trader each one starts with",
 				TrainV2Tab.Run => "Start/pause/step the run and review live/saved results",
-				TrainV2Tab.Live => "Watch the charts, equity curve and feature values for the episode currently in progress",
-				_ => "",
+				TrainV2Tab.Live => "Watch the charts, equity curve and feature values for the episode currently in progress",				_ => "",
 			};
 
 		#endregion
@@ -919,6 +920,7 @@ namespace Poink.Sim.Components.Pages
 			if (_isRunning)
 				return;
 
+			ClearViewedSavedResults();
 			_isRunning = true;
 			_isPaused = false;
 			_runError = null;
@@ -1026,6 +1028,7 @@ namespace Poink.Sim.Components.Pages
 
 			try
 			{
+				ClearViewedSavedResults();
 				var options = CurrentTrainingOptions;
 				EnsureRunNetwork(options);
 				_runCancellation = new CancellationTokenSource();
@@ -1050,6 +1053,14 @@ namespace Poink.Sim.Components.Pages
 			_runNetwork = null;
 			_runActionSpace = null;
 			_runTargetEpisodeCount = 0;
+			_loadedEpisodesTrained = 0;
+			ClearRunMetrics();
+			_runError = null;
+			ResetLiveEpisodeState();
+		}
+
+		private void ClearRunMetrics()
+		{
 			_episodeMetrics.Clear();
 			_episodeMetricsSnapshot = [];
 			_recentRewards.Clear();
@@ -1059,8 +1070,13 @@ namespace Poink.Sim.Components.Pages
 			_worstReward = 0;
 			_recentAverageReward = 0;
 			_episodesPerSecond = 0;
-			_runError = null;
-			ResetLiveEpisodeState();
+			_viewingSavedResults = false;
+		}
+
+		private void ClearViewedSavedResults()
+		{
+			if (_viewingSavedResults)
+				ClearRunMetrics();
 		}
 
 		private void PauseRun() => _isPaused = true;
@@ -1253,6 +1269,216 @@ namespace Poink.Sim.Components.Pages
 
 		#endregion
 
+		#region Models
+
+		[Inject]
+		private TrainedModelService TrainedModelService { get; set; } = default!;
+
+		[Inject]
+		private TrainingHistoryService TrainingHistoryService { get; set; } = default!;
+
+		[Inject]
+		private ILogger<TrainPageV2> Logger { get; set; } = default!;
+
+		private bool _modelsPanelCollapsed;
+		private ModelsPanelTab _modelsPanelTab = ModelsPanelTab.Models;
+
+		protected override Task OnInitializedAsync() => RefreshModelsWithStatusAsync();
+
+		private Task RefreshModelsWithStatusAsync() =>
+			ReportModelsAsync(async () =>
+			{
+				await RefreshModelsAsync();
+				return null;
+			});
+
+		private async Task ToggleModelsPanel()
+		{
+			_modelsPanelCollapsed = !_modelsPanelCollapsed;
+			if (!_modelsPanelCollapsed)
+				await RefreshModelsWithStatusAsync();
+		}
+
+		private async Task SelectModelsPanelTabAsync(ModelsPanelTab tab)
+		{
+			_modelsPanelTab = tab;
+			if (!_modelsPanelCollapsed)
+				return;
+
+			_modelsPanelCollapsed = false;
+			await RefreshModelsWithStatusAsync();
+		}
+
+		private static string ModelsPanelTabTitle(ModelsPanelTab tab) =>
+			tab switch
+			{
+				ModelsPanelTab.Models => "Saved models: save the current one, load or delete others -- click a card to filter History to that model",
+				ModelsPanelTab.History => "Saved training results, for the selected model or for all models",
+				_ => "",
+			};
+
+		private IReadOnlyList<TrainedModelSummary> _savedModels = [];
+		private IReadOnlyList<TrainingHistorySummary> _modelHistory = [];
+		private Guid? _selectedModelId;
+		private string? _modelsStatus;
+		private bool _modelsStatusIsError;
+
+		// A loaded model arrives with episodes already trained, which this session's counter doesn't include.
+		private int _loadedEpisodesTrained;
+
+		private bool _viewingSavedResults;
+		private string _viewedResultsName = "";
+
+		private bool IsTrainingInProgress => _isRunning && !_isPaused;
+
+		private bool CanSaveModel => _runNetwork is not null && !IsTrainingInProgress;
+
+		private string? SaveModelBlockedReason =>
+			_runNetwork is null ? "Nothing to save yet -- start or step the run once so a network exists"
+			: IsTrainingInProgress ? "Pause or stop the run first -- the weights are still changing"
+			: null;
+
+		private bool CanSaveResults => _selectedModelId is not null && _episodeMetrics.Count > 0 && !_viewingSavedResults && !IsTrainingInProgress;
+
+		private string? SaveResultsBlockedReason =>
+			_selectedModelId is null ? "Click a model's card first -- results are saved under the selected model"
+			: _viewingSavedResults ? "These are already saved results -- start a run to produce new ones"
+			: _episodeMetrics.Count == 0 ? "No episodes have completed yet"
+			: IsTrainingInProgress ? "Pause or stop the run first"
+			: null;
+
+		private bool CanLoadModels => !_isRunning;
+
+		private string? LoadModelsBlockedReason => _isRunning ? "Stop the run first" : null;
+
+		private async Task ReportModelsAsync(Func<Task<string?>> action)
+		{
+			try
+			{
+				_modelsStatus = await action();
+				_modelsStatusIsError = false;
+			}
+			catch (Exception ex)
+			{
+				Logger.LogError(ex, "Models panel action failed");
+				_modelsStatus = ex.Message;
+				_modelsStatusIsError = true;
+			}
+
+			StateHasChanged();
+		}
+
+		private async Task RefreshModelsAsync()
+		{
+			_savedModels = await TrainedModelService.ListAsync();
+			if (_selectedModelId is { } selected && _savedModels.All(m => m.Id != selected))
+				_selectedModelId = null;
+			await RefreshHistoryAsync();
+		}
+
+		private async Task RefreshHistoryAsync() => _modelHistory = await TrainingHistoryService.ListAsync(_selectedModelId);
+
+		private Task DeselectModelAsync() =>
+			ReportModelsAsync(async () =>
+			{
+				_selectedModelId = null;
+				await RefreshHistoryAsync();
+				return null;
+			});
+
+		private Task SaveModelAsync(string name) =>
+			ReportModelsAsync(async () =>
+			{
+				var id = await TrainedModelService.SaveAsync(name, CurrentTrainingOptions, _runNetwork!, _loadedEpisodesTrained + _episodesCompleted);
+				_selectedModelId = id;
+				await RefreshModelsAsync();
+				return $"Saved model '{name.Trim()}'.";
+			});
+
+		private Task LoadModelAsync(Guid id) =>
+			ReportModelsAsync(async () =>
+			{
+				var loaded = await TrainedModelService.LoadAsync(id) ?? throw new InvalidOperationException("That model no longer exists.");
+
+				ResetRun();
+				await ApplyTrainingOptionsAsync(loaded.Options);
+				_runNetwork = loaded.Network;
+				_runActionSpace = loaded.ActionSpace;
+				_runTargetEpisodeCount = loaded.Options.Training.EpisodeTiming.EpisodeCount;
+				_loadedEpisodesTrained = loaded.Summary.EpisodesTrained;
+				_selectedModelId = id;
+				await RefreshHistoryAsync();
+				return $"Loaded '{loaded.Summary.Name}' ({loaded.Summary.EpisodesTrained} episodes trained) -- press Start on the Run tab to train it further.";
+			});
+
+		private Task DeleteModelAsync(Guid id) =>
+			ReportModelsAsync(async () =>
+			{
+				if (!await TrainedModelService.DeleteAsync(id))
+					throw new InvalidOperationException("That model no longer exists.");
+
+				await RefreshModelsAsync();
+				return "Deleted the model and its history.";
+			});
+
+		private Task SelectModelAsync(Guid id) =>
+			ReportModelsAsync(async () =>
+			{
+				_selectedModelId = id;
+				await RefreshHistoryAsync();
+				return null;
+			});
+
+		private Task SaveResultsAsync(string name) =>
+			ReportModelsAsync(async () =>
+			{
+				var modelId = _selectedModelId ?? throw new InvalidOperationException("Select a model first.");
+				var modelName = _savedModels.FirstOrDefault(m => m.Id == modelId)?.Name ?? "model";
+				var resultsName = string.IsNullOrWhiteSpace(name) ? $"{modelName} - {_episodesCompleted} eps - {DateTime.Now:yyyy-MM-dd HH:mm}" : name;
+				var run = new TrainingRunSnapshot(
+					_episodeMetricsSnapshot,
+					_episodesCompleted,
+					_loadedEpisodesTrained + _episodesCompleted,
+					_recentAverageReward,
+					_bestReward,
+					_worstReward
+				);
+
+				await TrainingHistoryService.SaveAsync(modelId, resultsName, CurrentTrainingOptions, run);
+				await RefreshHistoryAsync();
+				return $"Saved results '{resultsName.Trim()}' for '{modelName}'.";
+			});
+
+		private Task LoadResultsAsync(Guid id) =>
+			ReportModelsAsync(async () =>
+			{
+				var data = await TrainingHistoryService.LoadAsync(id) ?? throw new InvalidOperationException("Those results no longer exist.");
+
+				ClearRunMetrics();
+				_episodeMetrics.AddRange(data.Episodes);
+				_episodeMetricsSnapshot = _episodeMetrics.ToArray();
+				_episodesCompleted = data.Summary.EpisodesCompleted;
+				_bestReward = data.Summary.BestReward;
+				_worstReward = data.Summary.WorstReward;
+				_recentAverageReward = data.Summary.RecentAverageReward;
+				_viewingSavedResults = true;
+				_viewedResultsName = data.Summary.Name;
+				_activeTab = TrainV2Tab.Run;
+				return null;
+			});
+
+		private Task DeleteResultsAsync(Guid id) =>
+			ReportModelsAsync(async () =>
+			{
+				if (!await TrainingHistoryService.DeleteAsync(id))
+					throw new InvalidOperationException("Those results no longer exist.");
+
+				await RefreshHistoryAsync();
+				return "Deleted the saved results.";
+			});
+
+		#endregion
+
 		#region Options
 
 		[Inject]
@@ -1281,6 +1507,14 @@ namespace Poink.Sim.Components.Pages
 			if (options is null)
 				return;
 
+			await ApplyTrainingOptionsAsync(options);
+
+			_lastPersistedOptionsJson = JsonSerializer.Serialize(CurrentTrainingOptions);
+			StateHasChanged();
+		}
+
+		private async Task ApplyTrainingOptionsAsync(TrainingOptionsModel options)
+		{
 			ApplyDataOptions(options.Data);
 			ApplyFeatureOptions(options.Features);
 			ApplyNetworkOptions(options.Network);
@@ -1289,9 +1523,6 @@ namespace Poink.Sim.Components.Pages
 			_barWidthSeconds = options.BarWidthSeconds;
 
 			await ApplySelectedSymbolAsync(options.Data.SymbolId);
-
-			_lastPersistedOptionsJson = JsonSerializer.Serialize(CurrentTrainingOptions);
-			StateHasChanged();
 		}
 
 		private async Task PersistOptionsIfChangedAsync()

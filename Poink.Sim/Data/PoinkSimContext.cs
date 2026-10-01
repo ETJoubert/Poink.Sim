@@ -17,6 +17,10 @@ namespace Poink.Sim.Data
 
 		public DbSet<NeuralWeights> NeuralWeights { get; set; }
 
+		public DbSet<TrainedModel> TrainedModels { get; set; }
+
+		public DbSet<TrainingHistoryEntry> TrainingHistoryEntries { get; set; }
+
 		public DbSet<Symbol> Symbols { get; set; }
 
 		public DbSet<SymbolMetadata> SymbolMetadata { get; set; }

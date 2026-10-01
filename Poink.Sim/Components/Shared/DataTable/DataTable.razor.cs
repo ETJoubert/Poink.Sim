@@ -97,6 +97,26 @@ public partial class DataTable<TItem> : IAsyncDisposable
 	[Parameter]
 	public Func<TItem, string, string>? CellClass { get; set; }
 
+	/// <summary>Always show cards: hides the table/card toggle, so the table view is never offered.</summary>
+	[Parameter]
+	public bool CardViewOnly { get; set; }
+
+	/// <summary>Start with every field ticked in the card view's FIELDS picker, instead of none.</summary>
+	[Parameter]
+	public bool ShowAllCardFields { get; set; }
+
+	/// <summary>Name of the property whose value heads each card in place of the record's id. Read even when listed in <see cref="ExcludeProperties"/>.</summary>
+	[Parameter]
+	public string? CardTitleProperty { get; set; }
+
+	/// <summary>Raised when a card is clicked, making cards selectable.</summary>
+	[Parameter]
+	public EventCallback<TItem> OnCardClick { get; set; }
+
+	/// <summary>Marks cards as selected, e.g. the one the parent is currently filtering by.</summary>
+	[Parameter]
+	public Func<TItem, bool>? IsCardSelected { get; set; }
+
 	[Parameter]
 	public bool EnableMultiSelect { get; set; } = false;
 
@@ -106,6 +126,32 @@ public partial class DataTable<TItem> : IAsyncDisposable
 	/// <summary>Rendered inside the selection bar when items are selected. Receives the current selection list.</summary>
 	[Parameter]
 	public RenderFragment<List<TItem>>? BulkActions { get; set; }
+
+	private bool _viewDefaultsApplied;
+
+	protected override void OnParametersSet()
+	{
+		if (_viewDefaultsApplied)
+			return;
+
+		_viewDefaultsApplied = true;
+		_isCardView = CardViewOnly;
+		if (ShowAllCardFields)
+			_cardFieldSelection = GetProperties().Select(p => p.Name).ToHashSet();
+	}
+
+	private string? CardTitle(TItem item) =>
+		CardTitleProperty is null ? null : FormatValue(typeof(TItem).GetProperty(CardTitleProperty)?.GetValue(item));
+
+	private bool IsCardHighlighted(TItem item) => IsSelected(item) || (IsCardSelected?.Invoke(item) ?? false);
+
+	private async Task HandleCardClick(TItem item)
+	{
+		if (EnableMultiSelect)
+			ToggleSelectItem(item);
+		if (OnCardClick.HasDelegate)
+			await OnCardClick.InvokeAsync(item);
+	}
 
 	private HashSet<TItem> _selectedItems = new();
 
