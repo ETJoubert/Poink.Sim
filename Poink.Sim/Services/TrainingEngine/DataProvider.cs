@@ -10,7 +10,8 @@ namespace Poink.Sim.Services.TrainingEngine;
 /// <summary>
 /// Supplies one episode's worth of tick data for training. EpisodeSamplingMode picks how: the entire
 /// selected range, an explicit Lookback Window, or (the default) a random window sized/positioned from
-/// EpisodeTimingOptionsModel, honoring its weekday/session restriction. Continuous/streaming feeding is
+/// EpisodeTimingOptionsModel, honoring its weekday/session restriction. Each is preceded by a feature
+/// window of preloaded history (VisibleBars) that is never trained on. Continuous/streaming feeding is
 /// a separate mode, not implemented here yet.
 /// </summary>
 internal sealed class DataProvider
@@ -26,60 +27,65 @@ internal sealed class DataProvider
 		_logger = logger;
 	}
 
-	public IReadOnlyList<Tick> GetEpisodeWindow(
+	public EpisodeData GetEpisodeWindow(
 		DataOptionsModel data,
 		EpisodeTimingOptionsModel episodeTiming,
 		int barWidthSeconds,
 		Random random
 	)
 	{
+		var featureSpan = TimeSpan.FromSeconds((double)episodeTiming.VisibleBars * barWidthSeconds);
 		switch (episodeTiming.SamplingMode)
 		{
 			case EpisodeSamplingMode.EntireSet:
-				return _tickRepository.ReadTicks(data.Table, data.From, data.To).ToList();
+				return Load(data.Table, data.From - featureSpan, data.To, data.From);
 
 			case EpisodeSamplingMode.WindowSelected:
 				if (episodeTiming.WindowStart is not { } windowStart || episodeTiming.WindowEnd is not { } windowEnd)
 				{
 					_logger.LogWarning("DataProvider: no Lookback Window selected for {Table}, skipping episode", data.Table);
-					return [];
+					return EpisodeData.Empty;
 				}
-				// The marked window is the training set; Visible bars is still fetched as a lead-in before it, same as RandomFromSet.
-				var visibleSpan = TimeSpan.FromSeconds((double)episodeTiming.VisibleBars * barWidthSeconds);
-				return _tickRepository.ReadTicks(data.Table, windowStart - visibleSpan, windowEnd).ToList();
+				return Load(data.Table, windowStart - featureSpan, windowEnd, windowStart);
 
 			default:
-				var fetchSpan = TimeSpan.FromSeconds((double)EpisodeBars(episodeTiming, barWidthSeconds) * barWidthSeconds);
+				var trainingSpan = TimeSpan.FromSeconds((double)TrainingBars(episodeTiming, barWidthSeconds) * barWidthSeconds);
 				return episodeTiming.RestrictEpisodeTiming
-					? RandomConstrainedWindow(data, episodeTiming, fetchSpan, random)
-					: RandomUnrestrictedWindow(data, fetchSpan, random);
+					? RandomConstrainedWindow(data, episodeTiming, featureSpan, trainingSpan, random)
+					: RandomUnrestrictedWindow(data, featureSpan, trainingSpan, random);
 		}
 	}
 
-	// Mirrors TrainPageV2's own EffectiveTrainingBars/EpisodeBars calc, since this is the same
-	// question phrased for data-fetching rather than display: how many bars does one episode span.
-	private static int EpisodeBars(EpisodeTimingOptionsModel episodeTiming, int barWidthSeconds)
+	private EpisodeData Load(string table, DateTime loadFrom, DateTime to, DateTime trainingStart)
 	{
-		if (!episodeTiming.RestrictEpisodeTiming)
-			return episodeTiming.VisibleBars + episodeTiming.TrainingBars;
-
-		var sessionEnd = episodeTiming.SessionEnd ?? TimeSpan.FromHours(24);
-		var trainingBars = (int)((sessionEnd - episodeTiming.SessionStart).TotalSeconds / barWidthSeconds);
-		return episodeTiming.VisibleBars + trainingBars;
+		var ticks = _tickRepository.ReadTicks(table, loadFrom, to).ToList();
+		var trainingStartIndex = ticks.FindIndex(t => t.Timestamp >= trainingStart);
+		return trainingStartIndex < 0 ? EpisodeData.Empty : new EpisodeData(ticks, trainingStartIndex);
 	}
 
-	private IReadOnlyList<Tick> RandomUnrestrictedWindow(DataOptionsModel data, TimeSpan fetchSpan, Random random)
+	// Mirrors TrainPageV2's own EffectiveTrainingBars calc, since this is the same question
+	// phrased for data-fetching rather than display: how many bars does one episode train on.
+	private static int TrainingBars(EpisodeTimingOptionsModel episodeTiming, int barWidthSeconds)
 	{
-		var latestStart = data.To - fetchSpan;
+		if (!episodeTiming.RestrictEpisodeTiming)
+			return episodeTiming.TrainingBars;
+
+		var sessionEnd = episodeTiming.SessionEnd ?? TimeSpan.FromHours(24);
+		return (int)((sessionEnd - episodeTiming.SessionStart).TotalSeconds / barWidthSeconds);
+	}
+
+	private EpisodeData RandomUnrestrictedWindow(DataOptionsModel data, TimeSpan featureSpan, TimeSpan trainingSpan, Random random)
+	{
+		var latestStart = data.To - trainingSpan;
 		for (var attempt = 0; attempt < MaxRandomWindowAttempts; attempt++)
 		{
 			var start =
 				latestStart <= data.From
 					? data.From
 					: data.From.AddTicks((long)(random.NextDouble() * (latestStart - data.From).Ticks));
-			var ticks = _tickRepository.ReadTicks(data.Table, start, start + fetchSpan).ToList();
-			if (ticks.Count > 0)
-				return ticks;
+			var episode = Load(data.Table, start - featureSpan, start + trainingSpan, start);
+			if (episode.TrainingTickCount > 0)
+				return episode;
 		}
 
 		_logger.LogWarning(
@@ -88,13 +94,14 @@ internal sealed class DataProvider
 			data.Table,
 			data.From
 		);
-		return _tickRepository.ReadTicks(data.Table, data.From, data.From + fetchSpan).ToList();
+		return Load(data.Table, data.From - featureSpan, data.From + trainingSpan, data.From);
 	}
 
-	private IReadOnlyList<Tick> RandomConstrainedWindow(
+	private EpisodeData RandomConstrainedWindow(
 		DataOptionsModel data,
 		EpisodeTimingOptionsModel episodeTiming,
-		TimeSpan fetchSpan,
+		TimeSpan featureSpan,
+		TimeSpan trainingSpan,
 		Random random
 	)
 	{
@@ -105,17 +112,16 @@ internal sealed class DataProvider
 				"DataProvider: no eligible day in {Table} for the configured weekday/session filters",
 				data.Table
 			);
-			return [];
+			return EpisodeData.Empty;
 		}
 
 		var sessionStart = episodeTiming.SessionStart;
 		for (var attempt = 0; attempt < MaxRandomWindowAttempts; attempt++)
 		{
-			var day = eligibleDays[random.Next(eligibleDays.Count)];
-			var start = day + sessionStart;
-			var ticks = _tickRepository.ReadTicks(data.Table, start, start + fetchSpan).ToList();
-			if (ticks.Count > 0)
-				return ticks;
+			var start = eligibleDays[random.Next(eligibleDays.Count)] + sessionStart;
+			var episode = Load(data.Table, start - featureSpan, start + trainingSpan, start);
+			if (episode.TrainingTickCount > 0)
+				return episode;
 		}
 
 		_logger.LogWarning(
@@ -124,7 +130,7 @@ internal sealed class DataProvider
 			data.Table
 		);
 		var fallbackStart = eligibleDays[0] + sessionStart;
-		return _tickRepository.ReadTicks(data.Table, fallbackStart, fallbackStart + fetchSpan).ToList();
+		return Load(data.Table, fallbackStart - featureSpan, fallbackStart + trainingSpan, fallbackStart);
 	}
 
 	private static IEnumerable<DateTime> EligibleDays(DateTime from, DateTime to, EpisodeTimingOptionsModel episodeTiming)

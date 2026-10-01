@@ -102,8 +102,10 @@ internal sealed class TrainingEngineService
 		if (positionControl.Validate() is { } controlError)
 			throw new InvalidOperationException($"Position Control is invalid: {controlError}");
 
-		var ticks = _dataProvider.GetEpisodeWindow(options.Data, options.Training.EpisodeTiming, options.BarWidthSeconds, random);
-		if (ticks.Count == 0)
+		var episodeData = _dataProvider.GetEpisodeWindow(options.Data, options.Training.EpisodeTiming, options.BarWidthSeconds, random);
+		var ticks = episodeData.Ticks;
+		var trainingStartIndex = episodeData.TrainingStartIndex;
+		if (episodeData.TrainingTickCount == 0)
 		{
 			_logger.LogWarning("TrainingEngine: episode window for {Table} came back empty, skipping episode", options.Data.Table);
 			return EpisodeResult.Empty;
@@ -119,7 +121,13 @@ internal sealed class TrainingEngineService
 		);
 		var decisionMask = new DecisionMask(options.Training.DecisionMasking);
 
-		var episodeStart = ticks[0].Timestamp;
+		var dataStart = ticks[0].Timestamp;
+		var featureWindow = TimeSpan.FromSeconds(options.Features.TxFold.SelectedSeconds?.DefaultIfEmpty(0).Max() ?? 0);
+		var episodeStart = ticks[trainingStartIndex].Timestamp;
+		var episodeEnd = ticks[^1].Timestamp;
+		var trainingPrices = ticks.Skip(trainingStartIndex).Select(t => t.Bid).ToList();
+		var episodeMinPrice = trainingPrices.Min();
+		var episodeMaxPrice = trainingPrices.Max();
 		var ticksSoFar = new TickWindow(ticks, 0, 0);
 		var steps = new List<EpisodeStep>();
 		var traces = new List<DecisionTrace>();
@@ -131,7 +139,7 @@ internal sealed class TrainingEngineService
 		var totalReward = 0.0;
 		var barBuilder = new LiveBarBuilder(options.BarWidthSeconds);
 
-		var previousDecisionEquity = trader.Snapshot(ticks[0].Bid, ticks[0].Ask).Equity;
+		var previousDecisionEquity = trader.Snapshot(ticks[trainingStartIndex].Bid, ticks[trainingStartIndex].Ask).Equity;
 		var reportedTradeCount = 0;
 		var owedDelay = TimeSpan.Zero;
 		IReadOnlyList<Trade> closedTradesCopy = [];
@@ -170,7 +178,15 @@ internal sealed class TrainingEngineService
 			owedDelay = TimeSpan.Zero;
 		}
 
-		for (var tickIndex = 0; tickIndex < ticks.Count; tickIndex++)
+		var historyBars = new List<CTraderBarRow>();
+		for (var warmupIndex = 0; warmupIndex < trainingStartIndex; warmupIndex++)
+		{
+			ticksSoFar.ExtendTo(warmupIndex + 1);
+			if (barBuilder.Feed(ticks[warmupIndex]).JustClosed is { } closedHistoryBar)
+				historyBars.Add(closedHistoryBar);
+		}
+
+		for (var tickIndex = trainingStartIndex; tickIndex < ticks.Count; tickIndex++)
 		{
 			var tick = ticks[tickIndex];
 			ticksSoFar.ExtendTo(tickIndex + 1);
@@ -208,8 +224,8 @@ internal sealed class TrainingEngineService
 						tradesChanged ? [.. trader.TradeLog] : null,
 						preview?.Masked,
 						preview?.PreMask,
-						ticksSoFar.Count,
-						ticks.Count
+						ticksSoFar.Count - trainingStartIndex,
+						ticks.Count - trainingStartIndex
 					)
 				);
 			}
@@ -281,8 +297,14 @@ internal sealed class TrainingEngineService
 					ClosedTradesCopiedOnChange(),
 					trader.CurrentPosition,
 					forwardOutputs[..actionSpace.DirectionOutputWidth],
-					ticksSoFar.Count,
-					ticks.Count
+					ticksSoFar.Count - trainingStartIndex,
+					ticks.Count - trainingStartIndex,
+					episodeEnd,
+					episodeMinPrice,
+					episodeMaxPrice,
+					dataStart,
+					historyBars,
+					featureWindow
 				)
 			);
 

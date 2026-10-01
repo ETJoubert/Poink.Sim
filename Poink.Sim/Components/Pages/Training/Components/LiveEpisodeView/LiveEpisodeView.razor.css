@@ -149,7 +149,7 @@
    (e.g. "last action" or the timestamp) can never shift where any other stat sits. */
 .lev-status-row {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
     gap: 10px;
 }
 
@@ -164,6 +164,10 @@
     background: color-mix(in srgb, var(--color-primary) 4%, transparent);
 }
 
+.lev-stat-wide {
+    grid-column: span 2;
+}
+
 .lev-stat-label {
     font-size: 0.6rem;
     text-transform: uppercase;
@@ -173,7 +177,7 @@
 }
 
 .lev-stat-value {
-    font-size: 0.92rem;
+    font-size: 0.78rem;
     font-weight: 600;
     overflow: hidden;
     text-overflow: ellipsis;

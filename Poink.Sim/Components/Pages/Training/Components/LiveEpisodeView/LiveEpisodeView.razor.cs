@@ -67,6 +67,27 @@ namespace Poink.Sim.Components.Training
 		[Parameter]
 		public DateTime? EpisodeStart { get; set; }
 
+		/// <summary>Start of the preloaded feature window -- TxFold's coverage meter measures history from here, not from the training start.</summary>
+		[Parameter]
+		public DateTime? DataStart { get; set; }
+
+		private IReadOnlyList<ChartVerticalLine> _episodeLines = [];
+		private DateTime? _episodeLinesStart;
+
+		// Rebuilt only when the training start changes -- the chart redraws its lines whenever the reference changes.
+		private IReadOnlyList<ChartVerticalLine> EpisodeLines
+		{
+			get
+			{
+				if (_episodeLinesStart != EpisodeStart)
+				{
+					_episodeLinesStart = EpisodeStart;
+					_episodeLines = EpisodeStart is { } start ? [new ChartVerticalLine(start, "TRAINING START")] : [];
+				}
+				return _episodeLines;
+			}
+		}
+
 		/// <summary>Display-only levels of the trader's open position, drawn on TxFold -- null hides them.</summary>
 		[Parameter]
 		public double? PositionVolume { get; set; }

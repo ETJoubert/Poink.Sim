@@ -48,7 +48,7 @@
     else
     {
         <div class="lev-status-row">
-            <div class="lev-stat" title="Timestamp of the most recent decision">
+            <div class="lev-stat lev-stat-wide" title="Timestamp of the most recent decision">
                 <span class="lev-stat-label">time</span>
                 <span class="lev-stat-value">@Timestamp?.ToString("yyyy-MM-dd HH:mm:ss")</span>
             </div>
@@ -85,23 +85,23 @@
                 <span class="lev-stat-value">@(PositionVolume?.ToString("0.####") ?? "--")</span>
             </div>
             <div class="lev-stat" title="Stop-loss price of the open position">
-                <span class="lev-stat-label">stop-loss</span>
+                <span class="lev-stat-label">SL</span>
                 <span class="lev-stat-value">@(StopLossPrice?.ToString("0.#####") ?? "--")</span>
             </div>
             <div class="lev-stat" title="Take-profit price of the open position">
-                <span class="lev-stat-label">take-profit</span>
+                <span class="lev-stat-label">TP</span>
                 <span class="lev-stat-value">@(TakeProfitPrice?.ToString("0.#####") ?? "--")</span>
             </div>
-            <div class="lev-stat" title="Projected loss if the stop-loss is hit, and that loss as a percent of cash, before commission">
-                <span class="lev-stat-label">risk at stop</span>
-                <span class="lev-stat-value">@RiskAtStopText</span>
+            <div class="lev-stat lev-stat-wide" title="Projected loss if the stop-loss is hit, and that loss as a percent of cash, before commission">
+                <span class="lev-stat-label">R! at SL</span>
+                <span class="lev-stat-value lev-position-short">@RiskAtStopText</span>
             </div>
-            <div class="lev-stat" title="Projected profit if the take-profit is hit, and that profit as a percent of cash, before commission">
-                <span class="lev-stat-label">reward at target</span>
-                <span class="lev-stat-value">@RewardAtTargetText</span>
+            <div class="lev-stat lev-stat-wide" title="Projected profit if the take-profit is hit, and that profit as a percent of cash, before commission">
+                <span class="lev-stat-label">R at TP</span>
+                <span class="lev-stat-value lev-position-long">@RewardAtTargetText</span>
             </div>
             <div class="lev-stat" title="Projected reward divided by risk for the open position">
-                <span class="lev-stat-label">reward : risk</span>
+                <span class="lev-stat-label">R : R!</span>
                 <span class="lev-stat-value">@RewardRiskText</span>
             </div>
             <div class="lev-stat" title="Trades closed so far this episode">
@@ -134,7 +134,7 @@
         @if (ShowMarketChart)
         {
             <div class="lev-card lev-card-nopad lev-panel" title="Live price chart built from the current episode's ticks">
-                <MarketChartContainer Bars="Bars" Interactive="false" LiveMode="true" CurrentBid="@Bid" CurrentAsk="@Ask" />
+                <MarketChartContainer Bars="Bars" VerticalLines="EpisodeLines" Interactive="false" LiveMode="true" CurrentBid="@Bid" CurrentAsk="@Ask" />
             </div>
         }
         @if (ShowXGrid)
@@ -147,7 +147,7 @@
         @if (ShowTxFold)
         {
             <div class="lev-card lev-card-nopad lev-panel" title="TxFold snapshot for the episode's symbol, anchored to the current decision's time, with the open position's entry, stop-loss and take-profit">
-                <TxFold Table="@Table" AnchorEnd="@(Timestamp ?? DateTime.UtcNow)" RangeStart="@(EpisodeStart ?? Timestamp ?? DateTime.UtcNow)"
+                <TxFold Table="@Table" AnchorEnd="@(Timestamp ?? DateTime.UtcNow)" RangeStart="@(DataStart ?? EpisodeStart ?? Timestamp ?? DateTime.UtcNow)"
                         LatestPrice="@(HasSnapshot ? (Bid + Ask) / 2 : null)" EntryPrice="EntryPrice" PositionIsLong="PositionIsLong"
                         StopLossPrice="StopLossPrice" TakeProfitPrice="TakeProfitPrice" />
             </div>
