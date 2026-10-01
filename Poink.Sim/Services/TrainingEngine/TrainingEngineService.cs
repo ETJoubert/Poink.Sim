@@ -129,6 +129,18 @@ internal sealed class TrainingEngineService
 		var previousDecisionEquity = trader.Snapshot(ticks[0].Bid, ticks[0].Ask).Equity;
 		var reportedTradeCount = 0;
 		var owedDelay = TimeSpan.Zero;
+		IReadOnlyList<Trade> closedTradesCopy = [];
+		var copiedTradeCount = 0;
+
+		IReadOnlyList<Trade> ClosedTradesCopiedOnChange()
+		{
+			if (trader.TradeLog.Count != copiedTradeCount)
+			{
+				closedTradesCopy = [.. trader.TradeLog];
+				copiedTradeCount = closedTradesCopy.Count;
+			}
+			return closedTradesCopy;
+		}
 		var previewClock = Stopwatch.StartNew();
 		var previewInterval = MinPreviewInterval;
 
@@ -207,7 +219,7 @@ internal sealed class TrainingEngineService
 				ticksSoFar,
 				tick.Timestamp,
 				episodeStart,
-				BuildTraderStateSnapshot(trader, bid, ask)
+				BuildTraderStateSnapshot(trader, bid, ask, options.Features.TraderState.PreviousTradesCount)
 			);
 			var vector = _featureAssembler.Flatten(featureModel);
 			var (forwardOutputs, activations) = network.ForwardWithActivations(vector.Values);
@@ -238,7 +250,7 @@ internal sealed class TrainingEngineService
 					action,
 					rawOutputs[..actionSpace.DirectionOutputWidth],
 					capitalAfter,
-					[.. trader.TradeLog],
+					ClosedTradesCopiedOnChange(),
 					trader.CurrentPosition,
 					forwardOutputs[..actionSpace.DirectionOutputWidth],
 					ticksSoFar.Count,
@@ -285,7 +297,7 @@ internal sealed class TrainingEngineService
 			ticksSoFar,
 			tick.Timestamp,
 			episodeStart,
-			BuildTraderStateSnapshot(trader, tick.Bid, tick.Ask)
+			BuildTraderStateSnapshot(trader, tick.Bid, tick.Ask, options.Features.TraderState.PreviousTradesCount)
 		);
 		var outputs = network.Forward(_featureAssembler.Flatten(featureModel).Values);
 		var masked = MaskIllegalDirections(outputs, actionSpace, trader.CurrentPosition, options.Output.ActionMasking);
@@ -333,13 +345,13 @@ internal sealed class TrainingEngineService
 		return -1;
 	}
 
-	private static TraderStateSnapshot BuildTraderStateSnapshot(ITrader trader, double bid, double ask)
+	private static TraderStateSnapshot BuildTraderStateSnapshot(ITrader trader, double bid, double ask, int previousTradesCount)
 	{
 		var snapshot = trader.Snapshot(bid, ask);
-		var previousTradesRealized = trader.TradeLog
-			.Reverse()
-			.Select(t => RiskHelper.PercentOfBalance(t.RealizedPnl, trader.Cash) ?? 0)
-			.ToList();
+		var log = trader.TradeLog;
+		var previousTradesRealized = new List<double>(Math.Min(previousTradesCount, log.Count));
+		for (var i = log.Count - 1; i >= 0 && previousTradesRealized.Count < previousTradesCount; i--)
+			previousTradesRealized.Add(RiskHelper.PercentOfBalance(log[i].RealizedPnl, trader.Cash) ?? 0);
 		return new(
 			RiskHelper.PercentOfBalance(snapshot.UnrealizedPnl, trader.Cash) ?? 0,
 			RiskHelper.PercentOfBalance(snapshot.RealizedPnl, trader.Cash) ?? 0,

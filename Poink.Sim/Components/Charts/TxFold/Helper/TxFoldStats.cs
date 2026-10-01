@@ -24,7 +24,9 @@ internal static class TxFoldStats
 		DateTime anchorEnd,
 		DateTime rangeStart,
 		IReadOnlyCollection<int> lookbackSeconds,
-		BarAggregationKind kind
+		BarAggregationKind kind,
+		bool includeLevels = true,
+		bool includeVolumeProfile = true
 	)
 	{
 		var distinctSeconds = lookbackSeconds.Distinct().OrderBy(seconds => seconds).ToList();
@@ -42,8 +44,9 @@ internal static class TxFoldStats
 			}
 		}
 
-		var levels = RangeStatsHelper.Compute(ticks, t => (t.Bid + t.Ask) / 2.0);
-		return new TxFoldSnapshot(bars, BuildVolumeProfile(ticks), levels);
+		var levels = includeLevels ? RangeStatsHelper.Compute(ticks, t => (t.Bid + t.Ask) / 2.0) : null;
+		var volumeProfile = includeVolumeProfile ? BuildVolumeProfile(ticks) : Array.Empty<TxFoldVolumeBucket>();
+		return new TxFoldSnapshot(bars, volumeProfile, levels);
 	}
 
 	// Shared by the chart's own level overlay (TxFold.razor.cs) and FeatureAssembler's level feature values.
@@ -84,6 +87,8 @@ internal static class TxFoldStats
 			.Select(b => new TxFoldVolumeBucket(b.Low, b.High, (int)b.Weight))
 			.ToList();
 	}
+
+	public static int WindowStartIndex(IReadOnlyList<Tick> ticks, DateTime from) => LowerBound(ticks, from);
 
 	private static int LowerBound(IReadOnlyList<Tick> ticks, DateTime from)
 	{
