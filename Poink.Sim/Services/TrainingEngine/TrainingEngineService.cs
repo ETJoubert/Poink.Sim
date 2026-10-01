@@ -90,6 +90,7 @@ internal sealed class TrainingEngineService
 		Action<LiveEpisodeSnapshot>? onDecision = null,
 		Action<LiveTickSnapshot>? onTick = null,
 		Func<TimeSpan>? tickDelay = null,
+		Func<bool>? isActionPreviewWanted = null,
 		Func<bool>? isPaused = null,
 		CancellationToken cancellationToken = default
 	)
@@ -129,6 +130,7 @@ internal sealed class TrainingEngineService
 		var reportedTradeCount = 0;
 		var owedDelay = TimeSpan.Zero;
 		var previewClock = Stopwatch.StartNew();
+		var previewInterval = MinPreviewInterval;
 
 		// Sleeps are batched because Task.Delay can't honour sub-timer-resolution waits tick by tick.
 		async Task PaceAsync()
@@ -149,11 +151,19 @@ internal sealed class TrainingEngineService
 
 			trader.Advance(bid, ask, tick.Timestamp);
 
+			var shouldDecide = decisionMask.ShouldDecide(tick.Timestamp);
+
 			if (onTick is not null)
 			{
-				(float[] Masked, float[] PreMask)? preview = previewClock.ElapsedMilliseconds >= PreviewIntervalMs
-					? PreviewDirectionOutputs(options, network, actionSpace, trader, ticksSoFar, episodeStart, tick, previewClock)
-					: null;
+				(float[] Masked, float[] PreMask)? preview = null;
+				var previewDue = !shouldDecide && previewClock.Elapsed >= previewInterval && (isActionPreviewWanted?.Invoke() ?? true);
+				if (previewDue)
+				{
+					var previewStarted = Stopwatch.GetTimestamp();
+					preview = PreviewDirectionOutputs(options, network, actionSpace, trader, ticksSoFar, episodeStart, tick);
+					previewInterval = Max(MinPreviewInterval, Stopwatch.GetElapsedTime(previewStarted) * PreviewOverheadFactor);
+					previewClock.Restart();
+				}
 				var tradesChanged = trader.TradeLog.Count != reportedTradeCount;
 				reportedTradeCount = trader.TradeLog.Count;
 				onTick(
@@ -167,12 +177,14 @@ internal sealed class TrainingEngineService
 						trader.CurrentPosition,
 						tradesChanged ? [.. trader.TradeLog] : null,
 						preview?.Masked,
-						preview?.PreMask
+						preview?.PreMask,
+						ticksSoFar.Count,
+						ticks.Count
 					)
 				);
 			}
 
-			if (!decisionMask.ShouldDecide(tick.Timestamp))
+			if (!shouldDecide)
 			{
 				await PaceAsync();
 				continue;
@@ -228,7 +240,9 @@ internal sealed class TrainingEngineService
 					capitalAfter,
 					[.. trader.TradeLog],
 					trader.CurrentPosition,
-					forwardOutputs[..actionSpace.DirectionOutputWidth]
+					forwardOutputs[..actionSpace.DirectionOutputWidth],
+					ticksSoFar.Count,
+					ticks.Count
 				)
 			);
 
@@ -247,10 +261,15 @@ internal sealed class TrainingEngineService
 		return new EpisodeResult(steps, trader.Snapshot(lastTick.Bid, lastTick.Ask), trader.TradeLog, totalReward);
 	}
 
-	private const long PreviewIntervalMs = 50;
+	private static readonly TimeSpan MinPreviewInterval = TimeSpan.FromMilliseconds(50);
+
+	// Spacing previews at this multiple of their own cost caps their share of training time near 1/factor.
+	private const int PreviewOverheadFactor = 10;
+
+	private static TimeSpan Max(TimeSpan a, TimeSpan b) => a >= b ? a : b;
 
 	// A forward pass over every tick's features is too costly at high playback speeds, so the Live tab's
-	// action preview refreshes on a wall-clock throttle.
+	// action preview refreshes on a throttle that backs off as the pass gets slower.
 	private (float[] Masked, float[] PreMask) PreviewDirectionOutputs(
 		TrainingOptionsModel options,
 		MlpNetwork network,
@@ -258,11 +277,9 @@ internal sealed class TrainingEngineService
 		ITrader trader,
 		IReadOnlyList<Tick> ticksSoFar,
 		DateTime episodeStart,
-		Tick tick,
-		Stopwatch previewClock
+		Tick tick
 	)
 	{
-		previewClock.Restart();
 		var featureModel = _featureAssembler.Assemble(
 			options.Features,
 			ticksSoFar,

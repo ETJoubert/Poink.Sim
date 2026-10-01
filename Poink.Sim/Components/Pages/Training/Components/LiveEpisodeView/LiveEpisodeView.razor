@@ -29,6 +29,12 @@
         <span class="lev-episode-count" title="Episodes completed this run, out of the configured target">
             @EpisodesCompleted / @TargetEpisodeCount episodes
         </span>
+        <div class="lev-episode-progress" title="@($"Progress through the current episode's ticks: {EpisodeProgress:P0} -- starts over with each new episode")">
+            <div class="lev-episode-progress-track">
+                <div class="lev-episode-progress-fill" style="width: @((Math.Clamp(EpisodeProgress, 0, 1) * 100).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture))%"></div>
+            </div>
+            <span class="lev-episode-progress-label">@EpisodeProgress.ToString("P0")</span>
+        </div>
     </div>
     @if (RunError is not null)
     {
@@ -206,7 +212,7 @@
         }
         @if (ShowActions)
         {
-            <div class="lev-card lev-panel" title="The network's action probability distribution at the current tick, refreshed about every 50 ms, with the last decision's choice highlighted -- the inputs behind it are on the Features card">
+            <div class="lev-card lev-panel" title="The network's action probability distribution at the current tick, refreshed at most every 50 ms and less often when it gets costly, with the last decision's choice highlighted -- the inputs behind it are on the Features card">
                 <BrainIoPanel Outputs="ActionOutputs" ShowInputs="false" CurrentPrice="@((Bid + Ask) / 2)" Equity="@Equity" />
             </div>
         }

@@ -105,6 +105,35 @@
     white-space: nowrap;
 }
 
+.lev-episode-progress {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1 1 160px;
+    min-width: 120px;
+}
+
+.lev-episode-progress-track {
+    flex: 1;
+    height: 6px;
+    border-radius: 3px;
+    background: color-mix(in srgb, var(--color-primary) 15%, transparent);
+    overflow: hidden;
+}
+
+.lev-episode-progress-fill {
+    height: 100%;
+    background: var(--color-primary);
+}
+
+.lev-episode-progress-label {
+    font-size: 0.72rem;
+    color: var(--color-secondary);
+    font-variant-numeric: tabular-nums;
+    width: 34px;
+    text-align: right;
+}
+
 .lev-warning {
     font-size: 0.72rem;
     color: var(--color-warning);

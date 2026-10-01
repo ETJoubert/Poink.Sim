@@ -1033,6 +1033,7 @@
                                  CanDecreaseSpeed="@(_liveSpeedIndex > 0)" CanIncreaseSpeed="@(_liveSpeedIndex < LiveSpeedOptions.Length - 1)"
                                  OnDecreaseSpeed="DecreaseLiveSpeed" OnIncreaseSpeed="IncreaseLiveSpeed" OnMaxSpeed="MaxLiveSpeed"
                                  EpisodesCompleted="_episodesCompleted" TargetEpisodeCount="TargetEpisodeCount"
+                                 EpisodeProgress="BuildLiveEpisodeProgress(live)"
                                  HasSnapshot="@(live is not null)"
                                  EpisodeStart="@live?.Snapshot.EpisodeStart"
                                  PositionVolume="@live?.Snapshot.OpenPosition?.Size" EntryPrice="@live?.Snapshot.OpenPosition?.EntryPrice" PositionIsLong="@(live?.Snapshot.OpenPosition is { } open ? open.Direction == Poink.Sim.Models.PositionDirection.Long : null)"

@@ -20,5 +20,7 @@ internal sealed record LiveTickSnapshot(
 	Position? OpenPosition,
 	IReadOnlyList<Trade>? ClosedTrades,
 	IReadOnlyList<float>? RawDirectionOutputs = null,
-	IReadOnlyList<float>? PreMaskDirectionOutputs = null
+	IReadOnlyList<float>? PreMaskDirectionOutputs = null,
+	int TicksProcessed = 0,
+	int TicksTotal = 0
 );

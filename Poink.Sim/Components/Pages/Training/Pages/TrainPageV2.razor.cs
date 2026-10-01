@@ -1025,6 +1025,7 @@ namespace Poink.Sim.Components.Pages
 				_backgroundMode ? null : OnLiveDecision,
 				_backgroundMode ? null : OnLiveTick,
 				() => _backgroundMode ? TimeSpan.Zero : LiveTickDelay,
+				() => _activeTab == TrainV2Tab.Live && _liveShowActions,
 				() => _isPaused,
 				cancellationToken
 			);
@@ -1194,6 +1195,8 @@ namespace Poink.Sim.Components.Pages
 				ClosedTrades = tick.ClosedTrades ?? previous.Snapshot.ClosedTrades,
 				RawDirectionOutputs = tick.RawDirectionOutputs ?? previous.Snapshot.RawDirectionOutputs,
 				PreMaskDirectionOutputs = tick.PreMaskDirectionOutputs ?? previous.Snapshot.PreMaskDirectionOutputs,
+				TicksProcessed = tick.TicksProcessed,
+				TicksTotal = tick.TicksTotal,
 			};
 			_liveState = previous with { Snapshot = snapshot, Bars = bars };
 
@@ -1216,6 +1219,9 @@ namespace Poink.Sim.Components.Pages
 
 		private IReadOnlyList<TxFoldGridRow> BuildLiveTxFoldRows(LiveUiState? live) =>
 			live is { } s ? FeatureDisplayFormatter.BuildTxFoldGrid(s.Snapshot.Features, _txFoldBarKind) : [];
+
+		private static double BuildLiveEpisodeProgress(LiveUiState? live) =>
+			live is { Snapshot.TicksTotal: > 0 } s ? (double)s.Snapshot.TicksProcessed / s.Snapshot.TicksTotal : 0;
 
 		private static TimeSpan? BuildLiveTimePassed(LiveUiState? live) =>
 			live is { } s ? s.Snapshot.Timestamp - s.Snapshot.EpisodeStart : null;

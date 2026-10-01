@@ -60,6 +60,10 @@ namespace Poink.Sim.Components.Training
 		[Parameter]
 		public DateTime? Timestamp { get; set; }
 
+		/// <summary>Fraction of the current episode's ticks already played, 0 to 1 -- resets with each new episode.</summary>
+		[Parameter]
+		public double EpisodeProgress { get; set; }
+
 		[Parameter]
 		public DateTime? EpisodeStart { get; set; }
 
