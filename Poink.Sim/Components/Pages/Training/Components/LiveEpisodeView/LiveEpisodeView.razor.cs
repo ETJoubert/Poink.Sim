@@ -67,6 +67,40 @@ namespace Poink.Sim.Components.Training
 		[Parameter]
 		public DateTime? EpisodeStart { get; set; }
 
+		[Parameter]
+		public TimeSpan FeatureWindow { get; set; }
+
+		private IReadOnlyList<ChartRangeFill> FeatureWindowFills =>
+			Timestamp is { } now && FeatureWindow > TimeSpan.Zero
+				? [new ChartRangeFill(now - FeatureWindow, now, "FEATURE WINDOW", "reference")]
+				: [];
+
+		private IReadOnlyList<ChartVerticalLine> _trainingStartLines = [];
+		private DateTime? _trainingStartLineTime;
+
+		// A new list only when the start moves -- the chart redraws its lines whenever the reference changes.
+		private IReadOnlyList<ChartVerticalLine> TrainingStartLines
+		{
+			get
+			{
+				if (_trainingStartLineTime != EpisodeStart)
+				{
+					_trainingStartLineTime = EpisodeStart;
+					_trainingStartLines = EpisodeStart is { } start ? [new ChartVerticalLine(start, "TRAINING START")] : [];
+				}
+				return _trainingStartLines;
+			}
+		}
+
+		[Parameter]
+		public DateTime? EpisodeEnd { get; set; }
+
+		[Parameter]
+		public double? EpisodeMinPrice { get; set; }
+
+		[Parameter]
+		public double? EpisodeMaxPrice { get; set; }
+
 		/// <summary>Display-only levels of the trader's open position, drawn on TxFold -- null hides them.</summary>
 		[Parameter]
 		public double? PositionVolume { get; set; }

@@ -602,16 +602,16 @@ namespace Poink.Sim.Components.Pages
 			new(EpisodeSamplingMode.RandomFromSet, "Random from set",
 				"Each episode starts at a random point within the Data tab's selected range, sized/positioned by the fields below"),
 			new(EpisodeSamplingMode.EntireSet, "Entire set",
-				"Every episode runs over the Data tab's whole selected range, start to finish"),
+				"Every episode trains over the Data tab's whole selected range, start to finish, after preloading the feature window before it"),
 			new(EpisodeSamplingMode.WindowSelected, "Window selected",
-				"Every episode runs over the exact range marked with the LOOKBACK WINDOW tool on the chart below"),
+				"Every episode trains over the exact range marked with the LOOKBACK WINDOW tool on the chart below, after preloading the feature window before it"),
 		];
 
 		private EpisodeSamplingMode _episodeSamplingMode = EpisodeSamplingMode.RandomFromSet;
 
 		private List<ChartRangeFill> PreviewRangeFills() =>
 			_previewWindowStart is { } start && _previewWindowEnd is { } end
-				? [new ChartRangeFill(start, end, "LOOKBACK WINDOW", "volume")]
+				? [new ChartRangeFill(start - VisibleWindow, start, "FEATURE WINDOW", "reference"), new ChartRangeFill(start, end, "TRAINING WINDOW", "volume")]
 				: [];
 
 		// The marked window itself is the episode's training set -- Visible bars is still a separate
@@ -622,6 +622,20 @@ namespace Poink.Sim.Components.Pages
 				: 0;
 
 		private int WindowEpisodeBars => WindowTrainingBarCount + _visibleBars;
+
+		private (double Min, double Max)? WindowPriceRange
+		{
+			get
+			{
+				if (_previewWindowStart is not { } start || _previewWindowEnd is not { } end)
+					return null;
+
+				var barsInWindow = _previewBars.Where(b => b.OpenTime >= start && b.OpenTime <= end).ToList();
+				return barsInWindow.Count == 0 ? null : (barsInWindow.Min(b => b.Low), barsInWindow.Max(b => b.High));
+			}
+		}
+
+		private static string FormatTimestamp(DateTime time) => time.ToString("yyyy-MM-dd HH:mm:ss");
 
 		private async Task EnsurePreviewLoadedAsync()
 		{
@@ -1138,7 +1152,7 @@ namespace Poink.Sim.Components.Pages
 		{
 			var previous = _liveState;
 
-			var bars = previous?.Bars ?? [];
+			var bars = previous?.Bars ?? snapshot.HistoryBars?.TakeLast(MaxLiveBars).ToList() ?? [];
 			if (snapshot.ClosedBar is { } closed)
 			{
 				var updatedBars = new List<CTraderBarRow>(bars) { closed };

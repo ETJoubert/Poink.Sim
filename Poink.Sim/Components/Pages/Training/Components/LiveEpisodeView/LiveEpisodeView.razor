@@ -48,9 +48,29 @@
     else
     {
         <div class="lev-status-row">
-            <div class="lev-stat" title="Timestamp of the most recent decision">
+            <div class="lev-stat lev-stat-wide" title="Timestamp of the most recent decision">
                 <span class="lev-stat-label">time</span>
                 <span class="lev-stat-value">@Timestamp?.ToString("yyyy-MM-dd HH:mm:ss")</span>
+            </div>
+            <div class="lev-stat lev-stat-wide" title="Start of the trailing window the features read right now -- it slides forward with the current time">
+                <span class="lev-stat-label">feature window start</span>
+                <span class="lev-stat-value">@((Timestamp - FeatureWindow)?.ToString("yyyy-MM-dd HH:mm:ss"))</span>
+            </div>
+            <div class="lev-stat lev-stat-wide" title="Where the training window begins -- the first tick the trader acts on">
+                <span class="lev-stat-label">training start</span>
+                <span class="lev-stat-value">@EpisodeStart?.ToString("yyyy-MM-dd HH:mm:ss")</span>
+            </div>
+            <div class="lev-stat lev-stat-wide" title="Timestamp of the last tick in the training window">
+                <span class="lev-stat-label">training end</span>
+                <span class="lev-stat-value">@(EpisodeEnd?.ToString("yyyy-MM-dd HH:mm:ss") ?? "--")</span>
+            </div>
+            <div class="lev-stat" title="Lowest bid price inside the training window">
+                <span class="lev-stat-label">min price</span>
+                <span class="lev-stat-value">@(EpisodeMinPrice?.ToString("0.#####") ?? "--")</span>
+            </div>
+            <div class="lev-stat" title="Highest bid price inside the training window">
+                <span class="lev-stat-label">max price</span>
+                <span class="lev-stat-value">@(EpisodeMaxPrice?.ToString("0.#####") ?? "--")</span>
             </div>
             <div class="lev-stat" title="Simulated time elapsed since this episode started">
                 <span class="lev-stat-label">time passed</span>
@@ -134,7 +154,7 @@
         @if (ShowMarketChart)
         {
             <div class="lev-card lev-card-nopad lev-panel" title="Live price chart built from the current episode's ticks">
-                <MarketChartContainer Bars="Bars" Interactive="false" LiveMode="true" CurrentBid="@Bid" CurrentAsk="@Ask" />
+                <MarketChartContainer Bars="Bars" VerticalLines="TrainingStartLines" RangeFills="FeatureWindowFills" Interactive="false" LiveMode="true" CurrentBid="@Bid" CurrentAsk="@Ask" />
             </div>
         }
         @if (ShowXGrid)

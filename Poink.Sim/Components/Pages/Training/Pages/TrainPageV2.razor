@@ -529,38 +529,38 @@
                                     {
                                         <label class="trv2-field"
                                                title="Derived from the session length ÷ bar width while timing is restricted -- an episode's decisions span exactly the configured day/session, so this isn't picked independently">
-                                            Training bars
+                                            Training window (bars)
                                             <span class="trv2-decoding-value">@EffectiveTrainingBars</span>
                                         </label>
                                     }
                                     else
                                     {
                                         <label class="trv2-field"
-                                               title="How many bars the episode steps through making decisions -- the episode stops once the last training bar completes">
-                                            Training bars
+                                               title="How many bars the trader steps through making decisions -- the episode stops once the last training bar completes">
+                                            Training window (bars)
                                             <input class="trv2-input" type="number" min="1" @bind="_trainingBars" />
                                         </label>
                                     }
                                     <label class="trv2-field"
-                                           title="@($"Bars of history visible before the first training bar ({FormatWindow(VisibleWindow)} at the current bar width) -- must cover the Features tab's min data window, {MinimumVisibleBars} bars")">
-                                        Visible bars
+                                           title="@($"Bars of history preloaded before the training window ({FormatWindow(VisibleWindow)} at the current bar width) -- features read it, the trader never acts on it, and it must cover the Features tab's min data window, {MinimumVisibleBars} bars")">
+                                        Feature window (bars)
                                         <input class="trv2-input" type="number" min="@MinimumVisibleBars" @bind="_visibleBars" />
                                     </label>
                                     @if (!VisibleBarsCoverFeatures)
                                     {
                                         <span class="trv2-warning"
-                                              title="The selected features need more history than these bars provide -- raise Visible bars or trim features on the Features tab">
+                                              title="The selected features need more history than these bars provide -- raise Feature window or trim features on the Features tab">
                                             fewer than the features' min data window (@MinimumVisibleBars bars)
                                         </span>
                                     }
                                     <label class="trv2-field"
-                                           title="Total bars one episode needs -- visible bars + training bars">
-                                        Episode bars
+                                           title="Total bars one episode loads -- feature window + training window">
+                                        Total set (bars)
                                         <span class="trv2-decoding-value">@EpisodeBars</span>
                                     </label>
                                     <label class="trv2-field"
-                                           title="Time the episode's bars cover -- episode bars x bar width (Features tab)">
-                                        Episode span
+                                           title="Time the whole set covers -- total set bars x bar width (Features tab)">
+                                        Total set span
                                         <span class="trv2-decoding-value">@FormatWindow(EpisodeSpan)</span>
                                     </label>
                                     <label class="trv2-field"
@@ -594,37 +594,72 @@
                                 }
                                 else if (_episodeSamplingMode == EpisodeSamplingMode.EntireSet)
                                 {
-                                    <label class="trv2-field" title="Every episode runs over the Data tab's whole selected range, start to finish">
-                                        Episode data
+                                    <label class="trv2-field" title="The trader trains over the Data tab's whole selected range, start to finish">
+                                        Training window
                                         <span class="trv2-decoding-value">entire range (@FormatSpan(_to - _from))</span>
+                                    </label>
+                                    <label class="trv2-field"
+                                           title="@($"Bars of history preloaded before the range ({FormatWindow(VisibleWindow)} at the current bar width) -- features read it, the trader never acts on it, and it must cover the Features tab's min data window, {MinimumVisibleBars} bars")">
+                                        Feature window (bars)
+                                        <input class="trv2-input" type="number" min="@MinimumVisibleBars" @bind="_visibleBars" />
+                                    </label>
+                                    @if (!VisibleBarsCoverFeatures)
+                                    {
+                                        <span class="trv2-warning"
+                                              title="The selected features need more history than these bars provide -- raise Feature window or trim features on the Features tab">
+                                            fewer than the features' min data window (@MinimumVisibleBars bars)
+                                        </span>
+                                    }
+                                    <label class="trv2-field" title="Time the whole set covers -- feature window + the selected range">
+                                        Total set span
+                                        <span class="trv2-decoding-value">@FormatSpan(VisibleWindow + (_to - _from))</span>
                                     </label>
                                 }
                                 else
                                 {
                                     @if (_previewWindowStart is { } windowStart && _previewWindowEnd is { } windowEnd)
                                     {
-                                        <label class="trv2-field" title="Range marked with the LOOKBACK WINDOW tool on the chart">
-                                            Episode data
+                                        <label class="trv2-field" title="Range marked with the LOOKBACK WINDOW tool on the chart -- the only part the trader trains on">
+                                            Training window
                                             <span class="trv2-decoding-value">@FormatSpan(windowEnd - windowStart)</span>
                                         </label>
+                                        <label class="trv2-field" title="Start of the training window (UTC)">
+                                            Training start
+                                            <span class="trv2-decoding-value">@FormatTimestamp(windowStart)</span>
+                                        </label>
+                                        <label class="trv2-field" title="End of the training window (UTC)">
+                                            Training end
+                                            <span class="trv2-decoding-value">@FormatTimestamp(windowEnd)</span>
+                                        </label>
+                                        @if (WindowPriceRange is { } priceRange)
+                                        {
+                                            <label class="trv2-field" title="Lowest bar low inside the training window">
+                                                Min price
+                                                <span class="trv2-decoding-value">@priceRange.Min.ToString("0.#####")</span>
+                                            </label>
+                                            <label class="trv2-field" title="Highest bar high inside the training window">
+                                                Max price
+                                                <span class="trv2-decoding-value">@priceRange.Max.ToString("0.#####")</span>
+                                            </label>
+                                        }
                                         <label class="trv2-field"
-                                               title="@($"Bars of history visible before the training set begins ({FormatWindow(VisibleWindow)} at the current bar width) -- must cover the Features tab's min data window, {MinimumVisibleBars} bars")">
-                                            Visible bars
+                                               title="@($"Bars of history preloaded before the training window ({FormatWindow(VisibleWindow)} at the current bar width) -- features read it, the trader never acts on it, and it must cover the Features tab's min data window, {MinimumVisibleBars} bars")">
+                                            Feature window (bars)
                                             <input class="trv2-input" type="number" min="@MinimumVisibleBars" @bind="_visibleBars" />
                                         </label>
                                         @if (!VisibleBarsCoverFeatures)
                                         {
                                             <span class="trv2-warning"
-                                                  title="The selected features need more history than these bars provide -- raise Visible bars or trim features on the Features tab">
+                                                  title="The selected features need more history than these bars provide -- raise Feature window or trim features on the Features tab">
                                                 fewer than the features' min data window (@MinimumVisibleBars bars)
                                             </span>
                                         }
-                                        <label class="trv2-field" title="Bars inside the marked window -- this is the episode's training set">
-                                            Training set
+                                        <label class="trv2-field" title="Bars inside the marked window -- the part the trader trains on">
+                                            Training window (bars)
                                             <span class="trv2-decoding-value">@WindowTrainingBarCount bars</span>
                                         </label>
-                                        <label class="trv2-field" title="Total bars one episode needs -- visible bars + training set">
-                                            Episode bars
+                                        <label class="trv2-field" title="Total bars one episode loads -- feature window + training window">
+                                            Total set (bars)
                                             <span class="trv2-decoding-value">@WindowEpisodeBars</span>
                                         </label>
                                     }
@@ -1058,7 +1093,8 @@
                                  EpisodesCompleted="_episodesCompleted" TargetEpisodeCount="TargetEpisodeCount"
                                  EpisodeProgress="BuildLiveEpisodeProgress(live)"
                                  HasSnapshot="@(live is not null)"
-                                 EpisodeStart="@live?.Snapshot.EpisodeStart"
+                                 FeatureWindow="@(live?.Snapshot.FeatureWindow ?? TimeSpan.Zero)" EpisodeStart="@live?.Snapshot.EpisodeStart" EpisodeEnd="@live?.Snapshot.EpisodeEnd"
+                                 EpisodeMinPrice="@live?.Snapshot.EpisodeMinPrice" EpisodeMaxPrice="@live?.Snapshot.EpisodeMaxPrice"
                                  PositionVolume="@live?.Snapshot.OpenPosition?.Size" EntryPrice="@live?.Snapshot.OpenPosition?.EntryPrice" PositionIsLong="@(live?.Snapshot.OpenPosition is { } open ? open.Direction == Poink.Sim.Models.PositionDirection.Long : null)"
                                  StopLossPrice="@live?.Snapshot.OpenPosition?.StopLossPrice" TakeProfitPrice="@live?.Snapshot.OpenPosition?.TakeProfitPrice"
                                  Timestamp="@live?.Snapshot.Timestamp" TimePassed="BuildLiveTimePassed(live)" ActionCount="@(live?.ActionCount ?? 0)"
