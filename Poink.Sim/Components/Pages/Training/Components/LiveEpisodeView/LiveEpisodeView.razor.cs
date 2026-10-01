@@ -67,39 +67,26 @@ namespace Poink.Sim.Components.Training
 		[Parameter]
 		public DateTime? EpisodeStart { get; set; }
 
+		/// <summary>Start of the preloaded feature window -- TxFold's coverage meter measures history from here, not from the training start.</summary>
 		[Parameter]
-		public TimeSpan FeatureWindow { get; set; }
+		public DateTime? DataStart { get; set; }
 
-		private IReadOnlyList<ChartRangeFill> FeatureWindowFills =>
-			Timestamp is { } now && FeatureWindow > TimeSpan.Zero
-				? [new ChartRangeFill(now - FeatureWindow, now, "FEATURE WINDOW", "reference")]
-				: [];
+		private IReadOnlyList<ChartVerticalLine> _episodeLines = [];
+		private DateTime? _episodeLinesStart;
 
-		private IReadOnlyList<ChartVerticalLine> _trainingStartLines = [];
-		private DateTime? _trainingStartLineTime;
-
-		// A new list only when the start moves -- the chart redraws its lines whenever the reference changes.
-		private IReadOnlyList<ChartVerticalLine> TrainingStartLines
+		// Rebuilt only when the training start changes -- the chart redraws its lines whenever the reference changes.
+		private IReadOnlyList<ChartVerticalLine> EpisodeLines
 		{
 			get
 			{
-				if (_trainingStartLineTime != EpisodeStart)
+				if (_episodeLinesStart != EpisodeStart)
 				{
-					_trainingStartLineTime = EpisodeStart;
-					_trainingStartLines = EpisodeStart is { } start ? [new ChartVerticalLine(start, "TRAINING START")] : [];
+					_episodeLinesStart = EpisodeStart;
+					_episodeLines = EpisodeStart is { } start ? [new ChartVerticalLine(start, "TRAINING START")] : [];
 				}
-				return _trainingStartLines;
+				return _episodeLines;
 			}
 		}
-
-		[Parameter]
-		public DateTime? EpisodeEnd { get; set; }
-
-		[Parameter]
-		public double? EpisodeMinPrice { get; set; }
-
-		[Parameter]
-		public double? EpisodeMaxPrice { get; set; }
 
 		/// <summary>Display-only levels of the trader's open position, drawn on TxFold -- null hides them.</summary>
 		[Parameter]

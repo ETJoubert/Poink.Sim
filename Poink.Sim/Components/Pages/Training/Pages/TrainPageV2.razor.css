@@ -465,6 +465,29 @@
     font-weight: 600;
 }
 
+.trv2-stat-card-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+    gap: 10px;
+}
+
+.trv2-stat-card {
+    gap: 2px;
+    min-width: 0;
+    padding: 8px 10px;
+}
+
+.trv2-stat-card-wide {
+    grid-column: span 2;
+}
+
+.trv2-stat-card .trv2-stat-value {
+    font-size: 0.78rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 .trv2-charts-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);

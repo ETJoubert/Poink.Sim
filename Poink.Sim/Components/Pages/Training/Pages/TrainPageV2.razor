@@ -960,6 +960,36 @@
                         }
                     </div>
 
+                    @{
+                        var episode = _liveState?.Snapshot;
+                    }
+                    <div class="trv2-stat-card-row">
+                        <div class="trv2-card trv2-stat-card trv2-stat-card-wide" title="Start of the trailing window the features read right now -- it slides forward with the current time">
+                            <span class="trv2-stat-label">feature window start</span>
+                            <span class="trv2-stat-value">@(episode is null ? "--" : (episode.Timestamp - episode.FeatureWindow).ToString("yyyy-MM-dd HH:mm:ss"))</span>
+                        </div>
+                        <div class="trv2-card trv2-stat-card trv2-stat-card-wide" title="Where the training window begins -- the first tick the trader acts on">
+                            <span class="trv2-stat-label">training start</span>
+                            <span class="trv2-stat-value">@(episode?.EpisodeStart.ToString("yyyy-MM-dd HH:mm:ss") ?? "--")</span>
+                        </div>
+                        <div class="trv2-card trv2-stat-card trv2-stat-card-wide" title="Timestamp of the last tick in the training window">
+                            <span class="trv2-stat-label">training end</span>
+                            <span class="trv2-stat-value">@(episode?.EpisodeEnd.ToString("yyyy-MM-dd HH:mm:ss") ?? "--")</span>
+                        </div>
+                        <div class="trv2-card trv2-stat-card" title="Lowest bid price inside the training window">
+                            <span class="trv2-stat-label">min price</span>
+                            <span class="trv2-stat-value">@(episode?.EpisodeMinPrice.ToString("0.#####") ?? "--")</span>
+                        </div>
+                        <div class="trv2-card trv2-stat-card" title="Highest bid price inside the training window">
+                            <span class="trv2-stat-label">max price</span>
+                            <span class="trv2-stat-value">@(episode?.EpisodeMaxPrice.ToString("0.#####") ?? "--")</span>
+                        </div>
+                        <div class="trv2-card trv2-stat-card" title="Price difference across the training window -- max price minus min price">
+                            <span class="trv2-stat-label">price difference</span>
+                            <span class="trv2-stat-value">@(episode is null ? "--" : (episode.EpisodeMaxPrice - episode.EpisodeMinPrice).ToString("0.#####"))</span>
+                        </div>
+                    </div>
+
                     <div class="trv2-card trv2-run-controls">
                         @if (!_isRunning)
                         {
@@ -1093,8 +1123,7 @@
                                  EpisodesCompleted="_episodesCompleted" TargetEpisodeCount="TargetEpisodeCount"
                                  EpisodeProgress="BuildLiveEpisodeProgress(live)"
                                  HasSnapshot="@(live is not null)"
-                                 FeatureWindow="@(live?.Snapshot.FeatureWindow ?? TimeSpan.Zero)" EpisodeStart="@live?.Snapshot.EpisodeStart" EpisodeEnd="@live?.Snapshot.EpisodeEnd"
-                                 EpisodeMinPrice="@live?.Snapshot.EpisodeMinPrice" EpisodeMaxPrice="@live?.Snapshot.EpisodeMaxPrice"
+                                 DataStart="@live?.Snapshot.DataStart" EpisodeStart="@live?.Snapshot.EpisodeStart"
                                  PositionVolume="@live?.Snapshot.OpenPosition?.Size" EntryPrice="@live?.Snapshot.OpenPosition?.EntryPrice" PositionIsLong="@(live?.Snapshot.OpenPosition is { } open ? open.Direction == Poink.Sim.Models.PositionDirection.Long : null)"
                                  StopLossPrice="@live?.Snapshot.OpenPosition?.StopLossPrice" TakeProfitPrice="@live?.Snapshot.OpenPosition?.TakeProfitPrice"
                                  Timestamp="@live?.Snapshot.Timestamp" TimePassed="BuildLiveTimePassed(live)" ActionCount="@(live?.ActionCount ?? 0)"
