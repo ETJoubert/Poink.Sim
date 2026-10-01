@@ -7,13 +7,27 @@ using Poink.Sim.Models.TrainingModels;
 
 namespace Poink.Sim.Components.Pages.Training.Components.TrainedModelsPanel
 {
+	public enum ModelsPanelTab
+	{
+		Models,
+		History,
+	}
+
 	/// <summary>
-	/// The Models side panel's UI: save the current model, browse/load/delete saved models, and save, load
-	/// and delete the training results kept for the selected model. It only raises callbacks; the page
-	/// owns the run state those actions read and replace.
+	/// The Models side panel's UI: a Models tab to save the current model and browse/load/delete saved
+	/// ones, and a History tab to save, load and delete training results. Clicking a model's card selects
+	/// it, which filters History to that model until the card is clicked again. The tab buttons live in
+	/// the page's tab row; this only raises callbacks, and the page owns the run state those actions read
+	/// and replace.
 	/// </summary>
 	public partial class TrainedModelsPanel : ComponentBase
 	{
+		[Parameter]
+		public ModelsPanelTab ActiveTab { get; set; }
+
+		[Parameter]
+		public EventCallback OnDeselectModel { get; set; }
+
 		[Parameter, EditorRequired]
 		public IReadOnlyList<TrainedModelSummary> Models { get; set; } = [];
 
@@ -71,8 +85,6 @@ namespace Poink.Sim.Components.Pages.Training.Components.TrainedModelsPanel
 		private string _modelName = "";
 		private string _resultsName = "";
 
-		private string? SelectedModelName => Models.FirstOrDefault(m => m.Id == SelectedModelId)?.Name;
-
 		private bool OverwritesExistingModel => Models.Any(m => m.Name == _modelName.Trim());
 
 		private bool SaveModelEnabled => CanSaveModel && !string.IsNullOrWhiteSpace(_modelName);
@@ -92,6 +104,10 @@ namespace Poink.Sim.Components.Pages.Training.Components.TrainedModelsPanel
 		private string LoadResultsTitle =>
 			LoadBlockedReason is { } reason && !CanLoad ? reason : "Shows these saved results on the Run tab until the next run starts";
 
+		private Task ToggleModelRow(ModelRow row) => row.Id == SelectedModelId ? OnDeselectModel.InvokeAsync() : OnSelectModel.InvokeAsync(row.Id);
+
+		private bool IsModelSelected(ModelRow row) => row.Id == SelectedModelId;
+
 		private Task SaveModelClicked() => OnSaveModel.InvokeAsync(_modelName);
 
 		private Task SaveResultsClicked() => OnSaveResults.InvokeAsync(_resultsName);
@@ -103,14 +119,32 @@ namespace Poink.Sim.Components.Pages.Training.Components.TrainedModelsPanel
 		// DataTable<TItem> reflects over public properties, so the summaries are flattened to display values here.
 		private sealed record ModelRow(Guid Id, string Name, int Episodes, long Weights, DateTime Saved);
 
-		private sealed record HistoryRow(Guid Id, string Name, int Episodes, double RecentAvgReward, double BestReward, double WorstReward, DateTime Saved);
+		private sealed record HistoryRow(
+			Guid Id,
+			string Name,
+			string Model,
+			int Episodes,
+			double RecentAvgReward,
+			double BestReward,
+			double WorstReward,
+			DateTime Saved
+		);
 
 		private List<ModelRow> ModelRows =>
 			Models.Select(m => new ModelRow(m.Id, m.Name, m.EpisodesTrained, m.WeightCount, m.UpdatedAt ?? m.CreatedAt)).ToList();
 
 		private List<HistoryRow> HistoryRows =>
 			History
-				.Select(h => new HistoryRow(h.Id, h.Name, h.EpisodesCompleted, h.RecentAverageReward, h.BestReward, h.WorstReward, h.CreatedAt))
+				.Select(h => new HistoryRow(
+					h.Id,
+					h.Name,
+					h.ModelName,
+					h.EpisodesCompleted,
+					h.RecentAverageReward,
+					h.BestReward,
+					h.WorstReward,
+					h.CreatedAt
+				))
 				.ToList();
 	}
 }

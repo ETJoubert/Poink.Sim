@@ -1,7 +1,8 @@
 .trv2-page {
     display: flex;
     flex-direction: column;
-    min-height: 100%;
+    flex: 1 1 0;
+    min-height: 0;
 }
 
 .trv2-header {
@@ -19,14 +20,35 @@
 
 .trv2-tabs {
     display: flex;
-    gap: 4px;
-    padding: 0 24px;
+    align-items: stretch;
+    padding: 0 0 0 24px;
     border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
-    position: sticky;
-    top: 0;
+    position: relative;
     z-index: 5;
+    flex-shrink: 0;
     background: var(--color-bg-dark);
     box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+}
+
+.trv2-tabs-main {
+    display: flex;
+    gap: 4px;
+    flex: 1;
+    min-width: 0;
+}
+
+.trv2-tabs-panel {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+    padding: 0 10px;
+    border-left: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+.trv2-tabs-panel-open {
+    width: 420px;
+    box-sizing: border-box;
 }
 
 .trv2-tab {
@@ -55,47 +77,36 @@
 
 .trv2-content {
     padding: 20px 24px 32px;
-    flex: 1;
 }
 
 .trv2-body {
     display: flex;
-    align-items: flex-start;
+    align-items: stretch;
     flex: 1;
+    min-height: 0;
 }
 
 .trv2-main {
-    display: flex;
-    flex-direction: column;
     flex: 1;
     min-width: 0;
-    min-height: 100%;
+    min-height: 0;
+    overflow-y: auto;
 }
 
 .trv2-side-panel {
-    position: sticky;
-    top: 0;
     display: flex;
     flex-direction: column;
     width: 420px;
     flex-shrink: 0;
-    max-height: 100vh;
+    min-height: 0;
     border-left: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
     background: var(--color-bg-dark);
     overflow: hidden;
-    transition: width 0.15s ease;
 }
 
 .trv2-side-panel-collapsed {
-    width: 36px;
-}
-
-.trv2-side-panel-header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px;
-    flex-shrink: 0;
+    width: 0;
+    border-left: none;
 }
 
 .trv2-side-panel-toggle {
@@ -123,19 +134,11 @@
     height: 12px;
 }
 
-.trv2-side-panel-label {
-    font-size: 0.72rem;
-    font-weight: bold;
-    letter-spacing: 0.1em;
-    color: var(--color-accent);
-    white-space: nowrap;
-}
-
 .trv2-side-panel-content {
     flex: 1;
     min-height: 0;
     overflow-y: auto;
-    padding: 0 10px 16px;
+    padding: 10px 10px 16px;
 }
 
 .trv2-placeholder {

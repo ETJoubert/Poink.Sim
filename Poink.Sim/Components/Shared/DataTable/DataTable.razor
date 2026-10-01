@@ -41,16 +41,19 @@
             }
         </div>
 
-        <div class="data-table-view-toggle">
-            <button class="data-table-view-btn @(!_isCardView ? "active" : "")"
-                    @onclick='() => { _isCardView = false; CloseAllPickers(); }' title="Table view">
-                <Icon Name="list-ul" Class="dt-icon" />
-            </button>
-            <button class="data-table-view-btn @(_isCardView ? "active" : "")"
-                    @onclick='() => { _isCardView = true; CloseAllPickers(); }' title="Card view">
-                <Icon Name="grid-1x2-fill" Class="dt-icon" />
-            </button>
-        </div>
+        @if (!CardViewOnly)
+        {
+            <div class="data-table-view-toggle">
+                <button class="data-table-view-btn @(!_isCardView ? "active" : "")"
+                        @onclick='() => { _isCardView = false; CloseAllPickers(); }' title="Table view">
+                    <Icon Name="list-ul" Class="dt-icon" />
+                </button>
+                <button class="data-table-view-btn @(_isCardView ? "active" : "")"
+                        @onclick='() => { _isCardView = true; CloseAllPickers(); }' title="Card view">
+                    <Icon Name="grid-1x2-fill" Class="dt-icon" />
+                </button>
+            </div>
+        }
 
         @if (!_isCardView)
         {
@@ -301,12 +304,20 @@ else
             var idValue = idProp != null ? FormatValue(idProp.GetValue(item)) : "-";
             var cardFields = GetCardProperties().ToList();
             var isSelected = IsSelected(item);
-            <div class="data-table-card @(isSelected ? "data-table-card-selected" : "") @(EnableMultiSelect ? "data-table-card-selectable" : "")"
-                 @onclick="() => { if (EnableMultiSelect) ToggleSelectItem(item); }">
+            var cardTitle = CardTitle(item);
+            <div class="data-table-card @(IsCardHighlighted(item) ? "data-table-card-selected" : "") @(EnableMultiSelect || OnCardClick.HasDelegate ? "data-table-card-selectable" : "")"
+                 @onclick="() => HandleCardClick(item)">
                 <div class="data-table-card-header">
                     <div class="data-table-card-id">
-                        <span class="data-table-card-id-label">@idLabel</span>
-                        <span class="data-table-card-id-value">@idValue</span>
+                        @if (cardTitle is not null)
+                        {
+                            <span class="data-table-card-id-value">@cardTitle</span>
+                        }
+                        else
+                        {
+                            <span class="data-table-card-id-label">@idLabel</span>
+                            <span class="data-table-card-id-value">@idValue</span>
+                        }
                     </div>
                     @if (EnableMultiSelect)
                     {

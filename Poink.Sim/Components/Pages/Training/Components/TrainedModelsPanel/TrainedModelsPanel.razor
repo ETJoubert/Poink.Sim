@@ -7,58 +7,52 @@
         <div class="tmp-status @(StatusIsError ? "tmp-status-error" : "")" title="Outcome of the last save, load or delete">@StatusMessage</div>
     }
 
-    <div class="tmp-card" title="Save the model currently set up on the Run tab -- its options and trained weights">
-        <div class="tmp-title-row">
-            <span class="tmp-title" title="Keep the current network so it can be loaded and trained further later">Save Model</span>
+    @if (ActiveTab == ModelsPanelTab.Models)
+    {
+        <div class="tmp-card" title="Save the model currently set up on the Run tab -- its options and trained weights">
+            <div class="tmp-title-row">
+                <span class="tmp-title" title="Keep the current network so it can be loaded and trained further later">Save Model</span>
+            </div>
+            <label class="tmp-field" title="Name to save under -- saving under an existing name overwrites that model's options and weights, and keeps its history">
+                Name
+                <input class="tmp-input" type="text" placeholder="model name" @bind="_modelName" @bind:event="oninput" />
+            </label>
+            <button type="button" class="tmp-btn" disabled="@(!SaveModelEnabled)" title="@SaveModelTitle" @onclick="SaveModelClicked">
+                @(OverwritesExistingModel ? "OVERWRITE MODEL" : "SAVE MODEL")
+            </button>
         </div>
-        <label class="tmp-field" title="Name to save under -- saving under an existing name overwrites that model's options and weights, and keeps its history">
-            Name
-            <input class="tmp-input" type="text" placeholder="model name" @bind="_modelName" @bind:event="oninput" />
-        </label>
-        <button type="button" class="tmp-btn" disabled="@(!SaveModelEnabled)" title="@SaveModelTitle" @onclick="SaveModelClicked">
-            @(OverwritesExistingModel ? "OVERWRITE MODEL" : "SAVE MODEL")
-        </button>
-    </div>
 
-    <div class="tmp-card" title="Every saved model -- load one to restore its options and weights, or delete it along with its history">
-        <div class="tmp-title-row">
-            <span class="tmp-title" title="Models saved from the Run tab">Saved Models</span>
-            <span class="tmp-badge" title="How many models are saved">@Models.Count</span>
-        </div>
         <DataTable TItem="ModelRow" Items="ModelRows" ShowRowNumbers="false" ActionsHeader="ACTIONS"
-                   ExcludeProperties="@(new List<string> { nameof(ModelRow.Id) })" OnDelete="DeleteModelClicked"
+                   CardViewOnly="true" ShowAllCardFields="true" CardTitleProperty="@nameof(ModelRow.Name)"
+                   ExcludeProperties="@(new List<string> { nameof(ModelRow.Id), nameof(ModelRow.Name) })"
+                   OnCardClick="ToggleModelRow" IsCardSelected="IsModelSelected" OnDelete="DeleteModelClicked"
                    EmptyMessage="no saved models yet -- run training, then save the model above">
             <CustomActions Context="row">
                 <button type="button" class="tmp-row-btn" disabled="@(!CanLoad)" title="@LoadModelTitle" @onclick="() => OnLoadModel.InvokeAsync(row.Id)">LOAD</button>
-                <button type="button" class="tmp-row-btn @(row.Id == SelectedModelId ? "active" : "")" title="Show this model's saved training results below"
-                        @onclick="() => OnSelectModel.InvokeAsync(row.Id)">HISTORY</button>
             </CustomActions>
         </DataTable>
-    </div>
-
-    <div class="tmp-card" title="Saved training results for the selected model -- save the Run tab's metrics, or load a saved set back into the Run tab">
-        <div class="tmp-title-row">
-            <span class="tmp-title" title="Training results kept for one model">Training History</span>
-            <span class="tmp-badge" title="The model whose history is shown">@(SelectedModelName ?? "no model selected")</span>
-        </div>
-        @if (SelectedModelId is null)
-        {
-            <p class="tmp-placeholder">Pick a model's HISTORY button above to see and add its training results.</p>
-        }
-        else
-        {
+    }
+    else
+    {
+        <div class="tmp-card" title="Save the Run tab's episode metrics and stats as results for the selected model">
+            <div class="tmp-title-row">
+                <span class="tmp-title" title="Keep this run's results under the selected model">Save Results</span>
+            </div>
             <label class="tmp-field" title="Name for the saved results -- left blank, one is generated from the model name, episode count and time">
                 Name
                 <input class="tmp-input" type="text" placeholder="results name (optional)" @bind="_resultsName" @bind:event="oninput" />
             </label>
             <button type="button" class="tmp-btn" disabled="@(!CanSaveResults)" title="@SaveResultsTitle" @onclick="SaveResultsClicked">SAVE RESULTS</button>
-            <DataTable TItem="HistoryRow" Items="HistoryRows" ShowRowNumbers="false" ActionsHeader="ACTIONS"
-                       ExcludeProperties="@(new List<string> { nameof(HistoryRow.Id) })" OnDelete="DeleteResultsClicked"
-                       EmptyMessage="no saved results for this model yet">
-                <CustomActions Context="row">
-                    <button type="button" class="tmp-row-btn" disabled="@(!CanLoad)" title="@LoadResultsTitle" @onclick="() => OnLoadResults.InvokeAsync(row.Id)">LOAD</button>
-                </CustomActions>
-            </DataTable>
-        }
-    </div>
+        </div>
+
+        <DataTable TItem="HistoryRow" Items="HistoryRows" ShowRowNumbers="false" ActionsHeader="ACTIONS"
+                   CardViewOnly="true" ShowAllCardFields="true" CardTitleProperty="@nameof(HistoryRow.Name)"
+                   ExcludeProperties="@(new List<string> { nameof(HistoryRow.Id), nameof(HistoryRow.Name) })"
+                   OnDelete="DeleteResultsClicked"
+                   EmptyMessage="@(SelectedModelId is null ? "no saved results yet" : "no saved results for the selected model -- click its card on the Models tab again to see every model's")">
+            <CustomActions Context="row">
+                <button type="button" class="tmp-row-btn" disabled="@(!CanLoad)" title="@LoadResultsTitle" @onclick="() => OnLoadResults.InvokeAsync(row.Id)">LOAD</button>
+            </CustomActions>
+        </DataTable>
+    }
 </div>

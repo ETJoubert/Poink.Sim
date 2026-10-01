@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
 using Poink.Sim.Brain.Neural;
 using Poink.Sim.Components.Charts;
+using Poink.Sim.Components.Pages.Training.Components.TrainedModelsPanel;
 using Poink.Sim.Components.Pages.Trade.Helpers;
 using Poink.Sim.Helpers;
 using Poink.Sim.Models;
@@ -1280,6 +1281,7 @@ namespace Poink.Sim.Components.Pages
 		private ILogger<TrainPageV2> Logger { get; set; } = default!;
 
 		private bool _modelsPanelCollapsed;
+		private ModelsPanelTab _modelsPanelTab = ModelsPanelTab.Models;
 
 		protected override Task OnInitializedAsync() => RefreshModelsWithStatusAsync();
 
@@ -1296,6 +1298,24 @@ namespace Poink.Sim.Components.Pages
 			if (!_modelsPanelCollapsed)
 				await RefreshModelsWithStatusAsync();
 		}
+
+		private async Task SelectModelsPanelTabAsync(ModelsPanelTab tab)
+		{
+			_modelsPanelTab = tab;
+			if (!_modelsPanelCollapsed)
+				return;
+
+			_modelsPanelCollapsed = false;
+			await RefreshModelsWithStatusAsync();
+		}
+
+		private static string ModelsPanelTabTitle(ModelsPanelTab tab) =>
+			tab switch
+			{
+				ModelsPanelTab.Models => "Saved models: save the current one, load or delete others -- click a card to filter History to that model",
+				ModelsPanelTab.History => "Saved training results, for the selected model or for all models",
+				_ => "",
+			};
 
 		private IReadOnlyList<TrainedModelSummary> _savedModels = [];
 		private IReadOnlyList<TrainingHistorySummary> _modelHistory = [];
@@ -1321,7 +1341,7 @@ namespace Poink.Sim.Components.Pages
 		private bool CanSaveResults => _selectedModelId is not null && _episodeMetrics.Count > 0 && !_viewingSavedResults && !IsTrainingInProgress;
 
 		private string? SaveResultsBlockedReason =>
-			_selectedModelId is null ? "Select a model's HISTORY first"
+			_selectedModelId is null ? "Click a model's card first -- results are saved under the selected model"
 			: _viewingSavedResults ? "These are already saved results -- start a run to produce new ones"
 			: _episodeMetrics.Count == 0 ? "No episodes have completed yet"
 			: IsTrainingInProgress ? "Pause or stop the run first"
@@ -1356,8 +1376,15 @@ namespace Poink.Sim.Components.Pages
 			await RefreshHistoryAsync();
 		}
 
-		private async Task RefreshHistoryAsync() =>
-			_modelHistory = _selectedModelId is { } modelId ? await TrainingHistoryService.ListAsync(modelId) : [];
+		private async Task RefreshHistoryAsync() => _modelHistory = await TrainingHistoryService.ListAsync(_selectedModelId);
+
+		private Task DeselectModelAsync() =>
+			ReportModelsAsync(async () =>
+			{
+				_selectedModelId = null;
+				await RefreshHistoryAsync();
+				return null;
+			});
 
 		private Task SaveModelAsync(string name) =>
 			ReportModelsAsync(async () =>

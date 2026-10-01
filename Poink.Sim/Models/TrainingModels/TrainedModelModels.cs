@@ -14,6 +14,7 @@ namespace Poink.Sim.Models.TrainingModels
 	public sealed record TrainingHistorySummary(
 		Guid Id,
 		Guid TrainedModelId,
+		string ModelName,
 		string Name,
 		int EpisodesCompleted,
 		int ModelEpisodesTrained,

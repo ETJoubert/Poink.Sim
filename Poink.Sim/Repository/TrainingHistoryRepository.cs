@@ -62,16 +62,18 @@ internal sealed class TrainingHistoryRepository
 		return entity.Id;
 	}
 
-	public async Task<IReadOnlyList<TrainingHistorySummary>> ListAsync(Guid trainedModelId, CancellationToken cancellationToken = default)
+	/// <summary>Lists saved results newest first -- for one model, or for every model when <paramref name="trainedModelId"/> is null.</summary>
+	public async Task<IReadOnlyList<TrainingHistorySummary>> ListAsync(Guid? trainedModelId, CancellationToken cancellationToken = default)
 	{
 		await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
 
 		var summaries = await context
-			.TrainingHistoryEntries.Where(h => h.TrainedModelId == trainedModelId)
+			.TrainingHistoryEntries.Where(h => trainedModelId == null || h.TrainedModelId == trainedModelId)
 			.OrderByDescending(h => h.CreatedAt)
 			.Select(h => new TrainingHistorySummary(
 				h.Id,
 				h.TrainedModelId,
+				h.TrainedModel.Name,
 				h.Name,
 				h.EpisodesCompleted,
 				h.ModelEpisodesTrained,
@@ -82,7 +84,11 @@ internal sealed class TrainingHistoryRepository
 			))
 			.ToListAsync(cancellationToken);
 
-		_logger.LogInformation("Listed {EntryCount} training results for trained model {TrainedModelId}", summaries.Count, trainedModelId);
+		_logger.LogInformation(
+			"Listed {EntryCount} training results (trained model filter: {TrainedModelId})",
+			summaries.Count,
+			trainedModelId?.ToString() ?? "none"
+		);
 		return summaries;
 	}
 
@@ -90,7 +96,10 @@ internal sealed class TrainingHistoryRepository
 	{
 		await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
 
-		var entity = await context.TrainingHistoryEntries.AsNoTracking().FirstOrDefaultAsync(h => h.Id == id, cancellationToken);
+		var entity = await context
+			.TrainingHistoryEntries.AsNoTracking()
+			.Include(h => h.TrainedModel)
+			.FirstOrDefaultAsync(h => h.Id == id, cancellationToken);
 		if (entity is null)
 		{
 			_logger.LogWarning("Training results {Id} were not found", id);
@@ -103,6 +112,7 @@ internal sealed class TrainingHistoryRepository
 			new TrainingHistorySummary(
 				entity.Id,
 				entity.TrainedModelId,
+				entity.TrainedModel.Name,
 				entity.Name,
 				entity.EpisodesCompleted,
 				entity.ModelEpisodesTrained,

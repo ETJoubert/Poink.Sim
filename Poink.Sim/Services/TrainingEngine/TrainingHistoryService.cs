@@ -18,7 +18,8 @@ internal sealed class TrainingHistoryService
 		_repository = repository;
 	}
 
-	public Task<IReadOnlyList<TrainingHistorySummary>> ListAsync(Guid trainedModelId, CancellationToken cancellationToken = default) =>
+	/// <summary>Lists saved results for one model, or for every model when no model is given.</summary>
+	public Task<IReadOnlyList<TrainingHistorySummary>> ListAsync(Guid? trainedModelId, CancellationToken cancellationToken = default) =>
 		_repository.ListAsync(trainedModelId, cancellationToken);
 
 	public Task<Guid> SaveAsync(
