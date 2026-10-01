@@ -395,19 +395,10 @@ namespace Poink.Sim.Components.Pages
 		private bool _includeEnterLong = true;
 		private bool _includeEnterShort = true;
 		private bool _includeClose = true;
-		private bool _includeVolumeOutput;
-		private bool _includeStopLossOutput;
-		private bool _includeTakeProfitOutput;
 
-		private const int TotalActionOptionCount = 7;
+		private const int TotalActionOptionCount = 4;
 
-		private int SelectedActionCount =>
-			DirectionCount
-			+ (_includeVolumeOutput ? 1 : 0)
-			+ (_includeStopLossOutput ? 1 : 0)
-			+ (_includeTakeProfitOutput ? 1 : 0);
-
-		private bool AllActionsSelected => SelectedActionCount == TotalActionOptionCount;
+		private bool AllActionsSelected => DirectionCount == TotalActionOptionCount;
 
 		private void ToggleAllActions(ChangeEventArgs e)
 		{
@@ -416,9 +407,6 @@ namespace Poink.Sim.Components.Pages
 			_includeEnterLong = value;
 			_includeEnterShort = value;
 			_includeClose = value;
-			_includeVolumeOutput = value;
-			_includeStopLossOutput = value;
-			_includeTakeProfitOutput = value;
 		}
 
 		private IReadOnlyList<string> EnabledDirectionLabels
@@ -440,20 +428,7 @@ namespace Poink.Sim.Components.Pages
 
 		private int DirectionCount => EnabledDirectionLabels.Count;
 
-		private int VolumeOutputWidth =>
-			BrainCatalog.CreateActionOutputHead(ActionOutputKind.Volume, ActionOutputEncodingKind.DiscretizedLevels).OutputWidth;
-
-		private int StopLossOutputWidth =>
-			BrainCatalog.CreateActionOutputHead(ActionOutputKind.StopLoss, ActionOutputEncodingKind.DiscretizedLevels).OutputWidth;
-
-		private int TakeProfitOutputWidth =>
-			BrainCatalog.CreateActionOutputHead(ActionOutputKind.TakeProfit, ActionOutputEncodingKind.DiscretizedLevels).OutputWidth;
-
-		private int TotalOutputWidth =>
-			DirectionCount
-			+ (_includeVolumeOutput ? VolumeOutputWidth : 0)
-			+ (_includeStopLossOutput ? StopLossOutputWidth : 0)
-			+ (_includeTakeProfitOutput ? TakeProfitOutputWidth : 0);
+		private int TotalOutputWidth => DirectionCount;
 
 		// Action Masking -- mirrors BrainBuilder's ActionsSection Action Masking card, but defaults
 		// every rule off here rather than on. The XGrid-dependent rules are left out for now.
@@ -507,7 +482,7 @@ namespace Poink.Sim.Components.Pages
 			};
 
 		private ActionsOptionsModel CurrentActionsOptions =>
-			new(_includeHold, _includeEnterLong, _includeEnterShort, _includeClose, _includeVolumeOutput, _includeStopLossOutput, _includeTakeProfitOutput);
+			new(_includeHold, _includeEnterLong, _includeEnterShort, _includeClose);
 
 		private ActionMaskingOptionsModel CurrentActionMaskingOptions =>
 			new(_maskPositionRequiredForClose, _maskFlatRequiredForEntry);
@@ -522,9 +497,6 @@ namespace Poink.Sim.Components.Pages
 			_includeEnterLong = options.Actions.IncludeEnterLong;
 			_includeEnterShort = options.Actions.IncludeEnterShort;
 			_includeClose = options.Actions.IncludeClose;
-			_includeVolumeOutput = options.Actions.IncludeVolumeOutput;
-			_includeStopLossOutput = options.Actions.IncludeStopLossOutput;
-			_includeTakeProfitOutput = options.Actions.IncludeTakeProfitOutput;
 
 			_maskPositionRequiredForClose = options.ActionMasking.PositionRequiredForClose;
 			_maskFlatRequiredForEntry = options.ActionMasking.FlatRequiredForEntry;
@@ -778,46 +750,36 @@ namespace Poink.Sim.Components.Pages
 		private double _commissionRatePercent;
 		private double _stopOutLevelPercent = 50;
 
-		private readonly List<string> _selectedRiskPolicies = [];
 		private PositionControlOptionsModel _positionControl = new();
-
-		[Inject]
-		private IRiskPolicyService RiskPolicyService { get; set; } = default!;
 
 		// Learning -- mirrors BrainBuilder's LearnSection, NEAT excluded from the strategy options.
 		private static readonly IReadOnlyList<string> TrainingStrategyOptions = TrainingStrategyCatalog.Names;
 
-		private static readonly string[] RewardPolicyOptions = ["Equity Drift (default)", "Hit Rate"];
-
 		private string _trainingStrategyName = TrainingStrategyOptions[0];
-		private string _rewardPolicyName = RewardPolicyOptions[0];
 		private double _learningRate = 0.001;
 		private bool _useEntropyBonus = true;
 
-		// Decision Masking -- mirrors BrainBuilder's DecideSection. Gates whether the network is even
-		// asked to decide, as opposed to Action Masking (Output tab) which restricts choices afterward.
+		// Decision Masking gates whether the network is even asked to decide, as opposed to
+		// Action Masking (Output tab) which restricts choices afterward.
 		private sealed record DecisionMaskResolutionOption(DecisionMaskResolutionKind Kind, string Label, string Tooltip);
 
 		private static readonly DecisionMaskResolutionOption[] DecisionMaskResolutionOptions =
 		[
-			new(DecisionMaskResolutionKind.PerBar, "Once per bar", "Check the rules once, when each bar closes"),
-			new(DecisionMaskResolutionKind.EverySeconds, "Every X seconds", "Check the rules on a fixed time interval"),
-			new(DecisionMaskResolutionKind.PerTick, "Every tick", "Check the rules on every incoming tick"),
-			new(
-				DecisionMaskResolutionKind.OnCellWidthChange,
-				"On cell width change",
-				"Check the rules whenever price crosses into a different fixed-width price cell"
-			),
+			new(DecisionMaskResolutionKind.PerBar, "Once per bar", "The network decides once, when each bar closes"),
+			new(DecisionMaskResolutionKind.EverySeconds, "Every X seconds", "The network decides on a fixed time interval"),
+			new(DecisionMaskResolutionKind.PerTick, "Every tick", "The network decides on every incoming tick"),
 		];
 
 		private DecisionMaskResolutionKind _decisionMaskResolution = DecisionMaskResolutionKind.PerBar;
 		private double _decisionMaskResolutionSeconds = 1.0;
-		private double _decisionMaskResolutionCellWidth = 0.10;
-		private bool _maskDecisionPriceBelowPoc;
 
-		private const int TotalDecisionMaskRuleCount = 1;
-
-		private int SelectedDecisionMaskRuleCount => _maskDecisionPriceBelowPoc ? 1 : 0;
+		private string DecisionMaskResolutionLabel =>
+			_decisionMaskResolution switch
+			{
+				DecisionMaskResolutionKind.EverySeconds => $"every {_decisionMaskResolutionSeconds:0.###}s",
+				DecisionMaskResolutionKind.PerTick => "every tick",
+				_ => "once per bar",
+			};
 
 		private EpisodeTimingOptionsModel CurrentEpisodeTimingOptions =>
 			new(
@@ -834,12 +796,11 @@ namespace Poink.Sim.Components.Pages
 			);
 
 		private TraderSetupOptionsModel CurrentTraderSetupOptions =>
-			new(_startingCash, _leverage, _commissionRatePercent, _stopOutLevelPercent, [.. _selectedRiskPolicies], _positionControl);
+			new(_startingCash, _leverage, _commissionRatePercent, _stopOutLevelPercent, _positionControl);
 
-		private LearningOptionsModel CurrentLearningOptions => new(_trainingStrategyName, _rewardPolicyName, _learningRate, _useEntropyBonus);
+		private LearningOptionsModel CurrentLearningOptions => new(_trainingStrategyName, _learningRate, _useEntropyBonus);
 
-		private DecisionMaskingOptionsModel CurrentDecisionMaskingOptions =>
-			new(_decisionMaskResolution, _decisionMaskResolutionSeconds, _decisionMaskResolutionCellWidth, _maskDecisionPriceBelowPoc);
+		private DecisionMaskingOptionsModel CurrentDecisionMaskingOptions => new(_decisionMaskResolution, _decisionMaskResolutionSeconds);
 
 		private TrainingTabOptionsModel CurrentTrainingTabOptions =>
 			new(CurrentEpisodeTimingOptions, CurrentTraderSetupOptions, CurrentLearningOptions, CurrentDecisionMaskingOptions);
@@ -865,22 +826,18 @@ namespace Poink.Sim.Components.Pages
 			_leverage = traderSetup.Leverage;
 			_commissionRatePercent = traderSetup.CommissionRatePercent;
 			_stopOutLevelPercent = traderSetup.StopOutLevelPercent;
-			_selectedRiskPolicies.Clear();
-			if (traderSetup.SelectedRiskPolicies is { } policies)
-				_selectedRiskPolicies.AddRange(policies);
 			_positionControl = traderSetup.EffectiveControl;
 
 			var learning = options.Learning;
 			_trainingStrategyName = TrainingStrategyCatalog.Normalize(learning.TrainingStrategyName);
-			_rewardPolicyName = learning.RewardPolicyName;
 			_learningRate = learning.LearningRate;
 			_useEntropyBonus = learning.UseEntropyBonus;
 
 			var decisionMasking = options.DecisionMasking;
-			_decisionMaskResolution = decisionMasking.DecisionMaskResolution;
+			_decisionMaskResolution = DecisionMaskResolutionOptions.Any(o => o.Kind == decisionMasking.DecisionMaskResolution)
+				? decisionMasking.DecisionMaskResolution
+				: DecisionMaskResolutionKind.PerBar;
 			_decisionMaskResolutionSeconds = decisionMasking.DecisionMaskResolutionSeconds;
-			_decisionMaskResolutionCellWidth = decisionMasking.DecisionMaskResolutionCellWidth;
-			_maskDecisionPriceBelowPoc = decisionMasking.MaskDecisionPriceBelowPoc;
 		}
 
 		#endregion

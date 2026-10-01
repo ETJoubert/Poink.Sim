@@ -7,10 +7,7 @@ namespace Poink.Sim.Models.TrainingModels
 		bool IncludeHold = true,
 		bool IncludeEnterLong = true,
 		bool IncludeEnterShort = true,
-		bool IncludeClose = true,
-		bool IncludeVolumeOutput = false,
-		bool IncludeStopLossOutput = false,
-		bool IncludeTakeProfitOutput = false
+		bool IncludeClose = true
 	);
 
 	/// <summary>

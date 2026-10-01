@@ -7,7 +7,6 @@
 @using Poink.Sim.Components.Pages.Training.Components.PositionControlPanel
 @using Poink.Sim.Components.Shared.BarSizeSelect
 @using Poink.Sim.Components.Shared.Icon
-@using Poink.Sim.Components.Shared.PolicySelector
 @using Poink.Sim.Components.Shared.SymbolDataSelector
 @using Poink.Sim.Components.Training
 @using Poink.Sim.Helpers
@@ -390,7 +389,7 @@
                         <div class="trv2-card-title-row">
                             <span class="trv2-card-title" title="Which decisions this brain's network is allowed to make -- every one below is optional">Actions</span>
                             <span class="trv2-card-badge" title="How many of the @TotalActionOptionCount available action decisions are enabled">
-                                @SelectedActionCount/@TotalActionOptionCount
+                                @DirectionCount/@TotalActionOptionCount
                             </span>
                         </div>
                         <label class="trv2-field" title="Toggle every action decision below on or off at once">
@@ -408,15 +407,6 @@
                         </label>
                         <label class="trv2-field" title="Network can close an open position (or cancel a resting order)">
                             <input type="checkbox" @bind="_includeClose" /> Close
-                        </label>
-                        <label class="trv2-field" title="Network picks position size (25/50/75/100% of cash) for each entry, instead of a fixed 50%">
-                            <input type="checkbox" @bind="_includeVolumeOutput" /> Volume
-                        </label>
-                        <label class="trv2-field" title="Network picks a stop-loss distance (or none) for each entry">
-                            <input type="checkbox" @bind="_includeStopLossOutput" /> Stop Loss
-                        </label>
-                        <label class="trv2-field" title="Network picks a take-profit distance (or none) for each entry">
-                            <input type="checkbox" @bind="_includeTakeProfitOutput" /> Take Profit
                         </label>
                     </div>
 
@@ -472,27 +462,6 @@
                                 Direction
                                 <span class="trv2-decoding-value">@DirectionCount-way @DecodingLabel</span>
                             </label>
-                            @if (_includeVolumeOutput)
-                            {
-                                <label class="trv2-field" title="Softmax over 4 capital-fraction levels: 25% / 50% / 75% / 100%">
-                                    Volume
-                                    <span class="trv2-decoding-value">@VolumeOutputWidth-way @DecodingLabel</span>
-                                </label>
-                            }
-                            @if (_includeStopLossOutput)
-                            {
-                                <label class="trv2-field" title="Softmax over 4 stop-loss distances: None / Tight / Medium / Wide">
-                                    Stop Loss
-                                    <span class="trv2-decoding-value">@StopLossOutputWidth-way @DecodingLabel</span>
-                                </label>
-                            }
-                            @if (_includeTakeProfitOutput)
-                            {
-                                <label class="trv2-field" title="Softmax over 4 take-profit distances: None / Tight / Medium / Wide">
-                                    Take Profit
-                                    <span class="trv2-decoding-value">@TakeProfitOutputWidth-way @DecodingLabel</span>
-                                </label>
-                            }
                         </div>
                     </div>
                 </div>
@@ -727,20 +696,13 @@
                             Stop-out %
                             <input class="trv2-input" type="number" min="1" max="100" step="1" @bind="_stopOutLevelPercent" />
                         </label>
-                        @if (RiskPolicyService.AvailablePolicies.Count > 0)
-                        {
-                            <label class="trv2-field" title="Risk policies gate every trade action -- permit, deny or resize it -- and supervise open positions during each episode">
-                                Risk policies
-                                <PolicySelector Available="RiskPolicyService.AvailablePolicies" Selected="_selectedRiskPolicies" />
-                            </label>
-                        }
                     </div>
 
                     <PositionControlPanel @bind-Value="_positionControl" StartingCash="_startingCash" Leverage="_leverage" LatestPrice="LatestPreviewPrice" PipSize="XGridPipSize" />
 
                     <div class="trv2-card">
                         <div class="trv2-card-title-row">
-                            <span class="trv2-card-title" title="Which RL algorithm trains the network, how its reward is shaped, and its learning rate">Learning</span>
+                            <span class="trv2-card-title" title="Which RL algorithm trains the network, and its learning rate">Learning</span>
                         </div>
                         <label class="trv2-field" title="Which reinforcement-learning algorithm updates the network's weights each episode -- NEAT is parked/excluded here">
                             Strategy
@@ -775,17 +737,6 @@
                                 </div>
                             </div>
                         }
-                        <label class="trv2-field"
-                               title="Which rules shape the per-decision reward -- Equity Drift is the raw, unshaped baseline; Hit Rate rewards net direction correctness instead">
-                            Reward Policy
-                            <div class="trv2-toggle-row">
-                                @foreach (var name in RewardPolicyOptions)
-                                {
-                                    <button type="button" class="trv2-panel-toggle-btn @(_rewardPolicyName == name ? "active" : "")"
-                                            @onclick="() => _rewardPolicyName = name" title="@name">@name</button>
-                                }
-                            </div>
-                        </label>
                         <label class="trv2-field" title="Step size the optimizer applies to each weight update">
                             Learning rate
                             <input class="trv2-input" type="number" min="0.00001" step="0.0001" @bind="_learningRate" />
@@ -800,14 +751,11 @@
                     <div class="trv2-card">
                         <div class="trv2-card-title-row">
                             <span class="trv2-card-title"
-                                  title="Gates whether this brain's network is even asked to decide -- opposite of Action Masking, which restricts choices after the network has already decided. With any rule below enabled, an episode's bar/tick count no longer equals its decision count">
+                                  title="Gates whether this brain's network is even asked to decide -- opposite of Action Masking, which restricts choices after the network has already decided. Unless resolution is Every tick, an episode's tick count no longer equals its decision count">
                                 Decision Masking
                             </span>
-                            <span class="trv2-card-badge" title="How many of the @TotalDecisionMaskRuleCount available decision-gating rules are enabled">
-                                @SelectedDecisionMaskRuleCount/@TotalDecisionMaskRuleCount
-                            </span>
                         </div>
-                        <label class="trv2-field" title="How often the rules below get checked -- a decision only ever fires on a resolution tick, and only when every enabled rule also passes">
+                        <label class="trv2-field" title="How often the network is asked to decide -- once per closed bar, on a fixed time interval, or on every incoming tick">
                             Resolution
                             <div class="trv2-toggle-row">
                                 @foreach (var option in DecisionMaskResolutionOptions)
@@ -819,23 +767,11 @@
                         </label>
                         @if (_decisionMaskResolution == DecisionMaskResolutionKind.EverySeconds)
                         {
-                            <label class="trv2-field" title="How many seconds must pass between resolution checks">
+                            <label class="trv2-field" title="How many seconds must pass between decisions">
                                 Seconds
                                 <input class="trv2-input" type="number" min="0.001" step="1" @bind="_decisionMaskResolutionSeconds" />
                             </label>
                         }
-                        @if (_decisionMaskResolution == DecisionMaskResolutionKind.OnCellWidthChange)
-                        {
-                            <label class="trv2-field" title="Fixed price width of each cell -- a resolution check fires when price crosses from one cell into the next">
-                                Cell width
-                                <input class="trv2-input" type="number" min="0.00001" step="0.01" @bind="_decisionMaskResolutionCellWidth" />
-                            </label>
-                        }
-                        <label class="trv2-field"
-                               title="A decision only fires when price is below the trailing window's Point of Control -- has no effect without the XGrid Signals encoder">
-                            Price Below POC
-                            <input type="checkbox" @bind="_maskDecisionPriceBelowPoc" />
-                        </label>
                     </div>
                 </div>
                 break;
@@ -919,7 +855,7 @@
                                     </div>
                                     <div class="trv2-stat" title="Action decisions enabled, of those available">
                                         <span class="trv2-stat-label">actions</span>
-                                        <span class="trv2-stat-value">@SelectedActionCount/@TotalActionOptionCount</span>
+                                        <span class="trv2-stat-value">@DirectionCount/@TotalActionOptionCount</span>
                                     </div>
                                     <div class="trv2-stat" title="Action masking rules enabled, of those available">
                                         <span class="trv2-stat-label">masking rules</span>
@@ -947,13 +883,13 @@
                                         <span class="trv2-stat-label">trader</span>
                                         <span class="trv2-stat-value">@_startingCash.ToString("N0") cash, @_leverage.ToString("0.#")x</span>
                                     </div>
-                                    <div class="trv2-stat" title="RL strategy and reward policy driving learning, plus whether the entropy exploration bonus is on">
+                                    <div class="trv2-stat" title="RL strategy driving learning, plus whether the entropy exploration bonus is on">
                                         <span class="trv2-stat-label">learning</span>
-                                        <span class="trv2-stat-value">@_trainingStrategyName / @_rewardPolicyName@(_useEntropyBonus ? " +entropy" : "")</span>
+                                        <span class="trv2-stat-value">@_trainingStrategyName@(_useEntropyBonus ? " +entropy" : "")</span>
                                     </div>
-                                    <div class="trv2-stat" title="Decision-gating rules enabled, of those available -- opposite of Action Masking">
+                                    <div class="trv2-stat" title="How often the network is asked to decide -- opposite of Action Masking">
                                         <span class="trv2-stat-label">decision masking</span>
-                                        <span class="trv2-stat-value">@SelectedDecisionMaskRuleCount/@TotalDecisionMaskRuleCount</span>
+                                        <span class="trv2-stat-value">@DecisionMaskResolutionLabel</span>
                                     </div>
                                 </div>
                             </div>

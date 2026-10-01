@@ -7,24 +7,18 @@ using Poink.Sim.Models;
 namespace Poink.Sim.Services.TrainingEngine;
 
 /// <summary>
-/// The network's output shape and decoding rule, built from OutputOptionsModel. Continuous outputs
-/// (Volume/StopLoss/TakeProfit) are one raw scalar each -- OutputOptionsModel has no levels/scaling
-/// config, so there's nothing to decode; the engine reads them straight off the network's output.
+/// The network's output shape and decoding rule, built from OutputOptionsModel. Position size, stop
+/// and target come from Position Control, so the network only outputs a direction.
 /// </summary>
 internal sealed record ActionSpace(
 	IReadOnlyList<SimulationAction> Directions,
-	bool IncludeVolume,
-	bool IncludeStopLoss,
-	bool IncludeTakeProfit,
 	DecisionDecodingKind DecisionDecoding,
 	double DecisionTemperature
 )
 {
 	public int DirectionOutputWidth => Directions.Count;
 
-	public int ContinuousOutputWidth => (IncludeVolume ? 1 : 0) + (IncludeStopLoss ? 1 : 0) + (IncludeTakeProfit ? 1 : 0);
-
-	public int TotalOutputWidth => DirectionOutputWidth + ContinuousOutputWidth;
+	public int TotalOutputWidth => DirectionOutputWidth;
 
 	public SimulationAction DecodeDirection(IReadOnlyList<float> rawDirectionOutputs, Random random)
 	{

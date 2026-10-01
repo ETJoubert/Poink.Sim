@@ -20,9 +20,7 @@ namespace Poink.Sim.Services.TrainingEngine;
 /// Provider's ticks through Feature Assembler, the network, Action Assembler's decoded action, and
 /// the existing ITrader (position/P&amp;L/commission accounting -- reused like ITickRepository, not
 /// NN-specific), gated by DecisionMask. Reward is each decision's equity drift until the next one.
-///
-/// Not built yet: Volume/StopLoss/TakeProfit outputs (RunEpisode throws if any are enabled --
-/// CapitalFraction is fixed at 1.0, market orders only).
+/// Entry size, stop and target come from Position Control, not the network.
 /// </summary>
 internal sealed class TrainingEngineService
 {
@@ -95,8 +93,6 @@ internal sealed class TrainingEngineService
 		CancellationToken cancellationToken = default
 	)
 	{
-		if (options.Output.Actions.IncludeVolumeOutput || options.Output.Actions.IncludeStopLossOutput || options.Output.Actions.IncludeTakeProfitOutput)
-			throw new NotSupportedException("Volume/StopLoss/TakeProfit outputs aren't wired to trade execution yet -- disable them until they are.");
 		PolicyGradientLearner.EnsureSupportedStrategy(options.Training.Learning.TrainingStrategyName);
 		var positionControl = options.Training.TraderSetup.EffectiveControl;
 		if (positionControl.Validate() is { } controlError)
@@ -197,7 +193,7 @@ internal sealed class TrainingEngineService
 			trader.Advance(bid, ask, tick.Timestamp);
 			SettleClosedTrades();
 
-			var shouldDecide = decisionMask.ShouldDecide(tick.Timestamp);
+			var shouldDecide = decisionMask.ShouldDecide(tick.Timestamp, justClosedBar is not null);
 
 			if (onTick is not null)
 			{
