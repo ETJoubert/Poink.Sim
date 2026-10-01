@@ -185,7 +185,8 @@ internal sealed class TrainingEngineService
 					action,
 					rawOutputs[..actionSpace.DirectionOutputWidth],
 					capitalAfter,
-					[.. trader.TradeLog]
+					[.. trader.TradeLog],
+					trader.CurrentPosition
 				)
 			);
 

@@ -21,5 +21,6 @@ internal sealed record LiveEpisodeSnapshot(
 	SimulationAction Action,
 	IReadOnlyList<float> RawDirectionOutputs,
 	CapitalState Capital,
-	IReadOnlyList<Trade> ClosedTrades
+	IReadOnlyList<Trade> ClosedTrades,
+	Position? OpenPosition = null
 );

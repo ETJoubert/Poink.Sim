@@ -61,6 +61,25 @@ namespace Poink.Sim.Components.Training
 		public DateTime? Timestamp { get; set; }
 
 		[Parameter]
+		public DateTime? EpisodeStart { get; set; }
+
+		/// <summary>Display-only levels of the trader's open position, drawn on TxFold -- null hides them.</summary>
+		[Parameter]
+		public double? PositionVolume { get; set; }
+
+		[Parameter]
+		public double? EntryPrice { get; set; }
+
+		[Parameter]
+		public bool? PositionIsLong { get; set; }
+
+		[Parameter]
+		public double? StopLossPrice { get; set; }
+
+		[Parameter]
+		public double? TakeProfitPrice { get; set; }
+
+		[Parameter]
 		public TimeSpan? TimePassed { get; set; }
 
 		[Parameter]
@@ -165,5 +184,24 @@ namespace Poink.Sim.Components.Training
 				{ TotalHours: >= 1 } s => $"{(int)s.TotalHours}h {s.Minutes}m",
 				{ } s => $"{(int)s.TotalMinutes}m {s.Seconds}s",
 			};
+
+		private double? RiskAtStop => ProjectedPnl(StopLossPrice) is { } pnl ? -pnl : null;
+
+		private double? RewardAtTarget => ProjectedPnl(TakeProfitPrice);
+
+		private string RiskAtStopText => FormatWithCashPercent(RiskAtStop);
+
+		private string RewardAtTargetText => FormatWithCashPercent(RewardAtTarget);
+
+		private string RewardRiskText =>
+			RiskAtStop is > 0 && RewardAtTarget is { } reward ? $"{reward / RiskAtStop.Value:0.##} : 1" : "--";
+
+		private double? ProjectedPnl(double? exitPrice) =>
+			exitPrice is { } exit && EntryPrice is { } entry && PositionVolume is { } volume && PositionIsLong is { } isLong
+				? (isLong ? exit - entry : entry - exit) * volume
+				: null;
+
+		private string FormatWithCashPercent(double? amount) =>
+			amount is { } value ? $"{value:N2}" + (Cash > 0 ? $" ({value / Cash:P2})" : "") : "--";
 	}
 }
