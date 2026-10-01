@@ -21,6 +21,9 @@ public partial class BrainIoPanel : ComponentBase
 	[Parameter]
 	public double? Equity { get; set; }
 
+	[Parameter]
+	public bool ShowInputs { get; set; } = true;
+
 	private bool _showDenormalizedInputs;
 
 	private static bool IsPriceWindowLabel(string label) => label.StartsWith("t-", System.StringComparison.Ordinal);

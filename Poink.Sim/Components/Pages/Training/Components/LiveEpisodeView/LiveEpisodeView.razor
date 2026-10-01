@@ -202,8 +202,8 @@
         }
         @if (ShowActions)
         {
-            <div class="lev-card lev-panel" title="The network's action probability distribution on the most recent decision -- same card the old training page uses">
-                <BrainIoPanel Outputs="ActionOutputs" CurrentPrice="@((Bid + Ask) / 2)" Equity="@Equity" />
+            <div class="lev-card lev-panel" title="The network's action probability distribution on the most recent decision -- the inputs behind it are on the Features card">
+                <BrainIoPanel Outputs="ActionOutputs" ShowInputs="false" CurrentPrice="@((Bid + Ask) / 2)" Equity="@Equity" />
             </div>
         }
     </div>
