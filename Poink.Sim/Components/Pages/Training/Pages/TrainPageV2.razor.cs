@@ -38,7 +38,6 @@ namespace Poink.Sim.Components.Pages
 			Training,
 			Run,
 			Live,
-			Models,
 		}
 
 		private static readonly TrainV2Tab[] Tabs =
@@ -50,7 +49,6 @@ namespace Poink.Sim.Components.Pages
 			TrainV2Tab.Training,
 			TrainV2Tab.Run,
 			TrainV2Tab.Live,
-			TrainV2Tab.Models,
 		];
 
 		private TrainV2Tab _activeTab = TrainV2Tab.Data;
@@ -63,12 +61,6 @@ namespace Poink.Sim.Components.Pages
 			_activeTab = tab;
 			if (tab == TrainV2Tab.Training)
 				_ = EnsurePreviewLoadedAsync();
-			if (tab == TrainV2Tab.Models)
-				_ = ReportModelsAsync(async () =>
-				{
-					await RefreshModelsAsync();
-					return null;
-				});
 		}
 
 		private static string TabTitle(TrainV2Tab tab) =>
@@ -80,9 +72,7 @@ namespace Poink.Sim.Components.Pages
 				TrainV2Tab.Output => "How the network's raw outputs map to trade actions",
 				TrainV2Tab.Training => "How episodes are timed/sampled, and the trader each one starts with",
 				TrainV2Tab.Run => "Start/pause/step the run and review live/saved results",
-				TrainV2Tab.Live => "Watch the charts, equity curve and feature values for the episode currently in progress",
-				TrainV2Tab.Models => "Save, load and delete trained models, and keep training results for each",
-				_ => "",
+				TrainV2Tab.Live => "Watch the charts, equity curve and feature values for the episode currently in progress",				_ => "",
 			};
 
 		#endregion
@@ -1289,6 +1279,24 @@ namespace Poink.Sim.Components.Pages
 		[Inject]
 		private ILogger<TrainPageV2> Logger { get; set; } = default!;
 
+		private bool _modelsPanelCollapsed;
+
+		protected override Task OnInitializedAsync() => RefreshModelsWithStatusAsync();
+
+		private Task RefreshModelsWithStatusAsync() =>
+			ReportModelsAsync(async () =>
+			{
+				await RefreshModelsAsync();
+				return null;
+			});
+
+		private async Task ToggleModelsPanel()
+		{
+			_modelsPanelCollapsed = !_modelsPanelCollapsed;
+			if (!_modelsPanelCollapsed)
+				await RefreshModelsWithStatusAsync();
+		}
+
 		private IReadOnlyList<TrainedModelSummary> _savedModels = [];
 		private IReadOnlyList<TrainingHistorySummary> _modelHistory = [];
 		private Guid? _selectedModelId;
@@ -1332,7 +1340,7 @@ namespace Poink.Sim.Components.Pages
 			}
 			catch (Exception ex)
 			{
-				Logger.LogError(ex, "Models tab action failed");
+				Logger.LogError(ex, "Models panel action failed");
 				_modelsStatus = ex.Message;
 				_modelsStatusIsError = true;
 			}

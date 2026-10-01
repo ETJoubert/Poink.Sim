@@ -58,6 +58,86 @@
     flex: 1;
 }
 
+.trv2-body {
+    display: flex;
+    align-items: flex-start;
+    flex: 1;
+}
+
+.trv2-main {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+    min-height: 100%;
+}
+
+.trv2-side-panel {
+    position: sticky;
+    top: 0;
+    display: flex;
+    flex-direction: column;
+    width: 420px;
+    flex-shrink: 0;
+    max-height: 100vh;
+    border-left: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
+    background: var(--color-bg-dark);
+    overflow: hidden;
+    transition: width 0.15s ease;
+}
+
+.trv2-side-panel-collapsed {
+    width: 36px;
+}
+
+.trv2-side-panel-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    flex-shrink: 0;
+}
+
+.trv2-side-panel-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    flex-shrink: 0;
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
+    border-radius: var(--border-radius-sm);
+    color: var(--color-secondary);
+    cursor: pointer;
+}
+
+.trv2-side-panel-toggle:hover {
+    color: var(--color-primary);
+    border-color: var(--color-primary);
+}
+
+::deep .trv2-side-panel-toggle-icon {
+    width: 12px;
+    height: 12px;
+}
+
+.trv2-side-panel-label {
+    font-size: 0.72rem;
+    font-weight: bold;
+    letter-spacing: 0.1em;
+    color: var(--color-accent);
+    white-space: nowrap;
+}
+
+.trv2-side-panel-content {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 0 10px 16px;
+}
+
 .trv2-placeholder {
     font-size: 0.85rem;
     color: var(--color-secondary);

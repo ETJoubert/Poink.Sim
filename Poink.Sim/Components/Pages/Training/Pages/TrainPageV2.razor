@@ -19,6 +19,8 @@
         <span class="trv2-title">TRAINING 2.0</span>
     </header>
 
+    <div class="trv2-body">
+    <div class="trv2-main">
     <div class="trv2-tabs">
         @foreach (var tab in VisibleTabs)
         {
@@ -780,7 +782,7 @@
                 <div class="trv2-results">
                     @if (_viewingSavedResults)
                     {
-                        <div class="trv2-card" title="The Run tab is showing results loaded from the Models tab rather than a live run">
+                        <div class="trv2-card" title="The Run tab is showing results loaded from the Models panel rather than a live run">
                             <span class="trv2-card-title">Saved results</span>
                             <p class="trv2-placeholder">Showing saved results '@_viewedResultsName' -- they clear when a run starts, steps or resets.</p>
                         </div>
@@ -1081,7 +1083,24 @@
                                  @bind-ShowEquityCurve="_liveShowEquityCurve" @bind-ShowFeatures="_liveShowFeatures" @bind-ShowActions="_liveShowActions" />
                 break;
             }
-            case TrainV2Tab.Models:
+        }
+    </div>
+    </div>
+
+    <aside class="trv2-side-panel @(_modelsPanelCollapsed ? "trv2-side-panel-collapsed" : "")">
+        <div class="trv2-side-panel-header">
+            <button type="button" class="trv2-side-panel-toggle" @onclick="ToggleModelsPanel"
+                    title="@(_modelsPanelCollapsed ? "Expand the Models panel" : "Collapse the Models panel")">
+                <Icon Name="@(_modelsPanelCollapsed ? "chevron-left" : "chevron-right")" Class="trv2-side-panel-toggle-icon" />
+            </button>
+            @if (!_modelsPanelCollapsed)
+            {
+                <span class="trv2-side-panel-label" title="Save, load and delete trained models, and keep training results for each">MODELS</span>
+            }
+        </div>
+        @if (!_modelsPanelCollapsed)
+        {
+            <div class="trv2-side-panel-content">
                 <TrainedModelsPanel Models="_savedModels" History="_modelHistory" SelectedModelId="_selectedModelId"
                                     CanSaveModel="CanSaveModel" SaveModelBlockedReason="@SaveModelBlockedReason"
                                     CanSaveResults="CanSaveResults" SaveResultsBlockedReason="@SaveResultsBlockedReason"
@@ -1090,7 +1109,8 @@
                                     OnSaveModel="SaveModelAsync" OnLoadModel="LoadModelAsync" OnDeleteModel="DeleteModelAsync"
                                     OnSelectModel="SelectModelAsync" OnSaveResults="SaveResultsAsync"
                                     OnLoadResults="LoadResultsAsync" OnDeleteResults="DeleteResultsAsync" />
-                break;
+            </div>
         }
+    </aside>
     </div>
 </div>

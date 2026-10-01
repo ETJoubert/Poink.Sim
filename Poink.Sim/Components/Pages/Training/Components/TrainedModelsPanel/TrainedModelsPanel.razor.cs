@@ -8,7 +8,7 @@ using Poink.Sim.Models.TrainingModels;
 namespace Poink.Sim.Components.Pages.Training.Components.TrainedModelsPanel
 {
 	/// <summary>
-	/// The Models tab's UI: save the current model, browse/load/delete saved models, and save, load
+	/// The Models side panel's UI: save the current model, browse/load/delete saved models, and save, load
 	/// and delete the training results kept for the selected model. It only raises callbacks; the page
 	/// owns the run state those actions read and replace.
 	/// </summary>
