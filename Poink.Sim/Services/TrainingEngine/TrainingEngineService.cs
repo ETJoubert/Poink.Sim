@@ -120,7 +120,7 @@ internal sealed class TrainingEngineService
 		var decisionMask = new DecisionMask(options.Training.DecisionMasking);
 
 		var episodeStart = ticks[0].Timestamp;
-		var ticksSoFar = new List<Tick>(ticks.Count);
+		var ticksSoFar = new TickWindow(ticks, 0, 0);
 		var steps = new List<EpisodeStep>();
 		var traces = new List<DecisionTrace>();
 		var totalReward = 0.0;
@@ -154,9 +154,10 @@ internal sealed class TrainingEngineService
 			owedDelay = TimeSpan.Zero;
 		}
 
-		foreach (var tick in ticks)
+		for (var tickIndex = 0; tickIndex < ticks.Count; tickIndex++)
 		{
-			ticksSoFar.Add(tick);
+			var tick = ticks[tickIndex];
+			ticksSoFar.ExtendTo(tickIndex + 1);
 			var bid = tick.Bid;
 			var ask = tick.Ask;
 			var (currentBar, justClosedBar) = barBuilder.Feed(tick);
