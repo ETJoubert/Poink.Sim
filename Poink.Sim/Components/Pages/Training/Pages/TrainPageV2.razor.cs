@@ -771,11 +771,7 @@ namespace Poink.Sim.Components.Pages
 		private IRiskPolicyService RiskPolicyService { get; set; } = default!;
 
 		// Learning -- mirrors BrainBuilder's LearnSection, NEAT excluded from the strategy options.
-		private static readonly string[] TrainingStrategyOptions =
-		[
-			"Policy Gradient (REINFORCE)",
-			"Policy Gradient (Per-Decision)",
-		];
+		private static readonly IReadOnlyList<string> TrainingStrategyOptions = TrainingStrategyCatalog.Names;
 
 		private static readonly string[] RewardPolicyOptions = ["Equity Drift (default)", "Hit Rate"];
 
@@ -861,7 +857,7 @@ namespace Poink.Sim.Components.Pages
 			_positionControl = traderSetup.EffectiveControl;
 
 			var learning = options.Learning;
-			_trainingStrategyName = learning.TrainingStrategyName;
+			_trainingStrategyName = TrainingStrategyCatalog.Normalize(learning.TrainingStrategyName);
 			_rewardPolicyName = learning.RewardPolicyName;
 			_learningRate = learning.LearningRate;
 			_useEntropyBonus = learning.UseEntropyBonus;

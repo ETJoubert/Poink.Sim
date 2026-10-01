@@ -123,6 +123,11 @@ internal sealed class TrainingEngineService
 		var ticksSoFar = new TickWindow(ticks, 0, 0);
 		var steps = new List<EpisodeStep>();
 		var traces = new List<DecisionTrace>();
+		var learnsOnline = PolicyGradientLearner.LearnsOnline(options.Training.Learning.TrainingStrategyName);
+		var onlineTrainer = learnsOnline
+			? new OnlineTradeTrainer(_learner, network, actionSpace, options.Training.Learning, progress)
+			: null;
+		var settledTradeCount = 0;
 		var totalReward = 0.0;
 		var barBuilder = new LiveBarBuilder(options.BarWidthSeconds);
 
@@ -144,6 +149,17 @@ internal sealed class TrainingEngineService
 		var previewClock = Stopwatch.StartNew();
 		var previewInterval = MinPreviewInterval;
 
+		double? SettleClosedTrades()
+		{
+			double? lastClosedPnl = null;
+			while (settledTradeCount < trader.TradeLog.Count)
+			{
+				lastClosedPnl = trader.TradeLog[settledTradeCount++].RealizedPnl;
+				onlineTrainer?.SettleTrade(lastClosedPnl.Value);
+			}
+			return lastClosedPnl;
+		}
+
 		// Sleeps are batched because Task.Delay can't honour sub-timer-resolution waits tick by tick.
 		async Task PaceAsync()
 		{
@@ -163,6 +179,7 @@ internal sealed class TrainingEngineService
 			var (currentBar, justClosedBar) = barBuilder.Feed(tick);
 
 			trader.Advance(bid, ask, tick.Timestamp);
+			SettleClosedTrades();
 
 			var shouldDecide = decisionMask.ShouldDecide(tick.Timestamp);
 
@@ -212,8 +229,12 @@ internal sealed class TrainingEngineService
 				var reward = trader.Snapshot(bid, ask).Equity - previousDecisionEquity;
 				totalReward += reward;
 				steps[^1] = steps[^1] with { EquityDelta = reward };
-				traces[^1] = traces[^1] with { Reward = reward };
+				if (!learnsOnline)
+					traces[^1] = traces[^1] with { Reward = reward };
 			}
+
+			var isChoice = LegalDirectionCount(actionSpace, trader.CurrentPosition, options.Output.ActionMasking) > 1;
+			var wasFlat = trader.CurrentPosition is null;
 
 			var featureModel = _featureAssembler.Assemble(
 				options.Features,
@@ -234,10 +255,16 @@ internal sealed class TrainingEngineService
 				tick.Timestamp
 			);
 
+			var closedTradePnl = SettleClosedTrades();
+
 			var capitalAfter = trader.Snapshot(bid, ask);
 			previousDecisionEquity = capitalAfter.Equity;
 			steps.Add(new EpisodeStep(tick.Timestamp, action, execution, EquityDelta: 0));
-			traces.Add(new DecisionTrace(activations, rawOutputs, actionIndex, Reward: 0));
+			var trace = new DecisionTrace(activations, rawOutputs, actionIndex, Reward: 0);
+			if (!learnsOnline)
+				traces.Add(trace);
+			else if (isChoice)
+				onlineTrainer!.RecordChoice(trace, wasFlat && trader.CurrentPosition is not null, closedTradePnl);
 
 			onDecision?.Invoke(
 				new LiveEpisodeSnapshot(
@@ -265,10 +292,12 @@ internal sealed class TrainingEngineService
 		if (steps.Count > 0)
 		{
 			steps.RemoveAt(steps.Count - 1);
-			traces.RemoveAt(traces.Count - 1);
+			if (!learnsOnline)
+				traces.RemoveAt(traces.Count - 1);
 		}
 
-		_learner.Learn(network, actionSpace, traces, options.Training.Learning, progress);
+		if (!learnsOnline)
+			_learner.Learn(network, actionSpace, traces, options.Training.Learning, progress);
 
 		var lastTick = ticks[^1];
 		return new EpisodeResult(steps, trader.Snapshot(lastTick.Bid, lastTick.Ask), trader.TradeLog, totalReward);
@@ -324,6 +353,9 @@ internal sealed class TrainingEngineService
 				masked[i] = IllegalDirectionPenalty;
 		return masked;
 	}
+
+	private static int LegalDirectionCount(ActionSpace actionSpace, Position? position, ActionMaskingOptionsModel masking) =>
+		actionSpace.Directions.Count(direction => IsLegalDirection(direction, position, masking));
 
 	private static bool IsLegalDirection(SimulationAction action, Position? position, ActionMaskingOptionsModel masking)
 	{

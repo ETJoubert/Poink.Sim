@@ -608,3 +608,43 @@
     font-weight: bold;
 }
 
+
+.trv2-info-card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px 10px;
+    border-left: 2px solid var(--color-accent);
+    background: color-mix(in srgb, var(--color-primary) 6%, transparent);
+    border-radius: var(--border-radius-sm);
+}
+
+.trv2-info-title {
+    font-size: 0.68rem;
+    font-weight: bold;
+    color: var(--color-accent);
+}
+
+.trv2-info-summary {
+    margin: 0;
+    font-size: 0.72rem;
+    color: var(--color-primary);
+}
+
+.trv2-info-row {
+    display: grid;
+    grid-template-columns: 4.5rem minmax(0, 1fr);
+    column-gap: 8px;
+    font-size: 0.68rem;
+}
+
+.trv2-info-label {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-secondary);
+    opacity: 0.8;
+}
+
+.trv2-info-text {
+    color: var(--color-secondary);
+}
