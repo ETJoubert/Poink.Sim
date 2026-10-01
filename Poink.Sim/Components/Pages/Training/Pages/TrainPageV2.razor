@@ -3,6 +3,8 @@
 @using Poink.Sim.Brain.Neural
 @using Poink.Sim.Components.Charts
 @using Poink.Sim.Components.Pages.Trade.Helpers
+@using Poink.Sim.Components.Pages.Training.Components.SymbolSummaryCard
+@using Poink.Sim.Components.Pages.Training.Components.TraderControlPanel
 @using Poink.Sim.Components.Shared.BarSizeSelect
 @using Poink.Sim.Components.Shared.Icon
 @using Poink.Sim.Components.Shared.PolicySelector
@@ -82,50 +84,7 @@
 
                         <div class="trv2-details-divider"></div>
 
-                        @if (_loadingSymbolMetadata)
-                        {
-                            <p class="trv2-placeholder">loading symbol metadata...</p>
-                        }
-                        else if (_selectedSymbol is null)
-                        {
-                            <p class="trv2-placeholder">no symbol selected yet.</p>
-                        }
-                        else
-                        {
-                            <div class="trv2-field-row">
-                                <div class="trv2-stat" title="Symbol selected above">
-                                    <span class="trv2-stat-label">symbol</span>
-                                    <span class="trv2-stat-value">@_selectedSymbol.SymbolName</span>
-                                </div>
-                                <div class="trv2-stat" title="Category this symbol belongs to">
-                                    <span class="trv2-stat-label">description</span>
-                                    <span class="trv2-stat-value">@_selectedSymbol.Description</span>
-                                </div>
-                                @if (SelectedSymbolMetadata is { } metadata)
-                                {
-                                    <div class="trv2-stat" title="Decimal places this symbol's price is quoted to">
-                                        <span class="trv2-stat-label">digits</span>
-                                        <span class="trv2-stat-value">@metadata.Digits</span>
-                                    </div>
-                                    <div class="trv2-stat" title="Price size of one pip, derived from this symbol's pip position">
-                                        <span class="trv2-stat-label">pip size</span>
-                                        <span class="trv2-stat-value">@PositionPnlHelper.PipSize(metadata).ToString("0.#####")</span>
-                                    </div>
-                                    <div class="trv2-stat" title="Minimum/maximum/step volume this symbol accepts per order">
-                                        <span class="trv2-stat-label">volume min/max/step</span>
-                                        <span class="trv2-stat-value">@metadata.MinVolume / @metadata.MaxVolume / @metadata.StepVolume</span>
-                                    </div>
-                                    <div class="trv2-stat" title="Units per lot">
-                                        <span class="trv2-stat-label">lot size</span>
-                                        <span class="trv2-stat-value">@metadata.LotSize</span>
-                                    </div>
-                                }
-                                else
-                                {
-                                    <p class="trv2-placeholder">no trading metadata cached for this symbol yet -- needs a cTrader session to fetch it once</p>
-                                }
-                            </div>
-                        }
+                        <SymbolSummaryCard Symbol="_selectedSymbol" Metadata="SelectedSymbolMetadata" Loading="_loadingSymbolMetadata" />
                     }
                 </div>
                 break;
@@ -540,6 +499,10 @@
                 break;
             case TrainV2Tab.Training:
                 <div class="trv2-card-stack">
+                    <div class="trv2-card-span-all">
+                        <SymbolSummaryCard Symbol="_selectedSymbol" Metadata="SelectedSymbolMetadata" Loading="_loadingSymbolMetadata" />
+                    </div>
+
                     <div class="trv2-card trv2-card-span-all">
                         <div class="trv2-card-title-row">
                             <span class="trv2-card-title" title="How many episodes to run, and what span of data each one covers">Episode Timing</span>
@@ -735,6 +698,8 @@
                             </label>
                         }
                     </div>
+
+                    <TraderControlPanel @bind-Value="_traderControl" StartingCash="_startingCash" Leverage="_leverage" LatestPrice="LatestPreviewPrice" PipSize="XGridPipSize" />
 
                     <div class="trv2-card">
                         <div class="trv2-card-title-row">

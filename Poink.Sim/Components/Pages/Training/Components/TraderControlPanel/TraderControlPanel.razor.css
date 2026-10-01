@@ -1,0 +1,118 @@
+.tcp-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 12px;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
+    border-radius: var(--border-radius-sm);
+    background: color-mix(in srgb, var(--color-primary) 4%, transparent);
+}
+
+.tcp-title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.tcp-title {
+    font-size: 0.62rem;
+    font-weight: bold;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-accent);
+}
+
+.tcp-badge {
+    font-size: 0.62rem;
+    color: var(--color-secondary);
+    margin-left: auto;
+}
+
+.tcp-field {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.72rem;
+    color: var(--color-secondary);
+    white-space: nowrap;
+}
+
+.tcp-input {
+    background: var(--color-bg-terminal);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 45%, transparent);
+    color: var(--color-primary);
+    padding: 4px 6px;
+    border-radius: var(--border-radius-sm);
+    font-family: var(--font-body);
+    font-size: 12px;
+    width: 70px;
+}
+
+.tcp-input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--color-primary) 40%, transparent);
+}
+
+.tcp-toggle-row {
+    display: flex;
+    gap: 4px;
+}
+
+.tcp-toggle {
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 35%, transparent);
+    color: var(--color-secondary);
+    padding: 3px 8px;
+    border-radius: var(--border-radius-sm);
+    font-family: var(--font-body);
+    font-size: 0.68rem;
+    cursor: pointer;
+}
+
+.tcp-toggle.active {
+    color: var(--color-primary);
+    border-color: var(--color-primary);
+    background: color-mix(in srgb, var(--color-primary) 14%, transparent);
+}
+
+.tcp-error {
+    margin: 0;
+    font-size: 0.7rem;
+    color: var(--color-danger, #ff5c5c);
+}
+
+.tcp-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    padding-top: 8px;
+    border-top: 1px solid color-mix(in srgb, var(--color-primary) 18%, transparent);
+}
+
+.tcp-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.tcp-stat-label {
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-secondary);
+    opacity: 0.8;
+}
+
+.tcp-stat-value {
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.tcp-loss {
+    color: var(--color-danger, #ff5c5c);
+}
+
+.tcp-gain {
+    color: var(--color-success, #4ade80);
+}

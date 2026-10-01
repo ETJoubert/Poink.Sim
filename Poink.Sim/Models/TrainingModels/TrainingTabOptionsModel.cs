@@ -37,8 +37,12 @@ namespace Poink.Sim.Models.TrainingModels
 		double Leverage = 1,
 		double CommissionRatePercent = 0,
 		double StopOutLevelPercent = 50,
-		IReadOnlyList<string>? SelectedRiskPolicies = null
-	);
+		IReadOnlyList<string>? SelectedRiskPolicies = null,
+		TraderControlOptionsModel? Control = null
+	)
+	{
+		public TraderControlOptionsModel EffectiveControl => Control ?? new TraderControlOptionsModel();
+	}
 
 	/// <summary>Which training strategy and reward policy drive learning, at what rate, and whether
 	/// an entropy bonus encourages exploration (anneals to 0 over the run -- see PolicyGradientLearner).</summary>

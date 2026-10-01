@@ -1,0 +1,55 @@
+.ssc-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 12px;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
+    border-radius: var(--border-radius-sm);
+    background: color-mix(in srgb, var(--color-primary) 4%, transparent);
+}
+
+.ssc-title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.ssc-title {
+    font-size: 0.62rem;
+    font-weight: bold;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-accent);
+}
+
+.ssc-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 16px;
+}
+
+.ssc-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.ssc-stat-label {
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-secondary);
+    opacity: 0.8;
+}
+
+.ssc-stat-value {
+    font-size: 0.92rem;
+    font-weight: 600;
+}
+
+.ssc-placeholder {
+    margin: 0;
+    font-size: 0.72rem;
+    color: var(--color-secondary);
+}

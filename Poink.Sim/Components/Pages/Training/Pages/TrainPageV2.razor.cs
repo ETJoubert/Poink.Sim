@@ -129,7 +129,7 @@ namespace Poink.Sim.Components.Pages
 			}
 		}
 
-		private DataOptionsModel CurrentDataOptions => new(_table, _from, _to, _selectedSymbol?.SymbolId);
+		private DataOptionsModel CurrentDataOptions => new(_table, _from, _to, _selectedSymbol?.SymbolId, XGridPipSize);
 
 		private void ApplyDataOptions(DataOptionsModel options)
 		{
@@ -584,6 +584,7 @@ namespace Poink.Sim.Components.Pages
 		private ProfilerConfig? _previewConfig;
 		private List<HlocAvdtBar> _previewBars = new();
 		private List<CTraderBarRow> _previewBarRows = new();
+		private double? LatestPreviewPrice => _previewBars.Count > 0 ? _previewBars[^1].Close : null;
 		private bool _previewLoading;
 		private bool _previewLoadingMore;
 		private bool _previewReachedStart;
@@ -764,6 +765,7 @@ namespace Poink.Sim.Components.Pages
 		private double _stopOutLevelPercent = 50;
 
 		private readonly List<string> _selectedRiskPolicies = [];
+		private TraderControlOptionsModel _traderControl = new();
 
 		[Inject]
 		private IRiskPolicyService RiskPolicyService { get; set; } = default!;
@@ -822,7 +824,7 @@ namespace Poink.Sim.Components.Pages
 			);
 
 		private TraderSetupOptionsModel CurrentTraderSetupOptions =>
-			new(_startingCash, _leverage, _commissionRatePercent, _stopOutLevelPercent, [.. _selectedRiskPolicies]);
+			new(_startingCash, _leverage, _commissionRatePercent, _stopOutLevelPercent, [.. _selectedRiskPolicies], _traderControl);
 
 		private LearningOptionsModel CurrentLearningOptions => new(_trainingStrategyName, _rewardPolicyName, _learningRate, _useEntropyBonus);
 
@@ -856,6 +858,7 @@ namespace Poink.Sim.Components.Pages
 			_selectedRiskPolicies.Clear();
 			if (traderSetup.SelectedRiskPolicies is { } policies)
 				_selectedRiskPolicies.AddRange(policies);
+			_traderControl = traderSetup.EffectiveControl;
 
 			var learning = options.Learning;
 			_trainingStrategyName = learning.TrainingStrategyName;
