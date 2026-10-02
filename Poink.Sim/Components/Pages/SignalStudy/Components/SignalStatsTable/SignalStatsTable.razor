@@ -1,0 +1,51 @@
+@namespace Poink.Sim.Components.SignalStudy
+@using Poink.Sim.Models
+
+<table class="stats-table">
+    <thead>
+        <tr>
+            <th title="The signal state, or pair of states, whose entries are measured">Signal</th>
+            <th title="Times the state started (with non-overlapping on, ignoring starts while the previous one's trade would still be open)">Entries</th>
+            <th title="@($"Average mid-price move {HorizonLabel} after an entry, in ATRs, with its 95% range")">Move @HorizonLabel</th>
+            <th title="@($"How much more the price moved {HorizonLabel} after an entry than after a random second, in ATRs")">Lift</th>
+            <th title="Share of long test trades from an entry that hit the target before the stop">Long win</th>
+            <th title="Average result of the long test trade, in R, after the spread">Long R</th>
+            <th title="Share of short test trades from an entry that hit the target before the stop">Short win</th>
+            <th title="Average result of the short test trade, in R, after the spread">Short R</th>
+            <th title="The side with the better average result">Side</th>
+            <th title="How many standard errors the better side's average result is from zero -- around 2 or more is unlikely to be luck alone, before allowing for how many signals were tried">t</th>
+            <th title="The better side's average R in the first half of the date range">1st half</th>
+            <th title="The better side's average R in the second half -- the row is marked when both halves agree in sign">2nd half</th>
+            <th title="Average spread at the entries, in pips">Spread</th>
+        </tr>
+    </thead>
+    <tbody>
+        @if (Baseline is { } baseline)
+        {
+            @Row(baseline, "stats-baseline")
+        }
+        @foreach (var row in Rows)
+        {
+            @Row(row, RowClass(row))
+        }
+    </tbody>
+</table>
+
+@code {
+    private RenderFragment Row(SignalStateStats row, string cssClass) =>
+        @<tr class="@cssClass" title="@row.Key">
+            <td class="stats-name">@row.Name</td>
+            <td>@row.Entries.ToString("N0")</td>
+            <td>@Signed(At(row.MeanForwardAtr), "0.000")<span class="stats-ci">@CiLabel(At(row.ForwardCiAtr))</span></td>
+            <td class="@SignClass(At(row.LiftAtr))">@Signed(At(row.LiftAtr), "0.000")</td>
+            <td>@Percent(row.LongWinRate)</td>
+            <td class="@SignClass(row.LongExpectancyR)">@Signed(row.LongExpectancyR, "0.00")</td>
+            <td>@Percent(row.ShortWinRate)</td>
+            <td class="@SignClass(row.ShortExpectancyR)">@Signed(row.ShortExpectancyR, "0.00")</td>
+            <td>@(row.BestSide == SignalTradeSide.Long ? "LONG" : "SHORT")</td>
+            <td>@(row.BestTStat?.ToString("0.0") ?? "—")</td>
+            <td class="@SignClass(row.FirstHalfR)">@Signed(row.FirstHalfR, "0.00")</td>
+            <td class="@SignClass(row.SecondHalfR)">@Signed(row.SecondHalfR, "0.00")</td>
+            <td>@(row.MeanSpreadPips?.ToString("0.0") ?? "—")</td>
+        </tr>;
+}

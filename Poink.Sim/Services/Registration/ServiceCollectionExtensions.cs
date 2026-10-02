@@ -212,6 +212,7 @@ public static class ServiceCollectionExtensions
 		services.AddSingleton<ISignalDatasetRepository, SignalDatasetRepository>();
 		services.AddSingleton<SignalStudy.ISignalDatasetBuilder, SignalStudy.SignalDatasetBuilder>();
 		services.AddSingleton<SignalStudy.ISignalDatasetService, SignalStudy.SignalDatasetService>();
+		services.AddSingleton<SignalStudy.ISignalAnalysisService, SignalStudy.SignalAnalysisService>();
 
 		return services;
 	}

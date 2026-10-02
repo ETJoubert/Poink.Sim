@@ -1,6 +1,7 @@
 @page "/signal-study"
 @namespace Poink.Sim.Components.Pages
 @using Poink.Sim.Components.RuleEngine
+@using Poink.Sim.Components.SignalStudy
 @using Poink.Sim.Components.Shared.BarSizeSelect
 @using Poink.Sim.Components.Shared.Icon
 @using Poink.Sim.Components.Shared.TickDataSource
@@ -124,6 +125,11 @@
                             <td class="study-status-@dataset.Status.ToString().ToLowerInvariant()">@dataset.Status</td>
                             <td>@dataset.CreatedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                             <td>
+                                <button type="button" class="study-icon-btn" @onclick="() => SelectForAnalysis(dataset)"
+                                        disabled="@(dataset.Status != SignalDatasetStatus.Complete)"
+                                        title="Choose this dataset in the Analyse section below">
+                                    <Icon Name="graph-up-arrow" Class="study-icon" />
+                                </button>
                                 <button type="button" class="study-icon-btn" @onclick="() => DeleteDatasetAsync(dataset)"
                                         disabled="@(Builder.IsBuilding && dataset.Status == SignalDatasetStatus.Building)"
                                         title="Delete this dataset and all its points">
@@ -136,6 +142,92 @@
             </table>
         }
     </section>
+
+    <section class="study-panel" title="Label a dataset with what followed each second, then rank the signal states -- and the best pairs of them -- by it">
+        <div class="study-panel-heading">ANALYSE</div>
+        <div class="study-fields">
+            <label class="study-field" title="The dataset to analyse -- complete datasets only">
+                <span>Dataset</span>
+                <select value="@_analysisDatasetId" @onchange="SelectAnalysisDataset" disabled="@_analysisRunning">
+                    <option value="">--</option>
+                    @foreach (var dataset in CompleteDatasets)
+                    {
+                        <option value="@dataset.Id">@dataset.Name</option>
+                    }
+                </select>
+            </label>
+            <label class="study-field" title="Minutes ahead the price move after each entry is measured, comma separated">
+                <span>Horizons (min)</span>
+                <input type="text" value="@_horizonsText" @onchange="SetHorizons" disabled="@_analysisRunning" />
+            </label>
+            @OptionDouble("Stop (ATR)", "Stop distance of the test trade opened at each entry, in ATRs -- its R", _analysisOptions.StopAtr, 0.1, v => _analysisOptions with { StopAtr = v })
+            @OptionDouble("Target (R)", "Target distance of the test trade, in multiples of the stop distance", _analysisOptions.TargetR, 0.1, v => _analysisOptions with { TargetR = v })
+            @OptionInt("Time limit (min)", "Minutes before the test trade is closed at the market if neither stop nor target was hit", _analysisOptions.MaxMinutes, 1, v => _analysisOptions with { MaxMinutes = v })
+            @OptionInt("Min entries", "Fewest entries a state needs before it is ranked", _analysisOptions.MinEntries, 1, v => _analysisOptions with { MinEntries = v })
+            @OptionInt("Pair from top", "How many of the best single states are combined two at a time", _analysisOptions.PairCandidates, 0, v => _analysisOptions with { PairCandidates = v })
+            <label class="study-field" title="Ignore an entry while the previous entry of the same state would still be an open test trade, so overlapping samples do not inflate the counts">
+                <span>Non-overlapping</span>
+                <input type="checkbox" checked="@_analysisOptions.NonOverlapping" disabled="@_analysisRunning"
+                       @onchange="e => _analysisOptions = _analysisOptions with { NonOverlapping = e.Value is true }" />
+            </label>
+        </div>
+
+        <div class="study-row study-actions">
+            @if (_analysisRunning)
+            {
+                <button type="button" class="study-btn study-btn-stop" @onclick="CancelAnalysis" title="Stop the analysis">Cancel</button>
+                <span class="study-progress-text">Analysing...</span>
+            }
+            else
+            {
+                <button type="button" class="study-btn study-btn-go" @onclick="RunAnalysisAsync" disabled="@(SelectedAnalysisDataset is null)"
+                        title="@(SelectedAnalysisDataset is null ? "Choose a complete dataset first" : "Label the dataset with these settings and rank its signal states")">Analyse</button>
+            }
+            @if (_analysisResult is { } done)
+            {
+                <button type="button" class="study-btn" @onclick="ExportCsvAsync" disabled="@_analysisRunning"
+                        title="Download the baseline, ranked singles and ranked pairs with every horizon as a CSV file">Export CSV</button>
+                <span class="study-note">
+                    @done.DatasetName · @done.PointCount.ToString("N0") points · @done.Singles.Count ranked states · @done.Pairs.Count ranked pairs · @done.Elapsed.TotalSeconds.ToString("0.0") s
+                </span>
+            }
+            @if (_analysisError is { } analysisError)
+            {
+                <span class="study-error" title="Why the analysis failed">@analysisError</span>
+            }
+        </div>
+
+        @if (_analysisResult is { } result)
+        {
+            <div class="study-row" title="Which forward horizon the Move and Lift columns show">
+                @for (int h = 0; h < result.Options.HorizonMinutes.Count; h++)
+                {
+                    int index = h;
+                    <button type="button" class="study-btn @(index == _horizonIndex ? "active" : "")" @onclick="() => _horizonIndex = index"
+                            title="@($"Show the price move {result.Options.HorizonMinutes[index]} minutes after each entry")">@($"{result.Options.HorizonMinutes[index]}m")</button>
+                }
+            </div>
+            <p class="study-note study-caveat">
+                Ranked by t, the better side's average R in standard errors. Shaded rows have t of 2 or more and both halves of the range agree.
+                With this many signals tried, a few will look good by luck -- trust the ones that hold up on a later, untouched range.
+            </p>
+            <div class="study-panel-heading">SINGLE STATES</div>
+            <div class="study-scroll">
+                <SignalStatsTable Rows="result.Singles" Baseline="result.Baseline" HorizonIndex="_horizonIndex" HorizonLabel="@HorizonLabel(result)" />
+            </div>
+            <div class="study-panel-heading">PAIRS OF THE TOP STATES</div>
+            @if (result.Pairs.Count == 0)
+            {
+                <p class="study-empty">No pair reached the minimum number of entries.</p>
+            }
+            else
+            {
+                <div class="study-scroll">
+                    <SignalStatsTable Rows="result.Pairs" Baseline="result.Baseline" HorizonIndex="_horizonIndex" HorizonLabel="@HorizonLabel(result)" />
+                </div>
+            }
+        }
+    </section>
 </div>
 
 @code {
@@ -144,6 +236,20 @@
             <span>@label</span>
             <input type="number" step="1" min="@min" max="@max" value="@value" disabled="@Builder.IsBuilding"
                    @onchange="e => SetInt(e, min, max, apply)" />
+        </label>;
+
+    private RenderFragment OptionDouble(string label, string tooltip, double value, double step, Func<double, SignalAnalysisOptions> apply) =>
+        @<label class="study-field" title="@tooltip">
+            <span>@label</span>
+            <input type="number" step="@step" min="0" value="@value" disabled="@_analysisRunning"
+                   @onchange="e => SetOptionDouble(e, apply)" />
+        </label>;
+
+    private RenderFragment OptionInt(string label, string tooltip, int value, int min, Func<int, SignalAnalysisOptions> apply) =>
+        @<label class="study-field" title="@tooltip">
+            <span>@label</span>
+            <input type="number" step="1" min="@min" value="@value" disabled="@_analysisRunning"
+                   @onchange="e => SetOptionInt(e, min, apply)" />
         </label>;
 
     private RenderFragment DoubleField(string label, string tooltip, double value, double step, Func<double, SignalProfile> apply) =>

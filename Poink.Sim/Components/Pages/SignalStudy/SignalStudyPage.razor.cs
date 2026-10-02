@@ -1,9 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
+using Microsoft.JSInterop;
 using Poink.Sim.Helpers;
 using Poink.Sim.Models;
 using Poink.Sim.Services.Symbols;
@@ -30,6 +33,12 @@ namespace Poink.Sim.Components.Pages
 		private ILocalStorageHelper LocalStorage { get; set; } = default!;
 
 		[Inject]
+		private ISignalAnalysisService Analysis { get; set; } = default!;
+
+		[Inject]
+		private IJSRuntime JS { get; set; } = default!;
+
+		[Inject]
 		private ILogger<SignalStudyPage> Logger { get; set; } = default!;
 
 		private string _table = string.Empty;
@@ -41,6 +50,22 @@ namespace Poink.Sim.Components.Pages
 		private IReadOnlyList<SignalDatasetInfo> _datasets = Array.Empty<SignalDatasetInfo>();
 		private string? _datasetsError;
 		private bool _wasBuilding;
+
+		private long? _analysisDatasetId;
+		private SignalAnalysisOptions _analysisOptions = new();
+		private string _horizonsText = "5, 15, 60";
+		private SignalAnalysisResult? _analysisResult;
+		private string? _analysisError;
+		private bool _analysisRunning;
+		private int _horizonIndex;
+		private CancellationTokenSource? _analysisCancellation;
+
+		private IEnumerable<SignalDatasetInfo> CompleteDatasets => _datasets.Where(d => d.Status == SignalDatasetStatus.Complete);
+
+		private SignalDatasetInfo? SelectedAnalysisDataset => CompleteDatasets.FirstOrDefault(d => d.Id == _analysisDatasetId);
+
+		private string HorizonLabel(SignalAnalysisResult result) =>
+			_horizonIndex < result.Options.HorizonMinutes.Count ? $"{result.Options.HorizonMinutes[_horizonIndex]}m" : "";
 
 		private string DefaultName => $"{_table} {_from:yyyy-MM-dd} → {_to:yyyy-MM-dd} {BarSizeOptions.Label(_profile.BarSizeSeconds)}";
 
@@ -176,6 +201,89 @@ namespace Poink.Sim.Components.Pages
 				_profile = apply(Math.Max(0, value));
 		}
 
-		public void Dispose() => Builder.OnChanged -= HandleBuilderChanged;
+		private void SelectForAnalysis(SignalDatasetInfo dataset) => _analysisDatasetId = dataset.Id;
+
+		private void SelectAnalysisDataset(ChangeEventArgs e) =>
+			_analysisDatasetId = long.TryParse(e.Value?.ToString(), out var id) ? id : null;
+
+		private void SetHorizons(ChangeEventArgs e)
+		{
+			_horizonsText = e.Value?.ToString() ?? string.Empty;
+			var horizons = _horizonsText
+				.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+				.Select(part => int.TryParse(part, NumberStyles.Integer, CultureInfo.InvariantCulture, out var minutes) ? minutes : 0)
+				.Where(minutes => minutes > 0)
+				.Distinct()
+				.OrderBy(minutes => minutes)
+				.ToList();
+			if (horizons.Count > 0)
+				_analysisOptions = _analysisOptions with { HorizonMinutes = horizons };
+		}
+
+		private void SetOptionDouble(ChangeEventArgs e, Func<double, SignalAnalysisOptions> apply)
+		{
+			if (double.TryParse(e.Value?.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var value) && value > 0)
+				_analysisOptions = apply(value);
+		}
+
+		private void SetOptionInt(ChangeEventArgs e, int min, Func<int, SignalAnalysisOptions> apply)
+		{
+			if (int.TryParse(e.Value?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var value))
+				_analysisOptions = apply(Math.Max(min, value));
+		}
+
+		private async Task RunAnalysisAsync()
+		{
+			if (SelectedAnalysisDataset is not { } dataset)
+				return;
+			_analysisCancellation = new CancellationTokenSource();
+			_analysisRunning = true;
+			_analysisError = null;
+			try
+			{
+				_analysisResult = await Analysis.AnalyzeAsync(dataset, _analysisOptions, _analysisCancellation.Token);
+				_horizonIndex = Math.Min(_horizonIndex, _analysisResult.Options.HorizonMinutes.Count - 1);
+			}
+			catch (OperationCanceledException)
+			{
+				_analysisError = "Analysis cancelled";
+			}
+			catch (Exception ex)
+			{
+				_analysisError = $"Analysis failed: {ex.Message}";
+				Logger.LogError(ex, "Signal analysis failed for dataset {Id}", dataset.Id);
+			}
+			finally
+			{
+				_analysisRunning = false;
+				_analysisCancellation.Dispose();
+				_analysisCancellation = null;
+			}
+		}
+
+		private void CancelAnalysis() => _analysisCancellation?.Cancel();
+
+		private async Task ExportCsvAsync()
+		{
+			if (_analysisResult is not { } result)
+				return;
+			try
+			{
+				await using var module = await JS.InvokeAsync<IJSObjectReference>("import", "./js/fileDownload.js");
+				var fileName = $"signal-analysis-{result.DatasetId}-{DateTime.Now:yyyyMMdd-HHmm}.csv";
+				await module.InvokeVoidAsync("downloadText", fileName, SignalAnalysisCsv.Build(result), "text/csv");
+			}
+			catch (Exception ex)
+			{
+				_analysisError = $"Export failed: {ex.Message}";
+				Logger.LogError(ex, "Could not export the signal analysis of dataset {Id}", result.DatasetId);
+			}
+		}
+
+		public void Dispose()
+		{
+			Builder.OnChanged -= HandleBuilderChanged;
+			_analysisCancellation?.Cancel();
+		}
 	}
 }
