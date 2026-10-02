@@ -1,0 +1,68 @@
+@namespace Poink.Sim.Components.Pages.Analize
+@using Poink.Sim.Models
+
+<div class="barrier-map">
+    <div class="barrier-toolbar">
+        <div class="barrier-group" title="Which side's trades the map shows">
+            @foreach (var side in Sides)
+            {
+                <button type="button" class="barrier-toggle @(Selection.Side == side ? "active" : "")" @onclick="() => Select(Selection with { Side = side })"
+                        title="@SideTitle(side)">@side.ToString().ToUpperInvariant()</button>
+            }
+        </div>
+        <div class="barrier-group" title="How long a trade may stay open before it is closed at the market">
+            @foreach (var minutes in Result.Request.TimeLimitMinutes)
+            {
+                <button type="button" class="barrier-toggle @(Selection.TimeLimitMinutes == minutes ? "active" : "")"
+                        @onclick="() => Select(Selection with { TimeLimitMinutes = minutes })"
+                        title="@($"Trades still open after {LimitLabel(minutes)} are closed at the market")">@LimitLabel(minutes)</button>
+            }
+        </div>
+        <div class="barrier-group" title="Which figure colours the cells">
+            @foreach (var metric in Metrics)
+            {
+                <button type="button" class="barrier-toggle @(Selection.Metric == metric ? "active" : "")" @onclick="() => Select(Selection with { Metric = metric })"
+                        title="@MetricTitle(metric)">@MetricLabel(metric)</button>
+            }
+        </div>
+    </div>
+
+    @if (Grid is { } grid)
+    {
+        <div class="barrier-scroll">
+            <table class="barrier-grid">
+                <thead>
+                    <tr>
+                        <th class="barrier-corner" title="Rows are stop-loss sizes, columns take-profit sizes, both in pips">SL ↓ / TP →</th>
+                        @foreach (var target in Result.Request.TargetPips)
+                        {
+                            <th title="@($"Take profit {target:0.#} pips")">@target.ToString("0.#")</th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    @for (int s = 0; s < Result.Request.StopPips.Count; s++)
+                    {
+                        int stopIndex = s;
+                        <tr>
+                            <th title="@($"Stop loss {Result.Request.StopPips[stopIndex]:0.#} pips")">@Result.Request.StopPips[stopIndex].ToString("0.#")</th>
+                            @for (int t = 0; t < Result.Request.TargetPips.Count; t++)
+                            {
+                                int index = stopIndex * Result.Request.TargetPips.Count + t;
+                                var cell = grid.Cells[index];
+                                <td class="barrier-cell @(Selection.CellIndex == index ? "selected" : "")" style="@CellStyle(cell)"
+                                    title="@CellTitle(cell)" @onclick="() => Select(Selection with { CellIndex = index })">
+                                    @MetricText(cell)
+                                </td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <p class="barrier-caption">
+            @Result.EntryCount.ToString("N0") entries per side · average spread @Result.MeanSpreadPips.ToString("0.0#") pips ·
+            EDGE compares each cell with the same trades on a scrambled copy of the price (same timing, spreads and move sizes, random direction), so time limits and costs are already allowed for
+        </p>
+    }
+</div>

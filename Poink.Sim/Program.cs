@@ -36,6 +36,7 @@ builder.Services.AddSingleton<IProfilerService, ProfilerService>();
 builder.Services.AddSingleton<IBarKindChartService, BarKindChartService>();
 builder.Services.AddSingleton<ITimeAboveBelowAnalysisService, TimeAboveBelowAnalysisService>();
 builder.Services.AddSingleton<IPriceReturnAnalysisService, PriceReturnAnalysisService>();
+builder.Services.AddSingleton<IBarrierMapAnalysisService, BarrierMapAnalysisService>();
 builder.Services.AddScoped<ILocalStorageHelper, LocalStorageHelper>();
 builder.Services.BuildTradePageServices();
 builder.Services.BuildCodeGraphServices();
