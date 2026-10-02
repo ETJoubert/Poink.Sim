@@ -9,28 +9,31 @@ using Poink.Sim.Models;
 namespace Poink.Sim.Components.Simulation
 {
 	/// <summary>
-	/// The Simulation page's Robot tab: Positioning, Open and Close sub-tabs. Positioning reuses
+	/// The Simulation page's Robot tab: Positioning, Open and Close sub-tabs, whose selection the host keeps. Positioning reuses
 	/// <see cref="TradeConsole"/> in settings mode to capture the robot's position options; Open (split
 	/// into Long and Short) and Close each host their own rule-engine configuration as the conditions to
 	/// open and close.
 	/// </summary>
 	public partial class RobotPanel : ComponentBase
 	{
-		private enum RobotSubTab
-		{
-			Positioning,
-			Open,
-			Close,
-		}
+		[Parameter]
+		public RobotSubTab SubTab { get; set; }
 
-		private enum OpenSide
-		{
-			Long,
-			Short,
-		}
+		[Parameter]
+		public EventCallback<RobotSubTab> OnSubTabChanged { get; set; }
 
-		private RobotSubTab _activeTab;
-		private OpenSide _openSide;
+		[Parameter]
+		public RobotOpenSide OpenSide { get; set; }
+
+		[Parameter]
+		public EventCallback<RobotOpenSide> OnOpenSideChanged { get; set; }
+
+		/// <summary>Whether the robot is allowed to trade when its conditions match.</summary>
+		[Parameter]
+		public bool Enabled { get; set; }
+
+		[Parameter]
+		public EventCallback<bool> OnEnabledChanged { get; set; }
 
 		[Parameter]
 		public TradeConsoleOptions? Options { get; set; }
@@ -90,6 +93,10 @@ namespace Poink.Sim.Components.Simulation
 
 		[Parameter]
 		public HashSet<int> TxFoldSelectedSeconds { get; set; } = new();
+
+		private Task SelectSubTab(RobotSubTab tab) => OnSubTabChanged.InvokeAsync(tab);
+
+		private Task SelectOpenSide(RobotOpenSide side) => OnOpenSideChanged.InvokeAsync(side);
 
 		private Task SetXGridPercent(RobotRuleSet rules, double percent)
 		{

@@ -4,36 +4,40 @@
 @using Poink.Sim.Models
 
 <div class="robot-panel">
+    <button type="button" class="robot-switch @(Enabled ? "active" : "")" @onclick="() => OnEnabledChanged.InvokeAsync(!Enabled)"
+            title="@(Enabled ? "The robot trades whenever its open and close conditions match -- click to switch it off" : "The robot is off and will not trade -- click to let it trade when its conditions match")">
+        ROBOT: @(Enabled ? "ON" : "OFF")
+    </button>
     <div class="robot-subtabs">
-        <button type="button" class="robot-subtab @(_activeTab == RobotSubTab.Positioning ? "active" : "")"
-                @onclick="() => _activeTab = RobotSubTab.Positioning"
+        <button type="button" class="robot-subtab @(SubTab == RobotSubTab.Positioning ? "active" : "")"
+                @onclick="() => SelectSubTab(RobotSubTab.Positioning)"
                 title="How the robot sizes a position and places its stop loss and take profit">POSITIONING</button>
-        <button type="button" class="robot-subtab @(_activeTab == RobotSubTab.Open ? "active" : "")"
-                @onclick="() => _activeTab = RobotSubTab.Open"
+        <button type="button" class="robot-subtab @(SubTab == RobotSubTab.Open ? "active" : "")"
+                @onclick="() => SelectSubTab(RobotSubTab.Open)"
                 title="The conditions that make the robot open a position">OPEN</button>
-        <button type="button" class="robot-subtab @(_activeTab == RobotSubTab.Close ? "active" : "")"
-                @onclick="() => _activeTab = RobotSubTab.Close"
+        <button type="button" class="robot-subtab @(SubTab == RobotSubTab.Close ? "active" : "")"
+                @onclick="() => SelectSubTab(RobotSubTab.Close)"
                 title="The conditions that make the robot close a position">CLOSE</button>
     </div>
 
     <div class="robot-subtab-content">
-        @if (_activeTab == RobotSubTab.Positioning)
+        @if (SubTab == RobotSubTab.Positioning)
         {
-            <TradeConsole SettingsMode="true" Options="Options" OnOptionsSet="OnOptionsChanged"
+            <TradeConsole SettingsMode="true" Options="Options" OnOptionsChanged="OnOptionsChanged"
                           HasSelection="HasSelection" Balance="Balance" Leverage="Leverage" PipSize="PipSize"
                           CurrentPrice="CurrentPrice" CurrentBid="CurrentBid" CurrentAsk="CurrentAsk" />
         }
-        else if (_activeTab == RobotSubTab.Open)
+        else if (SubTab == RobotSubTab.Open)
         {
             <div class="robot-subtabs robot-subtabs-nested">
-                <button type="button" class="robot-subtab @(_openSide == OpenSide.Long ? "active" : "")"
-                        @onclick="() => _openSide = OpenSide.Long"
+                <button type="button" class="robot-subtab @(OpenSide == RobotOpenSide.Long ? "active" : "")"
+                        @onclick="() => SelectOpenSide(RobotOpenSide.Long)"
                         title="The conditions that must all hold for the robot to open a long position">LONG</button>
-                <button type="button" class="robot-subtab @(_openSide == OpenSide.Short ? "active" : "")"
-                        @onclick="() => _openSide = OpenSide.Short"
+                <button type="button" class="robot-subtab @(OpenSide == RobotOpenSide.Short ? "active" : "")"
+                        @onclick="() => SelectOpenSide(RobotOpenSide.Short)"
                         title="The conditions that must all hold for the robot to open a short position">SHORT</button>
             </div>
-            @RuleEditor(_openSide == OpenSide.Long ? OpenLongRules : OpenShortRules)
+            @RuleEditor(OpenSide == RobotOpenSide.Long ? OpenLongRules : OpenShortRules)
         }
         else
         {

@@ -73,6 +73,10 @@ namespace Poink.Sim.Components.Pages
 		private RobotRuleSet _openLongRules = new();
 		private RobotRuleSet _openShortRules = new();
 		private RobotRuleSet _closeRules = new();
+		private bool _robotEnabled;
+		private RobotSubTab _robotSubTab;
+		private RobotOpenSide _robotOpenSide;
+		private TradeConsoleOptions? _tradeConsoleOptions;
 		private string? _error;
 		private bool _hideChart;
 
@@ -586,6 +590,7 @@ namespace Poink.Sim.Components.Pages
 			_error = SimulationService.Error;
 			SyncHistoryState(_snapshot);
 			PlayWhenLoadSettles();
+			EvaluateRobot();
 		}
 
 		// A config change invalidates already-fetched history; a cursor moving backward means
@@ -682,7 +687,11 @@ namespace Poink.Sim.Components.Pages
 				_robotPositionOptions,
 				_openLongRules,
 				_openShortRules,
-				_closeRules
+				_closeRules,
+				_robotEnabled,
+				_tradeConsoleOptions,
+				_robotSubTab,
+				_robotOpenSide
 			);
 
 		// A simulation already held by the service (page revisited) is shown as-is instead of reloaded.
@@ -722,6 +731,10 @@ namespace Poink.Sim.Components.Pages
 			_openLongRules = settings.OpenLongRules ?? new();
 			_openShortRules = settings.OpenShortRules ?? new();
 			_closeRules = settings.CloseRules ?? new();
+			_robotEnabled = settings.RobotEnabled;
+			_tradeConsoleOptions = settings.TradeOptions;
+			_robotSubTab = settings.RobotSubTab;
+			_robotOpenSide = settings.RobotOpenSide;
 		}
 
 		private async Task PersistSettingsIfChangedAsync()
@@ -951,7 +964,8 @@ namespace Poink.Sim.Components.Pages
 				_pipSize,
 				SelectedRiskPolicies,
 				_steppingMode,
-				_cellWidth
+				_cellWidth,
+				RuleEngineWarmup()
 			);
 
 			_keepChartView = false;
@@ -990,6 +1004,27 @@ namespace Poink.Sim.Components.Pages
 		}
 
 		private void SetRobotPositionOptions(TradeConsoleOptions options) => _robotPositionOptions = options;
+
+		private void ApplyDataRange() => LoadSimulation(playWhenLoaded: false);
+
+		// Enough history before From that the rule engine's bar window and TxFold lookback are already full when the run starts.
+		private TimeSpan RuleEngineWarmup()
+		{
+			if (!_aggregate)
+				return TimeSpan.Zero;
+
+			var barSpan = TimeSpan.FromSeconds(_barSizeSeconds) * (ClampedBarWindow + ClampedBarOffset);
+			var txFoldSpan = _txFoldSelectedSeconds.Count > 0 ? TimeSpan.FromSeconds(_txFoldSelectedSeconds.Max()) : TimeSpan.Zero;
+			return barSpan > txFoldSpan ? barSpan : txFoldSpan;
+		}
+
+		private void SetRobotSubTab(RobotSubTab tab) => _robotSubTab = tab;
+
+		private void SetRobotOpenSide(RobotOpenSide side) => _robotOpenSide = side;
+
+		private void SetRobotEnabled(bool enabled) => _robotEnabled = enabled;
+
+		private void SetTradeConsoleOptions(TradeConsoleOptions options) => _tradeConsoleOptions = options;
 
 		private Task OnRobotRulesChanged() => PersistSettingsIfChangedAsync();
 
@@ -1064,7 +1099,6 @@ namespace Poink.Sim.Components.Pages
 		private void ResetSim()
 		{
 			_keepChartView = false;
-			_draft = null;
 			LoadSimulation(playWhenLoaded: false);
 		}
 

@@ -35,3 +35,22 @@
 .robot-subtabs-nested {
     margin-bottom: 8px;
 }
+
+.robot-switch {
+    padding: 6px;
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--color-secondary) 45%, transparent);
+    border-radius: var(--border-radius-sm);
+    color: var(--color-secondary);
+    font-family: var(--font-heading);
+    font-size: 0.68rem;
+    font-weight: bold;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+}
+
+.robot-switch.active {
+    color: var(--color-success);
+    border-color: var(--color-success);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--color-success) 35%, transparent);
+}

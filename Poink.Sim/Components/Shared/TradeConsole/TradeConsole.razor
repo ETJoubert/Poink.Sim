@@ -220,14 +220,7 @@
     </div>
 
     <div class="tcon-actions">
-        @if (SettingsMode)
-        {
-            <button class="tcon-btn tcon-buy" @onclick="SetOptions"
-                    title="Save the direction, size, SL and TP as the robot position options">
-                SET
-            </button>
-        }
-        else
+        @if (!SettingsMode)
         {
             <button class="tcon-btn @(_isLong ? "tcon-buy" : "tcon-sell")" @onclick="() => SubmitEntry(_isLong)"
                     disabled="@Busy" title="Submit this entry using the selected direction, order type, size, SL and TP">

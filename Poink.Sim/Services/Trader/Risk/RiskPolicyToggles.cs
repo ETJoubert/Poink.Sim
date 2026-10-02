@@ -58,6 +58,31 @@ internal sealed class RiskPolicyToggles
 		}
 	}
 
+	// Carries a previous run's enabled flags, parameter values and run order over to a freshly built set;
+	// policies the previous run didn't know keep their defaults and run after the carried-over ones.
+	public void RestoreFrom(IReadOnlyList<RiskPolicySnapshot> previous)
+	{
+		lock (_lock)
+		{
+			var known = previous.Where(p => _enabled.ContainsKey(p.Name)).ToList();
+			foreach (var state in known)
+			{
+				_enabled[state.Name] = state.Enabled;
+				foreach (var parameter in state.Parameters)
+					if (_parameters[state.Name].TryGetValue(parameter.Key, out var current))
+						_parameters[state.Name][parameter.Key] = current with
+						{
+							Value = Math.Clamp(parameter.Value, current.Min, current.Max),
+						};
+			}
+
+			var carriedOrder = known.Select(p => p.Name).ToList();
+			var fullOrder = carriedOrder.Concat(_order.Except(carriedOrder)).ToList();
+			_order.Clear();
+			_order.AddRange(fullOrder);
+		}
+	}
+
 	public IReadOnlyList<string> OrderedNames()
 	{
 		lock (_lock)

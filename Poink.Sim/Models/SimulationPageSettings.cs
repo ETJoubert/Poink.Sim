@@ -26,6 +26,10 @@ namespace Poink.Sim.Models
 		TradeConsoleOptions? RobotPositionOptions,
 		RobotRuleSet? OpenLongRules,
 		RobotRuleSet? OpenShortRules,
-		RobotRuleSet? CloseRules
+		RobotRuleSet? CloseRules,
+		bool RobotEnabled,
+		TradeConsoleOptions? TradeOptions,
+		RobotSubTab RobotSubTab,
+		RobotOpenSide RobotOpenSide
 	);
 }

@@ -75,6 +75,25 @@ internal static class RuleEngineHelper
         public static string Below(int seconds) => $"txfold-{seconds}-below";
     }
 
+    public static string? SelectedKey(RuleSignalRow row, HashSet<string> enabledKeys) =>
+        row.AboveKey is { } above && enabledKeys.Contains(above) ? above
+        : enabledKeys.Contains(row.InKey) ? row.InKey
+        : row.BelowKey is { } below && enabledKeys.Contains(below) ? below
+        : null;
+
+    public static bool LiveValue(RuleSignalRow row, string key) =>
+        key == row.AboveKey ? row.Above
+        : key == row.InKey ? row.In
+        : key == row.BelowKey && row.Below;
+
+    // AND across every enabled key -- the mask matches only when all its constraints hold at once.
+    public static bool Matches(IReadOnlyList<RuleSignalRow> rows, HashSet<string> enabledKeys) =>
+        rows.Count > 0
+        && enabledKeys.Count > 0
+        && rows.All(row => SelectedKey(row, enabledKeys) is not { } key || LiveValue(row, key));
+
+    public static bool UsesTxFold(HashSet<string> enabledKeys) => enabledKeys.Any(k => k.StartsWith("txfold-", StringComparison.Ordinal));
+
     public static RuleEngineResult Compute<TSample, TBar>(
         IReadOnlyList<TSample> volumeSamples,
         Func<TSample, double> samplePrice,

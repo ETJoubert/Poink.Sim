@@ -29,8 +29,14 @@ internal sealed record SimulationConfig(
 	double PipSize = 0.01,
 	IReadOnlyList<string>? RiskPolicyNames = null,
 	SimulationSteppingMode SteppingMode = SimulationSteppingMode.Bar,
-	double CellWidth = 0.10
-);
+	double CellWidth = 0.10,
+	TimeSpan Warmup = default
+)
+{
+	// Ticks from here up to From are replayed silently before the run starts, so history-dependent
+	// readouts (the rule engine's bar window and TxFold lookback) are already populated at From.
+	public DateTime LoadFrom => From - Warmup;
+}
 
 // Live PriceCellTracker readout, published only while SteppingMode is Cell -- lets a host
 // compare how often it fires against the bar-based alternative.

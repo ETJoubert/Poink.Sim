@@ -67,18 +67,19 @@ namespace Poink.Sim.Components.Shared.TradeConsole
 		public EventCallback<TradeConsoleOrderRequest> OnSubmit { get; set; }
 
 		/// <summary>
-		/// Turns the console into a position-options editor: no order type or PLACE, and SET hands the
-		/// price-independent <see cref="TradeConsoleOptions"/> to <see cref="OnOptionsSet"/> instead.
+		/// Turns the console into a position-options editor: no order type or PLACE, edits are reported
+		/// through <see cref="OnOptionsChanged"/> as price-independent <see cref="TradeConsoleOptions"/>.
 		/// </summary>
 		[Parameter]
 		public bool SettingsMode { get; set; }
 
-		/// <summary>Settings-mode starting values, read once when the console is created.</summary>
+		/// <summary>Starting values, read once when the console is created.</summary>
 		[Parameter]
 		public TradeConsoleOptions? Options { get; set; }
 
+		/// <summary>Raised whenever the edited values change, so a host can remember them across sessions.</summary>
 		[Parameter]
-		public EventCallback<TradeConsoleOptions> OnOptionsSet { get; set; }
+		public EventCallback<TradeConsoleOptions> OnOptionsChanged { get; set; }
 
 		private const double VolumeStep = 0.01;
 
@@ -97,9 +98,9 @@ namespace Poink.Sim.Components.Shared.TradeConsole
 		private string? _localError;
 		private bool _draftActive;
 
-		private string? _localNotice;
+		private TradeConsoleOptions? _lastEmittedOptions;
 
-		private string? DisplayStatus => _localError ?? _localNotice ?? StatusMessage;
+		private string? DisplayStatus => _localError ?? StatusMessage;
 
 		private bool DisplayStatusIsError => _localError is not null || StatusIsError;
 
@@ -262,12 +263,15 @@ namespace Poink.Sim.Components.Shared.TradeConsole
 
 		protected override void OnInitialized()
 		{
-			if (SettingsMode && Options is { } options)
+			if (Options is { } options)
 				ApplyOptions(options);
+			_lastEmittedOptions = CurrentOptions();
 		}
 
 		protected override void OnAfterRender(bool firstRender)
 		{
+			EmitOptionsIfChanged();
+
 			if (!OnDraftChanged.HasDelegate || !_draftActive)
 				return;
 
@@ -322,6 +326,31 @@ namespace Poink.Sim.Components.Shared.TradeConsole
 			);
 		}
 
+		private TradeConsoleOptions CurrentOptions() =>
+			new(
+				_isLong,
+				_volumeSizingMode,
+				_volumeUnits,
+				_riskPercent,
+				_stopLossMode,
+				_stopLossPips,
+				_stopLossPercent,
+				_takeProfitMode,
+				_takeProfitPips,
+				_takeProfitPercent
+			);
+
+		private void EmitOptionsIfChanged()
+		{
+			if (!OnOptionsChanged.HasDelegate)
+				return;
+			var current = CurrentOptions();
+			if (current == _lastEmittedOptions)
+				return;
+			_lastEmittedOptions = current;
+			_ = OnOptionsChanged.InvokeAsync(current);
+		}
+
 		private void ApplyOptions(TradeConsoleOptions options)
 		{
 			_isLong = options.IsLong;
@@ -336,39 +365,6 @@ namespace Poink.Sim.Components.Shared.TradeConsole
 			_takeProfitPercent = options.TakeProfitPercent;
 		}
 
-		private async Task SetOptions()
-		{
-			_localError = null;
-			_localNotice = null;
-
-			if (_volumeSizingMode == VolumeSizingMode.Manual && (_volumeUnits ?? 0) <= 0)
-			{
-				_localError = "Enter a volume greater than zero.";
-				return;
-			}
-			if (_volumeSizingMode == VolumeSizingMode.Risk && (_riskPercent ?? 0) <= 0)
-			{
-				_localError = "Enter a percent of balance to risk.";
-				return;
-			}
-
-			await OnOptionsSet.InvokeAsync(
-				new TradeConsoleOptions(
-					_isLong,
-					_volumeSizingMode,
-					_volumeUnits,
-					_riskPercent,
-					_stopLossMode,
-					_stopLossPips,
-					_stopLossPercent,
-					_takeProfitMode,
-					_takeProfitPips,
-					_takeProfitPercent
-				)
-			);
-			_localNotice = "Position options set.";
-		}
-
 		private void SwitchToRiskSizing()
 		{
 			_volumeSizingMode = VolumeSizingMode.Risk;
@@ -378,7 +374,6 @@ namespace Poink.Sim.Components.Shared.TradeConsole
 		private void ResetDraft()
 		{
 			_localError = null;
-			_localNotice = null;
 			_orderType = OrderType.Market;
 			_triggerPrice = 0;
 			_volumeSizingMode = VolumeSizingMode.Manual;

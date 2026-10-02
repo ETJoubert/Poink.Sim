@@ -53,6 +53,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 	private IEnumerator<Tick>? _reader;
 	private int _cursor;
 	private int _totalCount;
+	private int _warmupCount;
 	private SimulationConfig? _config;
 	private SimulationBarAggregator? _aggregator;
 	private PriceCellTracker? _cellTracker;
@@ -119,13 +120,17 @@ internal sealed class SimulationEngine : ISimulationEngine
 		{
 			try
 			{
-				long count = _tickRepository.CountTicks(config.Table, config.From, config.To);
-				if (count <= 0)
+				long count = _tickRepository.CountTicks(config.Table, config.LoadFrom, config.To);
+				long warmupCount =
+					config.Warmup > TimeSpan.Zero
+						? _tickRepository.CountTicks(config.Table, config.LoadFrom, config.From)
+						: 0;
+				if (count - warmupCount <= 0)
 					throw new InvalidOperationException("no ticks in the selected range");
 
 				IEnumerator<Tick> OpenReader() =>
-					_tickRepository.ReadTicks(config.Table, config.From, config.To).GetEnumerator();
-				FinishLoad(config, (int)Math.Min(count, int.MaxValue), OpenReader, "historic");
+					_tickRepository.ReadTicks(config.Table, config.LoadFrom, config.To).GetEnumerator();
+				FinishLoad(config, (int)Math.Min(count, int.MaxValue), (int)warmupCount, OpenReader, "historic");
 			}
 			catch (Exception ex)
 			{
@@ -142,7 +147,13 @@ internal sealed class SimulationEngine : ISimulationEngine
 		return true;
 	}
 
-	private void FinishLoad(SimulationConfig config, int totalCount, Func<IEnumerator<Tick>> openReader, string source)
+	private void FinishLoad(
+		SimulationConfig config,
+		int totalCount,
+		int warmupCount,
+		Func<IEnumerator<Tick>> openReader,
+		string source
+	)
 	{
 		lock (_lock)
 		{
@@ -152,8 +163,12 @@ internal sealed class SimulationEngine : ISimulationEngine
 			_reader = openReader();
 			_cursor = 0;
 			_totalCount = totalCount;
+			_warmupCount = warmupCount;
 			_config = config;
+			var previousPolicyStates = _riskToggles?.States();
 			_riskToggles = _riskPolicyService.CreateToggles(config.RiskPolicyNames);
+			if (previousPolicyStates is not null)
+				_riskToggles?.RestoreFrom(previousPolicyStates);
 			_traderSessions = CreateSessions(
 				config.TraderCount,
 				config.StartingCash,
@@ -173,6 +188,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 			_lastBid = null;
 			_lastAsk = null;
 			_lastTimestamp = null;
+			WarmUpLocked();
 			_isPlaying = false;
 			IsLoading = false;
 		}
@@ -375,7 +391,26 @@ internal sealed class SimulationEngine : ISimulationEngine
 		_lastBid = null;
 		_lastAsk = null;
 		_lastTimestamp = null;
+		WarmUpLocked();
 		_isPlaying = false;
+	}
+
+	private void WarmUpLocked()
+	{
+		if (_warmupCount == 0)
+			return;
+
+		while (_cursor < _warmupCount)
+			AdvanceOneUnitLocked();
+
+		_traderSessions = CreateSessions(
+			_config!.TraderCount,
+			_config.StartingCash,
+			BuildTraderSettings(_config, _riskToggles)
+		);
+		_cellStepCount = 0;
+		_lastCellStep = null;
+		_lastCellStepUtc = null;
 	}
 
 	// Trader state is only valid built up tick by tick, so a backward seek replays from
@@ -389,7 +424,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 			if (_config is null || _openReader is null)
 				return false;
 
-			int clamped = Math.Clamp(targetIndex, 0, _totalCount);
+			int clamped = Math.Clamp(targetIndex + _warmupCount, _warmupCount, _totalCount);
 			if (clamped < _cursor)
 				ResetToStartLocked();
 			else
@@ -420,6 +455,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 			_openReader = null;
 			_cursor = 0;
 			_totalCount = 0;
+			_warmupCount = 0;
 			_config = null;
 			_riskToggles = null;
 			_traderSessions = new();
@@ -689,8 +725,8 @@ internal sealed class SimulationEngine : ISimulationEngine
 						_cursor >= _totalCount,
 						_speedMultiplier,
 						_uncapped,
-						_cursor,
-						_totalCount,
+						_cursor - _warmupCount,
+						_totalCount - _warmupCount,
 						_lastTimestamp,
 						_lastPrice,
 						_lastBid,
@@ -743,7 +779,13 @@ internal sealed class SimulationEngine : ISimulationEngine
 		{
 			if (_config is null)
 				return;
-			Progress = new SimulationProgress(_cursor, _totalCount, _lastTimestamp, _config.From, _config.To);
+			Progress = new SimulationProgress(
+				_cursor - _warmupCount,
+				_totalCount - _warmupCount,
+				_lastTimestamp,
+				_config.From,
+				_config.To
+			);
 		}
 		OnProgress?.Invoke();
 	}

@@ -78,6 +78,12 @@
                                     Disabled="@_isLoading" />
                 </div>
                 <div class="sim-datarow-field">
+                    <button class="sim-ctrl-btn sim-ctrl-btn-play" @onclick="ApplyDataRange" disabled="@_isLoading"
+                            title="Apply the selected symbol and date range -- loads the simulation from it, with enough earlier history that the rule engine's lookback is already filled at the start">
+                        @(_isLoading ? "LOADING..." : "SET")
+                    </button>
+                </div>
+                <div class="sim-datarow-field">
                     <div class="sim-datarow-aggregate">
                         <label class="sim-datarow-checkbox"
                                title="Aggregate into HLOC/AVDT bars instead of raw ticks -- can be changed while a simulation is running">
@@ -291,7 +297,7 @@
                                 <RuleEnginePanel @bind-EnabledKeys="_ruleEngineEnabledKeys" @bind-XGridPercent="_ruleEngineXGridPercent"
                                                  Result="ComputeRuleEngine(_snapshot, _ruleEngineXGridPercent)" CurrentTimestampUtc="_snapshot.CurrentTimestampUtc"
                                                  TxFoldTable="@_snapshot.Config.Table" TxFoldAnchorEnd="SnapshotAnchorBar(_snapshot)?.CloseTime.AddTicks(1)"
-                                                 TxFoldRangeStart="_snapshot.Config.From" TxFoldSelectedSeconds="_txFoldSelectedSeconds" />
+                                                 TxFoldRangeStart="_snapshot.Config.LoadFrom" TxFoldSelectedSeconds="_txFoldSelectedSeconds" />
                             }
                         </div>
                     }
@@ -603,7 +609,8 @@
                                 }
                                 else
                                 {
-                                    <TradeConsole @ref="_consoleRef" HasSelection="SelectedTrader is not null"
+                                    <TradeConsole @ref="_consoleRef" Options="_tradeConsoleOptions" OnOptionsChanged="SetTradeConsoleOptions"
+                                                  HasSelection="SelectedTrader is not null"
                                                   Balance="SelectedTrader?.Capital.Cash" Leverage="SelectedTrader?.Leverage"
                                                   PipSize="_snapshot?.Config.PipSize ?? 0.01"
                                                   CurrentPrice="_snapshot?.CurrentPrice"
@@ -629,7 +636,7 @@
                                 }
                             </PoliciesTab>
                             <RobotTab>
-                                <RobotPanel Options="_robotPositionOptions" OnOptionsChanged="SetRobotPositionOptions"
+                                <RobotPanel SubTab="_robotSubTab" OnSubTabChanged="SetRobotSubTab" OpenSide="_robotOpenSide" OnOpenSideChanged="SetRobotOpenSide" Enabled="_robotEnabled" OnEnabledChanged="SetRobotEnabled" Options="_robotPositionOptions" OnOptionsChanged="SetRobotPositionOptions"
                                             HasSelection="SelectedTrader is not null"
                                             Balance="SelectedTrader?.Capital.Cash" Leverage="SelectedTrader?.Leverage"
                                             PipSize="_snapshot?.Config.PipSize ?? 0.01"
@@ -641,7 +648,7 @@
                                             CurrentTimestampUtc="_snapshot?.CurrentTimestampUtc"
                                             TxFoldTable="@_snapshot?.Config.Table"
                                             TxFoldAnchorEnd="_snapshot is null ? null : SnapshotAnchorBar(_snapshot)?.CloseTime.AddTicks(1)"
-                                            TxFoldRangeStart="_snapshot?.Config.From"
+                                            TxFoldRangeStart="_snapshot?.Config.LoadFrom"
                                             TxFoldSelectedSeconds="_txFoldSelectedSeconds" />
                             </RobotTab>
                         </TraderSidePanel>
