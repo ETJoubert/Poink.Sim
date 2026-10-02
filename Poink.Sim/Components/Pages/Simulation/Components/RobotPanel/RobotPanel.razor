@@ -8,6 +8,11 @@
             title="@(Enabled ? "The robot trades whenever its open and close conditions match -- click to switch it off" : "The robot is off and will not trade -- click to let it trade when its conditions match")">
         ROBOT: @(Enabled ? "ON" : "OFF")
     </button>
+    <label class="robot-interval"
+           title="How often the robot checks its open and close conditions, in simulated seconds -- 0 checks on every tick, larger values keep fast playback responsive">
+        Evaluate every (s)
+        <input type="number" min="0" step="1" value="@EvaluationSeconds" @onchange="SetEvaluationSeconds" />
+    </label>
     <div class="robot-subtabs">
         <button type="button" class="robot-subtab @(SubTab == RobotSubTab.Positioning ? "active" : "")"
                 @onclick="() => SelectSubTab(RobotSubTab.Positioning)"

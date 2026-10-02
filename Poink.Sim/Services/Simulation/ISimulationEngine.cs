@@ -24,11 +24,11 @@ internal interface ISimulationEngine : IDisposable
 	void SetSpeed(double multiplier);
 	void SetMaxSpeed();
 	bool SetAggregation(bool aggregate, TimeSpan barSize);
-	bool SetSteppingMode(SimulationSteppingMode mode, double cellWidth);
 	bool Reset();
 	void Unload();
 	bool SetRiskPolicyEnabled(string policyName, bool enabled);
 	bool MoveRiskPolicy(string policyName, int delta);
 	bool SetRiskPolicyParameter(string policyName, string key, double value);
+	void SetRobotOptions(RobotOptions options);
 	bool SubmitManualDecision(int traderId, SimulationDecision decision, out RiskPolicyDenial? denial);
 }

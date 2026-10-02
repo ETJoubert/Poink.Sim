@@ -54,3 +54,23 @@
     border-color: var(--color-success);
     box-shadow: 0 0 8px color-mix(in srgb, var(--color-success) 35%, transparent);
 }
+
+.robot-interval {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 0.72rem;
+    color: var(--color-secondary);
+}
+
+.robot-interval input {
+    width: 70px;
+    background: var(--color-bg-terminal);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 45%, transparent);
+    color: var(--color-primary);
+    padding: 4px 6px;
+    border-radius: var(--border-radius-sm);
+    font-family: var(--font-body);
+    font-size: 12px;
+}

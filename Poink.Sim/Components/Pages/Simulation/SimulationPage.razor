@@ -51,19 +51,6 @@
                 {
                     <span class="sim-brainrow-error">@_loadError</span>
                 }
-                <div class="sim-stats">
-                        @if (s.Config.SteppingMode == SimulationSteppingMode.Cell && s.CellState is { } cellStat)
-                        {
-                            <div class="sim-stat" title="How many times price has crossed into a new cell -- this is what drives decisions instead of the bar clock">
-                                <span class="sim-stat-label">cell steps</span>
-                                <span class="sim-stat-value">@cellStat.StepCount</span>
-                            </div>
-                            <div class="sim-stat" title="Low/high edge of the price band the latest decision stepped into">
-                                <span class="sim-stat-label">cell band</span>
-                                <span class="sim-stat-value">@cellStat.CellLow.ToString("F5") – @cellStat.CellHigh.ToString("F5")</span>
-                            </div>
-                        }
-                    </div>
                 }
             </header>
 
@@ -96,18 +83,6 @@
                             <BarSizeSelect @bind-Value="_barSizeSeconds" @bind-Value:after="OnAggregationSettingChanged"
                                            Disabled="@_isLoading"
                                            Title="Size of each aggregated bar -- can be changed while a simulation is running" />
-                            <select class="sim-datarow-select" @bind="_steppingMode" @bind:after="OnSteppingModeChanged"
-                                    disabled="@_isLoading"
-                                    title="Bar steps a decision on each aggregated bar's close. Cell steps on a fixed-width price band instead, the moment price moves into a different band -- can be changed while a simulation is running">
-                                <option value="@SimulationSteppingMode.Bar">step: bar</option>
-                                <option value="@SimulationSteppingMode.Cell">step: cell</option>
-                            </select>
-                            @if (_steppingMode == SimulationSteppingMode.Cell)
-                            {
-                                <input class="sim-window-input" type="number" min="0.00001" step="0.01"
-                                       @bind="_cellWidth" @bind:after="OnSteppingModeChanged" disabled="@_isLoading"
-                                       title="Fixed price width of each cell -- a decision fires when price crosses from one cell into the next" />
-                            }
                         }
                     </div>
                 </div>
@@ -154,19 +129,6 @@
                                 <BarSizeSelect @bind-Value="_barSizeSeconds" @bind-Value:after="OnAggregationSettingChanged"
                                                Disabled="@_isLoading" Label=""
                                                Title="Size of each aggregated bar -- can be changed while a simulation is running" />
-                                <select class="sim-datarow-select sim-toolbar-select" @bind="_steppingMode"
-                                        @bind:after="OnSteppingModeChanged" disabled="@_isLoading"
-                                        title="Bar steps a decision on each aggregated bar's close. Cell steps on a fixed-width price band instead, the moment price moves into a different band -- can be changed while a simulation is running">
-                                    <option value="@SimulationSteppingMode.Bar">step: bar</option>
-                                    <option value="@SimulationSteppingMode.Cell">step: cell</option>
-                                </select>
-                                @if (_steppingMode == SimulationSteppingMode.Cell)
-                                {
-                                    <input class="sim-window-input sim-toolbar-cell-input" type="number" min="0.00001"
-                                           step="0.01" @bind="_cellWidth" @bind:after="OnSteppingModeChanged"
-                                           disabled="@_isLoading"
-                                           title="Fixed price width of each cell -- a decision fires when price crosses from one cell into the next" />
-                                }
                             </div>
                         }
                         <SimTimeline />
@@ -411,7 +373,7 @@
                                     <XGridController Grid="ComputeXGrid(s)" Positions="XGridPositions(s)"
                                            Pending="XGridPending()" OnOrderPlaced="PlaceXGridOrder"
                                            OnPendingModified="ModifyXGridPending" OnPendingCancelled="CancelXGridPending"
-                                           OnPositionClosed="CloseXGridPosition" Lines="CellBandLines(s)"
+                                           OnPositionClosed="CloseXGridPosition"
                                            ExternalDraft="XGridDraft" PipSize="s.Config.PipSize"
                                            @bind-PipCount="_xgridPipCount" @bind-ColCount="_xgridColCount"
                                            ProfileBarCount="ClampedBarWindow">
@@ -636,7 +598,7 @@
                                 }
                             </PoliciesTab>
                             <RobotTab>
-                                <RobotPanel SubTab="_robotSubTab" OnSubTabChanged="SetRobotSubTab" OpenSide="_robotOpenSide" OnOpenSideChanged="SetRobotOpenSide" Enabled="_robotEnabled" OnEnabledChanged="SetRobotEnabled" Options="_robotPositionOptions" OnOptionsChanged="SetRobotPositionOptions"
+                                <RobotPanel EvaluationSeconds="_robotEvaluationSeconds" OnEvaluationSecondsChanged="SetRobotEvaluationSeconds" SubTab="_robotSubTab" OnSubTabChanged="SetRobotSubTab" OpenSide="_robotOpenSide" OnOpenSideChanged="SetRobotOpenSide" Enabled="_robotEnabled" OnEnabledChanged="SetRobotEnabled" Options="_robotPositionOptions" OnOptionsChanged="SetRobotPositionOptions"
                                             HasSelection="SelectedTrader is not null"
                                             Balance="SelectedTrader?.Capital.Cash" Leverage="SelectedTrader?.Leverage"
                                             PipSize="_snapshot?.Config.PipSize ?? 0.01"

@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Poink.Sim.Bots;
 using Poink.Sim.Models;
 using Poink.Sim.Repository;
 using Poink.Sim.Trader;
@@ -37,6 +38,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 	private static double PriceBucketWidthFor(string table) => DefaultPriceBucketWidth;
 
 	private readonly object _lock = new();
+	private bool _isWarmingUp;
 	private readonly Timer _timer;
 
 	private sealed class TraderSession
@@ -58,10 +60,6 @@ internal sealed class SimulationEngine : ISimulationEngine
 	private int _warmupCount;
 	private SimulationConfig? _config;
 	private SimulationBarAggregator? _aggregator;
-	private PriceCellTracker? _cellTracker;
-	private int _cellStepCount;
-	private (long Cell, double Low, double High)? _lastCellStep;
-	private DateTime? _lastCellStepUtc;
 	private List<TraderSession> _traderSessions = new();
 	private double _speedMultiplier = 1.0;
 	private bool _uncapped;
@@ -80,19 +78,19 @@ internal sealed class SimulationEngine : ISimulationEngine
 	private DateTime? _lastTimestamp;
 
 	private readonly ITickRepository _tickRepository;
-	private readonly Trader.ITraderFactory _traderFactory;
+	private readonly IBotService _botService;
 	private readonly IRiskPolicyService _riskPolicyService;
 	private readonly ILogger<SimulationEngine> _logger;
 
 	public SimulationEngine(
 		ITickRepository tickRepository,
-		Trader.ITraderFactory traderFactory,
+		IBotService botService,
 		IRiskPolicyService riskPolicyService,
 		ILogger<SimulationEngine> logger
 	)
 	{
 		_tickRepository = tickRepository;
-		_traderFactory = traderFactory;
+		_botService = botService;
 		_riskPolicyService = riskPolicyService;
 		_logger = logger;
 		_timer = new Timer(TimerCallback, null, Timeout.Infinite, Timeout.Infinite);
@@ -179,10 +177,6 @@ internal sealed class SimulationEngine : ISimulationEngine
 			_aggregator = config.Aggregate
 				? new SimulationBarAggregator(config.BarSize, PriceBucketWidthFor(config.Table))
 				: null;
-			_cellTracker = BuildCellTracker(config);
-			_cellStepCount = 0;
-			_lastCellStep = null;
-			_lastCellStepUtc = null;
 			_recentBars.Clear();
 			_recentBarHistograms.Clear();
 			_recentTicks.Clear();
@@ -206,13 +200,13 @@ internal sealed class SimulationEngine : ISimulationEngine
 	}
 
 	private List<TraderSession> CreateSessions(int count, double startingCash, Trader.TraderSettings settings) =>
-		Enumerable
-			.Range(1, Math.Max(1, count))
-			.Select(i => new TraderSession
+		_botService
+			.CreateBots(count, startingCash, settings)
+			.Select(bot => new TraderSession
 			{
-				Id = i,
-				Label = $"Trader {i}",
-				Trader = _traderFactory.Create(startingCash, settings),
+				Id = bot.Id,
+				Label = bot.Label,
+				Trader = bot.Account,
 			})
 			.ToList();
 
@@ -330,31 +324,6 @@ internal sealed class SimulationEngine : ISimulationEngine
 		return true;
 	}
 
-	public bool SetSteppingMode(SimulationSteppingMode mode, double cellWidth)
-	{
-		lock (_lock)
-		{
-			if (_config is null || !_config.Aggregate || cellWidth <= 0)
-				return false;
-			if (_config.SteppingMode == mode && Math.Abs(_config.CellWidth - cellWidth) < double.Epsilon)
-				return false;
-
-			_config = _config with { SteppingMode = mode, CellWidth = cellWidth };
-			_cellTracker = BuildCellTracker(_config);
-			_cellStepCount = 0;
-			_lastCellStep = null;
-			_lastCellStepUtc = null;
-		}
-		PublishSnapshot();
-		_logger.LogInformation("Simulation stepping mode changed: mode={Mode}, cellWidth={CellWidth}", mode, cellWidth);
-		return true;
-	}
-
-	private static PriceCellTracker? BuildCellTracker(SimulationConfig config) =>
-		config.Aggregate && config.SteppingMode == SimulationSteppingMode.Cell
-			? new PriceCellTracker(config.CellWidth)
-			: null;
-
 	public bool Reset()
 	{
 		lock (_lock)
@@ -382,10 +351,6 @@ internal sealed class SimulationEngine : ISimulationEngine
 		_aggregator = _config.Aggregate
 			? new SimulationBarAggregator(_config.BarSize, PriceBucketWidthFor(_config.Table))
 			: null;
-		_cellTracker = BuildCellTracker(_config);
-		_cellStepCount = 0;
-		_lastCellStep = null;
-		_lastCellStepUtc = null;
 		_recentBars.Clear();
 		_recentBarHistograms.Clear();
 		_recentTicks.Clear();
@@ -402,17 +367,16 @@ internal sealed class SimulationEngine : ISimulationEngine
 		if (_warmupCount == 0)
 			return;
 
+		_isWarmingUp = true;
 		while (_cursor < _warmupCount)
 			AdvanceOneUnitLocked();
+		_isWarmingUp = false;
 
 		_traderSessions = CreateSessions(
 			_config!.TraderCount,
 			_config.StartingCash,
 			BuildTraderSettings(_config, _riskToggles)
 		);
-		_cellStepCount = 0;
-		_lastCellStep = null;
-		_lastCellStepUtc = null;
 	}
 
 	// Trader state is only valid built up tick by tick, so a backward seek replays from
@@ -462,10 +426,6 @@ internal sealed class SimulationEngine : ISimulationEngine
 			_riskToggles = null;
 			_traderSessions = new();
 			_aggregator = null;
-			_cellTracker = null;
-			_cellStepCount = 0;
-			_lastCellStep = null;
-			_lastCellStepUtc = null;
 			_isPlaying = false;
 			_recentBars.Clear();
 			_recentBarHistograms.Clear();
@@ -561,24 +521,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 			if (completed is not null)
 				AppendBar(completed.Value.Bar, completed.Value.Histogram);
 
-			if (_cellTracker is not null)
-			{
-				if (_cellTracker.Feed(tick) is { } step)
-				{
-					_cellStepCount++;
-					_lastCellStep = step;
-					_lastCellStepUtc = tick.Timestamp;
-					ObserveAndApply(tick.Timestamp, price, tick.Bid, tick.Ask, useBars: true);
-				}
-			}
-			else if (completed is not null)
-			{
-				ObserveAndApply(tick.Timestamp, completed.Value.Bar.Close, tick.Bid, tick.Ask, useBars: true);
-			}
-		}
-		else
-		{
-			ObserveAndApply(tick.Timestamp, price, tick.Bid, tick.Ask, useBars: false);
+			RunBotsLocked(tick, price);
 		}
 	}
 
@@ -609,26 +552,6 @@ internal sealed class SimulationEngine : ISimulationEngine
 		session.RecordedTradeCount = trader.TradeLog.Count;
 		session.OpenTradeMaxEquity = null;
 		session.OpenTradeMinEquity = null;
-	}
-
-	private void ObserveAndApply(DateTime timestamp, double price, double bid, double ask, bool useBars)
-	{
-		var window = new MarketWindow(
-			timestamp,
-			price,
-			bid,
-			ask,
-			useBars ? _recentBars : Array.Empty<HlocAvdtBar>(),
-			useBars ? Array.Empty<Tick>() : _recentTicks,
-			useBars ? _recentBarHistograms : Array.Empty<BarPriceHistogram>()
-		);
-
-		foreach (var session in _traderSessions)
-		{
-			var execution = session.Trader.Observe(window);
-			if (execution is { } exec)
-				AppendLog(session, LogEntryFor(exec, price, timestamp));
-		}
 	}
 
 	public bool SetRiskPolicyEnabled(string policyName, bool enabled)
@@ -678,6 +601,35 @@ internal sealed class SimulationEngine : ISimulationEngine
 		PublishSnapshot();
 		_logger.LogInformation("Risk policy {Policy} parameter {Key} set to {Value}", policyName, key, value);
 		return true;
+	}
+
+	public void SetRobotOptions(RobotOptions options) => _botService.SetOptions(options);
+
+	// Every tick of the run feeds the bots; nothing trades during warm-up, so replayed history never opens positions.
+	private void RunBotsLocked(Tick tick, double price)
+	{
+		if (_isWarmingUp || _config is null)
+			return;
+
+		var actions = _botService.OnTick(
+			new BotTickContext(
+				tick.Timestamp,
+				price,
+				tick.Bid,
+				tick.Ask,
+				_recentBars,
+				_recentBarHistograms,
+				_config.Table,
+				_config.LoadFrom,
+				_config.PipSize
+			)
+		);
+		foreach (var action in actions)
+		{
+			var session = _traderSessions.First(s => s.Id == action.Bot.Id);
+			AppendLog(session, LogEntryFor(action.Execution, price, tick.Timestamp));
+			TrackTradeEquityLocked(session, tick.Bid, tick.Ask, tick.Timestamp);
+		}
 	}
 
 	public bool SubmitManualDecision(int traderId, SimulationDecision decision, out RiskPolicyDenial? denial)
@@ -743,11 +695,6 @@ internal sealed class SimulationEngine : ISimulationEngine
 
 			var primaryRisk = _traderSessions.FirstOrDefault()?.Trader as IRiskInspectable;
 
-			var cellState =
-				_cellTracker is not null && _lastCellStep is { } step && _lastCellStepUtc is { } stepTime
-					? new SimulationCellState(step.Cell, step.Low, step.High, _cellStepCount, stepTime)
-					: null;
-
 			snapshot =
 				_config is null || _reader is null
 					? null
@@ -787,8 +734,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 						bars,
 						barHistograms,
 						_recentTicks.ToList(),
-						primaryRisk?.PolicyStates() ?? Array.Empty<RiskPolicySnapshot>(),
-						cellState
+						primaryRisk?.PolicyStates() ?? Array.Empty<RiskPolicySnapshot>()
 					);
 		}
 		Snapshot = snapshot;

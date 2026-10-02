@@ -206,6 +206,7 @@ public static class ServiceCollectionExtensions
 
 		services.AddSingleton<IRiskPolicyService, RiskPolicyService>();
 		services.AddSingleton<ITraderFactory, TraderFactory>();
+		services.AddSingleton<Bots.IBotService, Bots.BotService>();
 		services.AddSingleton<ISimulationEngine, SimulationEngine>();
 
 		return services;

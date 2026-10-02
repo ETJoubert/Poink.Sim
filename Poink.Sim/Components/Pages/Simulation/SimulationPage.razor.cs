@@ -48,8 +48,6 @@ namespace Poink.Sim.Components.Pages
 		private DateTime _to = DateTime.UtcNow;
 		private bool _aggregate = true;
 		private int _barSizeSeconds = 60;
-		private SimulationSteppingMode _steppingMode = SimulationSteppingMode.Bar;
-		private double _cellWidth = 0.10;
 
 		private double _startingCash = 10_000;
 		private int _traderCount = 1;
@@ -74,6 +72,7 @@ namespace Poink.Sim.Components.Pages
 		private RobotRuleSet _openShortRules = new();
 		private RobotRuleSet _closeRules = new();
 		private bool _robotEnabled;
+		private double _robotEvaluationSeconds = 1;
 		private RobotSubTab _robotSubTab;
 		private RobotOpenSide _robotOpenSide;
 		private TradeConsoleOptions? _tradeConsoleOptions;
@@ -584,7 +583,6 @@ namespace Poink.Sim.Components.Pages
 			_error = SimulationService.Error;
 			SyncHistoryState(_snapshot);
 			PlayWhenLoadSettles();
-			EvaluateRobot();
 		}
 
 		// A config change invalidates already-fetched history; a cursor moving backward means
@@ -670,8 +668,6 @@ namespace Poink.Sim.Components.Pages
 				_to,
 				_aggregate,
 				_barSizeSeconds,
-				_steppingMode,
-				_cellWidth,
 				_startingCash,
 				_traderCount,
 				_leverage,
@@ -685,7 +681,8 @@ namespace Poink.Sim.Components.Pages
 				_robotEnabled,
 				_tradeConsoleOptions,
 				_robotSubTab,
-				_robotOpenSide
+				_robotOpenSide,
+				_robotEvaluationSeconds
 			);
 
 		// A simulation already held by the service (page revisited) is shown as-is instead of reloaded.
@@ -713,8 +710,6 @@ namespace Poink.Sim.Components.Pages
 			_to = settings.To;
 			_aggregate = settings.Aggregate;
 			_barSizeSeconds = settings.BarSizeSeconds;
-			_steppingMode = settings.SteppingMode;
-			_cellWidth = settings.CellWidth;
 			_startingCash = settings.StartingCash;
 			_traderCount = settings.TraderCount;
 			_leverage = settings.Leverage;
@@ -729,6 +724,7 @@ namespace Poink.Sim.Components.Pages
 			_tradeConsoleOptions = settings.TradeOptions;
 			_robotSubTab = settings.RobotSubTab;
 			_robotOpenSide = settings.RobotOpenSide;
+			_robotEvaluationSeconds = settings.RobotEvaluationSeconds ?? 1;
 		}
 
 		private async Task PersistSettingsIfChangedAsync()
@@ -877,6 +873,8 @@ namespace Poink.Sim.Components.Pages
 				await PersistSettingsIfChangedAsync();
 			}
 
+			PushRobotOptionsIfChanged();
+
 			if (_snapshot is not null && !_hideChart && _dividerResizeInstance is not null)
 			{
 				var visibleChartPanels = CurrentVisibleChartPanelKeys(_snapshot);
@@ -957,8 +955,6 @@ namespace Poink.Sim.Components.Pages
 				_commissionRatePercent,
 				_pipSize,
 				SelectedRiskPolicies,
-				_steppingMode,
-				_cellWidth,
 				RuleEngineWarmup()
 			);
 
@@ -1016,6 +1012,8 @@ namespace Poink.Sim.Components.Pages
 
 		private void SetRobotOpenSide(RobotOpenSide side) => _robotOpenSide = side;
 
+		private void SetRobotEvaluationSeconds(double seconds) => _robotEvaluationSeconds = seconds;
+
 		private void SetRobotEnabled(bool enabled) => _robotEnabled = enabled;
 
 		private void SetTradeConsoleOptions(TradeConsoleOptions options) => _tradeConsoleOptions = options;
@@ -1030,25 +1028,6 @@ namespace Poink.Sim.Components.Pages
 
 		private void OnAggregationSettingChanged() =>
 			SimulationService.SetAggregation(_aggregate, TimeSpan.FromSeconds(_barSizeSeconds));
-
-		private void OnSteppingModeChanged() => SimulationService.SetSteppingMode(_steppingMode, _cellWidth);
-
-		// Pins the live cell's edges on XGrid as host lines, distinct from the grid's own
-		// rowCount-derived bands, so a Cell-stepping run can be compared against them visually.
-		private static List<XGridLine> CellBandLines(SimulationSnapshot s) =>
-			s.Config.SteppingMode == SimulationSteppingMode.Cell && s.CellState is { } cell
-				? new List<XGridLine>
-				{
-					XGridLine.Horizontal(cell.CellLow) with
-					{
-						Id = "cell-low",
-					},
-					XGridLine.Horizontal(cell.CellHigh) with
-					{
-						Id = "cell-high",
-					},
-				}
-				: new List<XGridLine>();
 
 		// ── Playback actions ──
 

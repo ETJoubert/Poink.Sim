@@ -28,6 +28,13 @@ namespace Poink.Sim.Components.Simulation
 		[Parameter]
 		public EventCallback<RobotOpenSide> OnOpenSideChanged { get; set; }
 
+		/// <summary>How often, in simulated seconds, the robot checks its conditions; 0 checks on every tick.</summary>
+		[Parameter]
+		public double EvaluationSeconds { get; set; }
+
+		[Parameter]
+		public EventCallback<double> OnEvaluationSecondsChanged { get; set; }
+
 		/// <summary>Whether the robot is allowed to trade when its conditions match.</summary>
 		[Parameter]
 		public bool Enabled { get; set; }
@@ -93,6 +100,11 @@ namespace Poink.Sim.Components.Simulation
 
 		[Parameter]
 		public HashSet<int> TxFoldSelectedSeconds { get; set; } = new();
+
+		private Task SetEvaluationSeconds(ChangeEventArgs e) =>
+			double.TryParse(e.Value?.ToString(), out var seconds)
+				? OnEvaluationSecondsChanged.InvokeAsync(Math.Max(0, seconds))
+				: Task.CompletedTask;
 
 		private Task SelectSubTab(RobotSubTab tab) => OnSubTabChanged.InvokeAsync(tab);
 

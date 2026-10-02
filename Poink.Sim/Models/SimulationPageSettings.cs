@@ -15,8 +15,6 @@ namespace Poink.Sim.Models
 		DateTime To,
 		bool Aggregate,
 		int BarSizeSeconds,
-		SimulationSteppingMode SteppingMode,
-		double CellWidth,
 		double StartingCash,
 		int TraderCount,
 		double Leverage,
@@ -30,6 +28,7 @@ namespace Poink.Sim.Models
 		bool RobotEnabled,
 		TradeConsoleOptions? TradeOptions,
 		RobotSubTab RobotSubTab,
-		RobotOpenSide RobotOpenSide
+		RobotOpenSide RobotOpenSide,
+		double? RobotEvaluationSeconds
 	);
 }

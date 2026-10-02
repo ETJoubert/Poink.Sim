@@ -28,8 +28,6 @@ internal sealed record SimulationConfig(
 	double CommissionRatePercent = 0.0,
 	double PipSize = 0.01,
 	IReadOnlyList<string>? RiskPolicyNames = null,
-	SimulationSteppingMode SteppingMode = SimulationSteppingMode.Bar,
-	double CellWidth = 0.10,
 	TimeSpan Warmup = default
 )
 {
@@ -37,16 +35,6 @@ internal sealed record SimulationConfig(
 	// readouts (the rule engine's bar window and TxFold lookback) are already populated at From.
 	public DateTime LoadFrom => From - Warmup;
 }
-
-// Live PriceCellTracker readout, published only while SteppingMode is Cell -- lets a host
-// compare how often it fires against the bar-based alternative.
-internal sealed record SimulationCellState(
-	long CellIndex,
-	double CellLow,
-	double CellHigh,
-	int StepCount,
-	DateTime LastStepUtc
-);
 
 internal sealed record SimulationLogEntry(
 	DateTime TimestampUtc,
@@ -111,6 +99,5 @@ internal sealed record SimulationSnapshot(
 	IReadOnlyList<HlocAvdtBar> RecentBars,
 	IReadOnlyList<BarPriceHistogram> RecentBarHistograms,
 	IReadOnlyList<Tick> RecentTicks,
-	IReadOnlyList<RiskPolicySnapshot> RiskPolicies,
-	SimulationCellState? CellState
+	IReadOnlyList<RiskPolicySnapshot> RiskPolicies
 );
