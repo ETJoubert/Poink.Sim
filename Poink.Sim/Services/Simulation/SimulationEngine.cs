@@ -213,7 +213,8 @@ internal sealed class SimulationEngine : ISimulationEngine
 			config.Leverage,
 			config.CommissionRatePercent,
 			config.StopOutLevelPercent,
-			config.PipSize
+			config.PipSize,
+			config.Limits
 		);
 
 	public bool Play()
@@ -609,6 +610,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 				CommissionRatePercent = options.CommissionRatePercent,
 				StopOutLevelPercent = options.StopOutLevelPercent,
 				PipSize = options.PipSize,
+				Limits = options.Limits,
 			};
 			_traderSessions = CreateSessions(_config);
 		}

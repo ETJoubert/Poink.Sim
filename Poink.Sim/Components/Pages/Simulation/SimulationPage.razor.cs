@@ -673,7 +673,6 @@ namespace Poink.Sim.Components.Pages
 				_leverage,
 				_commissionRatePercent,
 				_stopOutLevelPercent,
-				_pipSize,
 				_robotPositionOptions,
 				_openLongRules,
 				_openShortRules,
@@ -715,7 +714,6 @@ namespace Poink.Sim.Components.Pages
 			_leverage = settings.Leverage;
 			_commissionRatePercent = settings.CommissionRatePercent;
 			_stopOutLevelPercent = settings.StopOutLevelPercent;
-			_pipSize = settings.PipSize;
 			_robotPositionOptions = settings.RobotPositionOptions;
 			_openLongRules = settings.OpenLongRules ?? new();
 			_openShortRules = settings.OpenShortRules ?? new();
@@ -935,6 +933,11 @@ namespace Poink.Sim.Components.Pages
 				_loadError = "pick a symbol";
 				return;
 			}
+			if (_symbolLimits is not { } limits)
+			{
+				_loadError = "no trading metadata for this symbol -- it needs a cTrader session to be fetched once";
+				return;
+			}
 			if (_to <= _from)
 			{
 				_loadError = "To must be after From";
@@ -958,10 +961,11 @@ namespace Poink.Sim.Components.Pages
 				TimeSpan.FromSeconds(_barSizeSeconds),
 				_startingCash,
 				_traderCount,
+				limits,
 				_leverage,
 				_stopOutLevelPercent,
 				_commissionRatePercent,
-				_pipSize,
+				limits.PipSize,
 				SelectedRiskPolicies,
 				RuleEngineWarmup()
 			);
@@ -1023,8 +1027,13 @@ namespace Poink.Sim.Components.Pages
 				await LoadSimulationAsync(playWhenLoaded: false);
 				return;
 			}
+			if (_symbolLimits is not { } limits)
+			{
+				_loadError = "no trading metadata for this symbol -- it needs a cTrader session to be fetched once";
+				return;
+			}
 			SimulationService.ApplyAccountOptions(
-				new BotAccountOptions(_startingCash, _traderCount, _leverage, _commissionRatePercent, _stopOutLevelPercent, _pipSize)
+				new BotAccountOptions(_startingCash, _traderCount, _leverage, _commissionRatePercent, _stopOutLevelPercent, limits.PipSize, limits)
 			);
 		}
 

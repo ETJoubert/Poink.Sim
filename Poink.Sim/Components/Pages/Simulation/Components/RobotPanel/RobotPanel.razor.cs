@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 using Poink.Sim.Components.Shared.TradeConsole;
 using Poink.Sim.Helpers;
+using Poink.Sim.Helpers;
 using Poink.Sim.Models;
 
 namespace Poink.Sim.Components.Simulation
@@ -50,6 +51,9 @@ namespace Poink.Sim.Components.Simulation
 
 		[Parameter]
 		public bool HasSelection { get; set; }
+
+		[Parameter]
+		public SymbolTradingLimits? Limits { get; set; }
 
 		[Parameter]
 		public double? Balance { get; set; }

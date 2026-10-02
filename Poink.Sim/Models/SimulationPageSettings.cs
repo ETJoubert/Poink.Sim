@@ -20,7 +20,6 @@ namespace Poink.Sim.Models
 		double Leverage,
 		double CommissionRatePercent,
 		double StopOutLevelPercent,
-		double PipSize,
 		TradeConsoleOptions? RobotPositionOptions,
 		RobotRuleSet? OpenLongRules,
 		RobotRuleSet? OpenShortRules,

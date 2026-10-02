@@ -34,7 +34,8 @@
             <button type="button" class="tcon-toggle tcon-toggle-buy @(_isLong ? "active" : "")"
                     @onclick="() => _isLong = true" title="Buy on Place">BUY</button>
             <button type="button" class="tcon-toggle tcon-toggle-sell @(!_isLong ? "active" : "")"
-                    @onclick="() => _isLong = false" title="Sell on Place">SELL</button>
+                    @onclick="() => _isLong = false" disabled="@(!AllowShort)"
+                    title="@(AllowShort ? "Sell on Place" : "Short selling is not allowed for this symbol")">SELL</button>
         </div>
     </div>
 
@@ -52,7 +53,7 @@
         </div>
         @if (_volumeSizingMode == VolumeSizingMode.Manual)
         {
-            <input class="tcon-input" type="number" min="0" step="0.01" @bind="_volumeUnits" @bind:event="oninput"
+            <input class="tcon-input" type="number" min="@(MinVolume ?? 0)" step="@EffectiveVolumeStep" @bind="_volumeUnits" @bind:event="oninput"
                    disabled="@Busy" title="Position size in units" />
         }
         else

@@ -30,6 +30,7 @@ internal sealed class BotService : IBotService
 	private (int Count, DateTime LastOpen, int Window, int Offset, int Pips, int Cols, double PipSize)? _barDataKey;
 	private RobotBarData? _barData;
 	private DateTime? _lastEvaluation;
+	private SymbolTradingLimits? _limits;
 
 	public BotService(ITraderFactory traderFactory, ITickRepository tickRepository, ILogger<BotService> logger)
 	{
@@ -74,6 +75,7 @@ internal sealed class BotService : IBotService
 		lock (_lock)
 		{
 			_bots = bots;
+			_limits = account.Limits;
 			_lastEvaluation = null;
 		}
 		_logger.LogInformation(
@@ -184,7 +186,7 @@ internal sealed class BotService : IBotService
 		var capital = bot.Account.Snapshot(tick.Bid, tick.Ask);
 		double entryPrice = isLong ? tick.Ask : tick.Bid;
 		if (
-			RobotPositionHelper.PlanEntry(options.Position, isLong, entryPrice, capital.Cash, bot.Account.Leverage, tick.PipSize)
+			RobotPositionHelper.PlanEntry(options.Position, isLong, entryPrice, capital.Cash, bot.Account.Leverage, _limits!)
 			is not { } plan
 		)
 			return null;

@@ -4,7 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
-using Poink.Sim.Components.Pages.Trade.Helpers;
+using Poink.Sim.Helpers;
 using Poink.Sim.Models;
 using Poink.Sim.Services.MarketData;
 using Poink.Sim.Services.Symbols;
@@ -26,6 +26,7 @@ namespace Poink.Sim.Components.Pages
 		private IReadOnlyList<SymbolModel>? _symbols;
 		private SymbolModel? _symbol;
 		private SymbolMetadataModel? _symbolMetadata;
+		private SymbolTradingLimits? _symbolLimits;
 		private bool _loadingSymbolMetadata;
 		private string? _metadataTable;
 
@@ -39,6 +40,7 @@ namespace Poink.Sim.Components.Pages
 			_loadingSymbolMetadata = true;
 			_symbol = null;
 			_symbolMetadata = null;
+			_symbolLimits = null;
 			try
 			{
 				_symbols ??= await SymbolService.ListAsync();
@@ -49,7 +51,10 @@ namespace Poink.Sim.Components.Pages
 					_symbolMetadata = SymbolMetadataCache.Get(_symbol.SymbolId);
 				}
 				if (_symbolMetadata is { } metadata)
-					_pipSize = PositionPnlHelper.PipSize(metadata);
+				{
+					_symbolLimits = SymbolTradingLimits.FromMetadata(metadata);
+					_pipSize = _symbolLimits.PipSize;
+				}
 			}
 			catch (Exception ex)
 			{

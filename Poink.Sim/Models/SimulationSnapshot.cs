@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Poink.Sim.Helpers;
 using Poink.Sim.Repository;
 using Poink.Sim.Trader;
 using Poink.Sim.Trader.Orders;
@@ -23,6 +24,7 @@ internal sealed record SimulationConfig(
 	TimeSpan BarSize,
 	double StartingCash,
 	int TraderCount,
+	SymbolTradingLimits Limits,
 	double Leverage = 1.0,
 	double StopOutLevelPercent = 50.0,
 	double CommissionRatePercent = 0.0,

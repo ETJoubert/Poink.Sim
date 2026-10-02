@@ -28,7 +28,10 @@
     <div class="robot-subtab-content">
         @if (SubTab == RobotSubTab.Positioning)
         {
-            <TradeConsole SettingsMode="true" Options="Options" OnOptionsChanged="OnOptionsChanged"
+            <TradeConsole SettingsMode="true" MinStopLossDistancePrice="Limits?.MinStopLossDistancePrice" MinTakeProfitDistancePrice="Limits?.MinTakeProfitDistancePrice"
+                          PriceStep="Limits?.PriceStep" SymbolVolumeStep="Limits?.VolumeStep" MinVolume="Limits?.MinVolume"
+                          MaxVolume="Limits?.MaxVolume" AllowShort="Limits?.AllowShort ?? true"
+                          Options="Options" OnOptionsChanged="OnOptionsChanged"
                           HasSelection="HasSelection" Balance="Balance" Leverage="Leverage" PipSize="PipSize"
                           CurrentPrice="CurrentPrice" CurrentBid="CurrentBid" CurrentAsk="CurrentAsk" />
         }

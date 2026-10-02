@@ -40,6 +40,20 @@ namespace Poink.Sim.Components.Shared.TradeConsole
 		[Parameter]
 		public double? MinTakeProfitDistancePrice { get; set; }
 
+		/// <summary>The symbol's volume step, in units -- null leaves a typed volume as entered.</summary>
+		[Parameter]
+		public double? SymbolVolumeStep { get; set; }
+
+		[Parameter]
+		public double? MinVolume { get; set; }
+
+		[Parameter]
+		public double? MaxVolume { get; set; }
+
+		/// <summary>False when the symbol forbids short positions, which disables the SELL side.</summary>
+		[Parameter]
+		public bool AllowShort { get; set; } = true;
+
 		/// <summary>The symbol's smallest price increment, used to round SL/TP prices -- null skips rounding.</summary>
 		[Parameter]
 		public double? PriceStep { get; set; }
@@ -114,7 +128,20 @@ namespace Poink.Sim.Components.Shared.TradeConsole
 			: null;
 
 		private double Volume =>
-			_volumeSizingMode == VolumeSizingMode.Risk ? CalculatedVolume ?? 0 : _volumeUnits ?? 0;
+			WithinSymbolVolumeLimits(_volumeSizingMode == VolumeSizingMode.Risk ? CalculatedVolume ?? 0 : _volumeUnits ?? 0);
+
+		private double EffectiveVolumeStep => SymbolVolumeStep is > 0 ? SymbolVolumeStep.Value : VolumeStep;
+
+		private double WithinSymbolVolumeLimits(double volume)
+		{
+			if (volume <= 0)
+				return volume;
+			if (SymbolVolumeStep is > 0)
+				volume = RiskHelper.RoundToStep(volume, SymbolVolumeStep.Value);
+			if (MinVolume is { } min)
+				volume = Math.Max(volume, min);
+			return MaxVolume is > 0 ? Math.Min(volume, MaxVolume.Value) : volume;
+		}
 
 		/// <summary>
 		/// Position size solved from the stop-loss pip distance and the percent of balance risked,
@@ -135,7 +162,7 @@ namespace Poink.Sim.Components.Shared.TradeConsole
 
 				double stopPrice = RiskHelper.StopLossPriceFromPips(Direction, entry, pips, PipSize);
 				double riskAmount = percent / 100.0 * balance;
-				return RiskHelper.SizeForRiskRounded(riskAmount, entry, stopPrice, VolumeStep);
+				return RiskHelper.SizeForRiskRounded(riskAmount, entry, stopPrice, EffectiveVolumeStep);
 			}
 		}
 
@@ -301,6 +328,12 @@ namespace Poink.Sim.Components.Shared.TradeConsole
 		{
 			_isLong = isLong;
 			_localError = null;
+
+			if (!isLong && !AllowShort)
+			{
+				_localError = "Short selling is not allowed for this symbol.";
+				return;
+			}
 
 			if (!HasSelection)
 			{

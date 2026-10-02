@@ -569,7 +569,11 @@
                                 }
                                 else
                                 {
-                                    <TradeConsole @ref="_consoleRef" Options="_tradeConsoleOptions" OnOptionsChanged="SetTradeConsoleOptions"
+                                    <TradeConsole @ref="_consoleRef" MinStopLossDistancePrice="_symbolLimits?.MinStopLossDistancePrice" MinTakeProfitDistancePrice="_symbolLimits?.MinTakeProfitDistancePrice"
+                                                  PriceStep="_symbolLimits?.PriceStep" SymbolVolumeStep="_symbolLimits?.VolumeStep"
+                                                  MinVolume="_symbolLimits?.MinVolume" MaxVolume="_symbolLimits?.MaxVolume"
+                                                  AllowShort="_symbolLimits?.AllowShort ?? true"
+                                                  Options="_tradeConsoleOptions" OnOptionsChanged="SetTradeConsoleOptions"
                                                   HasSelection="SelectedTrader is not null"
                                                   Balance="SelectedTrader?.Capital.Cash" Leverage="SelectedTrader?.Leverage"
                                                   PipSize="_snapshot?.Config.PipSize ?? 0.01"
@@ -596,7 +600,7 @@
                                 }
                             </PoliciesTab>
                             <RobotTab>
-                                <RobotPanel EvaluationSeconds="_robotEvaluationSeconds" OnEvaluationSecondsChanged="SetRobotEvaluationSeconds" SubTab="_robotSubTab" OnSubTabChanged="SetRobotSubTab" OpenSide="_robotOpenSide" OnOpenSideChanged="SetRobotOpenSide" Enabled="_robotEnabled" OnEnabledChanged="SetRobotEnabled" Options="_robotPositionOptions" OnOptionsChanged="SetRobotPositionOptions"
+                                <RobotPanel Limits="_symbolLimits" EvaluationSeconds="_robotEvaluationSeconds" OnEvaluationSecondsChanged="SetRobotEvaluationSeconds" SubTab="_robotSubTab" OnSubTabChanged="SetRobotSubTab" OpenSide="_robotOpenSide" OnOpenSideChanged="SetRobotOpenSide" Enabled="_robotEnabled" OnEnabledChanged="SetRobotEnabled" Options="_robotPositionOptions" OnOptionsChanged="SetRobotPositionOptions"
                                             HasSelection="SelectedTrader is not null"
                                             Balance="SelectedTrader?.Capital.Cash" Leverage="SelectedTrader?.Leverage"
                                             PipSize="_snapshot?.Config.PipSize ?? 0.01"
