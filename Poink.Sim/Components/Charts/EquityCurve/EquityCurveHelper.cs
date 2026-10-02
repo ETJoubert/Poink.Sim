@@ -8,11 +8,11 @@ namespace Poink.Sim.Components.Charts;
 internal static class EquityCurveHelper
 {
 	/// <summary>
-	/// Pairs an equity series with its own timestamps and the trades taken over that span, so
-	/// each point falling inside a trade's [EntryTime, ExitTime] carries the running best/worst
-	/// equity seen since that trade's entry -- reset the moment a trade starts, null everywhere
-	/// else since there's no meaningful trade extreme to show outside one. Assumes at most one
-	/// trade open at a time, matching this app's single-position trader.
+	/// Pairs an equity series with its own timestamps and the trades taken over that span, and
+	/// emits one sample per trade: the equity at the trade's last covered point (its outcome) plus
+	/// the best/worst equity seen between the trade's entry and that point. Trades with no covered
+	/// points yield no sample. Assumes at most one trade open at a time, matching this app's
+	/// single-position trader.
 	/// </summary>
 	public static List<EquityCurveSample> Build(
 		IReadOnlyList<DateTime> timestamps,
@@ -21,15 +21,24 @@ internal static class EquityCurveHelper
 	)
 	{
 		int count = Math.Min(timestamps.Count, equity.Count);
-		var samples = new List<EquityCurveSample>(count);
+		var samples = new List<EquityCurveSample>();
 		if (count == 0)
 			return samples;
 
 		var orderedTrades = trades.OrderBy(t => t.EntryTime).ToList();
 		int tradeIndex = 0;
-		Trade? activeTrade = null;
+		int? openTradeIndex = null;
+		DateTime lastTime = default;
+		double lastEquity = 0;
 		double runningMax = 0;
 		double runningMin = 0;
+
+		void CloseOpenTrade()
+		{
+			if (openTradeIndex is int n)
+				samples.Add(new EquityCurveSample(lastTime, lastEquity, runningMax, runningMin, n + 1));
+			openTradeIndex = null;
+		}
 
 		for (int i = 0; i < count; i++)
 		{
@@ -39,37 +48,35 @@ internal static class EquityCurveHelper
 			while (tradeIndex < orderedTrades.Count && orderedTrades[tradeIndex].ExitTime < time)
 				tradeIndex++;
 
-			var covering =
+			bool covered =
 				tradeIndex < orderedTrades.Count
 				&& orderedTrades[tradeIndex].EntryTime <= time
-				&& time <= orderedTrades[tradeIndex].ExitTime
-					? orderedTrades[tradeIndex]
-					: null;
+				&& time <= orderedTrades[tradeIndex].ExitTime;
 
-			if (!ReferenceEquals(covering, activeTrade))
+			if (!covered)
 			{
-				activeTrade = covering;
+				CloseOpenTrade();
+				continue;
+			}
+
+			if (openTradeIndex != tradeIndex)
+			{
+				CloseOpenTrade();
+				openTradeIndex = tradeIndex;
 				runningMax = eq;
 				runningMin = eq;
 			}
-			else if (covering is not null)
+			else
 			{
 				runningMax = Math.Max(runningMax, eq);
 				runningMin = Math.Min(runningMin, eq);
 			}
 
-			int? tradeNumber = covering is null ? null : tradeIndex + 1;
-			samples.Add(
-				new EquityCurveSample(
-					time,
-					eq,
-					covering is null ? null : runningMax,
-					covering is null ? null : runningMin,
-					tradeNumber
-				)
-			);
+			lastTime = time;
+			lastEquity = eq;
 		}
 
+		CloseOpenTrade();
 		return samples;
 	}
 }
