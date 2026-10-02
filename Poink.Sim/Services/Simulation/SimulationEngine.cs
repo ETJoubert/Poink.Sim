@@ -169,7 +169,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 			_cursor = 0;
 			_totalCount = totalCount;
 			_config = config;
-			_riskToggles = _riskPolicyService.CreateToggles(config.RiskPolicyNames, config.LockRiskPolicies);
+			_riskToggles = _riskPolicyService.CreateToggles(config.RiskPolicyNames);
 			_traderSessions = CreateSessions(
 				config.TraderCount,
 				config.StartingCash,
@@ -786,7 +786,6 @@ internal sealed class SimulationEngine : ISimulationEngine
 						barHistograms,
 						_recentTicks.ToList(),
 						primaryRisk?.PolicyStates() ?? Array.Empty<RiskPolicySnapshot>(),
-						primaryRisk?.PoliciesLocked ?? false,
 						cellState
 					);
 		}

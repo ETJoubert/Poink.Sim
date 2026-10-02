@@ -30,7 +30,6 @@ internal sealed record SimulationConfig(
 	double CommissionRatePercent = 0.0,
 	double PipSize = 0.01,
 	IReadOnlyList<string>? RiskPolicyNames = null,
-	bool LockRiskPolicies = false,
 	SimulationSteppingMode SteppingMode = SimulationSteppingMode.Bar,
 	double CellWidth = 0.10
 );
@@ -105,6 +104,5 @@ internal sealed record SimulationSnapshot(
 	IReadOnlyList<BarPriceHistogram> RecentBarHistograms,
 	IReadOnlyList<Tick> RecentTicks,
 	IReadOnlyList<RiskPolicySnapshot> RiskPolicies,
-	bool RiskPoliciesLocked,
 	SimulationCellState? CellState
 );

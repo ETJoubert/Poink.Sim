@@ -73,7 +73,6 @@ namespace Poink.Sim.Components.Pages
 		private double _pipSize = 0.01;
 
 		private readonly List<string> _selectedRiskPolicies = new();
-		private bool _lockRiskPolicies;
 
 		private string? _loadError;
 
@@ -156,6 +155,7 @@ namespace Poink.Sim.Components.Pages
 
 		private enum SimLeftPanelTab
 		{
+			Setup,
 			Traders,
 			TraderIo,
 			RuleEngine,
@@ -736,8 +736,7 @@ namespace Poink.Sim.Components.Pages
 				_commissionRatePercent,
 				_stopOutLevelPercent,
 				_pipSize,
-				[.. _selectedRiskPolicies],
-				_lockRiskPolicies
+				[.. _selectedRiskPolicies]
 			);
 
 		private async Task LoadPersistedSettingsAsync()
@@ -770,7 +769,6 @@ namespace Poink.Sim.Components.Pages
 			_pipSize = settings.PipSize;
 			_selectedRiskPolicies.Clear();
 			_selectedRiskPolicies.AddRange(settings.SelectedRiskPolicies);
-			_lockRiskPolicies = settings.LockRiskPolicies;
 		}
 
 		private async Task PersistSettingsIfChangedAsync()
@@ -1020,13 +1018,13 @@ namespace Poink.Sim.Components.Pages
 				_commissionRatePercent,
 				_pipSize,
 				SelectedRiskPolicies,
-				_lockRiskPolicies,
 				_steppingMode,
 				_cellWidth
 			);
 
 			_keepChartView = false;
 			_setupCollapsed = true;
+			_activeLeftPanelTab = SimLeftPanelTab.Traders;
 			if (!SimulationService.TryLoad(config))
 				_loadError = "a load is already in progress";
 		}
@@ -1055,6 +1053,10 @@ namespace Poink.Sim.Components.Pages
 			}
 			return true;
 		}
+
+		private bool SetupLocked => _isLoading || _snapshot is not null;
+
+		private string ActiveBrainName => _snapshot?.Config.BrainName ?? _brainName;
 
 		private IReadOnlyList<string>? SelectedRiskPolicies =>
 			_selectedRiskPolicies.Count > 0 ? _selectedRiskPolicies.ToList() : null;
@@ -1131,6 +1133,7 @@ namespace Poink.Sim.Components.Pages
 		{
 			_keepChartView = false;
 			_setupCollapsed = false;
+			_activeLeftPanelTab = SimLeftPanelTab.Setup;
 			_draft = null;
 			SimulationService.Unload();
 		}

@@ -108,95 +108,6 @@
                 </div>
             </div>
 
-            <div class="sim-datarow">
-                <label class="sim-brainrow-field"
-                       title="Only trained models (plus heuristic strategies, which have no weights to train) can be run in Simulation -- an untrained or freshly-built brain never appears here">
-                    Brain
-                    <select class="sim-brainrow-select" value="@SelectedOptionKey" @onchange="OnSimulationBrainChanged"
-                            disabled="@(_isLoading || _snapshot is not null)">
-                        <option value="">-- pick a brain --</option>
-                        @if (SimulationBrainOptions.Any(o => o.ModelId is not null))
-                        {
-                            <optgroup label="TRAINED MODELS">
-                                @foreach (var o in SimulationBrainOptions.Where(o => o.ModelId is not null))
-                                {
-                                    <option value="@OptionKey(o)">@o.DisplayName</option>
-                                }
-                            </optgroup>
-                        }
-                        @if (SimulationBrainOptions.Any(o => o.ModelId is null))
-                        {
-                            <optgroup label="HEURISTIC">
-                                @foreach (var o in SimulationBrainOptions.Where(o => o.ModelId is null))
-                                {
-                                    <option value="@OptionKey(o)">@o.DisplayName</option>
-                                }
-                            </optgroup>
-                        }
-                    </select>
-                </label>
-                <label class="sim-brainrow-field">
-                    Starting cash
-                    <input class="sim-brainrow-input" type="number" min="1" step="100" @bind="_startingCash"
-                           disabled="@(_isLoading || _snapshot is not null)" />
-                </label>
-                <label class="sim-brainrow-field">
-                    Traders
-                    <input class="sim-brainrow-input sim-brainrow-input-narrow" type="number" min="1" max="20"
-                           @bind="_traderCount" disabled="@(_isLoading || _snapshot is not null)" />
-                </label>
-                <label class="sim-brainrow-field"
-                       title="Notional exposure per unit of margin committed -- 1 means no leverage">
-                    Leverage
-                    <input class="sim-brainrow-input sim-brainrow-input-narrow" type="number" min="1" step="1"
-                           @bind="_leverage" disabled="@(_isLoading || _snapshot is not null)" />
-                </label>
-                <label class="sim-brainrow-field"
-                       title="Commission charged per fill, as a percent of that fill's notional value">
-                    Commission %
-                    <input class="sim-brainrow-input sim-brainrow-input-narrow" type="number" min="0" step="0.01"
-                           @bind="_commissionRatePercent" disabled="@(_isLoading || _snapshot is not null)" />
-                </label>
-                <label class="sim-brainrow-field"
-                       title="Force-close the open position when Margin Level (Equity ÷ Margin Used) drops below this percent">
-                    Stop-out %
-                    <input class="sim-brainrow-input sim-brainrow-input-narrow"
-                        type="number"
-                        min="1"
-                        max="100"
-                        step="1"
-                        @bind="_stopOutLevelPercent" disabled="@(_isLoading || _snapshot is not null)" />
-                </label>
-                <label class="sim-brainrow-field"
-                       title="Price value of one pip for this instrument -- stop-loss and take-profit distances are entered in pips and converted through this">
-                    Pip size
-                    <input class="sim-brainrow-input sim-brainrow-input-narrow" type="number" min="0" step="0.00001"
-                           @bind="_pipSize" disabled="@(_isLoading || _snapshot is not null)" />
-                </label>
-            </div>
-
-            @if (RiskPolicyService.AvailablePolicies.Count > 0)
-            {
-                <div class="sim-datarow sim-riskrow"
-                     title="Risk policies gate every trade action -- permit, deny or resize it -- and supervise open positions, on top of the brain and manual controls">
-                    <span class="sim-riskrow-label">Risk Policies</span>
-                    <PolicySelector Available="RiskPolicyService.AvailablePolicies" Selected="_selectedRiskPolicies"
-                                    Disabled="@(_isLoading || _snapshot is not null)" OnChanged="StateHasChanged">
-                        <Actions>
-                            @if (_selectedRiskPolicies.Count > 0)
-                            {
-                                <label class="sim-locktoggle"
-                                       title="Opt in to fix these policies for the whole run -- once loaded they cannot be toggled during playback">
-                                    <input type="checkbox" @bind="_lockRiskPolicies"
-                                           disabled="@(_isLoading || _snapshot is not null)" />
-                                    Lock for run
-                                </label>
-                            }
-                        </Actions>
-                    </PolicySelector>
-                </div>
-            }
-
                 </div>
                 }
             </div>
@@ -207,7 +118,7 @@
                 <div class="sim-toolbar">
                     <div class="sim-controls">
                            <button class="sim-setup-toggle" @onclick="ToggleSetupPanel"
-                    title="@(_setupCollapsed ? "Expand the data range, brain and trader options" : "Collapse the data range, brain and trader options")">
+                    title="@(_setupCollapsed ? "Expand the data range and aggregation options" : "Collapse the data range and aggregation options")">
                 <Icon Name="@(_setupCollapsed ? "chevron-right" : "chevron-down")" Class="sim-setup-toggle-icon" />
             </button>
                         <button class="sim-ctrl-btn sim-ctrl-btn-play" @onclick="TogglePlayPause" disabled="@s.IsFinished">
@@ -276,22 +187,32 @@
         </div>
 
         <div class="sim-body">
-            @if (_snapshot is not null)
-            {
                 <aside class="sim-left-side-panel @(_leftSidePanelCollapsed ? "sim-left-side-panel-collapsed" : "") @(!_leftSidePanelCollapsed && _activeLeftPanelTab == SimLeftPanelTab.RuleEngine ? "sim-left-side-panel-wide" : "")">
                     <div class="sim-left-side-panel-header">
                         <button type="button" class="sim-left-side-panel-toggle" @onclick="() => _leftSidePanelCollapsed = !_leftSidePanelCollapsed"
-                                title="@(_leftSidePanelCollapsed ? "Expand the traders panel" : "Collapse the traders panel")">
+                                title="@(_leftSidePanelCollapsed ? "Expand the setup and traders panel" : "Collapse the setup and traders panel")">
                             <Icon Name="@(_leftSidePanelCollapsed ? "chevron-right" : "chevron-left")" Class="sim-left-side-panel-toggle-icon" />
                         </button>
                         @if (!_leftSidePanelCollapsed)
                         {
-                            <span class="sim-left-side-panel-label">TRADERS <span class="trade-section-count">@_snapshot.Traders.Count</span></span>
+                            @if (_snapshot is null)
+                            {
+                                <span class="sim-left-side-panel-label">SETUP</span>
+                            }
+                            else
+                            {
+                                <span class="sim-left-side-panel-label">TRADERS <span class="trade-section-count">@_snapshot.Traders.Count</span></span>
+                            }
                         }
                     </div>
                     @if (!_leftSidePanelCollapsed)
                     {
                         <div class="sim-left-side-panel-tabs">
+                            <button type="button" class="sim-left-side-panel-tab @(_activeLeftPanelTab == SimLeftPanelTab.Setup ? "active" : "")"
+                                    @onclick="() => _activeLeftPanelTab = SimLeftPanelTab.Setup"
+                                    title="Brain selection and trader account settings -- editable until a simulation is loaded">SETUP</button>
+                            @if (_snapshot is not null)
+                            {
                             <button type="button" class="sim-left-side-panel-tab @(_activeLeftPanelTab == SimLeftPanelTab.Traders ? "active" : "")"
                                     @onclick="() => _activeLeftPanelTab = SimLeftPanelTab.Traders"
                                     title="Every trader's live cash/equity/P&L, selectable to drive the right-side controls">TRADERS</button>
@@ -301,9 +222,81 @@
                             <button type="button" class="sim-left-side-panel-tab @(_activeLeftPanelTab == SimLeftPanelTab.RuleEngine ? "active" : "")"
                                     @onclick="() => _activeLeftPanelTab = SimLeftPanelTab.RuleEngine"
                                     title="Above/In/Below mask over the baseline signals (POC/VAH/VAL/VWAP/Median/Regression), XGrid's Top %/Delta rows, and TxFold's per-timeframe mean+/-stddev rows -- the input side of the rule engine">RULE ENGINE</button>
+                            }
                         </div>
                         <div class="sim-left-side-panel-content">
-                            @if (_activeLeftPanelTab == SimLeftPanelTab.Traders)
+                            @if (_activeLeftPanelTab == SimLeftPanelTab.Setup || _snapshot is null)
+                            {
+                                <div class="sim-setup-form">
+                                    <label class="sim-brainrow-field"
+                                           title="Only trained models (plus heuristic strategies, which have no weights to train) can be run in Simulation -- an untrained or freshly-built brain never appears here">
+                                        Brain
+                                        <select class="sim-brainrow-select" value="@SelectedOptionKey" @onchange="OnSimulationBrainChanged"
+                                                disabled="@SetupLocked">
+                                            <option value="">-- pick a brain --</option>
+                                            @if (SimulationBrainOptions.Any(o => o.ModelId is not null))
+                                            {
+                                                <optgroup label="TRAINED MODELS">
+                                                    @foreach (var o in SimulationBrainOptions.Where(o => o.ModelId is not null))
+                                                    {
+                                                        <option value="@OptionKey(o)">@o.DisplayName</option>
+                                                    }
+                                                </optgroup>
+                                            }
+                                            @if (SimulationBrainOptions.Any(o => o.ModelId is null))
+                                            {
+                                                <optgroup label="HEURISTIC">
+                                                    @foreach (var o in SimulationBrainOptions.Where(o => o.ModelId is null))
+                                                    {
+                                                        <option value="@OptionKey(o)">@o.DisplayName</option>
+                                                    }
+                                                </optgroup>
+                                            }
+                                        </select>
+                                    </label>
+                                    <label class="sim-brainrow-field"
+                                           title="Cash each trader starts with">
+                                        Starting cash
+                                        <input class="sim-brainrow-input" type="number" min="1" step="100" @bind="_startingCash"
+                                               disabled="@SetupLocked" />
+                                    </label>
+                                    <label class="sim-brainrow-field"
+                                           title="How many traders to run side by side on the same data">
+                                        Traders
+                                        <input class="sim-brainrow-input sim-brainrow-input-narrow" type="number" min="1" max="20"
+                                               @bind="_traderCount" disabled="@SetupLocked" />
+                                    </label>
+                                    <label class="sim-brainrow-field"
+                                           title="Notional exposure per unit of margin committed -- 1 means no leverage">
+                                        Leverage
+                                        <input class="sim-brainrow-input sim-brainrow-input-narrow" type="number" min="1" step="1"
+                                               @bind="_leverage" disabled="@SetupLocked" />
+                                    </label>
+                                    <label class="sim-brainrow-field"
+                                           title="Commission charged per fill, as a percent of that fill's notional value">
+                                        Commission %
+                                        <input class="sim-brainrow-input sim-brainrow-input-narrow" type="number" min="0" step="0.01"
+                                               @bind="_commissionRatePercent" disabled="@SetupLocked" />
+                                    </label>
+                                    <label class="sim-brainrow-field"
+                                           title="Force-close the open position when Margin Level (Equity ÷ Margin Used) drops below this percent">
+                                        Stop-out %
+                                        <input class="sim-brainrow-input sim-brainrow-input-narrow"
+                                            type="number"
+                                            min="1"
+                                            max="100"
+                                            step="1"
+                                            @bind="_stopOutLevelPercent" disabled="@SetupLocked" />
+                                    </label>
+                                    <label class="sim-brainrow-field"
+                                           title="Price value of one pip for this instrument -- stop-loss and take-profit distances are entered in pips and converted through this">
+                                        Pip size
+                                        <input class="sim-brainrow-input sim-brainrow-input-narrow" type="number" min="0" step="0.00001"
+                                               @bind="_pipSize" disabled="@SetupLocked" />
+                                    </label>
+                                </div>
+                            }
+                            else if (_activeLeftPanelTab == SimLeftPanelTab.Traders)
                             {
                                 @foreach (var trader in _snapshot.Traders)
                                 {
@@ -330,7 +323,6 @@
                         </div>
                     }
                 </aside>
-            }
             <div class="sim-main">
 
                 @if (_snapshot is null)
@@ -623,8 +615,6 @@
                 }
             </div>
 
-            @if (_snapshot is not null)
-            {
                 <aside class="sim-right-side-panel @(_traderControlsCollapsed ? "sim-right-side-panel-collapsed" : "")">
                     <div class="sim-right-side-panel-header">
                         <button type="button" class="sim-right-side-panel-toggle" @onclick="() => _traderControlsCollapsed = !_traderControlsCollapsed"
@@ -639,28 +629,44 @@
                     <div class="sim-right-side-panel-content">
                         <TraderSidePanel Collapsed="_traderControlsCollapsed" OnExpandRequested="() => _traderControlsCollapsed = false">
                             <TradeTab>
-                                <TradeConsole @ref="_consoleRef" HasSelection="SelectedTrader is not null"
-                                              Balance="SelectedTrader?.Capital.Cash" Leverage="SelectedTrader?.Leverage"
-                                              PipSize="_snapshot?.Config.PipSize ?? 0.01"
-                                              CurrentPrice="_snapshot?.CurrentPrice"
-                                              CurrentBid="_snapshot?.CurrentBid"
-                                              CurrentAsk="_snapshot?.CurrentAsk"
-                                              StatusMessage="@_consoleError" StatusIsError="_consoleError is not null"
-                                              OnSubmit="HandleConsoleSubmit" OnDraftChanged="HandleDraftChanged" />
+                                @if (_snapshot is null)
+                                {
+                                    <p class="sim-drawings-empty">Load a simulation to place trades.</p>
+                                }
+                                else
+                                {
+                                    <TradeConsole @ref="_consoleRef" HasSelection="SelectedTrader is not null"
+                                                  Balance="SelectedTrader?.Capital.Cash" Leverage="SelectedTrader?.Leverage"
+                                                  PipSize="_snapshot?.Config.PipSize ?? 0.01"
+                                                  CurrentPrice="_snapshot?.CurrentPrice"
+                                                  CurrentBid="_snapshot?.CurrentBid"
+                                                  CurrentAsk="_snapshot?.CurrentAsk"
+                                                  StatusMessage="@_consoleError" StatusIsError="_consoleError is not null"
+                                                  OnSubmit="HandleConsoleSubmit" OnDraftChanged="HandleDraftChanged" />
+                                }
                             </TradeTab>
                             <PoliciesTab>
-                                <RiskPolicyPanel Policies="@(_snapshot?.RiskPolicies ?? Array.Empty<RiskPolicySnapshot>())"
-                                                 Locked="_snapshot?.RiskPoliciesLocked ?? false"
-                                                 Statuses="SelectedTrader?.RiskPolicyStatuses" LastDenial="SelectedTrader?.LastDenial" />
+                                @if (_snapshot is null)
+                                {
+                                    <div class="sim-riskrow"
+                                         title="Risk policies gate every trade action -- permit, deny or resize it -- and supervise open positions, on top of the brain and manual controls">
+                                        <PolicySelector Available="RiskPolicyService.AvailablePolicies" Selected="_selectedRiskPolicies"
+                                                        Disabled="@_isLoading" OnChanged="StateHasChanged" />
+                                    </div>
+                                }
+                                else
+                                {
+                                    <RiskPolicyPanel Policies="_snapshot.RiskPolicies"
+                                                     Statuses="SelectedTrader?.RiskPolicyStatuses" LastDenial="SelectedTrader?.LastDenial" />
+                                }
                             </PoliciesTab>
                             <RobotTab>
-                                <BrainInfoCard BrainName="@(_snapshot?.Config.BrainName ?? string.Empty)"
-                                               IsNeuralNetwork="CurrentBrainIsNeuralNetwork(_snapshot?.Config.BrainName ?? string.Empty)"
-                                               ActiveSnapshot="TrainingService.GetActiveSnapshot(_snapshot?.Config.BrainName ?? string.Empty)" />
+                                <BrainInfoCard BrainName="@ActiveBrainName"
+                                               IsNeuralNetwork="CurrentBrainIsNeuralNetwork(ActiveBrainName)"
+                                               ActiveSnapshot="TrainingService.GetActiveSnapshot(ActiveBrainName)" />
                             </RobotTab>
                         </TraderSidePanel>
                     </div>
                 </aside>
-            }
         </div>
     </div>

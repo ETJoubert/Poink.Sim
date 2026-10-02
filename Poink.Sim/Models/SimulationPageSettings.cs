@@ -24,7 +24,6 @@ namespace Poink.Sim.Models
 		double CommissionRatePercent,
 		double StopOutLevelPercent,
 		double PipSize,
-		List<string> SelectedRiskPolicies,
-		bool LockRiskPolicies
+		List<string> SelectedRiskPolicies
 	);
 }

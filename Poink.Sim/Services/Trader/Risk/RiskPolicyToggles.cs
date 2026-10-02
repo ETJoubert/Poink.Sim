@@ -12,11 +12,8 @@ internal sealed class RiskPolicyToggles
 	private readonly Dictionary<string, bool> _enabled;
 	private readonly Dictionary<string, Dictionary<string, RiskPolicyParameter>> _parameters;
 
-	public bool Locked { get; }
-
 	public RiskPolicyToggles(
-		IEnumerable<(string Name, string Description, IReadOnlyList<RiskPolicyParameter> Parameters)> policies,
-		bool locked
+		IEnumerable<(string Name, string Description, IReadOnlyList<RiskPolicyParameter> Parameters)> policies
 	)
 	{
 		var distinct = policies.GroupBy(p => p.Name).Select(g => g.First()).ToList();
@@ -24,7 +21,6 @@ internal sealed class RiskPolicyToggles
 		_descriptions = distinct.ToDictionary(p => p.Name, p => p.Description);
 		_enabled = _order.ToDictionary(name => name, _ => true);
 		_parameters = distinct.ToDictionary(p => p.Name, p => p.Parameters.ToDictionary(par => par.Key, par => par));
-		Locked = locked;
 	}
 
 	public bool IsEnabled(string policyName)
@@ -39,7 +35,7 @@ internal sealed class RiskPolicyToggles
 	{
 		lock (_lock)
 		{
-			if (Locked || !_enabled.ContainsKey(policyName))
+			if (!_enabled.ContainsKey(policyName))
 				return false;
 			_enabled[policyName] = enabled;
 			return true;
@@ -51,8 +47,6 @@ internal sealed class RiskPolicyToggles
 	{
 		lock (_lock)
 		{
-			if (Locked)
-				return false;
 			int index = _order.IndexOf(policyName);
 			if (index < 0)
 				return false;
@@ -87,8 +81,7 @@ internal sealed class RiskPolicyToggles
 		lock (_lock)
 		{
 			if (
-				Locked
-				|| !_parameters.TryGetValue(policyName, out var parameters)
+				!_parameters.TryGetValue(policyName, out var parameters)
 				|| !parameters.TryGetValue(key, out var current)
 			)
 				return false;

@@ -14,8 +14,6 @@ internal interface IRiskManager
 
 	IReadOnlyList<RiskPolicySnapshot> PolicyStates();
 
-	bool PoliciesLocked { get; }
-
 	bool SetPolicyEnabled(string policyName, bool enabled);
 
 	bool MovePolicy(string policyName, int delta);

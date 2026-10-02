@@ -166,42 +166,28 @@
 }
 
 .sim-riskrow {
-    align-items: flex-start;
-    gap: 14px;
-    white-space: normal;
-}
-
-.sim-riskrow-label {
-    color: var(--color-secondary);
-    font-size: 0.72rem;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    padding-top: 6px;
-    white-space: nowrap;
+    padding: 8px 10px;
 }
 
 .sim-riskrow ::deep .policy-selector {
-    flex: 1;
     min-width: 0;
 }
 
-.sim-locktoggle {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 3px 8px;
-    border-radius: var(--border-radius-sm);
-    border: 1px solid color-mix(in srgb, var(--color-highlight) 30%, transparent);
-    background: color-mix(in srgb, var(--color-highlight) 6%, transparent);
-    color: var(--color-secondary);
-    font-size: 0.7rem;
-    white-space: nowrap;
-    cursor: pointer;
+.sim-setup-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 12px;
 }
 
-.sim-locktoggle input {
-    accent-color: var(--color-highlight);
-    cursor: pointer;
+.sim-setup-form .sim-brainrow-field {
+    justify-content: space-between;
+}
+
+.sim-setup-form .sim-brainrow-select {
+    min-width: 0;
+    flex: 1;
+    max-width: 170px;
 }
 
 .sim-brainrow-select,

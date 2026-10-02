@@ -16,9 +16,6 @@ namespace Poink.Sim.Components.Simulation
 		public IReadOnlyList<RiskPolicySnapshot> Policies { get; set; } = [];
 
 		[Parameter]
-		public bool Locked { get; set; }
-
-		[Parameter]
 		public IReadOnlyList<RiskPolicyStatus>? Statuses { get; set; }
 
 		[Parameter]
@@ -38,8 +35,6 @@ namespace Poink.Sim.Components.Simulation
 
 		private void ToggleCard(RiskPolicySnapshot policy)
 		{
-			if (Locked)
-				return;
 			Service.SetRiskPolicyEnabled(policy.Name, !policy.Enabled);
 		}
 

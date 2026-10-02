@@ -20,15 +20,6 @@
     color: var(--color-secondary);
 }
 
-.riskpolicy-locked-badge {
-    font-size: 0.68rem;
-    padding: 2px 6px;
-    border-radius: var(--border-radius-sm);
-    border: 1px solid color-mix(in srgb, var(--color-primary) 45%, transparent);
-    color: var(--color-secondary);
-    white-space: nowrap;
-}
-
 .riskpolicy-panel-list {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -79,10 +70,6 @@
 
 .riskpolicy-card-off:hover {
     opacity: 0.85;
-}
-
-.riskpolicy-card-locked {
-    cursor: not-allowed;
 }
 
 .riskpolicy-card-denied {
