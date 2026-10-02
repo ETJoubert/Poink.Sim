@@ -275,7 +275,7 @@ internal sealed class TrainingEngineService
 			var trace = new DecisionTrace(activations, rawOutputs, actionIndex, Reward: 0);
 			if (!learnsOnline)
 				traces.Add(trace);
-			else if (isChoice)
+			else if (isChoice && !CannotAct(action, wasFlat))
 				onlineTrainer!.RecordChoice(trace, wasFlat && trader.CurrentPosition is not null, closedTradePnl);
 
 			onDecision?.Invoke(
@@ -320,6 +320,11 @@ internal sealed class TrainingEngineService
 		var lastTick = ticks[^1];
 		return new EpisodeResult(steps, trader.Snapshot(lastTick.Bid, lastTick.Ask), trader.TradeLog, totalReward);
 	}
+
+	// Entering while a trade is open or closing while flat does nothing, so rewarding it with zero would
+	// teach the network that doing nothing beats trading whenever action masking is off.
+	private static bool CannotAct(SimulationAction action, bool wasFlat) =>
+		(action is SimulationAction.EnterLong or SimulationAction.EnterShort && !wasFlat) || (action == SimulationAction.Close && wasFlat);
 
 	private static readonly TimeSpan MinPreviewInterval = TimeSpan.FromMilliseconds(50);
 

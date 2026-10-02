@@ -201,7 +201,7 @@ namespace Poink.Sim.Components.Pages
 		private int _txFoldVolumeProfileBucketCount = 20;
 		private bool _txFoldIncludeCurrentPrice;
 		private HashSet<TxFoldLevelKind> _txFoldIncludedLevels = [];
-		private bool _txFoldNormalize;
+		private bool _txFoldNormalize = true;
 
 		// Picked on the Features tab because it sets XGrid's window; the Training tab reads it for Episode span.
 		private int _barWidthSeconds = 60;
@@ -431,10 +431,10 @@ namespace Poink.Sim.Components.Pages
 
 		private int TotalOutputWidth => DirectionCount;
 
-		// Action Masking -- mirrors BrainBuilder's ActionsSection Action Masking card, but defaults
-		// every rule off here rather than on. The XGrid-dependent rules are left out for now.
-		private bool _maskPositionRequiredForClose;
-		private bool _maskFlatRequiredForEntry;
+		// Action Masking -- mirrors BrainBuilder's ActionsSection Action Masking card, defaulting every
+		// rule on. The XGrid-dependent rules are left out for now.
+		private bool _maskPositionRequiredForClose = true;
+		private bool _maskFlatRequiredForEntry = true;
 
 		private sealed record MaskRuleRow(string Label, string Tooltip, Func<bool> Get, Action<bool> Set);
 

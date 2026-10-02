@@ -11,13 +11,14 @@ namespace Poink.Sim.Models.TrainingModels
 	);
 
 	/// <summary>
-	/// Rules that restrict which actions are legal to choose. Every rule defaults off here, unlike
-	/// BrainBuilder's equivalent card where they default on. The XGrid-dependent rules (Long/Short
+	/// Rules that restrict which actions are legal to choose. Every rule defaults on, as in
+	/// BrainBuilder's equivalent card: the network has no position input, so the masks are what stop
+	/// Trade Outcome learning from do-nothing picks. The XGrid-dependent rules (Long/Short
 	/// require a directional signal, Close requires a key level) are left out for now.
 	/// </summary>
 	internal sealed record ActionMaskingOptionsModel(
-		bool PositionRequiredForClose = false,
-		bool FlatRequiredForEntry = false
+		bool PositionRequiredForClose = true,
+		bool FlatRequiredForEntry = true
 	);
 
 	/// <summary>How the network's raw outputs are turned into a chosen action.</summary>

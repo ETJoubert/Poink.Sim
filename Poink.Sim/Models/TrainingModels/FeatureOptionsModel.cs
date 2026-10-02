@@ -23,7 +23,8 @@ namespace Poink.Sim.Models.TrainingModels
 	/// VAL/VWAP/AVE/MED/REG, computed once over the ticks behind the displayed bars, same as the
 	/// TxFold chart's own overlay toggles). Normalize rescales every one of those values (including
 	/// CurrentPrice and the levels) relative to the largest selected timeframe's true High/Low, same
-	/// math the TxFold chart's own "%" toggle uses for display.
+	/// math the TxFold chart's own "%" toggle uses for display. It defaults on because raw prices
+	/// saturate the network's outputs and stop it learning.
 	/// </summary>
 	internal sealed record TxFoldOptionsModel(
 		IReadOnlyList<int>? SelectedSeconds = null,
@@ -33,7 +34,7 @@ namespace Poink.Sim.Models.TrainingModels
 		int VolumeProfileBucketCount = 20,
 		bool IncludeCurrentPrice = false,
 		IReadOnlyList<TxFoldLevelKind>? IncludedLevels = null,
-		bool Normalize = false
+		bool Normalize = true
 	);
 
 	/// <summary>
