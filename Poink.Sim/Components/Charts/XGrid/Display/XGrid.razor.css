@@ -453,6 +453,80 @@
     color: var(--color-bg-dark);
 }
 
+.xgrid-axis-v {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    min-height: 0;
+    font-size: 0.54rem;
+    color: var(--color-secondary);
+}
+
+.xgrid-axis-h {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 2px 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    font-size: 0.54rem;
+    color: var(--color-secondary);
+    white-space: nowrap;
+}
+
+.xgrid-axis-label {
+    opacity: 0.75;
+    font-variant-numeric: tabular-nums;
+}
+
+.xgrid-axis-range {
+    accent-color: var(--color-secondary);
+    cursor: pointer;
+    margin: 0;
+}
+
+.xgrid-axis-h .xgrid-axis-range {
+    flex: 1;
+    min-width: 0;
+}
+
+.xgrid-axis-range-v {
+    flex: 1;
+    min-height: 0;
+    writing-mode: vertical-lr;
+    direction: rtl;
+}
+
+.xgrid-axis-range:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.xgrid-axis-bind {
+    flex: 0 0 auto;
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--color-secondary) 40%, transparent);
+    color: var(--color-secondary);
+    font-family: var(--font-body);
+    font-size: 0.54rem;
+    line-height: 1;
+    padding: 2px 4px;
+    border-radius: var(--border-radius-sm);
+    cursor: pointer;
+}
+
+.xgrid-axis-bind:hover {
+    color: var(--color-primary);
+    border-color: var(--color-primary);
+}
+
+.xgrid-axis-bind.active {
+    border-color: var(--color-secondary);
+    background: color-mix(in srgb, var(--color-secondary) 15%, transparent);
+}
+
 .xgrid-footer {
     display: flex;
     align-items: center;

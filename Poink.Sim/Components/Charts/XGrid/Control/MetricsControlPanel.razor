@@ -7,29 +7,6 @@
         <div class="xgrid-header-actions">
             <button class="xgrid-delta-toggle @(Display.OverlaysEnabled && Spectrum.HighlightsEnabled ? "active" : "")" @onclick="ToggleAllEnabled"
                     title="Quickly turn every Overlays and Highlights control off or back on, without clearing any of their individual settings">@(Display.OverlaysEnabled && Spectrum.HighlightsEnabled ? "All ON" : "All OFF")</button>
-            <label class="xgrid-control" title="Pips per row -- multiplied by the instrument's pip size for each row's fixed price height. Rows snap to an absolute price grid, so the row count is derived from the range rather than fixed">
-                <span>Pips</span>
-                <input type="number" min="1" max="200" @bind:get="PipCount" @bind:set="SetPipCount" @bind:event="oninput" />
-                @if (Grid is { } rowGrid)
-                {
-                    <span class="xgrid-control-readout" title="Fixed price height of one row">@RowHeightLabel(rowGrid)</span>
-                }
-            </label>
-            <label class="xgrid-control" title="Number of bar groups (columns) -- bars are merged evenly when the selection holds more than this">
-                <span>Cols</span>
-                <input type="number" min="1" max="500" disabled="@_colsBoundToProfileBars"
-                       @bind:get="ColCount" @bind:set="SetColCount" @bind:event="oninput" />
-                @if (ProfileBarCount is { } profileBarCount)
-                {
-                    <button type="button" class="xgrid-bind-btn @(_colsBoundToProfileBars ? "active" : "")"
-                            @onclick="ToggleColsBoundToProfileBars"
-                            title="@(_colsBoundToProfileBars ? $"Cols is following Profile Bars ({profileBarCount}) -- click to unbind and edit Cols manually again" : $"Bind Cols to Profile Bars ({profileBarCount}) -- keeps one column per bar in the profile window as it changes")">=Bars</button>
-                }
-                @if (Grid is { } colGrid)
-                {
-                    <span class="xgrid-control-readout" title="Average time span of one column">@ColumnWidthLabel(colGrid)</span>
-                }
-            </label>
         </div>
     </div>
     <div class="xgrid-overlay-row">
