@@ -281,12 +281,15 @@ namespace Poink.Sim.Components.Charts
 				_ => "NEW",
 			};
 
-		private double OrderPanelTopPercent(XGridResult grid)
+		private const int BottomMarginPx = 28;
+
+		private string OrderPanelTop(XGridResult grid)
 		{
 			if (_order is not { } order)
-				return 0;
+				return "0px";
 			int rows = grid.RowLow.Count;
-			return rows == 0 ? 0 : PriceToRowF(grid, order.EntryPrice) / (rows + 1) * 100;
+			double fraction = rows == 0 ? 0 : PriceToRowF(grid, order.EntryPrice) / rows;
+			return $"calc((100% - {BottomMarginPx}px) * {fraction.ToString("0.####", CultureInfo.InvariantCulture)})";
 		}
 
 		private readonly List<XGridLine> _userLines = new();

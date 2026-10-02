@@ -131,34 +131,6 @@
     font-weight: bold;
 }
 
-.xgrid-totals-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 2px 8px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    flex: 0 0 auto;
-}
-
-.xgrid-total {
-    font-size: 0.56rem;
-    letter-spacing: 0.02em;
-    white-space: nowrap;
-}
-
-.xgrid-total-up {
-    color: var(--color-success);
-}
-
-.xgrid-total-down {
-    color: var(--color-error);
-}
-
-.xgrid-total-net {
-    color: var(--color-secondary);
-    font-weight: bold;
-}
-
 .xgrid-line-pills {
     display: flex;
     align-items: center;

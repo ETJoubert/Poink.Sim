@@ -51,12 +51,6 @@
     }
     else
     {
-        <div class="xgrid-totals-row">
-            <span class="xgrid-row-label">metrics</span>
-            <span class="xgrid-total xgrid-total-up" title="SBuy -- sum of the price before every up tick across the range">SBuy @grid.SBuy.ToString("F5", CultureInfo.InvariantCulture)</span>
-            <span class="xgrid-total xgrid-total-down" title="SSell -- sum of the price before every down tick across the range">SSell @grid.SSell.ToString("F5", CultureInfo.InvariantCulture)</span>
-            <span class="xgrid-total xgrid-total-net" title="Net = SBuy minus SSell">Net @((grid.SBuy - grid.SSell).ToString("F5", CultureInfo.InvariantCulture))</span>
-        </div>
         <div class="xgrid-scroll">
             <div class="xgrid-axis-v" title="Rows axis -- drag to change how many pips each row spans">
                 <span class="xgrid-axis-label">Pips @PipCount</span>
@@ -77,7 +71,7 @@
                 <span class="xgrid-price xgrid-price-low" title="Lowest price in the grid range">@(grid.RowLow.Count > 0 ? grid.RowLow[^1].ToString("F5", CultureInfo.InvariantCulture) : "--")</span>
                 @if (_order is { } order)
                 {
-                    <div class="xgrid-order-panel" style="--xgrid-order-top: @OrderPanelTopPercent(grid).ToString("0.##", CultureInfo.InvariantCulture)%">
+                    <div class="xgrid-order-panel" style="--xgrid-order-top: @OrderPanelTop(grid)">
                         <div class="xgrid-order-head">
                             <span class="xgrid-order-tag">@PanelTag</span>
                             <button class="xgrid-order-close" @onclick="CancelOrder" title="Dismiss this panel without changing the order">&times;</button>
