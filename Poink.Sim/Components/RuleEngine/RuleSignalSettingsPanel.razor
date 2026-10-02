@@ -1,0 +1,22 @@
+@namespace Poink.Sim.Components.RuleEngine
+
+<div class="signal-settings" title="Thresholds and lookbacks for the event, zone, regime, session and position signals, shared by every rule set">
+    <div class="signal-settings-toolbar">
+        <button type="button" class="signal-settings-reset" @onclick="ResetToDefaults"
+                title="Put every threshold and lookback back to its suggested default">Reset to defaults</button>
+    </div>
+    @foreach (var section in Sections)
+    {
+        <div class="signal-settings-section">
+            <div class="signal-settings-heading" title="@section.Title">@section.Label</div>
+            @foreach (var field in section.Fields)
+            {
+                <label class="signal-settings-field" title="@field.Tooltip">
+                    <span>@field.Label</span>
+                    <input type="number" step="@field.Step" min="@field.Min" max="@field.Max"
+                           value="@field.Get(Settings)" @onchange="e => SetField(field, e)" />
+                </label>
+            }
+        </div>
+    }
+</div>

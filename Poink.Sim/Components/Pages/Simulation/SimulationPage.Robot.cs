@@ -21,16 +21,27 @@ namespace Poink.Sim.Components.Pages
 				_robotPositionOptions ?? RobotPositionHelper.DefaultOptions,
 				ToRobotRules(_openLongRules),
 				ToRobotRules(_openShortRules),
-				ToRobotRules(_closeRules),
+				ToRobotRules(_closeLongRules),
+				ToRobotRules(_closeShortRules),
 				ClampedBarWindow,
 				ClampedBarOffset,
 				_xgridPipCount,
 				_xgridColCount,
-				_txFoldSelectedSeconds.OrderBy(s => s).ToHashSet()
+				_txFoldSelectedSeconds.OrderBy(s => s).ToHashSet(),
+				_robotCooldownSeconds,
+				_robotRequireRearm,
+				_ruleSignalSettings,
+				_robotPositionRules
 			);
 
 		private static RobotRules ToRobotRules(RobotRuleSet rules) =>
-			new(rules.EnabledKeys.OrderBy(k => k).ToHashSet(), rules.XGridPercent, rules.DisabledGroups.OrderBy(g => g).ToHashSet());
+			new(
+				rules.EnabledKeys.OrderBy(k => k).ToHashSet(),
+				rules.XGridPercent,
+				rules.DisabledGroups.OrderBy(g => g).ToHashSet(),
+				rules.InTolerancePips,
+				rules.MinMatches
+			);
 
 		private void PushRobotOptionsIfChanged()
 		{

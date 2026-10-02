@@ -13,6 +13,16 @@
         Evaluate every (s)
         <input type="number" min="0" step="1" value="@EvaluationSeconds" @onchange="SetEvaluationSeconds" />
     </label>
+    <label class="robot-interval"
+           title="After any close (robot, stop loss, take profit, stop-out or manual), how many simulated seconds a bot waits before it may open again -- 0 lets it re-enter straight away">
+        Cooldown (s)
+        <input type="number" min="0" step="1" value="@CooldownSeconds" @onchange="SetCooldownSeconds" />
+    </label>
+    <label class="robot-interval"
+           title="After a close, a side may only open again once its open conditions have stopped matching at least once -- stops the bot re-entering on the same signal it just traded">
+        <input type="checkbox" checked="@RequireRearm" @onchange="SetRequireRearm" />
+        Re-arm after close
+    </label>
     <div class="robot-subtabs">
         <button type="button" class="robot-subtab @(SubTab == RobotSubTab.Positioning ? "active" : "")"
                 @onclick="() => SelectSubTab(RobotSubTab.Positioning)"
@@ -23,6 +33,9 @@
         <button type="button" class="robot-subtab @(SubTab == RobotSubTab.Close ? "active" : "")"
                 @onclick="() => SelectSubTab(RobotSubTab.Close)"
                 title="The conditions that make the robot close a position">CLOSE</button>
+        <button type="button" class="robot-subtab @(SubTab == RobotSubTab.Signals ? "active" : "")"
+                @onclick="() => SelectSubTab(RobotSubTab.Signals)"
+                title="Thresholds and lookbacks for the event, zone, regime, session and position signals, shared by every rule set">SIGNALS</button>
     </div>
 
     <div class="robot-subtab-content">
@@ -34,30 +47,46 @@
                           Options="Options" OnOptionsChanged="OnOptionsChanged"
                           HasSelection="HasSelection" Balance="Balance" Leverage="Leverage" PipSize="PipSize"
                           CurrentPrice="CurrentPrice" CurrentBid="CurrentBid" CurrentAsk="CurrentAsk" />
+            <RobotPositionRulesPanel Rules="PositionRules" RulesChanged="OnPositionRulesChanged" />
         }
         else if (SubTab == RobotSubTab.Open)
         {
             <div class="robot-subtabs robot-subtabs-nested">
-                <button type="button" class="robot-subtab @(OpenSide == RobotOpenSide.Long ? "active" : "")"
-                        @onclick="() => SelectOpenSide(RobotOpenSide.Long)"
-                        title="The conditions that must all hold for the robot to open a long position">LONG</button>
-                <button type="button" class="robot-subtab @(OpenSide == RobotOpenSide.Short ? "active" : "")"
-                        @onclick="() => SelectOpenSide(RobotOpenSide.Short)"
-                        title="The conditions that must all hold for the robot to open a short position">SHORT</button>
+                <button type="button" class="robot-subtab @(OpenSide == RobotSide.Long ? "active" : "")"
+                        @onclick="() => SelectOpenSide(RobotSide.Long)"
+                        title="The conditions that must hold for the robot to open a long position">LONG</button>
+                <button type="button" class="robot-subtab @(OpenSide == RobotSide.Short ? "active" : "")"
+                        @onclick="() => SelectOpenSide(RobotSide.Short)"
+                        title="The conditions that must hold for the robot to open a short position">SHORT</button>
             </div>
-            @RuleEditor(OpenSide == RobotOpenSide.Long ? OpenLongRules : OpenShortRules)
+            @RuleEditor(OpenSide == RobotSide.Long ? OpenLongRules : OpenShortRules, false)
+        }
+        else if (SubTab == RobotSubTab.Signals)
+        {
+            <RuleSignalSettingsPanel Settings="SignalSettings" SettingsChanged="OnSignalSettingsChanged" />
         }
         else
         {
-            @RuleEditor(CloseRules)
+            <div class="robot-subtabs robot-subtabs-nested">
+                <button type="button" class="robot-subtab @(CloseSide == RobotSide.Long ? "active" : "")"
+                        @onclick="() => SelectCloseSide(RobotSide.Long)"
+                        title="The conditions that must hold for the robot to close a long position">LONG</button>
+                <button type="button" class="robot-subtab @(CloseSide == RobotSide.Short ? "active" : "")"
+                        @onclick="() => SelectCloseSide(RobotSide.Short)"
+                        title="The conditions that must hold for the robot to close a short position">SHORT</button>
+            </div>
+            @RuleEditor(CloseSide == RobotSide.Long ? CloseLongRules : CloseShortRules, true)
         }
     </div>
 </div>
 
 @code {
-    private RenderFragment RuleEditor(RobotRuleSet rules) =>
+    private RenderFragment RuleEditor(RobotRuleSet rules, bool isClose) =>
         @<RuleEnginePanel @key="rules" EnabledKeys="rules.EnabledKeys" EnabledKeysChanged="_ => OnRulesChanged.InvokeAsync()"
+                          HiddenGroups="isClose ? NoGroups : OpenHiddenGroups"
                           XGridPercent="rules.XGridPercent" XGridPercentChanged="percent => SetXGridPercent(rules, percent)"
+                          InTolerancePips="rules.InTolerancePips" InTolerancePipsChanged="pips => SetInTolerancePips(rules, pips)"
+                          MinMatches="rules.MinMatches" MinMatchesChanged="count => SetMinMatches(rules, count)"
                           DisabledGroups="rules.DisabledGroups" DisabledGroupsChanged="_ => OnRulesChanged.InvokeAsync()"
                           Result="ComputeRuleEngine(rules)" CurrentTimestampUtc="CurrentTimestampUtc"
                           TxFoldTable="@TxFoldTable" TxFoldAnchorEnd="TxFoldAnchorEnd" TxFoldRangeStart="TxFoldRangeStart"

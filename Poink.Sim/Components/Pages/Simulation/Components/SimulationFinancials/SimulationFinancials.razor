@@ -1,0 +1,66 @@
+@namespace Poink.Sim.Components.Simulation
+@using Poink.Sim.Components.Shared.FinancialsPanel
+@using Poink.Sim.Components.Shared.PositionTable
+@using Poink.Sim.Components.Shared.StatisticsPanel
+@using Poink.Sim.Models
+
+<FinancialsPanel PositionsCount="PositionRows.Count" HistoryCount="LogRows.Count"
+                 HistoryTabTitle="Decisions logged so far this run"
+                 FinancialsSummaryTitle="Balance, margin, and realized/unrealized P&L for the selected trader"
+                 Balance="Trader?.Capital.Cash" Equity="Trader?.Capital.Equity" MarginUsed="Trader?.Capital.MarginUsed"
+                 MarginLevel="Trader?.Capital.MarginLevel" FreeMargin="Trader?.Capital.MarginFree" UnrealizedPnl="Trader?.Capital.UnrealizedPnl">
+    <PositionsContent>
+        <PositionTable TPosition="Position" Rows="PositionRows" OnClose="_ => OnClosePosition.InvokeAsync()" />
+    </PositionsContent>
+    <HistoryContent>
+        <div class="fp-history">
+            @if (LogRows.Count == 0)
+            {
+                <p class="fp-history-message">No decisions logged yet.</p>
+            }
+            else
+            {
+                <table class="fp-history-table">
+                    <thead>
+                        <tr>
+                            <th>Closed</th>
+                            <th>Side</th>
+                            <th>Volume</th>
+                            <th>Price</th>
+                            <th title="Commission charged on this decision">Commission</th>
+                            <th>P/L</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in LogRows)
+                        {
+                            <tr>
+                                <td>@row.Time</td>
+                                <td class="@(row.Direction == "Long" ? "fp-side-long" : "fp-side-short")">@row.Direction.ToUpperInvariant()</td>
+                                <td>@row.Size</td>
+                                <td>@row.Price</td>
+                                <td>@FinancialsPanel.Money(row.Commission)</td>
+                                <td class="@FinancialsPanel.PnlCssClass(row.RealizedPnl)">@FinancialsPanel.SignedMoney(row.RealizedPnl)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </HistoryContent>
+    <StatisticsContent>
+        <StatisticsPanel Groups="StatGroups" EmptyMessage="no closed trades yet" />
+    </StatisticsContent>
+    <EquityContent>
+        <SimulationEquityCurve TraderId="Trader?.Id" />
+    </EquityContent>
+    <RealizedContent>
+        <div class="fp-item">
+            <span class="fp-label">Realized</span>
+            <span class="fp-value @FinancialsPanel.PnlCssClass(Trader?.Capital.RealizedPnl)">
+                @FinancialsPanel.SignedMoney(Trader?.Capital.RealizedPnl)
+                <span class="fp-value-pct" title="Realized P/L as a percentage of balance">@FinancialsPanel.SignedPercent(RealizedPnlPercentOfBalance())</span>
+            </span>
+        </div>
+    </RealizedContent>
+</FinancialsPanel>

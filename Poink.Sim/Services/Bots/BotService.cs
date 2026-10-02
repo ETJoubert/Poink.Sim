@@ -24,11 +24,14 @@ internal sealed class BotService : IBotService
 	private readonly ILogger<BotService> _logger;
 	private readonly object _lock = new();
 	private readonly TxFoldBarsCache _txFoldBars = new();
+	private readonly BotReentryGuard _reentryGuard = new();
 
 	private IReadOnlyList<Bot> _bots = Array.Empty<Bot>();
 	private RobotOptions? _options;
 	private (int Count, DateTime LastOpen, int Window, int Offset, int Pips, int Cols, double PipSize, bool Grid)? _barDataKey;
 	private RobotBarData? _barData;
+	private (RobotBarData BarData, int AtrPeriod)? _levelsKey;
+	private RobotMarketLevels _levels;
 	private DateTime? _lastEvaluation;
 	private SymbolTradingLimits? _limits;
 
@@ -77,6 +80,7 @@ internal sealed class BotService : IBotService
 			_bots = bots;
 			_limits = account.Limits;
 			_lastEvaluation = null;
+			_reentryGuard.Reset();
 		}
 		_logger.LogInformation(
 			"Created {Count} bots: startingCash={StartingCash}, leverage={Leverage}, commission={Commission}%, stopOut={StopOut}%",
@@ -96,11 +100,14 @@ internal sealed class BotService : IBotService
 			_options = options;
 		}
 		_logger.LogInformation(
-			"Bot options updated: enabled={Enabled}, openLongKeys={OpenLong}, openShortKeys={OpenShort}, closeKeys={Close}",
+			"Bot options updated: enabled={Enabled}, openLongKeys={OpenLong}, openShortKeys={OpenShort}, closeLongKeys={CloseLong}, closeShortKeys={CloseShort}, cooldown={Cooldown}s, requireRearm={RequireRearm}",
 			options.Enabled,
 			options.OpenLong.EnabledKeys.Count,
 			options.OpenShort.EnabledKeys.Count,
-			options.Close.EnabledKeys.Count
+			options.CloseLong.EnabledKeys.Count,
+			options.CloseShort.EnabledKeys.Count,
+			options.CooldownSeconds,
+			options.RequireRearm
 		);
 	}
 
@@ -113,10 +120,11 @@ internal sealed class BotService : IBotService
 			options = _options;
 			bots = _bots;
 		}
-		if (options is not { Enabled: true, HasRules: true } || tick.RecentBars.Count == 0)
+		if (options is not { Enabled: true } || tick.RecentBars.Count == 0)
 			return Array.Empty<BotAction>();
 
-		if (!IsEvaluationDue(tick.Timestamp, options.EvaluationIntervalSeconds))
+		ManagePositions(bots, tick, options);
+		if (!options.HasRules || !IsEvaluationDue(tick.Timestamp, options.EvaluationIntervalSeconds))
 			return Array.Empty<BotAction>();
 
 		bool anyFlat = bots.Any(b => b.Account.CurrentPosition is null && b.Account.CurrentPendingOrder is null);
@@ -130,25 +138,58 @@ internal sealed class BotService : IBotService
 		var barData = BarDataFor(tick, options);
 		if (barData is null)
 			return Array.Empty<BotAction>();
-		var context = new RobotRuleContext(barData, tick.Price, _txFoldBars.Bars);
+		var market = new RuleSignalMarket(
+			barData.Bars,
+			barData.Window,
+			tick.Bid,
+			tick.Ask,
+			tick.TypicalSpread,
+			tick.Timestamp,
+			tick.BarSize,
+			options.Signals
+		);
+		var context = new RobotRuleContext(barData, tick.Price, _txFoldBars.Bars, market);
+		var levels = LevelsFor(barData, options.Signals.AtrPeriod);
 
 		var actions = new List<BotAction>();
 		foreach (var bot in bots)
 		{
-			if (bot.Account.CurrentPosition is not null)
+			_reentryGuard.Observe(bot);
+			if (bot.Account.CurrentPosition is { } position)
 			{
-				if (context.Matches(options.Close) && Close(bot, tick) is { } closed)
+				var closeRules = options.CloseRulesFor(position.Direction == PositionDirection.Long);
+				if (context.Matches(closeRules, position) && Close(bot, tick) is { } closed)
 					actions.Add(closed);
 			}
-			else if (bot.Account.CurrentPendingOrder is null)
+			else if (bot.Account.CurrentPendingOrder is null && TryEnter(bot, options, context, levels, tick) is { } entry)
 			{
-				if (context.Matches(options.OpenLong) && Enter(bot, options, isLong: true, tick) is { } longEntry)
-					actions.Add(longEntry);
-				else if (context.Matches(options.OpenShort) && Enter(bot, options, isLong: false, tick) is { } shortEntry)
-					actions.Add(shortEntry);
+				actions.Add(entry);
 			}
 		}
 		return actions;
+	}
+
+	// Long is tried before short, as before; the guard only ever narrows which entries are allowed.
+	private BotAction? TryEnter(Bot bot, RobotOptions options, RobotRuleContext context, RobotMarketLevels levels, BotTickContext tick)
+	{
+		if (_reentryGuard.IsCoolingDown(bot, tick.Timestamp, options.CooldownSeconds))
+			return null;
+		if (options.RequireRearm)
+			_reentryGuard.Rearm(bot, context.Matches(options.OpenLong), context.Matches(options.OpenShort));
+
+		if (
+			_reentryGuard.IsArmed(bot, isLong: true, options.RequireRearm)
+			&& context.Matches(options.OpenLong)
+			&& Enter(bot, options, levels, isLong: true, tick) is { } longEntry
+		)
+			return longEntry;
+		if (
+			_reentryGuard.IsArmed(bot, isLong: false, options.RequireRearm)
+			&& context.Matches(options.OpenShort)
+			&& Enter(bot, options, levels, isLong: false, tick) is { } shortEntry
+		)
+			return shortEntry;
+		return null;
 	}
 
 	// Time is the simulated tick clock, so the cadence is the same at any playback speed; a clock that
@@ -182,12 +223,22 @@ internal sealed class BotService : IBotService
 		return _barData;
 	}
 
-	private BotAction? Enter(Bot bot, RobotOptions options, bool isLong, BotTickContext tick)
+	private BotAction? Enter(Bot bot, RobotOptions options, RobotMarketLevels levels, bool isLong, BotTickContext tick)
 	{
 		var capital = bot.Account.Snapshot(tick.Bid, tick.Ask);
 		double entryPrice = isLong ? tick.Ask : tick.Bid;
 		if (
-			RobotPositionHelper.PlanEntry(options.Position, isLong, entryPrice, capital.Cash, bot.Account.Leverage, _limits!)
+			RobotPositionHelper.PlanEntry(
+				options.Position,
+				options.PositionRules,
+				levels,
+				isLong,
+				entryPrice,
+				capital.Cash,
+				bot.Account.Leverage,
+				_limits!,
+				SizeMultiplier(bot, capital.Equity, options.PositionRules)
+			)
 			is not { } plan
 		)
 			return null;
@@ -200,6 +251,50 @@ internal sealed class BotService : IBotService
 			Reason: "robot"
 		);
 		return Apply(bot, decision, tick, isLong ? "opened a long" : "opened a short");
+	}
+
+	private static double SizeMultiplier(Bot bot, double equity, RobotPositionRules rules)
+	{
+		double peak = bot.Account.MaxEquity;
+		bool inDrawdown = rules.DrawdownThrottleEnabled && peak > 0 && (peak - equity) / peak * 100 >= rules.DrawdownPercent;
+		return inDrawdown ? rules.DrawdownSizeMultiplier : 1;
+	}
+
+	// Runs every tick, not only when rules are evaluated, so a trailing stop follows price as closely as the replay allows.
+	private void ManagePositions(IReadOnlyList<Bot> bots, BotTickContext tick, RobotOptions options)
+	{
+		var rules = options.PositionRules;
+		if ((!rules.BreakevenEnabled && !rules.TrailEnabled) || _limits is null)
+			return;
+
+		double? atr = null;
+		bool atrResolved = false;
+		foreach (var bot in bots)
+		{
+			if (bot.Account.CurrentPosition is not { } position)
+				continue;
+			if (rules.TrailEnabled && !atrResolved)
+			{
+				atr = BarDataFor(tick, options) is { } barData ? LevelsFor(barData, options.Signals.AtrPeriod).Atr : null;
+				atrResolved = true;
+			}
+			if (RobotPositionHelper.ManagedStopPrice(position, tick.Bid, tick.Ask, rules, atr, _limits.PriceStep) is { } stop)
+				bot.Account.ModifyProtection(stop, position.TakeProfitPrice);
+		}
+	}
+
+	// ATR and the value-area levels only change when the bar data does, so they are cached against it.
+	private RobotMarketLevels LevelsFor(RobotBarData barData, int atrPeriod)
+	{
+		var key = (barData, atrPeriod);
+		if (_levelsKey == key)
+			return _levels;
+
+		var atrSeries = MarketRegimeHelper.AtrSeries(barData.Bars, atrPeriod);
+		var stats = RangeStatsHelper.Compute(barData.Samples, w => w.Price, w => (double)w.Count);
+		_levels = new RobotMarketLevels(atrSeries.Count > 0 ? atrSeries[^1] : null, stats?.Poc, stats?.Vah, stats?.Val);
+		_levelsKey = key;
+		return _levels;
 	}
 
 	private BotAction? Close(Bot bot, BotTickContext tick) =>

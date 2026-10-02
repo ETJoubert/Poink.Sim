@@ -42,6 +42,9 @@ internal interface ITrader
 	MaintenanceResult Advance(double bid, double ask, DateTime timestamp);
 	TradeExecution? Apply(SimulationDecision decision, double bid, double ask, DateTime timestamp);
 
+	/// <summary>Moves the open position's stop loss and take profit; false when no position is open.</summary>
+	bool ModifyProtection(double? stopLossPrice, double? takeProfitPrice);
+
 	/// <summary>
 	/// Auto-mode traders decide for themselves from what they observe of the market; manual
 	/// traders no-op here since a human (or SubmitManualDecision) drives them directly.

@@ -25,7 +25,9 @@ internal readonly record struct Position(
 	double? StopLossPrice = null,
 	double? TakeProfitPrice = null,
 	int TicksHeld = 0,
-	double CumulativeDistance = 0
+	double CumulativeDistance = 0,
+	double PeakUnrealizedPnl = 0,
+	double? InitialStopLossPrice = null
 )
 {
 	public double UnrealizedPnl(double bid, double ask) =>

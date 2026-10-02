@@ -13,6 +13,8 @@ internal sealed class RobotBarData
 	public required IReadOnlyList<WeightedPriceSample> Samples { get; init; }
 	public required IReadOnlyList<HlocAvdtBar> Bars { get; init; }
 	public required XGridResult? Grid { get; init; }
+	public required double PipSize { get; init; }
+	public required int Window { get; init; }
 
 	public static RobotBarData? Create(
 		IReadOnlyList<HlocAvdtBar> recentBars,
@@ -52,43 +54,62 @@ internal sealed class RobotBarData
 			Samples = samples,
 			Bars = bars,
 			Grid = grid,
+			PipSize = pipSize,
+			Window = window,
 		};
 	}
 }
 
 /// <summary>
 /// The rule-engine signals at one price, asked whether each of the robot's rule sets matches -- the
-/// engine-side counterpart of what the Simulation page's rule panels show.
+/// engine-side counterpart of what the Simulation page's rule panels show. Market rows are built once per rule
+/// set and shared by every bot; position rows are added per bot, from that bot's own open position.
 /// </summary>
 internal sealed class RobotRuleContext
 {
 	private readonly RobotBarData _barData;
 	private readonly IReadOnlyList<TxFoldBar> _txFoldBars;
 	private readonly double _currentPrice;
-	private readonly Dictionary<RobotRules, bool> _matches = new(ReferenceEqualityComparer.Instance);
+	private readonly RuleSignalMarket _market;
+	private readonly Dictionary<RobotRules, IReadOnlyList<RuleSignalRow>> _marketRows = new(ReferenceEqualityComparer.Instance);
 
-	public RobotRuleContext(RobotBarData barData, double currentPrice, IReadOnlyList<TxFoldBar> txFoldBars)
+	public RobotRuleContext(RobotBarData barData, double currentPrice, IReadOnlyList<TxFoldBar> txFoldBars, RuleSignalMarket market)
 	{
 		_barData = barData;
 		_currentPrice = currentPrice;
 		_txFoldBars = txFoldBars;
+		_market = market;
 	}
 
-	/// <summary>Answers once per rule set; every bot asking the same context with the same rules gets the cached answer.</summary>
-	public bool Matches(RobotRules rules)
-	{
-		if (!_matches.TryGetValue(rules, out bool matches))
-		{
-			matches = Evaluate(rules);
-			_matches[rules] = matches;
-		}
-		return matches;
-	}
-
-	private bool Evaluate(RobotRules rules)
+	public bool Matches(RobotRules rules, Position? position = null)
 	{
 		if (rules.EnabledKeys.Count == 0)
 			return false;
+
+		var rows = MarketRowsFor(rules);
+		if (UsesPositionRows(rules))
+			rows = rows.Concat(
+					RuleSignalRowsHelper.PositionRows(
+						position,
+						_market.Bid,
+						_market.Ask,
+						_market.TimestampUtc,
+						_market.BarSize,
+						_market.Settings
+					)
+				)
+				.ToList();
+		return RuleEngineHelper.Matches(rows, rules.EnabledKeys, rules.MinMatches);
+	}
+
+	private static bool UsesPositionRows(RobotRules rules) =>
+		!rules.DisabledGroups.Contains(RuleSignalGroup.Position)
+		&& rules.EnabledKeys.Any(key => RuleEngineHelper.GroupOf(key) == RuleSignalGroup.Position);
+
+	private IReadOnlyList<RuleSignalRow> MarketRowsFor(RobotRules rules)
+	{
+		if (_marketRows.TryGetValue(rules, out var cached))
+			return cached;
 
 		bool baseline = !rules.DisabledGroups.Contains(RuleSignalGroup.Baseline);
 		var result = RuleEngineHelper.Compute(
@@ -102,12 +123,16 @@ internal sealed class RobotRuleContext
 			_currentPrice,
 			rules.DisabledGroups.Contains(RuleSignalGroup.XGrid) ? null : _barData.Grid,
 			rules.XGridPercent,
-			baseline
+			baseline,
+			rules.InTolerancePips * _barData.PipSize,
+			_market,
+			rules.DisabledGroups
 		);
 		var txFoldRows = rules.DisabledGroups.Contains(RuleSignalGroup.TxFold)
 			? Array.Empty<RuleSignalRow>()
 			: RuleEngineHelper.TxFoldRows(_txFoldBars, _currentPrice);
 		var rows = result.Rows.Concat(txFoldRows).ToList();
-		return RuleEngineHelper.Matches(rows, rules.EnabledKeys);
+		_marketRows[rules] = rows;
+		return rows;
 	}
 }

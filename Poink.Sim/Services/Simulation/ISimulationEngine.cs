@@ -20,6 +20,11 @@ internal interface ISimulationEngine : IDisposable
 	event Action? OnProgress;
 	event Action? OnTradeEquityChanged;
 
+	/// <summary>Every trader's account figures at the latest quote; kept current at max speed too, when no snapshot is published.</summary>
+	SimulationFinancialsState? Financials { get; }
+
+	event Action? OnFinancialsChanged;
+
 	bool TryLoad(SimulationConfig config);
 	bool Play();
 	bool Pause();

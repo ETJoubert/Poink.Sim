@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 using Poink.Sim.Components.Shared.TradeConsole;
 
 namespace Poink.Sim.Models
@@ -23,11 +24,17 @@ namespace Poink.Sim.Models
 		TradeConsoleOptions? RobotPositionOptions,
 		RobotRuleSet? OpenLongRules,
 		RobotRuleSet? OpenShortRules,
-		RobotRuleSet? CloseRules,
+		[property: JsonPropertyName("CloseRules")] RobotRuleSet? CloseLongRules,
 		bool RobotEnabled,
 		TradeConsoleOptions? TradeOptions,
 		RobotSubTab RobotSubTab,
-		RobotOpenSide RobotOpenSide,
-		double? RobotEvaluationSeconds
+		RobotSide RobotOpenSide,
+		double? RobotEvaluationSeconds,
+		RobotRuleSet? CloseShortRules = null,
+		RobotSide RobotCloseSide = RobotSide.Long,
+		double? RobotCooldownSeconds = null,
+		bool RobotRequireRearm = false,
+		RuleSignalSettings? SignalSettings = null,
+		RobotPositionRules? RobotPositionRules = null
 	);
 }

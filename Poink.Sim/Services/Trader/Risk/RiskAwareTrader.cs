@@ -70,6 +70,10 @@ internal sealed class RiskAwareTrader : ITrader, IRiskInspectable
 
 	public CapitalState Snapshot(double bid, double ask) => _core.Snapshot(bid, ask);
 
+	// Moving protection on an already-approved position is the position's own management, not a new decision to gate.
+	public bool ModifyProtection(double? stopLossPrice, double? takeProfitPrice) =>
+		_core.ModifyProtection(stopLossPrice, takeProfitPrice);
+
 	// Core maintenance runs first (stop-loss/take-profit/stop-out), then policy-injected
 	// supervisory actions execute directly without re-entering the gate, being the policy's own.
 	public MaintenanceResult Advance(double bid, double ask, DateTime timestamp)

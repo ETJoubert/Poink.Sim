@@ -70,11 +70,17 @@ namespace Poink.Sim.Components.Pages
 		private TradeConsoleOptions? _robotPositionOptions;
 		private RobotRuleSet _openLongRules = new();
 		private RobotRuleSet _openShortRules = new();
-		private RobotRuleSet _closeRules = new();
+		private RobotRuleSet _closeLongRules = new();
+		private RobotRuleSet _closeShortRules = new();
 		private bool _robotEnabled;
 		private double _robotEvaluationSeconds = 1;
+		private double _robotCooldownSeconds;
+		private bool _robotRequireRearm;
+		private RuleSignalSettings _ruleSignalSettings = new();
+		private RobotPositionRules _robotPositionRules = new();
 		private RobotSubTab _robotSubTab;
-		private RobotOpenSide _robotOpenSide;
+		private RobotSide _robotOpenSide;
+		private RobotSide _robotCloseSide;
 		private TradeConsoleOptions? _tradeConsoleOptions;
 		private string? _error;
 		private bool _hideChart;
@@ -160,6 +166,8 @@ namespace Poink.Sim.Components.Pages
 		// owned by the page so it survives tab switches.
 		private HashSet<string> _ruleEngineEnabledKeys = new();
 		private double _ruleEngineXGridPercent = 10;
+		private double _ruleEngineInTolerancePips = 1;
+		private int? _ruleEngineMinMatches;
 		private HashSet<RuleSignalGroup> _ruleEngineDisabledGroups = new();
 
 		// Shared with the Snapshot tab's own TxFold chart so both evaluate/display the same timeframes.
@@ -244,7 +252,12 @@ namespace Poink.Sim.Components.Pages
 
 		// Baseline signals come straight off RangeStatsHelper; the XGrid rank/delta rows ride along
 		// on top by handing RuleEngineHelper the same grid ComputeXGrid builds for the chart itself.
-		private RuleEngineResult? ComputeRuleEngine(SimulationSnapshot s, double xgridPercent, HashSet<RuleSignalGroup> disabledGroups)
+		private RuleEngineResult? ComputeRuleEngine(
+			SimulationSnapshot s,
+			double xgridPercent,
+			HashSet<RuleSignalGroup> disabledGroups,
+			double inTolerancePips
+		)
 		{
 			var (bars, _) = WindowedBarData(s);
 			if (bars.Count == 0 || s.CurrentPrice is not { } currentPrice)
@@ -252,7 +265,17 @@ namespace Poink.Sim.Components.Pages
 
 			bool baseline = !disabledGroups.Contains(RuleSignalGroup.Baseline);
 			bool xgrid = !disabledGroups.Contains(RuleSignalGroup.XGrid);
-			return RuleEngineHelper.Compute(
+			var market = new RuleSignalMarket(
+				CompletedBars(s, bars),
+				ClampedBarWindow,
+				s.CurrentBid,
+				s.CurrentAsk,
+				s.TypicalSpread,
+				s.CurrentTimestampUtc,
+				s.Config.BarSize,
+				_ruleSignalSettings
+			);
+			var result = RuleEngineHelper.Compute(
 				baseline || xgrid ? MergedBarSamples(s) : new List<WeightedPriceSample>(),
 				w => w.Price,
 				w => (double)w.Count,
@@ -263,9 +286,30 @@ namespace Poink.Sim.Components.Pages
 				currentPrice,
 				xgrid ? ComputeXGrid(s) : null,
 				xgridPercent,
-				baseline
+				baseline,
+				inTolerancePips * s.Config.PipSize,
+				market,
+				disabledGroups
 			);
+			if (disabledGroups.Contains(RuleSignalGroup.Position))
+				return result;
+
+			var positionRows = RuleSignalRowsHelper.PositionRows(
+				SelectedTrader?.Position,
+				s.CurrentBid,
+				s.CurrentAsk,
+				s.CurrentTimestampUtc,
+				s.Config.BarSize,
+				_ruleSignalSettings
+			);
+			return result with { Rows = result.Rows.Concat(positionRows).ToList() };
 		}
+
+		// The snapshot ends with the bar still forming; the bots only ever see completed bars, so it is left out here too.
+		private static IReadOnlyList<HlocAvdtBar> CompletedBars(SimulationSnapshot s, IReadOnlyList<HlocAvdtBar> bars) =>
+			bars.Count > 0 && s.CurrentTimestampUtc is { } now && bars[^1].OpenTime + s.Config.BarSize > now
+				? bars.Take(bars.Count - 1).ToList()
+				: bars;
 
 		// Recomputed each render so live P&L colouring on the open position stays current;
 		// trades entirely outside the grid's window are dropped to keep the overlay uncluttered.
@@ -684,12 +728,18 @@ namespace Poink.Sim.Components.Pages
 				_robotPositionOptions,
 				_openLongRules,
 				_openShortRules,
-				_closeRules,
+				_closeLongRules,
 				_robotEnabled,
 				_tradeConsoleOptions,
 				_robotSubTab,
 				_robotOpenSide,
-				_robotEvaluationSeconds
+				_robotEvaluationSeconds,
+				_closeShortRules,
+				_robotCloseSide,
+				_robotCooldownSeconds,
+				_robotRequireRearm,
+				_ruleSignalSettings,
+				_robotPositionRules
 			);
 
 		// A simulation already held by the service (page revisited) is shown as-is instead of reloaded.
@@ -732,12 +782,18 @@ namespace Poink.Sim.Components.Pages
 			_robotPositionOptions = settings.RobotPositionOptions;
 			_openLongRules = settings.OpenLongRules ?? new();
 			_openShortRules = settings.OpenShortRules ?? new();
-			_closeRules = settings.CloseRules ?? new();
+			_closeLongRules = settings.CloseLongRules ?? new();
+			_closeShortRules = settings.CloseShortRules ?? _closeLongRules.Clone();
 			_robotEnabled = settings.RobotEnabled;
 			_tradeConsoleOptions = settings.TradeOptions;
 			_robotSubTab = settings.RobotSubTab;
 			_robotOpenSide = settings.RobotOpenSide;
 			_robotEvaluationSeconds = settings.RobotEvaluationSeconds ?? 1;
+			_robotCloseSide = settings.RobotCloseSide;
+			_robotCooldownSeconds = settings.RobotCooldownSeconds ?? 0;
+			_robotRequireRearm = settings.RobotRequireRearm;
+			_ruleSignalSettings = settings.SignalSettings ?? new();
+			_robotPositionRules = settings.RobotPositionRules ?? new();
 		}
 
 		// Saving before the stored settings were read would overwrite them with the page's defaults.
@@ -1071,7 +1127,17 @@ namespace Poink.Sim.Components.Pages
 
 		private void SetRobotSubTab(RobotSubTab tab) => _robotSubTab = tab;
 
-		private void SetRobotOpenSide(RobotOpenSide side) => _robotOpenSide = side;
+		private void SetRobotOpenSide(RobotSide side) => _robotOpenSide = side;
+
+		private void SetRobotCloseSide(RobotSide side) => _robotCloseSide = side;
+
+		private void SetRobotCooldownSeconds(double seconds) => _robotCooldownSeconds = seconds;
+
+		private void SetRobotRequireRearm(bool requireRearm) => _robotRequireRearm = requireRearm;
+
+		private void SetRuleSignalSettings(RuleSignalSettings settings) => _ruleSignalSettings = settings;
+
+		private void SetRobotPositionRules(RobotPositionRules rules) => _robotPositionRules = rules;
 
 		private void SetRobotEvaluationSeconds(double seconds) => _robotEvaluationSeconds = seconds;
 
@@ -1082,7 +1148,9 @@ namespace Poink.Sim.Components.Pages
 		private Task OnRobotRulesChanged() => PersistSettingsIfChangedAsync();
 
 		private RuleEngineResult? ComputeRobotRuleEngine(RobotRuleSet rules) =>
-			_snapshot is null ? null : ComputeRuleEngine(_snapshot, rules.XGridPercent, rules.DisabledGroups);
+			_snapshot is null
+				? null
+				: ComputeRuleEngine(_snapshot, rules.XGridPercent, rules.DisabledGroups, rules.InTolerancePips);
 
 		private IReadOnlyList<string>? SelectedRiskPolicies =>
 			_selectedRiskPolicies.Count > 0 ? _selectedRiskPolicies.ToList() : null;
@@ -1187,142 +1255,6 @@ namespace Poink.Sim.Components.Pages
 					.ToList();
 				return _tickRowsCache;
 			}
-		}
-
-		private sealed record DecisionLogRow(
-			string Time,
-			string Action,
-			string Direction,
-			string Size,
-			string Price,
-			double? RealizedPnl,
-			double Commission,
-			string Reason
-		);
-
-		private static string FormatLogAction(string action) =>
-			action switch
-			{
-				"EnterLong" => "BUY",
-				"EnterShort" => "SHORT",
-				"Close" => "CLOSE",
-				_ => action,
-			};
-
-		private List<DecisionLogRow> LogRows =>
-			SelectedTrader is not { } trader
-				? new List<DecisionLogRow>()
-				: trader
-					.RecentLog.Select(l => new DecisionLogRow(
-						l.TimestampUtc.ToString("HH:mm:ss"),
-						FormatLogAction(l.Action),
-						l.Direction.ToString(),
-						l.Size.ToString("F4"),
-						l.Price.ToString("F5"),
-						l.RealizedPnl,
-						l.Commission,
-						l.Reason ?? ""
-					))
-					.Reverse()
-					.ToList();
-
-		private double? RealizedPnlPercentOfBalance() =>
-			RiskHelper.PercentOfBalance(SelectedTrader?.Capital.RealizedPnl, SelectedTrader?.Capital.Cash);
-
-		private (IReadOnlyList<Poink.Sim.Models.Trade>, double, double)? _statsKey;
-		private TradeStatistics? _statsCache;
-
-		private TradeStatistics? Stats
-		{
-			get
-			{
-				if (SelectedTrader is not { } trader)
-					return null;
-				var key = (trader.Trades, trader.MaxEquity, trader.MaxDrawdown);
-				if (_statsKey == key && _statsCache is not null)
-					return _statsCache;
-
-				_statsKey = key;
-				_statsCache = TradeStatistics.From(trader.Trades, trader.MaxEquity, trader.MaxDrawdown);
-				return _statsCache;
-			}
-		}
-
-		private IReadOnlyList<StatGroup> StatGroups => Stats?.Groups ?? [];
-
-		private IReadOnlyList<PositionRowViewModel<Position>> PositionRows
-		{
-			get
-			{
-				if (_snapshot is not { } snapshot || SelectedTrader is not { } trader || trader.Position is not { } position)
-					return Array.Empty<PositionRowViewModel<Position>>();
-				return new[] { ToPositionRow(position, snapshot, trader) };
-			}
-		}
-
-		private static PositionRowViewModel<Position> ToPositionRow(Position position, SimulationSnapshot snapshot, TraderSnapshot trader)
-		{
-			bool isLong = position.Direction == PositionDirection.Long;
-			double pipSize = snapshot.Config.PipSize;
-			double? currentPrice = (isLong ? snapshot.CurrentBid : snapshot.CurrentAsk) ?? snapshot.CurrentPrice;
-			double? pips =
-				currentPrice is { } price && pipSize > 0
-					? (isLong ? price - position.EntryPrice : position.EntryPrice - price) / pipSize
-					: null;
-			double? pnl =
-				snapshot.CurrentBid is { } bid && snapshot.CurrentAsk is { } ask ? position.UnrealizedPnl(bid, ask) : null;
-			double? projectedProfit =
-				position.TakeProfitPrice is { } tp
-					? RiskHelper.RewardOnTarget(position.Direction, position.Size, position.EntryPrice, tp)
-					: null;
-			double? projectedLoss =
-				position.StopLossPrice is { } sl
-					? RiskHelper.RiskOnStop(position.Direction, position.Size, position.EntryPrice, sl)
-					: null;
-			double? rewardToRisk =
-				projectedLoss is { } risk && projectedProfit is { } reward ? RiskHelper.RewardToRiskRatio(risk, reward) : null;
-			double? percentToTakeProfit = ProgressTowardTarget(position.EntryPrice, position.TakeProfitPrice, pips, pipSize, favorable: true);
-			double? percentToStopLoss = ProgressTowardTarget(position.EntryPrice, position.StopLossPrice, pips, pipSize, favorable: false);
-			double? percentNet = RiskHelper.PercentOfBalance(pnl, trader.Capital.Cash);
-			var duration = (snapshot.CurrentTimestampUtc ?? DateTime.UtcNow) - position.EntryTime;
-
-			return new PositionRowViewModel<Position>(
-				position,
-				snapshot.Config.Table,
-				isLong,
-				isLong ? "LONG" : "SHORT",
-				position.Size.ToString("N2"),
-				position.EntryPrice.ToString("N5"),
-				pips,
-				PositionRowFormat.PipsLabel(pips),
-				pnl,
-				PositionRowFormat.PnlLabel(pnl),
-				position.EntryTime.ToString("HH:mm:ss"),
-				position.StopLossPrice?.ToString("N5") ?? "—",
-				position.TakeProfitPrice?.ToString("N5") ?? "—",
-				projectedProfit,
-				PositionRowFormat.MoneyLabel(projectedProfit),
-				projectedLoss,
-				PositionRowFormat.MoneyLabel(-projectedLoss),
-				percentToTakeProfit,
-				PositionRowFormat.PercentLabel(percentToTakeProfit),
-				percentToStopLoss,
-				PositionRowFormat.PercentLabel(percentToStopLoss),
-				rewardToRisk,
-				PositionRowFormat.RewardToRiskLabel(rewardToRisk),
-				percentNet,
-				PositionRowFormat.PercentLabel(percentNet),
-				PositionRowFormat.DurationLabel(duration)
-			);
-		}
-
-		/// <summary>Progress from entry toward a target price, as a percent of the entry-to-target pip distance.</summary>
-		private static double? ProgressTowardTarget(double entryPrice, double? targetPrice, double? movedPips, double pipSize, bool favorable)
-		{
-			if (targetPrice is not { } target || pipSize <= 0 || movedPips is not { } moved)
-				return null;
-			double totalPips = Math.Abs(target - entryPrice) / pipSize;
-			return totalPips <= 0 ? null : (favorable ? moved : -moved) / totalPips * 100;
 		}
 	}
 }

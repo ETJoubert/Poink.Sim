@@ -1,0 +1,68 @@
+@namespace Poink.Sim.Components.Simulation
+@using Poink.Sim.Models
+
+<div class="position-rules" title="Rule-based stops, targets and position management, layered over the console above">
+    <div class="position-rules-toolbar">
+        <span class="position-rules-title">RULE-BASED POSITIONING</span>
+        <button type="button" class="position-rules-reset" @onclick="ResetToDefaults"
+                title="Put every rule back to its default: console stop and target, breakeven, trailing and drawdown sizing off">Reset to defaults</button>
+    </div>
+
+    <div class="position-rules-section">
+        <div class="position-rules-heading" title="Where the stop loss goes -- with Risk volume sizing, the position is sized so this stop risks the console's Risk %">STOP</div>
+        <label class="position-rules-field" title="Console: the console's own stop. ATR: a multiple of the average true range from entry. Structure: just beyond the nearest VAL/POC/VAH on the losing side, falling back to ATR when none is far enough away">
+            <span>Mode</span>
+            <select value="@Rules.StopMode" @onchange="SetStopMode">
+                <option value="@RobotStopMode.Console" title="Use the console's stop-loss setting">Console</option>
+                <option value="@RobotStopMode.Atr" title="Stop a multiple of the ATR away from entry">ATR</option>
+                <option value="@RobotStopMode.Structure" title="Stop just beyond the nearest value-area level">Structure</option>
+            </select>
+        </label>
+        @NumberField("ATR multiple", "Stop distance in ATRs in ATR mode, and the fallback when no structure level qualifies", Rules.StopAtrMultiple, 0.1, 0, v => Rules with { StopAtrMultiple = v })
+        @NumberField("Buffer (pips)", "Pips beyond the structure level the stop sits, so a touch of the level itself does not stop the trade out", Rules.StructureBufferPips, 0.5, 0, v => Rules with { StructureBufferPips = v })
+        @NumberField("Min distance (ATR)", "Nearest a structure level may be to entry, in ATRs, to be used for a stop or target -- closer ones are skipped", Rules.StructureMinAtr, 0.1, 0, v => Rules with { StructureMinAtr = v })
+    </div>
+
+    <div class="position-rules-section">
+        <div class="position-rules-heading" title="Where the take profit goes">TARGET</div>
+        <label class="position-rules-field" title="Console: the console's own take profit. R multiple: a multiple of the stop distance beyond entry. Structure: the nearest VAL/POC/VAH on the winning side, falling back to the R multiple">
+            <span>Mode</span>
+            <select value="@Rules.TargetMode" @onchange="SetTargetMode">
+                <option value="@RobotTargetMode.Console" title="Use the console's take-profit setting">Console</option>
+                <option value="@RobotTargetMode.RMultiple" title="Target a multiple of the stop distance beyond entry">R multiple</option>
+                <option value="@RobotTargetMode.Structure" title="Target the nearest value-area level on the winning side">Structure</option>
+            </select>
+        </label>
+        @NumberField("Target (R)", "Target distance in multiples of the stop distance, and the fallback when no structure level qualifies", Rules.TargetR, 0.1, 0.1, v => Rules with { TargetR = v })
+    </div>
+
+    <div class="position-rules-section">
+        <div class="position-rules-heading" title="Moves the stop of an open position as it goes in your favour -- needs a stop loss">MANAGEMENT</div>
+        @ToggleField("Breakeven", "Move the stop to the entry price once the trade is this many R in profit", Rules.BreakevenEnabled, v => Rules with { BreakevenEnabled = v })
+        @NumberField("Breakeven at (R)", "Open profit, in R, at which the stop moves to the entry price", Rules.BreakevenAtR, 0.1, 0, v => Rules with { BreakevenAtR = v })
+        @ToggleField("Trailing stop", "Trail the stop a multiple of the ATR behind the best price since entry, once the trade is far enough in profit", Rules.TrailEnabled, v => Rules with { TrailEnabled = v })
+        @NumberField("Trail (ATR)", "How far behind the best price since entry the stop follows, in ATRs", Rules.TrailAtrMultiple, 0.1, 0.1, v => Rules with { TrailAtrMultiple = v })
+        @NumberField("Trail from (R)", "Open profit, in R, before the stop starts trailing", Rules.TrailStartR, 0.1, 0, v => Rules with { TrailStartR = v })
+    </div>
+
+    <div class="position-rules-section">
+        <div class="position-rules-heading" title="Sizes new positions down while the account is below its peak">DRAWDOWN</div>
+        @ToggleField("Size down in drawdown", "Multiply new positions' size while equity is this far below its peak", Rules.DrawdownThrottleEnabled, v => Rules with { DrawdownThrottleEnabled = v })
+        @NumberField("Drawdown %", "Drop below peak equity, in percent, at which new positions are sized down", Rules.DrawdownPercent, 1, 0, v => Rules with { DrawdownPercent = v })
+        @NumberField("Size multiplier", "What new positions' size is multiplied by while in that drawdown (0 to 1)", Rules.DrawdownSizeMultiplier, 0.05, 0, v => Rules with { DrawdownSizeMultiplier = Math.Min(1, v) })
+    </div>
+</div>
+
+@code {
+    private RenderFragment NumberField(string label, string tooltip, double value, double step, double min, Func<double, RobotPositionRules> apply) =>
+        @<label class="position-rules-field" title="@tooltip">
+            <span>@label</span>
+            <input type="number" step="@step" min="@min" value="@value" @onchange="e => SetNumber(e, min, apply)" />
+        </label>;
+
+    private RenderFragment ToggleField(string label, string tooltip, bool value, Func<bool, RobotPositionRules> apply) =>
+        @<label class="position-rules-field position-rules-toggle" title="@tooltip">
+            <span>@label</span>
+            <input type="checkbox" checked="@value" @onchange="e => RulesChanged.InvokeAsync(apply(e.Value is true))" />
+        </label>;
+}
