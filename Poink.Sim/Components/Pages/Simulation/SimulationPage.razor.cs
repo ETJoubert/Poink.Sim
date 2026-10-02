@@ -80,6 +80,7 @@ namespace Poink.Sim.Components.Pages
 
 		private SimulationSnapshot? _snapshot;
 		private bool _isLoading;
+		private bool _playOnLoad;
 		private string? _error;
 		private bool _hideChart;
 
@@ -617,6 +618,7 @@ namespace Poink.Sim.Components.Pages
 		{
 			SimulationService.OnChanged += HandleServiceChanged;
 			ApplyServiceState();
+			_selectedRiskPolicies.AddRange(RiskPolicyService.AvailablePolicies.Select(p => p.Name));
 
 			if (SimulationBrainOptions.Count > 0)
 			{
@@ -626,6 +628,17 @@ namespace Poink.Sim.Components.Pages
 				if (first.ModelId is { } modelId)
 					TrainingService.LoadSavedBrain(modelId);
 			}
+		}
+
+		// Start is load-then-play in one click; the load runs in the background, so playback begins
+		// once the engine reports it finished loading.
+		private void PlayWhenLoadSettles()
+		{
+			if (!_playOnLoad || _isLoading)
+				return;
+			_playOnLoad = false;
+			if (_snapshot is not null)
+				SimulationService.Play();
 		}
 
 		private void HandleServiceChanged() =>
@@ -641,6 +654,7 @@ namespace Poink.Sim.Components.Pages
 			_isLoading = SimulationService.IsLoading;
 			_error = SimulationService.Error;
 			SyncHistoryState(_snapshot);
+			PlayWhenLoadSettles();
 		}
 
 		// A config change invalidates already-fetched history; a cursor moving backward means
@@ -735,9 +749,15 @@ namespace Poink.Sim.Components.Pages
 				_leverage,
 				_commissionRatePercent,
 				_stopOutLevelPercent,
-				_pipSize,
-				[.. _selectedRiskPolicies]
+				_pipSize
 			);
+
+		// A simulation already held by the service (page revisited) is shown as-is instead of reloaded.
+		private void LoadInitialSimulation()
+		{
+			if (_snapshot is null && !_isLoading)
+				LoadSimulation(playWhenLoaded: false);
+		}
 
 		private async Task LoadPersistedSettingsAsync()
 		{
@@ -767,15 +787,10 @@ namespace Poink.Sim.Components.Pages
 			_commissionRatePercent = settings.CommissionRatePercent;
 			_stopOutLevelPercent = settings.StopOutLevelPercent;
 			_pipSize = settings.PipSize;
-			_selectedRiskPolicies.Clear();
-			_selectedRiskPolicies.AddRange(settings.SelectedRiskPolicies);
 		}
 
 		private async Task PersistSettingsIfChangedAsync()
 		{
-			if (_snapshot is not null)
-				return;
-
 			var json = JsonSerializer.Serialize(CurrentSettings);
 			if (json == _lastPersistedSettingsJson)
 				return;
@@ -913,6 +928,7 @@ namespace Poink.Sim.Components.Pages
 			{
 				_dividerResizeInstance = await JS.InvokeAsync<IJSObjectReference>("eval", ChartDividerScript);
 				await LoadPersistedSettingsAsync();
+				LoadInitialSimulation();
 			}
 			else
 			{
@@ -960,22 +976,9 @@ namespace Poink.Sim.Components.Pages
 			}
 		}
 
-		// ── Saved brains (setup-only picker, see SavedBrainsTable) ──
-
-		private void UseSavedBrain(NeuralWeightsSummary summary)
-		{
-			if (TrainingService.LoadSavedBrain(summary.Id))
-			{
-				_brainName = summary.BrainName;
-				_modelId = summary.Id;
-			}
-		}
-
-		private void DeleteSavedBrainSnapshot(NeuralWeightsSummary summary) => ModelService.DeleteModel(summary.Id);
-
 		// ── Setup actions ──
 
-		private void LoadSimulation()
+		private void LoadSimulation(bool playWhenLoaded)
 		{
 			_loadError = null;
 
@@ -1024,9 +1027,12 @@ namespace Poink.Sim.Components.Pages
 
 			_keepChartView = false;
 			_setupCollapsed = true;
-			_activeLeftPanelTab = SimLeftPanelTab.Traders;
+			_playOnLoad = playWhenLoaded;
 			if (!SimulationService.TryLoad(config))
+			{
+				_playOnLoad = false;
 				_loadError = "a load is already in progress";
+			}
 		}
 
 		private bool ValidateTraderAccountParams()
@@ -1053,8 +1059,6 @@ namespace Poink.Sim.Components.Pages
 			}
 			return true;
 		}
-
-		private bool SetupLocked => _isLoading || _snapshot is not null;
 
 		private string ActiveBrainName => _snapshot?.Config.BrainName ?? _brainName;
 
@@ -1087,7 +1091,9 @@ namespace Poink.Sim.Components.Pages
 
 		private void TogglePlayPause()
 		{
-			if (_snapshot?.IsPlaying == true)
+			if (_snapshot is null)
+				LoadSimulation(playWhenLoaded: true);
+			else if (_snapshot.IsPlaying)
 				SimulationService.Pause();
 			else
 				SimulationService.Play();
@@ -1125,17 +1131,7 @@ namespace Poink.Sim.Components.Pages
 		{
 			_keepChartView = false;
 			_draft = null;
-
-			SimulationService.Reset();
-		}
-
-		private void UnloadSim()
-		{
-			_keepChartView = false;
-			_setupCollapsed = false;
-			_activeLeftPanelTab = SimLeftPanelTab.Setup;
-			_draft = null;
-			SimulationService.Unload();
+			LoadSimulation(playWhenLoaded: false);
 		}
 
 		// ── Rendering helpers ──

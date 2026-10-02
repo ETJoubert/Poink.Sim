@@ -255,10 +255,6 @@
     padding: 5px 24px;
 }
 
-.sim-setup-content {
-    padding: 18px 24px;
-}
-
 .sim-body {
     display: flex;
     align-items: stretch;
