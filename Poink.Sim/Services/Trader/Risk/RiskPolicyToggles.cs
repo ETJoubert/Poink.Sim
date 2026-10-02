@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 
 namespace Poink.Sim.Trader.Risk;
 
@@ -11,6 +12,7 @@ internal sealed class RiskPolicyToggles
 	private readonly Dictionary<string, string> _descriptions;
 	private readonly Dictionary<string, bool> _enabled;
 	private readonly Dictionary<string, Dictionary<string, RiskPolicyParameter>> _parameters;
+	private long _version;
 
 	public RiskPolicyToggles(
 		IEnumerable<(string Name, string Description, IReadOnlyList<RiskPolicyParameter> Parameters)> policies
@@ -22,6 +24,9 @@ internal sealed class RiskPolicyToggles
 		_enabled = _order.ToDictionary(name => name, _ => true);
 		_parameters = distinct.ToDictionary(p => p.Name, p => p.Parameters.ToDictionary(par => par.Key, par => par));
 	}
+
+	/// <summary>Changes whenever enablement, order or a parameter value changes, so readers can cache what they derive.</summary>
+	public long Version => Interlocked.Read(ref _version);
 
 	public bool IsEnabled(string policyName)
 	{
@@ -38,6 +43,7 @@ internal sealed class RiskPolicyToggles
 			if (!_enabled.ContainsKey(policyName))
 				return false;
 			_enabled[policyName] = enabled;
+			Interlocked.Increment(ref _version);
 			return true;
 		}
 	}
@@ -54,6 +60,7 @@ internal sealed class RiskPolicyToggles
 			if (target < 0 || target >= _order.Count)
 				return false;
 			(_order[index], _order[target]) = (_order[target], _order[index]);
+			Interlocked.Increment(ref _version);
 			return true;
 		}
 	}
@@ -80,6 +87,7 @@ internal sealed class RiskPolicyToggles
 			var fullOrder = carriedOrder.Concat(_order.Except(carriedOrder)).ToList();
 			_order.Clear();
 			_order.AddRange(fullOrder);
+			Interlocked.Increment(ref _version);
 		}
 	}
 
@@ -111,6 +119,7 @@ internal sealed class RiskPolicyToggles
 			)
 				return false;
 			parameters[key] = current with { Value = Math.Clamp(value, current.Min, current.Max) };
+			Interlocked.Increment(ref _version);
 			return true;
 		}
 	}

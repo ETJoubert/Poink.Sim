@@ -14,7 +14,7 @@ internal sealed class Bot
 }
 
 /// <summary>What the simulation hands the bots on every tick: the quote, the recent bars, and the data range being replayed.</summary>
-internal sealed record BotTickContext(
+internal readonly record struct BotTickContext(
 	DateTime Timestamp,
 	double Price,
 	double Bid,

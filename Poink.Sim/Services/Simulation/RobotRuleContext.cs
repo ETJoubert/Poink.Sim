@@ -65,6 +65,7 @@ internal sealed class RobotRuleContext
 	private readonly RobotBarData _barData;
 	private readonly IReadOnlyList<TxFoldBar> _txFoldBars;
 	private readonly double _currentPrice;
+	private readonly Dictionary<RobotRules, bool> _matches = new(ReferenceEqualityComparer.Instance);
 
 	public RobotRuleContext(RobotBarData barData, double currentPrice, IReadOnlyList<TxFoldBar> txFoldBars)
 	{
@@ -73,7 +74,18 @@ internal sealed class RobotRuleContext
 		_txFoldBars = txFoldBars;
 	}
 
+	/// <summary>Answers once per rule set; every bot asking the same context with the same rules gets the cached answer.</summary>
 	public bool Matches(RobotRules rules)
+	{
+		if (!_matches.TryGetValue(rules, out bool matches))
+		{
+			matches = Evaluate(rules);
+			_matches[rules] = matches;
+		}
+		return matches;
+	}
+
+	private bool Evaluate(RobotRules rules)
 	{
 		if (rules.EnabledKeys.Count == 0)
 			return false;

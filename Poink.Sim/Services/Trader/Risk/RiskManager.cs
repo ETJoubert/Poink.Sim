@@ -11,6 +11,8 @@ internal sealed class RiskManager : IRiskManager
 	private readonly IReadOnlyList<IRiskPolicy> _policies;
 	private readonly IReadOnlyDictionary<string, IRiskPolicy> _byName;
 	private readonly RiskPolicyToggles? _toggles;
+	private IReadOnlyList<IRiskPolicy> _activePolicies = Array.Empty<IRiskPolicy>();
+	private long? _activePoliciesVersion;
 
 	public RiskManager(IPositionManager position, IReadOnlyList<IRiskPolicy> policies, RiskPolicyToggles? toggles)
 	{
@@ -21,27 +23,31 @@ internal sealed class RiskManager : IRiskManager
 	}
 
 	// With toggles present, execution order, enablement and parameter values are the run's live shared state; without them, the creation order runs in full at each policy's own defaults.
-	private IEnumerable<IRiskPolicy> ActivePolicies()
-	{
-		var active = _toggles is null
-			? _policies
-			: _toggles
-				.OrderedNames()
-				.Where(name => _toggles.IsEnabled(name) && _byName.ContainsKey(name))
-				.Select(name => _byName[name]);
-
-		foreach (var policy in active)
-		{
-			SyncParameters(policy);
-			yield return policy;
-		}
-	}
-
-	private void SyncParameters(IRiskPolicy policy)
+	private IReadOnlyList<IRiskPolicy> ActivePolicies()
 	{
 		if (_toggles is null)
-			return;
-		foreach (var parameter in _toggles.ParametersFor(policy.Name))
+			return _policies;
+
+		long version = _toggles.Version;
+		if (_activePoliciesVersion == version)
+			return _activePolicies;
+
+		var active = _toggles
+			.OrderedNames()
+			.Where(name => _toggles.IsEnabled(name) && _byName.ContainsKey(name))
+			.Select(name => _byName[name])
+			.ToList();
+		foreach (var policy in active)
+			SyncParameters(_toggles, policy);
+
+		_activePolicies = active;
+		_activePoliciesVersion = version;
+		return active;
+	}
+
+	private static void SyncParameters(RiskPolicyToggles toggles, IRiskPolicy policy)
+	{
+		foreach (var parameter in toggles.ParametersFor(policy.Name))
 			policy.SetParameter(parameter.Key, parameter.Value);
 	}
 

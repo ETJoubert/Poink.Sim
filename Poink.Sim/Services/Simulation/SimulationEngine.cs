@@ -26,8 +26,10 @@ internal sealed class SimulationEngine : ISimulationEngine
 	private const int FiniteSpeedUnitsCap = 100_000;
 	private const double MaxFiniteMultiplier = 10_000;
 
-	// time budget per callback while uncapped, not a tick cap
-	private const int UncappedSliceMs = 100;
+	// time budget per callback while uncapped, not a tick cap; short so controls never wait long on the lock
+	private const int UncappedSliceMs = 33;
+	private const int UncappedClockCheckTicks = 256;
+	private const int UncappedProgressIntervalMs = 100;
 
 	private const int MaxRecentBars = 300;
 	private const int MaxRecentTicks = 5000;
@@ -51,6 +53,38 @@ internal sealed class SimulationEngine : ISimulationEngine
 		public int RecordedTradeCount;
 		public double? OpenTradeMaxEquity;
 		public double? OpenTradeMinEquity;
+
+		private IReadOnlyList<Trade> _publishedTrades = Array.Empty<Trade>();
+		private IReadOnlyList<TradeEquityPoint> _publishedTradeEquity = Array.Empty<TradeEquityPoint>();
+		private IReadOnlyList<SimulationLogEntry> _publishedRecentLog = Array.Empty<SimulationLogEntry>();
+		private long _publishedRecentLogVersion;
+
+		/// <summary>The trade log as last published, copied again only once a trade has been added since.</summary>
+		public IReadOnlyList<Trade> PublishedTrades()
+		{
+			if (_publishedTrades.Count != Trader.TradeLog.Count)
+				_publishedTrades = Trader.TradeLog.ToList();
+			return _publishedTrades;
+		}
+
+		/// <summary>The per-trade equity record as last published, copied again only once a point has been added since.</summary>
+		public IReadOnlyList<TradeEquityPoint> PublishedTradeEquity()
+		{
+			if (_publishedTradeEquity.Count != TradeEquity.Count)
+				_publishedTradeEquity = TradeEquity.ToList();
+			return _publishedTradeEquity;
+		}
+
+		/// <summary>The recent log as last published, copied again only once it has changed since.</summary>
+		public IReadOnlyList<SimulationLogEntry> PublishedRecentLog()
+		{
+			if (_publishedRecentLogVersion != RecentLog.Version)
+			{
+				_publishedRecentLog = RecentLog.ToList();
+				_publishedRecentLogVersion = RecentLog.Version;
+			}
+			return _publishedRecentLog;
+		}
 	}
 
 	private Func<IEnumerator<Tick>>? _openReader;
@@ -61,6 +95,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 	private SimulationConfig? _config;
 	private SimulationBarAggregator? _aggregator;
 	private List<TraderSession> _traderSessions = new();
+	private Dictionary<int, TraderSession> _traderSessionsById = new();
 	private double _speedMultiplier = 1.0;
 	private bool _uncapped;
 	private bool _isPlaying;
@@ -71,6 +106,10 @@ internal sealed class SimulationEngine : ISimulationEngine
 	private readonly RingBuffer<HlocAvdtBar> _recentBars = new(MaxRecentBars);
 	private readonly RingBuffer<BarPriceHistogram> _recentBarHistograms = new(MaxRecentBars);
 	private readonly RingBuffer<Tick> _recentTicks = new(MaxRecentTicks);
+	private IReadOnlyList<Tick> _publishedRecentTicks = Array.Empty<Tick>();
+	private long _publishedRecentTicksVersion;
+	private readonly Stopwatch _progressClock = Stopwatch.StartNew();
+	private long _lastProgressPublishMs;
 
 	private double? _lastPrice;
 	private double? _lastBid;
@@ -102,8 +141,12 @@ internal sealed class SimulationEngine : ISimulationEngine
 
 	public SimulationProgress? Progress { get; private set; }
 
+	public IReadOnlyDictionary<int, IReadOnlyList<TradeEquityPoint>> TradeEquityByTrader { get; private set; } =
+		new Dictionary<int, IReadOnlyList<TradeEquityPoint>>();
+
 	public event Action? OnChanged;
 	public event Action? OnProgress;
+	public event Action? OnTradeEquityChanged;
 
 	public bool TryLoad(SimulationConfig config)
 	{
@@ -129,7 +172,9 @@ internal sealed class SimulationEngine : ISimulationEngine
 					throw new InvalidOperationException("no ticks in the selected range");
 
 				IEnumerator<Tick> OpenReader() =>
-					_tickRepository.ReadTicks(config.Table, config.LoadFrom, config.To).GetEnumerator();
+					new PrefetchingTickReader(() =>
+						_tickRepository.ReadTicks(config.Table, config.LoadFrom, config.To).GetEnumerator()
+					);
 				FinishLoad(config, (int)Math.Min(count, int.MaxValue), (int)warmupCount, OpenReader, "historic");
 			}
 			catch (Exception ex)
@@ -169,7 +214,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 			_riskToggles = _riskPolicyService.CreateToggles(config.RiskPolicyNames);
 			if (previousPolicyStates is not null)
 				_riskToggles?.RestoreFrom(previousPolicyStates);
-			_traderSessions = CreateSessions(config);
+			UseSessionsLocked(CreateSessions(config));
 			_aggregator = config.Aggregate
 				? new SimulationBarAggregator(config.BarSize, PriceBucketWidthFor(config))
 				: null;
@@ -205,6 +250,12 @@ internal sealed class SimulationEngine : ISimulationEngine
 				Trader = bot.Account,
 			})
 			.ToList();
+
+	private void UseSessionsLocked(List<TraderSession> sessions)
+	{
+		_traderSessions = sessions;
+		_traderSessionsById = sessions.ToDictionary(session => session.Id);
+	}
 
 	private static BotAccountOptions AccountOptionsFor(SimulationConfig config) =>
 		new(
@@ -341,7 +392,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 		_reader?.Dispose();
 		_reader = _openReader!();
 		_cursor = 0;
-		_traderSessions = CreateSessions(_config);
+		UseSessionsLocked(CreateSessions(_config));
 		_aggregator = _config.Aggregate
 			? new SimulationBarAggregator(_config.BarSize, PriceBucketWidthFor(_config))
 			: null;
@@ -366,7 +417,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 			AdvanceOneUnitLocked();
 		_isWarmingUp = false;
 
-		_traderSessions = CreateSessions(_config);
+		UseSessionsLocked(CreateSessions(_config));
 	}
 
 	// Trader state is only valid built up tick by tick, so a backward seek replays from
@@ -414,7 +465,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 			_warmupCount = 0;
 			_config = null;
 			_riskToggles = null;
-			_traderSessions = new();
+			UseSessionsLocked(new());
 			_aggregator = null;
 			_isPlaying = false;
 			_recentBars.Clear();
@@ -430,6 +481,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 		Error = null;
 		OnChanged?.Invoke();
 		OnProgress?.Invoke();
+		PublishTradeEquity();
 		_logger.LogInformation("Simulation unloaded");
 	}
 
@@ -448,7 +500,8 @@ internal sealed class SimulationEngine : ISimulationEngine
 			{
 				var sw = Stopwatch.StartNew();
 				while (_cursor < _totalCount && sw.ElapsedMilliseconds < UncappedSliceMs)
-					AdvanceOneUnitLocked();
+					for (int i = 0; i < UncappedClockCheckTicks && _cursor < _totalCount; i++)
+						AdvanceOneUnitLocked();
 
 				if (_cursor >= _totalCount)
 					_isPlaying = false;
@@ -470,13 +523,25 @@ internal sealed class SimulationEngine : ISimulationEngine
 			}
 		}
 
-		if (wasUncapped && reschedule)
-			PublishProgress();
-		else
+		if (!wasUncapped || !reschedule)
 			PublishSnapshot();
+		else if (IsUncappedProgressDue())
+		{
+			PublishProgress();
+			PublishTradeEquity();
+		}
 
 		if (reschedule)
 			_timer.Change(wasUncapped ? 0 : CallbackIntervalMs, Timeout.Infinite);
+	}
+
+	private bool IsUncappedProgressDue()
+	{
+		long now = _progressClock.ElapsedMilliseconds;
+		if (now - _lastProgressPublishMs < UncappedProgressIntervalMs)
+			return false;
+		_lastProgressPublishMs = now;
+		return true;
 	}
 
 	private void AdvanceOneUnitLocked()
@@ -502,7 +567,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 			var maintenance = session.Trader.Advance(tick.Bid, tick.Ask, tick.Timestamp);
 			foreach (var fill in maintenance.AutomaticFills)
 				AppendLog(session, LogEntryFor(fill, price, tick.Timestamp));
-			TrackTradeEquityLocked(session, tick.Bid, tick.Ask, tick.Timestamp);
+			TrackTradeEquityLocked(session, tick.Bid, tick.Ask, tick.Timestamp, maintenance.Capital.Equity);
 		}
 
 		if (_aggregator is not null)
@@ -517,14 +582,20 @@ internal sealed class SimulationEngine : ISimulationEngine
 
 	// Equity is only sampled while a position is open (and once more when a trade closes), so a long flat
 	// stretch costs nothing and every closed trade keeps its own high/low regardless of run length.
-	private static void TrackTradeEquityLocked(TraderSession session, double bid, double ask, DateTime timestamp)
+	private static void TrackTradeEquityLocked(
+		TraderSession session,
+		double bid,
+		double ask,
+		DateTime timestamp,
+		double? currentEquity = null
+	)
 	{
 		var trader = session.Trader;
 		bool tradeClosed = trader.TradeLog.Count > session.RecordedTradeCount;
 		if (trader.CurrentPosition is null && !tradeClosed)
 			return;
 
-		double equity = trader.Snapshot(bid, ask).Equity;
+		double equity = currentEquity ?? trader.Snapshot(bid, ask).Equity;
 		session.OpenTradeMaxEquity = Math.Max(session.OpenTradeMaxEquity ?? equity, equity);
 		session.OpenTradeMinEquity = Math.Min(session.OpenTradeMinEquity ?? equity, equity);
 		if (!tradeClosed)
@@ -612,7 +683,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 				PipSize = options.PipSize,
 				Limits = options.Limits,
 			};
-			_traderSessions = CreateSessions(_config);
+			UseSessionsLocked(CreateSessions(_config));
 		}
 		PublishSnapshot();
 		_logger.LogInformation("Bot account options applied to the running simulation");
@@ -642,7 +713,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 		);
 		foreach (var action in actions)
 		{
-			var session = _traderSessions.First(s => s.Id == action.Bot.Id);
+			var session = _traderSessionsById[action.Bot.Id];
 			AppendLog(session, LogEntryFor(action.Execution, price, tick.Timestamp));
 			TrackTradeEquityLocked(session, tick.Bid, tick.Ask, tick.Timestamp);
 		}
@@ -655,8 +726,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 		{
 			if (_config is null)
 				return false;
-			var session = _traderSessions.FirstOrDefault(s => s.Id == traderId);
-			if (session is null)
+			if (!_traderSessionsById.TryGetValue(traderId, out var session))
 				return false;
 
 			double bid = _lastBid ?? 0,
@@ -701,8 +771,8 @@ internal sealed class SimulationEngine : ISimulationEngine
 		SimulationSnapshot? snapshot;
 		lock (_lock)
 		{
-			var bars = _recentBars.ToList();
-			var barHistograms = _recentBarHistograms.ToList();
+			var bars = _recentBars.ToList(extraCapacity: 1);
+			var barHistograms = _recentBarHistograms.ToList(extraCapacity: 1);
 			if (_aggregator?.CurrentPartialBar is { } partial)
 			{
 				bars.Add(partial);
@@ -734,8 +804,8 @@ internal sealed class SimulationEngine : ISimulationEngine
 								ts.Trader.CurrentPosition,
 								ts.Trader.CurrentPendingOrder,
 								ts.Trader.TradeLog.Count,
-								ts.RecentLog.ToList(),
-								ts.Trader.TradeLog.ToList(),
+								ts.PublishedRecentLog(),
+								ts.PublishedTrades(),
 								ts.Trader.MaxEquity,
 								ts.Trader.MaxDrawdown,
 								ts.Trader.Leverage,
@@ -744,12 +814,12 @@ internal sealed class SimulationEngine : ISimulationEngine
 									? inspectable.PolicyStatuses()
 									: Array.Empty<RiskPolicyStatus>(),
 								ts.Trader is IRiskInspectable denialInspectable ? denialInspectable.LastDenial : null,
-								ts.TradeEquity.ToList()
+								ts.PublishedTradeEquity()
 							))
 							.ToList(),
 						bars,
 						barHistograms,
-						_recentTicks.ToList(),
+						PublishedRecentTicksLocked(),
 						primaryRisk?.PolicyStates() ?? Array.Empty<RiskPolicySnapshot>()
 					);
 		}
@@ -765,6 +835,41 @@ internal sealed class SimulationEngine : ISimulationEngine
 			);
 		OnChanged?.Invoke();
 		OnProgress?.Invoke();
+		PublishTradeEquity();
+	}
+
+	private void PublishTradeEquity()
+	{
+		lock (_lock)
+		{
+			var published = _traderSessions.ToDictionary(
+				session => session.Id,
+				session => session.PublishedTradeEquity()
+			);
+			if (IsSameTradeEquity(published, TradeEquityByTrader))
+				return;
+			TradeEquityByTrader = published;
+		}
+		OnTradeEquityChanged?.Invoke();
+	}
+
+	private static bool IsSameTradeEquity(
+		IReadOnlyDictionary<int, IReadOnlyList<TradeEquityPoint>> current,
+		IReadOnlyDictionary<int, IReadOnlyList<TradeEquityPoint>> previous
+	) =>
+		current.Count == previous.Count
+		&& current.All(entry =>
+			previous.TryGetValue(entry.Key, out var points) && ReferenceEquals(points, entry.Value)
+		);
+
+	private IReadOnlyList<Tick> PublishedRecentTicksLocked()
+	{
+		if (_publishedRecentTicksVersion != _recentTicks.Version)
+		{
+			_publishedRecentTicks = _recentTicks.ToList();
+			_publishedRecentTicksVersion = _recentTicks.Version;
+		}
+		return _publishedRecentTicks;
 	}
 
 	private void PublishProgress()

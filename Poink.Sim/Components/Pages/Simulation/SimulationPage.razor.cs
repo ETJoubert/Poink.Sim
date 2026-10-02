@@ -547,13 +547,6 @@ namespace Poink.Sim.Components.Pages
 				_ => null,
 			};
 
-		private List<EquityCurveSample> SelectedTraderEquityCurveSamples =>
-			SelectedTrader is { } trader
-				? trader
-					.TradeEquity.Select(p => new EquityCurveSample(p.TimestampUtc, p.Equity, p.MaxEquity, p.MinEquity, p.TradeNumber))
-					.ToList()
-				: [];
-
 		// ── Lifecycle ──
 
 		protected override void OnInitialized()
@@ -609,13 +602,22 @@ namespace Poink.Sim.Components.Pages
 		{
 			if (_historyBars.Count == 0)
 				return s.RecentBars;
-			return _historyBars
+			var key = (s.RecentBars, _historyBars);
+			if (_chartBarsKey == key && _chartBarsCache is not null)
+				return _chartBarsCache;
+
+			_chartBarsKey = key;
+			_chartBarsCache = _historyBars
 				.Concat(s.RecentBars)
 				.GroupBy(b => b.OpenTime)
 				.Select(g => g.Last())
 				.OrderBy(b => b.OpenTime)
 				.ToList();
+			return _chartBarsCache;
 		}
+
+		private (IReadOnlyList<HlocAvdtBar>, List<HlocAvdtBar>)? _chartBarsKey;
+		private List<HlocAvdtBar>? _chartBarsCache;
 
 		// MarketChart's OnNearStart -- pulls an older chunk straight from the tick repository,
 		// independent of the engine's own live RecentBars ring buffer.
@@ -1158,10 +1160,20 @@ namespace Poink.Sim.Components.Pages
 
 		private sealed record TickRow(string Time, string Bid, string Ask, string Mid);
 
-		private List<object> TickRows =>
-			_snapshot is null
-				? new List<object>()
-				: _snapshot
+		private IReadOnlyList<Tick>? _tickRowsSource;
+		private List<object> _tickRowsCache = new();
+
+		private List<object> TickRows
+		{
+			get
+			{
+				if (_snapshot is null)
+					return new List<object>();
+				if (ReferenceEquals(_tickRowsSource, _snapshot.RecentTicks))
+					return _tickRowsCache;
+
+				_tickRowsSource = _snapshot.RecentTicks;
+				_tickRowsCache = _snapshot
 					.RecentTicks.Select(
 						object (t) =>
 							new TickRow(
@@ -1173,6 +1185,9 @@ namespace Poink.Sim.Components.Pages
 					)
 					.Reverse()
 					.ToList();
+				return _tickRowsCache;
+			}
+		}
 
 		private sealed record DecisionLogRow(
 			string Time,
@@ -1214,10 +1229,24 @@ namespace Poink.Sim.Components.Pages
 		private double? RealizedPnlPercentOfBalance() =>
 			RiskHelper.PercentOfBalance(SelectedTrader?.Capital.RealizedPnl, SelectedTrader?.Capital.Cash);
 
-		private TradeStatistics? Stats =>
-			SelectedTrader is not { } trader
-				? null
-				: TradeStatistics.From(trader.Trades, trader.MaxEquity, trader.MaxDrawdown);
+		private (IReadOnlyList<Poink.Sim.Models.Trade>, double, double)? _statsKey;
+		private TradeStatistics? _statsCache;
+
+		private TradeStatistics? Stats
+		{
+			get
+			{
+				if (SelectedTrader is not { } trader)
+					return null;
+				var key = (trader.Trades, trader.MaxEquity, trader.MaxDrawdown);
+				if (_statsKey == key && _statsCache is not null)
+					return _statsCache;
+
+				_statsKey = key;
+				_statsCache = TradeStatistics.From(trader.Trades, trader.MaxEquity, trader.MaxDrawdown);
+				return _statsCache;
+			}
+		}
 
 		private IReadOnlyList<StatGroup> StatGroups => Stats?.Groups ?? [];
 
