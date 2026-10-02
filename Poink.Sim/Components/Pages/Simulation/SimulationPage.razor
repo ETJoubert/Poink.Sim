@@ -255,7 +255,8 @@
                             else if (_activeLeftPanelTab == SimLeftPanelTab.RuleEngine)
                             {
                                 <RuleEnginePanel @bind-EnabledKeys="_ruleEngineEnabledKeys" @bind-XGridPercent="_ruleEngineXGridPercent"
-                                                 DisabledGroups="_ruleEngineDisabledGroups" Result="ComputeRuleEngine(_snapshot, _ruleEngineXGridPercent, _ruleEngineDisabledGroups)" CurrentTimestampUtc="_snapshot.CurrentTimestampUtc"
+                                                 @bind-InTolerancePips="_ruleEngineInTolerancePips" @bind-MinMatches="_ruleEngineMinMatches"
+                                                 DisabledGroups="_ruleEngineDisabledGroups" Result="ComputeRuleEngine(_snapshot, _ruleEngineXGridPercent, _ruleEngineDisabledGroups, _ruleEngineInTolerancePips)" CurrentTimestampUtc="_snapshot.CurrentTimestampUtc"
                                                  TxFoldTable="@_snapshot.Config.Table" TxFoldAnchorEnd="SnapshotAnchorBar(_snapshot)?.CloseTime.AddTicks(1)"
                                                  TxFoldRangeStart="_snapshot.Config.LoadFrom" TxFoldSelectedSeconds="_txFoldSelectedSeconds" />
                             }
@@ -600,14 +601,15 @@
                                 }
                             </PoliciesTab>
                             <RobotTab>
-                                <RobotPanel Limits="_symbolLimits" EvaluationSeconds="_robotEvaluationSeconds" OnEvaluationSecondsChanged="SetRobotEvaluationSeconds" SubTab="_robotSubTab" OnSubTabChanged="SetRobotSubTab" OpenSide="_robotOpenSide" OnOpenSideChanged="SetRobotOpenSide" Enabled="_robotEnabled" OnEnabledChanged="SetRobotEnabled" Options="_robotPositionOptions" OnOptionsChanged="SetRobotPositionOptions"
+                                <RobotPanel Limits="_symbolLimits" EvaluationSeconds="_robotEvaluationSeconds" OnEvaluationSecondsChanged="SetRobotEvaluationSeconds" SubTab="_robotSubTab" OnSubTabChanged="SetRobotSubTab" OpenSide="_robotOpenSide" OnOpenSideChanged="SetRobotOpenSide" CloseSide="_robotCloseSide" OnCloseSideChanged="SetRobotCloseSide"
+                                            CooldownSeconds="_robotCooldownSeconds" OnCooldownSecondsChanged="SetRobotCooldownSeconds" RequireRearm="_robotRequireRearm" OnRequireRearmChanged="SetRobotRequireRearm" Enabled="_robotEnabled" OnEnabledChanged="SetRobotEnabled" Options="_robotPositionOptions" OnOptionsChanged="SetRobotPositionOptions"
                                             HasSelection="SelectedTrader is not null"
                                             Balance="SelectedTrader?.Capital.Cash" Leverage="SelectedTrader?.Leverage"
                                             PipSize="_snapshot?.Config.PipSize ?? 0.01"
                                             CurrentPrice="_snapshot?.CurrentPrice"
                                             CurrentBid="_snapshot?.CurrentBid"
                                             CurrentAsk="_snapshot?.CurrentAsk"
-                                            OpenLongRules="_openLongRules" OpenShortRules="_openShortRules" CloseRules="_closeRules"
+                                            OpenLongRules="_openLongRules" OpenShortRules="_openShortRules" CloseLongRules="_closeLongRules" CloseShortRules="_closeShortRules"
                                             OnRulesChanged="OnRobotRulesChanged" ComputeRuleEngine="ComputeRobotRuleEngine"
                                             CurrentTimestampUtc="_snapshot?.CurrentTimestampUtc"
                                             TxFoldTable="@_snapshot?.Config.Table"

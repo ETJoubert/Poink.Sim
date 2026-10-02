@@ -44,6 +44,20 @@ namespace Poink.Sim.Components.RuleEngine
 		[Parameter]
 		public EventCallback<double> XGridPercentChanged { get; set; }
 
+		/// <summary>How close, in pips, price must be to a baseline level to count as In it -- the host applies it when computing Result.</summary>
+		[Parameter]
+		public double InTolerancePips { get; set; } = 1;
+
+		[Parameter]
+		public EventCallback<double> InTolerancePipsChanged { get; set; }
+
+		/// <summary>How many selected rows must match for the whole mask to match; null or 0 means all of them.</summary>
+		[Parameter]
+		public int? MinMatches { get; set; }
+
+		[Parameter]
+		public EventCallback<int?> MinMatchesChanged { get; set; }
+
 		[Parameter]
 		public string? TxFoldTable { get; set; }
 
@@ -110,7 +124,9 @@ namespace Poink.Sim.Components.RuleEngine
 
 		private int MatchedCount => Rows.Count(row => MatchStatus(row) == "match");
 
-		private bool IsMatching => Result is not null && RuleEngineHelper.Matches(Rows, EnabledKeys);
+		private int RequiredCount => RuleEngineHelper.RequiredMatches(SelectedCount, MinMatches);
+
+		private bool IsMatching => Result is not null && RuleEngineHelper.Matches(Rows, EnabledKeys, MinMatches);
 
 		private void ClearRow(RuleSignalRow row)
 		{
@@ -149,6 +165,18 @@ namespace Poink.Sim.Components.RuleEngine
 		{
 			if (double.TryParse(e.Value?.ToString(), out var value))
 				await XGridPercentChanged.InvokeAsync(value);
+		}
+
+		private async Task SetInTolerancePips(ChangeEventArgs e)
+		{
+			if (double.TryParse(e.Value?.ToString(), out var value))
+				await InTolerancePipsChanged.InvokeAsync(Math.Max(0, value));
+		}
+
+		private async Task SetMinMatches(ChangeEventArgs e)
+		{
+			int? value = int.TryParse(e.Value?.ToString(), out var parsed) && parsed > 0 ? parsed : null;
+			await MinMatchesChanged.InvokeAsync(value);
 		}
 
 		// The panel can be the only thing on screen using TxFold data, so it loads its own bars instead

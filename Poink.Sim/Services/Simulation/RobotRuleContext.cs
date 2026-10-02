@@ -13,6 +13,7 @@ internal sealed class RobotBarData
 	public required IReadOnlyList<WeightedPriceSample> Samples { get; init; }
 	public required IReadOnlyList<HlocAvdtBar> Bars { get; init; }
 	public required XGridResult? Grid { get; init; }
+	public required double PipSize { get; init; }
 
 	public static RobotBarData? Create(
 		IReadOnlyList<HlocAvdtBar> recentBars,
@@ -52,6 +53,7 @@ internal sealed class RobotBarData
 			Samples = samples,
 			Bars = bars,
 			Grid = grid,
+			PipSize = pipSize,
 		};
 	}
 }
@@ -102,12 +104,13 @@ internal sealed class RobotRuleContext
 			_currentPrice,
 			rules.DisabledGroups.Contains(RuleSignalGroup.XGrid) ? null : _barData.Grid,
 			rules.XGridPercent,
-			baseline
+			baseline,
+			rules.InTolerancePips * _barData.PipSize
 		);
 		var txFoldRows = rules.DisabledGroups.Contains(RuleSignalGroup.TxFold)
 			? Array.Empty<RuleSignalRow>()
 			: RuleEngineHelper.TxFoldRows(_txFoldBars, _currentPrice);
 		var rows = result.Rows.Concat(txFoldRows).ToList();
-		return RuleEngineHelper.Matches(rows, rules.EnabledKeys);
+		return RuleEngineHelper.Matches(rows, rules.EnabledKeys, rules.MinMatches);
 	}
 }

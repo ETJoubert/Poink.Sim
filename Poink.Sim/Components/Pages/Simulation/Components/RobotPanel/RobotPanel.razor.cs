@@ -4,16 +4,14 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 using Poink.Sim.Components.Shared.TradeConsole;
 using Poink.Sim.Helpers;
-using Poink.Sim.Helpers;
 using Poink.Sim.Models;
 
 namespace Poink.Sim.Components.Simulation
 {
 	/// <summary>
 	/// The Simulation page's Robot tab: Positioning, Open and Close sub-tabs, whose selection the host keeps. Positioning reuses
-	/// <see cref="TradeConsole"/> in settings mode to capture the robot's position options; Open (split
-	/// into Long and Short) and Close each host their own rule-engine configuration as the conditions to
-	/// open and close.
+	/// <see cref="TradeConsole"/> in settings mode to capture the robot's position options; Open and Close are each split
+	/// into Long and Short, every one hosting its own rule-engine configuration as the conditions to open or close that side.
 	/// </summary>
 	public partial class RobotPanel : ComponentBase
 	{
@@ -24,10 +22,30 @@ namespace Poink.Sim.Components.Simulation
 		public EventCallback<RobotSubTab> OnSubTabChanged { get; set; }
 
 		[Parameter]
-		public RobotOpenSide OpenSide { get; set; }
+		public RobotSide OpenSide { get; set; }
 
 		[Parameter]
-		public EventCallback<RobotOpenSide> OnOpenSideChanged { get; set; }
+		public EventCallback<RobotSide> OnOpenSideChanged { get; set; }
+
+		[Parameter]
+		public RobotSide CloseSide { get; set; }
+
+		[Parameter]
+		public EventCallback<RobotSide> OnCloseSideChanged { get; set; }
+
+		/// <summary>Simulated seconds a bot waits after any close before it may open again; 0 means no wait.</summary>
+		[Parameter]
+		public double CooldownSeconds { get; set; }
+
+		[Parameter]
+		public EventCallback<double> OnCooldownSecondsChanged { get; set; }
+
+		/// <summary>Whether a side must stop matching its open conditions once after a close before it may open again.</summary>
+		[Parameter]
+		public bool RequireRearm { get; set; }
+
+		[Parameter]
+		public EventCallback<bool> OnRequireRearmChanged { get; set; }
 
 		/// <summary>How often, in simulated seconds, the robot checks its conditions; 0 checks on every tick.</summary>
 		[Parameter]
@@ -80,7 +98,10 @@ namespace Poink.Sim.Components.Simulation
 		public RobotRuleSet OpenShortRules { get; set; } = new();
 
 		[Parameter, EditorRequired]
-		public RobotRuleSet CloseRules { get; set; } = new();
+		public RobotRuleSet CloseLongRules { get; set; } = new();
+
+		[Parameter, EditorRequired]
+		public RobotRuleSet CloseShortRules { get; set; } = new();
 
 		/// <summary>Raised after any rule set is edited, so the host can persist it.</summary>
 		[Parameter]
@@ -112,7 +133,28 @@ namespace Poink.Sim.Components.Simulation
 
 		private Task SelectSubTab(RobotSubTab tab) => OnSubTabChanged.InvokeAsync(tab);
 
-		private Task SelectOpenSide(RobotOpenSide side) => OnOpenSideChanged.InvokeAsync(side);
+		private Task SelectOpenSide(RobotSide side) => OnOpenSideChanged.InvokeAsync(side);
+
+		private Task SelectCloseSide(RobotSide side) => OnCloseSideChanged.InvokeAsync(side);
+
+		private Task SetCooldownSeconds(ChangeEventArgs e) =>
+			double.TryParse(e.Value?.ToString(), out var seconds)
+				? OnCooldownSecondsChanged.InvokeAsync(Math.Max(0, seconds))
+				: Task.CompletedTask;
+
+		private Task SetRequireRearm(ChangeEventArgs e) => OnRequireRearmChanged.InvokeAsync(e.Value is true);
+
+		private Task SetInTolerancePips(RobotRuleSet rules, double pips)
+		{
+			rules.InTolerancePips = pips;
+			return OnRulesChanged.InvokeAsync();
+		}
+
+		private Task SetMinMatches(RobotRuleSet rules, int? count)
+		{
+			rules.MinMatches = count;
+			return OnRulesChanged.InvokeAsync();
+		}
 
 		private Task SetXGridPercent(RobotRuleSet rules, double percent)
 		{

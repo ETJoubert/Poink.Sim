@@ -14,7 +14,23 @@ namespace Poink.Sim.Models
 
 		public double XGridPercent { get; set; } = 10;
 
-		/// <summary>Signal groups switched off for this rule set -- their rows are not calculated and their selections are ignored.</summary>
+		/// <summary>Signal groups switched off for this rule set -- their rows are not calculated and their selections ignored.</summary>
 		public HashSet<RuleSignalGroup> DisabledGroups { get; set; } = new();
+
+		/// <summary>How close, in pips, price must be to a baseline level to count as In it; Above/Below start beyond this band.</summary>
+		public double InTolerancePips { get; set; } = 1;
+
+		/// <summary>How many selected rows must match for the rule set to match; null or 0 means all of them.</summary>
+		public int? MinMatches { get; set; }
+
+		public RobotRuleSet Clone() =>
+			new()
+			{
+				EnabledKeys = new HashSet<string>(EnabledKeys),
+				XGridPercent = XGridPercent,
+				DisabledGroups = new HashSet<RuleSignalGroup>(DisabledGroups),
+				InTolerancePips = InTolerancePips,
+				MinMatches = MinMatches,
+			};
 	}
 }

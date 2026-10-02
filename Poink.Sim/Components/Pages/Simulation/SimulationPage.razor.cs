@@ -70,11 +70,15 @@ namespace Poink.Sim.Components.Pages
 		private TradeConsoleOptions? _robotPositionOptions;
 		private RobotRuleSet _openLongRules = new();
 		private RobotRuleSet _openShortRules = new();
-		private RobotRuleSet _closeRules = new();
+		private RobotRuleSet _closeLongRules = new();
+		private RobotRuleSet _closeShortRules = new();
 		private bool _robotEnabled;
 		private double _robotEvaluationSeconds = 1;
+		private double _robotCooldownSeconds;
+		private bool _robotRequireRearm;
 		private RobotSubTab _robotSubTab;
-		private RobotOpenSide _robotOpenSide;
+		private RobotSide _robotOpenSide;
+		private RobotSide _robotCloseSide;
 		private TradeConsoleOptions? _tradeConsoleOptions;
 		private string? _error;
 		private bool _hideChart;
@@ -160,6 +164,8 @@ namespace Poink.Sim.Components.Pages
 		// owned by the page so it survives tab switches.
 		private HashSet<string> _ruleEngineEnabledKeys = new();
 		private double _ruleEngineXGridPercent = 10;
+		private double _ruleEngineInTolerancePips = 1;
+		private int? _ruleEngineMinMatches;
 		private HashSet<RuleSignalGroup> _ruleEngineDisabledGroups = new();
 
 		// Shared with the Snapshot tab's own TxFold chart so both evaluate/display the same timeframes.
@@ -244,7 +250,12 @@ namespace Poink.Sim.Components.Pages
 
 		// Baseline signals come straight off RangeStatsHelper; the XGrid rank/delta rows ride along
 		// on top by handing RuleEngineHelper the same grid ComputeXGrid builds for the chart itself.
-		private RuleEngineResult? ComputeRuleEngine(SimulationSnapshot s, double xgridPercent, HashSet<RuleSignalGroup> disabledGroups)
+		private RuleEngineResult? ComputeRuleEngine(
+			SimulationSnapshot s,
+			double xgridPercent,
+			HashSet<RuleSignalGroup> disabledGroups,
+			double inTolerancePips
+		)
 		{
 			var (bars, _) = WindowedBarData(s);
 			if (bars.Count == 0 || s.CurrentPrice is not { } currentPrice)
@@ -263,7 +274,8 @@ namespace Poink.Sim.Components.Pages
 				currentPrice,
 				xgrid ? ComputeXGrid(s) : null,
 				xgridPercent,
-				baseline
+				baseline,
+				inTolerancePips * s.Config.PipSize
 			);
 		}
 
@@ -684,12 +696,16 @@ namespace Poink.Sim.Components.Pages
 				_robotPositionOptions,
 				_openLongRules,
 				_openShortRules,
-				_closeRules,
+				_closeLongRules,
 				_robotEnabled,
 				_tradeConsoleOptions,
 				_robotSubTab,
 				_robotOpenSide,
-				_robotEvaluationSeconds
+				_robotEvaluationSeconds,
+				_closeShortRules,
+				_robotCloseSide,
+				_robotCooldownSeconds,
+				_robotRequireRearm
 			);
 
 		// A simulation already held by the service (page revisited) is shown as-is instead of reloaded.
@@ -732,12 +748,16 @@ namespace Poink.Sim.Components.Pages
 			_robotPositionOptions = settings.RobotPositionOptions;
 			_openLongRules = settings.OpenLongRules ?? new();
 			_openShortRules = settings.OpenShortRules ?? new();
-			_closeRules = settings.CloseRules ?? new();
+			_closeLongRules = settings.CloseLongRules ?? new();
+			_closeShortRules = settings.CloseShortRules ?? _closeLongRules.Clone();
 			_robotEnabled = settings.RobotEnabled;
 			_tradeConsoleOptions = settings.TradeOptions;
 			_robotSubTab = settings.RobotSubTab;
 			_robotOpenSide = settings.RobotOpenSide;
 			_robotEvaluationSeconds = settings.RobotEvaluationSeconds ?? 1;
+			_robotCloseSide = settings.RobotCloseSide;
+			_robotCooldownSeconds = settings.RobotCooldownSeconds ?? 0;
+			_robotRequireRearm = settings.RobotRequireRearm;
 		}
 
 		// Saving before the stored settings were read would overwrite them with the page's defaults.
@@ -1071,7 +1091,13 @@ namespace Poink.Sim.Components.Pages
 
 		private void SetRobotSubTab(RobotSubTab tab) => _robotSubTab = tab;
 
-		private void SetRobotOpenSide(RobotOpenSide side) => _robotOpenSide = side;
+		private void SetRobotOpenSide(RobotSide side) => _robotOpenSide = side;
+
+		private void SetRobotCloseSide(RobotSide side) => _robotCloseSide = side;
+
+		private void SetRobotCooldownSeconds(double seconds) => _robotCooldownSeconds = seconds;
+
+		private void SetRobotRequireRearm(bool requireRearm) => _robotRequireRearm = requireRearm;
 
 		private void SetRobotEvaluationSeconds(double seconds) => _robotEvaluationSeconds = seconds;
 
@@ -1082,7 +1108,9 @@ namespace Poink.Sim.Components.Pages
 		private Task OnRobotRulesChanged() => PersistSettingsIfChangedAsync();
 
 		private RuleEngineResult? ComputeRobotRuleEngine(RobotRuleSet rules) =>
-			_snapshot is null ? null : ComputeRuleEngine(_snapshot, rules.XGridPercent, rules.DisabledGroups);
+			_snapshot is null
+				? null
+				: ComputeRuleEngine(_snapshot, rules.XGridPercent, rules.DisabledGroups, rules.InTolerancePips);
 
 		private IReadOnlyList<string>? SelectedRiskPolicies =>
 			_selectedRiskPolicies.Count > 0 ? _selectedRiskPolicies.ToList() : null;

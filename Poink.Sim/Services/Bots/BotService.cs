@@ -24,6 +24,7 @@ internal sealed class BotService : IBotService
 	private readonly ILogger<BotService> _logger;
 	private readonly object _lock = new();
 	private readonly TxFoldBarsCache _txFoldBars = new();
+	private readonly BotReentryGuard _reentryGuard = new();
 
 	private IReadOnlyList<Bot> _bots = Array.Empty<Bot>();
 	private RobotOptions? _options;
@@ -77,6 +78,7 @@ internal sealed class BotService : IBotService
 			_bots = bots;
 			_limits = account.Limits;
 			_lastEvaluation = null;
+			_reentryGuard.Reset();
 		}
 		_logger.LogInformation(
 			"Created {Count} bots: startingCash={StartingCash}, leverage={Leverage}, commission={Commission}%, stopOut={StopOut}%",
@@ -96,11 +98,14 @@ internal sealed class BotService : IBotService
 			_options = options;
 		}
 		_logger.LogInformation(
-			"Bot options updated: enabled={Enabled}, openLongKeys={OpenLong}, openShortKeys={OpenShort}, closeKeys={Close}",
+			"Bot options updated: enabled={Enabled}, openLongKeys={OpenLong}, openShortKeys={OpenShort}, closeLongKeys={CloseLong}, closeShortKeys={CloseShort}, cooldown={Cooldown}s, requireRearm={RequireRearm}",
 			options.Enabled,
 			options.OpenLong.EnabledKeys.Count,
 			options.OpenShort.EnabledKeys.Count,
-			options.Close.EnabledKeys.Count
+			options.CloseLong.EnabledKeys.Count,
+			options.CloseShort.EnabledKeys.Count,
+			options.CooldownSeconds,
+			options.RequireRearm
 		);
 	}
 
@@ -135,20 +140,42 @@ internal sealed class BotService : IBotService
 		var actions = new List<BotAction>();
 		foreach (var bot in bots)
 		{
-			if (bot.Account.CurrentPosition is not null)
+			_reentryGuard.Observe(bot);
+			if (bot.Account.CurrentPosition is { } position)
 			{
-				if (context.Matches(options.Close) && Close(bot, tick) is { } closed)
+				var closeRules = options.CloseRulesFor(position.Direction == PositionDirection.Long);
+				if (context.Matches(closeRules) && Close(bot, tick) is { } closed)
 					actions.Add(closed);
 			}
-			else if (bot.Account.CurrentPendingOrder is null)
+			else if (bot.Account.CurrentPendingOrder is null && TryEnter(bot, options, context, tick) is { } entry)
 			{
-				if (context.Matches(options.OpenLong) && Enter(bot, options, isLong: true, tick) is { } longEntry)
-					actions.Add(longEntry);
-				else if (context.Matches(options.OpenShort) && Enter(bot, options, isLong: false, tick) is { } shortEntry)
-					actions.Add(shortEntry);
+				actions.Add(entry);
 			}
 		}
 		return actions;
+	}
+
+	// Long is tried before short, as before; the guard only ever narrows which entries are allowed.
+	private BotAction? TryEnter(Bot bot, RobotOptions options, RobotRuleContext context, BotTickContext tick)
+	{
+		if (_reentryGuard.IsCoolingDown(bot, tick.Timestamp, options.CooldownSeconds))
+			return null;
+		if (options.RequireRearm)
+			_reentryGuard.Rearm(bot, context.Matches(options.OpenLong), context.Matches(options.OpenShort));
+
+		if (
+			_reentryGuard.IsArmed(bot, isLong: true, options.RequireRearm)
+			&& context.Matches(options.OpenLong)
+			&& Enter(bot, options, isLong: true, tick) is { } longEntry
+		)
+			return longEntry;
+		if (
+			_reentryGuard.IsArmed(bot, isLong: false, options.RequireRearm)
+			&& context.Matches(options.OpenShort)
+			&& Enter(bot, options, isLong: false, tick) is { } shortEntry
+		)
+			return shortEntry;
+		return null;
 	}
 
 	// Time is the simulated tick clock, so the cadence is the same at any playback speed; a clock that

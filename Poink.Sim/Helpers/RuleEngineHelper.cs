@@ -86,21 +86,28 @@ internal static class RuleEngineHelper
         : key == row.InKey ? row.In
         : key == row.BelowKey && row.Below;
 
-    // AND across every enabled key -- the mask matches only when all its constraints hold at once.
-    // Keys of a deactivated group have no row, so a mask left with no active selection never matches.
-    public static bool Matches(IReadOnlyList<RuleSignalRow> rows, HashSet<string> enabledKeys)
+    /// <summary>
+    /// Whether enough selected rows hold their live value: all of them when <paramref name="minMatches"/> is null or
+    /// not positive, otherwise at least that many (capped at the number selected). Keys of a deactivated group have
+    /// no row, so a mask left with no active selection never matches.
+    /// </summary>
+    public static bool Matches(IReadOnlyList<RuleSignalRow> rows, HashSet<string> enabledKeys, int? minMatches = null)
     {
-        bool anySelected = false;
+        int selected = 0,
+            matched = 0;
         foreach (var row in rows)
         {
             if (SelectedKey(row, enabledKeys) is not { } key)
                 continue;
-            anySelected = true;
-            if (!LiveValue(row, key))
-                return false;
+            selected++;
+            if (LiveValue(row, key))
+                matched++;
         }
-        return anySelected;
+        return selected > 0 && matched >= RequiredMatches(selected, minMatches);
     }
+
+    public static int RequiredMatches(int selected, int? minMatches) =>
+        minMatches is > 0 ? Math.Min(minMatches.Value, selected) : selected;
 
     // Which signal group a key belongs to -- keys are named after their group, so this needs no row to look it up.
     public static RuleSignalGroup GroupOf(string key) =>
@@ -119,7 +126,8 @@ internal static class RuleEngineHelper
         double currentPrice,
         XGridResult? grid = null,
         double xGridPercent = 10,
-        bool includeBaseline = true
+        bool includeBaseline = true,
+        double inTolerance = 0
     )
     {
         var priceStats = includeBaseline ? RangeStatsHelper.Compute(volumeSamples, samplePrice, sampleWeight) : null;
@@ -133,7 +141,9 @@ internal static class RuleEngineHelper
         var median = priceStats?.Median;
         var regression = regressionStats?.Regression;
 
-        var rows = includeBaseline ? BaselineRows(poc, vah, val, vwap, median, regression, currentPrice) : new List<RuleSignalRow>();
+        var rows = includeBaseline
+            ? BaselineRows(poc, vah, val, vwap, median, regression, currentPrice, Math.Max(0, inTolerance))
+            : new List<RuleSignalRow>();
 
         if (grid is { } g)
             rows.AddRange(XGridRows(g, xGridPercent));
@@ -148,16 +158,17 @@ internal static class RuleEngineHelper
         double? vwap,
         double? median,
         double? regression,
-        double currentPrice
+        double currentPrice,
+        double inTolerance
     ) =>
         new()
         {
-            Row("POC", "--color-primary", Keys.PocAbove, Keys.PocIn, Keys.PocBelow, poc, currentPrice),
-            Row("VAH", "--color-highlight", Keys.VahAbove, Keys.VahIn, Keys.VahBelow, vah, currentPrice),
-            Row("VAL", "--color-highlight", Keys.ValAbove, Keys.ValIn, Keys.ValBelow, val, currentPrice),
-            Row("VWAP", "--color-tertiary", Keys.VwapAbove, Keys.VwapIn, Keys.VwapBelow, vwap, currentPrice),
-            Row("MEDIAN", "--color-badge-2", Keys.MedianAbove, Keys.MedianIn, Keys.MedianBelow, median, currentPrice),
-            Row("REG", "--color-badge-1", Keys.RegressionAbove, Keys.RegressionIn, Keys.RegressionBelow, regression, currentPrice),
+            Row("POC", "--color-primary", Keys.PocAbove, Keys.PocIn, Keys.PocBelow, poc, currentPrice, inTolerance),
+            Row("VAH", "--color-highlight", Keys.VahAbove, Keys.VahIn, Keys.VahBelow, vah, currentPrice, inTolerance),
+            Row("VAL", "--color-highlight", Keys.ValAbove, Keys.ValIn, Keys.ValBelow, val, currentPrice, inTolerance),
+            Row("VWAP", "--color-tertiary", Keys.VwapAbove, Keys.VwapIn, Keys.VwapBelow, vwap, currentPrice, inTolerance),
+            Row("MEDIAN", "--color-badge-2", Keys.MedianAbove, Keys.MedianIn, Keys.MedianBelow, median, currentPrice, inTolerance),
+            Row("REG", "--color-badge-1", Keys.RegressionAbove, Keys.RegressionIn, Keys.RegressionBelow, regression, currentPrice, inTolerance),
         };
 
     // Above/Below/In (inclusive) each bar's mean +/- one-stddev band -- true high/low would always
@@ -222,6 +233,7 @@ internal static class RuleEngineHelper
     private static RuleSignalRow RankRow(string label, string colorVar, string inKey, bool value) =>
         new(label, colorVar, null, inKey, null, false, value, false, RuleSignalGroup.XGrid);
 
+    // In is a band of +/- inTolerance around the level, and Above/Below only start beyond it, so exactly one state holds.
     private static RuleSignalRow Row(
         string label,
         string colorVar,
@@ -229,7 +241,8 @@ internal static class RuleEngineHelper
         string inKey,
         string belowKey,
         double? level,
-        double currentPrice
+        double currentPrice,
+        double inTolerance
     ) =>
         new(
             label,
@@ -237,9 +250,9 @@ internal static class RuleEngineHelper
             aboveKey,
             inKey,
             belowKey,
-            level is { } l && currentPrice > l,
-            level is { } l2 && currentPrice == l2,
-            level is { } l3 && currentPrice < l3,
+            level is { } l && currentPrice > l + inTolerance,
+            level is { } l2 && Math.Abs(currentPrice - l2) <= inTolerance,
+            level is { } l3 && currentPrice < l3 - inTolerance,
             RuleSignalGroup.Baseline
         );
 }

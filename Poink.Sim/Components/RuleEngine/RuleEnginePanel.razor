@@ -10,6 +10,14 @@
             Top %
             <input type="number" min="0" max="100" step="1" value="@XGridPercent" @onchange="SetXGridPercent" />
         </label>
+        <label class="rule-engine-percent" title="How close, in pips, price must be to a baseline level (POC, VAH, VAL, VWAP, Median, REG) to count as In it -- Above and Below only start beyond this band">
+            In &#177; pips
+            <input type="number" min="0" step="0.1" value="@InTolerancePips" @onchange="SetInTolerancePips" />
+        </label>
+        <label class="rule-engine-percent" title="How many of the selected rows must match for the mask to match -- leave empty (or 0) to require all of them, 1 makes it match when any one does">
+            Need
+            <input type="number" min="0" step="1" value="@MinMatches" placeholder="all" @onchange="SetMinMatches" />
+        </label>
     </div>
 
     <table class="rule-engine-table">
@@ -19,7 +27,7 @@
                 <th title="Above">&#9650;</th>
                 <th title="In">In</th>
                 <th title="Below">&#9660;</th>
-                <th class="@(IsMatching ? "matching" : "")" title="Whether the selected constraint currently matches the live value -- lights up when every selected row matches">Match</th>
+                <th class="@(IsMatching ? "matching" : "")" title="Whether the selected constraint currently matches the live value -- lights up when enough selected rows match (all of them, or the Need count)">Match</th>
             </tr>
         </thead>
         <tbody>
@@ -41,8 +49,8 @@
         </tbody>
         <tfoot>
             <tr>
-                <td colspan="5" class="rule-engine-foot-count" title="Rows currently matching their live value, out of rows with a selection">
-                    @MatchedCount/@SelectedCount matching
+                <td colspan="5" class="rule-engine-foot-count" title="Rows currently matching their live value, out of rows with a selection, and how many must match">
+                    @MatchedCount/@SelectedCount matching (need @RequiredCount)
                 </td>
             </tr>
         </tfoot>

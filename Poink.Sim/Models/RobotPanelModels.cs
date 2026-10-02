@@ -8,8 +8,8 @@ namespace Poink.Sim.Models
 		Close,
 	}
 
-	/// <summary>Which side's conditions the Robot tab's Open sub-tab is showing.</summary>
-	public enum RobotOpenSide
+	/// <summary>Which side's conditions the Robot tab's Open or Close sub-tab is showing.</summary>
+	public enum RobotSide
 	{
 		Long,
 		Short,
