@@ -4,15 +4,35 @@ using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.Logging;
+using Microsoft.JSInterop;
 using Poink.Sim.Analysis;
 using Poink.Sim.Components.Charts;
 using Poink.Sim.Models;
 using Poink.Sim.Repository;
 using Poink.Sim.Services.Charts;
+using Poink.Sim.Services.Symbols;
 
 namespace Poink.Sim.Components.Pages.Analize
 {
 	internal sealed record AnalizeBinRow(string Range, string Count, string PercentOfTotal);
+
+	internal sealed record BarrierResultRow(
+		string StopPips,
+		string TargetPips,
+		string Trades,
+		string Won,
+		string Stopped,
+		string TimedOut,
+		string WinRate,
+		string ScrambledWinRate,
+		string Edge,
+		string AvgPips,
+		string ScrambledAvgPips,
+		string EdgePips,
+		string Ci95,
+		string AvgMinutes
+	);
 
 	// Top-level (not nested in AnalizePage) and public because AnalysisDetailCard's [Parameter]
 	// can't expose a less-accessible type -- a Razor component's generated class is always public.
@@ -20,6 +40,7 @@ namespace Poink.Sim.Components.Pages.Analize
 	{
 		TimeAboveBelow,
 		ReturnProbability,
+		BarrierMap,
 	}
 
 	public sealed record AnalysisSeriesSummaryView(string Series, long ReturnedCount, double ReturnProbability, double MeanToReturn, double MedianToReturn);
@@ -92,6 +113,18 @@ namespace Poink.Sim.Components.Pages.Analize
 		[Inject]
 		private IBarKindChartService BarKindChartService { get; set; } = default!;
 
+		[Inject]
+		private IBarrierMapAnalysisService BarrierService { get; set; } = default!;
+
+		[Inject]
+		private ISymbolTableResolver SymbolTableResolver { get; set; } = default!;
+
+		[Inject]
+		private IJSRuntime JS { get; set; } = default!;
+
+		[Inject]
+		private ILogger<AnalizePage> Logger { get; set; } = default!;
+
 		private bool _leftPanelCollapsed;
 		private bool _rightPanelCollapsed;
 
@@ -154,10 +187,23 @@ namespace Poink.Sim.Components.Pages.Analize
 		private BarAggregationKind _marketChartBarKind = BarAggregationKind.Ohlc;
 		private (string Table, DateTime From, DateTime To, int BarWidthSeconds, BarAggregationKind BarKind)? _marketChartLoadedFor;
 
+		private string _barrierStopsText = "2, 5, 10, 15, 20, 30, 50";
+		private string _barrierTargetsText = "2, 5, 10, 20, 30, 50, 100";
+		private string _barrierLimitsText = "15, 60, 240";
+		private int _barrierSpacingSeconds = 60;
+		private double? _barrierPipSize;
+		private string? _barrierPipSizeTable;
+		private string? _barrierStartError;
+		private bool _barrierCardCollapsed;
+		private bool _barrierWasRunning;
+		private BarrierMapSelection? _barrierSelection;
+
 		protected override void OnInitialized()
 		{
 			TimeAboveBelowService.OnChanged += HandleServiceChanged;
 			ReturnService.OnChanged += HandleServiceChanged;
+			BarrierService.OnChanged += HandleBarrierChanged;
+			_barrierWasRunning = BarrierService.IsRunning;
 			_timeAboveBelowWasRunning = TimeAboveBelowService.IsRunning;
 			_returnWasRunning = ReturnService.IsRunning;
 			LoadHistory();
@@ -167,6 +213,7 @@ namespace Poink.Sim.Components.Pages.Analize
 		{
 			TimeAboveBelowService.OnChanged -= HandleServiceChanged;
 			ReturnService.OnChanged -= HandleServiceChanged;
+			BarrierService.OnChanged -= HandleBarrierChanged;
 		}
 
 		// Session cards only exist in this page's memory, so a completed run is captured here, the
@@ -618,6 +665,128 @@ namespace Poink.Sim.Components.Pages.Analize
 			if (_pinnedHistoryId == id)
 				ClearPin();
 			LoadHistory();
+		}
+
+		private void HandleBarrierChanged()
+		{
+			if (_barrierWasRunning && !BarrierService.IsRunning && BarrierService.Result is { } result)
+			{
+				_barrierSelection = new BarrierMapSelection(BarrierSide.Both, result.Request.TimeLimitMinutes[0], BarrierMetric.MeanPips, null);
+				_activeAnalysis = ActiveAnalysis.BarrierMap;
+			}
+			_barrierWasRunning = BarrierService.IsRunning;
+			InvokeAsync(StateHasChanged);
+		}
+
+		private async Task RunBarrierMap()
+		{
+			_barrierStartError = null;
+
+			if (string.IsNullOrWhiteSpace(_table))
+			{
+				_barrierStartError = "pick a symbol";
+				return;
+			}
+			if (_to <= _from)
+			{
+				_barrierStartError = "To must be after From";
+				return;
+			}
+			var stops = ParsePositiveNumbers(_barrierStopsText);
+			var targets = ParsePositiveNumbers(_barrierTargetsText);
+			var limits = ParsePositiveNumbers(_barrierLimitsText).Select(m => (int)Math.Round(m)).Where(m => m > 0).ToList();
+			if (stops.Count == 0 || targets.Count == 0 || limits.Count == 0)
+			{
+				_barrierStartError = "enter at least one stop loss, take profit and time limit";
+				return;
+			}
+			if (_barrierSpacingSeconds <= 0)
+			{
+				_barrierStartError = "entry spacing must be greater than 0";
+				return;
+			}
+
+			await EnsureBarrierPipSizeAsync();
+			if (_barrierPipSize is not > 0)
+			{
+				_barrierStartError = "pip size is unknown -- enter it";
+				return;
+			}
+
+			_activeAnalysis = ActiveAnalysis.BarrierMap;
+			ClearPin();
+			var request = new BarrierMapRequest(_table, _from, _to, _barrierPipSize.Value, stops, targets, limits, _barrierSpacingSeconds);
+			if (BarrierService.TryStart(request))
+				_barrierWasRunning = true;
+			else
+				_barrierStartError = "analysis is already running";
+		}
+
+		// The pip size follows the symbol, so it is looked up again whenever the table has changed since the last lookup.
+		private async Task EnsureBarrierPipSizeAsync()
+		{
+			if (_barrierPipSizeTable == _table && _barrierPipSize is > 0)
+				return;
+			try
+			{
+				var resolution = await SymbolTableResolver.ResolveAsync(_table);
+				if (resolution.Limits is { } limits)
+					_barrierPipSize = limits.PipSize;
+				_barrierPipSizeTable = _table;
+			}
+			catch (Exception ex)
+			{
+				Logger.LogWarning(ex, "Could not resolve the pip size for table {Table}", _table);
+			}
+		}
+
+		private static List<double> ParsePositiveNumbers(string text) =>
+			text.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+				.Select(part => double.TryParse(part, NumberStyles.Float, CultureInfo.InvariantCulture, out var value) ? value : 0)
+				.Where(value => value > 0)
+				.ToList();
+
+		private string BarrierProgressPercentText => BarrierService.ProgressPercent.ToString("0.#", CultureInfo.InvariantCulture);
+
+		private List<BarrierResultRow> BarrierResultRows =>
+			BarrierService.Result is { } result
+			&& _barrierSelection is { } selection
+			&& result.Grid(selection.Side, selection.TimeLimitMinutes) is { } grid
+				? grid
+					.Cells.Select(cell => new BarrierResultRow(
+						cell.StopPips.ToString("0.#"),
+						cell.TargetPips.ToString("0.#"),
+						cell.Trades.ToString("N0"),
+						cell.Wins.ToString("N0"),
+						cell.Losses.ToString("N0"),
+						cell.Timeouts.ToString("N0"),
+						cell.WinRate?.ToString("P1") ?? "--",
+						cell.BenchmarkWinRate?.ToString("P1") ?? "--",
+						cell.Edge is { } edge ? (edge * 100).ToString("+0.0;-0.0") + "%" : "--",
+						cell.MeanPips.ToString("+0.00;-0.00"),
+						cell.BenchmarkMeanPips?.ToString("+0.00;-0.00") ?? "--",
+						cell.EdgePips?.ToString("+0.00;-0.00") ?? "--",
+						cell.CiPips?.ToString("0.00") ?? "--",
+						cell.MeanMinutes.ToString("0.0")
+					))
+					.ToList()
+				: new List<BarrierResultRow>();
+
+		private async Task ExportBarrierCsvAsync()
+		{
+			if (BarrierService.Result is not { } result)
+				return;
+			try
+			{
+				await using var module = await JS.InvokeAsync<IJSObjectReference>("import", "./js/fileDownload.js");
+				var fileName = $"barrier-map-{result.Request.Table}-{DateTime.Now:yyyyMMdd-HHmm}.csv";
+				await module.InvokeVoidAsync("downloadText", fileName, BarrierMapCsv.Build(result), "text/csv");
+			}
+			catch (Exception ex)
+			{
+				_barrierStartError = $"export failed: {ex.Message}";
+				Logger.LogError(ex, "Could not export the barrier map");
+			}
 		}
 
 		private async Task SelectPriceTab()

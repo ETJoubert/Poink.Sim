@@ -1,0 +1,44 @@
+.barrier-detail {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.barrier-detail-empty {
+    font-size: 0.6rem;
+    opacity: 0.75;
+    margin: 0;
+}
+
+.barrier-detail-title {
+    font-size: 0.62rem;
+    font-weight: bold;
+    letter-spacing: 0.05em;
+    color: var(--color-primary);
+}
+
+.barrier-detail-stats {
+    display: grid;
+    grid-template-columns: auto auto;
+    gap: 3px 10px;
+    margin: 0;
+    font-size: 0.6rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.barrier-detail-stats dt {
+    color: var(--color-secondary);
+}
+
+.barrier-detail-stats dd {
+    margin: 0;
+    text-align: right;
+}
+
+.barrier-pos {
+    color: var(--color-success);
+}
+
+.barrier-neg {
+    color: var(--color-error);
+}

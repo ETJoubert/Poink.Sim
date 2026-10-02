@@ -1,0 +1,40 @@
+@namespace Poink.Sim.Components.Pages.Analize
+@using Poink.Sim.Components.Charts
+@using Poink.Sim.Models
+
+<div class="barrier-detail">
+    @if (Cell is not { } cell)
+    {
+        <p class="barrier-detail-empty">Click a cell of the barrier map to see its distribution.</p>
+    }
+    else
+    {
+        <div class="barrier-detail-title" title="The selected stop/target pair, side and time limit">
+            SL @cell.StopPips.ToString("0.#") / TP @cell.TargetPips.ToString("0.#") pips · @Selection.Side.ToString().ToUpperInvariant() · @LimitLabel
+        </div>
+        <dl class="barrier-detail-stats">
+            <dt title="Trades opened with this stop and target">Trades</dt>
+            <dd>@cell.Trades.ToString("N0")</dd>
+            <dt title="Hit the take profit / hit the stop loss / still open at the time limit">Won · stopped · timed out</dt>
+            <dd>@cell.Wins.ToString("N0") · @cell.Losses.ToString("N0") · @cell.Timeouts.ToString("N0")</dd>
+            <dt title="Share of all trades that hit the take profit">Win rate</dt>
+            <dd>@(cell.WinRate?.ToString("P1") ?? "—")</dd>
+            <dt title="Win rate of the same trades on a scrambled copy of the price -- same tick times, spreads and move sizes, random direction -- which is what chance gives here">Scrambled win rate</dt>
+            <dd>@(cell.BenchmarkWinRate?.ToString("P1") ?? "—")</dd>
+            <dt title="Win rate minus the scrambled win rate -- positive means the target was reached more often than chance">Edge</dt>
+            <dd class="@SignClass(cell.Edge)">@(cell.Edge is { } edge ? $"{(edge >= 0 ? "+" : "")}{edge * 100:0.0}%" : "—")</dd>
+            <dt title="Average result per trade in pips after the spread, with its 95% range">Average</dt>
+            <dd class="@SignClass(cell.MeanPips)">@($"{(cell.MeanPips >= 0 ? "+" : "")}{cell.MeanPips:0.00}") pips @(cell.CiPips is { } ci ? $"±{ci:0.00}" : "")</dd>
+            <dt title="Average result of the same trades on the scrambled price, in pips">Scrambled average</dt>
+            <dd class="@SignClass(cell.BenchmarkMeanPips)">@(cell.BenchmarkMeanPips is { } scrambled ? $"{(scrambled >= 0 ? "+" : "")}{scrambled:0.00} pips" : "—")</dd>
+            <dt title="Average pips per trade minus the scrambled average -- what the real price adds over chance">Edge in pips</dt>
+            <dd class="@SignClass(cell.EdgePips)">@(cell.EdgePips is { } edgePips ? $"{(edgePips >= 0 ? "+" : "")}{edgePips:0.00}" : "—")</dd>
+            <dt title="Average time a trade stayed open">Time in trade</dt>
+            <dd>@cell.MeanMinutes.ToString("0.0") min</dd>
+        </dl>
+        <HistogramChart Bins="PipsBins" Title="RESULT PER TRADE" ValueUnit=" pips" ValueScale="1" SampleCount="cell.Trades"
+                        EmptyMessage="no trades in this cell" />
+        <HistogramChart Bins="MinutesBins" Title="TIME TO EXIT" ValueUnit=" min" ValueScale="1" SampleCount="cell.Trades"
+                        EmptyMessage="no trades in this cell" />
+    }
+</div>

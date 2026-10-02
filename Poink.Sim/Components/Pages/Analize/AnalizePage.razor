@@ -264,6 +264,86 @@
                             }
                         }
                     </div>
+                    <div class="card analize-card @(_activeAnalysis == ActiveAnalysis.BarrierMap ? "analize-card-active" : "")"
+                         title="Open a trade every few seconds through the range and test it against a grid of stop-loss and take-profit sizes and time limits">
+                        <div class="analize-card-title-row">
+                            <button type="button" class="analize-card-collapse-btn"
+                                    @onclick="() => _barrierCardCollapsed = !_barrierCardCollapsed"
+                                    title="@(_barrierCardCollapsed ? "Expand" : "Collapse")">
+                                <Icon Name="@(_barrierCardCollapsed ? "chevron-right" : "chevron-down")" Class="analize-card-collapse-icon" />
+                            </button>
+                            <span class="analize-card-title">Barrier Map</span>
+                            @if (_activeAnalysis == ActiveAnalysis.BarrierMap)
+                            {
+                                <span class="analize-card-active-badge" title="Shown in the main and DETAILS panels">ACTIVE</span>
+                            }
+                            else
+                            {
+                                <button type="button" class="analize-card-view-btn" @onclick="() => _activeAnalysis = ActiveAnalysis.BarrierMap"
+                                        title="Show this analysis's results in the main and DETAILS panels">
+                                    VIEW
+                                </button>
+                            }
+                        </div>
+
+                        @if (!_barrierCardCollapsed)
+                        {
+                            <label class="analize-field" title="Stop-loss sizes to test, in pips, comma separated">
+                                Stop losses (pips)
+                                <input class="analize-input" type="text" @bind="_barrierStopsText" disabled="@BarrierService.IsRunning" />
+                            </label>
+                            <label class="analize-field" title="Take-profit sizes to test, in pips, comma separated">
+                                Take profits (pips)
+                                <input class="analize-input" type="text" @bind="_barrierTargetsText" disabled="@BarrierService.IsRunning" />
+                            </label>
+                            <label class="analize-field" title="Minutes a trade may stay open before it is closed at the market, comma separated">
+                                Time limits (minutes)
+                                <input class="analize-input" type="text" @bind="_barrierLimitsText" disabled="@BarrierService.IsRunning" />
+                            </label>
+                            <label class="analize-field" title="Seconds between trade entries -- one long and one short is opened at each">
+                                Entry every (seconds)
+                                <input class="analize-input" type="number" min="1" step="1" @bind="_barrierSpacingSeconds" disabled="@BarrierService.IsRunning" />
+                            </label>
+                            <label class="analize-field" title="Price size of one pip -- filled from the symbol's metadata when you run, editable when it is not known">
+                                Pip size
+                                <input class="analize-input" type="number" min="0" step="any" @bind="_barrierPipSize" disabled="@BarrierService.IsRunning" />
+                            </label>
+
+                            @if (!BarrierService.IsRunning)
+                            {
+                                <button type="button" class="analize-btn analize-btn-run" @onclick="RunBarrierMap"
+                                        title="Reads every tick in the selected symbol/date range and tests every stop/target/time-limit combination -- can take a while on large ranges">
+                                    RUN
+                                </button>
+                            }
+                            else
+                            {
+                                <button type="button" class="analize-btn analize-btn-cancel" @onclick="() => BarrierService.Cancel()"
+                                        title="Stop the analysis currently in progress">
+                                    CANCEL
+                                </button>
+                                <div class="analize-progress">
+                                    <div class="analize-progress-bar">
+                                        <div class="analize-progress-fill" style="width: @(BarrierProgressPercentText)%"></div>
+                                    </div>
+                                    <span class="analize-progress-text">@(BarrierProgressPercentText)%</span>
+                                </div>
+                            }
+
+                            @if (_barrierStartError is not null)
+                            {
+                                <p class="analize-error">@_barrierStartError</p>
+                            }
+                            @if (BarrierService.Error is not null)
+                            {
+                                <p class="analize-error">@BarrierService.Error</p>
+                            }
+                            @if (BarrierService.WasCancelled)
+                            {
+                                <p class="analize-note">cancelled</p>
+                            }
+                        }
+                    </div>
                 }
                 </div>
             }
@@ -296,7 +376,31 @@
             }
 
             <div class="analize-content">
-                @if (_activeMainTab == AnalizeMainTab.Chart && _activeAnalysis == ActiveAnalysis.TimeAboveBelow)
+                @if (_activeAnalysis == ActiveAnalysis.BarrierMap && _activeMainTab != AnalizeMainTab.Price)
+                {
+                    <div class="card analize-card analize-card-fill" title="Barrier map for the selected data">
+                        @if (BarrierService.Result is not { } barrierResult || _barrierSelection is not { } barrierSelection)
+                        {
+                            <p class="analize-side-panel-placeholder">Set the sizes and click RUN (Barrier Map) in the left panel to see the map</p>
+                        }
+                        else if (_activeMainTab == AnalizeMainTab.Chart)
+                        {
+                            <BarrierMapView Result="barrierResult" Selection="barrierSelection" SelectionChanged="selection => _barrierSelection = selection" />
+                        }
+                        else
+                        {
+                            <div class="analize-price-toolbar">
+                                <button type="button" class="analize-btn" @onclick="ExportBarrierCsvAsync"
+                                        title="Download every cell of every side and time limit as a CSV file">
+                                    EXPORT CSV
+                                </button>
+                            </div>
+                            <DataTable TItem="BarrierResultRow" Items="@BarrierResultRows" ShowActions="false" ShowRowNumbers="false"
+                                       EmptyMessage="no cells for this side and time limit" />
+                        }
+                    </div>
+                }
+                else if (_activeMainTab == AnalizeMainTab.Chart && _activeAnalysis == ActiveAnalysis.TimeAboveBelow)
                 {
                     <div class="card analize-card analize-card-fill" title="Time-above distribution for the selected data and window">
                         <HistogramChart Bins="@TimeAboveBelowChartBins" Title="TIME ABOVE DISTRIBUTION" ValueUnit="%" ValueScale="100"
@@ -430,7 +534,17 @@
                     </button>
                 </div>
                 <div class="analize-side-panel-content">
-                    <AnalysisDetailCard Snapshot="@CurrentDetailView" SelectedSeries="@_returnSelectedSeries" />
+                    @if (_activeAnalysis == ActiveAnalysis.BarrierMap)
+                    {
+                        @if (BarrierService.Result is { } detailResult && _barrierSelection is { } detailSelection)
+                        {
+                            <BarrierCellDetail Result="detailResult" Selection="detailSelection" />
+                        }
+                    }
+                    else
+                    {
+                        <AnalysisDetailCard Snapshot="@CurrentDetailView" SelectedSeries="@_returnSelectedSeries" />
+                    }
                 </div>
             }
         </aside>
