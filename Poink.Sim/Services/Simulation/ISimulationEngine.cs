@@ -18,7 +18,6 @@ internal interface ISimulationEngine : IDisposable
 	event Action? OnProgress;
 
 	bool TryLoad(SimulationConfig config);
-	bool TryLoadDummy(SimulationConfig config, int tickCount = 20_000);
 	bool Play();
 	bool Pause();
 	bool Step();

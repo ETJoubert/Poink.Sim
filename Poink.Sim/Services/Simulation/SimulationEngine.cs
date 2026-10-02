@@ -150,41 +150,6 @@ internal sealed class SimulationEngine : ISimulationEngine
 		return true;
 	}
 
-	public bool TryLoadDummy(SimulationConfig config, int tickCount = 20_000)
-	{
-		lock (_lock)
-		{
-			if (IsLoading)
-				return false;
-			IsLoading = true;
-			Error = null;
-		}
-		OnChanged?.Invoke();
-
-		_ = Task.Run(() =>
-		{
-			try
-			{
-				var ticks = DummyTickGenerator.Generate(config.From, config.To, tickCount);
-				if (ticks.Count == 0)
-					throw new InvalidOperationException("no ticks in the selected range");
-				FinishLoad(config, ticks.Count, () => ticks.GetEnumerator(), "dummy");
-			}
-			catch (Exception ex)
-			{
-				lock (_lock)
-				{
-					IsLoading = false;
-					Error = ex.Message;
-				}
-				_logger.LogError(ex, "Failed to load dummy simulation");
-			}
-			PublishSnapshot();
-		});
-
-		return true;
-	}
-
 	private void FinishLoad(SimulationConfig config, int totalCount, Func<IEnumerator<Tick>> openReader, string source)
 	{
 		var brains = _brainRegistry.All;

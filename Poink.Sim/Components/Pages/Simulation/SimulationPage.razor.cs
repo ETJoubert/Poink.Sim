@@ -88,8 +88,6 @@ namespace Poink.Sim.Components.Pages
 		// user's own pan/zoom instead of refitting every tick. See MarketChart.KeepView.
 		private bool _keepChartView;
 
-		private bool _isDummyRun;
-
 		// Bars scrolled in from the tick repository, older than the engine's own live RecentBars
 		// tail -- cleared on config change or cursor rewind, see SyncHistoryState.
 		private const int HistoryBarsPerFetch = 300;
@@ -676,7 +674,7 @@ namespace Poink.Sim.Components.Pages
 		// independent of the engine's own live RecentBars ring buffer.
 		private async Task LoadOlderChartHistory()
 		{
-			if (_snapshot is null || _isDummyRun || _historyReachedStart || _isLoadingHistory)
+			if (_snapshot is null || _historyReachedStart || _isLoadingHistory)
 				return;
 
 			var config = _snapshot.Config;
@@ -1029,7 +1027,6 @@ namespace Poink.Sim.Components.Pages
 
 			_keepChartView = false;
 			_setupCollapsed = true;
-			_isDummyRun = false;
 			if (!SimulationService.TryLoad(config))
 				_loadError = "a load is already in progress";
 		}
@@ -1083,54 +1080,6 @@ namespace Poink.Sim.Components.Pages
 					},
 				}
 				: new List<XGridLine>();
-
-		private void LoadDummySimulation()
-		{
-			_loadError = null;
-
-			if (string.IsNullOrWhiteSpace(_brainName))
-			{
-				_loadError = "pick a brain";
-				return;
-			}
-			if (_startingCash <= 0)
-			{
-				_loadError = "starting cash must be positive";
-				return;
-			}
-			if (!ValidateTraderAccountParams())
-				return;
-			if (_traderCount < 1)
-				_traderCount = 1;
-
-			var to = _to > _from ? _to : DateTime.UtcNow;
-			var from = _to > _from ? _from : to.AddHours(-4);
-			var table = string.IsNullOrWhiteSpace(_table) ? "DUMMY" : _table;
-
-			var config = new SimulationConfig(
-				table,
-				from,
-				to,
-				_aggregate,
-				TimeSpan.FromSeconds(_barSizeSeconds),
-				_brainName,
-				_startingCash,
-				_traderCount,
-				_leverage,
-				_stopOutLevelPercent,
-				_commissionRatePercent,
-				_pipSize,
-				SelectedRiskPolicies,
-				_lockRiskPolicies,
-				_steppingMode,
-				_cellWidth
-			);
-
-			_keepChartView = false;
-			_isDummyRun = true;
-			if (!SimulationService.TryLoadDummy(config))
-				_loadError = "a load is already in progress";
-		}
 
 		// ── Playback actions ──
 

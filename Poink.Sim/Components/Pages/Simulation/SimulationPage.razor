@@ -38,10 +38,6 @@
                             title="Load the selected data range and brain into a live simulation">
                         @(_isLoading ? "LOADING..." : "LOAD SIMULATION")
                     </button>
-                    <button class="sim-ctrl-btn" @onclick="LoadDummySimulation" disabled="@_isLoading"
-                            title="Synthetic random-walk ticks -- no Postgres required">
-                        LOAD DUMMY DATA
-                    </button>
                     @if (_loadError is not null)
                     {
                         <span class="sim-brainrow-error">@_loadError</span>
