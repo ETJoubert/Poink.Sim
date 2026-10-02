@@ -163,6 +163,14 @@ internal sealed class Trader : ITrader
 		};
 	}
 
+	public bool ModifyProtection(double? stopLossPrice, double? takeProfitPrice)
+	{
+		if (CurrentPosition is not { } position)
+			return false;
+		CurrentPosition = position with { StopLossPrice = stopLossPrice, TakeProfitPrice = takeProfitPrice };
+		return true;
+	}
+
 	private TradeExecution? CancelPendingOrder()
 	{
 		_pendingOrder = null;
@@ -238,7 +246,15 @@ internal sealed class Trader : ITrader
 		RealizedPnl -= commission;
 		_openCommissionCharge = commission;
 
-		CurrentPosition = new Position(direction, size, fillPrice, time, stopLossPrice, takeProfitPrice);
+		CurrentPosition = new Position(
+			direction,
+			size,
+			fillPrice,
+			time,
+			stopLossPrice,
+			takeProfitPrice,
+			InitialStopLossPrice: stopLossPrice
+		);
 		var action = direction == PositionDirection.Long ? SimulationAction.EnterLong : SimulationAction.EnterShort;
 		return new TradeExecution(action, direction, size, null, commission, reason);
 	}

@@ -67,6 +67,13 @@ namespace Poink.Sim.Components.Simulation
 		[Parameter]
 		public EventCallback<TradeConsoleOptions> OnOptionsChanged { get; set; }
 
+		/// <summary>Rule-based stops, targets and position management layered over the console's options.</summary>
+		[Parameter]
+		public RobotPositionRules PositionRules { get; set; } = new();
+
+		[Parameter]
+		public EventCallback<RobotPositionRules> OnPositionRulesChanged { get; set; }
+
 		[Parameter]
 		public bool HasSelection { get; set; }
 

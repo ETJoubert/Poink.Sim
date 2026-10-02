@@ -327,7 +327,7 @@ internal static class RuleSignalRowsHelper
 		bool open = position is not null && bid is not null && ask is not null;
 		var p = position.GetValueOrDefault();
 		double unrealized = open ? p.UnrealizedPnl(bid!.Value, ask!.Value) : 0;
-		double? risk = open && p.StopLossPrice is { } stop ? Math.Abs(p.EntryPrice - stop) * p.Size : null;
+		double? risk = open && (p.InitialStopLossPrice ?? p.StopLossPrice) is { } stop ? Math.Abs(p.EntryPrice - stop) * p.Size : null;
 
 		double? barsHeld =
 			open && timestampUtc is { } now && barSize > TimeSpan.Zero ? (now - p.EntryTime) / barSize : null;

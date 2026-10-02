@@ -117,6 +117,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 	private double? _lastAsk;
 	private DateTime? _lastTimestamp;
 	private double? _typicalSpread;
+	private string? _stopReason;
 
 	private readonly ITickRepository _tickRepository;
 	private readonly IBotService _botService;
@@ -149,6 +150,10 @@ internal sealed class SimulationEngine : ISimulationEngine
 	public event Action? OnChanged;
 	public event Action? OnProgress;
 	public event Action? OnTradeEquityChanged;
+
+	public SimulationFinancialsState? Financials { get; private set; }
+
+	public event Action? OnFinancialsChanged;
 
 	public bool TryLoad(SimulationConfig config)
 	{
@@ -228,6 +233,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 			_lastAsk = null;
 			_lastTimestamp = null;
 			_typicalSpread = null;
+			_stopReason = null;
 			WarmUpLocked();
 			_isPlaying = false;
 			IsLoading = false;
@@ -278,6 +284,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 			if (_reader is null || _isPlaying || _cursor >= _totalCount)
 				return false;
 			_isPlaying = true;
+			_stopReason = null;
 		}
 		_timer.Change(0, Timeout.Infinite);
 		PublishSnapshot();
@@ -407,6 +414,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 		_lastAsk = null;
 		_lastTimestamp = null;
 		_typicalSpread = null;
+		_stopReason = null;
 		WarmUpLocked();
 		_isPlaying = false;
 	}
@@ -436,6 +444,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 				return false;
 
 			int clamped = Math.Clamp(targetIndex + _warmupCount, _warmupCount, _totalCount);
+			_stopReason = null;
 			if (clamped < _cursor)
 				ResetToStartLocked();
 			else
@@ -480,13 +489,16 @@ internal sealed class SimulationEngine : ISimulationEngine
 			_lastAsk = null;
 			_lastTimestamp = null;
 			_typicalSpread = null;
+			_stopReason = null;
 		}
 		Snapshot = null;
 		Progress = null;
 		Error = null;
+		Financials = null;
 		OnChanged?.Invoke();
 		OnProgress?.Invoke();
 		PublishTradeEquity();
+		OnFinancialsChanged?.Invoke();
 		_logger.LogInformation("Simulation unloaded");
 	}
 
@@ -504,8 +516,8 @@ internal sealed class SimulationEngine : ISimulationEngine
 			else if (_uncapped)
 			{
 				var sw = Stopwatch.StartNew();
-				while (_cursor < _totalCount && sw.ElapsedMilliseconds < UncappedSliceMs)
-					for (int i = 0; i < UncappedClockCheckTicks && _cursor < _totalCount; i++)
+				while (_isPlaying && _cursor < _totalCount && sw.ElapsedMilliseconds < UncappedSliceMs)
+					for (int i = 0; i < UncappedClockCheckTicks && _isPlaying && _cursor < _totalCount; i++)
 						AdvanceOneUnitLocked();
 
 				if (_cursor >= _totalCount)
@@ -519,7 +531,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 					1,
 					FiniteSpeedUnitsCap
 				);
-				for (int i = 0; i < units && _cursor < _totalCount; i++)
+				for (int i = 0; i < units && _isPlaying && _cursor < _totalCount; i++)
 					AdvanceOneUnitLocked();
 
 				if (_cursor >= _totalCount)
@@ -534,6 +546,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 		{
 			PublishProgress();
 			PublishTradeEquity();
+			PublishFinancials();
 		}
 
 		if (reschedule)
@@ -584,6 +597,39 @@ internal sealed class SimulationEngine : ISimulationEngine
 
 			RunBotsLocked(tick, price);
 		}
+
+		if (_isPlaying && !_isWarmingUp && AllTradersDepletedLocked(price))
+			StopForDepletionLocked();
+	}
+
+	// A trader that is flat with no resting order and cannot fund the symbol's minimum volume can never trade again.
+	private bool AllTradersDepletedLocked(double price)
+	{
+		if (_config is null || _traderSessions.Count == 0)
+			return false;
+		foreach (var session in _traderSessions)
+		{
+			var trader = session.Trader;
+			if (trader.CurrentPosition is not null || trader.CurrentPendingOrder is not null)
+				return false;
+			double minimumMargin = RiskHelper.MarginRequired(_config.Limits.MinVolume, price, trader.Leverage);
+			if (trader.Cash > 0 && trader.Cash >= minimumMargin)
+				return false;
+		}
+		return true;
+	}
+
+	private void StopForDepletionLocked()
+	{
+		_isPlaying = false;
+		_stopReason = _traderSessions.Count == 1
+			? "Stopped: the account's balance can no longer cover the margin for the symbol's minimum volume"
+			: "Stopped: no account's balance can cover the margin for the symbol's minimum volume any more";
+		_logger.LogInformation(
+			"Simulation stopped at {Cursor}/{Total} because every trader's balance is depleted",
+			_cursor - _warmupCount,
+			_totalCount - _warmupCount
+		);
 	}
 
 	// Equity is only sampled while a position is open (and once more when a trade closes), so a long flat
@@ -690,6 +736,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 				Limits = options.Limits,
 			};
 			UseSessionsLocked(CreateSessions(_config));
+			_stopReason = null;
 		}
 		PublishSnapshot();
 		_logger.LogInformation("Bot account options applied to the running simulation");
@@ -810,33 +857,15 @@ internal sealed class SimulationEngine : ISimulationEngine
 						_lastPrice,
 						_lastBid,
 						_lastAsk,
-						_traderSessions
-							.Select(ts => new TraderSnapshot(
-								ts.Id,
-								ts.Label,
-								ts.Trader.Snapshot(_lastBid ?? 0, _lastAsk ?? 0),
-								ts.Trader.CurrentPosition,
-								ts.Trader.CurrentPendingOrder,
-								ts.Trader.TradeLog.Count,
-								ts.PublishedRecentLog(),
-								ts.PublishedTrades(),
-								ts.Trader.MaxEquity,
-								ts.Trader.MaxDrawdown,
-								ts.Trader.Leverage,
-								ts.Trader.StopOutLevelPercent,
-								ts.Trader is IRiskInspectable inspectable
-									? inspectable.PolicyStatuses()
-									: Array.Empty<RiskPolicyStatus>(),
-								ts.Trader is IRiskInspectable denialInspectable ? denialInspectable.LastDenial : null,
-								ts.PublishedTradeEquity()
-							))
-							.ToList(),
+						BuildTraderSnapshotsLocked(),
 						bars,
 						barHistograms,
 						PublishedRecentTicksLocked(),
 						primaryRisk?.PolicyStates() ?? Array.Empty<RiskPolicySnapshot>(),
-						_typicalSpread
+						_typicalSpread,
+						_stopReason
 					);
+			Financials = snapshot is null ? null : FinancialsStateLocked(snapshot.Traders);
 		}
 		Snapshot = snapshot;
 		Progress = snapshot is null
@@ -851,6 +880,42 @@ internal sealed class SimulationEngine : ISimulationEngine
 		OnChanged?.Invoke();
 		OnProgress?.Invoke();
 		PublishTradeEquity();
+		OnFinancialsChanged?.Invoke();
+	}
+
+	private List<TraderSnapshot> BuildTraderSnapshotsLocked() =>
+		_traderSessions
+			.Select(ts => new TraderSnapshot(
+				ts.Id,
+				ts.Label,
+				ts.Trader.Snapshot(_lastBid ?? 0, _lastAsk ?? 0),
+				ts.Trader.CurrentPosition,
+				ts.Trader.CurrentPendingOrder,
+				ts.Trader.TradeLog.Count,
+				ts.PublishedRecentLog(),
+				ts.PublishedTrades(),
+				ts.Trader.MaxEquity,
+				ts.Trader.MaxDrawdown,
+				ts.Trader.Leverage,
+				ts.Trader.StopOutLevelPercent,
+				ts.Trader is IRiskInspectable inspectable ? inspectable.PolicyStatuses() : Array.Empty<RiskPolicyStatus>(),
+				ts.Trader is IRiskInspectable denialInspectable ? denialInspectable.LastDenial : null,
+				ts.PublishedTradeEquity()
+			))
+			.ToList();
+
+	private SimulationFinancialsState FinancialsStateLocked(IReadOnlyList<TraderSnapshot> traders) =>
+		new(traders, _config!.Table, _config.PipSize, _lastBid, _lastAsk, _lastPrice, _lastTimestamp);
+
+	private void PublishFinancials()
+	{
+		lock (_lock)
+		{
+			if (_config is null)
+				return;
+			Financials = FinancialsStateLocked(BuildTraderSnapshotsLocked());
+		}
+		OnFinancialsChanged?.Invoke();
 	}
 
 	private void PublishTradeEquity()
