@@ -543,18 +543,12 @@ namespace Poink.Sim.Components.Pages
 				_ => null,
 			};
 
-		private List<EquityCurveSample> SelectedTraderEquityCurveSamples
-		{
-			get
-			{
-				if (SelectedTrader is not { } trader || trader.EquityHistory.Count == 0)
-					return [];
-
-				var timestamps = trader.EquityHistory.Select(p => p.TimestampUtc).ToList();
-				var equity = trader.EquityHistory.Select(p => p.Equity).ToList();
-				return EquityCurveHelper.Build(timestamps, equity, trader.Trades);
-			}
-		}
+		private List<EquityCurveSample> SelectedTraderEquityCurveSamples =>
+			SelectedTrader is { } trader
+				? trader
+					.TradeEquity.Select(p => new EquityCurveSample(p.TimestampUtc, p.Equity, p.MaxEquity, p.MinEquity, p.TradeNumber))
+					.ToList()
+				: [];
 
 		// ── Lifecycle ──
 

@@ -67,8 +67,15 @@ internal sealed record SimulationProgress(
 	DateTime RangeToUtc
 );
 
-// One equity reading at a decision point, feeding TraderSnapshot.EquityHistory.
-internal readonly record struct EquityHistoryPoint(DateTime TimestampUtc, double Equity);
+// One closed trade's equity summary, feeding TraderSnapshot.TradeEquity -- kept per trade rather than
+// per bar so it survives however long the run goes between trades.
+internal readonly record struct TradeEquityPoint(
+	DateTime TimestampUtc,
+	double Equity,
+	double MaxEquity,
+	double MinEquity,
+	int TradeNumber
+);
 
 internal sealed record TraderSnapshot(
 	int Id,
@@ -85,7 +92,7 @@ internal sealed record TraderSnapshot(
 	double StopOutLevelPercent,
 	IReadOnlyList<RiskPolicyStatus> RiskPolicyStatuses,
 	RiskPolicyDenial? LastDenial,
-	IReadOnlyList<EquityHistoryPoint> EquityHistory
+	IReadOnlyList<TradeEquityPoint> TradeEquity
 );
 
 internal sealed record SimulationSnapshot(

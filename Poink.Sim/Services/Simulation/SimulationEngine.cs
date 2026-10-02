@@ -31,7 +31,6 @@ internal sealed class SimulationEngine : ISimulationEngine
 	private const int MaxRecentBars = 300;
 	private const int MaxRecentTicks = 5000;
 	private const int MaxRecentLog = 200;
-	private const int MaxEquityHistory = 2000;
 
 	private const double DefaultPriceBucketWidth = 0.01;
 
@@ -46,7 +45,10 @@ internal sealed class SimulationEngine : ISimulationEngine
 		public required string Label;
 		public required Trader.ITrader Trader;
 		public readonly RingBuffer<SimulationLogEntry> RecentLog = new(MaxRecentLog);
-		public readonly RingBuffer<EquityHistoryPoint> EquityHistory = new(MaxEquityHistory);
+		public readonly List<TradeEquityPoint> TradeEquity = new();
+		public int RecordedTradeCount;
+		public double? OpenTradeMaxEquity;
+		public double? OpenTradeMinEquity;
 	}
 
 	private Func<IEnumerator<Tick>>? _openReader;
@@ -550,6 +552,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 			var maintenance = session.Trader.Advance(tick.Bid, tick.Ask, tick.Timestamp);
 			foreach (var fill in maintenance.AutomaticFills)
 				AppendLog(session, LogEntryFor(fill, price, tick.Timestamp));
+			TrackTradeEquityLocked(session, tick.Bid, tick.Ask, tick.Timestamp);
 		}
 
 		if (_aggregator is not null)
@@ -579,6 +582,35 @@ internal sealed class SimulationEngine : ISimulationEngine
 		}
 	}
 
+	// Equity is only sampled while a position is open (and once more when a trade closes), so a long flat
+	// stretch costs nothing and every closed trade keeps its own high/low regardless of run length.
+	private static void TrackTradeEquityLocked(TraderSession session, double bid, double ask, DateTime timestamp)
+	{
+		var trader = session.Trader;
+		bool tradeClosed = trader.TradeLog.Count > session.RecordedTradeCount;
+		if (trader.CurrentPosition is null && !tradeClosed)
+			return;
+
+		double equity = trader.Snapshot(bid, ask).Equity;
+		session.OpenTradeMaxEquity = Math.Max(session.OpenTradeMaxEquity ?? equity, equity);
+		session.OpenTradeMinEquity = Math.Min(session.OpenTradeMinEquity ?? equity, equity);
+		if (!tradeClosed)
+			return;
+
+		session.TradeEquity.Add(
+			new TradeEquityPoint(
+				timestamp,
+				equity,
+				session.OpenTradeMaxEquity.Value,
+				session.OpenTradeMinEquity.Value,
+				trader.TradeLog.Count
+			)
+		);
+		session.RecordedTradeCount = trader.TradeLog.Count;
+		session.OpenTradeMaxEquity = null;
+		session.OpenTradeMinEquity = null;
+	}
+
 	private void ObserveAndApply(DateTime timestamp, double price, double bid, double ask, bool useBars)
 	{
 		var window = new MarketWindow(
@@ -596,7 +628,6 @@ internal sealed class SimulationEngine : ISimulationEngine
 			var execution = session.Trader.Observe(window);
 			if (execution is { } exec)
 				AppendLog(session, LogEntryFor(exec, price, timestamp));
-			session.EquityHistory.Add(new EquityHistoryPoint(timestamp, session.Trader.Snapshot(bid, ask).Equity));
 		}
 	}
 
@@ -664,6 +695,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 				ask = _lastAsk ?? 0;
 			var timestamp = _lastTimestamp ?? DateTime.UtcNow;
 			var execution = session.Trader.Apply(decision, bid, ask, timestamp);
+			TrackTradeEquityLocked(session, bid, ask, timestamp);
 			if (execution is { } exec)
 			{
 				AppendLog(session, LogEntryFor(exec, (bid + ask) / 2.0, timestamp));
@@ -749,7 +781,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 									? inspectable.PolicyStatuses()
 									: Array.Empty<RiskPolicyStatus>(),
 								ts.Trader is IRiskInspectable denialInspectable ? denialInspectable.LastDenial : null,
-								ts.EquityHistory.ToList()
+								ts.TradeEquity.ToList()
 							))
 							.ToList(),
 						bars,
