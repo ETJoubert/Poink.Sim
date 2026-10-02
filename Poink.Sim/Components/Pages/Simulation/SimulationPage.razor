@@ -628,6 +628,15 @@
                                                      Statuses="SelectedTrader?.RiskPolicyStatuses" LastDenial="SelectedTrader?.LastDenial" />
                                 }
                             </PoliciesTab>
+                            <RobotTab>
+                                <RobotPanel Options="_robotPositionOptions" OnOptionsChanged="SetRobotPositionOptions"
+                                            HasSelection="SelectedTrader is not null"
+                                            Balance="SelectedTrader?.Capital.Cash" Leverage="SelectedTrader?.Leverage"
+                                            PipSize="_snapshot?.Config.PipSize ?? 0.01"
+                                            CurrentPrice="_snapshot?.CurrentPrice"
+                                            CurrentBid="_snapshot?.CurrentBid"
+                                            CurrentAsk="_snapshot?.CurrentAsk" />
+                            </RobotTab>
                         </TraderSidePanel>
                     </div>
                 </aside>

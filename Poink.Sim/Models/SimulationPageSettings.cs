@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Poink.Sim.Components.Shared.TradeConsole;
 
 namespace Poink.Sim.Models
 {
@@ -21,6 +22,7 @@ namespace Poink.Sim.Models
 		double Leverage,
 		double CommissionRatePercent,
 		double StopOutLevelPercent,
-		double PipSize
+		double PipSize,
+		TradeConsoleOptions? RobotPositionOptions
 	);
 }

@@ -1,0 +1,33 @@
+.robot-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.robot-subtabs {
+    display: flex;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+.robot-subtab {
+    flex: 1;
+    padding: 5px;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--color-secondary);
+    font-family: var(--font-heading);
+    font-size: 0.64rem;
+    font-weight: bold;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+}
+
+.robot-subtab:hover {
+    color: var(--color-primary);
+}
+
+.robot-subtab.active {
+    color: var(--color-accent);
+    border-bottom-color: var(--color-accent);
+}

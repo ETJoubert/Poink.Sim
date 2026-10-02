@@ -69,6 +69,7 @@ namespace Poink.Sim.Components.Pages
 		private SimulationSnapshot? _snapshot;
 		private bool _isLoading;
 		private bool _playOnLoad;
+		private TradeConsoleOptions? _robotPositionOptions;
 		private string? _error;
 		private bool _hideChart;
 
@@ -674,7 +675,8 @@ namespace Poink.Sim.Components.Pages
 				_leverage,
 				_commissionRatePercent,
 				_stopOutLevelPercent,
-				_pipSize
+				_pipSize,
+				_robotPositionOptions
 			);
 
 		// A simulation already held by the service (page revisited) is shown as-is instead of reloaded.
@@ -710,6 +712,7 @@ namespace Poink.Sim.Components.Pages
 			_commissionRatePercent = settings.CommissionRatePercent;
 			_stopOutLevelPercent = settings.StopOutLevelPercent;
 			_pipSize = settings.PipSize;
+			_robotPositionOptions = settings.RobotPositionOptions;
 		}
 
 		private async Task PersistSettingsIfChangedAsync()
@@ -976,6 +979,8 @@ namespace Poink.Sim.Components.Pages
 			}
 			return true;
 		}
+
+		private void SetRobotPositionOptions(TradeConsoleOptions options) => _robotPositionOptions = options;
 
 		private IReadOnlyList<string>? SelectedRiskPolicies =>
 			_selectedRiskPolicies.Count > 0 ? _selectedRiskPolicies.ToList() : null;
