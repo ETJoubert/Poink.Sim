@@ -13,8 +13,12 @@ internal interface ISimulationEngine : IDisposable
 	string? Error { get; }
 	SimulationProgress? Progress { get; }
 
+	/// <summary>Each trader's per-trade equity record by trader id; kept current at max speed too, when no snapshot is published.</summary>
+	IReadOnlyDictionary<int, IReadOnlyList<TradeEquityPoint>> TradeEquityByTrader { get; }
+
 	event Action? OnChanged;
 	event Action? OnProgress;
+	event Action? OnTradeEquityChanged;
 
 	bool TryLoad(SimulationConfig config);
 	bool Play();
