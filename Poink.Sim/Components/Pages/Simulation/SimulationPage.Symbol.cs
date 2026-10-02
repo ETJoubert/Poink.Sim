@@ -18,12 +18,8 @@ namespace Poink.Sim.Components.Pages
 	public partial class SimulationPage
 	{
 		[Inject]
-		private ISymbolService SymbolService { get; set; } = default!;
+		private ISymbolTableResolver SymbolTableResolver { get; set; } = default!;
 
-		[Inject]
-		private ISymbolMetadataCache SymbolMetadataCache { get; set; } = default!;
-
-		private IReadOnlyList<SymbolModel>? _symbols;
 		private SymbolModel? _symbol;
 		private SymbolMetadataModel? _symbolMetadata;
 		private SymbolTradingLimits? _symbolLimits;
@@ -43,18 +39,12 @@ namespace Poink.Sim.Components.Pages
 			_symbolLimits = null;
 			try
 			{
-				_symbols ??= await SymbolService.ListAsync();
-				_symbol = _symbols.FirstOrDefault(s => IsTableOf(s, table));
-				if (_symbol is not null)
-				{
-					await SymbolMetadataCache.EnsureAsync(_symbol.SymbolId);
-					_symbolMetadata = SymbolMetadataCache.Get(_symbol.SymbolId);
-				}
-				if (_symbolMetadata is { } metadata)
-				{
-					_symbolLimits = SymbolTradingLimits.FromMetadata(metadata);
-					_pipSize = _symbolLimits.PipSize;
-				}
+				var resolution = await SymbolTableResolver.ResolveAsync(table);
+				_symbol = resolution.Symbol;
+				_symbolMetadata = resolution.Metadata;
+				_symbolLimits = resolution.Limits;
+				if (_symbolLimits is { } limits)
+					_pipSize = limits.PipSize;
 			}
 			catch (Exception ex)
 			{
@@ -73,9 +63,5 @@ namespace Poink.Sim.Components.Pages
 			await EnsureSymbolMetadataAsync();
 			StateHasChanged();
 		}
-
-		private static bool IsTableOf(SymbolModel symbol, string table) =>
-			string.Equals(TickTableNaming.ForSymbol(symbol.SymbolName, isLive: true), table, StringComparison.OrdinalIgnoreCase)
-			|| string.Equals(TickTableNaming.ForSymbol(symbol.SymbolName, isLive: false), table, StringComparison.OrdinalIgnoreCase);
 	}
 }

@@ -1,0 +1,54 @@
+.stats-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.6rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.stats-table th {
+    text-align: right;
+    font-weight: normal;
+    letter-spacing: 0.04em;
+    color: var(--color-primary);
+    border-bottom: 1px solid color-mix(in srgb, var(--color-secondary) 25%, transparent);
+    padding: 3px 6px;
+    white-space: nowrap;
+}
+
+.stats-table th:first-child,
+.stats-table td:first-child {
+    text-align: left;
+}
+
+.stats-table td {
+    text-align: right;
+    padding: 3px 6px;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-secondary) 10%, transparent);
+    white-space: nowrap;
+}
+
+.stats-name {
+    color: var(--color-primary);
+}
+
+.stats-ci {
+    opacity: 0.55;
+    margin-left: 2px;
+}
+
+.stats-pos {
+    color: var(--color-success);
+}
+
+.stats-neg {
+    color: var(--color-error);
+}
+
+.stats-baseline td {
+    font-style: italic;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-secondary) 35%, transparent);
+}
+
+.stats-notable td {
+    background: color-mix(in srgb, var(--color-success) 8%, transparent);
+}
