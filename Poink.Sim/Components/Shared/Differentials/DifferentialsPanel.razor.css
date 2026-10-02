@@ -1,0 +1,74 @@
+.differentials-panel {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: var(--border-radius-sm);
+    background: rgba(255, 255, 255, 0.015);
+    font-size: 0.6rem;
+    overflow: hidden;
+}
+
+.differentials-header {
+    flex: 0 0 auto;
+    padding: 4px 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    font-size: 0.6rem;
+    letter-spacing: 0.1em;
+    color: var(--color-secondary);
+    opacity: 0.85;
+}
+
+.differentials-empty {
+    margin: auto;
+    color: var(--color-secondary);
+    opacity: 0.7;
+}
+
+.differentials-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+}
+
+.differentials-table {
+    width: auto;
+    min-width: 100%;
+    border-collapse: collapse;
+    font-variant-numeric: tabular-nums;
+}
+
+.differentials-table th,
+.differentials-table td {
+    padding: 3px 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    white-space: nowrap;
+    text-align: right;
+}
+
+.differentials-table th {
+    position: sticky;
+    top: 0;
+    background: var(--color-bg-terminal);
+    color: var(--color-secondary);
+    font-weight: normal;
+}
+
+.differentials-table th.differentials-corner,
+.differentials-table td.differentials-label {
+    text-align: left;
+}
+
+.differentials-label {
+    color: var(--color-accent);
+}
+
+.differentials-up {
+    color: var(--color-success);
+}
+
+.differentials-down {
+    color: var(--color-error);
+}

@@ -1,4 +1,6 @@
 @namespace Poink.Sim.Components.Charts
+@using Poink.Sim.Components.Shared.Differentials
+@using Poink.Sim.Components.Shared.Measurements
 
 <div class="xgrid-controller-wrapper">
     <MetricsControlPanel Display="_display" DisplayChanged="SetDisplay"
@@ -6,12 +8,17 @@
                           LowPointOverlay="_lowPointOverlay" LowPointOverlayChanged="SetLowPointOverlay"
                           HighPointOverlay="_highPointOverlay" HighPointOverlayChanged="SetHighPointOverlay" />
     <div class="xgrid-controller-row">
-        <XGrid Grid="Grid" PipCount="PipCount" PipCountChanged="SetPipCount"
+        <XGrid @ref="_xGrid" Grid="Grid" PipCount="PipCount" PipCountChanged="SetPipCount"
                ColCount="ColCount" ColCountChanged="SetColCount" ProfileBarCount="ProfileBarCount" Display="_display" Spectrum="_spectrum"
                LowPointOverlay="_lowPointOverlay" HighPointOverlay="_highPointOverlay"
                ExpandedControls="ExpandedControls" Lines="Lines" OnLineDrawn="OnLineDrawn"
                Positions="Positions" OnOrderPlaced="OnOrderPlaced" Pending="Pending"
                OnPendingModified="OnPendingModified" OnPendingCancelled="OnPendingCancelled"
-               OnPositionClosed="OnPositionClosed" ExternalDraft="ExternalDraft" PipSize="PipSize" />
+               OnPositionClosed="OnPositionClosed" ExternalDraft="ExternalDraft" PipSize="PipSize"
+               SelectionChanged="SetSelections" />
+        <div class="xgrid-controller-side">
+            <MeasurementsPanel Title="@XGridMeasurementHelper.Title(_selections)" Columns="MeasurementColumns" OnRemove="RemoveSelection" />
+            <DifferentialsPanel Pairs="DifferentialPairs" PipSize="PipSize" />
+        </div>
     </div>
 </div>

@@ -1,6 +1,8 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
+using Poink.Sim.Components.Shared.Differentials;
+using Poink.Sim.Components.Shared.Measurements;
 
 namespace Poink.Sim.Components.Charts
 {
@@ -68,6 +70,20 @@ namespace Poink.Sim.Components.Charts
 		private XGridSpectrumSettings _spectrum = new();
 		private XGridPeakOverlaySettings _lowPointOverlay = new();
 		private XGridPeakOverlaySettings _highPointOverlay = new();
+
+		private IReadOnlyList<XGridSelection> _selections = [];
+
+		private IReadOnlyList<MeasurementColumn> MeasurementColumns =>
+			Grid is { } grid ? XGridMeasurementHelper.MeasureAll(grid, _selections) : [];
+
+		private IReadOnlyList<DifferentialPair> DifferentialPairs =>
+			Grid is { } grid ? XGridDifferentialHelper.BuildPairs(grid, _selections) : [];
+
+		private XGrid? _xGrid;
+
+		private void RemoveSelection(int index) => _xGrid?.RemoveSelectionAt(index);
+
+		private void SetSelections(IReadOnlyList<XGridSelection> value) => _selections = value;
 
 		private Task SetPipCount(int value) => PipCountChanged.InvokeAsync(PipCount = value);
 

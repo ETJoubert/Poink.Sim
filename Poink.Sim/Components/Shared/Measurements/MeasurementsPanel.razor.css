@@ -1,0 +1,86 @@
+.measurements-panel {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: var(--border-radius-sm);
+    background: rgba(255, 255, 255, 0.015);
+    font-size: 0.6rem;
+    overflow: hidden;
+}
+
+.measurements-header {
+    flex: 0 0 auto;
+    padding: 4px 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    letter-spacing: 0.1em;
+    color: var(--color-secondary);
+    opacity: 0.85;
+}
+
+.measurements-empty {
+    margin: auto;
+    color: var(--color-secondary);
+    opacity: 0.7;
+}
+
+.measurements-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+}
+
+.measurements-table {
+    width: auto;
+    min-width: 100%;
+    border-collapse: collapse;
+    font-variant-numeric: tabular-nums;
+}
+
+.measurements-table th,
+.measurements-table td {
+    padding: 3px 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    white-space: nowrap;
+}
+
+.measurements-table th {
+    position: sticky;
+    top: 0;
+    background: var(--color-bg-terminal);
+    color: var(--color-secondary);
+    text-align: right;
+    font-weight: normal;
+}
+
+.measurements-table th.measurements-corner {
+    text-align: left;
+}
+
+.measurements-label {
+    color: var(--color-accent);
+    text-align: left;
+}
+
+.measurements-value {
+    text-align: right;
+}
+
+.measurements-remove {
+    margin-right: 4px;
+    padding: 0 3px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--border-radius-sm);
+    color: var(--color-secondary);
+    font-size: 0.7rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.measurements-remove:hover {
+    color: var(--color-error);
+    border-color: var(--color-error);
+}
