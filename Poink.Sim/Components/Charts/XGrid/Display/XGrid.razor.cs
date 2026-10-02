@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
@@ -294,10 +295,87 @@ namespace Poink.Sim.Components.Charts
 
 		private readonly List<XGridLine> _userLines = new();
 
+
 		// Opt-in segment tool -- while active a click places a start cell, the next an end cell.
 		private bool _lineMode;
 
-		private void ToggleLineMode() => _lineMode = !_lineMode;
+		private void ToggleLineMode()
+		{
+			_lineMode = !_lineMode;
+			if (_lineMode)
+				SetSelectMode(false);
+		}
+
+		// Click-to-measure mode: cells, the left margin and the bottom margin select instead of drawing.
+		private bool _selectMode;
+		private readonly List<XGridSelection> _selections = new();
+
+		/// <summary>Raised with every selected cell, row or column in click order -- all of one kind -- whenever it changes.</summary>
+		[Parameter]
+		public EventCallback<IReadOnlyList<XGridSelection>> SelectionChanged { get; set; }
+
+		private void ToggleSelectMode() => SetSelectMode(!_selectMode);
+
+		private void SetSelectMode(bool on)
+		{
+			_selectMode = on;
+			if (on)
+				_lineMode = false;
+			else
+				ClearSelections();
+		}
+
+		private void ClearSelections()
+		{
+			if (_selections.Count == 0)
+				return;
+			_selections.Clear();
+			PublishSelections();
+		}
+
+		private void PublishSelections() => _ = SelectionChanged.InvokeAsync([.. _selections]);
+
+		/// <summary>Drops one selection by its position in click order; the imperative counterpart to clicking it again.</summary>
+		public void RemoveSelectionAt(int index)
+		{
+			if (index < 0 || index >= _selections.Count)
+				return;
+			_selections.RemoveAt(index);
+			PublishSelections();
+			StateHasChanged();
+		}
+
+		// Selections stay one kind so a differential always compares like with like.
+		private Task SelectToggle(XGridSelection selection)
+		{
+			if (_selections.Count > 0 && _selections[0].Kind != selection.Kind)
+				_selections.Clear();
+			if (!_selections.Remove(selection))
+				_selections.Add(selection);
+			PublishSelections();
+			return InvokeAsync(StateHasChanged);
+		}
+
+		[JSInvokable]
+		public Task SelectCell(int row, int col) => SelectToggle(new XGridSelection(XGridSelectionKind.Cell, row, col));
+
+		[JSInvokable]
+		public Task SelectRow(int row) => SelectToggle(new XGridSelection(XGridSelectionKind.Row, row, 0));
+
+		[JSInvokable]
+		public Task SelectColumn(int col) => SelectToggle(new XGridSelection(XGridSelectionKind.Column, 0, col));
+
+		// A new resolution re-slices the grid, so an index selected before it would point at different data.
+		private int _selectionPipCount, _selectionColCount;
+
+		protected override void OnParametersSet()
+		{
+			if ((_selectionPipCount, _selectionColCount) != (PipCount, ColCount))
+			{
+				(_selectionPipCount, _selectionColCount) = (PipCount, ColCount);
+				ClearSelections();
+			}
+		}
 
 		private IJSObjectReference? _module;
 		private DotNetObjectReference<XGrid>? _dotNetRef;
@@ -478,6 +556,8 @@ namespace Poink.Sim.Components.Charts
 				},
 				margins = true,
 				lineMode = _lineMode,
+				selectMode = _selectMode,
+				selections = _selections.Select(sel => new { kind = sel.Kind.ToString().ToLowerInvariant(), row = sel.Row, col = sel.Col }).ToList(),
 			};
 		}
 

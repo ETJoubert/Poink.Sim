@@ -23,6 +23,8 @@
                 title="Remove every line you have drawn -- host-supplied lines are left intact">Clear</button>
         <button class="xgrid-draw-toggle @(_lineMode ? "active" : "")" @onclick="ToggleLineMode"
                 title="@(_lineMode ? "Exit the line tool -- return to plain hovering" : "Line tool -- click a start cell then an end cell to place a segment")">Line</button>
+        <button class="xgrid-draw-toggle @(_selectMode ? "active" : "")" @onclick="ToggleSelectMode"
+                title="@(_selectMode ? "Exit select mode -- the selection is cleared" : "Select mode -- click a cell, a left-margin cell for its row or a bottom-margin cell for its column to measure it. Click it again to clear")">Select</button>
         <span class="xgrid-draw-label" title="Draw lines over the grid. In Line mode, click a start cell then an end cell to place a segment; the endpoints' borders highlight. Click a bottom-margin cell for a vertical line, a left-margin cell for a horizontal line. Hover a line for its duration, pip delta and percent diff. Right-click a line to remove it.">Draw</span>
         <div class="xgrid-line-pills">
             @for (var i = 0; i < _userLines.Count; i++)

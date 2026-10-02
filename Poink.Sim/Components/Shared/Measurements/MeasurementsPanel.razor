@@ -1,0 +1,43 @@
+@namespace Poink.Sim.Components.Shared.Measurements
+
+<div class="measurements-panel">
+    <div class="measurements-header" title="Measurements of whatever is currently selected">@Title</div>
+    @if (Columns.Count == 0)
+    {
+        <div class="measurements-empty" title="Nothing is selected">@EmptyMessage</div>
+    }
+    else
+    {
+        <div class="measurements-scroll">
+            <table class="measurements-table">
+                <thead>
+                    <tr>
+                        <th class="measurements-corner" title="Selection">&nbsp;</th>
+                        @foreach (var item in Columns[0].Items)
+                        {
+                            <th title="@item.Tooltip">@item.Label</th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    @for (var row = 0; row < Columns.Count; row++)
+                    {
+                        var index = row;
+                        var selection = Columns[index];
+                        <tr>
+                            <td class="measurements-label" title="@selection.Header">
+                                <button type="button" class="measurements-remove" @onclick="() => OnRemove.InvokeAsync(index)"
+                                        title="Remove @selection.Header from the selection">&times;</button>
+                                @selection.Header
+                            </td>
+                            @for (var c = 0; c < Columns[0].Items.Count; c++)
+                            {
+                                <td class="measurements-value" title="@Columns[0].Items[c].Tooltip">@(c < selection.Items.Count ? selection.Items[c].Value : "--")</td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>

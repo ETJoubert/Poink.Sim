@@ -274,6 +274,8 @@ function render(ctx, W, H, p, st, canvas) {
     drawPending(ctx, L, p, st);
     drawDraft(ctx, L, p);
 
+    drawSelection(ctx, L, p);
+
     if (st.pending) strokeCell(ctx, L, st.pending.row, st.pending.col, cssVar('--color-accent'), 1.5, [3, 2]);
 
     const hv = st.hover;
@@ -553,6 +555,28 @@ function strokeMask(ctx, mask, rows, cols, ml, cw, ch, gap, color, width) {
     ctx.stroke();
 }
 
+function drawSelection(ctx, L, p) {
+    if (!p.selections) return;
+    const accent = cssVar('--color-accent');
+    ctx.save();
+    ctx.fillStyle = `rgba(${rgb(accent)},0.18)`;
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = 1.5;
+    for (const sel of p.selections) {
+        if (sel.kind === 'cell') {
+            strokeCell(ctx, L, sel.row, sel.col, accent, 2.5, []);
+        } else if (sel.kind === 'row') {
+            ctx.fillRect(0, sel.row * L.ch, L.gRight + L.mr, L.ch);
+            ctx.strokeRect(0.5, sel.row * L.ch + 0.5, L.gRight + L.mr - 1, L.ch - 1);
+        } else {
+            const x = L.ml + sel.col * L.cw;
+            ctx.fillRect(x, 0, L.cw, L.gBottom + L.mb);
+            ctx.strokeRect(x + 0.5, 0.5, L.cw - 1, L.gBottom + L.mb - 1);
+        }
+    }
+    ctx.restore();
+}
+
 function strokeCell(ctx, L, row, col, color, width, dash) {
     const gap = (L.cw > 3 && L.ch > 3) ? 1 : 0;
     ctx.save();
@@ -694,7 +718,7 @@ function onMove(canvas, e) {
     paint(canvas);
 
     canvas.style.cursor = (newLine || newPos || newPend || newMargin) ? 'pointer'
-        : newCell && p.lineMode ? 'crosshair'
+        : newCell && (p.lineMode || p.selectMode) ? 'crosshair'
             : st.zoom.scale > 1.001 ? 'grab'
                 : 'default';
 
@@ -803,6 +827,14 @@ function onClick(canvas, e) {
     const L = layout(p, canvas.clientWidth, canvas.clientHeight);
     const reg = region(p, L, x, y);
     if (!reg) return;
+
+    if (p.selectMode) {
+        if (reg.type === 'left') st.dotNetRef.invokeMethodAsync('SelectRow', reg.index);
+        else if (reg.type === 'bottom') st.dotNetRef.invokeMethodAsync('SelectColumn', reg.index);
+        else if (reg.type === 'cell') st.dotNetRef.invokeMethodAsync('SelectCell', reg.row, reg.col);
+        else if (reg.type === 'right') st.dotNetRef.invokeMethodAsync('RightMarginClick', reg.index);
+        return;
+    }
 
     if (reg.type === 'left') {
         st.dotNetRef.invokeMethodAsync('ToggleHorizontalLine', reg.index);

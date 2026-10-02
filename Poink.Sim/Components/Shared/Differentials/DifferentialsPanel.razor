@@ -1,0 +1,52 @@
+@namespace Poink.Sim.Components.Shared.Differentials
+
+<div class="differentials-panel">
+    <div class="differentials-header" title="Gap between each pair of values, measured from the first to the second">@Title</div>
+    @if (_measures.Count == 0)
+    {
+        <div class="differentials-empty" title="Nothing to measure yet">@EmptyMessage</div>
+    }
+    else
+    {
+        <div class="differentials-scroll">
+            <table class="differentials-table">
+                <thead>
+                    <tr>
+                        <th class="differentials-corner" title="Pair of values, measured from the first to the second">&nbsp;</th>
+                        <th title="Price difference">Price</th>
+                        <th title="Difference in pips">Pips</th>
+                        <th title="Percent difference from the first value">Percent</th>
+                        <th title="Time between the two values">Time</th>
+                        @foreach (var label in _metricLabels)
+                        {
+                            <th title="Change in @label, and as a percent of the first value">@label</th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var m in _measures)
+                    {
+                        <tr>
+                            <td class="differentials-label" title="@m.Label">@m.Label</td>
+                            <td class="@SignClass(m.Absolute)">@Format(m.Absolute, "+0.00000;-0.00000;0.00000")</td>
+                            <td class="@SignClass(m.Absolute)">@Format(m.Pips, "+0.0;-0.0;0.0")</td>
+                            <td class="@SignClass(m.Absolute)">@Format(m.Percent, "+0.000;-0.000;0.000")%</td>
+                            <td>@(m.Duration is { } duration ? DurationText(duration) : "--")</td>
+                            @foreach (var label in _metricLabels)
+                            {
+                                @if (MetricOf(m, label) is { } metric)
+                                {
+                                    <td class="@SignClass(metric.Absolute)">@Format(metric.Absolute, "+#,0.##;-#,0.##;0") (@Format(metric.Percent, "+0.0;-0.0;0.0")%)</td>
+                                }
+                                else
+                                {
+                                    <td>--</td>
+                                }
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
