@@ -5,8 +5,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
-using Poink.Sim.Brain;
-using Poink.Sim.Brain.Neural;
 using Poink.Sim.Models;
 using Poink.Sim.Repository;
 using Poink.Sim.Trader;
@@ -16,7 +14,7 @@ namespace Poink.Sim.Simulation;
 
 /// <summary>
 /// Interactive replay driver for one shared, in-process simulation run: plays, pauses and
-/// steps ticks through the shared aggregator, brain and trader, and publishes an immutable
+/// steps ticks through the shared aggregator and trader, and publishes an immutable
 /// snapshot after each callback for the UI to render.
 /// </summary>
 internal sealed class SimulationEngine : ISimulationEngine
@@ -40,7 +38,6 @@ internal sealed class SimulationEngine : ISimulationEngine
 	private static double PriceBucketWidthFor(string table) => DefaultPriceBucketWidth;
 
 	private readonly object _lock = new();
-	private readonly BrainRegistry _brainRegistry;
 	private readonly Timer _timer;
 
 	private sealed class TraderSession
@@ -63,12 +60,10 @@ internal sealed class SimulationEngine : ISimulationEngine
 	private (long Cell, double Low, double High)? _lastCellStep;
 	private DateTime? _lastCellStepUtc;
 	private List<TraderSession> _traderSessions = new();
-	private ISimulationBrain? _activeBrain;
 	private double _speedMultiplier = 1.0;
 	private bool _uncapped;
 	private bool _isPlaying;
 
-	private int? _selectedTraderIdForIo;
 
 	private RiskPolicyToggles? _riskToggles;
 
@@ -87,14 +82,12 @@ internal sealed class SimulationEngine : ISimulationEngine
 	private readonly ILogger<SimulationEngine> _logger;
 
 	public SimulationEngine(
-		BrainRegistry brainRegistry,
 		ITickRepository tickRepository,
 		Trader.ITraderFactory traderFactory,
 		IRiskPolicyService riskPolicyService,
 		ILogger<SimulationEngine> logger
 	)
 	{
-		_brainRegistry = brainRegistry;
 		_tickRepository = tickRepository;
 		_traderFactory = traderFactory;
 		_riskPolicyService = riskPolicyService;
@@ -102,7 +95,6 @@ internal sealed class SimulationEngine : ISimulationEngine
 		_timer = new Timer(TimerCallback, null, Timeout.Infinite, Timeout.Infinite);
 	}
 
-	public IReadOnlyList<string> BrainNames => _brainRegistry.All.Select(b => b.Name).ToList();
 	public SimulationSnapshot? Snapshot { get; private set; }
 	public bool IsLoading { get; private set; }
 	public string? Error { get; private set; }
@@ -152,14 +144,6 @@ internal sealed class SimulationEngine : ISimulationEngine
 
 	private void FinishLoad(SimulationConfig config, int totalCount, Func<IEnumerator<Tick>> openReader, string source)
 	{
-		var brains = _brainRegistry.All;
-		var brain = brains.FirstOrDefault(b => b.Name == config.BrainName) ?? brains.FirstOrDefault();
-		if (brain is null)
-			throw new InvalidOperationException("no simulation brain registered");
-
-		if (brain is IPolicyGradientBrain inferenceBrain)
-			inferenceBrain.MoveToInferenceDevice();
-
 		lock (_lock)
 		{
 			_timer.Change(Timeout.Infinite, Timeout.Infinite);
@@ -173,10 +157,8 @@ internal sealed class SimulationEngine : ISimulationEngine
 			_traderSessions = CreateSessions(
 				config.TraderCount,
 				config.StartingCash,
-				BuildTraderSettings(config, _riskToggles, brain)
+				BuildTraderSettings(config, _riskToggles)
 			);
-			_selectedTraderIdForIo = _traderSessions.Count > 0 ? _traderSessions[0].Id : null;
-			UpdateCaptureIoLocked();
 			_aggregator = config.Aggregate
 				? new SimulationBarAggregator(config.BarSize, PriceBucketWidthFor(config.Table))
 				: null;
@@ -184,8 +166,6 @@ internal sealed class SimulationEngine : ISimulationEngine
 			_cellStepCount = 0;
 			_lastCellStep = null;
 			_lastCellStepUtc = null;
-			_activeBrain = brain;
-			_activeBrain.Reset();
 			_recentBars.Clear();
 			_recentBarHistograms.Clear();
 			_recentTicks.Clear();
@@ -198,12 +178,11 @@ internal sealed class SimulationEngine : ISimulationEngine
 		}
 
 		_logger.LogInformation(
-			"Loaded {Source} simulation: table={Table}, from={From}, to={To}, brain={Brain}, ticks={TotalCount}",
+			"Loaded {Source} simulation: table={Table}, from={From}, to={To}, ticks={TotalCount}",
 			source,
 			config.Table,
 			config.From,
 			config.To,
-			brain.Name,
 			totalCount
 		);
 	}
@@ -219,27 +198,14 @@ internal sealed class SimulationEngine : ISimulationEngine
 			})
 			.ToList();
 
-	// The same brain instance is shared by every trader in the run (stateless decision function
-	// over its observation, guarded internally by its own forward-pass lock), not per-trader-owned.
-	private static Trader.TraderSettings BuildTraderSettings(
-		SimulationConfig config,
-		RiskPolicyToggles? toggles,
-		ISimulationBrain? brain
-	) =>
+	private static Trader.TraderSettings BuildTraderSettings(SimulationConfig config, RiskPolicyToggles? toggles) =>
 		new(
 			config.Leverage,
 			config.StopOutLevelPercent,
 			new Trader.Commission.PercentOfNotionalCommission(config.CommissionRatePercent),
 			config.RiskPolicyNames,
-			toggles,
-			brain
+			toggles
 		);
-
-	private void UpdateCaptureIoLocked()
-	{
-		foreach (var session in _traderSessions)
-			session.Trader.CaptureIo = session.Id == _selectedTraderIdForIo;
-	}
 
 	public bool Play()
 	{
@@ -393,10 +359,8 @@ internal sealed class SimulationEngine : ISimulationEngine
 		_traderSessions = CreateSessions(
 			_config!.TraderCount,
 			_config.StartingCash,
-			BuildTraderSettings(_config, _riskToggles, _activeBrain)
+			BuildTraderSettings(_config, _riskToggles)
 		);
-		_selectedTraderIdForIo = _traderSessions.Count > 0 ? _traderSessions[0].Id : null;
-		UpdateCaptureIoLocked();
 		_aggregator = _config.Aggregate
 			? new SimulationBarAggregator(_config.BarSize, PriceBucketWidthFor(_config.Table))
 			: null;
@@ -404,7 +368,6 @@ internal sealed class SimulationEngine : ISimulationEngine
 		_cellStepCount = 0;
 		_lastCellStep = null;
 		_lastCellStepUtc = null;
-		_activeBrain?.Reset();
 		_recentBars.Clear();
 		_recentBarHistograms.Clear();
 		_recentTicks.Clear();
@@ -415,7 +378,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 		_isPlaying = false;
 	}
 
-	// Trader/brain state is only valid built up tick by tick, so a backward seek replays from
+	// Trader state is only valid built up tick by tick, so a backward seek replays from
 	// the start; either way every tick to the target still runs, so a large jump takes a while.
 	public bool Seek(int targetIndex)
 	{
@@ -465,7 +428,6 @@ internal sealed class SimulationEngine : ISimulationEngine
 			_cellStepCount = 0;
 			_lastCellStep = null;
 			_lastCellStepUtc = null;
-			_activeBrain = null;
 			_isPlaying = false;
 			_recentBars.Clear();
 			_recentBarHistograms.Clear();
@@ -602,19 +564,6 @@ internal sealed class SimulationEngine : ISimulationEngine
 		}
 	}
 
-	public bool SetTraderMode(int traderId, TraderControlMode mode)
-	{
-		lock (_lock)
-		{
-			var session = _traderSessions.FirstOrDefault(s => s.Id == traderId);
-			if (session is null)
-				return false;
-			session.Trader.ControlMode = mode;
-		}
-		PublishSnapshot();
-		return true;
-	}
-
 	public bool SetRiskPolicyEnabled(string policyName, bool enabled)
 	{
 		bool changed;
@@ -664,17 +613,6 @@ internal sealed class SimulationEngine : ISimulationEngine
 		return true;
 	}
 
-	public void SelectTraderForIo(int? traderId)
-	{
-		lock (_lock)
-		{
-			_selectedTraderIdForIo = traderId;
-			UpdateCaptureIoLocked();
-		}
-	}
-
-	// Submitting a manual decision seizes control immediately, whatever the trader's current
-	// mode -- the Agent goes quiet (ControlMode != Auto) until the user flips back.
 	public bool SubmitManualDecision(int traderId, SimulationDecision decision, out RiskPolicyDenial? denial)
 	{
 		denial = null;
@@ -690,7 +628,6 @@ internal sealed class SimulationEngine : ISimulationEngine
 				ask = _lastAsk ?? 0;
 			var timestamp = _lastTimestamp ?? DateTime.UtcNow;
 			var execution = session.Trader.Apply(decision, bid, ask, timestamp);
-			session.Trader.ControlMode = TraderControlMode.Manual;
 			if (execution is { } exec)
 			{
 				AppendLog(session, LogEntryFor(exec, (bid + ask) / 2.0, timestamp));
@@ -762,7 +699,6 @@ internal sealed class SimulationEngine : ISimulationEngine
 							.Select(ts => new TraderSnapshot(
 								ts.Id,
 								ts.Label,
-								ts.Trader.ControlMode,
 								ts.Trader.Snapshot(_lastBid ?? 0, _lastAsk ?? 0),
 								ts.Trader.CurrentPosition,
 								ts.Trader.CurrentPendingOrder,
@@ -773,8 +709,6 @@ internal sealed class SimulationEngine : ISimulationEngine
 								ts.Trader.MaxDrawdown,
 								ts.Trader.Leverage,
 								ts.Trader.StopOutLevelPercent,
-								ts.Trader.LatestInputs,
-								ts.Trader.LatestOutputs,
 								ts.Trader is IRiskInspectable inspectable
 									? inspectable.PolicyStatuses()
 									: Array.Empty<RiskPolicyStatus>(),

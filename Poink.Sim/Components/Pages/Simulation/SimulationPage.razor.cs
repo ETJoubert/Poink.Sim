@@ -30,15 +30,6 @@ namespace Poink.Sim.Components.Pages
 		private IJSRuntime JS { get; set; } = default!;
 
 		[Inject]
-		private ITrainingService TrainingService { get; set; } = default!;
-
-		[Inject]
-		private IBrainService BrainService { get; set; } = default!;
-
-		[Inject]
-		private IModelService ModelService { get; set; } = default!;
-
-		[Inject]
 		private IRiskPolicyService RiskPolicyService { get; set; } = default!;
 
 		[Inject]
@@ -59,9 +50,6 @@ namespace Poink.Sim.Components.Pages
 		private int _barSizeSeconds = 60;
 		private SimulationSteppingMode _steppingMode = SimulationSteppingMode.Bar;
 		private double _cellWidth = 0.10;
-		private string _brainName = "";
-
-		private Guid? _modelId;
 
 		private double _startingCash = 10_000;
 		private int _traderCount = 1;
@@ -158,7 +146,6 @@ namespace Poink.Sim.Components.Pages
 		{
 			Setup,
 			Traders,
-			TraderIo,
 			RuleEngine,
 		}
 
@@ -518,42 +505,6 @@ namespace Poink.Sim.Components.Pages
 			return bars.Count > 0 ? bars[^1].OpenTime : null;
 		}
 
-		private sealed record SimulationBrainOption(string DisplayName, string BrainName, Guid? ModelId);
-
-		private IReadOnlyList<SimulationBrainOption> SimulationBrainOptions =>
-			ModelService
-				.Models.Select(m => new SimulationBrainOption($"{m.Name} ({m.BrainName})", m.BrainName, m.Id))
-				.Concat(
-					BrainService
-						.BrainOptions.Where(b => !b.IsNeuralNetwork)
-						.Select(b => new SimulationBrainOption(b.Name, b.Name, null))
-				)
-				.ToList();
-
-		private static string OptionKey(SimulationBrainOption option) =>
-			option.ModelId is { } id ? $"model:{id}" : $"heuristic:{option.BrainName}";
-
-		private string SelectedOptionKey =>
-			SimulationBrainOptions.FirstOrDefault(o => o.BrainName == _brainName && o.ModelId == _modelId)
-				is { } selected
-				? OptionKey(selected)
-				: "";
-
-		private void OnSimulationBrainChanged(ChangeEventArgs e)
-		{
-			var option = SimulationBrainOptions.FirstOrDefault(o => OptionKey(o) == (e.Value?.ToString() ?? ""));
-			if (option is null)
-				return;
-
-			_brainName = option.BrainName;
-			_modelId = option.ModelId;
-			if (option.ModelId is { } modelId)
-				TrainingService.LoadSavedBrain(modelId);
-		}
-
-		private bool CurrentBrainIsNeuralNetwork(string brainName) =>
-			BrainService.BrainOptions.FirstOrDefault(b => b.Name == brainName)?.IsNeuralNetwork ?? false;
-
 		private TraderSnapshot? SelectedTrader =>
 			_snapshot is null
 				? null
@@ -563,10 +514,7 @@ namespace Poink.Sim.Components.Pages
 		private void SelectTrader(int id)
 		{
 			_selectedTraderId = id;
-			SimulationService.SelectTraderForIo(id);
 		}
-
-		private static bool TraderIsManual(TraderSnapshot trader) => trader.Mode == TraderControlMode.Manual;
 
 		private static string TraderPositionStatus(TraderSnapshot trader) =>
 			trader.Position is { } position ? (position.Direction == PositionDirection.Long ? "LONG" : "SHORT")
@@ -586,18 +534,6 @@ namespace Poink.Sim.Components.Pages
 				null => null,
 				_ => null,
 			};
-
-		private bool SelectedTraderIsManual => SelectedTrader?.Mode == TraderControlMode.Manual;
-
-		private void ToggleSelectedTraderMode()
-		{
-			if (SelectedTrader is not { } trader)
-				return;
-			SimulationService.SetTraderMode(
-				trader.Id,
-				SelectedTraderIsManual ? TraderControlMode.Auto : TraderControlMode.Manual
-			);
-		}
 
 		private List<EquityCurveSample> SelectedTraderEquityCurveSamples
 		{
@@ -619,15 +555,6 @@ namespace Poink.Sim.Components.Pages
 			SimulationService.OnChanged += HandleServiceChanged;
 			ApplyServiceState();
 			_selectedRiskPolicies.AddRange(RiskPolicyService.AvailablePolicies.Select(p => p.Name));
-
-			if (SimulationBrainOptions.Count > 0)
-			{
-				var first = SimulationBrainOptions[0];
-				_brainName = first.BrainName;
-				_modelId = first.ModelId;
-				if (first.ModelId is { } modelId)
-					TrainingService.LoadSavedBrain(modelId);
-			}
 		}
 
 		// Start is load-then-play in one click; the load runs in the background, so playback begins
@@ -742,8 +669,6 @@ namespace Poink.Sim.Components.Pages
 				_barSizeSeconds,
 				_steppingMode,
 				_cellWidth,
-				_brainName,
-				_modelId,
 				_startingCash,
 				_traderCount,
 				_leverage,
@@ -779,8 +704,6 @@ namespace Poink.Sim.Components.Pages
 			_barSizeSeconds = settings.BarSizeSeconds;
 			_steppingMode = settings.SteppingMode;
 			_cellWidth = settings.CellWidth;
-			_brainName = settings.BrainName;
-			_modelId = settings.ModelId;
 			_startingCash = settings.StartingCash;
 			_traderCount = settings.TraderCount;
 			_leverage = settings.Leverage;
@@ -992,11 +915,6 @@ namespace Poink.Sim.Components.Pages
 				_loadError = "To must be after From";
 				return;
 			}
-			if (string.IsNullOrWhiteSpace(_brainName))
-			{
-				_loadError = "pick a brain";
-				return;
-			}
 			if (_startingCash <= 0)
 			{
 				_loadError = "starting cash must be positive";
@@ -1013,7 +931,6 @@ namespace Poink.Sim.Components.Pages
 				_to,
 				_aggregate,
 				TimeSpan.FromSeconds(_barSizeSeconds),
-				_brainName,
 				_startingCash,
 				_traderCount,
 				_leverage,
@@ -1059,8 +976,6 @@ namespace Poink.Sim.Components.Pages
 			}
 			return true;
 		}
-
-		private string ActiveBrainName => _snapshot?.Config.BrainName ?? _brainName;
 
 		private IReadOnlyList<string>? SelectedRiskPolicies =>
 			_selectedRiskPolicies.Count > 0 ? _selectedRiskPolicies.ToList() : null;

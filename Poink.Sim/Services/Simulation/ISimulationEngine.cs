@@ -8,7 +8,6 @@ namespace Poink.Sim.Simulation;
 
 internal interface ISimulationEngine : IDisposable
 {
-	IReadOnlyList<string> BrainNames { get; }
 	SimulationSnapshot? Snapshot { get; }
 	bool IsLoading { get; }
 	string? Error { get; }
@@ -28,10 +27,8 @@ internal interface ISimulationEngine : IDisposable
 	bool SetSteppingMode(SimulationSteppingMode mode, double cellWidth);
 	bool Reset();
 	void Unload();
-	bool SetTraderMode(int traderId, TraderControlMode mode);
 	bool SetRiskPolicyEnabled(string policyName, bool enabled);
 	bool MoveRiskPolicy(string policyName, int delta);
 	bool SetRiskPolicyParameter(string policyName, string key, double value);
-	void SelectTraderForIo(int? traderId);
 	bool SubmitManualDecision(int traderId, SimulationDecision decision, out RiskPolicyDenial? denial);
 }

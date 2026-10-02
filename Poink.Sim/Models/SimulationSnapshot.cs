@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using Poink.Sim.Brain.Neural;
 using Poink.Sim.Repository;
 using Poink.Sim.Trader;
 using Poink.Sim.Trader.Orders;
@@ -22,7 +21,6 @@ internal sealed record SimulationConfig(
 	DateTime To,
 	bool Aggregate,
 	TimeSpan BarSize,
-	string BrainName,
 	double StartingCash,
 	int TraderCount,
 	double Leverage = 1.0,
@@ -69,7 +67,6 @@ internal readonly record struct EquityHistoryPoint(DateTime TimestampUtc, double
 internal sealed record TraderSnapshot(
 	int Id,
 	string Label,
-	TraderControlMode Mode,
 	CapitalState Capital,
 	Position? Position,
 	PendingOrder? PendingOrder,
@@ -80,8 +77,6 @@ internal sealed record TraderSnapshot(
 	double MaxDrawdown,
 	double Leverage,
 	double StopOutLevelPercent,
-	IReadOnlyList<RlInputFeature>? Inputs,
-	IReadOnlyList<RlOutputFeature>? Outputs,
 	IReadOnlyList<RiskPolicyStatus> RiskPolicyStatuses,
 	RiskPolicyDenial? LastDenial,
 	IReadOnlyList<EquityHistoryPoint> EquityHistory

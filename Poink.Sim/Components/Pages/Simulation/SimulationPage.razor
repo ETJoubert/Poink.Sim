@@ -2,7 +2,6 @@
 @page "/simulation"
 @namespace Poink.Sim.Components.Pages
 @using Poink.Sim.Components.Charts
-@using Poink.Sim.Components.Shared.BrainIoPanel
 @using Poink.Sim.Components.Shared.DateRangeSlider
 @using Poink.Sim.Components.Shared.LookbackWindowBar
 @using Poink.Sim.Components.Shared.SimTimeline
@@ -167,14 +166,6 @@
                         <SimTimeline />
 
                         <div class="sim-controls-right">
-                            @if (SelectedTrader is not null)
-                            {
-                                <button class="sim-ctrl-btn sim-ctrl-btn-toggle @(SelectedTraderIsManual ? "active" : "")"
-                                        @onclick="ToggleSelectedTraderMode"
-                                        title="@(SelectedTraderIsManual ? "Hand this trader back to the Brain" : "Take manual control -- the Brain stops deciding for this trader")">
-                                    @(SelectedTraderIsManual ? "MANUAL" : "AUTO")
-                                </button>
-                            }
                             <span class="sim-toolbar-divider"></span>
 
                             <button class="sim-ctrl-btn sim-ctrl-btn-toggle @(_hideChart ? "active" : "")"
@@ -225,13 +216,10 @@
                         <div class="sim-left-side-panel-tabs">
                             <button type="button" class="sim-left-side-panel-tab @(_activeLeftPanelTab == SimLeftPanelTab.Setup ? "active" : "")"
                                     @onclick="() => _activeLeftPanelTab = SimLeftPanelTab.Setup"
-                                    title="Brain selection and trader account settings -- changes apply the next time the simulation is reset">SETUP</button>
+                                    title="Trader account settings -- changes apply the next time the simulation is reset">SETUP</button>
                             <button type="button" class="sim-left-side-panel-tab @(_activeLeftPanelTab == SimLeftPanelTab.Traders ? "active" : "")"
                                     @onclick="() => _activeLeftPanelTab = SimLeftPanelTab.Traders"
                                     title="Every trader's live cash/equity/P&L, selectable to drive the right-side controls">TRADERS</button>
-                            <button type="button" class="sim-left-side-panel-tab @(_activeLeftPanelTab == SimLeftPanelTab.TraderIo ? "active" : "")"
-                                    @onclick="() => _activeLeftPanelTab = SimLeftPanelTab.TraderIo"
-                                    title="The selected trader's live brain inputs and output decision distribution">TRADER IO</button>
                             <button type="button" class="sim-left-side-panel-tab @(_activeLeftPanelTab == SimLeftPanelTab.RuleEngine ? "active" : "")"
                                     @onclick="() => _activeLeftPanelTab = SimLeftPanelTab.RuleEngine"
                                     title="Above/In/Below mask over the baseline signals (POC/VAH/VAL/VWAP/Median/Regression), XGrid's Top %/Delta rows, and TxFold's per-timeframe mean+/-stddev rows -- the input side of the rule engine">RULE ENGINE</button>
@@ -240,32 +228,6 @@
                             @if (_activeLeftPanelTab == SimLeftPanelTab.Setup)
                             {
                                 <div class="sim-setup-form">
-                                    <label class="sim-brainrow-field"
-                                           title="Only trained models (plus heuristic strategies, which have no weights to train) can be run in Simulation -- an untrained or freshly-built brain never appears here -- applies on Reset">
-                                        Brain
-                                        <select class="sim-brainrow-select" value="@SelectedOptionKey" @onchange="OnSimulationBrainChanged"
-                                                disabled="@_isLoading">
-                                            <option value="">-- pick a brain --</option>
-                                            @if (SimulationBrainOptions.Any(o => o.ModelId is not null))
-                                            {
-                                                <optgroup label="TRAINED MODELS">
-                                                    @foreach (var o in SimulationBrainOptions.Where(o => o.ModelId is not null))
-                                                    {
-                                                        <option value="@OptionKey(o)">@o.DisplayName</option>
-                                                    }
-                                                </optgroup>
-                                            }
-                                            @if (SimulationBrainOptions.Any(o => o.ModelId is null))
-                                            {
-                                                <optgroup label="HEURISTIC">
-                                                    @foreach (var o in SimulationBrainOptions.Where(o => o.ModelId is null))
-                                                    {
-                                                        <option value="@OptionKey(o)">@o.DisplayName</option>
-                                                    }
-                                                </optgroup>
-                                            }
-                                        </select>
-                                    </label>
                                     <label class="sim-brainrow-field"
                                            title="Cash each trader starts with -- applies on Reset">
                                         Starting cash
@@ -316,18 +278,13 @@
                             {
                                 @foreach (var trader in _snapshot.Traders)
                                 {
-                                    <TraderCard Label="@trader.Label" IsManual="TraderIsManual(trader)"
+                                    <TraderCard Label="@trader.Label"
                                                 PositionStatus="@TraderPositionStatus(trader)" PositionStatusCssClass="@TraderPositionStatusCssClass(trader)"
                                                 TradeCount="trader.TradeCount" Cash="trader.Capital.Cash" Equity="trader.Capital.Equity"
                                                 RealizedPnl="trader.Capital.RealizedPnl" UnrealizedPnl="trader.Capital.UnrealizedPnl"
                                                 MarginUsed="trader.Capital.MarginUsed" MarginLevel="trader.Capital.MarginLevel"
                                                 IsSelected="trader.Id == SelectedTrader?.Id" OnSelect="() => SelectTrader(trader.Id)" />
                                 }
-                            }
-                            else if (_activeLeftPanelTab == SimLeftPanelTab.TraderIo)
-                            {
-                                <BrainIoPanel Inputs="SelectedTrader?.Inputs" Outputs="SelectedTrader?.Outputs"
-                                              CurrentPrice="_snapshot?.CurrentPrice" Equity="SelectedTrader?.Capital.Equity" />
                             }
                             else if (_activeLeftPanelTab == SimLeftPanelTab.RuleEngine)
                             {
@@ -660,7 +617,7 @@
                                 @if (_snapshot is null)
                                 {
                                     <div class="sim-riskrow"
-                                         title="Risk policies gate every trade action -- permit, deny or resize it -- and supervise open positions, on top of the brain and manual controls">
+                                         title="Risk policies gate every trade action -- permit, deny or resize it -- and supervise open positions, on top of manual controls">
                                         <PolicySelector Available="RiskPolicyService.AvailablePolicies" Selected="_selectedRiskPolicies"
                                                         Disabled="@_isLoading" OnChanged="StateHasChanged" />
                                     </div>
@@ -671,11 +628,6 @@
                                                      Statuses="SelectedTrader?.RiskPolicyStatuses" LastDenial="SelectedTrader?.LastDenial" />
                                 }
                             </PoliciesTab>
-                            <RobotTab>
-                                <BrainInfoCard BrainName="@ActiveBrainName"
-                                               IsNeuralNetwork="CurrentBrainIsNeuralNetwork(ActiveBrainName)"
-                                               ActiveSnapshot="TrainingService.GetActiveSnapshot(ActiveBrainName)" />
-                            </RobotTab>
                         </TraderSidePanel>
                     </div>
                 </aside>

@@ -42,23 +42,6 @@
     text-overflow: ellipsis;
 }
 
-.tcard-mode {
-    flex-shrink: 0;
-    font-size: 0.58rem;
-    font-weight: bold;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    padding: 2px 7px;
-    border-radius: 999px;
-    border: 1px solid color-mix(in srgb, var(--color-secondary) 45%, transparent);
-    color: var(--color-secondary);
-}
-
-.tcard-mode-manual {
-    border-color: color-mix(in srgb, var(--color-accent) 55%, transparent);
-    color: var(--color-accent);
-}
-
 .tcard-status-row {
     display: flex;
     align-items: center;

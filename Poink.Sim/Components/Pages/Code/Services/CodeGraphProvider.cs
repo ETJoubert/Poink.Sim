@@ -668,7 +668,6 @@ internal sealed class CodeGraphProvider : ICodeGraphProvider
 			[
 				new CodeSetting("Table", "not loaded"),
 				new CodeSetting("Bar size", "not loaded"),
-				new CodeSetting("Brain", "not loaded"),
 				new CodeSetting("Starting cash", "not loaded"),
 				new CodeSetting("Traders", "not loaded"),
 			]
@@ -676,7 +675,6 @@ internal sealed class CodeGraphProvider : ICodeGraphProvider
 			[
 				new CodeSetting("Table", config.Table, IsLive: true),
 				new CodeSetting("Bar size", config.Aggregate ? FormatSpan(config.BarSize) : "raw ticks", IsLive: true),
-				new CodeSetting("Brain", config.BrainName, IsLive: true),
 				new CodeSetting(
 					"Starting cash",
 					config.StartingCash.ToString("N0", CultureInfo.InvariantCulture),

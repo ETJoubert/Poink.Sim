@@ -184,13 +184,6 @@
     justify-content: space-between;
 }
 
-.sim-setup-form .sim-brainrow-select {
-    min-width: 0;
-    flex: 1;
-    max-width: 170px;
-}
-
-.sim-brainrow-select,
 .sim-brainrow-input {
     background: var(--color-bg-terminal);
     border: 1px solid color-mix(in srgb, var(--color-primary) 45%, transparent);
@@ -200,10 +193,6 @@
     font-family: var(--font-body);
     font-size: 12px;
     transition: all 0.2s ease;
-}
-
-.sim-brainrow-select {
-    min-width: 140px;
 }
 
 .sim-datarow-select {
@@ -231,7 +220,6 @@
     width: 50px;
 }
 
-.sim-brainrow-select:focus,
 .sim-brainrow-input:focus {
     outline: none;
     border-color: var(--color-primary);

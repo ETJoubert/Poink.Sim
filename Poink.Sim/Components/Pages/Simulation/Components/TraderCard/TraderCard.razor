@@ -5,9 +5,6 @@
         title="View @Label">
     <div class="tcard-header">
         <span class="tcard-label">@Label</span>
-        <span class="tcard-mode @(IsManual ? "tcard-mode-manual" : "")" title="@(IsManual ? "Manual control -- the Brain is not deciding for this trader" : "The Brain is deciding for this trader")">
-            @(IsManual ? "MANUAL" : "AUTO")
-        </span>
     </div>
     <div class="tcard-status-row">
         <span class="tcard-status @PositionStatusCssClass">@PositionStatus</span>
