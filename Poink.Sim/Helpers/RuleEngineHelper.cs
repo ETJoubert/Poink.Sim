@@ -10,6 +10,11 @@ public enum RuleSignalGroup
     Baseline,
     XGrid,
     TxFold,
+    Events,
+    Zone,
+    Regime,
+    Session,
+    Position,
 }
 
 public readonly record struct RuleSignalRow(
@@ -21,7 +26,8 @@ public readonly record struct RuleSignalRow(
     bool Above,
     bool In,
     bool Below,
-    RuleSignalGroup Group
+    RuleSignalGroup Group,
+    string? Description = null
 );
 
 public readonly record struct RuleEngineResult(
@@ -113,6 +119,11 @@ internal static class RuleEngineHelper
     public static RuleSignalGroup GroupOf(string key) =>
         key.StartsWith("txfold-", StringComparison.Ordinal) ? RuleSignalGroup.TxFold
         : key.StartsWith("rank-", StringComparison.Ordinal) || key.StartsWith("delta-", StringComparison.Ordinal) ? RuleSignalGroup.XGrid
+        : key.StartsWith(RuleSignalRowsHelper.EventsPrefix, StringComparison.Ordinal) ? RuleSignalGroup.Events
+        : key.StartsWith(RuleSignalRowsHelper.ZonePrefix, StringComparison.Ordinal) ? RuleSignalGroup.Zone
+        : key.StartsWith(RuleSignalRowsHelper.RegimePrefix, StringComparison.Ordinal) ? RuleSignalGroup.Regime
+        : key.StartsWith(RuleSignalRowsHelper.SessionPrefix, StringComparison.Ordinal) ? RuleSignalGroup.Session
+        : key.StartsWith(RuleSignalRowsHelper.PositionPrefix, StringComparison.Ordinal) ? RuleSignalGroup.Position
         : RuleSignalGroup.Baseline;
 
     public static RuleEngineResult Compute<TSample, TBar>(
@@ -127,11 +138,17 @@ internal static class RuleEngineHelper
         XGridResult? grid = null,
         double xGridPercent = 10,
         bool includeBaseline = true,
-        double inTolerance = 0
+        double inTolerance = 0,
+        RuleSignalMarket? market = null,
+        HashSet<RuleSignalGroup>? disabledGroups = null
     )
     {
-        var priceStats = includeBaseline ? RangeStatsHelper.Compute(volumeSamples, samplePrice, sampleWeight) : null;
-        var vwapStats = includeBaseline ? RangeStatsHelper.Compute(vwapBars, barPrice, barWeight) : null;
+        disabledGroups ??= new HashSet<RuleSignalGroup>();
+        bool needsLevels =
+            includeBaseline
+            || (market is not null && (!disabledGroups.Contains(RuleSignalGroup.Events) || !disabledGroups.Contains(RuleSignalGroup.Zone)));
+        var priceStats = needsLevels ? RangeStatsHelper.Compute(volumeSamples, samplePrice, sampleWeight) : null;
+        var vwapStats = needsLevels ? RangeStatsHelper.Compute(vwapBars, barPrice, barWeight) : null;
         var regressionStats = includeBaseline ? RangeStatsHelper.Compute(vwapBars, barClose) : null;
 
         var poc = priceStats?.Poc;
@@ -148,7 +165,18 @@ internal static class RuleEngineHelper
         if (grid is { } g)
             rows.AddRange(XGridRows(g, xGridPercent));
 
-        return new RuleEngineResult(poc, vah, val, vwap, median, regression, currentPrice, rows);
+        if (market is not null)
+            rows.AddRange(
+                RuleSignalRowsHelper.MarketRows(
+                    new RuleSignalLevels(poc, vah, val, vwap, currentPrice, Math.Max(0, inTolerance)),
+                    market,
+                    disabledGroups
+                )
+            );
+
+        return includeBaseline
+            ? new RuleEngineResult(poc, vah, val, vwap, median, regression, currentPrice, rows)
+            : new RuleEngineResult(null, null, null, null, null, null, currentPrice, rows);
     }
 
     private static List<RuleSignalRow> BaselineRows(

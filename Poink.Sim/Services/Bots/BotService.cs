@@ -135,7 +135,17 @@ internal sealed class BotService : IBotService
 		var barData = BarDataFor(tick, options);
 		if (barData is null)
 			return Array.Empty<BotAction>();
-		var context = new RobotRuleContext(barData, tick.Price, _txFoldBars.Bars);
+		var market = new RuleSignalMarket(
+			barData.Bars,
+			barData.Window,
+			tick.Bid,
+			tick.Ask,
+			tick.TypicalSpread,
+			tick.Timestamp,
+			tick.BarSize,
+			options.Signals
+		);
+		var context = new RobotRuleContext(barData, tick.Price, _txFoldBars.Bars, market);
 
 		var actions = new List<BotAction>();
 		foreach (var bot in bots)
@@ -144,7 +154,7 @@ internal sealed class BotService : IBotService
 			if (bot.Account.CurrentPosition is { } position)
 			{
 				var closeRules = options.CloseRulesFor(position.Direction == PositionDirection.Long);
-				if (context.Matches(closeRules) && Close(bot, tick) is { } closed)
+				if (context.Matches(closeRules, position) && Close(bot, tick) is { } closed)
 					actions.Add(closed);
 			}
 			else if (bot.Account.CurrentPendingOrder is null && TryEnter(bot, options, context, tick) is { } entry)

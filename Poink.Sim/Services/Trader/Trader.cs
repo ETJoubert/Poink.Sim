@@ -85,6 +85,7 @@ internal sealed class Trader : ITrader
 			{
 				TicksHeld = openPosition.TicksHeld + 1,
 				CumulativeDistance = openPosition.CumulativeDistance + distance,
+				PeakUnrealizedPnl = Math.Max(openPosition.PeakUnrealizedPnl, openPosition.UnrealizedPnl(bid, ask)),
 			};
 		}
 		_lastMidPrice = mid;

@@ -13,7 +13,7 @@ internal sealed class Bot
 	public required ITrader Account { get; init; }
 }
 
-/// <summary>What the simulation hands the bots on every tick: the quote, the recent bars, and the data range being replayed.</summary>
+/// <summary>What the simulation hands the bots on every tick: the quote, the recent bars, the data range being replayed, the typical spread and the bar size.</summary>
 internal readonly record struct BotTickContext(
 	DateTime Timestamp,
 	double Price,
@@ -23,7 +23,9 @@ internal readonly record struct BotTickContext(
 	IReadOnlyList<BarPriceHistogram> RecentHistograms,
 	string Table,
 	DateTime RangeStart,
-	double PipSize
+	double PipSize,
+	double? TypicalSpread,
+	TimeSpan BarSize
 );
 
 /// <summary>A trade a bot just made on its account, for the simulation to log.</summary>

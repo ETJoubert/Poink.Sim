@@ -103,6 +103,16 @@ namespace Poink.Sim.Components.Simulation
 		[Parameter, EditorRequired]
 		public RobotRuleSet CloseShortRules { get; set; } = new();
 
+		/// <summary>Thresholds shared by every rule set's event, zone, regime, session and position signals.</summary>
+		[Parameter]
+		public RuleSignalSettings SignalSettings { get; set; } = new();
+
+		[Parameter]
+		public EventCallback<RuleSignalSettings> OnSignalSettingsChanged { get; set; }
+
+		private static readonly HashSet<RuleSignalGroup> OpenHiddenGroups = new() { RuleSignalGroup.Position };
+		private static readonly HashSet<RuleSignalGroup> NoGroups = new();
+
 		/// <summary>Raised after any rule set is edited, so the host can persist it.</summary>
 		[Parameter]
 		public EventCallback OnRulesChanged { get; set; }

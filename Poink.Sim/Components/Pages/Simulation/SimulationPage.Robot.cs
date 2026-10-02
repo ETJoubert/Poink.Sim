@@ -29,7 +29,8 @@ namespace Poink.Sim.Components.Pages
 				_xgridColCount,
 				_txFoldSelectedSeconds.OrderBy(s => s).ToHashSet(),
 				_robotCooldownSeconds,
-				_robotRequireRearm
+				_robotRequireRearm,
+				_ruleSignalSettings
 			);
 
 		private static RobotRules ToRobotRules(RobotRuleSet rules) =>

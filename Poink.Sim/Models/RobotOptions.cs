@@ -22,7 +22,8 @@ internal sealed record RobotRules(
 /// changes any of it -- the on/off switch, how positions are sized, the open/close conditions, and the
 /// window settings those conditions are evaluated over, and how often (in simulated seconds) the bots look at them.
 /// After a close, a bot waits CooldownSeconds of simulated time before opening again and, with RequireRearm, also waits
-/// until that side's open conditions have stopped matching once.
+/// until that side's open conditions have stopped matching once. Signals holds the thresholds of the event, zone,
+/// regime, session and position signals.
 /// </summary>
 internal sealed record RobotOptions(
 	bool Enabled,
@@ -38,7 +39,8 @@ internal sealed record RobotOptions(
 	int XGridCols,
 	HashSet<int> TxFoldSeconds,
 	double CooldownSeconds,
-	bool RequireRearm
+	bool RequireRearm,
+	RuleSignalSettings Signals
 )
 {
 	private IEnumerable<RobotRules> AllRules => new[] { OpenLong, OpenShort, CloseLong, CloseShort };

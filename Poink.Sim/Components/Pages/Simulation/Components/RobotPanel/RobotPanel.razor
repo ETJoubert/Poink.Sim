@@ -33,6 +33,9 @@
         <button type="button" class="robot-subtab @(SubTab == RobotSubTab.Close ? "active" : "")"
                 @onclick="() => SelectSubTab(RobotSubTab.Close)"
                 title="The conditions that make the robot close a position">CLOSE</button>
+        <button type="button" class="robot-subtab @(SubTab == RobotSubTab.Signals ? "active" : "")"
+                @onclick="() => SelectSubTab(RobotSubTab.Signals)"
+                title="Thresholds and lookbacks for the event, zone, regime, session and position signals, shared by every rule set">SIGNALS</button>
     </div>
 
     <div class="robot-subtab-content">
@@ -55,7 +58,11 @@
                         @onclick="() => SelectOpenSide(RobotSide.Short)"
                         title="The conditions that must hold for the robot to open a short position">SHORT</button>
             </div>
-            @RuleEditor(OpenSide == RobotSide.Long ? OpenLongRules : OpenShortRules)
+            @RuleEditor(OpenSide == RobotSide.Long ? OpenLongRules : OpenShortRules, false)
+        }
+        else if (SubTab == RobotSubTab.Signals)
+        {
+            <RuleSignalSettingsPanel Settings="SignalSettings" SettingsChanged="OnSignalSettingsChanged" />
         }
         else
         {
@@ -67,14 +74,15 @@
                         @onclick="() => SelectCloseSide(RobotSide.Short)"
                         title="The conditions that must hold for the robot to close a short position">SHORT</button>
             </div>
-            @RuleEditor(CloseSide == RobotSide.Long ? CloseLongRules : CloseShortRules)
+            @RuleEditor(CloseSide == RobotSide.Long ? CloseLongRules : CloseShortRules, true)
         }
     </div>
 </div>
 
 @code {
-    private RenderFragment RuleEditor(RobotRuleSet rules) =>
+    private RenderFragment RuleEditor(RobotRuleSet rules, bool isClose) =>
         @<RuleEnginePanel @key="rules" EnabledKeys="rules.EnabledKeys" EnabledKeysChanged="_ => OnRulesChanged.InvokeAsync()"
+                          HiddenGroups="isClose ? NoGroups : OpenHiddenGroups"
                           XGridPercent="rules.XGridPercent" XGridPercentChanged="percent => SetXGridPercent(rules, percent)"
                           InTolerancePips="rules.InTolerancePips" InTolerancePipsChanged="pips => SetInTolerancePips(rules, pips)"
                           MinMatches="rules.MinMatches" MinMatchesChanged="count => SetMinMatches(rules, count)"

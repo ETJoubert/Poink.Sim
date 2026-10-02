@@ -19,6 +19,18 @@ namespace Poink.Sim.Components.RuleEngine
 
 		private static readonly int[] DefaultTxFoldSelectedSeconds = { 60, 120, 240, 480, 900, 1800, 3600, 7200 };
 
+		private static readonly (RuleSignalGroup Group, string Label, string Title)[] Sections =
+		{
+			(RuleSignalGroup.Baseline, "BASELINE", "POC, VAH, VAL, VWAP, Median and Regression against the current price"),
+			(RuleSignalGroup.XGrid, "XGRID", "Signals that depend on XGrid's own row/column grid, separate from the baseline signals"),
+			(RuleSignalGroup.TxFold, "TXFOLD", "One row per selected TxFold timeframe -- Above/Below its mean +/- one-stddev band, In between them"),
+			(RuleSignalGroup.Events, "EVENTS", "Crosses, reclaims and first touches of the baseline levels over the last few bars"),
+			(RuleSignalGroup.Zone, "ZONE", "Where price sits against the value area, and how far it is stretched from VWAP and POC in ATRs"),
+			(RuleSignalGroup.Regime, "REGIME", "Trend, volatility and order-flow filters that say what kind of market this is"),
+			(RuleSignalGroup.Session, "SESSION", "Trading hours and spread filters"),
+			(RuleSignalGroup.Position, "POSITION", "The open position's age, P/L in R and profit given back -- for close rules"),
+		};
+
 		[Inject]
 		private ITickRepository TickRepository { get; set; } = default!;
 
@@ -37,6 +49,10 @@ namespace Poink.Sim.Components.RuleEngine
 
 		[Parameter]
 		public RuleEngineResult? Result { get; set; }
+
+		/// <summary>Signal groups not shown at all here, such as the position group on an open rule set where no position exists yet.</summary>
+		[Parameter]
+		public HashSet<RuleSignalGroup> HiddenGroups { get; set; } = new();
 
 		[Parameter]
 		public double XGridPercent { get; set; } = 10;
@@ -87,8 +103,11 @@ namespace Poink.Sim.Components.RuleEngine
 						? RuleEngineHelper.TxFoldRows(_txFoldCache.Bars, r.CurrentPrice)
 						: Array.Empty<RuleSignalRow>()
 				)
-				.Where(row => !IsDisabled(row.Group))
+				.Where(row => !IsDisabled(row.Group) && !HiddenGroups.Contains(row.Group))
 				.ToList();
+
+		private IEnumerable<(RuleSignalGroup Group, string Label, string Title)> VisibleSections =>
+			Sections.Where(section => !HiddenGroups.Contains(section.Group));
 
 		private bool IsDisabled(RuleSignalGroup group) => DisabledGroups.Contains(group);
 
@@ -99,11 +118,7 @@ namespace Poink.Sim.Components.RuleEngine
 			await DisabledGroupsChanged.InvokeAsync(DisabledGroups);
 		}
 
-		private IEnumerable<RuleSignalRow> BaselineRows => Rows.Where(row => row.Group == RuleSignalGroup.Baseline);
-
-		private IEnumerable<RuleSignalRow> XGridSignalRows => Rows.Where(row => row.Group == RuleSignalGroup.XGrid);
-
-		private IEnumerable<RuleSignalRow> TxFoldSignalRows => Rows.Where(row => row.Group == RuleSignalGroup.TxFold);
+		private IEnumerable<RuleSignalRow> RowsOf(RuleSignalGroup group) => Rows.Where(row => row.Group == group);
 
 		private bool LiveValue(RuleSignalRow row, string key) => RuleEngineHelper.LiveValue(row, key);
 

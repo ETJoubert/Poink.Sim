@@ -76,6 +76,7 @@ namespace Poink.Sim.Components.Pages
 		private double _robotEvaluationSeconds = 1;
 		private double _robotCooldownSeconds;
 		private bool _robotRequireRearm;
+		private RuleSignalSettings _ruleSignalSettings = new();
 		private RobotSubTab _robotSubTab;
 		private RobotSide _robotOpenSide;
 		private RobotSide _robotCloseSide;
@@ -263,7 +264,17 @@ namespace Poink.Sim.Components.Pages
 
 			bool baseline = !disabledGroups.Contains(RuleSignalGroup.Baseline);
 			bool xgrid = !disabledGroups.Contains(RuleSignalGroup.XGrid);
-			return RuleEngineHelper.Compute(
+			var market = new RuleSignalMarket(
+				CompletedBars(s, bars),
+				ClampedBarWindow,
+				s.CurrentBid,
+				s.CurrentAsk,
+				s.TypicalSpread,
+				s.CurrentTimestampUtc,
+				s.Config.BarSize,
+				_ruleSignalSettings
+			);
+			var result = RuleEngineHelper.Compute(
 				baseline || xgrid ? MergedBarSamples(s) : new List<WeightedPriceSample>(),
 				w => w.Price,
 				w => (double)w.Count,
@@ -275,9 +286,29 @@ namespace Poink.Sim.Components.Pages
 				xgrid ? ComputeXGrid(s) : null,
 				xgridPercent,
 				baseline,
-				inTolerancePips * s.Config.PipSize
+				inTolerancePips * s.Config.PipSize,
+				market,
+				disabledGroups
 			);
+			if (disabledGroups.Contains(RuleSignalGroup.Position))
+				return result;
+
+			var positionRows = RuleSignalRowsHelper.PositionRows(
+				SelectedTrader?.Position,
+				s.CurrentBid,
+				s.CurrentAsk,
+				s.CurrentTimestampUtc,
+				s.Config.BarSize,
+				_ruleSignalSettings
+			);
+			return result with { Rows = result.Rows.Concat(positionRows).ToList() };
 		}
+
+		// The snapshot ends with the bar still forming; the bots only ever see completed bars, so it is left out here too.
+		private static IReadOnlyList<HlocAvdtBar> CompletedBars(SimulationSnapshot s, IReadOnlyList<HlocAvdtBar> bars) =>
+			bars.Count > 0 && s.CurrentTimestampUtc is { } now && bars[^1].OpenTime + s.Config.BarSize > now
+				? bars.Take(bars.Count - 1).ToList()
+				: bars;
 
 		// Recomputed each render so live P&L colouring on the open position stays current;
 		// trades entirely outside the grid's window are dropped to keep the overlay uncluttered.
@@ -705,7 +736,8 @@ namespace Poink.Sim.Components.Pages
 				_closeShortRules,
 				_robotCloseSide,
 				_robotCooldownSeconds,
-				_robotRequireRearm
+				_robotRequireRearm,
+				_ruleSignalSettings
 			);
 
 		// A simulation already held by the service (page revisited) is shown as-is instead of reloaded.
@@ -758,6 +790,7 @@ namespace Poink.Sim.Components.Pages
 			_robotCloseSide = settings.RobotCloseSide;
 			_robotCooldownSeconds = settings.RobotCooldownSeconds ?? 0;
 			_robotRequireRearm = settings.RobotRequireRearm;
+			_ruleSignalSettings = settings.SignalSettings ?? new();
 		}
 
 		// Saving before the stored settings were read would overwrite them with the page's defaults.
@@ -1098,6 +1131,8 @@ namespace Poink.Sim.Components.Pages
 		private void SetRobotCooldownSeconds(double seconds) => _robotCooldownSeconds = seconds;
 
 		private void SetRobotRequireRearm(bool requireRearm) => _robotRequireRearm = requireRearm;
+
+		private void SetRuleSignalSettings(RuleSignalSettings settings) => _ruleSignalSettings = settings;
 
 		private void SetRobotEvaluationSeconds(double seconds) => _robotEvaluationSeconds = seconds;
 

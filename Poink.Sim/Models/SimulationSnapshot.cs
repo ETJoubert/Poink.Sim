@@ -101,5 +101,6 @@ internal sealed record SimulationSnapshot(
 	IReadOnlyList<HlocAvdtBar> RecentBars,
 	IReadOnlyList<BarPriceHistogram> RecentBarHistograms,
 	IReadOnlyList<Tick> RecentTicks,
-	IReadOnlyList<RiskPolicySnapshot> RiskPolicies
+	IReadOnlyList<RiskPolicySnapshot> RiskPolicies,
+	double? TypicalSpread = null
 );

@@ -33,6 +33,7 @@ namespace Poink.Sim.Models
 		RobotRuleSet? CloseShortRules = null,
 		RobotSide RobotCloseSide = RobotSide.Long,
 		double? RobotCooldownSeconds = null,
-		bool RobotRequireRearm = false
+		bool RobotRequireRearm = false,
+		RuleSignalSettings? SignalSettings = null
 	);
 }

@@ -34,6 +34,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 	private const int MaxRecentBars = 300;
 	private const int MaxRecentTicks = 5000;
 	private const int MaxRecentLog = 200;
+	private const int TypicalSpreadTicks = 1000;
 
 	// One bucket per pip, so the XGrid's pip-multiple rows always cover whole buckets -- a coarser bucket would leave rows
 	// narrower than it empty between populated ones.
@@ -115,6 +116,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 	private double? _lastBid;
 	private double? _lastAsk;
 	private DateTime? _lastTimestamp;
+	private double? _typicalSpread;
 
 	private readonly ITickRepository _tickRepository;
 	private readonly IBotService _botService;
@@ -225,6 +227,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 			_lastBid = null;
 			_lastAsk = null;
 			_lastTimestamp = null;
+			_typicalSpread = null;
 			WarmUpLocked();
 			_isPlaying = false;
 			IsLoading = false;
@@ -403,6 +406,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 		_lastBid = null;
 		_lastAsk = null;
 		_lastTimestamp = null;
+		_typicalSpread = null;
 		WarmUpLocked();
 		_isPlaying = false;
 	}
@@ -475,6 +479,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 			_lastBid = null;
 			_lastAsk = null;
 			_lastTimestamp = null;
+			_typicalSpread = null;
 		}
 		Snapshot = null;
 		Progress = null;
@@ -558,6 +563,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 		_lastPrice = price;
 		_lastBid = tick.Bid;
 		_lastAsk = tick.Ask;
+		TrackTypicalSpread(tick.Ask - tick.Bid);
 		_lastTimestamp = tick.Timestamp;
 
 		AppendTick(tick);
@@ -708,7 +714,9 @@ internal sealed class SimulationEngine : ISimulationEngine
 				_recentBarHistograms,
 				_config.Table,
 				_config.LoadFrom,
-				_config.PipSize
+				_config.PipSize,
+				_typicalSpread,
+				_config.BarSize
 			)
 		);
 		foreach (var action in actions)
@@ -751,6 +759,12 @@ internal sealed class SimulationEngine : ISimulationEngine
 	}
 
 	private void AppendTick(Tick tick) => _recentTicks.Add(tick);
+
+	private void TrackTypicalSpread(double spread)
+	{
+		const double weight = 2.0 / (TypicalSpreadTicks + 1);
+		_typicalSpread = _typicalSpread is { } typical ? typical + weight * (spread - typical) : spread;
+	}
 
 	private void AppendLog(TraderSession session, SimulationLogEntry entry) => session.RecentLog.Add(entry);
 
@@ -820,7 +834,8 @@ internal sealed class SimulationEngine : ISimulationEngine
 						bars,
 						barHistograms,
 						PublishedRecentTicksLocked(),
-						primaryRisk?.PolicyStates() ?? Array.Empty<RiskPolicySnapshot>()
+						primaryRisk?.PolicyStates() ?? Array.Empty<RiskPolicySnapshot>(),
+						_typicalSpread
 					);
 		}
 		Snapshot = snapshot;
