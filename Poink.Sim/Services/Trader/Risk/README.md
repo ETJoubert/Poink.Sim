@@ -35,9 +35,9 @@ RiskAwareTrader : ITrader   ->   RiskManager   ->   PositionManager   ->   core 
 
 `AddRiskPolicies()` (in `RiskPolicyServiceCollectionExtensions`) reflects over this assembly, registers every concrete `IRiskPolicy`, then registers the registry and manager factory. A new policy needs only its class — no registration line. `Program.cs` calls it once.
 
-## Selection, toggling, lock
+## Selection and toggling
 
 - Selection is per run: `SimulationConfig.RiskPolicyNames` (sim) and the `TraderSettings.RiskPolicyNames` the training path builds. `TraderSettings.RiskToggles` carries the run's shared `RiskPolicyToggles`.
 - Toggling is **global for the run**: `SimulationEngine.SetRiskPolicyEnabled` flips one shared `RiskPolicyToggles`, so every trader's `RiskManager` sees it on the next tick.
-- `SimulationConfig.LockRiskPolicies` opts a run into a fixed policy set; the engine refuses toggles while locked. The run-time `RiskPolicyPanel` shows the state read-only with a lock badge.
-- `SimulationSnapshot.RiskPolicies` (`RiskPolicySnapshot`) and `RiskPoliciesLocked` feed that panel.
+- Policies are never locked: before a run the right panel's Policies tab edits the selection, and during a run `RiskPolicyPanel` toggles, reorders and retunes them live.
+- `SimulationSnapshot.RiskPolicies` (`RiskPolicySnapshot`) feeds that panel.

@@ -40,6 +40,20 @@ namespace Poink.Sim.Components.Shared.TradeConsole
 		[Parameter]
 		public double? MinTakeProfitDistancePrice { get; set; }
 
+		/// <summary>The symbol's volume step, in units -- null leaves a typed volume as entered.</summary>
+		[Parameter]
+		public double? SymbolVolumeStep { get; set; }
+
+		[Parameter]
+		public double? MinVolume { get; set; }
+
+		[Parameter]
+		public double? MaxVolume { get; set; }
+
+		/// <summary>False when the symbol forbids short positions, which disables the SELL side.</summary>
+		[Parameter]
+		public bool AllowShort { get; set; } = true;
+
 		/// <summary>The symbol's smallest price increment, used to round SL/TP prices -- null skips rounding.</summary>
 		[Parameter]
 		public double? PriceStep { get; set; }
@@ -66,17 +80,20 @@ namespace Poink.Sim.Components.Shared.TradeConsole
 		[Parameter]
 		public EventCallback<TradeConsoleOrderRequest> OnSubmit { get; set; }
 
-		private enum SizingMode
-		{
-			Pips,
-			PercentBalance,
-		}
+		/// <summary>
+		/// Turns the console into a position-options editor: no order type or PLACE, edits are reported
+		/// through <see cref="OnOptionsChanged"/> as price-independent <see cref="TradeConsoleOptions"/>.
+		/// </summary>
+		[Parameter]
+		public bool SettingsMode { get; set; }
 
-		private enum VolumeSizingMode
-		{
-			Manual,
-			Risk,
-		}
+		/// <summary>Starting values, read once when the console is created.</summary>
+		[Parameter]
+		public TradeConsoleOptions? Options { get; set; }
+
+		/// <summary>Raised whenever the edited values change, so a host can remember them across sessions.</summary>
+		[Parameter]
+		public EventCallback<TradeConsoleOptions> OnOptionsChanged { get; set; }
 
 		private const double VolumeStep = 0.01;
 
@@ -95,6 +112,8 @@ namespace Poink.Sim.Components.Shared.TradeConsole
 		private string? _localError;
 		private bool _draftActive;
 
+		private TradeConsoleOptions? _lastEmittedOptions;
+
 		private string? DisplayStatus => _localError ?? StatusMessage;
 
 		private bool DisplayStatusIsError => _localError is not null || StatusIsError;
@@ -109,7 +128,20 @@ namespace Poink.Sim.Components.Shared.TradeConsole
 			: null;
 
 		private double Volume =>
-			_volumeSizingMode == VolumeSizingMode.Risk ? CalculatedVolume ?? 0 : _volumeUnits ?? 0;
+			WithinSymbolVolumeLimits(_volumeSizingMode == VolumeSizingMode.Risk ? CalculatedVolume ?? 0 : _volumeUnits ?? 0);
+
+		private double EffectiveVolumeStep => SymbolVolumeStep is > 0 ? SymbolVolumeStep.Value : VolumeStep;
+
+		private double WithinSymbolVolumeLimits(double volume)
+		{
+			if (volume <= 0)
+				return volume;
+			if (SymbolVolumeStep is > 0)
+				volume = RiskHelper.RoundToStep(volume, SymbolVolumeStep.Value);
+			if (MinVolume is { } min)
+				volume = Math.Max(volume, min);
+			return MaxVolume is > 0 ? Math.Min(volume, MaxVolume.Value) : volume;
+		}
 
 		/// <summary>
 		/// Position size solved from the stop-loss pip distance and the percent of balance risked,
@@ -130,7 +162,7 @@ namespace Poink.Sim.Components.Shared.TradeConsole
 
 				double stopPrice = RiskHelper.StopLossPriceFromPips(Direction, entry, pips, PipSize);
 				double riskAmount = percent / 100.0 * balance;
-				return RiskHelper.SizeForRiskRounded(riskAmount, entry, stopPrice, VolumeStep);
+				return RiskHelper.SizeForRiskRounded(riskAmount, entry, stopPrice, EffectiveVolumeStep);
 			}
 		}
 
@@ -256,8 +288,17 @@ namespace Poink.Sim.Components.Shared.TradeConsole
 
 		private string MarginFreePercentText => MarginFreePercent is { } pct ? $"{pct:P1}" : "--";
 
+		protected override void OnInitialized()
+		{
+			if (Options is { } options)
+				ApplyOptions(options);
+			_lastEmittedOptions = CurrentOptions();
+		}
+
 		protected override void OnAfterRender(bool firstRender)
 		{
+			EmitOptionsIfChanged();
+
 			if (!OnDraftChanged.HasDelegate || !_draftActive)
 				return;
 
@@ -288,6 +329,12 @@ namespace Poink.Sim.Components.Shared.TradeConsole
 			_isLong = isLong;
 			_localError = null;
 
+			if (!isLong && !AllowShort)
+			{
+				_localError = "Short selling is not allowed for this symbol.";
+				return;
+			}
+
 			if (!HasSelection)
 			{
 				_localError = "No symbol selected.";
@@ -310,6 +357,45 @@ namespace Poink.Sim.Components.Shared.TradeConsole
 			await OnSubmit.InvokeAsync(
 				new TradeConsoleOrderRequest(isLong, Volume, _orderType, _orderType == OrderType.Market ? null : _triggerPrice, StopLossPrice, TakeProfitPrice)
 			);
+		}
+
+		private TradeConsoleOptions CurrentOptions() =>
+			new(
+				_isLong,
+				_volumeSizingMode,
+				_volumeUnits,
+				_riskPercent,
+				_stopLossMode,
+				_stopLossPips,
+				_stopLossPercent,
+				_takeProfitMode,
+				_takeProfitPips,
+				_takeProfitPercent
+			);
+
+		private void EmitOptionsIfChanged()
+		{
+			if (!OnOptionsChanged.HasDelegate)
+				return;
+			var current = CurrentOptions();
+			if (current == _lastEmittedOptions)
+				return;
+			_lastEmittedOptions = current;
+			_ = OnOptionsChanged.InvokeAsync(current);
+		}
+
+		private void ApplyOptions(TradeConsoleOptions options)
+		{
+			_isLong = options.IsLong;
+			_volumeSizingMode = options.VolumeMode;
+			_volumeUnits = options.VolumeUnits;
+			_riskPercent = options.RiskPercent;
+			_stopLossMode = options.StopLossMode;
+			_stopLossPips = options.StopLossPips;
+			_stopLossPercent = options.StopLossPercent;
+			_takeProfitMode = options.TakeProfitMode;
+			_takeProfitPips = options.TakeProfitPips;
+			_takeProfitPercent = options.TakeProfitPercent;
 		}
 
 		private void SwitchToRiskSizing()

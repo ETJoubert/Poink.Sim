@@ -1,0 +1,76 @@
+.robot-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.robot-subtabs {
+    display: flex;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+.robot-subtab {
+    flex: 1;
+    padding: 5px;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--color-secondary);
+    font-family: var(--font-heading);
+    font-size: 0.64rem;
+    font-weight: bold;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+}
+
+.robot-subtab:hover {
+    color: var(--color-primary);
+}
+
+.robot-subtab.active {
+    color: var(--color-accent);
+    border-bottom-color: var(--color-accent);
+}
+
+.robot-subtabs-nested {
+    margin-bottom: 8px;
+}
+
+.robot-switch {
+    padding: 6px;
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--color-secondary) 45%, transparent);
+    border-radius: var(--border-radius-sm);
+    color: var(--color-secondary);
+    font-family: var(--font-heading);
+    font-size: 0.68rem;
+    font-weight: bold;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+}
+
+.robot-switch.active {
+    color: var(--color-success);
+    border-color: var(--color-success);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--color-success) 35%, transparent);
+}
+
+.robot-interval {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 0.72rem;
+    color: var(--color-secondary);
+}
+
+.robot-interval input {
+    width: 70px;
+    background: var(--color-bg-terminal);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 45%, transparent);
+    color: var(--color-primary);
+    padding: 4px 6px;
+    border-radius: var(--border-radius-sm);
+    font-family: var(--font-body);
+    font-size: 12px;
+}

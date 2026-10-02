@@ -42,7 +42,7 @@ internal sealed class RiskPolicyService : IRiskPolicyService
 		return new RiskAwareTrader(core, riskManager);
 	}
 
-	public RiskPolicyToggles? CreateToggles(IReadOnlyList<string>? policyNames, bool locked)
+	public RiskPolicyToggles? CreateToggles(IReadOnlyList<string>? policyNames)
 	{
 		if (policyNames is not { Count: > 0 })
 			return null;
@@ -50,7 +50,7 @@ internal sealed class RiskPolicyService : IRiskPolicyService
 		var entries = policyNames
 			.Where(_prototypes.ContainsKey)
 			.Select(name => (name, _prototypes[name].Description, _prototypes[name].Parameters));
-		return new RiskPolicyToggles(entries, locked);
+		return new RiskPolicyToggles(entries);
 	}
 
 	private IReadOnlyList<IRiskPolicy> CreateActive(IReadOnlyList<string>? policyNames)

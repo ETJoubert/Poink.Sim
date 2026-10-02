@@ -30,15 +30,6 @@ namespace Poink.Sim.Components.Pages
 		private IJSRuntime JS { get; set; } = default!;
 
 		[Inject]
-		private ITrainingService TrainingService { get; set; } = default!;
-
-		[Inject]
-		private IBrainService BrainService { get; set; } = default!;
-
-		[Inject]
-		private IModelService ModelService { get; set; } = default!;
-
-		[Inject]
 		private IRiskPolicyService RiskPolicyService { get; set; } = default!;
 
 		[Inject]
@@ -57,11 +48,6 @@ namespace Poink.Sim.Components.Pages
 		private DateTime _to = DateTime.UtcNow;
 		private bool _aggregate = true;
 		private int _barSizeSeconds = 60;
-		private SimulationSteppingMode _steppingMode = SimulationSteppingMode.Bar;
-		private double _cellWidth = 0.10;
-		private string _brainName = "";
-
-		private Guid? _modelId;
 
 		private double _startingCash = 10_000;
 		private int _traderCount = 1;
@@ -73,7 +59,6 @@ namespace Poink.Sim.Components.Pages
 		private double _pipSize = 0.01;
 
 		private readonly List<string> _selectedRiskPolicies = new();
-		private bool _lockRiskPolicies;
 
 		private string? _loadError;
 
@@ -81,14 +66,22 @@ namespace Poink.Sim.Components.Pages
 
 		private SimulationSnapshot? _snapshot;
 		private bool _isLoading;
+		private bool _playOnLoad;
+		private TradeConsoleOptions? _robotPositionOptions;
+		private RobotRuleSet _openLongRules = new();
+		private RobotRuleSet _openShortRules = new();
+		private RobotRuleSet _closeRules = new();
+		private bool _robotEnabled;
+		private double _robotEvaluationSeconds = 1;
+		private RobotSubTab _robotSubTab;
+		private RobotOpenSide _robotOpenSide;
+		private TradeConsoleOptions? _tradeConsoleOptions;
 		private string? _error;
 		private bool _hideChart;
 
 		// Fits the chart once on a fresh run, then latches true so live ticks preserve the
 		// user's own pan/zoom instead of refitting every tick. See MarketChart.KeepView.
 		private bool _keepChartView;
-
-		private bool _isDummyRun;
 
 		// Bars scrolled in from the tick repository, older than the engine's own live RecentBars
 		// tail -- cleared on config change or cursor rewind, see SyncHistoryState.
@@ -158,8 +151,8 @@ namespace Poink.Sim.Components.Pages
 
 		private enum SimLeftPanelTab
 		{
+			Setup,
 			Traders,
-			TraderIo,
 			RuleEngine,
 		}
 
@@ -167,6 +160,7 @@ namespace Poink.Sim.Components.Pages
 		// owned by the page so it survives tab switches.
 		private HashSet<string> _ruleEngineEnabledKeys = new();
 		private double _ruleEngineXGridPercent = 10;
+		private HashSet<RuleSignalGroup> _ruleEngineDisabledGroups = new();
 
 		// Shared with the Snapshot tab's own TxFold chart so both evaluate/display the same timeframes.
 		private HashSet<int> _txFoldSelectedSeconds = new() { 60, 120, 240, 480, 900, 1800, 3600, 7200 };
@@ -250,13 +244,16 @@ namespace Poink.Sim.Components.Pages
 
 		// Baseline signals come straight off RangeStatsHelper; the XGrid rank/delta rows ride along
 		// on top by handing RuleEngineHelper the same grid ComputeXGrid builds for the chart itself.
-		private RuleEngineResult? ComputeRuleEngine(SimulationSnapshot s)
+		private RuleEngineResult? ComputeRuleEngine(SimulationSnapshot s, double xgridPercent, HashSet<RuleSignalGroup> disabledGroups)
 		{
 			var (bars, _) = WindowedBarData(s);
 			if (bars.Count == 0 || s.CurrentPrice is not { } currentPrice)
 				return null;
+
+			bool baseline = !disabledGroups.Contains(RuleSignalGroup.Baseline);
+			bool xgrid = !disabledGroups.Contains(RuleSignalGroup.XGrid);
 			return RuleEngineHelper.Compute(
-				MergedBarSamples(s),
+				baseline || xgrid ? MergedBarSamples(s) : new List<WeightedPriceSample>(),
 				w => w.Price,
 				w => (double)w.Count,
 				bars,
@@ -264,8 +261,9 @@ namespace Poink.Sim.Components.Pages
 				b => (double)b.Volume,
 				b => b.Close,
 				currentPrice,
-				ComputeXGrid(s),
-				_ruleEngineXGridPercent
+				xgrid ? ComputeXGrid(s) : null,
+				xgridPercent,
+				baseline
 			);
 		}
 
@@ -519,42 +517,6 @@ namespace Poink.Sim.Components.Pages
 			return bars.Count > 0 ? bars[^1].OpenTime : null;
 		}
 
-		private sealed record SimulationBrainOption(string DisplayName, string BrainName, Guid? ModelId);
-
-		private IReadOnlyList<SimulationBrainOption> SimulationBrainOptions =>
-			ModelService
-				.Models.Select(m => new SimulationBrainOption($"{m.Name} ({m.BrainName})", m.BrainName, m.Id))
-				.Concat(
-					BrainService
-						.BrainOptions.Where(b => !b.IsNeuralNetwork)
-						.Select(b => new SimulationBrainOption(b.Name, b.Name, null))
-				)
-				.ToList();
-
-		private static string OptionKey(SimulationBrainOption option) =>
-			option.ModelId is { } id ? $"model:{id}" : $"heuristic:{option.BrainName}";
-
-		private string SelectedOptionKey =>
-			SimulationBrainOptions.FirstOrDefault(o => o.BrainName == _brainName && o.ModelId == _modelId)
-				is { } selected
-				? OptionKey(selected)
-				: "";
-
-		private void OnSimulationBrainChanged(ChangeEventArgs e)
-		{
-			var option = SimulationBrainOptions.FirstOrDefault(o => OptionKey(o) == (e.Value?.ToString() ?? ""));
-			if (option is null)
-				return;
-
-			_brainName = option.BrainName;
-			_modelId = option.ModelId;
-			if (option.ModelId is { } modelId)
-				TrainingService.LoadSavedBrain(modelId);
-		}
-
-		private bool CurrentBrainIsNeuralNetwork(string brainName) =>
-			BrainService.BrainOptions.FirstOrDefault(b => b.Name == brainName)?.IsNeuralNetwork ?? false;
-
 		private TraderSnapshot? SelectedTrader =>
 			_snapshot is null
 				? null
@@ -564,10 +526,7 @@ namespace Poink.Sim.Components.Pages
 		private void SelectTrader(int id)
 		{
 			_selectedTraderId = id;
-			SimulationService.SelectTraderForIo(id);
 		}
-
-		private static bool TraderIsManual(TraderSnapshot trader) => trader.Mode == TraderControlMode.Manual;
 
 		private static string TraderPositionStatus(TraderSnapshot trader) =>
 			trader.Position is { } position ? (position.Direction == PositionDirection.Long ? "LONG" : "SHORT")
@@ -588,30 +547,12 @@ namespace Poink.Sim.Components.Pages
 				_ => null,
 			};
 
-		private bool SelectedTraderIsManual => SelectedTrader?.Mode == TraderControlMode.Manual;
-
-		private void ToggleSelectedTraderMode()
-		{
-			if (SelectedTrader is not { } trader)
-				return;
-			SimulationService.SetTraderMode(
-				trader.Id,
-				SelectedTraderIsManual ? TraderControlMode.Auto : TraderControlMode.Manual
-			);
-		}
-
-		private List<EquityCurveSample> SelectedTraderEquityCurveSamples
-		{
-			get
-			{
-				if (SelectedTrader is not { } trader || trader.EquityHistory.Count == 0)
-					return [];
-
-				var timestamps = trader.EquityHistory.Select(p => p.TimestampUtc).ToList();
-				var equity = trader.EquityHistory.Select(p => p.Equity).ToList();
-				return EquityCurveHelper.Build(timestamps, equity, trader.Trades);
-			}
-		}
+		private List<EquityCurveSample> SelectedTraderEquityCurveSamples =>
+			SelectedTrader is { } trader
+				? trader
+					.TradeEquity.Select(p => new EquityCurveSample(p.TimestampUtc, p.Equity, p.MaxEquity, p.MinEquity, p.TradeNumber))
+					.ToList()
+				: [];
 
 		// ── Lifecycle ──
 
@@ -619,15 +560,18 @@ namespace Poink.Sim.Components.Pages
 		{
 			SimulationService.OnChanged += HandleServiceChanged;
 			ApplyServiceState();
+			_selectedRiskPolicies.AddRange(RiskPolicyService.AvailablePolicies.Select(p => p.Name));
+		}
 
-			if (SimulationBrainOptions.Count > 0)
-			{
-				var first = SimulationBrainOptions[0];
-				_brainName = first.BrainName;
-				_modelId = first.ModelId;
-				if (first.ModelId is { } modelId)
-					TrainingService.LoadSavedBrain(modelId);
-			}
+		// Start is load-then-play in one click; the load runs in the background, so playback begins
+		// once the engine reports it finished loading.
+		private void PlayWhenLoadSettles()
+		{
+			if (!_playOnLoad || _isLoading)
+				return;
+			_playOnLoad = false;
+			if (_snapshot is not null)
+				SimulationService.Play();
 		}
 
 		private void HandleServiceChanged() =>
@@ -643,6 +587,7 @@ namespace Poink.Sim.Components.Pages
 			_isLoading = SimulationService.IsLoading;
 			_error = SimulationService.Error;
 			SyncHistoryState(_snapshot);
+			PlayWhenLoadSettles();
 		}
 
 		// A config change invalidates already-fetched history; a cursor moving backward means
@@ -676,7 +621,7 @@ namespace Poink.Sim.Components.Pages
 		// independent of the engine's own live RecentBars ring buffer.
 		private async Task LoadOlderChartHistory()
 		{
-			if (_snapshot is null || _isDummyRun || _historyReachedStart || _isLoadingHistory)
+			if (_snapshot is null || _historyReachedStart || _isLoadingHistory)
 				return;
 
 			var config = _snapshot.Config;
@@ -720,6 +665,7 @@ namespace Poink.Sim.Components.Pages
 		private const string SettingsStorageKey = "poink.simulation.setup";
 
 		private string? _lastPersistedSettingsJson;
+		private bool _settingsLoaded;
 
 		private SimulationPageSettings CurrentSettings =>
 			new(
@@ -728,29 +674,45 @@ namespace Poink.Sim.Components.Pages
 				_to,
 				_aggregate,
 				_barSizeSeconds,
-				_steppingMode,
-				_cellWidth,
-				_brainName,
-				_modelId,
 				_startingCash,
 				_traderCount,
 				_leverage,
 				_commissionRatePercent,
 				_stopOutLevelPercent,
-				_pipSize,
-				[.. _selectedRiskPolicies],
-				_lockRiskPolicies
+				_robotPositionOptions,
+				_openLongRules,
+				_openShortRules,
+				_closeRules,
+				_robotEnabled,
+				_tradeConsoleOptions,
+				_robotSubTab,
+				_robotOpenSide,
+				_robotEvaluationSeconds
 			);
+
+		// A simulation already held by the service (page revisited) is shown as-is instead of reloaded.
+		private async Task LoadInitialSimulation()
+		{
+			if (_snapshot is null && !_isLoading)
+				await LoadSimulationAsync(playWhenLoaded: false);
+		}
 
 		private async Task LoadPersistedSettingsAsync()
 		{
-			var settings = await LocalStorage.GetItemAsync<SimulationPageSettings>(SettingsStorageKey);
-			if (settings is null)
-				return;
+			try
+			{
+				var settings = await LocalStorage.GetItemAsync<SimulationPageSettings>(SettingsStorageKey);
+				if (settings is null)
+					return;
 
-			ApplySettings(settings);
-			_lastPersistedSettingsJson = JsonSerializer.Serialize(CurrentSettings);
-			StateHasChanged();
+				ApplySettings(settings);
+				_lastPersistedSettingsJson = JsonSerializer.Serialize(CurrentSettings);
+				StateHasChanged();
+			}
+			finally
+			{
+				_settingsLoaded = true;
+			}
 		}
 
 		private void ApplySettings(SimulationPageSettings settings)
@@ -760,24 +722,26 @@ namespace Poink.Sim.Components.Pages
 			_to = settings.To;
 			_aggregate = settings.Aggregate;
 			_barSizeSeconds = settings.BarSizeSeconds;
-			_steppingMode = settings.SteppingMode;
-			_cellWidth = settings.CellWidth;
-			_brainName = settings.BrainName;
-			_modelId = settings.ModelId;
 			_startingCash = settings.StartingCash;
 			_traderCount = settings.TraderCount;
 			_leverage = settings.Leverage;
 			_commissionRatePercent = settings.CommissionRatePercent;
 			_stopOutLevelPercent = settings.StopOutLevelPercent;
-			_pipSize = settings.PipSize;
-			_selectedRiskPolicies.Clear();
-			_selectedRiskPolicies.AddRange(settings.SelectedRiskPolicies);
-			_lockRiskPolicies = settings.LockRiskPolicies;
+			_robotPositionOptions = settings.RobotPositionOptions;
+			_openLongRules = settings.OpenLongRules ?? new();
+			_openShortRules = settings.OpenShortRules ?? new();
+			_closeRules = settings.CloseRules ?? new();
+			_robotEnabled = settings.RobotEnabled;
+			_tradeConsoleOptions = settings.TradeOptions;
+			_robotSubTab = settings.RobotSubTab;
+			_robotOpenSide = settings.RobotOpenSide;
+			_robotEvaluationSeconds = settings.RobotEvaluationSeconds ?? 1;
 		}
 
+		// Saving before the stored settings were read would overwrite them with the page's defaults.
 		private async Task PersistSettingsIfChangedAsync()
 		{
-			if (_snapshot is not null)
+			if (!_settingsLoaded)
 				return;
 
 			var json = JsonSerializer.Serialize(CurrentSettings);
@@ -917,11 +881,15 @@ namespace Poink.Sim.Components.Pages
 			{
 				_dividerResizeInstance = await JS.InvokeAsync<IJSObjectReference>("eval", ChartDividerScript);
 				await LoadPersistedSettingsAsync();
+				await LoadInitialSimulation();
 			}
 			else
 			{
 				await PersistSettingsIfChangedAsync();
 			}
+
+			PushRobotOptionsIfChanged();
+			await RefreshSymbolMetadataIfTableChangedAsync();
 
 			if (_snapshot is not null && !_hideChart && _dividerResizeInstance is not null)
 			{
@@ -964,22 +932,16 @@ namespace Poink.Sim.Components.Pages
 			}
 		}
 
-		// ── Saved brains (setup-only picker, see SavedBrainsTable) ──
-
-		private void UseSavedBrain(NeuralWeightsSummary summary)
-		{
-			if (TrainingService.LoadSavedBrain(summary.Id))
-			{
-				_brainName = summary.BrainName;
-				_modelId = summary.Id;
-			}
-		}
-
-		private void DeleteSavedBrainSnapshot(NeuralWeightsSummary summary) => ModelService.DeleteModel(summary.Id);
-
 		// ── Setup actions ──
 
-		private void LoadSimulation()
+		// The symbol's pip size feeds the account, so its metadata is resolved before every load.
+		private async Task LoadSimulationAsync(bool playWhenLoaded)
+		{
+			await EnsureSymbolMetadataAsync();
+			LoadSimulation(playWhenLoaded);
+		}
+
+		private void LoadSimulation(bool playWhenLoaded)
 		{
 			_loadError = null;
 
@@ -988,14 +950,14 @@ namespace Poink.Sim.Components.Pages
 				_loadError = "pick a symbol";
 				return;
 			}
+			if (_symbolLimits is not { } limits)
+			{
+				_loadError = "no trading metadata for this symbol -- it needs a cTrader session to be fetched once";
+				return;
+			}
 			if (_to <= _from)
 			{
 				_loadError = "To must be after From";
-				return;
-			}
-			if (string.IsNullOrWhiteSpace(_brainName))
-			{
-				_loadError = "pick a brain";
 				return;
 			}
 			if (_startingCash <= 0)
@@ -1014,24 +976,25 @@ namespace Poink.Sim.Components.Pages
 				_to,
 				_aggregate,
 				TimeSpan.FromSeconds(_barSizeSeconds),
-				_brainName,
 				_startingCash,
 				_traderCount,
+				limits,
 				_leverage,
 				_stopOutLevelPercent,
 				_commissionRatePercent,
-				_pipSize,
+				limits.PipSize,
 				SelectedRiskPolicies,
-				_lockRiskPolicies,
-				_steppingMode,
-				_cellWidth
+				RuleEngineWarmup()
 			);
 
 			_keepChartView = false;
 			_setupCollapsed = true;
-			_isDummyRun = false;
+			_playOnLoad = playWhenLoaded;
 			if (!SimulationService.TryLoad(config))
+			{
+				_playOnLoad = false;
 				_loadError = "a load is already in progress";
+			}
 		}
 
 		private bool ValidateTraderAccountParams()
@@ -1059,40 +1022,13 @@ namespace Poink.Sim.Components.Pages
 			return true;
 		}
 
-		private IReadOnlyList<string>? SelectedRiskPolicies =>
-			_selectedRiskPolicies.Count > 0 ? _selectedRiskPolicies.ToList() : null;
+		private void SetRobotPositionOptions(TradeConsoleOptions options) => _robotPositionOptions = options;
 
-		private void OnAggregationSettingChanged() =>
-			SimulationService.SetAggregation(_aggregate, TimeSpan.FromSeconds(_barSizeSeconds));
-
-		private void OnSteppingModeChanged() => SimulationService.SetSteppingMode(_steppingMode, _cellWidth);
-
-		// Pins the live cell's edges on XGrid as host lines, distinct from the grid's own
-		// rowCount-derived bands, so a Cell-stepping run can be compared against them visually.
-		private static List<XGridLine> CellBandLines(SimulationSnapshot s) =>
-			s.Config.SteppingMode == SimulationSteppingMode.Cell && s.CellState is { } cell
-				? new List<XGridLine>
-				{
-					XGridLine.Horizontal(cell.CellLow) with
-					{
-						Id = "cell-low",
-					},
-					XGridLine.Horizontal(cell.CellHigh) with
-					{
-						Id = "cell-high",
-					},
-				}
-				: new List<XGridLine>();
-
-		private void LoadDummySimulation()
+		// With a simulation running the new account options go to the bots; with none loaded there is
+		// nothing to apply them to, so the load itself picks them up.
+		private async Task ApplyAccountSettings()
 		{
 			_loadError = null;
-
-			if (string.IsNullOrWhiteSpace(_brainName))
-			{
-				_loadError = "pick a brain";
-				return;
-			}
 			if (_startingCash <= 0)
 			{
 				_loadError = "starting cash must be positive";
@@ -1103,40 +1039,62 @@ namespace Poink.Sim.Components.Pages
 			if (_traderCount < 1)
 				_traderCount = 1;
 
-			var to = _to > _from ? _to : DateTime.UtcNow;
-			var from = _to > _from ? _from : to.AddHours(-4);
-			var table = string.IsNullOrWhiteSpace(_table) ? "DUMMY" : _table;
-
-			var config = new SimulationConfig(
-				table,
-				from,
-				to,
-				_aggregate,
-				TimeSpan.FromSeconds(_barSizeSeconds),
-				_brainName,
-				_startingCash,
-				_traderCount,
-				_leverage,
-				_stopOutLevelPercent,
-				_commissionRatePercent,
-				_pipSize,
-				SelectedRiskPolicies,
-				_lockRiskPolicies,
-				_steppingMode,
-				_cellWidth
+			if (_snapshot is null)
+			{
+				await LoadSimulationAsync(playWhenLoaded: false);
+				return;
+			}
+			if (_symbolLimits is not { } limits)
+			{
+				_loadError = "no trading metadata for this symbol -- it needs a cTrader session to be fetched once";
+				return;
+			}
+			SimulationService.ApplyAccountOptions(
+				new BotAccountOptions(_startingCash, _traderCount, _leverage, _commissionRatePercent, _stopOutLevelPercent, limits.PipSize, limits)
 			);
-
-			_keepChartView = false;
-			_isDummyRun = true;
-			if (!SimulationService.TryLoadDummy(config))
-				_loadError = "a load is already in progress";
 		}
+
+		private Task ApplyDataRange() => LoadSimulationAsync(playWhenLoaded: false);
+
+		// Enough history before From that the rule engine's bar window and TxFold lookback are already full when the run starts.
+		private TimeSpan RuleEngineWarmup()
+		{
+			if (!_aggregate)
+				return TimeSpan.Zero;
+
+			var barSpan = TimeSpan.FromSeconds(_barSizeSeconds) * (ClampedBarWindow + ClampedBarOffset);
+			var txFoldSpan = _txFoldSelectedSeconds.Count > 0 ? TimeSpan.FromSeconds(_txFoldSelectedSeconds.Max()) : TimeSpan.Zero;
+			return barSpan > txFoldSpan ? barSpan : txFoldSpan;
+		}
+
+		private void SetRobotSubTab(RobotSubTab tab) => _robotSubTab = tab;
+
+		private void SetRobotOpenSide(RobotOpenSide side) => _robotOpenSide = side;
+
+		private void SetRobotEvaluationSeconds(double seconds) => _robotEvaluationSeconds = seconds;
+
+		private void SetRobotEnabled(bool enabled) => _robotEnabled = enabled;
+
+		private void SetTradeConsoleOptions(TradeConsoleOptions options) => _tradeConsoleOptions = options;
+
+		private Task OnRobotRulesChanged() => PersistSettingsIfChangedAsync();
+
+		private RuleEngineResult? ComputeRobotRuleEngine(RobotRuleSet rules) =>
+			_snapshot is null ? null : ComputeRuleEngine(_snapshot, rules.XGridPercent, rules.DisabledGroups);
+
+		private IReadOnlyList<string>? SelectedRiskPolicies =>
+			_selectedRiskPolicies.Count > 0 ? _selectedRiskPolicies.ToList() : null;
+
+		private void OnAggregationSettingChanged() =>
+			SimulationService.SetAggregation(_aggregate, TimeSpan.FromSeconds(_barSizeSeconds));
 
 		// ── Playback actions ──
 
-		private void TogglePlayPause()
+		private async Task TogglePlayPause()
 		{
-			if (_snapshot?.IsPlaying == true)
+			if (_snapshot is null)
+				await LoadSimulationAsync(playWhenLoaded: true);
+			else if (_snapshot.IsPlaying)
 				SimulationService.Pause();
 			else
 				SimulationService.Play();
@@ -1170,20 +1128,10 @@ namespace Poink.Sim.Components.Pages
 
 		private void ToggleSetupPanel() => _setupCollapsed = !_setupCollapsed;
 
-		private void ResetSim()
+		private Task ResetSim()
 		{
 			_keepChartView = false;
-			_draft = null;
-
-			SimulationService.Reset();
-		}
-
-		private void UnloadSim()
-		{
-			_keepChartView = false;
-			_setupCollapsed = false;
-			_draft = null;
-			SimulationService.Unload();
+			return LoadSimulationAsync(playWhenLoaded: false);
 		}
 
 		// ── Rendering helpers ──

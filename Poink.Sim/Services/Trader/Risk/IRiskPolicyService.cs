@@ -8,5 +8,5 @@ internal interface IRiskPolicyService
 
 	ITrader Wrap(ITrader core, IReadOnlyList<string>? policyNames, RiskPolicyToggles? toggles = null);
 
-	RiskPolicyToggles? CreateToggles(IReadOnlyList<string>? policyNames, bool locked);
+	RiskPolicyToggles? CreateToggles(IReadOnlyList<string>? policyNames);
 }

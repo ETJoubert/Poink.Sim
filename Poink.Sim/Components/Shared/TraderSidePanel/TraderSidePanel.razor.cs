@@ -11,14 +11,20 @@ namespace Poink.Sim.Components.Shared.TraderSidePanel
 	/// </summary>
 	public partial class TraderSidePanel : ComponentBase
 	{
-		private enum SidePanelTab
+		public enum SidePanelTab
 		{
 			Trade,
 			Policies,
 			Robot,
 		}
 
-		private SidePanelTab _activeTab = SidePanelTab.Trade;
+		private SidePanelTab _activeTab;
+
+		/// <summary>The tab shown first; later tab clicks are owned by the panel.</summary>
+		[Parameter]
+		public SidePanelTab InitialTab { get; set; } = SidePanelTab.Trade;
+
+		protected override void OnInitialized() => _activeTab = InitialTab;
 
 		/// <summary>The page-specific order-entry panel shown under the Trade tab.</summary>
 		[Parameter]

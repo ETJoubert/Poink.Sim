@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using Poink.Sim.Brain.Neural;
+using Poink.Sim.Helpers;
 using Poink.Sim.Repository;
 using Poink.Sim.Trader;
 using Poink.Sim.Trader.Orders;
@@ -22,28 +22,21 @@ internal sealed record SimulationConfig(
 	DateTime To,
 	bool Aggregate,
 	TimeSpan BarSize,
-	string BrainName,
 	double StartingCash,
 	int TraderCount,
+	SymbolTradingLimits Limits,
 	double Leverage = 1.0,
 	double StopOutLevelPercent = 50.0,
 	double CommissionRatePercent = 0.0,
 	double PipSize = 0.01,
 	IReadOnlyList<string>? RiskPolicyNames = null,
-	bool LockRiskPolicies = false,
-	SimulationSteppingMode SteppingMode = SimulationSteppingMode.Bar,
-	double CellWidth = 0.10
-);
-
-// Live PriceCellTracker readout, published only while SteppingMode is Cell -- lets a host
-// compare how often it fires against the bar-based alternative.
-internal sealed record SimulationCellState(
-	long CellIndex,
-	double CellLow,
-	double CellHigh,
-	int StepCount,
-	DateTime LastStepUtc
-);
+	TimeSpan Warmup = default
+)
+{
+	// Ticks from here up to From are replayed silently before the run starts, so history-dependent
+	// readouts (the rule engine's bar window and TxFold lookback) are already populated at From.
+	public DateTime LoadFrom => From - Warmup;
+}
 
 internal sealed record SimulationLogEntry(
 	DateTime TimestampUtc,
@@ -64,13 +57,19 @@ internal sealed record SimulationProgress(
 	DateTime RangeToUtc
 );
 
-// One equity reading at a decision point, feeding TraderSnapshot.EquityHistory.
-internal readonly record struct EquityHistoryPoint(DateTime TimestampUtc, double Equity);
+// One closed trade's equity summary, feeding TraderSnapshot.TradeEquity -- kept per trade rather than
+// per bar so it survives however long the run goes between trades.
+internal readonly record struct TradeEquityPoint(
+	DateTime TimestampUtc,
+	double Equity,
+	double MaxEquity,
+	double MinEquity,
+	int TradeNumber
+);
 
 internal sealed record TraderSnapshot(
 	int Id,
 	string Label,
-	TraderControlMode Mode,
 	CapitalState Capital,
 	Position? Position,
 	PendingOrder? PendingOrder,
@@ -81,11 +80,9 @@ internal sealed record TraderSnapshot(
 	double MaxDrawdown,
 	double Leverage,
 	double StopOutLevelPercent,
-	IReadOnlyList<RlInputFeature>? Inputs,
-	IReadOnlyList<RlOutputFeature>? Outputs,
 	IReadOnlyList<RiskPolicyStatus> RiskPolicyStatuses,
 	RiskPolicyDenial? LastDenial,
-	IReadOnlyList<EquityHistoryPoint> EquityHistory
+	IReadOnlyList<TradeEquityPoint> TradeEquity
 );
 
 internal sealed record SimulationSnapshot(
@@ -104,7 +101,5 @@ internal sealed record SimulationSnapshot(
 	IReadOnlyList<HlocAvdtBar> RecentBars,
 	IReadOnlyList<BarPriceHistogram> RecentBarHistograms,
 	IReadOnlyList<Tick> RecentTicks,
-	IReadOnlyList<RiskPolicySnapshot> RiskPolicies,
-	bool RiskPoliciesLocked,
-	SimulationCellState? CellState
+	IReadOnlyList<RiskPolicySnapshot> RiskPolicies
 );

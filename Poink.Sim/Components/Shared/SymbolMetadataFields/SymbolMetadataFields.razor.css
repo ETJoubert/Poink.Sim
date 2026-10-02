@@ -1,0 +1,32 @@
+.smf {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+.smf-field {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.smf-label {
+    font-size: 0.62rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-secondary);
+}
+
+.smf-value {
+    font-size: 0.78rem;
+    color: var(--color-primary);
+    overflow-wrap: anywhere;
+}
+
+.smf-placeholder {
+    margin: 0;
+    font-size: 0.72rem;
+    color: var(--color-secondary);
+}

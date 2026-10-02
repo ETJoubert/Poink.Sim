@@ -91,10 +91,9 @@ public partial class LookbackWindowBar : ComponentBase, IAsyncDisposable
             try
             {
                 await _module.InvokeVoidAsync("dispose", _railRef);
+                await _module.DisposeAsync();
             }
             catch (JSDisconnectedException) { }
-
-            await _module.DisposeAsync();
         }
 
         _dotNetRef?.Dispose();

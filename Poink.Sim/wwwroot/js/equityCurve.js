@@ -1,9 +1,7 @@
-// Read-only equity-over-time chart: a solid trace for equity plus two fainter traces for the
-// best/worst equity reached during the currently open trade. A null sample breaks its trace into
-// a separate path segment rather than drawing through it, so gaps between trades don't render as
-// a connecting line. Y axis reads equity; X axis reads trade number (a tick per trade, placed at
-// that trade's last sample) rather than bar index or time. Per-instance state keyed by the
-// container element itself, same WeakMap convention as marketChartSparkline.js.
+// Read-only equity-by-trade chart: one point per trade. The solid trace joins each trade's outcome
+// equity; two fainter traces join the best/worst equity reached while that trade was open. Y axis
+// reads equity; X axis reads trade number. Per-instance state keyed by the container element
+// itself, same WeakMap convention as marketChartSparkline.js.
 const state = new WeakMap();
 
 const marginLeft = 52;
@@ -11,42 +9,27 @@ const marginBottom = 20;
 const marginTop = 8;
 const marginRight = 10;
 
-function segments(samples, pick) {
-    const result = [];
-    let current = null;
-    samples.forEach((s, i) => {
-        const v = pick(s);
-        if (v == null) {
-            current = null;
-            return;
-        }
-        if (!current) {
-            current = [];
-            result.push(current);
-        }
-        current.push({ i, v });
-    });
-    return result;
-}
-
 function strokeSeries(ctx, samples, pick, xForIndex, yForValue, color, alpha, lineWidth, dash) {
-    const segs = segments(samples, pick);
-    if (segs.length === 0) return;
-
     ctx.save();
     ctx.globalAlpha = alpha;
     ctx.strokeStyle = color;
+    ctx.fillStyle = color;
     ctx.lineWidth = lineWidth;
     if (dash) ctx.setLineDash(dash);
-    for (const seg of segs) {
-        if (seg.length < 2) continue;
-        const path = new Path2D();
-        seg.forEach((p, idx) => {
-            const x = xForIndex(p.i);
-            const y = yForValue(p.v);
-            if (idx === 0) path.moveTo(x, y); else path.lineTo(x, y);
-        });
-        ctx.stroke(path);
+
+    const path = new Path2D();
+    samples.forEach((s, i) => {
+        const x = xForIndex(i);
+        const y = yForValue(pick(s));
+        if (i === 0) path.moveTo(x, y); else path.lineTo(x, y);
+    });
+    ctx.stroke(path);
+
+    ctx.setLineDash([]);
+    for (let i = 0; i < samples.length; i++) {
+        ctx.beginPath();
+        ctx.arc(xForIndex(i), yForValue(pick(samples[i])), lineWidth + 0.5, 0, Math.PI * 2);
+        ctx.fill();
     }
     ctx.restore();
 }
@@ -65,26 +48,19 @@ function formatEquity(v) {
     return v.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 }
 
-// One tick per trade, placed at that trade's last sample index -- the point where its
-// max/min-equity traces end -- rather than one per bar, so the axis reads as trade progression.
-function tradeAxisTicks(samples) {
+// One tick per trade sample, thinned to every nth so labels stay legible on long runs.
+function tradeAxisTicks(samples, xForIndex, plotW) {
+    const minLabelSpacing = 28;
+    const step = Math.max(1, Math.ceil((samples.length * minLabelSpacing) / Math.max(1, plotW)));
     const ticks = [];
-    let lastNumber = null;
-    let lastIndex = -1;
     samples.forEach((s, i) => {
-        if (s.tradeNumber != null) {
-            lastNumber = s.tradeNumber;
-            lastIndex = i;
-        } else if (lastNumber != null) {
-            ticks.push({ index: lastIndex, number: lastNumber });
-            lastNumber = null;
-        }
+        if (i % step === 0) ticks.push({ index: i, number: s.tradeNumber });
     });
-    if (lastNumber != null) ticks.push({ index: lastIndex, number: lastNumber });
     return ticks;
 }
 
 function drawAxes(ctx, rect, samples, min, max, xForIndex, yForValue, gridColor, textColor) {
+    const plotW = rect.width - marginLeft - marginRight;
     ctx.save();
     ctx.strokeStyle = gridColor;
     ctx.fillStyle = textColor;
@@ -118,7 +94,7 @@ function drawAxes(ctx, rect, samples, min, max, xForIndex, yForValue, gridColor,
     ctx.globalAlpha = 0.8;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
-    for (const tick of tradeAxisTicks(samples)) {
+    for (const tick of tradeAxisTicks(samples, xForIndex, plotW)) {
         const x = xForIndex(tick.index);
         ctx.beginPath();
         ctx.moveTo(x + 0.5, axisY);
@@ -149,7 +125,6 @@ function draw(container) {
     let min = Infinity, max = -Infinity;
     for (const p of samples) {
         for (const v of [p.equity, p.tradeMax, p.tradeMin]) {
-            if (v == null) continue;
             if (v < min) min = v;
             if (v > max) max = v;
         }

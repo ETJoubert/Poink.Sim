@@ -22,8 +22,6 @@ internal sealed class RiskAwareTrader : ITrader, IRiskInspectable
 
 	public IReadOnlyList<RiskPolicySnapshot> PolicyStates() => _riskManager.PolicyStates();
 
-	public bool PoliciesLocked => _riskManager.PoliciesLocked;
-
 	public bool SetPolicyEnabled(string policyName, bool enabled) => _riskManager.SetPolicyEnabled(policyName, enabled);
 
 	public bool MovePolicy(string policyName, int delta) => _riskManager.MovePolicy(policyName, delta);

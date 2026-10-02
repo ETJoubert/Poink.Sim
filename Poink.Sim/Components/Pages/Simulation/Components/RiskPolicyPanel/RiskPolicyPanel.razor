@@ -6,13 +6,6 @@
               title="Risk policies gate every trade action -- permit, deny or resize -- and supervise open positions for every trader in this run">
             Risk Policies
         </span>
-        @if (Locked)
-        {
-            <span class="riskpolicy-locked-badge"
-                  title="Locked at setup -- these policies are fixed for the whole run and cannot be toggled during playback">
-                🔒 Locked
-            </span>
-        }
     </div>
 
     <div class="riskpolicy-panel-list">
@@ -21,18 +14,18 @@
             var policy = Policies[i];
             var index = i;
             var denied = DeniedBy(policy.Name);
-            <div class="riskpolicy-card @(policy.Enabled ? "riskpolicy-card-on" : "riskpolicy-card-off") @(Locked ? "riskpolicy-card-locked" : null) @(denied ? "riskpolicy-card-denied" : null)"
+            <div class="riskpolicy-card @(policy.Enabled ? "riskpolicy-card-on" : "riskpolicy-card-off") @(denied ? "riskpolicy-card-denied" : null)"
                  role="button"
-                 tabindex="@(Locked ? -1 : 0)"
+                 tabindex="0"
                  aria-pressed="@policy.Enabled"
                  @onclick="() => ToggleCard(policy)"
                  @onkeydown="e => OnCardKey(e, policy)"
                  title="@policy.Description">
                 <span class="riskpolicy-card-order" @onclick:stopPropagation="true">
                     <button type="button" class="riskpolicy-order-btn" @onclick="() => MoveRiskPolicy(policy.Name, -1)"
-                            disabled="@(Locked || index == 0)" title="Run earlier">&#9650;</button>
+                            disabled="@(index == 0)" title="Run earlier">&#9650;</button>
                     <button type="button" class="riskpolicy-order-btn" @onclick="() => MoveRiskPolicy(policy.Name, 1)"
-                            disabled="@(Locked || index == Policies.Count - 1)" title="Run later">&#9660;</button>
+                            disabled="@(index == Policies.Count - 1)" title="Run later">&#9660;</button>
                 </span>
                 <span class="riskpolicy-card-indicator"
                       title="@(denied ? $"Denied the last decision: {LastDenial?.Reason}" : policy.Enabled ? "Active -- click to deactivate" : "Inactive -- click to activate")"></span>
@@ -58,7 +51,6 @@
                                     <span class="riskpolicy-parameter-label">@parameter.Label</span>
                                     <input type="number" class="riskpolicy-parameter-input"
                                            value="@parameter.Value" min="@parameter.Min" max="@parameter.Max" step="@parameter.Step"
-                                           disabled="@Locked"
                                            title="@($"{parameter.Label} for {policy.Name} -- range {parameter.Min:0.##} to {parameter.Max:0.##}")"
                                            @onchange="e => SetParameter(policy.Name, parameter.Key, e)" />
                                 </label>

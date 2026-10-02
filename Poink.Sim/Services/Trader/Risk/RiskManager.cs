@@ -90,8 +90,6 @@ internal sealed class RiskManager : IRiskManager
 
 	public IReadOnlyList<RiskPolicySnapshot> PolicyStates() => _toggles?.States() ?? Array.Empty<RiskPolicySnapshot>();
 
-	public bool PoliciesLocked => _toggles?.Locked ?? false;
-
 	public bool SetPolicyEnabled(string policyName, bool enabled) =>
 		_toggles is not null && _toggles.Set(policyName, enabled);
 

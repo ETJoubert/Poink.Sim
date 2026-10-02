@@ -14,9 +14,6 @@ namespace Poink.Sim.Components.Simulation
 		public string Label { get; set; } = "";
 
 		[Parameter]
-		public bool IsManual { get; set; }
-
-		[Parameter]
 		public string PositionStatus { get; set; } = "FLAT";
 
 		[Parameter]

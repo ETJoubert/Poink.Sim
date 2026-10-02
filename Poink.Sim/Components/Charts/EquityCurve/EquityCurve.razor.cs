@@ -8,11 +8,11 @@ using Microsoft.JSInterop;
 namespace Poink.Sim.Components.Charts
 {
 	/// <summary>
-	/// Read-only equity-over-time chart: a solid line for equity, plus two fainter lines tracking
-	/// the best and worst equity reached while the currently open trade (if any) was open -- gaps
-	/// outside any open trade. Takes plain <see cref="EquityCurveSample"/> data (built via
-	/// <see cref="EquityCurveHelper"/>) rather than RL- or simulation-specific types, so both
-	/// Episode Playback and Simulation can feed it from their own equity series.
+	/// Read-only equity-by-trade chart: a solid line through each trade's outcome equity, plus two
+	/// fainter lines tracking the best and worst equity reached while that trade was open. Takes
+	/// plain <see cref="EquityCurveSample"/> data (built via <see cref="EquityCurveHelper"/>)
+	/// rather than RL- or simulation-specific types, so both Episode Playback and Simulation can
+	/// feed it from their own equity series.
 	/// </summary>
 	public partial class EquityCurve : ComponentBase, IAsyncDisposable
 	{

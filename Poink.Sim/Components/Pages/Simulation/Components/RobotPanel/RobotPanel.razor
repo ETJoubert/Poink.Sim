@@ -1,0 +1,65 @@
+@namespace Poink.Sim.Components.Simulation
+@using Poink.Sim.Components.RuleEngine
+@using Poink.Sim.Components.Shared.TradeConsole
+@using Poink.Sim.Models
+
+<div class="robot-panel">
+    <button type="button" class="robot-switch @(Enabled ? "active" : "")" @onclick="() => OnEnabledChanged.InvokeAsync(!Enabled)"
+            title="@(Enabled ? "The robot trades whenever its open and close conditions match -- click to switch it off" : "The robot is off and will not trade -- click to let it trade when its conditions match")">
+        ROBOT: @(Enabled ? "ON" : "OFF")
+    </button>
+    <label class="robot-interval"
+           title="How often the robot checks its open and close conditions, in simulated seconds -- 0 checks on every tick, larger values keep fast playback responsive">
+        Evaluate every (s)
+        <input type="number" min="0" step="1" value="@EvaluationSeconds" @onchange="SetEvaluationSeconds" />
+    </label>
+    <div class="robot-subtabs">
+        <button type="button" class="robot-subtab @(SubTab == RobotSubTab.Positioning ? "active" : "")"
+                @onclick="() => SelectSubTab(RobotSubTab.Positioning)"
+                title="How the robot sizes a position and places its stop loss and take profit">POSITIONING</button>
+        <button type="button" class="robot-subtab @(SubTab == RobotSubTab.Open ? "active" : "")"
+                @onclick="() => SelectSubTab(RobotSubTab.Open)"
+                title="The conditions that make the robot open a position">OPEN</button>
+        <button type="button" class="robot-subtab @(SubTab == RobotSubTab.Close ? "active" : "")"
+                @onclick="() => SelectSubTab(RobotSubTab.Close)"
+                title="The conditions that make the robot close a position">CLOSE</button>
+    </div>
+
+    <div class="robot-subtab-content">
+        @if (SubTab == RobotSubTab.Positioning)
+        {
+            <TradeConsole SettingsMode="true" MinStopLossDistancePrice="Limits?.MinStopLossDistancePrice" MinTakeProfitDistancePrice="Limits?.MinTakeProfitDistancePrice"
+                          PriceStep="Limits?.PriceStep" SymbolVolumeStep="Limits?.VolumeStep" MinVolume="Limits?.MinVolume"
+                          MaxVolume="Limits?.MaxVolume" AllowShort="Limits?.AllowShort ?? true"
+                          Options="Options" OnOptionsChanged="OnOptionsChanged"
+                          HasSelection="HasSelection" Balance="Balance" Leverage="Leverage" PipSize="PipSize"
+                          CurrentPrice="CurrentPrice" CurrentBid="CurrentBid" CurrentAsk="CurrentAsk" />
+        }
+        else if (SubTab == RobotSubTab.Open)
+        {
+            <div class="robot-subtabs robot-subtabs-nested">
+                <button type="button" class="robot-subtab @(OpenSide == RobotOpenSide.Long ? "active" : "")"
+                        @onclick="() => SelectOpenSide(RobotOpenSide.Long)"
+                        title="The conditions that must all hold for the robot to open a long position">LONG</button>
+                <button type="button" class="robot-subtab @(OpenSide == RobotOpenSide.Short ? "active" : "")"
+                        @onclick="() => SelectOpenSide(RobotOpenSide.Short)"
+                        title="The conditions that must all hold for the robot to open a short position">SHORT</button>
+            </div>
+            @RuleEditor(OpenSide == RobotOpenSide.Long ? OpenLongRules : OpenShortRules)
+        }
+        else
+        {
+            @RuleEditor(CloseRules)
+        }
+    </div>
+</div>
+
+@code {
+    private RenderFragment RuleEditor(RobotRuleSet rules) =>
+        @<RuleEnginePanel @key="rules" EnabledKeys="rules.EnabledKeys" EnabledKeysChanged="_ => OnRulesChanged.InvokeAsync()"
+                          XGridPercent="rules.XGridPercent" XGridPercentChanged="percent => SetXGridPercent(rules, percent)"
+                          DisabledGroups="rules.DisabledGroups" DisabledGroupsChanged="_ => OnRulesChanged.InvokeAsync()"
+                          Result="ComputeRuleEngine(rules)" CurrentTimestampUtc="CurrentTimestampUtc"
+                          TxFoldTable="@TxFoldTable" TxFoldAnchorEnd="TxFoldAnchorEnd" TxFoldRangeStart="TxFoldRangeStart"
+                          TxFoldSelectedSeconds="TxFoldSelectedSeconds" />;
+}

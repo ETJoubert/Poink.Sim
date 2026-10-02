@@ -28,6 +28,13 @@ namespace Poink.Sim.Components.RuleEngine
 		[Parameter]
 		public EventCallback<HashSet<string>> EnabledKeysChanged { get; set; }
 
+		/// <summary>Signal groups switched off here: not calculated, not shown, and their selections ignored.</summary>
+		[Parameter]
+		public HashSet<RuleSignalGroup> DisabledGroups { get; set; } = new();
+
+		[Parameter]
+		public EventCallback<HashSet<RuleSignalGroup>> DisabledGroupsChanged { get; set; }
+
 		[Parameter]
 		public RuleEngineResult? Result { get; set; }
 
@@ -57,14 +64,26 @@ namespace Poink.Sim.Components.RuleEngine
 		private int _totalMatches;
 		private readonly List<DateTime> _matchLog = new();
 
-		private List<TxFoldBar> _txFoldBars = new();
-		private (string Table, DateTime AnchorEnd, DateTime RangeStart, string SelectedKey)? _txFoldLoadedFor;
-		private bool _txFoldLoading;
+		private readonly TxFoldBarsCache _txFoldCache = new();
 
 		private IReadOnlyList<RuleSignalRow> Rows =>
 			(Result?.Rows ?? Array.Empty<RuleSignalRow>())
-				.Concat(Result is { } r ? RuleEngineHelper.TxFoldRows(_txFoldBars, r.CurrentPrice) : Array.Empty<RuleSignalRow>())
+				.Concat(
+					Result is { } r && !IsDisabled(RuleSignalGroup.TxFold)
+						? RuleEngineHelper.TxFoldRows(_txFoldCache.Bars, r.CurrentPrice)
+						: Array.Empty<RuleSignalRow>()
+				)
+				.Where(row => !IsDisabled(row.Group))
 				.ToList();
+
+		private bool IsDisabled(RuleSignalGroup group) => DisabledGroups.Contains(group);
+
+		private async Task ToggleGroup(RuleSignalGroup group)
+		{
+			if (!DisabledGroups.Remove(group))
+				DisabledGroups.Add(group);
+			await DisabledGroupsChanged.InvokeAsync(DisabledGroups);
+		}
 
 		private IEnumerable<RuleSignalRow> BaselineRows => Rows.Where(row => row.Group == RuleSignalGroup.Baseline);
 
@@ -72,16 +91,9 @@ namespace Poink.Sim.Components.RuleEngine
 
 		private IEnumerable<RuleSignalRow> TxFoldSignalRows => Rows.Where(row => row.Group == RuleSignalGroup.TxFold);
 
-		private bool LiveValue(RuleSignalRow row, string key) =>
-			key == row.AboveKey ? row.Above
-			: key == row.InKey ? row.In
-			: key == row.BelowKey && row.Below;
+		private bool LiveValue(RuleSignalRow row, string key) => RuleEngineHelper.LiveValue(row, key);
 
-		private string? SelectedKey(RuleSignalRow row) =>
-			row.AboveKey is { } above && EnabledKeys.Contains(above) ? above
-			: EnabledKeys.Contains(row.InKey) ? row.InKey
-			: row.BelowKey is { } below && EnabledKeys.Contains(below) ? below
-			: null;
+		private string? SelectedKey(RuleSignalRow row) => RuleEngineHelper.SelectedKey(row, EnabledKeys);
 
 		private string MatchStatus(RuleSignalRow row) =>
 			SelectedKey(row) is not { } key ? "unset"
@@ -98,11 +110,7 @@ namespace Poink.Sim.Components.RuleEngine
 
 		private int MatchedCount => Rows.Count(row => MatchStatus(row) == "match");
 
-		// AND across every enabled key -- the mask matches only when all its constraints hold at once.
-		private bool IsMatching =>
-			Result is not null
-			&& EnabledKeys.Count > 0
-			&& Rows.All(row => SelectedKey(row) is not { } key || LiveValue(row, key));
+		private bool IsMatching => Result is not null && RuleEngineHelper.Matches(Rows, EnabledKeys);
 
 		private void ClearRow(RuleSignalRow row)
 		{
@@ -143,43 +151,12 @@ namespace Poink.Sim.Components.RuleEngine
 				await XGridPercentChanged.InvokeAsync(value);
 		}
 
-		// Own tick fetch/cache, same shape as TxFold.razor.cs's RefreshIfNeeded -- the panel can be the
-		// only thing on screen using TxFold data, so it can't rely on that chart having already loaded it.
-		private async Task RefreshTxFoldIfNeeded()
-		{
-			if (
-				string.IsNullOrWhiteSpace(TxFoldTable)
-				|| TxFoldAnchorEnd is not { } anchorEnd
-				|| TxFoldRangeStart is not { } rangeStart
-				|| TxFoldSelectedSeconds.Count == 0
-				|| _txFoldLoading
-			)
-				return;
-
-			var selectedKey = string.Join(",", TxFoldSelectedSeconds.OrderBy(s => s));
-			var key = (TxFoldTable, anchorEnd, rangeStart, selectedKey);
-			if (_txFoldLoadedFor == key)
-				return;
-
-			_txFoldLoading = true;
-			try
-			{
-				var table = TxFoldTable;
-				var selectedSeconds = TxFoldSelectedSeconds;
-				_txFoldBars = await Task.Run(() =>
-				{
-					var largestSeconds = selectedSeconds.Max();
-					var ticks = TickRepository.ReadTicks(table, anchorEnd.AddSeconds(-largestSeconds), anchorEnd).ToList();
-					// MeanStdDev, not Ohlc -- see RuleEngineHelper.TxFoldRows for why true high/low can't work here.
-					return TxFoldStats.Compute(ticks, anchorEnd, rangeStart, selectedSeconds, BarAggregationKind.MeanStdDev).Bars;
-				});
-				_txFoldLoadedFor = key;
-			}
-			finally
-			{
-				_txFoldLoading = false;
-			}
-		}
+		// The panel can be the only thing on screen using TxFold data, so it loads its own bars instead
+		// of relying on the TxFold chart having already fetched them.
+		private Task RefreshTxFoldIfNeeded() =>
+			IsDisabled(RuleSignalGroup.TxFold)
+				? Task.CompletedTask
+				: _txFoldCache.RefreshIfNeededAsync(TickRepository, TxFoldTable, TxFoldAnchorEnd, TxFoldRangeStart, TxFoldSelectedSeconds);
 
 		protected override async Task OnParametersSetAsync() => await RefreshTxFoldIfNeeded();
 
