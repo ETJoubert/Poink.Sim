@@ -36,6 +36,62 @@ namespace Poink.Sim.Components.Charts
 		[Parameter]
 		public XGridPeakOverlaySettings HighPointOverlay { get; set; } = new();
 
+		[Parameter]
+		public int PipCount { get; set; } = 20;
+
+		[Parameter]
+		public EventCallback<int> PipCountChanged { get; set; }
+
+		[Parameter]
+		public int ColCount { get; set; } = 20;
+
+		[Parameter]
+		public EventCallback<int> ColCountChanged { get; set; }
+
+		/// <summary>
+		/// Host-supplied "Profile Bars" window size -- null when the host has no such concept. Only
+		/// then does the column axis offer a button to snap ColCount onto it.
+		/// </summary>
+		[Parameter]
+		public int? ProfileBarCount { get; set; }
+
+		private const int MaxPipCount = 1000;
+		private const int MaxColCount = 500;
+
+		private Task SetPipCount(int value) => PipCountChanged.InvokeAsync(PipCount = Math.Clamp(value, 1, MaxPipCount));
+
+		private Task SetColCount(int value) => ColCountChanged.InvokeAsync(ColCount = Math.Clamp(value, 1, MaxColCount));
+
+		// While bound, Cols tracks ProfileBarCount on every parameter set instead of being independently editable.
+		private bool _colsBoundToProfileBars;
+
+		private Task ToggleColsBoundToProfileBars()
+		{
+			_colsBoundToProfileBars = !_colsBoundToProfileBars;
+			return _colsBoundToProfileBars ? SyncColsToProfileBars() : Task.CompletedTask;
+		}
+
+		private Task SyncColsToProfileBars() =>
+			ProfileBarCount is { } count && count != ColCount ? SetColCount(count) : Task.CompletedTask;
+
+		protected override Task OnParametersSetAsync() =>
+			_colsBoundToProfileBars ? SyncColsToProfileBars() : Task.CompletedTask;
+
+		// All rows share one height by construction, so the first row's span stands for every row's.
+		private static string RowHeightLabel(XGridResult grid) =>
+			grid.RowLow.Count == 0
+				? "--"
+				: (grid.RowHigh[0] - grid.RowLow[0]).ToString("F5", CultureInfo.InvariantCulture);
+
+		// Columns can each cover a different number of source bars, so this is the average spacing between column open times.
+		private static string ColumnWidthLabel(XGridResult grid)
+		{
+			int cols = grid.Columns.Count;
+			return cols < 2
+				? "--"
+				: FormatDuration((grid.Columns[^1].OpenTime - grid.Columns[0].OpenTime) / (cols - 1));
+		}
+
 		// Local overlay state, purely visual, so it stays unbound rather than a two-way parameter.
 		private bool _expanded;
 
@@ -225,12 +281,15 @@ namespace Poink.Sim.Components.Charts
 				_ => "NEW",
 			};
 
-		private double OrderPanelTopPercent(XGridResult grid)
+		private const int BottomMarginPx = 28;
+
+		private string OrderPanelTop(XGridResult grid)
 		{
 			if (_order is not { } order)
-				return 0;
+				return "0px";
 			int rows = grid.RowLow.Count;
-			return rows == 0 ? 0 : PriceToRowF(grid, order.EntryPrice) / (rows + 1) * 100;
+			double fraction = rows == 0 ? 0 : PriceToRowF(grid, order.EntryPrice) / rows;
+			return $"calc((100% - {BottomMarginPx}px) * {fraction.ToString("0.####", CultureInfo.InvariantCulture)})";
 		}
 
 		private readonly List<XGridLine> _userLines = new();

@@ -1,15 +1,13 @@
 @namespace Poink.Sim.Components.Charts
 
 <div class="xgrid-controller-wrapper">
-    <MetricsControlPanel PipCount="PipCount" PipCountChanged="SetPipCount"
-                          ColCount="ColCount" ColCountChanged="SetColCount"
-                          Grid="Grid" ProfileBarCount="ProfileBarCount"
-                          Display="_display" DisplayChanged="SetDisplay"
+    <MetricsControlPanel Display="_display" DisplayChanged="SetDisplay"
                           Spectrum="_spectrum" SpectrumChanged="SetSpectrum"
                           LowPointOverlay="_lowPointOverlay" LowPointOverlayChanged="SetLowPointOverlay"
                           HighPointOverlay="_highPointOverlay" HighPointOverlayChanged="SetHighPointOverlay" />
     <div class="xgrid-controller-row">
-        <XGrid Grid="Grid" Display="_display" Spectrum="_spectrum"
+        <XGrid Grid="Grid" PipCount="PipCount" PipCountChanged="SetPipCount"
+               ColCount="ColCount" ColCountChanged="SetColCount" ProfileBarCount="ProfileBarCount" Display="_display" Spectrum="_spectrum"
                LowPointOverlay="_lowPointOverlay" HighPointOverlay="_highPointOverlay"
                ExpandedControls="ExpandedControls" Lines="Lines" OnLineDrawn="OnLineDrawn"
                Positions="Positions" OnOrderPlaced="OnOrderPlaced" Pending="Pending"

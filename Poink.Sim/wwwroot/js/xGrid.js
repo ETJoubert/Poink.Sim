@@ -149,18 +149,17 @@ function paint(canvas) {
     render(ctx, W, H, p, st, canvas);
 }
 
-// One reserved cell of margin on the left and bottom -- sizing the cells to cols+1 / rows+1
-// leaves exactly one cell of gutter that stays aligned to the grid at any canvas size.
-function layout(p, W, H) {
-    const m = p.margins ? 1 : 0;
-    const ch = H / (p.rows + m);
-    if (!m) return { cw: W / p.cols, ch, ml: 0, mr: 0, mb: 0, gRight: W, gBottom: H };
+// Keep MARGIN in step with XGrid.razor.cs BottomMarginPx, which positions the order panel.
+const MARGIN = 28;
 
-    // Fixed-width left and right margins for markers and labels -- the grid takes the width
-    // that remains, so both gutters stay a constant size regardless of column count.
-    const margin = 28;
-    const cw = (W - 2 * margin) / p.cols;
-    return { cw, ch, ml: margin, mr: margin, mb: ch, gRight: W - margin, gBottom: H - ch };
+// Fixed-size gutters on the left, right and bottom for markers and labels -- the grid takes the
+// space that remains, so the gutters stay a constant size regardless of row or column count.
+function layout(p, W, H) {
+    if (!p.margins) return { cw: W / p.cols, ch: H / p.rows, ml: 0, mr: 0, mb: 0, gRight: W, gBottom: H };
+
+    const cw = (W - 2 * MARGIN) / p.cols;
+    const ch = (H - MARGIN) / p.rows;
+    return { cw, ch, ml: MARGIN, mr: MARGIN, mb: MARGIN, gRight: W - MARGIN, gBottom: H - MARGIN };
 }
 
 function render(ctx, W, H, p, st, canvas) {
