@@ -70,6 +70,9 @@ namespace Poink.Sim.Components.Pages
 		private bool _isLoading;
 		private bool _playOnLoad;
 		private TradeConsoleOptions? _robotPositionOptions;
+		private RobotRuleSet _openLongRules = new();
+		private RobotRuleSet _openShortRules = new();
+		private RobotRuleSet _closeRules = new();
 		private string? _error;
 		private bool _hideChart;
 
@@ -237,7 +240,7 @@ namespace Poink.Sim.Components.Pages
 
 		// Baseline signals come straight off RangeStatsHelper; the XGrid rank/delta rows ride along
 		// on top by handing RuleEngineHelper the same grid ComputeXGrid builds for the chart itself.
-		private RuleEngineResult? ComputeRuleEngine(SimulationSnapshot s)
+		private RuleEngineResult? ComputeRuleEngine(SimulationSnapshot s, double xgridPercent)
 		{
 			var (bars, _) = WindowedBarData(s);
 			if (bars.Count == 0 || s.CurrentPrice is not { } currentPrice)
@@ -252,7 +255,7 @@ namespace Poink.Sim.Components.Pages
 				b => b.Close,
 				currentPrice,
 				ComputeXGrid(s),
-				_ruleEngineXGridPercent
+				xgridPercent
 			);
 		}
 
@@ -676,7 +679,10 @@ namespace Poink.Sim.Components.Pages
 				_commissionRatePercent,
 				_stopOutLevelPercent,
 				_pipSize,
-				_robotPositionOptions
+				_robotPositionOptions,
+				_openLongRules,
+				_openShortRules,
+				_closeRules
 			);
 
 		// A simulation already held by the service (page revisited) is shown as-is instead of reloaded.
@@ -713,6 +719,9 @@ namespace Poink.Sim.Components.Pages
 			_stopOutLevelPercent = settings.StopOutLevelPercent;
 			_pipSize = settings.PipSize;
 			_robotPositionOptions = settings.RobotPositionOptions;
+			_openLongRules = settings.OpenLongRules ?? new();
+			_openShortRules = settings.OpenShortRules ?? new();
+			_closeRules = settings.CloseRules ?? new();
 		}
 
 		private async Task PersistSettingsIfChangedAsync()
@@ -981,6 +990,11 @@ namespace Poink.Sim.Components.Pages
 		}
 
 		private void SetRobotPositionOptions(TradeConsoleOptions options) => _robotPositionOptions = options;
+
+		private Task OnRobotRulesChanged() => PersistSettingsIfChangedAsync();
+
+		private RuleEngineResult? ComputeRobotRuleEngine(double xgridPercent) =>
+			_snapshot is null ? null : ComputeRuleEngine(_snapshot, xgridPercent);
 
 		private IReadOnlyList<string>? SelectedRiskPolicies =>
 			_selectedRiskPolicies.Count > 0 ? _selectedRiskPolicies.ToList() : null;

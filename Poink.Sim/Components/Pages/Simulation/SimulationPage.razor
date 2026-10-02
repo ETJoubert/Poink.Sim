@@ -289,7 +289,7 @@
                             else if (_activeLeftPanelTab == SimLeftPanelTab.RuleEngine)
                             {
                                 <RuleEnginePanel @bind-EnabledKeys="_ruleEngineEnabledKeys" @bind-XGridPercent="_ruleEngineXGridPercent"
-                                                 Result="ComputeRuleEngine(_snapshot)" CurrentTimestampUtc="_snapshot.CurrentTimestampUtc"
+                                                 Result="ComputeRuleEngine(_snapshot, _ruleEngineXGridPercent)" CurrentTimestampUtc="_snapshot.CurrentTimestampUtc"
                                                  TxFoldTable="@_snapshot.Config.Table" TxFoldAnchorEnd="SnapshotAnchorBar(_snapshot)?.CloseTime.AddTicks(1)"
                                                  TxFoldRangeStart="_snapshot.Config.From" TxFoldSelectedSeconds="_txFoldSelectedSeconds" />
                             }
@@ -635,7 +635,14 @@
                                             PipSize="_snapshot?.Config.PipSize ?? 0.01"
                                             CurrentPrice="_snapshot?.CurrentPrice"
                                             CurrentBid="_snapshot?.CurrentBid"
-                                            CurrentAsk="_snapshot?.CurrentAsk" />
+                                            CurrentAsk="_snapshot?.CurrentAsk"
+                                            OpenLongRules="_openLongRules" OpenShortRules="_openShortRules" CloseRules="_closeRules"
+                                            OnRulesChanged="OnRobotRulesChanged" ComputeRuleEngine="ComputeRobotRuleEngine"
+                                            CurrentTimestampUtc="_snapshot?.CurrentTimestampUtc"
+                                            TxFoldTable="@_snapshot?.Config.Table"
+                                            TxFoldAnchorEnd="_snapshot is null ? null : SnapshotAnchorBar(_snapshot)?.CloseTime.AddTicks(1)"
+                                            TxFoldRangeStart="_snapshot?.Config.From"
+                                            TxFoldSelectedSeconds="_txFoldSelectedSeconds" />
                             </RobotTab>
                         </TraderSidePanel>
                     </div>

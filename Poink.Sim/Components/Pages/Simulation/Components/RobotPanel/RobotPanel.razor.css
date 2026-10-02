@@ -31,3 +31,7 @@
     color: var(--color-accent);
     border-bottom-color: var(--color-accent);
 }
+
+.robot-subtabs-nested {
+    margin-bottom: 8px;
+}
