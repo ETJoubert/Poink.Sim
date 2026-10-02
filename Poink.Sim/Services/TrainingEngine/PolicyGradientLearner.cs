@@ -11,15 +11,18 @@ namespace Poink.Sim.Services.TrainingEngine;
 /// returns, normalize by the episode's own mean/std as a variance-reducing baseline, then backprop
 /// each step's advantage-weighted softmax gradient plus an entropy bonus (ported from
 /// PolicyGradientTrainingStrategy: coefficient 0.01, annealed linearly to 0 by training progress).
-/// REINFORCE averages every step's gradient into one SGD update at episode end. Trade Outcome learns
-/// online instead, rewarded by realized trade value (see OnlineTradeTrainer) against a running reward
-/// baseline, so nothing is stored beyond the one entry awaiting its trade's close.
+/// REINFORCE averages every step's gradient into one Adam update at episode end -- Adam because plain
+/// SGD at the same rate learned several times slower on a controlled test. Trade Outcome learns
+/// online instead, with plain SGD (Adam collapsed its policy), rewarded by realized trade value (see
+/// OnlineTradeTrainer) against a running reward baseline, so nothing is stored beyond the one entry
+/// awaiting its trade's close.
 /// </summary>
 internal sealed class PolicyGradientLearner
 {
 	private static readonly string[] SupportedStrategyNames = [.. TrainingStrategyCatalog.Names];
 
 	private readonly ConditionalWeakTable<MlpNetwork, RewardBaseline> _baselines = new();
+	private readonly ConditionalWeakTable<MlpNetwork, AdamOptimizer> _optimizers = new();
 
 	private const double DiscountFactor = 0.99;
 	private const double InitialEntropyCoefficient = 0.01;
@@ -133,7 +136,7 @@ internal sealed class PolicyGradientLearner
 
 	// Backpropagates and averages one episode's worth of steps into a single update, matching
 	// REINFORCE's one gradient over the whole episode's mean loss, not a step per decision.
-	private static void ApplyGradient(MlpNetwork network, List<(List<float[]> Activations, float[] OutputGradient)> steps, double learningRate)
+	private void ApplyGradient(MlpNetwork network, List<(List<float[]> Activations, float[] OutputGradient)> steps, double learningRate)
 	{
 		var weightGradients = network.Weights.Select(w => new float[w.GetLength(0), w.GetLength(1)]).ToList();
 		var biasGradients = network.Biases.Select(b => new float[b.Length]).ToList();
@@ -147,7 +150,7 @@ internal sealed class PolicyGradientLearner
 
 		Scale(weightGradients, 1.0 / steps.Count);
 		Scale(biasGradients, 1.0 / steps.Count);
-		ApplyGradients(network, weightGradients, biasGradients, learningRate);
+		_optimizers.GetValue(network, trained => new AdamOptimizer(trained)).Apply(network, weightGradients, biasGradients, learningRate);
 	}
 
 	// Standard backprop: dz is the pre-activation gradient (ReLU' masks it for hidden layers),
