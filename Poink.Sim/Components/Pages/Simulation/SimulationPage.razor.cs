@@ -686,10 +686,10 @@ namespace Poink.Sim.Components.Pages
 			);
 
 		// A simulation already held by the service (page revisited) is shown as-is instead of reloaded.
-		private void LoadInitialSimulation()
+		private async Task LoadInitialSimulation()
 		{
 			if (_snapshot is null && !_isLoading)
-				LoadSimulation(playWhenLoaded: false);
+				await LoadSimulationAsync(playWhenLoaded: false);
 		}
 
 		private async Task LoadPersistedSettingsAsync()
@@ -866,7 +866,7 @@ namespace Poink.Sim.Components.Pages
 			{
 				_dividerResizeInstance = await JS.InvokeAsync<IJSObjectReference>("eval", ChartDividerScript);
 				await LoadPersistedSettingsAsync();
-				LoadInitialSimulation();
+				await LoadInitialSimulation();
 			}
 			else
 			{
@@ -874,6 +874,7 @@ namespace Poink.Sim.Components.Pages
 			}
 
 			PushRobotOptionsIfChanged();
+			await RefreshSymbolMetadataIfTableChangedAsync();
 
 			if (_snapshot is not null && !_hideChart && _dividerResizeInstance is not null)
 			{
@@ -917,6 +918,13 @@ namespace Poink.Sim.Components.Pages
 		}
 
 		// ── Setup actions ──
+
+		// The symbol's pip size feeds the account, so its metadata is resolved before every load.
+		private async Task LoadSimulationAsync(bool playWhenLoaded)
+		{
+			await EnsureSymbolMetadataAsync();
+			LoadSimulation(playWhenLoaded);
+		}
 
 		private void LoadSimulation(bool playWhenLoaded)
 		{
@@ -995,7 +1003,32 @@ namespace Poink.Sim.Components.Pages
 
 		private void SetRobotPositionOptions(TradeConsoleOptions options) => _robotPositionOptions = options;
 
-		private void ApplyDataRange() => LoadSimulation(playWhenLoaded: false);
+		// With a simulation running the new account options go to the bots; with none loaded there is
+		// nothing to apply them to, so the load itself picks them up.
+		private async Task ApplyAccountSettings()
+		{
+			_loadError = null;
+			if (_startingCash <= 0)
+			{
+				_loadError = "starting cash must be positive";
+				return;
+			}
+			if (!ValidateTraderAccountParams())
+				return;
+			if (_traderCount < 1)
+				_traderCount = 1;
+
+			if (_snapshot is null)
+			{
+				await LoadSimulationAsync(playWhenLoaded: false);
+				return;
+			}
+			SimulationService.ApplyAccountOptions(
+				new BotAccountOptions(_startingCash, _traderCount, _leverage, _commissionRatePercent, _stopOutLevelPercent, _pipSize)
+			);
+		}
+
+		private Task ApplyDataRange() => LoadSimulationAsync(playWhenLoaded: false);
 
 		// Enough history before From that the rule engine's bar window and TxFold lookback are already full when the run starts.
 		private TimeSpan RuleEngineWarmup()
@@ -1031,10 +1064,10 @@ namespace Poink.Sim.Components.Pages
 
 		// ── Playback actions ──
 
-		private void TogglePlayPause()
+		private async Task TogglePlayPause()
 		{
 			if (_snapshot is null)
-				LoadSimulation(playWhenLoaded: true);
+				await LoadSimulationAsync(playWhenLoaded: true);
 			else if (_snapshot.IsPlaying)
 				SimulationService.Pause();
 			else
@@ -1069,10 +1102,10 @@ namespace Poink.Sim.Components.Pages
 
 		private void ToggleSetupPanel() => _setupCollapsed = !_setupCollapsed;
 
-		private void ResetSim()
+		private Task ResetSim()
 		{
 			_keepChartView = false;
-			LoadSimulation(playWhenLoaded: false);
+			return LoadSimulationAsync(playWhenLoaded: false);
 		}
 
 		// ── Rendering helpers ──

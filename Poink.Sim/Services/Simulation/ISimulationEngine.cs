@@ -29,6 +29,7 @@ internal interface ISimulationEngine : IDisposable
 	bool SetRiskPolicyEnabled(string policyName, bool enabled);
 	bool MoveRiskPolicy(string policyName, int delta);
 	bool SetRiskPolicyParameter(string policyName, string key, double value);
+	bool ApplyAccountOptions(BotAccountOptions options);
 	void SetRobotOptions(RobotOptions options);
 	bool SubmitManualDecision(int traderId, SimulationDecision decision, out RiskPolicyDenial? denial);
 }

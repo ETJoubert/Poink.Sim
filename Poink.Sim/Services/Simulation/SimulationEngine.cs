@@ -169,11 +169,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 			_riskToggles = _riskPolicyService.CreateToggles(config.RiskPolicyNames);
 			if (previousPolicyStates is not null)
 				_riskToggles?.RestoreFrom(previousPolicyStates);
-			_traderSessions = CreateSessions(
-				config.TraderCount,
-				config.StartingCash,
-				BuildTraderSettings(config, _riskToggles)
-			);
+			_traderSessions = CreateSessions(config);
 			_aggregator = config.Aggregate
 				? new SimulationBarAggregator(config.BarSize, PriceBucketWidthFor(config.Table))
 				: null;
@@ -199,9 +195,9 @@ internal sealed class SimulationEngine : ISimulationEngine
 		);
 	}
 
-	private List<TraderSession> CreateSessions(int count, double startingCash, Trader.TraderSettings settings) =>
+	private List<TraderSession> CreateSessions(SimulationConfig config) =>
 		_botService
-			.CreateBots(count, startingCash, settings)
+			.CreateBots(AccountOptionsFor(config), config.RiskPolicyNames, _riskToggles)
 			.Select(bot => new TraderSession
 			{
 				Id = bot.Id,
@@ -210,13 +206,14 @@ internal sealed class SimulationEngine : ISimulationEngine
 			})
 			.ToList();
 
-	private static Trader.TraderSettings BuildTraderSettings(SimulationConfig config, RiskPolicyToggles? toggles) =>
+	private static BotAccountOptions AccountOptionsFor(SimulationConfig config) =>
 		new(
+			config.StartingCash,
+			config.TraderCount,
 			config.Leverage,
+			config.CommissionRatePercent,
 			config.StopOutLevelPercent,
-			new Trader.Commission.PercentOfNotionalCommission(config.CommissionRatePercent),
-			config.RiskPolicyNames,
-			toggles
+			config.PipSize
 		);
 
 	public bool Play()
@@ -343,11 +340,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 		_reader?.Dispose();
 		_reader = _openReader!();
 		_cursor = 0;
-		_traderSessions = CreateSessions(
-			_config!.TraderCount,
-			_config.StartingCash,
-			BuildTraderSettings(_config, _riskToggles)
-		);
+		_traderSessions = CreateSessions(_config);
 		_aggregator = _config.Aggregate
 			? new SimulationBarAggregator(_config.BarSize, PriceBucketWidthFor(_config.Table))
 			: null;
@@ -372,11 +365,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 			AdvanceOneUnitLocked();
 		_isWarmingUp = false;
 
-		_traderSessions = CreateSessions(
-			_config!.TraderCount,
-			_config.StartingCash,
-			BuildTraderSettings(_config, _riskToggles)
-		);
+		_traderSessions = CreateSessions(_config);
 	}
 
 	// Trader state is only valid built up tick by tick, so a backward seek replays from
@@ -600,6 +589,31 @@ internal sealed class SimulationEngine : ISimulationEngine
 			return false;
 		PublishSnapshot();
 		_logger.LogInformation("Risk policy {Policy} parameter {Key} set to {Value}", policyName, key, value);
+		return true;
+	}
+
+	// Gives every bot a fresh account built from the new options; the replay position is untouched, so any
+	// open positions and trade history of the previous accounts are discarded.
+	public bool ApplyAccountOptions(BotAccountOptions options)
+	{
+		lock (_lock)
+		{
+			if (_config is null)
+				return false;
+
+			_config = _config with
+			{
+				StartingCash = options.StartingCash,
+				TraderCount = options.BotCount,
+				Leverage = options.Leverage,
+				CommissionRatePercent = options.CommissionRatePercent,
+				StopOutLevelPercent = options.StopOutLevelPercent,
+				PipSize = options.PipSize,
+			};
+			_traderSessions = CreateSessions(_config);
+		}
+		PublishSnapshot();
+		_logger.LogInformation("Bot account options applied to the running simulation");
 		return true;
 	}
 

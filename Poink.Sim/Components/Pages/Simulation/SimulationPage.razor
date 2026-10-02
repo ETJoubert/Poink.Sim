@@ -9,6 +9,7 @@
 @using Poink.Sim.Components.Shared.TickDataSource
 @using Poink.Sim.Components.Shared.BarSizeSelect
 @using Poink.Sim.Components.Shared.PolicySelector
+@using Poink.Sim.Components.Shared.SymbolMetadataFields
 @using Poink.Sim.Components.Simulation
 @using Poink.Sim.Components.Training
 @using Poink.Sim.Helpers
@@ -184,7 +185,7 @@
                         <div class="sim-left-side-panel-tabs">
                             <button type="button" class="sim-left-side-panel-tab @(_activeLeftPanelTab == SimLeftPanelTab.Setup ? "active" : "")"
                                     @onclick="() => _activeLeftPanelTab = SimLeftPanelTab.Setup"
-                                    title="Trader account settings -- changes apply the next time the simulation is reset">SETUP</button>
+                                    title="Trader account settings -- changes apply to the bots when SET is pressed">SETUP</button>
                             <button type="button" class="sim-left-side-panel-tab @(_activeLeftPanelTab == SimLeftPanelTab.Traders ? "active" : "")"
                                     @onclick="() => _activeLeftPanelTab = SimLeftPanelTab.Traders"
                                     title="Every trader's live cash/equity/P&L, selectable to drive the right-side controls">TRADERS</button>
@@ -196,32 +197,33 @@
                             @if (_activeLeftPanelTab == SimLeftPanelTab.Setup)
                             {
                                 <div class="sim-setup-form">
+                                    <SymbolMetadataFields Symbol="_symbol" Metadata="_symbolMetadata" Loading="_loadingSymbolMetadata" />
                                     <label class="sim-brainrow-field"
-                                           title="Cash each trader starts with -- applies on Reset">
+                                           title="Cash each trader starts with -- applies when SET is pressed">
                                         Starting cash
                                         <input class="sim-brainrow-input" type="number" min="1" step="100" @bind="_startingCash"
                                                disabled="@_isLoading" />
                                     </label>
                                     <label class="sim-brainrow-field"
-                                           title="How many traders to run side by side on the same data -- applies on Reset">
+                                           title="How many traders to run side by side on the same data -- applies when SET is pressed">
                                         Traders
                                         <input class="sim-brainrow-input sim-brainrow-input-narrow" type="number" min="1" max="20"
                                                @bind="_traderCount" disabled="@_isLoading" />
                                     </label>
                                     <label class="sim-brainrow-field"
-                                           title="Notional exposure per unit of margin committed -- 1 means no leverage -- applies on Reset">
+                                           title="Notional exposure per unit of margin committed -- 1 means no leverage -- applies when SET is pressed">
                                         Leverage
                                         <input class="sim-brainrow-input sim-brainrow-input-narrow" type="number" min="1" step="1"
                                                @bind="_leverage" disabled="@_isLoading" />
                                     </label>
                                     <label class="sim-brainrow-field"
-                                           title="Commission charged per fill, as a percent of that fill's notional value -- applies on Reset">
+                                           title="Commission charged per fill, as a percent of that fill's notional value -- applies when SET is pressed">
                                         Commission %
                                         <input class="sim-brainrow-input sim-brainrow-input-narrow" type="number" min="0" step="0.01"
                                                @bind="_commissionRatePercent" disabled="@_isLoading" />
                                     </label>
                                     <label class="sim-brainrow-field"
-                                           title="Force-close the open position when Margin Level (Equity ÷ Margin Used) drops below this percent -- applies on Reset">
+                                           title="Force-close the open position when Margin Level (Equity ÷ Margin Used) drops below this percent -- applies when SET is pressed">
                                         Stop-out %
                                         <input class="sim-brainrow-input sim-brainrow-input-narrow"
                                             type="number"
@@ -230,12 +232,8 @@
                                             step="1"
                                             @bind="_stopOutLevelPercent" disabled="@_isLoading" />
                                     </label>
-                                    <label class="sim-brainrow-field"
-                                           title="Price value of one pip for this instrument -- stop-loss and take-profit distances are entered in pips and converted through this -- applies on Reset">
-                                        Pip size
-                                        <input class="sim-brainrow-input sim-brainrow-input-narrow" type="number" min="0" step="0.00001"
-                                               @bind="_pipSize" disabled="@_isLoading" />
-                                    </label>
+                                    <button class="sim-ctrl-btn sim-ctrl-btn-play" @onclick="ApplyAccountSettings" disabled="@_isLoading"
+                                            title="Apply these account settings to the bots -- each bot gets a fresh account with them; the replay keeps its position">SET</button>
                                 </div>
                             }
                             else if (_snapshot is null)

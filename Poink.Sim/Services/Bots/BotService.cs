@@ -8,6 +8,8 @@ using Poink.Sim.Models;
 using Poink.Sim.Repository;
 using Poink.Sim.Simulation;
 using Poink.Sim.Trader;
+using Poink.Sim.Trader.Commission;
+using Poink.Sim.Trader.Risk;
 
 namespace Poink.Sim.Bots;
 
@@ -47,15 +49,26 @@ internal sealed class BotService : IBotService
 		}
 	}
 
-	public IReadOnlyList<Bot> CreateBots(int count, double startingCash, TraderSettings settings)
+	public IReadOnlyList<Bot> CreateBots(
+		BotAccountOptions account,
+		IReadOnlyList<string>? riskPolicyNames,
+		RiskPolicyToggles? riskToggles
+	)
 	{
+		var settings = new TraderSettings(
+			account.Leverage,
+			account.StopOutLevelPercent,
+			new PercentOfNotionalCommission(account.CommissionRatePercent),
+			riskPolicyNames,
+			riskToggles
+		);
 		var bots = Enumerable
-			.Range(1, Math.Max(1, count))
+			.Range(1, Math.Max(1, account.BotCount))
 			.Select(i => new Bot
 			{
 				Id = i,
 				Label = $"Bot {i}",
-				Account = _traderFactory.Create(startingCash, settings),
+				Account = _traderFactory.Create(account.StartingCash, settings),
 			})
 			.ToList();
 		lock (_lock)
@@ -63,7 +76,14 @@ internal sealed class BotService : IBotService
 			_bots = bots;
 			_lastEvaluation = null;
 		}
-		_logger.LogInformation("Created {Count} bots with starting cash {StartingCash}", bots.Count, startingCash);
+		_logger.LogInformation(
+			"Created {Count} bots: startingCash={StartingCash}, leverage={Leverage}, commission={Commission}%, stopOut={StopOut}%",
+			bots.Count,
+			account.StartingCash,
+			account.Leverage,
+			account.CommissionRatePercent,
+			account.StopOutLevelPercent
+		);
 		return bots;
 	}
 

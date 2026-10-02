@@ -1,0 +1,63 @@
+@namespace Poink.Sim.Components.Shared.SymbolMetadataFields
+@using Poink.Sim.Components.Pages.Trade.Helpers
+
+<div class="smf" title="Trading parameters of the loaded symbol, read from its cached cTrader metadata">
+    @if (Loading)
+    {
+        <p class="smf-placeholder">loading symbol metadata...</p>
+    }
+    else if (Symbol is null)
+    {
+        <p class="smf-placeholder">no symbol matches the selected data table</p>
+    }
+    else
+    {
+        <div class="smf-field" title="Symbol the selected data table belongs to">
+            <span class="smf-label">Symbol</span>
+            <span class="smf-value">@Symbol.SymbolName</span>
+        </div>
+        <div class="smf-field" title="Description of the symbol">
+            <span class="smf-label">Description</span>
+            <span class="smf-value">@Symbol.Description</span>
+        </div>
+        @if (Metadata is { } metadata)
+        {
+            <div class="smf-field" title="Decimal places this symbol's price is quoted to">
+                <span class="smf-label">Digits</span>
+                <span class="smf-value">@metadata.Digits</span>
+            </div>
+            <div class="smf-field" title="Price size of one pip, derived from this symbol's pip position -- used by the stop-loss/take-profit pip math">
+                <span class="smf-label">Pip size</span>
+                <span class="smf-value">@PositionPnlHelper.PipSize(metadata).ToString("0.#####")</span>
+            </div>
+            <div class="smf-field" title="Minimum, maximum and step volume this symbol accepts per order">
+                <span class="smf-label">Volume min / max / step</span>
+                <span class="smf-value">@metadata.MinVolume / @metadata.MaxVolume / @metadata.StepVolume</span>
+            </div>
+            <div class="smf-field" title="Units per lot">
+                <span class="smf-label">Lot size</span>
+                <span class="smf-value">@metadata.LotSize</span>
+            </div>
+            <div class="smf-field" title="Largest total exposure the broker allows on this symbol">
+                <span class="smf-label">Max exposure</span>
+                <span class="smf-value">@metadata.MaxExposure</span>
+            </div>
+            <div class="smf-field" title="Minimum distance a stop loss or take profit must sit from the price, in the units the broker defines">
+                <span class="smf-label">SL / TP distance</span>
+                <span class="smf-value">@metadata.SlDistance / @metadata.TpDistance</span>
+            </div>
+            <div class="smf-field" title="Whether short positions can be opened on this symbol">
+                <span class="smf-label">Short selling</span>
+                <span class="smf-value">@(metadata.EnableShortSelling ? "yes" : "no")</span>
+            </div>
+            <div class="smf-field" title="Overnight swap charged on long and short positions">
+                <span class="smf-label">Swap long / short</span>
+                <span class="smf-value">@metadata.SwapLong.ToString("0.####") / @metadata.SwapShort.ToString("0.####")</span>
+            </div>
+        }
+        else
+        {
+            <p class="smf-placeholder">no trading metadata cached for this symbol yet -- needs a cTrader session to fetch it once</p>
+        }
+    }
+</div>
