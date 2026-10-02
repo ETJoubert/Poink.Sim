@@ -30,7 +30,7 @@ namespace Poink.Sim.Components.Pages
 			);
 
 		private static RobotRules ToRobotRules(RobotRuleSet rules) =>
-			new(rules.EnabledKeys.OrderBy(k => k).ToHashSet(), rules.XGridPercent);
+			new(rules.EnabledKeys.OrderBy(k => k).ToHashSet(), rules.XGridPercent, rules.DisabledGroups.OrderBy(g => g).ToHashSet());
 
 		private void PushRobotOptionsIfChanged()
 		{

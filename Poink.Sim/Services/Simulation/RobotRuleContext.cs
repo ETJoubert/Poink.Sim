@@ -18,7 +18,8 @@ internal sealed class RobotBarData
 		IReadOnlyList<HlocAvdtBar> recentBars,
 		IReadOnlyList<BarPriceHistogram> recentHistograms,
 		double pipSize,
-		RobotOptions options
+		RobotOptions options,
+		bool includeGrid
 	)
 	{
 		int window = Math.Clamp(options.BarWindow, 1, Math.Max(1, recentBars.Count));
@@ -35,15 +36,17 @@ internal sealed class RobotBarData
 			.ToList();
 
 		int gridWindow = Math.Min(window, bars.Count);
-		var grid = XGridStats.Compute(
-			bars,
-			histograms,
-			samples,
-			bars[bars.Count - gridWindow].OpenTime,
-			bars[^1].OpenTime,
-			options.XGridPips * pipSize,
-			options.XGridCols
-		);
+		var grid = includeGrid
+			? XGridStats.Compute(
+				bars,
+				histograms,
+				samples,
+				bars[bars.Count - gridWindow].OpenTime,
+				bars[^1].OpenTime,
+				options.XGridPips * pipSize,
+				options.XGridCols
+			)
+			: null;
 		return new RobotBarData
 		{
 			Samples = samples,
@@ -75,6 +78,7 @@ internal sealed class RobotRuleContext
 		if (rules.EnabledKeys.Count == 0)
 			return false;
 
+		bool baseline = !rules.DisabledGroups.Contains(RuleSignalGroup.Baseline);
 		var result = RuleEngineHelper.Compute(
 			_barData.Samples,
 			w => w.Price,
@@ -84,10 +88,14 @@ internal sealed class RobotRuleContext
 			b => (double)b.Volume,
 			b => b.Close,
 			_currentPrice,
-			_barData.Grid,
-			rules.XGridPercent
+			rules.DisabledGroups.Contains(RuleSignalGroup.XGrid) ? null : _barData.Grid,
+			rules.XGridPercent,
+			baseline
 		);
-		var rows = result.Rows.Concat(RuleEngineHelper.TxFoldRows(_txFoldBars, _currentPrice)).ToList();
+		var txFoldRows = rules.DisabledGroups.Contains(RuleSignalGroup.TxFold)
+			? Array.Empty<RuleSignalRow>()
+			: RuleEngineHelper.TxFoldRows(_txFoldBars, _currentPrice);
+		var rows = result.Rows.Concat(txFoldRows).ToList();
 		return RuleEngineHelper.Matches(rows, rules.EnabledKeys);
 	}
 }

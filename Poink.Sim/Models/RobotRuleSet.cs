@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Poink.Sim.Helpers;
 
 namespace Poink.Sim.Models
 {
@@ -12,5 +13,8 @@ namespace Poink.Sim.Models
 		public HashSet<string> EnabledKeys { get; set; } = new();
 
 		public double XGridPercent { get; set; } = 10;
+
+		/// <summary>Signal groups switched off for this rule set -- their rows are not calculated and their selections are ignored.</summary>
+		public HashSet<RuleSignalGroup> DisabledGroups { get; set; } = new();
 	}
 }

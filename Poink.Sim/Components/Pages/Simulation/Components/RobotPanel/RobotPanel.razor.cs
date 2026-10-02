@@ -86,9 +86,9 @@ namespace Poink.Sim.Components.Simulation
 		[Parameter]
 		public EventCallback OnRulesChanged { get; set; }
 
-		/// <summary>Evaluates the rule-engine signals for a given XGrid Top % cutoff -- null while no simulation is loaded.</summary>
+		/// <summary>Evaluates the rule-engine signals a rule set asks for (its Top % cutoff and active groups) -- null while no simulation is loaded.</summary>
 		[Parameter]
-		public Func<double, RuleEngineResult?> ComputeRuleEngine { get; set; } = _ => null;
+		public Func<RobotRuleSet, RuleEngineResult?> ComputeRuleEngine { get; set; } = _ => null;
 
 		[Parameter]
 		public DateTime? CurrentTimestampUtc { get; set; }

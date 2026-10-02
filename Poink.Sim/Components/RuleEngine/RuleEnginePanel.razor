@@ -23,29 +23,20 @@
             </tr>
         </thead>
         <tbody>
+            @GroupHeader(RuleSignalGroup.Baseline, "BASELINE", "POC, VAH, VAL, VWAP, Median and Regression against the current price")
             @foreach (var row in BaselineRows)
             {
                 @RowTemplate(row)
             }
-            @if (XGridSignalRows.Any())
+            @GroupHeader(RuleSignalGroup.XGrid, "XGRID", "Signals that depend on XGrid's own row/column grid, separate from the baseline signals")
+            @foreach (var row in XGridSignalRows)
             {
-                <tr class="rule-engine-group-row" title="Signals that depend on XGrid's own row/column grid, separate from the baseline signals above">
-                    <td colspan="5" class="rule-engine-group-label">XGRID</td>
-                </tr>
-                @foreach (var row in XGridSignalRows)
-                {
-                    @RowTemplate(row)
-                }
+                @RowTemplate(row)
             }
-            @if (TxFoldSignalRows.Any())
+            @GroupHeader(RuleSignalGroup.TxFold, "TXFOLD", "One row per selected TxFold timeframe -- Above/Below its mean +/- one-stddev band, In between them")
+            @foreach (var row in TxFoldSignalRows)
             {
-                <tr class="rule-engine-group-row" title="One row per selected TxFold timeframe -- Above/Below its mean +/- one-stddev band, In between them">
-                    <td colspan="5" class="rule-engine-group-label">TXFOLD</td>
-                </tr>
-                @foreach (var row in TxFoldSignalRows)
-                {
-                    @RowTemplate(row)
-                }
+                @RowTemplate(row)
             }
         </tbody>
         <tfoot>
@@ -79,6 +70,17 @@
 </div>
 
 @code {
+    private RenderFragment GroupHeader(RuleSignalGroup group, string label, string title) =>
+        @<tr class="rule-engine-group-row" title="@title">
+            <td colspan="5" class="rule-engine-group-label">
+                <label class="rule-engine-group-toggle"
+                       title="@(IsDisabled(group) ? $"{label} is off -- its signals are not calculated and any selections in it are ignored. Click to switch it on" : $"{label} is on. Click to switch it off so its signals are not calculated and its selections are ignored")">
+                    <input type="checkbox" checked="@(!IsDisabled(group))" @onchange="() => ToggleGroup(group)" />
+                    @label
+                </label>
+            </td>
+        </tr>;
+
     private RenderFragment<RuleSignalRow> RowTemplate => row =>
         @<tr class="rule-engine-row" style="--sig-color: var(@row.ColorVar)">
             <td class="rule-engine-label">@row.RowLabel</td>

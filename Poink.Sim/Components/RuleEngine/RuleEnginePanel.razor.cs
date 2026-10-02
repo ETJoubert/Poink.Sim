@@ -28,6 +28,13 @@ namespace Poink.Sim.Components.RuleEngine
 		[Parameter]
 		public EventCallback<HashSet<string>> EnabledKeysChanged { get; set; }
 
+		/// <summary>Signal groups switched off here: not calculated, not shown, and their selections ignored.</summary>
+		[Parameter]
+		public HashSet<RuleSignalGroup> DisabledGroups { get; set; } = new();
+
+		[Parameter]
+		public EventCallback<HashSet<RuleSignalGroup>> DisabledGroupsChanged { get; set; }
+
 		[Parameter]
 		public RuleEngineResult? Result { get; set; }
 
@@ -61,8 +68,22 @@ namespace Poink.Sim.Components.RuleEngine
 
 		private IReadOnlyList<RuleSignalRow> Rows =>
 			(Result?.Rows ?? Array.Empty<RuleSignalRow>())
-				.Concat(Result is { } r ? RuleEngineHelper.TxFoldRows(_txFoldCache.Bars, r.CurrentPrice) : Array.Empty<RuleSignalRow>())
+				.Concat(
+					Result is { } r && !IsDisabled(RuleSignalGroup.TxFold)
+						? RuleEngineHelper.TxFoldRows(_txFoldCache.Bars, r.CurrentPrice)
+						: Array.Empty<RuleSignalRow>()
+				)
+				.Where(row => !IsDisabled(row.Group))
 				.ToList();
+
+		private bool IsDisabled(RuleSignalGroup group) => DisabledGroups.Contains(group);
+
+		private async Task ToggleGroup(RuleSignalGroup group)
+		{
+			if (!DisabledGroups.Remove(group))
+				DisabledGroups.Add(group);
+			await DisabledGroupsChanged.InvokeAsync(DisabledGroups);
+		}
 
 		private IEnumerable<RuleSignalRow> BaselineRows => Rows.Where(row => row.Group == RuleSignalGroup.Baseline);
 
@@ -133,7 +154,9 @@ namespace Poink.Sim.Components.RuleEngine
 		// The panel can be the only thing on screen using TxFold data, so it loads its own bars instead
 		// of relying on the TxFold chart having already fetched them.
 		private Task RefreshTxFoldIfNeeded() =>
-			_txFoldCache.RefreshIfNeededAsync(TickRepository, TxFoldTable, TxFoldAnchorEnd, TxFoldRangeStart, TxFoldSelectedSeconds);
+			IsDisabled(RuleSignalGroup.TxFold)
+				? Task.CompletedTask
+				: _txFoldCache.RefreshIfNeededAsync(TickRepository, TxFoldTable, TxFoldAnchorEnd, TxFoldRangeStart, TxFoldSelectedSeconds);
 
 		protected override async Task OnParametersSetAsync() => await RefreshTxFoldIfNeeded();
 

@@ -33,9 +33,9 @@ internal sealed class SimulationEngine : ISimulationEngine
 	private const int MaxRecentTicks = 5000;
 	private const int MaxRecentLog = 200;
 
-	private const double DefaultPriceBucketWidth = 0.01;
-
-	private static double PriceBucketWidthFor(string table) => DefaultPriceBucketWidth;
+	// One bucket per pip, so the XGrid's pip-multiple rows always cover whole buckets -- a coarser bucket would leave rows
+	// narrower than it empty between populated ones.
+	private static double PriceBucketWidthFor(SimulationConfig config) => config.PipSize;
 
 	private readonly object _lock = new();
 	private bool _isWarmingUp;
@@ -171,7 +171,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 				_riskToggles?.RestoreFrom(previousPolicyStates);
 			_traderSessions = CreateSessions(config);
 			_aggregator = config.Aggregate
-				? new SimulationBarAggregator(config.BarSize, PriceBucketWidthFor(config.Table))
+				? new SimulationBarAggregator(config.BarSize, PriceBucketWidthFor(config))
 				: null;
 			_recentBars.Clear();
 			_recentBarHistograms.Clear();
@@ -299,7 +299,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 
 			if (aggregate)
 			{
-				var aggregator = new SimulationBarAggregator(barSize, PriceBucketWidthFor(_config.Table));
+				var aggregator = new SimulationBarAggregator(barSize, PriceBucketWidthFor(_config));
 				foreach (var tick in _recentTicks)
 				{
 					var completed = aggregator.Feed(tick);
@@ -343,7 +343,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 		_cursor = 0;
 		_traderSessions = CreateSessions(_config);
 		_aggregator = _config.Aggregate
-			? new SimulationBarAggregator(_config.BarSize, PriceBucketWidthFor(_config.Table))
+			? new SimulationBarAggregator(_config.BarSize, PriceBucketWidthFor(_config))
 			: null;
 		_recentBars.Clear();
 		_recentBarHistograms.Clear();

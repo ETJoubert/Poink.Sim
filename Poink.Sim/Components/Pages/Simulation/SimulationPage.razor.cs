@@ -160,6 +160,7 @@ namespace Poink.Sim.Components.Pages
 		// owned by the page so it survives tab switches.
 		private HashSet<string> _ruleEngineEnabledKeys = new();
 		private double _ruleEngineXGridPercent = 10;
+		private HashSet<RuleSignalGroup> _ruleEngineDisabledGroups = new();
 
 		// Shared with the Snapshot tab's own TxFold chart so both evaluate/display the same timeframes.
 		private HashSet<int> _txFoldSelectedSeconds = new() { 60, 120, 240, 480, 900, 1800, 3600, 7200 };
@@ -243,13 +244,16 @@ namespace Poink.Sim.Components.Pages
 
 		// Baseline signals come straight off RangeStatsHelper; the XGrid rank/delta rows ride along
 		// on top by handing RuleEngineHelper the same grid ComputeXGrid builds for the chart itself.
-		private RuleEngineResult? ComputeRuleEngine(SimulationSnapshot s, double xgridPercent)
+		private RuleEngineResult? ComputeRuleEngine(SimulationSnapshot s, double xgridPercent, HashSet<RuleSignalGroup> disabledGroups)
 		{
 			var (bars, _) = WindowedBarData(s);
 			if (bars.Count == 0 || s.CurrentPrice is not { } currentPrice)
 				return null;
+
+			bool baseline = !disabledGroups.Contains(RuleSignalGroup.Baseline);
+			bool xgrid = !disabledGroups.Contains(RuleSignalGroup.XGrid);
 			return RuleEngineHelper.Compute(
-				MergedBarSamples(s),
+				baseline || xgrid ? MergedBarSamples(s) : new List<WeightedPriceSample>(),
 				w => w.Price,
 				w => (double)w.Count,
 				bars,
@@ -257,8 +261,9 @@ namespace Poink.Sim.Components.Pages
 				b => (double)b.Volume,
 				b => b.Close,
 				currentPrice,
-				ComputeXGrid(s),
-				xgridPercent
+				xgrid ? ComputeXGrid(s) : null,
+				xgridPercent,
+				baseline
 			);
 		}
 
@@ -660,6 +665,7 @@ namespace Poink.Sim.Components.Pages
 		private const string SettingsStorageKey = "poink.simulation.setup";
 
 		private string? _lastPersistedSettingsJson;
+		private bool _settingsLoaded;
 
 		private SimulationPageSettings CurrentSettings =>
 			new(
@@ -693,13 +699,20 @@ namespace Poink.Sim.Components.Pages
 
 		private async Task LoadPersistedSettingsAsync()
 		{
-			var settings = await LocalStorage.GetItemAsync<SimulationPageSettings>(SettingsStorageKey);
-			if (settings is null)
-				return;
+			try
+			{
+				var settings = await LocalStorage.GetItemAsync<SimulationPageSettings>(SettingsStorageKey);
+				if (settings is null)
+					return;
 
-			ApplySettings(settings);
-			_lastPersistedSettingsJson = JsonSerializer.Serialize(CurrentSettings);
-			StateHasChanged();
+				ApplySettings(settings);
+				_lastPersistedSettingsJson = JsonSerializer.Serialize(CurrentSettings);
+				StateHasChanged();
+			}
+			finally
+			{
+				_settingsLoaded = true;
+			}
 		}
 
 		private void ApplySettings(SimulationPageSettings settings)
@@ -725,8 +738,12 @@ namespace Poink.Sim.Components.Pages
 			_robotEvaluationSeconds = settings.RobotEvaluationSeconds ?? 1;
 		}
 
+		// Saving before the stored settings were read would overwrite them with the page's defaults.
 		private async Task PersistSettingsIfChangedAsync()
 		{
+			if (!_settingsLoaded)
+				return;
+
 			var json = JsonSerializer.Serialize(CurrentSettings);
 			if (json == _lastPersistedSettingsJson)
 				return;
@@ -1062,8 +1079,8 @@ namespace Poink.Sim.Components.Pages
 
 		private Task OnRobotRulesChanged() => PersistSettingsIfChangedAsync();
 
-		private RuleEngineResult? ComputeRobotRuleEngine(double xgridPercent) =>
-			_snapshot is null ? null : ComputeRuleEngine(_snapshot, xgridPercent);
+		private RuleEngineResult? ComputeRobotRuleEngine(RobotRuleSet rules) =>
+			_snapshot is null ? null : ComputeRuleEngine(_snapshot, rules.XGridPercent, rules.DisabledGroups);
 
 		private IReadOnlyList<string>? SelectedRiskPolicies =>
 			_selectedRiskPolicies.Count > 0 ? _selectedRiskPolicies.ToList() : null;

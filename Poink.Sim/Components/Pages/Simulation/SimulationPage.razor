@@ -255,7 +255,7 @@
                             else if (_activeLeftPanelTab == SimLeftPanelTab.RuleEngine)
                             {
                                 <RuleEnginePanel @bind-EnabledKeys="_ruleEngineEnabledKeys" @bind-XGridPercent="_ruleEngineXGridPercent"
-                                                 Result="ComputeRuleEngine(_snapshot, _ruleEngineXGridPercent)" CurrentTimestampUtc="_snapshot.CurrentTimestampUtc"
+                                                 DisabledGroups="_ruleEngineDisabledGroups" Result="ComputeRuleEngine(_snapshot, _ruleEngineXGridPercent, _ruleEngineDisabledGroups)" CurrentTimestampUtc="_snapshot.CurrentTimestampUtc"
                                                  TxFoldTable="@_snapshot.Config.Table" TxFoldAnchorEnd="SnapshotAnchorBar(_snapshot)?.CloseTime.AddTicks(1)"
                                                  TxFoldRangeStart="_snapshot.Config.LoadFrom" TxFoldSelectedSeconds="_txFoldSelectedSeconds" />
                             }

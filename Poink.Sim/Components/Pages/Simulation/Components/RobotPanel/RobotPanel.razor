@@ -58,7 +58,8 @@
     private RenderFragment RuleEditor(RobotRuleSet rules) =>
         @<RuleEnginePanel @key="rules" EnabledKeys="rules.EnabledKeys" EnabledKeysChanged="_ => OnRulesChanged.InvokeAsync()"
                           XGridPercent="rules.XGridPercent" XGridPercentChanged="percent => SetXGridPercent(rules, percent)"
-                          Result="ComputeRuleEngine(rules.XGridPercent)" CurrentTimestampUtc="CurrentTimestampUtc"
+                          DisabledGroups="rules.DisabledGroups" DisabledGroupsChanged="_ => OnRulesChanged.InvokeAsync()"
+                          Result="ComputeRuleEngine(rules)" CurrentTimestampUtc="CurrentTimestampUtc"
                           TxFoldTable="@TxFoldTable" TxFoldAnchorEnd="TxFoldAnchorEnd" TxFoldRangeStart="TxFoldRangeStart"
                           TxFoldSelectedSeconds="TxFoldSelectedSeconds" />;
 }

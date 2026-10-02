@@ -247,3 +247,15 @@
     color: var(--color-success);
     opacity: 0.9;
 }
+
+.rule-engine-group-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+}
+
+.rule-engine-group-toggle input {
+    accent-color: var(--color-highlight);
+    cursor: pointer;
+}

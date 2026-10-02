@@ -27,7 +27,7 @@ internal sealed class BotService : IBotService
 
 	private IReadOnlyList<Bot> _bots = Array.Empty<Bot>();
 	private RobotOptions? _options;
-	private (int Count, DateTime LastOpen, int Window, int Offset, int Pips, int Cols, double PipSize)? _barDataKey;
+	private (int Count, DateTime LastOpen, int Window, int Offset, int Pips, int Cols, double PipSize, bool Grid)? _barDataKey;
 	private RobotBarData? _barData;
 	private DateTime? _lastEvaluation;
 	private SymbolTradingLimits? _limits;
@@ -124,7 +124,7 @@ internal sealed class BotService : IBotService
 		if (!anyFlat && !anyOpen)
 			return Array.Empty<BotAction>();
 
-		if (options.UsesTxFold)
+		if (options.UsesGroup(RuleSignalGroup.TxFold))
 			_ = RefreshTxFoldAsync(tick, options);
 
 		var barData = BarDataFor(tick, options);
@@ -171,12 +171,13 @@ internal sealed class BotService : IBotService
 			options.BarOffset,
 			options.XGridPips,
 			options.XGridCols,
-			tick.PipSize
+			tick.PipSize,
+			options.UsesGroup(RuleSignalGroup.XGrid)
 		);
 		if (_barDataKey == key)
 			return _barData;
 
-		_barData = RobotBarData.Create(tick.RecentBars, tick.RecentHistograms, tick.PipSize, options);
+		_barData = RobotBarData.Create(tick.RecentBars, tick.RecentHistograms, tick.PipSize, options, key.Item8);
 		_barDataKey = key;
 		return _barData;
 	}

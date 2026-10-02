@@ -87,12 +87,26 @@ internal static class RuleEngineHelper
         : key == row.BelowKey && row.Below;
 
     // AND across every enabled key -- the mask matches only when all its constraints hold at once.
-    public static bool Matches(IReadOnlyList<RuleSignalRow> rows, HashSet<string> enabledKeys) =>
-        rows.Count > 0
-        && enabledKeys.Count > 0
-        && rows.All(row => SelectedKey(row, enabledKeys) is not { } key || LiveValue(row, key));
+    // Keys of a deactivated group have no row, so a mask left with no active selection never matches.
+    public static bool Matches(IReadOnlyList<RuleSignalRow> rows, HashSet<string> enabledKeys)
+    {
+        bool anySelected = false;
+        foreach (var row in rows)
+        {
+            if (SelectedKey(row, enabledKeys) is not { } key)
+                continue;
+            anySelected = true;
+            if (!LiveValue(row, key))
+                return false;
+        }
+        return anySelected;
+    }
 
-    public static bool UsesTxFold(HashSet<string> enabledKeys) => enabledKeys.Any(k => k.StartsWith("txfold-", StringComparison.Ordinal));
+    // Which signal group a key belongs to -- keys are named after their group, so this needs no row to look it up.
+    public static RuleSignalGroup GroupOf(string key) =>
+        key.StartsWith("txfold-", StringComparison.Ordinal) ? RuleSignalGroup.TxFold
+        : key.StartsWith("rank-", StringComparison.Ordinal) || key.StartsWith("delta-", StringComparison.Ordinal) ? RuleSignalGroup.XGrid
+        : RuleSignalGroup.Baseline;
 
     public static RuleEngineResult Compute<TSample, TBar>(
         IReadOnlyList<TSample> volumeSamples,
@@ -104,12 +118,13 @@ internal static class RuleEngineHelper
         Func<TBar, double> barClose,
         double currentPrice,
         XGridResult? grid = null,
-        double xGridPercent = 10
+        double xGridPercent = 10,
+        bool includeBaseline = true
     )
     {
-        var priceStats = RangeStatsHelper.Compute(volumeSamples, samplePrice, sampleWeight);
-        var vwapStats = RangeStatsHelper.Compute(vwapBars, barPrice, barWeight);
-        var regressionStats = RangeStatsHelper.Compute(vwapBars, barClose);
+        var priceStats = includeBaseline ? RangeStatsHelper.Compute(volumeSamples, samplePrice, sampleWeight) : null;
+        var vwapStats = includeBaseline ? RangeStatsHelper.Compute(vwapBars, barPrice, barWeight) : null;
+        var regressionStats = includeBaseline ? RangeStatsHelper.Compute(vwapBars, barClose) : null;
 
         var poc = priceStats?.Poc;
         var vah = priceStats?.Vah;
@@ -118,7 +133,24 @@ internal static class RuleEngineHelper
         var median = priceStats?.Median;
         var regression = regressionStats?.Regression;
 
-        var rows = new List<RuleSignalRow>
+        var rows = includeBaseline ? BaselineRows(poc, vah, val, vwap, median, regression, currentPrice) : new List<RuleSignalRow>();
+
+        if (grid is { } g)
+            rows.AddRange(XGridRows(g, xGridPercent));
+
+        return new RuleEngineResult(poc, vah, val, vwap, median, regression, currentPrice, rows);
+    }
+
+    private static List<RuleSignalRow> BaselineRows(
+        double? poc,
+        double? vah,
+        double? val,
+        double? vwap,
+        double? median,
+        double? regression,
+        double currentPrice
+    ) =>
+        new()
         {
             Row("POC", "--color-primary", Keys.PocAbove, Keys.PocIn, Keys.PocBelow, poc, currentPrice),
             Row("VAH", "--color-highlight", Keys.VahAbove, Keys.VahIn, Keys.VahBelow, vah, currentPrice),
@@ -127,12 +159,6 @@ internal static class RuleEngineHelper
             Row("MEDIAN", "--color-badge-2", Keys.MedianAbove, Keys.MedianIn, Keys.MedianBelow, median, currentPrice),
             Row("REG", "--color-badge-1", Keys.RegressionAbove, Keys.RegressionIn, Keys.RegressionBelow, regression, currentPrice),
         };
-
-        if (grid is { } g)
-            rows.AddRange(XGridRows(g, xGridPercent));
-
-        return new RuleEngineResult(poc, vah, val, vwap, median, regression, currentPrice, rows);
-    }
 
     // Above/Below/In (inclusive) each bar's mean +/- one-stddev band -- true high/low would always
     // contain currentPrice, so bars must come from BarAggregationKind.MeanStdDev (see RefreshTxFoldIfNeeded).
