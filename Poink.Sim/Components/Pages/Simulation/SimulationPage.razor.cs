@@ -708,7 +708,7 @@ namespace Poink.Sim.Components.Pages
 
 		// Round-trips the setup form through localStorage since this component's own fields
 		// don't survive navigation; diffed against _lastPersistedSettingsJson to avoid write spam.
-		private const string SettingsStorageKey = "poink.simulation.setup";
+		private const string SettingsStorageKey = SimulationPageSettings.StorageKey;
 
 		private string? _lastPersistedSettingsJson;
 		private bool _settingsLoaded;

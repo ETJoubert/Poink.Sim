@@ -1,0 +1,155 @@
+@page "/signal-study"
+@namespace Poink.Sim.Components.Pages
+@using Poink.Sim.Components.RuleEngine
+@using Poink.Sim.Components.Shared.BarSizeSelect
+@using Poink.Sim.Components.Shared.Icon
+@using Poink.Sim.Components.Shared.TickDataSource
+@using Poink.Sim.Helpers
+@using Poink.Sim.Models
+@using Poink.Sim.Simulation
+
+<div class="study-page">
+    <header class="study-header">
+        <span class="study-title">SIGNAL STUDY</span>
+        <span class="study-state @(Builder.IsBuilding ? "building" : "")" title="Whether a signal dataset is being built right now">
+            @(Builder.IsBuilding ? "BUILDING" : "READY")
+        </span>
+    </header>
+
+    <section class="study-panel" title="Build a dataset of the rule engine's signals, sampled once per second, for one fixed profile of settings">
+        <div class="study-panel-heading">BUILD DATASET</div>
+
+        <div class="study-row">
+            <TickDataSource @bind-Table="_table" @bind-Table:after="ResolvePipSizeAsync" @bind-From="_from" @bind-To="_to" Disabled="Builder.IsBuilding" />
+            <button type="button" class="study-btn" @onclick="LoadFromSimulationAsync" disabled="@Builder.IsBuilding"
+                    title="Copy the symbol, date range, bar size and signal thresholds saved on the Simulation page">From Simulation</button>
+        </div>
+
+        <div class="study-fields">
+            <label class="study-field" title="A name to recognise this dataset by in the list below">
+                <span>Name</span>
+                <input type="text" value="@_name" placeholder="@DefaultName" @onchange="e => _name = e.Value?.ToString() ?? string.Empty" disabled="@Builder.IsBuilding" />
+            </label>
+            <label class="study-field" title="Price size of one pip -- resolved from the symbol's metadata when known, and editable when it is not">
+                <span>Pip size</span>
+                <input type="number" step="any" min="0" value="@_pipSize" @onchange="SetPipSize" disabled="@Builder.IsBuilding" />
+            </label>
+            <div class="study-field" title="Bar size the signals are measured on">
+                <BarSizeSelect Value="_profile.BarSizeSeconds" ValueChanged="seconds => _profile = _profile with { BarSizeSeconds = seconds }"
+                               Disabled="Builder.IsBuilding" Title="Bar size the signals are measured on" />
+            </div>
+            @IntField("Bar window", "Bars the volume profile, value area and regime signals are measured over", _profile.BarWindow, 1, SimulationMarketFeed.MaxRecentBars, v => _profile with { BarWindow = v })
+            @IntField("Bar offset", "Bars back from the live edge the window ends -- 0 keeps it on the live edge", _profile.BarOffset, 0, SimulationMarketFeed.MaxRecentBars - 1, v => _profile with { BarOffset = v })
+            @DoubleField("In ± pips", "How close, in pips, price must be to a baseline level to count as In it", _profile.InTolerancePips, 0.1, v => _profile with { InTolerancePips = v })
+            @DoubleField("XGrid top %", "Top-percent cutoff the XGrid rank and delta rows use", _profile.XGridPercent, 1, v => _profile with { XGridPercent = v })
+            @IntField("XGrid pips", "XGrid row height, in pips", _profile.XGridPips, 1, 1000, v => _profile with { XGridPips = v })
+            @IntField("XGrid cols", "XGrid columns", _profile.XGridCols, 1, 200, v => _profile with { XGridCols = v })
+        </div>
+
+        <RuleSignalSettingsPanel Settings="_profile.Signals" SettingsChanged="settings => _profile = _profile with { Signals = settings }" />
+
+        <div class="study-row study-actions">
+            @if (Builder.IsBuilding)
+            {
+                <button type="button" class="study-btn study-btn-stop" @onclick="Builder.Cancel"
+                        title="Stop the build -- the points stored so far are kept, marked Cancelled">Cancel</button>
+            }
+            else
+            {
+                <button type="button" class="study-btn study-btn-go" @onclick="StartBuild" disabled="@(ValidationMessage is not null)"
+                        title="@(ValidationMessage ?? "Replay the range and store every signal once per second with these settings")">Build</button>
+            }
+            @if (Builder.Progress is { } progress && (Builder.IsBuilding || progress.PointCount > 0))
+            {
+                <div class="study-progress" title="How far through the date range the build is">
+                    <div class="study-progress-fill" style="width: @((progress.Fraction * 100).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture))%"></div>
+                </div>
+                <span class="study-progress-text">
+                    @(progress.IsWarmingUp ? "Warming up" : $"{progress.Fraction:P0}") · @progress.PointCount.ToString("N0") points
+                    @(progress.CurrentUtc is { } current ? $" · {current:yyyy-MM-dd HH:mm}" : "")
+                </span>
+            }
+            @if (ValidationMessage is { } validation && !Builder.IsBuilding)
+            {
+                <span class="study-note">@validation</span>
+            }
+            @if (Builder.LastError is { } error)
+            {
+                <span class="study-error" title="Why the last build failed">@error</span>
+            }
+        </div>
+    </section>
+
+    <section class="study-panel" title="Signal datasets stored so far, newest first">
+        <div class="study-panel-heading">
+            DATASETS
+            <button type="button" class="study-icon-btn" @onclick="ReloadDatasetsAsync" title="Reload the list of stored datasets">
+                <Icon Name="arrow-clockwise" Class="study-icon" />
+            </button>
+        </div>
+        @if (_datasetsError is { } listError)
+        {
+            <span class="study-error" title="Why the datasets could not be listed or deleted">@listError</span>
+        }
+        @if (_datasets.Count == 0)
+        {
+            <p class="study-empty">No datasets yet.</p>
+        }
+        else
+        {
+            <table class="study-table">
+                <thead>
+                    <tr>
+                        <th title="The dataset's name">Name</th>
+                        <th title="The tick table it was built from">Table</th>
+                        <th title="The UTC date range it covers">Range</th>
+                        <th title="Bar size and bar window of its profile">Bars</th>
+                        <th title="Seconds sampled -- one stored point each">Points</th>
+                        <th title="Signal rows each point records">Signals</th>
+                        <th title="How the build ended">Status</th>
+                        <th title="When it was built">Built</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var dataset in _datasets)
+                    {
+                        <tr>
+                            <td>@dataset.Name</td>
+                            <td>@dataset.Table</td>
+                            <td>@($"{dataset.FromUtc:yyyy-MM-dd HH:mm} → {dataset.ToUtc:yyyy-MM-dd HH:mm}")</td>
+                            <td>@($"{BarSizeOptions.Label(dataset.Profile.BarSizeSeconds)} × {dataset.Profile.BarWindow}")</td>
+                            <td>@dataset.PointCount.ToString("N0")</td>
+                            <td>@dataset.Catalog.Count</td>
+                            <td class="study-status-@dataset.Status.ToString().ToLowerInvariant()">@dataset.Status</td>
+                            <td>@dataset.CreatedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                            <td>
+                                <button type="button" class="study-icon-btn" @onclick="() => DeleteDatasetAsync(dataset)"
+                                        disabled="@(Builder.IsBuilding && dataset.Status == SignalDatasetStatus.Building)"
+                                        title="Delete this dataset and all its points">
+                                    <Icon Name="trash-fill" Class="study-icon" />
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </section>
+</div>
+
+@code {
+    private RenderFragment IntField(string label, string tooltip, int value, int min, int max, Func<int, SignalProfile> apply) =>
+        @<label class="study-field" title="@tooltip">
+            <span>@label</span>
+            <input type="number" step="1" min="@min" max="@max" value="@value" disabled="@Builder.IsBuilding"
+                   @onchange="e => SetInt(e, min, max, apply)" />
+        </label>;
+
+    private RenderFragment DoubleField(string label, string tooltip, double value, double step, Func<double, SignalProfile> apply) =>
+        @<label class="study-field" title="@tooltip">
+            <span>@label</span>
+            <input type="number" step="@step" min="0" value="@value" disabled="@Builder.IsBuilding"
+                   @onchange="e => SetDouble(e, apply)" />
+        </label>;
+}

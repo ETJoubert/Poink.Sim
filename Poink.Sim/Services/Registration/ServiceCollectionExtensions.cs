@@ -94,6 +94,7 @@ public static class ServiceCollectionExtensions
 	{
 		services.AddScoped<ISymbolService, SymbolService>();
 		services.AddScoped<ISymbolMetadataCache, SymbolMetadataCacheService>();
+		services.AddScoped<ISymbolTableResolver, SymbolTableResolver>();
 
 		return services;
 	}
@@ -208,6 +209,9 @@ public static class ServiceCollectionExtensions
 		services.AddSingleton<ITraderFactory, TraderFactory>();
 		services.AddSingleton<Bots.IBotService, Bots.BotService>();
 		services.AddSingleton<ISimulationEngine, SimulationEngine>();
+		services.AddSingleton<ISignalDatasetRepository, SignalDatasetRepository>();
+		services.AddSingleton<SignalStudy.ISignalDatasetBuilder, SignalStudy.SignalDatasetBuilder>();
+		services.AddSingleton<SignalStudy.ISignalDatasetService, SignalStudy.SignalDatasetService>();
 
 		return services;
 	}

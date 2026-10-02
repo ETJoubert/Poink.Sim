@@ -31,14 +31,8 @@ internal sealed class SimulationEngine : ISimulationEngine
 	private const int UncappedClockCheckTicks = 256;
 	private const int UncappedProgressIntervalMs = 100;
 
-	private const int MaxRecentBars = 300;
 	private const int MaxRecentTicks = 5000;
 	private const int MaxRecentLog = 200;
-	private const int TypicalSpreadTicks = 1000;
-
-	// One bucket per pip, so the XGrid's pip-multiple rows always cover whole buckets -- a coarser bucket would leave rows
-	// narrower than it empty between populated ones.
-	private static double PriceBucketWidthFor(SimulationConfig config) => config.PipSize;
 
 	private readonly object _lock = new();
 	private bool _isWarmingUp;
@@ -94,7 +88,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 	private int _totalCount;
 	private int _warmupCount;
 	private SimulationConfig? _config;
-	private SimulationBarAggregator? _aggregator;
+	private readonly SimulationMarketFeed _market = new();
 	private List<TraderSession> _traderSessions = new();
 	private Dictionary<int, TraderSession> _traderSessionsById = new();
 	private double _speedMultiplier = 1.0;
@@ -104,8 +98,6 @@ internal sealed class SimulationEngine : ISimulationEngine
 
 	private RiskPolicyToggles? _riskToggles;
 
-	private readonly RingBuffer<HlocAvdtBar> _recentBars = new(MaxRecentBars);
-	private readonly RingBuffer<BarPriceHistogram> _recentBarHistograms = new(MaxRecentBars);
 	private readonly RingBuffer<Tick> _recentTicks = new(MaxRecentTicks);
 	private IReadOnlyList<Tick> _publishedRecentTicks = Array.Empty<Tick>();
 	private long _publishedRecentTicksVersion;
@@ -116,7 +108,6 @@ internal sealed class SimulationEngine : ISimulationEngine
 	private double? _lastBid;
 	private double? _lastAsk;
 	private DateTime? _lastTimestamp;
-	private double? _typicalSpread;
 	private string? _stopReason;
 
 	private readonly ITickRepository _tickRepository;
@@ -222,17 +213,12 @@ internal sealed class SimulationEngine : ISimulationEngine
 			if (previousPolicyStates is not null)
 				_riskToggles?.RestoreFrom(previousPolicyStates);
 			UseSessionsLocked(CreateSessions(config));
-			_aggregator = config.Aggregate
-				? new SimulationBarAggregator(config.BarSize, PriceBucketWidthFor(config))
-				: null;
-			_recentBars.Clear();
-			_recentBarHistograms.Clear();
+			_market.Reset(config.Aggregate, config.BarSize, config.PipSize);
 			_recentTicks.Clear();
 			_lastPrice = null;
 			_lastBid = null;
 			_lastAsk = null;
 			_lastTimestamp = null;
-			_typicalSpread = null;
 			_stopReason = null;
 			WarmUpLocked();
 			_isPlaying = false;
@@ -355,24 +341,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 				return false;
 
 			_config = _config with { Aggregate = aggregate, BarSize = barSize };
-			_recentBars.Clear();
-			_recentBarHistograms.Clear();
-
-			if (aggregate)
-			{
-				var aggregator = new SimulationBarAggregator(barSize, PriceBucketWidthFor(_config));
-				foreach (var tick in _recentTicks)
-				{
-					var completed = aggregator.Feed(tick);
-					if (completed is not null)
-						AppendBar(completed.Value.Bar, completed.Value.Histogram);
-				}
-				_aggregator = aggregator;
-			}
-			else
-			{
-				_aggregator = null;
-			}
+			_market.Reaggregate(aggregate, barSize, _config.PipSize, _recentTicks);
 		}
 		PublishSnapshot();
 		_logger.LogInformation(
@@ -403,17 +372,12 @@ internal sealed class SimulationEngine : ISimulationEngine
 		_reader = _openReader!();
 		_cursor = 0;
 		UseSessionsLocked(CreateSessions(_config));
-		_aggregator = _config.Aggregate
-			? new SimulationBarAggregator(_config.BarSize, PriceBucketWidthFor(_config))
-			: null;
-		_recentBars.Clear();
-		_recentBarHistograms.Clear();
+		_market.Reset(_config.Aggregate, _config.BarSize, _config.PipSize);
 		_recentTicks.Clear();
 		_lastPrice = null;
 		_lastBid = null;
 		_lastAsk = null;
 		_lastTimestamp = null;
-		_typicalSpread = null;
 		_stopReason = null;
 		WarmUpLocked();
 		_isPlaying = false;
@@ -479,16 +443,13 @@ internal sealed class SimulationEngine : ISimulationEngine
 			_config = null;
 			_riskToggles = null;
 			UseSessionsLocked(new());
-			_aggregator = null;
+			_market.Reset(false, TimeSpan.Zero, 0);
 			_isPlaying = false;
-			_recentBars.Clear();
-			_recentBarHistograms.Clear();
 			_recentTicks.Clear();
 			_lastPrice = null;
 			_lastBid = null;
 			_lastAsk = null;
 			_lastTimestamp = null;
-			_typicalSpread = null;
 			_stopReason = null;
 		}
 		Snapshot = null;
@@ -576,7 +537,6 @@ internal sealed class SimulationEngine : ISimulationEngine
 		_lastPrice = price;
 		_lastBid = tick.Bid;
 		_lastAsk = tick.Ask;
-		TrackTypicalSpread(tick.Ask - tick.Bid);
 		_lastTimestamp = tick.Timestamp;
 
 		AppendTick(tick);
@@ -589,14 +549,9 @@ internal sealed class SimulationEngine : ISimulationEngine
 			TrackTradeEquityLocked(session, tick.Bid, tick.Ask, tick.Timestamp, maintenance.Capital.Equity);
 		}
 
-		if (_aggregator is not null)
-		{
-			var completed = _aggregator.Feed(tick);
-			if (completed is not null)
-				AppendBar(completed.Value.Bar, completed.Value.Histogram);
-
+		_market.Feed(tick);
+		if (_market.IsAggregating)
 			RunBotsLocked(tick, price);
-		}
 
 		if (_isPlaying && !_isWarmingUp && AllTradersDepletedLocked(price))
 			StopForDepletionLocked();
@@ -751,21 +706,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 		if (_isWarmingUp || _config is null)
 			return;
 
-		var actions = _botService.OnTick(
-			new BotTickContext(
-				tick.Timestamp,
-				price,
-				tick.Bid,
-				tick.Ask,
-				_recentBars,
-				_recentBarHistograms,
-				_config.Table,
-				_config.LoadFrom,
-				_config.PipSize,
-				_typicalSpread,
-				_config.BarSize
-			)
-		);
+		var actions = _botService.OnTick(_market.ContextFor(tick, _config));
 		foreach (var action in actions)
 		{
 			var session = _traderSessionsById[action.Bot.Id];
@@ -799,19 +740,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 		return true;
 	}
 
-	private void AppendBar(HlocAvdtBar bar, BarPriceHistogram histogram)
-	{
-		_recentBars.Add(bar);
-		_recentBarHistograms.Add(histogram);
-	}
-
 	private void AppendTick(Tick tick) => _recentTicks.Add(tick);
-
-	private void TrackTypicalSpread(double spread)
-	{
-		const double weight = 2.0 / (TypicalSpreadTicks + 1);
-		_typicalSpread = _typicalSpread is { } typical ? typical + weight * (spread - typical) : spread;
-	}
 
 	private void AppendLog(TraderSession session, SimulationLogEntry entry) => session.RecentLog.Add(entry);
 
@@ -832,12 +761,12 @@ internal sealed class SimulationEngine : ISimulationEngine
 		SimulationSnapshot? snapshot;
 		lock (_lock)
 		{
-			var bars = _recentBars.ToList(extraCapacity: 1);
-			var barHistograms = _recentBarHistograms.ToList(extraCapacity: 1);
-			if (_aggregator?.CurrentPartialBar is { } partial)
+			var bars = _market.RecentBars.ToList(extraCapacity: 1);
+			var barHistograms = _market.RecentHistograms.ToList(extraCapacity: 1);
+			if (_market.Aggregator?.CurrentPartialBar is { } partial)
 			{
 				bars.Add(partial);
-				barHistograms.Add(_aggregator.CurrentPartialHistogram!);
+				barHistograms.Add(_market.Aggregator.CurrentPartialHistogram!);
 			}
 
 			var primaryRisk = _traderSessions.FirstOrDefault()?.Trader as IRiskInspectable;
@@ -862,7 +791,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 						barHistograms,
 						PublishedRecentTicksLocked(),
 						primaryRisk?.PolicyStates() ?? Array.Empty<RiskPolicySnapshot>(),
-						_typicalSpread,
+						_market.TypicalSpread,
 						_stopReason
 					);
 			Financials = snapshot is null ? null : FinancialsStateLocked(snapshot.Traders);

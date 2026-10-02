@@ -22,10 +22,22 @@ internal sealed class RobotBarData
 		double pipSize,
 		RobotOptions options,
 		bool includeGrid
+	) =>
+		Create(recentBars, recentHistograms, pipSize, options.BarWindow, options.BarOffset, options.XGridPips, options.XGridCols, includeGrid);
+
+	public static RobotBarData? Create(
+		IReadOnlyList<HlocAvdtBar> recentBars,
+		IReadOnlyList<BarPriceHistogram> recentHistograms,
+		double pipSize,
+		int barWindow,
+		int barOffset,
+		int xGridPips,
+		int xGridCols,
+		bool includeGrid
 	)
 	{
-		int window = Math.Clamp(options.BarWindow, 1, Math.Max(1, recentBars.Count));
-		int offset = Math.Min(Math.Max(0, options.BarOffset), Math.Max(0, recentBars.Count - 1));
+		int window = Math.Clamp(barWindow, 1, Math.Max(1, recentBars.Count));
+		int offset = Math.Min(Math.Max(0, barOffset), Math.Max(0, recentBars.Count - 1));
 		int count = recentBars.Count - offset;
 		if (count <= 0)
 			return null;
@@ -45,8 +57,8 @@ internal sealed class RobotBarData
 				samples,
 				bars[bars.Count - gridWindow].OpenTime,
 				bars[^1].OpenTime,
-				options.XGridPips * pipSize,
-				options.XGridCols
+				xGridPips * pipSize,
+				xGridCols
 			)
 			: null;
 		return new RobotBarData
@@ -106,7 +118,8 @@ internal sealed class RobotRuleContext
 		!rules.DisabledGroups.Contains(RuleSignalGroup.Position)
 		&& rules.EnabledKeys.Any(key => RuleEngineHelper.GroupOf(key) == RuleSignalGroup.Position);
 
-	private IReadOnlyList<RuleSignalRow> MarketRowsFor(RobotRules rules)
+	/// <summary>Every market signal row the rule set's active groups produce here -- everything but the position rows.</summary>
+	public IReadOnlyList<RuleSignalRow> MarketRowsFor(RobotRules rules)
 	{
 		if (_marketRows.TryGetValue(rules, out var cached))
 			return cached;

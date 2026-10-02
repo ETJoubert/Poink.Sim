@@ -36,5 +36,9 @@ namespace Poink.Sim.Models
 		bool RobotRequireRearm = false,
 		RuleSignalSettings? SignalSettings = null,
 		RobotPositionRules? RobotPositionRules = null
-	);
+	)
+	{
+		/// <summary>The browser localStorage key the Simulation page keeps these settings under.</summary>
+		public const string StorageKey = "poink.simulation.setup";
+	}
 }
