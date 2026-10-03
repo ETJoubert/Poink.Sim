@@ -5,6 +5,7 @@
 @using Poink.Sim.Components.Shared.DateRangeSlider
 @using Poink.Sim.Components.Shared.LookbackWindowBar
 @using Poink.Sim.Components.Shared.SimTimeline
+@using Poink.Sim.Components.Shared.IndicatorPanel
 @using Poink.Sim.Components.Shared.StatisticsPanel
 @using Poink.Sim.Components.Shared.TickDataSource
 @using Poink.Sim.Components.Shared.BarSizeSelect
@@ -317,6 +318,9 @@
                                             @onclick="() => _showSnapshot = !_showSnapshot"
                                             title="One OHLC/Quartile bar per toggled timeframe, each a trailing window ending at the current Lookback Window's right edge">TxFold</button>
                                 }
+                                <button type="button" class="sim-overlay-toggle-btn @(_showIndicators ? "active" : "")"
+                                        @onclick="() => _showIndicators = !_showIndicators"
+                                        title="Show or hide the indicator panel -- calculated values such as ATR for the current window">Indicators</button>
                             </div>
                         </div>
 
@@ -337,6 +341,11 @@
                                                 SizeInputTitle="Number of ticks the window spans -- drives the volume profile window"
                                                 OffsetLabelTitle="Ticks back from the most recent tick to the end of the window -- 0 keeps the window anchored to now"
                                                 OffsetInputTitle="Ticks back from the most recent tick to the end of the window" />
+                        }
+
+                        @if (_showIndicators)
+                        {
+                            <IndicatorPanel Rows="IndicatorRows(s)" />
                         }
 
                         <div class="sim-chart" @ref="_chartRowRef">

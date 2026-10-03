@@ -1,0 +1,40 @@
+.indicator-panel {
+    align-self: flex-start;
+    min-width: 200px;
+    max-width: 320px;
+    margin: 1px 5px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: var(--border-radius-sm);
+    background: rgba(255, 255, 255, 0.015);
+    font-size: 0.6rem;
+    overflow: hidden;
+}
+
+.indicator-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-variant-numeric: tabular-nums;
+}
+
+.indicator-table th,
+.indicator-table td {
+    padding: 2px 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    white-space: nowrap;
+}
+
+.indicator-table tr:last-child th,
+.indicator-table tr:last-child td {
+    border-bottom: none;
+}
+
+.indicator-label {
+    color: var(--color-secondary);
+    font-weight: normal;
+    text-align: left;
+}
+
+.indicator-value {
+    color: var(--color-primary);
+    text-align: right;
+}

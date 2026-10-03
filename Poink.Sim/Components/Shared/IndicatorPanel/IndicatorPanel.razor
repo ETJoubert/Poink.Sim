@@ -1,0 +1,15 @@
+@namespace Poink.Sim.Components.Shared.IndicatorPanel
+
+<div class="indicator-panel" title="Calculated indicators for the current window">
+    <table class="indicator-table">
+        <tbody>
+            @foreach (var row in Rows)
+            {
+                <tr title="@row.Tooltip">
+                    <th class="indicator-label" scope="row">@row.Label</th>
+                    <td class="indicator-value">@row.Value</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>

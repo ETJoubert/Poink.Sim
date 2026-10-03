@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 using Poink.Sim.Components.Charts;
+using Poink.Sim.Components.Shared.IndicatorPanel;
 using Poink.Sim.Components.Shared.PositionTable;
 using Poink.Sim.Components.Shared.TradeConsole;
 using Poink.Sim.Helpers;
@@ -151,6 +152,7 @@ namespace Poink.Sim.Components.Pages
 		private bool _showVolumeProfile;
 		private bool _showTimeProfile;
 		private bool _showSnapshot;
+		private bool _showIndicators;
 		private bool _traderControlsCollapsed;
 		private bool _leftSidePanelCollapsed;
 		private SimLeftPanelTab _activeLeftPanelTab;
@@ -310,6 +312,9 @@ namespace Poink.Sim.Components.Pages
 			bars.Count > 0 && s.CurrentTimestampUtc is { } now && bars[^1].OpenTime + s.Config.BarSize > now
 				? bars.Take(bars.Count - 1).ToList()
 				: bars;
+
+		private IReadOnlyList<IndicatorRow> IndicatorRows(SimulationSnapshot s) =>
+			IndicatorRowsHelper.Build(CompletedBars(s, WindowedBarData(s).Bars), ClampedBarWindow, s.Config.PipSize);
 
 		// Recomputed each render so live P&L colouring on the open position stays current;
 		// trades entirely outside the grid's window are dropped to keep the overlay uncluttered.
