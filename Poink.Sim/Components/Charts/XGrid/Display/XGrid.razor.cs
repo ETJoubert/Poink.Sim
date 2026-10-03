@@ -61,6 +61,16 @@ namespace Poink.Sim.Components.Charts
 
 		private Task SetPipCount(int value) => PipCountChanged.InvokeAsync(PipCount = Math.Clamp(value, 1, MaxPipCount));
 
+		private readonly string _pipTicksId = $"xgrid-pip-ticks-{Guid.NewGuid():N}";
+
+		private static readonly IReadOnlyList<int> PipTickPositions = XGridLogScaleHelper.OrderOfTenPositions(MaxPipCount);
+
+		private int PipSliderPosition => XGridLogScaleHelper.ValueToPosition(PipCount, MaxPipCount);
+
+		private Task SetPipSliderPosition(int position) => SetPipCount(XGridLogScaleHelper.PositionToValue(position, MaxPipCount));
+
+		private Task StepPipCount(int delta) => SetPipCount(PipCount + delta);
+
 		private Task SetColCount(int value) => ColCountChanged.InvokeAsync(ColCount = Math.Clamp(value, 1, MaxColCount));
 
 		// While bound, Cols tracks ProfileBarCount on every parameter set instead of being independently editable.
