@@ -442,7 +442,7 @@
     align-items: center;
     gap: 8px;
     padding: 2px 8px;
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     font-size: 0.54rem;
     color: var(--color-secondary);
     white-space: nowrap;
@@ -469,6 +469,28 @@
     min-height: 0;
     writing-mode: vertical-lr;
     direction: rtl;
+}
+
+.xgrid-axis-step {
+    flex: 0 0 auto;
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--color-secondary) 40%, transparent);
+    color: var(--color-secondary);
+    font-size: 0.5rem;
+    line-height: 1;
+    padding: 2px 4px;
+    border-radius: var(--border-radius-sm);
+    cursor: pointer;
+}
+
+.xgrid-axis-step:hover:not(:disabled) {
+    color: var(--color-primary);
+    border-color: var(--color-primary);
+}
+
+.xgrid-axis-step:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
 }
 
 .xgrid-axis-range:disabled {

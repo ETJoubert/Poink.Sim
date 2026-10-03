@@ -53,12 +53,35 @@
     }
     else
     {
+        <div class="xgrid-axis-h" title="Columns axis -- drag to change how many bar groups the grid shows">
+            <span class="xgrid-axis-label">Cols @ColCount</span>
+            <input type="range" class="xgrid-axis-range" min="1" max="@MaxColCount" disabled="@_colsBoundToProfileBars"
+                   @bind:get="ColCount" @bind:set="SetColCount" @bind:event="oninput"
+                   title="Number of bar groups (1-@MaxColCount) -- bars are merged evenly when the selection holds more than this" />
+            @if (ProfileBarCount is { } profileBarCount)
+            {
+                <button type="button" class="xgrid-axis-bind @(_colsBoundToProfileBars ? "active" : "")"
+                        @onclick="ToggleColsBoundToProfileBars"
+                        title="@(_colsBoundToProfileBars ? $"Cols is following Profile Bars ({profileBarCount}) -- click to unbind and edit Cols manually again" : $"Bind Cols to Profile Bars ({profileBarCount}) -- keeps one column per bar in the profile window as it changes")">=Bars</button>
+            }
+            <span class="xgrid-axis-label" title="Average time span of one column">@ColumnWidthLabel(grid)</span>
+        </div>
         <div class="xgrid-scroll">
             <div class="xgrid-axis-v" title="Rows axis -- drag to change how many pips each row spans">
                 <span class="xgrid-axis-label">Pips @PipCount</span>
-                <input type="range" class="xgrid-axis-range xgrid-axis-range-v" min="1" max="@MaxPipCount"
-                       @bind:get="PipCount" @bind:set="SetPipCount" @bind:event="oninput"
-                       title="Pips per row (1-@MaxPipCount) -- multiplied by the instrument's pip size for each row's fixed price height. Dragging up gives taller rows" />
+                <button type="button" class="xgrid-axis-step" @onclick="() => StepPipCount(1)" disabled="@(PipCount >= MaxPipCount)"
+                        title="Add one pip per row">&#9650;</button>
+                <input type="range" class="xgrid-axis-range xgrid-axis-range-v" min="0" max="@XGridLogScaleHelper.Steps" list="@_pipTicksId"
+                       @bind:get="PipSliderPosition" @bind:set="SetPipSliderPosition" @bind:event="oninput"
+                       title="Pips per row (1-@MaxPipCount, logarithmic -- notches mark 1, 10, 100, 1000) -- multiplied by the instrument's pip size for each row's fixed price height. Low values get more of the track; dragging up gives taller rows" />
+                <datalist id="@_pipTicksId">
+                    @foreach (var position in PipTickPositions)
+                    {
+                        <option value="@position"></option>
+                    }
+                </datalist>
+                <button type="button" class="xgrid-axis-step" @onclick="() => StepPipCount(-1)" disabled="@(PipCount <= 1)"
+                        title="Remove one pip per row">&#9660;</button>
                 <span class="xgrid-axis-label" title="Fixed price height of one row">@RowHeightLabel(grid)</span>
             </div>
             <div class="xgrid-canvas-outer">
@@ -136,19 +159,6 @@
                     </div>
                 }
             </div>
-        </div>
-        <div class="xgrid-axis-h" title="Columns axis -- drag to change how many bar groups the grid shows">
-            <span class="xgrid-axis-label">Cols @ColCount</span>
-            <input type="range" class="xgrid-axis-range" min="1" max="@MaxColCount" disabled="@_colsBoundToProfileBars"
-                   @bind:get="ColCount" @bind:set="SetColCount" @bind:event="oninput"
-                   title="Number of bar groups (1-@MaxColCount) -- bars are merged evenly when the selection holds more than this" />
-            @if (ProfileBarCount is { } profileBarCount)
-            {
-                <button type="button" class="xgrid-axis-bind @(_colsBoundToProfileBars ? "active" : "")"
-                        @onclick="ToggleColsBoundToProfileBars"
-                        title="@(_colsBoundToProfileBars ? $"Cols is following Profile Bars ({profileBarCount}) -- click to unbind and edit Cols manually again" : $"Bind Cols to Profile Bars ({profileBarCount}) -- keeps one column per bar in the profile window as it changes")">=Bars</button>
-            }
-            <span class="xgrid-axis-label" title="Average time span of one column">@ColumnWidthLabel(grid)</span>
         </div>
         <div class="xgrid-footer">
             <span class="xgrid-footer-time" title="Oldest bar in the grid range">@(grid.Columns.Count > 0 ? grid.Columns[0].OpenTime.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) : "--")</span>
