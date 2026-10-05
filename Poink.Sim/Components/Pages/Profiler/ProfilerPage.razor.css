@@ -32,17 +32,9 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    padding: 5px 24px 5px;
+    gap: 20px;
+    padding: 5px 16px;
     border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
-}
-
-.prof-header-title {
-    display: flex;
-    align-items: baseline;
-    gap: 12px;
-    flex-wrap: wrap;
 }
 
 .prof-header-symbol {
@@ -52,23 +44,6 @@
     letter-spacing: 0.08em;
     color: var(--color-accent);
     text-shadow: var(--shadow-glow-accent);
-}
-
-.prof-header-mode {
-    font-size: 0.78rem;
-    color: var(--color-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-}
-
-.prof-header-state {
-    font-size: 0.68rem;
-    font-weight: bold;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    padding: 3px 10px;
-    border-radius: 999px;
-    border: 1px solid currentColor;
 }
 
 .prof-agg-field {
@@ -98,51 +73,16 @@
     box-shadow: 0 0 8px color-mix(in srgb, var(--color-primary) 40%, transparent);
 }
 
-.prof-state-setup {
-    color: var(--color-secondary);
-}
-
-.prof-state-loading {
-    color: var(--color-warning);
-    animation: prof-pulse 1.6s ease-in-out infinite;
-}
-
-.prof-state-ready {
-    color: var(--color-success);
-    text-shadow: 0 0 8px color-mix(in srgb, var(--color-success) 60%, transparent);
-}
-
-@keyframes prof-pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.55; }
-}
-
-.prof-datarow {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 28px;
-    padding: 5px 10px;
-    border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
-}
-
-.prof-datarow-field {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-}
-
-.prof-datarow-data {
+.prof-header-range {
     flex: 1;
     min-width: 320px;
 }
 
-.prof-datarow-actions {
+.prof-header-actions {
     display: flex;
     align-items: center;
     gap: 10px;
     flex-wrap: wrap;
-    margin-left: auto;
 }
 
 .prof-error-inline {

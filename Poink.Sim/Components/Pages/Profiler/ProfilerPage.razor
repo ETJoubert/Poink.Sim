@@ -14,29 +14,11 @@
 
     <div class="prof-topbar">
         <header class="prof-header">
-            <div class="prof-header-title">
-                <span class="prof-header-symbol">PROFILER</span>
-                @if (_config is not null)
-                {
-                    <span class="prof-header-mode">@_config.Table</span>
-                    <span class="prof-header-mode">@($"{BarSizeOptions.Label((int)_config.BarSize.TotalSeconds)} bars")</span>
-                    <span class="prof-header-mode" title="Bars and ticks loaded for the primary symbol so far">@PrimarySet?.SummaryLabel</span>
-                    @if (_sets.Count > 1)
-                    {
-                        <span class="prof-header-mode" title="Symbols charted side by side over the same timespan">@_sets.Count symbols</span>
-                    }
-                }
-                <span class="prof-header-state @StateClass()" title="Current profiler state">
-                    @(_isLoading ? "LOADING" : HasData ? "READY" : "SETUP")
-                </span>
-            </div>
-        </header>
-
-        <div class="prof-datarow">
-            <div class="prof-datarow-field prof-datarow-data">
+            <span class="prof-header-symbol" title="Profiler -- compare every selected symbol over the same date range">PROFILER</span>
+            <div class="prof-header-range" title="Date range shared by every selected symbol">
                 <TickDataSource Table="@_table" TableChanged="OnDefaultTableSelected" ShowTablePicker="false" @bind-From="_from" @bind-To="_to" @bind-To:after="OnRangeSettled" Disabled="_isLoading" />
             </div>
-            <div class="prof-datarow-actions">
+            <div class="prof-header-actions">
                 <button class="prof-ctrl-btn prof-ctrl-btn-play" @onclick="Load"
                         disabled="@(_isLoading || _sets.Any(s => s.IsLoadingMore))"
                         title="Load a recent slice of the selected range -- older history backfills automatically as you pan the chart">
@@ -47,7 +29,7 @@
                     <span class="prof-error-inline" title="@_error">@_error</span>
                 }
             </div>
-        </div>
+        </header>
     </div>
 
     <div class="prof-body">
