@@ -11,6 +11,7 @@
 }
 
 .drs-main {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 8px;
@@ -20,11 +21,6 @@
     position: fixed;
     inset: 0;
     z-index: 98;
-}
-
-.drs-label-wrap {
-    position: relative;
-    flex: 0 0 auto;
 }
 
 .drs-label {
@@ -63,20 +59,13 @@
 .drs-calendar-dropdown {
     position: absolute;
     top: calc(100% + 6px);
+    left: 0;
     z-index: 99;
     background: var(--color-bg-dark);
     border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
     border-radius: var(--border-radius-sm);
     padding: 10px;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-}
-
-.drs-label-wrap-from .drs-calendar-dropdown {
-    left: 0;
-}
-
-.drs-label-wrap-to .drs-calendar-dropdown {
-    right: 0;
 }
 
 .drs-span-badge {
@@ -92,159 +81,3 @@
     white-space: nowrap;
 }
 
-.drs-track-wrap {
-    position: relative;
-    flex: 1;
-    min-width: 60px;
-    height: 26px;
-}
-
-.drs-rail {
-    position: absolute;
-    left: 8px;
-    right: 8px;
-    top: 11px;
-    height: 3px;
-    border-radius: 1.5px;
-    background: rgba(255, 255, 255, 0.08);
-}
-
-.drs-rail-fill {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    background: linear-gradient(90deg, var(--color-primary) 0%, var(--color-secondary) 100%);
-    box-shadow: var(--shadow-glow-primary);
-    border-radius: 2px;
-}
-
-.drs-tick {
-    position: absolute;
-    top: -3px;
-    width: 1px;
-    height: 9px;
-    background: rgba(255, 255, 255, 0.18);
-}
-
-.drs-tick-label {
-    position: absolute;
-    top: 6px;
-    left: 50%;
-    transform: translateX(-50%);
-    font-size: 0.52rem;
-    color: var(--color-muted, var(--color-secondary));
-    white-space: nowrap;
-    opacity: 0.7;
-}
-
-.drs-thumb {
-    position: absolute;
-    left: 0;
-    width: 100%;
-    height: 11px;
-    margin: 0;
-    -webkit-appearance: none;
-    appearance: none;
-    background: transparent;
-    pointer-events: none;
-}
-
-.drs-thumb-from {
-    top: 0px;
-}
-
-.drs-thumb-to {
-    top: 10px;
-}
-
-.drs-thumb:focus {
-    outline: none;
-}
-
-.drs-thumb::-webkit-slider-runnable-track {
-    background: transparent;
-    height: 3px;
-}
-
-.drs-thumb::-webkit-slider-thumb {
-    pointer-events: auto;
-    -webkit-appearance: none;
-    appearance: none;
-    width: 11px;
-    height: 9px;
-    cursor: pointer;
-    margin-top: 0;
-    transition: width 0.12s ease, height 0.12s ease, filter 0.12s ease;
-}
-
-.drs-thumb-from::-webkit-slider-thumb {
-    background: var(--color-primary);
-    box-shadow: var(--shadow-glow-primary);
-    clip-path: polygon(0% 0%, 100% 0%, 50% 100%);
-}
-
-.drs-thumb-to::-webkit-slider-thumb {
-    background: var(--color-secondary);
-    box-shadow: var(--shadow-glow-secondary);
-    clip-path: polygon(50% 0%, 100% 100%, 0% 100%);
-}
-
-.drs-thumb-from:hover::-webkit-slider-thumb {
-    width: 16px;
-    height: 13px;
-    filter: brightness(1.2);
-}
-
-.drs-thumb-to:hover::-webkit-slider-thumb {
-    width: 16px;
-    height: 13px;
-    filter: brightness(1.2);
-}
-
-.drs-thumb::-moz-range-track {
-    background: transparent;
-    height: 3px;
-}
-
-.drs-thumb::-moz-range-thumb {
-    pointer-events: auto;
-    width: 11px;
-    height: 9px;
-    cursor: pointer;
-    border: none;
-    transition: width 0.12s ease, height 0.12s ease, filter 0.12s ease;
-}
-
-.drs-thumb-from::-moz-range-thumb {
-    background: var(--color-primary);
-    box-shadow: var(--shadow-glow-primary);
-    clip-path: polygon(0% 0%, 100% 0%, 50% 100%);
-}
-
-.drs-thumb-to::-moz-range-thumb {
-    background: var(--color-secondary);
-    box-shadow: var(--shadow-glow-secondary);
-    clip-path: polygon(50% 0%, 100% 100%, 0% 100%);
-}
-
-.drs-thumb-from:hover::-moz-range-thumb {
-    width: 16px;
-    height: 13px;
-    filter: brightness(1.2);
-}
-
-.drs-thumb-to:hover::-moz-range-thumb {
-    width: 16px;
-    height: 13px;
-    filter: brightness(1.2);
-}
-
-.drs-bounds {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    font-size: 0.62rem;
-    color: var(--color-muted, var(--color-secondary));
-    opacity: 0.7;
-}

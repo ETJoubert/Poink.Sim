@@ -4,7 +4,57 @@
     flex-direction: column;
     gap: 8px;
     font-family: var(--font-body);
-    width: 220px;
+    width: 240px;
+}
+
+.cal-edges {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+}
+
+.cal-edge {
+    --edge-color: var(--color-primary);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1px;
+    padding: 4px 6px;
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--edge-color) 30%, transparent);
+    border-radius: var(--border-radius-sm);
+    color: var(--edge-color);
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.cal-edge-end {
+    --edge-color: var(--color-secondary);
+}
+
+.cal-edge:hover {
+    background: color-mix(in srgb, var(--edge-color) 10%, transparent);
+}
+
+.cal-edge.active {
+    border-color: var(--edge-color);
+    background: color-mix(in srgb, var(--edge-color) 16%, transparent);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--edge-color) 35%, transparent);
+}
+
+.cal-edge-label {
+    font-size: 0.55rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    opacity: 0.85;
+}
+
+.cal-edge-value {
+    font-size: 0.64rem;
+    font-weight: 600;
+    white-space: nowrap;
 }
 
 .cal-header-actions {
@@ -105,10 +155,25 @@
     box-shadow: inset 0 0 0 1px var(--color-secondary);
 }
 
-.cal-day-selected {
+.cal-day-in-range {
+    background: color-mix(in srgb, var(--color-primary) 18%, transparent);
+    border-radius: 0;
+}
+
+.cal-day-range-start {
     background: var(--color-primary);
     color: var(--color-bg-dark);
     font-weight: 700;
+}
+
+.cal-day-range-end {
+    background: var(--color-secondary);
+    color: var(--color-bg-dark);
+    font-weight: 700;
+}
+
+.cal-day-range-start.cal-day-range-end {
+    background: linear-gradient(90deg, var(--color-primary) 50%, var(--color-secondary) 50%);
 }
 
 .cal-time {
@@ -180,9 +245,8 @@
     box-shadow: inset 0 0 0 1px var(--color-secondary);
 }
 
-.cal-month-cell-selected {
-    background: var(--color-primary);
-    color: var(--color-bg-dark);
+.cal-month-cell-in-range {
+    background: color-mix(in srgb, var(--color-primary) 22%, transparent);
     font-weight: 700;
 }
 
