@@ -18,6 +18,10 @@ namespace Poink.Sim.Components.Profiler
 		[Parameter, EditorRequired]
 		public IReadOnlyList<ProfilerSymbolData> Sets { get; set; } = [];
 
+		/// <summary>Table to theme colour var, shared with the symbols panel so it doubles as this chart's legend.</summary>
+		[Parameter, EditorRequired]
+		public IReadOnlyDictionary<string, string> SymbolColors { get; set; } = new Dictionary<string, string>();
+
 		[Parameter]
 		public ProfilerCompareMode Mode { get; set; }
 
@@ -47,7 +51,14 @@ namespace Poink.Sim.Components.Profiler
 		public EventCallback OnNearStart { get; set; }
 
 		private List<CompareChartSeries> _series = new();
-		private (List<HlocAvdtBar>[] Bars, ProfilerCompareMode Mode, DateTime? Anchor, string? RatioTable, CompareChartSeriesStyle Style)? _builtFor;
+		private (
+			List<HlocAvdtBar>[] Bars,
+			IReadOnlyDictionary<string, string> Colors,
+			ProfilerCompareMode Mode,
+			DateTime? Anchor,
+			string? RatioTable,
+			CompareChartSeriesStyle Style
+		)? _builtFor;
 
 		private ProfilerSymbolData? Primary => Sets.Count > 0 ? Sets[0] : null;
 
@@ -66,6 +77,7 @@ namespace Poink.Sim.Components.Profiler
 		{
 			var bars = Sets.Select(s => s.Bars).ToArray();
 			if (_builtFor is { } built
+				&& ReferenceEquals(built.Colors, SymbolColors)
 				&& built.Mode == Mode
 				&& built.Anchor == Anchor
 				&& built.RatioTable == RatioTable
@@ -73,9 +85,11 @@ namespace Poink.Sim.Components.Profiler
 				&& built.Bars.SequenceEqual(bars, ReferenceEqualityComparer.Instance))
 				return;
 
-			_builtFor = (bars, Mode, Anchor, RatioTable, Style);
-			_series = ProfilerCompareHelper.Build(Sets, Mode, Anchor, RatioTable, Style);
+			_builtFor = (bars, SymbolColors, Mode, Anchor, RatioTable, Style);
+			_series = ProfilerCompareHelper.Build(Sets, SymbolColors, Mode, Anchor, RatioTable, Style);
 		}
+
+		private string ColorVarFor(string table) => ProfilerSymbolColorHelper.ColorVarFor(SymbolColors, table);
 
 		private string ModeNote() =>
 			Mode switch

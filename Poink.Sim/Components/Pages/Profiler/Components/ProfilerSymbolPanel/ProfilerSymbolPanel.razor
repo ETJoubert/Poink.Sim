@@ -36,8 +36,8 @@
                     {
                         var meta = Meta(table);
                         var isPrimary = table == PrimaryTable;
-                        <div class="psp-item psp-item-selected @(isPrimary ? "psp-item-primary" : "")"
-                             title="@($"{table}: {meta.Rows:N0} rows, {RangeLabel(meta.MinTime, meta.MaxTime)}")">
+                        <div class="psp-item psp-item-selected @(isPrimary ? "psp-item-primary" : "")" style="@SymbolColorStyle(table)"
+                             title="@($"{table}: {meta.Rows:N0} rows, {RangeLabel(meta.MinTime, meta.MaxTime)} -- its colour marks its chart set and its Compare line")">
                             <div class="psp-item-text">
                                 <span class="psp-item-name">@table</span>
                                 <span class="psp-item-meta">@RangeLabel(meta.MinTime, meta.MaxTime)</span>

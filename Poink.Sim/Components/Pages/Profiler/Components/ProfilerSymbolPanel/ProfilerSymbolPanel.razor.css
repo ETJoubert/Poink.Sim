@@ -101,6 +101,14 @@
     text-align: left;
 }
 
+.psp-item.psp-item-selected {
+    border-left: 3px solid var(--psp-symbol-color, var(--color-primary));
+}
+
+.psp-item-selected .psp-item-name {
+    color: var(--psp-symbol-color, var(--color-primary));
+}
+
 .psp-item-primary {
     border-color: var(--color-success);
     background: color-mix(in srgb, var(--color-success) 8%, transparent);

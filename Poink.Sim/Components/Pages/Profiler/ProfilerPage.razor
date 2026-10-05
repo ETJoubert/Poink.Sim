@@ -37,7 +37,7 @@
     </div>
 
     <div class="prof-body">
-    <ProfilerSymbolPanel SelectedTables="_selectedTables" SelectedTablesChanged="OnSelectedTablesChanged"
+    <ProfilerSymbolPanel SelectedTables="_selectedTables" SelectedTablesChanged="OnSelectedTablesChanged" SymbolColors="_symbolColors"
                          LoadedTable="@_config?.Table" Disabled="_isLoading" />
 
     <main class="prof-main">
@@ -96,7 +96,7 @@
         </div>
         @if (_showCompare)
         {
-            <ProfilerCompareSet Sets="_sets" @bind-Mode="_compareMode" @bind-Style="_compareStyle" @bind-RatioTable="_compareRatioTable"
+            <ProfilerCompareSet Sets="_sets" SymbolColors="_symbolColors" @bind-Mode="_compareMode" @bind-Style="_compareStyle" @bind-RatioTable="_compareRatioTable"
                                 WindowStart="_volumeRangeStart" WindowEnd="_volumeRangeEnd" OnNearStart="LoadMoreAll" />
         }
         else
@@ -111,6 +111,7 @@
                 {
                     var isPrimary = set == PrimarySet;
                     <ProfilerChartSet @key="set" Data="set" Options="setOptions" IsPrimary="isPrimary" Fill="_sets.Count == 1"
+                                      ColorVar="@ProfilerSymbolColorHelper.ColorVarFor(_symbolColors, set.Table)"
                                       Height="SetHeight(set.Table)" HeightChanged="height => OnSetHeightChanged(set.Table, height)"
                                       @bind-XGridColCount="_xgridColCount"
                                       @bind-SubchartBarSizeSeconds="_subchartBarSizeSeconds" @bind-SubchartBarKind="_subchartBarKind"

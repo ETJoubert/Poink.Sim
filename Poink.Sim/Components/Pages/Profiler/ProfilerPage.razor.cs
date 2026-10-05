@@ -55,6 +55,9 @@ namespace Poink.Sim.Components.Pages
 
 		// Ordered selection from the symbols panel; the first entry is the primary symbol that _table mirrors.
 		private List<string> _selectedTables = new();
+
+		// Rebuilt only when the selection changes, since the compare chart re-plots whenever this reference changes.
+		private IReadOnlyDictionary<string, string> _symbolColors = ProfilerSymbolColorHelper.Assign([]);
 		private DateTime _from = DateTime.UtcNow.AddDays(-1);
 		private DateTime _to = DateTime.UtcNow;
 		private int _barSizeSeconds = 60;
@@ -247,6 +250,7 @@ namespace Poink.Sim.Components.Pages
 			_from = settings.From;
 			_to = settings.To;
 			_selectedTables = settings.SelectedTables?.Distinct().ToList() ?? new();
+			_symbolColors = ProfilerSymbolColorHelper.Assign(_selectedTables);
 			_table = _selectedTables.FirstOrDefault() ?? "";
 			_barSizeSeconds = settings.BarSizeSeconds;
 			_barAggregationKind = settings.BarAggregationKind;
@@ -505,6 +509,7 @@ namespace Poink.Sim.Components.Pages
 		private void OnSelectedTablesChanged(IReadOnlyList<string> tables)
 		{
 			_selectedTables = tables.ToList();
+			_symbolColors = ProfilerSymbolColorHelper.Assign(_selectedTables);
 			Logger.LogInformation("Profiler symbol selection set to [{Tables}]", string.Join(", ", _selectedTables));
 			SyncComparisonSets();
 

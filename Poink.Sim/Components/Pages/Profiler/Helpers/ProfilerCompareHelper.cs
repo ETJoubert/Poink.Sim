@@ -11,31 +11,20 @@ namespace Poink.Sim.Components.Profiler
 	{
 		public const string RatioColorVar = "--color-warning";
 
-		private static readonly string[] SymbolColorVars =
-		[
-			"--color-primary",
-			"--color-badge-1",
-			"--color-badge-3",
-			"--color-badge-4",
-			"--color-badge-5",
-			"--color-info",
-			"--color-accent",
-			"--color-badge-2",
-		];
-
-		public static string ColorVarFor(int index) => SymbolColorVars[index % SymbolColorVars.Length];
-
 		public static string RatioLabel(string numerator, string denominator) => $"{numerator} ÷ {denominator}";
 
 		public static List<CompareChartSeries> Build(
 			IReadOnlyList<ProfilerSymbolData> sets,
+			IReadOnlyDictionary<string, string> symbolColors,
 			ProfilerCompareMode mode,
 			DateTime? anchor,
 			string? ratioTable,
 			CompareChartSeriesStyle style
 		)
 		{
-			var series = sets.Select((set, index) => SymbolSeries(set, index, mode, anchor, style)).ToList();
+			var series = sets
+				.Select(set => SymbolSeries(set, ProfilerSymbolColorHelper.ColorVarFor(symbolColors, set.Table), mode, anchor, style))
+				.ToList();
 
 			if (sets.Count > 1 && sets.Skip(1).FirstOrDefault(s => s.Table == ratioTable) is { } denominator)
 			{
@@ -50,7 +39,7 @@ namespace Poink.Sim.Components.Profiler
 
 		private static CompareChartSeries SymbolSeries(
 			ProfilerSymbolData set,
-			int index,
+			string colorVar,
 			ProfilerCompareMode mode,
 			DateTime? anchor,
 			CompareChartSeriesStyle style
@@ -62,7 +51,7 @@ namespace Poink.Sim.Components.Profiler
 				? set.Bars.Select(b => new CTraderBarRow(b.OpenTime, scale(b.Open), scale(b.High), scale(b.Low), scale(b.Close), b.Volume)).ToList()
 				: null;
 
-			return new CompareChartSeries(set.Table, ColorVarFor(index), points, Bars: bars);
+			return new CompareChartSeries(set.Table, colorVar, points, Bars: bars);
 		}
 
 		// % change from the close of the bar at the anchor, or the first loaded bar when there is no anchor.

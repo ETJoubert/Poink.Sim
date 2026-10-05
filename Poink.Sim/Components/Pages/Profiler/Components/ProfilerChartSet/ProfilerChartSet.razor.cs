@@ -41,6 +41,10 @@ namespace Poink.Sim.Components.Profiler
 		[Parameter]
 		public bool Fill { get; set; }
 
+		/// <summary>Theme colour var marking this set's left edge and symbol name, matching the symbols panel legend.</summary>
+		[Parameter]
+		public string ColorVar { get; set; } = ProfilerSymbolColorHelper.FallbackColorVar;
+
 		/// <summary>Height in px dragged via the bottom resize handle, or null for the set's default CSS height.</summary>
 		[Parameter]
 		public double? Height { get; set; }
@@ -143,8 +147,10 @@ namespace Poink.Sim.Components.Profiler
 
 		private DateTime? WindowStart => Options.WindowStart;
 
-		private string? HeightStyle =>
-			Height is { } height ? FormattableString.Invariant($"flex: 0 0 auto; height: {height}px") : null;
+		private string SetStyle =>
+			Height is { } height
+				? FormattableString.Invariant($"--pcs-symbol-color: var({ColorVar}); flex: 0 0 auto; height: {height}px")
+				: $"--pcs-symbol-color: var({ColorVar})";
 
 		private DateTime? WindowEnd => Options.WindowEnd;
 

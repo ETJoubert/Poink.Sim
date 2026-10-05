@@ -32,10 +32,9 @@
             </select>
         </label>
         <div class="pcmp-legend" title="Line colour per symbol">
-            @for (var i = 0; i < Sets.Count; i++)
+            @foreach (var set in Sets)
             {
-                var set = Sets[i];
-                <span class="pcmp-legend-item" style="color: var(@ProfilerCompareHelper.ColorVarFor(i))"
+                <span class="pcmp-legend-item" style="color: var(@ColorVarFor(set.Table))"
                       title="@(set.IsLoading ? $"{set.Table} -- loading" : set.Error ?? $"{set.Table} -- {set.SummaryLabel}")">
                     @set.Table@(set.IsLoading ? " …" : "")
                 </span>
