@@ -55,6 +55,9 @@ namespace Poink.Sim.Components.Pages
 
 		// Ordered selection from the symbols panel; the first entry is the primary symbol that _table mirrors.
 		private List<string> _selectedTables = new();
+
+		// Rebuilt only when the selection changes, since the compare chart re-plots whenever this reference changes.
+		private IReadOnlyDictionary<string, string> _symbolColors = ProfilerSymbolColorHelper.Assign([]);
 		private DateTime _from = DateTime.UtcNow.AddDays(-1);
 		private DateTime _to = DateTime.UtcNow;
 		private int _barSizeSeconds = 60;
@@ -143,6 +146,11 @@ namespace Poink.Sim.Components.Pages
 		private bool _showSubchart = false;
 		private bool _showSnapshot = false;
 
+		private bool _showCompare;
+		private ProfilerCompareMode _compareMode = ProfilerCompareMode.PercentChange;
+		private string? _compareRatioTable;
+		private CompareChartSeriesStyle _compareStyle = CompareChartSeriesStyle.Lines;
+
 		private int _subchartBarSizeSeconds = 10;
 		private BarAggregationKind _subchartBarKind = BarAggregationKind.Ohlc;
 
@@ -206,7 +214,11 @@ namespace Poink.Sim.Components.Pages
 				_subchartBarKind,
 				_xgridColCount,
 				_rightPanelCollapsed,
-				_setHeights
+				_setHeights,
+				_showCompare,
+				_compareMode,
+				_compareRatioTable,
+				_compareStyle
 			);
 
 		private async Task LoadPersistedSettingsAsync()
@@ -238,6 +250,7 @@ namespace Poink.Sim.Components.Pages
 			_from = settings.From;
 			_to = settings.To;
 			_selectedTables = settings.SelectedTables?.Distinct().ToList() ?? new();
+			_symbolColors = ProfilerSymbolColorHelper.Assign(_selectedTables);
 			_table = _selectedTables.FirstOrDefault() ?? "";
 			_barSizeSeconds = settings.BarSizeSeconds;
 			_barAggregationKind = settings.BarAggregationKind;
@@ -256,6 +269,10 @@ namespace Poink.Sim.Components.Pages
 			_xgridColCount = settings.XGridColCount;
 			_rightPanelCollapsed = settings.RightPanelCollapsed;
 			_setHeights = settings.SetHeights ?? new();
+			_showCompare = settings.ShowCompare;
+			_compareMode = settings.CompareMode;
+			_compareRatioTable = settings.CompareRatioTable;
+			_compareStyle = settings.CompareStyle;
 		}
 
 		// Saving before the stored settings were read would overwrite them with the page's defaults.
@@ -447,7 +464,7 @@ namespace Poink.Sim.Components.Pages
 			// Latched before the guard since OnNearStart re-renders even on an early return, and a stale false re-fits the chart.
 			set.KeepView = true;
 
-			if (_config is null || set.ReachedStart || set.IsLoadingMore)
+			if (_config is null || set.ReachedStart || set.IsLoadingMore || set.IsLoading)
 				return;
 			set.IsLoadingMore = true;
 
@@ -469,6 +486,13 @@ namespace Poink.Sim.Components.Pages
 			}
 		}
 
+		// Every trigger backfills every symbol together so they keep covering the same history as the view scrolls back.
+		private Task LoadMoreAll() => Task.WhenAll(_sets.ToList().Select(LoadMore));
+
+		private bool CanLoadMoreAny => _sets.Any(s => s.HasBars && !s.ReachedStart);
+
+		private bool IsLoadingMoreAny => _sets.Any(s => s.IsLoadingMore);
+
 		private void RefreshBarRows()
 		{
 			foreach (var set in _sets)
@@ -485,6 +509,7 @@ namespace Poink.Sim.Components.Pages
 		private void OnSelectedTablesChanged(IReadOnlyList<string> tables)
 		{
 			_selectedTables = tables.ToList();
+			_symbolColors = ProfilerSymbolColorHelper.Assign(_selectedTables);
 			Logger.LogInformation("Profiler symbol selection set to [{Tables}]", string.Join(", ", _selectedTables));
 			SyncComparisonSets();
 

@@ -18,6 +18,11 @@
     border-color: color-mix(in srgb, var(--color-success) 45%, transparent);
 }
 
+.pcs-set,
+.pcs-set.pcs-set-primary {
+    border-left: 3px solid var(--pcs-symbol-color, var(--color-primary));
+}
+
 .pcs-resize-handle {
     position: relative;
     flex: 0 0 8px;
@@ -53,37 +58,37 @@
 .pcs-header {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     flex-shrink: 0;
-    padding: 6px 10px;
+    padding: 2px 8px;
     border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 12%, transparent);
 }
 
 .pcs-symbol {
-    font-size: 0.85rem;
+    font-size: 0.72rem;
     font-weight: bold;
     letter-spacing: 0.06em;
-    color: var(--color-primary);
+    color: var(--pcs-symbol-color, var(--color-primary));
 }
 
 .pcs-badge {
-    font-size: 0.6rem;
+    font-size: 0.52rem;
     font-weight: bold;
     letter-spacing: 0.06em;
-    padding: 2px 6px;
+    padding: 1px 4px;
     border-radius: var(--border-radius-sm);
     color: var(--color-success);
     border: 1px solid var(--color-success);
 }
 
 .pcs-meta {
-    font-size: 0.68rem;
+    font-size: 0.6rem;
     color: var(--color-secondary);
     opacity: 0.8;
 }
 
 .pcs-error {
-    font-size: 0.68rem;
+    font-size: 0.6rem;
     color: var(--color-error, #ff5f56);
 }
 
@@ -102,15 +107,15 @@
     border-radius: var(--border-radius-sm);
     color: var(--color-secondary);
     font-family: var(--font-body);
-    font-size: 0.6rem;
+    font-size: 0.54rem;
     font-weight: bold;
     letter-spacing: 0.06em;
-    padding: 3px 6px;
+    padding: 1px 5px;
     cursor: pointer;
 }
 
 .pcs-btn-icon {
-    padding: 3px;
+    padding: 1px;
 }
 
 .pcs-btn:hover {
@@ -119,8 +124,8 @@
 }
 
 ::deep .pcs-icon {
-    width: 12px;
-    height: 12px;
+    width: 10px;
+    height: 10px;
 }
 
 .pcs-empty {

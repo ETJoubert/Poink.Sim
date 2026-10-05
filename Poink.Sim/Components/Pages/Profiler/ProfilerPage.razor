@@ -37,7 +37,7 @@
     </div>
 
     <div class="prof-body">
-    <ProfilerSymbolPanel SelectedTables="_selectedTables" SelectedTablesChanged="OnSelectedTablesChanged"
+    <ProfilerSymbolPanel SelectedTables="_selectedTables" SelectedTablesChanged="OnSelectedTablesChanged" SymbolColors="_symbolColors"
                          LoadedTable="@_config?.Table" Disabled="_isLoading" />
 
     <main class="prof-main">
@@ -61,6 +61,9 @@
                         @bind-LookbackWidth="LookbackWidth" @bind-LookbackOffset="LookbackOffset" />
             <div class="prof-overlay-toggles prof-profile-toggles" title="Show or hide the chart and profile panels in every symbol's chart set">
                 <span class="prof-overlay-toggles-label">Panels</span>
+                <button type="button" class="prof-overlay-toggle-btn @(_showCompare ? "active" : "")"
+                        @onclick="() => _showCompare = !_showCompare"
+                        title="Replace every symbol's chart set with one chart comparing them all as % change -- the other panel toggles apply again once this is off">Compare</button>
                 <button type="button" class="prof-overlay-toggle-btn @(_showMainChart ? "active" : "")"
                         @onclick="() => _showMainChart = !_showMainChart" title="Show or hide the main price chart">Chart</button>
                 <button type="button" class="prof-overlay-toggle-btn @(_showXGrid ? "active" : "")"
@@ -79,10 +82,10 @@
         </div>
         <div class="prof-chart-sparkline"
              title="@($"Overview of {PrimarySet!.Table}, the primary symbol -- drag the Lookback Window (or its edges, to resize) to move it for every symbol")">
-            @if (!PrimarySet.ReachedStart)
+            @if (CanLoadMoreAny)
             {
-                <button class="prof-load-older-btn" @onclick="() => LoadMore(PrimarySet)" disabled="@(_isLoading || PrimarySet.IsLoadingMore)"
-                        title="Fetch the next older chunk of the primary symbol's history -- same as panning its chart back to its earliest bar">
+                <button class="prof-load-older-btn" @onclick="LoadMoreAll" disabled="@(_isLoading || IsLoadingMoreAny)"
+                        title="Fetch the next older chunk of every symbol's history -- same as panning any chart back to its earliest bar">
                     <Icon Name="chevron-left" Class="prof-load-older-icon" />
                 </button>
             }
@@ -91,31 +94,40 @@
                                    WindowOffset="_lookbackEnabled ? _lookbackOffset : (int?)null"
                                    WindowChanged="OnWindowChanged" />
         </div>
-        var setOptions = CurrentSetOptions();
-        var drawingHorizontalLines = DrawingHorizontalLines();
-        var drawingVerticalLines = AllVerticalLines();
-        var drawingDiagonalLines = AllDiagonalLines();
-        var drawingRangeFills = DrawingRangeFills();
-        <div class="prof-sets @(_sets.Count == 1 ? "prof-sets-single" : "")">
-            @foreach (var set in _sets)
-            {
-                var isPrimary = set == PrimarySet;
-                <ProfilerChartSet @key="set" Data="set" Options="setOptions" IsPrimary="isPrimary" Fill="_sets.Count == 1"
-                                  Height="SetHeight(set.Table)" HeightChanged="height => OnSetHeightChanged(set.Table, height)"
-                                  @bind-XGridColCount="_xgridColCount"
-                                  @bind-SubchartBarSizeSeconds="_subchartBarSizeSeconds" @bind-SubchartBarKind="_subchartBarKind"
-                                  DrawingHorizontalLines="@(isPrimary ? drawingHorizontalLines : [])"
-                                  DrawingVerticalLines="@(isPrimary ? drawingVerticalLines : [])"
-                                  DrawingDiagonalLines="@(isPrimary ? drawingDiagonalLines : [])"
-                                  DrawingRangeFills="@(isPrimary ? drawingRangeFills : [])"
-                                  OnHorizontalLineDrawn="AddHorizontalLine" OnVerticalLineDrawn="AddVerticalLine"
-                                  OnDiagonalLineDrawn="AddDiagonalLine" OnTRangeChartDrawn="AddTRangeChart"
-                                  OnReferenceLineDrawn="AddReferenceLine" OnDrawFinished="FinishDrawing"
-                                  OnVolumeRangeDrawn="SetVolumeRange" OnVolumeRangeCleared="ClearVolumeRange"
-                                  OnNearStart="() => LoadMore(set)"
-                                  OnMakePrimary="MakePrimary" OnRemove="RemoveSymbol" />
-            }
-        </div>
+        @if (_showCompare)
+        {
+            <ProfilerCompareSet Sets="_sets" SymbolColors="_symbolColors" @bind-Mode="_compareMode" @bind-Style="_compareStyle" @bind-RatioTable="_compareRatioTable"
+                                WindowStart="_volumeRangeStart" WindowEnd="_volumeRangeEnd" OnNearStart="LoadMoreAll" />
+        }
+        else
+        {
+            var setOptions = CurrentSetOptions();
+            var drawingHorizontalLines = DrawingHorizontalLines();
+            var drawingVerticalLines = AllVerticalLines();
+            var drawingDiagonalLines = AllDiagonalLines();
+            var drawingRangeFills = DrawingRangeFills();
+            <div class="prof-sets @(_sets.Count == 1 ? "prof-sets-single" : "")">
+                @foreach (var set in _sets)
+                {
+                    var isPrimary = set == PrimarySet;
+                    <ProfilerChartSet @key="set" Data="set" Options="setOptions" IsPrimary="isPrimary" Fill="_sets.Count == 1"
+                                      ColorVar="@ProfilerSymbolColorHelper.ColorVarFor(_symbolColors, set.Table)"
+                                      Height="SetHeight(set.Table)" HeightChanged="height => OnSetHeightChanged(set.Table, height)"
+                                      @bind-XGridColCount="_xgridColCount"
+                                      @bind-SubchartBarSizeSeconds="_subchartBarSizeSeconds" @bind-SubchartBarKind="_subchartBarKind"
+                                      DrawingHorizontalLines="@(isPrimary ? drawingHorizontalLines : [])"
+                                      DrawingVerticalLines="@(isPrimary ? drawingVerticalLines : [])"
+                                      DrawingDiagonalLines="@(isPrimary ? drawingDiagonalLines : [])"
+                                      DrawingRangeFills="@(isPrimary ? drawingRangeFills : [])"
+                                      OnHorizontalLineDrawn="AddHorizontalLine" OnVerticalLineDrawn="AddVerticalLine"
+                                      OnDiagonalLineDrawn="AddDiagonalLine" OnTRangeChartDrawn="AddTRangeChart"
+                                      OnReferenceLineDrawn="AddReferenceLine" OnDrawFinished="FinishDrawing"
+                                      OnVolumeRangeDrawn="SetVolumeRange" OnVolumeRangeCleared="ClearVolumeRange"
+                                      OnNearStart="LoadMoreAll"
+                                      OnMakePrimary="MakePrimary" OnRemove="RemoveSymbol" />
+                }
+            </div>
+        }
     }
     else if (!_isLoading)
     {
@@ -213,7 +225,7 @@
                                                 }
                                                 <button class="prof-drawing-remove" @onclick="() => RemoveDrawing(index)"
                                                         @onclick:stopPropagation="true"
-                                                        title="Remove this drawing (and every line it's made of)">✕</button>
+                                                        title="Remove this drawing (and every line it's made of)">âœ•</button>
                                             </div>
                                             @if (d.IsRange && d.RangeBarCount is { } barCount && d.RangeSpan is { } span)
                                             {

@@ -27,6 +27,10 @@ namespace Poink.Sim.Components.Profiler
 		[Parameter]
 		public EventCallback<IReadOnlyList<string>> SelectedTablesChanged { get; set; }
 
+		/// <summary>Table to theme colour var; each selected symbol is drawn in its colour so this panel is the page's legend.</summary>
+		[Parameter]
+		public IReadOnlyDictionary<string, string> SymbolColors { get; set; } = new Dictionary<string, string>();
+
 		/// <summary>The table the page last loaded, so a primary picked since then can be flagged as waiting on LOAD.</summary>
 		[Parameter]
 		public string? LoadedTable { get; set; }
@@ -88,6 +92,9 @@ namespace Poink.Sim.Components.Profiler
 
 		private (string Table, long Rows, DateTime? MinTime, DateTime? MaxTime) Meta(string table) =>
 			_availableTables.FirstOrDefault(t => t.Table == table);
+
+		private string SymbolColorStyle(string table) =>
+			$"--psp-symbol-color: var({ProfilerSymbolColorHelper.ColorVarFor(SymbolColors, table)})";
 
 		private static string RangeLabel(DateTime? minTime, DateTime? maxTime) =>
 			minTime is { } min && maxTime is { } max ? $"{min:yyyy-MM-dd} → {max:yyyy-MM-dd}" : "no range recorded";
