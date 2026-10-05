@@ -53,6 +53,9 @@ namespace Poink.Sim.Components.Profiler
 
 		public double EffectivePipSize => PipSize ?? FallbackPipSize;
 
+		/// <summary>Width of this symbol's histogram buckets, fixed at its first load so every backfilled chunk matches.</summary>
+		internal double PriceBucketWidth { get; set; } = FallbackPipSize;
+
 		public bool HasBars => Bars.Count > 0;
 
 		public double? LastClose => Bars.Count > 0 ? Bars[^1].Close : null;

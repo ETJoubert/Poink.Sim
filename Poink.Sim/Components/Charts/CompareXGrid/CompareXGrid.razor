@@ -1,0 +1,60 @@
+@namespace Poink.Sim.Components.Charts
+
+<div class="cxg-wrapper">
+    <div class="cxg-toolbar">
+        <span class="cxg-title" title="Every symbol's tick footprint on shared % rows and time columns, each scaled to its own busiest cell">COMPARE XGRID</span>
+        <div class="cxg-tool-group" title="How a cell several symbols traded in is coloured">
+            <button type="button" class="cxg-tool-btn cxg-tool-btn-mode @(Mode == CompareXGridMode.Dominant ? "active" : "")"
+                    @onclick="() => SetMode(CompareXGridMode.Dominant)"
+                    title="Colour each cell by the symbol with the highest share of its own busiest cell, shaded by that share">Dominant</button>
+            <button type="button" class="cxg-tool-btn cxg-tool-btn-mode @(Mode == CompareXGridMode.Difference ? "active" : "")"
+                    @onclick="() => SetMode(CompareXGridMode.Difference)" disabled="@(Symbols.Count < 2)"
+                    title="@(Symbols.Count < 2 ? "Needs at least two symbols" : $"Shade each cell towards {FirstLabel} or the chosen symbol, by how much more of its own busiest cell it traded there")">Difference</button>
+        </div>
+        @if (Mode == CompareXGridMode.Difference && Symbols.Count >= 2)
+        {
+            <label class="cxg-field" title="@($"The symbol {FirstLabel} is compared against")">
+                @FirstLabel vs
+                <select class="cxg-select" value="@EffectiveDifferenceLabel" @onchange="OnDifferenceSelected"
+                        title="@($"Pick the symbol {FirstLabel} is compared against")">
+                    @foreach (var label in DifferenceCandidates)
+                    {
+                        <option value="@label">@label</option>
+                    }
+                </select>
+            </label>
+        }
+        <span class="cxg-divider"></span>
+        <label class="cxg-field" title="Height of each row as % change from the symbol's anchor price">
+            Row %
+            <select class="cxg-select" value="@FormatRowPercent(RowPercent)" @onchange="OnRowPercentSelected"
+                    title="Height of each row as % change from the symbol's anchor price -- smaller rows show finer detail">
+                @foreach (var option in RowPercentOptions)
+                {
+                    <option value="@FormatRowPercent(option)">@FormatRowPercent(option)%</option>
+                }
+            </select>
+        </label>
+        <label class="cxg-field" title="How many equal time slices the window is split into">
+            Cols
+            <select class="cxg-select" value="@ColCount" @onchange="OnColCountSelected"
+                    title="How many equal time slices the window is split into">
+                @foreach (var option in ColCountOptions)
+                {
+                    <option value="@option">@option</option>
+                }
+            </select>
+        </label>
+    </div>
+    <div class="cxg-chart">
+        @if (Result is null)
+        {
+            <p class="cxg-empty">@NoDataMessage</p>
+        }
+        else
+        {
+            <canvas class="cxg-canvas" @ref="_canvasRef"
+                    title="Rows are % from each symbol's anchor price, columns are equal time slices of the window -- hover a cell to read every symbol's ticks there"></canvas>
+        }
+    </div>
+</div>

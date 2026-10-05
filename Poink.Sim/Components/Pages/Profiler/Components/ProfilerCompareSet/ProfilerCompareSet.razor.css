@@ -83,10 +83,23 @@
     min-height: 0;
 }
 
-.pcmp-txfold {
+.pcmp-side {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
     flex: 0 0 36%;
     min-width: 300px;
     min-height: 0;
+}
+
+.pcmp-side-panel {
+    flex: 1 1 0;
+    min-height: 200px;
+}
+
+.pcmp-toggles {
+    display: flex;
+    gap: 6px;
 }
 
 .pcmp-toggle {
@@ -116,8 +129,12 @@
         flex-direction: column;
     }
 
-    .pcmp-txfold {
-        flex-basis: 320px;
+    .pcmp-side {
+        flex-basis: auto;
         min-width: 0;
+    }
+
+    .pcmp-side-panel {
+        flex-basis: 320px;
     }
 }

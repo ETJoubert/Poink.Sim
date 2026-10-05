@@ -98,7 +98,7 @@
         {
             <ProfilerCompareSet Sets="_sets" SymbolColors="_symbolColors" @bind-Mode="_compareMode" @bind-WindowAnchor="_compareAnchor" @bind-Style="_compareStyle" @bind-RatioTable="_compareRatioTable"
                                 WindowStart="_volumeRangeStart" WindowEnd="_volumeRangeEnd" OnNearStart="LoadMoreAll"
-                                @bind-TxFold="_compareTxFold" RangeStart="@(_config?.From ?? _from)" />
+                                @bind-TxFold="_compareTxFold" @bind-XGrid="_compareXGrid" RangeStart="@(_config?.From ?? _from)" />
         }
         else
         {

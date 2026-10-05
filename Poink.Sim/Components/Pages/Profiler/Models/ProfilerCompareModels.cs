@@ -24,6 +24,15 @@ namespace Poink.Sim.Components.Profiler
 		WindowEnd,
 	}
 
+	/// <summary>The compare view's XGrid panel options; a null <paramref name="DifferenceTable"/> compares against the second symbol.</summary>
+	public sealed record ProfilerCompareXGridSettings(
+		bool Show = false,
+		CompareXGridMode Mode = CompareXGridMode.Dominant,
+		string? DifferenceTable = null,
+		double RowPercent = 0.05,
+		int ColCount = 20
+	);
+
 	/// <summary>The compare view's TxFold panel options; a null <paramref name="Seconds"/> means the default timeframes.</summary>
 	public sealed record ProfilerCompareTxFoldSettings(
 		bool Show = false,

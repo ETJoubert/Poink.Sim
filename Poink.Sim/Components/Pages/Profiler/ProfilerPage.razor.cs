@@ -14,6 +14,7 @@ using Poink.Sim.Models;
 using Poink.Sim.Profiler;
 using Poink.Sim.Repository;
 using Poink.Sim.Services.Symbols;
+using Poink.Sim.Simulation;
 
 namespace Poink.Sim.Components.Pages
 {
@@ -152,6 +153,7 @@ namespace Poink.Sim.Components.Pages
 		private CompareChartSeriesStyle _compareStyle = CompareChartSeriesStyle.Lines;
 		private ProfilerCompareTxFoldSettings _compareTxFold = new();
 		private ProfilerCompareAnchor _compareAnchor = ProfilerCompareAnchor.WindowStart;
+		private ProfilerCompareXGridSettings _compareXGrid = new();
 
 		private int _subchartBarSizeSeconds = 10;
 		private BarAggregationKind _subchartBarKind = BarAggregationKind.Ohlc;
@@ -222,7 +224,8 @@ namespace Poink.Sim.Components.Pages
 				_compareRatioTable,
 				_compareStyle,
 				_compareTxFold,
-				_compareAnchor
+				_compareAnchor,
+				_compareXGrid
 			);
 
 		private async Task LoadPersistedSettingsAsync()
@@ -279,6 +282,7 @@ namespace Poink.Sim.Components.Pages
 			_compareStyle = settings.CompareStyle;
 			_compareTxFold = settings.CompareTxFold ?? new();
 			_compareAnchor = settings.CompareAnchor;
+			_compareXGrid = settings.CompareXGrid ?? new();
 		}
 
 		// Saving before the stored settings were read would overwrite them with the page's defaults.
@@ -356,13 +360,15 @@ namespace Poink.Sim.Components.Pages
 
 			try
 			{
-				var config = new ProfilerConfig(_table, _from, _to, TimeSpan.FromSeconds(_barSizeSeconds));
+				var pipSize = await ResolvePipSizeAsync(_table);
+				var config = new ProfilerConfig(_table, _from, _to, TimeSpan.FromSeconds(_barSizeSeconds), BucketWidthFor(pipSize));
 				Logger.LogInformation(
-					"Profiler load started for [{Tables}] from {From} to {To} at {BarSize} bars",
+					"Profiler load started for [{Tables}] from {From} to {To} at {BarSize} bars, primary price buckets {BucketWidth}",
 					string.Join(", ", _selectedTables),
 					config.From,
 					config.To,
-					config.BarSize
+					config.BarSize,
+					config.PriceBucketWidth
 				);
 				var chunk = await Service.LoadAsync(config, config.To, BarsPerFetch);
 				if (chunk.Bars.Count == 0 && chunk.ReachedStart)
@@ -373,9 +379,8 @@ namespace Poink.Sim.Components.Pages
 				else
 				{
 					_config = config;
-					var primary = new ProfilerSymbolData(config.Table);
+					var primary = new ProfilerSymbolData(config.Table) { PipSize = pipSize, PriceBucketWidth = config.PriceBucketWidth };
 					primary.ApplyChunk(chunk, _barAggregationKind);
-					_ = ResolvePipSizeAsync(primary);
 					_sets = [primary];
 					SyncComparisonSets();
 				}
@@ -408,40 +413,49 @@ namespace Poink.Sim.Components.Pages
 		{
 			var set = new ProfilerSymbolData(table) { IsLoading = true };
 			_ = LoadComparisonAsync(set, primaryConfig with { Table = table });
-			_ = ResolvePipSizeAsync(set);
 			return set;
 		}
 
-		private async Task ResolvePipSizeAsync(ProfilerSymbolData set)
+		// Resolved before a symbol's first load, since its histogram buckets are sized from it.
+		private async Task<double?> ResolvePipSizeAsync(string table)
 		{
 			try
 			{
-				var resolution = await SymbolTableResolver.ResolveAsync(set.Table);
+				var resolution = await SymbolTableResolver.ResolveAsync(table);
 				if (resolution.Limits is { } limits)
 				{
-					set.PipSize = limits.PipSize;
-					Logger.LogInformation("Profiler pip size for {Table} resolved to {PipSize}", set.Table, limits.PipSize);
+					Logger.LogInformation("Profiler pip size for {Table} resolved to {PipSize}", table, limits.PipSize);
+					return limits.PipSize;
 				}
-				else
-				{
-					Logger.LogWarning(
-						"No trading metadata for {Table}; Profiler XGrid assumes a {PipSize} pip size",
-						set.Table,
-						ProfilerSymbolData.FallbackPipSize
-					);
-				}
+
+				Logger.LogWarning(
+					"No trading metadata for {Table}; Profiler assumes a {PipSize} pip size for its XGrid rows and price buckets",
+					table,
+					ProfilerSymbolData.FallbackPipSize
+				);
 			}
 			catch (Exception ex)
 			{
-				Logger.LogWarning(ex, "Could not resolve the pip size for {Table}; Profiler XGrid assumes a {PipSize} pip size", set.Table, ProfilerSymbolData.FallbackPipSize);
+				Logger.LogWarning(
+					ex,
+					"Could not resolve the pip size for {Table}; Profiler assumes a {PipSize} pip size for its XGrid rows and price buckets",
+					table,
+					ProfilerSymbolData.FallbackPipSize
+				);
 			}
-			await InvokeAsync(StateHasChanged);
+			return null;
 		}
+
+		private static double BucketWidthFor(double? pipSize) =>
+			SimulationMarketFeed.BucketWidthFor(pipSize ?? ProfilerSymbolData.FallbackPipSize);
 
 		private async Task LoadComparisonAsync(ProfilerSymbolData set, ProfilerConfig config)
 		{
 			try
 			{
+				set.PipSize = await ResolvePipSizeAsync(set.Table);
+				set.PriceBucketWidth = BucketWidthFor(set.PipSize);
+				config = config with { PriceBucketWidth = set.PriceBucketWidth };
 				var chunk = await Service.LoadAsync(config, config.To, BarsPerFetch);
 				if (chunk.Bars.Count == 0 && chunk.ReachedStart)
 				{
@@ -476,7 +490,7 @@ namespace Poink.Sim.Components.Pages
 
 			try
 			{
-				var config = _config with { Table = set.Table };
+				var config = _config with { Table = set.Table, PriceBucketWidth = set.PriceBucketWidth };
 				var cursor = set.HasBars ? set.Bars[0].OpenTime : config.To;
 				var chunk = await Service.LoadAsync(config, cursor, BarsPerFetch);
 				set.ApplyChunk(chunk, _barAggregationKind);

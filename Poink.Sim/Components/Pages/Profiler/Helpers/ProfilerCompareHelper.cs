@@ -37,6 +37,34 @@ namespace Poink.Sim.Components.Profiler
 			return series;
 		}
 
+		/// <summary>Every loaded symbol's footprint over [start, end], in % rows from its own close at or before <paramref name="anchor"/>.</summary>
+		public static CompareXGridResult? BuildXGrid(
+			IReadOnlyList<ProfilerSymbolData> sets,
+			IReadOnlyDictionary<string, string> symbolColors,
+			DateTime start,
+			DateTime end,
+			DateTime anchor,
+			double rowPercent,
+			int colCount
+		)
+		{
+			var inputs = sets
+				.Where(s => s.HasBars)
+				.Select(s => new CompareXGridInput(
+					s.Table,
+					ProfilerSymbolColorHelper.ColorVarFor(symbolColors, s.Table),
+					s.Bars,
+					s.Histograms,
+					ReferenceClose(s, anchor, start)
+				))
+				.ToList();
+			return CompareXGridStats.Compute(inputs, start, end, rowPercent, colCount);
+		}
+
+		// A symbol with no bar by the anchor (its data starts later) is measured from its first bar inside the window instead.
+		private static double ReferenceClose(ProfilerSymbolData set, DateTime anchor, DateTime windowStart) =>
+			set.BarAtOrBefore(anchor)?.Close ?? set.Bars.FirstOrDefault(b => b.OpenTime >= windowStart).Close;
+
 		private static CompareChartSeries SymbolSeries(
 			ProfilerSymbolData set,
 			string colorVar,
