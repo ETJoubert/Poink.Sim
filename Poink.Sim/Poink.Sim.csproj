@@ -64,6 +64,10 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<InternalsVisibleTo Include="Poink.Sim.Tests" />
+	</ItemGroup>
+
+	<ItemGroup>
 		<ProjectReference
 			Include="..\Poink.Analyzers\Poink.Analyzers.csproj"
 			OutputItemType="Analyzer"

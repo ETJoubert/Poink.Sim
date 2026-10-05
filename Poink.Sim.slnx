@@ -2,4 +2,5 @@
   <Project Path="Poink.Analyzers/Poink.Analyzers.csproj" />
   <Project Path="Poink.CTrader/Poink.CTrader.csproj" />
   <Project Path="Poink.Sim/Poink.Sim.csproj" />
+  <Project Path="Poink.Sim.Tests/Poink.Sim.Tests.csproj" />
 </Solution>
