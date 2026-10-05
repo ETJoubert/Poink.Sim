@@ -1,0 +1,73 @@
+@namespace Poink.Sim.Components.Charts
+@using Poink.Sim.Models
+
+<div class="ctxf-wrapper">
+    <div class="ctxf-toolbar">
+        <div class="ctxf-row">
+            <span class="ctxf-title" title="Every symbol's trailing-window bars as % change from its own price at the anchor">COMPARE TXFOLD</span>
+            <div class="ctxf-tool-group" title="Overlay every symbol's bar on one spot, or set them side by side within each timeframe">
+                <button type="button" class="ctxf-tool-btn ctxf-tool-btn-layout @(Layout == CompareTxFoldLayout.Overlaid ? "active" : "")"
+                        @onclick="() => SetLayout(CompareTxFoldLayout.Overlaid)"
+                        title="Draw every symbol's bar on the same spot, semi-transparent">Overlaid</button>
+                <button type="button" class="ctxf-tool-btn ctxf-tool-btn-layout @(Layout == CompareTxFoldLayout.SideBySide ? "active" : "")"
+                        @onclick="() => SetLayout(CompareTxFoldLayout.SideBySide)"
+                        title="Give every symbol its own slot within each timeframe">Side by side</button>
+            </div>
+            <span class="ctxf-divider"></span>
+            <div class="ctxf-tool-group" title="Choose how each snapshot bar is aggregated">
+                <button type="button" class="ctxf-tool-btn ctxf-tool-btn-kind @(BarKind == BarAggregationKind.Ohlc ? "active" : "")"
+                        @onclick="() => SetBarKind(BarAggregationKind.Ohlc)"
+                        title="Draw each bar's real Open/High/Low/Close">OHLC</button>
+                <button type="button" class="ctxf-tool-btn ctxf-tool-btn-kind @(BarKind == BarAggregationKind.Quartile ? "active" : "")"
+                        @onclick="() => SetBarKind(BarAggregationKind.Quartile)"
+                        title="Draw each bar as a box plot of Min/Q1/Median/Q3/Max">Quartile</button>
+                <button type="button" class="ctxf-tool-btn ctxf-tool-btn-kind @(BarKind == BarAggregationKind.Decile ? "active" : "")"
+                        @onclick="() => SetBarKind(BarAggregationKind.Decile)"
+                        title="Draw each bar as a box plot of Min/D1/D9/Max -- a wider 10/90 percentile band than Quartile's 25/75">Decile</button>
+                <button type="button" class="ctxf-tool-btn ctxf-tool-btn-kind @(BarKind == BarAggregationKind.MeanStdDev ? "active" : "")"
+                        @onclick="() => SetBarKind(BarAggregationKind.MeanStdDev)"
+                        title="Draw each bar as a volatility band -- Open/Close at the mean price, High/Low one standard deviation above/below it">Mean&plusmn;SD</button>
+            </div>
+            @if (_loading)
+            {
+                <span class="ctxf-note" title="Reading every symbol's ticks for the selected timeframes">loading...</span>
+            }
+            else if (MissingSymbolsNote() is { Length: > 0 } note)
+            {
+                <span class="ctxf-note" title="These symbols have no ticks inside the largest selected window">@note</span>
+            }
+        </div>
+        <div class="ctxf-row ctxf-timeframe-row"
+             title="Pick which trailing windows to show -- one group per selection, all ending at the same anchor time">
+            @foreach (var option in SnapshotTimeframeOptions.All)
+            {
+                @if (SnapshotTimeframeOptions.UnitStarts.Contains(option.Seconds))
+                {
+                    <span class="ctxf-divider"></span>
+                }
+                <button type="button" class="ctxf-tool-btn ctxf-tool-btn-timeframe @(SelectedSeconds.Contains(option.Seconds) ? "active" : "")"
+                        @onclick="() => ToggleTimeframe(option.Seconds)"
+                        title="@($"Show every symbol's {option.Label} trailing window bar ending at the anchor time")">@option.Label</button>
+            }
+        </div>
+    </div>
+    <div class="ctxf-chart">
+        @if (AnchorEnd is null)
+        {
+            <p class="ctxf-empty">@NoAnchorMessage</p>
+        }
+        else if (_error is not null)
+        {
+            <p class="ctxf-empty">@_error</p>
+        }
+        else if (_snapshots.Count == 0)
+        {
+            <p class="ctxf-empty">@(_loading ? "Loading..." : "No ticks before the anchor for any symbol.")</p>
+        }
+        else
+        {
+            <canvas class="ctxf-canvas" @ref="_canvasRef"
+                    title="Each group is one trailing timeframe; hover a group to read every symbol's % Open/High/Low/Close. Faded bars reach back before the loaded range"></canvas>
+        }
+    </div>
+</div>

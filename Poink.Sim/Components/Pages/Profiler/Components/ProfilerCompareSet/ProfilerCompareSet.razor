@@ -48,9 +48,24 @@
             }
         </div>
         <span class="pcmp-note" title="What the % axis is measured from">@ModeNote()</span>
+        <button type="button" class="pcmp-toggle @(TxFold.Show ? "active" : "")"
+                @onclick="() => SetTxFold(TxFold with { Show = !TxFold.Show })"
+                title="Show or hide a TxFold panel comparing every symbol's trailing-window bars at the Lookback Window's right edge">TxFold</button>
     </header>
-    <div class="pcmp-chart">
-        <CompareChart Series="_series" ScaleMode="ScaleMode" Style="Style" WindowStart="WindowStart" WindowEnd="WindowEnd"
-                      CanLoadMore="CanLoadMore" OnNearStart="OnNearStart" Tooltip="@ChartTooltip()" />
+    <div class="pcmp-body">
+        <div class="pcmp-chart">
+            <CompareChart Series="_series" ScaleMode="ScaleMode" Style="Style" WindowStart="WindowStart" WindowEnd="WindowEnd"
+                          CanLoadMore="CanLoadMore" OnNearStart="OnNearStart" Tooltip="@ChartTooltip()" />
+        </div>
+        @if (TxFold.Show)
+        {
+            <div class="pcmp-txfold">
+                <CompareTxFold Symbols="TxFoldSymbols()" AnchorEnd="TxFoldAnchor" RangeStart="RangeStart"
+                               NoAnchorMessage="Select a Lookback Window -- its right edge anchors every symbol's trailing windows."
+                               SelectedSeconds="TxFoldSeconds" SelectedSecondsChanged="seconds => SetTxFold(TxFold with { Seconds = seconds.Order().ToList() })"
+                               BarKind="TxFold.BarKind" BarKindChanged="kind => SetTxFold(TxFold with { BarKind = kind })"
+                               Layout="TxFold.Layout" LayoutChanged="layout => SetTxFold(TxFold with { Layout = layout })" />
+            </div>
+        }
     </div>
 </section>

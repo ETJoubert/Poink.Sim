@@ -150,6 +150,7 @@ namespace Poink.Sim.Components.Pages
 		private ProfilerCompareMode _compareMode = ProfilerCompareMode.PercentChange;
 		private string? _compareRatioTable;
 		private CompareChartSeriesStyle _compareStyle = CompareChartSeriesStyle.Lines;
+		private ProfilerCompareTxFoldSettings _compareTxFold = new();
 
 		private int _subchartBarSizeSeconds = 10;
 		private BarAggregationKind _subchartBarKind = BarAggregationKind.Ohlc;
@@ -218,7 +219,8 @@ namespace Poink.Sim.Components.Pages
 				_showCompare,
 				_compareMode,
 				_compareRatioTable,
-				_compareStyle
+				_compareStyle,
+				_compareTxFold
 			);
 
 		private async Task LoadPersistedSettingsAsync()
@@ -273,6 +275,7 @@ namespace Poink.Sim.Components.Pages
 			_compareMode = settings.CompareMode;
 			_compareRatioTable = settings.CompareRatioTable;
 			_compareStyle = settings.CompareStyle;
+			_compareTxFold = settings.CompareTxFold ?? new();
 		}
 
 		// Saving before the stored settings were read would overwrite them with the page's defaults.

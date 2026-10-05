@@ -1,6 +1,8 @@
 // Multi-series comparison chart driven by CompareChart.razor.cs: one line or candle series per
 // series on a shared time axis, an optional lower pane (pane index 1, e.g. a ratio line) and a
 // shaded Lookback Window. Per-instance state is keyed by the container element.
+import { cssColor, withAlpha } from './chartColors.js';
+
 const instances = new WeakMap();
 
 const nearStartThreshold = 50;
@@ -8,10 +10,6 @@ const leftOffsetBars = 10;
 const percentFormat = { type: 'custom', minMove: 0.01, formatter: v => `${v.toFixed(2)}%` };
 const barBodyOpacity = 0.45;
 const barOutlineOpacity = 0.85;
-
-function cssColor(container, varName) {
-    return getComputedStyle(container).getPropertyValue(varName).trim() || '#c9c9c9';
-}
 
 // Drawn behind the lines (drawBackground) so the window highlights them instead of covering them.
 function createWindowFillPrimitive(color) {
@@ -107,18 +105,6 @@ function formatPoint(entry, item, point) {
     return item.kind === 'bars'
         ? `O ${f(point.open)} H ${f(point.high)} L ${f(point.low)} C ${f(point.close)}`
         : f(point.value);
-}
-
-// Canvas needs a concrete colour, so theme hex/rgb values are rewritten as rgba rather than layered with CSS opacity.
-function withAlpha(color, alpha) {
-    const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(color);
-    if (hex) {
-        const digits = hex[1].length === 3 ? [...hex[1]].map(d => d + d).join('') : hex[1];
-        const [r, g, b] = [0, 2, 4].map(i => parseInt(digits.slice(i, i + 2), 16));
-        return `rgba(${r},${g},${b},${alpha})`;
-    }
-    const rgb = /^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)/i.exec(color);
-    return rgb ? `rgba(${rgb[1]},${rgb[2]},${rgb[3]},${alpha})` : color;
 }
 
 function barColors(color) {

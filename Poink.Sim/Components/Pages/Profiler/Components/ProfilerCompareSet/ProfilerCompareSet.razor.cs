@@ -50,6 +50,16 @@ namespace Poink.Sim.Components.Profiler
 		[Parameter]
 		public EventCallback OnNearStart { get; set; }
 
+		[Parameter]
+		public ProfilerCompareTxFoldSettings TxFold { get; set; } = new();
+
+		[Parameter]
+		public EventCallback<ProfilerCompareTxFoldSettings> TxFoldChanged { get; set; }
+
+		/// <summary>Start of the loaded date range; TxFold windows reaching before it are drawn as partial.</summary>
+		[Parameter]
+		public DateTime RangeStart { get; set; }
+
 		private List<CompareChartSeries> _series = new();
 		private (
 			List<HlocAvdtBar>[] Bars,
@@ -90,6 +100,16 @@ namespace Poink.Sim.Components.Profiler
 		}
 
 		private string ColorVarFor(string table) => ProfilerSymbolColorHelper.ColorVarFor(SymbolColors, table);
+
+		private List<CompareTxFoldSymbol> TxFoldSymbols() => Sets.Select(s => new CompareTxFoldSymbol(s.Table, ColorVarFor(s.Table))).ToList();
+
+		// ITickRepository's "to" is exclusive, so +1 tick keeps the anchor bar's own closing tick inside the window.
+		private DateTime? TxFoldAnchor =>
+			WindowEnd is { } end && Primary?.BarAtOrBefore(end) is { } bar ? bar.CloseTime.AddTicks(1) : null;
+
+		private IReadOnlyCollection<int> TxFoldSeconds => TxFold.Seconds ?? [.. SnapshotTimeframeOptions.DefaultSelectedSeconds];
+
+		private Task SetTxFold(ProfilerCompareTxFoldSettings settings) => TxFoldChanged.InvokeAsync(settings);
 
 		private string ModeNote() =>
 			Mode switch
