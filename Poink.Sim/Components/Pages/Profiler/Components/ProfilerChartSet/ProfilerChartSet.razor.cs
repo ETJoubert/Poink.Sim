@@ -143,18 +143,16 @@ namespace Poink.Sim.Components.Profiler
 			_samples = ProfilerSymbolStatsHelper.MergedSamples(Data, WindowStart, WindowEnd);
 			_timeSamples = Options.ShowTimeProfile ? ProfilerSymbolStatsHelper.MergedTimeSamples(Data, WindowStart, WindowEnd) : new();
 			var indicators = Options.Indicators;
-			_vwapLine = indicators.VwapVisible ? ProfilerSymbolStatsHelper.Vwap(Data, WindowStart, WindowEnd) : new();
-			_horizontalLines = DrawingHorizontalLines
-				.Concat(ProfilerSymbolStatsHelper.ProfileLevelLines(_samples, indicators.PocVisible, indicators.VahVisible, indicators.ValVisible))
-				.Concat(ProfilerSymbolStatsHelper.AverageMedianLines(_samples, indicators.AverageVisible, indicators.MedianVisible))
-				.ToList();
-			_verticalLines = DrawingVerticalLines
-				.Concat(indicators.DayLinesVisible ? ProfilerSymbolStatsHelper.TimeBoundaryLines(Data, 24, "day") : [])
-				.Concat(indicators.IntervalLinesVisible ? ProfilerSymbolStatsHelper.TimeBoundaryLines(Data, indicators.IntervalHours, "interval") : [])
-				.ToList();
-			_diagonalLines = DrawingDiagonalLines.ToList();
-			if (indicators.RegressionVisible && ProfilerSymbolStatsHelper.RegressionLine(Data, WindowStart, WindowEnd) is { } regression)
-				_diagonalLines.Add(regression);
+			var overlays = IndicatorChartOverlayHelper.Build(
+				indicators,
+				Data.Bars,
+				ProfilerSymbolStatsHelper.WindowedBars(Data, WindowStart, WindowEnd),
+				_samples
+			);
+			_vwapLine = overlays.VwapLine;
+			_horizontalLines = DrawingHorizontalLines.Concat(overlays.HorizontalLines).ToList();
+			_verticalLines = DrawingVerticalLines.Concat(overlays.VerticalLines).ToList();
+			_diagonalLines = DrawingDiagonalLines.Concat(overlays.DiagonalLines).ToList();
 			_txFoldLevels = IndicatorsHelper.ToTxFoldLevels(indicators);
 			_rangeFills = DrawingRangeFills.Concat(LookbackWindowFill()).ToList();
 		}

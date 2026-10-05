@@ -6,6 +6,7 @@
 @using Poink.Sim.Components.Shared.LookbackWindowBar
 @using Poink.Sim.Components.Shared.SimTimeline
 @using Poink.Sim.Components.Shared.IndicatorPanel
+@using Poink.Sim.Components.Shared.Indicators
 @using Poink.Sim.Components.Shared.StatisticsPanel
 @using Poink.Sim.Components.Shared.TickDataSource
 @using Poink.Sim.Components.Shared.BarSizeSelect
@@ -273,27 +274,12 @@
                 @if (_snapshot is not null)
                 {
                     var s = _snapshot;
+                    var indicatorOverlays = IndicatorOverlays(s);
 
                     @if (!_hideChart)
                     {
                         <div class="sim-chart-toolbar">
                             <span class="sim-chart-title" title="Data table this simulation was loaded from">@s.Config.Table</span>
-                            @if (s.Config.Aggregate)
-                            {
-                                <div class="sim-overlay-toggles"
-                                     title="Toggle the computed chart overlays alongside the volume profile -- Point of Control/Value Area and a cumulative VWAP line">
-                                    <span class="sim-overlay-toggles-label">Overlays</span>
-                                    <button type="button" class="sim-overlay-toggle-btn sim-overlay-toggle-btn-poc @(_showProfilePanelLevels ? "active" : "")"
-                                            @onclick="() => _showProfilePanelLevels = !_showProfilePanelLevels"
-                                            title="Highlight the Point of Control (most-traded price) and Value Area rows inside the volume profile panel">POC/VA</button>
-                                    <button type="button" class="sim-overlay-toggle-btn sim-overlay-toggle-btn-lines @(_showProfileChartLines ? "active" : "")"
-                                            @onclick="() => _showProfileChartLines = !_showProfileChartLines"
-                                            title="Project the Point of Control/Value Area High/Low as three dashed lines on the main chart">POC/VAH/VAL</button>
-                                    <button type="button" class="sim-overlay-toggle-btn sim-overlay-toggle-btn-vwap @(_showVwap ? "active" : "")"
-                                            @onclick="() => _showVwap = !_showVwap"
-                                            title="Show a cumulative volume-weighted average price line on the main chart, over the same bar window as the volume profile">VWAP</button>
-                                </div>
-                            }
                             <div class="sim-profile-toggles"
                                  title="Show or hide the chart and profile panels">
                                 <span class="sim-overlay-toggles-label">Panels</span>
@@ -326,12 +312,16 @@
 
                         @if (s.Config.Aggregate)
                         {
-                            <LookbackWindowBar Label="LOOKBACK WINDOW" MaxWindow="MaxBarWindow" MinWidth="10"
-                                                @bind-Width="_barWindowSize" @bind-Offset="_barWindowOffset"
-                                                RailTitle="The highlighted segment is the window itself -- drag either edge to resize it, or drag the bar to move the whole window; its right edge is Offset bars back from now, its left edge Offset+Width bars back"
-                                                SizeInputTitle="Number of bars the window spans -- their price histograms drive the volume profile window, and the bar itself drives the chart's window-start marker"
-                                                OffsetLabelTitle="Bars back from the most recent bar to the end of the window -- 0 keeps the window anchored to now"
-                                                OffsetInputTitle="Bars back from the most recent bar to the end of the window" />
+                            <Indicators @bind-Settings="_indicators">
+                                <LookbackContent>
+                                    <LookbackWindowBar Label="LOOKBACK WINDOW" MaxWindow="MaxBarWindow" MinWidth="10"
+                                                        @bind-Width="_barWindowSize" @bind-Offset="_barWindowOffset"
+                                                        RailTitle="The highlighted segment is the window itself -- drag either edge to resize it, or drag the bar to move the whole window; its right edge is Offset bars back from now, its left edge Offset+Width bars back"
+                                                        SizeInputTitle="Number of bars the window spans -- their price histograms drive the volume profile window, and the bar itself drives the chart's window-start marker"
+                                                        OffsetLabelTitle="Bars back from the most recent bar to the end of the window -- 0 keeps the window anchored to now"
+                                                        OffsetInputTitle="Bars back from the most recent bar to the end of the window" />
+                                </LookbackContent>
+                            </Indicators>
                         }
                         else
                         {
@@ -361,8 +351,10 @@
                                                             PositionIsLong="SelectedPositionIsLong" StopLossPrice="SelectedTrader?.Position?.StopLossPrice"
                                                             TakeProfitPrice="SelectedTrader?.Position?.TakeProfitPrice"
                                                             WindowStartUtc="WindowStartUtc(s)" WindowEndUtc="WindowEndUtc(s)"
-                                                            HorizontalLines="ProfileLevelLines(s)"
-                                                            VwapLine="VwapPoints(s)" />
+                                                            HorizontalLines="indicatorOverlays.HorizontalLines"
+                                                            VerticalLines="indicatorOverlays.VerticalLines"
+                                                            DiagonalLines="indicatorOverlays.DiagonalLines"
+                                                            VwapLine="indicatorOverlays.VwapLine" />
                                     }
                                     else
                                     {
@@ -384,7 +376,7 @@
                                            OnPositionClosed="CloseXGridPosition"
                                            ExternalDraft="XGridDraft" PipSize="s.Config.PipSize"
                                            @bind-PipCount="_xgridPipCount" @bind-ColCount="_xgridColCount"
-                                           ProfileBarCount="ClampedBarWindow">
+                                           ProfileBarCount="ClampedBarWindow" Indicators="_indicators">
                                         <ExpandedControls>
                                             <button class="sim-ctrl-btn sim-ctrl-btn-play" @onclick="TogglePlayPause" disabled="@s.IsFinished"
                                                     title="@(s.IsPlaying ? "Pause playback" : "Resume playback")">
@@ -431,7 +423,7 @@
                                     @if (s.Config.Aggregate)
                                     {
                                         <TickVolumeProfileChart WeightedSamples="MergedBarSamples(s)" CurrentPrice="s.CurrentPrice"
-                                                                ShowLevels="_showProfilePanelLevels" />
+                                                                ShowLevels="ShowVolumeProfileLevels" />
                                     }
                                     else
                                     {
@@ -475,7 +467,8 @@
                                                 PositionIsLong="SelectedPositionIsLong" StopLossPrice="SelectedTrader?.Position?.StopLossPrice"
                                                 TakeProfitPrice="SelectedTrader?.Position?.TakeProfitPrice"
                                                 DraftEntryPrice="_draft?.EntryPrice" DraftIsLong="_draft?.IsLong"
-                                                DraftStopLossPrice="_draft?.StopLossPrice" DraftTakeProfitPrice="_draft?.TakeProfitPrice" />
+                                                DraftStopLossPrice="_draft?.StopLossPrice" DraftTakeProfitPrice="_draft?.TakeProfitPrice"
+                                                ShownLevels="IndicatorsHelper.ToTxFoldLevels(_indicators)" ShowLevelToggles="false" />
                                     }
                                     else
                                     {

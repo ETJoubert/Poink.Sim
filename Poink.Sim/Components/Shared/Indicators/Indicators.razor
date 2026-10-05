@@ -28,16 +28,23 @@
     </label>
 
     <span class="ind-divider"></span>
-    <button type="button" class="ind-btn ind-btn-lookback @(LookbackEnabled ? "active" : "")" @onclick="ToggleLookback"
-            title="Turn the Lookback Window on/off -- every indicator is computed over it when on, and over every loaded bar when off">Lookback Window</button>
-    <label class="ind-field" title="Number of bars the Lookback Window spans">
-        Width
-        <input type="number" min="1" class="ind-input" title="Number of bars the Lookback Window spans"
-               @bind:get="LookbackWidth" @bind:set="SetLookbackWidth" @bind:event="onchange" />
-    </label>
-    <label class="ind-field" title="Bars back from the most recently loaded bar to the end of the Lookback Window">
-        Offset
-        <input type="number" min="0" class="ind-input" title="Bars back from the most recently loaded bar to the end of the Lookback Window"
-               @bind:get="LookbackOffset" @bind:set="SetLookbackOffset" @bind:event="onchange" />
-    </label>
+    @if (LookbackContent is not null)
+    {
+        <div class="ind-lookback-slot">@LookbackContent</div>
+    }
+    else
+    {
+        <button type="button" class="ind-btn ind-btn-lookback @(LookbackEnabled ? "active" : "")" @onclick="ToggleLookback"
+                title="Turn the Lookback Window on/off -- every indicator is computed over it when on, and over every loaded bar when off">Lookback Window</button>
+        <label class="ind-field" title="Number of bars the Lookback Window spans">
+            Width
+            <input type="number" min="1" class="ind-input" title="Number of bars the Lookback Window spans"
+                   @bind:get="LookbackWidth" @bind:set="SetLookbackWidth" @bind:event="onchange" />
+        </label>
+        <label class="ind-field" title="Bars back from the most recently loaded bar to the end of the Lookback Window">
+            Offset
+            <input type="number" min="0" class="ind-input" title="Bars back from the most recently loaded bar to the end of the Lookback Window"
+                   @bind:get="LookbackOffset" @bind:set="SetLookbackOffset" @bind:event="onchange" />
+        </label>
+    }
 </div>

@@ -37,6 +37,10 @@ namespace Poink.Sim.Components.Shared.Indicators
 		[Parameter]
 		public EventCallback<int> LookbackOffsetChanged { get; set; }
 
+		/// <summary>Replaces the built-in Lookback Window toggle and Width/Offset inputs with a host's own window control.</summary>
+		[Parameter]
+		public RenderFragment? LookbackContent { get; set; }
+
 		private sealed record LevelToggle(
 			string CssKey,
 			string Label,

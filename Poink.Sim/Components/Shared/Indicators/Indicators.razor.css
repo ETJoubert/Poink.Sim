@@ -65,6 +65,11 @@
 .ind-btn-interval { --ind-color: var(--color-secondary); }
 .ind-btn-lookback { --ind-color: var(--color-info); }
 
+.ind-lookback-slot {
+    flex: 1 1 420px;
+    min-width: 360px;
+}
+
 .ind-field {
     display: flex;
     align-items: center;
