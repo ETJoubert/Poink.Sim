@@ -4,37 +4,26 @@ using Microsoft.AspNetCore.Components;
 namespace Poink.Sim.Components.Charts
 {
 	/// <summary>
-	/// XGrid's overlay and spectrum-highlight controls, each a [Parameter] + *Changed callback.
+	/// XGrid's overlay and spectrum-highlight controls, rendered in its own header rows. Each setting stays a
+	/// [Parameter] + *Changed callback so XGridController keeps owning the state it also merges with Indicators.
 	/// </summary>
-	public partial class MetricsControlPanel : ComponentBase
+	public partial class XGrid
 	{
 		[Parameter]
-		public XGridDisplaySettings Display { get; set; } = new();
-
-		/// <summary>False when a host drives the level and time-line overlays from elsewhere (the Indicators component).</summary>
-		[Parameter]
-		public bool ShowOverlayRow { get; set; } = true;
-
-		[Parameter]
 		public EventCallback<XGridDisplaySettings> DisplayChanged { get; set; }
-
-		[Parameter]
-		public XGridSpectrumSettings Spectrum { get; set; } = new();
 
 		[Parameter]
 		public EventCallback<XGridSpectrumSettings> SpectrumChanged { get; set; }
 
 		[Parameter]
-		public XGridPeakOverlaySettings LowPointOverlay { get; set; } = new();
-
-		[Parameter]
 		public EventCallback<XGridPeakOverlaySettings> LowPointOverlayChanged { get; set; }
 
 		[Parameter]
-		public XGridPeakOverlaySettings HighPointOverlay { get; set; } = new();
-
-		[Parameter]
 		public EventCallback<XGridPeakOverlaySettings> HighPointOverlayChanged { get; set; }
+
+		/// <summary>False when a host drives the level and time-line overlays from elsewhere (the Indicators component).</summary>
+		[Parameter]
+		public bool ShowOverlayRow { get; set; } = true;
 
 		private Task SetDisplay(XGridDisplaySettings value) => DisplayChanged.InvokeAsync(Display = value);
 
@@ -110,6 +99,5 @@ namespace Poink.Sim.Components.Charts
 							: XGridHighlightMode.Rank,
 				}
 			);
-
 	}
 }
