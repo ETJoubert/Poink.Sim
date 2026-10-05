@@ -1,12 +1,13 @@
-// Multi-series comparison chart driven by CompareChart.razor.cs: one line per series on a
-// shared time axis, an optional lower pane (pane index 1, e.g. a ratio line) and a shaded
-// Lookback Window. Per-instance state is keyed by the container element.
+// Multi-series comparison chart driven by CompareChart.razor.cs: one line or candle series per
+// series on a shared time axis, an optional lower pane (pane index 1, e.g. a ratio line) and a
+// shaded Lookback Window. Per-instance state is keyed by the container element.
 const instances = new WeakMap();
 
 const nearStartThreshold = 50;
 const leftOffsetBars = 10;
 const percentFormat = { type: 'custom', minMove: 0.01, formatter: v => `${v.toFixed(2)}%` };
-const valueFormat = { type: 'price', precision: 5, minMove: 0.00001 };
+const barBodyOpacity = 0.45;
+const barOutlineOpacity = 0.85;
 
 function cssColor(container, varName) {
     return getComputedStyle(container).getPropertyValue(varName).trim() || '#c9c9c9';
@@ -63,7 +64,80 @@ function createWindowFillPrimitive(color) {
 }
 
 function formatValue(entry, pane, value) {
-    return pane === 0 && entry.scaleMode === 'percentvalues' ? `${value.toFixed(2)}%` : value.toFixed(5);
+    return pane === 0 ? `${value.toFixed(2)}%` : value.toFixed(5);
+}
+
+function firstIndexAtOrAfter(points, time) {
+    let lo = 0, hi = points.length;
+    while (lo < hi) {
+        const mid = (lo + hi) >> 1;
+        if (points[mid].time < time) lo = mid + 1; else hi = mid;
+    }
+    return lo;
+}
+
+function toPercent(point, base, kind) {
+    const pct = v => (v / base - 1) * 100;
+    return kind === 'bars'
+        ? { time: point.time, open: pct(point.open), high: pct(point.high), low: pct(point.low), close: pct(point.close) }
+        : { time: point.time, value: pct(point.value) };
+}
+
+function baseValue(point, kind) {
+    return kind === 'bars' ? point.close : point.value;
+}
+
+// Rebased mode converts raw main-pane values to % here rather than via the library's Percentage
+// scale, so lines and candles share one % axis; force re-applies after the raw data changes.
+function rebaseMainPane(entry, force) {
+    if (entry.scaleMode !== 'rebased') return;
+    const visible = entry.chart.timeScale().getVisibleRange();
+    for (const item of entry.series.values()) {
+        if (item.pane !== 0 || item.raw.length === 0) continue;
+        const index = visible ? Math.min(firstIndexAtOrAfter(item.raw, visible.from), item.raw.length - 1) : 0;
+        const base = baseValue(item.raw[index], item.kind);
+        if (!force && base === item.base) continue;
+        item.base = base;
+        item.series.setData(base === 0 ? [] : item.raw.map(p => toPercent(p, base, item.kind)));
+    }
+}
+
+function formatPoint(entry, item, point) {
+    const f = v => formatValue(entry, item.pane, v);
+    return item.kind === 'bars'
+        ? `O ${f(point.open)} H ${f(point.high)} L ${f(point.low)} C ${f(point.close)}`
+        : f(point.value);
+}
+
+// Canvas needs a concrete colour, so theme hex/rgb values are rewritten as rgba rather than layered with CSS opacity.
+function withAlpha(color, alpha) {
+    const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(color);
+    if (hex) {
+        const digits = hex[1].length === 3 ? [...hex[1]].map(d => d + d).join('') : hex[1];
+        const [r, g, b] = [0, 2, 4].map(i => parseInt(digits.slice(i, i + 2), 16));
+        return `rgba(${r},${g},${b},${alpha})`;
+    }
+    const rgb = /^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)/i.exec(color);
+    return rgb ? `rgba(${rgb[1]},${rgb[2]},${rgb[3]},${alpha})` : color;
+}
+
+function barColors(color) {
+    const body = withAlpha(color, barBodyOpacity);
+    const outline = withAlpha(color, barOutlineOpacity);
+    return {
+        upColor: body, downColor: 'rgba(0,0,0,0)',
+        borderVisible: true, borderUpColor: outline, borderDownColor: outline,
+        wickUpColor: outline, wickDownColor: outline,
+    };
+}
+
+function addSeries(entry, s, color) {
+    const common = { title: s.label, priceLineVisible: false, lastValueVisible: true };
+    return s.kind === 'bars'
+        ? entry.chart.addSeries(LightweightCharts.CandlestickSeries, { ...common, ...barColors(color) }, s.pane)
+        : entry.chart.addSeries(LightweightCharts.LineSeries, {
+            ...common, color, lineWidth: s.pane === 0 ? 2 : 1, crosshairMarkerVisible: true,
+        }, s.pane);
 }
 
 function attachTooltip(container, entry) {
@@ -84,7 +158,7 @@ function attachTooltip(container, entry) {
         const rows = [];
         for (const item of entry.series.values()) {
             const point = param.seriesData.get(item.series);
-            if (point) rows.push(`<div style="color:${item.color}">${item.label} ${formatValue(entry, item.pane, point.value)}</div>`);
+            if (point) rows.push(`<div style="color:${item.color}">${item.label} ${formatPoint(entry, item, point)}</div>`);
         }
         if (rows.length === 0) {
             tooltip.style.display = 'none';
@@ -115,7 +189,9 @@ export function create(container, dotNetRef) {
         autoSize: true,
     });
 
+    // The library drops a pane once its last series is removed, which would take the window fill with it.
     const windowFill = createWindowFillPrimitive(cssColor(container, '--color-info'));
+    chart.panes()[0].setPreserveEmptyPane(true);
     chart.panes()[0].attachPrimitive(windowFill);
 
     const entry = {
@@ -126,6 +202,13 @@ export function create(container, dotNetRef) {
     attachTooltip(container, entry);
 
     chart.timeScale().subscribeVisibleLogicalRangeChange(range => {
+        if (!entry.rebaseQueued) {
+            entry.rebaseQueued = true;
+            requestAnimationFrame(() => {
+                entry.rebaseQueued = false;
+                if (instances.has(container)) rebaseMainPane(entry, false);
+            });
+        }
         if (!range || !entry.hasData || !entry.canLoadMore || entry.pendingLoadMore) return;
         if (range.from > nearStartThreshold) return;
         entry.pendingLoadMore = true;
@@ -133,42 +216,38 @@ export function create(container, dotNetRef) {
     });
 }
 
-function applyScaleMode(entry, item) {
+function applyPercentAxis(item) {
     if (item.pane !== 0) return;
-    const percentValues = entry.scaleMode === 'percentvalues';
-    item.series.applyOptions({ priceFormat: percentValues ? percentFormat : valueFormat });
-    item.series.priceScale().applyOptions({
-        mode: percentValues ? LightweightCharts.PriceScaleMode.Normal : LightweightCharts.PriceScaleMode.Percentage,
-    });
+    item.series.applyOptions({ priceFormat: percentFormat });
 }
 
-// seriesList: [{ key, label, colorVar, pane, points: [{ time, value }] }], scaleMode: 'rebased' | 'percentvalues'.
+// seriesList: [{ key, kind: 'line' | 'bars', label, colorVar, pane, points: [{ time, value } | { time, open, high, low, close }] }],
+// scaleMode: 'rebased' | 'percentvalues'.
 export function setSeries(container, seriesList, scaleMode) {
     const entry = instances.get(container);
     if (!entry) return;
     entry.scaleMode = scaleMode;
 
+    for (const s of seriesList) {
+        let item = entry.series.get(s.key);
+        if (!item) {
+            const color = cssColor(container, s.colorVar);
+            item = { series: addSeries(entry, s, color), kind: s.kind, label: s.label, color, pane: s.pane };
+            entry.series.set(s.key, item);
+        }
+        applyPercentAxis(item);
+        item.raw = s.points;
+        if (item.pane !== 0 || scaleMode !== 'rebased') item.series.setData(s.points);
+    }
+
+    // Removed only after the replacements are added, so a Lines/Bars switch never empties a pane and re-indexes the rest.
     const keys = new Set(seriesList.map(s => s.key));
     for (const [key, item] of entry.series) {
         if (keys.has(key)) continue;
         entry.chart.removeSeries(item.series);
         entry.series.delete(key);
     }
-
-    for (const s of seriesList) {
-        let item = entry.series.get(s.key);
-        if (!item) {
-            const color = cssColor(container, s.colorVar);
-            const series = entry.chart.addSeries(LightweightCharts.LineSeries, {
-                color, lineWidth: s.pane === 0 ? 2 : 1, title: s.label,
-                priceLineVisible: false, lastValueVisible: true, crosshairMarkerVisible: true,
-            }, s.pane);
-            item = { series, label: s.label, color, pane: s.pane };
-            entry.series.set(s.key, item);
-        }
-        applyScaleMode(entry, item);
-        item.series.setData(s.points);
-    }
+    rebaseMainPane(entry, true);
 
     const panes = entry.chart.panes();
     if (panes.length > 1 && entry.paneCount !== panes.length) {

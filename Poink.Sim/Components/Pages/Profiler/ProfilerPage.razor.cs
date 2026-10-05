@@ -146,6 +146,7 @@ namespace Poink.Sim.Components.Pages
 		private bool _showCompare;
 		private ProfilerCompareMode _compareMode = ProfilerCompareMode.PercentChange;
 		private string? _compareRatioTable;
+		private CompareChartSeriesStyle _compareStyle = CompareChartSeriesStyle.Lines;
 
 		private int _subchartBarSizeSeconds = 10;
 		private BarAggregationKind _subchartBarKind = BarAggregationKind.Ohlc;
@@ -213,7 +214,8 @@ namespace Poink.Sim.Components.Pages
 				_setHeights,
 				_showCompare,
 				_compareMode,
-				_compareRatioTable
+				_compareRatioTable,
+				_compareStyle
 			);
 
 		private async Task LoadPersistedSettingsAsync()
@@ -266,6 +268,7 @@ namespace Poink.Sim.Components.Pages
 			_showCompare = settings.ShowCompare;
 			_compareMode = settings.CompareMode;
 			_compareRatioTable = settings.CompareRatioTable;
+			_compareStyle = settings.CompareStyle;
 		}
 
 		// Saving before the stored settings were read would overwrite them with the page's defaults.
@@ -457,7 +460,7 @@ namespace Poink.Sim.Components.Pages
 			// Latched before the guard since OnNearStart re-renders even on an early return, and a stale false re-fits the chart.
 			set.KeepView = true;
 
-			if (_config is null || set.ReachedStart || set.IsLoadingMore)
+			if (_config is null || set.ReachedStart || set.IsLoadingMore || set.IsLoading)
 				return;
 			set.IsLoadingMore = true;
 
@@ -479,7 +482,12 @@ namespace Poink.Sim.Components.Pages
 			}
 		}
 
+		// Every trigger backfills every symbol together so they keep covering the same history as the view scrolls back.
 		private Task LoadMoreAll() => Task.WhenAll(_sets.ToList().Select(LoadMore));
+
+		private bool CanLoadMoreAny => _sets.Any(s => s.HasBars && !s.ReachedStart);
+
+		private bool IsLoadingMoreAny => _sets.Any(s => s.IsLoadingMore);
 
 		private void RefreshBarRows()
 		{

@@ -12,6 +12,14 @@
                 <option value="@ProfilerCompareMode.WindowAnchored">Window</option>
             </select>
         </label>
+        <label class="pcmp-field" title="Draw each symbol as a line, or as candles in its own colour">
+            Style
+            <select class="pcmp-select" value="@Style" @onchange="OnStyleSelected"
+                    title="Lines: one close line per symbol. Bars: candles in each symbol's colour (up filled, down hollow), semi-transparent so overlaps stay readable">
+                <option value="@CompareChartSeriesStyle.Lines">Lines</option>
+                <option value="@CompareChartSeriesStyle.Bars">Bars</option>
+            </select>
+        </label>
         <label class="pcmp-field" title="Divides the primary symbol by another selected symbol, shown in a lower pane">
             Ratio @Primary?.Table ÷
             <select class="pcmp-select" value="@(HasRatio ? RatioTable : "")" @onchange="OnRatioSelected" disabled="@(Sets.Count < 2)"
@@ -43,7 +51,7 @@
         <span class="pcmp-note" title="What the % axis is measured from">@ModeNote()</span>
     </header>
     <div class="pcmp-chart">
-        <CompareChart Series="_series" ScaleMode="ScaleMode" WindowStart="WindowStart" WindowEnd="WindowEnd"
+        <CompareChart Series="_series" ScaleMode="ScaleMode" Style="Style" WindowStart="WindowStart" WindowEnd="WindowEnd"
                       CanLoadMore="CanLoadMore" OnNearStart="OnNearStart" Tooltip="@ChartTooltip()" />
     </div>
 </section>

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Poink.Sim.Components.Charts;
 using Poink.Sim.Components.Shared.Indicators;
 using Poink.Sim.Models;
 
@@ -32,7 +33,8 @@ namespace Poink.Sim.Components.Profiler
 		Dictionary<string, double>? SetHeights,
 		bool ShowCompare = false,
 		ProfilerCompareMode CompareMode = ProfilerCompareMode.PercentChange,
-		string? CompareRatioTable = null
+		string? CompareRatioTable = null,
+		CompareChartSeriesStyle CompareStyle = CompareChartSeriesStyle.Lines
 	)
 	{
 		/// <summary>The browser localStorage key the Profiler page keeps these settings under.</summary>

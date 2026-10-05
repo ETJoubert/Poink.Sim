@@ -25,6 +25,9 @@ namespace Poink.Sim.Components.Charts
 		public CompareChartScaleMode ScaleMode { get; set; }
 
 		[Parameter]
+		public CompareChartSeriesStyle Style { get; set; }
+
+		[Parameter]
 		public DateTime? WindowStart { get; set; }
 
 		[Parameter]
@@ -45,6 +48,7 @@ namespace Poink.Sim.Components.Charts
 		private DotNetObjectReference<CompareChart>? _dotNetRef;
 		private IReadOnlyList<CompareChartSeries>? _renderedSeries;
 		private CompareChartScaleMode? _renderedScaleMode;
+		private CompareChartSeriesStyle? _renderedStyle;
 		private (DateTime? Start, DateTime? End)? _renderedWindow;
 		private bool? _renderedCanLoadMore;
 		private bool _created;
@@ -66,10 +70,11 @@ namespace Poink.Sim.Components.Charts
 					await module.InvokeVoidAsync("create", _containerRef, _dotNetRef);
 				}
 
-				if (!ReferenceEquals(_renderedSeries, Series) || _renderedScaleMode != ScaleMode)
+				if (!ReferenceEquals(_renderedSeries, Series) || _renderedScaleMode != ScaleMode || _renderedStyle != Style)
 				{
 					_renderedSeries = Series;
 					_renderedScaleMode = ScaleMode;
+					_renderedStyle = Style;
 					await module.InvokeVoidAsync("setSeries", _containerRef, SeriesPayload(), JsScaleMode());
 				}
 
@@ -93,15 +98,40 @@ namespace Poink.Sim.Components.Charts
 		[JSInvokable]
 		public Task OnNearStartAsync() => OnNearStart.HasDelegate ? OnNearStart.InvokeAsync() : Task.CompletedTask;
 
-		private object SeriesPayload() =>
-			Series.Select(s => new
+		private object SeriesPayload() => Series.Select(s => DrawsBars(s) ? BarsPayload(s) : LinePayload(s));
+
+		private bool DrawsBars(CompareChartSeries series) =>
+			Style == CompareChartSeriesStyle.Bars && series.Pane == 0 && series.Bars is not null;
+
+		// The kind is part of the key so a Lines/Bars switch replaces the JS series rather than restyling it.
+		private static object LinePayload(CompareChartSeries s) =>
+			new
 			{
-				key = $"{s.Pane}:{s.Label}",
+				key = $"{s.Pane}:{s.Label}:line",
+				kind = "line",
 				label = s.Label,
 				colorVar = s.ColorVar,
 				pane = s.Pane,
 				points = s.Points.Select(p => new { time = ToUnixSeconds(p.TimeUtc), value = p.Price }),
-			});
+			};
+
+		private static object BarsPayload(CompareChartSeries s) =>
+			new
+			{
+				key = $"{s.Pane}:{s.Label}:bars",
+				kind = "bars",
+				label = s.Label,
+				colorVar = s.ColorVar,
+				pane = s.Pane,
+				points = s.Bars!.Select(b => new
+				{
+					time = ToUnixSeconds(b.TimeUtc),
+					open = b.Open,
+					high = b.High,
+					low = b.Low,
+					close = b.Close,
+				}),
+			};
 
 		private string JsScaleMode() => ScaleMode == CompareChartScaleMode.PercentValues ? "percentvalues" : "rebased";
 

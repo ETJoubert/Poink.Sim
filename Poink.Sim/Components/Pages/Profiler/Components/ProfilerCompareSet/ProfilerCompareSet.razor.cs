@@ -24,6 +24,12 @@ namespace Poink.Sim.Components.Profiler
 		[Parameter]
 		public EventCallback<ProfilerCompareMode> ModeChanged { get; set; }
 
+		[Parameter]
+		public CompareChartSeriesStyle Style { get; set; }
+
+		[Parameter]
+		public EventCallback<CompareChartSeriesStyle> StyleChanged { get; set; }
+
 		/// <summary>The comparison symbol the primary is divided by for the ratio line; null or unselected hides it.</summary>
 		[Parameter]
 		public string? RatioTable { get; set; }
@@ -41,7 +47,7 @@ namespace Poink.Sim.Components.Profiler
 		public EventCallback OnNearStart { get; set; }
 
 		private List<CompareChartSeries> _series = new();
-		private (List<HlocAvdtBar>[] Bars, ProfilerCompareMode Mode, DateTime? Anchor, string? RatioTable)? _builtFor;
+		private (List<HlocAvdtBar>[] Bars, ProfilerCompareMode Mode, DateTime? Anchor, string? RatioTable, CompareChartSeriesStyle Style)? _builtFor;
 
 		private ProfilerSymbolData? Primary => Sets.Count > 0 ? Sets[0] : null;
 
@@ -63,11 +69,12 @@ namespace Poink.Sim.Components.Profiler
 				&& built.Mode == Mode
 				&& built.Anchor == Anchor
 				&& built.RatioTable == RatioTable
+				&& built.Style == Style
 				&& built.Bars.SequenceEqual(bars, ReferenceEqualityComparer.Instance))
 				return;
 
-			_builtFor = (bars, Mode, Anchor, RatioTable);
-			_series = ProfilerCompareHelper.Build(Sets, Mode, Anchor, RatioTable);
+			_builtFor = (bars, Mode, Anchor, RatioTable, Style);
+			_series = ProfilerCompareHelper.Build(Sets, Mode, Anchor, RatioTable, Style);
 		}
 
 		private string ModeNote() =>
@@ -85,6 +92,9 @@ namespace Poink.Sim.Components.Profiler
 
 		private Task OnModeSelected(ChangeEventArgs e) =>
 			ModeChanged.InvokeAsync(Enum.TryParse<ProfilerCompareMode>(e.Value?.ToString(), out var mode) ? mode : ProfilerCompareMode.PercentChange);
+
+		private Task OnStyleSelected(ChangeEventArgs e) =>
+			StyleChanged.InvokeAsync(Enum.TryParse<CompareChartSeriesStyle>(e.Value?.ToString(), out var style) ? style : CompareChartSeriesStyle.Lines);
 
 		private Task OnRatioSelected(ChangeEventArgs e)
 		{
