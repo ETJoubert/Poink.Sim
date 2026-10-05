@@ -3,13 +3,13 @@
 @using Poink.Sim.Components.Shared.Measurements
 
 <div class="xgrid-controller-wrapper">
-    <MetricsControlPanel Display="_display" DisplayChanged="SetDisplay"
+    <MetricsControlPanel Display="_display" DisplayChanged="SetDisplay" ShowOverlayRow="Indicators is null"
                           Spectrum="_spectrum" SpectrumChanged="SetSpectrum"
                           LowPointOverlay="_lowPointOverlay" LowPointOverlayChanged="SetLowPointOverlay"
                           HighPointOverlay="_highPointOverlay" HighPointOverlayChanged="SetHighPointOverlay" />
     <div class="xgrid-controller-row">
         <XGrid @ref="_xGrid" Grid="Grid" PipCount="PipCount" PipCountChanged="SetPipCount"
-               ColCount="ColCount" ColCountChanged="SetColCount" ProfileBarCount="ProfileBarCount" Display="_display" Spectrum="_spectrum"
+               ColCount="ColCount" ColCountChanged="SetColCount" ProfileBarCount="ProfileBarCount" Display="EffectiveDisplay" Spectrum="_spectrum"
                LowPointOverlay="_lowPointOverlay" HighPointOverlay="_highPointOverlay"
                ExpandedControls="ExpandedControls" Lines="Lines" OnLineDrawn="OnLineDrawn"
                Positions="Positions" OnOrderPlaced="OnOrderPlaced" Pending="Pending"

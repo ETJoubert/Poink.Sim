@@ -253,9 +253,16 @@ internal static class RangeStatsHelper
     // OLS fit of price against index, evaluated at the most recent (last) index.
     private static double ComputeRegressionAtLastIndex(double[] prices)
     {
-        var n = prices.Length;
+        var (slope, intercept) = LinearFit(prices);
+        return slope * (prices.Length - 1) + intercept;
+    }
+
+    /// <summary>Least-squares line through prices against their index; flat at the mean when it can't be fitted.</summary>
+    public static (double Slope, double Intercept) LinearFit(IReadOnlyList<double> prices)
+    {
+        var n = prices.Count;
         if (n == 1)
-            return prices[0];
+            return (0, prices[0]);
 
         double sumX = 0,
             sumY = 0,
@@ -271,10 +278,9 @@ internal static class RangeStatsHelper
 
         var denominator = n * sumXX - sumX * sumX;
         if (denominator == 0)
-            return prices.Average();
+            return (0, prices.Average());
 
         var slope = (n * sumXY - sumX * sumY) / denominator;
-        var intercept = (sumY - slope * sumX) / n;
-        return slope * (n - 1) + intercept;
+        return (slope, (sumY - slope * sumX) / n);
     }
 }

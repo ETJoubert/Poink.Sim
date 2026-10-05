@@ -277,26 +277,6 @@
     margin-left: auto;
 }
 
-.prof-lookback-field {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 0.62rem;
-    letter-spacing: 0.02em;
-    color: var(--color-secondary);
-}
-
-.prof-lookback-input {
-    width: 4.5em;
-    font-family: var(--font-body);
-    font-size: 0.62rem;
-    color: var(--color-secondary);
-    background: transparent;
-    border: 1px solid color-mix(in srgb, var(--color-secondary) 35%, transparent);
-    border-radius: var(--border-radius-sm);
-    padding: 2px 5px;
-}
-
 .prof-overlay-toggles-label {
     font-size: 0.6rem;
     font-weight: bold;
@@ -328,76 +308,6 @@
     background: var(--color-secondary);
     color: var(--color-bg-dark);
     font-weight: bold;
-}
-
-.prof-overlay-toggle-btn-poc {
-    color: var(--color-primary);
-    border-color: color-mix(in srgb, var(--color-primary) 35%, transparent);
-}
-
-.prof-overlay-toggle-btn-poc:hover {
-    background: color-mix(in srgb, var(--color-primary) 15%, transparent);
-}
-
-.prof-overlay-toggle-btn-poc.active {
-    background: var(--color-primary);
-    color: var(--color-bg-dark);
-}
-
-.prof-overlay-toggle-btn-lines {
-    color: var(--color-accent);
-    border-color: color-mix(in srgb, var(--color-accent) 35%, transparent);
-}
-
-.prof-overlay-toggle-btn-lines:hover {
-    background: color-mix(in srgb, var(--color-accent) 15%, transparent);
-}
-
-.prof-overlay-toggle-btn-lines.active {
-    background: var(--color-accent);
-    color: var(--color-bg-dark);
-}
-
-.prof-overlay-toggle-btn-vwap {
-    color: var(--color-tertiary);
-    border-color: color-mix(in srgb, var(--color-tertiary) 35%, transparent);
-}
-
-.prof-overlay-toggle-btn-vwap:hover {
-    background: color-mix(in srgb, var(--color-tertiary) 15%, transparent);
-}
-
-.prof-overlay-toggle-btn-vwap.active {
-    background: var(--color-tertiary);
-    color: var(--color-bg-dark);
-}
-
-.prof-overlay-toggle-btn-avg {
-    color: var(--color-badge-2);
-    border-color: color-mix(in srgb, var(--color-badge-2) 35%, transparent);
-}
-
-.prof-overlay-toggle-btn-avg:hover {
-    background: color-mix(in srgb, var(--color-badge-2) 15%, transparent);
-}
-
-.prof-overlay-toggle-btn-avg.active {
-    background: var(--color-badge-2);
-    color: var(--color-bg-dark);
-}
-
-.prof-overlay-toggle-btn-med {
-    color: var(--color-neutral);
-    border-color: color-mix(in srgb, var(--color-neutral) 35%, transparent);
-}
-
-.prof-overlay-toggle-btn-med:hover {
-    background: color-mix(in srgb, var(--color-neutral) 15%, transparent);
-}
-
-.prof-overlay-toggle-btn-med.active {
-    background: var(--color-neutral);
-    color: var(--color-bg-dark);
 }
 
 .prof-side-panel-tabs {

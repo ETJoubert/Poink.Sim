@@ -109,6 +109,10 @@ namespace Poink.Sim.Components.Charts
 		[Parameter]
 		public EventCallback<HashSet<TxFoldLevelKind>> ShownLevelsChanged { get; set; }
 
+		/// <summary>False when a host drives <see cref="ShownLevels"/> from elsewhere (the Indicators component), hiding TxFold's own level buttons.</summary>
+		[Parameter]
+		public bool ShowLevelToggles { get; set; } = true;
+
 		private List<TxFoldBar> _bars = new();
 		private IReadOnlyList<TxFoldVolumeBucket> _volumeProfile = Array.Empty<TxFoldVolumeBucket>();
 		private RangeStatsResult? _levels;

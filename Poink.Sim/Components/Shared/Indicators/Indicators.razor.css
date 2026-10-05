@@ -1,0 +1,90 @@
+.ind-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    padding: 5px 10px;
+    background: color-mix(in srgb, var(--color-secondary) 6%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-secondary) 30%, transparent);
+    border-radius: var(--border-radius-sm);
+}
+
+.ind-label {
+    font-size: 0.6rem;
+    font-weight: bold;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-secondary);
+    opacity: 0.9;
+}
+
+.ind-divider {
+    width: 1px;
+    align-self: stretch;
+    margin: 0 2px;
+    background: color-mix(in srgb, var(--color-secondary) 25%, transparent);
+}
+
+.ind-btn {
+    --ind-color: var(--color-secondary);
+    font-family: var(--font-body);
+    font-size: 0.62rem;
+    letter-spacing: 0.02em;
+    color: var(--ind-color);
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--ind-color) 35%, transparent);
+    padding: 2px 7px;
+    border-radius: var(--border-radius-sm);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s ease, color 0.15s ease, opacity 0.15s ease;
+}
+
+.ind-btn:hover {
+    background: color-mix(in srgb, var(--ind-color) 15%, transparent);
+}
+
+.ind-btn.active {
+    background: var(--ind-color);
+    color: var(--color-bg-dark);
+    font-weight: bold;
+}
+
+.ind-btn-muted {
+    opacity: 0.4;
+}
+
+.ind-btn-poc { --ind-color: var(--color-primary); }
+.ind-btn-vah,
+.ind-btn-val { --ind-color: var(--color-highlight); }
+.ind-btn-vwap { --ind-color: var(--color-tertiary); }
+.ind-btn-avg { --ind-color: var(--color-badge-2); }
+.ind-btn-med { --ind-color: var(--color-neutral); }
+.ind-btn-reg { --ind-color: var(--color-badge-1); }
+.ind-btn-day { --ind-color: var(--color-highlight); }
+.ind-btn-interval { --ind-color: var(--color-secondary); }
+.ind-btn-lookback { --ind-color: var(--color-info); }
+
+.ind-field {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.62rem;
+    letter-spacing: 0.02em;
+    color: var(--color-secondary);
+}
+
+.ind-input {
+    width: 4.5em;
+    font-family: var(--font-body);
+    font-size: 0.62rem;
+    color: var(--color-secondary);
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--color-secondary) 35%, transparent);
+    border-radius: var(--border-radius-sm);
+    padding: 2px 5px;
+}
+
+.ind-input-narrow {
+    width: 3.2em;
+}

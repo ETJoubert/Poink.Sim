@@ -1,9 +1,10 @@
 using System;
+using Poink.Sim.Components.Shared.Indicators;
 
 namespace Poink.Sim.Components.Profiler
 {
 	/// <summary>
-	/// The Profiler toolbar's global panel, overlay and Lookback Window state, applied identically to every symbol's chart set.
+	/// The Profiler toolbar's global panel, Indicators and Lookback Window state, applied identically to every symbol's chart set.
 	/// The window is held as bar OpenTimes so all sets cover the same slice of time; LookbackWidth is the toolbar's width in
 	/// primary-symbol bars, used when a symbol has no bars of its own inside the window.
 	/// </summary>
@@ -14,11 +15,7 @@ namespace Poink.Sim.Components.Profiler
 		bool ShowTimeProfile,
 		bool ShowSubchart,
 		bool ShowSnapshot,
-		bool ShowProfilePanelLevels,
-		bool ShowProfileChartLines,
-		bool ShowVwap,
-		bool ShowAverageLine,
-		bool ShowMedianLine,
+		IndicatorSettings Indicators,
 		bool LookbackEnabled,
 		DateTime? WindowStart,
 		DateTime? WindowEnd,

@@ -838,6 +838,11 @@ export function create(container, minimapContainer, dotNetRef, interactive) {
         // median's --color-neutral is otherwise unclaimed by any chart element.
         average: style.getPropertyValue('--color-badge-2').trim() || accentColor,
         median: style.getPropertyValue('--color-neutral').trim() || accentColor,
+        // Indicators' computed regression line and day/interval time lines -- the same
+        // colours as their XGrid and Indicators toggles so each overlay reads alike everywhere.
+        regression: style.getPropertyValue('--color-badge-1').trim() || accentColor,
+        day: style.getPropertyValue('--color-highlight').trim() || accentColor,
+        interval: style.getPropertyValue('--color-secondary').trim() || accentColor,
         // Closed-trade diagonal lines (entry -> exit), computed not user-drawn -- see
         // EpisodePlayback's episode replay, which colours each trade by its realized P&L
         // sign rather than by draw tool.

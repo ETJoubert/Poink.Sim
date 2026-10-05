@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
 using Poink.Sim.Components.Charts;
 using Poink.Sim.Components.Profiler;
+using Poink.Sim.Components.Shared.Indicators;
 using Poink.Sim.Helpers;
 using Poink.Sim.Models;
 using Poink.Sim.Profiler;
@@ -120,11 +121,7 @@ namespace Poink.Sim.Components.Pages
 		private int _lookbackWidth = 50;
 		private int _lookbackOffset;
 
-		private bool _showProfilePanelLevels = false;
-		private bool _showProfileChartLines = false;
-		private bool _showVwap = false;
-		private bool _showAverageLine = false;
-		private bool _showMedianLine = false;
+		private IndicatorSettings _indicators = new();
 
 		private bool _showMainChart = true;
 		private bool _showXGrid = true;
@@ -425,9 +422,9 @@ namespace Poink.Sim.Components.Pages
 			_lookbackEnabled = false;
 		}
 
-		private void ToggleLookbackWindow()
+		private void SetLookbackEnabled(bool enabled)
 		{
-			_lookbackEnabled = !_lookbackEnabled;
+			_lookbackEnabled = enabled;
 			if (_lookbackEnabled)
 				ApplyLookbackWindow();
 			else
@@ -501,11 +498,7 @@ namespace Poink.Sim.Components.Pages
 				_showTimeProfile,
 				_showSubchart,
 				_showSnapshot,
-				_showProfilePanelLevels,
-				_showProfileChartLines,
-				_showVwap,
-				_showAverageLine,
-				_showMedianLine,
+				_indicators,
 				_lookbackEnabled,
 				_volumeRangeStart,
 				_volumeRangeEnd,

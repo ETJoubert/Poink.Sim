@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 using Poink.Sim.Components.Charts;
+using Poink.Sim.Components.Shared.Indicators;
 using Poink.Sim.Models;
 using Poink.Sim.Services.Charts;
 
@@ -110,6 +111,9 @@ namespace Poink.Sim.Components.Profiler
 		private List<WeightedTimeSample> _timeSamples = new();
 		private List<ChartLinePoint> _vwapLine = new();
 		private List<ChartHorizontalLine> _horizontalLines = new();
+		private List<ChartVerticalLine> _verticalLines = new();
+		private List<ChartDiagonalLine> _diagonalLines = new();
+		private HashSet<TxFoldLevelKind> _txFoldLevels = new();
 		private List<ChartRangeFill> _rangeFills = new();
 		private (int Width, int Offset)? _windowInBars;
 
@@ -138,11 +142,20 @@ namespace Poink.Sim.Components.Profiler
 			_windowInBars = Options.LookbackEnabled && WindowStart is { } start && WindowEnd is { } end ? Data.WindowInBars(start, end) : null;
 			_samples = ProfilerSymbolStatsHelper.MergedSamples(Data, WindowStart, WindowEnd);
 			_timeSamples = Options.ShowTimeProfile ? ProfilerSymbolStatsHelper.MergedTimeSamples(Data, WindowStart, WindowEnd) : new();
-			_vwapLine = Options.ShowVwap ? ProfilerSymbolStatsHelper.Vwap(Data, WindowStart, WindowEnd) : new();
+			var indicators = Options.Indicators;
+			_vwapLine = indicators.VwapVisible ? ProfilerSymbolStatsHelper.Vwap(Data, WindowStart, WindowEnd) : new();
 			_horizontalLines = DrawingHorizontalLines
-				.Concat(Options.ShowProfileChartLines ? ProfilerSymbolStatsHelper.ProfileLevelLines(_samples) : [])
-				.Concat(ProfilerSymbolStatsHelper.AverageMedianLines(_samples, Options.ShowAverageLine, Options.ShowMedianLine))
+				.Concat(ProfilerSymbolStatsHelper.ProfileLevelLines(_samples, indicators.PocVisible, indicators.VahVisible, indicators.ValVisible))
+				.Concat(ProfilerSymbolStatsHelper.AverageMedianLines(_samples, indicators.AverageVisible, indicators.MedianVisible))
 				.ToList();
+			_verticalLines = DrawingVerticalLines
+				.Concat(indicators.DayLinesVisible ? ProfilerSymbolStatsHelper.TimeBoundaryLines(Data, 24, "day") : [])
+				.Concat(indicators.IntervalLinesVisible ? ProfilerSymbolStatsHelper.TimeBoundaryLines(Data, indicators.IntervalHours, "interval") : [])
+				.ToList();
+			_diagonalLines = DrawingDiagonalLines.ToList();
+			if (indicators.RegressionVisible && ProfilerSymbolStatsHelper.RegressionLine(Data, WindowStart, WindowEnd) is { } regression)
+				_diagonalLines.Add(regression);
+			_txFoldLevels = IndicatorsHelper.ToTxFoldLevels(indicators);
 			_rangeFills = DrawingRangeFills.Concat(LookbackWindowFill()).ToList();
 		}
 
@@ -249,6 +262,9 @@ namespace Poink.Sim.Components.Profiler
 			WindowStart is { } start && WindowEnd is { } end
 				? $"{Data.BarCountIn(start, end):N0} bars, {ProfilerFormatHelper.FormatSpan(end - start)}"
 				: null;
+
+		private bool ShowVolumeProfileLevels =>
+			Options.Indicators.PocVisible || Options.Indicators.VahVisible || Options.Indicators.ValVisible;
 
 		private string PipSizeLabel() => Data.PipSize is { } pipSize ? $"pip {pipSize:0.#########}" : $"pip {ProfilerSymbolData.FallbackPipSize} (assumed)";
 

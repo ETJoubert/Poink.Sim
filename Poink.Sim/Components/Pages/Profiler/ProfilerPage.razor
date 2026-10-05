@@ -5,6 +5,7 @@
 @using Poink.Sim.Components.Shared.BarSizeSelect
 @using Poink.Sim.Components.Shared.DataTable
 @using Poink.Sim.Components.Shared.Icon
+@using Poink.Sim.Components.Shared.Indicators
 @using Poink.Sim.Components.Shared.TickDataSource
 @using Poink.Sim.Helpers
 @using Poink.Sim.Repository
@@ -52,40 +53,9 @@
                     </select>
                 </label>
             </div>
-            <div class="prof-overlay-toggles"
-                 title="Toggle the computed chart overlays on every symbol's chart set -- these aren't Drawings, so they aren't listed/removable below">
-                <span class="prof-overlay-toggles-label">Overlays</span>
-                <button type="button" class="prof-overlay-toggle-btn prof-overlay-toggle-btn-poc @(_showProfilePanelLevels ? "active" : "")"
-                        @onclick="() => _showProfilePanelLevels = !_showProfilePanelLevels"
-                        title="Highlight the Point of Control (most-traded price) and Value Area rows inside the volume profile panel">POC/VA</button>
-                <button type="button" class="prof-overlay-toggle-btn prof-overlay-toggle-btn-lines @(_showProfileChartLines ? "active" : "")"
-                        @onclick="() => _showProfileChartLines = !_showProfileChartLines"
-                        title="Project the Point of Control/Value Area High/Low as three dashed lines on the main chart">POC/VAH/VAL</button>
-                <button type="button" class="prof-overlay-toggle-btn prof-overlay-toggle-btn-vwap @(_showVwap ? "active" : "")"
-                        @onclick="() => _showVwap = !_showVwap"
-                        title="Show a cumulative volume-weighted average price line on the main chart, narrowed to the Lookback Window if one is active">VWAP</button>
-                <button type="button" class="prof-overlay-toggle-btn prof-overlay-toggle-btn-avg @(_showAverageLine ? "active" : "")"
-                        @onclick="() => _showAverageLine = !_showAverageLine"
-                        title="Project the mean price as a dashed line on the main chart, narrowed to the Lookback Window if one is active">AVG</button>
-                <button type="button" class="prof-overlay-toggle-btn prof-overlay-toggle-btn-med @(_showMedianLine ? "active" : "")"
-                        @onclick="() => _showMedianLine = !_showMedianLine"
-                        title="Project the median price as a dashed line on the main chart, narrowed to the Lookback Window if one is active">MED</button>
-            </div>
-            <div class="prof-overlay-toggles prof-lookback-toggles"
-                 title="The Lookback Window narrows every symbol's volume/time profile panels, XGrid, and VWAP to the same slice of time -- set it here by width/offset (in the primary symbol's bars), drag it (or its edges, to resize) on the sparkline below, or draw it on any chart with the LOOKBACK WINDOW tool">
-                <button type="button" class="prof-overlay-toggle-btn @(_lookbackEnabled ? "active" : "")"
-                        @onclick="ToggleLookbackWindow" title="Turn the Lookback Window on/off">Lookback Window</button>
-                <label class="prof-lookback-field" title="Number of bars the window spans">
-                    Width
-                    <input type="number" min="1" class="prof-lookback-input" title="Number of bars the window spans"
-                           @bind="LookbackWidth" @bind:event="onchange" />
-                </label>
-                <label class="prof-lookback-field" title="Bars back from the most recently loaded bar to the end of the window">
-                    Offset
-                    <input type="number" min="0" class="prof-lookback-input" title="Bars back from the most recently loaded bar to the end of the window"
-                           @bind="LookbackOffset" @bind:event="onchange" />
-                </label>
-            </div>
+            <Indicators @bind-Settings="_indicators"
+                        LookbackEnabled="_lookbackEnabled" LookbackEnabledChanged="SetLookbackEnabled"
+                        @bind-LookbackWidth="LookbackWidth" @bind-LookbackOffset="LookbackOffset" />
             <div class="prof-overlay-toggles prof-profile-toggles" title="Show or hide the chart and profile panels in every symbol's chart set">
                 <span class="prof-overlay-toggles-label">Panels</span>
                 <button type="button" class="prof-overlay-toggle-btn @(_showMainChart ? "active" : "")"
