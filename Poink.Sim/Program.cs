@@ -41,6 +41,7 @@ builder.Services.AddScoped<ILocalStorageHelper, LocalStorageHelper>();
 builder.Services.BuildTradePageServices();
 builder.Services.BuildCodeGraphServices();
 builder.Services.BuildCallGraphServices();
+builder.Services.BuildActivityServices();
 
 // Snapshot of every registration above, so the Arch page can graph the DI container itself.
 builder.Services.AddSingleton<IReadOnlyList<ServiceDescriptor>>(builder.Services.ToList());

@@ -1,8 +1,12 @@
 @using Poink.Sim.Components.Shared.Icon
+@using Poink.Sim.Services.Activity
+@implements IDisposable
+@inject IActivityTracker ActivityTracker
+@inject NavigationManager Navigation
 
 @if (_openGroup is not null)
 {
-    <div class="nav-dropdown-backdrop" @onclick="CloseGroup"></div>
+    <div class="nav-dropdown-backdrop" title="Close menu" @onclick="CloseGroup"></div>
 }
 
 @foreach (var entry in Entries)
@@ -31,42 +35,36 @@
                 <div class="nav-dropdown">
                     @foreach (var child in group.Children)
                     {
-                        <NavLink href="@child.Route" class="@($"{LinkClass} nav-dropdown-item")" Match="NavLinkMatch.All"
-                                 title="@child.Label" @onclick="CloseGroup">
-                            @if (Collapsed)
-                            {
-                                <span class="nav-icon">
-                                    <Icon Name="@child.Icon" Class="nav-icon-img" />
-                                </span>
-                            }
-                            else
-                            {
-                                <span>
-                                    <Icon Name="@child.Icon" Class="nav-icon-img" /> @child.Label
-                                </span>
-                            }
-                        </NavLink>
+                        <NavTabLink Link="child" LinkClass="@LinkClass" ExtraClass="nav-dropdown-item" Collapsed="Collapsed"
+                                    Activity="ActivityTracker.GetRoute(child.Route)" OnClick="CloseGroup" />
                     }
                 </div>
             }
         </div>
     }
+    else if (entry is NavClusterItem cluster)
+    {
+        <div class="nav-cluster @(Collapsed ? "collapsed" : "")" title="@cluster.Description">
+            <span class="nav-cluster-label" title="@cluster.Description">
+                @if (Collapsed)
+                {
+                    <Icon Name="@cluster.Icon" Class="nav-cluster-icon" />
+                }
+                else
+                {
+                    @cluster.Label
+                }
+            </span>
+            @foreach (var child in cluster.Children)
+            {
+                <NavTabLink Link="child" LinkClass="@LinkClass" ExtraClass="nav-cluster-item" Collapsed="Collapsed"
+                            Activity="ActivityTracker.GetRoute(child.Route)" />
+            }
+        </div>
+    }
     else if (entry is NavLinkItem link)
     {
-        <NavLink href="@link.Route" class="@LinkClass" Match="NavLinkMatch.All" title="@link.Label">
-            @if (Collapsed)
-            {
-                <span class="nav-icon">
-                    <Icon Name="@link.Icon" Class="nav-icon-img" />
-                </span>
-            }
-            else
-            {
-                <span>
-                    <Icon Name="@link.Icon" Class="nav-icon-img" /> @link.Label
-                </span>
-            }
-        </NavLink>
+        <NavTabLink Link="link" LinkClass="@LinkClass" Collapsed="Collapsed" Activity="ActivityTracker.GetRoute(link.Route)" />
     }
 }
 
@@ -97,11 +95,36 @@
     private static readonly NavEntry[] Entries =
     [
         new NavGroupItem("Reflection", "diagram-3-fill", ReflectionChildren),
-        new NavGroupItem("Testing", "check2-square", TestingChildren),
+        new NavClusterItem("Test", "check2-square", "Testing: simulation, training and study tools", TestingChildren),
         new NavLinkItem("/trade", "Trade", "cash-stack"),
         new NavLinkItem("/data", "Data", "cloud-download"),
         new NavLinkItem("/analize", "Analize", "graph-up-arrow"),
     ];
+
+    protected override void OnInitialized()
+    {
+        ActivityTracker.Changed += HandleActivityChanged;
+        Navigation.LocationChanged += HandleLocationChanged;
+        AcknowledgeCurrentRoute();
+    }
+
+    private void HandleActivityChanged() => _ = InvokeAsync(() =>
+    {
+        AcknowledgeCurrentRoute();
+        StateHasChanged();
+    });
+
+    private void HandleLocationChanged(object? sender, LocationChangedEventArgs e) => AcknowledgeCurrentRoute();
+
+    // A finished run's highlight stays until its tab is on screen, so whichever tab is current clears its own.
+    private void AcknowledgeCurrentRoute() => ActivityTracker.Acknowledge(CurrentRoute());
+
+    private string CurrentRoute()
+    {
+        var relative = Navigation.ToBaseRelativePath(Navigation.Uri);
+        var end = relative.IndexOfAny(['?', '#']);
+        return "/" + (end < 0 ? relative : relative[..end]).TrimEnd('/');
+    }
 
     private bool IsOpen(NavGroupItem group) => ReferenceEquals(_openGroup, group);
 
@@ -123,5 +146,11 @@
     {
         var isOpen = _openGroup is not null;
         return wasOpen != isOpen ? OnDropdownToggled.InvokeAsync(isOpen) : Task.CompletedTask;
+    }
+
+    public void Dispose()
+    {
+        ActivityTracker.Changed -= HandleActivityChanged;
+        Navigation.LocationChanged -= HandleLocationChanged;
     }
 }

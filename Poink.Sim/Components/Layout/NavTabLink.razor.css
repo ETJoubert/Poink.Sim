@@ -1,0 +1,15 @@
+.nav-icon {
+  display: block;
+  text-align: center;
+}
+
+::deep .nav-icon-img {
+  width: 18px;
+  height: 18px;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+.nav-icon ::deep .nav-icon-img {
+  margin: 0 auto;
+}

@@ -26,7 +26,7 @@ namespace Poink.Sim.Components.Pages
 {
 	public partial class TrainPageV2 : ComponentBase, IDisposable
 	{
-		public void Dispose() => _runCancellation?.Cancel();
+		public void Dispose() => DetachFromRun();
 
 		#region Tabs
 
@@ -54,7 +54,7 @@ namespace Poink.Sim.Components.Pages
 
 		private TrainV2Tab _activeTab = TrainV2Tab.Data;
 
-		// Background mode leaves Live with nothing current to show (see RunOneEpisode) -- hidden, not just disabled.
+		// Background mode leaves Live with nothing current to show (see AttachToRun) -- hidden, not just disabled.
 		private IEnumerable<TrainV2Tab> VisibleTabs => _backgroundMode ? Tabs.Where(t => t != TrainV2Tab.Live) : Tabs;
 
 		private void SelectTab(TrainV2Tab tab)
@@ -846,19 +846,8 @@ namespace Poink.Sim.Components.Pages
 		#region Run
 
 		[Inject]
-		private TrainingEngineService TrainingEngineService { get; set; } = default!;
+		private TrainingRunService TrainingRun { get; set; } = default!;
 
-		[Inject]
-		private ActionAssembler ActionAssembler { get; set; } = default!;
-
-		// Matches TrainingService's own windows (RecentRewardWindow/MaxMetricsLog), for consistent
-		// UI behavior between the old and new pages.
-		private const int RecentRewardWindow = 20;
-		private const int MaxRetainedEpisodes = 500;
-
-		private bool _isRunning;
-		private bool _isPaused;
-		private string? _runError;
 		private bool _optionsSummaryCollapsed;
 
 		// Compact architecture-shape label for the Options Summary card -- NetworkColumns is the
@@ -871,11 +860,7 @@ namespace Poink.Sim.Components.Pages
 				_ => string.Join(" -> ", _mlpHiddenSizes),
 			};
 
-		private CancellationTokenSource? _runCancellation;
-		private MlpNetwork? _runNetwork;
-		private ActionSpace? _runActionSpace;
-
-		// Forces max speed and skips onDecision entirely -- see RunOneEpisode.
+		// Forces max speed and skips the live callbacks entirely -- see AttachToRun.
 		private bool _backgroundMode;
 
 		private void ToggleBackgroundMode()
@@ -885,210 +870,61 @@ namespace Poink.Sim.Components.Pages
 				_activeTab = TrainV2Tab.Run;
 		}
 
-		// Render reads _episodeMetricsSnapshot (atomically-swapped, never mutated in place) instead
-		// of this background-thread-mutated list, same pattern as LiveUiState.
-		private readonly List<RlEpisodeMetric> _episodeMetrics = [];
-		private IReadOnlyList<RlEpisodeMetric> _episodeMetricsSnapshot = [];
-		private readonly Queue<double> _recentRewards = new();
-		private readonly Queue<double> _recentEpisodeDurations = new();
-		private int _episodesCompleted;
-		private double _bestReward;
-		private double _worstReward;
-		private double _recentAverageReward;
-		private double _episodesPerSecond;
-
-		// Captured once per run session (see EnsureRunNetwork) so editing the Training tab's episode
-		// count mid-run can't retarget the progress bar away from what RunTrainingLoopAsync captured.
-		private int _runTargetEpisodeCount;
+		private TrainingRunObserver? _runObserver;
 
 		private int TargetEpisodeCount =>
-			_runTargetEpisodeCount > 0 ? _runTargetEpisodeCount : CurrentTrainingOptions.Training.EpisodeTiming.EpisodeCount;
+			TrainingRun.TargetEpisodeCount > 0 ? TrainingRun.TargetEpisodeCount : CurrentTrainingOptions.Training.EpisodeTiming.EpisodeCount;
 
 		private double RunProgressPercent =>
-			TargetEpisodeCount == 0 ? 0 : Math.Min(100.0, _episodesCompleted * 100.0 / TargetEpisodeCount);
+			TargetEpisodeCount == 0 ? 0 : Math.Min(100.0, TrainingRun.EpisodesCompleted * 100.0 / TargetEpisodeCount);
 
-		private double WinRatePercent => _episodeMetricsSnapshot.Count == 0 ? 0 : RlEpisodeMetricStats.WinRate(_episodeMetricsSnapshot);
+		private double WinRatePercent => TrainingRun.EpisodeMetrics.Count == 0 ? 0 : RlEpisodeMetricStats.WinRate(TrainingRun.EpisodeMetrics);
 
-		private double MedianReward => _episodeMetricsSnapshot.Count == 0 ? 0 : RlEpisodeMetricStats.Median(_episodeMetricsSnapshot);
+		private double MedianReward => TrainingRun.EpisodeMetrics.Count == 0 ? 0 : RlEpisodeMetricStats.Median(TrainingRun.EpisodeMetrics);
 
-		private double RewardStdDev => _episodeMetricsSnapshot.Count == 0 ? 0 : RlEpisodeMetricStats.StdDev(_episodeMetricsSnapshot);
+		private double RewardStdDev => TrainingRun.EpisodeMetrics.Count == 0 ? 0 : RlEpisodeMetricStats.StdDev(TrainingRun.EpisodeMetrics);
 
-		private double RewardSpread => _episodeMetrics.Count == 0 ? 0 : _bestReward - _worstReward;
+		private double RewardSpread => TrainingRun.EpisodeMetrics.Count == 0 ? 0 : TrainingRun.BestReward - TrainingRun.WorstReward;
 
-		private void StartRun()
+		// The run outlives this page, so the page only watches it -- detaching drops the run to headless max speed.
+		private void AttachToRun()
 		{
-			if (_isRunning)
-				return;
-
-			ClearViewedSavedResults();
-			_isRunning = true;
-			_isPaused = false;
-			_runError = null;
-			_runCancellation = new CancellationTokenSource();
-			var options = CurrentTrainingOptions;
-			var token = _runCancellation.Token;
-
-			_ = Task.Run(() => RunTrainingLoopAsync(options, token));
-		}
-
-		private async Task RunTrainingLoopAsync(TrainingOptionsModel options, CancellationToken cancellationToken)
-		{
-			try
-			{
-				EnsureRunNetwork(options);
-
-				var random = new Random();
-				for (var i = 0; i < options.Training.EpisodeTiming.EpisodeCount; i++)
-				{
-					while (_isPaused)
-					{
-						if (cancellationToken.IsCancellationRequested)
-							return;
-						await Task.Delay(200, cancellationToken);
-					}
-					cancellationToken.ThrowIfCancellationRequested();
-
-					await RunOneEpisode(options, random, cancellationToken);
-					await InvokeAsync(StateHasChanged);
-				}
-			}
-			catch (OperationCanceledException)
-			{
-				// Expected when Stop cancels the token mid-run.
-			}
-			catch (Exception ex)
-			{
-				_runError = ex.Message;
-			}
-			finally
-			{
-				_isRunning = false;
-				_isPaused = false;
-				await InvokeAsync(StateHasChanged);
-			}
-		}
-
-		private void EnsureRunNetwork(TrainingOptionsModel options)
-		{
-			if (_runNetwork is not null && _runActionSpace is not null)
-				return;
-
-			_runTargetEpisodeCount = options.Training.EpisodeTiming.EpisodeCount;
-			var random = new Random();
-			_runActionSpace = ActionAssembler.Assemble(options.Output);
-			_runNetwork = TrainingEngineService.BuildNetwork(options, _runActionSpace, random);
-		}
-
-		private async Task RunOneEpisode(TrainingOptionsModel options, Random random, CancellationToken cancellationToken)
-		{
-			ResetLiveEpisodeState();
-			var stopwatch = Stopwatch.StartNew();
-			var episodeCount = TargetEpisodeCount;
-			var progress = episodeCount > 1 ? (double)_episodesCompleted / (episodeCount - 1) : 1.0;
-			var result = await TrainingEngineService.RunEpisode(
-				options,
-				_runNetwork!,
-				_runActionSpace!,
-				random,
-				progress,
-				_backgroundMode ? null : OnLiveDecision,
-				_backgroundMode ? null : OnLiveTick,
+			_runObserver = new TrainingRunObserver(
+				() => !_backgroundMode,
+				ResetLiveEpisodeState,
+				OnLiveDecision,
+				OnLiveTick,
 				() => _backgroundMode ? TimeSpan.Zero : LiveTickDelay,
-				() => _activeTab == TrainV2Tab.Live && _liveShowActions,
-				() => _isPaused,
-				cancellationToken
+				() => _activeTab == TrainV2Tab.Live && _liveShowActions
 			);
-			stopwatch.Stop();
-
-			_episodesCompleted++;
-			_bestReward = _episodesCompleted == 1 ? result.Reward : Math.Max(_bestReward, result.Reward);
-			_worstReward = _episodesCompleted == 1 ? result.Reward : Math.Min(_worstReward, result.Reward);
-
-			_recentRewards.Enqueue(result.Reward);
-			if (_recentRewards.Count > RecentRewardWindow)
-				_recentRewards.Dequeue();
-			_recentAverageReward = _recentRewards.Average();
-
-			_recentEpisodeDurations.Enqueue(stopwatch.Elapsed.TotalSeconds);
-			if (_recentEpisodeDurations.Count > RecentRewardWindow)
-				_recentEpisodeDurations.Dequeue();
-			var durationSum = _recentEpisodeDurations.Sum();
-			_episodesPerSecond = durationSum > 0 ? _recentEpisodeDurations.Count / durationSum : 0;
-
-			_episodeMetrics.Add(new RlEpisodeMetric(_episodesCompleted, result.Reward, result.FinalCapital.Equity));
-			if (_episodeMetrics.Count > MaxRetainedEpisodes)
-				_episodeMetrics.RemoveAt(0);
-			_episodeMetricsSnapshot = _episodeMetrics.ToArray();
+			TrainingRun.Attach(_runObserver);
+			TrainingRun.Changed += HandleRunChanged;
 		}
 
-		private async Task StepRun()
+		private void DetachFromRun()
 		{
-			if (_isRunning && !_isPaused)
-				return;
-
-			try
-			{
-				ClearViewedSavedResults();
-				var options = CurrentTrainingOptions;
-				EnsureRunNetwork(options);
-				_runCancellation = new CancellationTokenSource();
-				await RunOneEpisode(options, new Random(), _runCancellation.Token);
-				_runError = null;
-			}
-			catch (OperationCanceledException)
-			{
-				// Expected when Reset cancels mid-step.
-			}
-			catch (Exception ex)
-			{
-				_runError = ex.Message;
-			}
+			TrainingRun.Changed -= HandleRunChanged;
+			if (_runObserver is not null)
+				TrainingRun.Detach(_runObserver);
 		}
+
+		private void HandleRunChanged() => _ = InvokeAsync(StateHasChanged);
+
+		private void StartRun() => TrainingRun.Start(CurrentTrainingOptions);
+
+		private Task StepRun() => TrainingRun.Step(CurrentTrainingOptions);
 
 		private void ResetRun()
 		{
-			_runCancellation?.Cancel();
-			_isRunning = false;
-			_isPaused = false;
-			_runNetwork = null;
-			_runActionSpace = null;
-			_runTargetEpisodeCount = 0;
-			_loadedEpisodesTrained = 0;
-			ClearRunMetrics();
-			_runError = null;
+			TrainingRun.Reset();
 			ResetLiveEpisodeState();
 		}
 
-		private void ClearRunMetrics()
-		{
-			_episodeMetrics.Clear();
-			_episodeMetricsSnapshot = [];
-			_recentRewards.Clear();
-			_recentEpisodeDurations.Clear();
-			_episodesCompleted = 0;
-			_bestReward = 0;
-			_worstReward = 0;
-			_recentAverageReward = 0;
-			_episodesPerSecond = 0;
-			_viewingSavedResults = false;
-		}
+		private void PauseRun() => TrainingRun.Pause();
 
-		private void ClearViewedSavedResults()
-		{
-			if (_viewingSavedResults)
-				ClearRunMetrics();
-		}
+		private void ResumeRun() => TrainingRun.Resume();
 
-		private void PauseRun() => _isPaused = true;
-
-		private void ResumeRun() => _isPaused = false;
-
-		private void StopRun()
-		{
-			_runCancellation?.Cancel();
-			_isRunning = false;
-			_isPaused = false;
-		}
+		private void StopRun() => TrainingRun.Stop();
 
 		#endregion
 
@@ -1213,7 +1049,7 @@ namespace Poink.Sim.Components.Pages
 		// enabled) -- feeds BrainIoPanel, the same action-distribution card the old training page uses.
 		private IReadOnlyList<RlOutputFeature>? BuildLiveOutputFeatures(LiveUiState? live)
 		{
-			if (live is null || _runActionSpace is not { } actionSpace)
+			if (live is null || TrainingRun.ActionSpace is not { } actionSpace)
 				return null;
 
 			var s = live.Snapshot;
@@ -1259,9 +1095,9 @@ namespace Poink.Sim.Components.Pages
 		// since the Run tab still shows them as distinct buttons.
 		private void ToggleLiveRun()
 		{
-			if (_isPaused)
+			if (TrainingRun.IsPaused)
 				ResumeRun();
-			else if (_isRunning)
+			else if (TrainingRun.IsRunning)
 				PauseRun();
 			else
 				StartRun();
@@ -1283,7 +1119,11 @@ namespace Poink.Sim.Components.Pages
 		private bool _modelsPanelCollapsed;
 		private ModelsPanelTab _modelsPanelTab = ModelsPanelTab.Models;
 
-		protected override Task OnInitializedAsync() => RefreshModelsWithStatusAsync();
+		protected override Task OnInitializedAsync()
+		{
+			AttachToRun();
+			return RefreshModelsWithStatusAsync();
+		}
 
 		private Task RefreshModelsWithStatusAsync() =>
 			ReportModelsAsync(async () =>
@@ -1323,33 +1163,28 @@ namespace Poink.Sim.Components.Pages
 		private string? _modelsStatus;
 		private bool _modelsStatusIsError;
 
-		// A loaded model arrives with episodes already trained, which this session's counter doesn't include.
-		private int _loadedEpisodesTrained;
+		private bool IsTrainingInProgress => TrainingRun.IsTrainingInProgress;
 
-		private bool _viewingSavedResults;
-		private string _viewedResultsName = "";
-
-		private bool IsTrainingInProgress => _isRunning && !_isPaused;
-
-		private bool CanSaveModel => _runNetwork is not null && !IsTrainingInProgress;
+		private bool CanSaveModel => TrainingRun.Network is not null && !IsTrainingInProgress;
 
 		private string? SaveModelBlockedReason =>
-			_runNetwork is null ? "Nothing to save yet -- start or step the run once so a network exists"
+			TrainingRun.Network is null ? "Nothing to save yet -- start or step the run once so a network exists"
 			: IsTrainingInProgress ? "Pause or stop the run first -- the weights are still changing"
 			: null;
 
-		private bool CanSaveResults => _selectedModelId is not null && _episodeMetrics.Count > 0 && !_viewingSavedResults && !IsTrainingInProgress;
+		private bool CanSaveResults =>
+			_selectedModelId is not null && TrainingRun.EpisodeMetrics.Count > 0 && !TrainingRun.IsViewingSavedResults && !IsTrainingInProgress;
 
 		private string? SaveResultsBlockedReason =>
 			_selectedModelId is null ? "Click a model's card first -- results are saved under the selected model"
-			: _viewingSavedResults ? "These are already saved results -- start a run to produce new ones"
-			: _episodeMetrics.Count == 0 ? "No episodes have completed yet"
+			: TrainingRun.IsViewingSavedResults ? "These are already saved results -- start a run to produce new ones"
+			: TrainingRun.EpisodeMetrics.Count == 0 ? "No episodes have completed yet"
 			: IsTrainingInProgress ? "Pause or stop the run first"
 			: null;
 
-		private bool CanLoadModels => !_isRunning;
+		private bool CanLoadModels => !TrainingRun.IsRunning;
 
-		private string? LoadModelsBlockedReason => _isRunning ? "Stop the run first" : null;
+		private string? LoadModelsBlockedReason => TrainingRun.IsRunning ? "Stop the run first" : null;
 
 		private async Task ReportModelsAsync(Func<Task<string?>> action)
 		{
@@ -1389,7 +1224,12 @@ namespace Poink.Sim.Components.Pages
 		private Task SaveModelAsync(string name) =>
 			ReportModelsAsync(async () =>
 			{
-				var id = await TrainedModelService.SaveAsync(name, CurrentTrainingOptions, _runNetwork!, _loadedEpisodesTrained + _episodesCompleted);
+				var id = await TrainedModelService.SaveAsync(
+					name,
+					CurrentTrainingOptions,
+					TrainingRun.Network!,
+					TrainingRun.LoadedEpisodesTrained + TrainingRun.EpisodesCompleted
+				);
 				_selectedModelId = id;
 				await RefreshModelsAsync();
 				return $"Saved model '{name.Trim()}'.";
@@ -1402,10 +1242,12 @@ namespace Poink.Sim.Components.Pages
 
 				ResetRun();
 				await ApplyTrainingOptionsAsync(loaded.Options);
-				_runNetwork = loaded.Network;
-				_runActionSpace = loaded.ActionSpace;
-				_runTargetEpisodeCount = loaded.Options.Training.EpisodeTiming.EpisodeCount;
-				_loadedEpisodesTrained = loaded.Summary.EpisodesTrained;
+				TrainingRun.LoadModel(
+					loaded.Network,
+					loaded.ActionSpace,
+					loaded.Options.Training.EpisodeTiming.EpisodeCount,
+					loaded.Summary.EpisodesTrained
+				);
 				_selectedModelId = id;
 				await RefreshHistoryAsync();
 				return $"Loaded '{loaded.Summary.Name}' ({loaded.Summary.EpisodesTrained} episodes trained) -- press Start on the Run tab to train it further.";
@@ -1434,17 +1276,11 @@ namespace Poink.Sim.Components.Pages
 			{
 				var modelId = _selectedModelId ?? throw new InvalidOperationException("Select a model first.");
 				var modelName = _savedModels.FirstOrDefault(m => m.Id == modelId)?.Name ?? "model";
-				var resultsName = string.IsNullOrWhiteSpace(name) ? $"{modelName} - {_episodesCompleted} eps - {DateTime.Now:yyyy-MM-dd HH:mm}" : name;
-				var run = new TrainingRunSnapshot(
-					_episodeMetricsSnapshot,
-					_episodesCompleted,
-					_loadedEpisodesTrained + _episodesCompleted,
-					_recentAverageReward,
-					_bestReward,
-					_worstReward
-				);
+				var resultsName = string.IsNullOrWhiteSpace(name)
+					? $"{modelName} - {TrainingRun.EpisodesCompleted} eps - {DateTime.Now:yyyy-MM-dd HH:mm}"
+					: name;
 
-				await TrainingHistoryService.SaveAsync(modelId, resultsName, CurrentTrainingOptions, run);
+				await TrainingHistoryService.SaveAsync(modelId, resultsName, CurrentTrainingOptions, TrainingRun.CurrentRunSnapshot);
 				await RefreshHistoryAsync();
 				return $"Saved results '{resultsName.Trim()}' for '{modelName}'.";
 			});
@@ -1454,15 +1290,7 @@ namespace Poink.Sim.Components.Pages
 			{
 				var data = await TrainingHistoryService.LoadAsync(id) ?? throw new InvalidOperationException("Those results no longer exist.");
 
-				ClearRunMetrics();
-				_episodeMetrics.AddRange(data.Episodes);
-				_episodeMetricsSnapshot = _episodeMetrics.ToArray();
-				_episodesCompleted = data.Summary.EpisodesCompleted;
-				_bestReward = data.Summary.BestReward;
-				_worstReward = data.Summary.WorstReward;
-				_recentAverageReward = data.Summary.RecentAverageReward;
-				_viewingSavedResults = true;
-				_viewedResultsName = data.Summary.Name;
+				TrainingRun.ShowSavedResults(data);
 				_activeTab = TrainV2Tab.Run;
 				return null;
 			});
@@ -1490,15 +1318,50 @@ namespace Poink.Sim.Components.Pages
 
 		private string? _lastPersistedOptionsJson;
 
+		// The run outlives the page, so its viewing pace must too -- otherwise returning would slow a MAX run back to 1x.
+		private const string LivePlaybackStorageKey = "poink.train2.live";
+
+		private string? _lastPersistedLivePlaybackJson;
+
+		private sealed record LivePlaybackPreferences(int SpeedIndex, bool BackgroundMode);
+
+		private LivePlaybackPreferences CurrentLivePlayback => new(_liveSpeedIndex, _backgroundMode);
+
 		protected override async Task OnAfterRenderAsync(bool firstRender)
 		{
 			if (firstRender)
 			{
 				await LoadPersistedOptionsAsync();
+				await LoadPersistedLivePlaybackAsync();
 				return;
 			}
 
 			await PersistOptionsIfChangedAsync();
+			await PersistLivePlaybackIfChangedAsync();
+		}
+
+		private async Task LoadPersistedLivePlaybackAsync()
+		{
+			var playback = await LocalStorage.GetItemAsync<LivePlaybackPreferences>(LivePlaybackStorageKey);
+			if (playback is null)
+				return;
+
+			_liveSpeedIndex = Math.Clamp(playback.SpeedIndex, 0, LiveSpeedOptions.Length - 1);
+			_backgroundMode = playback.BackgroundMode;
+			if (_backgroundMode && _activeTab == TrainV2Tab.Live)
+				_activeTab = TrainV2Tab.Run;
+			_lastPersistedLivePlaybackJson = JsonSerializer.Serialize(CurrentLivePlayback);
+			StateHasChanged();
+		}
+
+		private async Task PersistLivePlaybackIfChangedAsync()
+		{
+			var json = JsonSerializer.Serialize(CurrentLivePlayback);
+			if (json == _lastPersistedLivePlaybackJson)
+				return;
+
+			_lastPersistedLivePlaybackJson = json;
+			await LocalStorage.SetItemAsync(LivePlaybackStorageKey, CurrentLivePlayback);
 		}
 
 		private async Task LoadPersistedOptionsAsync()

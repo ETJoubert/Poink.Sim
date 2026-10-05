@@ -1,0 +1,42 @@
+@using System.Globalization
+@using Poink.Sim.Services.Activity
+
+@if (ReserveSpace || Activity.IsRunning || Activity.NeedsAttention)
+{
+    <span class="activity-slot @Class" title="@Tooltip">
+        @if (Activity.IsRunning)
+        {
+            <svg class="activity-dial @(Activity.ProgressPercent.HasValue ? "determinate" : "indeterminate")" viewBox="0 0 20 20" aria-hidden="true">
+                <circle class="activity-dial-track" cx="10" cy="10" r="7.5" pathLength="100" />
+                <circle class="activity-dial-arc" cx="10" cy="10" r="7.5" pathLength="100"
+                        stroke-dasharray="@ArcLength 100" transform="rotate(-90 10 10)" />
+            </svg>
+        }
+        else if (Activity.Unseen is { } unseen)
+        {
+            <span class="activity-dot @(unseen.IsFailure ? "failed" : "completed")"></span>
+        }
+    </span>
+}
+
+@code {
+    private const double IndeterminateArcPercent = 28;
+
+    [Parameter, EditorRequired] public RouteActivity Activity { get; set; } = RouteActivity.Idle;
+    [Parameter] public string? Class { get; set; }
+
+    /// <summary>Keeps an empty slot while idle, so the host never resizes when activity starts or ends.</summary>
+    [Parameter] public bool ReserveSpace { get; set; } = true;
+
+    private string ArcLength =>
+        (Activity.ProgressPercent ?? IndeterminateArcPercent).ToString("0.#", CultureInfo.InvariantCulture);
+
+    private string? Tooltip =>
+        Activity switch
+        {
+            { IsRunning: true, ProgressPercent: { } percent } => $"Running -- {percent:0}%",
+            { IsRunning: true } => "Running",
+            { Unseen: { } unseen } => $"{unseen.Name} {(unseen.IsFailure ? "failed" : "finished")} -- open the tab to clear",
+            _ => null,
+        };
+}
