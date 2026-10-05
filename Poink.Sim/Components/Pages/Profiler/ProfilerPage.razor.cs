@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
@@ -34,9 +35,21 @@ namespace Poink.Sim.Components.Pages
 		private ISymbolTableResolver SymbolTableResolver { get; set; } = default!;
 
 		[Inject]
+		private ILocalStorageHelper LocalStorage { get; set; } = default!;
+
+		[Inject]
 		private ILogger<ProfilerPage> Logger { get; set; } = default!;
 
 		private const int BarsPerFetch = 300;
+
+		private const string SettingsStorageKey = ProfilerPageSettings.StorageKey;
+
+		private string? _lastPersistedSettingsJson;
+
+		// Gates TickDataSource too, so it can't seed its default table over a restored symbol selection.
+		private bool _settingsLoaded;
+
+		private Dictionary<string, double> _setHeights = new();
 
 		private string _table = "";
 
@@ -158,6 +171,131 @@ namespace Poink.Sim.Components.Pages
 		{
 			_savedTRangeCharts = TRangeChartRepository.ListTRangeCharts();
 			_savedTRangeReferenceCharts = TRangeReferenceChartRepository.ListTRangeReferenceCharts();
+		}
+
+		protected override async Task OnAfterRenderAsync(bool firstRender)
+		{
+			if (firstRender)
+			{
+				await LoadPersistedSettingsAsync();
+				await LoadRestoredSelectionAsync();
+				return;
+			}
+
+			await PersistSettingsIfChangedAsync();
+		}
+
+		private ProfilerPageSettings CurrentSettings =>
+			new(
+				_from,
+				_to,
+				_selectedTables,
+				_barSizeSeconds,
+				_barAggregationKind,
+				_indicators,
+				_lookbackEnabled,
+				_lookbackWidth,
+				_lookbackOffset,
+				_showMainChart,
+				_showXGrid,
+				_showVolumeProfile,
+				_showTimeProfile,
+				_showSubchart,
+				_showSnapshot,
+				_subchartBarSizeSeconds,
+				_subchartBarKind,
+				_xgridColCount,
+				_rightPanelCollapsed,
+				_setHeights
+			);
+
+		private async Task LoadPersistedSettingsAsync()
+		{
+			try
+			{
+				if (await LocalStorage.GetItemAsync<ProfilerPageSettings>(SettingsStorageKey) is { } settings)
+				{
+					ApplySettings(settings);
+					Logger.LogInformation(
+						"Profiler settings restored for [{Tables}] from {From} to {To} at {BarSize}s bars",
+						string.Join(", ", _selectedTables),
+						_from,
+						_to,
+						_barSizeSeconds
+					);
+				}
+				_lastPersistedSettingsJson = JsonSerializer.Serialize(CurrentSettings);
+			}
+			finally
+			{
+				_settingsLoaded = true;
+			}
+			StateHasChanged();
+		}
+
+		private void ApplySettings(ProfilerPageSettings settings)
+		{
+			_from = settings.From;
+			_to = settings.To;
+			_selectedTables = settings.SelectedTables?.Distinct().ToList() ?? new();
+			_table = _selectedTables.FirstOrDefault() ?? "";
+			_barSizeSeconds = settings.BarSizeSeconds;
+			_barAggregationKind = settings.BarAggregationKind;
+			_indicators = settings.Indicators ?? new();
+			_lookbackEnabled = settings.LookbackEnabled;
+			_lookbackWidth = Math.Max(1, settings.LookbackWidth);
+			_lookbackOffset = Math.Max(0, settings.LookbackOffset);
+			_showMainChart = settings.ShowMainChart;
+			_showXGrid = settings.ShowXGrid;
+			_showVolumeProfile = settings.ShowVolumeProfile;
+			_showTimeProfile = settings.ShowTimeProfile;
+			_showSubchart = settings.ShowSubchart;
+			_showSnapshot = settings.ShowSnapshot;
+			_subchartBarSizeSeconds = settings.SubchartBarSizeSeconds;
+			_subchartBarKind = settings.SubchartBarKind;
+			_xgridColCount = settings.XGridColCount;
+			_rightPanelCollapsed = settings.RightPanelCollapsed;
+			_setHeights = settings.SetHeights ?? new();
+		}
+
+		// Saving before the stored settings were read would overwrite them with the page's defaults.
+		private async Task PersistSettingsIfChangedAsync()
+		{
+			if (!_settingsLoaded)
+				return;
+
+			var json = JsonSerializer.Serialize(CurrentSettings);
+			if (json == _lastPersistedSettingsJson)
+				return;
+
+			_lastPersistedSettingsJson = json;
+			await LocalStorage.SetItemAsync(SettingsStorageKey, CurrentSettings);
+		}
+
+		// Stands in for the first-visit auto-load, which only fires when TickDataSource seeds a default table.
+		private async Task LoadRestoredSelectionAsync()
+		{
+			if (string.IsNullOrWhiteSpace(_table))
+				return;
+
+			_autoLoadPending = false;
+			var loading = Load();
+			StateHasChanged();
+			await loading;
+
+			if (_lookbackEnabled)
+				ApplyLookbackWindow();
+			StateHasChanged();
+		}
+
+		private double? SetHeight(string table) => _setHeights.TryGetValue(table, out var height) ? height : null;
+
+		private void OnSetHeightChanged(string table, double? height)
+		{
+			if (height is { } resized)
+				_setHeights[table] = resized;
+			else
+				_setHeights.Remove(table);
 		}
 
 		private ProfilerSymbolData? PrimarySet => _sets.Count > 0 ? _sets[0] : null;

@@ -2,7 +2,8 @@ namespace Poink.Sim.Components.Profiler
 {
 	/// <summary>
 	/// JS for a Profiler chart set's draggable dividers: resetEqual splits the visible panels evenly, bind lets a divider
-	/// move width between its two neighbours, and bindVertical lets a bottom handle resize its parent's height.
+	/// move width between its two neighbours, and bindVertical lets a bottom handle resize its parent's height,
+	/// reporting each finished drag (or double-click reset, as null) to the .NET reference's OnHeightResized.
 	/// Panels are sized by flex-basis percent so any panel count always sums to 100%.
 	/// </summary>
 	internal static class ProfilerChartDividerScript
@@ -72,15 +73,19 @@ namespace Poink.Sim.Components.Profiler
 			            divider.addEventListener('pointerup', onUp);
 			        });
 			    }
-			    function bindVertical(handle) {
+			    function bindVertical(handle, dotNetRef) {
 			        if (!handle || handle.dataset.bound) return;
 			        handle.dataset.bound = '1';
 			        var minHeightPx = parseInt(handle.dataset.minHeight, 10) || 240;
+			        function reportHeight(height) {
+			            if (dotNetRef) dotNetRef.invokeMethodAsync('OnHeightResized', height);
+			        }
 			        handle.addEventListener('dblclick', function() {
 			            var target = handle.parentElement;
 			            if (!target) return;
 			            target.style.removeProperty('height');
 			            target.style.removeProperty('flex');
+			            reportHeight(null);
 			        });
 			        handle.addEventListener('pointerdown', function(e) {
 			            e.preventDefault();
@@ -88,19 +93,21 @@ namespace Poink.Sim.Components.Profiler
 			            if (!target) return;
 			            var startY = e.clientY;
 			            var startHeight = target.getBoundingClientRect().height;
+			            var resizedHeight = null;
 			            handle.setPointerCapture(e.pointerId);
 			            handle.classList.add('pcs-resize-handle-active');
 
 			            function onMove(ev) {
-			                var height = Math.max(minHeightPx, startHeight + ev.clientY - startY);
+			                resizedHeight = Math.round(Math.max(minHeightPx, startHeight + ev.clientY - startY));
 			                target.style.flex = '0 0 auto';
-			                target.style.height = height + 'px';
+			                target.style.height = resizedHeight + 'px';
 			            }
 			            function onUp() {
 			                handle.releasePointerCapture(e.pointerId);
 			                handle.removeEventListener('pointermove', onMove);
 			                handle.removeEventListener('pointerup', onUp);
 			                handle.classList.remove('pcs-resize-handle-active');
+			                if (resizedHeight !== null) reportHeight(resizedHeight);
 			            }
 			            handle.addEventListener('pointermove', onMove);
 			            handle.addEventListener('pointerup', onUp);

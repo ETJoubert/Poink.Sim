@@ -41,6 +41,13 @@ namespace Poink.Sim.Components.Profiler
 		[Parameter]
 		public bool Fill { get; set; }
 
+		/// <summary>Height in px dragged via the bottom resize handle, or null for the set's default CSS height.</summary>
+		[Parameter]
+		public double? Height { get; set; }
+
+		[Parameter]
+		public EventCallback<double?> HeightChanged { get; set; }
+
 		[Parameter]
 		public int XGridColCount { get; set; } = 20;
 
@@ -131,9 +138,13 @@ namespace Poink.Sim.Components.Profiler
 		private ElementReference _dividerRefSnapshot;
 		private ElementReference _resizeHandleRef;
 		private IJSObjectReference? _dividerResizeInstance;
+		private DotNetObjectReference<ProfilerChartSet>? _selfReference;
 		private HashSet<string> _lastVisiblePanels = new();
 
 		private DateTime? WindowStart => Options.WindowStart;
+
+		private string? HeightStyle =>
+			Height is { } height ? FormattableString.Invariant($"flex: 0 0 auto; height: {height}px") : null;
 
 		private DateTime? WindowEnd => Options.WindowEnd;
 
@@ -162,7 +173,8 @@ namespace Poink.Sim.Components.Profiler
 			if (firstRender)
 			{
 				_dividerResizeInstance = await JS.InvokeAsync<IJSObjectReference>("eval", ProfilerChartDividerScript.Source);
-				await _dividerResizeInstance.InvokeVoidAsync("bindVertical", _resizeHandleRef);
+				_selfReference = DotNetObjectReference.Create(this);
+				await _dividerResizeInstance.InvokeVoidAsync("bindVertical", _resizeHandleRef, _selfReference);
 			}
 
 			if (Data.HasBars && _dividerResizeInstance is not null)
@@ -189,8 +201,13 @@ namespace Poink.Sim.Components.Profiler
 			await RefreshSubchartIfNeeded();
 		}
 
+		/// <summary>Called from the resize handle's JS when a height drag finishes, or with null when a double-click resets it.</summary>
+		[JSInvokable]
+		public Task OnHeightResized(double? height) => HeightChanged.InvokeAsync(height);
+
 		public async ValueTask DisposeAsync()
 		{
+			_selfReference?.Dispose();
 			if (_dividerResizeInstance is null)
 				return;
 			try
