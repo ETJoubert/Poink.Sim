@@ -63,6 +63,12 @@ namespace Poink.Sim.Components.Profiler
 		[Parameter]
 		public EventCallback<ProfilerCompareTxFoldSettings> TxFoldChanged { get; set; }
 
+		[Parameter]
+		public ProfilerCompareXGridSettings XGrid { get; set; } = new();
+
+		[Parameter]
+		public EventCallback<ProfilerCompareXGridSettings> XGridChanged { get; set; }
+
 		/// <summary>Start of the loaded date range; TxFold windows reaching before it are drawn as partial.</summary>
 		[Parameter]
 		public DateTime RangeStart { get; set; }
@@ -109,6 +115,43 @@ namespace Poink.Sim.Components.Profiler
 			_builtFor = (bars, SymbolColors, Mode, AnchorTime, RatioTable, Style);
 			_series = ProfilerCompareHelper.Build(Sets, SymbolColors, Mode, AnchorTime, RatioTable, Style);
 		}
+
+		private CompareXGridResult? _xgridResult;
+		private (List<HlocAvdtBar>[] Bars, IReadOnlyDictionary<string, string> Colors, DateTime? Start, DateTime? End, DateTime? Anchor, double RowPercent, int ColCount)? _xgridBuiltFor;
+
+		private bool AnchorApplies => Mode == ProfilerCompareMode.WindowAnchored || XGrid.Show;
+
+		// Always anchored at the picked window edge, since a grid has no "first bar in view" to re-base on.
+		private DateTime? XGridAnchor => WindowAnchor == ProfilerCompareAnchor.WindowEnd ? WindowEnd : WindowStart;
+
+		private CompareXGridResult? XGridResult()
+		{
+			if (!XGrid.Show || WindowStart is not { } start || WindowEnd is not { } end || XGridAnchor is not { } anchor)
+				return null;
+
+			var bars = Sets.Select(s => s.Bars).ToArray();
+			var key = (bars, SymbolColors, (DateTime?)start, (DateTime?)end, (DateTime?)anchor, XGrid.RowPercent, XGrid.ColCount);
+			if (_xgridBuiltFor is { } built
+				&& ReferenceEquals(built.Colors, SymbolColors)
+				&& built.Start == start
+				&& built.End == end
+				&& built.Anchor == anchor
+				&& built.RowPercent == XGrid.RowPercent
+				&& built.ColCount == XGrid.ColCount
+				&& built.Bars.SequenceEqual(bars, ReferenceEqualityComparer.Instance))
+				return _xgridResult;
+
+			_xgridBuiltFor = key;
+			_xgridResult = ProfilerCompareHelper.BuildXGrid(Sets, SymbolColors, start, end, anchor, XGrid.RowPercent, XGrid.ColCount);
+			return _xgridResult;
+		}
+
+		private string XGridNoDataMessage() =>
+			WindowStart is null
+				? $"Select a Lookback Window -- the grid covers it, with rows as % from each symbol's price at the window {(WindowAnchor == ProfilerCompareAnchor.WindowEnd ? "end" : "start")} (the Anchor setting)."
+				: "No ticks inside the Lookback Window for any symbol.";
+
+		private Task SetXGrid(ProfilerCompareXGridSettings settings) => XGridChanged.InvokeAsync(settings);
 
 		private string ColorVarFor(string table) => ProfilerSymbolColorHelper.ColorVarFor(SymbolColors, table);
 

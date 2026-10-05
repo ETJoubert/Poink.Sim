@@ -1,0 +1,113 @@
+.cxg-wrapper {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 20%, transparent);
+    border-radius: var(--border-radius-sm);
+    background: rgba(255, 255, 255, 0.015);
+    overflow: hidden;
+}
+
+.cxg-toolbar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 4px 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    flex: 0 0 auto;
+}
+
+.cxg-title {
+    font-family: var(--font-body);
+    font-weight: bold;
+    font-size: 0.6rem;
+    letter-spacing: 0.12em;
+    color: var(--color-secondary);
+    opacity: 0.85;
+}
+
+.cxg-divider {
+    width: 1px;
+    height: 14px;
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.cxg-tool-group {
+    display: flex;
+    gap: 3px;
+}
+
+.cxg-tool-btn-mode { --cxg-color: var(--color-badge-2); }
+.cxg-tool-btn-profile { --cxg-color: var(--color-info); }
+
+.cxg-tool-btn {
+    font-family: var(--font-body);
+    font-weight: bold;
+    font-size: 0.58rem;
+    letter-spacing: 0.03em;
+    padding: 2px 7px;
+    border-radius: var(--border-radius-sm);
+    border: 1px solid color-mix(in srgb, var(--cxg-color, var(--color-secondary)) 40%, transparent);
+    background: transparent;
+    color: var(--cxg-color, var(--color-secondary));
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.cxg-tool-btn:hover:not(:disabled) {
+    border-color: var(--cxg-color, var(--color-secondary));
+    filter: brightness(1.2);
+}
+
+.cxg-tool-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.cxg-tool-btn.active {
+    background: var(--cxg-color, var(--color-secondary));
+    border-color: var(--cxg-color, var(--color-secondary));
+    color: var(--color-bg-terminal);
+}
+
+.cxg-field {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.62rem;
+    color: var(--color-secondary);
+    white-space: nowrap;
+}
+
+.cxg-select {
+    background: var(--color-bg-terminal);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 45%, transparent);
+    color: var(--color-primary);
+    padding: 1px 4px;
+    border-radius: var(--border-radius-sm);
+    font-family: var(--font-body);
+    font-size: 0.62rem;
+}
+
+.cxg-chart {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    position: relative;
+}
+
+.cxg-canvas {
+    width: 100%;
+    height: 100%;
+}
+
+.cxg-empty {
+    margin: auto;
+    padding: 12px;
+    font-size: 0.7rem;
+    color: var(--color-secondary);
+    opacity: 0.6;
+    text-align: center;
+}

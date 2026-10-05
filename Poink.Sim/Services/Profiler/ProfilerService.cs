@@ -10,8 +10,6 @@ namespace Poink.Sim.Profiler;
 
 internal sealed class ProfilerService : IProfilerService
 {
-	private const double DefaultPriceBucketWidth = 0.01;
-
 	private const int MaxSteps = 30;
 
 	private readonly ITickRepository _tickRepository;
@@ -51,7 +49,7 @@ internal sealed class ProfilerService : IProfilerService
 					from = new DateTime(rawFrom.Ticks - (rawFrom.Ticks % config.BarSize.Ticks), rawFrom.Kind);
 				}
 
-				var aggregator = new SimulationBarAggregator(config.BarSize, DefaultPriceBucketWidth);
+				var aggregator = new SimulationBarAggregator(config.BarSize, config.PriceBucketWidth);
 				var quartileAggregator = new QuartileBarAggregator(config.BarSize);
 				var stepBars = new List<HlocAvdtBar>();
 				var stepQuartileBars = new List<QuartileBar>();

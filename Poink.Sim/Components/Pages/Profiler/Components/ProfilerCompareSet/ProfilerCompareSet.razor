@@ -12,12 +12,12 @@
                 <option value="@ProfilerCompareMode.WindowAnchored">Window</option>
             </select>
         </label>
-        <label class="pcmp-field" title="Which Lookback Window edge Window mode measures from">
+        <label class="pcmp-field" title="Which Lookback Window edge Window mode and the XGrid panel measure % from">
             Anchor
-            <select class="pcmp-select" value="@WindowAnchor" @onchange="OnAnchorSelected" disabled="@(Mode != ProfilerCompareMode.WindowAnchored)"
-                    title="@(Mode != ProfilerCompareMode.WindowAnchored
-                               ? "Only applies in Window mode"
-                               : "Start: lines fan out from 0% at the window's left edge. End: lines meet 0% at the window's right edge, the same point TxFold anchors at")">
+            <select class="pcmp-select" value="@WindowAnchor" @onchange="OnAnchorSelected" disabled="@(!AnchorApplies)"
+                    title="@(!AnchorApplies
+                               ? "Only applies in Window mode or while the XGrid panel is open"
+                               : "Start: 0% at the window's left edge. End: 0% at the window's right edge, the same point TxFold anchors at. Also sets the XGrid panel's 0% row")">
                 <option value="@ProfilerCompareAnchor.WindowStart">Start</option>
                 <option value="@ProfilerCompareAnchor.WindowEnd">End</option>
             </select>
@@ -58,9 +58,14 @@
             }
         </div>
         <span class="pcmp-note" title="What the % axis is measured from">@ModeNote()</span>
-        <button type="button" class="pcmp-toggle @(TxFold.Show ? "active" : "")"
-                @onclick="() => SetTxFold(TxFold with { Show = !TxFold.Show })"
-                title="Show or hide a TxFold panel comparing every symbol's trailing-window bars at the Lookback Window's right edge">TxFold</button>
+        <div class="pcmp-toggles">
+            <button type="button" class="pcmp-toggle @(TxFold.Show ? "active" : "")"
+                    @onclick="() => SetTxFold(TxFold with { Show = !TxFold.Show })"
+                    title="Show or hide a TxFold panel comparing every symbol's trailing-window bars at the Lookback Window's right edge">TxFold</button>
+            <button type="button" class="pcmp-toggle @(XGrid.Show ? "active" : "")"
+                    @onclick="() => SetXGrid(XGrid with { Show = !XGrid.Show })"
+                    title="Show or hide an XGrid panel overlaying every symbol's tick footprint inside the Lookback Window, on % rows from the Anchor edge">XGrid</button>
+        </div>
     </header>
     <div class="pcmp-body">
         <div class="pcmp-chart">
@@ -68,14 +73,32 @@
                           Zones="TxFoldZones()" Markers="TxFoldMarkers()"
                           CanLoadMore="CanLoadMore" OnNearStart="OnNearStart" Tooltip="@ChartTooltip()" />
         </div>
-        @if (TxFold.Show)
+        @if (TxFold.Show || XGrid.Show)
         {
-            <div class="pcmp-txfold">
-                <CompareTxFold Symbols="TxFoldSymbols()" AnchorEnd="TxFoldAnchor" RangeStart="RangeStart"
-                               NoAnchorMessage="Select a Lookback Window -- its right edge anchors every symbol's trailing windows."
-                               SelectedSeconds="TxFoldSeconds" SelectedSecondsChanged="seconds => SetTxFold(TxFold with { Seconds = seconds.Order().ToList() })"
-                               BarKind="TxFold.BarKind" BarKindChanged="kind => SetTxFold(TxFold with { BarKind = kind })"
-                               Layout="TxFold.Layout" LayoutChanged="layout => SetTxFold(TxFold with { Layout = layout })" />
+            <div class="pcmp-side">
+                @if (TxFold.Show)
+                {
+                    <div class="pcmp-side-panel">
+                        <CompareTxFold Symbols="TxFoldSymbols()" AnchorEnd="TxFoldAnchor" RangeStart="RangeStart"
+                                       NoAnchorMessage="Select a Lookback Window -- its right edge anchors every symbol's trailing windows."
+                                       SelectedSeconds="TxFoldSeconds" SelectedSecondsChanged="seconds => SetTxFold(TxFold with { Seconds = seconds.Order().ToList() })"
+                                       BarKind="TxFold.BarKind" BarKindChanged="kind => SetTxFold(TxFold with { BarKind = kind })"
+                                       Layout="TxFold.Layout" LayoutChanged="layout => SetTxFold(TxFold with { Layout = layout })" />
+                    </div>
+                }
+                @if (XGrid.Show)
+                {
+                    <div class="pcmp-side-panel">
+                        <CompareXGrid Result="XGridResult()" NoDataMessage="@XGridNoDataMessage()"
+                                      Mode="XGrid.Mode" ModeChanged="mode => SetXGrid(XGrid with { Mode = mode })"
+                                      DifferenceLabel="@XGrid.DifferenceTable" DifferenceLabelChanged="table => SetXGrid(XGrid with { DifferenceTable = table })"
+                                      RowPercent="XGrid.RowPercent" RowPercentChanged="rowPercent => SetXGrid(XGrid with { RowPercent = rowPercent })"
+                                      ColCount="XGrid.ColCount" ColCountChanged="colCount => SetXGrid(XGrid with { ColCount = colCount })"
+                                      ShowProfile="XGrid.ShowProfile" ShowProfileChanged="show => SetXGrid(XGrid with { ShowProfile = show })"
+                                      TopCellsPercent="XGrid.TopCellsPercent" TopCellsPercentChanged="percent => SetXGrid(XGrid with { TopCellsPercent = percent })"
+                                      LowCellsPercent="XGrid.LowCellsPercent" LowCellsPercentChanged="percent => SetXGrid(XGrid with { LowCellsPercent = percent })" />
+                    </div>
+                }
             </div>
         }
     </div>
