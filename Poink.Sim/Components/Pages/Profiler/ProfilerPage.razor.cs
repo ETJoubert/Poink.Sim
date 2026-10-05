@@ -169,11 +169,6 @@ namespace Poink.Sim.Components.Pages
 
 		private bool HasData => _config is not null && PrimarySet is { HasBars: true };
 
-		private string StateClass() =>
-			_isLoading ? "prof-state-loading"
-			: HasData ? "prof-state-ready"
-			: "prof-state-setup";
-
 		private async Task Load()
 		{
 			_error = null;
