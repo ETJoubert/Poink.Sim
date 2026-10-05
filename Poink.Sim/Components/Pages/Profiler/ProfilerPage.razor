@@ -17,7 +17,10 @@
         <header class="prof-header">
             <span class="prof-header-symbol" title="Profiler -- compare every selected symbol over the same date range">PROFILER</span>
             <div class="prof-header-range" title="Date range shared by every selected symbol">
-                <TickDataSource Table="@_table" TableChanged="OnDefaultTableSelected" ShowTablePicker="false" @bind-From="_from" @bind-To="_to" @bind-To:after="OnRangeSettled" Disabled="_isLoading" />
+                @if (_settingsLoaded)
+                {
+                    <TickDataSource Table="@_table" TableChanged="OnDefaultTableSelected" ShowTablePicker="false" @bind-From="_from" @bind-To="_to" @bind-To:after="OnRangeSettled" Disabled="_isLoading" />
+                }
             </div>
             <div class="prof-header-actions">
                 <button class="prof-ctrl-btn prof-ctrl-btn-play" @onclick="Load"
@@ -98,6 +101,7 @@
             {
                 var isPrimary = set == PrimarySet;
                 <ProfilerChartSet @key="set" Data="set" Options="setOptions" IsPrimary="isPrimary" Fill="_sets.Count == 1"
+                                  Height="SetHeight(set.Table)" HeightChanged="height => OnSetHeightChanged(set.Table, height)"
                                   @bind-XGridColCount="_xgridColCount"
                                   @bind-SubchartBarSizeSeconds="_subchartBarSizeSeconds" @bind-SubchartBarKind="_subchartBarKind"
                                   DrawingHorizontalLines="@(isPrimary ? drawingHorizontalLines : [])"

@@ -4,7 +4,7 @@
 @using Poink.Sim.Components.Shared.Icon
 @using Poink.Sim.Models
 
-<section class="pcs-set @(Fill ? "pcs-set-fill" : "") @(IsPrimary ? "pcs-set-primary" : "")">
+<section class="pcs-set @(Fill ? "pcs-set-fill" : "") @(IsPrimary ? "pcs-set-primary" : "")" style="@HeightStyle">
     <header class="pcs-header">
         <span class="pcs-symbol" title="Symbol this chart set is built from">@Data.Table</span>
         @if (IsPrimary)
