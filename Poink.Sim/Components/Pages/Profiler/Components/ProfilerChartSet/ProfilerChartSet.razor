@@ -14,6 +14,12 @@
         <span class="pcs-meta" title="Bars and ticks loaded for this symbol so far">
             @(Data.IsLoading ? "loading..." : Data.SummaryLabel)
         </span>
+        <span class="pcs-meta"
+              title="@(Data.PipSize is null
+                         ? "No trading metadata found for this symbol -- XGrid rows assume this pip size"
+                         : "This symbol's pip size -- its XGrid rows are sized in these pips, independently of the other symbols")">
+            @PipSizeLabel()
+        </span>
         @if (Data.Error is not null)
         {
             <span class="pcs-error" title="@Data.Error">@Data.Error</span>
@@ -37,19 +43,6 @@
     }
     else
     {
-        <div class="prof-chart-sparkline">
-            @if (!Data.ReachedStart)
-            {
-                <button class="prof-load-older-btn" @onclick="() => OnNearStart.InvokeAsync()" disabled="@(Data.IsLoading || Data.IsLoadingMore)"
-                        title="Fetch the next older chunk of history -- same as panning the chart back to its earliest bar">
-                    <Icon Name="chevron-left" Class="prof-load-older-icon" />
-                </button>
-            }
-            <MarketChartSparkline Bars="Data.BarRows"
-                                   WindowWidth="_windowInBars?.Width"
-                                   WindowOffset="_windowInBars?.Offset"
-                                   WindowChanged="WindowChanged" />
-        </div>
         <div class="prof-chart" @ref="_chartRowRef">
             @if (Options.ShowMainChart)
             {
@@ -77,7 +70,7 @@
                          title="@(WindowLabel() is { } xgridLabel
                                     ? $"Footprint grid for the selected Lookback Window ({xgridLabel}) -- rows are price buckets, columns are bars"
                                     : "Select a Lookback Window to build the footprint grid -- rows are price buckets, columns are bars")">
-                        <XGridController Grid="ComputeXGrid()" PipCount="XGridPipCount" PipCountChanged="XGridPipCountChanged"
+                        <XGridController Grid="ComputeXGrid()" @bind-PipCount="_xgridPipCount" PipSize="Data.EffectivePipSize"
                                          ColCount="XGridColCount" ColCountChanged="XGridColCountChanged"
                                          ProfileBarCount="@(_windowInBars?.Width ?? Options.LookbackWidth)" />
                     </div>
@@ -170,4 +163,6 @@
             }
         </div>
     }
+    <div class="pcs-resize-handle" @ref="_resizeHandleRef" data-min-height="240"
+         title="Drag to resize this chart set's height -- double-click to reset it"></div>
 </section>

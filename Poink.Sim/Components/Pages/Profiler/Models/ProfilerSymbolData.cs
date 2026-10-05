@@ -13,8 +13,11 @@ namespace Poink.Sim.Components.Profiler
 	/// </summary>
 	public sealed class ProfilerSymbolData
 	{
+		/// <summary>Used until the symbol's own pip size resolves, or when its table maps to no known symbol.</summary>
+		public const double FallbackPipSize = 0.01;
+
 		private XGridResult? _xgridCache;
-		private (int Pips, int Cols, DateTime Start, DateTime End, int Count, double LastClose)? _xgridKey;
+		private (double RowHeight, int Cols, DateTime Start, DateTime End, int Count, double LastClose)? _xgridKey;
 
 		internal ProfilerSymbolData(string table) => Table = table;
 
@@ -44,6 +47,11 @@ namespace Poink.Sim.Components.Profiler
 		public bool KeepView { get; internal set; }
 
 		public string? Error { get; internal set; }
+
+		/// <summary>The symbol's pip size from its trading metadata; null while unresolved or when no metadata exists.</summary>
+		public double? PipSize { get; internal set; }
+
+		public double EffectivePipSize => PipSize ?? FallbackPipSize;
 
 		public bool HasBars => Bars.Count > 0;
 
@@ -108,9 +116,9 @@ namespace Poink.Sim.Components.Profiler
 			return index >= 0 ? Bars[index] : null;
 		}
 
-		internal XGridResult? XGrid(DateTime start, DateTime end, double bucketSize, int pipCount, int colCount)
+		internal XGridResult? XGrid(DateTime start, DateTime end, double rowHeight, int colCount)
 		{
-			var key = (pipCount, colCount, start, end, Bars.Count, LastClose ?? 0);
+			var key = (rowHeight, colCount, start, end, Bars.Count, LastClose ?? 0);
 			if (_xgridKey == key && _xgridCache is not null)
 				return _xgridCache;
 
@@ -121,7 +129,7 @@ namespace Poink.Sim.Components.Profiler
 				ProfilerSymbolStatsHelper.MergedSamples(this, start, end),
 				start,
 				end,
-				bucketSize,
+				rowHeight,
 				colCount
 			);
 			return _xgridCache;

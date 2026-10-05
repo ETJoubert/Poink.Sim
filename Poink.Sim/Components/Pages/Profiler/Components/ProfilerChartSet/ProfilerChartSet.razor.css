@@ -3,7 +3,7 @@
     flex-direction: column;
     flex: 0 0 auto;
     height: 65vh;
-    min-height: 420px;
+    min-height: 240px;
     border: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
     border-radius: var(--border-radius-sm);
 }
@@ -16,6 +16,38 @@
 
 .pcs-set-primary {
     border-color: color-mix(in srgb, var(--color-success) 45%, transparent);
+}
+
+.pcs-resize-handle {
+    position: relative;
+    flex: 0 0 8px;
+    cursor: row-resize;
+    touch-action: none;
+    user-select: none;
+    border-radius: 0 0 var(--border-radius-sm) var(--border-radius-sm);
+}
+
+.pcs-resize-handle::before {
+    content: "";
+    position: absolute;
+    left: 40%;
+    right: 40%;
+    top: 50%;
+    height: 2px;
+    transform: translateY(-50%);
+    border-radius: 1px;
+    background: color-mix(in srgb, var(--color-primary) 25%, transparent);
+    transition: background 0.2s ease;
+}
+
+.pcs-resize-handle:hover,
+.pcs-resize-handle.pcs-resize-handle-active {
+    background: color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+.pcs-resize-handle:hover::before,
+.pcs-resize-handle.pcs-resize-handle-active::before {
+    background: var(--color-primary);
 }
 
 .pcs-header {
@@ -143,50 +175,6 @@
 .prof-subchart-chart {
     flex: 1 1 auto;
     min-height: 0;
-}
-
-.prof-chart-sparkline {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-shrink: 0;
-    padding: 6px 5px 0;
-    margin-bottom: 10px;
-}
-
-.prof-chart-sparkline ::deep .mkt-sparkline {
-    flex: 1 1 auto;
-    min-width: 0;
-}
-
-.prof-load-older-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    width: 28px;
-    height: 28px;
-    background: transparent;
-    border: 1px solid color-mix(in srgb, var(--color-primary) 45%, transparent);
-    border-radius: var(--border-radius-sm);
-    color: var(--color-primary);
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.prof-load-older-btn:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--color-primary) 12%, transparent);
-    border-color: var(--color-primary);
-}
-
-.prof-load-older-btn:disabled {
-    opacity: 0.35;
-    cursor: not-allowed;
-}
-
-.prof-load-older-icon {
-    width: 14px;
-    height: 14px;
 }
 
 .prof-chart {

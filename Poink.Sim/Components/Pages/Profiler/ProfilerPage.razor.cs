@@ -11,6 +11,7 @@ using Poink.Sim.Helpers;
 using Poink.Sim.Models;
 using Poink.Sim.Profiler;
 using Poink.Sim.Repository;
+using Poink.Sim.Services.Symbols;
 
 namespace Poink.Sim.Components.Pages
 {
@@ -27,6 +28,9 @@ namespace Poink.Sim.Components.Pages
 
 		[Inject]
 		private ITickRepository TickRepository { get; set; } = default!;
+
+		[Inject]
+		private ISymbolTableResolver SymbolTableResolver { get; set; } = default!;
 
 		[Inject]
 		private ILogger<ProfilerPage> Logger { get; set; } = default!;
@@ -132,7 +136,6 @@ namespace Poink.Sim.Components.Pages
 		private int _subchartBarSizeSeconds = 10;
 		private BarAggregationKind _subchartBarKind = BarAggregationKind.Ohlc;
 
-		private int _xgridPipCount = 20;
 		private int _xgridColCount = 20;
 
 		private HashSet<int> _selectedDrawingIds = new();
@@ -219,6 +222,7 @@ namespace Poink.Sim.Components.Pages
 					_config = config;
 					var primary = new ProfilerSymbolData(config.Table);
 					primary.ApplyChunk(chunk, _barAggregationKind);
+					_ = ResolvePipSizeAsync(primary);
 					_sets = [primary];
 					SyncComparisonSets();
 				}
@@ -251,7 +255,34 @@ namespace Poink.Sim.Components.Pages
 		{
 			var set = new ProfilerSymbolData(table) { IsLoading = true };
 			_ = LoadComparisonAsync(set, primaryConfig with { Table = table });
+			_ = ResolvePipSizeAsync(set);
 			return set;
+		}
+
+		private async Task ResolvePipSizeAsync(ProfilerSymbolData set)
+		{
+			try
+			{
+				var resolution = await SymbolTableResolver.ResolveAsync(set.Table);
+				if (resolution.Limits is { } limits)
+				{
+					set.PipSize = limits.PipSize;
+					Logger.LogInformation("Profiler pip size for {Table} resolved to {PipSize}", set.Table, limits.PipSize);
+				}
+				else
+				{
+					Logger.LogWarning(
+						"No trading metadata for {Table}; Profiler XGrid assumes a {PipSize} pip size",
+						set.Table,
+						ProfilerSymbolData.FallbackPipSize
+					);
+				}
+			}
+			catch (Exception ex)
+			{
+				Logger.LogWarning(ex, "Could not resolve the pip size for {Table}; Profiler XGrid assumes a {PipSize} pip size", set.Table, ProfilerSymbolData.FallbackPipSize);
+			}
+			await InvokeAsync(StateHasChanged);
 		}
 
 		private async Task LoadComparisonAsync(ProfilerSymbolData set, ProfilerConfig config)
@@ -447,7 +478,7 @@ namespace Poink.Sim.Components.Pages
 		}
 
 		// Keeps the toolbar's width/offset fields in step when the window is instead drawn on
-		// a chart or dragged on another symbol's sparkline, so no input method goes stale.
+		// a chart via the LOOKBACK WINDOW tool, so neither input method goes stale.
 		private void SyncLookbackFieldsFromRange()
 		{
 			if (_volumeRangeStart is not { } start || _volumeRangeEnd is not { } end)
@@ -460,23 +491,11 @@ namespace Poink.Sim.Components.Pages
 		}
 
 		// Sparkline drag callback, fired continuously while the window's body or either edge is dragged.
-		private void OnWindowChanged(ProfilerSymbolData set, (int Width, int Offset) window)
+		private void OnWindowChanged((int Width, int Offset) window)
 		{
-			var width = Math.Max(1, window.Width);
-			var offset = Math.Max(0, window.Offset);
-			if (set == PrimarySet)
-			{
-				_lookbackWidth = width;
-				_lookbackOffset = offset;
-				ApplyLookbackWindow();
-				return;
-			}
-
-			if (set.ResolveWindow(width, offset) is not { } range)
-				return;
-			_volumeRangeStart = range.Start;
-			_volumeRangeEnd = range.End;
-			SyncLookbackFieldsFromRange();
+			_lookbackWidth = Math.Max(1, window.Width);
+			_lookbackOffset = Math.Max(0, window.Offset);
+			ApplyLookbackWindow();
 		}
 
 		private ProfilerChartSetOptions CurrentSetOptions() =>

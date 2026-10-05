@@ -12,7 +12,7 @@ using Poink.Sim.Services.Charts;
 namespace Poink.Sim.Components.Profiler
 {
 	/// <summary>
-	/// One Profiler symbol's full chart set: header, sparkline, main chart, XGrid, volume/time profiles, subchart and TxFold,
+	/// One Profiler symbol's full chart set: header, main chart, XGrid, volume/time profiles, subchart and TxFold,
 	/// all driven by the page's global <see cref="ProfilerChartSetOptions"/> so every symbol is viewed the same way.
 	/// </summary>
 	public partial class ProfilerChartSet : ComponentBase, IAsyncDisposable
@@ -39,12 +39,6 @@ namespace Poink.Sim.Components.Profiler
 		/// <summary>Stretches the set to fill the page column instead of taking a fixed share, for when it is the only set.</summary>
 		[Parameter]
 		public bool Fill { get; set; }
-
-		[Parameter]
-		public int XGridPipCount { get; set; } = 20;
-
-		[Parameter]
-		public EventCallback<int> XGridPipCountChanged { get; set; }
 
 		[Parameter]
 		public int XGridColCount { get; set; } = 20;
@@ -101,9 +95,6 @@ namespace Poink.Sim.Components.Profiler
 		public EventCallback OnVolumeRangeCleared { get; set; }
 
 		[Parameter]
-		public EventCallback<(int Width, int Offset)> WindowChanged { get; set; }
-
-		[Parameter]
 		public EventCallback OnNearStart { get; set; }
 
 		[Parameter]
@@ -112,8 +103,8 @@ namespace Poink.Sim.Components.Profiler
 		[Parameter]
 		public EventCallback<string> OnRemove { get; set; }
 
-		// Placeholder until pip size is looked up from the loaded symbol; the Profiler has no per-instrument settings today.
-		private const double XGridPipSize = 0.01;
+		// Kept per set rather than shared, since one pip spans a different price distance on every symbol.
+		private int _xgridPipCount = 20;
 
 		private List<WeightedPriceSample> _samples = new();
 		private List<WeightedTimeSample> _timeSamples = new();
@@ -134,6 +125,7 @@ namespace Poink.Sim.Components.Profiler
 		private ElementReference _dividerRefTime;
 		private ElementReference _dividerRefSubchart;
 		private ElementReference _dividerRefSnapshot;
+		private ElementReference _resizeHandleRef;
 		private IJSObjectReference? _dividerResizeInstance;
 		private HashSet<string> _lastVisiblePanels = new();
 
@@ -157,7 +149,10 @@ namespace Poink.Sim.Components.Profiler
 		protected override async Task OnAfterRenderAsync(bool firstRender)
 		{
 			if (firstRender)
+			{
 				_dividerResizeInstance = await JS.InvokeAsync<IJSObjectReference>("eval", ProfilerChartDividerScript.Source);
+				await _dividerResizeInstance.InvokeVoidAsync("bindVertical", _resizeHandleRef);
+			}
 
 			if (Data.HasBars && _dividerResizeInstance is not null)
 			{
@@ -247,13 +242,15 @@ namespace Poink.Sim.Components.Profiler
 
 		private XGridResult? ComputeXGrid() =>
 			WindowStart is { } start && WindowEnd is { } end
-				? Data.XGrid(start, end, XGridPipCount * XGridPipSize, XGridPipCount, XGridColCount)
+				? Data.XGrid(start, end, _xgridPipCount * Data.EffectivePipSize, XGridColCount)
 				: null;
 
 		private string? WindowLabel() =>
 			WindowStart is { } start && WindowEnd is { } end
 				? $"{Data.BarCountIn(start, end):N0} bars, {ProfilerFormatHelper.FormatSpan(end - start)}"
 				: null;
+
+		private string PipSizeLabel() => Data.PipSize is { } pipSize ? $"pip {pipSize:0.#########}" : $"pip {ProfilerSymbolData.FallbackPipSize} (assumed)";
 
 		private HlocAvdtBar? SnapshotAnchorBar() => WindowEnd is { } end ? Data.BarAtOrBefore(end) : null;
 	}

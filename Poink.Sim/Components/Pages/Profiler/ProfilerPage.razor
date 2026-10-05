@@ -90,7 +90,7 @@
                         title="Project the median price as a dashed line on the main chart, narrowed to the Lookback Window if one is active">MED</button>
             </div>
             <div class="prof-overlay-toggles prof-lookback-toggles"
-                 title="The Lookback Window narrows every symbol's volume/time profile panels, XGrid, and VWAP to the same slice of time -- set it here by width/offset (in the primary symbol's bars), drag it (or its edges, to resize) on any sparkline below, or draw it on any chart with the LOOKBACK WINDOW tool">
+                 title="The Lookback Window narrows every symbol's volume/time profile panels, XGrid, and VWAP to the same slice of time -- set it here by width/offset (in the primary symbol's bars), drag it (or its edges, to resize) on the sparkline below, or draw it on any chart with the LOOKBACK WINDOW tool">
                 <button type="button" class="prof-overlay-toggle-btn @(_lookbackEnabled ? "active" : "")"
                         @onclick="ToggleLookbackWindow" title="Turn the Lookback Window on/off">Lookback Window</button>
                 <label class="prof-lookback-field" title="Number of bars the window spans">
@@ -122,6 +122,20 @@
                         title="One OHLC/Quartile bar per toggled timeframe (1m/4m/16m/1h), each a trailing window ending at the selected Lookback Window's right edge">TxFold</button>
             </div>
         </div>
+        <div class="prof-chart-sparkline"
+             title="@($"Overview of {PrimarySet!.Table}, the primary symbol -- drag the Lookback Window (or its edges, to resize) to move it for every symbol")">
+            @if (!PrimarySet.ReachedStart)
+            {
+                <button class="prof-load-older-btn" @onclick="() => LoadMore(PrimarySet)" disabled="@(_isLoading || PrimarySet.IsLoadingMore)"
+                        title="Fetch the next older chunk of the primary symbol's history -- same as panning its chart back to its earliest bar">
+                    <Icon Name="chevron-left" Class="prof-load-older-icon" />
+                </button>
+            }
+            <MarketChartSparkline Bars="PrimarySet.BarRows"
+                                   WindowWidth="_lookbackEnabled ? _lookbackWidth : (int?)null"
+                                   WindowOffset="_lookbackEnabled ? _lookbackOffset : (int?)null"
+                                   WindowChanged="OnWindowChanged" />
+        </div>
         var setOptions = CurrentSetOptions();
         var drawingHorizontalLines = DrawingHorizontalLines();
         var drawingVerticalLines = AllVerticalLines();
@@ -132,7 +146,7 @@
             {
                 var isPrimary = set == PrimarySet;
                 <ProfilerChartSet @key="set" Data="set" Options="setOptions" IsPrimary="isPrimary" Fill="_sets.Count == 1"
-                                  @bind-XGridPipCount="_xgridPipCount" @bind-XGridColCount="_xgridColCount"
+                                  @bind-XGridColCount="_xgridColCount"
                                   @bind-SubchartBarSizeSeconds="_subchartBarSizeSeconds" @bind-SubchartBarKind="_subchartBarKind"
                                   DrawingHorizontalLines="@(isPrimary ? drawingHorizontalLines : [])"
                                   DrawingVerticalLines="@(isPrimary ? drawingVerticalLines : [])"
@@ -142,7 +156,7 @@
                                   OnDiagonalLineDrawn="AddDiagonalLine" OnTRangeChartDrawn="AddTRangeChart"
                                   OnReferenceLineDrawn="AddReferenceLine" OnDrawFinished="FinishDrawing"
                                   OnVolumeRangeDrawn="SetVolumeRange" OnVolumeRangeCleared="ClearVolumeRange"
-                                  WindowChanged="window => OnWindowChanged(set, window)" OnNearStart="() => LoadMore(set)"
+                                  OnNearStart="() => LoadMore(set)"
                                   OnMakePrimary="MakePrimary" OnRemove="RemoveSymbol" />
             }
         </div>
