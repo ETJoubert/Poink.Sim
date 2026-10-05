@@ -20,7 +20,7 @@ namespace Poink.Sim.Components.Pages
 		private List<string> _watchTables = new();
 		private readonly Dictionary<string, double> _watchPipSizes = new();
 		private bool _showWatchedCharts = true;
-		private readonly WatchedSymbolRowCache _watchRowCache = new();
+		private readonly SimulationRowCache _rowCache = new();
 
 		private static IReadOnlyList<WatchedSymbolSnapshot> WatchedSymbols(SimulationSnapshot s) => s.WatchedSymbols ?? [];
 

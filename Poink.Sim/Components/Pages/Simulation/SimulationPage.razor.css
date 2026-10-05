@@ -712,6 +712,10 @@
     background: var(--color-primary);
 }
 
+.sim-chart.sim-chart-compare {
+    height: 460px;
+}
+
 .sim-watch-sets {
     display: flex;
     flex-direction: column;

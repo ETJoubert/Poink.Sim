@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
+using Poink.Sim.Components.Charts;
 using Poink.Sim.Components.Shared.TradeConsole;
+using Poink.Sim.Components.Simulation;
 
 namespace Poink.Sim.Models
 {
@@ -36,7 +38,12 @@ namespace Poink.Sim.Models
 		bool RobotRequireRearm = false,
 		RuleSignalSettings? SignalSettings = null,
 		RobotPositionRules? RobotPositionRules = null,
-		IReadOnlyList<string>? WatchTables = null
+		IReadOnlyList<string>? WatchTables = null,
+		bool ShowCompare = false,
+		SimulationCompareMode CompareMode = SimulationCompareMode.PercentChange,
+		SimulationCompareAnchor CompareAnchor = SimulationCompareAnchor.WindowStart,
+		CompareChartSeriesStyle CompareStyle = CompareChartSeriesStyle.Lines,
+		string? CompareRatioTable = null
 	)
 	{
 		/// <summary>The browser localStorage key the Simulation page keeps these settings under.</summary>

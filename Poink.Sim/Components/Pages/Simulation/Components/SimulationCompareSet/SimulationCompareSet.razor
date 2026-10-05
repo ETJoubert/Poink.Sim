@@ -1,0 +1,64 @@
+@namespace Poink.Sim.Components.Simulation
+@using Poink.Sim.Components.Charts
+
+<section class="scmp-set">
+    <header class="scmp-header">
+        <span class="scmp-title" title="The traded symbol and every watched symbol on one chart, updated as the simulation plays">COMPARE</span>
+        <label class="scmp-field" title="What each symbol's % change is measured from">
+            Mode
+            <select class="scmp-select" value="@Mode" @onchange="OnModeSelected"
+                    title="% change: from the first bar in view, re-basing as you pan. Window: from the Lookback Window edge picked under Anchor">
+                <option value="@SimulationCompareMode.PercentChange">% change</option>
+                <option value="@SimulationCompareMode.WindowAnchored">Window</option>
+            </select>
+        </label>
+        <label class="scmp-field" title="Which Lookback Window edge Window mode measures % from">
+            Anchor
+            <select class="scmp-select" value="@Anchor" @onchange="OnAnchorSelected" disabled="@(Mode != SimulationCompareMode.WindowAnchored)"
+                    title="@(Mode != SimulationCompareMode.WindowAnchored
+                               ? "Only applies in Window mode"
+                               : "Start: 0% at the window's left edge. End: 0% at the window's right edge")">
+                <option value="@SimulationCompareAnchor.WindowStart">Start</option>
+                <option value="@SimulationCompareAnchor.WindowEnd">End</option>
+            </select>
+        </label>
+        <label class="scmp-field" title="Draw each symbol as a line, or as candles in its own colour">
+            Style
+            <select class="scmp-select" value="@Style" @onchange="OnStyleSelected"
+                    title="Lines: one close line per symbol. Bars: candles in each symbol's colour (up filled, down hollow), semi-transparent so overlaps stay readable">
+                <option value="@CompareChartSeriesStyle.Lines">Lines</option>
+                <option value="@CompareChartSeriesStyle.Bars">Bars</option>
+            </select>
+        </label>
+        <label class="scmp-field" title="Divides the traded symbol by a watched symbol, shown in a lower pane">
+            Ratio @Traded?.Table ÷
+            <select class="scmp-select" value="@(HasRatio ? RatioTable : "")" @onchange="OnRatioSelected" disabled="@(Symbols.Count < 2)"
+                    title="@(Symbols.Count < 2 ? "Watch a second symbol to chart a ratio" : "Pick the watched symbol the traded symbol is divided by, or None to hide the ratio pane")">
+                <option value="">None</option>
+                @foreach (var symbol in Symbols.Skip(1))
+                {
+                    <option value="@symbol.Table">@symbol.Table</option>
+                }
+            </select>
+        </label>
+        <div class="scmp-legend" title="Line colour per symbol">
+            @foreach (var symbol in Symbols)
+            {
+                <span class="scmp-legend-item" style="color: var(@symbol.ColorVar)"
+                      title="@($"{symbol.Table} -- {(symbol == Traded ? "traded" : "watched")}, {symbol.Bars.Count:N0} bars")">@symbol.Table</span>
+            }
+            @if (HasRatio)
+            {
+                <span class="scmp-legend-item" style="color: var(@SimulationCompareHelper.RatioColorVar)"
+                      title="Traded close divided by the ratio symbol's close at the same bar time">
+                    @SimulationCompareHelper.RatioLabel(Traded!.Table, RatioTable!)
+                </span>
+            }
+        </div>
+        <span class="scmp-note" title="What the % axis is measured from">@ModeNote()</span>
+    </header>
+    <div class="scmp-body">
+        <CompareChart Series="_series" ScaleMode="ScaleMode" Style="Style" WindowStart="WindowStart" WindowEnd="WindowEnd"
+                      Tooltip="@ChartTooltip()" />
+    </div>
+</section>

@@ -729,7 +729,12 @@ namespace Poink.Sim.Components.Pages
 				_robotRequireRearm,
 				_ruleSignalSettings,
 				_robotPositionRules,
-				_watchTables
+				_watchTables,
+				_showCompare,
+				_compareMode,
+				_compareAnchor,
+				_compareStyle,
+				_compareRatioTable
 			);
 
 		// A simulation already held by the service (page revisited) is shown as-is instead of reloaded.
@@ -785,6 +790,11 @@ namespace Poink.Sim.Components.Pages
 			_ruleSignalSettings = settings.SignalSettings ?? new();
 			_robotPositionRules = settings.RobotPositionRules ?? new();
 			_watchTables = settings.WatchTables?.Where(t => t != _table).Distinct().ToList() ?? new();
+			_showCompare = settings.ShowCompare;
+			_compareMode = settings.CompareMode;
+			_compareAnchor = settings.CompareAnchor;
+			_compareStyle = settings.CompareStyle;
+			_compareRatioTable = settings.CompareRatioTable;
 		}
 
 		// Saving before the stored settings were read would overwrite them with the page's defaults.
@@ -915,6 +925,8 @@ namespace Poink.Sim.Components.Pages
 
 		private HashSet<string> CurrentVisibleChartPanelKeys(SimulationSnapshot s)
 		{
+			if (CompareActive(s))
+				return ["compare"];
 			var keys = new HashSet<string>();
 			if (_showMainChart) keys.Add("main");
 			if (s.Config.Aggregate && _showXGrid) keys.Add("xgrid");
@@ -949,14 +961,17 @@ namespace Poink.Sim.Components.Pages
 					await _dividerResizeInstance.InvokeVoidAsync("resetChartPanelsEqual", _chartRowRef);
 				}
 
-				if (ShowXGridDivider(_snapshot))
-					await _dividerResizeInstance.InvokeVoidAsync("bindChartDivider", _chartDividerRefXGrid);
-				if (ShowVolumeProfileDivider(_snapshot))
-					await _dividerResizeInstance.InvokeVoidAsync("bindChartDivider", _chartDividerRef);
-				if (ShowTimeProfileDivider(_snapshot))
-					await _dividerResizeInstance.InvokeVoidAsync("bindChartDivider", _chartDividerRef2);
-				if (ShowSnapshotDivider(_snapshot))
-					await _dividerResizeInstance.InvokeVoidAsync("bindChartDivider", _chartDividerRefSnapshot);
+				if (!CompareActive(_snapshot))
+				{
+					if (ShowXGridDivider(_snapshot))
+						await _dividerResizeInstance.InvokeVoidAsync("bindChartDivider", _chartDividerRefXGrid);
+					if (ShowVolumeProfileDivider(_snapshot))
+						await _dividerResizeInstance.InvokeVoidAsync("bindChartDivider", _chartDividerRef);
+					if (ShowTimeProfileDivider(_snapshot))
+						await _dividerResizeInstance.InvokeVoidAsync("bindChartDivider", _chartDividerRef2);
+					if (ShowSnapshotDivider(_snapshot))
+						await _dividerResizeInstance.InvokeVoidAsync("bindChartDivider", _chartDividerRefSnapshot);
+				}
 				await _dividerResizeInstance.InvokeVoidAsync("bindHeightAfter", _chartHDividerRef);
 			}
 
