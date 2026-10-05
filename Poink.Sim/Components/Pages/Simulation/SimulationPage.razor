@@ -28,140 +28,89 @@
 
     <div class="sim-topbar">
         <header class="sim-header">
-         
-            @if (_snapshot is null)
-            {
-                <div class="sim-header-title">
-                    <span class="sim-header-symbol">TRADER SIMULATION</span>
-                    <span class="sim-header-state sim-state-setup">@(_isLoading ? "LOADING" : "SETUP")</span>
-                </div>
-                <div class="sim-header-actions">
-                    @if (_loadError is not null)
-                    {
-                        <span class="sim-brainrow-error">@_loadError</span>
-                    }
-                    @if (_error is not null)
-                    {
-                        <span class="sim-brainrow-error">@_error</span>
-                    }
-                </div>
-            }
-            else
-            {
-                var s = _snapshot;
-                var trader = SelectedTrader!;
+            <div class="sim-header-title">
+                <span class="sim-header-symbol" title="Trader simulation -- replays the symbols picked in the SYMBOL tab over the date range beside it, trading the first and watching the rest">TRADER SIMULATION</span>
+                <span class="sim-header-state @StateCssClass" title="Current state of the simulation">@StateLabel</span>
+            </div>
+            <div class="sim-header-range" title="Date range the simulation replays -- applies on the next SET, RESET or PLAY">
+                <TickDataSource @bind-Table="_table" ShowTablePicker="false" @bind-From="_from" @bind-To="_to"
+                                Disabled="@_isLoading" />
+            </div>
+            <div class="sim-header-actions">
+                <button class="sim-ctrl-btn sim-ctrl-btn-play" @onclick="ApplyDataRange" disabled="@_isLoading"
+                        title="Apply the selected symbol and date range -- loads the simulation from it, with enough earlier history that the rule engine's lookback is already filled at the start">
+                    @(_isLoading ? "LOADING..." : "SET")
+                </button>
                 @if (_loadError is not null)
                 {
-                    <span class="sim-brainrow-error">@_loadError</span>
+                    <span class="sim-brainrow-error" title="@_loadError">@_loadError</span>
                 }
-                }
-            </header>
-
-            <div class="sim-setup">
-                @if (!_setupCollapsed)
+                @if (_snapshot is null && _error is not null)
                 {
-                <div class="sim-setup-rows">
-
-            <div class="sim-datarow">
-                <div class="sim-datarow-field sim-datarow-data">
-                    <TickDataSource @bind-Table="_table" @bind-From="_from" @bind-To="_to"
-                                    Disabled="@_isLoading" />
-                </div>
-                <div class="sim-datarow-field">
-                    <button class="sim-ctrl-btn sim-ctrl-btn-play" @onclick="ApplyDataRange" disabled="@_isLoading"
-                            title="Apply the selected symbol and date range -- loads the simulation from it, with enough earlier history that the rule engine's lookback is already filled at the start">
-                        @(_isLoading ? "LOADING..." : "SET")
-                    </button>
-                </div>
-                <div class="sim-datarow-field">
-                    <div class="sim-datarow-aggregate">
-                        <label class="sim-datarow-checkbox"
-                               title="Aggregate into HLOC/AVDT bars instead of raw ticks -- can be changed while a simulation is running">
-                            <input type="checkbox" @bind="_aggregate" @bind:after="OnAggregationSettingChanged"
-                                   disabled="@_isLoading" />
-                            Bars
-                        </label>
-                        @if (_aggregate)
-                        {
-                            <BarSizeSelect @bind-Value="_barSizeSeconds" @bind-Value:after="OnAggregationSettingChanged"
-                                           Disabled="@_isLoading"
-                                           Title="Size of each aggregated bar -- can be changed while a simulation is running" />
-                        }
-                    </div>
-                </div>
-            </div>
-
-                </div>
+                    <span class="sim-brainrow-error" title="@_error">@_error</span>
                 }
             </div>
+        </header>
 
-            @if (_snapshot is not null)
-            {
-                var s = _snapshot;
-                <div class="sim-toolbar">
-                    <div class="sim-controls">
-                           <button class="sim-setup-toggle" @onclick="ToggleSetupPanel"
-                    title="@(_setupCollapsed ? "Expand the data range and aggregation options" : "Collapse the data range and aggregation options")">
-                <Icon Name="@(_setupCollapsed ? "chevron-right" : "chevron-down")" Class="sim-setup-toggle-icon" />
-            </button>
-                        <button class="sim-ctrl-btn sim-ctrl-btn-play" @onclick="TogglePlayPause" disabled="@s.IsFinished"
-                                title="@(s.IsPlaying ? "Pause playback" : "Resume playback")">
-                            <Icon Name="@(s.IsPlaying ? "pause-fill" : "play-fill")" Class="sim-ctrl-icon" />
-                            @(s.IsPlaying ? "PAUSE" : "PLAY")
-                        </button>
-                        <button class="sim-ctrl-btn" @onclick="StepOnce" disabled="@(s.IsPlaying || s.IsFinished)">
-                            <Icon Name="skip-end-fill" Class="sim-ctrl-icon" />
-                            STEP
-                        </button>
-                        <div class="sim-speed-stepper @(s.IsUncapped ? "sim-speed-stepper-inactive" : "")"
-                             title="Playback speed">
-                            <button class="sim-ctrl-btn sim-speed-step" @onclick="() => DecreaseSpeed(s)"
-                                    disabled="@(SpeedIndex(s) == 0)" title="Slower">−</button>
-                            <span class="sim-speed-value">@FormatSpeed(s.SpeedMultiplier)</span>
-                            <button class="sim-ctrl-btn sim-speed-step" @onclick="() => IncreaseSpeed(s)"
-                                    disabled="@(SpeedIndex(s) == Speeds.Length - 1)" title="Faster">+</button>
-                        </div>
-                        <button class="sim-ctrl-btn sim-ctrl-btn-max @(s.IsUncapped ? "active" : "")" @onclick="SetMax"
-                                title="Uncapped backend speed -- combine with Hide Chart for the fastest runs">MAX</button>
-                        <button class="sim-ctrl-btn sim-ctrl-btn-warn" @onclick="ResetSim"
-                                title="Discard this run and return to setup -- pressing Play afterwards starts a new simulation">RESET</button>
-                        @if (_setupCollapsed && s.Config.Aggregate)
-                        {
-                            <span class="sim-toolbar-divider"></span>
-                            <div class="sim-toolbar-stepctrls">
-                                <BarSizeSelect @bind-Value="_barSizeSeconds" @bind-Value:after="OnAggregationSettingChanged"
-                                               Disabled="@_isLoading" Label=""
-                                               Title="Size of each aggregated bar -- can be changed while a simulation is running" />
-                            </div>
-                        }
-                        <SimTimeline />
-
-                        <div class="sim-controls-right">
-                            <span class="sim-toolbar-divider"></span>
-
-                            <button class="sim-ctrl-btn sim-ctrl-btn-toggle @(_hideChart ? "active" : "")"
-                                    @onclick="ToggleHideChart">
-                                @(_hideChart ? "SHOW CHART" : "HIDE CHART")
-                            </button>
-                        </div>
+        <div class="sim-toolbar">
+            <div class="sim-controls">
+                @if (_snapshot is not null)
+                {
+                    var s = _snapshot;
+                    <button class="sim-ctrl-btn sim-ctrl-btn-play" @onclick="TogglePlayPause" disabled="@s.IsFinished"
+                            title="@(s.IsPlaying ? "Pause playback" : "Resume playback")">
+                        <Icon Name="@(s.IsPlaying ? "pause-fill" : "play-fill")" Class="sim-ctrl-icon" />
+                        @(s.IsPlaying ? "PAUSE" : "PLAY")
+                    </button>
+                    <button class="sim-ctrl-btn" @onclick="StepOnce" disabled="@(s.IsPlaying || s.IsFinished)"
+                            title="Advance a single step">
+                        <Icon Name="skip-end-fill" Class="sim-ctrl-icon" />
+                        STEP
+                    </button>
+                    <div class="sim-speed-stepper @(s.IsUncapped ? "sim-speed-stepper-inactive" : "")"
+                         title="Playback speed">
+                        <button class="sim-ctrl-btn sim-speed-step" @onclick="() => DecreaseSpeed(s)"
+                                disabled="@(SpeedIndex(s) == 0)" title="Slower">−</button>
+                        <span class="sim-speed-value" title="Current playback speed">@FormatSpeed(s.SpeedMultiplier)</span>
+                        <button class="sim-ctrl-btn sim-speed-step" @onclick="() => IncreaseSpeed(s)"
+                                disabled="@(SpeedIndex(s) == Speeds.Length - 1)" title="Faster">+</button>
                     </div>
-                </div>
-            }
-            else
-            {
-                <div class="sim-toolbar">
-                    <div class="sim-controls">
-                        <button class="sim-ctrl-btn sim-ctrl-btn-play" @onclick="TogglePlayPause" disabled="@_isLoading"
-                                title="Load the data range with the setup and policy settings, then start playback">
-                            <Icon Name="play-fill" Class="sim-ctrl-icon" />
-                            @(_isLoading ? "LOADING..." : "PLAY")
+                    <button class="sim-ctrl-btn sim-ctrl-btn-max @(s.IsUncapped ? "active" : "")" @onclick="SetMax"
+                            title="Uncapped backend speed -- combine with Hide Chart for the fastest runs">MAX</button>
+                    <button class="sim-ctrl-btn sim-ctrl-btn-warn" @onclick="ResetSim"
+                            title="Discard this run and return to setup -- pressing Play afterwards starts a new simulation">RESET</button>
+                }
+                else
+                {
+                    <button class="sim-ctrl-btn sim-ctrl-btn-play" @onclick="TogglePlayPause" disabled="@_isLoading"
+                            title="Load the data range with the setup and policy settings, then start playback">
+                        <Icon Name="play-fill" Class="sim-ctrl-icon" />
+                        @(_isLoading ? "LOADING..." : "PLAY")
+                    </button>
+                    <button class="sim-ctrl-btn sim-ctrl-btn-warn" @onclick="ResetSim" disabled="@_isLoading"
+                            title="Load a simulation from the current setup and policy settings">RESET</button>
+                }
+                <span class="sim-toolbar-divider"></span>
+                <SimulationAggregationControls @bind-Aggregate="_aggregate" @bind-Aggregate:after="OnAggregationSettingChanged"
+                                               @bind-BarSizeSeconds="_barSizeSeconds" @bind-BarSizeSeconds:after="OnAggregationSettingChanged"
+                                               Disabled="@_isLoading" />
+                @if (_snapshot is not null)
+                {
+                    <SimTimeline />
+
+                    <div class="sim-controls-right">
+                        <span class="sim-toolbar-divider"></span>
+
+                        <button class="sim-ctrl-btn sim-ctrl-btn-toggle @(_hideChart ? "active" : "")"
+                                @onclick="ToggleHideChart"
+                                title="@(_hideChart ? "Show the chart and profile panels" : "Hide the chart and profile panels -- combine with MAX for the fastest runs")">
+                            @(_hideChart ? "SHOW CHART" : "HIDE CHART")
                         </button>
-                        <button class="sim-ctrl-btn sim-ctrl-btn-warn" @onclick="ResetSim" disabled="@_isLoading"
-                                title="Load a simulation from the current setup and policy settings">RESET</button>
                     </div>
-                </div>
-            }
+                }
+            </div>
         </div>
+    </div>
 
         <div class="sim-body">
                 <aside class="sim-left-side-panel @(_leftSidePanelCollapsed ? "sim-left-side-panel-collapsed" : "") @(!_leftSidePanelCollapsed && _activeLeftPanelTab == SimLeftPanelTab.RuleEngine ? "sim-left-side-panel-wide" : "")">
@@ -185,6 +134,9 @@
                     @if (!_leftSidePanelCollapsed)
                     {
                         <div class="sim-left-side-panel-tabs">
+                            <button type="button" class="sim-left-side-panel-tab @(_activeLeftPanelTab == SimLeftPanelTab.Symbol ? "active" : "")"
+                                    @onclick="() => _activeLeftPanelTab = SimLeftPanelTab.Symbol"
+                                    title="Symbol the simulation replays and its trading parameters -- a new pick applies when SET is pressed">SYMBOL</button>
                             <button type="button" class="sim-left-side-panel-tab @(_activeLeftPanelTab == SimLeftPanelTab.Setup ? "active" : "")"
                                     @onclick="() => _activeLeftPanelTab = SimLeftPanelTab.Setup"
                                     title="Trader account settings -- changes apply to the bots when SET is pressed">SETUP</button>
@@ -196,10 +148,15 @@
                                     title="Above/In/Below mask over the baseline signals (POC/VAH/VAL/VWAP/Median/Regression), XGrid's Top %/Delta rows, and TxFold's per-timeframe mean+/-stddev rows -- the input side of the rule engine">RULE ENGINE</button>
                         </div>
                         <div class="sim-left-side-panel-content">
-                            @if (_activeLeftPanelTab == SimLeftPanelTab.Setup)
+                            @if (_activeLeftPanelTab == SimLeftPanelTab.Symbol)
+                            {
+                                <SimulationSymbolPanel SelectedTables="SelectedTables" SelectedTablesChanged="OnSymbolsSelected" SymbolColors="SymbolColors"
+                                                       LoadedTables="LoadedTables" Disabled="@_isLoading" />
+                                <SymbolMetadataFields Symbol="_symbol" Metadata="_symbolMetadata" Loading="_loadingSymbolMetadata" />
+                            }
+                            else if (_activeLeftPanelTab == SimLeftPanelTab.Setup)
                             {
                                 <div class="sim-setup-form">
-                                    <SymbolMetadataFields Symbol="_symbol" Metadata="_symbolMetadata" Loading="_loadingSymbolMetadata" />
                                     <label class="sim-brainrow-field"
                                            title="Cash each trader starts with -- applies when SET is pressed">
                                         Starting cash
@@ -268,7 +225,7 @@
             <div class="sim-main">
                 @if (_snapshot is null)
                 {
-                    <p class="sim-drawings-empty">@(_isLoading ? "Loading simulation..." : "No simulation loaded -- pick a symbol and date range in the setup, then press Reset.")</p>
+                    <p class="sim-drawings-empty">@(_isLoading ? "Loading simulation..." : "No simulation loaded -- pick a symbol in the SYMBOL tab and a date range above, then press SET.")</p>
                 }
 
                 @if (_snapshot is not null)
@@ -279,10 +236,17 @@
                     @if (!_hideChart)
                     {
                         <div class="sim-chart-toolbar">
-                            <span class="sim-chart-title" title="Data table this simulation was loaded from">@s.Config.Table</span>
+                            <span class="sim-chart-title" style="color: var(@SymbolColorHelper.ColorVarFor(SymbolColors, s.Config.Table))"
+                                  title="Traded symbol's data table -- its colour matches the SYMBOL tab and the compare chart">@s.Config.Table</span>
                             <div class="sim-profile-toggles"
                                  title="Show or hide the chart and profile panels">
                                 <span class="sim-overlay-toggles-label">Panels</span>
+                                @if (CompareAvailable(s))
+                                {
+                                    <button type="button" class="sim-overlay-toggle-btn @(_showCompare ? "active" : "")"
+                                            @onclick="() => _showCompare = !_showCompare"
+                                            title="Replace the chart row and the watched charts with one chart comparing the traded and watched symbols as % change -- the other panel toggles apply again once this is off">Compare</button>
+                                }
                                 <button type="button" class="sim-overlay-toggle-btn @(_showMainChart ? "active" : "")"
                                         @onclick="() => _showMainChart = !_showMainChart"
                                         title="Show or hide the main price chart">Chart</button>
@@ -307,6 +271,12 @@
                                 <button type="button" class="sim-overlay-toggle-btn @(_showIndicators ? "active" : "")"
                                         @onclick="() => _showIndicators = !_showIndicators"
                                         title="Show or hide the indicator panel -- calculated values such as ATR for the current window">Indicators</button>
+                                @if (WatchedSymbols(s).Count > 0)
+                                {
+                                    <button type="button" class="sim-overlay-toggle-btn @(_showWatchedCharts ? "active" : "")"
+                                            @onclick="() => _showWatchedCharts = !_showWatchedCharts"
+                                            title="Show or hide the watched symbols' chart sets -- each shows the same panels as the traded symbol, replayed in step with it and driven by the same Lookback Window and Indicators">Watched</button>
+                                }
                             </div>
                         </div>
 
@@ -338,145 +308,171 @@
                             <IndicatorPanel Rows="IndicatorRows(s)" />
                         }
 
-                        <div class="sim-chart" @ref="_chartRowRef">
-                            @if (_showMainChart)
+                        <div class="sim-chart @(CompareActive(s) ? "sim-chart-compare" : "")" @ref="_chartRowRef">
+                            @if (CompareActive(s))
                             {
-                                <div class="sim-chart-main">
-                                    @if (s.Config.Aggregate)
-                                    {
-                                        <MarketChartContainer Bars="ToBarRows(ChartBars(s))" KeepView="_keepChartView"
-                                                            OnNearStart="LoadOlderChartHistory"
-                                                            CurrentBid="s.CurrentBid"
-                                                            CurrentAsk="s.CurrentAsk" EntryPrice="SelectedTrader?.Position?.EntryPrice"
-                                                            PositionIsLong="SelectedPositionIsLong" StopLossPrice="SelectedTrader?.Position?.StopLossPrice"
-                                                            TakeProfitPrice="SelectedTrader?.Position?.TakeProfitPrice"
-                                                            WindowStartUtc="WindowStartUtc(s)" WindowEndUtc="WindowEndUtc(s)"
-                                                            HorizontalLines="indicatorOverlays.HorizontalLines"
-                                                            VerticalLines="indicatorOverlays.VerticalLines"
-                                                            DiagonalLines="indicatorOverlays.DiagonalLines"
-                                                            VwapLine="indicatorOverlays.VwapLine" />
-                                    }
-                                    else
-                                    {
-                                        <ViewDatatable Items="TickRows" Title="RECENT TICKS" />
-                                    }
-                                </div>
+                                var compareWindow = LookbackWindowTimes(s);
+                                <SimulationCompareSet Symbols="CompareSymbols(s)" @bind-Mode="_compareMode" @bind-Anchor="_compareAnchor"
+                                                      @bind-Style="_compareStyle" @bind-RatioTable="_compareRatioTable"
+                                                      WindowStart="compareWindow.Start" WindowEnd="compareWindow.End"
+                                                      @bind-TxFold="_compareTxFold" TxFoldAnchor="CompareTxFoldAnchor(s)" RangeStart="s.Config.From"
+                                                      @bind-XGrid="_compareXGrid" XGridResult="CompareXGrid(s)" @bind-MainPanel="_compareMainPanel" />
                             }
-                            @if (s.Config.Aggregate && _showXGrid)
+                            else
                             {
-                                @if (ShowXGridDivider(s))
+                                @if (_showMainChart)
                                 {
-                                    <div class="sim-chart-divider" @ref="_chartDividerRefXGrid" data-min-width="160"
-                                         title="Drag to resize"></div>
+                                    <div class="sim-chart-main">
+                                        @if (s.Config.Aggregate)
+                                        {
+                                            <MarketChartContainer Bars="SimulationRowHelper.ToBarRows(ChartBars(s))" KeepView="_keepChartView"
+                                                                OnNearStart="LoadOlderChartHistory"
+                                                                CurrentBid="s.CurrentBid"
+                                                                CurrentAsk="s.CurrentAsk" EntryPrice="SelectedTrader?.Position?.EntryPrice"
+                                                                PositionIsLong="SelectedPositionIsLong" StopLossPrice="SelectedTrader?.Position?.StopLossPrice"
+                                                                TakeProfitPrice="SelectedTrader?.Position?.TakeProfitPrice"
+                                                                WindowStartUtc="WindowStartUtc(s)" WindowEndUtc="WindowEndUtc(s)"
+                                                                HorizontalLines="indicatorOverlays.HorizontalLines"
+                                                                VerticalLines="indicatorOverlays.VerticalLines"
+                                                                DiagonalLines="indicatorOverlays.DiagonalLines"
+                                                                VwapLine="indicatorOverlays.VwapLine" />
+                                        }
+                                        else
+                                        {
+                                            <ViewDatatable Items="TickRows" Title="RECENT TICKS" />
+                                        }
+                                    </div>
                                 }
-                                <div class="sim-chart-side">
-                                    <XGridController Grid="ComputeXGrid(s)" Positions="XGridPositions(s)"
-                                           Pending="XGridPending()" OnOrderPlaced="PlaceXGridOrder"
-                                           OnPendingModified="ModifyXGridPending" OnPendingCancelled="CancelXGridPending"
-                                           OnPositionClosed="CloseXGridPosition"
-                                           ExternalDraft="XGridDraft" PipSize="s.Config.PipSize"
-                                           @bind-PipCount="_xgridPipCount" @bind-ColCount="_xgridColCount"
-                                           ProfileBarCount="ClampedBarWindow" Indicators="_indicators">
-                                        <ExpandedControls>
-                                            <button class="sim-ctrl-btn sim-ctrl-btn-play" @onclick="TogglePlayPause" disabled="@s.IsFinished"
-                                                    title="@(s.IsPlaying ? "Pause playback" : "Resume playback")">
-                                                <Icon Name="@(s.IsPlaying ? "pause-fill" : "play-fill")" Class="sim-ctrl-icon" />
-                                                @(s.IsPlaying ? "PAUSE" : "PLAY")
-                                            </button>
-                                            <button class="sim-ctrl-btn" @onclick="StepOnce" disabled="@(s.IsPlaying || s.IsFinished)"
-                                                    title="Advance a single step">
-                                                <Icon Name="skip-end-fill" Class="sim-ctrl-icon" />
-                                                STEP
-                                            </button>
-                                            <div class="sim-speed-stepper @(s.IsUncapped ? "sim-speed-stepper-inactive" : "")"
-                                                 title="Playback speed">
-                                                <button class="sim-ctrl-btn sim-speed-step" @onclick="() => DecreaseSpeed(s)"
-                                                        disabled="@(SpeedIndex(s) == 0)" title="Slower">−</button>
-                                                <span class="sim-speed-value">@FormatSpeed(s.SpeedMultiplier)</span>
-                                                <button class="sim-ctrl-btn sim-speed-step" @onclick="() => IncreaseSpeed(s)"
-                                                        disabled="@(SpeedIndex(s) == Speeds.Length - 1)" title="Faster">+</button>
-                                            </div>
-                                            <button class="sim-ctrl-btn sim-ctrl-btn-max @(s.IsUncapped ? "active" : "")" @onclick="SetMax"
-                                                    title="Uncapped backend speed">MAX</button>
-                                            @if (s.Config.Aggregate)
-                                            {
-                                                <span class="sim-window-title">LOOKBACK WINDOW</span>
-                                                <input class="sim-window-input" type="number" min="1" max="@MaxBarWindow"
-                                                       @bind="_barWindowSize" @bind:event="oninput"
-                                                       title="Number of bars the window spans -- their price histograms drive the volume profile window" />
-                                                <input class="sim-window-input" type="number" min="0" max="@(MaxBarWindow - 1)"
-                                                       @bind="_barWindowOffset" @bind:event="oninput"
-                                                       title="Bars back from the most recent bar to the end of the window -- 0 keeps the window anchored to now" />
-                                            }
-                                        </ExpandedControls>
-                                    </XGridController>
-                                </div>
-                            }
-                            @if (_showVolumeProfile)
-                            {
-                                @if (ShowVolumeProfileDivider(s))
+                                @if (s.Config.Aggregate && _showXGrid)
                                 {
-                                    <div class="sim-chart-divider" @ref="_chartDividerRef" data-min-width="160"
-                                         title="Drag to resize"></div>
+                                    @if (ShowXGridDivider(s))
+                                    {
+                                        <div class="sim-chart-divider" @ref="_chartDividerRefXGrid" data-min-width="160"
+                                             title="Drag to resize"></div>
+                                    }
+                                    <div class="sim-chart-side">
+                                        <XGridController Grid="ComputeXGrid(s)" Positions="XGridPositions(s)"
+                                               Pending="XGridPending()" OnOrderPlaced="PlaceXGridOrder"
+                                               OnPendingModified="ModifyXGridPending" OnPendingCancelled="CancelXGridPending"
+                                               OnPositionClosed="CloseXGridPosition"
+                                               ExternalDraft="XGridDraft" PipSize="s.Config.PipSize"
+                                               @bind-PipCount="_xgridPipCount" @bind-ColCount="_xgridColCount"
+                                               ProfileBarCount="ClampedBarWindow" Indicators="_indicators">
+                                            <ExpandedControls>
+                                                <button class="sim-ctrl-btn sim-ctrl-btn-play" @onclick="TogglePlayPause" disabled="@s.IsFinished"
+                                                        title="@(s.IsPlaying ? "Pause playback" : "Resume playback")">
+                                                    <Icon Name="@(s.IsPlaying ? "pause-fill" : "play-fill")" Class="sim-ctrl-icon" />
+                                                    @(s.IsPlaying ? "PAUSE" : "PLAY")
+                                                </button>
+                                                <button class="sim-ctrl-btn" @onclick="StepOnce" disabled="@(s.IsPlaying || s.IsFinished)"
+                                                        title="Advance a single step">
+                                                    <Icon Name="skip-end-fill" Class="sim-ctrl-icon" />
+                                                    STEP
+                                                </button>
+                                                <div class="sim-speed-stepper @(s.IsUncapped ? "sim-speed-stepper-inactive" : "")"
+                                                     title="Playback speed">
+                                                    <button class="sim-ctrl-btn sim-speed-step" @onclick="() => DecreaseSpeed(s)"
+                                                            disabled="@(SpeedIndex(s) == 0)" title="Slower">−</button>
+                                                    <span class="sim-speed-value">@FormatSpeed(s.SpeedMultiplier)</span>
+                                                    <button class="sim-ctrl-btn sim-speed-step" @onclick="() => IncreaseSpeed(s)"
+                                                            disabled="@(SpeedIndex(s) == Speeds.Length - 1)" title="Faster">+</button>
+                                                </div>
+                                                <button class="sim-ctrl-btn sim-ctrl-btn-max @(s.IsUncapped ? "active" : "")" @onclick="SetMax"
+                                                        title="Uncapped backend speed">MAX</button>
+                                                @if (s.Config.Aggregate)
+                                                {
+                                                    <span class="sim-window-title">LOOKBACK WINDOW</span>
+                                                    <input class="sim-window-input" type="number" min="1" max="@MaxBarWindow"
+                                                           @bind="_barWindowSize" @bind:event="oninput"
+                                                           title="Number of bars the window spans -- their price histograms drive the volume profile window" />
+                                                    <input class="sim-window-input" type="number" min="0" max="@(MaxBarWindow - 1)"
+                                                           @bind="_barWindowOffset" @bind:event="oninput"
+                                                           title="Bars back from the most recent bar to the end of the window -- 0 keeps the window anchored to now" />
+                                                }
+                                            </ExpandedControls>
+                                        </XGridController>
+                                    </div>
                                 }
-                                <div class="sim-chart-side">
-                                    @if (s.Config.Aggregate)
-                                    {
-                                        <TickVolumeProfileChart WeightedSamples="MergedBarSamples(s)" CurrentPrice="s.CurrentPrice"
-                                                                ShowLevels="ShowVolumeProfileLevels" />
-                                    }
-                                    else
-                                    {
-                                        <TickVolumeProfileChart Prices="ToMidPrices(WindowedTicks(s))" CurrentPrice="s.CurrentPrice"
-                                                                WindowSize="ClampedTickWindow" />
-                                    }
-                                </div>
-                            }
-                            @if (_showTimeProfile)
-                            {
-                                @if (ShowTimeProfileDivider(s))
+                                @if (_showVolumeProfile)
                                 {
-                                    <div class="sim-chart-divider" @ref="_chartDividerRef2" data-min-width="160"
-                                         title="Drag to resize"></div>
+                                    @if (ShowVolumeProfileDivider(s))
+                                    {
+                                        <div class="sim-chart-divider" @ref="_chartDividerRef" data-min-width="160"
+                                             title="Drag to resize"></div>
+                                    }
+                                    <div class="sim-chart-side">
+                                        @if (s.Config.Aggregate)
+                                        {
+                                            <TickVolumeProfileChart WeightedSamples="MergedBarSamples(s)" CurrentPrice="s.CurrentPrice"
+                                                                    ShowLevels="ShowVolumeProfileLevels" />
+                                        }
+                                        else
+                                        {
+                                            <TickVolumeProfileChart Prices="ToMidPrices(WindowedTicks(s))" CurrentPrice="s.CurrentPrice"
+                                                                    WindowSize="ClampedTickWindow" />
+                                        }
+                                    </div>
                                 }
-                                <div class="sim-chart-side">
-                                    @if (s.Config.Aggregate)
-                                    {
-                                        <TickTimeProfileChart WeightedSamples="MergedBarTimeSamples(s)" CurrentPrice="s.CurrentPrice" />
-                                    }
-                                    else
-                                    {
-                                        <TickTimeProfileChart Ticks="ToTimedMidPrices(WindowedTicks(s))" CurrentPrice="s.CurrentPrice"
-                                                              WindowSize="ClampedTickWindow" />
-                                    }
-                                </div>
-                            }
-                            @if (s.Config.Aggregate && _showSnapshot)
-                            {
-                                @if (ShowSnapshotDivider(s))
+                                @if (_showTimeProfile)
                                 {
-                                    <div class="sim-chart-divider" @ref="_chartDividerRefSnapshot" data-min-width="160"
-                                         title="Drag to resize"></div>
+                                    @if (ShowTimeProfileDivider(s))
+                                    {
+                                        <div class="sim-chart-divider" @ref="_chartDividerRef2" data-min-width="160"
+                                             title="Drag to resize"></div>
+                                    }
+                                    <div class="sim-chart-side">
+                                        @if (s.Config.Aggregate)
+                                        {
+                                            <TickTimeProfileChart WeightedSamples="MergedBarTimeSamples(s)" CurrentPrice="s.CurrentPrice" />
+                                        }
+                                        else
+                                        {
+                                            <TickTimeProfileChart Ticks="ToTimedMidPrices(WindowedTicks(s))" CurrentPrice="s.CurrentPrice"
+                                                                  WindowSize="ClampedTickWindow" />
+                                        }
+                                    </div>
                                 }
-                                <div class="sim-chart-side">
-                                    @if (SnapshotAnchorBar(s) is { } anchorBar)
+                                @if (s.Config.Aggregate && _showSnapshot)
+                                {
+                                    @if (ShowSnapshotDivider(s))
                                     {
-                                        <TxFold Table="@s.Config.Table" AnchorEnd="@anchorBar.CloseTime.AddTicks(1)" RangeStart="@s.Config.From"
-                                                @bind-SelectedSeconds="_txFoldSelectedSeconds"
-                                                LatestPrice="anchorBar.Close" EntryPrice="SelectedTrader?.Position?.EntryPrice"
-                                                PositionIsLong="SelectedPositionIsLong" StopLossPrice="SelectedTrader?.Position?.StopLossPrice"
-                                                TakeProfitPrice="SelectedTrader?.Position?.TakeProfitPrice"
-                                                DraftEntryPrice="_draft?.EntryPrice" DraftIsLong="_draft?.IsLong"
-                                                DraftStopLossPrice="_draft?.StopLossPrice" DraftTakeProfitPrice="_draft?.TakeProfitPrice"
-                                                ShownLevels="IndicatorsHelper.ToTxFoldLevels(_indicators)" ShowLevelToggles="false" />
+                                        <div class="sim-chart-divider" @ref="_chartDividerRefSnapshot" data-min-width="160"
+                                             title="Drag to resize"></div>
                                     }
-                                    else
-                                    {
-                                        <p class="sim-drawings-empty">No bars in the current Lookback Window yet.</p>
-                                    }
-                                </div>
+                                    <div class="sim-chart-side">
+                                        @if (SnapshotAnchorBar(s) is { } anchorBar)
+                                        {
+                                            <TxFold Table="@s.Config.Table" AnchorEnd="@anchorBar.CloseTime.AddTicks(1)" RangeStart="@s.Config.From"
+                                                    @bind-SelectedSeconds="_txFoldSelectedSeconds"
+                                                    LatestPrice="anchorBar.Close" EntryPrice="SelectedTrader?.Position?.EntryPrice"
+                                                    PositionIsLong="SelectedPositionIsLong" StopLossPrice="SelectedTrader?.Position?.StopLossPrice"
+                                                    TakeProfitPrice="SelectedTrader?.Position?.TakeProfitPrice"
+                                                    DraftEntryPrice="_draft?.EntryPrice" DraftIsLong="_draft?.IsLong"
+                                                    DraftStopLossPrice="_draft?.StopLossPrice" DraftTakeProfitPrice="_draft?.TakeProfitPrice"
+                                                    ShownLevels="IndicatorsHelper.ToTxFoldLevels(_indicators)" ShowLevelToggles="false" />
+                                        }
+                                        else
+                                        {
+                                            <p class="sim-drawings-empty">No bars in the current Lookback Window yet.</p>
+                                        }
+                                    </div>
+                                }
                             }
                         </div>
+
+                        @if (!CompareActive(s) && _showWatchedCharts && WatchedSymbols(s).Count > 0)
+                        {
+                            var chartSetOptions = ChartSetOptions(s);
+                            <div class="sim-watch-sets" title="Watched symbols -- each replays its own ticks in step with the traded symbol and shows the same panels">
+                                @foreach (var panels in WatchedPanels(s))
+                                {
+                                    var table = panels.Table;
+                                    <SimulationSymbolChartSet @key="table" Data="panels" Options="chartSetOptions" KeepView="_keepChartView"
+                                                              XGridPipCount="WatchXGridPipCount(table)" XGridPipCountChanged="count => SetWatchXGridPipCount(table, count)"
+                                                              @bind-XGridColCount="_xgridColCount" @bind-TxFoldSelectedSeconds="_txFoldSelectedSeconds" />
+                                }
+                            </div>
+                        }
 
                         <div class="sim-chart-hdivider" @ref="_chartHDividerRef" data-min-height="160" data-max-height-vh="70"
                              title="Drag to resize"></div>

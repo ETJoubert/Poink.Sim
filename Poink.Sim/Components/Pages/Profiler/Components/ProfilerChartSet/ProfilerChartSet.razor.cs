@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 using Poink.Sim.Components.Charts;
 using Poink.Sim.Components.Shared.Indicators;
+using Poink.Sim.Helpers;
 using Poink.Sim.Models;
 using Poink.Sim.Services.Charts;
 
@@ -43,7 +44,7 @@ namespace Poink.Sim.Components.Profiler
 
 		/// <summary>Theme colour var marking this set's left edge and symbol name, matching the symbols panel legend.</summary>
 		[Parameter]
-		public string ColorVar { get; set; } = ProfilerSymbolColorHelper.FallbackColorVar;
+		public string ColorVar { get; set; } = SymbolColorHelper.FallbackColorVar;
 
 		/// <summary>Height in px dragged via the bottom resize handle, or null for the set's default CSS height.</summary>
 		[Parameter]
@@ -144,6 +145,7 @@ namespace Poink.Sim.Components.Profiler
 		private IJSObjectReference? _dividerResizeInstance;
 		private DotNetObjectReference<ProfilerChartSet>? _selfReference;
 		private HashSet<string> _lastVisiblePanels = new();
+		private bool _disposed;
 
 		private DateTime? WindowStart => Options.WindowStart;
 
@@ -176,15 +178,32 @@ namespace Poink.Sim.Components.Profiler
 
 		protected override async Task OnAfterRenderAsync(bool firstRender)
 		{
-			if (firstRender)
-			{
-				_dividerResizeInstance = await JS.InvokeAsync<IJSObjectReference>("eval", ProfilerChartDividerScript.Source);
-				_selfReference = DotNetObjectReference.Create(this);
-				await _dividerResizeInstance.InvokeVoidAsync("bindVertical", _resizeHandleRef, _selfReference);
-			}
+			await BindDividersAsync(firstRender);
+			if (!_disposed)
+				await RefreshSubchartIfNeeded();
+		}
 
-			if (Data.HasBars && _dividerResizeInstance is not null)
+		// Navigating away can dispose the set, and its divider script, while this is still awaiting after a render.
+		private async Task BindDividersAsync(bool firstRender)
+		{
+			try
 			{
+				if (firstRender)
+				{
+					var dividers = await JS.InvokeAsync<IJSObjectReference>("eval", ChartSetDividerScript.Source);
+					if (_disposed)
+					{
+						await dividers.DisposeAsync();
+						return;
+					}
+					_dividerResizeInstance = dividers;
+					_selfReference = DotNetObjectReference.Create(this);
+					await _dividerResizeInstance.InvokeVoidAsync("bindVertical", _resizeHandleRef, _selfReference);
+				}
+
+				if (_disposed || !Data.HasBars || _dividerResizeInstance is null)
+					return;
+
 				var visiblePanels = CurrentVisiblePanelKeys();
 				if (!visiblePanels.SetEquals(_lastVisiblePanels))
 				{
@@ -203,8 +222,8 @@ namespace Poink.Sim.Components.Profiler
 				if (Options.ShowSnapshot)
 					await _dividerResizeInstance.InvokeVoidAsync("bind", _dividerRefSnapshot);
 			}
-
-			await RefreshSubchartIfNeeded();
+			catch (ObjectDisposedException) { }
+			catch (JSDisconnectedException) { }
 		}
 
 		/// <summary>Called from the resize handle's JS when a height drag finishes, or with null when a double-click resets it.</summary>
@@ -213,6 +232,7 @@ namespace Poink.Sim.Components.Profiler
 
 		public async ValueTask DisposeAsync()
 		{
+			_disposed = true;
 			_selfReference?.Dispose();
 			if (_dividerResizeInstance is null)
 				return;
@@ -265,7 +285,8 @@ namespace Poink.Sim.Components.Profiler
 			{
 				_subchartLoading = false;
 			}
-			StateHasChanged();
+			if (!_disposed)
+				StateHasChanged();
 		}
 
 		private IEnumerable<ChartRangeFill> LookbackWindowFill()

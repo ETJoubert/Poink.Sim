@@ -18,7 +18,7 @@
     align-items: center;
     justify-content: flex-start;
     gap: 16px;
-    padding: 1px 24px 1px;
+    padding: 5px 24px;
     border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
 }
 
@@ -52,6 +52,18 @@
     color: var(--color-secondary);
 }
 
+.sim-state-playing {
+    color: var(--color-success);
+}
+
+.sim-state-paused {
+    color: var(--color-warning);
+}
+
+.sim-state-finished {
+    color: var(--color-primary);
+}
+
 .sim-stats {
     display: flex;
     flex-wrap: wrap;
@@ -77,82 +89,6 @@
 .sim-stat-value {
     font-size: 0.92rem;
     font-weight: 600;
-    white-space: nowrap;
-}
-
-.sim-setup {
-    display: flex;
-    align-items: stretch;
-}
-
-.sim-setup-rows {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    min-width: 0;
-}
-
-.sim-setup-toggle {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex: 0 0 auto;
-    width: 26px;
-    height: 26px;
-    padding: 0;
-    background: transparent;
-    border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
-    border-radius: var(--border-radius-sm);
-    cursor: pointer;
-    color: var(--color-secondary);
-    transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease;
-}
-
-.sim-setup-toggle:hover {
-    color: var(--color-primary);
-    background: color-mix(in srgb, var(--color-primary) 8%, transparent);
-    border-color: color-mix(in srgb, var(--color-primary) 45%, transparent);
-}
-
-::deep .sim-setup-toggle-icon {
-    width: 14px;
-    height: 14px;
-}
-
-.sim-datarow {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 28px;
-    padding: 2px 24px;
-    border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
-}
-
-.sim-datarow-field {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-}
-
-.sim-datarow-data {
-    flex: 1;
-    min-width: 320px;
-}
-
-.sim-datarow-aggregate {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    min-height: 30px;
-}
-
-.sim-datarow-checkbox {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 0.72rem;
-    letter-spacing: 0.02em;
-    color: var(--color-secondary);
     white-space: nowrap;
 }
 
@@ -195,23 +131,6 @@
     transition: all 0.2s ease;
 }
 
-.sim-datarow-select {
-    background: var(--color-bg-terminal);
-    border: 1px solid color-mix(in srgb, var(--color-primary) 45%, transparent);
-    color: var(--color-primary);
-    padding: 4px 6px;
-    border-radius: var(--border-radius-sm);
-    font-family: var(--font-body);
-    font-size: 12px;
-    transition: all 0.2s ease;
-}
-
-.sim-datarow-select:focus {
-    outline: none;
-    border-color: var(--color-primary);
-    box-shadow: 0 0 8px color-mix(in srgb, var(--color-primary) 40%, transparent);
-}
-
 .sim-brainrow-input {
     width: 80px;
 }
@@ -226,12 +145,16 @@
     box-shadow: 0 0 8px color-mix(in srgb, var(--color-primary) 40%, transparent);
 }
 
+.sim-header-range {
+    flex: 1;
+    min-width: 320px;
+}
+
 .sim-header-actions {
     display: flex;
     align-items: center;
     gap: 10px;
     flex-wrap: wrap;
-    margin-left: auto;
 }
 
 .sim-brainrow-error {
@@ -450,17 +373,6 @@
     align-self: stretch;
     background: color-mix(in srgb, var(--color-primary) 20%, transparent);
     margin: 0 4px;
-}
-
-.sim-toolbar-stepctrls {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.sim-toolbar-stepctrls ::deep .bar-size-select-input {
-    min-width: 84px;
-    font-size: 11px;
 }
 
 .sim-toolbar-select {
@@ -798,6 +710,16 @@
 .sim-chart-hdivider:hover::before,
 .sim-chart-hdivider.sim-chart-hdivider-active::before {
     background: var(--color-primary);
+}
+
+.sim-chart.sim-chart-compare {
+    height: 560px;
+}
+
+.sim-watch-sets {
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
 }
 
 .sim-log-panel {

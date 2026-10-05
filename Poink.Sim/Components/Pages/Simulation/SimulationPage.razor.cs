@@ -12,6 +12,7 @@ using Poink.Sim.Components.Shared.IndicatorPanel;
 using Poink.Sim.Components.Shared.Indicators;
 using Poink.Sim.Components.Shared.PositionTable;
 using Poink.Sim.Components.Shared.TradeConsole;
+using Poink.Sim.Components.Simulation;
 using Poink.Sim.Helpers;
 using Poink.Sim.Models;
 using Poink.Sim.Profiler;
@@ -98,9 +99,9 @@ namespace Poink.Sim.Components.Pages
 		private List<HlocAvdtBar> _historyBars = new();
 		private bool _historyReachedStart;
 		private bool _isLoadingHistory;
+		private bool _disposed;
 		private int _lastHistoryCursorIndex;
 
-		private bool _setupCollapsed;
 		private int? _selectedTraderId;
 
 		// Matches SimulationEngine.MaxRecentTicks.
@@ -160,6 +161,7 @@ namespace Poink.Sim.Components.Pages
 
 		private enum SimLeftPanelTab
 		{
+			Symbol,
 			Setup,
 			Traders,
 			RuleEngine,
@@ -602,6 +604,8 @@ namespace Poink.Sim.Components.Pages
 		private void HandleServiceChanged() =>
 			_ = InvokeAsync(() =>
 			{
+				if (_disposed)
+					return;
 				ApplyServiceState();
 				StateHasChanged();
 			});
@@ -727,7 +731,16 @@ namespace Poink.Sim.Components.Pages
 				_robotCooldownSeconds,
 				_robotRequireRearm,
 				_ruleSignalSettings,
-				_robotPositionRules
+				_robotPositionRules,
+				_watchTables,
+				_showCompare,
+				_compareMode,
+				_compareAnchor,
+				_compareStyle,
+				_compareRatioTable,
+				_compareTxFold,
+				_compareXGrid,
+				_compareMainPanel
 			);
 
 		// A simulation already held by the service (page revisited) is shown as-is instead of reloaded.
@@ -782,6 +795,15 @@ namespace Poink.Sim.Components.Pages
 			_robotRequireRearm = settings.RobotRequireRearm;
 			_ruleSignalSettings = settings.SignalSettings ?? new();
 			_robotPositionRules = settings.RobotPositionRules ?? new();
+			_watchTables = settings.WatchTables?.Where(t => t != _table).Distinct().ToList() ?? new();
+			_showCompare = settings.ShowCompare;
+			_compareMode = settings.CompareMode;
+			_compareAnchor = settings.CompareAnchor;
+			_compareStyle = settings.CompareStyle;
+			_compareRatioTable = settings.CompareRatioTable;
+			_compareTxFold = settings.CompareTxFold ?? new();
+			_compareXGrid = settings.CompareXGrid ?? new();
+			_compareMainPanel = settings.CompareMainPanel;
 		}
 
 		// Saving before the stored settings were read would overwrite them with the page's defaults.
@@ -912,6 +934,8 @@ namespace Poink.Sim.Components.Pages
 
 		private HashSet<string> CurrentVisibleChartPanelKeys(SimulationSnapshot s)
 		{
+			if (CompareActive(s))
+				return ["compare"];
 			var keys = new HashSet<string>();
 			if (_showMainChart) keys.Add("main");
 			if (s.Config.Aggregate && _showXGrid) keys.Add("xgrid");
@@ -925,7 +949,13 @@ namespace Poink.Sim.Components.Pages
 		{
 			if (firstRender)
 			{
-				_dividerResizeInstance = await JS.InvokeAsync<IJSObjectReference>("eval", ChartDividerScript);
+				var dividers = await JS.InvokeAsync<IJSObjectReference>("eval", ChartDividerScript);
+				if (_disposed)
+				{
+					await dividers.DisposeAsync();
+					return;
+				}
+				_dividerResizeInstance = dividers;
 				await LoadPersistedSettingsAsync();
 				await LoadInitialSimulation();
 			}
@@ -936,26 +966,7 @@ namespace Poink.Sim.Components.Pages
 
 			PushRobotOptionsIfChanged();
 			await RefreshSymbolMetadataIfTableChangedAsync();
-
-			if (_snapshot is not null && !_hideChart && _dividerResizeInstance is not null)
-			{
-				var visibleChartPanels = CurrentVisibleChartPanelKeys(_snapshot);
-				if (!visibleChartPanels.SetEquals(_lastVisibleChartPanels))
-				{
-					_lastVisibleChartPanels = visibleChartPanels;
-					await _dividerResizeInstance.InvokeVoidAsync("resetChartPanelsEqual", _chartRowRef);
-				}
-
-				if (ShowXGridDivider(_snapshot))
-					await _dividerResizeInstance.InvokeVoidAsync("bindChartDivider", _chartDividerRefXGrid);
-				if (ShowVolumeProfileDivider(_snapshot))
-					await _dividerResizeInstance.InvokeVoidAsync("bindChartDivider", _chartDividerRef);
-				if (ShowTimeProfileDivider(_snapshot))
-					await _dividerResizeInstance.InvokeVoidAsync("bindChartDivider", _chartDividerRef2);
-				if (ShowSnapshotDivider(_snapshot))
-					await _dividerResizeInstance.InvokeVoidAsync("bindChartDivider", _chartDividerRefSnapshot);
-				await _dividerResizeInstance.InvokeVoidAsync("bindHeightAfter", _chartHDividerRef);
-			}
+			await BindChartDividersAsync();
 
 			if (
 				!_keepChartView
@@ -966,8 +977,43 @@ namespace Poink.Sim.Components.Pages
 				_keepChartView = true;
 		}
 
+		// Navigating away can dispose the page, and its divider script, while this is still awaiting after a render.
+		private async Task BindChartDividersAsync()
+		{
+			if (_disposed || _snapshot is not { } s || _hideChart || _dividerResizeInstance is not { } dividers)
+				return;
+
+			try
+			{
+				var visibleChartPanels = CurrentVisibleChartPanelKeys(s);
+				if (!visibleChartPanels.SetEquals(_lastVisibleChartPanels))
+				{
+					_lastVisibleChartPanels = visibleChartPanels;
+					await dividers.InvokeVoidAsync("resetChartPanelsEqual", _chartRowRef);
+				}
+
+				if (!CompareActive(s))
+				{
+					if (ShowXGridDivider(s))
+						await dividers.InvokeVoidAsync("bindChartDivider", _chartDividerRefXGrid);
+					if (ShowVolumeProfileDivider(s))
+						await dividers.InvokeVoidAsync("bindChartDivider", _chartDividerRef);
+					if (ShowTimeProfileDivider(s))
+						await dividers.InvokeVoidAsync("bindChartDivider", _chartDividerRef2);
+					if (ShowSnapshotDivider(s))
+						await dividers.InvokeVoidAsync("bindChartDivider", _chartDividerRefSnapshot);
+				}
+				await dividers.InvokeVoidAsync("bindHeightAfter", _chartHDividerRef);
+			}
+			catch (ObjectDisposedException) { }
+			catch (JSDisconnectedException) { }
+		}
+
+		// Blazor calls only DisposeAsync when a component implements both, so it also unsubscribes from the engine.
 		public async ValueTask DisposeAsync()
 		{
+			_disposed = true;
+			Dispose();
 			if (_dividerResizeInstance is not null)
 			{
 				try
@@ -984,10 +1030,11 @@ namespace Poink.Sim.Components.Pages
 		private async Task LoadSimulationAsync(bool playWhenLoaded)
 		{
 			await EnsureSymbolMetadataAsync();
-			LoadSimulation(playWhenLoaded);
+			var watchSymbols = await ResolveWatchSymbolsAsync();
+			LoadSimulation(playWhenLoaded, watchSymbols);
 		}
 
-		private void LoadSimulation(bool playWhenLoaded)
+		private void LoadSimulation(bool playWhenLoaded, IReadOnlyList<SimulationWatchSymbol> watchSymbols)
 		{
 			_loadError = null;
 
@@ -1030,11 +1077,11 @@ namespace Poink.Sim.Components.Pages
 				_commissionRatePercent,
 				limits.PipSize,
 				SelectedRiskPolicies,
-				RuleEngineWarmup()
+				RuleEngineWarmup(),
+				watchSymbols
 			);
 
 			_keepChartView = false;
-			_setupCollapsed = true;
 			_playOnLoad = playWhenLoaded;
 			if (!SimulationService.TryLoad(config))
 			{
@@ -1184,7 +1231,18 @@ namespace Poink.Sim.Components.Pages
 
 		private void ToggleHideChart() => _hideChart = !_hideChart;
 
-		private void ToggleSetupPanel() => _setupCollapsed = !_setupCollapsed;
+		private string StateLabel =>
+			_isLoading ? "LOADING"
+			: _snapshot is null ? "SETUP"
+			: _snapshot.IsFinished ? "FINISHED"
+			: _snapshot.IsPlaying ? "PLAYING"
+			: "PAUSED";
+
+		private string StateCssClass =>
+			_isLoading || _snapshot is null ? "sim-state-setup"
+			: _snapshot.IsFinished ? "sim-state-finished"
+			: _snapshot.IsPlaying ? "sim-state-playing"
+			: "sim-state-paused";
 
 		private Task ResetSim()
 		{
@@ -1194,27 +1252,11 @@ namespace Poink.Sim.Components.Pages
 
 		// ── Rendering helpers ──
 
-		private static List<CTraderBarRow> ToBarRows(IReadOnlyList<HlocAvdtBar> bars) =>
-			bars.Select(b => new CTraderBarRow(
-					b.OpenTime,
-					b.Open,
-					b.High,
-					b.Low,
-					b.Close,
-					b.Volume,
-					b.UpVolume,
-					b.DownVolume,
-					b.Distance
-				))
-				.ToList();
-
 		private static List<double> ToMidPrices(IReadOnlyList<Tick> ticks) =>
 			ticks.Select(t => (t.Bid + t.Ask) / 2.0).ToList();
 
 		private static List<TimedPrice> ToTimedMidPrices(IReadOnlyList<Tick> ticks) =>
 			ticks.Select(t => new TimedPrice(t.Timestamp, (t.Bid + t.Ask) / 2.0)).ToList();
-
-		private sealed record TickRow(string Time, string Bid, string Ask, string Mid);
 
 		private IReadOnlyList<Tick>? _tickRowsSource;
 		private List<object> _tickRowsCache = new();
@@ -1229,18 +1271,7 @@ namespace Poink.Sim.Components.Pages
 					return _tickRowsCache;
 
 				_tickRowsSource = _snapshot.RecentTicks;
-				_tickRowsCache = _snapshot
-					.RecentTicks.Select(
-						object (t) =>
-							new TickRow(
-								t.Timestamp.ToString("HH:mm:ss.fff"),
-								t.Bid.ToString("F5"),
-								t.Ask.ToString("F5"),
-								((t.Bid + t.Ask) / 2).ToString("F5")
-							)
-					)
-					.Reverse()
-					.ToList();
+				_tickRowsCache = SimulationRowHelper.ToTickRows(_snapshot.RecentTicks);
 				return _tickRowsCache;
 			}
 		}

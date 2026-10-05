@@ -43,10 +43,10 @@
     }
     else
     {
-        <div class="prof-chart" @ref="_chartRowRef">
+        <div class="chartset-row" @ref="_chartRowRef">
             @if (Options.ShowMainChart)
             {
-                <div class="prof-chart-main"
+                <div class="chartset-main"
                      title="@(IsPrimary
                                 ? "OHLC bar chart -- pan left to backfill older history, or use the toolbar to draw H-Line/V-Line/D-Line/T-Range/P-Range/Rectangle/T-Range Chart/T-Range Reference Chart/Lookback Window. POC/VAH/VAL, a cumulative VWAP line, and Average/Median lines are shown automatically for whatever window the volume profile panel is built from"
                                 : "OHLC bar chart -- pan left to backfill older history, or draw a Lookback Window to set it for every symbol")">
@@ -64,8 +64,8 @@
             }
             @if (Options.ShowXGrid)
             {
-                <div class="prof-chart-divider" @ref="_dividerRefXGrid" data-min-width="200" title="Drag to resize"></div>
-                <div class="prof-chart-side">
+                <div class="chartset-divider" @ref="_dividerRefXGrid" data-min-width="200" title="Drag to resize"></div>
+                <div class="chartset-side">
                     <div class="prof-vp"
                          title="@(WindowLabel() is { } xgridLabel
                                     ? $"Footprint grid for the selected Lookback Window ({xgridLabel}) -- rows are price buckets, columns are bars"
@@ -78,8 +78,8 @@
             }
             @if (Options.ShowVolumeProfile)
             {
-                <div class="prof-chart-divider" @ref="_dividerRefVolume" data-min-width="200" title="Drag to resize"></div>
-                <div class="prof-chart-side">
+                <div class="chartset-divider" @ref="_dividerRefVolume" data-min-width="200" title="Drag to resize"></div>
+                <div class="chartset-side">
                     <div class="prof-vp"
                          title="@((WindowLabel() is { } label
                                      ? $"Volume profile for the selected Lookback Window ({label}) -- use the toolbar's CLEAR LOOKBACK WINDOW button to go back to every loaded bar"
@@ -92,8 +92,8 @@
             }
             @if (Options.ShowTimeProfile)
             {
-                <div class="prof-chart-divider" @ref="_dividerRefTime" data-min-width="200" title="Drag to resize"></div>
-                <div class="prof-chart-side">
+                <div class="chartset-divider" @ref="_dividerRefTime" data-min-width="200" title="Drag to resize"></div>
+                <div class="chartset-side">
                     <div class="prof-vp"
                          title="@((WindowLabel() is { } timeLabel
                                      ? $"Time profile for the selected Lookback Window ({timeLabel}) -- use the toolbar's CLEAR LOOKBACK WINDOW button to go back to every loaded bar"
@@ -105,8 +105,8 @@
             }
             @if (Options.ShowSubchart)
             {
-                <div class="prof-chart-divider" @ref="_dividerRefSubchart" data-min-width="200" title="Drag to resize"></div>
-                <div class="prof-chart-side">
+                <div class="chartset-divider" @ref="_dividerRefSubchart" data-min-width="200" title="Drag to resize"></div>
+                <div class="chartset-side">
                     <div class="prof-vp" title="A second market chart scoped to the selected Lookback Window, aggregated independently of the main chart -- its bar size/kind apply to every symbol">
                         <div class="prof-subchart-panel">
                             <div class="prof-subchart-toolbar">
@@ -145,8 +145,8 @@
             }
             @if (Options.ShowSnapshot)
             {
-                <div class="prof-chart-divider" @ref="_dividerRefSnapshot" data-min-width="200" title="Drag to resize"></div>
-                <div class="prof-chart-side">
+                <div class="chartset-divider" @ref="_dividerRefSnapshot" data-min-width="200" title="Drag to resize"></div>
+                <div class="chartset-side">
                     <div class="prof-vp"
                          title="One OHLC/Quartile bar per toggled timeframe, each a trailing window ending at the selected Lookback Window's right edge">
                         @if (SnapshotAnchorBar() is not { } anchorBar)
@@ -164,6 +164,6 @@
             }
         </div>
     }
-    <div class="pcs-resize-handle" @ref="_resizeHandleRef" data-min-height="240"
+    <div class="chartset-resize-handle" @ref="_resizeHandleRef" data-min-height="240"
          title="Drag to resize this chart set's height -- double-click to reset it"></div>
 </section>

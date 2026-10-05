@@ -1,15 +1,15 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace Poink.Sim.Components.Profiler
+namespace Poink.Sim.Helpers
 {
 	/// <summary>
-	/// Assigns each selected Profiler symbol a theme colour by its selection order, so the symbols panel works as the
-	/// legend for every chart set and the compare chart.
+	/// Assigns each selected symbol a theme colour by its selection order, so a page's symbols panel works as the legend
+	/// for every chart set and the compare chart -- shared by the Profiler and Simulation pages so both colour alike.
 	/// </summary>
-	internal static class ProfilerSymbolColorHelper
+	internal static class SymbolColorHelper
 	{
-		/// <summary>For a symbol still charted but no longer selected, e.g. a removed primary kept until the next LOAD.</summary>
+		/// <summary>For a symbol still charted but no longer selected, e.g. one removed from the selection until the next load.</summary>
 		public const string FallbackColorVar = "--color-neutral";
 
 		private static readonly string[] Palette =

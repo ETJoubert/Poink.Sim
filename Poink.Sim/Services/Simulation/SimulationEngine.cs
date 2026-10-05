@@ -89,6 +89,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 	private int _warmupCount;
 	private SimulationConfig? _config;
 	private readonly SimulationMarketFeed _market = new();
+	private List<WatchedSymbolFeed> _watchFeeds = new();
 	private List<TraderSession> _traderSessions = new();
 	private Dictionary<int, TraderSession> _traderSessionsById = new();
 	private double _speedMultiplier = 1.0;
@@ -214,6 +215,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 				_riskToggles?.RestoreFrom(previousPolicyStates);
 			UseSessionsLocked(CreateSessions(config));
 			_market.Reset(config.Aggregate, config.BarSize, config.PipSize);
+			UseWatchFeedsLocked(CreateWatchFeeds(config));
 			_recentTicks.Clear();
 			_lastPrice = null;
 			_lastBid = null;
@@ -226,9 +228,10 @@ internal sealed class SimulationEngine : ISimulationEngine
 		}
 
 		_logger.LogInformation(
-			"Loaded {Source} simulation: table={Table}, from={From}, to={To}, ticks={TotalCount}",
+			"Loaded {Source} simulation: table={Table}, watched=[{WatchedTables}], from={From}, to={To}, ticks={TotalCount}",
 			source,
 			config.Table,
+			string.Join(", ", config.WatchSymbols?.Select(w => w.Table) ?? []),
 			config.From,
 			config.To,
 			totalCount
@@ -245,6 +248,28 @@ internal sealed class SimulationEngine : ISimulationEngine
 				Trader = bot.Account,
 			})
 			.ToList();
+
+	// Watched symbols are read over the traded symbol's own range, warm-up included, so their bars line up with its bars.
+	private List<WatchedSymbolFeed> CreateWatchFeeds(SimulationConfig config) =>
+		(config.WatchSymbols ?? [])
+			.Where(w => w.Table != config.Table)
+			.DistinctBy(w => w.Table)
+			.Select(w => new WatchedSymbolFeed(
+				w,
+				() => new PrefetchingTickReader(() =>
+					_tickRepository.ReadTicks(w.Table, config.LoadFrom, config.To).GetEnumerator()
+				)
+			))
+			.ToList();
+
+	private void UseWatchFeedsLocked(List<WatchedSymbolFeed> feeds)
+	{
+		foreach (var feed in _watchFeeds)
+			feed.Dispose();
+		_watchFeeds = feeds;
+		foreach (var feed in _watchFeeds)
+			feed.Restart(_config!.Aggregate, _config.BarSize);
+	}
 
 	private void UseSessionsLocked(List<TraderSession> sessions)
 	{
@@ -342,6 +367,8 @@ internal sealed class SimulationEngine : ISimulationEngine
 
 			_config = _config with { Aggregate = aggregate, BarSize = barSize };
 			_market.Reaggregate(aggregate, barSize, _config.PipSize, _recentTicks);
+			foreach (var feed in _watchFeeds)
+				feed.Reaggregate(aggregate, barSize);
 		}
 		PublishSnapshot();
 		_logger.LogInformation(
@@ -373,6 +400,8 @@ internal sealed class SimulationEngine : ISimulationEngine
 		_cursor = 0;
 		UseSessionsLocked(CreateSessions(_config));
 		_market.Reset(_config.Aggregate, _config.BarSize, _config.PipSize);
+		foreach (var feed in _watchFeeds)
+			feed.Restart(_config.Aggregate, _config.BarSize);
 		_recentTicks.Clear();
 		_lastPrice = null;
 		_lastBid = null;
@@ -444,6 +473,7 @@ internal sealed class SimulationEngine : ISimulationEngine
 			_riskToggles = null;
 			UseSessionsLocked(new());
 			_market.Reset(false, TimeSpan.Zero, 0);
+			UseWatchFeedsLocked(new());
 			_isPlaying = false;
 			_recentTicks.Clear();
 			_lastPrice = null;
@@ -540,6 +570,8 @@ internal sealed class SimulationEngine : ISimulationEngine
 		_lastTimestamp = tick.Timestamp;
 
 		AppendTick(tick);
+		foreach (var feed in _watchFeeds)
+			feed.AdvanceTo(tick.Timestamp);
 
 		foreach (var session in _traderSessions)
 		{
@@ -792,7 +824,8 @@ internal sealed class SimulationEngine : ISimulationEngine
 						PublishedRecentTicksLocked(),
 						primaryRisk?.PolicyStates() ?? Array.Empty<RiskPolicySnapshot>(),
 						_market.TypicalSpread,
-						_stopReason
+						_stopReason,
+						_watchFeeds.Select(feed => feed.Snapshot()).ToList()
 					);
 			Financials = snapshot is null ? null : FinancialsStateLocked(snapshot.Traders);
 		}
@@ -904,6 +937,8 @@ internal sealed class SimulationEngine : ISimulationEngine
 		lock (_lock)
 		{
 			_reader?.Dispose();
+			foreach (var feed in _watchFeeds)
+				feed.Dispose();
 		}
 		_logger.LogInformation("Simulation engine disposed");
 	}

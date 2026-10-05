@@ -1,0 +1,15 @@
+@namespace Poink.Sim.Components.Simulation
+@using Poink.Sim.Components.Shared.BarSizeSelect
+
+<div class="sac-controls" title="How ticks are aggregated -- can be changed while a simulation is running">
+    <label class="sac-checkbox" title="Aggregate into HLOC/AVDT bars instead of raw ticks -- can be changed while a simulation is running">
+        <input type="checkbox" checked="@Aggregate" @onchange="OnAggregateChanged" disabled="@Disabled"
+               title="Aggregate into HLOC/AVDT bars instead of raw ticks -- can be changed while a simulation is running" />
+        Bars
+    </label>
+    @if (Aggregate)
+    {
+        <BarSizeSelect Value="BarSizeSeconds" ValueChanged="OnBarSizeChanged" Disabled="@Disabled" Label=""
+                       Title="Size of each aggregated bar -- can be changed while a simulation is running" />
+    }
+</div>

@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
 using Poink.Sim.Helpers;
 using Poink.Sim.Models;
+using Poink.Sim.Repository;
 using Poink.Sim.Services.MarketData;
 using Poink.Sim.Services.Symbols;
 
@@ -19,6 +20,9 @@ namespace Poink.Sim.Components.Pages
 	{
 		[Inject]
 		private ISymbolTableResolver SymbolTableResolver { get; set; } = default!;
+
+		[Inject]
+		private ITickRepository TickRepository { get; set; } = default!;
 
 		private SymbolModel? _symbol;
 		private SymbolMetadataModel? _symbolMetadata;
@@ -54,6 +58,29 @@ namespace Poink.Sim.Components.Pages
 			{
 				_loadingSymbolMetadata = false;
 			}
+		}
+
+		private IReadOnlyList<string> SelectedTables =>
+			string.IsNullOrWhiteSpace(_table) ? _watchTables : [_table, .. _watchTables.Where(t => t != _table)];
+
+		// A new traded symbol snaps the range to its own data so it never points at a span the symbol has no ticks for.
+		private void OnSymbolsSelected(IReadOnlyList<string> tables)
+		{
+			var primary = tables.FirstOrDefault() ?? "";
+			_watchTables = tables.Skip(1).Where(t => t != primary).Distinct().ToList();
+			Logger.LogInformation(
+				"Simulation symbols set to {Table} traded, [{WatchTables}] watched",
+				primary,
+				string.Join(", ", _watchTables)
+			);
+			if (primary == _table)
+				return;
+
+			_table = primary;
+			var meta = TickRepository.CachedTables.FirstOrDefault(t => t.Table == primary);
+			if (meta.MaxTime is { } maxTime)
+				(_from, _to) = TickTableRangeHelper.DefaultRange(meta.MinTime, maxTime);
+			Logger.LogInformation("Simulation range snapped to {From} - {To} for traded symbol {Table}", _from, _to, primary);
 		}
 
 		private async Task RefreshSymbolMetadataIfTableChangedAsync()

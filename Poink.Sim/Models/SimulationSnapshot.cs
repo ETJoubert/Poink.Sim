@@ -30,7 +30,8 @@ internal sealed record SimulationConfig(
 	double CommissionRatePercent = 0.0,
 	double PipSize = 0.01,
 	IReadOnlyList<string>? RiskPolicyNames = null,
-	TimeSpan Warmup = default
+	TimeSpan Warmup = default,
+	IReadOnlyList<SimulationWatchSymbol>? WatchSymbols = null
 )
 {
 	// Ticks from here up to From are replayed silently before the run starts, so history-dependent
@@ -103,5 +104,6 @@ internal sealed record SimulationSnapshot(
 	IReadOnlyList<Tick> RecentTicks,
 	IReadOnlyList<RiskPolicySnapshot> RiskPolicies,
 	double? TypicalSpread = null,
-	string? StopReason = null
+	string? StopReason = null,
+	IReadOnlyList<WatchedSymbolSnapshot>? WatchedSymbols = null
 );

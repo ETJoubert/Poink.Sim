@@ -1,0 +1,76 @@
+.sscs-set {
+    display: flex;
+    flex-direction: column;
+    flex: 0 0 auto;
+    height: 320px;
+    min-height: 200px;
+    margin: 1px;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
+    border-left: 3px solid var(--sscs-symbol-color, var(--color-primary));
+    border-radius: var(--border-radius-sm);
+}
+
+.sscs-header {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 10px;
+    flex-shrink: 0;
+    padding: 2px 8px;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 12%, transparent);
+}
+
+.sscs-symbol {
+    font-size: 0.74rem;
+    font-weight: bold;
+    letter-spacing: 0.06em;
+    color: var(--sscs-symbol-color, var(--color-primary));
+}
+
+.sscs-badge {
+    font-size: 0.52rem;
+    font-weight: bold;
+    letter-spacing: 0.06em;
+    padding: 1px 4px;
+    border-radius: var(--border-radius-sm);
+    color: var(--color-secondary);
+    border: 1px solid color-mix(in srgb, var(--color-secondary) 60%, transparent);
+}
+
+.sscs-quote {
+    font-size: 0.76rem;
+    font-weight: 600;
+    color: var(--color-primary);
+}
+
+.sscs-meta {
+    font-size: 0.62rem;
+    color: var(--color-secondary);
+    opacity: 0.85;
+    white-space: nowrap;
+}
+
+.sscs-empty {
+    margin: 0;
+    padding: 12px;
+    font-size: 0.75rem;
+    color: var(--color-secondary);
+    opacity: 0.7;
+}
+
+.sscs-ticks {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.chartset-row {
+    overflow: hidden;
+}
+
+.sscs-panel {
+    flex: 1 1 auto;
+    min-height: 0;
+}

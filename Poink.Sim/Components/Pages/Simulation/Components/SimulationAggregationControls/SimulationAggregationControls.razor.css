@@ -1,0 +1,21 @@
+.sac-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.sac-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.72rem;
+    letter-spacing: 0.02em;
+    color: var(--color-secondary);
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.sac-controls ::deep .bar-size-select-input {
+    min-width: 84px;
+    font-size: 11px;
+}

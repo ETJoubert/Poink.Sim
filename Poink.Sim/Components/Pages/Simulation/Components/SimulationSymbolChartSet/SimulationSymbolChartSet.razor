@@ -1,0 +1,108 @@
+@namespace Poink.Sim.Components.Simulation
+@using Poink.Sim.Components.Charts
+@using Poink.Sim.Components.Shared.ViewDatatable
+
+<section class="sscs-set" style="@SetStyle" title="@($"{Data.Table} -- watched symbol, its ticks replayed in step with the traded symbol and its panels driven by the same Lookback Window and Indicators")">
+    <header class="sscs-header">
+        <span class="sscs-symbol" title="Watched symbol's tick table -- its colour matches the compare chart">@Data.Table</span>
+        <span class="sscs-badge" title="Watched symbol -- nothing trades it">WATCH</span>
+        @if (Data.CurrentPrice is { } mid)
+        {
+            <span class="sscs-quote" title="Mid price of this symbol's latest tick at or before the traded symbol's current tick">@mid.ToString("F5")</span>
+            <span class="sscs-meta" title="Bid / ask of this symbol's latest tick">@Data.CurrentBid?.ToString("F5") / @Data.CurrentAsk?.ToString("F5")</span>
+            <span class="sscs-meta" title="Time of this symbol's latest tick">@Data.CurrentTimestampUtc?.ToString("yyyy-MM-dd HH:mm:ss")</span>
+        }
+        else
+        {
+            <span class="sscs-meta" title="This symbol has no tick at or before the traded symbol's current tick yet">no ticks yet</span>
+        }
+        @if (Options.Aggregate)
+        {
+            <span class="sscs-meta" title="Bars of this symbol inside the traded symbol's Lookback Window">@Data.WindowBarCount.ToString("N0") window bars</span>
+        }
+        <span class="sscs-meta" title="This symbol's pip size -- its XGrid rows are sized in these pips">pip @Data.PipSize.ToString("0.#########")</span>
+    </header>
+
+    @if (!Options.Aggregate)
+    {
+        <div class="sscs-ticks">
+            <ViewDatatable Items="Data.TickRows" Title="RECENT TICKS" />
+        </div>
+    }
+    else
+    {
+        <div class="chartset-row" @ref="_chartRowRef">
+            @if (Options.ShowMainChart)
+            {
+                <div class="chartset-main" title="This symbol's live bars, with the indicator lines for the Lookback Window">
+                    <MarketChartContainer Bars="Data.Bars" KeepView="KeepView" ShowAnnotationTools="false"
+                                          CurrentBid="Data.CurrentBid" CurrentAsk="Data.CurrentAsk"
+                                          WindowStartUtc="Data.WindowStartUtc" WindowEndUtc="Data.WindowEndUtc"
+                                          HorizontalLines="Data.HorizontalLines" VerticalLines="Data.VerticalLines"
+                                          DiagonalLines="Data.DiagonalLines" VwapLine="Data.VwapLine" />
+                </div>
+            }
+            @if (Options.ShowXGrid)
+            {
+                @if (Options.ShowMainChart)
+                {
+                    <div class="chartset-divider" @ref="_dividerRefXGrid" data-min-width="160" title="Drag to resize"></div>
+                }
+                <div class="chartset-side">
+                    <div class="sscs-panel" title="Footprint grid for this symbol's bars inside the Lookback Window -- rows are price buckets, columns are bars">
+                        <XGridController Grid="Data.XGrid" PipCount="XGridPipCount" PipCountChanged="XGridPipCountChanged"
+                                         ColCount="XGridColCount" ColCountChanged="XGridColCountChanged"
+                                         PipSize="Data.PipSize" Indicators="Options.Indicators" ProfileBarCount="Data.WindowBarCount" />
+                    </div>
+                </div>
+            }
+            @if (Options.ShowVolumeProfile)
+            {
+                @if (Options.ShowMainChart || Options.ShowXGrid)
+                {
+                    <div class="chartset-divider" @ref="_dividerRefVolume" data-min-width="160" title="Drag to resize"></div>
+                }
+                <div class="chartset-side">
+                    <div class="sscs-panel" title="Volume-at-price histogram for this symbol's bars inside the Lookback Window">
+                        <TickVolumeProfileChart WeightedSamples="Data.Samples" CurrentPrice="Data.CurrentPrice" ShowLevels="ShowVolumeProfileLevels" />
+                    </div>
+                </div>
+            }
+            @if (Options.ShowTimeProfile)
+            {
+                @if (Options.ShowMainChart || Options.ShowXGrid || Options.ShowVolumeProfile)
+                {
+                    <div class="chartset-divider" @ref="_dividerRefTime" data-min-width="160" title="Drag to resize"></div>
+                }
+                <div class="chartset-side">
+                    <div class="sscs-panel" title="Time-at-price histogram for this symbol's bars inside the Lookback Window">
+                        <TickTimeProfileChart WeightedSamples="Data.TimeSamples" CurrentPrice="Data.CurrentPrice" />
+                    </div>
+                </div>
+            }
+            @if (Options.ShowTxFold)
+            {
+                @if (Options.ShowMainChart || Options.ShowXGrid || Options.ShowVolumeProfile || Options.ShowTimeProfile)
+                {
+                    <div class="chartset-divider" @ref="_dividerRefTxFold" data-min-width="160" title="Drag to resize"></div>
+                }
+                <div class="chartset-side">
+                    <div class="sscs-panel" title="One OHLC/Quartile bar per toggled timeframe, each a trailing window ending at this symbol's last bar inside the Lookback Window">
+                        @if (Data.TxFoldAnchorEnd is { } anchorEnd)
+                        {
+                            <TxFold Table="@Data.Table" AnchorEnd="anchorEnd" RangeStart="Options.RangeStart" LatestPrice="Data.TxFoldLatestPrice"
+                                    SelectedSeconds="TxFoldSelectedSeconds" SelectedSecondsChanged="TxFoldSelectedSecondsChanged"
+                                    ShownLevels="_txFoldLevels" ShowLevelToggles="false" />
+                        }
+                        else
+                        {
+                            <p class="sscs-empty">No bars of this symbol in the Lookback Window yet.</p>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    }
+    <div class="chartset-resize-handle" @ref="_resizeHandleRef" data-min-height="200"
+         title="Drag to resize this chart set's height -- double-click to reset it"></div>
+</section>
