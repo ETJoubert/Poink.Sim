@@ -1,0 +1,71 @@
+.wrg {
+    display: grid;
+    grid-template-rows: 14px auto;
+    row-gap: 2px;
+    flex: 1;
+    min-width: 60px;
+    user-select: none;
+    touch-action: none;
+}
+
+.wrg-disabled {
+    pointer-events: none;
+    opacity: 0.55;
+}
+
+.wrg-cell {
+    background: rgba(255, 255, 255, 0.06);
+    box-shadow: inset -1px 0 0 rgba(0, 0, 0, 0.45);
+    cursor: pointer;
+    transition: background 0.1s ease;
+}
+
+.wrg-cell:first-child {
+    border-radius: 3px 0 0 3px;
+}
+
+.wrg-cell:hover {
+    background: color-mix(in srgb, var(--color-primary) 20%, transparent);
+}
+
+.wrg-cell-in {
+    background: color-mix(in srgb, var(--color-primary) 35%, transparent);
+}
+
+.wrg-cell-mid {
+    cursor: grab;
+}
+
+.wrg-cell-start,
+.wrg-cell-end {
+    cursor: ew-resize;
+}
+
+.wrg-cell-start {
+    background: var(--color-primary);
+    box-shadow: inset -1px 0 0 rgba(0, 0, 0, 0.45), 0 0 6px color-mix(in srgb, var(--color-primary) 60%, transparent);
+}
+
+.wrg-cell-end {
+    background: var(--color-secondary);
+    box-shadow: inset -1px 0 0 rgba(0, 0, 0, 0.45), 0 0 6px color-mix(in srgb, var(--color-secondary) 60%, transparent);
+}
+
+.wrg-cell-start.wrg-cell-end {
+    background: linear-gradient(90deg, var(--color-primary) 50%, var(--color-secondary) 50%);
+}
+
+.wrg-label {
+    font-size: 0.55rem;
+    letter-spacing: 0.03em;
+    color: var(--color-muted);
+    white-space: nowrap;
+    overflow: visible;
+    pointer-events: none;
+}
+
+.wrg-empty {
+    flex: 1;
+    font-size: 0.62rem;
+    color: var(--color-muted);
+}

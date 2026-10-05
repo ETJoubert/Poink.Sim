@@ -5,15 +5,29 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 
-namespace Poink.Sim.Components.Shared.Calendar;
+namespace Poink.Sim.Components.Shared.RangeCalendar;
 
-public partial class Calendar : ComponentBase
+/// <summary>Which end of the range the next day click or time edit applies to.</summary>
+public enum RangeEdge
 {
-	[Parameter]
-	public DateTime Value { get; set; }
+	Start,
+	End,
+}
+
+/// <summary>
+/// One calendar for a start/end datetime pair: the range is shaded across the day grid (and the full-year view),
+/// day clicks set the active edge -- moving on to End after Start -- and each edge keeps its own time to the minute.
+/// </summary>
+public partial class RangeCalendar : ComponentBase
+{
+	[Parameter, EditorRequired]
+	public DateTime Start { get; set; }
+
+	[Parameter, EditorRequired]
+	public DateTime End { get; set; }
 
 	[Parameter]
-	public EventCallback<DateTime> ValueChanged { get; set; }
+	public EventCallback<(DateTime Start, DateTime End)> RangeChanged { get; set; }
 
 	[Parameter]
 	public DateTime? Min { get; set; }
@@ -21,7 +35,13 @@ public partial class Calendar : ComponentBase
 	[Parameter]
 	public DateTime? Max { get; set; }
 
+	/// <summary>The edge active when the calendar first opens.</summary>
+	[Parameter]
+	public RangeEdge InitialEdge { get; set; }
+
 	private static readonly string[] DayHeaders = { "S", "M", "T", "W", "T", "F", "S" };
+
+	private static readonly TimeSpan MinimumSpan = TimeSpan.FromMinutes(1);
 
 	private enum CalendarView
 	{
@@ -34,14 +54,23 @@ public partial class Calendar : ComponentBase
 
 	private DateTime _displayedMonth;
 	private CalendarView _view = CalendarView.Days;
-	private int _hour;
-	private int _minute;
+	private RangeEdge _activeEdge;
 
 	protected override void OnInitialized()
 	{
-		_displayedMonth = new DateTime(Value.Year, Value.Month, 1);
-		_hour = Value.Hour;
-		_minute = Value.Minute;
+		_activeEdge = InitialEdge;
+		var shown = ActiveValue;
+		_displayedMonth = new DateTime(shown.Year, shown.Month, 1);
+	}
+
+	private DateTime ActiveValue => _activeEdge == RangeEdge.Start ? Start : End;
+
+	private void SelectEdge(RangeEdge edge)
+	{
+		_activeEdge = edge;
+		var shown = ActiveValue;
+		_displayedMonth = new DateTime(shown.Year, shown.Month, 1);
+		_view = CalendarView.Days;
 	}
 
 	private string MonthLabel => _displayedMonth.ToString("MMMM yyyy", CultureInfo.InvariantCulture);
@@ -98,7 +127,7 @@ public partial class Calendar : ComponentBase
 			_displayedMonth = _displayedMonth.AddYears(YearsPerPage);
 	}
 
-	private sealed record YearCell(int Year, bool IsCurrent, bool IsSelected, bool IsDisabled);
+	private sealed record YearCell(int Year, bool IsCurrent, bool IsInRange, bool IsDisabled);
 
 	private List<YearCell> Years
 	{
@@ -115,7 +144,7 @@ public partial class Calendar : ComponentBase
 				var yearEnd = new DateTime(year, 12, 31);
 				var disabled =
 					(Min is not null && yearEnd < Min.Value.Date) || (Max is not null && yearStart > Max.Value.Date);
-				cells.Add(new YearCell(year, year == today.Year, year == Value.Year, disabled));
+				cells.Add(new YearCell(year, year == today.Year, year >= Start.Year && year <= End.Year, disabled));
 			}
 			return cells;
 		}
@@ -129,7 +158,7 @@ public partial class Calendar : ComponentBase
 		_view = CalendarView.Months;
 	}
 
-	private sealed record MonthCell(int Month, string Label, bool IsCurrent, bool IsSelected, bool IsDisabled);
+	private sealed record MonthCell(int Month, string Label, bool IsCurrent, bool IsInRange, bool IsDisabled);
 
 	private List<MonthCell> Months
 	{
@@ -145,16 +174,9 @@ public partial class Calendar : ComponentBase
 				var monthEnd = monthStart.AddMonths(1).AddDays(-1);
 				var disabled =
 					(Min is not null && monthEnd < Min.Value.Date) || (Max is not null && monthStart > Max.Value.Date);
+				var inRange = monthEnd >= Start.Date && monthStart <= End.Date;
 				var label = monthStart.ToString("MMM", CultureInfo.InvariantCulture);
-				cells.Add(
-					new MonthCell(
-						m,
-						label,
-						year == today.Year && m == today.Month,
-						year == Value.Year && m == Value.Month,
-						disabled
-					)
-				);
+				cells.Add(new MonthCell(m, label, year == today.Year && m == today.Month, inRange, disabled));
 			}
 			return cells;
 		}
@@ -168,7 +190,7 @@ public partial class Calendar : ComponentBase
 		_view = CalendarView.Days;
 	}
 
-	private sealed record DayCell(DateTime Date, bool InMonth, bool IsToday, bool IsSelected, bool IsDisabled);
+	private sealed record DayCell(DateTime Date, bool InMonth, bool IsToday, bool IsDisabled);
 
 	private List<DayCell> Days => BuildMonthDays(_displayedMonth);
 
@@ -184,43 +206,83 @@ public partial class Calendar : ComponentBase
 			var date = gridStart.AddDays(i);
 			var inMonth = date.Month == monthStart.Month && date.Year == monthStart.Year;
 			var disabled = (Min is not null && date < Min.Value.Date) || (Max is not null && date > Max.Value.Date);
-			cells.Add(new DayCell(date, inMonth, date == today, date == Value.Date, disabled));
+			cells.Add(new DayCell(date, inMonth, date == today, disabled));
 		}
 		return cells;
 	}
 
+	private string DayRangeClass(DateTime date)
+	{
+		var isStart = date == Start.Date;
+		var isEnd = date == End.Date;
+		if (isStart && isEnd)
+			return "cal-day-range-start cal-day-range-end";
+		if (isStart)
+			return "cal-day-range-start";
+		if (isEnd)
+			return "cal-day-range-end";
+		return date > Start.Date && date < End.Date ? "cal-day-in-range" : "";
+	}
+
+	private string DayTitle(DateTime date)
+	{
+		var target = _activeEdge == RangeEdge.Start ? "start" : "end";
+		return $"{date:yyyy-MM-dd} -- click to set the range {target} to this day";
+	}
+
+	// Clicking End before the start moves the start there instead, so the range never inverts.
 	private Task SelectDay(DayCell cell)
 	{
 		if (cell.IsDisabled)
 			return Task.CompletedTask;
-		return ValueChanged.InvokeAsync(ClampToBounds(cell.Date.Date.AddHours(_hour).AddMinutes(_minute)));
+
+		var date = cell.Date.Date;
+		if (_activeEdge == RangeEdge.Start)
+		{
+			var start = OnDay(date, Start);
+			var end = End > start ? End : OnDay(date, End);
+			_activeEdge = RangeEdge.End;
+			return Apply(start, end <= start ? start.AddDays(1) : end);
+		}
+
+		var newEnd = OnDay(date, End);
+		return newEnd <= Start ? Apply(OnDay(date, Start), End) : Apply(Start, newEnd);
 	}
 
-	private Task OnHourChanged(ChangeEventArgs e)
-	{
-		if (!int.TryParse(e.Value?.ToString(), out var hour))
-			return Task.CompletedTask;
-		return ApplyTime(Math.Clamp(hour, 0, 23), _minute);
-	}
+	private static DateTime OnDay(DateTime date, DateTime timeSource) =>
+		DateTime.SpecifyKind(date.Date + timeSource.TimeOfDay, timeSource.Kind);
 
-	private Task OnMinuteChanged(ChangeEventArgs e)
-	{
-		if (!int.TryParse(e.Value?.ToString(), out var minute))
-			return Task.CompletedTask;
-		return ApplyTime(_hour, Math.Clamp(minute, 0, 59));
-	}
+	private int ActiveHour => ActiveValue.Hour;
+
+	private int ActiveMinute => ActiveValue.Minute;
+
+	private Task OnHourChanged(ChangeEventArgs e) =>
+		int.TryParse(e.Value?.ToString(), out var hour) ? ApplyTime(Math.Clamp(hour, 0, 23), ActiveMinute) : Task.CompletedTask;
+
+	private Task OnMinuteChanged(ChangeEventArgs e) =>
+		int.TryParse(e.Value?.ToString(), out var minute) ? ApplyTime(ActiveHour, Math.Clamp(minute, 0, 59)) : Task.CompletedTask;
 
 	private Task OnHourWheel(WheelEventArgs e) =>
-		ApplyTime(((_hour + (e.DeltaY < 0 ? 1 : -1)) % 24 + 24) % 24, _minute);
+		ApplyTime(((ActiveHour + (e.DeltaY < 0 ? 1 : -1)) % 24 + 24) % 24, ActiveMinute);
 
 	private Task OnMinuteWheel(WheelEventArgs e) =>
-		ApplyTime(_hour, ((_minute + (e.DeltaY < 0 ? 1 : -1)) % 60 + 60) % 60);
+		ApplyTime(ActiveHour, ((ActiveMinute + (e.DeltaY < 0 ? 1 : -1)) % 60 + 60) % 60);
 
 	private Task ApplyTime(int hour, int minute)
 	{
-		_hour = hour;
-		_minute = minute;
-		return ValueChanged.InvokeAsync(ClampToBounds(Value.Date.AddHours(_hour).AddMinutes(_minute)));
+		var value = ActiveValue.Date.AddHours(hour).AddMinutes(minute);
+		return _activeEdge == RangeEdge.Start
+			? Apply(value < End ? value : End - MinimumSpan, End)
+			: Apply(Start, value > Start ? value : Start + MinimumSpan);
+	}
+
+	private Task Apply(DateTime start, DateTime end)
+	{
+		start = ClampToBounds(start);
+		end = ClampToBounds(end);
+		if (end <= start)
+			end = ClampToBounds(start + MinimumSpan);
+		return RangeChanged.InvokeAsync((start, end));
 	}
 
 	private DateTime ClampToBounds(DateTime dt)
@@ -267,9 +329,7 @@ public partial class Calendar : ComponentBase
 			for (var m = 1; m <= 12; m++)
 			{
 				var monthStart = new DateTime(_fullYearYear, m, 1);
-				cells.Add(
-					new MiniMonth(monthStart.ToString("MMM", CultureInfo.InvariantCulture), BuildMonthDays(monthStart))
-				);
+				cells.Add(new MiniMonth(monthStart.ToString("MMM", CultureInfo.InvariantCulture), BuildMonthDays(monthStart)));
 			}
 			return cells;
 		}

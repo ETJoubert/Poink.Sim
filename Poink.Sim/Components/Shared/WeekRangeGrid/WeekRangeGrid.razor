@@ -1,0 +1,23 @@
+@if (_cells.Count == 0)
+{
+    <div class="wrg-empty" title="The data source has no time range to pick from yet">no range available</div>
+}
+else
+{
+    <div class="wrg @(Disabled ? "wrg-disabled" : "")" style="grid-template-columns: repeat(@_cells.Count, minmax(0, 1fr));"
+         @onpointerup="EndDrag" @onpointerleave="EndDrag"
+         title="Weeks available in the data source -- the shaded run is the selected range, at least @MinWeeks weeks">
+        @for (var i = 0; i < _cells.Count; i++)
+        {
+            var index = i;
+            <div class="wrg-cell @CellClass(index)" style="grid-column: @(index + 1); grid-row: 1;"
+                 title="@CellTitle(index)"
+                 @onpointerdown="e => OnCellPointerDown(index, e)" @onpointerdown:preventDefault="true"
+                 @onpointerenter="() => OnCellPointerEnter(index)"></div>
+        }
+        @foreach (var label in _labels)
+        {
+            <span class="wrg-label" style="grid-column: @(label.CellIndex + 1); grid-row: 2;">@label.Text</span>
+        }
+    </div>
+}

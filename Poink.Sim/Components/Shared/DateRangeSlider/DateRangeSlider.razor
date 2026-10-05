@@ -1,58 +1,32 @@
-@using Poink.Sim.Components.Shared.Calendar
+@using Poink.Sim.Components.Shared.RangeCalendar
+@using Poink.Sim.Components.Shared.WeekRangeGrid
 
 <div class="drs @(Disabled ? "drs-disabled" : "")">
-    @if (_showFromCalendar || _showToCalendar)
+    @if (_calendarOpen)
     {
-        <div class="drs-calendar-backdrop" @onclick="CloseCalendars"></div>
+        <div class="drs-calendar-backdrop" @onclick="CloseCalendar" title="Close the calendar"></div>
     }
     <div class="drs-main">
-        <div class="drs-label-wrap drs-label-wrap-from">
-            <button type="button" class="drs-label drs-label-from" @onclick="ToggleFromCalendar" disabled="@Disabled">
-                @From.ToString("yyyy-MM-dd HH:mm")
-            </button>
-            @if (_showFromCalendar)
-            {
-                <div class="drs-calendar-dropdown">
-                    <Calendar Value="From" ValueChanged="OnFromDateSelected" Min="Min" Max="To" />
-                </div>
-            }
-        </div>
+        <button type="button" class="drs-label drs-label-from" @onclick="() => OpenCalendar(RangeEdge.Start)" disabled="@Disabled"
+                title="Range start -- click to pick the start date and time on the calendar">
+            @From.ToString("yyyy-MM-dd HH:mm")
+        </button>
 
-        <div class="drs-track-wrap">
-            <div class="drs-rail">
-                <div class="drs-rail-fill" style="left: @Pct(FromPercent)%; right: @Pct(100 - ToPercent)%;"></div>
-                @foreach (var tick in WeekTicks)
-                {
-                    <div class="drs-tick" style="left: @Pct(tick.Percent)%" title="@tick.Title">
-                        @if (tick.ShowLabel)
-                        {
-                            <span class="drs-tick-label">@tick.Label</span>
-                        }
-                    </div>
-                }
+        <WeekRangeGrid Min="Min" Max="Max" From="From" To="To" RangeChanged="OnRangeChanged" MinWeeks="MinWeeks" Disabled="Disabled" />
+
+        <button type="button" class="drs-label drs-label-to" @onclick="() => OpenCalendar(RangeEdge.End)" disabled="@Disabled"
+                title="Range end -- click to pick the end date and time on the calendar">
+            @To.ToString("yyyy-MM-dd HH:mm")
+        </button>
+
+        <span class="drs-span-badge" title="Length of the selected range">@SpanLabel</span>
+
+        @if (_calendarOpen)
+        {
+            <div class="drs-calendar-dropdown">
+                <RangeCalendar @key="_calendarEdge" Start="From" End="To" Min="Min" Max="Max" InitialEdge="_calendarEdge"
+                               RangeChanged="OnRangeChanged" />
             </div>
-            <input type="range" class="drs-thumb drs-thumb-from" min="0" max="@_spanMinutes" value="@_fromMinutes"
-                   @onchange="OnFromChanged" disabled="@Disabled" />
-            <input type="range" class="drs-thumb drs-thumb-to" min="0" max="@_spanMinutes" value="@_toMinutes"
-                   @onchange="OnToChanged" disabled="@Disabled" />
-
-        </div>
-
-        <div class="drs-label-wrap drs-label-wrap-to">
-            <button type="button" class="drs-label drs-label-to" @onclick="ToggleToCalendar" disabled="@Disabled">
-                @To.ToString("yyyy-MM-dd HH:mm")
-            </button>
-            @if (_showToCalendar)
-            {
-                <div class="drs-calendar-dropdown">
-                    <Calendar Value="To" ValueChanged="OnToDateSelected" Min="From" Max="Max" />
-                </div>
-            }
-        </div>
-
-        <span class="drs-span-badge">@SpanLabel</span>
+        }
     </div>
-
-
-
 </div>

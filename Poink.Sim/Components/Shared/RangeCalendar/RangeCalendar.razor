@@ -1,15 +1,30 @@
 <div class="cal">
+    <div class="cal-edges">
+        <button type="button" class="cal-edge cal-edge-start @(_activeEdge == RangeEdge.Start ? "active" : "")"
+                @onclick="() => SelectEdge(RangeEdge.Start)"
+                title="Edit the range start -- the next day click and the time below apply to it">
+            <span class="cal-edge-label">Start</span>
+            <span class="cal-edge-value">@Start.ToString("yyyy-MM-dd HH:mm")</span>
+        </button>
+        <button type="button" class="cal-edge cal-edge-end @(_activeEdge == RangeEdge.End ? "active" : "")"
+                @onclick="() => SelectEdge(RangeEdge.End)"
+                title="Edit the range end -- the next day click and the time below apply to it">
+            <span class="cal-edge-label">End</span>
+            <span class="cal-edge-value">@End.ToString("yyyy-MM-dd HH:mm")</span>
+        </button>
+    </div>
+
     @if (_showFullYear)
     {
         <div class="cal-fullyear-overlay">
             <div class="cal-fullyear-header">
                 <button type="button" class="cal-nav" @onclick="PrevFullYear" disabled="@(!CanGoPrevFullYear)"
-                        aria-label="Previous year">&lsaquo;</button>
+                        aria-label="Previous year" title="Previous year">&lsaquo;</button>
                 <span class="cal-month">@_fullYearYear</span>
                 <button type="button" class="cal-nav" @onclick="NextFullYear" disabled="@(!CanGoNextFullYear)"
-                        aria-label="Next year">&rsaquo;</button>
+                        aria-label="Next year" title="Next year">&rsaquo;</button>
                 <button type="button" class="cal-fullyear-close" @onclick="ToggleFullYear"
-                        aria-label="Close full year view">&times;</button>
+                        aria-label="Close full year view" title="Close the full year view">&times;</button>
             </div>
             <div class="cal-fullyear-grid">
                 @foreach (var month in FullYearMonths)
@@ -24,8 +39,8 @@
                             @foreach (var day in month.Days)
                             {
                                 <button type="button"
-                                        class="cal-day @(day.InMonth ? "" : "cal-day-out") @(day.IsToday ? "cal-day-today" : "") @(day.IsSelected ? "cal-day-selected" : "")"
-                                        disabled="@day.IsDisabled" @onclick="() => SelectFullYearDay(day)">
+                                        class="cal-day @(day.InMonth ? "" : "cal-day-out") @(day.IsToday ? "cal-day-today" : "") @DayRangeClass(day.Date)"
+                                        disabled="@day.IsDisabled" @onclick="() => SelectFullYearDay(day)" title="@DayTitle(day.Date)">
                                     @day.Date.Day
                                 </button>
                             }
@@ -39,17 +54,17 @@
     {
         <div class="cal-header">
             <button type="button" class="cal-nav" @onclick="PrevYearRange" disabled="@(!CanGoPrevYearRange)"
-                    aria-label="Previous years">&lsaquo;</button>
+                    aria-label="Previous years" title="Previous years">&lsaquo;</button>
             <span class="cal-month">@YearRangeLabel</span>
             <button type="button" class="cal-nav" @onclick="NextYearRange" disabled="@(!CanGoNextYearRange)"
-                    aria-label="Next years">&rsaquo;</button>
+                    aria-label="Next years" title="Next years">&rsaquo;</button>
         </div>
         <div class="cal-months">
             @foreach (var year in Years)
             {
                 <button type="button"
-                        class="cal-month-cell @(year.IsCurrent ? "cal-month-cell-today" : "") @(year.IsSelected ? "cal-month-cell-selected" : "")"
-                        disabled="@year.IsDisabled" @onclick="() => SelectYear(year)">
+                        class="cal-month-cell @(year.IsCurrent ? "cal-month-cell-today" : "") @(year.IsInRange ? "cal-month-cell-in-range" : "")"
+                        disabled="@year.IsDisabled" @onclick="() => SelectYear(year)" title="@($"Show {year.Year}")">
                     @year.Year
                 </button>
             }
@@ -59,17 +74,17 @@
     {
         <div class="cal-header">
             <button type="button" class="cal-nav" @onclick="PrevYear" disabled="@(!CanGoPrevYear)"
-                    aria-label="Previous year">&lsaquo;</button>
-            <button type="button" class="cal-month cal-month-btn" @onclick="ShowYears">@_displayedMonth.Year</button>
+                    aria-label="Previous year" title="Previous year">&lsaquo;</button>
+            <button type="button" class="cal-month cal-month-btn" @onclick="ShowYears" title="Pick a year">@_displayedMonth.Year</button>
             <button type="button" class="cal-nav" @onclick="NextYear" disabled="@(!CanGoNextYear)"
-                    aria-label="Next year">&rsaquo;</button>
+                    aria-label="Next year" title="Next year">&rsaquo;</button>
         </div>
         <div class="cal-months">
             @foreach (var month in Months)
             {
                 <button type="button"
-                        class="cal-month-cell @(month.IsCurrent ? "cal-month-cell-today" : "") @(month.IsSelected ? "cal-month-cell-selected" : "")"
-                        disabled="@month.IsDisabled" @onclick="() => SelectMonth(month)">
+                        class="cal-month-cell @(month.IsCurrent ? "cal-month-cell-today" : "") @(month.IsInRange ? "cal-month-cell-in-range" : "")"
+                        disabled="@month.IsDisabled" @onclick="() => SelectMonth(month)" title="@($"Show {month.Label} {_displayedMonth.Year}")">
                     @month.Label
                 </button>
             }
@@ -79,11 +94,11 @@
     {
         <div class="cal-header">
             <button type="button" class="cal-nav" @onclick="PrevMonth" disabled="@(!CanGoPrevMonth)"
-                    aria-label="Previous month">&lsaquo;</button>
-            <button type="button" class="cal-month cal-month-btn" @onclick="ShowMonths">@MonthLabel</button>
+                    aria-label="Previous month" title="Previous month">&lsaquo;</button>
+            <button type="button" class="cal-month cal-month-btn" @onclick="ShowMonths" title="Pick a month">@MonthLabel</button>
             <div class="cal-header-actions">
                 <button type="button" class="cal-nav" @onclick="NextMonth" disabled="@(!CanGoNextMonth)"
-                        aria-label="Next month">&rsaquo;</button>
+                        aria-label="Next month" title="Next month">&rsaquo;</button>
                 <button type="button" class="cal-nav cal-fullview-toggle" @onclick="ToggleFullYear"
                         aria-label="Full year view" title="Full year view">&#9638;</button>
             </div>
@@ -96,19 +111,19 @@
             @foreach (var day in Days)
             {
                 <button type="button"
-                        class="cal-day @(day.InMonth ? "" : "cal-day-out") @(day.IsToday ? "cal-day-today" : "") @(day.IsSelected ? "cal-day-selected" : "")"
-                        disabled="@day.IsDisabled" @onclick="() => SelectDay(day)">
+                        class="cal-day @(day.InMonth ? "" : "cal-day-out") @(day.IsToday ? "cal-day-today" : "") @DayRangeClass(day.Date)"
+                        disabled="@day.IsDisabled" @onclick="() => SelectDay(day)" title="@DayTitle(day.Date)">
                     @day.Date.Day
                 </button>
             }
         </div>
         <div class="cal-time">
-            <span class="cal-time-label" title="Time of day for the selected date">Time</span>
-            <input type="number" class="cal-time-input" min="0" max="23" step="1" value="@_hour.ToString("00")"
+            <span class="cal-time-label" title="Time of day for the active edge">@(_activeEdge == RangeEdge.Start ? "Start time" : "End time")</span>
+            <input type="number" class="cal-time-input" min="0" max="23" step="1" value="@ActiveHour.ToString("00")"
                    @onchange="OnHourChanged" @onwheel="OnHourWheel" @onwheel:preventDefault="true"
                    title="Hour (0-23) -- scroll to adjust" aria-label="Hour" />
             <span class="cal-time-sep">:</span>
-            <input type="number" class="cal-time-input" min="0" max="59" step="1" value="@_minute.ToString("00")"
+            <input type="number" class="cal-time-input" min="0" max="59" step="1" value="@ActiveMinute.ToString("00")"
                    @onchange="OnMinuteChanged" @onwheel="OnMinuteWheel" @onwheel:preventDefault="true"
                    title="Minute (0-59) -- scroll to adjust" aria-label="Minute" />
         </div>
