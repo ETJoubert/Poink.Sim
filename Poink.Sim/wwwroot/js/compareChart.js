@@ -2,6 +2,7 @@
 // series on a shared time axis, an optional lower pane (pane index 1, e.g. a ratio line) and a
 // shaded Lookback Window, plus caller-supplied zones and time markers. Per-instance state is keyed by the container element.
 import { cssColor, withAlpha } from './chartColors.js';
+import { placeTooltip } from './chartTooltip.js';
 
 const instances = new WeakMap();
 
@@ -262,9 +263,7 @@ function attachTooltip(container, entry) {
         const time = new Date(param.time * 1000).toISOString().slice(0, 16).replace('T', ' ');
         tooltip.innerHTML = `<div>${time}</div>${rows.join('')}`;
         tooltip.style.display = 'block';
-        const left = Math.min(param.point.x + 12, container.clientWidth - tooltip.offsetWidth - 8);
-        tooltip.style.left = `${Math.max(left, 8)}px`;
-        tooltip.style.top = `${Math.max(param.point.y - 12, 8)}px`;
+        placeTooltip(tooltip, container, param.point.x, param.point.y);
     });
 }
 

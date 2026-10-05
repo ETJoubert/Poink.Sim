@@ -2,6 +2,7 @@
 // symbol's bar as % change from that symbol's price at the anchor -- overlaid at partial opacity or
 // side by side. Up bars are filled and down bars hollow, so direction reads in a single colour.
 import { cssColor, withAlpha } from './chartColors.js';
+import { placeTooltip } from './chartTooltip.js';
 
 const PADDING = { top: 12, right: 58, bottom: 22, left: 8 };
 const GROUP_FILL = 0.72;
@@ -10,6 +11,8 @@ const OVERLAID_BODY_OPACITY = 0.45;
 const SIDE_BY_SIDE_BODY_OPACITY = 0.85;
 const OUTLINE_OPACITY = 0.9;
 const PARTIAL_COVERAGE_ALPHA = 0.4;
+const PROFILE_GAP = 6;
+const PROFILE_OPACITY = 0.4;
 const TEXT_COLOR = '#c9c9c9';
 const FONT = '10px monospace';
 
@@ -31,12 +34,18 @@ export function render(canvas, options) {
     }
 
     entry.layout = options.layout;
+    entry.showVolumeProfile = !!options.showVolumeProfile;
     entry.groups = Array.from(options.groups ?? []);
-    entry.series = Array.from(options.series ?? []).map(s => ({
-        label: s.label,
-        color: cssColor(canvas, s.colorVar),
-        bySeconds: new Map(Array.from(s.bars).map(b => [b.seconds, b])),
-    }));
+    entry.series = Array.from(options.series ?? []).map(s => {
+        const profile = Array.from(s.profile ?? []);
+        return {
+            label: s.label,
+            color: cssColor(canvas, s.colorVar),
+            bySeconds: new Map(Array.from(s.bars).map(b => [b.seconds, b])),
+            profile,
+            profileMax: Math.max(0, ...profile.map(p => p.count)),
+        };
+    });
     draw(canvas);
 }
 
@@ -62,11 +71,18 @@ function geometry(canvas, entry) {
     const width = canvas.clientWidth || 400;
     const height = canvas.clientHeight || 240;
     const plotLeft = PADDING.left;
-    const plotRight = width - PADDING.right;
+    const available = width - PADDING.left - PADDING.right;
+    const profileWidth = entry.showVolumeProfile ? Math.min(90, Math.max(30, available * 0.18)) : 0;
+    const plotRight = width - PADDING.right - (entry.showVolumeProfile ? profileWidth + PROFILE_GAP : 0);
+    const profileLeft = plotRight + PROFILE_GAP;
+    const axisX = (entry.showVolumeProfile ? profileLeft + profileWidth : plotRight) + 6;
     const plotTop = PADDING.top;
     const plotBottom = height - PADDING.bottom;
 
-    const values = entry.series.flatMap(s => [...s.bySeconds.values()].flatMap(b => [b.low, b.high]));
+    const values = entry.series.flatMap(s => [
+        ...[...s.bySeconds.values()].flatMap(b => [b.low, b.high]),
+        ...(entry.showVolumeProfile ? s.profile.flatMap(p => [p.low, p.high]) : []),
+    ]);
     let min = Math.min(0, ...values);
     let max = Math.max(0, ...values);
     if (min === max) { min -= 0.05; max += 0.05; }
@@ -76,7 +92,7 @@ function geometry(canvas, entry) {
 
     const y = v => plotTop + ((max - v) / (max - min)) * (plotBottom - plotTop);
     const groupWidth = (plotRight - plotLeft) / Math.max(1, entry.groups.length);
-    return { width, height, plotLeft, plotRight, plotTop, plotBottom, min, max, y, groupWidth };
+    return { width, height, plotLeft, plotRight, plotTop, plotBottom, min, max, y, groupWidth, profileLeft, profileWidth, axisX };
 }
 
 function niceStep(range, targetTicks) {
@@ -124,6 +140,29 @@ function drawBar(ctx, g, bar, slot, color, bodyOpacity) {
     ctx.strokeRect(x - half, top, slot.width, bodyHeight);
 }
 
+// Each symbol's buckets are scaled to its own busiest bucket and overlaid, so a busier symbol doesn't flatten the rest.
+function drawVolumeProfile(ctx, g, entry) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+    ctx.beginPath();
+    ctx.moveTo(Math.round(g.profileLeft) + 0.5, g.plotTop);
+    ctx.lineTo(Math.round(g.profileLeft) + 0.5, g.plotBottom);
+    ctx.stroke();
+
+    for (const series of entry.series) {
+        if (series.profileMax <= 0) continue;
+        ctx.fillStyle = withAlpha(series.color, PROFILE_OPACITY);
+        for (const bucket of series.profile) {
+            const top = g.y(bucket.high);
+            ctx.fillRect(
+                g.profileLeft + 1,
+                top,
+                Math.max(1, (bucket.count / series.profileMax) * (g.profileWidth - 1)),
+                Math.max(1, g.y(bucket.low) - top),
+            );
+        }
+    }
+}
+
 function draw(canvas) {
     const entry = state.get(canvas);
     if (!entry) return;
@@ -154,8 +193,10 @@ function draw(canvas) {
         ctx.lineTo(g.plotRight, y);
         ctx.stroke();
         ctx.fillStyle = TEXT_COLOR;
-        ctx.fillText(formatPercent(isZero ? 0 : v, step), g.plotRight + 6, y);
+        ctx.fillText(formatPercent(isZero ? 0 : v, step), g.axisX, y);
     }
+
+    if (entry.showVolumeProfile) drawVolumeProfile(ctx, g, entry);
 
     const bodyOpacity = entry.layout === 'sidebyside' ? SIDE_BY_SIDE_BODY_OPACITY : OVERLAID_BODY_OPACITY;
     entry.groups.forEach((group, groupIndex) => {
@@ -213,8 +254,5 @@ function onHover(canvas, e) {
     entry.tooltip.innerHTML = `<div>${group.label} trailing window</div>${rows.join('')}`;
     entry.tooltip.style.display = 'block';
 
-    const container = canvas.parentElement;
-    const left = Math.min(x + 12, (container?.clientWidth ?? g.width) - entry.tooltip.offsetWidth - 8);
-    entry.tooltip.style.left = `${Math.max(left, 8)}px`;
-    entry.tooltip.style.top = `${Math.max(y - 12, 8)}px`;
+    placeTooltip(entry.tooltip, canvas.parentElement, x, y);
 }

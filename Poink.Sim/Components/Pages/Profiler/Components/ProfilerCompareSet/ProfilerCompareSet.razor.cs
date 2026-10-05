@@ -63,6 +63,13 @@ namespace Poink.Sim.Components.Profiler
 		[Parameter]
 		public EventCallback<ProfilerCompareTxFoldSettings> TxFoldChanged { get; set; }
 
+		/// <summary>The panel picked for the main area; falls back to the % chart while the picked panel is hidden.</summary>
+		[Parameter]
+		public ProfilerComparePanel MainPanel { get; set; }
+
+		[Parameter]
+		public EventCallback<ProfilerComparePanel> MainPanelChanged { get; set; }
+
 		[Parameter]
 		public ProfilerCompareXGridSettings XGrid { get; set; } = new();
 
@@ -152,6 +159,40 @@ namespace Poink.Sim.Components.Profiler
 				: "No ticks inside the Lookback Window for any symbol.";
 
 		private Task SetXGrid(ProfilerCompareXGridSettings settings) => XGridChanged.InvokeAsync(settings);
+
+		private ProfilerComparePanel EffectiveMain =>
+			MainPanel switch
+			{
+				ProfilerComparePanel.TxFold when TxFold.Show => ProfilerComparePanel.TxFold,
+				ProfilerComparePanel.XGrid when XGrid.Show => ProfilerComparePanel.XGrid,
+				_ => ProfilerComparePanel.Chart,
+			};
+
+		private IEnumerable<ProfilerComparePanel> VisiblePanels
+		{
+			get
+			{
+				yield return ProfilerComparePanel.Chart;
+				if (TxFold.Show)
+					yield return ProfilerComparePanel.TxFold;
+				if (XGrid.Show)
+					yield return ProfilerComparePanel.XGrid;
+			}
+		}
+
+		private List<ProfilerComparePanel> SidePanels => VisiblePanels.Where(p => p != EffectiveMain).ToList();
+
+		private bool IsMain(ProfilerComparePanel panel) => panel == EffectiveMain;
+
+		private string PanelClass(ProfilerComparePanel panel) => IsMain(panel) ? "pcmp-panel pcmp-panel-main" : "pcmp-panel pcmp-panel-side";
+
+		// Grid rows rather than moving markup, so swapping never re-mounts a chart or reloads TxFold's ticks.
+		private string PanelStyle(ProfilerComparePanel panel) =>
+			IsMain(panel) ? "grid-row: 1 / -1" : $"grid-row: {SidePanels.IndexOf(panel) + 1}";
+
+		private string? BodyStyle => SidePanels.Count > 0 ? $"grid-template-rows: repeat({SidePanels.Count}, minmax(0, 1fr))" : null;
+
+		private Task SetMainPanel(ProfilerComparePanel panel) => MainPanelChanged.InvokeAsync(panel);
 
 		private string ColorVarFor(string table) => ProfilerSymbolColorHelper.ColorVarFor(SymbolColors, table);
 

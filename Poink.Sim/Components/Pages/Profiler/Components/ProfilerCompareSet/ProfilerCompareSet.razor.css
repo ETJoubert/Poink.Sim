@@ -1,7 +1,8 @@
+/* A zero basis sizes the set from the page's free space, not its charts, so a panel swap can't feed a canvas's height back into it. */
 .pcmp-set {
     display: flex;
     flex-direction: column;
-    flex: 1 1 auto;
+    flex: 1 1 0;
     min-height: 420px;
     margin: 0 5px 5px;
     border: 1px solid color-mix(in srgb, var(--color-success) 45%, transparent);
@@ -70,31 +71,72 @@
 }
 
 .pcmp-body {
-    display: flex;
-    flex: 1 1 auto;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    flex: 1 1 0;
     min-height: 0;
     gap: 8px;
     padding: 5px;
 }
 
-.pcmp-chart {
-    flex: 1 1 auto;
-    min-width: 0;
-    min-height: 0;
+.pcmp-body-split {
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 36%);
 }
 
-.pcmp-side {
+.pcmp-panel {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    flex: 0 0 36%;
-    min-width: 300px;
-    min-height: 0;
+    min-width: 0;
+    min-height: 200px;
 }
 
-.pcmp-side-panel {
+.pcmp-panel-main {
+    grid-column: 1;
+}
+
+.pcmp-panel-side {
+    grid-column: 2;
+}
+
+.pcmp-panel-content {
+    position: relative;
     flex: 1 1 0;
-    min-height: 200px;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.pcmp-panel-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 0 0 auto;
+    padding: 0 2px 3px;
+}
+
+.pcmp-panel-label {
+    font-size: 0.58rem;
+    font-weight: bold;
+    letter-spacing: 0.1em;
+    color: var(--color-secondary);
+    opacity: 0.85;
+}
+
+.pcmp-make-main {
+    margin-left: auto;
+    font-family: var(--font-body);
+    font-size: 0.56rem;
+    letter-spacing: 0.03em;
+    color: var(--color-primary);
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 35%, transparent);
+    padding: 1px 6px;
+    border-radius: var(--border-radius-sm);
+    cursor: pointer;
+}
+
+.pcmp-make-main:hover {
+    background: color-mix(in srgb, var(--color-primary) 15%, transparent);
 }
 
 .pcmp-toggles {
@@ -125,16 +167,22 @@
 }
 
 @media (max-width: 900px) {
-    .pcmp-body {
+    .pcmp-set {
+        flex: 0 0 auto;
+    }
+
+    .pcmp-body,
+    .pcmp-body-split {
+        display: flex;
         flex-direction: column;
+        flex: 0 0 auto;
     }
 
-    .pcmp-side {
-        flex-basis: auto;
-        min-width: 0;
+    .pcmp-panel {
+        flex: 0 0 320px;
     }
 
-    .pcmp-side-panel {
-        flex-basis: 320px;
+    .pcmp-panel-main {
+        order: -1;
     }
 }

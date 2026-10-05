@@ -13,6 +13,8 @@
                         @onclick="() => SetLayout(CompareTxFoldLayout.SideBySide)"
                         title="Give every symbol its own slot within each timeframe">Side by side</button>
             </div>
+            <button type="button" class="ctxf-tool-btn ctxf-tool-btn-volume @(ShowVolumeProfile ? "active" : "")" @onclick="ToggleVolumeProfile"
+                    title="Overlay every symbol's tick-volume profile over the largest selected window in the right margin, on the same % axis">Vol Profile</button>
             <span class="ctxf-divider"></span>
             <div class="ctxf-tool-group" title="Choose how each snapshot bar is aggregated">
                 <button type="button" class="ctxf-tool-btn ctxf-tool-btn-kind @(BarKind == BarAggregationKind.Ohlc ? "active" : "")"
