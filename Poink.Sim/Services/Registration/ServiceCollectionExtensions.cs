@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Poink.CTrader;
+using Poink.Sim.Analysis;
 using Poink.Sim.Brain;
 using Poink.Sim.Components.Pages.Arch.Services;
 using Poink.Sim.Components.Pages.Calls.Services;
@@ -10,6 +11,8 @@ using Poink.Sim.Components.Pages.Trade;
 using Poink.Sim.Data;
 using Poink.Sim.Helpers;
 using Poink.Sim.Repository;
+using Poink.Sim.Services.Activity;
+using Poink.Sim.Services.Activity.Sources;
 using Poink.Sim.Services.CTrader;
 using Poink.Sim.Services.DataSeriesSync;
 using Poink.Sim.Services.MarketData;
@@ -184,6 +187,7 @@ public static class ServiceCollectionExtensions
 		services.AddSingleton<NetworkAssembler>();
 		services.AddSingleton<PolicyGradientLearner>();
 		services.AddSingleton<TrainingEngineService>();
+		services.AddSingleton<TrainingRunService>();
 		services.AddSingleton<MlpWeightsSerializer>();
 		services.AddSingleton<TrainedModelRepository>();
 		services.AddSingleton<TrainingHistoryRepository>();
@@ -239,6 +243,32 @@ public static class ServiceCollectionExtensions
 	public static IServiceCollection BuildCallGraphServices(this IServiceCollection services)
 	{
 		services.AddSingleton<ICallGraphIndex, CallGraphIndex>();
+
+		return services;
+	}
+
+	/// <summary>
+	/// Background-activity indicators for the main nav: one IActivitySource per long-running singleton service
+	/// (simulation, training, tick import, signal dataset build, each analysis) and the tracker that folds them into per-route state.
+	/// Depends on BuildSimulationServices, BuildTrainingServices, BuildBackgroundWorkers and the analysis services.
+	/// </summary>
+	public static IServiceCollection BuildActivityServices(this IServiceCollection services)
+	{
+		services.AddSingleton<IActivitySource, SimulationActivitySource>();
+		services.AddSingleton<IActivitySource, TrainingActivitySource>();
+		services.AddSingleton<IActivitySource, TrainingRunActivitySource>();
+		services.AddSingleton<IActivitySource, DataImportActivitySource>();
+		services.AddSingleton<IActivitySource, SignalDatasetActivitySource>();
+		services.AddSingleton<IActivitySource>(sp =>
+			new AnalysisActivitySource("Time above/below", sp.GetRequiredService<ITimeAboveBelowAnalysisService>())
+		);
+		services.AddSingleton<IActivitySource>(sp =>
+			new AnalysisActivitySource("Time to return", sp.GetRequiredService<IPriceReturnAnalysisService>())
+		);
+		services.AddSingleton<IActivitySource>(sp =>
+			new AnalysisActivitySource("Barrier map", sp.GetRequiredService<IBarrierMapAnalysisService>())
+		);
+		services.AddSingleton<IActivityTracker, ActivityTracker>();
 
 		return services;
 	}

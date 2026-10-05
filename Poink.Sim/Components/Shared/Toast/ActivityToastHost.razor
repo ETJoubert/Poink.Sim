@@ -1,0 +1,28 @@
+@using Poink.Sim.Components.Shared.Icon
+
+@if (_toasts.Count > 0)
+{
+    <div class="toast-stack" role="status" aria-live="polite">
+        @foreach (var toast in _toasts)
+        {
+            <div class="toast @(toast.Completion.IsFailure ? "failed" : "completed")" @key="toast.Id">
+                <span class="toast-icon" title="@(toast.Completion.IsFailure ? "Failed" : "Finished")">
+                    <Icon Name="@(toast.Completion.IsFailure ? "info-circle" : "check2")" Class="toast-icon-img" />
+                </span>
+                <div class="toast-body">
+                    <div class="toast-title">@toast.Completion.Name @(toast.Completion.IsFailure ? "failed" : "finished")</div>
+                    @if (!string.IsNullOrWhiteSpace(toast.Completion.Detail))
+                    {
+                        <div class="toast-detail" title="@toast.Completion.Detail">@toast.Completion.Detail</div>
+                    }
+                </div>
+                <button type="button" class="toast-action" title="Go to @toast.Completion.Name" @onclick="() => Open(toast)">
+                    <Icon Name="box-arrow-up-right" Class="toast-action-img" />
+                </button>
+                <button type="button" class="toast-action" title="Dismiss" @onclick="() => Dismiss(toast)">
+                    <Icon Name="x-lg" Class="toast-action-img" />
+                </button>
+            </div>
+        }
+    </div>
+}

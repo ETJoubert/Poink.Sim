@@ -157,21 +157,11 @@ main {
   flex-wrap: nowrap;
   min-width: 0;
 
-  scrollbar-width: thin;
-  scrollbar-color: var(--color-primary) transparent;
+  scrollbar-width: none;
 }
 
 .nav-tabs::-webkit-scrollbar {
-  height: 4px;
-}
-
-.nav-tabs::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.nav-tabs::-webkit-scrollbar-thumb {
-  background: var(--color-primary);
-  border-radius: 2px;
+  display: none;
 }
 
 .nav-tabs.collapsed {
@@ -438,4 +428,124 @@ main {
   width: 8px;
   height: 2px;
   background: color-mix(in srgb, var(--color-secondary) 45%, transparent);
+}
+
+.nav-tabs ::deep .nav-tab,
+.side-nav ::deep .side-nav-tab {
+  position: relative;
+}
+
+.nav-tabs ::deep .nav-cluster {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  padding: 2px 3px 2px 0;
+  border: 1px dashed color-mix(in srgb, var(--color-tertiary) 70%, transparent);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--color-tertiary) 7%, transparent);
+}
+
+.nav-tabs ::deep .nav-cluster-label {
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 3px;
+  margin: -2px 0;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  border-radius: 0 5px 5px 0;
+  background: color-mix(in srgb, var(--color-tertiary) 22%, transparent);
+  color: var(--color-tertiary);
+  font-family: var(--font-body);
+  font-size: 8px;
+  font-weight: bold;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  user-select: none;
+}
+
+.nav-tabs ::deep .nav-cluster.collapsed .nav-cluster-label {
+  writing-mode: horizontal-tb;
+  transform: none;
+  padding: 0 4px;
+  border-radius: 5px 0 0 5px;
+}
+
+::deep .nav-cluster-icon {
+  width: 10px;
+  height: 10px;
+}
+
+.nav-tabs ::deep .nav-tab.nav-cluster-item:not(.active),
+.side-nav ::deep .side-nav-tab.nav-cluster-item:not(.active) {
+  border-color: color-mix(in srgb, var(--color-tertiary) 55%, transparent);
+}
+
+.nav-tabs ::deep .nav-tab.nav-cluster-item:hover,
+.side-nav ::deep .side-nav-tab.nav-cluster-item:hover {
+  border-color: var(--color-tertiary);
+}
+
+.nav-tabs ::deep .nav-cluster-item .nav-icon-img,
+.side-nav ::deep .nav-cluster-item .nav-icon-img {
+  color: var(--color-tertiary);
+}
+
+.side-nav ::deep .nav-cluster {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 6px;
+  border: 1px dashed color-mix(in srgb, var(--color-tertiary) 70%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--color-tertiary) 6%, transparent);
+}
+
+.side-nav ::deep .nav-cluster-label {
+  padding: 0 4px;
+  color: var(--color-tertiary);
+  font-family: var(--font-body);
+  font-size: 9px;
+  font-weight: bold;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  user-select: none;
+}
+
+.side-nav.collapsed ::deep .nav-cluster {
+  padding: 4px;
+  align-items: center;
+}
+
+.nav-tabs ::deep .nav-tab.nav-running:not(.active),
+.side-nav ::deep .side-nav-tab.nav-running:not(.active) {
+  border-color: color-mix(in srgb, var(--color-warning) 70%, transparent);
+}
+
+.nav-tabs ::deep .nav-tab.nav-attention:not(.active),
+.side-nav ::deep .side-nav-tab.nav-attention:not(.active) {
+  --attention-color: var(--color-success);
+  border-color: var(--attention-color);
+  color: var(--attention-color);
+  animation: nav-attention-pulse 1.6s ease-in-out infinite;
+}
+
+.nav-tabs ::deep .nav-tab.nav-attention-failed,
+.side-nav ::deep .side-nav-tab.nav-attention-failed {
+  --attention-color: var(--color-error);
+}
+
+@keyframes nav-attention-pulse {
+  0%, 100% {
+    box-shadow: 0 0 3px color-mix(in srgb, var(--attention-color) 40%, transparent);
+    background: var(--color-bg-tab);
+  }
+  50% {
+    box-shadow:
+      0 0 12px var(--attention-color),
+      inset 0 0 8px color-mix(in srgb, var(--attention-color) 30%, transparent);
+    background: color-mix(in srgb, var(--attention-color) 12%, var(--color-bg-tab));
+  }
 }

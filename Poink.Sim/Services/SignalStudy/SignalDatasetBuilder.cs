@@ -45,6 +45,7 @@ internal sealed class SignalDatasetBuilder : ISignalDatasetBuilder
 	public bool IsBuilding { get; private set; }
 	public SignalDatasetBuildProgress? Progress { get; private set; }
 	public string? LastError { get; private set; }
+	public bool WasCancelled { get; private set; }
 
 	public event Action? OnChanged;
 
@@ -57,6 +58,7 @@ internal sealed class SignalDatasetBuilder : ISignalDatasetBuilder
 				return false;
 			IsBuilding = true;
 			LastError = null;
+			WasCancelled = false;
 			Progress = new SignalDatasetBuildProgress(request.Name, request.FromUtc, request.ToUtc, null, 0, true);
 			_cancellation = new CancellationTokenSource();
 			token = _cancellation.Token;
@@ -99,6 +101,7 @@ internal sealed class SignalDatasetBuilder : ISignalDatasetBuilder
 		catch (OperationCanceledException)
 		{
 			status = SignalDatasetStatus.Cancelled;
+			WasCancelled = true;
 		}
 		catch (Exception ex)
 		{

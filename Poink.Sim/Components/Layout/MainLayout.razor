@@ -1,5 +1,6 @@
 @using Poink.Sim.Components.Layout
 @using Poink.Sim.Components.Shared.PageNav
+@using Poink.Sim.Components.Shared.Toast
 @inherits LayoutComponentBase
 
 <TerminalLoader />
@@ -49,6 +50,7 @@
     </div>
 
     <PerformanceMonitor />
+    <ActivityToastHost />
 </div>
 
 @code {

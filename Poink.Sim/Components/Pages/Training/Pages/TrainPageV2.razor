@@ -802,11 +802,11 @@
                 break;
             case TrainV2Tab.Run:
                 <div class="trv2-results">
-                    @if (_viewingSavedResults)
+                    @if (TrainingRun.IsViewingSavedResults)
                     {
                         <div class="trv2-card" title="The Run tab is showing results loaded from the Models panel rather than a live run">
                             <span class="trv2-card-title">Saved results</span>
-                            <p class="trv2-placeholder">Showing saved results '@_viewedResultsName' -- they clear when a run starts, steps or resets.</p>
+                            <p class="trv2-placeholder">Showing saved results '@TrainingRun.ViewedResultsName' -- they clear when a run starts, steps or resets.</p>
                         </div>
                     }
                     <div class="trv2-summary-section">
@@ -959,7 +959,7 @@
                     </div>
 
                     <div class="trv2-card trv2-run-controls">
-                        @if (!_isRunning)
+                        @if (!TrainingRun.IsRunning)
                         {
                             <button type="button" class="trv2-btn trv2-btn-play" @onclick="StartRun"
                                     title="Trains on the symbol/range picked on the Data tab -- each episode streams its own random window">
@@ -977,7 +977,7 @@
                                 RESET
                             </button>
                         }
-                        else if (_isPaused)
+                        else if (TrainingRun.IsPaused)
                         {
                             <button type="button" class="trv2-btn trv2-btn-play" @onclick="ResumeRun" title="Resume training from where it paused">
                                 <Icon Name="play-fill" Class="trv2-run-icon" />
@@ -1017,27 +1017,27 @@
                             <div class="trv2-progress-bar">
                                 <div class="trv2-progress-fill" style="width: @(RunProgressPercent.ToString("0.#"))%"></div>
                             </div>
-                            <span class="trv2-progress-text">@_episodesCompleted / @TargetEpisodeCount episodes (@RunProgressPercent.ToString("0")%)</span>
-                            <span class="trv2-progress-rate" title="Rolling episodes/sec over the most recent episodes -- pause/step time isn't counted">@_episodesPerSecond.ToString("0.00") eps</span>
+                            <span class="trv2-progress-text">@TrainingRun.EpisodesCompleted / @TargetEpisodeCount episodes (@RunProgressPercent.ToString("0")%)</span>
+                            <span class="trv2-progress-rate" title="Rolling episodes/sec over the most recent episodes -- pause/step time isn't counted">@TrainingRun.EpisodesPerSecond.ToString("0.00") eps</span>
                         </div>
-                        @if (_runError is not null)
+                        @if (TrainingRun.Error is not null)
                         {
-                            <p class="trv2-warning" title="@_runError">Run stopped: @_runError</p>
+                            <p class="trv2-warning" title="@TrainingRun.Error">Run stopped: @TrainingRun.Error</p>
                         }
                     </div>
 
                     <div class="trv2-card trv2-metrics-panel">
                         <div class="trv2-stat">
                             <span class="trv2-stat-label" title="Mean reward across the retained rolling window of episodes">recent avg reward</span>
-                            <span class="trv2-stat-value">@_recentAverageReward.ToString("N2")</span>
+                            <span class="trv2-stat-value">@TrainingRun.RecentAverageReward.ToString("N2")</span>
                         </div>
                         <div class="trv2-stat">
                             <span class="trv2-stat-label" title="Highest single-episode reward seen this run">best episode</span>
-                            <span class="trv2-stat-value">@_bestReward.ToString("N2")</span>
+                            <span class="trv2-stat-value">@TrainingRun.BestReward.ToString("N2")</span>
                         </div>
                         <div class="trv2-stat">
                             <span class="trv2-stat-label" title="Lowest single-episode reward seen this run">worst episode</span>
-                            <span class="trv2-stat-value">@_worstReward.ToString("N2")</span>
+                            <span class="trv2-stat-value">@TrainingRun.WorstReward.ToString("N2")</span>
                         </div>
                         <div class="trv2-stat">
                             <span class="trv2-stat-label" title="Percent of retained episodes with positive reward">win rate</span>
@@ -1060,21 +1060,21 @@
                     <div class="trv2-charts-grid">
                         <div class="trv2-card">
                             <span class="trv2-card-title">Reward</span>
-                            <RewardChart Episodes="_episodeMetricsSnapshot" IsRunning="@_isRunning" />
+                            <RewardChart Episodes="TrainingRun.EpisodeMetrics" IsRunning="@TrainingRun.IsRunning" />
                         </div>
                         <div class="trv2-card">
                             <span class="trv2-card-title" title="Rolling-window median -- less noisy than raw reward">Median Reward</span>
-                            <TrendLineChart Episodes="_episodeMetricsSnapshot" IsRunning="@_isRunning"
+                            <TrendLineChart Episodes="TrainingRun.EpisodeMetrics" IsRunning="@TrainingRun.IsRunning"
                                             Aggregate="@RlEpisodeMetricStats.Median" ColorVariant="median" />
                         </div>
                         <div class="trv2-card">
                             <span class="trv2-card-title" title="Rolling-window spread -- falling means training is stabilizing">Reward Std Dev</span>
-                            <TrendLineChart Episodes="_episodeMetricsSnapshot" IsRunning="@_isRunning"
+                            <TrendLineChart Episodes="TrainingRun.EpisodeMetrics" IsRunning="@TrainingRun.IsRunning"
                                             Aggregate="@RlEpisodeMetricStats.StdDev" ColorVariant="stddev" />
                         </div>
                         <div class="trv2-card">
                             <span class="trv2-card-title" title="Rolling-window % of episodes with positive reward">Win Rate</span>
-                            <TrendLineChart Episodes="_episodeMetricsSnapshot" IsRunning="@_isRunning"
+                            <TrendLineChart Episodes="TrainingRun.EpisodeMetrics" IsRunning="@TrainingRun.IsRunning"
                                             Aggregate="@RlEpisodeMetricStats.WinRate" ColorVariant="winrate" ValueFormat="N0" ValueSuffix="%" />
                         </div>
                     </div>
@@ -1083,12 +1083,12 @@
             case TrainV2Tab.Live:
             {
                 var live = _liveState;
-                <LiveEpisodeView IsRunning="@_isRunning" IsPaused="@_isPaused" RunError="@_runError"
+                <LiveEpisodeView IsRunning="@TrainingRun.IsRunning" IsPaused="@TrainingRun.IsPaused" RunError="@TrainingRun.Error"
                                  OnPlayPause="ToggleLiveRun" OnStep="StepRun" OnReset="ResetRun"
                                  SpeedLabel="@LiveSpeedLabel(LiveSpeedOptions[_liveSpeedIndex])"
                                  CanDecreaseSpeed="@(_liveSpeedIndex > 0)" CanIncreaseSpeed="@(_liveSpeedIndex < LiveSpeedOptions.Length - 1)"
                                  OnDecreaseSpeed="DecreaseLiveSpeed" OnIncreaseSpeed="IncreaseLiveSpeed" OnMaxSpeed="MaxLiveSpeed"
-                                 EpisodesCompleted="_episodesCompleted" TargetEpisodeCount="TargetEpisodeCount"
+                                 EpisodesCompleted="TrainingRun.EpisodesCompleted" TargetEpisodeCount="TargetEpisodeCount"
                                  EpisodeProgress="BuildLiveEpisodeProgress(live)"
                                  HasSnapshot="@(live is not null)"
                                  DataStart="@live?.Snapshot.DataStart" EpisodeStart="@live?.Snapshot.EpisodeStart"

@@ -13,6 +13,7 @@ namespace Poink.Sim.Services.MarketData.Import
 		ZTicksImportProgress? Progress { get; }
 		ZTicksImportResult? LastResult { get; }
 		string? LastError { get; }
+		bool WasCancelled { get; }
 
 		/// <summary>Raised on every progress update and on completion, from whichever thread is running the import.</summary>
 		event Action? Changed;

@@ -16,6 +16,8 @@ internal interface ISignalDatasetBuilder
 	/// <summary>Why the last build failed, or null.</summary>
 	string? LastError { get; }
 
+	bool WasCancelled { get; }
+
 	/// <summary>Raised whenever the build state or its progress changes.</summary>
 	event Action? OnChanged;
 

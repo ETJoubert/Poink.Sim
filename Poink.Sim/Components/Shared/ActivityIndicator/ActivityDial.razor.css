@@ -1,0 +1,76 @@
+.activity-slot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  margin-left: 6px;
+}
+
+.activity-slot.corner {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 10px;
+  height: 10px;
+  margin: 0;
+}
+
+.activity-dial {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.activity-dial circle {
+  fill: none;
+  stroke-width: 3;
+}
+
+.activity-dial-track {
+  stroke: color-mix(in srgb, var(--color-warning) 25%, transparent);
+}
+
+.activity-dial-arc {
+  stroke: var(--color-warning);
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 3px var(--color-warning));
+  transition: stroke-dasharray 0.3s ease;
+}
+
+.activity-dial.indeterminate {
+  animation: activity-dial-spin 1s linear infinite;
+}
+
+.activity-dot {
+  display: block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  animation: activity-dot-pulse 1.4s ease-in-out infinite;
+}
+
+.activity-slot.corner .activity-dot {
+  width: 7px;
+  height: 7px;
+}
+
+.activity-dot.completed {
+  background: var(--color-success);
+  box-shadow: 0 0 6px var(--color-success);
+}
+
+.activity-dot.failed {
+  background: var(--color-error);
+  box-shadow: 0 0 6px var(--color-error);
+}
+
+@keyframes activity-dial-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes activity-dot-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.45; transform: scale(0.75); }
+}

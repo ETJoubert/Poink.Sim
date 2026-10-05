@@ -1,0 +1,51 @@
+@using Poink.Sim.Components.Shared.ActivityIndicator
+@using Poink.Sim.Components.Shared.Icon
+@using Poink.Sim.Services.Activity
+
+<NavLink href="@Link.Route" class="@CssClass" Match="NavLinkMatch.All" title="@Tooltip" @onclick="OnClick">
+    @if (Collapsed)
+    {
+        <span class="nav-icon">
+            <Icon Name="@Link.Icon" Class="nav-icon-img" />
+        </span>
+        <ActivityDial Activity="Activity" Class="corner" ReserveSpace="false" />
+    }
+    else
+    {
+        <span>
+            <Icon Name="@Link.Icon" Class="nav-icon-img" /> @Link.Label
+        </span>
+        <ActivityDial Activity="Activity" />
+    }
+</NavLink>
+
+@code {
+    [Parameter, EditorRequired] public NavLinkItem Link { get; set; } = default!;
+    [Parameter, EditorRequired] public string LinkClass { get; set; } = "nav-tab";
+    [Parameter] public string? ExtraClass { get; set; }
+    [Parameter] public bool Collapsed { get; set; }
+    [Parameter] public RouteActivity Activity { get; set; } = RouteActivity.Idle;
+    [Parameter] public EventCallback OnClick { get; set; }
+
+    private string CssClass =>
+        string.Join(' ', new[] { LinkClass, ExtraClass, RunningClass, AttentionClass }.Where(c => !string.IsNullOrEmpty(c)));
+
+    private string? RunningClass => Activity.IsRunning ? "nav-running" : null;
+
+    private string? AttentionClass =>
+        Activity.Unseen switch
+        {
+            { IsFailure: true } => "nav-attention nav-attention-failed",
+            not null => "nav-attention",
+            null => null,
+        };
+
+    private string Tooltip =>
+        Activity switch
+        {
+            { IsRunning: true, ProgressPercent: { } percent } => $"{Link.Label} -- running {percent:0}%",
+            { IsRunning: true } => $"{Link.Label} -- running",
+            { Unseen: { } unseen } => $"{Link.Label} -- {unseen.Name} {(unseen.IsFailure ? "failed" : "finished")}. Open to clear",
+            _ => Link.Label,
+        };
+}

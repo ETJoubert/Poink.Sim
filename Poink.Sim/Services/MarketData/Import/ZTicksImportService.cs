@@ -32,6 +32,7 @@ namespace Poink.Sim.Services.MarketData.Import
 		public ZTicksImportProgress? Progress { get; private set; }
 		public ZTicksImportResult? LastResult { get; private set; }
 		public string? LastError { get; private set; }
+		public bool WasCancelled { get; private set; }
 
 		public event Action? Changed;
 
@@ -74,6 +75,7 @@ namespace Poink.Sim.Services.MarketData.Import
 				Progress = null;
 				LastResult = null;
 				LastError = null;
+				WasCancelled = false;
 				cts = _cts = new CancellationTokenSource();
 			}
 
@@ -93,6 +95,7 @@ namespace Poink.Sim.Services.MarketData.Import
 			catch (OperationCanceledException)
 			{
 				LastError = "Import cancelled.";
+				WasCancelled = true;
 				_logger.LogWarning("ZTicks import cancelled for {Symbol}.", request.SymbolName);
 			}
 			catch (Exception ex)
