@@ -67,38 +67,64 @@
                     title="Show or hide an XGrid panel overlaying every symbol's tick footprint inside the Lookback Window, on % rows from the Anchor edge">XGrid</button>
         </div>
     </header>
-    <div class="pcmp-body">
-        <div class="pcmp-chart">
-            <CompareChart Series="_series" ScaleMode="ScaleMode" Style="Style" WindowStart="WindowStart" WindowEnd="WindowEnd"
-                          Zones="TxFoldZones()" Markers="TxFoldMarkers()"
-                          CanLoadMore="CanLoadMore" OnNearStart="OnNearStart" Tooltip="@ChartTooltip()" />
+    <div class="pcmp-body @(SidePanels.Count > 0 ? "pcmp-body-split" : "")" style="@BodyStyle">
+        <div @key="ProfilerComparePanel.Chart" class="@PanelClass(ProfilerComparePanel.Chart)" style="@PanelStyle(ProfilerComparePanel.Chart)">
+            @if (!IsMain(ProfilerComparePanel.Chart))
+            {
+                <div class="pcmp-panel-bar">
+                    <span class="pcmp-panel-label" title="Every symbol on one shared time axis as % change">% CHART</span>
+                    <button type="button" class="pcmp-make-main" @onclick="() => SetMainPanel(ProfilerComparePanel.Chart)"
+                            title="Move the % chart back to the main area">Make main</button>
+                </div>
+            }
+            <div class="pcmp-panel-content">
+                <CompareChart Series="_series" ScaleMode="ScaleMode" Style="Style" WindowStart="WindowStart" WindowEnd="WindowEnd"
+                              Zones="TxFoldZones()" Markers="TxFoldMarkers()"
+                              CanLoadMore="CanLoadMore" OnNearStart="OnNearStart" Tooltip="@ChartTooltip()" />
+            </div>
         </div>
-        @if (TxFold.Show || XGrid.Show)
+        @if (TxFold.Show)
         {
-            <div class="pcmp-side">
-                @if (TxFold.Show)
+            <div @key="ProfilerComparePanel.TxFold" class="@PanelClass(ProfilerComparePanel.TxFold)" style="@PanelStyle(ProfilerComparePanel.TxFold)">
+                @if (!IsMain(ProfilerComparePanel.TxFold))
                 {
-                    <div class="pcmp-side-panel">
-                        <CompareTxFold Symbols="TxFoldSymbols()" AnchorEnd="TxFoldAnchor" RangeStart="RangeStart"
-                                       NoAnchorMessage="Select a Lookback Window -- its right edge anchors every symbol's trailing windows."
-                                       SelectedSeconds="TxFoldSeconds" SelectedSecondsChanged="seconds => SetTxFold(TxFold with { Seconds = seconds.Order().ToList() })"
-                                       BarKind="TxFold.BarKind" BarKindChanged="kind => SetTxFold(TxFold with { BarKind = kind })"
-                                       Layout="TxFold.Layout" LayoutChanged="layout => SetTxFold(TxFold with { Layout = layout })" />
+                    <div class="pcmp-panel-bar">
+                        <span class="pcmp-panel-label" title="Every symbol's trailing-window bars at the Lookback Window's right edge">TXFOLD</span>
+                        <button type="button" class="pcmp-make-main" @onclick="() => SetMainPanel(ProfilerComparePanel.TxFold)"
+                                title="Move TxFold to the main area and the % chart to this side column">Make main</button>
                     </div>
                 }
-                @if (XGrid.Show)
+                <div class="pcmp-panel-content">
+                    <CompareTxFold Symbols="TxFoldSymbols()" AnchorEnd="TxFoldAnchor" RangeStart="RangeStart"
+                                   NoAnchorMessage="Select a Lookback Window -- its right edge anchors every symbol's trailing windows."
+                                   SelectedSeconds="TxFoldSeconds" SelectedSecondsChanged="seconds => SetTxFold(TxFold with { Seconds = seconds.Order().ToList() })"
+                                   BarKind="TxFold.BarKind" BarKindChanged="kind => SetTxFold(TxFold with { BarKind = kind })"
+                                   Layout="TxFold.Layout" LayoutChanged="layout => SetTxFold(TxFold with { Layout = layout })"
+                                   ShowVolumeProfile="TxFold.ShowVolumeProfile" ShowVolumeProfileChanged="show => SetTxFold(TxFold with { ShowVolumeProfile = show })" />
+                </div>
+            </div>
+        }
+        @if (XGrid.Show)
+        {
+            <div @key="ProfilerComparePanel.XGrid" class="@PanelClass(ProfilerComparePanel.XGrid)" style="@PanelStyle(ProfilerComparePanel.XGrid)">
+                @if (!IsMain(ProfilerComparePanel.XGrid))
                 {
-                    <div class="pcmp-side-panel">
-                        <CompareXGrid Result="XGridResult()" NoDataMessage="@XGridNoDataMessage()"
-                                      Mode="XGrid.Mode" ModeChanged="mode => SetXGrid(XGrid with { Mode = mode })"
-                                      DifferenceLabel="@XGrid.DifferenceTable" DifferenceLabelChanged="table => SetXGrid(XGrid with { DifferenceTable = table })"
-                                      RowPercent="XGrid.RowPercent" RowPercentChanged="rowPercent => SetXGrid(XGrid with { RowPercent = rowPercent })"
-                                      ColCount="XGrid.ColCount" ColCountChanged="colCount => SetXGrid(XGrid with { ColCount = colCount })"
-                                      ShowProfile="XGrid.ShowProfile" ShowProfileChanged="show => SetXGrid(XGrid with { ShowProfile = show })"
-                                      TopCellsPercent="XGrid.TopCellsPercent" TopCellsPercentChanged="percent => SetXGrid(XGrid with { TopCellsPercent = percent })"
-                                      LowCellsPercent="XGrid.LowCellsPercent" LowCellsPercentChanged="percent => SetXGrid(XGrid with { LowCellsPercent = percent })" />
+                    <div class="pcmp-panel-bar">
+                        <span class="pcmp-panel-label" title="Every symbol's tick footprint inside the Lookback Window">XGRID</span>
+                        <button type="button" class="pcmp-make-main" @onclick="() => SetMainPanel(ProfilerComparePanel.XGrid)"
+                                title="Move XGrid to the main area and the % chart to this side column">Make main</button>
                     </div>
                 }
+                <div class="pcmp-panel-content">
+                    <CompareXGrid Result="XGridResult()" NoDataMessage="@XGridNoDataMessage()"
+                                  Mode="XGrid.Mode" ModeChanged="mode => SetXGrid(XGrid with { Mode = mode })"
+                                  DifferenceLabel="@XGrid.DifferenceTable" DifferenceLabelChanged="table => SetXGrid(XGrid with { DifferenceTable = table })"
+                                  RowPercent="XGrid.RowPercent" RowPercentChanged="rowPercent => SetXGrid(XGrid with { RowPercent = rowPercent })"
+                                  ColCount="XGrid.ColCount" ColCountChanged="colCount => SetXGrid(XGrid with { ColCount = colCount })"
+                                  ShowProfile="XGrid.ShowProfile" ShowProfileChanged="show => SetXGrid(XGrid with { ShowProfile = show })"
+                                  TopCellsPercent="XGrid.TopCellsPercent" TopCellsPercentChanged="percent => SetXGrid(XGrid with { TopCellsPercent = percent })"
+                                  LowCellsPercent="XGrid.LowCellsPercent" LowCellsPercentChanged="percent => SetXGrid(XGrid with { LowCellsPercent = percent })" />
+                </div>
             </div>
         }
     </div>

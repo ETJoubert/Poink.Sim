@@ -57,6 +57,7 @@
 
 .ctxf-tool-btn-layout { --ctxf-color: var(--color-badge-2); }
 .ctxf-tool-btn-kind { --ctxf-color: var(--color-primary); }
+.ctxf-tool-btn-volume { --ctxf-color: var(--color-info); }
 .ctxf-tool-btn-timeframe { --ctxf-color: var(--color-secondary); }
 
 .ctxf-tool-btn {

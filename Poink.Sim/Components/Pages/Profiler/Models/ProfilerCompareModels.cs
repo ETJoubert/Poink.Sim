@@ -41,6 +41,15 @@ namespace Poink.Sim.Components.Profiler
 		bool Show = false,
 		CompareTxFoldLayout Layout = CompareTxFoldLayout.Overlaid,
 		List<int>? Seconds = null,
-		BarAggregationKind BarKind = BarAggregationKind.Ohlc
+		BarAggregationKind BarKind = BarAggregationKind.Ohlc,
+		bool ShowVolumeProfile = false
 	);
+
+	/// <summary>Which compare view panel fills the main area; the others stack in the side column.</summary>
+	public enum ProfilerComparePanel
+	{
+		Chart,
+		TxFold,
+		XGrid,
+	}
 }

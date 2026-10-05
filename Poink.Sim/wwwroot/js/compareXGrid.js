@@ -2,6 +2,7 @@
 // share of its own busiest cell -- 'dominant' takes the highest share's colour, 'difference' shades towards
 // whichever of the first symbol and the chosen one has the higher share.
 import { cssColor, withAlpha } from './chartColors.js';
+import { placeTooltip } from './chartTooltip.js';
 
 const PADDING = { top: 6, right: 54, bottom: 20, left: 4 };
 const PROFILE_GAP = 6;
@@ -323,8 +324,5 @@ function onHover(canvas, e) {
     }
     entry.tooltip.style.display = 'block';
 
-    const container = canvas.parentElement;
-    const left = Math.min(x + 12, (container?.clientWidth ?? g.width) - entry.tooltip.offsetWidth - 8);
-    entry.tooltip.style.left = `${Math.max(left, 8)}px`;
-    entry.tooltip.style.top = `${Math.max(y - 12, 8)}px`;
+    placeTooltip(entry.tooltip, canvas.parentElement, x, y);
 }

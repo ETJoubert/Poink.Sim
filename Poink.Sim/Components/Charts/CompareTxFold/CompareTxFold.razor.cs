@@ -58,7 +58,14 @@ namespace Poink.Sim.Components.Charts
 		[Parameter]
 		public EventCallback<CompareTxFoldLayout> LayoutChanged { get; set; }
 
-		private sealed record SymbolSnapshot(string Table, double ReferencePrice, List<TxFoldBar> Bars);
+		/// <summary>Overlays every symbol's tick profile over the largest selected window in the right margin, on the same % axis.</summary>
+		[Parameter]
+		public bool ShowVolumeProfile { get; set; }
+
+		[Parameter]
+		public EventCallback<bool> ShowVolumeProfileChanged { get; set; }
+
+		private sealed record SymbolSnapshot(string Table, double ReferencePrice, List<TxFoldBar> Bars, IReadOnlyList<TxFoldVolumeBucket> VolumeProfile);
 
 		private List<SymbolSnapshot> _snapshots = new();
 		private string? _loadedKey;
@@ -127,8 +134,8 @@ namespace Poink.Sim.Components.Charts
 				return null;
 
 			var referencePrice = (ticks[^1].Bid + ticks[^1].Ask) / 2;
-			var snapshot = TxFoldStats.Compute(ticks, anchorEnd, rangeStart, seconds, barKind, includeLevels: false, includeVolumeProfile: false);
-			return new SymbolSnapshot(table, referencePrice, snapshot.Bars);
+			var snapshot = TxFoldStats.Compute(ticks, anchorEnd, rangeStart, seconds, barKind, includeLevels: false);
+			return new SymbolSnapshot(table, referencePrice, snapshot.Bars, snapshot.VolumeProfile);
 		}
 
 		private async Task SetBarKind(BarAggregationKind kind)
@@ -144,6 +151,12 @@ namespace Poink.Sim.Components.Charts
 		{
 			Layout = layout;
 			return LayoutChanged.InvokeAsync(layout);
+		}
+
+		private Task ToggleVolumeProfile()
+		{
+			ShowVolumeProfile = !ShowVolumeProfile;
+			return ShowVolumeProfileChanged.InvokeAsync(ShowVolumeProfile);
 		}
 
 		private async Task ToggleTimeframe(int seconds)
@@ -181,7 +194,7 @@ namespace Poink.Sim.Components.Charts
 				if (_disposed)
 					return;
 
-				var renderKey = $"{_loadedKey}#{Layout}#{string.Join("|", Symbols.Select(s => s.ColorVar))}";
+				var renderKey = $"{_loadedKey}#{Layout}#{ShowVolumeProfile}#{string.Join("|", Symbols.Select(s => s.ColorVar))}";
 				if (renderKey == _renderedKey)
 					return;
 				_renderedKey = renderKey;
@@ -196,6 +209,7 @@ namespace Poink.Sim.Components.Charts
 			new
 			{
 				layout = Layout == CompareTxFoldLayout.SideBySide ? "sidebyside" : "overlaid",
+				showVolumeProfile = ShowVolumeProfile,
 				groups = SnapshotTimeframeOptions.All.Where(o => SelectedSeconds.Contains(o.Seconds)).Select(o => new { seconds = o.Seconds, label = o.Label }),
 				series = _snapshots.Select(s => new
 				{
@@ -209,6 +223,12 @@ namespace Poink.Sim.Components.Charts
 						low = ToPercent(b.Bar.Low, s.ReferencePrice),
 						close = ToPercent(b.Bar.Close, s.ReferencePrice),
 						hasFullCoverage = b.HasFullCoverage,
+					}),
+					profile = s.VolumeProfile.Select(v => new
+					{
+						low = ToPercent(v.Low, s.ReferencePrice),
+						high = ToPercent(v.High, s.ReferencePrice),
+						count = v.Count,
 					}),
 				}),
 			};
