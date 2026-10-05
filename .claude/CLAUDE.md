@@ -79,9 +79,10 @@ Every response ends with this report. Each section label is bold, sections are s
 1. 
 
 
-### 7. Testing (Ignored for now)
+### 7. Testing
 1. Cover critical trading/strategy logic with unit tests before merging.
 2. Do not change tested behavior without updating its tests.
+3. Tests live in `Poink.Sim.Tests` (xUnit), mirroring the source folder layout; run them with `dotnet test Poink.Sim.Tests --artifacts-path <scratch path>`.
 
 ### 8. Security
 1. Never commit API keys, credentials, or secrets to the repository.
