@@ -41,6 +41,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 10px;
     padding: 4px 8px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     flex: 0 0 auto;
@@ -51,6 +52,15 @@
     letter-spacing: 0.1em;
     color: var(--color-secondary);
     opacity: 0.85;
+}
+
+.xgrid-header-highlights {
+    display: flex;
+    flex: 1;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
 }
 
 .xgrid-header-actions {
@@ -659,8 +669,7 @@
     background: color-mix(in srgb, var(--color-secondary) 15%, transparent);
 }
 
-.xgrid-overlay-row,
-.xgrid-spectrum-row {
+.xgrid-overlay-row {
     display: flex;
     align-items: center;
     gap: 6px;
