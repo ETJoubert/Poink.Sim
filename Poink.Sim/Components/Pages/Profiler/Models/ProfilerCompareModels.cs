@@ -30,7 +30,10 @@ namespace Poink.Sim.Components.Profiler
 		CompareXGridMode Mode = CompareXGridMode.Dominant,
 		string? DifferenceTable = null,
 		double RowPercent = 0.05,
-		int ColCount = 20
+		int ColCount = 20,
+		bool ShowProfile = false,
+		int TopCellsPercent = 0,
+		int LowCellsPercent = 0
 	);
 
 	/// <summary>The compare view's TxFold panel options; a null <paramref name="Seconds"/> means the default timeframes.</summary>

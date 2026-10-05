@@ -40,6 +40,7 @@
 }
 
 .cxg-tool-btn-mode { --cxg-color: var(--color-badge-2); }
+.cxg-tool-btn-profile { --cxg-color: var(--color-info); }
 
 .cxg-tool-btn {
     font-family: var(--font-body);

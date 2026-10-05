@@ -19,6 +19,9 @@ namespace Poink.Sim.Components.Charts
 
 		public static readonly IReadOnlyList<int> ColCountOptions = [10, 20, 40, 80];
 
+		/// <summary>Shared by the top and low cell outlines; 0 turns them off.</summary>
+		public static readonly IReadOnlyList<int> MarkedCellsPercentOptions = [0, 5, 10, 20, 30];
+
 		[Inject]
 		private IJSRuntime JSRuntime { get; set; } = default!;
 
@@ -54,9 +57,30 @@ namespace Poink.Sim.Components.Charts
 		[Parameter]
 		public EventCallback<int> ColCountChanged { get; set; }
 
+		/// <summary>Draws a per-row tick profile beside the grid for every shown symbol.</summary>
+		[Parameter]
+		public bool ShowProfile { get; set; }
+
+		[Parameter]
+		public EventCallback<bool> ShowProfileChanged { get; set; }
+
+		/// <summary>Outlines each shown symbol's busiest this-many-percent of its non-empty cells; 0 turns it off.</summary>
+		[Parameter]
+		public int TopCellsPercent { get; set; }
+
+		[Parameter]
+		public EventCallback<int> TopCellsPercentChanged { get; set; }
+
+		/// <summary>Dash-outlines each shown symbol's quietest this-many-percent of its non-empty cells; 0 turns it off.</summary>
+		[Parameter]
+		public int LowCellsPercent { get; set; }
+
+		[Parameter]
+		public EventCallback<int> LowCellsPercentChanged { get; set; }
+
 		private ElementReference _canvasRef;
 		private IJSObjectReference? _module;
-		private (CompareXGridResult Result, CompareXGridMode Mode, int DifferenceIndex)? _rendered;
+		private (CompareXGridResult Result, CompareXGridMode Mode, int DifferenceIndex, bool ShowProfile, int TopCellsPercent, int LowCellsPercent)? _rendered;
 		private bool _disposed;
 
 		private IReadOnlyList<CompareXGridSymbol> Symbols => Result?.Symbols ?? [];
@@ -92,8 +116,11 @@ namespace Poink.Sim.Components.Charts
 				if (_disposed)
 					return;
 
-				var state = (result, Mode, DifferenceIndex);
-				if (_rendered is { } rendered && ReferenceEquals(rendered.Result, result) && rendered.Mode == Mode && rendered.DifferenceIndex == state.DifferenceIndex)
+				var state = (result, Mode, DifferenceIndex, ShowProfile, TopCellsPercent, LowCellsPercent);
+				if (_rendered is { } rendered
+					&& ReferenceEquals(rendered.Result, result)
+					&& (rendered.Mode, rendered.DifferenceIndex, rendered.ShowProfile, rendered.TopCellsPercent, rendered.LowCellsPercent)
+						== (state.Mode, state.DifferenceIndex, state.ShowProfile, state.TopCellsPercent, state.LowCellsPercent))
 					return;
 				_rendered = state;
 
@@ -114,6 +141,9 @@ namespace Poink.Sim.Components.Charts
 				end = ToUnixSeconds(result.End),
 				mode = Mode == CompareXGridMode.Difference ? "difference" : "dominant",
 				differenceIndex = DifferenceIndex,
+				showProfile = ShowProfile,
+				topCellsPercent = TopCellsPercent,
+				lowCellsPercent = LowCellsPercent,
 				symbols = result.Symbols.Select(s => new { label = s.Label, colorVar = s.ColorVar, counts = s.Counts, max = s.MaxCount }),
 			};
 
@@ -145,6 +175,28 @@ namespace Poink.Sim.Components.Charts
 				return Task.CompletedTask;
 			ColCount = colCount;
 			return ColCountChanged.InvokeAsync(colCount);
+		}
+
+		private Task ToggleProfile()
+		{
+			ShowProfile = !ShowProfile;
+			return ShowProfileChanged.InvokeAsync(ShowProfile);
+		}
+
+		private Task OnTopCellsPercentSelected(ChangeEventArgs e)
+		{
+			if (!int.TryParse(e.Value?.ToString(), out var topCellsPercent))
+				return Task.CompletedTask;
+			TopCellsPercent = topCellsPercent;
+			return TopCellsPercentChanged.InvokeAsync(topCellsPercent);
+		}
+
+		private Task OnLowCellsPercentSelected(ChangeEventArgs e)
+		{
+			if (!int.TryParse(e.Value?.ToString(), out var lowCellsPercent))
+				return Task.CompletedTask;
+			LowCellsPercent = lowCellsPercent;
+			return LowCellsPercentChanged.InvokeAsync(lowCellsPercent);
 		}
 
 		private static string FormatRowPercent(double rowPercent) => rowPercent.ToString("0.##", CultureInfo.InvariantCulture);

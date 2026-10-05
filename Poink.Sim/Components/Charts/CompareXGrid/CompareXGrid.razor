@@ -25,6 +25,29 @@
             </label>
         }
         <span class="cxg-divider"></span>
+        <button type="button" class="cxg-tool-btn cxg-tool-btn-profile @(ShowProfile ? "active" : "")" @onclick="ToggleProfile"
+                title="Show a tick profile beside the grid -- each row's tick total per shown symbol, scaled to that symbol's busiest row">Profile</button>
+        <label class="cxg-field" title="Outline each shown symbol's busiest cells in its colour (solid) -- the grid dims while any outline is on">
+            Top
+            <select class="cxg-select" value="@TopCellsPercent" @onchange="OnTopCellsPercentSelected"
+                    title="Solid-outline each shown symbol's busiest cells -- the top X% of its non-empty cells by tick count">
+                @foreach (var option in MarkedCellsPercentOptions)
+                {
+                    <option value="@option">@(option == 0 ? "Off" : $"{option}%")</option>
+                }
+            </select>
+        </label>
+        <label class="cxg-field" title="Outline each shown symbol's quietest traded cells in its colour (dashed) -- the grid dims while any outline is on">
+            Low
+            <select class="cxg-select" value="@LowCellsPercent" @onchange="OnLowCellsPercentSelected"
+                    title="Dash-outline each shown symbol's quietest cells -- the lowest X% of its non-empty cells by tick count; untraded cells are left out">
+                @foreach (var option in MarkedCellsPercentOptions)
+                {
+                    <option value="@option">@(option == 0 ? "Off" : $"{option}%")</option>
+                }
+            </select>
+        </label>
+        <span class="cxg-divider"></span>
         <label class="cxg-field" title="Height of each row as % change from the symbol's anchor price">
             Row %
             <select class="cxg-select" value="@FormatRowPercent(RowPercent)" @onchange="OnRowPercentSelected"

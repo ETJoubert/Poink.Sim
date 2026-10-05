@@ -93,7 +93,10 @@
                                       Mode="XGrid.Mode" ModeChanged="mode => SetXGrid(XGrid with { Mode = mode })"
                                       DifferenceLabel="@XGrid.DifferenceTable" DifferenceLabelChanged="table => SetXGrid(XGrid with { DifferenceTable = table })"
                                       RowPercent="XGrid.RowPercent" RowPercentChanged="rowPercent => SetXGrid(XGrid with { RowPercent = rowPercent })"
-                                      ColCount="XGrid.ColCount" ColCountChanged="colCount => SetXGrid(XGrid with { ColCount = colCount })" />
+                                      ColCount="XGrid.ColCount" ColCountChanged="colCount => SetXGrid(XGrid with { ColCount = colCount })"
+                                      ShowProfile="XGrid.ShowProfile" ShowProfileChanged="show => SetXGrid(XGrid with { ShowProfile = show })"
+                                      TopCellsPercent="XGrid.TopCellsPercent" TopCellsPercentChanged="percent => SetXGrid(XGrid with { TopCellsPercent = percent })"
+                                      LowCellsPercent="XGrid.LowCellsPercent" LowCellsPercentChanged="percent => SetXGrid(XGrid with { LowCellsPercent = percent })" />
                     </div>
                 }
             </div>
