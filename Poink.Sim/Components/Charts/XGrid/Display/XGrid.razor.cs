@@ -14,8 +14,8 @@ namespace Poink.Sim.Components.Charts
 	/// this component turns the active display state into a flat numeric payload and hands it to xGrid.js,
 	/// which paints the footprint onto one canvas instead of one DOM node per cell. Only the grid
 	/// cells/overlays/markers moved to canvas -- the header, toggles and totals stay declarative markup.
-	/// The pips/cols/overlay/highlight controls that used to live here now belong to MetricsControlPanel;
-	/// Display/Spectrum/LowPointOverlay/HighPointOverlay arrive as read-only parameters from XGridController.
+	/// The overlay/highlight controls live in XGrid.Metrics.cs; Display/Spectrum/LowPointOverlay/HighPointOverlay
+	/// arrive from XGridController, which owns that state and is told of every edit through the *Changed callbacks.
 	/// </summary>
 	public partial class XGrid : ComponentBase, IAsyncDisposable
 	{

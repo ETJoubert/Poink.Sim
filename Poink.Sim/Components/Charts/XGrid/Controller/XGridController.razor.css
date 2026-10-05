@@ -7,13 +7,6 @@
     gap: 4px;
 }
 
-/* ::deep reaches into a child component's own rendered markup -- CSS isolation otherwise
-   scopes a rule to elements this component renders directly. */
-.xgrid-controller-wrapper ::deep > .metrics-panel-wrapper {
-    flex: 0 0 auto;
-    height: auto;
-}
-
 .xgrid-controller-row {
     display: flex;
     flex: 1;

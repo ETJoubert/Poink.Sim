@@ -8,9 +8,9 @@ using Poink.Sim.Components.Shared.Measurements;
 namespace Poink.Sim.Components.Charts
 {
 	/// <summary>
-	/// Owns the overlay/highlight state MetricsControlPanel edits and XGrid renders, so the two never
-	/// reference each other directly -- this is the "Card" that creates one instance of each per host
-	/// (Profiler/Simulation/EpisodePlayback), replacing what used to be a single monolithic XGrid.
+	/// Owns the overlay/highlight state XGrid's own controls edit and render, merging in the host's Indicators
+	/// when set -- this is the "Card" that pairs one XGrid with its Measurements/Differentials side panels per host
+	/// (Profiler/Simulation/EpisodePlayback), which only appear while something on the grid is selected.
 	/// PipCount/ColCount/Grid/order-panel/drawing parameters are pass-through, matching XGrid's former
 	/// public surface so hosts only need to retarget the tag from &lt;XGrid&gt; to &lt;XGridController&gt;.
 	/// </summary>

@@ -1,9 +1,9 @@
 namespace Poink.Sim.Components.Charts
 {
 	/// <summary>
-	/// The row/column overlay toggles XGridController owns and passes into both MetricsControlPanel
-	/// (for editing) and XGrid (for rendering) -- immutable so a change always flows back through
-	/// MetricsControlPanel's *Changed callback rather than being mutated in place.
+	/// The row/column overlay toggles XGridController owns and passes into XGrid for both editing and
+	/// rendering -- immutable so a change always flows back through XGrid's DisplayChanged callback
+	/// rather than being mutated in place.
 	/// </summary>
 	public sealed record XGridDisplaySettings
 	{
