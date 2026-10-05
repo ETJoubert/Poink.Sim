@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Poink.Sim.Components.Profiler;
 using Poink.Sim.Components.Simulation;
 using Poink.Sim.Models;
 
@@ -21,6 +22,47 @@ namespace Poink.Sim.Components.Pages
 		private readonly Dictionary<string, double> _watchPipSizes = new();
 		private bool _showWatchedCharts = true;
 		private readonly SimulationRowCache _rowCache = new();
+		private SimulationSymbolPanelBuilder? _panelBuilder;
+		private readonly Dictionary<string, int> _watchXGridPipCounts = new();
+
+		private SimulationSymbolPanelBuilder PanelBuilder => _panelBuilder ??= new(_rowCache);
+
+		private int WatchXGridPipCount(string table) => _watchXGridPipCounts.GetValueOrDefault(table, 20);
+
+		private void SetWatchXGridPipCount(string table, int count) => _watchXGridPipCounts[table] = count;
+
+		private SimulationChartSetOptions ChartSetOptions(SimulationSnapshot s) =>
+			new(
+				s.Config.Aggregate,
+				_showMainChart,
+				_showXGrid,
+				_showVolumeProfile,
+				_showTimeProfile,
+				_showSnapshot,
+				_indicators,
+				s.Config.From
+			);
+
+		private List<SimulationSymbolPanelData> WatchedPanels(SimulationSnapshot s)
+		{
+			var colors = SymbolColors(s);
+			var window = LookbackWindowTimes(s);
+			var pipSizes = (s.Config.WatchSymbols ?? []).ToDictionary(w => w.Table, w => w.PipSize);
+			return WatchedSymbols(s)
+				.Select(w => PanelBuilder.Build(
+					w,
+					ProfilerSymbolColorHelper.ColorVarFor(colors, w.Table),
+					pipSizes.GetValueOrDefault(w.Table, WatchFallbackPipSize),
+					s.Config.Aggregate,
+					window,
+					_indicators,
+					_showXGrid,
+					WatchXGridPipCount(w.Table),
+					_xgridColCount,
+					_showTimeProfile
+				))
+				.ToList();
+		}
 
 		private static IReadOnlyList<WatchedSymbolSnapshot> WatchedSymbols(SimulationSnapshot s) => s.WatchedSymbols ?? [];
 

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Poink.Sim.Components.Charts;
 using Poink.Sim.Models;
 
 namespace Poink.Sim.Components.Simulation
@@ -25,4 +26,33 @@ namespace Poink.Sim.Components.Simulation
 
 	/// <summary>One symbol on the Simulation compare chart, its bars oldest first; the traded symbol comes first.</summary>
 	public sealed record SimulationCompareSymbol(string Table, string ColorVar, IReadOnlyList<CTraderBarRow> Bars);
+
+	/// <summary>The compare view's TxFold panel options; a null <paramref name="Seconds"/> means the default timeframes.</summary>
+	public sealed record SimulationCompareTxFoldSettings(
+		bool Show = false,
+		CompareTxFoldLayout Layout = CompareTxFoldLayout.Overlaid,
+		List<int>? Seconds = null,
+		BarAggregationKind BarKind = BarAggregationKind.Ohlc,
+		bool ShowVolumeProfile = false
+	);
+
+	/// <summary>The compare view's XGrid panel options; a null <paramref name="DifferenceTable"/> compares against the second symbol.</summary>
+	public sealed record SimulationCompareXGridSettings(
+		bool Show = false,
+		CompareXGridMode Mode = CompareXGridMode.Dominant,
+		string? DifferenceTable = null,
+		double RowPercent = 0.05,
+		int ColCount = 20,
+		bool ShowProfile = false,
+		int TopCellsPercent = 0,
+		int LowCellsPercent = 0
+	);
+
+	/// <summary>Which compare view panel fills the main area; the others stack in the side column.</summary>
+	public enum SimulationComparePanel
+	{
+		Chart,
+		TxFold,
+		XGrid,
+	}
 }

@@ -43,7 +43,10 @@ namespace Poink.Sim.Models
 		SimulationCompareMode CompareMode = SimulationCompareMode.PercentChange,
 		SimulationCompareAnchor CompareAnchor = SimulationCompareAnchor.WindowStart,
 		CompareChartSeriesStyle CompareStyle = CompareChartSeriesStyle.Lines,
-		string? CompareRatioTable = null
+		string? CompareRatioTable = null,
+		SimulationCompareTxFoldSettings? CompareTxFold = null,
+		SimulationCompareXGridSettings? CompareXGrid = null,
+		SimulationComparePanel CompareMainPanel = SimulationComparePanel.Chart
 	)
 	{
 		/// <summary>The browser localStorage key the Simulation page keeps these settings under.</summary>

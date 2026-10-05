@@ -63,8 +63,12 @@ internal sealed class WatchedSymbolFeed : IDisposable
 	public WatchedSymbolSnapshot Snapshot()
 	{
 		var bars = _market.RecentBars.ToList(extraCapacity: 1);
+		var histograms = _market.RecentHistograms.ToList(extraCapacity: 1);
 		if (_market.Aggregator?.CurrentPartialBar is { } partial)
+		{
 			bars.Add(partial);
+			histograms.Add(_market.Aggregator.CurrentPartialHistogram!);
+		}
 
 		if (_publishedRecentTicksVersion != _recentTicks.Version)
 		{
@@ -78,6 +82,7 @@ internal sealed class WatchedSymbolFeed : IDisposable
 			_last?.Bid,
 			_last?.Ask,
 			bars,
+			histograms,
 			_publishedRecentTicks
 		);
 	}

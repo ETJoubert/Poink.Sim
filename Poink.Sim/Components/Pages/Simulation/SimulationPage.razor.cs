@@ -734,7 +734,10 @@ namespace Poink.Sim.Components.Pages
 				_compareMode,
 				_compareAnchor,
 				_compareStyle,
-				_compareRatioTable
+				_compareRatioTable,
+				_compareTxFold,
+				_compareXGrid,
+				_compareMainPanel
 			);
 
 		// A simulation already held by the service (page revisited) is shown as-is instead of reloaded.
@@ -795,6 +798,9 @@ namespace Poink.Sim.Components.Pages
 			_compareAnchor = settings.CompareAnchor;
 			_compareStyle = settings.CompareStyle;
 			_compareRatioTable = settings.CompareRatioTable;
+			_compareTxFold = settings.CompareTxFold ?? new();
+			_compareXGrid = settings.CompareXGrid ?? new();
+			_compareMainPanel = settings.CompareMainPanel;
 		}
 
 		// Saving before the stored settings were read would overwrite them with the page's defaults.

@@ -274,7 +274,7 @@
                                 {
                                     <button type="button" class="sim-overlay-toggle-btn @(_showWatchedCharts ? "active" : "")"
                                             @onclick="() => _showWatchedCharts = !_showWatchedCharts"
-                                            title="Show or hide the live charts of the watched symbols, replayed in step with the traded symbol">Watched</button>
+                                            title="Show or hide the watched symbols' chart sets -- each shows the same panels as the traded symbol, replayed in step with it and driven by the same Lookback Window and Indicators">Watched</button>
                                 }
                             </div>
                         </div>
@@ -310,10 +310,12 @@
                         <div class="sim-chart @(CompareActive(s) ? "sim-chart-compare" : "")" @ref="_chartRowRef">
                             @if (CompareActive(s))
                             {
-                                var compareWindow = CompareWindow(s);
+                                var compareWindow = LookbackWindowTimes(s);
                                 <SimulationCompareSet Symbols="CompareSymbols(s)" @bind-Mode="_compareMode" @bind-Anchor="_compareAnchor"
                                                       @bind-Style="_compareStyle" @bind-RatioTable="_compareRatioTable"
-                                                      WindowStart="compareWindow.Start" WindowEnd="compareWindow.End" />
+                                                      WindowStart="compareWindow.Start" WindowEnd="compareWindow.End"
+                                                      @bind-TxFold="_compareTxFold" TxFoldAnchor="CompareTxFoldAnchor(s)" RangeStart="s.Config.From"
+                                                      @bind-XGrid="_compareXGrid" XGridResult="CompareXGrid(s)" @bind-MainPanel="_compareMainPanel" />
                             }
                             else
                             {
@@ -459,14 +461,14 @@
 
                         @if (!CompareActive(s) && _showWatchedCharts && WatchedSymbols(s).Count > 0)
                         {
-                            <div class="sim-watch-sets" title="Watched symbols -- each replays its own ticks in step with the traded symbol">
-                                @foreach (var watched in WatchedSymbols(s))
+                            var chartSetOptions = ChartSetOptions(s);
+                            <div class="sim-watch-sets" title="Watched symbols -- each replays its own ticks in step with the traded symbol and shows the same panels">
+                                @foreach (var panels in WatchedPanels(s))
                                 {
-                                    <SimulationWatchChart @key="watched.Table" Table="@watched.Table" Aggregate="s.Config.Aggregate" KeepView="_keepChartView"
-                                                          CurrentTimestampUtc="watched.CurrentTimestampUtc"
-                                                          CurrentBid="watched.CurrentBid" CurrentAsk="watched.CurrentAsk"
-                                                          Bars="@(s.Config.Aggregate ? _rowCache.BarRows(watched.Table, watched.RecentBars) : [])"
-                                                          TickRows="@(s.Config.Aggregate ? [] : _rowCache.TickRows(watched.Table, watched.RecentTicks))" />
+                                    var table = panels.Table;
+                                    <SimulationSymbolChartSet @key="table" Data="panels" Options="chartSetOptions" KeepView="_keepChartView"
+                                                              XGridPipCount="WatchXGridPipCount(table)" XGridPipCountChanged="count => SetWatchXGridPipCount(table, count)"
+                                                              @bind-XGridColCount="_xgridColCount" @bind-TxFoldSelectedSeconds="_txFoldSelectedSeconds" />
                                 }
                             </div>
                         }

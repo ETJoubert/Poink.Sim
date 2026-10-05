@@ -95,8 +95,10 @@ public class WatchedSymbolFeedTests
 
 		feed.AdvanceTo(TestTickHelper.Origin.AddSeconds(65));
 
-		var bars = feed.Snapshot().RecentBars;
+		var snapshot = feed.Snapshot();
+		var bars = snapshot.RecentBars;
 		Assert.Equal(2, bars.Count);
+		Assert.Equal(2, snapshot.RecentBarHistograms.Count);
 		Assert.Equal(TestTickHelper.Origin, bars[0].OpenTime);
 		Assert.Equal(10.5, bars[0].Open);
 		Assert.Equal(12.5, bars[0].High);

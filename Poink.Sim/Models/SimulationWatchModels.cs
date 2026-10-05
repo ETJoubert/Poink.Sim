@@ -14,6 +14,7 @@ internal sealed record WatchedSymbolSnapshot(
 	double? CurrentBid,
 	double? CurrentAsk,
 	IReadOnlyList<HlocAvdtBar> RecentBars,
+	IReadOnlyList<BarPriceHistogram> RecentBarHistograms,
 	IReadOnlyList<Tick> RecentTicks
 )
 {
