@@ -429,7 +429,7 @@ namespace Poink.Sim.Components.Charts
 			}
 
 			double[]? sweep = null;
-			if (Display.OverlaysEnabled && Display.SweepMode != XGridSweepMode.None)
+			if (Spectrum.HighlightsEnabled && Display.SweepMode != XGridSweepMode.None)
 			{
 				sweep = new double[rows];
 				for (var r = 0; r < rows; r++)

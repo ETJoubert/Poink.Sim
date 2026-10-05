@@ -5,14 +5,49 @@
     <div class="xgrid-header">
         <span class="xgrid-title">METRICS</span>
         <div class="xgrid-header-actions">
-            <button class="xgrid-delta-toggle @(Display.OverlaysEnabled && Spectrum.HighlightsEnabled ? "active" : "")" @onclick="ToggleAllEnabled"
-                    title="Quickly turn every Overlays and Highlights control off or back on, without clearing any of their individual settings">@(Display.OverlaysEnabled && Spectrum.HighlightsEnabled ? "All ON" : "All OFF")</button>
+            @if (ShowOverlayRow)
+            {
+                <button class="xgrid-delta-toggle @(Display.OverlaysEnabled && Spectrum.HighlightsEnabled ? "active" : "")" @onclick="ToggleAllEnabled"
+                        title="Quickly turn every Overlays and Highlights control off or back on, without clearing any of their individual settings">@(Display.OverlaysEnabled && Spectrum.HighlightsEnabled ? "All ON" : "All OFF")</button>
+            }
         </div>
     </div>
-    <div class="xgrid-overlay-row">
-        <span class="xgrid-row-label">Overlays</span>
-        <button class="xgrid-delta-toggle @(Display.OverlaysEnabled ? "active" : "")" @onclick="ToggleOverlaysEnabled"
-                title="Quickly turn every Overlays control below off or back on, without clearing any of their settings">@(Display.OverlaysEnabled ? "ON" : "OFF")</button>
+    @if (ShowOverlayRow)
+    {
+        <div class="xgrid-overlay-row">
+            <span class="xgrid-row-label">Overlays</span>
+            <button class="xgrid-delta-toggle @(Display.OverlaysEnabled ? "active" : "")" @onclick="ToggleOverlaysEnabled"
+                    title="Quickly turn every Overlays control below off or back on, without clearing any of their settings">@(Display.OverlaysEnabled ? "ON" : "OFF")</button>
+            <span class="xgrid-row-divider"></span>
+            <button class="xgrid-level-toggle xgrid-level-toggle-poc @(Display.ShowPoc ? "active" : "")" @onclick="() => SetDisplay(Display with { ShowPoc = !Display.ShowPoc })"
+                    title="Highlight the Point of Control row -- the price with the most volume in the range">POC</button>
+            <button class="xgrid-level-toggle xgrid-level-toggle-vah @(Display.ShowVah ? "active" : "")" @onclick="() => SetDisplay(Display with { ShowVah = !Display.ShowVah })"
+                    title="Highlight the row containing Value Area High">VAH</button>
+            <button class="xgrid-level-toggle xgrid-level-toggle-val @(Display.ShowVal ? "active" : "")" @onclick="() => SetDisplay(Display with { ShowVal = !Display.ShowVal })"
+                    title="Highlight the row containing Value Area Low">VAL</button>
+            <button class="xgrid-level-toggle xgrid-level-toggle-vwap @(Display.ShowVwap ? "active" : "")" @onclick="() => SetDisplay(Display with { ShowVwap = !Display.ShowVwap })"
+                    title="Highlight the row containing the range's volume-weighted average price">VWAP</button>
+            <button class="xgrid-level-toggle xgrid-level-toggle-avg @(Display.ShowAverage ? "active" : "")" @onclick="() => SetDisplay(Display with { ShowAverage = !Display.ShowAverage })"
+                    title="Highlight the row containing the range's mean price">AVG</button>
+            <button class="xgrid-level-toggle xgrid-level-toggle-med @(Display.ShowMedian ? "active" : "")" @onclick="() => SetDisplay(Display with { ShowMedian = !Display.ShowMedian })"
+                    title="Highlight the row containing the range's median price">MED</button>
+            <button class="xgrid-level-toggle xgrid-level-toggle-reg @(Display.ShowRegressionLine ? "active" : "")" @onclick="() => SetDisplay(Display with { ShowRegressionLine = !Display.ShowRegressionLine })"
+                    title="Highlight the row containing the linear regression line fitted over the trailing window">REG</button>
+            <span class="xgrid-row-divider"></span>
+            <button class="xgrid-level-toggle xgrid-level-toggle-day @(Display.ShowDayLines ? "active" : "")" @onclick="() => SetDisplay(Display with { ShowDayLines = !Display.ShowDayLines })"
+                    title="Draw a dashed vertical line at every day rollover (midnight)">Day</button>
+            <button class="xgrid-level-toggle xgrid-level-toggle-interval @(Display.ShowIntervalLines ? "active" : "")" @onclick="() => SetDisplay(Display with { ShowIntervalLines = !Display.ShowIntervalLines })"
+                    title="Draw a dashed vertical line every @Display.IntervalHours hours, aligned to midnight">Every</button>
+            <label class="xgrid-control" title="Hours between interval lines when Every is active, aligned to midnight -- e.g. 4 draws a line at 00:00, 04:00, 08:00...">
+                <input type="number" min="1" max="24" step="1" @bind:get="Display.IntervalHours" @bind:set="v => SetDisplay(Display with { IntervalHours = v })" @bind:event="oninput" />
+                <span>h</span>
+            </label>
+        </div>
+    }
+    <div class="xgrid-spectrum-row">
+        <span class="xgrid-row-label">Highlights</span>
+        <button class="xgrid-delta-toggle @(Spectrum.HighlightsEnabled ? "active" : "")" @onclick="ToggleHighlightsEnabled"
+                title="Quickly turn every Highlights control below off or back on, without clearing any of their settings">@(Spectrum.HighlightsEnabled ? "ON" : "OFF")</button>
         <span class="xgrid-row-divider"></span>
         <span class="xgrid-overlay-label" title="Shades each price row by how many times it was the POC while dragging the Lookback Window's near border across every bar position. L->R pins the far border at the range's right edge; R->L pins it at the left edge; Sum combines both.">Sweep</span>
         <div class="xgrid-sweep-toggle">
@@ -25,35 +60,6 @@
             <button class="@(Display.SweepMode == XGridSweepMode.Sum ? "active" : "")" @onclick="() => SetDisplay(Display with { SweepMode = XGridSweepMode.Sum })"
                     title="Shade by the combined L->R and R->L occurrence counts">Sum</button>
         </div>
-        <span class="xgrid-row-divider"></span>
-        <button class="xgrid-level-toggle xgrid-level-toggle-poc @(Display.ShowPoc ? "active" : "")" @onclick="() => SetDisplay(Display with { ShowPoc = !Display.ShowPoc })"
-                title="Highlight the Point of Control row -- the price with the most volume in the range">POC</button>
-        <button class="xgrid-level-toggle xgrid-level-toggle-vah @(Display.ShowVah ? "active" : "")" @onclick="() => SetDisplay(Display with { ShowVah = !Display.ShowVah })"
-                title="Highlight the row containing Value Area High">VAH</button>
-        <button class="xgrid-level-toggle xgrid-level-toggle-val @(Display.ShowVal ? "active" : "")" @onclick="() => SetDisplay(Display with { ShowVal = !Display.ShowVal })"
-                title="Highlight the row containing Value Area Low">VAL</button>
-        <button class="xgrid-level-toggle xgrid-level-toggle-vwap @(Display.ShowVwap ? "active" : "")" @onclick="() => SetDisplay(Display with { ShowVwap = !Display.ShowVwap })"
-                title="Highlight the row containing the range's volume-weighted average price">VWAP</button>
-        <button class="xgrid-level-toggle xgrid-level-toggle-avg @(Display.ShowAverage ? "active" : "")" @onclick="() => SetDisplay(Display with { ShowAverage = !Display.ShowAverage })"
-                title="Highlight the row containing the range's mean price">AVG</button>
-        <button class="xgrid-level-toggle xgrid-level-toggle-med @(Display.ShowMedian ? "active" : "")" @onclick="() => SetDisplay(Display with { ShowMedian = !Display.ShowMedian })"
-                title="Highlight the row containing the range's median price">MED</button>
-        <button class="xgrid-level-toggle xgrid-level-toggle-reg @(Display.ShowRegressionLine ? "active" : "")" @onclick="() => SetDisplay(Display with { ShowRegressionLine = !Display.ShowRegressionLine })"
-                title="Highlight the row containing the linear regression line fitted over the trailing window">REG</button>
-        <span class="xgrid-row-divider"></span>
-        <button class="xgrid-level-toggle xgrid-level-toggle-day @(Display.ShowDayLines ? "active" : "")" @onclick="() => SetDisplay(Display with { ShowDayLines = !Display.ShowDayLines })"
-                title="Draw a dashed vertical line at every day rollover (midnight)">Day</button>
-        <button class="xgrid-level-toggle xgrid-level-toggle-interval @(Display.ShowIntervalLines ? "active" : "")" @onclick="() => SetDisplay(Display with { ShowIntervalLines = !Display.ShowIntervalLines })"
-                title="Draw a dashed vertical line every @Display.IntervalHours hours, aligned to midnight">Every</button>
-        <label class="xgrid-control" title="Hours between interval lines when Every is active, aligned to midnight -- e.g. 4 draws a line at 00:00, 04:00, 08:00...">
-            <input type="number" min="1" max="24" step="1" @bind:get="Display.IntervalHours" @bind:set="v => SetDisplay(Display with { IntervalHours = v })" @bind:event="oninput" />
-            <span>h</span>
-        </label>
-    </div>
-    <div class="xgrid-spectrum-row">
-        <span class="xgrid-row-label">Highlights</span>
-        <button class="xgrid-delta-toggle @(Spectrum.HighlightsEnabled ? "active" : "")" @onclick="ToggleHighlightsEnabled"
-                title="Quickly turn every Highlights control below off or back on, without clearing any of their settings">@(Spectrum.HighlightsEnabled ? "ON" : "OFF")</button>
         <span class="xgrid-row-divider"></span>
         <div class="xgrid-control-group">
             <button class="xgrid-delta-toggle @(Display.ShadeDelta ? "active" : "")" @onclick="() => SetDisplay(Display with { ShadeDelta = !Display.ShadeDelta })"

@@ -2,13 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Poink.Sim.Components.Charts;
-using Poink.Sim.Helpers;
 using Poink.Sim.Models;
 
 namespace Poink.Sim.Components.Profiler
 {
 	/// <summary>
-	/// Profile samples and chart overlays for one <see cref="ProfilerSymbolData"/>, narrowed to the Lookback Window
+	/// Profile samples and windowed bars for one <see cref="ProfilerSymbolData"/>, narrowed to the Lookback Window
 	/// when one is set and spanning every loaded bar otherwise.
 	/// </summary>
 	internal static class ProfilerSymbolStatsHelper
@@ -32,31 +31,8 @@ namespace Poink.Sim.Components.Profiler
 				.ToList();
 		}
 
-		public static List<ChartLinePoint> Vwap(ProfilerSymbolData data, DateTime? start, DateTime? end) =>
-			VectorStatsHelper
-				.Vwap(WindowedPairs(data, start, end).Select(t => t.Bar), b => b.OpenTime, b => b.Average, b => b.Volume)
-				.Select(p => new ChartLinePoint(p.TimeUtc, p.Value))
-				.ToList();
-
-		public static List<ChartHorizontalLine> ProfileLevelLines(IReadOnlyList<WeightedPriceSample> samples) =>
-			VolumeProfileStats.Compute(samples) is { } levels
-				? new()
-				{
-					new ChartHorizontalLine(levels.Poc, "POC", "profile"),
-					new ChartHorizontalLine(levels.ValueAreaHigh, "VAH", "profile"),
-					new ChartHorizontalLine(levels.ValueAreaLow, "VAL", "profile"),
-				}
-				: new();
-
-		public static List<ChartHorizontalLine> AverageMedianLines(IReadOnlyList<WeightedPriceSample> samples, bool showAverage, bool showMedian)
-		{
-			var lines = new List<ChartHorizontalLine>();
-			if (showAverage && VolumeProfileStats.ComputeAverage(samples) is { } average)
-				lines.Add(new ChartHorizontalLine(average, "AVG", "average"));
-			if (showMedian && VolumeProfileStats.ComputeMedian(samples) is { } median)
-				lines.Add(new ChartHorizontalLine(median, "MED", "median"));
-			return lines;
-		}
+		public static List<HlocAvdtBar> WindowedBars(ProfilerSymbolData data, DateTime? start, DateTime? end) =>
+			WindowedPairs(data, start, end).Select(t => t.Bar).ToList();
 
 		private static IEnumerable<(HlocAvdtBar Bar, BarPriceHistogram Histogram)> WindowedPairs(
 			ProfilerSymbolData data,

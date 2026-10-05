@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 using Poink.Sim.Components.Charts;
+using Poink.Sim.Components.Shared.Indicators;
 using Poink.Sim.Models;
 using Poink.Sim.Services.Charts;
 
@@ -110,6 +111,9 @@ namespace Poink.Sim.Components.Profiler
 		private List<WeightedTimeSample> _timeSamples = new();
 		private List<ChartLinePoint> _vwapLine = new();
 		private List<ChartHorizontalLine> _horizontalLines = new();
+		private List<ChartVerticalLine> _verticalLines = new();
+		private List<ChartDiagonalLine> _diagonalLines = new();
+		private HashSet<TxFoldLevelKind> _txFoldLevels = new();
 		private List<ChartRangeFill> _rangeFills = new();
 		private (int Width, int Offset)? _windowInBars;
 
@@ -138,11 +142,18 @@ namespace Poink.Sim.Components.Profiler
 			_windowInBars = Options.LookbackEnabled && WindowStart is { } start && WindowEnd is { } end ? Data.WindowInBars(start, end) : null;
 			_samples = ProfilerSymbolStatsHelper.MergedSamples(Data, WindowStart, WindowEnd);
 			_timeSamples = Options.ShowTimeProfile ? ProfilerSymbolStatsHelper.MergedTimeSamples(Data, WindowStart, WindowEnd) : new();
-			_vwapLine = Options.ShowVwap ? ProfilerSymbolStatsHelper.Vwap(Data, WindowStart, WindowEnd) : new();
-			_horizontalLines = DrawingHorizontalLines
-				.Concat(Options.ShowProfileChartLines ? ProfilerSymbolStatsHelper.ProfileLevelLines(_samples) : [])
-				.Concat(ProfilerSymbolStatsHelper.AverageMedianLines(_samples, Options.ShowAverageLine, Options.ShowMedianLine))
-				.ToList();
+			var indicators = Options.Indicators;
+			var overlays = IndicatorChartOverlayHelper.Build(
+				indicators,
+				Data.Bars,
+				ProfilerSymbolStatsHelper.WindowedBars(Data, WindowStart, WindowEnd),
+				_samples
+			);
+			_vwapLine = overlays.VwapLine;
+			_horizontalLines = DrawingHorizontalLines.Concat(overlays.HorizontalLines).ToList();
+			_verticalLines = DrawingVerticalLines.Concat(overlays.VerticalLines).ToList();
+			_diagonalLines = DrawingDiagonalLines.Concat(overlays.DiagonalLines).ToList();
+			_txFoldLevels = IndicatorsHelper.ToTxFoldLevels(indicators);
 			_rangeFills = DrawingRangeFills.Concat(LookbackWindowFill()).ToList();
 		}
 
@@ -249,6 +260,9 @@ namespace Poink.Sim.Components.Profiler
 			WindowStart is { } start && WindowEnd is { } end
 				? $"{Data.BarCountIn(start, end):N0} bars, {ProfilerFormatHelper.FormatSpan(end - start)}"
 				: null;
+
+		private bool ShowVolumeProfileLevels =>
+			Options.Indicators.PocVisible || Options.Indicators.VahVisible || Options.Indicators.ValVisible;
 
 		private string PipSizeLabel() => Data.PipSize is { } pipSize ? $"pip {pipSize:0.#########}" : $"pip {ProfilerSymbolData.FallbackPipSize} (assumed)";
 

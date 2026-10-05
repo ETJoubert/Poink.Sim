@@ -11,6 +11,10 @@ namespace Poink.Sim.Components.Charts
 		[Parameter]
 		public XGridDisplaySettings Display { get; set; } = new();
 
+		/// <summary>False when a host drives the level and time-line overlays from elsewhere (the Indicators component).</summary>
+		[Parameter]
+		public bool ShowOverlayRow { get; set; } = true;
+
 		[Parameter]
 		public EventCallback<XGridDisplaySettings> DisplayChanged { get; set; }
 

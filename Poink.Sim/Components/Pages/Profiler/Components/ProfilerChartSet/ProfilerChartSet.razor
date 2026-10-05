@@ -52,8 +52,8 @@
                                 : "OHLC bar chart -- pan left to backfill older history, or draw a Lookback Window to set it for every symbol")">
                     <MarketChartContainer Bars="Data.BarRows" KeepView="Data.KeepView" OnNearStart="OnNearStart"
                                           ShowAnnotationTools="IsPrimary"
-                                          HorizontalLines="_horizontalLines" VerticalLines="DrawingVerticalLines"
-                                          DiagonalLines="DrawingDiagonalLines" RangeFills="_rangeFills" VwapLine="_vwapLine"
+                                          HorizontalLines="_horizontalLines" VerticalLines="_verticalLines"
+                                          DiagonalLines="_diagonalLines" RangeFills="_rangeFills" VwapLine="_vwapLine"
                                           MedianLine="Data.MedianLine"
                                           OnHorizontalLineDrawn="OnHorizontalLineDrawn" OnVerticalLineDrawn="OnVerticalLineDrawn"
                                           OnDiagonalLineDrawn="OnDiagonalLineDrawn" OnTRangeChartDrawn="OnTRangeChartDrawn"
@@ -70,7 +70,7 @@
                          title="@(WindowLabel() is { } xgridLabel
                                     ? $"Footprint grid for the selected Lookback Window ({xgridLabel}) -- rows are price buckets, columns are bars"
                                     : "Select a Lookback Window to build the footprint grid -- rows are price buckets, columns are bars")">
-                        <XGridController Grid="ComputeXGrid()" @bind-PipCount="_xgridPipCount" PipSize="Data.EffectivePipSize"
+                        <XGridController Grid="ComputeXGrid()" @bind-PipCount="_xgridPipCount" PipSize="Data.EffectivePipSize" Indicators="Options.Indicators"
                                          ColCount="XGridColCount" ColCountChanged="XGridColCountChanged"
                                          ProfileBarCount="@(_windowInBars?.Width ?? Options.LookbackWidth)" />
                     </div>
@@ -84,9 +84,9 @@
                          title="@((WindowLabel() is { } label
                                      ? $"Volume profile for the selected Lookback Window ({label}) -- use the toolbar's CLEAR LOOKBACK WINDOW button to go back to every loaded bar"
                                      : "Volume profile across every bar loaded so far -- use the toolbar's LOOKBACK WINDOW tool to narrow it to a specific time window")
-                                  + ". POC/Value Area are highlighted below and projected onto the main chart as POC/VAH/VAL lines")">
+                                  + ". POC/Value Area are highlighted below while any of the POC/VAH/VAL indicators is on")">
                         <TickVolumeProfileChart WeightedSamples="_samples" CurrentPrice="Data.LastClose"
-                                                ShowLevels="Options.ShowProfilePanelLevels" />
+                                                ShowLevels="ShowVolumeProfileLevels" />
                     </div>
                 </div>
             }
@@ -156,7 +156,8 @@
                         else
                         {
                             @* ITickRepository's "to" is exclusive, so +1 tick keeps the anchor bar's own closing tick inside the window. *@
-                            <TxFold Table="@Data.Table" AnchorEnd="@anchorBar.CloseTime.AddTicks(1)" RangeStart="@Options.RangeStart" LatestPrice="anchorBar.Close" />
+                            <TxFold Table="@Data.Table" AnchorEnd="@anchorBar.CloseTime.AddTicks(1)" RangeStart="@Options.RangeStart" LatestPrice="anchorBar.Close"
+                                   ShownLevels="_txFoldLevels" ShowLevelToggles="false" />
                         }
                     </div>
                 </div>

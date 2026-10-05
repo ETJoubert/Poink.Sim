@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 using Poink.Sim.Components.Shared.Differentials;
+using Poink.Sim.Components.Shared.Indicators;
 using Poink.Sim.Components.Shared.Measurements;
 
 namespace Poink.Sim.Components.Charts
@@ -66,12 +67,19 @@ namespace Poink.Sim.Components.Charts
 		[Parameter]
 		public double PipSize { get; set; } = 0.0001;
 
+		/// <summary>When set, drives the grid's level and time-line overlays and hides the Metrics panel's own Overlays row.</summary>
+		[Parameter]
+		public IndicatorSettings? Indicators { get; set; }
+
 		private XGridDisplaySettings _display = new();
 		private XGridSpectrumSettings _spectrum = new();
 		private XGridPeakOverlaySettings _lowPointOverlay = new();
 		private XGridPeakOverlaySettings _highPointOverlay = new();
 
 		private IReadOnlyList<XGridSelection> _selections = [];
+
+		private XGridDisplaySettings EffectiveDisplay =>
+			Indicators is { } indicators ? IndicatorsHelper.ApplyTo(_display, indicators) : _display;
 
 		private IReadOnlyList<MeasurementColumn> MeasurementColumns =>
 			Grid is { } grid ? XGridMeasurementHelper.MeasureAll(grid, _selections) : [];

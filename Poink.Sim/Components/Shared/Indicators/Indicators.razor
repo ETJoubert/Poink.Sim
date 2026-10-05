@@ -1,0 +1,50 @@
+@namespace Poink.Sim.Components.Shared.Indicators
+
+<div class="ind-bar" title="Indicators -- levels and time lines computed over the Lookback Window, shown on the XGrid, market chart and TxFold">
+    <span class="ind-label">Indicators</span>
+    <button type="button" class="ind-btn ind-btn-master @(Settings.Enabled ? "active" : "")"
+            @onclick="() => SetSettings(Settings with { Enabled = !Settings.Enabled })"
+            title="Quickly turn every indicator off or back on, without clearing which ones are selected">@(Settings.Enabled ? "ON" : "OFF")</button>
+
+    <span class="ind-divider"></span>
+    @foreach (var toggle in LevelToggles)
+    {
+        <button type="button" class="ind-btn ind-btn-@toggle.CssKey @(toggle.IsOn(Settings) ? "active" : "") @(Settings.Enabled ? "" : "ind-btn-muted")"
+                @onclick="() => SetSettings(toggle.Toggle(Settings))" title="@toggle.Tooltip">@toggle.Label</button>
+    }
+
+    <span class="ind-divider"></span>
+    <button type="button" class="ind-btn ind-btn-day @(Settings.ShowDayLines ? "active" : "") @(Settings.Enabled ? "" : "ind-btn-muted")"
+            @onclick="() => SetSettings(Settings with { ShowDayLines = !Settings.ShowDayLines })"
+            title="Draw a vertical line at every day rollover (midnight)">Day</button>
+    <button type="button" class="ind-btn ind-btn-interval @(Settings.ShowIntervalLines ? "active" : "") @(Settings.Enabled ? "" : "ind-btn-muted")"
+            @onclick="() => SetSettings(Settings with { ShowIntervalLines = !Settings.ShowIntervalLines })"
+            title="@($"Draw a vertical line every {Settings.IntervalHours} hours, aligned to midnight")">Every</button>
+    <label class="ind-field" title="Hours between interval lines when Every is active, aligned to midnight -- e.g. 4 draws a line at 00:00, 04:00, 08:00...">
+        <input type="number" min="1" max="24" step="1" class="ind-input ind-input-narrow"
+               @bind:get="Settings.IntervalHours" @bind:set="SetIntervalHours" @bind:event="onchange"
+               title="Hours between interval lines" />
+        h
+    </label>
+
+    <span class="ind-divider"></span>
+    @if (LookbackContent is not null)
+    {
+        <div class="ind-lookback-slot">@LookbackContent</div>
+    }
+    else
+    {
+        <button type="button" class="ind-btn ind-btn-lookback @(LookbackEnabled ? "active" : "")" @onclick="ToggleLookback"
+                title="Turn the Lookback Window on/off -- every indicator is computed over it when on, and over every loaded bar when off">Lookback Window</button>
+        <label class="ind-field" title="Number of bars the Lookback Window spans">
+            Width
+            <input type="number" min="1" class="ind-input" title="Number of bars the Lookback Window spans"
+                   @bind:get="LookbackWidth" @bind:set="SetLookbackWidth" @bind:event="onchange" />
+        </label>
+        <label class="ind-field" title="Bars back from the most recently loaded bar to the end of the Lookback Window">
+            Offset
+            <input type="number" min="0" class="ind-input" title="Bars back from the most recently loaded bar to the end of the Lookback Window"
+                   @bind:get="LookbackOffset" @bind:set="SetLookbackOffset" @bind:event="onchange" />
+        </label>
+    }
+</div>

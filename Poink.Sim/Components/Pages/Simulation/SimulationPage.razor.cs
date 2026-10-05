@@ -9,6 +9,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 using Poink.Sim.Components.Charts;
 using Poink.Sim.Components.Shared.IndicatorPanel;
+using Poink.Sim.Components.Shared.Indicators;
 using Poink.Sim.Components.Shared.PositionTable;
 using Poink.Sim.Components.Shared.TradeConsole;
 using Poink.Sim.Helpers;
@@ -143,9 +144,9 @@ namespace Poink.Sim.Components.Pages
 			return count <= 0 ? Array.Empty<Tick>() : s.RecentTicks.Take(count).ToList();
 		}
 
-		private bool _showProfilePanelLevels = true;
-		private bool _showProfileChartLines = true;
-		private bool _showVwap = true;
+		private IndicatorSettings _indicators = new() { ShowPoc = true, ShowVah = true, ShowVal = true, ShowVwap = true };
+
+		private bool ShowVolumeProfileLevels => _indicators.PocVisible || _indicators.VahVisible || _indicators.ValVisible;
 
 		private bool _showMainChart = true;
 		private bool _showXGrid;
@@ -520,32 +521,14 @@ namespace Poink.Sim.Components.Pages
 				.ToList();
 		}
 
-		private List<ChartHorizontalLine> ProfileLevelLines(SimulationSnapshot s)
+		private IndicatorChartOverlays IndicatorOverlays(SimulationSnapshot s)
 		{
-			if (!_showProfileChartLines)
-				return new();
-			if (VolumeProfileStats.Compute(MergedBarSamples(s)) is not { } levels)
-				return new();
-			return new()
-			{
-				new ChartHorizontalLine(levels.Poc, "POC", "profile"),
-				new ChartHorizontalLine(levels.ValueAreaHigh, "VAH", "profile"),
-				new ChartHorizontalLine(levels.ValueAreaLow, "VAL", "profile"),
-			};
-		}
-
-		private List<ChartLinePoint> VwapPoints(SimulationSnapshot s)
-		{
-			if (!_showVwap)
-				return new();
+			if (!s.Config.Aggregate)
+				return IndicatorChartOverlays.Empty;
 
 			var (bars, _) = WindowedBarData(s);
-			var windowBars = bars.Count > ClampedBarWindow ? bars.Skip(bars.Count - ClampedBarWindow) : bars;
-
-			return VectorStatsHelper
-				.Vwap(windowBars, b => b.OpenTime, b => b.Average, b => b.Volume)
-				.Select(p => new ChartLinePoint(p.TimeUtc, p.Value))
-				.ToList();
+			var windowBars = bars.Count > ClampedBarWindow ? bars.Skip(bars.Count - ClampedBarWindow).ToList() : bars;
+			return IndicatorChartOverlayHelper.Build(_indicators, ChartBars(s), windowBars, MergedBarSamples(s));
 		}
 
 		private DateTime? WindowStartUtc(SimulationSnapshot s)
