@@ -143,6 +143,10 @@ namespace Poink.Sim.Components.Pages
 		private bool _showSubchart = false;
 		private bool _showSnapshot = false;
 
+		private bool _showCompare;
+		private ProfilerCompareMode _compareMode = ProfilerCompareMode.PercentChange;
+		private string? _compareRatioTable;
+
 		private int _subchartBarSizeSeconds = 10;
 		private BarAggregationKind _subchartBarKind = BarAggregationKind.Ohlc;
 
@@ -206,7 +210,10 @@ namespace Poink.Sim.Components.Pages
 				_subchartBarKind,
 				_xgridColCount,
 				_rightPanelCollapsed,
-				_setHeights
+				_setHeights,
+				_showCompare,
+				_compareMode,
+				_compareRatioTable
 			);
 
 		private async Task LoadPersistedSettingsAsync()
@@ -256,6 +263,9 @@ namespace Poink.Sim.Components.Pages
 			_xgridColCount = settings.XGridColCount;
 			_rightPanelCollapsed = settings.RightPanelCollapsed;
 			_setHeights = settings.SetHeights ?? new();
+			_showCompare = settings.ShowCompare;
+			_compareMode = settings.CompareMode;
+			_compareRatioTable = settings.CompareRatioTable;
 		}
 
 		// Saving before the stored settings were read would overwrite them with the page's defaults.
@@ -468,6 +478,8 @@ namespace Poink.Sim.Components.Pages
 				set.IsLoadingMore = false;
 			}
 		}
+
+		private Task LoadMoreAll() => Task.WhenAll(_sets.ToList().Select(LoadMore));
 
 		private void RefreshBarRows()
 		{

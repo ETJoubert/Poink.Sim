@@ -29,7 +29,10 @@ namespace Poink.Sim.Components.Profiler
 		BarAggregationKind SubchartBarKind,
 		int XGridColCount,
 		bool RightPanelCollapsed,
-		Dictionary<string, double>? SetHeights
+		Dictionary<string, double>? SetHeights,
+		bool ShowCompare = false,
+		ProfilerCompareMode CompareMode = ProfilerCompareMode.PercentChange,
+		string? CompareRatioTable = null
 	)
 	{
 		/// <summary>The browser localStorage key the Profiler page keeps these settings under.</summary>

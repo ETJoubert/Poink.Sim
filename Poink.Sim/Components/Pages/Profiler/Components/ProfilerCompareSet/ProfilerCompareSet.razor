@@ -1,0 +1,49 @@
+@namespace Poink.Sim.Components.Profiler
+@using Poink.Sim.Components.Charts
+
+<section class="pcmp-set">
+    <header class="pcmp-header">
+        <span class="pcmp-title" title="Every selected symbol on one chart">COMPARE</span>
+        <label class="pcmp-field" title="What each symbol's % change is measured from">
+            Mode
+            <select class="pcmp-select" value="@Mode" @onchange="OnModeSelected"
+                    title="% change: from the first bar in view, re-basing as you pan. Window: from the Lookback Window's start">
+                <option value="@ProfilerCompareMode.PercentChange">% change</option>
+                <option value="@ProfilerCompareMode.WindowAnchored">Window</option>
+            </select>
+        </label>
+        <label class="pcmp-field" title="Divides the primary symbol by another selected symbol, shown in a lower pane">
+            Ratio @Primary?.Table ÷
+            <select class="pcmp-select" value="@(HasRatio ? RatioTable : "")" @onchange="OnRatioSelected" disabled="@(Sets.Count < 2)"
+                    title="@(Sets.Count < 2 ? "Select a second symbol to chart a ratio" : "Pick the symbol the primary is divided by, or None to hide the ratio pane")">
+                <option value="">None</option>
+                @foreach (var set in Comparisons)
+                {
+                    <option value="@set.Table">@set.Table</option>
+                }
+            </select>
+        </label>
+        <div class="pcmp-legend" title="Line colour per symbol">
+            @for (var i = 0; i < Sets.Count; i++)
+            {
+                var set = Sets[i];
+                <span class="pcmp-legend-item" style="color: var(@ProfilerCompareHelper.ColorVarFor(i))"
+                      title="@(set.IsLoading ? $"{set.Table} -- loading" : set.Error ?? $"{set.Table} -- {set.SummaryLabel}")">
+                    @set.Table@(set.IsLoading ? " …" : "")
+                </span>
+            }
+            @if (HasRatio)
+            {
+                <span class="pcmp-legend-item" style="color: var(@ProfilerCompareHelper.RatioColorVar)"
+                      title="Primary close divided by the ratio symbol's close at the same bar time">
+                    @ProfilerCompareHelper.RatioLabel(Primary!.Table, RatioTable!)
+                </span>
+            }
+        </div>
+        <span class="pcmp-note" title="What the % axis is measured from">@ModeNote()</span>
+    </header>
+    <div class="pcmp-chart">
+        <CompareChart Series="_series" ScaleMode="ScaleMode" WindowStart="WindowStart" WindowEnd="WindowEnd"
+                      CanLoadMore="CanLoadMore" OnNearStart="OnNearStart" Tooltip="@ChartTooltip()" />
+    </div>
+</section>
