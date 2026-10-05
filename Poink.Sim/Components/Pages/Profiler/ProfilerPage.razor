@@ -1,6 +1,7 @@
 @page "/profiler"
 @namespace Poink.Sim.Components.Pages
 @using Poink.Sim.Components.Charts
+@using Poink.Sim.Components.Profiler
 @using Poink.Sim.Components.Shared.BarSizeSelect
 @using Poink.Sim.Components.Shared.DataTable
 @using Poink.Sim.Components.Shared.Icon
@@ -19,10 +20,11 @@
                 {
                     <span class="prof-header-mode">@_config.Table</span>
                     <span class="prof-header-mode">@($"{BarSizeOptions.Label((int)_config.BarSize.TotalSeconds)} bars")</span>
-                    <span class="prof-header-mode">
-                        @_bars.Count.ToString("N0") bars / @_tickCount.ToString("N0") ticks
-                        @(_reachedStart ? " (full range loaded)" : " (more history available)")
-                    </span>
+                    <span class="prof-header-mode" title="Bars and ticks loaded for the primary symbol so far">@PrimarySet?.SummaryLabel</span>
+                    @if (_sets.Count > 1)
+                    {
+                        <span class="prof-header-mode" title="Symbols charted side by side over the same timespan">@_sets.Count symbols</span>
+                    }
                 }
                 <span class="prof-header-state @StateClass()" title="Current profiler state">
                     @(_isLoading ? "LOADING" : HasData ? "READY" : "SETUP")
@@ -32,11 +34,11 @@
 
         <div class="prof-datarow">
             <div class="prof-datarow-field prof-datarow-data">
-                <TickDataSource @bind-Table="_table" @bind-From="_from" @bind-To="_to" @bind-To:after="OnRangeSettled" Disabled="_isLoading" />
+                <TickDataSource Table="@_table" TableChanged="OnDefaultTableSelected" ShowTablePicker="false" @bind-From="_from" @bind-To="_to" @bind-To:after="OnRangeSettled" Disabled="_isLoading" />
             </div>
             <div class="prof-datarow-actions">
                 <button class="prof-ctrl-btn prof-ctrl-btn-play" @onclick="Load"
-                        disabled="@(_isLoading || _isLoadingMore)"
+                        disabled="@(_isLoading || _sets.Any(s => s.IsLoadingMore))"
                         title="Load a recent slice of the selected range -- older history backfills automatically as you pan the chart">
                     @(_isLoading ? "LOADING..." : "LOAD")
                 </button>
@@ -49,11 +51,14 @@
     </div>
 
     <div class="prof-body">
+    <ProfilerSymbolPanel SelectedTables="_selectedTables" SelectedTablesChanged="OnSelectedTablesChanged"
+                         LoadedTable="@_config?.Table" Disabled="_isLoading" />
+
     <main class="prof-main">
     @if (HasData)
     {
         <div class="prof-chart-toolbar">
-            <div class="prof-overlay-toggles prof-agg-toggles" title="How ticks are aggregated into bars for the chart below">
+            <div class="prof-overlay-toggles prof-agg-toggles" title="How ticks are aggregated into bars for every symbol's chart set below -- bar size applies on LOAD, bar kind immediately">
                 <span class="prof-overlay-toggles-label">Aggregation</span>
                 <BarSizeSelect @bind-Value="_barSizeSeconds" Disabled="@_isLoading" />
                 <label class="prof-agg-field" title="OHLC draws each bar's real Open/High/Low/Close; Quartile draws a box plot of Min/Q1/Median/Q3/Max instead -- Volume/Time profile and XGrid always stay computed from raw ticks either way">
@@ -66,7 +71,7 @@
                 </label>
             </div>
             <div class="prof-overlay-toggles"
-                 title="Toggle the computed chart overlays introduced alongside the volume profile -- these aren't Drawings, so they aren't listed/removable below">
+                 title="Toggle the computed chart overlays on every symbol's chart set -- these aren't Drawings, so they aren't listed/removable below">
                 <span class="prof-overlay-toggles-label">Overlays</span>
                 <button type="button" class="prof-overlay-toggle-btn prof-overlay-toggle-btn-poc @(_showProfilePanelLevels ? "active" : "")"
                         @onclick="() => _showProfilePanelLevels = !_showProfilePanelLevels"
@@ -85,7 +90,7 @@
                         title="Project the median price as a dashed line on the main chart, narrowed to the Lookback Window if one is active">MED</button>
             </div>
             <div class="prof-overlay-toggles prof-lookback-toggles"
-                 title="The Lookback Window narrows the volume/time profile panels, XGrid, and VWAP to a slice of the loaded bars -- set it here by width/offset, drag it (or its edges, to resize) on the sparkline below, or draw it on the chart with the LOOKBACK WINDOW tool">
+                 title="The Lookback Window narrows every symbol's volume/time profile panels, XGrid, and VWAP to the same slice of time -- set it here by width/offset (in the primary symbol's bars), drag it (or its edges, to resize) on any sparkline below, or draw it on any chart with the LOOKBACK WINDOW tool">
                 <button type="button" class="prof-overlay-toggle-btn @(_lookbackEnabled ? "active" : "")"
                         @onclick="ToggleLookbackWindow" title="Turn the Lookback Window on/off">Lookback Window</button>
                 <label class="prof-lookback-field" title="Number of bars the window spans">
@@ -99,7 +104,7 @@
                            @bind="LookbackOffset" @bind:event="onchange" />
                 </label>
             </div>
-            <div class="prof-overlay-toggles prof-profile-toggles" title="Show or hide the chart and profile panels">
+            <div class="prof-overlay-toggles prof-profile-toggles" title="Show or hide the chart and profile panels in every symbol's chart set">
                 <span class="prof-overlay-toggles-label">Panels</span>
                 <button type="button" class="prof-overlay-toggle-btn @(_showMainChart ? "active" : "")"
                         @onclick="() => _showMainChart = !_showMainChart" title="Show or hide the main price chart">Chart</button>
@@ -117,140 +122,34 @@
                         title="One OHLC/Quartile bar per toggled timeframe (1m/4m/16m/1h), each a trailing window ending at the selected Lookback Window's right edge">TxFold</button>
             </div>
         </div>
-        <div class="prof-chart-sparkline">
-            @if (!_reachedStart)
+        var setOptions = CurrentSetOptions();
+        var drawingHorizontalLines = DrawingHorizontalLines();
+        var drawingVerticalLines = AllVerticalLines();
+        var drawingDiagonalLines = AllDiagonalLines();
+        var drawingRangeFills = DrawingRangeFills();
+        <div class="prof-sets @(_sets.Count == 1 ? "prof-sets-single" : "")">
+            @foreach (var set in _sets)
             {
-                <button class="prof-load-older-btn" @onclick="LoadMore" disabled="@(_isLoading || _isLoadingMore)"
-                        title="Fetch the next older chunk of history -- same as panning the chart back to its earliest bar">
-                    <Icon Name="chevron-left" Class="prof-load-older-icon" />
-                </button>
-            }
-            <MarketChartSparkline Bars="_barRows"
-                                   WindowWidth="_lookbackEnabled ? _lookbackWidth : (int?)null"
-                                   WindowOffset="_lookbackEnabled ? _lookbackOffset : (int?)null"
-                                   WindowChanged="OnWindowChanged" />
-        </div>
-        <div class="prof-chart" @ref="_chartRowRef">
-            @if (_showMainChart)
-            {
-                <div class="prof-chart-main"
-                     title="OHLC bar chart -- pan left to backfill older history, or use the toolbar to draw H-Line/V-Line/D-Line/T-Range/P-Range/Rectangle/T-Range Chart/T-Range Reference Chart/Lookback Window. POC/VAH/VAL, a cumulative VWAP line, and Average/Median lines are shown automatically for whatever window the volume profile panel is built from">
-                    <MarketChartContainer Bars="_barRows" KeepView="_keepView" OnNearStart="LoadMore"
-                                 HorizontalLines="AllHorizontalLines()" VerticalLines="AllVerticalLines()"
-                                 DiagonalLines="AllDiagonalLines()" RangeFills="AllRangeFills()" VwapLine="VwapPoints()"
-                                 MedianLine="_medianLine"
-                                 OnHorizontalLineDrawn="AddHorizontalLine" OnVerticalLineDrawn="AddVerticalLine"
-                                 OnDiagonalLineDrawn="AddDiagonalLine" OnTRangeChartDrawn="AddTRangeChart"
-                                 OnReferenceLineDrawn="AddReferenceLine" OnVolumeRangeDrawn="SetVolumeRange"
-                                 HasVolumeRange="_volumeRangeStart is not null" OnVolumeRangeCleared="ClearVolumeRange"
-                                 OnDrawFinished="FinishDrawing" />
-                </div>
-            }
-            @if (_showXGrid)
-            {
-                <div class="prof-chart-divider" @ref="_chartDividerRefXGrid" data-min-width="200" title="Drag to resize"></div>
-                <div class="prof-chart-side">
-                    <div class="prof-vp"
-                         title="@(VolumeRangeLabel() is { } xgridLabel
-                                                                              ? $"Footprint grid for the selected Lookback Window ({xgridLabel}) -- rows are price buckets, columns are bars"
-                                                                              : "Select a Lookback Window to build the footprint grid -- rows are price buckets, columns are bars")">
-                        <XGridController Grid="ComputeXGrid()" @bind-PipCount="_xgridPipCount" @bind-ColCount="_xgridColCount"
-                                       ProfileBarCount="_lookbackWidth" />
-                    </div>
-                </div>
-            }
-            @if (_showVolumeProfile)
-            {
-                <div class="prof-chart-divider" @ref="_chartDividerRef" data-min-width="200" title="Drag to resize"></div>
-                <div class="prof-chart-side">
-                    <div class="prof-vp"
-                         title="@((VolumeRangeLabel() is { } label
-                                                                              ? $"Volume profile for the selected Lookback Window ({label}) -- use the toolbar's CLEAR LOOKBACK WINDOW button to go back to every loaded bar"
-                                                                              : "Volume profile across every bar loaded so far -- use the toolbar's LOOKBACK WINDOW tool to narrow it to a specific time window")
-                                                                              + ". POC/Value Area are highlighted below and projected onto the main chart as POC/VAH/VAL lines")">
-                        <TickVolumeProfileChart WeightedSamples="MergedSamples()" CurrentPrice="LastClose"
-                                                ShowLevels="_showProfilePanelLevels" />
-                    </div>
-                </div>
-            }
-            @if (_showTimeProfile)
-            {
-                <div class="prof-chart-divider" @ref="_chartDividerRef2" data-min-width="200" title="Drag to resize"></div>
-                <div class="prof-chart-side">
-                    <div class="prof-vp"
-                         title="@((VolumeRangeLabel() is { } timeLabel
-                                                                              ? $"Time profile for the selected Lookback Window ({timeLabel}) -- use the toolbar's CLEAR LOOKBACK WINDOW button to go back to every loaded bar"
-                                                                              : "Time profile across every bar loaded so far -- use the toolbar's LOOKBACK WINDOW tool to narrow it to a specific time window")
-                                                                              + ". Measures dwell time (seconds) per price level instead of tick count")">
-                        <TickTimeProfileChart WeightedSamples="MergedTimeSamples()" CurrentPrice="LastClose" />
-                    </div>
-                </div>
-            }
-            @if (_showSubchart)
-            {
-                <div class="prof-chart-divider" @ref="_chartDividerRefSubchart" data-min-width="200" title="Drag to resize"></div>
-                <div class="prof-chart-side">
-                    <div class="prof-vp" title="A second market chart scoped to the selected Lookback Window, aggregated independently of the main chart above">
-                        <div class="prof-subchart-panel">
-                            <div class="prof-subchart-toolbar">
-                                <BarSizeSelect @bind-Value="_subchartBarSizeSeconds" Disabled="@_subchartLoading" />
-                                <label class="prof-agg-field" title="OHLC draws each bar's real Open/High/Low/Close; Quartile draws a box plot of Min/Q1/Median/Q3/Max instead">
-                                    Bar kind
-                                    <select class="prof-agg-select" @bind="_subchartBarKind" disabled="@_subchartLoading"
-                                            title="OHLC draws each bar's real Open/High/Low/Close; Quartile draws a box plot of Min/Q1/Median/Q3/Max instead">
-                                        <option value="@BarAggregationKind.Ohlc">OHLC</option>
-                                        <option value="@BarAggregationKind.Quartile">Quartile</option>
-                                    </select>
-                                </label>
-                            </div>
-                            <div class="prof-subchart-chart">
-                                @if (_volumeRangeStart is null || _volumeRangeEnd is null)
-                                {
-                                    <p class="prof-drawings-empty">Select a Lookback Window to view the subchart.</p>
-                                }
-                                else if (_subchartError is not null)
-                                {
-                                    <p class="prof-drawings-empty">@_subchartError</p>
-                                }
-                                else if (_subchartLoading && _subchartBars.Count == 0)
-                                {
-                                    <p class="prof-drawings-empty">Loading...</p>
-                                }
-                                else
-                                {
-                                    <MarketChartContainer Bars="_subchartBars" MedianLine="_subchartMedianLine" ShowAnnotationTools="false" />
-                                }
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            }
-            @if (_showSnapshot)
-            {
-                <div class="prof-chart-divider" @ref="_chartDividerRefSnapshot" data-min-width="200" title="Drag to resize"></div>
-                <div class="prof-chart-side">
-                    <div class="prof-vp"
-                         title="One OHLC/Quartile bar per toggled timeframe, each a trailing window ending at the selected Lookback Window's right edge">
-                        @{
-                            var anchorBar = SnapshotAnchorBar();
-                        }
-                        @if (_config is null || _volumeRangeStart is null || anchorBar is null)
-                        {
-                            <p class="prof-drawings-empty">Select a Lookback Window to view the snapshot.</p>
-                        }
-                        else
-                        {
-                            @* ITickRepository's "to" is exclusive, so +1 tick keeps the anchor bar's own closing tick inside the window. *@
-                            <TxFold Table="@_config.Table" AnchorEnd="@anchorBar.Value.CloseTime.AddTicks(1)" RangeStart="@_config.From" LatestPrice="anchorBar.Value.Close" />
-                        }
-                    </div>
-                </div>
+                var isPrimary = set == PrimarySet;
+                <ProfilerChartSet @key="set" Data="set" Options="setOptions" IsPrimary="isPrimary" Fill="_sets.Count == 1"
+                                  @bind-XGridPipCount="_xgridPipCount" @bind-XGridColCount="_xgridColCount"
+                                  @bind-SubchartBarSizeSeconds="_subchartBarSizeSeconds" @bind-SubchartBarKind="_subchartBarKind"
+                                  DrawingHorizontalLines="@(isPrimary ? drawingHorizontalLines : [])"
+                                  DrawingVerticalLines="@(isPrimary ? drawingVerticalLines : [])"
+                                  DrawingDiagonalLines="@(isPrimary ? drawingDiagonalLines : [])"
+                                  DrawingRangeFills="@(isPrimary ? drawingRangeFills : [])"
+                                  OnHorizontalLineDrawn="AddHorizontalLine" OnVerticalLineDrawn="AddVerticalLine"
+                                  OnDiagonalLineDrawn="AddDiagonalLine" OnTRangeChartDrawn="AddTRangeChart"
+                                  OnReferenceLineDrawn="AddReferenceLine" OnDrawFinished="FinishDrawing"
+                                  OnVolumeRangeDrawn="SetVolumeRange" OnVolumeRangeCleared="ClearVolumeRange"
+                                  WindowChanged="window => OnWindowChanged(set, window)" OnNearStart="() => LoadMore(set)"
+                                  OnMakePrimary="MakePrimary" OnRemove="RemoveSymbol" />
             }
         </div>
     }
     else if (!_isLoading)
     {
-        <p class="prof-empty">Pick a symbol and date range above, then LOAD to view its bar chart and volume profile.</p>
+        <p class="prof-empty">Add symbols in the SYMBOLS panel on the left and pick a date range above, then LOAD -- every symbol gets its own chart set, and the first one also carries the drawings.</p>
     }
     </main>
 
@@ -349,7 +248,7 @@
                                             @if (d.IsRange && d.RangeBarCount is { } barCount && d.RangeSpan is { } span)
                                             {
                                                 <div class="prof-drawing-stats" title="Bars and time span between this range's two lines">
-                                                    @barCount.ToString("N0") bars, @FormatSpan(span)
+                                                    @barCount.ToString("N0") bars, @ProfilerFormatHelper.FormatSpan(span)
                                                 </div>
                                             }
                                             @if (d.ReferenceBarCount is { } refBarCount)

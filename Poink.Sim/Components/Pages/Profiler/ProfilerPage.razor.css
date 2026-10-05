@@ -71,25 +71,6 @@
     border: 1px solid currentColor;
 }
 
-.prof-subchart-panel {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-}
-
-.prof-subchart-toolbar {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    flex-wrap: wrap;
-    margin-bottom: 8px;
-}
-
-.prof-subchart-chart {
-    flex: 1 1 auto;
-    min-height: 0;
-}
-
 .prof-agg-field {
     display: flex;
     align-items: center;
@@ -208,108 +189,17 @@
     box-shadow: 0 0 14px color-mix(in srgb, var(--color-success) 45%, transparent);
 }
 
-.prof-chart-sparkline {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-shrink: 0;
-    padding: 0 5px;
-    margin-bottom: 10px;
-}
-
-.prof-chart-sparkline ::deep .mkt-sparkline {
-    flex: 1 1 auto;
-    min-width: 0;
-}
-
-.prof-load-older-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    width: 28px;
-    height: 28px;
-    background: transparent;
-    border: 1px solid color-mix(in srgb, var(--color-primary) 45%, transparent);
-    border-radius: var(--border-radius-sm);
-    color: var(--color-primary);
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.prof-load-older-btn:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--color-primary) 12%, transparent);
-    border-color: var(--color-primary);
-}
-
-.prof-load-older-btn:disabled {
-    opacity: 0.35;
-    cursor: not-allowed;
-}
-
-.prof-load-older-icon {
-    width: 14px;
-    height: 14px;
-}
-
-.prof-chart {
-    display: flex;
-    flex: 1 1 auto;
-    align-items: stretch;
-    gap: 16px;
-    padding: 5px 5px 5px;
-    min-height: 200px;
-}
-
-/* Equal-share fallback -- ProfilerPage.razor.cs's resetEqual/bind JS sets each panel's actual flex-basis in percent once mounted. */
-.prof-chart-main,
-.prof-chart-side {
-    flex: 1 1 0;
-    min-width: 150px;
-}
-
-.prof-chart-side {
+.prof-sets {
     display: flex;
     flex-direction: column;
-    overflow-y: auto;
+    gap: 14px;
+    padding: 0 5px 24px;
 }
 
-.prof-vp {
+.prof-sets-single {
     flex: 1 1 auto;
-    min-height: 0;
-}
-
-.prof-chart-divider {
-    position: relative;
-    flex: 0 0 6px;
-    align-self: stretch;
-    margin: 0 -10px;
-    cursor: col-resize;
-    touch-action: none;
-    user-select: none;
-    border-radius: 3px;
-}
-
-.prof-chart-divider::before {
-    content: "";
-    position: absolute;
-    top: 15%;
-    bottom: 15%;
-    left: 50%;
-    width: 1px;
-    transform: translateX(-50%);
-    background: color-mix(in srgb, var(--color-primary) 20%, transparent);
-    transition: background 0.2s ease;
-}
-
-.prof-chart-divider:hover,
-.prof-chart-divider.prof-chart-divider-active {
-    background: color-mix(in srgb, var(--color-primary) 15%, transparent);
-}
-
-.prof-chart-divider:hover::before,
-.prof-chart-divider.prof-chart-divider-active::before {
-    background: var(--color-primary);
+    min-height: 200px;
+    padding-bottom: 5px;
 }
 
 .prof-right-side-panel {
@@ -731,27 +621,6 @@
 /* ::deep + !important needed to override CandlestickChart's own CSS-isolated canvas size. */
 .prof-drawing-minichart ::deep .ctrader-candlestick-canvas {
     height: 140px !important;
-}
-
-@media (max-width: 900px) {
-    .prof-chart {
-        flex-direction: column;
-    }
-
-    .prof-chart-main {
-        height: 400px;
-    }
-
-    .prof-chart-side {
-        flex-basis: auto;
-        width: 100%;
-        max-width: none;
-        max-height: 240px;
-    }
-
-    .prof-chart-divider {
-        display: none;
-    }
 }
 
 .prof-empty {

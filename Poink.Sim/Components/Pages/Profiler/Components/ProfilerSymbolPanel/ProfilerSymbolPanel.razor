@@ -1,0 +1,110 @@
+@namespace Poink.Sim.Components.Profiler
+@using Poink.Sim.Components.Shared.Icon
+
+<aside class="psp-panel @(_collapsed ? "psp-panel-collapsed" : "")">
+    <div class="psp-header">
+        <button type="button" class="psp-toggle" @onclick="() => _collapsed = !_collapsed"
+                title="@(_collapsed ? "Expand the symbols panel" : "Collapse the symbols panel")">
+            <Icon Name="@(_collapsed ? "chevron-right" : "chevron-left")" Class="psp-toggle-icon" />
+        </button>
+        @if (!_collapsed)
+        {
+            <span class="psp-label" title="Symbols charted over the shared timespan">SYMBOLS</span>
+            <span class="psp-count" title="Number of selected symbols">@SelectedTables.Count</span>
+        }
+    </div>
+
+    @if (!_collapsed)
+    {
+        <div class="psp-content">
+            <section class="psp-section" title="Selected symbols -- each gets its own full chart set over the same timespan; the first is the primary symbol, which also carries the drawings">
+                <div class="psp-section-header">
+                    <span class="psp-section-label">SELECTED</span>
+                    @if (SelectedTables.Count > 0)
+                    {
+                        <button type="button" class="psp-link-btn" @onclick="ClearSelection" disabled="@Disabled"
+                                title="Remove every selected symbol">CLEAR</button>
+                    }
+                </div>
+                @if (SelectedTables.Count == 0)
+                {
+                    <p class="psp-empty">Add a symbol below to chart it.</p>
+                }
+                else
+                {
+                    @foreach (var table in SelectedTables)
+                    {
+                        var meta = Meta(table);
+                        var isPrimary = table == PrimaryTable;
+                        <div class="psp-item psp-item-selected @(isPrimary ? "psp-item-primary" : "")"
+                             title="@($"{table}: {meta.Rows:N0} rows, {RangeLabel(meta.MinTime, meta.MaxTime)}")">
+                            <div class="psp-item-text">
+                                <span class="psp-item-name">@table</span>
+                                <span class="psp-item-meta">@RangeLabel(meta.MinTime, meta.MaxTime)</span>
+                            </div>
+                            @if (isPrimary)
+                            {
+                                <span class="psp-badge @(PrimaryAwaitsLoad ? "psp-badge-pending" : "")"
+                                      title="@(PrimaryAwaitsLoad ? "Primary symbol -- press LOAD to rebuild the Profiler panels from it" : "Primary symbol -- its chart set comes first and carries the drawings panel and chart drawing tools")">
+                                    @(PrimaryAwaitsLoad ? "LOAD" : "PRIMARY")
+                                </span>
+                            }
+                            else
+                            {
+                                <button type="button" class="psp-link-btn" @onclick="() => MakePrimary(table)" disabled="@Disabled"
+                                        title="Make this the primary symbol -- applied on the next LOAD">MAIN</button>
+                            }
+                            <button type="button" class="psp-icon-btn" @onclick="() => RemoveTable(table)" disabled="@Disabled"
+                                    title="Remove this symbol and its chart set">
+                                <Icon Name="x-lg" Class="psp-icon" />
+                            </button>
+                        </div>
+                    }
+                }
+            </section>
+
+            <section class="psp-section psp-section-available" title="Every ticks_* table in the database that isn't selected yet">
+                <div class="psp-section-header">
+                    <span class="psp-section-label">AVAILABLE</span>
+                    <button type="button" class="psp-link-btn" @onclick="RecountTables" disabled="@(Disabled || _loadingTables)"
+                            title="Rescans every ticks_* table (COUNT/MIN/MAX) and refreshes stored row counts -- slow, only needed after new data has been written">
+                        @(_loadingTables ? "RECOUNTING..." : "RECOUNT")
+                    </button>
+                </div>
+                <div class="psp-search">
+                    <Icon Name="search" Class="psp-icon" />
+                    <input type="text" class="psp-search-input" placeholder="Filter symbols..." value="@_filter"
+                           @oninput="e => _filter = e.Value?.ToString() ?? string.Empty"
+                           title="Filter the available symbols by table name" />
+                </div>
+                @if (_tableListFailed)
+                {
+                    <p class="psp-error">Tick table list unavailable (Postgres down?).</p>
+                }
+                else if (_loadingTables && _availableTables.Count == 0)
+                {
+                    <p class="psp-empty">loading tables...</p>
+                }
+                else
+                {
+                    var unselected = UnselectedTables.ToList();
+                    @if (unselected.Count == 0)
+                    {
+                        <p class="psp-empty">@(_availableTables.Count == 0 ? "no tables found" : "no matching symbols")</p>
+                    }
+                    @foreach (var t in unselected)
+                    {
+                        <button type="button" class="psp-item psp-item-available" @onclick="() => AddTable(t.Table)" disabled="@Disabled"
+                                title="@($"Add {t.Table} ({t.Rows:N0} rows, {RangeLabel(t.MinTime, t.MaxTime)})")">
+                            <div class="psp-item-text">
+                                <span class="psp-item-name">@t.Table</span>
+                                <span class="psp-item-meta">@t.Rows.ToString("N0") rows</span>
+                            </div>
+                            <Icon Name="plus-lg" Class="psp-icon" />
+                        </button>
+                    }
+                }
+            </section>
+        </div>
+    }
+</aside>
