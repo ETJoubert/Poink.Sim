@@ -60,17 +60,27 @@ namespace Poink.Sim.Components.Pages
 			}
 		}
 
-		// Snaps the range to the new table's own data so it never points at a span the symbol has no ticks for.
-		private void OnSymbolSelected(string table)
+		private IReadOnlyList<string> SelectedTables =>
+			string.IsNullOrWhiteSpace(_table) ? _watchTables : [_table, .. _watchTables.Where(t => t != _table)];
+
+		// A new traded symbol snaps the range to its own data so it never points at a span the symbol has no ticks for.
+		private void OnSymbolsSelected(IReadOnlyList<string> tables)
 		{
-			if (table == _table)
+			var primary = tables.FirstOrDefault() ?? "";
+			_watchTables = tables.Skip(1).Where(t => t != primary).Distinct().ToList();
+			Logger.LogInformation(
+				"Simulation symbols set to {Table} traded, [{WatchTables}] watched",
+				primary,
+				string.Join(", ", _watchTables)
+			);
+			if (primary == _table)
 				return;
 
-			_table = table;
-			var meta = TickRepository.CachedTables.FirstOrDefault(t => t.Table == table);
+			_table = primary;
+			var meta = TickRepository.CachedTables.FirstOrDefault(t => t.Table == primary);
 			if (meta.MaxTime is { } maxTime)
 				(_from, _to) = TickTableRangeHelper.DefaultRange(meta.MinTime, maxTime);
-			Logger.LogInformation("Simulation symbol set to {Table} over {From} - {To}", _table, _from, _to);
+			Logger.LogInformation("Simulation range snapped to {From} - {To} for traded symbol {Table}", _from, _to, primary);
 		}
 
 		private async Task RefreshSymbolMetadataIfTableChangedAsync()

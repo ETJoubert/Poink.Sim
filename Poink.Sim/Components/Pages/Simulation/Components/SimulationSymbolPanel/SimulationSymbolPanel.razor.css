@@ -49,9 +49,13 @@
     border-left: 3px solid var(--color-primary);
 }
 
-.ssp-item-loaded {
+.ssp-item-traded {
     border-color: var(--color-success);
     background: color-mix(in srgb, var(--color-success) 8%, transparent);
+}
+
+.ssp-item-pending {
+    border-left-color: var(--color-warning);
 }
 
 .ssp-item-available {
@@ -103,12 +107,26 @@
     border: 1px solid var(--color-success);
 }
 
+.ssp-badge-watch {
+    color: var(--color-secondary);
+    border-color: color-mix(in srgb, var(--color-secondary) 60%, transparent);
+}
+
 .ssp-badge-pending {
     color: var(--color-warning);
     border-color: var(--color-warning);
 }
 
-.ssp-link-btn {
+.ssp-count {
+    font-size: 0.66rem;
+    padding: 1px 6px;
+    border-radius: 8px;
+    color: var(--color-primary);
+    background: color-mix(in srgb, var(--color-primary) 14%, transparent);
+}
+
+.ssp-link-btn,
+.ssp-icon-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -125,12 +143,18 @@
     white-space: nowrap;
 }
 
-.ssp-link-btn:hover:not(:disabled) {
+.ssp-icon-btn {
+    padding: 3px;
+}
+
+.ssp-link-btn:hover:not(:disabled),
+.ssp-icon-btn:hover:not(:disabled) {
     color: var(--color-primary);
     border-color: var(--color-primary);
 }
 
-.ssp-link-btn:disabled {
+.ssp-link-btn:disabled,
+.ssp-icon-btn:disabled {
     opacity: 0.4;
     cursor: not-allowed;
 }

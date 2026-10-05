@@ -12,6 +12,7 @@ using Poink.Sim.Components.Shared.IndicatorPanel;
 using Poink.Sim.Components.Shared.Indicators;
 using Poink.Sim.Components.Shared.PositionTable;
 using Poink.Sim.Components.Shared.TradeConsole;
+using Poink.Sim.Components.Simulation;
 using Poink.Sim.Helpers;
 using Poink.Sim.Models;
 using Poink.Sim.Profiler;
@@ -727,7 +728,8 @@ namespace Poink.Sim.Components.Pages
 				_robotCooldownSeconds,
 				_robotRequireRearm,
 				_ruleSignalSettings,
-				_robotPositionRules
+				_robotPositionRules,
+				_watchTables
 			);
 
 		// A simulation already held by the service (page revisited) is shown as-is instead of reloaded.
@@ -782,6 +784,7 @@ namespace Poink.Sim.Components.Pages
 			_robotRequireRearm = settings.RobotRequireRearm;
 			_ruleSignalSettings = settings.SignalSettings ?? new();
 			_robotPositionRules = settings.RobotPositionRules ?? new();
+			_watchTables = settings.WatchTables?.Where(t => t != _table).Distinct().ToList() ?? new();
 		}
 
 		// Saving before the stored settings were read would overwrite them with the page's defaults.
@@ -984,10 +987,11 @@ namespace Poink.Sim.Components.Pages
 		private async Task LoadSimulationAsync(bool playWhenLoaded)
 		{
 			await EnsureSymbolMetadataAsync();
-			LoadSimulation(playWhenLoaded);
+			var watchSymbols = await ResolveWatchSymbolsAsync();
+			LoadSimulation(playWhenLoaded, watchSymbols);
 		}
 
-		private void LoadSimulation(bool playWhenLoaded)
+		private void LoadSimulation(bool playWhenLoaded, IReadOnlyList<SimulationWatchSymbol> watchSymbols)
 		{
 			_loadError = null;
 
@@ -1030,7 +1034,8 @@ namespace Poink.Sim.Components.Pages
 				_commissionRatePercent,
 				limits.PipSize,
 				SelectedRiskPolicies,
-				RuleEngineWarmup()
+				RuleEngineWarmup(),
+				watchSymbols
 			);
 
 			_keepChartView = false;
@@ -1204,27 +1209,11 @@ namespace Poink.Sim.Components.Pages
 
 		// ── Rendering helpers ──
 
-		private static List<CTraderBarRow> ToBarRows(IReadOnlyList<HlocAvdtBar> bars) =>
-			bars.Select(b => new CTraderBarRow(
-					b.OpenTime,
-					b.Open,
-					b.High,
-					b.Low,
-					b.Close,
-					b.Volume,
-					b.UpVolume,
-					b.DownVolume,
-					b.Distance
-				))
-				.ToList();
-
 		private static List<double> ToMidPrices(IReadOnlyList<Tick> ticks) =>
 			ticks.Select(t => (t.Bid + t.Ask) / 2.0).ToList();
 
 		private static List<TimedPrice> ToTimedMidPrices(IReadOnlyList<Tick> ticks) =>
 			ticks.Select(t => new TimedPrice(t.Timestamp, (t.Bid + t.Ask) / 2.0)).ToList();
-
-		private sealed record TickRow(string Time, string Bid, string Ask, string Mid);
 
 		private IReadOnlyList<Tick>? _tickRowsSource;
 		private List<object> _tickRowsCache = new();
@@ -1239,18 +1228,7 @@ namespace Poink.Sim.Components.Pages
 					return _tickRowsCache;
 
 				_tickRowsSource = _snapshot.RecentTicks;
-				_tickRowsCache = _snapshot
-					.RecentTicks.Select(
-						object (t) =>
-							new TickRow(
-								t.Timestamp.ToString("HH:mm:ss.fff"),
-								t.Bid.ToString("F5"),
-								t.Ask.ToString("F5"),
-								((t.Bid + t.Ask) / 2).ToString("F5")
-							)
-					)
-					.Reverse()
-					.ToList();
+				_tickRowsCache = SimulationRowHelper.ToTickRows(_snapshot.RecentTicks);
 				return _tickRowsCache;
 			}
 		}

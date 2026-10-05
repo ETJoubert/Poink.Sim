@@ -1,0 +1,44 @@
+.swc-set {
+    display: flex;
+    flex-direction: column;
+    height: 260px;
+    min-height: 0;
+    border-top: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+.swc-header {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    padding: 4px 12px;
+    flex-shrink: 0;
+}
+
+.swc-name {
+    font-family: var(--font-heading);
+    font-size: 0.8rem;
+    font-weight: bold;
+    letter-spacing: 0.06em;
+    color: var(--color-accent);
+}
+
+.swc-quote {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--color-primary);
+}
+
+.swc-meta {
+    font-size: 0.68rem;
+    color: var(--color-secondary);
+    opacity: 0.85;
+    white-space: nowrap;
+}
+
+.swc-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}

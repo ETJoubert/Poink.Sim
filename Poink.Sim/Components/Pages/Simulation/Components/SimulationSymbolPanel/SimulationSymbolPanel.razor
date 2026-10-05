@@ -2,37 +2,58 @@
 @using Poink.Sim.Components.Shared.Icon
 
 <div class="ssp-content">
-    <section class="ssp-section" title="Symbol the simulation replays -- picking another one applies on the next SET, RESET or PLAY">
+    <section class="ssp-section" title="Selected symbols -- the first is traded, the rest are watched: their ticks replay in step with the traded one -- changes apply on the next SET, RESET or PLAY">
         <div class="ssp-section-header">
-            <span class="ssp-section-label">SELECTED</span>
+            <span class="ssp-section-label">SELECTED <span class="ssp-count" title="Number of selected symbols">@SelectedTables.Count</span></span>
+            @if (SelectedTables.Count > 0)
+            {
+                <button type="button" class="ssp-link-btn" @onclick="ClearSelection" disabled="@Disabled"
+                        title="Remove every selected symbol">CLEAR</button>
+            }
         </div>
-        @if (string.IsNullOrWhiteSpace(SelectedTable))
+        @if (SelectedTables.Count == 0)
         {
             <p class="ssp-empty">Pick a symbol below to simulate it.</p>
         }
         else
         {
-            var meta = Meta(SelectedTable);
-            <div class="ssp-item ssp-item-selected @(SelectedAwaitsLoad ? "" : "ssp-item-loaded")"
-                 title="@($"{SelectedTable}: {meta.Rows:N0} rows, {RangeLabel(meta.MinTime, meta.MaxTime)}")">
-                <div class="ssp-item-text">
-                    <span class="ssp-item-name">@SelectedTable</span>
-                    <span class="ssp-item-meta">@RangeLabel(meta.MinTime, meta.MaxTime)</span>
+            @for (var i = 0; i < SelectedTables.Count; i++)
+            {
+                var table = SelectedTables[i];
+                var isTraded = i == 0;
+                var meta = Meta(table);
+                var awaitsLoad = AwaitsLoad(table, isTraded);
+                <div class="ssp-item ssp-item-selected @(isTraded ? "ssp-item-traded" : "") @(awaitsLoad ? "ssp-item-pending" : "")"
+                     title="@($"{table}: {meta.Rows:N0} rows, {RangeLabel(meta.MinTime, meta.MaxTime)}")">
+                    <div class="ssp-item-text">
+                        <span class="ssp-item-name">@table</span>
+                        <span class="ssp-item-meta">@RangeLabel(meta.MinTime, meta.MaxTime)</span>
+                    </div>
+                    @if (awaitsLoad)
+                    {
+                        <span class="ssp-badge ssp-badge-pending"
+                              title="@($"Not in the running simulation as {(isTraded ? "the traded" : "a watched")} symbol yet -- press SET to load it")">SET</span>
+                    }
+                    else if (isTraded)
+                    {
+                        <span class="ssp-badge" title="Traded symbol -- the traders, bots, pip size and progress all follow it">TRADED</span>
+                    }
+                    else
+                    {
+                        <span class="ssp-badge ssp-badge-watch" title="Watched symbol -- its ticks replay in step with the traded symbol; nothing trades it">WATCH</span>
+                        <button type="button" class="ssp-link-btn" @onclick="() => MakeTraded(table)" disabled="@Disabled"
+                                title="Make this the traded symbol -- the current traded symbol becomes watched -- applies on the next SET">TRADE</button>
+                    }
+                    <button type="button" class="ssp-icon-btn" @onclick="() => RemoveTable(table)" disabled="@Disabled"
+                            title="Remove this symbol from the simulation">
+                        <Icon Name="x-lg" Class="ssp-icon" />
+                    </button>
                 </div>
-                @if (SelectedAwaitsLoad)
-                {
-                    <span class="ssp-badge ssp-badge-pending"
-                          title="@($"The running simulation still replays {LoadedTable} -- press SET to load this symbol instead")">SET</span>
-                }
-                else if (LoadedTable is not null)
-                {
-                    <span class="ssp-badge" title="The running simulation replays this symbol">LOADED</span>
-                }
-            </div>
+            }
         }
     </section>
 
-    <section class="ssp-section" title="Every ticks_* table in the database -- click one to make it the simulated symbol">
+    <section class="ssp-section" title="Every ticks_* table in the database that isn't selected yet -- the first one added is traded, the rest are watched">
         <div class="ssp-section-header">
             <span class="ssp-section-label">AVAILABLE</span>
             <button type="button" class="ssp-link-btn" @onclick="RecountTables" disabled="@(Disabled || _loadingTables)"
@@ -63,13 +84,13 @@
             }
             @foreach (var t in unselected)
             {
-                <button type="button" class="ssp-item ssp-item-available" @onclick="() => SelectTable(t.Table)" disabled="@Disabled"
-                        title="@($"Simulate {t.Table} ({t.Rows:N0} rows, {RangeLabel(t.MinTime, t.MaxTime)}) -- applies on the next SET")">
+                <button type="button" class="ssp-item ssp-item-available" @onclick="() => AddTable(t.Table)" disabled="@Disabled"
+                        title="@($"Add {t.Table} ({t.Rows:N0} rows, {RangeLabel(t.MinTime, t.MaxTime)}) as the {(SelectedTables.Count == 0 ? "traded" : "watched")} symbol -- applies on the next SET")">
                     <div class="ssp-item-text">
                         <span class="ssp-item-name">@t.Table</span>
                         <span class="ssp-item-meta">@t.Rows.ToString("N0") rows</span>
                     </div>
-                    <Icon Name="chevron-right" Class="ssp-icon" />
+                    <Icon Name="plus-lg" Class="ssp-icon" />
                 </button>
             }
         }

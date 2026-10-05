@@ -29,7 +29,7 @@
     <div class="sim-topbar">
         <header class="sim-header">
             <div class="sim-header-title">
-                <span class="sim-header-symbol" title="Trader simulation -- replays the symbol picked in the SYMBOL tab over the date range beside it">TRADER SIMULATION</span>
+                <span class="sim-header-symbol" title="Trader simulation -- replays the symbols picked in the SYMBOL tab over the date range beside it, trading the first and watching the rest">TRADER SIMULATION</span>
                 <span class="sim-header-state @StateCssClass" title="Current state of the simulation">@StateLabel</span>
             </div>
             <div class="sim-header-range" title="Date range the simulation replays -- applies on the next SET, RESET or PLAY">
@@ -150,8 +150,8 @@
                         <div class="sim-left-side-panel-content">
                             @if (_activeLeftPanelTab == SimLeftPanelTab.Symbol)
                             {
-                                <SimulationSymbolPanel SelectedTable="@_table" SelectedTableChanged="OnSymbolSelected"
-                                                       LoadedTable="@_snapshot?.Config.Table" Disabled="@_isLoading" />
+                                <SimulationSymbolPanel SelectedTables="SelectedTables" SelectedTablesChanged="OnSymbolsSelected"
+                                                       LoadedTables="LoadedTables" Disabled="@_isLoading" />
                                 <SymbolMetadataFields Symbol="_symbol" Metadata="_symbolMetadata" Loading="_loadingSymbolMetadata" />
                             }
                             else if (_activeLeftPanelTab == SimLeftPanelTab.Setup)
@@ -264,6 +264,12 @@
                                 <button type="button" class="sim-overlay-toggle-btn @(_showIndicators ? "active" : "")"
                                         @onclick="() => _showIndicators = !_showIndicators"
                                         title="Show or hide the indicator panel -- calculated values such as ATR for the current window">Indicators</button>
+                                @if (WatchedSymbols(s).Count > 0)
+                                {
+                                    <button type="button" class="sim-overlay-toggle-btn @(_showWatchedCharts ? "active" : "")"
+                                            @onclick="() => _showWatchedCharts = !_showWatchedCharts"
+                                            title="Show or hide the live charts of the watched symbols, replayed in step with the traded symbol">Watched</button>
+                                }
                             </div>
                         </div>
 
@@ -301,7 +307,7 @@
                                 <div class="sim-chart-main">
                                     @if (s.Config.Aggregate)
                                     {
-                                        <MarketChartContainer Bars="ToBarRows(ChartBars(s))" KeepView="_keepChartView"
+                                        <MarketChartContainer Bars="SimulationRowHelper.ToBarRows(ChartBars(s))" KeepView="_keepChartView"
                                                             OnNearStart="LoadOlderChartHistory"
                                                             CurrentBid="s.CurrentBid"
                                                             CurrentAsk="s.CurrentAsk" EntryPrice="SelectedTrader?.Position?.EntryPrice"
@@ -437,6 +443,20 @@
 
                         <div class="sim-chart-hdivider" @ref="_chartHDividerRef" data-min-height="160" data-max-height-vh="70"
                              title="Drag to resize"></div>
+
+                        @if (_showWatchedCharts && WatchedSymbols(s).Count > 0)
+                        {
+                            <div class="sim-watch-sets" title="Watched symbols -- each replays its own ticks in step with the traded symbol">
+                                @foreach (var watched in WatchedSymbols(s))
+                                {
+                                    <SimulationWatchChart @key="watched.Table" Table="@watched.Table" Aggregate="s.Config.Aggregate" KeepView="_keepChartView"
+                                                          CurrentTimestampUtc="watched.CurrentTimestampUtc"
+                                                          CurrentBid="watched.CurrentBid" CurrentAsk="watched.CurrentAsk"
+                                                          Bars="@(s.Config.Aggregate ? _watchRowCache.BarRows(watched) : [])"
+                                                          TickRows="@(s.Config.Aggregate ? [] : _watchRowCache.TickRows(watched))" />
+                                }
+                            </div>
+                        }
                     }
 
                     <div class="sim-log-panel">

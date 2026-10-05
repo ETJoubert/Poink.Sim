@@ -712,6 +712,12 @@
     background: var(--color-primary);
 }
 
+.sim-watch-sets {
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+}
+
 .sim-log-panel {
     display: flex;
     flex-direction: column;

@@ -35,7 +35,8 @@ namespace Poink.Sim.Models
 		double? RobotCooldownSeconds = null,
 		bool RobotRequireRearm = false,
 		RuleSignalSettings? SignalSettings = null,
-		RobotPositionRules? RobotPositionRules = null
+		RobotPositionRules? RobotPositionRules = null,
+		IReadOnlyList<string>? WatchTables = null
 	)
 	{
 		/// <summary>The browser localStorage key the Simulation page keeps these settings under.</summary>
