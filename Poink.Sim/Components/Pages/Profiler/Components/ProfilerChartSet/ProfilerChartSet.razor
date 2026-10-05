@@ -1,0 +1,168 @@
+@namespace Poink.Sim.Components.Profiler
+@using Poink.Sim.Components.Charts
+@using Poink.Sim.Components.Shared.BarSizeSelect
+@using Poink.Sim.Components.Shared.Icon
+@using Poink.Sim.Models
+
+<section class="pcs-set @(Fill ? "pcs-set-fill" : "") @(IsPrimary ? "pcs-set-primary" : "")">
+    <header class="pcs-header">
+        <span class="pcs-symbol" title="Symbol this chart set is built from">@Data.Table</span>
+        @if (IsPrimary)
+        {
+            <span class="pcs-badge" title="Primary symbol -- the drawings panel and its chart tools belong to this set">PRIMARY</span>
+        }
+        <span class="pcs-meta" title="Bars and ticks loaded for this symbol so far">
+            @(Data.IsLoading ? "loading..." : Data.SummaryLabel)
+        </span>
+        <span class="pcs-meta"
+              title="@(Data.PipSize is null
+                         ? "No trading metadata found for this symbol -- XGrid rows assume this pip size"
+                         : "This symbol's pip size -- its XGrid rows are sized in these pips, independently of the other symbols")">
+            @PipSizeLabel()
+        </span>
+        @if (Data.Error is not null)
+        {
+            <span class="pcs-error" title="@Data.Error">@Data.Error</span>
+        }
+        @if (!IsPrimary)
+        {
+            <div class="pcs-actions">
+                <button type="button" class="pcs-btn" @onclick="() => OnMakePrimary.InvokeAsync(Data.Table)"
+                        title="Make this the primary symbol -- applied on the next LOAD">MAIN</button>
+                <button type="button" class="pcs-btn pcs-btn-icon" @onclick="() => OnRemove.InvokeAsync(Data.Table)"
+                        title="Remove this symbol and its chart set">
+                    <Icon Name="x-lg" Class="pcs-icon" />
+                </button>
+            </div>
+        }
+    </header>
+
+    @if (!Data.HasBars)
+    {
+        <p class="pcs-empty">@(Data.IsLoading ? "Loading..." : Data.Error ?? "No bars loaded.")</p>
+    }
+    else
+    {
+        <div class="prof-chart" @ref="_chartRowRef">
+            @if (Options.ShowMainChart)
+            {
+                <div class="prof-chart-main"
+                     title="@(IsPrimary
+                                ? "OHLC bar chart -- pan left to backfill older history, or use the toolbar to draw H-Line/V-Line/D-Line/T-Range/P-Range/Rectangle/T-Range Chart/T-Range Reference Chart/Lookback Window. POC/VAH/VAL, a cumulative VWAP line, and Average/Median lines are shown automatically for whatever window the volume profile panel is built from"
+                                : "OHLC bar chart -- pan left to backfill older history, or draw a Lookback Window to set it for every symbol")">
+                    <MarketChartContainer Bars="Data.BarRows" KeepView="Data.KeepView" OnNearStart="OnNearStart"
+                                          ShowAnnotationTools="IsPrimary"
+                                          HorizontalLines="_horizontalLines" VerticalLines="DrawingVerticalLines"
+                                          DiagonalLines="DrawingDiagonalLines" RangeFills="_rangeFills" VwapLine="_vwapLine"
+                                          MedianLine="Data.MedianLine"
+                                          OnHorizontalLineDrawn="OnHorizontalLineDrawn" OnVerticalLineDrawn="OnVerticalLineDrawn"
+                                          OnDiagonalLineDrawn="OnDiagonalLineDrawn" OnTRangeChartDrawn="OnTRangeChartDrawn"
+                                          OnReferenceLineDrawn="OnReferenceLineDrawn" OnVolumeRangeDrawn="OnVolumeRangeDrawn"
+                                          HasVolumeRange="Options.HasWindow" OnVolumeRangeCleared="OnVolumeRangeCleared"
+                                          OnDrawFinished="OnDrawFinished" />
+                </div>
+            }
+            @if (Options.ShowXGrid)
+            {
+                <div class="prof-chart-divider" @ref="_dividerRefXGrid" data-min-width="200" title="Drag to resize"></div>
+                <div class="prof-chart-side">
+                    <div class="prof-vp"
+                         title="@(WindowLabel() is { } xgridLabel
+                                    ? $"Footprint grid for the selected Lookback Window ({xgridLabel}) -- rows are price buckets, columns are bars"
+                                    : "Select a Lookback Window to build the footprint grid -- rows are price buckets, columns are bars")">
+                        <XGridController Grid="ComputeXGrid()" @bind-PipCount="_xgridPipCount" PipSize="Data.EffectivePipSize"
+                                         ColCount="XGridColCount" ColCountChanged="XGridColCountChanged"
+                                         ProfileBarCount="@(_windowInBars?.Width ?? Options.LookbackWidth)" />
+                    </div>
+                </div>
+            }
+            @if (Options.ShowVolumeProfile)
+            {
+                <div class="prof-chart-divider" @ref="_dividerRefVolume" data-min-width="200" title="Drag to resize"></div>
+                <div class="prof-chart-side">
+                    <div class="prof-vp"
+                         title="@((WindowLabel() is { } label
+                                     ? $"Volume profile for the selected Lookback Window ({label}) -- use the toolbar's CLEAR LOOKBACK WINDOW button to go back to every loaded bar"
+                                     : "Volume profile across every bar loaded so far -- use the toolbar's LOOKBACK WINDOW tool to narrow it to a specific time window")
+                                  + ". POC/Value Area are highlighted below and projected onto the main chart as POC/VAH/VAL lines")">
+                        <TickVolumeProfileChart WeightedSamples="_samples" CurrentPrice="Data.LastClose"
+                                                ShowLevels="Options.ShowProfilePanelLevels" />
+                    </div>
+                </div>
+            }
+            @if (Options.ShowTimeProfile)
+            {
+                <div class="prof-chart-divider" @ref="_dividerRefTime" data-min-width="200" title="Drag to resize"></div>
+                <div class="prof-chart-side">
+                    <div class="prof-vp"
+                         title="@((WindowLabel() is { } timeLabel
+                                     ? $"Time profile for the selected Lookback Window ({timeLabel}) -- use the toolbar's CLEAR LOOKBACK WINDOW button to go back to every loaded bar"
+                                     : "Time profile across every bar loaded so far -- use the toolbar's LOOKBACK WINDOW tool to narrow it to a specific time window")
+                                  + ". Measures dwell time (seconds) per price level instead of tick count")">
+                        <TickTimeProfileChart WeightedSamples="_timeSamples" CurrentPrice="Data.LastClose" />
+                    </div>
+                </div>
+            }
+            @if (Options.ShowSubchart)
+            {
+                <div class="prof-chart-divider" @ref="_dividerRefSubchart" data-min-width="200" title="Drag to resize"></div>
+                <div class="prof-chart-side">
+                    <div class="prof-vp" title="A second market chart scoped to the selected Lookback Window, aggregated independently of the main chart -- its bar size/kind apply to every symbol">
+                        <div class="prof-subchart-panel">
+                            <div class="prof-subchart-toolbar">
+                                <BarSizeSelect Value="SubchartBarSizeSeconds" ValueChanged="SubchartBarSizeSecondsChanged" Disabled="@_subchartLoading" />
+                                <label class="prof-agg-field" title="OHLC draws each bar's real Open/High/Low/Close; Quartile draws a box plot of Min/Q1/Median/Q3/Max instead">
+                                    Bar kind
+                                    <select class="prof-agg-select" value="@SubchartBarKind" disabled="@_subchartLoading"
+                                            @onchange="e => SubchartBarKindChanged.InvokeAsync(Enum.Parse<BarAggregationKind>(e.Value?.ToString() ?? nameof(BarAggregationKind.Ohlc)))"
+                                            title="OHLC draws each bar's real Open/High/Low/Close; Quartile draws a box plot of Min/Q1/Median/Q3/Max instead">
+                                        <option value="@BarAggregationKind.Ohlc">OHLC</option>
+                                        <option value="@BarAggregationKind.Quartile">Quartile</option>
+                                    </select>
+                                </label>
+                            </div>
+                            <div class="prof-subchart-chart">
+                                @if (!Options.HasWindow)
+                                {
+                                    <p class="pcs-empty">Select a Lookback Window to view the subchart.</p>
+                                }
+                                else if (_subchartError is not null)
+                                {
+                                    <p class="pcs-empty">@_subchartError</p>
+                                }
+                                else if (_subchartLoading && _subchartBars.Count == 0)
+                                {
+                                    <p class="pcs-empty">Loading...</p>
+                                }
+                                else
+                                {
+                                    <MarketChartContainer Bars="_subchartBars" MedianLine="_subchartMedianLine" ShowAnnotationTools="false" />
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+            @if (Options.ShowSnapshot)
+            {
+                <div class="prof-chart-divider" @ref="_dividerRefSnapshot" data-min-width="200" title="Drag to resize"></div>
+                <div class="prof-chart-side">
+                    <div class="prof-vp"
+                         title="One OHLC/Quartile bar per toggled timeframe, each a trailing window ending at the selected Lookback Window's right edge">
+                        @if (SnapshotAnchorBar() is not { } anchorBar)
+                        {
+                            <p class="pcs-empty">Select a Lookback Window to view the snapshot.</p>
+                        }
+                        else
+                        {
+                            @* ITickRepository's "to" is exclusive, so +1 tick keeps the anchor bar's own closing tick inside the window. *@
+                            <TxFold Table="@Data.Table" AnchorEnd="@anchorBar.CloseTime.AddTicks(1)" RangeStart="@Options.RangeStart" LatestPrice="anchorBar.Close" />
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    }
+    <div class="pcs-resize-handle" @ref="_resizeHandleRef" data-min-height="240"
+         title="Drag to resize this chart set's height -- double-click to reset it"></div>
+</section>

@@ -4,23 +4,21 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
-using Microsoft.JSInterop;
+using Microsoft.Extensions.Logging;
 using Poink.Sim.Components.Charts;
+using Poink.Sim.Components.Profiler;
 using Poink.Sim.Helpers;
 using Poink.Sim.Models;
 using Poink.Sim.Profiler;
 using Poink.Sim.Repository;
-using Poink.Sim.Services.Charts;
+using Poink.Sim.Services.Symbols;
 
 namespace Poink.Sim.Components.Pages
 {
-	public partial class ProfilerPage : ComponentBase, IAsyncDisposable
+	public partial class ProfilerPage : ComponentBase
 	{
 		[Inject]
 		private IProfilerService Service { get; set; } = default!;
-
-		[Inject]
-		private IJSRuntime JS { get; set; } = default!;
 
 		[Inject]
 		private ITRangeChartRepository TRangeChartRepository { get; set; } = default!;
@@ -29,11 +27,20 @@ namespace Poink.Sim.Components.Pages
 		private ITRangeReferenceChartRepository TRangeReferenceChartRepository { get; set; } = default!;
 
 		[Inject]
-		private IBarKindChartService BarKindChartService { get; set; } = default!;
+		private ITickRepository TickRepository { get; set; } = default!;
+
+		[Inject]
+		private ISymbolTableResolver SymbolTableResolver { get; set; } = default!;
+
+		[Inject]
+		private ILogger<ProfilerPage> Logger { get; set; } = default!;
 
 		private const int BarsPerFetch = 300;
 
 		private string _table = "";
+
+		// Ordered selection from the symbols panel; the first entry is the primary symbol that _table mirrors.
+		private List<string> _selectedTables = new();
 		private DateTime _from = DateTime.UtcNow.AddDays(-1);
 		private DateTime _to = DateTime.UtcNow;
 		private int _barSizeSeconds = 60;
@@ -43,7 +50,6 @@ namespace Poink.Sim.Components.Pages
 		private bool _autoLoadPending = true;
 
 		private bool _isLoading;
-		private bool _isLoadingMore;
 		private string? _error;
 
 		private PanelTab _activePanelTab;
@@ -56,27 +62,10 @@ namespace Poink.Sim.Components.Pages
 			SavedTRangeReferenceCharts,
 		}
 
-		private bool _keepView;
-
 		private ProfilerConfig? _config;
-		private List<HlocAvdtBar> _bars = new();
 
-		/// <summary>
-		/// Cached CTraderBarRow projection of <see cref="_bars"/>, recomputed only when
-		/// _bars itself changes -- MarketChart.razor.cs skips its JS setData call (and the
-		/// fitContent() reset that follows on anything but KeepView) via ReferenceEquals on
-		/// this list, which a fresh `ToBarRows()` on every render would defeat.
-		/// </summary>
-		private List<CTraderBarRow> _barRows = new();
-
-		private List<QuartileBar> _quartileBars = new();
-
-		// Per-bar median overlay, only populated in Quartile bar-kind mode (see RefreshBarRows).
-		private List<ChartLinePoint> _medianLine = new();
-
-		private List<BarPriceHistogram> _barHistograms = new();
-		private int _tickCount;
-		private bool _reachedStart;
+		// One per symbol, primary first; comparison sets follow the selection order and load as soon as they're added.
+		private List<ProfilerSymbolData> _sets = new();
 
 		private sealed record Drawing(
 			List<ChartHorizontalLine> HorizontalLines,
@@ -146,11 +135,8 @@ namespace Poink.Sim.Components.Pages
 
 		private int _subchartBarSizeSeconds = 10;
 		private BarAggregationKind _subchartBarKind = BarAggregationKind.Ohlc;
-		private List<CTraderBarRow> _subchartBars = new();
-		private List<ChartLinePoint> _subchartMedianLine = new();
-		private bool _subchartLoading;
-		private string? _subchartError;
-		private (string Table, DateTime Start, DateTime End, int BarWidthSeconds, BarAggregationKind BarKind)? _subchartLoadedFor;
+
+		private int _xgridColCount = 20;
 
 		private HashSet<int> _selectedDrawingIds = new();
 		private HashSet<int> _savedDrawingIds = new();
@@ -171,144 +157,17 @@ namespace Poink.Sim.Components.Pages
 
 		private IEnumerable<Drawing> AllDrawings() => _drawings.Append(_pending);
 
-		private ElementReference _chartRowRef;
-		private ElementReference _chartDividerRefXGrid;
-		private ElementReference _chartDividerRef;
-		private ElementReference _chartDividerRef2;
-		private ElementReference _chartDividerRefSubchart;
-		private ElementReference _chartDividerRefSnapshot;
-		private IJSObjectReference? _dividerResizeInstance;
-		private HashSet<string> _lastVisiblePanels = new();
-
-		private const string ChartHDividerScript = """
-			(function() {
-			    // Every .prof-chart-main/.prof-chart-side child gets an explicit flex-basis
-			    // percent (not width px) so N panels always sum to 100% regardless of window
-			    // size -- resetEqual splits it evenly, bind's drag only ever moves percent
-			    // between the divider's own two immediate neighbours.
-			    // Net px a divider adds beyond its neighbours' own width: two 16px gaps narrowed
-			    // by its -10px margins, plus its own 6px -- keep in sync with .prof-chart's CSS.
-			    var DIVIDER_CHROME_PX = 18;
-			    function resetEqual(container) {
-			        if (!container) return;
-			        var panels = container.querySelectorAll(':scope > .prof-chart-main, :scope > .prof-chart-side');
-			        if (panels.length === 0) return;
-			        var dividerCount = container.querySelectorAll(':scope > .prof-chart-divider').length;
-			        var style = getComputedStyle(container);
-			        var containerWidth = container.getBoundingClientRect().width
-			            - (parseFloat(style.paddingLeft) || 0)
-			            - (parseFloat(style.paddingRight) || 0);
-			        var reservedPercent = containerWidth > 0
-			            ? (dividerCount * DIVIDER_CHROME_PX / containerWidth) * 100 : 0;
-			        var percent = (100 - reservedPercent) / panels.length;
-			        panels.forEach(function(p) { p.style.flex = '0 0 ' + percent + '%'; });
-			    }
-			    function bind(divider) {
-			        if (!divider || divider.dataset.bound) return;
-			        divider.dataset.bound = '1';
-			        var minWidthPx = parseInt(divider.dataset.minWidth, 10) || 200;
-			        divider.addEventListener('pointerdown', function(e) {
-			            e.preventDefault();
-			            var left = divider.previousElementSibling;
-			            var right = divider.nextElementSibling;
-			            if (!left || !right) return;
-			            var container = divider.parentElement;
-			            // flex-basis % resolves against the content box, not the border box
-			            // getBoundingClientRect returns -- subtract padding or drags drift right-ward.
-			            var containerStyle = getComputedStyle(container);
-			            var containerWidth = container.getBoundingClientRect().width
-			                - (parseFloat(containerStyle.paddingLeft) || 0)
-			                - (parseFloat(containerStyle.paddingRight) || 0);
-			            var minPercent = (minWidthPx / containerWidth) * 100;
-			            var startX = e.clientX;
-			            var startLeftPercent = (left.getBoundingClientRect().width / containerWidth) * 100;
-			            var startRightPercent = (right.getBoundingClientRect().width / containerWidth) * 100;
-			            divider.setPointerCapture(e.pointerId);
-			            divider.classList.add('prof-chart-divider-active');
-
-			            function onMove(ev) {
-			                var deltaPercent = ((ev.clientX - startX) / containerWidth) * 100;
-			                var newLeft = startLeftPercent + deltaPercent;
-			                var newRight = startRightPercent - deltaPercent;
-			                if (newLeft < minPercent) { newRight -= (minPercent - newLeft); newLeft = minPercent; }
-			                if (newRight < minPercent) { newLeft -= (minPercent - newRight); newRight = minPercent; }
-			                left.style.flex = '0 0 ' + newLeft + '%';
-			                right.style.flex = '0 0 ' + newRight + '%';
-			            }
-			            function onUp(ev) {
-			                divider.releasePointerCapture(e.pointerId);
-			                divider.removeEventListener('pointermove', onMove);
-			                divider.removeEventListener('pointerup', onUp);
-			                divider.classList.remove('prof-chart-divider-active');
-			            }
-			            divider.addEventListener('pointermove', onMove);
-			            divider.addEventListener('pointerup', onUp);
-			        });
-			    }
-			    return { bind: bind, resetEqual: resetEqual };
-			})()
-			""";
-
 		protected override void OnInitialized()
 		{
 			_savedTRangeCharts = TRangeChartRepository.ListTRangeCharts();
 			_savedTRangeReferenceCharts = TRangeReferenceChartRepository.ListTRangeReferenceCharts();
 		}
 
-		protected override async Task OnAfterRenderAsync(bool firstRender)
-		{
-			if (firstRender)
-				_dividerResizeInstance = await JS.InvokeAsync<IJSObjectReference>("eval", ChartHDividerScript);
+		private ProfilerSymbolData? PrimarySet => _sets.Count > 0 ? _sets[0] : null;
 
-			if (HasData && _dividerResizeInstance is not null)
-			{
-				var visiblePanels = CurrentVisiblePanelKeys();
-				if (!visiblePanels.SetEquals(_lastVisiblePanels))
-				{
-					_lastVisiblePanels = visiblePanels;
-					await _dividerResizeInstance.InvokeVoidAsync("resetEqual", _chartRowRef);
-				}
+		private List<HlocAvdtBar> PrimaryBars => PrimarySet?.Bars ?? new();
 
-				if (_showXGrid)
-					await _dividerResizeInstance.InvokeVoidAsync("bind", _chartDividerRefXGrid);
-				if (_showVolumeProfile)
-					await _dividerResizeInstance.InvokeVoidAsync("bind", _chartDividerRef);
-				if (_showTimeProfile)
-					await _dividerResizeInstance.InvokeVoidAsync("bind", _chartDividerRef2);
-				if (_showSubchart)
-					await _dividerResizeInstance.InvokeVoidAsync("bind", _chartDividerRefSubchart);
-				if (_showSnapshot)
-					await _dividerResizeInstance.InvokeVoidAsync("bind", _chartDividerRefSnapshot);
-			}
-
-			await RefreshSubchartIfNeeded();
-		}
-
-		private HashSet<string> CurrentVisiblePanelKeys()
-		{
-			var keys = new HashSet<string>();
-			if (_showMainChart) keys.Add("main");
-			if (_showXGrid) keys.Add("xgrid");
-			if (_showVolumeProfile) keys.Add("volume");
-			if (_showTimeProfile) keys.Add("time");
-			if (_showSubchart) keys.Add("subchart");
-			if (_showSnapshot) keys.Add("snapshot");
-			return keys;
-		}
-
-		public async ValueTask DisposeAsync()
-		{
-			if (_dividerResizeInstance is not null)
-			{
-				try
-				{
-					await _dividerResizeInstance.DisposeAsync();
-				}
-				catch (JSDisconnectedException) { }
-			}
-		}
-
-		private bool HasData => _config is not null && _bars.Count > 0;
+		private bool HasData => _config is not null && PrimarySet is { HasBars: true };
 
 		private string StateClass() =>
 			_isLoading ? "prof-state-loading"
@@ -321,7 +180,7 @@ namespace Poink.Sim.Components.Pages
 
 			if (string.IsNullOrWhiteSpace(_table))
 			{
-				_error = "pick a symbol";
+				_error = "add a symbol in the SYMBOLS panel";
 				return;
 			}
 			if (_to <= _from)
@@ -331,15 +190,8 @@ namespace Poink.Sim.Components.Pages
 			}
 
 			_isLoading = true;
-			_keepView = false;
 			_config = null;
-			_bars = new();
-			_quartileBars = new();
-			_barRows = new();
-			_medianLine = new();
-			_barHistograms = new();
-			_tickCount = 0;
-			_reachedStart = false;
+			_sets = new();
 			_drawings = new();
 			_pending = NewPending();
 			_nextDrawingId = 1;
@@ -347,27 +199,37 @@ namespace Poink.Sim.Components.Pages
 			_savedDrawingIds.Clear();
 			_volumeRangeStart = null;
 			_volumeRangeEnd = null;
-			_subchartBars = new();
-			_subchartMedianLine = new();
-			_subchartLoadedFor = null;
 			CancelLabelSelected();
 
 			try
 			{
 				var config = new ProfilerConfig(_table, _from, _to, TimeSpan.FromSeconds(_barSizeSeconds));
+				Logger.LogInformation(
+					"Profiler load started for [{Tables}] from {From} to {To} at {BarSize} bars",
+					string.Join(", ", _selectedTables),
+					config.From,
+					config.To,
+					config.BarSize
+				);
 				var chunk = await Service.LoadAsync(config, config.To, BarsPerFetch);
 				if (chunk.Bars.Count == 0 && chunk.ReachedStart)
 				{
 					_error = "no ticks in the selected range";
+					Logger.LogWarning("Profiler load found no ticks for primary symbol {Table}", config.Table);
 				}
 				else
 				{
 					_config = config;
-					ApplyChunk(chunk);
+					var primary = new ProfilerSymbolData(config.Table);
+					primary.ApplyChunk(chunk, _barAggregationKind);
+					_ = ResolvePipSizeAsync(primary);
+					_sets = [primary];
+					SyncComparisonSets();
 				}
 			}
 			catch (Exception ex)
 			{
+				Logger.LogError(ex, "Profiler load failed for primary symbol {Table}", _table);
 				_error = ex.Message;
 			}
 			finally
@@ -376,55 +238,147 @@ namespace Poink.Sim.Components.Pages
 			}
 		}
 
-		private async Task LoadMore()
+		// Keeps the primary set until the next LOAD and adds/drops comparison sets to match the selection right away.
+		private void SyncComparisonSets()
 		{
-			// Latched before the guard below since OnNearStartAsync re-renders ProfilerPage
-			// even on an early return, and a stale false here re-fits the chart every time.
-			_keepView = true;
-
-			if (_config is null || _reachedStart || _isLoadingMore)
+			if (_config is null || PrimarySet is not { } primary)
 				return;
-			_isLoadingMore = true;
 
+			var existing = _sets.Skip(1).ToDictionary(s => s.Table);
+			var comparisons = _selectedTables
+				.Where(t => t != primary.Table)
+				.Select(t => existing.TryGetValue(t, out var set) ? set : StartComparisonLoad(t, _config));
+			_sets = comparisons.Prepend(primary).ToList();
+		}
+
+		private ProfilerSymbolData StartComparisonLoad(string table, ProfilerConfig primaryConfig)
+		{
+			var set = new ProfilerSymbolData(table) { IsLoading = true };
+			_ = LoadComparisonAsync(set, primaryConfig with { Table = table });
+			_ = ResolvePipSizeAsync(set);
+			return set;
+		}
+
+		private async Task ResolvePipSizeAsync(ProfilerSymbolData set)
+		{
 			try
 			{
-				var cursor = _bars.Count > 0 ? _bars[0].OpenTime : _config.To;
-				var chunk = await Service.LoadAsync(_config, cursor, BarsPerFetch);
-				ApplyChunk(chunk);
+				var resolution = await SymbolTableResolver.ResolveAsync(set.Table);
+				if (resolution.Limits is { } limits)
+				{
+					set.PipSize = limits.PipSize;
+					Logger.LogInformation("Profiler pip size for {Table} resolved to {PipSize}", set.Table, limits.PipSize);
+				}
+				else
+				{
+					Logger.LogWarning(
+						"No trading metadata for {Table}; Profiler XGrid assumes a {PipSize} pip size",
+						set.Table,
+						ProfilerSymbolData.FallbackPipSize
+					);
+				}
 			}
 			catch (Exception ex)
 			{
-				_error = ex.Message;
+				Logger.LogWarning(ex, "Could not resolve the pip size for {Table}; Profiler XGrid assumes a {PipSize} pip size", set.Table, ProfilerSymbolData.FallbackPipSize);
+			}
+			await InvokeAsync(StateHasChanged);
+		}
+
+		private async Task LoadComparisonAsync(ProfilerSymbolData set, ProfilerConfig config)
+		{
+			try
+			{
+				var chunk = await Service.LoadAsync(config, config.To, BarsPerFetch);
+				if (chunk.Bars.Count == 0 && chunk.ReachedStart)
+				{
+					set.Error = "no ticks in the selected range";
+					Logger.LogWarning("Profiler load found no ticks for comparison symbol {Table}", config.Table);
+				}
+				else
+				{
+					set.ApplyChunk(chunk, _barAggregationKind);
+				}
+			}
+			catch (Exception ex)
+			{
+				Logger.LogError(ex, "Profiler load failed for comparison symbol {Table}", config.Table);
+				set.Error = ex.Message;
 			}
 			finally
 			{
-				_isLoadingMore = false;
+				set.IsLoading = false;
+			}
+			await InvokeAsync(StateHasChanged);
+		}
+
+		private async Task LoadMore(ProfilerSymbolData set)
+		{
+			// Latched before the guard since OnNearStart re-renders even on an early return, and a stale false re-fits the chart.
+			set.KeepView = true;
+
+			if (_config is null || set.ReachedStart || set.IsLoadingMore)
+				return;
+			set.IsLoadingMore = true;
+
+			try
+			{
+				var config = _config with { Table = set.Table };
+				var cursor = set.HasBars ? set.Bars[0].OpenTime : config.To;
+				var chunk = await Service.LoadAsync(config, cursor, BarsPerFetch);
+				set.ApplyChunk(chunk, _barAggregationKind);
+			}
+			catch (Exception ex)
+			{
+				Logger.LogError(ex, "Profiler backfill failed for {Table}", set.Table);
+				set.Error = ex.Message;
+			}
+			finally
+			{
+				set.IsLoadingMore = false;
 			}
 		}
 
-		private void ApplyChunk(ProfilerChunk chunk)
-		{
-			_bars = chunk.Bars.Concat(_bars).ToList();
-			_quartileBars = chunk.QuartileBars.Concat(_quartileBars).ToList();
-			RefreshBarRows();
-			_barHistograms = chunk.BarHistograms.Concat(_barHistograms).ToList();
-			_tickCount += chunk.TickCount;
-			_reachedStart = chunk.ReachedStart;
-		}
-
-		// Volume/Time Profile, XGrid, and VWAP always stay wired to _bars/_barHistograms since those can only be computed from ticks.
 		private void RefreshBarRows()
 		{
-			if (_barAggregationKind == BarAggregationKind.Quartile)
-			{
-				_barRows = ToQuartileBarRows(_quartileBars);
-				_medianLine = _quartileBars.Select(b => new ChartLinePoint(b.OpenTime, b.Median)).ToList();
-			}
-			else
-			{
-				_barRows = ToBarRows(_bars);
-				_medianLine = new();
-			}
+			foreach (var set in _sets)
+				set.RefreshBarRows(_barAggregationKind);
+		}
+
+		// TickDataSource only reports a table when it defaults one on first visit, which seeds an empty selection.
+		private void OnDefaultTableSelected(string table)
+		{
+			if (_selectedTables.Count == 0 && !string.IsNullOrWhiteSpace(table))
+				OnSelectedTablesChanged([table]);
+		}
+
+		private void OnSelectedTablesChanged(IReadOnlyList<string> tables)
+		{
+			_selectedTables = tables.ToList();
+			Logger.LogInformation("Profiler symbol selection set to [{Tables}]", string.Join(", ", _selectedTables));
+			SyncComparisonSets();
+
+			var primary = _selectedTables.FirstOrDefault() ?? "";
+			if (primary == _table)
+				return;
+			_table = primary;
+			SnapRangeIfOutside(primary);
+		}
+
+		private void MakePrimary(string table) =>
+			OnSelectedTablesChanged(_selectedTables.Where(t => t != table).Prepend(table).ToList());
+
+		private void RemoveSymbol(string table) => OnSelectedTablesChanged(_selectedTables.Where(t => t != table).ToList());
+
+		// Keeps the shared timespan across primary changes unless it holds none of the new primary's ticks.
+		private void SnapRangeIfOutside(string table)
+		{
+			var meta = TickRepository.CachedTables.FirstOrDefault(t => t.Table == table);
+			if (meta.MaxTime is not { } maxTime || TickTableRangeHelper.Overlaps(_from, _to, meta.MinTime, maxTime))
+				return;
+
+			(_from, _to) = TickTableRangeHelper.DefaultRange(meta.MinTime, maxTime);
+			Logger.LogInformation("Profiler range snapped to {From} - {To} for primary symbol {Table}", _from, _to, table);
 		}
 
 		private async Task OnRangeSettled()
@@ -434,40 +388,6 @@ namespace Poink.Sim.Components.Pages
 
 			_autoLoadPending = false;
 			await Load();
-		}
-
-		// Re-aggregates the active Lookback Window at the subchart's own bar size/kind -- only when
-		// the panel is open and the window/settings actually changed, since this runs every render.
-		private async Task RefreshSubchartIfNeeded()
-		{
-			if (!_showSubchart || _config is null || _volumeRangeStart is not { } start || _volumeRangeEnd is not { } end || _subchartLoading)
-				return;
-
-			var key = (_config.Table, start, end, _subchartBarSizeSeconds, _subchartBarKind);
-			if (_subchartLoadedFor == key)
-				return;
-
-			_subchartLoading = true;
-			_subchartError = null;
-			StateHasChanged();
-
-			try
-			{
-				var (bars, medianLine) = await BarKindChartService.BuildBarsAsync(
-					_config.Table, start, end, _subchartBarSizeSeconds, _subchartBarKind);
-				_subchartBars = bars;
-				_subchartMedianLine = medianLine;
-				_subchartLoadedFor = key;
-			}
-			catch (Exception ex)
-			{
-				_subchartError = ex.Message;
-			}
-			finally
-			{
-				_subchartLoading = false;
-			}
-			StateHasChanged();
 		}
 
 		private void AddHorizontalLine(double price) =>
@@ -488,8 +408,8 @@ namespace Poink.Sim.Components.Pages
 			var start = range.TimeUtc1 <= range.TimeUtc2 ? range.TimeUtc1 : range.TimeUtc2;
 			var end = range.TimeUtc1 <= range.TimeUtc2 ? range.TimeUtc2 : range.TimeUtc1;
 			var sliceStart = _pending.ReferenceLines.Count > 0 ? _pending.ReferenceLines[0].TimeUtc : start;
-			var slice = _bars.Where(b => b.OpenTime >= sliceStart && b.OpenTime <= end);
-			_pending.ChartBars.AddRange(ToBarRows(slice));
+			var slice = PrimaryBars.Where(b => b.OpenTime >= sliceStart && b.OpenTime <= end);
+			_pending.ChartBars.AddRange(ChartBarRowHelper.ToBarRows(slice));
 		}
 
 		private void AddReferenceLine(DateTime timeUtc) =>
@@ -546,47 +466,31 @@ namespace Poink.Sim.Components.Pages
 			}
 		}
 
-		// Resolves _lookbackWidth/_lookbackOffset (both in bars, counted back from the most
-		// recently loaded bar) to the DateTime pair every Lookback Window consumer below reads.
+		// Resolves _lookbackWidth/_lookbackOffset (both in bars, counted back from the primary symbol's most recently
+		// loaded bar) to the shared time window every symbol's chart set reads.
 		private void ApplyLookbackWindow()
 		{
-			if (_bars.Count == 0)
+			if (PrimarySet?.ResolveWindow(_lookbackWidth, _lookbackOffset) is not { } window)
 				return;
 
-			var endIndex = Math.Clamp(_bars.Count - 1 - _lookbackOffset, 0, _bars.Count - 1);
-			var startIndex = Math.Clamp(endIndex - _lookbackWidth + 1, 0, endIndex);
-			_volumeRangeStart = _bars[startIndex].OpenTime;
-			_volumeRangeEnd = _bars[endIndex].OpenTime;
+			_volumeRangeStart = window.Start;
+			_volumeRangeEnd = window.End;
 		}
 
 		// Keeps the toolbar's width/offset fields in step when the window is instead drawn on
-		// the chart via the LOOKBACK WINDOW tool, so neither input method goes stale.
+		// a chart via the LOOKBACK WINDOW tool, so neither input method goes stale.
 		private void SyncLookbackFieldsFromRange()
 		{
-			if (_volumeRangeStart is not { } start || _volumeRangeEnd is not { } end || _bars.Count == 0)
+			if (_volumeRangeStart is not { } start || _volumeRangeEnd is not { } end)
+				return;
+			if (PrimarySet?.WindowInBars(start, end) is not { } bars)
 				return;
 
-			var startIndex = _bars.FindIndex(b => b.OpenTime >= start);
-			var endIndex = _bars.FindLastIndex(b => b.OpenTime <= end);
-			if (startIndex < 0 || endIndex < 0 || endIndex < startIndex)
-				return;
-
-			_lookbackWidth = endIndex - startIndex + 1;
-			_lookbackOffset = _bars.Count - 1 - endIndex;
+			_lookbackWidth = bars.Width;
+			_lookbackOffset = bars.Offset;
 		}
 
-		// _volumeRangeEnd is an OpenTime boundary for bar-keyed consumers; Snapshot needs this
-		// bar's CloseTime/Close instead, or it'd cut off before the bar it's supposed to include.
-		private HlocAvdtBar? SnapshotAnchorBar()
-		{
-			if (_volumeRangeEnd is not { } end)
-				return null;
-			var index = _bars.FindLastIndex(b => b.OpenTime <= end);
-			return index >= 0 ? _bars[index] : null;
-		}
-
-		// Sparkline's drag callback -- fires continuously as the user drags the window's body
-		// (pan, width unchanged) or either edge (resize), not just once on release.
+		// Sparkline drag callback, fired continuously while the window's body or either edge is dragged.
 		private void OnWindowChanged((int Width, int Offset) window)
 		{
 			_lookbackWidth = Math.Max(1, window.Width);
@@ -594,13 +498,25 @@ namespace Poink.Sim.Components.Pages
 			ApplyLookbackWindow();
 		}
 
-		private string? VolumeRangeLabel()
-		{
-			if (_volumeRangeStart is not { } start || _volumeRangeEnd is not { } end)
-				return null;
-			var barCount = _bars.Count(b => b.OpenTime >= start && b.OpenTime <= end);
-			return $"{barCount:N0} bars, {FormatSpan(end - start)}";
-		}
+		private ProfilerChartSetOptions CurrentSetOptions() =>
+			new(
+				_showMainChart,
+				_showXGrid,
+				_showVolumeProfile,
+				_showTimeProfile,
+				_showSubchart,
+				_showSnapshot,
+				_showProfilePanelLevels,
+				_showProfileChartLines,
+				_showVwap,
+				_showAverageLine,
+				_showMedianLine,
+				_lookbackEnabled,
+				_volumeRangeStart,
+				_volumeRangeEnd,
+				_lookbackWidth,
+				_config?.From ?? _from
+			);
 
 		private void FinishDrawing()
 		{
@@ -620,7 +536,7 @@ namespace Poink.Sim.Components.Pages
 					var end = t1 <= t2 ? t2 : t1;
 					drawing = drawing with
 					{
-						RangeBarCount = _bars.Count(b => b.OpenTime >= start && b.OpenTime <= end),
+						RangeBarCount = PrimaryBars.Count(b => b.OpenTime >= start && b.OpenTime <= end),
 						RangeSpan = end - start,
 					};
 
@@ -629,7 +545,7 @@ namespace Poink.Sim.Components.Pages
 						var referenceStart = drawing.ReferenceLines[0].TimeUtc;
 						drawing = drawing with
 						{
-							ReferenceBarCount = _bars.Count(b => b.OpenTime >= referenceStart && b.OpenTime < start),
+							ReferenceBarCount = PrimaryBars.Count(b => b.OpenTime >= referenceStart && b.OpenTime < start),
 						};
 					}
 				}
@@ -762,7 +678,7 @@ namespace Poink.Sim.Components.Pages
 					TimeSpan.FromMinutes(chart.BarMinutes)
 				);
 				var loaded = await Service.LoadAsync(config, chart.EndTimeUtc, chart.BarCount);
-				_chartBarsCache[chart.Id] = ToBarRows(loaded.Bars);
+				_chartBarsCache[chart.Id] = ChartBarRowHelper.ToBarRows(loaded.Bars);
 			}
 			finally
 			{
@@ -795,7 +711,7 @@ namespace Poink.Sim.Components.Pages
 					chart.EndTimeUtc,
 					chart.BarCount + chart.ReferenceBarCount
 				);
-				_referenceChartBarsCache[chart.Id] = ToBarRows(loaded.Bars);
+				_referenceChartBarsCache[chart.Id] = ChartBarRowHelper.ToBarRows(loaded.Bars);
 			}
 			finally
 			{
@@ -804,56 +720,8 @@ namespace Poink.Sim.Components.Pages
 			StateHasChanged();
 		}
 
-		private List<ChartHorizontalLine> AllHorizontalLines() =>
-			AllDrawings()
-				.SelectMany(d => d.HorizontalLines.Select(l => l with { ColorGroup = d.ColorGroup }))
-				.Concat(ProfileLevelLines())
-				.Concat(AverageMedianLines())
-				.ToList();
-
-		private List<ChartHorizontalLine> AverageMedianLines()
-		{
-			var lines = new List<ChartHorizontalLine>();
-			if (!_showAverageLine && !_showMedianLine)
-				return lines;
-
-			var samples = MergedSamples();
-			if (_showAverageLine && VolumeProfileStats.ComputeAverage(samples) is { } average)
-				lines.Add(new ChartHorizontalLine(average, "AVG", "average"));
-			if (_showMedianLine && VolumeProfileStats.ComputeMedian(samples) is { } median)
-				lines.Add(new ChartHorizontalLine(median, "MED", "median"));
-			return lines;
-		}
-
-		private List<ChartHorizontalLine> ProfileLevelLines()
-		{
-			if (!_showProfileChartLines)
-				return new();
-			if (VolumeProfileStats.Compute(MergedSamples()) is not { } levels)
-				return new();
-			return new()
-			{
-				new ChartHorizontalLine(levels.Poc, "POC", "profile"),
-				new ChartHorizontalLine(levels.ValueAreaHigh, "VAH", "profile"),
-				new ChartHorizontalLine(levels.ValueAreaLow, "VAL", "profile"),
-			};
-		}
-
-		private List<ChartLinePoint> VwapPoints()
-		{
-			if (!_showVwap)
-				return new();
-
-			var bars =
-				_volumeRangeStart is { } start && _volumeRangeEnd is { } end
-					? _bars.Where(b => b.OpenTime >= start && b.OpenTime <= end)
-					: _bars;
-
-			return VectorStatsHelper
-				.Vwap(bars, b => b.OpenTime, b => b.Average, b => b.Volume)
-				.Select(p => new ChartLinePoint(p.TimeUtc, p.Value))
-				.ToList();
-		}
+		private List<ChartHorizontalLine> DrawingHorizontalLines() =>
+			AllDrawings().SelectMany(d => d.HorizontalLines.Select(l => l with { ColorGroup = d.ColorGroup })).ToList();
 
 		private List<ChartVerticalLine> AllVerticalLines() =>
 			AllDrawings()
@@ -866,7 +734,7 @@ namespace Poink.Sim.Components.Pages
 		private List<ChartDiagonalLine> AllDiagonalLines() =>
 			AllDrawings().SelectMany(d => d.DiagonalLines.Select(l => l with { ColorGroup = d.ColorGroup })).ToList();
 
-		private List<ChartRangeFill> AllRangeFills() =>
+		private List<ChartRangeFill> DrawingRangeFills() =>
 			AllDrawings()
 				.Where(d => d.IsRange)
 				.Select(d => new ChartRangeFill(
@@ -892,113 +760,6 @@ namespace Poink.Sim.Components.Pages
 							);
 						})
 				)
-				.Concat(VolumeRangeFill())
 				.ToList();
-
-		private IEnumerable<ChartRangeFill> VolumeRangeFill()
-		{
-			if (_volumeRangeStart is { } start && _volumeRangeEnd is { } end)
-				yield return new ChartRangeFill(start, end, "LOOKBACK WINDOW", "volume");
-		}
-
-		private static string FormatSpan(TimeSpan span) =>
-			span switch
-			{
-				{ TotalDays: >= 1 } => $"{(int)span.TotalDays}d {span.Hours}h",
-				{ TotalHours: >= 1 } => $"{(int)span.TotalHours}h {span.Minutes}m",
-				{ TotalMinutes: >= 1 } => $"{(int)span.TotalMinutes}m",
-				_ => $"{(int)span.TotalSeconds}s",
-			};
-
-		private static List<CTraderBarRow> ToBarRows(IEnumerable<HlocAvdtBar> bars) =>
-			bars.Select(b => new CTraderBarRow(
-					b.OpenTime,
-					b.Open,
-					b.High,
-					b.Low,
-					b.Close,
-					b.Volume,
-					b.UpVolume,
-					b.DownVolume,
-					b.Distance
-				))
-				.ToList();
-
-		// Box plot mapping (Open/Close = Q1/Q3, High/Low = Min/Max), matching Analize's Price tab.
-		private static List<CTraderBarRow> ToQuartileBarRows(IEnumerable<QuartileBar> bars) =>
-			bars.Select(b => new CTraderBarRow(b.OpenTime, b.Q1, b.Max, b.Min, b.Q3, b.Count)).ToList();
-
-		private List<WeightedPriceSample> MergedSamples()
-		{
-			var histograms = _barHistograms;
-			if (_volumeRangeStart is { } start && _volumeRangeEnd is { } end)
-			{
-				histograms = _bars
-					.Zip(_barHistograms, (bar, histogram) => (bar, histogram))
-					.Where(t => t.bar.OpenTime >= start && t.bar.OpenTime <= end)
-					.Select(t => t.histogram)
-					.ToList();
-			}
-
-			return BarPriceHistogram
-				.Merge(histograms, histograms.Count)
-				.Select(t => new WeightedPriceSample(t.Price, t.Count, t.UpCount, t.DownCount))
-				.ToList();
-		}
-
-		private List<WeightedTimeSample> MergedTimeSamples()
-		{
-			var bars = _bars;
-			var histograms = _barHistograms;
-			if (_volumeRangeStart is { } start && _volumeRangeEnd is { } end)
-			{
-				var filtered = _bars
-					.Zip(_barHistograms, (bar, histogram) => (bar, histogram))
-					.Where(t => t.bar.OpenTime >= start && t.bar.OpenTime <= end)
-					.ToList();
-				bars = filtered.Select(t => t.bar).ToList();
-				histograms = filtered.Select(t => t.histogram).ToList();
-			}
-
-			return BarPriceHistogram
-				.MergeTime(bars, histograms, histograms.Count)
-				.Select(t => new WeightedTimeSample(t.Price, t.Count, t.Seconds, t.UpSeconds, t.DownSeconds))
-				.ToList();
-		}
-
-		private double? LastClose => _bars.Count > 0 ? _bars[^1].Close : null;
-
-		private int _xgridPipCount = 20;
-
-		// Placeholder until pip size is looked up from the loaded symbol -- ProfilerPage has
-		// no per-instrument settings today, unlike Simulation's Config.PipSize.
-		private const double XGridPipSize = 0.01;
-
-		private int _xgridColCount = 20;
-
-		private XGridResult? _xgridCache;
-		private (int Pips, int Cols, DateTime Start, DateTime End, int Count, double LastClose)? _xgridKey;
-
-		private XGridResult? ComputeXGrid()
-		{
-			if (_volumeRangeStart is not { } start || _volumeRangeEnd is not { } end)
-				return null;
-
-			var key = (_xgridPipCount, _xgridColCount, start, end, _bars.Count, _bars.Count > 0 ? _bars[^1].Close : 0);
-			if (_xgridKey == key && _xgridCache is not null)
-				return _xgridCache;
-
-			_xgridKey = key;
-			_xgridCache = XGridStats.Compute(
-				_bars,
-				_barHistograms,
-				MergedSamples(),
-				start,
-				end,
-				_xgridPipCount * XGridPipSize,
-				_xgridColCount
-			);
-			return _xgridCache;
-		}
 	}
 }

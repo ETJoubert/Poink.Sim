@@ -2,30 +2,33 @@
 @using Poink.Sim.Components.Shared.DateRangeSlider
 
 <div class="tds-row">
-    <label class="tds-field">
-        @if (_availableTables.Count > 0)
-        {
-            <select class="tds-select" aria-label="Symbol" value="@Table" @onchange="OnTableSelected"
-                    disabled="@(Disabled || _loadingTables)">
-                @foreach (var t in _availableTables)
-                {
-                    <option value="@t.Table">@t.Table (@t.Rows.ToString("N0") rows)</option>
-                }
-            </select>
-        }
-        else if (_loadingTables)
-        {
-            <span class="tds-empty">loading tables...</span>
-        }
-        else
-        {
-            <span class="tds-empty">no tables found</span>
-        }
-    </label>
-    <button class="tds-btn" @onclick="RecountTables" disabled="@(Disabled || _loadingTables)"
-            title="Rescans every ticks_* table (COUNT/MIN/MAX) and refreshes stored row counts -- slow, only needed after new data has been written">
-        @(_loadingTables ? "RECOUNTING..." : "RECOUNT")
-    </button>
+    @if (ShowTablePicker)
+    {
+        <label class="tds-field">
+            @if (_availableTables.Count > 0)
+            {
+                <select class="tds-select" aria-label="Symbol" title="Tick table to load" value="@Table" @onchange="OnTableSelected"
+                        disabled="@(Disabled || _loadingTables)">
+                    @foreach (var t in _availableTables)
+                    {
+                        <option value="@t.Table">@t.Table (@t.Rows.ToString("N0") rows)</option>
+                    }
+                </select>
+            }
+            else if (_loadingTables)
+            {
+                <span class="tds-empty">loading tables...</span>
+            }
+            else
+            {
+                <span class="tds-empty">no tables found</span>
+            }
+        </label>
+        <button class="tds-btn" @onclick="RecountTables" disabled="@(Disabled || _loadingTables)"
+                title="Rescans every ticks_* table (COUNT/MIN/MAX) and refreshes stored row counts -- slow, only needed after new data has been written">
+            @(_loadingTables ? "RECOUNTING..." : "RECOUNT")
+        </button>
+    }
 
     <div class="tds-range">
         <DateRangeSlider Min="SliderMin" Max="SliderMax" From="From" FromChanged="@(v => FromChanged.InvokeAsync(v))"

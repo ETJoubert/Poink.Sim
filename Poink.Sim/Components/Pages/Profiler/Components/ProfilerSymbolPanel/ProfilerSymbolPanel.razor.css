@@ -1,0 +1,229 @@
+.psp-panel {
+    display: flex;
+    flex-direction: column;
+    width: 260px;
+    flex-shrink: 0;
+    border-right: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
+    overflow: hidden;
+    transition: width 0.15s ease;
+}
+
+.psp-panel-collapsed {
+    width: 28px;
+}
+
+.psp-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    flex-shrink: 0;
+}
+
+.psp-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    flex-shrink: 0;
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
+    border-radius: var(--border-radius-sm);
+    color: var(--color-secondary);
+    cursor: pointer;
+}
+
+.psp-toggle:hover {
+    color: var(--color-primary);
+    border-color: var(--color-primary);
+}
+
+::deep .psp-toggle-icon,
+::deep .psp-icon {
+    width: 12px;
+    height: 12px;
+    flex-shrink: 0;
+}
+
+.psp-label,
+.psp-section-label {
+    font-size: 0.72rem;
+    font-weight: bold;
+    letter-spacing: 0.06em;
+    color: var(--color-secondary);
+    white-space: nowrap;
+}
+
+.psp-count {
+    font-size: 0.66rem;
+    padding: 1px 6px;
+    border-radius: 8px;
+    color: var(--color-primary);
+    background: color-mix(in srgb, var(--color-primary) 14%, transparent);
+}
+
+.psp-content {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 6px 10px 24px;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+}
+
+.psp-section {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.psp-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.psp-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 18%, transparent);
+    border-radius: var(--border-radius-sm);
+    background: transparent;
+    color: var(--color-primary);
+    font-family: var(--font-body);
+    text-align: left;
+}
+
+.psp-item-primary {
+    border-color: var(--color-success);
+    background: color-mix(in srgb, var(--color-success) 8%, transparent);
+}
+
+.psp-item-available {
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.psp-item-available:hover:not(:disabled) {
+    border-color: var(--color-primary);
+    background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+}
+
+.psp-item-available:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.psp-item-text {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+}
+
+.psp-item-name {
+    font-size: 0.76rem;
+    font-weight: bold;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.psp-item-meta {
+    font-size: 0.64rem;
+    color: var(--color-secondary);
+    opacity: 0.8;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.psp-badge {
+    font-size: 0.6rem;
+    font-weight: bold;
+    letter-spacing: 0.06em;
+    padding: 2px 6px;
+    border-radius: var(--border-radius-sm);
+    color: var(--color-success);
+    border: 1px solid var(--color-success);
+}
+
+.psp-badge-pending {
+    color: var(--color-warning);
+    border-color: var(--color-warning);
+}
+
+.psp-link-btn,
+.psp-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
+    border-radius: var(--border-radius-sm);
+    color: var(--color-secondary);
+    font-family: var(--font-body);
+    font-size: 0.6rem;
+    font-weight: bold;
+    letter-spacing: 0.06em;
+    padding: 3px 6px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.psp-icon-btn {
+    padding: 3px;
+}
+
+.psp-link-btn:hover:not(:disabled),
+.psp-icon-btn:hover:not(:disabled) {
+    color: var(--color-primary);
+    border-color: var(--color-primary);
+}
+
+.psp-link-btn:disabled,
+.psp-icon-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.psp-search {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
+    border-radius: var(--border-radius-sm);
+    color: var(--color-secondary);
+}
+
+.psp-search-input {
+    flex: 1;
+    min-width: 0;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--color-primary);
+    font-family: var(--font-body);
+    font-size: 0.74rem;
+}
+
+.psp-empty {
+    margin: 0;
+    font-size: 0.72rem;
+    color: var(--color-secondary);
+    opacity: 0.7;
+}
+
+.psp-error {
+    margin: 0;
+    font-size: 0.72rem;
+    color: var(--color-error, #ff5f56);
+}

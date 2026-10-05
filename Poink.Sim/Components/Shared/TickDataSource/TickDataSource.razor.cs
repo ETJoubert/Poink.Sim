@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
+using Poink.Sim.Helpers;
 using Poink.Sim.Repository;
 
 namespace Poink.Sim.Components.Shared.TickDataSource;
@@ -36,6 +37,10 @@ public partial class TickDataSource : ComponentBase
 
 	[Parameter]
 	public bool Disabled { get; set; }
+
+	/// <summary>Hides the symbol dropdown and RECOUNT button for hosts that pick tables elsewhere; the range slider still follows <see cref="Table"/>.</summary>
+	[Parameter]
+	public bool ShowTablePicker { get; set; } = true;
 
 	private List<(string Table, long Rows, DateTime? MinTime, DateTime? MaxTime)> _availableTables = new();
 	private bool _loadingTables;
@@ -105,11 +110,7 @@ public partial class TickDataSource : ComponentBase
 		if (meta.MaxTime is null)
 			return;
 
-		var to = meta.MaxTime.Value;
-		var from =
-			meta.MinTime is not null && meta.MaxTime.Value - meta.MinTime.Value < TimeSpan.FromDays(1)
-				? meta.MinTime.Value
-				: meta.MaxTime.Value.AddDays(-1);
+		var (from, to) = TickTableRangeHelper.DefaultRange(meta.MinTime, meta.MaxTime.Value);
 		await FromChanged.InvokeAsync(from);
 		await ToChanged.InvokeAsync(to);
 	}
