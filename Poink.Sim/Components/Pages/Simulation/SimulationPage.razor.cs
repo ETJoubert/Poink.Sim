@@ -100,7 +100,6 @@ namespace Poink.Sim.Components.Pages
 		private bool _isLoadingHistory;
 		private int _lastHistoryCursorIndex;
 
-		private bool _setupCollapsed;
 		private int? _selectedTraderId;
 
 		// Matches SimulationEngine.MaxRecentTicks.
@@ -160,6 +159,7 @@ namespace Poink.Sim.Components.Pages
 
 		private enum SimLeftPanelTab
 		{
+			Symbol,
 			Setup,
 			Traders,
 			RuleEngine,
@@ -1034,7 +1034,6 @@ namespace Poink.Sim.Components.Pages
 			);
 
 			_keepChartView = false;
-			_setupCollapsed = true;
 			_playOnLoad = playWhenLoaded;
 			if (!SimulationService.TryLoad(config))
 			{
@@ -1184,7 +1183,18 @@ namespace Poink.Sim.Components.Pages
 
 		private void ToggleHideChart() => _hideChart = !_hideChart;
 
-		private void ToggleSetupPanel() => _setupCollapsed = !_setupCollapsed;
+		private string StateLabel =>
+			_isLoading ? "LOADING"
+			: _snapshot is null ? "SETUP"
+			: _snapshot.IsFinished ? "FINISHED"
+			: _snapshot.IsPlaying ? "PLAYING"
+			: "PAUSED";
+
+		private string StateCssClass =>
+			_isLoading || _snapshot is null ? "sim-state-setup"
+			: _snapshot.IsFinished ? "sim-state-finished"
+			: _snapshot.IsPlaying ? "sim-state-playing"
+			: "sim-state-paused";
 
 		private Task ResetSim()
 		{

@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
 using Poink.Sim.Helpers;
 using Poink.Sim.Models;
+using Poink.Sim.Repository;
 using Poink.Sim.Services.MarketData;
 using Poink.Sim.Services.Symbols;
 
@@ -19,6 +20,9 @@ namespace Poink.Sim.Components.Pages
 	{
 		[Inject]
 		private ISymbolTableResolver SymbolTableResolver { get; set; } = default!;
+
+		[Inject]
+		private ITickRepository TickRepository { get; set; } = default!;
 
 		private SymbolModel? _symbol;
 		private SymbolMetadataModel? _symbolMetadata;
@@ -54,6 +58,19 @@ namespace Poink.Sim.Components.Pages
 			{
 				_loadingSymbolMetadata = false;
 			}
+		}
+
+		// Snaps the range to the new table's own data so it never points at a span the symbol has no ticks for.
+		private void OnSymbolSelected(string table)
+		{
+			if (table == _table)
+				return;
+
+			_table = table;
+			var meta = TickRepository.CachedTables.FirstOrDefault(t => t.Table == table);
+			if (meta.MaxTime is { } maxTime)
+				(_from, _to) = TickTableRangeHelper.DefaultRange(meta.MinTime, maxTime);
+			Logger.LogInformation("Simulation symbol set to {Table} over {From} - {To}", _table, _from, _to);
 		}
 
 		private async Task RefreshSymbolMetadataIfTableChangedAsync()

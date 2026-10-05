@@ -28,140 +28,89 @@
 
     <div class="sim-topbar">
         <header class="sim-header">
-         
-            @if (_snapshot is null)
-            {
-                <div class="sim-header-title">
-                    <span class="sim-header-symbol">TRADER SIMULATION</span>
-                    <span class="sim-header-state sim-state-setup">@(_isLoading ? "LOADING" : "SETUP")</span>
-                </div>
-                <div class="sim-header-actions">
-                    @if (_loadError is not null)
-                    {
-                        <span class="sim-brainrow-error">@_loadError</span>
-                    }
-                    @if (_error is not null)
-                    {
-                        <span class="sim-brainrow-error">@_error</span>
-                    }
-                </div>
-            }
-            else
-            {
-                var s = _snapshot;
-                var trader = SelectedTrader!;
+            <div class="sim-header-title">
+                <span class="sim-header-symbol" title="Trader simulation -- replays the symbol picked in the SYMBOL tab over the date range beside it">TRADER SIMULATION</span>
+                <span class="sim-header-state @StateCssClass" title="Current state of the simulation">@StateLabel</span>
+            </div>
+            <div class="sim-header-range" title="Date range the simulation replays -- applies on the next SET, RESET or PLAY">
+                <TickDataSource @bind-Table="_table" ShowTablePicker="false" @bind-From="_from" @bind-To="_to"
+                                Disabled="@_isLoading" />
+            </div>
+            <div class="sim-header-actions">
+                <button class="sim-ctrl-btn sim-ctrl-btn-play" @onclick="ApplyDataRange" disabled="@_isLoading"
+                        title="Apply the selected symbol and date range -- loads the simulation from it, with enough earlier history that the rule engine's lookback is already filled at the start">
+                    @(_isLoading ? "LOADING..." : "SET")
+                </button>
                 @if (_loadError is not null)
                 {
-                    <span class="sim-brainrow-error">@_loadError</span>
+                    <span class="sim-brainrow-error" title="@_loadError">@_loadError</span>
                 }
-                }
-            </header>
-
-            <div class="sim-setup">
-                @if (!_setupCollapsed)
+                @if (_snapshot is null && _error is not null)
                 {
-                <div class="sim-setup-rows">
-
-            <div class="sim-datarow">
-                <div class="sim-datarow-field sim-datarow-data">
-                    <TickDataSource @bind-Table="_table" @bind-From="_from" @bind-To="_to"
-                                    Disabled="@_isLoading" />
-                </div>
-                <div class="sim-datarow-field">
-                    <button class="sim-ctrl-btn sim-ctrl-btn-play" @onclick="ApplyDataRange" disabled="@_isLoading"
-                            title="Apply the selected symbol and date range -- loads the simulation from it, with enough earlier history that the rule engine's lookback is already filled at the start">
-                        @(_isLoading ? "LOADING..." : "SET")
-                    </button>
-                </div>
-                <div class="sim-datarow-field">
-                    <div class="sim-datarow-aggregate">
-                        <label class="sim-datarow-checkbox"
-                               title="Aggregate into HLOC/AVDT bars instead of raw ticks -- can be changed while a simulation is running">
-                            <input type="checkbox" @bind="_aggregate" @bind:after="OnAggregationSettingChanged"
-                                   disabled="@_isLoading" />
-                            Bars
-                        </label>
-                        @if (_aggregate)
-                        {
-                            <BarSizeSelect @bind-Value="_barSizeSeconds" @bind-Value:after="OnAggregationSettingChanged"
-                                           Disabled="@_isLoading"
-                                           Title="Size of each aggregated bar -- can be changed while a simulation is running" />
-                        }
-                    </div>
-                </div>
-            </div>
-
-                </div>
+                    <span class="sim-brainrow-error" title="@_error">@_error</span>
                 }
             </div>
+        </header>
 
-            @if (_snapshot is not null)
-            {
-                var s = _snapshot;
-                <div class="sim-toolbar">
-                    <div class="sim-controls">
-                           <button class="sim-setup-toggle" @onclick="ToggleSetupPanel"
-                    title="@(_setupCollapsed ? "Expand the data range and aggregation options" : "Collapse the data range and aggregation options")">
-                <Icon Name="@(_setupCollapsed ? "chevron-right" : "chevron-down")" Class="sim-setup-toggle-icon" />
-            </button>
-                        <button class="sim-ctrl-btn sim-ctrl-btn-play" @onclick="TogglePlayPause" disabled="@s.IsFinished"
-                                title="@(s.IsPlaying ? "Pause playback" : "Resume playback")">
-                            <Icon Name="@(s.IsPlaying ? "pause-fill" : "play-fill")" Class="sim-ctrl-icon" />
-                            @(s.IsPlaying ? "PAUSE" : "PLAY")
-                        </button>
-                        <button class="sim-ctrl-btn" @onclick="StepOnce" disabled="@(s.IsPlaying || s.IsFinished)">
-                            <Icon Name="skip-end-fill" Class="sim-ctrl-icon" />
-                            STEP
-                        </button>
-                        <div class="sim-speed-stepper @(s.IsUncapped ? "sim-speed-stepper-inactive" : "")"
-                             title="Playback speed">
-                            <button class="sim-ctrl-btn sim-speed-step" @onclick="() => DecreaseSpeed(s)"
-                                    disabled="@(SpeedIndex(s) == 0)" title="Slower">−</button>
-                            <span class="sim-speed-value">@FormatSpeed(s.SpeedMultiplier)</span>
-                            <button class="sim-ctrl-btn sim-speed-step" @onclick="() => IncreaseSpeed(s)"
-                                    disabled="@(SpeedIndex(s) == Speeds.Length - 1)" title="Faster">+</button>
-                        </div>
-                        <button class="sim-ctrl-btn sim-ctrl-btn-max @(s.IsUncapped ? "active" : "")" @onclick="SetMax"
-                                title="Uncapped backend speed -- combine with Hide Chart for the fastest runs">MAX</button>
-                        <button class="sim-ctrl-btn sim-ctrl-btn-warn" @onclick="ResetSim"
-                                title="Discard this run and return to setup -- pressing Play afterwards starts a new simulation">RESET</button>
-                        @if (_setupCollapsed && s.Config.Aggregate)
-                        {
-                            <span class="sim-toolbar-divider"></span>
-                            <div class="sim-toolbar-stepctrls">
-                                <BarSizeSelect @bind-Value="_barSizeSeconds" @bind-Value:after="OnAggregationSettingChanged"
-                                               Disabled="@_isLoading" Label=""
-                                               Title="Size of each aggregated bar -- can be changed while a simulation is running" />
-                            </div>
-                        }
-                        <SimTimeline />
-
-                        <div class="sim-controls-right">
-                            <span class="sim-toolbar-divider"></span>
-
-                            <button class="sim-ctrl-btn sim-ctrl-btn-toggle @(_hideChart ? "active" : "")"
-                                    @onclick="ToggleHideChart">
-                                @(_hideChart ? "SHOW CHART" : "HIDE CHART")
-                            </button>
-                        </div>
+        <div class="sim-toolbar">
+            <div class="sim-controls">
+                @if (_snapshot is not null)
+                {
+                    var s = _snapshot;
+                    <button class="sim-ctrl-btn sim-ctrl-btn-play" @onclick="TogglePlayPause" disabled="@s.IsFinished"
+                            title="@(s.IsPlaying ? "Pause playback" : "Resume playback")">
+                        <Icon Name="@(s.IsPlaying ? "pause-fill" : "play-fill")" Class="sim-ctrl-icon" />
+                        @(s.IsPlaying ? "PAUSE" : "PLAY")
+                    </button>
+                    <button class="sim-ctrl-btn" @onclick="StepOnce" disabled="@(s.IsPlaying || s.IsFinished)"
+                            title="Advance a single step">
+                        <Icon Name="skip-end-fill" Class="sim-ctrl-icon" />
+                        STEP
+                    </button>
+                    <div class="sim-speed-stepper @(s.IsUncapped ? "sim-speed-stepper-inactive" : "")"
+                         title="Playback speed">
+                        <button class="sim-ctrl-btn sim-speed-step" @onclick="() => DecreaseSpeed(s)"
+                                disabled="@(SpeedIndex(s) == 0)" title="Slower">−</button>
+                        <span class="sim-speed-value" title="Current playback speed">@FormatSpeed(s.SpeedMultiplier)</span>
+                        <button class="sim-ctrl-btn sim-speed-step" @onclick="() => IncreaseSpeed(s)"
+                                disabled="@(SpeedIndex(s) == Speeds.Length - 1)" title="Faster">+</button>
                     </div>
-                </div>
-            }
-            else
-            {
-                <div class="sim-toolbar">
-                    <div class="sim-controls">
-                        <button class="sim-ctrl-btn sim-ctrl-btn-play" @onclick="TogglePlayPause" disabled="@_isLoading"
-                                title="Load the data range with the setup and policy settings, then start playback">
-                            <Icon Name="play-fill" Class="sim-ctrl-icon" />
-                            @(_isLoading ? "LOADING..." : "PLAY")
+                    <button class="sim-ctrl-btn sim-ctrl-btn-max @(s.IsUncapped ? "active" : "")" @onclick="SetMax"
+                            title="Uncapped backend speed -- combine with Hide Chart for the fastest runs">MAX</button>
+                    <button class="sim-ctrl-btn sim-ctrl-btn-warn" @onclick="ResetSim"
+                            title="Discard this run and return to setup -- pressing Play afterwards starts a new simulation">RESET</button>
+                }
+                else
+                {
+                    <button class="sim-ctrl-btn sim-ctrl-btn-play" @onclick="TogglePlayPause" disabled="@_isLoading"
+                            title="Load the data range with the setup and policy settings, then start playback">
+                        <Icon Name="play-fill" Class="sim-ctrl-icon" />
+                        @(_isLoading ? "LOADING..." : "PLAY")
+                    </button>
+                    <button class="sim-ctrl-btn sim-ctrl-btn-warn" @onclick="ResetSim" disabled="@_isLoading"
+                            title="Load a simulation from the current setup and policy settings">RESET</button>
+                }
+                <span class="sim-toolbar-divider"></span>
+                <SimulationAggregationControls @bind-Aggregate="_aggregate" @bind-Aggregate:after="OnAggregationSettingChanged"
+                                               @bind-BarSizeSeconds="_barSizeSeconds" @bind-BarSizeSeconds:after="OnAggregationSettingChanged"
+                                               Disabled="@_isLoading" />
+                @if (_snapshot is not null)
+                {
+                    <SimTimeline />
+
+                    <div class="sim-controls-right">
+                        <span class="sim-toolbar-divider"></span>
+
+                        <button class="sim-ctrl-btn sim-ctrl-btn-toggle @(_hideChart ? "active" : "")"
+                                @onclick="ToggleHideChart"
+                                title="@(_hideChart ? "Show the chart and profile panels" : "Hide the chart and profile panels -- combine with MAX for the fastest runs")">
+                            @(_hideChart ? "SHOW CHART" : "HIDE CHART")
                         </button>
-                        <button class="sim-ctrl-btn sim-ctrl-btn-warn" @onclick="ResetSim" disabled="@_isLoading"
-                                title="Load a simulation from the current setup and policy settings">RESET</button>
                     </div>
-                </div>
-            }
+                }
+            </div>
         </div>
+    </div>
 
         <div class="sim-body">
                 <aside class="sim-left-side-panel @(_leftSidePanelCollapsed ? "sim-left-side-panel-collapsed" : "") @(!_leftSidePanelCollapsed && _activeLeftPanelTab == SimLeftPanelTab.RuleEngine ? "sim-left-side-panel-wide" : "")">
@@ -185,6 +134,9 @@
                     @if (!_leftSidePanelCollapsed)
                     {
                         <div class="sim-left-side-panel-tabs">
+                            <button type="button" class="sim-left-side-panel-tab @(_activeLeftPanelTab == SimLeftPanelTab.Symbol ? "active" : "")"
+                                    @onclick="() => _activeLeftPanelTab = SimLeftPanelTab.Symbol"
+                                    title="Symbol the simulation replays and its trading parameters -- a new pick applies when SET is pressed">SYMBOL</button>
                             <button type="button" class="sim-left-side-panel-tab @(_activeLeftPanelTab == SimLeftPanelTab.Setup ? "active" : "")"
                                     @onclick="() => _activeLeftPanelTab = SimLeftPanelTab.Setup"
                                     title="Trader account settings -- changes apply to the bots when SET is pressed">SETUP</button>
@@ -196,10 +148,15 @@
                                     title="Above/In/Below mask over the baseline signals (POC/VAH/VAL/VWAP/Median/Regression), XGrid's Top %/Delta rows, and TxFold's per-timeframe mean+/-stddev rows -- the input side of the rule engine">RULE ENGINE</button>
                         </div>
                         <div class="sim-left-side-panel-content">
-                            @if (_activeLeftPanelTab == SimLeftPanelTab.Setup)
+                            @if (_activeLeftPanelTab == SimLeftPanelTab.Symbol)
+                            {
+                                <SimulationSymbolPanel SelectedTable="@_table" SelectedTableChanged="OnSymbolSelected"
+                                                       LoadedTable="@_snapshot?.Config.Table" Disabled="@_isLoading" />
+                                <SymbolMetadataFields Symbol="_symbol" Metadata="_symbolMetadata" Loading="_loadingSymbolMetadata" />
+                            }
+                            else if (_activeLeftPanelTab == SimLeftPanelTab.Setup)
                             {
                                 <div class="sim-setup-form">
-                                    <SymbolMetadataFields Symbol="_symbol" Metadata="_symbolMetadata" Loading="_loadingSymbolMetadata" />
                                     <label class="sim-brainrow-field"
                                            title="Cash each trader starts with -- applies when SET is pressed">
                                         Starting cash
@@ -268,7 +225,7 @@
             <div class="sim-main">
                 @if (_snapshot is null)
                 {
-                    <p class="sim-drawings-empty">@(_isLoading ? "Loading simulation..." : "No simulation loaded -- pick a symbol and date range in the setup, then press Reset.")</p>
+                    <p class="sim-drawings-empty">@(_isLoading ? "Loading simulation..." : "No simulation loaded -- pick a symbol in the SYMBOL tab and a date range above, then press SET.")</p>
                 }
 
                 @if (_snapshot is not null)

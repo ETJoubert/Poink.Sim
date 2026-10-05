@@ -1,0 +1,77 @@
+@namespace Poink.Sim.Components.Simulation
+@using Poink.Sim.Components.Shared.Icon
+
+<div class="ssp-content">
+    <section class="ssp-section" title="Symbol the simulation replays -- picking another one applies on the next SET, RESET or PLAY">
+        <div class="ssp-section-header">
+            <span class="ssp-section-label">SELECTED</span>
+        </div>
+        @if (string.IsNullOrWhiteSpace(SelectedTable))
+        {
+            <p class="ssp-empty">Pick a symbol below to simulate it.</p>
+        }
+        else
+        {
+            var meta = Meta(SelectedTable);
+            <div class="ssp-item ssp-item-selected @(SelectedAwaitsLoad ? "" : "ssp-item-loaded")"
+                 title="@($"{SelectedTable}: {meta.Rows:N0} rows, {RangeLabel(meta.MinTime, meta.MaxTime)}")">
+                <div class="ssp-item-text">
+                    <span class="ssp-item-name">@SelectedTable</span>
+                    <span class="ssp-item-meta">@RangeLabel(meta.MinTime, meta.MaxTime)</span>
+                </div>
+                @if (SelectedAwaitsLoad)
+                {
+                    <span class="ssp-badge ssp-badge-pending"
+                          title="@($"The running simulation still replays {LoadedTable} -- press SET to load this symbol instead")">SET</span>
+                }
+                else if (LoadedTable is not null)
+                {
+                    <span class="ssp-badge" title="The running simulation replays this symbol">LOADED</span>
+                }
+            </div>
+        }
+    </section>
+
+    <section class="ssp-section" title="Every ticks_* table in the database -- click one to make it the simulated symbol">
+        <div class="ssp-section-header">
+            <span class="ssp-section-label">AVAILABLE</span>
+            <button type="button" class="ssp-link-btn" @onclick="RecountTables" disabled="@(Disabled || _loadingTables)"
+                    title="Rescans every ticks_* table (COUNT/MIN/MAX) and refreshes stored row counts -- slow, only needed after new data has been written">
+                @(_loadingTables ? "RECOUNTING..." : "RECOUNT")
+            </button>
+        </div>
+        <div class="ssp-search" title="Filter the available symbols by table name">
+            <Icon Name="search" Class="ssp-icon" />
+            <input type="text" class="ssp-search-input" placeholder="Filter symbols..." value="@_filter"
+                   @oninput="e => _filter = e.Value?.ToString() ?? string.Empty"
+                   title="Filter the available symbols by table name" />
+        </div>
+        @if (_tableListFailed)
+        {
+            <p class="ssp-error">Tick table list unavailable (Postgres down?).</p>
+        }
+        else if (_loadingTables && _availableTables.Count == 0)
+        {
+            <p class="ssp-empty">loading tables...</p>
+        }
+        else
+        {
+            var unselected = UnselectedTables.ToList();
+            @if (unselected.Count == 0)
+            {
+                <p class="ssp-empty">@(_availableTables.Count == 0 ? "no tables found" : "no matching symbols")</p>
+            }
+            @foreach (var t in unselected)
+            {
+                <button type="button" class="ssp-item ssp-item-available" @onclick="() => SelectTable(t.Table)" disabled="@Disabled"
+                        title="@($"Simulate {t.Table} ({t.Rows:N0} rows, {RangeLabel(t.MinTime, t.MaxTime)}) -- applies on the next SET")">
+                    <div class="ssp-item-text">
+                        <span class="ssp-item-name">@t.Table</span>
+                        <span class="ssp-item-meta">@t.Rows.ToString("N0") rows</span>
+                    </div>
+                    <Icon Name="chevron-right" Class="ssp-icon" />
+                </button>
+            }
+        }
+    </section>
+</div>
