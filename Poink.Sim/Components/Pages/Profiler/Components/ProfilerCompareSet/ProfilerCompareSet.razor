@@ -7,9 +7,19 @@
         <label class="pcmp-field" title="What each symbol's % change is measured from">
             Mode
             <select class="pcmp-select" value="@Mode" @onchange="OnModeSelected"
-                    title="% change: from the first bar in view, re-basing as you pan. Window: from the Lookback Window's start">
+                    title="% change: from the first bar in view, re-basing as you pan. Window: from the Lookback Window edge picked under Anchor">
                 <option value="@ProfilerCompareMode.PercentChange">% change</option>
                 <option value="@ProfilerCompareMode.WindowAnchored">Window</option>
+            </select>
+        </label>
+        <label class="pcmp-field" title="Which Lookback Window edge Window mode measures from">
+            Anchor
+            <select class="pcmp-select" value="@WindowAnchor" @onchange="OnAnchorSelected" disabled="@(Mode != ProfilerCompareMode.WindowAnchored)"
+                    title="@(Mode != ProfilerCompareMode.WindowAnchored
+                               ? "Only applies in Window mode"
+                               : "Start: lines fan out from 0% at the window's left edge. End: lines meet 0% at the window's right edge, the same point TxFold anchors at")">
+                <option value="@ProfilerCompareAnchor.WindowStart">Start</option>
+                <option value="@ProfilerCompareAnchor.WindowEnd">End</option>
             </select>
         </label>
         <label class="pcmp-field" title="Draw each symbol as a line, or as candles in its own colour">
@@ -48,9 +58,25 @@
             }
         </div>
         <span class="pcmp-note" title="What the % axis is measured from">@ModeNote()</span>
+        <button type="button" class="pcmp-toggle @(TxFold.Show ? "active" : "")"
+                @onclick="() => SetTxFold(TxFold with { Show = !TxFold.Show })"
+                title="Show or hide a TxFold panel comparing every symbol's trailing-window bars at the Lookback Window's right edge">TxFold</button>
     </header>
-    <div class="pcmp-chart">
-        <CompareChart Series="_series" ScaleMode="ScaleMode" Style="Style" WindowStart="WindowStart" WindowEnd="WindowEnd"
-                      CanLoadMore="CanLoadMore" OnNearStart="OnNearStart" Tooltip="@ChartTooltip()" />
+    <div class="pcmp-body">
+        <div class="pcmp-chart">
+            <CompareChart Series="_series" ScaleMode="ScaleMode" Style="Style" WindowStart="WindowStart" WindowEnd="WindowEnd"
+                          Zones="TxFoldZones()" Markers="TxFoldMarkers()"
+                          CanLoadMore="CanLoadMore" OnNearStart="OnNearStart" Tooltip="@ChartTooltip()" />
+        </div>
+        @if (TxFold.Show)
+        {
+            <div class="pcmp-txfold">
+                <CompareTxFold Symbols="TxFoldSymbols()" AnchorEnd="TxFoldAnchor" RangeStart="RangeStart"
+                               NoAnchorMessage="Select a Lookback Window -- its right edge anchors every symbol's trailing windows."
+                               SelectedSeconds="TxFoldSeconds" SelectedSecondsChanged="seconds => SetTxFold(TxFold with { Seconds = seconds.Order().ToList() })"
+                               BarKind="TxFold.BarKind" BarKindChanged="kind => SetTxFold(TxFold with { BarKind = kind })"
+                               Layout="TxFold.Layout" LayoutChanged="layout => SetTxFold(TxFold with { Layout = layout })" />
+            </div>
+        }
     </div>
 </section>

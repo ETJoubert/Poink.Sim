@@ -31,6 +31,8 @@ internal static class SnapshotTimeframeOptions
 		new SnapshotTimeframe(604800, "7d"),
 	};
 
+	public static readonly IReadOnlyList<int> DefaultSelectedSeconds = [60, 120, 240, 480, 900, 1800, 3600, 7200];
+
 	// Seconds values that start a new unit (minutes/hours/days) -- the header inserts a divider before these.
 	public static readonly IReadOnlySet<int> UnitStarts = new HashSet<int> { 60, 3600, 86400 };
 }

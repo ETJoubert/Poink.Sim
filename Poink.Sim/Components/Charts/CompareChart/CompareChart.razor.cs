@@ -33,6 +33,12 @@ namespace Poink.Sim.Components.Charts
 		[Parameter]
 		public DateTime? WindowEnd { get; set; }
 
+		[Parameter]
+		public IReadOnlyList<CompareChartZone> Zones { get; set; } = [];
+
+		[Parameter]
+		public IReadOnlyList<CompareChartMarker> Markers { get; set; } = [];
+
 		/// <summary>While true, panning near the oldest point raises <see cref="OnNearStart"/>.</summary>
 		[Parameter]
 		public bool CanLoadMore { get; set; }
@@ -51,6 +57,8 @@ namespace Poink.Sim.Components.Charts
 		private CompareChartSeriesStyle? _renderedStyle;
 		private (DateTime? Start, DateTime? End)? _renderedWindow;
 		private bool? _renderedCanLoadMore;
+		private IReadOnlyList<CompareChartZone> _renderedZones = [];
+		private IReadOnlyList<CompareChartMarker> _renderedMarkers = [];
 		private bool _created;
 		private bool _disposed;
 
@@ -82,6 +90,13 @@ namespace Poink.Sim.Components.Charts
 				{
 					_renderedWindow = (WindowStart, WindowEnd);
 					await module.InvokeVoidAsync("setWindow", _containerRef, ToUnixSeconds(WindowStart), ToUnixSeconds(WindowEnd));
+				}
+
+				if (!_renderedZones.SequenceEqual(Zones) || !_renderedMarkers.SequenceEqual(Markers))
+				{
+					_renderedZones = Zones;
+					_renderedMarkers = Markers;
+					await module.InvokeVoidAsync("setOverlays", _containerRef, ZonesPayload(), MarkersPayload());
 				}
 
 				if (_renderedCanLoadMore != CanLoadMore)
@@ -132,6 +147,12 @@ namespace Poink.Sim.Components.Charts
 					close = b.Close,
 				}),
 			};
+
+		private object ZonesPayload() =>
+			Zones.Select(z => new { start = ToUnixSeconds(z.StartUtc), end = ToUnixSeconds(z.EndUtc), colorVar = z.ColorVar, label = z.Label });
+
+		private object MarkersPayload() =>
+			Markers.Select(m => new { time = ToUnixSeconds(m.TimeUtc), colorVar = m.ColorVar, label = m.Label });
 
 		private string JsScaleMode() => ScaleMode == CompareChartScaleMode.PercentValues ? "percentvalues" : "rebased";
 

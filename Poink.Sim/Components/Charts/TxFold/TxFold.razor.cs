@@ -64,11 +64,9 @@ namespace Poink.Sim.Components.Charts
 		[Parameter]
 		public double? DraftTakeProfitPrice { get; set; }
 
-		private static readonly int[] DefaultSelectedSeconds = { 60, 120, 240, 480, 900, 1800, 3600, 7200 };
-
 		/// <summary>Which trailing windows render, one bar per selection -- bindable so a host can read/drive the toolbar's own selection (e.g. to show a feature count elsewhere) without duplicating it.</summary>
 		[Parameter]
-		public HashSet<int> SelectedSeconds { get; set; } = DefaultSelectedSeconds.ToHashSet();
+		public HashSet<int> SelectedSeconds { get; set; } = SnapshotTimeframeOptions.DefaultSelectedSeconds.ToHashSet();
 
 		[Parameter]
 		public EventCallback<HashSet<int>> SelectedSecondsChanged { get; set; }

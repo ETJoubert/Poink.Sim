@@ -1,6 +1,8 @@
 // Multi-series comparison chart driven by CompareChart.razor.cs: one line or candle series per
 // series on a shared time axis, an optional lower pane (pane index 1, e.g. a ratio line) and a
-// shaded Lookback Window. Per-instance state is keyed by the container element.
+// shaded Lookback Window, plus caller-supplied zones and time markers. Per-instance state is keyed by the container element.
+import { cssColor, withAlpha } from './chartColors.js';
+
 const instances = new WeakMap();
 
 const nearStartThreshold = 50;
@@ -9,8 +11,112 @@ const percentFormat = { type: 'custom', minMove: 0.01, formatter: v => `${v.toFi
 const barBodyOpacity = 0.45;
 const barOutlineOpacity = 0.85;
 
-function cssColor(container, varName) {
-    return getComputedStyle(container).getPropertyValue(varName).trim() || '#c9c9c9';
+function firstTimeAtOrAfter(times, time) {
+    let lo = 0, hi = times.length;
+    while (lo < hi) {
+        const mid = (lo + hi) >> 1;
+        if (times[mid] < time) lo = mid + 1; else hi = mid;
+    }
+    return lo;
+}
+
+// The library only places times that are data points, so arbitrary times (e.g. a TxFold window start) are
+// interpolated between their neighbouring bars, or extrapolated from the edge bars' spacing.
+function timeToX(entry, time) {
+    const times = entry.times;
+    if (!times || times.length < 2) return null;
+    const ts = entry.chart.timeScale();
+    const i = Math.min(Math.max(firstTimeAtOrAfter(times, time), 1), times.length - 1);
+    const t0 = times[i - 1], t1 = times[i];
+    const x0 = ts.timeToCoordinate(t0), x1 = ts.timeToCoordinate(t1);
+    if (x0 === null || x1 === null) return null;
+    return x0 + ((x1 - x0) * (time - t0)) / (t1 - t0);
+}
+
+// Zones and markers from setOverlays; zones go behind the series, markers are thin dashed lines with labels.
+function createOverlaysPrimitive(entry) {
+    let zones = [];
+    let markers = [];
+    let requestUpdate = null;
+
+    const renderer = {
+        draw(target) {
+            if (markers.length === 0) return;
+            target.useMediaCoordinateSpace(scope => {
+                const ctx = scope.context;
+                ctx.save();
+                ctx.font = 'bold 10px monospace';
+                ctx.textBaseline = 'top';
+                ctx.setLineDash([2, 3]);
+                let lastLabelX = -Infinity;
+                const placed = markers
+                    .map(m => ({ ...m, x: timeToX(entry, m.time) }))
+                    .filter(m => m.x !== null)
+                    .sort((a, b) => a.x - b.x);
+                for (const m of placed) {
+                    ctx.globalAlpha = 0.6;
+                    ctx.strokeStyle = m.color;
+                    ctx.beginPath();
+                    ctx.moveTo(m.x + 0.5, 0);
+                    ctx.lineTo(m.x + 0.5, scope.mediaSize.height);
+                    ctx.stroke();
+                    if (m.label && m.x - lastLabelX >= 26) {
+                        ctx.globalAlpha = 0.9;
+                        ctx.fillStyle = m.color;
+                        ctx.fillText(m.label, m.x + 3, 18);
+                        lastLabelX = m.x;
+                    }
+                }
+                ctx.restore();
+            });
+        },
+        drawBackground(target) {
+            if (zones.length === 0) return;
+            target.useMediaCoordinateSpace(scope => {
+                const ctx = scope.context;
+                for (const zone of zones) {
+                    const x1 = timeToX(entry, zone.start);
+                    const x2 = timeToX(entry, zone.end);
+                    if (x1 === null || x2 === null) continue;
+                    const left = Math.min(x1, x2);
+                    ctx.save();
+                    ctx.globalAlpha = 0.08;
+                    ctx.fillStyle = zone.color;
+                    ctx.fillRect(left, 0, Math.max(1, Math.abs(x2 - x1)), scope.mediaSize.height);
+                    ctx.globalAlpha = 0.8;
+                    ctx.strokeStyle = zone.color;
+                    ctx.beginPath();
+                    ctx.moveTo(left + 0.5, 0);
+                    ctx.lineTo(left + 0.5, scope.mediaSize.height);
+                    ctx.stroke();
+                    if (zone.label) {
+                        ctx.font = 'bold 10px monospace';
+                        ctx.fillStyle = zone.color;
+                        ctx.textBaseline = 'top';
+                        ctx.fillText(zone.label, left + 4, 4);
+                    }
+                    ctx.restore();
+                }
+            });
+        },
+    };
+    const paneView = { renderer: () => renderer };
+
+    return {
+        attached(param) {
+            requestUpdate = param.requestUpdate;
+        },
+        updateAllViews() { },
+        paneViews: () => [paneView],
+        setOverlays(newZones, newMarkers) {
+            zones = newZones;
+            markers = newMarkers;
+            if (requestUpdate) requestUpdate();
+        },
+        refresh() {
+            if (requestUpdate) requestUpdate();
+        },
+    };
 }
 
 // Drawn behind the lines (drawBackground) so the window highlights them instead of covering them.
@@ -109,18 +215,6 @@ function formatPoint(entry, item, point) {
         : f(point.value);
 }
 
-// Canvas needs a concrete colour, so theme hex/rgb values are rewritten as rgba rather than layered with CSS opacity.
-function withAlpha(color, alpha) {
-    const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(color);
-    if (hex) {
-        const digits = hex[1].length === 3 ? [...hex[1]].map(d => d + d).join('') : hex[1];
-        const [r, g, b] = [0, 2, 4].map(i => parseInt(digits.slice(i, i + 2), 16));
-        return `rgba(${r},${g},${b},${alpha})`;
-    }
-    const rgb = /^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)/i.exec(color);
-    return rgb ? `rgba(${rgb[1]},${rgb[2]},${rgb[3]},${alpha})` : color;
-}
-
 function barColors(color) {
     const body = withAlpha(color, barBodyOpacity);
     const outline = withAlpha(color, barOutlineOpacity);
@@ -195,9 +289,11 @@ export function create(container, dotNetRef) {
     chart.panes()[0].attachPrimitive(windowFill);
 
     const entry = {
-        chart, dotNetRef, windowFill, container,
+        chart, dotNetRef, windowFill, container, times: [],
         series: new Map(), scaleMode: 'rebased', hasData: false, canLoadMore: false, pendingLoadMore: false,
     };
+    entry.overlays = createOverlaysPrimitive(entry);
+    chart.panes()[0].attachPrimitive(entry.overlays);
     instances.set(container, entry);
     attachTooltip(container, entry);
 
@@ -247,7 +343,9 @@ export function setSeries(container, seriesList, scaleMode) {
         entry.chart.removeSeries(item.series);
         entry.series.delete(key);
     }
+    entry.times = [...new Set(seriesList.flatMap(s => s.points.map(p => p.time)))].sort((a, b) => a - b);
     rebaseMainPane(entry, true);
+    entry.overlays.refresh();
 
     const panes = entry.chart.panes();
     if (panes.length > 1 && entry.paneCount !== panes.length) {
@@ -270,6 +368,16 @@ export function setWindow(container, start, end) {
     const entry = instances.get(container);
     if (!entry) return;
     entry.windowFill.setWindow(start !== null && end !== null ? { start, end } : null);
+}
+
+// zones: [{ start, end, colorVar, label }], markers: [{ time, colorVar, label }] -- times in unix seconds.
+export function setOverlays(container, zones, markers) {
+    const entry = instances.get(container);
+    if (!entry) return;
+    entry.overlays.setOverlays(
+        zones.map(z => ({ ...z, color: cssColor(container, z.colorVar) })),
+        markers.map(m => ({ ...m, color: cssColor(container, m.colorVar) })),
+    );
 }
 
 export function setCanLoadMore(container, canLoadMore) {

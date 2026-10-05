@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Poink.Sim.Models;
 
@@ -21,6 +22,12 @@ namespace Poink.Sim.Components.Charts
 		/// <summary>Candles in the series' colour (up filled, down hollow) at a fixed partial opacity so overlaps stay readable.</summary>
 		Bars,
 	}
+
+	/// <summary>A shaded time span on a <see cref="CompareChart"/>'s main pane, drawn behind the series with its start edge and label.</summary>
+	public sealed record CompareChartZone(DateTime StartUtc, DateTime EndUtc, string ColorVar, string? Label = null);
+
+	/// <summary>A dashed vertical line at any time on a <see cref="CompareChart"/>'s main pane; times between bars are interpolated.</summary>
+	public sealed record CompareChartMarker(DateTime TimeUtc, string ColorVar, string? Label = null);
 
 	/// <summary>
 	/// One series on a <see cref="CompareChart"/>; <paramref name="Pane"/> 0 is the main pane, 1 the lower pane.
