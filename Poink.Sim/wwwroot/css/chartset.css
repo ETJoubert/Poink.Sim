@@ -1,0 +1,107 @@
+/* Panel row shared by the Profiler and Simulation chart sets; ChartSetDividerScript sizes .chartset-main/.chartset-side by flex-basis percent. */
+.chartset-row {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: stretch;
+    gap: 16px;
+    padding: 5px;
+    min-height: 0;
+}
+
+.chartset-main,
+.chartset-side {
+    flex: 1 1 0;
+    min-width: 150px;
+}
+
+.chartset-side {
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+}
+
+.chartset-divider {
+    position: relative;
+    flex: 0 0 6px;
+    align-self: stretch;
+    margin: 0 -10px;
+    cursor: col-resize;
+    touch-action: none;
+    user-select: none;
+    border-radius: 3px;
+}
+
+.chartset-divider::before {
+    content: "";
+    position: absolute;
+    top: 15%;
+    bottom: 15%;
+    left: 50%;
+    width: 1px;
+    transform: translateX(-50%);
+    background: color-mix(in srgb, var(--color-primary) 20%, transparent);
+    transition: background 0.2s ease;
+}
+
+.chartset-divider:hover,
+.chartset-divider.chartset-divider-active {
+    background: color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+.chartset-divider:hover::before,
+.chartset-divider.chartset-divider-active::before {
+    background: var(--color-primary);
+}
+
+.chartset-resize-handle {
+    position: relative;
+    flex: 0 0 8px;
+    cursor: row-resize;
+    touch-action: none;
+    user-select: none;
+    border-radius: 0 0 var(--border-radius-sm) var(--border-radius-sm);
+}
+
+.chartset-resize-handle::before {
+    content: "";
+    position: absolute;
+    left: 40%;
+    right: 40%;
+    top: 50%;
+    height: 2px;
+    transform: translateY(-50%);
+    border-radius: 1px;
+    background: color-mix(in srgb, var(--color-primary) 25%, transparent);
+    transition: background 0.2s ease;
+}
+
+.chartset-resize-handle:hover,
+.chartset-resize-handle.chartset-resize-handle-active {
+    background: color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+.chartset-resize-handle:hover::before,
+.chartset-resize-handle.chartset-resize-handle-active::before {
+    background: var(--color-primary);
+}
+
+@media (max-width: 900px) {
+    .chartset-row {
+        flex-direction: column;
+    }
+
+    .chartset-main {
+        height: 400px;
+    }
+
+    .chartset-side {
+        flex-basis: auto;
+        width: 100%;
+        max-width: none;
+        max-height: 240px;
+    }
+
+    .chartset-divider {
+        display: none;
+    }
+}

@@ -45,17 +45,17 @@
     text-align: left;
 }
 
-.ssp-item-selected {
-    border-left: 3px solid var(--color-primary);
+.ssp-item.ssp-item-selected {
+    border-left: 3px solid var(--ssp-symbol-color, var(--color-primary));
+}
+
+.ssp-item-selected .ssp-item-name {
+    color: var(--ssp-symbol-color, var(--color-primary));
 }
 
 .ssp-item-traded {
     border-color: var(--color-success);
     background: color-mix(in srgb, var(--color-success) 8%, transparent);
-}
-
-.ssp-item-pending {
-    border-left-color: var(--color-warning);
 }
 
 .ssp-item-available {

@@ -1,27 +1,27 @@
-namespace Poink.Sim.Components.Profiler
+namespace Poink.Sim.Helpers
 {
 	/// <summary>
-	/// JS for a Profiler chart set's draggable dividers: resetEqual splits the visible panels evenly, bind lets a divider
+	/// JS for a chart set's draggable dividers, shared by the Profiler and Simulation chart sets: resetEqual splits the visible panels evenly, bind lets a divider
 	/// move width between its two neighbours, and bindVertical lets a bottom handle resize its parent's height,
 	/// reporting each finished drag (or double-click reset, as null) to the .NET reference's OnHeightResized.
 	/// Panels are sized by flex-basis percent so any panel count always sums to 100%.
 	/// </summary>
-	internal static class ProfilerChartDividerScript
+	internal static class ChartSetDividerScript
 	{
 		public const string Source = """
 			(function() {
-			    // Every .prof-chart-main/.prof-chart-side child gets an explicit flex-basis
+			    // Every .chartset-main/.chartset-side child gets an explicit flex-basis
 			    // percent (not width px) so N panels always sum to 100% regardless of window
 			    // size -- resetEqual splits it evenly, bind's drag only ever moves percent
 			    // between the divider's own two immediate neighbours.
 			    // Net px a divider adds beyond its neighbours' own width: two 16px gaps narrowed
-			    // by its -10px margins, plus its own 6px -- keep in sync with .prof-chart's CSS.
+			    // by its -10px margins, plus its own 6px -- keep in sync with chartset.css.
 			    var DIVIDER_CHROME_PX = 18;
 			    function resetEqual(container) {
 			        if (!container) return;
-			        var panels = container.querySelectorAll(':scope > .prof-chart-main, :scope > .prof-chart-side');
+			        var panels = container.querySelectorAll(':scope > .chartset-main, :scope > .chartset-side');
 			        if (panels.length === 0) return;
-			        var dividerCount = container.querySelectorAll(':scope > .prof-chart-divider').length;
+			        var dividerCount = container.querySelectorAll(':scope > .chartset-divider').length;
 			        var style = getComputedStyle(container);
 			        var containerWidth = container.getBoundingClientRect().width
 			            - (parseFloat(style.paddingLeft) || 0)
@@ -52,7 +52,7 @@ namespace Poink.Sim.Components.Profiler
 			            var startLeftPercent = (left.getBoundingClientRect().width / containerWidth) * 100;
 			            var startRightPercent = (right.getBoundingClientRect().width / containerWidth) * 100;
 			            divider.setPointerCapture(e.pointerId);
-			            divider.classList.add('prof-chart-divider-active');
+			            divider.classList.add('chartset-divider-active');
 
 			            function onMove(ev) {
 			                var deltaPercent = ((ev.clientX - startX) / containerWidth) * 100;
@@ -67,7 +67,7 @@ namespace Poink.Sim.Components.Profiler
 			                divider.releasePointerCapture(e.pointerId);
 			                divider.removeEventListener('pointermove', onMove);
 			                divider.removeEventListener('pointerup', onUp);
-			                divider.classList.remove('prof-chart-divider-active');
+			                divider.classList.remove('chartset-divider-active');
 			            }
 			            divider.addEventListener('pointermove', onMove);
 			            divider.addEventListener('pointerup', onUp);
@@ -95,7 +95,7 @@ namespace Poink.Sim.Components.Profiler
 			            var startHeight = target.getBoundingClientRect().height;
 			            var resizedHeight = null;
 			            handle.setPointerCapture(e.pointerId);
-			            handle.classList.add('pcs-resize-handle-active');
+			            handle.classList.add('chartset-resize-handle-active');
 
 			            function onMove(ev) {
 			                resizedHeight = Math.round(Math.max(minHeightPx, startHeight + ev.clientY - startY));
@@ -106,7 +106,7 @@ namespace Poink.Sim.Components.Profiler
 			                handle.releasePointerCapture(e.pointerId);
 			                handle.removeEventListener('pointermove', onMove);
 			                handle.removeEventListener('pointerup', onUp);
-			                handle.classList.remove('pcs-resize-handle-active');
+			                handle.classList.remove('chartset-resize-handle-active');
 			                if (resizedHeight !== null) reportHeight(resizedHeight);
 			            }
 			            handle.addEventListener('pointermove', onMove);

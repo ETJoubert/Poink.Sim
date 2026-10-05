@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
-using Poink.Sim.Components.Profiler;
 using Poink.Sim.Components.Simulation;
+using Poink.Sim.Helpers;
 using Poink.Sim.Models;
 
 namespace Poink.Sim.Components.Pages
@@ -45,13 +45,13 @@ namespace Poink.Sim.Components.Pages
 
 		private List<SimulationSymbolPanelData> WatchedPanels(SimulationSnapshot s)
 		{
-			var colors = SymbolColors(s);
+			var colors = SymbolColors;
 			var window = LookbackWindowTimes(s);
 			var pipSizes = (s.Config.WatchSymbols ?? []).ToDictionary(w => w.Table, w => w.PipSize);
 			return WatchedSymbols(s)
 				.Select(w => PanelBuilder.Build(
 					w,
-					ProfilerSymbolColorHelper.ColorVarFor(colors, w.Table),
+					SymbolColorHelper.ColorVarFor(colors, w.Table),
 					pipSizes.GetValueOrDefault(w.Table, WatchFallbackPipSize),
 					s.Config.Aggregate,
 					window,

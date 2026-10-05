@@ -4,8 +4,8 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 using Poink.Sim.Components.Charts;
-using Poink.Sim.Components.Profiler;
 using Poink.Sim.Components.Shared.Indicators;
+using Poink.Sim.Helpers;
 
 namespace Poink.Sim.Components.Simulation
 {
@@ -58,6 +58,7 @@ namespace Poink.Sim.Components.Simulation
 		private IJSObjectReference? _dividerResizeInstance;
 		private DotNetObjectReference<SimulationSymbolChartSet>? _selfReference;
 		private HashSet<string> _lastVisiblePanels = new();
+		private bool _disposed;
 
 		private string SetStyle =>
 			_height is { } height
@@ -69,34 +70,45 @@ namespace Poink.Sim.Components.Simulation
 
 		protected override void OnParametersSet() => _txFoldLevels = IndicatorsHelper.ToTxFoldLevels(Options.Indicators);
 
-		// Reuses the Profiler chart set's divider script, so both pages size and drag their panel rows the same way.
+		// The shared chart-set divider script, so this and the Profiler chart sets size and drag their panel rows alike.
 		protected override async Task OnAfterRenderAsync(bool firstRender)
 		{
-			if (firstRender)
+			try
 			{
-				_dividerResizeInstance = await JS.InvokeAsync<IJSObjectReference>("eval", ProfilerChartDividerScript.Source);
-				_selfReference = DotNetObjectReference.Create(this);
-				await _dividerResizeInstance.InvokeVoidAsync("bindVertical", _resizeHandleRef, _selfReference);
+				if (firstRender)
+				{
+					var dividers = await JS.InvokeAsync<IJSObjectReference>("eval", ChartSetDividerScript.Source);
+					if (_disposed)
+					{
+						await dividers.DisposeAsync();
+						return;
+					}
+					_dividerResizeInstance = dividers;
+					_selfReference = DotNetObjectReference.Create(this);
+					await _dividerResizeInstance.InvokeVoidAsync("bindVertical", _resizeHandleRef, _selfReference);
+				}
+
+				if (_disposed || !Options.Aggregate || _dividerResizeInstance is null)
+					return;
+
+				var visiblePanels = CurrentVisiblePanelKeys();
+				if (!visiblePanels.SetEquals(_lastVisiblePanels))
+				{
+					_lastVisiblePanels = visiblePanels;
+					await _dividerResizeInstance.InvokeVoidAsync("resetEqual", _chartRowRef);
+				}
+
+				if (Options.ShowXGrid && Options.ShowMainChart)
+					await _dividerResizeInstance.InvokeVoidAsync("bind", _dividerRefXGrid);
+				if (Options.ShowVolumeProfile && (Options.ShowMainChart || Options.ShowXGrid))
+					await _dividerResizeInstance.InvokeVoidAsync("bind", _dividerRefVolume);
+				if (Options.ShowTimeProfile && (Options.ShowMainChart || Options.ShowXGrid || Options.ShowVolumeProfile))
+					await _dividerResizeInstance.InvokeVoidAsync("bind", _dividerRefTime);
+				if (Options.ShowTxFold && (Options.ShowMainChart || Options.ShowXGrid || Options.ShowVolumeProfile || Options.ShowTimeProfile))
+					await _dividerResizeInstance.InvokeVoidAsync("bind", _dividerRefTxFold);
 			}
-
-			if (!Options.Aggregate || _dividerResizeInstance is null)
-				return;
-
-			var visiblePanels = CurrentVisiblePanelKeys();
-			if (!visiblePanels.SetEquals(_lastVisiblePanels))
-			{
-				_lastVisiblePanels = visiblePanels;
-				await _dividerResizeInstance.InvokeVoidAsync("resetEqual", _chartRowRef);
-			}
-
-			if (Options.ShowXGrid && Options.ShowMainChart)
-				await _dividerResizeInstance.InvokeVoidAsync("bind", _dividerRefXGrid);
-			if (Options.ShowVolumeProfile && (Options.ShowMainChart || Options.ShowXGrid))
-				await _dividerResizeInstance.InvokeVoidAsync("bind", _dividerRefVolume);
-			if (Options.ShowTimeProfile && (Options.ShowMainChart || Options.ShowXGrid || Options.ShowVolumeProfile))
-				await _dividerResizeInstance.InvokeVoidAsync("bind", _dividerRefTime);
-			if (Options.ShowTxFold && (Options.ShowMainChart || Options.ShowXGrid || Options.ShowVolumeProfile || Options.ShowTimeProfile))
-				await _dividerResizeInstance.InvokeVoidAsync("bind", _dividerRefTxFold);
+			catch (ObjectDisposedException) { }
+			catch (JSDisconnectedException) { }
 		}
 
 		/// <summary>Called from the resize handle's JS when a height drag finishes, or with null when a double-click resets it.</summary>
@@ -110,6 +122,7 @@ namespace Poink.Sim.Components.Simulation
 
 		public async ValueTask DisposeAsync()
 		{
+			_disposed = true;
 			_selfReference?.Dispose();
 			if (_dividerResizeInstance is null)
 				return;

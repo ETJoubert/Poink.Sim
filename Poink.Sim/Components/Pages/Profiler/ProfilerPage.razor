@@ -112,7 +112,7 @@
                 {
                     var isPrimary = set == PrimarySet;
                     <ProfilerChartSet @key="set" Data="set" Options="setOptions" IsPrimary="isPrimary" Fill="_sets.Count == 1"
-                                      ColorVar="@ProfilerSymbolColorHelper.ColorVarFor(_symbolColors, set.Table)"
+                                      ColorVar="@SymbolColorHelper.ColorVarFor(_symbolColors, set.Table)"
                                       Height="SetHeight(set.Table)" HeightChanged="height => OnSetHeightChanged(set.Table, height)"
                                       @bind-XGridColCount="_xgridColCount"
                                       @bind-SubchartBarSizeSeconds="_subchartBarSizeSeconds" @bind-SubchartBarKind="_subchartBarKind"

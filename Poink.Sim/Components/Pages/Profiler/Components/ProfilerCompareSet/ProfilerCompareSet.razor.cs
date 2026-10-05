@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 using Poink.Sim.Components.Charts;
+using Poink.Sim.Helpers;
 using Poink.Sim.Models;
 
 namespace Poink.Sim.Components.Profiler
@@ -194,7 +195,7 @@ namespace Poink.Sim.Components.Profiler
 
 		private Task SetMainPanel(ProfilerComparePanel panel) => MainPanelChanged.InvokeAsync(panel);
 
-		private string ColorVarFor(string table) => ProfilerSymbolColorHelper.ColorVarFor(SymbolColors, table);
+		private string ColorVarFor(string table) => SymbolColorHelper.ColorVarFor(SymbolColors, table);
 
 		private List<CompareTxFoldSymbol> TxFoldSymbols() => Sets.Select(s => new CompareTxFoldSymbol(s.Table, ColorVarFor(s.Table))).ToList();
 

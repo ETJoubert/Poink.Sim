@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
+using Poink.Sim.Helpers;
 using Poink.Sim.Repository;
 
 namespace Poink.Sim.Components.Simulation
@@ -27,6 +28,10 @@ namespace Poink.Sim.Components.Simulation
 
 		[Parameter]
 		public EventCallback<IReadOnlyList<string>> SelectedTablesChanged { get; set; }
+
+		/// <summary>Table to theme colour var, shared with the page's charts so this panel is their legend.</summary>
+		[Parameter]
+		public IReadOnlyDictionary<string, string> SymbolColors { get; set; } = new Dictionary<string, string>();
 
 		/// <summary>The running simulation's tables, traded first, or null when none is loaded.</summary>
 		[Parameter]
@@ -85,6 +90,9 @@ namespace Poink.Sim.Components.Simulation
 		private bool AwaitsLoad(string table, bool isTraded) =>
 			LoadedTables is { Count: > 0 } loaded
 			&& (isTraded ? loaded[0] != table : !loaded.Skip(1).Contains(table));
+
+		private string SymbolColorStyle(string table) =>
+			$"--ssp-symbol-color: var({SymbolColorHelper.ColorVarFor(SymbolColors, table)})";
 
 		private (string Table, long Rows, DateTime? MinTime, DateTime? MaxTime) Meta(string table) =>
 			_availableTables.FirstOrDefault(t => t.Table == table);

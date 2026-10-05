@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Poink.Sim.Components.Charts;
+using Poink.Sim.Helpers;
 using Poink.Sim.Models;
 
 namespace Poink.Sim.Components.Profiler
@@ -23,7 +24,7 @@ namespace Poink.Sim.Components.Profiler
 		)
 		{
 			var series = sets
-				.Select(set => SymbolSeries(set, ProfilerSymbolColorHelper.ColorVarFor(symbolColors, set.Table), mode, anchor, style))
+				.Select(set => SymbolSeries(set, SymbolColorHelper.ColorVarFor(symbolColors, set.Table), mode, anchor, style))
 				.ToList();
 
 			if (sets.Count > 1 && sets.Skip(1).FirstOrDefault(s => s.Table == ratioTable) is { } denominator)
@@ -52,7 +53,7 @@ namespace Poink.Sim.Components.Profiler
 				.Where(s => s.HasBars)
 				.Select(s => new CompareXGridInput(
 					s.Table,
-					ProfilerSymbolColorHelper.ColorVarFor(symbolColors, s.Table),
+					SymbolColorHelper.ColorVarFor(symbolColors, s.Table),
 					s.Bars,
 					s.Histograms,
 					ReferenceClose(s, anchor, start)

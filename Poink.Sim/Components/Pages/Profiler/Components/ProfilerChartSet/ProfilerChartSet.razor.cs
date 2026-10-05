@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 using Poink.Sim.Components.Charts;
 using Poink.Sim.Components.Shared.Indicators;
+using Poink.Sim.Helpers;
 using Poink.Sim.Models;
 using Poink.Sim.Services.Charts;
 
@@ -43,7 +44,7 @@ namespace Poink.Sim.Components.Profiler
 
 		/// <summary>Theme colour var marking this set's left edge and symbol name, matching the symbols panel legend.</summary>
 		[Parameter]
-		public string ColorVar { get; set; } = ProfilerSymbolColorHelper.FallbackColorVar;
+		public string ColorVar { get; set; } = SymbolColorHelper.FallbackColorVar;
 
 		/// <summary>Height in px dragged via the bottom resize handle, or null for the set's default CSS height.</summary>
 		[Parameter]
@@ -178,7 +179,7 @@ namespace Poink.Sim.Components.Profiler
 		{
 			if (firstRender)
 			{
-				_dividerResizeInstance = await JS.InvokeAsync<IJSObjectReference>("eval", ProfilerChartDividerScript.Source);
+				_dividerResizeInstance = await JS.InvokeAsync<IJSObjectReference>("eval", ChartSetDividerScript.Source);
 				_selfReference = DotNetObjectReference.Create(this);
 				await _dividerResizeInstance.InvokeVoidAsync("bindVertical", _resizeHandleRef, _selfReference);
 			}

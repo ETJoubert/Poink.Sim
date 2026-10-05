@@ -99,6 +99,7 @@ namespace Poink.Sim.Components.Pages
 		private List<HlocAvdtBar> _historyBars = new();
 		private bool _historyReachedStart;
 		private bool _isLoadingHistory;
+		private bool _disposed;
 		private int _lastHistoryCursorIndex;
 
 		private int? _selectedTraderId;
@@ -603,6 +604,8 @@ namespace Poink.Sim.Components.Pages
 		private void HandleServiceChanged() =>
 			_ = InvokeAsync(() =>
 			{
+				if (_disposed)
+					return;
 				ApplyServiceState();
 				StateHasChanged();
 			});
@@ -946,7 +949,13 @@ namespace Poink.Sim.Components.Pages
 		{
 			if (firstRender)
 			{
-				_dividerResizeInstance = await JS.InvokeAsync<IJSObjectReference>("eval", ChartDividerScript);
+				var dividers = await JS.InvokeAsync<IJSObjectReference>("eval", ChartDividerScript);
+				if (_disposed)
+				{
+					await dividers.DisposeAsync();
+					return;
+				}
+				_dividerResizeInstance = dividers;
 				await LoadPersistedSettingsAsync();
 				await LoadInitialSimulation();
 			}
@@ -957,29 +966,7 @@ namespace Poink.Sim.Components.Pages
 
 			PushRobotOptionsIfChanged();
 			await RefreshSymbolMetadataIfTableChangedAsync();
-
-			if (_snapshot is not null && !_hideChart && _dividerResizeInstance is not null)
-			{
-				var visibleChartPanels = CurrentVisibleChartPanelKeys(_snapshot);
-				if (!visibleChartPanels.SetEquals(_lastVisibleChartPanels))
-				{
-					_lastVisibleChartPanels = visibleChartPanels;
-					await _dividerResizeInstance.InvokeVoidAsync("resetChartPanelsEqual", _chartRowRef);
-				}
-
-				if (!CompareActive(_snapshot))
-				{
-					if (ShowXGridDivider(_snapshot))
-						await _dividerResizeInstance.InvokeVoidAsync("bindChartDivider", _chartDividerRefXGrid);
-					if (ShowVolumeProfileDivider(_snapshot))
-						await _dividerResizeInstance.InvokeVoidAsync("bindChartDivider", _chartDividerRef);
-					if (ShowTimeProfileDivider(_snapshot))
-						await _dividerResizeInstance.InvokeVoidAsync("bindChartDivider", _chartDividerRef2);
-					if (ShowSnapshotDivider(_snapshot))
-						await _dividerResizeInstance.InvokeVoidAsync("bindChartDivider", _chartDividerRefSnapshot);
-				}
-				await _dividerResizeInstance.InvokeVoidAsync("bindHeightAfter", _chartHDividerRef);
-			}
+			await BindChartDividersAsync();
 
 			if (
 				!_keepChartView
@@ -990,8 +977,43 @@ namespace Poink.Sim.Components.Pages
 				_keepChartView = true;
 		}
 
+		// Navigating away can dispose the page, and its divider script, while this is still awaiting after a render.
+		private async Task BindChartDividersAsync()
+		{
+			if (_disposed || _snapshot is not { } s || _hideChart || _dividerResizeInstance is not { } dividers)
+				return;
+
+			try
+			{
+				var visibleChartPanels = CurrentVisibleChartPanelKeys(s);
+				if (!visibleChartPanels.SetEquals(_lastVisibleChartPanels))
+				{
+					_lastVisibleChartPanels = visibleChartPanels;
+					await dividers.InvokeVoidAsync("resetChartPanelsEqual", _chartRowRef);
+				}
+
+				if (!CompareActive(s))
+				{
+					if (ShowXGridDivider(s))
+						await dividers.InvokeVoidAsync("bindChartDivider", _chartDividerRefXGrid);
+					if (ShowVolumeProfileDivider(s))
+						await dividers.InvokeVoidAsync("bindChartDivider", _chartDividerRef);
+					if (ShowTimeProfileDivider(s))
+						await dividers.InvokeVoidAsync("bindChartDivider", _chartDividerRef2);
+					if (ShowSnapshotDivider(s))
+						await dividers.InvokeVoidAsync("bindChartDivider", _chartDividerRefSnapshot);
+				}
+				await dividers.InvokeVoidAsync("bindHeightAfter", _chartHDividerRef);
+			}
+			catch (ObjectDisposedException) { }
+			catch (JSDisconnectedException) { }
+		}
+
+		// Blazor calls only DisposeAsync when a component implements both, so it also unsubscribes from the engine.
 		public async ValueTask DisposeAsync()
 		{
+			_disposed = true;
+			Dispose();
 			if (_dividerResizeInstance is not null)
 			{
 				try

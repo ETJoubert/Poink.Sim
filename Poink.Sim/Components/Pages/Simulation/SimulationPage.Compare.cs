@@ -2,15 +2,15 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Poink.Sim.Components.Charts;
-using Poink.Sim.Components.Profiler;
 using Poink.Sim.Components.Simulation;
+using Poink.Sim.Helpers;
 using Poink.Sim.Models;
 
 namespace Poink.Sim.Components.Pages
 {
 	/// <summary>
 	/// The compare view that replaces the chart row and watched charts while on: the traded and watched symbols' live
-	/// bars on one <see cref="CompareChart"/>, coloured with the Profiler's per-symbol palette.
+	/// bars on one <see cref="CompareChart"/>, coloured with the shared per-symbol palette.
 	/// </summary>
 	public partial class SimulationPage
 	{
@@ -33,12 +33,11 @@ namespace Poink.Sim.Components.Pages
 
 		private bool CompareActive(SimulationSnapshot s) => _showCompare && CompareAvailable(s);
 
-		// Every symbol is compared over its live bars only, so all lines cover the same span; the traded symbol's
-		// backfilled history stays on its own chart.
+		// Live bars only, so every line covers the same span the watched symbols have.
 		private IReadOnlyList<SimulationCompareSymbol> CompareSymbols(SimulationSnapshot s)
 		{
 			var watched = WatchedSymbols(s);
-			var colors = SymbolColors(s);
+			var colors = SymbolColors;
 			var symbols = new List<SimulationCompareSymbol>(watched.Count + 1)
 			{
 				CompareSymbol(s.Config.Table, s.RecentBars, colors),
@@ -55,23 +54,24 @@ namespace Poink.Sim.Components.Pages
 			string table,
 			IReadOnlyList<HlocAvdtBar> bars,
 			IReadOnlyDictionary<string, string> colors
-		) => new(table, ProfilerSymbolColorHelper.ColorVarFor(colors, table), _rowCache.BarRows(table, bars));
+		) => new(table, SymbolColorHelper.ColorVarFor(colors, table), _rowCache.BarRows(table, bars));
 
-		private IReadOnlyDictionary<string, string> SymbolColors(SimulationSnapshot s)
+		// Rebuilt only on a selection change, since the compare chart re-plots whenever this reference changes.
+		private IReadOnlyDictionary<string, string> SymbolColors
 		{
-			var tables = (IReadOnlyList<string>)[s.Config.Table, .. WatchedSymbols(s).Select(w => w.Table)];
-			if (_symbolColors is null || !_symbolColorTables.SequenceEqual(tables))
+			get
 			{
-				_symbolColorTables = tables;
-				_symbolColors = ProfilerSymbolColorHelper.Assign(tables);
+				var tables = SelectedTables;
+				if (_symbolColors is null || !_symbolColorTables.SequenceEqual(tables))
+				{
+					_symbolColorTables = tables.ToList();
+					_symbolColors = SymbolColorHelper.Assign(tables);
+				}
+				return _symbolColors;
 			}
-			return _symbolColors;
 		}
 
-		/// <summary>
-		/// The traded symbol's Lookback Window edges as bar open times, so the compare view and every watched chart set cover
-		/// the same span of time.
-		/// </summary>
+		/// <summary>The traded symbol's Lookback Window edges as bar open times, shared by every symbol's panels.</summary>
 		private (DateTime? Start, DateTime? End) LookbackWindowTimes(SimulationSnapshot s)
 		{
 			var (bars, _) = WindowedBarData(s);
@@ -96,7 +96,7 @@ namespace Poink.Sim.Components.Pages
 				(s.Config.Table, s.RecentBars, s.RecentBarHistograms),
 			};
 			sources.AddRange(WatchedSymbols(s).Select(w => (w.Table, w.RecentBars, w.RecentBarHistograms)));
-			var colors = SymbolColors(s);
+			var colors = SymbolColors;
 			var key = (windowStart, windowEnd, anchorTime, _compareXGrid.RowPercent, _compareXGrid.ColCount, colors);
 			var bars = sources.Select(source => source.Bars).ToList();
 			if (_compareXGridKey == key && _compareXGridBars.SequenceEqual(bars, ReferenceEqualityComparer.Instance))
@@ -107,7 +107,7 @@ namespace Poink.Sim.Components.Pages
 				.Where(x => x.Reference is not null)
 				.Select(x => new CompareXGridInput(
 					x.source.Table,
-					ProfilerSymbolColorHelper.ColorVarFor(colors, x.source.Table),
+					SymbolColorHelper.ColorVarFor(colors, x.source.Table),
 					x.source.Bars,
 					x.source.Histograms,
 					x.Reference!.Value

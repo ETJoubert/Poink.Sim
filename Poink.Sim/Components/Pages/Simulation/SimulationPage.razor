@@ -150,7 +150,7 @@
                         <div class="sim-left-side-panel-content">
                             @if (_activeLeftPanelTab == SimLeftPanelTab.Symbol)
                             {
-                                <SimulationSymbolPanel SelectedTables="SelectedTables" SelectedTablesChanged="OnSymbolsSelected"
+                                <SimulationSymbolPanel SelectedTables="SelectedTables" SelectedTablesChanged="OnSymbolsSelected" SymbolColors="SymbolColors"
                                                        LoadedTables="LoadedTables" Disabled="@_isLoading" />
                                 <SymbolMetadataFields Symbol="_symbol" Metadata="_symbolMetadata" Loading="_loadingSymbolMetadata" />
                             }
@@ -236,7 +236,8 @@
                     @if (!_hideChart)
                     {
                         <div class="sim-chart-toolbar">
-                            <span class="sim-chart-title" title="Data table this simulation was loaded from">@s.Config.Table</span>
+                            <span class="sim-chart-title" style="color: var(@SymbolColorHelper.ColorVarFor(SymbolColors, s.Config.Table))"
+                                  title="Traded symbol's data table -- its colour matches the SYMBOL tab and the compare chart">@s.Config.Table</span>
                             <div class="sim-profile-toggles"
                                  title="Show or hide the chart and profile panels">
                                 <span class="sim-overlay-toggles-label">Panels</span>

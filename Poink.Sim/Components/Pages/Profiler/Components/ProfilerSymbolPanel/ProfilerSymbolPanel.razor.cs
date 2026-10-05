@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
+using Poink.Sim.Helpers;
 using Poink.Sim.Repository;
 
 namespace Poink.Sim.Components.Profiler
@@ -94,7 +95,7 @@ namespace Poink.Sim.Components.Profiler
 			_availableTables.FirstOrDefault(t => t.Table == table);
 
 		private string SymbolColorStyle(string table) =>
-			$"--psp-symbol-color: var({ProfilerSymbolColorHelper.ColorVarFor(SymbolColors, table)})";
+			$"--psp-symbol-color: var({SymbolColorHelper.ColorVarFor(SymbolColors, table)})";
 
 		private static string RangeLabel(DateTime? minTime, DateTime? maxTime) =>
 			minTime is { } min && maxTime is { } max ? $"{min:yyyy-MM-dd} → {max:yyyy-MM-dd}" : "no range recorded";

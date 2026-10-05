@@ -23,8 +23,8 @@
                 var isTraded = i == 0;
                 var meta = Meta(table);
                 var awaitsLoad = AwaitsLoad(table, isTraded);
-                <div class="ssp-item ssp-item-selected @(isTraded ? "ssp-item-traded" : "") @(awaitsLoad ? "ssp-item-pending" : "")"
-                     title="@($"{table}: {meta.Rows:N0} rows, {RangeLabel(meta.MinTime, meta.MaxTime)}")">
+                <div class="ssp-item ssp-item-selected @(isTraded ? "ssp-item-traded" : "")" style="@SymbolColorStyle(table)"
+                     title="@($"{table}: {meta.Rows:N0} rows, {RangeLabel(meta.MinTime, meta.MaxTime)} -- its colour marks its chart set and its compare line")">
                     <div class="ssp-item-text">
                         <span class="ssp-item-name">@table</span>
                         <span class="ssp-item-meta">@RangeLabel(meta.MinTime, meta.MaxTime)</span>

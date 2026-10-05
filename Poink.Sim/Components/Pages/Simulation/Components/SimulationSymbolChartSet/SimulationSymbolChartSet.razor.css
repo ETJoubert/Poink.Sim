@@ -66,95 +66,11 @@
     overflow: hidden;
 }
 
-.sscs-resize-handle {
-    position: relative;
-    flex: 0 0 8px;
-    cursor: row-resize;
-    touch-action: none;
-    user-select: none;
-    border-radius: 0 0 var(--border-radius-sm) var(--border-radius-sm);
-}
-
-.sscs-resize-handle::before {
-    content: "";
-    position: absolute;
-    left: 40%;
-    right: 40%;
-    top: 50%;
-    height: 2px;
-    transform: translateY(-50%);
-    border-radius: 1px;
-    background: color-mix(in srgb, var(--color-primary) 25%, transparent);
-    transition: background 0.2s ease;
-}
-
-.sscs-resize-handle:hover,
-.sscs-resize-handle.pcs-resize-handle-active {
-    background: color-mix(in srgb, var(--color-primary) 15%, transparent);
-}
-
-.sscs-resize-handle:hover::before,
-.sscs-resize-handle.pcs-resize-handle-active::before {
-    background: var(--color-primary);
-}
-
-/* Panel row class names match ProfilerChartDividerScript, which sizes them by flex-basis percent. */
-.prof-chart {
-    display: flex;
-    flex: 1 1 auto;
-    align-items: stretch;
-    gap: 16px;
-    padding: 5px;
-    min-height: 0;
+.chartset-row {
     overflow: hidden;
 }
 
-.prof-chart-main,
-.prof-chart-side {
-    flex: 1 1 0;
-    min-width: 150px;
-}
-
-.prof-chart-side {
-    display: flex;
-    flex-direction: column;
-    overflow-y: auto;
-}
-
-.prof-vp {
+.sscs-panel {
     flex: 1 1 auto;
     min-height: 0;
-}
-
-.prof-chart-divider {
-    position: relative;
-    flex: 0 0 6px;
-    align-self: stretch;
-    margin: 0 -10px;
-    cursor: col-resize;
-    touch-action: none;
-    user-select: none;
-    border-radius: 3px;
-}
-
-.prof-chart-divider::before {
-    content: "";
-    position: absolute;
-    top: 15%;
-    bottom: 15%;
-    left: 50%;
-    width: 1px;
-    transform: translateX(-50%);
-    background: color-mix(in srgb, var(--color-primary) 20%, transparent);
-    transition: background 0.2s ease;
-}
-
-.prof-chart-divider:hover,
-.prof-chart-divider.prof-chart-divider-active {
-    background: color-mix(in srgb, var(--color-primary) 15%, transparent);
-}
-
-.prof-chart-divider:hover::before,
-.prof-chart-divider.prof-chart-divider-active::before {
-    background: var(--color-primary);
 }

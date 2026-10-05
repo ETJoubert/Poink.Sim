@@ -31,10 +31,10 @@
     }
     else
     {
-        <div class="prof-chart" @ref="_chartRowRef">
+        <div class="chartset-row" @ref="_chartRowRef">
             @if (Options.ShowMainChart)
             {
-                <div class="prof-chart-main" title="This symbol's live bars, with the indicator lines for the Lookback Window">
+                <div class="chartset-main" title="This symbol's live bars, with the indicator lines for the Lookback Window">
                     <MarketChartContainer Bars="Data.Bars" KeepView="KeepView" ShowAnnotationTools="false"
                                           CurrentBid="Data.CurrentBid" CurrentAsk="Data.CurrentAsk"
                                           WindowStartUtc="Data.WindowStartUtc" WindowEndUtc="Data.WindowEndUtc"
@@ -46,10 +46,10 @@
             {
                 @if (Options.ShowMainChart)
                 {
-                    <div class="prof-chart-divider" @ref="_dividerRefXGrid" data-min-width="160" title="Drag to resize"></div>
+                    <div class="chartset-divider" @ref="_dividerRefXGrid" data-min-width="160" title="Drag to resize"></div>
                 }
-                <div class="prof-chart-side">
-                    <div class="prof-vp" title="Footprint grid for this symbol's bars inside the Lookback Window -- rows are price buckets, columns are bars">
+                <div class="chartset-side">
+                    <div class="sscs-panel" title="Footprint grid for this symbol's bars inside the Lookback Window -- rows are price buckets, columns are bars">
                         <XGridController Grid="Data.XGrid" PipCount="XGridPipCount" PipCountChanged="XGridPipCountChanged"
                                          ColCount="XGridColCount" ColCountChanged="XGridColCountChanged"
                                          PipSize="Data.PipSize" Indicators="Options.Indicators" ProfileBarCount="Data.WindowBarCount" />
@@ -60,10 +60,10 @@
             {
                 @if (Options.ShowMainChart || Options.ShowXGrid)
                 {
-                    <div class="prof-chart-divider" @ref="_dividerRefVolume" data-min-width="160" title="Drag to resize"></div>
+                    <div class="chartset-divider" @ref="_dividerRefVolume" data-min-width="160" title="Drag to resize"></div>
                 }
-                <div class="prof-chart-side">
-                    <div class="prof-vp" title="Volume-at-price histogram for this symbol's bars inside the Lookback Window">
+                <div class="chartset-side">
+                    <div class="sscs-panel" title="Volume-at-price histogram for this symbol's bars inside the Lookback Window">
                         <TickVolumeProfileChart WeightedSamples="Data.Samples" CurrentPrice="Data.CurrentPrice" ShowLevels="ShowVolumeProfileLevels" />
                     </div>
                 </div>
@@ -72,10 +72,10 @@
             {
                 @if (Options.ShowMainChart || Options.ShowXGrid || Options.ShowVolumeProfile)
                 {
-                    <div class="prof-chart-divider" @ref="_dividerRefTime" data-min-width="160" title="Drag to resize"></div>
+                    <div class="chartset-divider" @ref="_dividerRefTime" data-min-width="160" title="Drag to resize"></div>
                 }
-                <div class="prof-chart-side">
-                    <div class="prof-vp" title="Time-at-price histogram for this symbol's bars inside the Lookback Window">
+                <div class="chartset-side">
+                    <div class="sscs-panel" title="Time-at-price histogram for this symbol's bars inside the Lookback Window">
                         <TickTimeProfileChart WeightedSamples="Data.TimeSamples" CurrentPrice="Data.CurrentPrice" />
                     </div>
                 </div>
@@ -84,10 +84,10 @@
             {
                 @if (Options.ShowMainChart || Options.ShowXGrid || Options.ShowVolumeProfile || Options.ShowTimeProfile)
                 {
-                    <div class="prof-chart-divider" @ref="_dividerRefTxFold" data-min-width="160" title="Drag to resize"></div>
+                    <div class="chartset-divider" @ref="_dividerRefTxFold" data-min-width="160" title="Drag to resize"></div>
                 }
-                <div class="prof-chart-side">
-                    <div class="prof-vp" title="One OHLC/Quartile bar per toggled timeframe, each a trailing window ending at this symbol's last bar inside the Lookback Window">
+                <div class="chartset-side">
+                    <div class="sscs-panel" title="One OHLC/Quartile bar per toggled timeframe, each a trailing window ending at this symbol's last bar inside the Lookback Window">
                         @if (Data.TxFoldAnchorEnd is { } anchorEnd)
                         {
                             <TxFold Table="@Data.Table" AnchorEnd="anchorEnd" RangeStart="Options.RangeStart" LatestPrice="Data.TxFoldLatestPrice"
@@ -103,6 +103,6 @@
             }
         </div>
     }
-    <div class="sscs-resize-handle" @ref="_resizeHandleRef" data-min-height="200"
+    <div class="chartset-resize-handle" @ref="_resizeHandleRef" data-min-height="200"
          title="Drag to resize this chart set's height -- double-click to reset it"></div>
 </section>
