@@ -35,7 +35,8 @@ namespace Poink.Sim.Components.Profiler
 		ProfilerCompareMode CompareMode = ProfilerCompareMode.PercentChange,
 		string? CompareRatioTable = null,
 		CompareChartSeriesStyle CompareStyle = CompareChartSeriesStyle.Lines,
-		ProfilerCompareTxFoldSettings? CompareTxFold = null
+		ProfilerCompareTxFoldSettings? CompareTxFold = null,
+		ProfilerCompareAnchor CompareAnchor = ProfilerCompareAnchor.WindowStart
 	)
 	{
 		/// <summary>The browser localStorage key the Profiler page keeps these settings under.</summary>

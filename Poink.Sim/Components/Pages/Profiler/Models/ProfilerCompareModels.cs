@@ -10,8 +10,18 @@ namespace Poink.Sim.Components.Profiler
 		/// <summary>Each symbol's first bar in view, re-basing as the chart pans.</summary>
 		PercentChange,
 
-		/// <summary>Each symbol's bar at the Lookback Window's start, or its first loaded bar while no window is set.</summary>
+		/// <summary>Each symbol's bar at the Lookback Window edge picked by <see cref="ProfilerCompareAnchor"/>.</summary>
 		WindowAnchored,
+	}
+
+	/// <summary>Which Lookback Window edge <see cref="ProfilerCompareMode.WindowAnchored"/> measures % change from.</summary>
+	public enum ProfilerCompareAnchor
+	{
+		/// <summary>The window's left edge, so lines fan out from 0% across the window.</summary>
+		WindowStart,
+
+		/// <summary>The window's right edge, the same point TxFold anchors at, so lines converge on 0% there.</summary>
+		WindowEnd,
 	}
 
 	/// <summary>The compare view's TxFold panel options; a null <paramref name="Seconds"/> means the default timeframes.</summary>

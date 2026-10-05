@@ -7,9 +7,19 @@
         <label class="pcmp-field" title="What each symbol's % change is measured from">
             Mode
             <select class="pcmp-select" value="@Mode" @onchange="OnModeSelected"
-                    title="% change: from the first bar in view, re-basing as you pan. Window: from the Lookback Window's start">
+                    title="% change: from the first bar in view, re-basing as you pan. Window: from the Lookback Window edge picked under Anchor">
                 <option value="@ProfilerCompareMode.PercentChange">% change</option>
                 <option value="@ProfilerCompareMode.WindowAnchored">Window</option>
+            </select>
+        </label>
+        <label class="pcmp-field" title="Which Lookback Window edge Window mode measures from">
+            Anchor
+            <select class="pcmp-select" value="@WindowAnchor" @onchange="OnAnchorSelected" disabled="@(Mode != ProfilerCompareMode.WindowAnchored)"
+                    title="@(Mode != ProfilerCompareMode.WindowAnchored
+                               ? "Only applies in Window mode"
+                               : "Start: lines fan out from 0% at the window's left edge. End: lines meet 0% at the window's right edge, the same point TxFold anchors at")">
+                <option value="@ProfilerCompareAnchor.WindowStart">Start</option>
+                <option value="@ProfilerCompareAnchor.WindowEnd">End</option>
             </select>
         </label>
         <label class="pcmp-field" title="Draw each symbol as a line, or as candles in its own colour">
@@ -55,6 +65,7 @@
     <div class="pcmp-body">
         <div class="pcmp-chart">
             <CompareChart Series="_series" ScaleMode="ScaleMode" Style="Style" WindowStart="WindowStart" WindowEnd="WindowEnd"
+                          Zones="TxFoldZones()" Markers="TxFoldMarkers()"
                           CanLoadMore="CanLoadMore" OnNearStart="OnNearStart" Tooltip="@ChartTooltip()" />
         </div>
         @if (TxFold.Show)

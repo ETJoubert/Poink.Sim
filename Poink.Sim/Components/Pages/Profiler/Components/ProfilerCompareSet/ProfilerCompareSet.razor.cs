@@ -28,6 +28,13 @@ namespace Poink.Sim.Components.Profiler
 		[Parameter]
 		public EventCallback<ProfilerCompareMode> ModeChanged { get; set; }
 
+		/// <summary>Which Lookback Window edge <see cref="ProfilerCompareMode.WindowAnchored"/> measures from; ignored in the other mode.</summary>
+		[Parameter]
+		public ProfilerCompareAnchor WindowAnchor { get; set; }
+
+		[Parameter]
+		public EventCallback<ProfilerCompareAnchor> WindowAnchorChanged { get; set; }
+
 		[Parameter]
 		public CompareChartSeriesStyle Style { get; set; }
 
@@ -74,7 +81,11 @@ namespace Poink.Sim.Components.Profiler
 
 		private IEnumerable<ProfilerSymbolData> Comparisons => Sets.Skip(1);
 
-		private DateTime? Anchor => Mode == ProfilerCompareMode.WindowAnchored ? WindowStart : null;
+		// Without a window, End falls back to the primary's latest bar the way Start falls back to each first loaded bar.
+		private DateTime? AnchorTime =>
+			Mode != ProfilerCompareMode.WindowAnchored ? null
+			: WindowAnchor == ProfilerCompareAnchor.WindowStart ? WindowStart
+			: WindowEnd ?? (Primary is { HasBars: true } primary ? primary.Bars[^1].OpenTime : null);
 
 		private bool CanLoadMore => Sets.Any(s => s.HasBars && !s.ReachedStart);
 
@@ -89,14 +100,14 @@ namespace Poink.Sim.Components.Profiler
 			if (_builtFor is { } built
 				&& ReferenceEquals(built.Colors, SymbolColors)
 				&& built.Mode == Mode
-				&& built.Anchor == Anchor
+				&& built.Anchor == AnchorTime
 				&& built.RatioTable == RatioTable
 				&& built.Style == Style
 				&& built.Bars.SequenceEqual(bars, ReferenceEqualityComparer.Instance))
 				return;
 
-			_builtFor = (bars, SymbolColors, Mode, Anchor, RatioTable, Style);
-			_series = ProfilerCompareHelper.Build(Sets, SymbolColors, Mode, Anchor, RatioTable, Style);
+			_builtFor = (bars, SymbolColors, Mode, AnchorTime, RatioTable, Style);
+			_series = ProfilerCompareHelper.Build(Sets, SymbolColors, Mode, AnchorTime, RatioTable, Style);
 		}
 
 		private string ColorVarFor(string table) => ProfilerSymbolColorHelper.ColorVarFor(SymbolColors, table);
@@ -111,21 +122,43 @@ namespace Poink.Sim.Components.Profiler
 
 		private Task SetTxFold(ProfilerCompareTxFoldSettings settings) => TxFoldChanged.InvokeAsync(settings);
 
+		private const string TxFoldColorVar = "--color-highlight";
+
+		private IEnumerable<SnapshotTimeframe> TxFoldTimeframes => SnapshotTimeframeOptions.All.Where(o => TxFoldSeconds.Contains(o.Seconds));
+
+		/// <summary>The span the largest selected TxFold window covers, ending at its anchor.</summary>
+		private IReadOnlyList<CompareChartZone> TxFoldZones() =>
+			TxFold.Show && TxFoldAnchor is { } anchor && TxFoldTimeframes.LastOrDefault() is { Seconds: > 0 } largest
+				? [new CompareChartZone(anchor.AddSeconds(-largest.Seconds), anchor, TxFoldColorVar, $"TXFOLD {largest.Label}")]
+				: [];
+
+		/// <summary>Where each smaller TxFold window starts; the largest one's start is already the zone's labelled edge.</summary>
+		private IReadOnlyList<CompareChartMarker> TxFoldMarkers() =>
+			TxFold.Show && TxFoldAnchor is { } anchor
+				? TxFoldTimeframes.SkipLast(1).Select(o => new CompareChartMarker(anchor.AddSeconds(-o.Seconds), TxFoldColorVar, o.Label)).ToList()
+				: [];
+
 		private string ModeNote() =>
-			Mode switch
+			(Mode, WindowAnchor) switch
 			{
-				ProfilerCompareMode.WindowAnchored when WindowStart is { } start => $"% change from {start:yyyy-MM-dd HH:mm}",
-				ProfilerCompareMode.WindowAnchored => "% change from each symbol's first loaded bar -- turn on the Lookback Window to anchor it",
-				_ => "% change from the first bar in view",
+				(ProfilerCompareMode.PercentChange, _) => "% change from the first bar in view",
+				(_, ProfilerCompareAnchor.WindowStart) when WindowStart is { } start => $"% change from the window start, {start:yyyy-MM-dd HH:mm}",
+				(_, ProfilerCompareAnchor.WindowStart) => "% change from each symbol's first loaded bar -- turn on the Lookback Window to anchor it",
+				_ when WindowEnd is { } end => $"% change relative to the window end, {end:yyyy-MM-dd HH:mm} -- the point TxFold anchors at",
+				_ => "% change relative to the latest loaded bar -- turn on the Lookback Window to anchor it",
 			};
 
 		private string ChartTooltip() =>
-			HasRatio
+			(HasRatio
 				? $"Every symbol's {ModeNote()}, with {ProfilerCompareHelper.RatioLabel(Primary!.Table, RatioTable!)} in the lower pane -- pan left to backfill every symbol"
-				: $"Every symbol's {ModeNote()} -- pan left to backfill every symbol";
+				: $"Every symbol's {ModeNote()} -- pan left to backfill every symbol")
+			+ (TxFold.Show ? ". The highlighted zone and dashed lines mark where each TxFold window starts" : "");
 
 		private Task OnModeSelected(ChangeEventArgs e) =>
 			ModeChanged.InvokeAsync(Enum.TryParse<ProfilerCompareMode>(e.Value?.ToString(), out var mode) ? mode : ProfilerCompareMode.PercentChange);
+
+		private Task OnAnchorSelected(ChangeEventArgs e) =>
+			WindowAnchorChanged.InvokeAsync(Enum.TryParse<ProfilerCompareAnchor>(e.Value?.ToString(), out var anchor) ? anchor : ProfilerCompareAnchor.WindowStart);
 
 		private Task OnStyleSelected(ChangeEventArgs e) =>
 			StyleChanged.InvokeAsync(Enum.TryParse<CompareChartSeriesStyle>(e.Value?.ToString(), out var style) ? style : CompareChartSeriesStyle.Lines);
