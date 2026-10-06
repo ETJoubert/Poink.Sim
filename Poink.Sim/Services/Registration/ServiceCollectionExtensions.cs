@@ -133,6 +133,7 @@ public static class ServiceCollectionExtensions
 		services.AddSingleton<IHistoricalTickSource, CTraderHistoricalTickSource>();
 		services.AddSingleton<ITickHistoryService, TickHistoryService>();
 		services.AddSingleton<ILiveTickRecorder, LiveTickRecorder>();
+		services.AddSingleton<ITodayTickReloadService, TodayTickReloadService>();
 
 		return services;
 	}

@@ -45,6 +45,9 @@ namespace Poink.Sim.Components.Pages.Trade
 		private ITickRepository TickRepository { get; set; } = null!;
 
 		[Inject]
+		private ITodayTickReloadService TodayReload { get; set; } = null!;
+
+		[Inject]
 		private IJSRuntime JS { get; set; } = null!;
 
 		[Inject]
@@ -366,6 +369,43 @@ namespace Poink.Sim.Components.Pages.Trade
 		}
 
 		private int _renderQueued;
+		private int _syncRefreshToken;
+		private bool _reloadingToday;
+		private string? _reloadStatus;
+
+		private string ReloadTodayTitle =>
+			SymbolName is null
+				? "Replace today's stored ticks with a fresh cTrader fetch"
+				: $"Delete today's (UTC) stored ticks in {TodayReload.TableFor(SymbolName)} and replace them with a fresh cTrader fetch -- asks to confirm first";
+
+		private async Task ReloadTodayAsync()
+		{
+			if (SymbolId is not { } id || SymbolName is null)
+				return;
+
+			var table = TodayReload.TableFor(SymbolName);
+			if (!await JS.InvokeAsync<bool>("confirm", $"Replace today's stored {SymbolName} ticks in {table} with a fresh cTrader fetch? Today's recorded ticks will be deleted."))
+				return;
+
+			_reloadingToday = true;
+			_reloadStatus = null;
+			StateHasChanged();
+			try
+			{
+				var result = await TodayReload.ReloadAsync(id, SymbolName);
+				_reloadStatus = result.Succeeded ? $"Today reloaded: {result.Inserted:N0} tick(s), {result.Deleted:N0} replaced" : result.Error;
+				if (result.Succeeded)
+				{
+					BarFeed.Invalidate(id);
+					_syncRefreshToken++;
+					await LoadChartHistoryAsync(id);
+				}
+			}
+			finally
+			{
+				_reloadingToday = false;
+			}
+		}
 
 		// The held bars belonged to the previous account, so the chart and compare series reload on the new one.
 		private void OnFeedReset() =>

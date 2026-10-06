@@ -57,8 +57,11 @@ namespace Poink.Sim.Components.Pages.Trade
 			if (Get(symbolId) is { } held && held.BarSizeSeconds == barSizeSeconds)
 				return Task.FromResult(held);
 
-			return _loads.GetOrAdd((symbolId, barSizeSeconds), key => LoadFreshAsync(key, symbolName, pipSize));
+			var accountId = _account.SelectedAccountId;
+			return _loads.GetOrAdd((symbolId, barSizeSeconds), key => LoadFreshAsync(key, symbolName, pipSize, accountId));
 		}
+
+		public void Invalidate(long symbolId) => _series.TryRemove(symbolId, out _);
 
 		public void RetainOnly(IReadOnlySet<long> symbolIds)
 		{
@@ -69,14 +72,18 @@ namespace Poink.Sim.Components.Pages.Trade
 		public static TimeSpan LookbackFor(int barSizeSeconds) =>
 			TimeSpan.FromTicks(Math.Min(TimeSpan.FromSeconds(barSizeSeconds).Ticks * TargetHistoryBarCount, MaxHistoryLookback.Ticks));
 
-		private async Task<TradeSymbolSeries> LoadFreshAsync((long SymbolId, int BarSizeSeconds) key, string symbolName, double pipSize)
+		private async Task<TradeSymbolSeries> LoadFreshAsync(
+			(long SymbolId, int BarSizeSeconds) key,
+			string symbolName,
+			double pipSize,
+			long? accountId
+		)
 		{
 			// Yields first so the load is registered in _loads before its finally can remove it, even when history returns synchronously.
 			await Task.Yield();
 			try
 			{
 				_series.TryRemove(key.SymbolId, out _);
-				var accountId = _account.SelectedAccountId;
 				var to = DateTime.UtcNow;
 				var history = await _tickHistory.LoadAsync(
 					new TickHistoryRequest(key.SymbolId, symbolName, to - LookbackFor(key.BarSizeSeconds), to, BackfillTrigger.User)

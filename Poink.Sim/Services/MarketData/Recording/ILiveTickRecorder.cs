@@ -12,5 +12,8 @@ namespace Poink.Sim.Services.MarketData.Recording
 
 		/// <summary>Starts recording on the first lease; disposing the last lease flushes and stops.</summary>
 		IAsyncDisposable Acquire();
+
+		/// <summary>Drops buffered, unwritten ticks for <paramref name="table"/> older than <paramref name="beforeUtc"/>, after that range was replaced in the table.</summary>
+		int DiscardBuffered(string table, DateTime beforeUtc);
 	}
 }

@@ -38,6 +38,15 @@ internal sealed class InMemoryTickRepository : ITickRepository, ITickIngest
 		return ticks.Count(t => rows.TryAdd(t.Timestamp, t));
 	}
 
+	public (long Deleted, long Inserted) ReplaceTicks(string table, DateTime fromUtc, DateTime toUtc, IReadOnlyList<Tick> ticks)
+	{
+		var rows = _tables[table];
+		var doomed = rows.Keys.Where(t => t >= fromUtc && t < toUtc).ToList();
+		foreach (var timestamp in doomed)
+			rows.Remove(timestamp);
+		return (doomed.Count, InsertTicks(table, ticks));
+	}
+
 	public void RefreshDailyStat(string table, DateOnly day) => RefreshedDays.Add((table, day));
 
 	public void LogBackfill(

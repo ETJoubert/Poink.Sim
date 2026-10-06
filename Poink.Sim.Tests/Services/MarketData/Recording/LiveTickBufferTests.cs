@@ -37,6 +37,17 @@ public class LiveTickBufferTests
 	}
 
 	[Fact]
+	public void DiscardBefore_KeepsNewerTicks()
+	{
+		var buffer = new LiveTickBuffer();
+		buffer.Add(Table, 1, "EURUSD", TestTickHelper.AtMid(1, 1.1));
+		buffer.Add(Table, 1, "EURUSD", TestTickHelper.AtMid(5, 1.2));
+
+		Assert.Equal(1, buffer.DiscardBefore(Table, TestTickHelper.Origin.AddSeconds(3)));
+		Assert.Equal(new[] { 1.2 }, buffer.Drain(Table)!.Ticks.Select(t => t.Bid));
+	}
+
+	[Fact]
 	public void Discard_DropsTableAndReturnsCount()
 	{
 		var buffer = new LiveTickBuffer();

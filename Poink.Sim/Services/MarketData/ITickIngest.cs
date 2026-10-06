@@ -35,6 +35,12 @@ namespace Poink.Sim.Services.MarketData
 		/// <summary>Bulk-appends the ticks (assumed sorted ascending by timestamp) and updates the registry. Returns the row count written.</summary>
 		long InsertTicks(string table, IReadOnlyList<Tick> ticks);
 
+		/// <summary>
+		/// Atomically deletes the table's ticks in [<paramref name="fromUtc"/>, <paramref name="toUtc"/>) and inserts
+		/// <paramref name="ticks"/> (sorted ascending, inside that range) in their place. Returns the rows deleted and inserted.
+		/// </summary>
+		(long Deleted, long Inserted) ReplaceTicks(string table, DateTime fromUtc, DateTime toUtc, IReadOnlyList<Tick> ticks);
+
 		/// <summary>Records a completed backfill fetch-and-store to the tick_backfill_log audit table.</summary>
 		void LogBackfill(
 			string table,

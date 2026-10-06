@@ -217,6 +217,55 @@ namespace Poink.Sim.Services.MarketData
 			return written;
 		}
 
+		public (long Deleted, long Inserted) ReplaceTicks(string table, DateTime fromUtc, DateTime toUtc, IReadOnlyList<Tick> ticks)
+		{
+			using var conn = new NpgsqlConnection(_connectionString);
+			conn.Open();
+			EnsureRegistryTable(conn);
+
+			var staging = $"stage_{Guid.NewGuid():N}";
+			using var transaction = conn.BeginTransaction();
+			conn.Execute(Sql.CreateStagingTable(staging), transaction: transaction);
+			using (var writer = conn.BeginBinaryImport(Sql.CopyInto(staging)))
+			{
+				foreach (var t in ticks)
+				{
+					writer.StartRow();
+					writer.Write(DateTime.SpecifyKind(t.Timestamp, DateTimeKind.Utc), NpgsqlDbType.TimestampTz);
+					writer.Write(t.Bid, NpgsqlDbType.Double);
+					writer.Write(t.Ask, NpgsqlDbType.Double);
+				}
+				writer.Complete();
+			}
+
+			var range = new { from = DateTime.SpecifyKind(fromUtc, DateTimeKind.Utc), to = DateTime.SpecifyKind(toUtc, DateTimeKind.Utc) };
+			long deleted = conn.Execute(Sql.DeleteRange(table), range, transaction);
+			long inserted = conn.Execute(Sql.InsertFromStagingSkipDuplicates(table, staging), transaction: transaction);
+			conn.Execute(Sql.DropStagingTable(staging), transaction: transaction);
+			conn.Execute(
+				Sql.UpsertRegistryDelta,
+				new
+				{
+					table,
+					n = inserted - deleted,
+					min = ticks.Count > 0 ? ticks[0].Timestamp : range.from,
+					max = ticks.Count > 0 ? ticks[^1].Timestamp : range.from,
+				},
+				transaction
+			);
+			transaction.Commit();
+
+			_logger.LogInformation(
+				"Replaced {Table} ticks {From:u}..{To:u}: {Deleted} row(s) deleted, {Inserted} inserted.",
+				table,
+				fromUtc,
+				toUtc,
+				deleted,
+				inserted
+			);
+			return (deleted, inserted);
+		}
+
 		public void LogBackfill(
 			string table,
 			long symbolCode,
@@ -364,6 +413,9 @@ namespace Poink.Sim.Services.MarketData
                    ON CONFLICT (""timestamp"") DO NOTHING";
 
 			public static string DropStagingTable(string staging) => $@"DROP TABLE IF EXISTS ""{staging}""";
+
+			public static string DeleteRange(string table) =>
+				$@"DELETE FROM ""{table}"" WHERE ""timestamp"" >= @from AND ""timestamp"" < @to";
 
 			public static string SelectTableStats(string table) =>
 				$"SELECT COUNT(*) AS \"Rows\", MIN(\"timestamp\") AS \"MinTime\", MAX(\"timestamp\") AS \"MaxTime\" FROM \"{table}\"";

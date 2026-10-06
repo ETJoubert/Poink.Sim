@@ -26,6 +26,9 @@ namespace Poink.Sim.Components.Pages.Trade
 		/// <summary>Returns the symbol's series at this bar size, loading its history first unless it is already held.</summary>
 		Task<TradeSymbolSeries> LoadAsync(long symbolId, string symbolName, int barSizeSeconds, double pipSize);
 
+		/// <summary>Drops the symbol's held series, so the next load re-reads its history, e.g. after its stored ticks were replaced.</summary>
+		void Invalidate(long symbolId);
+
 		/// <summary>Drops every held series not in <paramref name="symbolIds"/>, so unwatched symbols stop aggregating.</summary>
 		void RetainOnly(IReadOnlySet<long> symbolIds);
 	}

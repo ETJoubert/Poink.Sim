@@ -40,7 +40,9 @@
         </header>
         @if (SymbolName is not null)
         {
-            <DataSeriesSyncChart SymbolName="@SymbolName" />
+            <DataSeriesSyncChart SymbolName="@SymbolName" RefreshToken="_syncRefreshToken"
+                                 OnReloadToday="ReloadTodayAsync" ReloadingToday="_reloadingToday"
+                                 ReloadStatus="@_reloadStatus" ReloadTodayTitle="@ReloadTodayTitle" />
         }
         <Indicators @bind-Settings="_indicators">
             <LookbackContent>

@@ -67,6 +67,21 @@ namespace Poink.Sim.Services.MarketData.Recording
 				return _pending.Remove(table, out var pending) ? pending.Ticks.Count : 0;
 		}
 
+		/// <summary>Drops a table's ticks older than <paramref name="beforeUtc"/>, keeping newer ones; returns how many were dropped.</summary>
+		public int DiscardBefore(string table, DateTime beforeUtc)
+		{
+			lock (_lock)
+			{
+				if (!_pending.TryGetValue(table, out var pending))
+					return 0;
+
+				var dropped = pending.Ticks.RemoveAll(t => t.Timestamp < beforeUtc);
+				if (pending.Ticks.Count == 0)
+					_pending.Remove(table);
+				return dropped;
+			}
+		}
+
 		private static List<Tick> LatestPerTimestamp(List<Tick> ticks)
 		{
 			var ordered = ticks.Select((tick, index) => (tick, index)).OrderBy(x => x.tick.Timestamp).ThenBy(x => x.index).ToList();

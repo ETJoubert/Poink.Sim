@@ -72,6 +72,8 @@ namespace Poink.Sim.Services.MarketData.Recording
 			return new Lease(this);
 		}
 
+		public int DiscardBuffered(string table, DateTime beforeUtc) => _buffer.DiscardBefore(table, beforeUtc);
+
 		private void Start()
 		{
 			_catchUps.Clear();
