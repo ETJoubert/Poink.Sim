@@ -40,7 +40,7 @@
 }
 
 .emu-bots-id {
-    color: var(--color-info);
+    color: var(--emu-group-color, var(--color-info));
 }
 
 .emu-bots-positive {

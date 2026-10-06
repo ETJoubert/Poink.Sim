@@ -196,10 +196,8 @@ public sealed class EmulatorService : IEmulatorService, IDisposable
 			}
 			else
 			{
-				if (previous.ActivityRangeDiffers(settings))
-				{
-					AssignActivity(_broker);
-				}
+				var added = _broker.ApplyGroups(previous.Populations, settings.Populations);
+				AssignActivity(previous.ActivityRangeDiffers(settings) ? _broker.Accounts : added);
 				_broker.UpdateTerms(settings);
 				_snapshot = BuildSnapshot(_broker, _snapshot.Step);
 			}
@@ -300,7 +298,7 @@ public sealed class EmulatorService : IEmulatorService, IDisposable
 	{
 		_history.Clear();
 		var broker = new EmulatorBroker(Settings);
-		AssignActivity(broker);
+		AssignActivity(broker.Accounts);
 		var now = _timeProvider.GetUtcNow().UtcDateTime;
 		AppendHistory(new EmulatorPricePoint(now - Settings.TickInterval * Math.Max(0, Settings.WarmupSteps), broker.LastPrice));
 		for (var step = Settings.WarmupSteps - 1; step >= 0; step--)
@@ -329,11 +327,11 @@ public sealed class EmulatorService : IEmulatorService, IDisposable
 		broker.RunStopOuts();
 	}
 
-	private void AssignActivity(EmulatorBroker broker)
+	private void AssignActivity(IEnumerable<EmulatorBotAccount> bots)
 	{
 		var min = Math.Min(Settings.ActivityChanceMin, Settings.ActivityChanceMax);
 		var max = Math.Max(Settings.ActivityChanceMin, Settings.ActivityChanceMax);
-		foreach (var bot in broker.Accounts)
+		foreach (var bot in bots)
 		{
 			bot.ActivityChance = min + (max - min) * _random.NextDouble();
 		}

@@ -32,6 +32,7 @@ internal sealed class EmulatorBroker
 	private long _tradeCount;
 	private long _tradedVolume;
 	private long _rejectedOrders;
+	private int _nextBotId = 1;
 	private double? _tradedHigh;
 	private double? _tradedLow;
 
@@ -41,20 +42,45 @@ internal sealed class EmulatorBroker
 		_lastPriceTicks = Math.Max(1, EmulatorTickHelper.ToTicks(settings.StartPrice, settings.TickSize));
 		_fundBalance = _fundCapital = settings.BrokerFund;
 
-		var nextId = 1;
-		_accounts = settings
-			.Populations.SelectMany(population =>
-				Enumerable
-					.Range(0, Math.Max(0, population.BotCount))
-					.Select(_ => new EmulatorBotAccount(nextId++, population.Name, population.StartingPoints))
-			)
-			.ToList();
-		_accountsById = _accounts.ToDictionary(account => account.Id);
+		_accounts = new List<EmulatorBotAccount>();
+		_accountsById = new Dictionary<int, EmulatorBotAccount>();
+		foreach (var population in settings.Populations)
+		{
+			AddBots(population, population.BotCount);
+		}
 	}
 
 	public IReadOnlyList<EmulatorBotAccount> Accounts => _accounts;
 
 	public double LastPrice => EmulatorTickHelper.FromTicks(_lastPriceTicks, _settings.TickSize);
+
+	/// <summary>
+	/// Brings the bots in line with the groups in <paramref name="next"/>, matched to <paramref name="previous"/> by
+	/// position: renamed groups carry their bots over and larger or new groups get fresh bots with their starting
+	/// capital. Fewer groups or bots need a fresh market instead. Returns the bots added.
+	/// </summary>
+	public IReadOnlyList<EmulatorBotAccount> ApplyGroups(IReadOnlyList<PopulationSettings> previous, IReadOnlyList<PopulationSettings> next)
+	{
+		var added = new List<EmulatorBotAccount>();
+		for (var i = 0; i < next.Count; i++)
+		{
+			var group = next[i];
+			var existing = 0;
+			if (i < previous.Count)
+			{
+				var members = _accounts.Where(bot => bot.Population == previous[i].Name).ToArray();
+				foreach (var bot in members)
+				{
+					bot.MoveToGroup(group.Name);
+				}
+				existing = members.Length;
+			}
+
+			added.AddRange(AddBots(group, group.BotCount - existing));
+		}
+
+		return added;
+	}
 
 	/// <summary>Takes on new terms, such as leverage, for every order and stop-out check from now on.</summary>
 	public void UpdateTerms(EmulatorSettings settings) => _settings = settings;
@@ -91,8 +117,10 @@ internal sealed class EmulatorBroker
 		return range;
 	}
 
-	public BotMarketView ViewFor(EmulatorBotAccount bot) =>
-		new(
+	public BotMarketView ViewFor(EmulatorBotAccount bot)
+	{
+		var group = GroupOf(bot);
+		return new BotMarketView(
 			LastPrice,
 			_book.BestBidTicks is { } bid ? EmulatorTickHelper.FromTicks(bid, _settings.TickSize) : null,
 			_book.BestAskTicks is { } ask ? EmulatorTickHelper.FromTicks(ask, _settings.TickSize) : null,
@@ -102,14 +130,31 @@ internal sealed class EmulatorBroker
 			bot.Equity(LastPrice),
 			Capacity(bot, OrderSide.Buy, LastPrice),
 			Capacity(bot, OrderSide.Sell, LastPrice),
-			_book.OrderIdsOf(bot.Id).ToArray()
+			_book.OrderIdsOf(bot.Id).ToArray(),
+			group?.BuyChance ?? 0,
+			group?.SellChance ?? 0,
+			group?.CloseChance ?? 0
 		);
+	}
+
+	/// <summary>Closes the bot's whole position at market against the book; resting orders stay.</summary>
+	public OrderOutcome ClosePosition(EmulatorBotAccount bot)
+	{
+		if (bot.IsBust || bot.Position == 0)
+		{
+			return OrderOutcome.RejectedInvalid;
+		}
+
+		CloseAtMarket(bot);
+		return OrderOutcome.Accepted;
+	}
 
 	public OrderOutcome Execute(EmulatorBotAccount bot, BotDecision decision) =>
 		decision switch
 		{
 			PlaceOrderDecision place => Place(bot, place.Side, place.Price, place.Volume),
 			CancelOrderDecision cancel => Cancel(bot, cancel.OrderId) ? OrderOutcome.Accepted : OrderOutcome.RejectedInvalid,
+			ClosePositionDecision => ClosePosition(bot),
 			_ => OrderOutcome.Accepted,
 		};
 
@@ -276,12 +321,35 @@ internal sealed class EmulatorBroker
 	private void StopOut(EmulatorBotAccount bot)
 	{
 		_book.CancelAll(bot.Id);
+		CloseAtMarket(bot);
+		bot.StopOuts++;
+	}
+
+	private void CloseAtMarket(EmulatorBotAccount bot)
+	{
 		var side = bot.Position > 0 ? OrderSide.Sell : OrderSide.Buy;
 		var priceTicks = side == OrderSide.Sell ? MarketSellPriceTicks : MarketBuyPriceTicks;
 		var (_, trades) = _book.Submit(new OrderSubmission(bot.Id, side, priceTicks, Math.Abs(bot.Position)), immediateOrCancel: true);
 		Settle(trades);
-		bot.StopOuts++;
 	}
+
+	private IReadOnlyList<EmulatorBotAccount> AddBots(PopulationSettings group, int count)
+	{
+		var bots = Enumerable
+			.Range(0, Math.Max(0, count))
+			.Select(_ => new EmulatorBotAccount(_nextBotId++, group.Name, group.StartingPoints))
+			.ToArray();
+		foreach (var bot in bots)
+		{
+			_accounts.Add(bot);
+			_accountsById.Add(bot.Id, bot);
+		}
+
+		return bots;
+	}
+
+	private PopulationSettings? GroupOf(EmulatorBotAccount bot) =>
+		_settings.Populations.FirstOrDefault(population => population.Name == bot.Population);
 
 	private void AbsorbDeficit(EmulatorBotAccount bot)
 	{

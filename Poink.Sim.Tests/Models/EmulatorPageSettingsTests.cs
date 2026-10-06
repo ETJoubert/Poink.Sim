@@ -61,6 +61,28 @@ public class EmulatorPageSettingsTests
 	}
 
 	[Fact]
+	public void GroupsSavedBeforeActionChancesLoadWithTheOldBehaviour()
+	{
+		var json = """{"Populations":[{"Name":"Random","BotCount":30,"StartingPoints":500}],"Leverage":4,"SpeedMultiplier":10}""";
+
+		var group = Assert.Single(JsonSerializer.Deserialize<EmulatorPageSettings>(json)!.ApplyTo(new EmulatorSettings()).Populations);
+
+		Assert.Equal((0.5, 0.5, 0.0), (group.BuyChance, group.SellChance, group.CloseChance));
+	}
+
+	[Fact]
+	public void ApplyTo_RejectsGroupsWithInvalidChancesOrDuplicateNames()
+	{
+		var current = new EmulatorSettings();
+
+		var overSpent = new EmulatorPageSettings([new PopulationSettings("A", 5, 100, 0.8, 0.8, 0)], 2, 1).ApplyTo(current);
+		var duplicated = new EmulatorPageSettings([new PopulationSettings("A", 5, 100), new PopulationSettings("A", 5, 100)], 2, 1).ApplyTo(current);
+
+		Assert.Same(current.Populations, overSpent.Populations);
+		Assert.Same(current.Populations, duplicated.Populations);
+	}
+
+	[Fact]
 	public void ApplyTo_LeavesInternalTimingsAlone()
 	{
 		var current = new EmulatorSettings();

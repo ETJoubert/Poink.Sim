@@ -3,7 +3,8 @@ using System.Collections.Generic;
 namespace Poink.Sim.Emulator.Bots;
 
 /// <summary>
-/// All one bot may see when it decides: public market data and its own account. It carries nothing about other bots.
+/// All one bot may see when it decides: public market data, its own account and its own group's buy/sell/close chances.
+/// It carries nothing about other bots.
 /// </summary>
 public sealed record BotMarketView(
 	double LastPrice,
@@ -15,7 +16,10 @@ public sealed record BotMarketView(
 	double Equity,
 	long BuyCapacity,
 	long SellCapacity,
-	IReadOnlyList<long> OpenOrderIds
+	IReadOnlyList<long> OpenOrderIds,
+	double BuyChance = 0.5,
+	double SellChance = 0.5,
+	double CloseChance = 0
 );
 
 /// <summary>What a bot does on its turn.</summary>
@@ -32,3 +36,6 @@ public sealed record PlaceOrderDecision(OrderSide Side, double Price, long Volum
 
 /// <summary>The bot cancels one of its own resting orders.</summary>
 public sealed record CancelOrderDecision(long OrderId) : BotDecision;
+
+/// <summary>The bot closes its whole position at market.</summary>
+public sealed record ClosePositionDecision : BotDecision;

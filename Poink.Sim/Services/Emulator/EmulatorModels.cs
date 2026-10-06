@@ -29,8 +29,24 @@ public sealed record OrderBook(IReadOnlyList<OrderBookLevel> Bids, IReadOnlyList
 /// <summary>The bots with orders resting at one price level and the equity they hold between them.</summary>
 public readonly record struct PopulationLevel(double Price, int BotCount, double Balance);
 
-/// <summary>A group of bots that start with the same capital, which is also what each gets on a replenish.</summary>
-public sealed record PopulationSettings(string Name, int BotCount, double StartingPoints);
+/// <summary>
+/// A group of bots that start with the same capital (also what each gets on a replenish) and act alike: when a bot acts
+/// it buys, sells or closes its position with these chances, and does nothing for whatever is left up to 1.
+/// </summary>
+public sealed record PopulationSettings(
+	string Name,
+	int BotCount,
+	double StartingPoints,
+	double BuyChance = 0.5,
+	double SellChance = 0.5,
+	double CloseChance = 0
+)
+{
+	public double ActionChanceTotal => BuyChance + SellChance + CloseChance;
+
+	public bool HasValidActionChances =>
+		BuyChance is >= 0 and <= 1 && SellChance is >= 0 and <= 1 && CloseChance is >= 0 and <= 1 && ActionChanceTotal <= 1 + 1e-9;
+}
 
 /// <summary>Where one population stands now: its bots, their combined account and their trading so far.</summary>
 public sealed record PopulationSummary(
@@ -139,11 +155,14 @@ public sealed record EmulatorSettings
 	public const int MaxOrderRangeTicks = 1_000;
 
 	/// <summary>
-	/// Whether moving to <paramref name="next"/> needs a fresh market. Speed, leverage, broker fund, order range and the
-	/// action frequency range apply to the running market; anything else, such as the populations, does not.
+	/// Whether moving to <paramref name="next"/> needs a fresh market: only removing a group or lowering a group's bot
+	/// count does, since bots holding positions cannot simply leave. Groups are matched by position, so adding a group or
+	/// bots, renaming, and new capital or chances apply to the running market, as do speed, leverage, broker fund, order
+	/// range and the action frequency range.
 	/// </summary>
 	public bool RequiresReopen(EmulatorSettings next) =>
-		!Populations.SequenceEqual(next.Populations)
+		next.Populations.Count < Populations.Count
+		|| Populations.Zip(next.Populations).Any(pair => pair.Second.BotCount < pair.First.BotCount)
 		|| this with
 		{
 			SpeedMultiplier = next.SpeedMultiplier,

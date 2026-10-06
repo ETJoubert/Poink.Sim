@@ -28,7 +28,15 @@
 
 .emu-pop-name {
     font-weight: bold;
-    color: var(--color-info);
+    color: var(--color-text);
+}
+
+.emu-pop-swatch {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    margin-right: 6px;
+    border-radius: 50%;
 }
 
 .emu-pop-positive {

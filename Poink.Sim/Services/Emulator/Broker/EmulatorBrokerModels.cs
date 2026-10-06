@@ -10,7 +10,7 @@ namespace Poink.Sim.Emulator.Broker;
 internal sealed class EmulatorBotAccount(int id, string population, double startingCapital)
 {
 	public int Id { get; } = id;
-	public string Population { get; } = population;
+	public string Population { get; private set; } = population;
 	public double Capital { get; private set; } = startingCapital;
 	public double Cash { get; private set; } = startingCapital;
 	public long Position { get; private set; }
@@ -50,6 +50,8 @@ internal sealed class EmulatorBotAccount(int id, string population, double start
 		Capital += amount;
 		IsBust = false;
 	}
+
+	public void MoveToGroup(string group) => Population = group;
 
 	public void GoBust()
 	{

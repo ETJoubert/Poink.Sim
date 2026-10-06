@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
@@ -51,6 +53,32 @@ namespace Poink.Sim.Components.Pages
 			Emulator.ApplySettings(settings);
 			return SaveSettingsAsync();
 		}
+
+		private IReadOnlyList<BotSummary> BotsOf(string group) => Snapshot.Bots.Where(bot => bot.Population == group).ToArray();
+
+		private IReadOnlyCollection<string> OtherGroupNames(int index) =>
+			Emulator.Settings.Populations.Where((_, i) => i != index).Select(group => group.Name).ToArray();
+
+		private Task ChangeGroupAsync(int index, PopulationSettings group) =>
+			ApplyGroupsAsync(Emulator.Settings.Populations.Select((existing, i) => i == index ? group : existing));
+
+		private Task RemoveGroupAsync(int index) =>
+			ApplyGroupsAsync(Emulator.Settings.Populations.Where((_, i) => i != index));
+
+		private Task AddGroupAsync()
+		{
+			var groups = Emulator.Settings.Populations;
+			var number = groups.Count + 1;
+			while (groups.Any(group => group.Name == $"Group {number}"))
+			{
+				number++;
+			}
+
+			return ApplyGroupsAsync(groups.Append(groups[^1] with { Name = $"Group {number}" }));
+		}
+
+		private Task ApplyGroupsAsync(IEnumerable<PopulationSettings> groups) =>
+			ApplySettingsAsync(Emulator.Settings with { Populations = groups.ToArray() });
 
 		private Task SetChartModeAsync(EmulatorChartMode mode)
 		{
@@ -115,7 +143,7 @@ namespace Poink.Sim.Components.Pages
 		}
 
 		private static bool SameChoices(EmulatorSettings current, EmulatorSettings next) =>
-			!current.RequiresReopen(next)
+			current.Populations.SequenceEqual(next.Populations)
 			&& current.Leverage == next.Leverage
 			&& current.BrokerFund == next.BrokerFund
 			&& current.SpeedMultiplier == next.SpeedMultiplier

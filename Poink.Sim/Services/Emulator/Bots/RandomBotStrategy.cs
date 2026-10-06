@@ -3,9 +3,9 @@ using System;
 namespace Poink.Sim.Emulator.Bots;
 
 /// <summary>
-/// Zero-intelligence trader: sometimes cancels one of its resting orders at random, otherwise picks a random side,
-/// a random level within <see cref="EmulatorSettings.OrderRangeTicks"/> of the last price and a random volume
-/// its margin allows.
+/// Zero-intelligence trader: sometimes cancels one of its resting orders at random; otherwise rolls its group's chances to
+/// buy, sell or close its position (doing nothing for the rest). A buy or sell goes at a random level within
+/// <see cref="EmulatorSettings.OrderRangeTicks"/> of the last price for a random volume its margin allows.
 /// </summary>
 public sealed class RandomBotStrategy : IEmulatorBotStrategy
 {
@@ -26,7 +26,23 @@ public sealed class RandomBotStrategy : IEmulatorBotStrategy
 			return new CancelOrderDecision(view.OpenOrderIds[_random.Next(view.OpenOrderIds.Count)]);
 		}
 
-		var side = _random.Next(2) == 0 ? OrderSide.Buy : OrderSide.Sell;
+		var roll = _random.NextDouble();
+		OrderSide side;
+		if (roll < view.BuyChance)
+		{
+			side = OrderSide.Buy;
+		}
+		else if (roll < view.BuyChance + view.SellChance)
+		{
+			side = OrderSide.Sell;
+		}
+		else
+		{
+			return roll < view.BuyChance + view.SellChance + view.CloseChance && view.Position != 0
+				? new ClosePositionDecision()
+				: BotDecision.Hold;
+		}
+
 		var capacity = side == OrderSide.Buy ? view.BuyCapacity : view.SellCapacity;
 		var maxVolume = Math.Min(capacity, Math.Max(1, (long)Math.Floor(capacity * settings.MaxOrderFraction)));
 		if (maxVolume < 1)

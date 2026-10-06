@@ -1,0 +1,54 @@
+@namespace Poink.Sim.Components.Emulator
+@using System.Globalization
+
+<section class="emu-group-card" style="--emu-group-color: @Color" title="The @Group.Name group: its bots on the left, its settings on the right -- edits apply as soon as you leave a field">
+    <div class="emu-group-card-head">
+        <span class="emu-group-swatch" title="The @Group.Name group's colour"></span>
+        <input class="emu-group-card-name" type="text" value="@_name" title="Group name -- must be unique; renaming keeps the group's bots"
+               @onchange="e => ChangeAsync(() => _name = e.Value?.ToString()?.Trim() ?? string.Empty)" />
+        <span class="emu-group-card-count" title="Bots still trading / bots in the group">@ActiveBots / @Bots.Count</span>
+        <button type="button" class="emu-group-card-remove" @onclick="OnRemove" disabled="@(!CanRemove)"
+                title="@(CanRemove ? $"Remove the {Group.Name} group -- restarts the market" : "The last group cannot be removed")">×</button>
+    </div>
+
+    <div class="emu-group-card-body">
+        <div class="emu-group-card-table" style="height: @TableHeight">
+            <EmulatorBotListComponent Bots="Bots" OnReplenish="OnReplenishBot" />
+        </div>
+
+        <div class="emu-group-card-settings" title="How the @Group.Name group's bots are made up and how they act">
+            <label class="emu-group-card-field" title="How many bots the group has -- more bots join the running market; fewer restarts it">
+                <span>Bots</span>
+                <input type="number" min="@MinBotCount" max="@MaxBotCount" step="1" value="@_botCount"
+                       @onchange="e => ChangeAsync(() => _botCount = ParseInt(e.Value))" />
+            </label>
+            <label class="emu-group-card-field" title="Points each bot starts with, and gets again on a replenish -- applies to bots added and replenished from now on">
+                <span>Capital</span>
+                <input type="number" min="@MinCapital" max="@MaxCapital" step="100" value="@_capital.ToString(CultureInfo.InvariantCulture)"
+                       @onchange="e => ChangeAsync(() => _capital = ParseDouble(e.Value))" />
+            </label>
+            <label class="emu-group-card-field" title="When a bot acts: chance it places a buy order, in percent">
+                <span>Buy %</span>
+                <input type="number" min="0" max="100" step="1" value="@_buyPercent.ToString(CultureInfo.InvariantCulture)"
+                       @onchange="e => ChangeAsync(() => _buyPercent = ParseDouble(e.Value))" />
+            </label>
+            <label class="emu-group-card-field" title="When a bot acts: chance it places a sell order, in percent">
+                <span>Sell %</span>
+                <input type="number" min="0" max="100" step="1" value="@_sellPercent.ToString(CultureInfo.InvariantCulture)"
+                       @onchange="e => ChangeAsync(() => _sellPercent = ParseDouble(e.Value))" />
+            </label>
+            <label class="emu-group-card-field" title="When a bot acts: chance it closes its whole position at market, in percent">
+                <span>Close %</span>
+                <input type="number" min="0" max="100" step="1" value="@_closePercent.ToString(CultureInfo.InvariantCulture)"
+                       @onchange="e => ChangeAsync(() => _closePercent = ParseDouble(e.Value))" />
+            </label>
+            <span class="emu-group-card-hold" title="Chance a bot that acts does nothing: whatever buy, sell and close leave of 100%">
+                Holds @HoldPercent.ToString("0.#", CultureInfo.InvariantCulture)%
+            </span>
+            @if (_error is { } error)
+            {
+                <span class="emu-group-card-error" title="Why this edit was not applied">@error</span>
+            }
+        </div>
+    </div>
+</section>

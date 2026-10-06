@@ -36,23 +36,6 @@
         </div>
     </section>
 
-    <section class="emu-settings-section" title="The bot populations trading in the market -- changing them restarts the market">
-        <div class="emu-settings-heading">POPULATIONS</div>
-        @foreach (var draft in _populations)
-        {
-            <label class="emu-settings-field" title="How many bots the @draft.Name population has">
-                <span>@draft.Name bots</span>
-                <input type="number" min="@MinBotCount" max="@MaxBotCount" step="1" value="@draft.BotCount"
-                       @onchange="e => draft.BotCount = ParseInt(e.Value)" />
-            </label>
-            <label class="emu-settings-field" title="Points each @draft.Name bot starts with -- and what each gets again on a replenish">
-                <span>@draft.Name starting capital</span>
-                <input type="number" min="@MinCapital" max="@MaxCapital" step="100" value="@draft.StartingCapital.ToString(CultureInfo.InvariantCulture)"
-                       @onchange="e => draft.StartingCapital = ParseDouble(e.Value)" />
-            </label>
-        }
-    </section>
-
     @if (ValidationMessage is { } validation)
     {
         <span class="emu-settings-error" title="Why the settings cannot be applied yet">@validation</span>
@@ -61,6 +44,6 @@
     <div class="emu-settings-actions">
         <button type="button" class="emu-settings-btn" @onclick="Revert" disabled="@(!IsDirty)" title="Discard the edits and show the settings in use">Revert</button>
         <button type="button" class="emu-settings-btn emu-settings-btn-apply" @onclick="ApplyAsync" disabled="@(!IsDirty || ValidationMessage is not null)"
-                title="@(ValidationMessage ?? (IsDirty ? ApplyTooltip : "Nothing to apply -- the settings shown are in use"))">Apply</button>
+                title="@(ValidationMessage ?? (IsDirty ? "Apply the settings to the running market -- no restart" : "Nothing to apply -- the settings shown are in use"))">Apply</button>
     </div>
 </div>

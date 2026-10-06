@@ -49,4 +49,49 @@ public class RandomBotStrategyTests
 
 		Assert.Contains(cancel.OrderId, new long[] { 41, 42 });
 	}
+
+	private static BotMarketView GroupView(double buy, double sell, double close, long position = 0) =>
+		View(200, 200) with { BuyChance = buy, SellChance = sell, CloseChance = close, Position = position };
+
+	[Fact]
+	public void Decide_FollowsTheGroupsBuyChance()
+	{
+		var strategy = new RandomBotStrategy(new Random(7));
+
+		for (var i = 0; i < 100; i++)
+		{
+			Assert.Equal(OrderSide.Buy, Assert.IsType<PlaceOrderDecision>(strategy.Decide(GroupView(1, 0, 0), Settings)).Side);
+		}
+	}
+
+	[Fact]
+	public void Decide_FollowsTheGroupsSellChance()
+	{
+		var strategy = new RandomBotStrategy(new Random(7));
+
+		for (var i = 0; i < 100; i++)
+		{
+			Assert.Equal(OrderSide.Sell, Assert.IsType<PlaceOrderDecision>(strategy.Decide(GroupView(0, 1, 0), Settings)).Side);
+		}
+	}
+
+	[Fact]
+	public void Decide_ClosesAnOpenPositionOnTheGroupsCloseChance()
+	{
+		var strategy = new RandomBotStrategy(new Random(7));
+
+		Assert.IsType<ClosePositionDecision>(strategy.Decide(GroupView(0, 0, 1, position: 5), Settings));
+		Assert.IsType<HoldDecision>(strategy.Decide(GroupView(0, 0, 1, position: 0), Settings));
+	}
+
+	[Fact]
+	public void Decide_HoldsForWhateverTheChancesLeave()
+	{
+		var strategy = new RandomBotStrategy(new Random(7));
+
+		for (var i = 0; i < 100; i++)
+		{
+			Assert.IsType<HoldDecision>(strategy.Decide(GroupView(0, 0, 0, position: 5), Settings));
+		}
+	}
 }

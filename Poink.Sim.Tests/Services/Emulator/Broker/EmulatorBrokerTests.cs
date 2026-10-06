@@ -247,4 +247,53 @@ public class EmulatorBrokerTests
 
 		Assert.Equal(2_500, broker.Summary().FundBalance);
 	}
+
+	[Fact]
+	public void ClosePosition_ClosesTheWholePositionAtMarketAndKeepsRestingOrders()
+	{
+		var broker = CreateBroker(bots: 3);
+		var (bot, seller, maker) = (broker.Accounts[0], broker.Accounts[1], broker.Accounts[2]);
+		broker.Place(seller, OrderSide.Sell, 100, 10);
+		broker.Place(bot, OrderSide.Buy, 100, 10);
+		broker.Place(bot, OrderSide.Buy, 90, 1);
+		broker.Place(maker, OrderSide.Buy, 99, 4);
+		broker.Place(maker, OrderSide.Buy, 98, 10);
+
+		Assert.Equal(OrderOutcome.Accepted, broker.ClosePosition(bot));
+
+		Assert.Equal(0, bot.Position);
+		Assert.Equal(98, broker.LastPrice);
+		Assert.Equal(1, broker.BotSummaries()[0].OpenOrders);
+		Assert.Equal(OrderOutcome.RejectedInvalid, broker.ClosePosition(bot));
+	}
+
+	[Fact]
+	public void ViewFor_CarriesTheBotsOwnGroupChances()
+	{
+		var broker = new EmulatorBroker(
+			new EmulatorSettings
+			{
+				Populations = [new PopulationSettings("A", 1, 1_000, 0.1, 0.2, 0.3), new PopulationSettings("B", 1, 1_000, 0.6, 0.3, 0.1)],
+			}
+		);
+
+		var view = broker.ViewFor(broker.Accounts[1]);
+
+		Assert.Equal((0.6, 0.3, 0.1), (view.BuyChance, view.SellChance, view.CloseChance));
+	}
+
+	[Fact]
+	public void ApplyGroups_RenamesAndAddsBotsWithTheirStartingCapital()
+	{
+		var broker = CreateBroker(bots: 2);
+		PopulationSettings[] previous = [new("Test", 2, 10_000)];
+		PopulationSettings[] next = [new("Renamed", 3, 10_000), new("New", 2, 250)];
+
+		var added = broker.ApplyGroups(previous, next);
+
+		Assert.Equal([3, 4, 5], added.Select(bot => bot.Id));
+		Assert.Equal(["Renamed", "Renamed", "Renamed", "New", "New"], broker.Accounts.Select(bot => bot.Population));
+		Assert.Equal((250.0, 250.0), (broker.Accounts[4].Cash, broker.Accounts[4].Capital));
+		Assert.Equal(["Renamed", "New"], broker.PopulationSummaries().Select(summary => summary.Name));
+	}
 }

@@ -1,4 +1,12 @@
 .emu-page {
+    --emu-group-1: #3987e5;
+    --emu-group-2: #d95926;
+    --emu-group-3: #199e70;
+    --emu-group-4: #c98500;
+    --emu-group-5: #d55181;
+    --emu-group-6: #008300;
+    --emu-group-7: #9085e9;
+    --emu-group-8: #e66767;
     display: flex;
     flex-direction: column;
     gap: 12px;
@@ -121,7 +129,7 @@
 
 .emu-body {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 320px;
+    grid-template-columns: minmax(0, 1fr) 460px 250px;
     gap: 12px;
     flex: 1;
     min-height: 0;
@@ -138,21 +146,38 @@
     background: color-mix(in srgb, var(--color-secondary) 6%, var(--color-bg-terminal));
 }
 
-.emu-market-panel,
-.emu-bots-panel {
+.emu-market-panel {
     overflow: hidden;
 }
 
-.emu-side {
+.emu-settings-panel {
+    align-self: start;
+}
+
+.emu-groups-column {
     display: flex;
     flex-direction: column;
     gap: 12px;
     min-height: 0;
+    max-height: 640px;
+    overflow-y: auto;
 }
 
-.emu-bots-panel {
-    flex: 1;
-    min-height: 200px;
+.emu-add-group-card {
+    flex-shrink: 0;
+    padding: 14px;
+    font-size: 0.7rem;
+    font-weight: bold;
+    letter-spacing: 0.08em;
+    color: var(--color-info);
+    background: transparent;
+    border: 1px dashed color-mix(in srgb, var(--color-info) 55%, transparent);
+    border-radius: var(--border-radius-md);
+    cursor: pointer;
+}
+
+.emu-add-group-card:hover {
+    background: color-mix(in srgb, var(--color-info) 8%, transparent);
 }
 
 .emu-panel-heading {
@@ -168,23 +193,17 @@
     gap: 12px;
 }
 
-@media (max-width: 1400px) {
+@media (max-width: 1500px) {
     .emu-body {
-        grid-template-columns: minmax(0, 1fr);
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     }
 
-    .emu-side {
-        flex-direction: row;
-        flex-wrap: wrap;
+    .emu-market-panel {
+        grid-column: 1 / -1;
     }
 
-    .emu-settings-panel {
-        flex: 1 1 320px;
-    }
-
-    .emu-bots-panel {
-        flex: 1 1 320px;
-        height: 360px;
+    .emu-groups-column {
+        max-height: none;
     }
 }
 
@@ -193,4 +212,15 @@
     .emu-lower {
         grid-template-columns: minmax(0, 1fr);
     }
+}
+
+:root[data-theme="enterprise"] .emu-page {
+    --emu-group-1: #2a78d6;
+    --emu-group-2: #eb6834;
+    --emu-group-3: #1baf7a;
+    --emu-group-4: #eda100;
+    --emu-group-5: #e87ba4;
+    --emu-group-6: #008300;
+    --emu-group-7: #4a3aa7;
+    --emu-group-8: #e34948;
 }

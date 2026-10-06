@@ -42,9 +42,11 @@ public sealed record EmulatorPageSettings(
 			ActivityChanceMin is >= 0 and <= 1 && ActivityChanceMax is >= 0 and <= 1 && ActivityChanceMin <= ActivityChanceMax;
 		return settings with
 		{
-			Populations = Populations is { Count: > 0 } populations && populations.All(p => p.BotCount > 0 && p.StartingPoints > 0)
-				? populations.ToArray()
-				: settings.Populations,
+			Populations = Populations is { Count: > 0 } populations
+				&& populations.All(p => !string.IsNullOrWhiteSpace(p.Name) && p.BotCount > 0 && p.StartingPoints > 0 && p.HasValidActionChances)
+				&& populations.Select(p => p.Name).Distinct().Count() == populations.Count
+					? populations.ToArray()
+					: settings.Populations,
 			Leverage = Leverage is >= EmulatorSettings.MinLeverage and <= EmulatorSettings.MaxLeverage ? Leverage : settings.Leverage,
 			SpeedMultiplier = EmulatorSettings.SpeedMultipliers.Contains(SpeedMultiplier) ? SpeedMultiplier : settings.SpeedMultiplier,
 			OrderRangeTicks = OrderRangeTicks is >= EmulatorSettings.MinOrderRangeTicks and <= EmulatorSettings.MaxOrderRangeTicks
