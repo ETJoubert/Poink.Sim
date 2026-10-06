@@ -73,7 +73,7 @@
 
 .emu-group-card-body {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 132px;
+    grid-template-columns: 190px minmax(0, 1fr);
     gap: 10px;
 }
 
@@ -96,28 +96,68 @@
     align-items: center;
     justify-content: space-between;
     gap: 6px;
+    min-height: 20px;
     font-size: 0.62rem;
     color: var(--color-secondary);
 }
 
-.emu-group-card-field input {
-    width: 70px;
-    padding: 1px 4px;
-    font-size: 0.68rem;
-    text-align: right;
-    color: var(--color-primary);
-    background: var(--color-bg-terminal);
-    border: 1px solid color-mix(in srgb, var(--color-primary) 45%, transparent);
-    border-radius: var(--border-radius-sm);
+.emu-group-card-weights-head {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+    margin-top: 2px;
+    font-size: 0.5rem;
+    font-weight: bold;
+    letter-spacing: 0.08em;
+    color: var(--color-secondary);
 }
 
-.emu-group-card-hold {
-    font-size: 0.58rem;
+.emu-group-card-weight {
+    justify-content: flex-end;
+}
+
+.emu-group-card-label {
+    margin-right: auto;
+}
+
+.emu-group-card-share,
+.emu-group-card-head-chance {
+    width: 32px;
     text-align: right;
-    color: var(--color-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+.emu-group-card-share {
+    color: var(--color-text);
+}
+
+.emu-group-card-head-weight {
+    width: 76px;
+    text-align: center;
 }
 
 .emu-group-card-error {
     font-size: 0.6rem;
     color: var(--color-error);
+}
+
+.emu-group-card-reset {
+    margin-right: auto;
+    padding: 0 6px;
+    font-size: 0.5rem;
+    font-weight: bold;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-info);
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--color-info) 55%, transparent);
+    border-radius: var(--border-radius-sm);
+    cursor: pointer;
+}
+
+.emu-group-card-reset:disabled {
+    color: var(--color-disabled);
+    border-color: var(--color-disabled);
+    cursor: default;
 }

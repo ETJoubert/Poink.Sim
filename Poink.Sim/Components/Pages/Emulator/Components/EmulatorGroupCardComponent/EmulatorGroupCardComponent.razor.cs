@@ -22,6 +22,8 @@ namespace Poink.Sim.Components.Emulator
 		private const int TableHeadPixels = 24;
 		private const int MaxVisibleRows = 12;
 		private const int MinVisibleRows = 6;
+		private const double TableHeightScale = 1.1;
+		private const double CapitalStep = 1_000;
 
 		[Parameter, EditorRequired]
 		public PopulationSettings Group { get; set; } = default!;
@@ -54,17 +56,45 @@ namespace Poink.Sim.Components.Emulator
 		private string _name = string.Empty;
 		private int _botCount;
 		private double _capital;
-		private double _buyPercent;
-		private double _sellPercent;
-		private double _closePercent;
+		private double _buyWeight;
+		private double _sellWeight;
+		private double _closeWeight;
+		private double _holdWeight;
 		private string? _error;
+		private readonly IReadOnlyList<WeightField> _weightFields;
+
+		public EmulatorGroupCardComponent()
+		{
+			_weightFields =
+			[
+				new("Buy", "When a bot acts: weight for placing a buy order", () => _buyWeight, w => _buyWeight = w),
+				new("Sell", "When a bot acts: weight for placing a sell order", () => _sellWeight, w => _sellWeight = w),
+				new("Close", "When a bot acts: weight for closing its whole position at market", () => _closeWeight, w => _closeWeight = w),
+				new("Hold", "When a bot acts: weight for doing nothing this step", () => _holdWeight, w => _holdWeight = w),
+			];
+		}
 
 		private int ActiveBots => Bots.Count(bot => !bot.IsBust);
 
-		private double HoldPercent => Math.Max(0, 100 - _buyPercent - _sellPercent - _closePercent);
+		private double TotalWeight => _buyWeight + _sellWeight + _closeWeight + _holdWeight;
+
+		private static PopulationSettings DefaultWeights { get; } = new(string.Empty, 0, 0);
+
+		private bool WeightsAreDefault =>
+			(_buyWeight, _sellWeight, _closeWeight, _holdWeight)
+			== (DefaultWeights.BuyWeight, DefaultWeights.SellWeight, DefaultWeights.CloseWeight, DefaultWeights.HoldWeight);
+
+		private Task ResetWeightsAsync() =>
+			ChangeAsync(() =>
+			{
+				_buyWeight = DefaultWeights.BuyWeight;
+				_sellWeight = DefaultWeights.SellWeight;
+				_closeWeight = DefaultWeights.CloseWeight;
+				_holdWeight = DefaultWeights.HoldWeight;
+			});
 
 		private string TableHeight =>
-			$"{TableHeadPixels + Math.Clamp(Bots.Count, MinVisibleRows, MaxVisibleRows) * TableRowPixels}px";
+			$"{Math.Round((TableHeadPixels + Math.Clamp(Bots.Count, MinVisibleRows, MaxVisibleRows) * TableRowPixels) * TableHeightScale)}px";
 
 		protected override void OnParametersSet()
 		{
@@ -74,9 +104,10 @@ namespace Poink.Sim.Components.Emulator
 				_name = Group.Name;
 				_botCount = Group.BotCount;
 				_capital = Group.StartingPoints;
-				_buyPercent = ToPercent(Group.BuyChance);
-				_sellPercent = ToPercent(Group.SellChance);
-				_closePercent = ToPercent(Group.CloseChance);
+				_buyWeight = Group.BuyWeight;
+				_sellWeight = Group.SellWeight;
+				_closeWeight = Group.CloseWeight;
+				_holdWeight = Group.HoldWeight;
 				_error = null;
 			}
 		}
@@ -84,7 +115,7 @@ namespace Poink.Sim.Components.Emulator
 		private async Task ChangeAsync(Action edit)
 		{
 			edit();
-			var draft = new PopulationSettings(_name, _botCount, _capital, _buyPercent / 100, _sellPercent / 100, _closePercent / 100);
+			var draft = new PopulationSettings(_name, _botCount, _capital, _buyWeight, _sellWeight, _closeWeight, _holdWeight);
 			_error = Validate(draft);
 			if (_error is null && draft != Group)
 			{
@@ -97,16 +128,16 @@ namespace Poink.Sim.Components.Emulator
 			: OtherGroupNames.Contains(draft.Name) ? $"Another group is already named {draft.Name}"
 			: draft.BotCount is < MinBotCount or > MaxBotCount ? $"Bots must be between {MinBotCount:N0} and {MaxBotCount:N0}"
 			: draft.StartingPoints is < MinCapital or > MaxCapital or double.NaN ? $"Capital must be between {MinCapital:N0} and {MaxCapital:N0}"
-			: !draft.HasValidActionChances ? "Buy, sell and close must each be 0–100% and add up to 100% or less"
+			: !draft.HasValidWeights ? "Weights must be zero or more"
 			: null;
 
-		// Rounded so a chance read back from the card is the same double it was loaded from.
-		private static double ToPercent(double chance) => Math.Round(chance * 100, 6);
+		private string Share(double weight) =>
+			TotalWeight > 0 && double.IsFinite(TotalWeight)
+				? (weight / TotalWeight).ToString("P0", CultureInfo.InvariantCulture)
+				: "–";
 
-		private static double ParseDouble(object? value) =>
-			double.TryParse(value?.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var number) ? number : double.NaN;
+		private static int ToBotCount(double value) => double.IsFinite(value) && value == Math.Floor(value) ? (int)Math.Clamp(value, 0, int.MaxValue) : 0;
 
-		private static int ParseInt(object? value) =>
-			int.TryParse(value?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var number) ? number : 0;
+		private sealed record WeightField(string Label, string Tooltip, Func<double> Get, Action<double> Set);
 	}
 }

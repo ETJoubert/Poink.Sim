@@ -19,34 +19,33 @@
         </div>
 
         <div class="emu-group-card-settings" title="How the @Group.Name group's bots are made up and how they act">
-            <label class="emu-group-card-field" title="How many bots the group has -- more bots join the running market; fewer restarts it">
+            <div class="emu-group-card-field" title="How many bots the group has -- more bots join the running market; fewer restarts it">
                 <span>Bots</span>
-                <input type="number" min="@MinBotCount" max="@MaxBotCount" step="1" value="@_botCount"
-                       @onchange="e => ChangeAsync(() => _botCount = ParseInt(e.Value))" />
-            </label>
-            <label class="emu-group-card-field" title="Points each bot starts with, and gets again on a replenish -- applies to bots added and replenished from now on">
+                <EmulatorStepperComponent Value="_botCount" Step="1" Min="MinBotCount" Max="MaxBotCount"
+                                          Tooltip="How many bots the group has -- more bots join the running market; fewer restarts it"
+                                          OnChange="(double value) => ChangeAsync(() => _botCount = ToBotCount(value))" />
+            </div>
+            <div class="emu-group-card-field" title="Points each bot starts with, and gets again on a replenish -- applies to bots added and replenished from now on">
                 <span>Capital</span>
-                <input type="number" min="@MinCapital" max="@MaxCapital" step="100" value="@_capital.ToString(CultureInfo.InvariantCulture)"
-                       @onchange="e => ChangeAsync(() => _capital = ParseDouble(e.Value))" />
-            </label>
-            <label class="emu-group-card-field" title="When a bot acts: chance it places a buy order, in percent">
-                <span>Buy %</span>
-                <input type="number" min="0" max="100" step="1" value="@_buyPercent.ToString(CultureInfo.InvariantCulture)"
-                       @onchange="e => ChangeAsync(() => _buyPercent = ParseDouble(e.Value))" />
-            </label>
-            <label class="emu-group-card-field" title="When a bot acts: chance it places a sell order, in percent">
-                <span>Sell %</span>
-                <input type="number" min="0" max="100" step="1" value="@_sellPercent.ToString(CultureInfo.InvariantCulture)"
-                       @onchange="e => ChangeAsync(() => _sellPercent = ParseDouble(e.Value))" />
-            </label>
-            <label class="emu-group-card-field" title="When a bot acts: chance it closes its whole position at market, in percent">
-                <span>Close %</span>
-                <input type="number" min="0" max="100" step="1" value="@_closePercent.ToString(CultureInfo.InvariantCulture)"
-                       @onchange="e => ChangeAsync(() => _closePercent = ParseDouble(e.Value))" />
-            </label>
-            <span class="emu-group-card-hold" title="Chance a bot that acts does nothing: whatever buy, sell and close leave of 100%">
-                Holds @HoldPercent.ToString("0.#", CultureInfo.InvariantCulture)%
+                <EmulatorStepperComponent Value="_capital" Step="CapitalStep" Min="MinCapital" Max="MaxCapital"
+                                          Tooltip="Points each bot starts with, and gets again on a replenish"
+                                          OnChange="(double value) => ChangeAsync(() => _capital = value)" />
+            </div>
+            <span class="emu-group-card-weights-head" title="When a bot acts it picks one of these in proportion to the weights -- any numbers, e.g. 3 / 3 / 1 / 0">
+                <button type="button" class="emu-group-card-reset" @onclick="ResetWeightsAsync" disabled="@WeightsAreDefault"
+                        title="Reset the weights to Buy @DefaultWeights.BuyWeight / Sell @DefaultWeights.SellWeight / Close @DefaultWeights.CloseWeight / Hold @DefaultWeights.HoldWeight">Reset</button>
+                <span class="emu-group-card-head-chance">CHANCE</span>
+                <span class="emu-group-card-head-weight">WEIGHT</span>
             </span>
+            @foreach (var field in _weightFields)
+            {
+                <div class="emu-group-card-field emu-group-card-weight" title="@field.Tooltip">
+                    <span class="emu-group-card-label">@field.Label</span>
+                    <span class="emu-group-card-share" title="Chance a bot that acts does this">@Share(field.Get())</span>
+                    <EmulatorStepperComponent Value="field.Get()" Step="1" Min="0" Tooltip="@field.Tooltip"
+                                              OnChange="(double value) => ChangeAsync(() => field.Set(value))" />
+                </div>
+            }
             @if (_error is { } error)
             {
                 <span class="emu-group-card-error" title="Why this edit was not applied">@error</span>

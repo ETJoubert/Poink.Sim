@@ -1,0 +1,55 @@
+.emu-stepper {
+    display: inline-flex;
+    align-items: stretch;
+}
+
+.emu-stepper-btn {
+    width: 16px;
+    padding: 0;
+    font-size: 0.75rem;
+    line-height: 1;
+    color: var(--color-primary);
+    background: color-mix(in srgb, var(--color-primary) 10%, var(--color-bg-terminal));
+    border: 1px solid color-mix(in srgb, var(--color-primary) 45%, transparent);
+    cursor: pointer;
+}
+
+.emu-stepper-btn:first-child {
+    border-radius: var(--border-radius-sm) 0 0 var(--border-radius-sm);
+}
+
+.emu-stepper-btn:last-child {
+    border-radius: 0 var(--border-radius-sm) var(--border-radius-sm) 0;
+}
+
+.emu-stepper-btn:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-primary) 22%, var(--color-bg-terminal));
+}
+
+.emu-stepper-btn:disabled {
+    color: var(--color-disabled);
+    border-color: var(--color-disabled);
+    cursor: default;
+}
+
+.emu-stepper-input {
+    width: 44px;
+    min-width: 0;
+    padding: 1px 3px;
+    font-size: 0.68rem;
+    text-align: right;
+    color: var(--color-primary);
+    background: var(--color-bg-terminal);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 45%, transparent);
+    border-left: none;
+    border-right: none;
+    border-radius: 0;
+    appearance: textfield;
+    -moz-appearance: textfield;
+}
+
+.emu-stepper-input::-webkit-outer-spin-button,
+.emu-stepper-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}

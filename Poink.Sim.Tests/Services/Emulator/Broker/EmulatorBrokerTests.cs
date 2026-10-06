@@ -273,7 +273,7 @@ public class EmulatorBrokerTests
 		var broker = new EmulatorBroker(
 			new EmulatorSettings
 			{
-				Populations = [new PopulationSettings("A", 1, 1_000, 0.1, 0.2, 0.3), new PopulationSettings("B", 1, 1_000, 0.6, 0.3, 0.1)],
+				Populations = [new PopulationSettings("A", 1, 1_000, 1, 2, 3), new PopulationSettings("B", 1, 1_000, 6, 3, 1)],
 			}
 		);
 

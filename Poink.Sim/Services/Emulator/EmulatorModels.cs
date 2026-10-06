@@ -37,21 +37,33 @@ public readonly record struct PositionLevel(double Price, int LongBots, int Shor
 
 /// <summary>
 /// A group of bots that start with the same capital (also what each gets on a replenish) and act alike: when a bot acts
-/// it buys, sells or closes its position with these chances, and does nothing for whatever is left up to 1.
+/// it buys, sells, closes its position or holds, in proportion to these weights. Weights are relative, so any
+/// non-negative numbers work; all zero means the group never acts.
 /// </summary>
 public sealed record PopulationSettings(
 	string Name,
 	int BotCount,
 	double StartingPoints,
-	double BuyChance = 0.5,
-	double SellChance = 0.5,
-	double CloseChance = 0
+	double BuyWeight = 1,
+	double SellWeight = 1,
+	double CloseWeight = 0,
+	double HoldWeight = 0
 )
 {
-	public double ActionChanceTotal => BuyChance + SellChance + CloseChance;
+	public double TotalWeight => BuyWeight + SellWeight + CloseWeight + HoldWeight;
 
-	public bool HasValidActionChances =>
-		BuyChance is >= 0 and <= 1 && SellChance is >= 0 and <= 1 && CloseChance is >= 0 and <= 1 && ActionChanceTotal <= 1 + 1e-9;
+	public double BuyChance => ShareOf(BuyWeight);
+
+	public double SellChance => ShareOf(SellWeight);
+
+	public double CloseChance => ShareOf(CloseWeight);
+
+	public double HoldChance => ShareOf(HoldWeight);
+
+	public bool HasValidWeights =>
+		new[] { BuyWeight, SellWeight, CloseWeight, HoldWeight }.All(weight => double.IsFinite(weight) && weight >= 0);
+
+	private double ShareOf(double weight) => TotalWeight > 0 ? weight / TotalWeight : 0;
 }
 
 /// <summary>Where one population stands now: its bots, their combined account and their trading so far.</summary>

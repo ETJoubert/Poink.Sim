@@ -63,13 +63,30 @@ public class EmulatorSettingsTests
 	}
 
 	[Theory]
-	[InlineData(0.5, 0.5, 0, true)]
-	[InlineData(0.4, 0.4, 0.2, true)]
-	[InlineData(0.6, 0.5, 0, false)]
-	[InlineData(-0.1, 0.5, 0, false)]
-	public void HasValidActionChances_EachWithinRangeAndAtMostOneInTotal(double buy, double sell, double close, bool valid)
+	[InlineData(3, 3, 1, 0, true)]
+	[InlineData(0, 0, 0, 0, true)]
+	[InlineData(60, 50, 0, 0, true)]
+	[InlineData(-1, 1, 0, 0, false)]
+	[InlineData(double.NaN, 1, 0, 0, false)]
+	public void HasValidWeights_AnyNonNegativeNumbers(double buy, double sell, double close, double hold, bool valid)
 	{
-		Assert.Equal(valid, new PopulationSettings("G", 1, 1, buy, sell, close).HasValidActionChances);
+		Assert.Equal(valid, new PopulationSettings("G", 1, 1, buy, sell, close, hold).HasValidWeights);
+	}
+
+	[Fact]
+	public void Chances_AreEachWeightsShareOfTheTotal()
+	{
+		var group = new PopulationSettings("G", 1, 1, 3, 3, 1, 1);
+
+		Assert.Equal((0.375, 0.375, 0.125, 0.125), (group.BuyChance, group.SellChance, group.CloseChance, group.HoldChance));
+	}
+
+	[Fact]
+	public void Chances_AllZeroWeightsMeanTheGroupNeverActs()
+	{
+		var group = new PopulationSettings("G", 1, 1, 0, 0, 0, 0);
+
+		Assert.Equal((0.0, 0.0, 0.0), (group.BuyChance, group.SellChance, group.CloseChance));
 	}
 
 	[Fact]

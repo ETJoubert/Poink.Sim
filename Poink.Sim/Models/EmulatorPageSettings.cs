@@ -43,7 +43,7 @@ public sealed record EmulatorPageSettings(
 		return settings with
 		{
 			Populations = Populations is { Count: > 0 and <= EmulatorSettings.MaxGroups } populations
-				&& populations.All(p => !string.IsNullOrWhiteSpace(p.Name) && p.BotCount > 0 && p.StartingPoints > 0 && p.HasValidActionChances)
+				&& populations.All(p => !string.IsNullOrWhiteSpace(p.Name) && p.BotCount > 0 && p.StartingPoints > 0 && p.HasValidWeights)
 				&& populations.Select(p => p.Name).Distinct().Count() == populations.Count
 					? populations.ToArray()
 					: settings.Populations,

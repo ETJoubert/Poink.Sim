@@ -72,14 +72,14 @@ public class EmulatorPageSettingsTests
 	}
 
 	[Fact]
-	public void ApplyTo_RejectsGroupsWithInvalidChancesOrDuplicateNames()
+	public void ApplyTo_RejectsGroupsWithNegativeWeightsOrDuplicateNames()
 	{
 		var current = new EmulatorSettings();
 
-		var overSpent = new EmulatorPageSettings([new PopulationSettings("A", 5, 100, 0.8, 0.8, 0)], 2, 1).ApplyTo(current);
+		var negative = new EmulatorPageSettings([new PopulationSettings("A", 5, 100, -1, 1, 0)], 2, 1).ApplyTo(current);
 		var duplicated = new EmulatorPageSettings([new PopulationSettings("A", 5, 100), new PopulationSettings("A", 5, 100)], 2, 1).ApplyTo(current);
 
-		Assert.Same(current.Populations, overSpent.Populations);
+		Assert.Same(current.Populations, negative.Populations);
 		Assert.Same(current.Populations, duplicated.Populations);
 	}
 
