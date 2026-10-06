@@ -24,6 +24,11 @@
                     <input type="number" min="@MinBotCount" max="@MaxBotCount" step="1" value="@draft.BotCount"
                            @onchange="e => SetBotCount(draft, e.Value)" />
                 </label>
+                <label class="emu-settings-field" title="Points each @draft.Name bot starts with -- and what each gets again on a replenish">
+                    <span>@draft.Name starting capital</span>
+                    <input type="number" min="@MinCapital" max="@MaxCapital" step="100" value="@draft.StartingCapital.ToString(CultureInfo.InvariantCulture)"
+                           @onchange="e => SetStartingCapital(draft, e.Value)" />
+                </label>
             }
         </section>
 

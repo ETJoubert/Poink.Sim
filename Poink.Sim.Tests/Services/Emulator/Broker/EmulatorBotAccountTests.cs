@@ -6,14 +6,7 @@ namespace Poink.Sim.Tests.Services.Emulator.Broker;
 
 public class EmulatorBotAccountTests
 {
-	private static EmulatorBotAccount CreateAccount() =>
-		new()
-		{
-			Id = 1,
-			Population = "Test",
-			StartingPoints = 1_000,
-			Cash = 1_000,
-		};
+	private static EmulatorBotAccount CreateAccount() => new(1, "Test", 1_000);
 
 	[Fact]
 	public void ApplyFill_AddingToAPositionAveragesTheEntry()
@@ -63,6 +56,30 @@ public class EmulatorBotAccountTests
 
 		Assert.Equal((-3L, 11.0), (account.Position, account.AverageEntryPrice));
 		Assert.Equal(1_002, account.Balance);
+	}
+
+	[Fact]
+	public void Deposit_AddsToWhatTheBotHasAndToItsCapital()
+	{
+		var account = CreateAccount();
+		account.ApplyFill(OrderSide.Buy, 2, 10);
+
+		account.Deposit(500);
+
+		Assert.Equal((1_480.0, 1_500.0), (account.Cash, account.Capital));
+		Assert.Equal(1_500, account.Balance);
+	}
+
+	[Fact]
+	public void Deposit_BringsABustBotBack()
+	{
+		var account = CreateAccount();
+		account.GoBust();
+
+		account.Deposit(1_000);
+
+		Assert.False(account.IsBust);
+		Assert.Equal(1_000, account.Cash);
 	}
 
 	[Fact]

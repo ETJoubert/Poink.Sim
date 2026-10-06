@@ -1,21 +1,31 @@
 using System;
 using System.Globalization;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.Logging;
 using Poink.Sim.Emulator;
 using Poink.Sim.Helpers;
+using Poink.Sim.Models;
 
 namespace Poink.Sim.Components.Pages
 {
 	/// <summary>
-	/// Brokerage emulator: a synthetic asset's price, order book, bots and broker, driven by <see cref="IEmulatorService"/>,
-	/// with a settings dialog that restarts the market on Apply.
+	/// Brokerage emulator: a synthetic asset's price, order book, bots and broker, driven by <see cref="IEmulatorService"/>.
+	/// The user's settings and playback speed are saved in the browser and restored when the page first renders.
 	/// </summary>
 	public partial class EmulatorPage : ComponentBase, IDisposable
 	{
 		[Inject]
 		private IEmulatorService Emulator { get; set; } = default!;
 
+		[Inject]
+		private ILocalStorageHelper LocalStorage { get; set; } = default!;
+
+		[Inject]
+		private ILogger<EmulatorPage> Logger { get; set; } = default!;
+
 		private bool _settingsOpen;
+		private bool _settingsLoaded;
 
 		private EmulatorSnapshot Snapshot => Emulator.Snapshot;
 
@@ -24,15 +34,81 @@ namespace Poink.Sim.Components.Pages
 			Emulator.Changed += HandleEmulatorChanged;
 		}
 
+		protected override async Task OnAfterRenderAsync(bool firstRender)
+		{
+			if (firstRender)
+			{
+				await LoadSavedSettingsAsync();
+			}
+		}
+
 		private void OpenSettings() => _settingsOpen = true;
 
 		private void CloseSettings() => _settingsOpen = false;
 
-		private void ApplySettings(EmulatorSettings settings)
+		private Task ApplySettingsAsync(EmulatorSettings settings)
 		{
 			_settingsOpen = false;
 			Emulator.ApplySettings(settings);
+			return SaveSettingsAsync();
 		}
+
+		private Task SetSpeedAsync(int speedMultiplier)
+		{
+			Emulator.SetSpeed(speedMultiplier);
+			return SaveSettingsAsync();
+		}
+
+		// Restored after the first render because browser storage is only reachable over JS interop once rendered.
+		private async Task LoadSavedSettingsAsync()
+		{
+			try
+			{
+				var saved = await LocalStorage.GetItemAsync<EmulatorPageSettings>(EmulatorPageSettings.StorageKey);
+				if (saved is null)
+				{
+					return;
+				}
+
+				var settings = saved.ApplyTo(Emulator.Settings);
+				if (!SameChoices(Emulator.Settings, settings))
+				{
+					Emulator.ApplySettings(settings);
+				}
+				Logger.LogInformation("Emulator settings loaded from browser storage: {Settings}", saved);
+			}
+			catch (Exception ex)
+			{
+				Logger.LogWarning(ex, "Saved Emulator settings could not be loaded; keeping the current settings");
+			}
+			finally
+			{
+				_settingsLoaded = true;
+			}
+		}
+
+		// Saving before the stored settings were read would overwrite them with the defaults.
+		private async Task SaveSettingsAsync()
+		{
+			if (!_settingsLoaded)
+			{
+				return;
+			}
+
+			var settings = EmulatorPageSettings.From(Emulator.Settings);
+			try
+			{
+				await LocalStorage.SetItemAsync(EmulatorPageSettings.StorageKey, settings);
+				Logger.LogInformation("Emulator settings saved to browser storage: {Settings}", settings);
+			}
+			catch (Exception ex)
+			{
+				Logger.LogError(ex, "Saving Emulator settings to browser storage failed");
+			}
+		}
+
+		private static bool SameChoices(EmulatorSettings current, EmulatorSettings next) =>
+			!current.RequiresReopen(next) && current.Leverage == next.Leverage && current.SpeedMultiplier == next.SpeedMultiplier;
 
 		private void HandleEmulatorChanged() => _ = InvokeAsync(StateHasChanged);
 

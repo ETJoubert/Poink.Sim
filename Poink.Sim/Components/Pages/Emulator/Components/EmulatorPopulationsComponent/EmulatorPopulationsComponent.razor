@@ -6,9 +6,9 @@
         <tr>
             <th title="Population name">POPULATION</th>
             <th title="Bots still trading / bots in the population -- a bot is out once its equity is gone">BOTS</th>
-            <th title="Points the population started with in total">START</th>
+            <th title="Points paid in, in total: starting capital plus every replenish">CAPITAL</th>
             <th title="Cash plus open positions valued at the last price, in total">EQUITY</th>
-            <th title="Equity minus starting points">P/L</th>
+            <th title="Equity minus capital paid in">P/L</th>
             <th title="Cash in total -- negative cash is points borrowed from the broker for leveraged buys">CASH</th>
             <th title="Units held long in total">LONG</th>
             <th title="Units sold short in total -- borrowed from the broker">SHORT</th>
@@ -23,7 +23,7 @@
             <tr title="@population.Name population">
                 <td class="emu-pop-name" title="Population name">@population.Name</td>
                 <td title="@population.ActiveBots of @population.BotCount bots still trading">@population.ActiveBots / @population.BotCount</td>
-                <td title="@Amount(population.StartingPoints) points to start">@EmulatorChartHelper.CompactAmount(population.StartingPoints)</td>
+                <td title="@Amount(population.Capital) points paid in">@EmulatorChartHelper.CompactAmount(population.Capital)</td>
                 <td title="@Amount(population.Equity) equity">@EmulatorChartHelper.CompactAmount(population.Equity)</td>
                 <td class="@SignClass(population.ProfitLoss)" title="@Amount(population.ProfitLoss) profit/loss">@EmulatorChartHelper.CompactAmount(population.ProfitLoss)</td>
                 <td class="@SignClass(population.Cash)" title="@Amount(population.Cash) cash">@EmulatorChartHelper.CompactAmount(population.Cash)</td>

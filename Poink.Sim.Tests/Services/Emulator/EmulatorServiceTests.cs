@@ -118,7 +118,7 @@ public class EmulatorServiceTests
 		var population = Assert.Single(service.Snapshot.Populations);
 		Assert.True(service.Snapshot.Broker.TradeCount > 0);
 		Assert.Equal(population.LongUnits, population.ShortUnits);
-		Assert.Equal(population.StartingPoints + service.Snapshot.Broker.AbsorbedLosses, population.Equity, 6);
+		Assert.Equal(population.Capital + service.Snapshot.Broker.AbsorbedLosses, population.Equity, 6);
 	}
 
 	[Fact]
@@ -207,6 +207,20 @@ public class EmulatorServiceTests
 		service.Step();
 
 		Assert.Equal(0, service.StepsPerSecond);
+	}
+
+	[Fact]
+	public void Replenish_AddsCapitalWithoutReopeningTheMarket()
+	{
+		using var service = CreateService();
+		service.Step();
+
+		service.Replenish();
+
+		var population = Assert.Single(service.Snapshot.Populations);
+		Assert.Equal(40_000, population.Capital);
+		Assert.Equal(40_000, population.Equity, 6);
+		Assert.Equal(1, service.Snapshot.Step);
 	}
 
 	[Fact]

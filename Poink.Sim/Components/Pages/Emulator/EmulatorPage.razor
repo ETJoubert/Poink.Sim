@@ -44,13 +44,15 @@
                 @foreach (var speed in EmulatorSettings.SpeedMultipliers)
                 {
                     <button type="button" class="emu-speed-option @(speed == Emulator.Settings.SpeedMultiplier ? "selected" : "")"
-                            @onclick="() => Emulator.SetSpeed(speed)"
+                            @onclick="() => SetSpeedAsync(speed)"
                             title="Play at ×@speed.ToString("N0"): @speed.ToString("N0") market step@(speed == 1 ? "" : "s") every @Emulator.Settings.TickInterval.TotalMilliseconds.ToString("N0") ms, or as many as fit in the tick">×@speed.ToString("N0")</button>
                 }
             </div>
             <button type="button" class="emu-btn" @onclick="Emulator.Reset"
                     title="Restart the market: fresh bots and broker fund, an empty book and a new warm-up history from the start price">Reset</button>
-            <button type="button" class="emu-btn emu-btn-icon" @onclick="OpenSettings" title="Emulator settings: leverage and population size">
+            <button type="button" class="emu-btn" @onclick="Emulator.Replenish"
+                    title="Give every bot its population's starting capital on top of what it has -- bust bots come back into the market">Replenish</button>
+            <button type="button" class="emu-btn emu-btn-icon" @onclick="OpenSettings" title="Emulator settings: leverage, population size and starting capital -- saved in this browser">
                 <Icon Name="gear-fill" Class="emu-btn-icon-img" />
             </button>
         </div>
@@ -82,5 +84,5 @@
 
 @if (_settingsOpen)
 {
-    <EmulatorSettingsComponent Settings="Emulator.Settings" OnApply="ApplySettings" OnClose="CloseSettings" />
+    <EmulatorSettingsComponent Settings="Emulator.Settings" OnApply="ApplySettingsAsync" OnClose="CloseSettings" />
 }

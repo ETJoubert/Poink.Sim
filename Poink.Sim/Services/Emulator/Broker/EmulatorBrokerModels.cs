@@ -4,15 +4,15 @@ namespace Poink.Sim.Emulator.Broker;
 
 /// <summary>
 /// One bot's account at the broker. Negative cash is points the broker lent for a leveraged buy; a negative position is
-/// units it lent for a short sale. Balance is starting points plus realised P/L; equity adds the open position's
-/// unrealised P/L at the given price.
+/// units it lent for a short sale. Capital is every point paid in (starting capital plus replenishments); balance is
+/// capital plus realised P/L; equity adds the open position's unrealised P/L at the given price.
 /// </summary>
-internal sealed class EmulatorBotAccount
+internal sealed class EmulatorBotAccount(int id, string population, double startingCapital)
 {
-	public required int Id { get; init; }
-	public required string Population { get; init; }
-	public required double StartingPoints { get; init; }
-	public required double Cash { get; set; }
+	public int Id { get; } = id;
+	public string Population { get; } = population;
+	public double Capital { get; private set; } = startingCapital;
+	public double Cash { get; private set; } = startingCapital;
 	public long Position { get; private set; }
 	public double AverageEntryPrice { get; private set; }
 	public bool IsBust { get; private set; }
@@ -38,6 +38,14 @@ internal sealed class EmulatorBotAccount
 		Cash -= signedVolume * price;
 		Position = newPosition;
 		Fills++;
+	}
+
+	/// <summary>Pays points in on top of what the bot has; a bust bot is back in the market.</summary>
+	public void Deposit(double amount)
+	{
+		Cash += amount;
+		Capital += amount;
+		IsBust = false;
 	}
 
 	public void GoBust()

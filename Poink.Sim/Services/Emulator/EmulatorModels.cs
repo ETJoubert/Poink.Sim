@@ -29,7 +29,7 @@ public sealed record OrderBook(IReadOnlyList<OrderBookLevel> Bids, IReadOnlyList
 /// <summary>The bots with orders resting at one price level and the equity they hold between them.</summary>
 public readonly record struct PopulationLevel(double Price, int BotCount, double Balance);
 
-/// <summary>A group of bots that start with the same points.</summary>
+/// <summary>A group of bots that start with the same capital, which is also what each gets on a replenish.</summary>
 public sealed record PopulationSettings(string Name, int BotCount, double StartingPoints);
 
 /// <summary>Where one population stands now: its bots, their combined account and their trading so far.</summary>
@@ -37,7 +37,7 @@ public sealed record PopulationSummary(
 	string Name,
 	int BotCount,
 	int ActiveBots,
-	double StartingPoints,
+	double Capital,
 	double Equity,
 	double Cash,
 	long LongUnits,
@@ -47,14 +47,17 @@ public sealed record PopulationSummary(
 	int StopOuts
 )
 {
-	public double ProfitLoss => Equity - StartingPoints;
+	public double ProfitLoss => Equity - Capital;
 }
 
-/// <summary>One bot's account as the page shows it: balance is starting points plus realised P/L, equity adds the open position.</summary>
+/// <summary>
+/// One bot's account as the page shows it: capital is every point paid in, balance adds realised P/L, equity adds the
+/// open position.
+/// </summary>
 public sealed record BotSummary(
 	int Id,
 	string Population,
-	double StartingPoints,
+	double Capital,
 	double Balance,
 	double Equity,
 	long Position,

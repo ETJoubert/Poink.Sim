@@ -115,6 +115,24 @@ public sealed class EmulatorService : IEmulatorService, IDisposable
 		Changed?.Invoke();
 	}
 
+	public void Replenish()
+	{
+		double paidIn;
+		lock (_lock)
+		{
+			paidIn = _broker.Replenish();
+			_snapshot = BuildSnapshot(_broker, _snapshot.Step);
+		}
+
+		_logger.LogInformation(
+			"Emulator bots replenished for {Symbol}: {PaidIn:N0} points paid in across populations {Populations}",
+			Settings.Symbol,
+			paidIn,
+			DescribePopulations()
+		);
+		Changed?.Invoke();
+	}
+
 	public void SetSpeed(int speedMultiplier)
 	{
 		if (!EmulatorSettings.SpeedMultipliers.Contains(speedMultiplier))

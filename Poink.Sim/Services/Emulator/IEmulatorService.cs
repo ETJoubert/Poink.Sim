@@ -28,6 +28,9 @@ public interface IEmulatorService
 
 	void Reset();
 
+	/// <summary>Pays every bot its population's starting capital on top of what it has; bust bots come back.</summary>
+	void Replenish();
+
 	/// <summary>Sets how many market steps each timer tick runs; must be one of <see cref="EmulatorSettings.SpeedMultipliers"/>.</summary>
 	void SetSpeed(int speedMultiplier);
 

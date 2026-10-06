@@ -130,7 +130,7 @@ public class EmulatorBrokerTests
 
 		var summary = Assert.Single(broker.PopulationSummaries());
 
-		Assert.Equal((2, 2, 20_000.0), (summary.BotCount, summary.ActiveBots, summary.StartingPoints));
+		Assert.Equal((2, 2, 20_000.0), (summary.BotCount, summary.ActiveBots, summary.Capital));
 		Assert.Equal((10L, 10L, 2), (summary.LongUnits, summary.ShortUnits, summary.Fills));
 		Assert.Equal(20_000, summary.Equity);
 	}
@@ -173,5 +173,26 @@ public class EmulatorBrokerTests
 
 		Assert.Equal((0L, 1), (longer.Position, longer.StopOuts));
 		Assert.Equal(1, broker.Summary().Leverage);
+	}
+
+	[Fact]
+	public void Replenish_PaysEveryBotItsStartingCapitalAndRevivesTheBust()
+	{
+		var broker = CreateBroker(bots: 3, points: 1_000, leverage: 10);
+		var (shorter, longer, maker) = (broker.Accounts[0], broker.Accounts[1], broker.Accounts[2]);
+		broker.Place(shorter, OrderSide.Sell, 100, 50);
+		broker.Place(longer, OrderSide.Buy, 100, 50);
+		broker.Place(maker, OrderSide.Sell, 131, 60);
+		broker.Place(maker, OrderSide.Sell, 130, 1);
+		broker.Place(longer, OrderSide.Buy, 130, 1);
+		broker.RunStopOuts();
+		Assert.True(shorter.IsBust);
+
+		var paidIn = broker.Replenish();
+
+		Assert.Equal(3_000, paidIn);
+		Assert.False(shorter.IsBust);
+		Assert.Equal((1_000.0, 2_000.0), (shorter.Cash, shorter.Capital));
+		Assert.Equal(6_000, broker.PopulationSummaries()[0].Capital);
 	}
 }

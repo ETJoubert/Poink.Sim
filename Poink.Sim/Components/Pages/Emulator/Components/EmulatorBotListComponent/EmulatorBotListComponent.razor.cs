@@ -18,7 +18,7 @@ namespace Poink.Sim.Components.Emulator
 			string.Create(
 				CultureInfo.InvariantCulture,
 				$"Bot #{bot.Id} ({bot.Population}){(bot.IsBust ? " -- bust, no longer trading" : "")}: position {bot.Position:N0}"
-					+ $"{(bot.Position != 0 ? $" at an average {bot.AverageEntryPrice:N4}" : "")}, balance {bot.Balance:N2}, equity {bot.Equity:N2}, "
+					+ $"{(bot.Position != 0 ? $" at an average {bot.AverageEntryPrice:N4}" : "")}, capital paid in {bot.Capital:N2}, balance {bot.Balance:N2}, equity {bot.Equity:N2}, "
 					+ $"{bot.OpenOrders:N0} orders resting"
 			);
 
@@ -27,6 +27,6 @@ namespace Poink.Sim.Components.Emulator
 			: amount < 0 ? "emu-bots-negative"
 			: string.Empty;
 
-		private static string EquityClass(BotSummary bot) => SignClass(bot.Equity - bot.StartingPoints);
+		private static string EquityClass(BotSummary bot) => SignClass(bot.Equity - bot.Capital);
 	}
 }

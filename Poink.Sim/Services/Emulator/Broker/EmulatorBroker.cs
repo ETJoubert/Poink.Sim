@@ -43,13 +43,7 @@ internal sealed class EmulatorBroker
 			.Populations.SelectMany(population =>
 				Enumerable
 					.Range(0, Math.Max(0, population.BotCount))
-					.Select(_ => new EmulatorBotAccount
-					{
-						Id = nextId++,
-						Population = population.Name,
-						StartingPoints = population.StartingPoints,
-						Cash = population.StartingPoints,
-					})
+					.Select(_ => new EmulatorBotAccount(nextId++, population.Name, population.StartingPoints))
 			)
 			.ToList();
 		_accountsById = _accounts.ToDictionary(account => account.Id);
@@ -66,6 +60,26 @@ internal sealed class EmulatorBroker
 	{
 		_lentAtStepStart = _accounts.Sum(account => account.Borrowed(LastPrice));
 		_committedThisStep = 0;
+	}
+
+	/// <summary>
+	/// Pays every bot its population's starting capital on top of what it has, reviving bust bots. Returns the points
+	/// paid in.
+	/// </summary>
+	public double Replenish()
+	{
+		var capitalByPopulation = _settings.Populations.ToDictionary(p => p.Name, p => p.StartingPoints);
+		var paidIn = 0.0;
+		foreach (var bot in _accounts)
+		{
+			if (capitalByPopulation.TryGetValue(bot.Population, out var capital) && capital > 0)
+			{
+				bot.Deposit(capital);
+				paidIn += capital;
+			}
+		}
+
+		return paidIn;
 	}
 
 	public BotMarketView ViewFor(EmulatorBotAccount bot) =>
@@ -152,7 +166,7 @@ internal sealed class EmulatorBroker
 				group.Key,
 				group.Count(),
 				group.Count(bot => !bot.IsBust),
-				group.Sum(bot => bot.StartingPoints),
+				group.Sum(bot => bot.Capital),
 				group.Sum(bot => bot.Equity(LastPrice)),
 				group.Sum(bot => bot.Cash),
 				group.Sum(bot => Math.Max(0, bot.Position)),
@@ -168,7 +182,7 @@ internal sealed class EmulatorBroker
 			.Select(bot => new BotSummary(
 				bot.Id,
 				bot.Population,
-				bot.StartingPoints,
+				bot.Capital,
 				bot.Balance,
 				bot.Equity(LastPrice),
 				bot.Position,
