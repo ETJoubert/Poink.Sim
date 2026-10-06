@@ -89,6 +89,37 @@
     height: 12px;
 }
 
+.emu-speed {
+    display: flex;
+}
+
+.emu-speed-option {
+    padding: 3px 10px;
+    font-size: 0.7rem;
+    color: var(--color-secondary);
+    background: var(--color-bg-terminal);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
+    cursor: pointer;
+}
+
+.emu-speed-option + .emu-speed-option {
+    border-left: none;
+}
+
+.emu-speed-option:first-child {
+    border-radius: var(--border-radius-sm) 0 0 var(--border-radius-sm);
+}
+
+.emu-speed-option:last-child {
+    border-radius: 0 var(--border-radius-sm) var(--border-radius-sm) 0;
+}
+
+.emu-speed-option.selected {
+    color: var(--color-bg-terminal);
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+}
+
 .emu-btn-go {
     color: var(--color-success);
     border-color: var(--color-success);

@@ -149,4 +149,29 @@ public class EmulatorBrokerTests
 		Assert.Equal((-10L, 101.0, 10_000.0, 1), (bots[0].Position, bots[0].AverageEntryPrice, bots[0].Balance, bots[0].OpenOrders));
 		Assert.Equal((10L, 10_000.0, 10_000.0), (bots[1].Position, bots[1].Balance, bots[1].Equity));
 	}
+
+	[Fact]
+	public void UpdateTerms_LoweringLeverageStopsOutPositionsThatNoLongerFit()
+	{
+		var broker = CreateBroker(bots: 3, points: 1_000, leverage: 10);
+		var (longer, seller, maker) = (broker.Accounts[0], broker.Accounts[1], broker.Accounts[2]);
+		broker.Place(seller, OrderSide.Sell, 100, 80);
+		broker.Place(longer, OrderSide.Buy, 100, 80);
+		broker.Place(maker, OrderSide.Buy, 99, 100);
+
+		broker.RunStopOuts();
+		Assert.Equal(80, longer.Position);
+
+		broker.UpdateTerms(new EmulatorSettings
+		{
+			StartPrice = 100,
+			TickSize = 1,
+			Populations = [new PopulationSettings("Test", 3, 1_000)],
+			Leverage = 1,
+		});
+		broker.RunStopOuts();
+
+		Assert.Equal((0L, 1), (longer.Position, longer.StopOuts));
+		Assert.Equal(1, broker.Summary().Leverage);
+	}
 }

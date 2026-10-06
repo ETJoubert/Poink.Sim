@@ -12,15 +12,38 @@ public class EmulatorMarketScaleHelperTests
 		prices.Select((price, i) => new EmulatorPricePoint(DateTime.UnixEpoch.AddSeconds(i), price)).ToArray();
 
 	[Fact]
-	public void ScaleOf_FitsHistoryAndBookWithoutCentringOnThePrice()
+	public void ScaleOf_PutsTheHistoryInTheMiddleHalfWithBookMarginsAboveAndBelow()
 	{
-		var book = new OrderBook([new OrderBookLevel(95, 1)], [new OrderBookLevel(140, 1)]);
+		var book = new OrderBook([new OrderBookLevel(99, 1)], [new OrderBookLevel(111, 1)]);
 
-		var scale = EmulatorMarketScaleHelper.ScaleOf(History(100, 120), 130, book, 1);
+		var scale = EmulatorMarketScaleHelper.ScaleOf(History(100, 110), 105, book, 1);
 
-		Assert.Equal((94L, 141L, 2L), (scale.LowTicks, scale.HighTicks, scale.TicksPerRow));
-		Assert.Equal(24, scale.RowCount);
-		Assert.NotEqual(0.5, EmulatorChartHelper.YFraction(130, scale.PriceRange), 3);
+		Assert.Equal((92L, 118L, 1L), (scale.LowTicks, scale.HighTicks, scale.TicksPerRow));
+		Assert.InRange(EmulatorChartHelper.YFraction(111, scale.PriceRange), 0.2, 0.3);
+		Assert.InRange(EmulatorChartHelper.YFraction(99, scale.PriceRange), 0.7, 0.8);
+	}
+
+	[Fact]
+	public void ScaleOf_FarBookLevelsFallOffRatherThanSqueezeTheHistory()
+	{
+		var book = new OrderBook(
+			[new OrderBookLevel(109, 1), new OrderBookLevel(10, 1)],
+			[new OrderBookLevel(111, 1), new OrderBookLevel(500, 1)]
+		);
+
+		var scale = EmulatorMarketScaleHelper.ScaleOf(History(100, 120), 110, book, 1);
+
+		Assert.False(scale.Contains(10) || scale.Contains(500));
+		Assert.True(scale.Contains(100) && scale.Contains(120));
+	}
+
+	[Fact]
+	public void ScaleOf_LeavesAtLeastTheMinimumBookMargin()
+	{
+		var scale = EmulatorMarketScaleHelper.ScaleOf(History(100), 100, OrderBook.Empty, 1);
+
+		Assert.True(scale.Contains(100 - EmulatorMarketScaleHelper.MinBookMarginTicks));
+		Assert.True(scale.Contains(100 + EmulatorMarketScaleHelper.MinBookMarginTicks));
 	}
 
 	[Fact]

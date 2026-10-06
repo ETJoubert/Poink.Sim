@@ -18,7 +18,7 @@ internal sealed class EmulatorBroker
 	private const long MarketBuyPriceTicks = long.MaxValue / 4;
 	private const long MarketSellPriceTicks = 1;
 
-	private readonly EmulatorSettings _settings;
+	private EmulatorSettings _settings;
 	private readonly OrderMatchingEngine _book = new();
 	private readonly List<EmulatorBotAccount> _accounts;
 	private readonly Dictionary<int, EmulatorBotAccount> _accountsById;
@@ -58,6 +58,9 @@ internal sealed class EmulatorBroker
 	public IReadOnlyList<EmulatorBotAccount> Accounts => _accounts;
 
 	public double LastPrice => EmulatorTickHelper.FromTicks(_lastPriceTicks, _settings.TickSize);
+
+	/// <summary>Takes on new terms, such as leverage, for every order and stop-out check from now on.</summary>
+	public void UpdateTerms(EmulatorSettings settings) => _settings = settings;
 
 	public void BeginStep()
 	{

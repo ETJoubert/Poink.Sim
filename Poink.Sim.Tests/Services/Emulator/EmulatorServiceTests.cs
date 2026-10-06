@@ -138,6 +138,78 @@ public class EmulatorServiceTests
 	}
 
 	[Fact]
+	public void Advance_RunsTheWholeBatchAsOneHistoryPoint()
+	{
+		using var service = CreateService();
+
+		service.Advance(10);
+
+		Assert.Equal(10, service.Snapshot.Step);
+		Assert.Equal(110, service.Snapshot.Price);
+		Assert.Equal(2, service.Snapshot.History.Count);
+		Assert.Equal(10, service.Snapshot.Broker.TradeCount);
+	}
+
+	[Fact]
+	public void ApplySettings_SpeedAndLeverageApplyToTheRunningMarket()
+	{
+		using var service = CreateService();
+		service.Step();
+		service.Step();
+
+		service.ApplySettings(service.Settings with { SpeedMultiplier = 100, Leverage = 5 });
+
+		Assert.Equal(100, service.Settings.SpeedMultiplier);
+		Assert.Equal(5, service.Snapshot.Broker.Leverage);
+		Assert.Equal(2, service.Snapshot.Step);
+		Assert.Equal(2, service.Snapshot.Broker.TradeCount);
+	}
+
+	[Fact]
+	public void SetSpeed_ChangesPlaybackWithoutTouchingTheMarket()
+	{
+		using var service = CreateService();
+		service.Step();
+		var changed = 0;
+		service.Changed += () => changed++;
+
+		service.SetSpeed(1_000);
+
+		Assert.Equal(1_000, service.Settings.SpeedMultiplier);
+		Assert.Equal(1, service.Snapshot.Step);
+		Assert.Equal(1, changed);
+	}
+
+	[Fact]
+	public void SetSpeed_RejectsSpeedsOutsideThePlaybackSteps()
+	{
+		using var service = CreateService();
+
+		Assert.Throws<ArgumentOutOfRangeException>(() => service.SetSpeed(5));
+		Assert.Equal(1, service.Settings.SpeedMultiplier);
+	}
+
+	[Fact]
+	public void Advance_StopsEarlyOnceTheBudgetIsSpent()
+	{
+		using var service = CreateService();
+
+		var done = service.Advance(1_000_000, TimeSpan.Zero);
+
+		Assert.Equal(1, done);
+		Assert.Equal(1, service.Snapshot.Step);
+	}
+
+	[Fact]
+	public void StepsPerSecond_IsZeroWhileStopped()
+	{
+		using var service = CreateService();
+		service.Step();
+
+		Assert.Equal(0, service.StepsPerSecond);
+	}
+
+	[Fact]
 	public void StartAndStop_ToggleIsRunning()
 	{
 		using var service = CreateService();

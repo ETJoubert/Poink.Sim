@@ -2,6 +2,7 @@
 @namespace Poink.Sim.Components.Pages
 @using Poink.Sim.Components.Emulator
 @using Poink.Sim.Components.Shared.Icon
+@using Poink.Sim.Emulator
 
 <div class="emu-page">
     <header class="emu-header">
@@ -19,7 +20,10 @@
         <span class="emu-stat" title="Steps taken since the last reset">
             <span class="emu-stat-label">STEP</span>@Snapshot.Step.ToString("N0")
         </span>
-        <span class="emu-state @(Emulator.IsRunning ? "running" : "")" title="Whether the emulator is stepping on its timer right now">
+        <span class="emu-stat" title="Market steps actually run per second -- below the chosen speed when the CPU cannot keep up">
+            <span class="emu-stat-label">STEPS/S</span>@Emulator.StepsPerSecond.ToString("N0")
+        </span>
+        <span class="emu-state @(Emulator.IsRunning ? "running" : "")" title="Whether the emulator is stepping on its timer right now, and at what speed">
             @(Emulator.IsRunning ? "RUNNING" : "STOPPED")
         </span>
 
@@ -32,13 +36,21 @@
             else
             {
                 <button type="button" class="emu-btn emu-btn-go" @onclick="Emulator.Start"
-                        title="Step the emulator every @Emulator.Settings.StepInterval.TotalMilliseconds.ToString("N0") ms">Start</button>
+                        title="Run @Emulator.Settings.SpeedMultiplier.ToString("N0") market step(s) every @Emulator.Settings.TickInterval.TotalMilliseconds.ToString("N0") ms">Start</button>
             }
             <button type="button" class="emu-btn" @onclick="Emulator.Step" disabled="@Emulator.IsRunning"
                     title="Advance the emulator by one step">Step</button>
+            <div class="emu-speed" title="Playback speed: market steps per tick, in orders of ten -- changes take effect immediately">
+                @foreach (var speed in EmulatorSettings.SpeedMultipliers)
+                {
+                    <button type="button" class="emu-speed-option @(speed == Emulator.Settings.SpeedMultiplier ? "selected" : "")"
+                            @onclick="() => Emulator.SetSpeed(speed)"
+                            title="Play at ×@speed.ToString("N0"): @speed.ToString("N0") market step@(speed == 1 ? "" : "s") every @Emulator.Settings.TickInterval.TotalMilliseconds.ToString("N0") ms, or as many as fit in the tick">×@speed.ToString("N0")</button>
+                }
+            </div>
             <button type="button" class="emu-btn" @onclick="Emulator.Reset"
                     title="Restart the market: fresh bots and broker fund, an empty book and a new warm-up history from the start price">Reset</button>
-            <button type="button" class="emu-btn emu-btn-icon" @onclick="OpenSettings" title="Emulator settings: population size and more">
+            <button type="button" class="emu-btn emu-btn-icon" @onclick="OpenSettings" title="Emulator settings: leverage and population size">
                 <Icon Name="gear-fill" Class="emu-btn-icon-img" />
             </button>
         </div>

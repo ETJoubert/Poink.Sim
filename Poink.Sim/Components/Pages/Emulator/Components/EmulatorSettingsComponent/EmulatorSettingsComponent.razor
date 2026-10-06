@@ -1,10 +1,21 @@
 @namespace Poink.Sim.Components.Emulator
+@using System.Globalization
+@using Poink.Sim.Emulator
 
 <div class="emu-settings-backdrop" title="Close the settings without applying" @onclick="OnClose">
     <div class="emu-settings" role="dialog" aria-modal="true" title="Emulator settings" @onclick:stopPropagation="true">
         <div class="emu-settings-title">EMULATOR SETTINGS</div>
 
-        <section class="emu-settings-section" title="The bot populations trading in the market">
+        <section class="emu-settings-section" title="The broker's terms">
+            <div class="emu-settings-heading">BROKER</div>
+            <label class="emu-settings-field" title="Most a bot's position plus its resting orders on one side may be worth, as a multiple of its equity -- applied without restarting; lowering it can stop bots out">
+                <span>Leverage ×</span>
+                <input type="number" min="@EmulatorSettings.MinLeverage" max="@EmulatorSettings.MaxLeverage" step="0.5" value="@_leverage.ToString(CultureInfo.InvariantCulture)"
+                       @onchange="SetLeverage" />
+            </label>
+        </section>
+
+        <section class="emu-settings-section" title="The bot populations trading in the market -- changing them restarts the market">
             <div class="emu-settings-heading">POPULATIONS</div>
             @foreach (var draft in _populations)
             {
@@ -24,7 +35,7 @@
         <div class="emu-settings-actions">
             <button type="button" class="emu-settings-btn" @onclick="OnClose" title="Close without changing anything">Cancel</button>
             <button type="button" class="emu-settings-btn emu-settings-btn-apply" @onclick="ApplyAsync" disabled="@(ValidationMessage is not null)"
-                    title="@(ValidationMessage ?? "Apply the settings -- the market restarts with fresh bots, an empty book and a new warm-up")">Apply</button>
+                    title="@(ValidationMessage ?? ApplyTooltip)">Apply</button>
         </div>
     </div>
 </div>

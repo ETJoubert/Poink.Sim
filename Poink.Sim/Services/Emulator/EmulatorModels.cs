@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Poink.Sim.Emulator;
 
@@ -108,7 +109,20 @@ public sealed record EmulatorSettings
 	public double StopOutLevelPercent { get; init; } = 50;
 	public double BrokerFund { get; init; } = 1_000_000;
 
-	public int HistoryCapacity { get; init; } = 300;
+	public int HistoryCapacity { get; init; } = 600;
 	public int WarmupSteps { get; init; } = 120;
-	public TimeSpan StepInterval { get; init; } = TimeSpan.FromMilliseconds(500);
+	public TimeSpan TickInterval { get; init; } = TimeSpan.FromMilliseconds(50);
+	public int SpeedMultiplier { get; init; } = 1;
+
+	public static IReadOnlyList<int> SpeedMultipliers { get; } = [1, 10, 100, 1_000];
+	public const double MinLeverage = 1;
+	public const double MaxLeverage = 100;
+
+	/// <summary>
+	/// Whether moving to <paramref name="next"/> needs a fresh market. Speed and leverage apply to the running market;
+	/// anything else, such as the populations, does not.
+	/// </summary>
+	public bool RequiresReopen(EmulatorSettings next) =>
+		!Populations.SequenceEqual(next.Populations)
+		|| this with { SpeedMultiplier = next.SpeedMultiplier, Leverage = next.Leverage, Populations = next.Populations } != next;
 }

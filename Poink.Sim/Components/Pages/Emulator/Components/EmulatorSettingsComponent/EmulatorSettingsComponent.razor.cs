@@ -26,29 +26,44 @@ namespace Poink.Sim.Components.Emulator
 		public EventCallback OnClose { get; set; }
 
 		private List<PopulationDraft> _populations = new();
+		private double _leverage = 1;
 
 		private string? ValidationMessage =>
-			_populations.FirstOrDefault(p => p.BotCount is < MinBotCount or > MaxBotCount) is { } invalid
+			_leverage is < EmulatorSettings.MinLeverage or > EmulatorSettings.MaxLeverage
+				? $"Leverage must be between {EmulatorSettings.MinLeverage:0}× and {EmulatorSettings.MaxLeverage:0}×"
+			: _populations.FirstOrDefault(p => p.BotCount is < MinBotCount or > MaxBotCount) is { } invalid
 				? $"{invalid.Name} needs between {MinBotCount:N0} and {MaxBotCount:N0} bots"
-				: null;
+			: null;
+
+		private string ApplyTooltip =>
+			Settings.RequiresReopen(Draft())
+				? "Apply the settings -- the populations changed, so the market restarts with fresh bots, an empty book and a new warm-up"
+				: "Apply the settings to the running market -- no restart";
 
 		protected override void OnInitialized()
 		{
 			_populations = Settings.Populations.Select(p => new PopulationDraft(p.Name, p.BotCount, p.StartingPoints)).ToList();
+			_leverage = Settings.Leverage;
 		}
+
+		private void SetLeverage(ChangeEventArgs e)
+		{
+			_leverage = double.TryParse(e.Value?.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var leverage) ? leverage : 0;
+		}
+
+		private EmulatorSettings Draft() =>
+			Settings with
+			{
+				Leverage = _leverage,
+				Populations = _populations.Select(p => new PopulationSettings(p.Name, p.BotCount, p.StartingPoints)).ToArray(),
+			};
 
 		private static void SetBotCount(PopulationDraft draft, object? value)
 		{
 			draft.BotCount = int.TryParse(value?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var count) ? count : 0;
 		}
 
-		private Task ApplyAsync() =>
-			OnApply.InvokeAsync(
-				Settings with
-				{
-					Populations = _populations.Select(p => new PopulationSettings(p.Name, p.BotCount, p.StartingPoints)).ToArray(),
-				}
-			);
+		private Task ApplyAsync() => OnApply.InvokeAsync(Draft());
 
 		private sealed class PopulationDraft(string name, int botCount, double startingPoints)
 		{

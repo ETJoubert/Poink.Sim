@@ -12,10 +12,15 @@ namespace Poink.Sim.Emulator;
 /// <summary>
 /// Process-wide emulated brokerage for one synthetic asset. Each step, bots in random order each get a chance to act on
 /// what they alone can see; the broker fills their orders, which moves the price, then stops out under-margined bots.
-/// The snapshot is replaced whole so readers never see a half-step.
+/// Each timer tick runs <see cref="EmulatorSettings.SpeedMultiplier"/> steps, cut short when they would overrun the tick
+/// so the page keeps its frame rate, and records one history point. The snapshot is replaced whole, so readers never see
+/// a half-step and never wait on a running batch.
 /// </summary>
 public sealed class EmulatorService : IEmulatorService, IDisposable
 {
+	private const double TickBudgetFraction = 0.8;
+	private const double StepsPerSecondSmoothing = 0.2;
+
 	private readonly IEmulatorBotStrategy _strategy;
 	private readonly ILogger<EmulatorService> _logger;
 	private readonly TimeProvider _timeProvider;
@@ -24,8 +29,10 @@ public sealed class EmulatorService : IEmulatorService, IDisposable
 	private readonly Queue<EmulatorPricePoint> _history = new();
 
 	private EmulatorBroker _broker;
-	private EmulatorSnapshot _snapshot;
-	private CancellationTokenSource? _loopCancellation;
+	private volatile EmulatorSnapshot _snapshot;
+	private volatile EmulatorSettings _settings;
+	private volatile CancellationTokenSource? _loopCancellation;
+	private double _stepsPerSecond;
 
 	public EmulatorService(IEmulatorBotStrategy strategy, ILogger<EmulatorService> logger)
 		: this(strategy, logger, new EmulatorSettings(), TimeProvider.System, new Random()) { }
@@ -42,33 +49,17 @@ public sealed class EmulatorService : IEmulatorService, IDisposable
 		_logger = logger;
 		_timeProvider = timeProvider;
 		_random = random;
-		Settings = settings;
+		_settings = settings;
 		(_broker, _snapshot) = OpenWarmedUpMarket();
 	}
 
-	public EmulatorSettings Settings { get; private set; }
+	public EmulatorSettings Settings => _settings;
 
-	public EmulatorSnapshot Snapshot
-	{
-		get
-		{
-			lock (_lock)
-			{
-				return _snapshot;
-			}
-		}
-	}
+	public EmulatorSnapshot Snapshot => _snapshot;
 
-	public bool IsRunning
-	{
-		get
-		{
-			lock (_lock)
-			{
-				return _loopCancellation is not null;
-			}
-		}
-	}
+	public bool IsRunning => _loopCancellation is not null;
+
+	public double StepsPerSecond => IsRunning ? Volatile.Read(ref _stepsPerSecond) : 0;
 
 	public event Action? Changed;
 
@@ -86,9 +77,10 @@ public sealed class EmulatorService : IEmulatorService, IDisposable
 
 		_ = Task.Run(() => RunLoopAsync(cancellation.Token));
 		_logger.LogInformation(
-			"Emulator started for {Symbol}, stepping every {StepInterval} with {Settings}",
+			"Emulator started for {Symbol}, {Speed}× speed every {TickInterval} with {Settings}",
 			Settings.Symbol,
-			Settings.StepInterval,
+			Settings.SpeedMultiplier,
+			Settings.TickInterval,
 			Settings
 		);
 		Changed?.Invoke();
@@ -105,16 +97,7 @@ public sealed class EmulatorService : IEmulatorService, IDisposable
 		Changed?.Invoke();
 	}
 
-	public void Step()
-	{
-		lock (_lock)
-		{
-			AdvanceMarket(_broker, _timeProvider.GetUtcNow().UtcDateTime);
-			_snapshot = BuildSnapshot(_broker, _snapshot.Step + 1);
-		}
-
-		Changed?.Invoke();
-	}
+	public void Step() => Advance(1);
 
 	public void Reset()
 	{
@@ -126,23 +109,50 @@ public sealed class EmulatorService : IEmulatorService, IDisposable
 		_logger.LogInformation(
 			"Emulator reset for {Symbol} with populations {Populations} and {Settings}",
 			Settings.Symbol,
-			string.Join(", ", Settings.Populations.Select(p => $"{p.Name}: {p.BotCount} bots Ã— {p.StartingPoints:N0} points")),
+			DescribePopulations(),
 			Settings
 		);
 		Changed?.Invoke();
 	}
 
-	public void ApplySettings(EmulatorSettings settings)
+	public void SetSpeed(int speedMultiplier)
 	{
+		if (!EmulatorSettings.SpeedMultipliers.Contains(speedMultiplier))
+		{
+			throw new ArgumentOutOfRangeException(nameof(speedMultiplier), speedMultiplier, "Speed must be one of the playback speeds.");
+		}
+
 		lock (_lock)
 		{
-			Settings = settings;
-			(_broker, _snapshot) = OpenWarmedUpMarket();
+			_settings = _settings with { SpeedMultiplier = speedMultiplier };
+		}
+
+		_logger.LogInformation("Emulator speed set to {Speed}× for {Symbol}", speedMultiplier, Settings.Symbol);
+		Changed?.Invoke();
+	}
+
+	public void ApplySettings(EmulatorSettings settings)
+	{
+		bool reopened;
+		lock (_lock)
+		{
+			reopened = Settings.RequiresReopen(settings);
+			_settings = settings;
+			if (reopened)
+			{
+				(_broker, _snapshot) = OpenWarmedUpMarket();
+			}
+			else
+			{
+				_broker.UpdateTerms(settings);
+				_snapshot = BuildSnapshot(_broker, _snapshot.Step);
+			}
 		}
 
 		_logger.LogInformation(
-			"Emulator settings applied for {Symbol}: populations {Populations}, {Settings}",
+			"Emulator settings applied for {Symbol} ({Mode}): populations {Populations}, {Settings}",
 			Settings.Symbol,
+			reopened ? "market reopened" : "live",
 			DescribePopulations(),
 			Settings
 		);
@@ -151,6 +161,34 @@ public sealed class EmulatorService : IEmulatorService, IDisposable
 
 	public void Dispose() => TryCancelLoop();
 
+	/// <summary>
+	/// Runs up to <paramref name="steps"/> market steps as one batch, stopping early once <paramref name="budget"/> is spent,
+	/// then records one history point and one snapshot. Returns the steps run.
+	/// </summary>
+	internal int Advance(int steps, TimeSpan? budget = null)
+	{
+		var started = _timeProvider.GetTimestamp();
+		var done = 0;
+		lock (_lock)
+		{
+			while (done < steps)
+			{
+				AdvanceMarket(_broker);
+				done++;
+				if (budget is { } limit && _timeProvider.GetElapsedTime(started) >= limit)
+				{
+					break;
+				}
+			}
+
+			AppendHistory(new EmulatorPricePoint(_timeProvider.GetUtcNow().UtcDateTime, _broker.LastPrice));
+			_snapshot = BuildSnapshot(_broker, _snapshot.Step + done);
+		}
+
+		Changed?.Invoke();
+		return done;
+	}
+
 	private string DescribePopulations() =>
 		string.Join(", ", Settings.Populations.Select(p => $"{p.Name}: {p.BotCount} bots × {p.StartingPoints:N0} points"));
 
@@ -158,10 +196,18 @@ public sealed class EmulatorService : IEmulatorService, IDisposable
 	{
 		try
 		{
-			using var timer = new PeriodicTimer(Settings.StepInterval, _timeProvider);
+			var budget = Settings.TickInterval * TickBudgetFraction;
+			using var timer = new PeriodicTimer(Settings.TickInterval, _timeProvider);
+			var lastTick = _timeProvider.GetTimestamp();
+			Volatile.Write(ref _stepsPerSecond, 0);
 			while (await timer.WaitForNextTickAsync(token))
 			{
-				Step();
+				var done = Advance(Math.Max(1, Settings.SpeedMultiplier), budget);
+				var now = _timeProvider.GetTimestamp();
+				var rate = done / Math.Max(_timeProvider.GetElapsedTime(lastTick, now).TotalSeconds, 1e-3);
+				lastTick = now;
+				var smoothed = Volatile.Read(ref _stepsPerSecond);
+				Volatile.Write(ref _stepsPerSecond, smoothed == 0 ? rate : smoothed + (rate - smoothed) * StepsPerSecondSmoothing);
 			}
 		}
 		catch (OperationCanceledException) { }
@@ -197,16 +243,17 @@ public sealed class EmulatorService : IEmulatorService, IDisposable
 		_history.Clear();
 		var broker = new EmulatorBroker(Settings);
 		var now = _timeProvider.GetUtcNow().UtcDateTime;
-		AppendHistory(new EmulatorPricePoint(now - Settings.StepInterval * Math.Max(0, Settings.WarmupSteps), broker.LastPrice));
+		AppendHistory(new EmulatorPricePoint(now - Settings.TickInterval * Math.Max(0, Settings.WarmupSteps), broker.LastPrice));
 		for (var step = Settings.WarmupSteps - 1; step >= 0; step--)
 		{
-			AdvanceMarket(broker, now - Settings.StepInterval * step);
+			AdvanceMarket(broker);
+			AppendHistory(new EmulatorPricePoint(now - Settings.TickInterval * step, broker.LastPrice));
 		}
 
 		return (broker, BuildSnapshot(broker, 0));
 	}
 
-	private void AdvanceMarket(EmulatorBroker broker, DateTime timestamp)
+	private void AdvanceMarket(EmulatorBroker broker)
 	{
 		broker.BeginStep();
 		var turnOrder = broker.Accounts.ToArray();
@@ -220,7 +267,6 @@ public sealed class EmulatorService : IEmulatorService, IDisposable
 		}
 
 		broker.RunStopOuts();
-		AppendHistory(new EmulatorPricePoint(timestamp, broker.LastPrice));
 	}
 
 	private EmulatorSnapshot BuildSnapshot(EmulatorBroker broker, long step) =>

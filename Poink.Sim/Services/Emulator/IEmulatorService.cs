@@ -14,6 +14,9 @@ public interface IEmulatorService
 
 	bool IsRunning { get; }
 
+	/// <summary>Market steps actually run per second while running -- below the requested speed when the CPU cannot keep up.</summary>
+	double StepsPerSecond { get; }
+
 	/// <summary>Raised after every step, start, stop and reset -- off the UI thread while running.</summary>
 	event Action? Changed;
 
@@ -25,6 +28,12 @@ public interface IEmulatorService
 
 	void Reset();
 
-	/// <summary>Replaces the settings and reopens the market with them, keeping it running if it was.</summary>
+	/// <summary>Sets how many market steps each timer tick runs; must be one of <see cref="EmulatorSettings.SpeedMultipliers"/>.</summary>
+	void SetSpeed(int speedMultiplier);
+
+	/// <summary>
+	/// Replaces the settings, keeping the market running if it was. Speed and leverage apply to the current market;
+	/// any other change reopens it.
+	/// </summary>
 	void ApplySettings(EmulatorSettings settings);
 }

@@ -25,12 +25,17 @@ public sealed record EmulatorMarketScale(long LowTicks, long HighTicks, long Tic
 	public long RowBottomTicks(int row) => RowTopTicks(row) - TicksPerRow + 1;
 }
 
-/// <summary>Fits one price scale around the price history and the order book for the chart and the ladder to share.</summary>
+/// <summary>
+/// Fits one price scale for the chart and the ladder to share: the price history (with the last price and the spread)
+/// fills the middle half, and the quarters above and below are left for the order book. Book levels beyond those margins
+/// fall off the scale rather than squeezing the history.
+/// </summary>
 internal static class EmulatorMarketScaleHelper
 {
 	public const int MinRows = 20;
 	public const int MaxRows = 40;
-	private const long PaddingTicks = 1;
+	public const double BookMarginShare = 0.5;
+	public const long MinBookMarginTicks = 5;
 
 	public static EmulatorMarketScale ScaleOf(
 		IReadOnlyList<EmulatorPricePoint> history,
@@ -39,15 +44,17 @@ internal static class EmulatorMarketScaleHelper
 		double tickSize
 	)
 	{
-		var ticks = history
+		var bandTicks = history
 			.Select(point => point.Price)
 			.Append(price)
-			.Concat(book.Bids.Select(level => level.Price))
-			.Concat(book.Asks.Select(level => level.Price))
+			.Concat(new[] { book.BestBid, book.BestAsk }.OfType<double>())
 			.Select(p => EmulatorTickHelper.ToTicks(p, tickSize))
 			.ToArray();
-		var low = ticks.Min() - PaddingTicks;
-		var high = ticks.Max() + PaddingTicks;
+		var bandLow = bandTicks.Min();
+		var bandHigh = bandTicks.Max();
+		var margin = Math.Max(MinBookMarginTicks, (long)Math.Ceiling((bandHigh - bandLow + 1) * BookMarginShare));
+		var low = bandLow - margin;
+		var high = bandHigh + margin;
 
 		var shortfall = MinRows - (high - low + 1);
 		if (shortfall > 0)
