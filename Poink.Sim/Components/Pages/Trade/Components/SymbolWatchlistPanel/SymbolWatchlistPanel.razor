@@ -59,6 +59,9 @@
                         }
                         <button type="button" class="trade-panel-toggle-btn @(_showDisabledSymbols ? "active" : "")"
                                 @onclick="ToggleShowDisabledSymbols" title="Show symbols currently disabled for trading">Disabled</button>
+                        <button type="button" class="trade-panel-toggle-btn @(_onlyWithData ? "active" : "")"
+                                @onclick="ToggleOnlyWithData"
+                                title="Show only symbols with stored tick history in the database (from the Data page import) -- their charts need no API calls before today">DB</button>
                     </div>
                     @if (_selectedCategoryBuckets.Contains(SymbolCategoryBucket.Forex))
                     {
@@ -69,6 +72,10 @@
                                         @onclick="() => ToggleFxCurrency(currency)" title="Show FX pairs containing @currency">@currency</button>
                             }
                         </div>
+                    }
+                    @if (_coverageFailed)
+                    {
+                        <p class="trade-symbol-more" title="The tick_table_stats registry could not be read, so stored-data markers and the DB filter are unavailable">Stored-data coverage unavailable (database down?).</p>
                     }
                     <ul class="trade-symbol-list">
                         @foreach (var symbol in FilteredSymbols)
@@ -82,6 +89,7 @@
                                           title="@(symbol.Enabled ? "Enabled" : "Disabled")"></span>
                                     <Icon Name="@(watched ? "eye-fill" : "plus-lg")" Class="trade-symbol-row-icon" />
                                     <span class="trade-symbol-row-name" title="@SymbolInfoTooltip(symbol)">@symbol.SymbolName</span>
+                                    <SymbolCoverageBadge Coverage="CoverageFor(symbol.SymbolName)" />
                                 </button>
                             </li>
                         }
@@ -110,6 +118,7 @@
                                 @onclick="() => SelectAsync(quote.SymbolId, quote.SymbolName)"
                                 title="@QuoteRowTitle(quote, selected)">
                                 <span class="trade-quote-name">@quote.SymbolName</span>
+                                <SymbolCoverageBadge Coverage="CoverageFor(quote.SymbolName)" />
                                 <span class="trade-quote-prices">
                                     <span class="trade-quote-bid" title="Bid">@Price(quote.Bid)</span>
                                     <span class="trade-quote-ask" title="Ask">@Price(quote.Ask)</span>
