@@ -6,7 +6,7 @@
         <span class="xgrid-title">X GRID</span>
         <div class="xgrid-header-highlights">
             <button class="xgrid-delta-toggle @(Spectrum.HighlightsEnabled ? "active" : "")" @onclick="ToggleHighlightsEnabled"
-                    title="Quickly turn every highlight beside this switch (Sweep, shading, Total/Up/Down/&Delta; borders, Low/High) off or back on, without clearing any of their settings">@(Spectrum.HighlightsEnabled ? "ON" : "OFF")</button>
+                    title="Quickly turn every highlight beside this switch (Sweep, shading, Total/Up/Down/&Delta;/Dwell borders, Low/High) off or back on, without clearing any of their settings">@(Spectrum.HighlightsEnabled ? "ON" : "OFF")</button>
             <span class="xgrid-row-divider"></span>
             <span class="xgrid-overlay-label" title="Shades each price row by how many times it was the POC while dragging the Lookback Window's near border across every bar position. L->R pins the far border at the range's right edge; R->L pins it at the left edge; Sum combines both.">Sweep</span>
             <div class="xgrid-sweep-toggle">
@@ -21,10 +21,23 @@
             </div>
             <span class="xgrid-row-divider"></span>
             <div class="xgrid-control-group">
-                <button class="xgrid-delta-toggle @(Display.ShadeDelta ? "active" : "")" @onclick="() => SetDisplay(Display with { ShadeDelta = !Display.ShadeDelta })"
-                        title="Shade green when up ticks lead, red when down ticks lead, brighter with a larger imbalance. Replaces the tick-count shading while active.">Up/Dn</button>
-                <button class="xgrid-delta-toggle @(Display.DistanceWeighted ? "active" : "")" @onclick="() => SetDisplay(Display with { DistanceWeighted = !Display.DistanceWeighted })"
-                        title="Weight each tick by the price distance it moved instead of counting it as one. Applies to whichever shading mode is active.">&times;Dist</button>
+                <button class="xgrid-delta-toggle @(Display.ShadeDelta ? "active" : "")" @onclick="ToggleShadeDelta"
+                        title="Shade green when up ticks lead, red when down ticks lead, brighter with a larger imbalance. Replaces the tick-count shading while active. Turns Time off.">Up/Dn</button>
+                <button class="xgrid-delta-toggle @(Display.DistanceWeighted ? "active" : "")" @onclick="ToggleDistanceWeighted"
+                        title="Weight each tick by the price distance it moved instead of counting it as one. Applies to whichever shading mode is active. Turns Time off.">&times;Dist</button>
+                <button class="xgrid-delta-toggle @(Display.TimeWeighted ? "active" : "")" @onclick="ToggleTimeWeighted"
+                        title="Shade each cell by how long price spent in it (Time Profile's estimate: each bar's span spread over its ticks), brighter for longer. Turns Up/Dn and &times;Dist off. Hover a cell for its Time.">Time</button>
+            </div>
+            <span class="xgrid-row-divider"></span>
+            <div class="xgrid-control-group">
+                <button class="xgrid-delta-toggle" @onclick="ToggleDwellComparison"
+                        title="@(Display.DwellComparison == XGridDwellComparison.Above ? "Above: Dwell highlights cells price spent at least this many seconds in -- click for Below" : "Below: Dwell highlights visited cells price spent at most this many seconds in -- click for Above")">@(Display.DwellComparison == XGridDwellComparison.Above ? "≥" : "≤")</button>
+                <label class="xgrid-control" title="Dwell threshold in seconds -- compared against each cell's time using the Above/Below switch beside it">
+                    <input type="number" min="0" step="1" @bind:get="Display.DwellSeconds" @bind:set="SetDwellSeconds" @bind:event="oninput" />
+                    <span>s</span>
+                </label>
+                <button class="xgrid-delta-toggle xgrid-delta-toggle-dwell @(Display.ShowDwellHighlight ? "active" : "")" @onclick="() => SetDisplay(Display with { ShowDwellHighlight = !Display.ShowDwellHighlight })"
+                        title="Highlight the border of every cell whose time is above (or below) the seconds threshold. Below only flags cells price visited.">Dwell</button>
             </div>
             <span class="xgrid-row-divider"></span>
             <div class="xgrid-control-group">
