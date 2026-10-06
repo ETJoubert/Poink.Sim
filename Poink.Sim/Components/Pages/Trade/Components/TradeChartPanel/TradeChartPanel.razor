@@ -1,6 +1,7 @@
 @namespace Poink.Sim.Components.Pages.Trade
 @using Poink.Sim.Components.Charts
 @using Poink.Sim.Components.Shared.BarSizeSelect
+@using Poink.Sim.Components.Shared.Indicators
 @using Poink.Sim.Components.Shared.LookbackWindowBar
 @using Poink.Sim.Components.Shared.PopoutButton
 @using Poink.Sim.Services.CTrader
@@ -10,20 +11,14 @@
     <div class="trade-chart-panel">
         <header class="trade-chart-panel-header">
             <span class="trade-chart-title" title="Symbol shown on this chart">@SymbolName</span>
-            <div class="trade-overlay-toggles" title="Toggle the computed chart overlays -- Point of Control/Value Area and a cumulative VWAP line">
-                <span class="trade-overlay-toggles-label">Indicators</span>
-                <button type="button" class="trade-overlay-toggle-btn trade-overlay-toggle-btn-lines @(_showProfileChartLines ? "active" : "")"
-                        @onclick="() => _showProfileChartLines = !_showProfileChartLines"
-                        title="Project the Point of Control/Value Area High/Low as three dashed lines on the chart">POC/VAH/VAL</button>
-                <button type="button" class="trade-overlay-toggle-btn trade-overlay-toggle-btn-vwap @(_showVwap ? "active" : "")"
-                        @onclick="() => _showVwap = !_showVwap"
-                        title="Show a cumulative volume-weighted average price line on the chart, over the same bar window as the lookback slider">VWAP</button>
-            </div>
             <BarSizeSelect Value="BarSizeSeconds" ValueChanged="HandleBarSizeChanged"
                            Label="Aggregation"
-                           Title="Bar size the chart's live history and tick stream are aggregated into" />
+                           Title="Bar size the chart's history and tick stream are aggregated into -- also every compared symbol's" />
             <div class="trade-panel-toggles" title="Show or hide chart panels">
                 <span class="trade-panel-toggles-label">Panels</span>
+                <button type="button" class="trade-panel-toggle-btn @(_showCompare ? "active" : "")"
+                        @onclick="ToggleCompareAsync"
+                        title="Replace the chart row with one chart comparing the charted symbol and every other watched symbol as % change -- the other panel toggles apply again once this is off">Compare</button>
                 <button type="button" class="trade-panel-toggle-btn @(_showMainChart ? "active" : "")"
                         @onclick="() => _showMainChart = !_showMainChart"
                         title="Show or hide the main price chart">Chart</button>
@@ -36,6 +31,9 @@
                 <button type="button" class="trade-panel-toggle-btn @(_showTimeProfile ? "active" : "")"
                         @onclick="() => _showTimeProfile = !_showTimeProfile"
                         title="Time-at-price histogram over the lookback window">Time profile</button>
+                <button type="button" class="trade-panel-toggle-btn @(_showTxFold ? "active" : "")"
+                        @onclick="() => _showTxFold = !_showTxFold"
+                        title="One OHLC/Quartile bar per toggled timeframe, each a trailing window ending at the lookback window's last completed bar -- read from the stored ticks">TxFold</button>
             </div>
             <PopoutButton Url="@PopoutUrl" WindowName="@PopoutWindowName"
                           Title="Open this chart in its own window" />
@@ -44,12 +42,16 @@
         {
             <DataSeriesSyncChart SymbolName="@SymbolName" />
         }
-        <LookbackWindowBar Label="LOOKBACK WINDOW" MaxWindow="MaxBarWindow" MinWidth="10"
-                            @bind-Width="_barWindowSize" @bind-Offset="_barWindowOffset"
-                            RailTitle="The highlighted segment is the window itself -- drag either edge to resize it, or drag the bar to move the whole window; its right edge is Offset bars back from now, its left edge Offset+Width bars back"
-                            SizeInputTitle="Number of bars the window spans -- drives the chart's window-start marker, the indicator overlays and the XGrid footprint"
-                            OffsetLabelTitle="Bars back from the most recent bar to the end of the window -- 0 keeps the window anchored to now"
-                            OffsetInputTitle="Bars back from the most recent bar to the end of the window" />
+        <Indicators @bind-Settings="_indicators">
+            <LookbackContent>
+                <LookbackWindowBar Label="LOOKBACK WINDOW" MaxWindow="MaxBarWindow" MinWidth="10"
+                                    @bind-Width="_barWindowSize" @bind-Offset="_barWindowOffset"
+                                    RailTitle="The highlighted segment is the window itself -- drag either edge to resize it, or drag the bar to move the whole window; its right edge is Offset bars back from now, its left edge Offset+Width bars back"
+                                    SizeInputTitle="Number of bars the window spans -- drives the chart's window-start marker, the indicators and the XGrid footprint"
+                                    OffsetLabelTitle="Bars back from the most recent bar to the end of the window -- 0 keeps the window anchored to now"
+                                    OffsetInputTitle="Bars back from the most recent bar to the end of the window" />
+            </LookbackContent>
+        </Indicators>
         @if (_chartLoading)
         {
             <p class="trade-chart-status">Loading history...</p>
@@ -65,53 +67,103 @@
                 <p class="trade-chart-status trade-chart-status-warning"
                    title="History before today is read from the database only; missing days are not fetched from cTrader">@_chartWarning</p>
             }
-            <div class="trade-chart" @ref="_chartRowRef">
-                @if (_showMainChart)
+            @if (CompareActive)
+            {
+                var compareWindow = LookbackWindowTimes();
+                @if (PendingCompareSymbolCount > 0)
                 {
-                    <div class="trade-chart-main">
-                        <MarketChartContainer Bars="_chartBars" CurrentBid="ChartQuote?.Bid" CurrentAsk="ChartQuote?.Ask"
-                                     KeepView="_chartKeepView" ShowAnnotationTools="false"
-                                     WindowStartUtc="WindowStartUtc()" WindowEndUtc="WindowEndUtc()"
-                                     HorizontalLines="ChartOverlayLines()" VwapLine="VwapPoints()" />
-                    </div>
+                    <p class="trade-chart-status" title="Watched symbols whose history is still loading join the compare view as soon as their bars are ready">
+                        Loading @PendingCompareSymbolCount watched symbol(s)...
+                    </p>
                 }
-                @if (_showXGrid)
-                {
-                    @if (ShowXGridDivider)
+                <div class="trade-chart trade-chart-compare">
+                    <CompareSet Symbols="CompareSymbols()" PrimaryRole="charted" SecondaryRole="watched"
+                                Description="The charted symbol and every other watched symbol on one chart, live -- colours match the watchlist"
+                                @bind-Mode="CompareMode" @bind-Anchor="CompareAnchor" @bind-Style="CompareStyle" @bind-RatioTable="CompareRatioTable"
+                                WindowStart="compareWindow.Start" WindowEnd="compareWindow.End"
+                                @bind-TxFold="CompareTxFold" TxFoldAnchor="CompareTxFoldAnchor()" RangeStart="DateTime.MinValue"
+                                HistoryBeforeUtc="HistoryBeforeUtc" TxFoldTickSource="CompareTxFoldTickSource"
+                                @bind-XGrid="CompareXGridSettings" XGridResult="CompareXGrid()" @bind-MainPanel="CompareMainPanel" />
+                </div>
+            }
+            else
+            {
+                <div class="trade-chart" @ref="_chartRowRef">
+                    @if (_showMainChart)
                     {
-                        <div class="trade-chart-divider" @ref="_chartDividerRef" data-min-width="160" title="Drag to resize"></div>
+                        var overlays = ChartOverlays();
+                        <div class="trade-chart-main">
+                            <MarketChartContainer Bars="ChartBars" CurrentBid="ChartQuote?.Bid" CurrentAsk="ChartQuote?.Ask"
+                                                  KeepView="_chartKeepView" ShowAnnotationTools="false"
+                                                  WindowStartUtc="WindowStartUtc()" WindowEndUtc="WindowEndUtc()"
+                                                  HorizontalLines="overlays.HorizontalLines" VerticalLines="overlays.VerticalLines"
+                                                  DiagonalLines="overlays.DiagonalLines" VwapLine="overlays.VwapLine" />
+                        </div>
                     }
-                    <div class="trade-chart-side">
-                        <XGridController Grid="ComputeXGrid()" Positions="XGridPositions()" ExternalDraft="XGridDraft"
-                                          PipSize="PipSize" @bind-PipCount="_xgridPipCount"
-                                          @bind-ColCount="_xgridColCount" ProfileBarCount="ClampedBarWindow" />
-                    </div>
-                }
-                @if (_showVolumeProfile)
-                {
-                    @if (ShowVolumeProfileDivider)
+                    @if (_showXGrid)
                     {
-                        <div class="trade-chart-divider" @ref="_chartDividerRefVolume" data-min-width="160" title="Drag to resize"></div>
+                        @if (ShowXGridDivider)
+                        {
+                            <div class="trade-chart-divider" @ref="_chartDividerRef" data-min-width="160" title="Drag to resize"></div>
+                        }
+                        <div class="trade-chart-side">
+                            <XGridController Grid="ComputeXGrid()" Positions="XGridPositions()" ExternalDraft="XGridDraft"
+                                             PipSize="PipSize" @bind-PipCount="_xgridPipCount"
+                                             @bind-ColCount="_xgridColCount" ProfileBarCount="ClampedBarWindow" Indicators="_indicators" />
+                        </div>
                     }
-                    <div class="trade-chart-side">
-                        <TickVolumeProfileChart WeightedSamples="MergedBarSamples()" CurrentPrice="ChartQuote?.Bid" />
-                    </div>
-                }
-                @if (_showTimeProfile)
-                {
-                    @if (ShowTimeProfileDivider)
+                    @if (_showVolumeProfile)
                     {
-                        <div class="trade-chart-divider" @ref="_chartDividerRefTime" data-min-width="160" title="Drag to resize"></div>
+                        @if (ShowVolumeProfileDivider)
+                        {
+                            <div class="trade-chart-divider" @ref="_chartDividerRefVolume" data-min-width="160" title="Drag to resize"></div>
+                        }
+                        <div class="trade-chart-side">
+                            <TickVolumeProfileChart WeightedSamples="MergedBarSamples()" CurrentPrice="ChartQuote?.Bid" ShowLevels="ShowVolumeProfileLevels" />
+                        </div>
                     }
-                    <div class="trade-chart-side">
-                        <TickTimeProfileChart WeightedSamples="MergedBarTimeSamples()" CurrentPrice="ChartQuote?.Bid" />
-                    </div>
-                }
-                @if (!_showMainChart && !_showXGrid && !_showVolumeProfile && !_showTimeProfile)
-                {
-                    <p class="trade-chart-status">No panels selected -- turn a panel back on above.</p>
-                }
-            </div>
+                    @if (_showTimeProfile)
+                    {
+                        @if (ShowTimeProfileDivider)
+                        {
+                            <div class="trade-chart-divider" @ref="_chartDividerRefTime" data-min-width="160" title="Drag to resize"></div>
+                        }
+                        <div class="trade-chart-side">
+                            <TickTimeProfileChart WeightedSamples="MergedBarTimeSamples()" CurrentPrice="ChartQuote?.Bid" />
+                        </div>
+                    }
+                    @if (_showTxFold)
+                    {
+                        @if (ShowTxFoldDivider)
+                        {
+                            <div class="trade-chart-divider" @ref="_chartDividerRefTxFold" data-min-width="160" title="Drag to resize"></div>
+                        }
+                        <div class="trade-chart-side">
+                            @if (TxFoldAnchorBar() is { } anchorBar && ChartSeries is { } series)
+                            {
+                                var draft = ChartDraft;
+                                <TxFold Table="@series.History.TodayTable" HistoryTable="@series.History.HistoryTable" HistoryBeforeUtc="HistoryBeforeUtc"
+                                        AnchorEnd="@anchorBar.CloseTime.AddTicks(1)" RangeStart="DateTime.MinValue"
+                                        @bind-SelectedSeconds="_txFoldSelectedSeconds"
+                                        LatestPrice="anchorBar.Close" EntryPrice="ChartPosition?.EntryPrice"
+                                        PositionIsLong="ChartPosition?.IsLong" StopLossPrice="ChartPosition?.StopLossPrice"
+                                        TakeProfitPrice="ChartPosition?.TakeProfitPrice"
+                                        DraftEntryPrice="draft?.EntryPrice" DraftIsLong="draft?.IsLong"
+                                        DraftStopLossPrice="draft?.StopLossPrice" DraftTakeProfitPrice="draft?.TakeProfitPrice"
+                                        ShownLevels="IndicatorsHelper.ToTxFoldLevels(_indicators)" ShowLevelToggles="false" />
+                            }
+                            else
+                            {
+                                <p class="trade-chart-status" title="TxFold anchors at the lookback window's last completed bar">No completed bar in the lookback window yet.</p>
+                            }
+                        </div>
+                    }
+                    @if (!_showMainChart && !_showXGrid && !_showVolumeProfile && !_showTimeProfile && !_showTxFold)
+                    {
+                        <p class="trade-chart-status">No panels selected -- turn a panel back on above.</p>
+                    }
+                </div>
+            }
         }
     </div>
 }

@@ -15,14 +15,14 @@ namespace Poink.Sim.Components.Pages
 	public partial class SimulationPage
 	{
 		private bool _showCompare;
-		private SimulationCompareMode _compareMode;
-		private SimulationCompareAnchor _compareAnchor;
+		private CompareSetMode _compareMode;
+		private CompareSetAnchor _compareAnchor;
 		private CompareChartSeriesStyle _compareStyle;
 		private string? _compareRatioTable;
-		private SimulationCompareTxFoldSettings _compareTxFold = new();
-		private SimulationCompareXGridSettings _compareXGrid = new();
-		private SimulationComparePanel _compareMainPanel;
-		private List<SimulationCompareSymbol> _compareSymbols = new();
+		private CompareSetTxFoldSettings _compareTxFold = new();
+		private CompareSetXGridSettings _compareXGrid = new();
+		private CompareSetPanel _compareMainPanel;
+		private List<CompareSetSymbol> _compareSymbols = new();
 		private IReadOnlyList<string> _symbolColorTables = [];
 		private IReadOnlyDictionary<string, string>? _symbolColors;
 		private CompareXGridResult? _compareXGridResult;
@@ -34,11 +34,11 @@ namespace Poink.Sim.Components.Pages
 		private bool CompareActive(SimulationSnapshot s) => _showCompare && CompareAvailable(s);
 
 		// Live bars only, so every line covers the same span the watched symbols have.
-		private IReadOnlyList<SimulationCompareSymbol> CompareSymbols(SimulationSnapshot s)
+		private IReadOnlyList<CompareSetSymbol> CompareSymbols(SimulationSnapshot s)
 		{
 			var watched = WatchedSymbols(s);
 			var colors = SymbolColors;
-			var symbols = new List<SimulationCompareSymbol>(watched.Count + 1)
+			var symbols = new List<CompareSetSymbol>(watched.Count + 1)
 			{
 				CompareSymbol(s.Config.Table, s.RecentBars, colors),
 			};
@@ -50,7 +50,7 @@ namespace Poink.Sim.Components.Pages
 			return _compareSymbols;
 		}
 
-		private SimulationCompareSymbol CompareSymbol(
+		private CompareSetSymbol CompareSymbol(
 			string table,
 			IReadOnlyList<HlocAvdtBar> bars,
 			IReadOnlyDictionary<string, string> colors
@@ -87,7 +87,7 @@ namespace Poink.Sim.Components.Pages
 		private CompareXGridResult? CompareXGrid(SimulationSnapshot s)
 		{
 			var (start, end) = LookbackWindowTimes(s);
-			var anchor = _compareAnchor == SimulationCompareAnchor.WindowEnd ? end : start;
+			var anchor = _compareAnchor == CompareSetAnchor.WindowEnd ? end : start;
 			if (!_compareXGrid.Show || start is not { } windowStart || end is not { } windowEnd || anchor is not { } anchorTime)
 				return null;
 

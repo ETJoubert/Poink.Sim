@@ -26,7 +26,6 @@
     padding-bottom: 10px;
 }
 
-.trade-overlay-toggles,
 .trade-panel-toggles {
     display: flex;
     align-items: center;
@@ -42,7 +41,6 @@
     margin-left: auto;
 }
 
-.trade-overlay-toggles-label,
 .trade-panel-toggles-label {
     font-size: 0.6rem;
     font-weight: bold;
@@ -52,7 +50,6 @@
     opacity: 0.9;
 }
 
-.trade-overlay-toggle-btn,
 .trade-panel-toggle-btn {
     font-family: var(--font-body);
     font-size: 0.62rem;
@@ -67,44 +64,14 @@
     transition: background 0.15s ease, color 0.15s ease;
 }
 
-.trade-overlay-toggle-btn:hover,
 .trade-panel-toggle-btn:hover {
     background: color-mix(in srgb, var(--color-secondary) 15%, transparent);
 }
 
-.trade-overlay-toggle-btn.active,
 .trade-panel-toggle-btn.active {
     background: var(--color-secondary);
     color: var(--color-bg-dark);
     font-weight: bold;
-}
-
-.trade-overlay-toggle-btn-lines {
-    color: var(--color-accent);
-    border-color: color-mix(in srgb, var(--color-accent) 35%, transparent);
-}
-
-.trade-overlay-toggle-btn-lines:hover {
-    background: color-mix(in srgb, var(--color-accent) 15%, transparent);
-}
-
-.trade-overlay-toggle-btn-lines.active {
-    background: var(--color-accent);
-    color: var(--color-bg-dark);
-}
-
-.trade-overlay-toggle-btn-vwap {
-    color: var(--color-tertiary);
-    border-color: color-mix(in srgb, var(--color-tertiary) 35%, transparent);
-}
-
-.trade-overlay-toggle-btn-vwap:hover {
-    background: color-mix(in srgb, var(--color-tertiary) 15%, transparent);
-}
-
-.trade-overlay-toggle-btn-vwap.active {
-    background: var(--color-tertiary);
-    color: var(--color-bg-dark);
 }
 
 .trade-chart {
@@ -115,6 +82,10 @@
     height: 280px;
     max-height: 80vh;
     overflow: hidden;
+}
+
+.trade-chart.trade-chart-compare {
+    height: 560px;
 }
 
 /* Equal-share fallback -- TradeChartPanel.razor.cs's resetChartPanelsEqual/bindChartDivider JS sets each panel's actual flex-basis in percent once mounted. */

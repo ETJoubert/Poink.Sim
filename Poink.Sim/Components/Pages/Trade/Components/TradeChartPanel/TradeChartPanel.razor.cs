@@ -1,36 +1,48 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 using Poink.Sim.Components.Charts;
+using Poink.Sim.Components.Pages.Trade.Helpers;
+using Poink.Sim.Components.Shared.Indicators;
 using Poink.Sim.Models;
 using Poink.Sim.Repository;
 using Poink.Sim.Services.CTrader;
-using Poink.Sim.Services.MarketData;
 using Poink.Sim.Services.MarketData.History;
-using Poink.Sim.Simulation;
+using Poink.Sim.Services.Symbols;
 
 namespace Poink.Sim.Components.Pages.Trade
 {
-	/// <summary>Charts region of the live Trade page -- toolbar, lookback window, and the main chart/XGrid/volume-profile/time-profile panels for whichever symbol TradePage tells it to show. Owns bar aggregation and live-tick updates itself (subscribes to Session.TickReceived directly); pure window/VWAP/profile/XGrid-position math lives in ChartWindowHelper.</summary>
+	/// <summary>Charts region of the live Trade page -- toolbar, Indicators with the lookback window, and the main chart/XGrid/volume-profile/time-profile/TxFold panels for whichever symbol TradePage tells it to show, or the compare view across the watchlist. Bars come from the scoped ITradeBarFeed; pure window/XGrid-position math lives in ChartWindowHelper and TradeCompareHelper.</summary>
 	public partial class TradeChartPanel : ComponentBase, IDisposable, IAsyncDisposable
 	{
-		/// <summary>Bar count a fresh chart load targets, bounding how much raw tick history is pulled per aggregation.</summary>
-		private const int TargetHistoryBarCount = 300;
-
-		/// <summary>Hard ceiling on the tick-history window regardless of bar size, so a coarse aggregation can't trigger a huge cTrader tick pull.</summary>
-		private static readonly TimeSpan MaxHistoryLookback = TimeSpan.FromDays(14);
-
 		/// <summary>Cap on the chart/XGrid lookback window, matching Simulation's bar-window cap.</summary>
 		private const int MaxBarWindow = 300;
+
+		/// <summary>Pip size for a compared symbol whose metadata hasn't loaded yet.</summary>
+		private const double DefaultPipSize = 0.0001;
 
 		[Inject]
 		private ITickStreamAccess Session { get; set; } = null!;
 
 		[Inject]
-		private ITickHistoryService TickHistory { get; set; } = null!;
+		private IWatchlistAccess Watchlist { get; set; } = null!;
+
+		[Inject]
+		private ITradeBarFeed BarFeed { get; set; } = null!;
+
+		[Inject]
+		private ISymbolMetadataCache MetadataCache { get; set; } = null!;
+
+		[Inject]
+		private ILogger<TradeChartPanel> Logger { get; set; } = null!;
+
+		[Inject]
+		private ITickRepository TickRepository { get; set; } = null!;
 
 		[Inject]
 		private IJSRuntime JS { get; set; } = null!;
@@ -63,32 +75,32 @@ namespace Poink.Sim.Components.Pages.Trade
 				_showXGrid,
 				_showVolumeProfile,
 				_showTimeProfile,
-				_showProfileChartLines,
-				_showVwap,
 				_barWindowSize,
 				_barWindowOffset,
 				_xgridPipCount,
-				_xgridColCount
+				_xgridColCount,
+				_indicators,
+				_showTxFold,
+				_txFoldSelectedSeconds.Order().ToList(),
+				_showCompare,
+				_compare
 			);
 
 		private bool _appliedInitialSettings;
 		private long? _loadedSymbolId;
 		private int _loadedBarSizeSeconds;
 
-		private List<CTraderBarRow> _chartBars = new();
-		private List<HlocAvdtBar> _chartHlocBars = new();
-		private List<BarPriceHistogram> _chartHistograms = new();
 		private bool _chartLoading;
 		private string? _chartError;
 		private string? _chartWarning;
-		private SimulationBarAggregator? _barAggregator;
 
 		private bool _showMainChart = true;
 		private bool _showXGrid;
 		private bool _showVolumeProfile;
 		private bool _showTimeProfile;
-		private bool _showProfileChartLines = true;
-		private bool _showVwap = true;
+		private bool _showTxFold;
+		private IndicatorSettings _indicators = ChartPanelSettings.Default.Indicators;
+		private HashSet<int> _txFoldSelectedSeconds = ChartPanelSettings.Default.TxFoldSeconds.ToHashSet();
 
 		private int _barWindowSize = 50;
 		private int _barWindowOffset;
@@ -122,12 +134,26 @@ namespace Poink.Sim.Components.Pages.Trade
 
 		private bool IsConnected => Session.State == CTraderConnectionState.Connected;
 
+		/// <summary>The charted symbol's series, once loaded at the current bar size.</summary>
+		private TradeSymbolSeries? ChartSeries =>
+			SymbolId is { } id && BarFeed.Get(id) is { } series && series.BarSizeSeconds == BarSizeSeconds ? series : null;
+
+		private static readonly List<CTraderBarRow> NoBars = new();
+
+		private List<CTraderBarRow> ChartBars => ChartSeries?.Bars ?? NoBars;
+
+		private IReadOnlyList<HlocAvdtBar> ChartHlocBars => ChartSeries?.HlocBars ?? Array.Empty<HlocAvdtBar>();
+
+		private IReadOnlyList<BarPriceHistogram> ChartHistograms => ChartSeries?.Histograms ?? Array.Empty<BarPriceHistogram>();
+
 		private CTraderSymbolQuote? ChartQuote =>
 			SymbolId is { } id ? Session.Quotes.FirstOrDefault(q => q.SymbolId == id) : null;
 
 		protected override void OnInitialized()
 		{
-			Session.TickReceived += OnTickReceived;
+			_liveTickSource = new TradeLiveTickSource(TickRepository, BarFeed);
+			BarFeed.SeriesChanged += OnSeriesChanged;
+			Watchlist.Changed += OnWatchlistChanged;
 			TradeDraft.Changed += OnDraftChanged;
 		}
 
@@ -148,7 +174,10 @@ namespace Poink.Sim.Components.Pages.Trade
 			_loadedBarSizeSeconds = BarSizeSeconds;
 
 			if (SymbolId is { } id)
+			{
 				await LoadChartHistoryAsync(id);
+				_ = EnsureCompareSeriesAsync();
+			}
 			else
 				ResetChart();
 		}
@@ -161,18 +190,22 @@ namespace Poink.Sim.Components.Pages.Trade
 			_showXGrid = settings.ShowXGrid;
 			_showVolumeProfile = settings.ShowVolumeProfile;
 			_showTimeProfile = settings.ShowTimeProfile;
-			_showProfileChartLines = settings.ShowProfileChartLines;
-			_showVwap = settings.ShowVwap;
 			_barWindowSize = settings.BarWindowSize;
 			_barWindowOffset = settings.BarWindowOffset;
 			_xgridPipCount = settings.XGridPipCount;
 			_xgridColCount = settings.XGridColCount;
+			_indicators = settings.Indicators;
+			_showTxFold = settings.ShowTxFold;
+			_txFoldSelectedSeconds = settings.TxFoldSeconds.ToHashSet();
+			_showCompare = settings.ShowCompare;
+			_compare = settings.Compare;
 		}
 
 		private ElementReference _chartRowRef;
 		private ElementReference _chartDividerRef;
 		private ElementReference _chartDividerRefVolume;
 		private ElementReference _chartDividerRefTime;
+		private ElementReference _chartDividerRefTxFold;
 		private IJSObjectReference? _dividerResizeInstance;
 		private HashSet<string> _lastVisibleChartPanels = new();
 
@@ -183,6 +216,7 @@ namespace Poink.Sim.Components.Pages.Trade
 			if (_showXGrid) keys.Add("xgrid");
 			if (_showVolumeProfile) keys.Add("volume");
 			if (_showTimeProfile) keys.Add("time");
+			if (_showTxFold) keys.Add("txfold");
 			return keys;
 		}
 
@@ -194,6 +228,9 @@ namespace Poink.Sim.Components.Pages.Trade
 
 		private bool ShowTimeProfileDivider =>
 			_showTimeProfile && (_showMainChart || _showXGrid || _showVolumeProfile);
+
+		private bool ShowTxFoldDivider =>
+			_showTxFold && (_showMainChart || _showXGrid || _showVolumeProfile || _showTimeProfile);
 
 		// Same drag-to-resize mechanism as SimulationPage's ChartDividerScript, trimmed to the
 		// two-panel (main/side) case this chart row actually has -- no height divider here.
@@ -260,13 +297,13 @@ namespace Poink.Sim.Components.Pages.Trade
 
 		protected override async Task OnAfterRenderAsync(bool firstRender)
 		{
-			if (!_chartKeepView && _chartBars.Count > 0)
+			if (!_chartKeepView && ChartBars.Count > 0)
 				_chartKeepView = true;
 
 			if (firstRender)
 				_dividerResizeInstance = await JS.InvokeAsync<IJSObjectReference>("eval", ChartDividerScript);
 
-			if (_dividerResizeInstance is null || SymbolId is null || _chartLoading || _chartError is not null)
+			if (_dividerResizeInstance is null || SymbolId is null || _chartLoading || _chartError is not null || CompareActive)
 				return;
 
 			var visiblePanels = CurrentVisibleChartPanelKeys();
@@ -282,57 +319,22 @@ namespace Poink.Sim.Components.Pages.Trade
 				await _dividerResizeInstance.InvokeVoidAsync("bindChartDivider", _chartDividerRefVolume);
 			if (ShowTimeProfileDivider)
 				await _dividerResizeInstance.InvokeVoidAsync("bindChartDivider", _chartDividerRefTime);
+			if (ShowTxFoldDivider)
+				await _dividerResizeInstance.InvokeVoidAsync("bindChartDivider", _chartDividerRefTxFold);
 		}
 
 		private async Task LoadChartHistoryAsync(long symbolId)
 		{
 			_chartError = null;
 			_chartWarning = null;
-			_chartBars = new List<CTraderBarRow>();
-			_chartHlocBars = new List<HlocAvdtBar>();
-			_chartHistograms = new List<BarPriceHistogram>();
 			_chartKeepView = false;
 			_chartLoading = true;
 
-			var barSize = TimeSpan.FromSeconds(BarSizeSeconds);
-			_barAggregator = new SimulationBarAggregator(barSize, PipSize);
-
 			try
 			{
-				var lookback = TimeSpan.FromTicks(
-					Math.Min(barSize.Ticks * TargetHistoryBarCount, MaxHistoryLookback.Ticks)
-				);
-				var to = DateTime.UtcNow;
-				var history = await TickHistory.LoadAsync(
-					new TickHistoryRequest(symbolId, SymbolName ?? symbolId.ToString(), to - lookback, to, BackfillTrigger.User)
-				);
-				var ticks = history.Ticks;
-				_chartWarning = ChartHistoryWarning(history);
-
-				var bars = new List<CTraderBarRow>();
-				var hlocBars = new List<HlocAvdtBar>();
-				var histograms = new List<BarPriceHistogram>();
-				foreach (var tick in ticks)
-				{
-					if (_barAggregator.Feed(tick) is { } completed)
-					{
-						bars.Add(ToBarRow(completed.Bar));
-						hlocBars.Add(completed.Bar);
-						histograms.Add(completed.Histogram);
-					}
-				}
-				if (_barAggregator.CurrentPartialBar is { } partial)
-				{
-					bars.Add(ToBarRow(partial));
-					hlocBars.Add(partial);
-					histograms.Add(_barAggregator.CurrentPartialHistogram!);
-				}
-
-				_chartBars = bars;
-				_chartHlocBars = hlocBars;
-				_chartHistograms = histograms;
-
-				if (_chartBars.Count == 0)
+				var series = await BarFeed.LoadAsync(symbolId, SymbolName ?? symbolId.ToString(), BarSizeSeconds, PipSize);
+				_chartWarning = ChartHistoryWarning(series.History);
+				if (series.Bars.Count == 0)
 					_chartError = "No tick history returned for this symbol.";
 			}
 			catch (Exception ex)
@@ -355,91 +357,44 @@ namespace Poink.Sim.Components.Pages.Trade
 			return parts.Count == 0 ? null : string.Join(" ", parts);
 		}
 
-		private static CTraderBarRow ToBarRow(HlocAvdtBar bar) =>
-			new(bar.OpenTime, bar.Open, bar.High, bar.Low, bar.Close, bar.Volume, bar.UpVolume, bar.DownVolume, bar.Distance);
-
 		private void ResetChart()
 		{
-			_chartBars = new List<CTraderBarRow>();
-			_chartHlocBars = new List<HlocAvdtBar>();
-			_chartHistograms = new List<BarPriceHistogram>();
 			_chartKeepView = false;
 			_chartError = null;
 			_chartWarning = null;
-			_barAggregator = null;
 		}
 
-		private void OnTickReceived(MarketTick tick)
+		private int _renderQueued;
+
+		private void OnSeriesChanged(long symbolId)
 		{
-			// _chartLoading also covers a reload in flight, so a live tick can't reach the fresh
-			// aggregator before LoadChartHistoryAsync backfills it in chronological order.
-			if (tick.SymbolId != SymbolId || _barAggregator is null || _chartLoading)
+			if (_chartLoading || (symbolId != SymbolId && !CompareActive))
+				return;
+			QueueRender();
+		}
+
+		// Ticks that land while a render is already queued are picked up by that render, so a burst across several symbols costs one render, not one per tick.
+		private void QueueRender()
+		{
+			if (Interlocked.Exchange(ref _renderQueued, 1) == 1)
 				return;
 
 			InvokeAsync(() =>
 			{
-				ApplyTickToChart(tick);
+				Interlocked.Exchange(ref _renderQueued, 0);
 				StateHasChanged();
 			});
 		}
 
-		/// <summary>Feeds a live tick into the chart's aggregator, finalizing the previous bar on a boundary crossing and updating or appending the forming bar.</summary>
-		private void ApplyTickToChart(MarketTick tick)
-		{
-			if (_barAggregator is null)
-				return;
-
-			var completed = _barAggregator.Feed(new Tick(tick.TimestampUtc, tick.Bid, tick.Ask));
-			var bars = new List<CTraderBarRow>(_chartBars);
-			var hlocBars = new List<HlocAvdtBar>(_chartHlocBars);
-			var histograms = new List<BarPriceHistogram>(_chartHistograms);
-
-			if (completed is { } c)
-			{
-				if (bars.Count > 0)
-				{
-					bars[^1] = ToBarRow(c.Bar);
-					hlocBars[^1] = c.Bar;
-					histograms[^1] = c.Histogram;
-				}
-
-				if (_barAggregator.CurrentPartialBar is { } newPartial)
-				{
-					bars.Add(ToBarRow(newPartial));
-					hlocBars.Add(newPartial);
-					histograms.Add(_barAggregator.CurrentPartialHistogram!);
-				}
-			}
-			else if (_barAggregator.CurrentPartialBar is { } partial)
-			{
-				if (bars.Count > 0)
-				{
-					bars[^1] = ToBarRow(partial);
-					hlocBars[^1] = partial;
-					histograms[^1] = _barAggregator.CurrentPartialHistogram!;
-				}
-				else
-				{
-					bars.Add(ToBarRow(partial));
-					hlocBars.Add(partial);
-					histograms.Add(_barAggregator.CurrentPartialHistogram!);
-				}
-			}
-
-			_chartBars = bars;
-			_chartHlocBars = hlocBars;
-			_chartHistograms = histograms;
-		}
-
 		private List<WeightedPriceSample> MergedBarSamples() =>
-			ChartWindowHelper.MergedBarSamples(_chartHlocBars, _chartHistograms, ClampedBarOffset, ClampedBarWindow);
+			ChartWindowHelper.MergedBarSamples(ChartHlocBars, ChartHistograms, ClampedBarOffset, ClampedBarWindow);
 
 		private List<WeightedTimeSample> MergedBarTimeSamples() =>
-			ChartWindowHelper.MergedBarTimeSamples(_chartHlocBars, _chartHistograms, ClampedBarOffset, ClampedBarWindow);
+			ChartWindowHelper.MergedBarTimeSamples(ChartHlocBars, ChartHistograms, ClampedBarOffset, ClampedBarWindow);
 
 		private XGridResult? ComputeXGrid()
 		{
-			var (bars, histograms) = ChartWindowHelper.WindowedBarData(_chartHlocBars, _chartHistograms, ClampedBarOffset);
+			var (bars, histograms) = ChartWindowHelper.WindowedBarData(ChartHlocBars, ChartHistograms, ClampedBarOffset);
 			if (bars.Count == 0)
 				return null;
 
@@ -467,32 +422,42 @@ namespace Poink.Sim.Components.Pages.Trade
 
 		private List<XGridPosition> XGridPositions() => ChartWindowHelper.XGridPositions(Session.Positions, SymbolId);
 
-		private List<ChartHorizontalLine> ProfileLevelLines() => ChartWindowHelper.ProfileLevelLines(_showProfileChartLines, MergedBarSamples());
-
-		private List<ChartHorizontalLine> ChartOverlayLines()
+		/// <summary>The indicators' market-chart lines plus this page's own position and draft levels.</summary>
+		private IndicatorChartOverlays ChartOverlays()
 		{
-			var lines = ProfileLevelLines();
-			lines.AddRange(ChartWindowHelper.PositionLines(Session.Positions, SymbolId));
-			lines.AddRange(ChartWindowHelper.DraftLines(TradeDraft.Draft, SymbolId));
-			return lines;
+			var windowBars = ChartWindowHelper.WindowBars(ChartHlocBars, ChartHistograms, ClampedBarOffset, ClampedBarWindow);
+			var overlays = IndicatorChartOverlayHelper.Build(_indicators, ChartHlocBars, windowBars, MergedBarSamples());
+			overlays.HorizontalLines.AddRange(ChartWindowHelper.PositionLines(Session.Positions, SymbolId));
+			overlays.HorizontalLines.AddRange(ChartWindowHelper.DraftLines(TradeDraft.Draft, SymbolId));
+			return overlays;
 		}
+
+		private bool ShowVolumeProfileLevels => _indicators.PocVisible || _indicators.VahVisible || _indicators.ValVisible;
 
 		private XGridExternalDraft? XGridDraft =>
 			TradeDraft.Draft is { } d && d.SymbolId == SymbolId
 				? new XGridExternalDraft(d.EntryPrice, d.IsLong, d.StopLossPrice, d.TakeProfitPrice)
 				: null;
 
-		private List<ChartLinePoint> VwapPoints() =>
-			ChartWindowHelper.VwapPoints(_showVwap, _chartHlocBars, _chartHistograms, ClampedBarOffset, ClampedBarWindow);
+		private HlocAvdtBar? TxFoldAnchorBar()
+		{
+			var (bars, _) = ChartWindowHelper.WindowedBarData(ChartHlocBars, ChartHistograms, ClampedBarOffset);
+			return TradeCompareHelper.TxFoldAnchorBar(bars, ClampedBarOffset);
+		}
+
+		private CTraderPositionInfo? ChartPosition => Session.Positions.LastOrDefault(p => p.SymbolId == SymbolId);
+
+		private TradeDraft? ChartDraft => TradeDraft.Draft is { } d && d.SymbolId == SymbolId ? d : null;
 
 		private DateTime? WindowStartUtc() =>
-			ChartWindowHelper.WindowStartUtc(_chartHlocBars, _chartHistograms, ClampedBarOffset, ClampedBarWindow);
+			ChartWindowHelper.WindowStartUtc(ChartHlocBars, ChartHistograms, ClampedBarOffset, ClampedBarWindow);
 
-		private DateTime? WindowEndUtc() => ChartWindowHelper.WindowEndUtc(_chartHlocBars, _chartHistograms, ClampedBarOffset);
+		private DateTime? WindowEndUtc() => ChartWindowHelper.WindowEndUtc(ChartHlocBars, ChartHistograms, ClampedBarOffset);
 
 		public void Dispose()
 		{
-			Session.TickReceived -= OnTickReceived;
+			BarFeed.SeriesChanged -= OnSeriesChanged;
+			Watchlist.Changed -= OnWatchlistChanged;
 			TradeDraft.Changed -= OnDraftChanged;
 		}
 

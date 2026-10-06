@@ -30,7 +30,7 @@
                         @onclick="() => SetBarKind(BarAggregationKind.MeanStdDev)"
                         title="Draw each bar as a volatility band -- Open/Close at the mean price, High/Low one standard deviation above/below it">Mean&plusmn;SD</button>
             </div>
-            @if (_loading)
+            @if (ShowLoadingNote)
             {
                 <span class="ctxf-note" title="Reading every symbol's ticks for the selected timeframes">loading...</span>
             }

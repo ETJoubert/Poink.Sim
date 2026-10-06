@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
+using Poink.Sim.Helpers;
 using Poink.Sim.Models;
 using Poink.Sim.Repository;
 
@@ -36,6 +37,14 @@ namespace Poink.Sim.Components.Charts
 		/// <summary>Earliest instant the host considers available -- a window reaching further back is flagged as partial.</summary>
 		[Parameter, EditorRequired]
 		public DateTime RangeStart { get; set; }
+
+		/// <summary>Ticks before this instant are read from each symbol's <see cref="CompareTxFoldSymbol.HistoryTable"/>, when it has one.</summary>
+		[Parameter]
+		public DateTime? HistoryBeforeUtc { get; set; }
+
+		/// <summary>Supplies every symbol's ticks in place of the tick tables when set.</summary>
+		[Parameter]
+		public ICompareTxFoldTickSource? TickSource { get; set; }
 
 		[Parameter]
 		public string NoAnchorMessage { get; set; } = "Pick an anchor time to view the snapshot.";
@@ -79,9 +88,12 @@ namespace Poink.Sim.Components.Charts
 
 		protected override Task OnParametersSetAsync() => RefreshIfNeeded();
 
+		// A host-fed snapshot refreshes on every tick, so its loading note would only flicker once the first one is shown.
+		private bool ShowLoadingNote => _loading && (TickSource is null || _snapshots.Count == 0);
+
 		private string? CurrentLoadKey() =>
 			AnchorEnd is { } anchorEnd && Symbols.Count > 0 && SelectedSeconds.Count > 0
-				? $"{string.Join("|", Symbols.Select(s => s.Table))}#{anchorEnd.Ticks}#{RangeStart.Ticks}#{BarKind}#{string.Join(",", SelectedSeconds.Order())}"
+				? $"{string.Join("|", Symbols.Select(s => $"{s.Table}<{s.HistoryTable}"))}#{HistoryBeforeUtc?.Ticks}#{anchorEnd.Ticks}#{RangeStart.Ticks}#{BarKind}#{string.Join(",", SelectedSeconds.Order())}"
 				: null;
 
 		// Loops so parameters that changed while a load was in flight are picked up once it finishes.
@@ -98,7 +110,7 @@ namespace Poink.Sim.Components.Charts
 
 				try
 				{
-					_snapshots = await LoadAsync(Symbols.Select(s => s.Table).ToList(), AnchorEnd!.Value, RangeStart, SelectedSeconds.ToList(), BarKind);
+					_snapshots = await LoadAsync(Symbols.ToList(), TickSource, HistoryBeforeUtc, AnchorEnd!.Value, RangeStart, SelectedSeconds.ToList(), BarKind);
 				}
 				catch (Exception ex)
 				{
@@ -116,26 +128,41 @@ namespace Poink.Sim.Components.Charts
 		}
 
 		private async Task<List<SymbolSnapshot>> LoadAsync(
-			IReadOnlyList<string> tables,
+			IReadOnlyList<CompareTxFoldSymbol> symbols,
+			ICompareTxFoldTickSource? tickSource,
+			DateTime? historyBeforeUtc,
 			DateTime anchorEnd,
 			DateTime rangeStart,
 			IReadOnlyList<int> seconds,
 			BarAggregationKind barKind
 		)
 		{
-			var snapshots = await Task.WhenAll(tables.Select(table => Task.Run(() => LoadSymbol(table, anchorEnd, rangeStart, seconds, barKind))));
+			var snapshots = await Task.WhenAll(
+				symbols.Select(symbol => Task.Run(() => LoadSymbol(symbol, tickSource, historyBeforeUtc, anchorEnd, rangeStart, seconds, barKind)))
+			);
 			return snapshots.OfType<SymbolSnapshot>().ToList();
 		}
 
-		private SymbolSnapshot? LoadSymbol(string table, DateTime anchorEnd, DateTime rangeStart, IReadOnlyList<int> seconds, BarAggregationKind barKind)
+		private SymbolSnapshot? LoadSymbol(
+			CompareTxFoldSymbol symbol,
+			ICompareTxFoldTickSource? tickSource,
+			DateTime? historyBeforeUtc,
+			DateTime anchorEnd,
+			DateTime rangeStart,
+			IReadOnlyList<int> seconds,
+			BarAggregationKind barKind
+		)
 		{
-			var ticks = TickRepository.ReadTicks(table, anchorEnd.AddSeconds(-seconds.Max()), anchorEnd).ToList();
+			var from = anchorEnd.AddSeconds(-seconds.Max());
+			var ticks = tickSource is not null
+				? tickSource.ReadTicks(symbol, historyBeforeUtc, from, anchorEnd)
+				: SplitTickReadHelper.Read(TickRepository, symbol.Table, symbol.HistoryTable, historyBeforeUtc, from, anchorEnd);
 			if (ticks.Count == 0)
 				return null;
 
 			var referencePrice = (ticks[^1].Bid + ticks[^1].Ask) / 2;
 			var snapshot = TxFoldStats.Compute(ticks, anchorEnd, rangeStart, seconds, barKind, includeLevels: false);
-			return new SymbolSnapshot(table, referencePrice, snapshot.Bars, snapshot.VolumeProfile);
+			return new SymbolSnapshot(symbol.Table, referencePrice, snapshot.Bars, snapshot.VolumeProfile);
 		}
 
 		private async Task SetBarKind(BarAggregationKind kind)
