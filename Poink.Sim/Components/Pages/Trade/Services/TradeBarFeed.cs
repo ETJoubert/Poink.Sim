@@ -12,7 +12,9 @@ namespace Poink.Sim.Components.Pages.Trade
 {
 	/// <summary>
 	/// Scoped per circuit, so the Trade page and a popped-out chart each hold their own series. Ticks that arrive while a
-	/// symbol's history is still loading are not applied, since the aggregator must see ticks in time order.
+	/// symbol's history is still loading are not applied, since the aggregator must see ticks in time order. Series belong
+	/// to the account they were loaded on: a switch (e.g. demo to live, where symbol ids repeat but prices diverge) drops
+	/// them all, and a load that finishes after a switch is discarded rather than held.
 	/// </summary>
 	internal sealed class TradeBarFeed : ITradeBarFeed, IDisposable
 	{
@@ -23,18 +25,26 @@ namespace Poink.Sim.Components.Pages.Trade
 		private static readonly TimeSpan MaxHistoryLookback = TimeSpan.FromDays(14);
 
 		private readonly ITickStreamAccess _stream;
+		private readonly IAccountAccess _account;
 		private readonly ITickHistoryService _tickHistory;
 		private readonly ConcurrentDictionary<long, TradeSymbolSeries> _series = new();
 		private readonly ConcurrentDictionary<(long SymbolId, int BarSizeSeconds), Task<TradeSymbolSeries>> _loads = new();
 
-		public TradeBarFeed(ITickStreamAccess stream, ITickHistoryService tickHistory)
+		private long? _accountId;
+
+		public TradeBarFeed(ITickStreamAccess stream, IAccountAccess account, ITickHistoryService tickHistory)
 		{
 			_stream = stream;
+			_account = account;
 			_tickHistory = tickHistory;
+			_accountId = account.SelectedAccountId;
 			_stream.TickReceived += OnTickReceived;
+			_account.Changed += OnAccountChanged;
 		}
 
 		public event Action<long>? SeriesChanged;
+
+		public event Action? Reset;
 
 		public TradeSymbolSeries? Get(long symbolId) => _series.TryGetValue(symbolId, out var series) ? series : null;
 
@@ -66,11 +76,15 @@ namespace Poink.Sim.Components.Pages.Trade
 			try
 			{
 				_series.TryRemove(key.SymbolId, out _);
+				var accountId = _account.SelectedAccountId;
 				var to = DateTime.UtcNow;
 				var history = await _tickHistory.LoadAsync(
 					new TickHistoryRequest(key.SymbolId, symbolName, to - LookbackFor(key.BarSizeSeconds), to, BackfillTrigger.User)
 				);
 				var series = TradeSymbolSeries.FromHistory(key.SymbolId, symbolName, key.BarSizeSeconds, pipSize, history);
+				if (_account.SelectedAccountId != accountId)
+					return series;
+
 				_series[key.SymbolId] = series;
 				SeriesChanged?.Invoke(key.SymbolId);
 				return series;
@@ -90,6 +104,22 @@ namespace Poink.Sim.Components.Pages.Trade
 			SeriesChanged?.Invoke(tick.SymbolId);
 		}
 
-		public void Dispose() => _stream.TickReceived -= OnTickReceived;
+		private void OnAccountChanged()
+		{
+			var accountId = _account.SelectedAccountId;
+			if (accountId == _accountId)
+				return;
+
+			_accountId = accountId;
+			_series.Clear();
+			if (accountId is not null)
+				Reset?.Invoke();
+		}
+
+		public void Dispose()
+		{
+			_stream.TickReceived -= OnTickReceived;
+			_account.Changed -= OnAccountChanged;
+		}
 	}
 }

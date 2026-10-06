@@ -13,6 +13,9 @@ namespace Poink.Sim.Components.Pages.Trade
 		/// <summary>Raised with the symbol id whenever that symbol's bars change; may fire off the render thread.</summary>
 		event Action<long>? SeriesChanged;
 
+		/// <summary>Raised after the selected account changes and every held series is dropped, so hosts reload what they show.</summary>
+		event Action? Reset;
+
 		TradeSymbolSeries? Get(long symbolId);
 
 		/// <summary>The held series whose today's tick table is <paramref name="table"/>, if any.</summary>

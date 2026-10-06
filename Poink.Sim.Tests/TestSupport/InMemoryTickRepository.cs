@@ -93,6 +93,11 @@ internal sealed class FakeCTraderHistory : ICTraderHistory
 
 	public bool UseLiveEnvironment { get; set; } = true;
 
+	public long? SelectedAccountId { get; set; } = 1;
+
+	/// <summary>Runs inside each fetch, e.g. to switch account mid-fetch.</summary>
+	public Action? DuringFetch { get; set; }
+
 	public List<Tick> Available { get; } = new();
 
 	public List<(DateTime From, DateTime To)> Requests { get; } = new();
@@ -105,6 +110,7 @@ internal sealed class FakeCTraderHistory : ICTraderHistory
 	)
 	{
 		Requests.Add((fromUtc, toUtc));
+		DuringFetch?.Invoke();
 		IReadOnlyList<Tick> ticks = Available.Where(t => t.Timestamp >= fromUtc && t.Timestamp < toUtc).ToList();
 		return Task.FromResult(ticks);
 	}

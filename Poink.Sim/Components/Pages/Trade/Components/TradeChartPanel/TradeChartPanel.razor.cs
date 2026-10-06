@@ -153,6 +153,7 @@ namespace Poink.Sim.Components.Pages.Trade
 		{
 			_liveTickSource = new TradeLiveTickSource(TickRepository, BarFeed);
 			BarFeed.SeriesChanged += OnSeriesChanged;
+			BarFeed.Reset += OnFeedReset;
 			Watchlist.Changed += OnWatchlistChanged;
 			TradeDraft.Changed += OnDraftChanged;
 		}
@@ -366,6 +367,18 @@ namespace Poink.Sim.Components.Pages.Trade
 
 		private int _renderQueued;
 
+		// The held bars belonged to the previous account, so the chart and compare series reload on the new one.
+		private void OnFeedReset() =>
+			InvokeAsync(async () =>
+			{
+				if (SymbolId is { } id)
+				{
+					await LoadChartHistoryAsync(id);
+					await EnsureCompareSeriesAsync();
+				}
+				StateHasChanged();
+			});
+
 		private void OnSeriesChanged(long symbolId)
 		{
 			if (_chartLoading || (symbolId != SymbolId && !CompareActive))
@@ -457,6 +470,7 @@ namespace Poink.Sim.Components.Pages.Trade
 		public void Dispose()
 		{
 			BarFeed.SeriesChanged -= OnSeriesChanged;
+			BarFeed.Reset -= OnFeedReset;
 			Watchlist.Changed -= OnWatchlistChanged;
 			TradeDraft.Changed -= OnDraftChanged;
 		}

@@ -111,6 +111,18 @@ public class TickHistoryServiceTests
 	}
 
 	[Fact]
+	public async Task LoadAsync_AccountSwitchDuringFetch_DiscardsAndDoesNotStoreApiTicks()
+	{
+		_api.Available.Add(At(Wednesday.AddHours(1)));
+		_api.DuringFetch = () => _api.SelectedAccountId = 2;
+
+		var result = await CreateService().LoadAsync(Request(Wednesday));
+
+		Assert.Equal(0, result.ApiTickCount);
+		Assert.Empty(_store.All(LiveTable));
+	}
+
+	[Fact]
 	public async Task CatchUpTodayAsync_FetchesFromLatestStoredTickUpToRequestedTime()
 	{
 		var lastStored = Wednesday.AddHours(3);

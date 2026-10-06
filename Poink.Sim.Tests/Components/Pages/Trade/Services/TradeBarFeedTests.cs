@@ -16,8 +16,9 @@ public class TradeBarFeedTests
 {
 	private readonly FakeTickStream _stream = new();
 	private readonly FakeTickHistoryService _history = new();
+	private readonly FakeAccountAccess _account = new();
 
-	private TradeBarFeed CreateFeed() => new(_stream, _history);
+	private TradeBarFeed CreateFeed() => new(_stream, _account, _history);
 
 	[Fact]
 	public async Task LoadAsync_BuildsSeriesFromHistory()
@@ -96,5 +97,62 @@ public class TradeBarFeedTests
 
 		Assert.Null(feed.Get(1));
 		Assert.NotNull(feed.Get(2));
+	}
+
+	[Fact]
+	public async Task AccountSwitch_DropsHeldSeriesAndRaisesReset()
+	{
+		using var feed = CreateFeed();
+		await feed.LoadAsync(1, "EURUSD", 60, 0.0001);
+		var resets = 0;
+		feed.Reset += () => resets++;
+
+		_account.Select(2);
+
+		Assert.Null(feed.Get(1));
+		Assert.Equal(1, resets);
+	}
+
+	[Fact]
+	public async Task AccountSwitch_MidSwitchNoAccount_DropsSeriesButWaitsToRaiseReset()
+	{
+		using var feed = CreateFeed();
+		await feed.LoadAsync(1, "EURUSD", 60, 0.0001);
+		var resets = 0;
+		feed.Reset += () => resets++;
+
+		_account.Select(null);
+		Assert.Null(feed.Get(1));
+		Assert.Equal(0, resets);
+
+		_account.Select(2);
+		Assert.Equal(1, resets);
+	}
+
+	[Fact]
+	public async Task AccountSwitch_LoadFinishingAfterIt_IsNotHeld()
+	{
+		_history.Gate = new TaskCompletionSource();
+		using var feed = CreateFeed();
+		var load = feed.LoadAsync(1, "EURUSD", 60, 0.0001);
+
+		_account.Select(2);
+		_history.Gate.SetResult();
+		await load;
+
+		Assert.Null(feed.Get(1));
+	}
+
+	[Fact]
+	public async Task AccountSwitch_NextLoadFetchesFreshHistory()
+	{
+		using var feed = CreateFeed();
+		var before = await feed.LoadAsync(1, "EURUSD", 60, 0.0001);
+		_account.Select(2);
+
+		var after = await feed.LoadAsync(1, "EURUSD", 60, 0.0001);
+
+		Assert.NotSame(before, after);
+		Assert.Equal(2, _history.Calls);
 	}
 }

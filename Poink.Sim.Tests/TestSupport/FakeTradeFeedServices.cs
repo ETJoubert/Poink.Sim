@@ -27,6 +27,34 @@ internal sealed class FakeTickStream : ITickStreamAccess
 	public void Raise(MarketTick tick) => TickReceived?.Invoke(tick);
 }
 
+/// <summary>An account selection the test switches by hand, raising Changed like the session does.</summary>
+internal sealed class FakeAccountAccess : IAccountAccess
+{
+	public CTraderConnectionState State => CTraderConnectionState.Connected;
+
+	public string? StatusMessage => null;
+
+	public IReadOnlyList<CTraderAccountInfo> Accounts => Array.Empty<CTraderAccountInfo>();
+
+	public long? SelectedAccountId { get; private set; } = 1;
+
+	public bool IsConfigured => true;
+
+	public event Action? Changed;
+
+	public void Select(long? accountId)
+	{
+		SelectedAccountId = accountId;
+		Changed?.Invoke();
+	}
+
+	public Uri? BuildAuthorizationUri() => null;
+
+	public Task LogoutAsync() => Task.CompletedTask;
+
+	public Task SwitchAccountAsync(long accountId, CancellationToken cancellationToken = default) => Task.CompletedTask;
+}
+
 /// <summary>Returns a fixed tick list as history, optionally held until <see cref="Gate"/> completes.</summary>
 internal sealed class FakeTickHistoryService : ITickHistoryService
 {

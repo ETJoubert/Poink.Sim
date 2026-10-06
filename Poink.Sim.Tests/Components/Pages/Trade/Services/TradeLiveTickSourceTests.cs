@@ -21,7 +21,7 @@ public class TradeLiveTickSourceTests
 
 	private async Task<(TradeBarFeed Feed, TradeLiveTickSource Source)> LoadedAsync()
 	{
-		var feed = new TradeBarFeed(_stream, _history);
+		var feed = new TradeBarFeed(_stream, new FakeAccountAccess(), _history);
 		await feed.LoadAsync(1, "EURUSD", 60, 0.0001);
 		return (feed, new TradeLiveTickSource(_store, feed));
 	}

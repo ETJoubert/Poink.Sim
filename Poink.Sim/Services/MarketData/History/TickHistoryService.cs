@@ -139,10 +139,22 @@ namespace Poink.Sim.Services.MarketData.History
 			CancellationToken cancellationToken
 		)
 		{
+			var accountId = _history.SelectedAccountId;
 			var fetched = await _history.GetHistoricalTicksAsync(symbolId, fromUtc, toUtc, cancellationToken);
 			var ticks = fetched.Where(t => t.Timestamp >= fromUtc && t.Timestamp < toUtc).OrderBy(t => t.Timestamp).ToList();
 			if (ticks.Count == 0)
 				return ticks;
+
+			if (_history.SelectedAccountId != accountId)
+			{
+				_logger.LogWarning(
+					"Discarded {Count} API tick(s) for {Symbol}: the account switched during the fetch, so they may not belong in {Table}.",
+					ticks.Count,
+					symbolName,
+					table
+				);
+				return new List<Tick>();
+			}
 
 			try
 			{
