@@ -545,6 +545,7 @@ namespace Poink.Sim.Components.Charts
 				downHighlight = TopHighlightMask(grid, XGridSpectrumMetric.Down),
 				deltaPosHighlight = DeltaHighlightMask(grid, positive: true),
 				deltaNegHighlight = DeltaHighlightMask(grid, positive: false),
+				dwellHighlight = DwellHighlightMask(grid),
 				lowPoints,
 				highPoints,
 				sweep,
@@ -638,6 +639,9 @@ namespace Poink.Sim.Components.Charts
 		private double CellIntensity(XGridResult grid, int row, int col)
 		{
 			XGridCell cell = grid.Columns[col].Cells[row];
+			if (Spectrum.HighlightsEnabled && Display.TimeWeighted)
+				return grid.MaxSeconds <= 0 ? 0 : cell.Seconds / grid.MaxSeconds;
+
 			bool distanceWeighted = Spectrum.HighlightsEnabled && Display.DistanceWeighted;
 			if (Spectrum.HighlightsEnabled && Display.ShadeDelta)
 			{
@@ -670,6 +674,7 @@ namespace Poink.Sim.Components.Charts
 			rows.Add(new XGridTooltipRow("Up: ", $"{cell.UpCount}"));
 			rows.Add(new XGridTooltipRow("Down: ", $"{cell.DownCount}"));
 			rows.Add(new XGridTooltipRow("Delta: ", $"{deltaUpDown:+0;-0;0}"));
+			rows.Add(new XGridTooltipRow("Time: ", FormatDuration(TimeSpan.FromSeconds(cell.Seconds))));
 
 			if (Display.SweepMode != XGridSweepMode.None)
 				rows.Add(new XGridTooltipRow("Sweep: ", $"{RowSweepValue(grid, row):0} steps"));
@@ -1075,6 +1080,20 @@ namespace Poink.Sim.Components.Charts
 				var (row, col) = order[i];
 				mask[row * cols + col] = 1;
 			}
+			return mask;
+		}
+
+		private byte[]? DwellHighlightMask(XGridResult grid)
+		{
+			if (!Spectrum.HighlightsEnabled || !Display.ShowDwellHighlight)
+				return null;
+			int rows = grid.RowLow.Count,
+				cols = grid.Columns.Count;
+			var mask = new byte[rows * cols];
+			for (var r = 0; r < rows; r++)
+			for (var c = 0; c < cols; c++)
+				if (XGridStats.MatchesDwell(grid.Columns[c].Cells[r], Display.DwellComparison, Display.DwellSeconds))
+					mask[r * cols + c] = 1;
 			return mask;
 		}
 

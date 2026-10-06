@@ -56,13 +56,38 @@ public class SimulationBarAggregatorTests
 
 		var histogram = aggregator.Feed(TestTickHelper.AtMid(65, 15))!.Value.Histogram;
 
-		Assert.Equal(3, histogram.Buckets.Count);
+		Assert.Equal(4, histogram.Buckets.Count);
 		Assert.Equal(2, histogram.Buckets[10].Count);
 		Assert.Equal(1, histogram.Buckets[10].UpCount);
 		Assert.Equal(2, histogram.Buckets[10].UpDistance);
 		Assert.Equal(1, histogram.Buckets[12].DownCount);
 		Assert.Equal(3, histogram.Buckets[12].DownDistance);
 		Assert.Equal(1, histogram.Buckets[9].UpCount);
+	}
+
+	[Fact]
+	public void Feed_BooksTheGapToTheNextTickAsSecondsAtThePriceItLeft()
+	{
+		var aggregator = FedOneMinute();
+
+		var histogram = aggregator.Feed(TestTickHelper.AtMid(65, 15))!.Value.Histogram;
+
+		Assert.Equal(20, histogram.Buckets[10].Seconds);
+		Assert.Equal(20, histogram.Buckets[12].Seconds);
+		Assert.Equal(10, histogram.Buckets[9].Seconds);
+		Assert.Equal(15, histogram.Buckets[11].Seconds);
+		Assert.Equal(0, histogram.Buckets[11].Count);
+	}
+
+	[Fact]
+	public void Feed_CapsAMarketClosedGapAt24Hours()
+	{
+		var aggregator = new SimulationBarAggregator(TimeSpan.FromMinutes(1), 1.0);
+		aggregator.Feed(TestTickHelper.AtMid(0, 10));
+
+		var histogram = aggregator.Feed(TestTickHelper.AtMid(TimeSpan.FromDays(3).TotalSeconds, 11))!.Value.Histogram;
+
+		Assert.Equal(TimeSpan.FromHours(24).TotalSeconds, histogram.Buckets[10].Seconds);
 	}
 
 	[Fact]

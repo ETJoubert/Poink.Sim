@@ -795,6 +795,20 @@
     color: var(--color-bg-dark);
 }
 
+.xgrid-delta-toggle-dwell {
+    color: var(--color-info);
+    border-color: color-mix(in srgb, var(--color-info) 35%, transparent);
+}
+
+.xgrid-delta-toggle-dwell:hover {
+    background: color-mix(in srgb, var(--color-info) 15%, transparent);
+}
+
+.xgrid-delta-toggle-dwell.active {
+    background: var(--color-info);
+    color: var(--color-bg-dark);
+}
+
 .xgrid-delta-toggle-pos {
     color: var(--color-badge-1);
     border-color: color-mix(in srgb, var(--color-badge-1) 35%, transparent);

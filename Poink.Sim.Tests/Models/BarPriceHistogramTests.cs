@@ -42,4 +42,17 @@ public class BarPriceHistogramTests
 		Assert.Equal((10.0, 2, 1, 1), merged[0]);
 		Assert.Equal((11.0, 1, 1, 0), merged[1]);
 	}
+
+	[Fact]
+	public void Merge_LeavesOutTimeOnlyBuckets()
+	{
+		var histogram = new BarPriceHistogram(1.0);
+		histogram.Add(10.5, 1, 1);
+		histogram.AddDwell(10.5, 20);
+		histogram.AddDwell(11.5, 15);
+
+		var merged = BarPriceHistogram.Merge([histogram], 1);
+
+		Assert.Equal((10.0, 1, 1, 0), Assert.Single(merged));
+	}
 }

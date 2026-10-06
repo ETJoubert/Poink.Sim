@@ -10,7 +10,8 @@ internal readonly record struct PriceBucketCounts(
 	double UpDistance,
 	double DownDistance,
 	double UpPriceSum,
-	double DownPriceSum
+	double DownPriceSum,
+	double Seconds
 );
 
 internal sealed class BarPriceHistogram
@@ -36,8 +37,17 @@ internal sealed class BarPriceHistogram
 			existing.UpDistance + (direction > 0 ? distance : 0),
 			existing.DownDistance + (direction < 0 ? distance : 0),
 			existing.UpPriceSum + (direction > 0 ? originPrice : 0),
-			existing.DownPriceSum + (direction < 0 ? originPrice : 0)
+			existing.DownPriceSum + (direction < 0 ? originPrice : 0),
+			existing.Seconds
 		);
+	}
+
+	// Time only, no tick: the gap before the next tick, booked to the price it left like Add.
+	public void AddDwell(double originPrice, double seconds)
+	{
+		long key = (long)Math.Floor(originPrice / BucketWidth);
+		_buckets.TryGetValue(key, out var existing);
+		_buckets[key] = existing with { Seconds = existing.Seconds + seconds };
 	}
 
 	public static List<(double Price, int Count, int UpCount, int DownCount)> Merge(
@@ -62,14 +72,16 @@ internal sealed class BarPriceHistogram
 					existing.UpDistance + c.UpDistance,
 					existing.DownDistance + c.DownDistance,
 					existing.UpPriceSum + c.UpPriceSum,
-					existing.DownPriceSum + c.DownPriceSum
+					existing.DownPriceSum + c.DownPriceSum,
+					existing.Seconds + c.Seconds
 				);
 			}
 		}
 
 		var result = new List<(double, int, int, int)>(merged.Count);
 		foreach (var (key, c) in merged)
-			result.Add((key * width, c.Count, c.UpCount, c.DownCount));
+			if (c.Count > 0)
+				result.Add((key * width, c.Count, c.UpCount, c.DownCount));
 		return result;
 	}
 

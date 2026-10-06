@@ -217,6 +217,7 @@ function render(ctx, W, H, p, st, canvas) {
     strokeMask(ctx, p.downHighlight, rows, cols, ml, cw, ch, gap, cssVar('--color-error'), 1.5);
     strokeMask(ctx, p.deltaPosHighlight, rows, cols, ml, cw, ch, gap, cssVar('--color-badge-1'), 1.5);
     strokeMask(ctx, p.deltaNegHighlight, rows, cols, ml, cw, ch, gap, cssVar('--color-badge-3'), 1.5);
+    strokeMask(ctx, p.dwellHighlight, rows, cols, ml, cw, ch, gap, cssVar('--color-info'), 1.5);
 
     // Low/High points are sparse marker sets (unlike the dense masks above), drawn as filled
     // dots rather than borders so they read as a distinct annotation, not another rank highlight.

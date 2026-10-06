@@ -6,6 +6,8 @@ namespace Poink.Sim.Simulation;
 
 internal sealed class SimulationBarAggregator
 {
+	private static readonly TimeSpan MaxDwell = TimeSpan.FromHours(24);
+
 	private readonly TimeSpan _barSize;
 	private readonly double _bucketWidth;
 
@@ -56,6 +58,11 @@ internal sealed class SimulationBarAggregator
 	public (HlocAvdtBar Bar, BarPriceHistogram Histogram)? Feed(Tick tick)
 	{
 		double mid = (tick.Bid + tick.Ask) / 2.0;
+
+		// Booked before any rollover so the gap lands in the bar that held the price, even across bars.
+		if (_barStart is not null && _count > 0)
+			_histogram.AddDwell(_prevMid, DwellSeconds(_closeTime, tick.Timestamp));
+
 		var thisBarStart = new DateTime(
 			tick.Timestamp.Ticks - (tick.Timestamp.Ticks % _barSize.Ticks),
 			tick.Timestamp.Kind
@@ -129,6 +136,10 @@ internal sealed class SimulationBarAggregator
 
 		return completed;
 	}
+
+	// Capped so a market-closed gap (weekend, holiday) can't pile days onto one price.
+	private static double DwellSeconds(DateTime from, DateTime to) =>
+		Math.Clamp((to - from).TotalSeconds, 0, MaxDwell.TotalSeconds);
 
 	public void Reset()
 	{

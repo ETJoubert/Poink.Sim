@@ -23,5 +23,12 @@ namespace Poink.Sim.Components.Charts
 		public XGridSweepMode SweepMode { get; init; } = XGridSweepMode.None;
 		public bool ShadeDelta { get; init; }
 		public bool DistanceWeighted { get; init; }
+
+		/// <summary>Shades each cell by how long price spent there; exclusive with ShadeDelta and DistanceWeighted.</summary>
+		public bool TimeWeighted { get; init; }
+
+		public bool ShowDwellHighlight { get; init; }
+		public XGridDwellComparison DwellComparison { get; init; } = XGridDwellComparison.Above;
+		public double DwellSeconds { get; init; } = 60;
 	}
 }

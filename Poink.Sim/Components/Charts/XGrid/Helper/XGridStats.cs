@@ -17,6 +17,7 @@ public readonly record struct XGridCell(
 	int DownCount,
 	double UpDistance,
 	double DownDistance,
+	double Seconds,
 	double Value
 );
 
@@ -32,7 +33,7 @@ public readonly record struct XGridLevel(double Price, int Row);
 /// steps landed their window's POC there (see <see cref="XGridStats.Compute"/>). Vah/Val/Vwap/Average/Median/
 /// RegressionLine/TotalPeak/UpPeak/DownPeak are null when there isn't enough data for that level; TotalPeak/UpPeak/DownPeak
 /// are computed independently from Poc and can land on a different row. NetByColumn is the running
-/// cumulative SBuy - SSell, one point per column.
+/// cumulative SBuy - SSell, one point per column. MaxSeconds is the longest any one cell held price.
 /// </summary>
 public readonly record struct XGridResult(
 	IReadOnlyList<double> RowLow,
@@ -46,6 +47,7 @@ public readonly record struct XGridResult(
 	double MaxAbsDeltaDistance,
 	double MaxUpDistance,
 	double MaxDownDistance,
+	double MaxSeconds,
 	double SBuy,
 	double SSell,
 	IReadOnlyList<double> NetByColumn,
@@ -180,6 +182,7 @@ internal static class XGridStats
 		var maxAbsDeltaDistance = 0.0;
 		var maxUpDistance = 0.0;
 		var maxDownDistance = 0.0;
+		var maxSeconds = 0.0;
 		var sBuy = 0.0;
 		var sSell = 0.0;
 		var netByColumn = new List<double>(colCount);
@@ -196,6 +199,7 @@ internal static class XGridStats
 			var downCounts = new int[rowCount];
 			var upDistances = new double[rowCount];
 			var downDistances = new double[rowCount];
+			var seconds = new double[rowCount];
 			for (var gi = groupStart; gi < groupEnd; gi++)
 			{
 				var hist = histograms[indices[gi]];
@@ -208,6 +212,7 @@ internal static class XGridStats
 					downCounts[row] += c.DownCount;
 					upDistances[row] += c.UpDistance;
 					downDistances[row] += c.DownDistance;
+					seconds[row] += c.Seconds;
 					sBuy += c.UpPriceSum;
 					sSell += c.DownPriceSum;
 				}
@@ -236,8 +241,10 @@ internal static class XGridStats
 					maxUpDistance = upDistances[r];
 				if (downDistances[r] > maxDownDistance)
 					maxDownDistance = downDistances[r];
+				if (seconds[r] > maxSeconds)
+					maxSeconds = seconds[r];
 				cells.Add(
-					new XGridCell(counts[r], upCounts[r], downCounts[r], upDistances[r], downDistances[r], value)
+					new XGridCell(counts[r], upCounts[r], downCounts[r], upDistances[r], downDistances[r], seconds[r], value)
 				);
 				rowTotalCounts[r] += counts[r];
 				rowUpCounts[r] += upCounts[r];
@@ -294,6 +301,7 @@ internal static class XGridStats
 			maxAbsDeltaDistance,
 			maxUpDistance,
 			maxDownDistance,
+			maxSeconds,
 			sBuy,
 			sSell,
 			netByColumn,
@@ -531,6 +539,11 @@ internal static class XGridStats
 	}
 
 	// How many of the n nonzero cells fall within the top Percent% by value.
+	// Unvisited cells never match, so Below flags short visits rather than every cell price never reached.
+	public static bool MatchesDwell(XGridCell cell, XGridDwellComparison comparison, double seconds) =>
+		(cell.Count > 0 || cell.Seconds > 0)
+		&& (comparison == XGridDwellComparison.Above ? cell.Seconds >= seconds : cell.Seconds <= seconds);
+
 	public static int TopCount(int n, double percent) =>
 		Math.Clamp((int)Math.Round(n * Math.Clamp(percent, 0, 100) / 100.0, MidpointRounding.AwayFromZero), 0, n);
 

@@ -1,3 +1,4 @@
+using System;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 
@@ -26,6 +27,27 @@ namespace Poink.Sim.Components.Charts
 		public bool ShowOverlayRow { get; set; } = true;
 
 		private Task SetDisplay(XGridDisplaySettings value) => DisplayChanged.InvokeAsync(Display = value);
+
+		private Task ToggleShadeDelta() =>
+			SetDisplay(Display with { ShadeDelta = !Display.ShadeDelta, TimeWeighted = false });
+
+		private Task ToggleDistanceWeighted() =>
+			SetDisplay(Display with { DistanceWeighted = !Display.DistanceWeighted, TimeWeighted = false });
+
+		private Task ToggleTimeWeighted() =>
+			SetDisplay(Display with { TimeWeighted = !Display.TimeWeighted, ShadeDelta = false, DistanceWeighted = false });
+
+		private Task ToggleDwellComparison() =>
+			SetDisplay(
+				Display with
+				{
+					DwellComparison = Display.DwellComparison == XGridDwellComparison.Above
+						? XGridDwellComparison.Below
+						: XGridDwellComparison.Above,
+				}
+			);
+
+		private Task SetDwellSeconds(double value) => SetDisplay(Display with { DwellSeconds = Math.Max(0, value) });
 
 		private Task ToggleOverlaysEnabled() => SetDisplay(Display with { OverlaysEnabled = !Display.OverlaysEnabled });
 

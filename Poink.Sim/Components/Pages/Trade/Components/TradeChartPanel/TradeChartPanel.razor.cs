@@ -117,6 +117,7 @@ namespace Poink.Sim.Components.Pages.Trade
 			int Window,
 			int Count,
 			DateTime LastOpen,
+			DateTime LastTick,
 			double LastClose,
 			double PipSize
 		)? _xgridKey;
@@ -460,6 +461,7 @@ namespace Poink.Sim.Components.Pages.Trade
 				window,
 				bars.Count,
 				last.OpenTime,
+				last.CloseTime,
 				last.Close,
 				PipSize
 			);
