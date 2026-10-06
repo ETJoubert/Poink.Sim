@@ -118,8 +118,15 @@
     color: var(--color-primary);
 }
 
+.emu-lower {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 480px;
+    gap: 12px;
+}
+
 @media (max-width: 900px) {
-    .emu-body {
+    .emu-body,
+    .emu-lower {
         grid-template-columns: minmax(0, 1fr);
     }
 }

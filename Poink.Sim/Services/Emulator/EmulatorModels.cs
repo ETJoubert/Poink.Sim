@@ -3,6 +3,13 @@ using System.Collections.Generic;
 
 namespace Poink.Sim.Emulator;
 
+/// <summary>Which side of the book an order sits on: buying (bid) or selling (ask).</summary>
+public enum OrderSide
+{
+	Buy,
+	Sell,
+}
+
 /// <summary>One price level of the order book: the volume resting at that price.</summary>
 public readonly record struct OrderBookLevel(double Price, double Volume);
 
@@ -18,33 +25,75 @@ public sealed record OrderBook(IReadOnlyList<OrderBookLevel> Bids, IReadOnlyList
 	public double? Spread => BestAsk - BestBid;
 }
 
-/// <summary>The bots positioned at one price level and the balance they hold between them.</summary>
+/// <summary>The bots with orders resting at one price level and the equity they hold between them.</summary>
 public readonly record struct PopulationLevel(double Price, int BotCount, double Balance);
+
+/// <summary>A group of bots that start with the same points.</summary>
+public sealed record PopulationSettings(string Name, int BotCount, double StartingPoints);
+
+/// <summary>Where one population stands now: its bots, their combined account and their trading so far.</summary>
+public sealed record PopulationSummary(
+	string Name,
+	int BotCount,
+	int ActiveBots,
+	double StartingPoints,
+	double Equity,
+	double Cash,
+	long LongUnits,
+	long ShortUnits,
+	int OpenOrders,
+	int Fills,
+	int StopOuts
+)
+{
+	public double ProfitLoss => Equity - StartingPoints;
+}
+
+/// <summary>The broker's fund, what it has lent out, the losses it has absorbed and the market's activity.</summary>
+public sealed record BrokerSummary(
+	double FundBalance,
+	double Lent,
+	double AbsorbedLosses,
+	double Leverage,
+	long TradeCount,
+	long TradedVolume,
+	long RejectedOrders,
+	int OpenOrders
+);
 
 /// <summary>The synthetic asset's price at one moment of its history.</summary>
 public readonly record struct EmulatorPricePoint(DateTime Timestamp, double Price);
 
-/// <summary>Everything the Emulator page shows at one step: the asset price, its order book, the bot population per level and its price history.</summary>
+/// <summary>Everything the Emulator page shows at one step: the asset price, its order book, the bots and the broker.</summary>
 public sealed record EmulatorSnapshot(
 	string Symbol,
 	double Price,
 	OrderBook Book,
 	IReadOnlyList<PopulationLevel> Population,
+	IReadOnlyList<PopulationSummary> Populations,
+	BrokerSummary Broker,
 	IReadOnlyList<EmulatorPricePoint> History,
 	long Step
 );
 
-/// <summary>Shape of the emulated market: the synthetic asset, its price grid, book depth and how fast it steps.</summary>
+/// <summary>Shape of the emulated market: the asset and its price grid, the bots and how they act, and the broker's terms.</summary>
 public sealed record EmulatorSettings
 {
 	public string Symbol { get; init; } = "SYN";
 	public double StartPrice { get; init; } = 100;
 	public double TickSize { get; init; } = 0.01;
-	public int SpreadTicks { get; init; } = 2;
-	public int BookDepth { get; init; } = 15;
-	public double VolatilityTicks { get; init; } = 4;
-	public double VolumePerBot { get; init; } = 10;
-	public double MeanBotBalance { get; init; } = 5_000;
+	public int BookDepth { get; init; } = 25;
+
+	public IReadOnlyList<PopulationSettings> Populations { get; init; } = [new PopulationSettings("Random", 200, 10_000)];
+	public double ActivityChance { get; init; } = 0.1;
+	public double CancelChance { get; init; } = 0.2;
+	public int OrderRangeTicks { get; init; } = 20;
+	public double MaxOrderFraction { get; init; } = 0.1;
+
+	public double Leverage { get; init; } = 2;
+	public double StopOutLevelPercent { get; init; } = 50;
+	public double BrokerFund { get; init; } = 1_000_000;
+
 	public int HistoryCapacity { get; init; } = 300;
 	public int WarmupSteps { get; init; } = 120;
 	public TimeSpan StepInterval { get; init; } = TimeSpan.FromMilliseconds(500);

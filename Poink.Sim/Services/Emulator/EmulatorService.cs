@@ -1,41 +1,49 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Poink.Sim.Emulator.Bots;
+using Poink.Sim.Emulator.Broker;
 
 namespace Poink.Sim.Emulator;
 
 /// <summary>
-/// Process-wide emulated market for one synthetic asset. Each step moves the price, rebuilds the book and its bot population
-/// around it and appends the price to a bounded history; the snapshot is replaced whole so readers never see a half-step.
+/// Process-wide emulated brokerage for one synthetic asset. Each step, bots in random order each get a chance to act on
+/// what they alone can see; the broker fills their orders, which moves the price, then stops out under-margined bots.
+/// The snapshot is replaced whole so readers never see a half-step.
 /// </summary>
 public sealed class EmulatorService : IEmulatorService, IDisposable
 {
-	private readonly ISyntheticMarketGenerator _generator;
+	private readonly IEmulatorBotStrategy _strategy;
 	private readonly ILogger<EmulatorService> _logger;
 	private readonly TimeProvider _timeProvider;
+	private readonly Random _random;
 	private readonly object _lock = new();
 	private readonly Queue<EmulatorPricePoint> _history = new();
 
+	private EmulatorBroker _broker;
 	private EmulatorSnapshot _snapshot;
 	private CancellationTokenSource? _loopCancellation;
 
-	public EmulatorService(ISyntheticMarketGenerator generator, ILogger<EmulatorService> logger)
-		: this(generator, logger, new EmulatorSettings(), TimeProvider.System) { }
+	public EmulatorService(IEmulatorBotStrategy strategy, ILogger<EmulatorService> logger)
+		: this(strategy, logger, new EmulatorSettings(), TimeProvider.System, new Random()) { }
 
 	internal EmulatorService(
-		ISyntheticMarketGenerator generator,
+		IEmulatorBotStrategy strategy,
 		ILogger<EmulatorService> logger,
 		EmulatorSettings settings,
-		TimeProvider timeProvider
+		TimeProvider timeProvider,
+		Random random
 	)
 	{
-		_generator = generator;
+		_strategy = strategy;
 		_logger = logger;
 		_timeProvider = timeProvider;
+		_random = random;
 		Settings = settings;
-		_snapshot = BuildWarmedUpSnapshot();
+		(_broker, _snapshot) = OpenWarmedUpMarket();
 	}
 
 	public EmulatorSettings Settings { get; }
@@ -101,9 +109,8 @@ public sealed class EmulatorService : IEmulatorService, IDisposable
 	{
 		lock (_lock)
 		{
-			var price = _generator.NextPrice(_snapshot.Price, Settings);
-			AppendHistory(new EmulatorPricePoint(_timeProvider.GetUtcNow().UtcDateTime, price));
-			_snapshot = BuildSnapshot(price, _snapshot.Step + 1);
+			AdvanceMarket(_broker, _timeProvider.GetUtcNow().UtcDateTime);
+			_snapshot = BuildSnapshot(_broker, _snapshot.Step + 1);
 		}
 
 		Changed?.Invoke();
@@ -113,10 +120,15 @@ public sealed class EmulatorService : IEmulatorService, IDisposable
 	{
 		lock (_lock)
 		{
-			_snapshot = BuildWarmedUpSnapshot();
+			(_broker, _snapshot) = OpenWarmedUpMarket();
 		}
 
-		_logger.LogInformation("Emulator reset for {Symbol} with {Settings}", Settings.Symbol, Settings);
+		_logger.LogInformation(
+			"Emulator reset for {Symbol} with populations {Populations} and {Settings}",
+			Settings.Symbol,
+			string.Join(", ", Settings.Populations.Select(p => $"{p.Name}: {p.BotCount} bots × {p.StartingPoints:N0} points")),
+			Settings
+		);
 		Changed?.Invoke();
 	}
 
@@ -160,34 +172,48 @@ public sealed class EmulatorService : IEmulatorService, IDisposable
 		return true;
 	}
 
-	private EmulatorSnapshot BuildWarmedUpSnapshot()
+	private (EmulatorBroker Broker, EmulatorSnapshot Snapshot) OpenWarmedUpMarket()
 	{
 		_history.Clear();
+		var broker = new EmulatorBroker(Settings);
 		var now = _timeProvider.GetUtcNow().UtcDateTime;
-		var warmupSteps = Math.Max(0, Settings.WarmupSteps);
-		var price = Settings.StartPrice;
-		for (var step = warmupSteps; step > 0; step--)
+		AppendHistory(new EmulatorPricePoint(now - Settings.StepInterval * Math.Max(0, Settings.WarmupSteps), broker.LastPrice));
+		for (var step = Settings.WarmupSteps - 1; step >= 0; step--)
 		{
-			AppendHistory(new EmulatorPricePoint(now - Settings.StepInterval * step, price));
-			price = _generator.NextPrice(price, Settings);
+			AdvanceMarket(broker, now - Settings.StepInterval * step);
 		}
-		AppendHistory(new EmulatorPricePoint(now, price));
 
-		return BuildSnapshot(price, 0);
+		return (broker, BuildSnapshot(broker, 0));
 	}
 
-	private EmulatorSnapshot BuildSnapshot(double price, long step)
+	private void AdvanceMarket(EmulatorBroker broker, DateTime timestamp)
 	{
-		var book = _generator.BuildBook(price, Settings);
-		return new EmulatorSnapshot(
+		broker.BeginStep();
+		var turnOrder = broker.Accounts.ToArray();
+		_random.Shuffle(turnOrder);
+		foreach (var bot in turnOrder)
+		{
+			if (!bot.IsBust && _random.NextDouble() < Settings.ActivityChance)
+			{
+				broker.Execute(bot, _strategy.Decide(broker.ViewFor(bot), Settings));
+			}
+		}
+
+		broker.RunStopOuts();
+		AppendHistory(new EmulatorPricePoint(timestamp, broker.LastPrice));
+	}
+
+	private EmulatorSnapshot BuildSnapshot(EmulatorBroker broker, long step) =>
+		new(
 			Settings.Symbol,
-			price,
-			book,
-			_generator.BuildPopulation(book, Settings),
+			broker.LastPrice,
+			broker.Book(),
+			broker.RestingPopulation(),
+			broker.PopulationSummaries(),
+			broker.Summary(),
 			_history.ToArray(),
 			step
 		);
-	}
 
 	private void AppendHistory(EmulatorPricePoint point)
 	{

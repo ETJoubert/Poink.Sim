@@ -1,0 +1,40 @@
+.emu-pop-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.7rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.emu-pop-table th {
+    padding: 2px 8px 4px;
+    font-size: 0.55rem;
+    font-weight: bold;
+    letter-spacing: 0.08em;
+    text-align: right;
+    color: var(--color-secondary);
+    border-bottom: 1px solid color-mix(in srgb, var(--color-secondary) 25%, transparent);
+}
+
+.emu-pop-table td {
+    padding: 3px 8px;
+    text-align: right;
+    color: var(--color-text);
+}
+
+.emu-pop-table th:first-child,
+.emu-pop-table td:first-child {
+    text-align: left;
+}
+
+.emu-pop-name {
+    font-weight: bold;
+    color: var(--color-info);
+}
+
+.emu-pop-positive {
+    color: var(--color-success);
+}
+
+.emu-pop-negative {
+    color: var(--color-error);
+}

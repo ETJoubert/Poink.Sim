@@ -10,6 +10,7 @@ using Poink.Sim.Components.Pages.Code.Services;
 using Poink.Sim.Components.Pages.Trade;
 using Poink.Sim.Data;
 using Poink.Sim.Emulator;
+using Poink.Sim.Emulator.Bots;
 using Poink.Sim.Helpers;
 using Poink.Sim.Repository;
 using Poink.Sim.Services.Activity;
@@ -231,11 +232,11 @@ public static class ServiceCollectionExtensions
 
 	/// <summary>
 	/// The Emulator page's brokerage emulator: one process-wide synthetic market, so it keeps stepping across page
-	/// visits. The generator stands in for the bots and matching engine until they are built.
+	/// visits. The bot strategy is only ever called under the emulator's step lock, so one singleton serves every bot.
 	/// </summary>
 	public static IServiceCollection BuildEmulatorServices(this IServiceCollection services)
 	{
-		services.AddSingleton<ISyntheticMarketGenerator, SyntheticMarketGenerator>();
+		services.AddSingleton<IEmulatorBotStrategy, RandomBotStrategy>();
 		services.AddSingleton<IEmulatorService, EmulatorService>();
 
 		return services;

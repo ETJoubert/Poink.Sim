@@ -1,7 +1,7 @@
 using System;
-using System.Collections.Generic;
 using Microsoft.Extensions.Logging.Abstractions;
 using Poink.Sim.Emulator;
+using Poink.Sim.Emulator.Bots;
 using Xunit;
 
 namespace Poink.Sim.Tests.Services.Emulator;
@@ -10,46 +10,66 @@ public class EmulatorServiceTests
 {
 	private static readonly EmulatorSettings Settings = new()
 	{
-		StartPrice = 10,
+		StartPrice = 100,
 		TickSize = 1,
-		WarmupSteps = 4,
+		Populations = [new PopulationSettings("Test", 2, 10_000)],
+		ActivityChance = 1,
+		WarmupSteps = 0,
 		HistoryCapacity = 8,
 	};
 
-	private static EmulatorService CreateService() =>
-		new(new StepUpGenerator(), NullLogger<EmulatorService>.Instance, Settings, TimeProvider.System);
+	private static EmulatorService CreateService(EmulatorSettings? settings = null) =>
+		new(new UpTickStrategy(), NullLogger<EmulatorService>.Instance, settings ?? Settings, TimeProvider.System, new Random(1));
 
 	[Fact]
-	public void Constructor_WarmsUpHistoryFromStartPriceToCurrentPrice()
+	public void Constructor_OpensTheMarketAtTheStartPrice()
 	{
 		using var service = CreateService();
 
 		var snapshot = service.Snapshot;
 
-		Assert.Equal(Settings.WarmupSteps + 1, snapshot.History.Count);
-		Assert.Equal(Settings.StartPrice, snapshot.History[0].Price);
-		Assert.Equal(snapshot.Price, snapshot.History[^1].Price);
-		Assert.Equal(14, snapshot.Price);
+		Assert.Equal(100, snapshot.Price);
 		Assert.Equal(0, snapshot.Step);
+		Assert.Single(snapshot.History);
+		Assert.Equal(2, Assert.Single(snapshot.Populations).BotCount);
+		Assert.Equal(Settings.BrokerFund, snapshot.Broker.FundBalance);
 	}
 
 	[Fact]
-	public void Step_MovesPriceRebuildsBookAndCapsHistory()
+	public void Constructor_WarmUpTradesAndRecordsHistory()
+	{
+		using var service = CreateService(Settings with { WarmupSteps = 4 });
+
+		Assert.Equal(5, service.Snapshot.History.Count);
+		Assert.Equal(104, service.Snapshot.Price);
+		Assert.Equal(4, service.Snapshot.Broker.TradeCount);
+	}
+
+	[Fact]
+	public void Step_FillsMoveThePrice()
 	{
 		using var service = CreateService();
 
-		for (var i = 0; i < 10; i++)
+		service.Step();
+
+		var snapshot = service.Snapshot;
+		Assert.Equal(1, snapshot.Step);
+		Assert.Equal(101, snapshot.Price);
+		Assert.Equal(101, snapshot.History[^1].Price);
+		Assert.Equal(1, snapshot.Broker.TradeCount);
+	}
+
+	[Fact]
+	public void Step_CapsHistory()
+	{
+		using var service = CreateService();
+
+		for (var i = 0; i < 20; i++)
 		{
 			service.Step();
 		}
 
-		var snapshot = service.Snapshot;
-		Assert.Equal(10, snapshot.Step);
-		Assert.Equal(24, snapshot.Price);
-		Assert.Equal(Settings.HistoryCapacity, snapshot.History.Count);
-		Assert.Equal(24, snapshot.History[^1].Price);
-		Assert.Equal(23, snapshot.Book.BestBid);
-		Assert.Equal(new PopulationLevel(23, 2, 100), Assert.Single(snapshot.Population));
+		Assert.Equal(Settings.HistoryCapacity, service.Snapshot.History.Count);
 	}
 
 	[Fact]
@@ -65,7 +85,7 @@ public class EmulatorServiceTests
 	}
 
 	[Fact]
-	public void Reset_RestartsFromStartPrice()
+	public void Reset_ReopensTheMarket()
 	{
 		using var service = CreateService();
 		service.Step();
@@ -74,8 +94,31 @@ public class EmulatorServiceTests
 		service.Reset();
 
 		Assert.Equal(0, service.Snapshot.Step);
-		Assert.Equal(14, service.Snapshot.Price);
-		Assert.Equal(Settings.StartPrice, service.Snapshot.History[0].Price);
+		Assert.Equal(100, service.Snapshot.Price);
+		Assert.Equal(0, service.Snapshot.Broker.TradeCount);
+	}
+
+	[Fact]
+	public void RandomBots_TradeAZeroSumMarket()
+	{
+		var settings = new EmulatorSettings { WarmupSteps = 50 };
+		using var service = new EmulatorService(
+			new RandomBotStrategy(new Random(3)),
+			NullLogger<EmulatorService>.Instance,
+			settings,
+			TimeProvider.System,
+			new Random(3)
+		);
+
+		for (var i = 0; i < 100; i++)
+		{
+			service.Step();
+		}
+
+		var population = Assert.Single(service.Snapshot.Populations);
+		Assert.True(service.Snapshot.Broker.TradeCount > 0);
+		Assert.Equal(population.LongUnits, population.ShortUnits);
+		Assert.Equal(population.StartingPoints + service.Snapshot.Broker.AbsorbedLosses, population.Equity, 6);
 	}
 
 	[Fact]
@@ -90,14 +133,15 @@ public class EmulatorServiceTests
 		Assert.False(service.IsRunning);
 	}
 
-	private sealed class StepUpGenerator : ISyntheticMarketGenerator
+	private sealed class UpTickStrategy : IEmulatorBotStrategy
 	{
-		public double NextPrice(double price, EmulatorSettings settings) => price + settings.TickSize;
+		private bool _sellNext = true;
 
-		public OrderBook BuildBook(double price, EmulatorSettings settings) =>
-			new([new OrderBookLevel(price - settings.TickSize, 1)], [new OrderBookLevel(price + settings.TickSize, 1)]);
-
-		public IReadOnlyList<PopulationLevel> BuildPopulation(OrderBook book, EmulatorSettings settings) =>
-			[new PopulationLevel(book.BestBid!.Value, 2, 100)];
+		public BotDecision Decide(BotMarketView view, EmulatorSettings settings)
+		{
+			var side = _sellNext ? OrderSide.Sell : OrderSide.Buy;
+			_sellNext = !_sellNext;
+			return new PlaceOrderDecision(side, view.LastPrice + view.TickSize, 1);
+		}
 	}
 }

@@ -1,0 +1,136 @@
+using Poink.Sim.Emulator;
+using Poink.Sim.Emulator.Broker;
+using Xunit;
+
+namespace Poink.Sim.Tests.Services.Emulator.Broker;
+
+public class EmulatorBrokerTests
+{
+	private static EmulatorBroker CreateBroker(int bots = 2, double points = 10_000, double leverage = 2, double fund = 1_000_000)
+	{
+		var broker = new EmulatorBroker(
+			new EmulatorSettings
+			{
+				StartPrice = 100,
+				TickSize = 1,
+				Populations = [new PopulationSettings("Test", bots, points)],
+				Leverage = leverage,
+				BrokerFund = fund,
+			}
+		);
+		broker.BeginStep();
+		return broker;
+	}
+
+	[Fact]
+	public void Place_RestingOrderDoesNotMoveThePrice()
+	{
+		var broker = CreateBroker();
+
+		Assert.Equal(OrderOutcome.Accepted, broker.Place(broker.Accounts[0], OrderSide.Buy, 105, 5));
+
+		Assert.Equal(100, broker.LastPrice);
+		Assert.Equal(105, broker.Book().BestBid);
+	}
+
+	[Fact]
+	public void Fill_SettlesBothAccountsAndMovesThePrice()
+	{
+		var broker = CreateBroker();
+		var (seller, buyer) = (broker.Accounts[0], broker.Accounts[1]);
+
+		broker.Place(seller, OrderSide.Sell, 101, 10);
+		broker.Place(buyer, OrderSide.Buy, 101, 10);
+
+		Assert.Equal(101, broker.LastPrice);
+		Assert.Equal((11_010.0, -10L), (seller.Cash, seller.Position));
+		Assert.Equal((8_990.0, 10L), (buyer.Cash, buyer.Position));
+		Assert.Equal((1L, 10L), (broker.Summary().TradeCount, broker.Summary().TradedVolume));
+	}
+
+	[Fact]
+	public void Place_ShortSellingWithinLeverageIsAccepted()
+	{
+		var broker = CreateBroker();
+
+		Assert.Equal(OrderOutcome.Accepted, broker.Place(broker.Accounts[0], OrderSide.Sell, 100, 200));
+	}
+
+	[Fact]
+	public void Place_RejectsBeyondLeverage()
+	{
+		var broker = CreateBroker();
+
+		Assert.Equal(OrderOutcome.RejectedMargin, broker.Place(broker.Accounts[0], OrderSide.Buy, 100, 201));
+		Assert.Equal(1, broker.Summary().RejectedOrders);
+	}
+
+	[Fact]
+	public void Place_RestingOrdersCountTowardsMargin()
+	{
+		var broker = CreateBroker();
+		var bot = broker.Accounts[0];
+
+		broker.Place(bot, OrderSide.Buy, 90, 150);
+
+		Assert.Equal(OrderOutcome.RejectedMargin, broker.Place(bot, OrderSide.Buy, 90, 60));
+		Assert.Equal(OrderOutcome.Accepted, broker.Place(bot, OrderSide.Buy, 90, 50));
+	}
+
+	[Fact]
+	public void Place_RejectsWhenTheFundCannotLend()
+	{
+		var broker = CreateBroker(fund: 500);
+		var bot = broker.Accounts[0];
+
+		Assert.Equal(OrderOutcome.Accepted, broker.Place(bot, OrderSide.Buy, 100, 10));
+		Assert.Equal(OrderOutcome.RejectedFund, broker.Place(bot, OrderSide.Buy, 100, 150));
+	}
+
+	[Fact]
+	public void Cancel_OnlyCancelsTheBotsOwnOrders()
+	{
+		var broker = CreateBroker();
+		var (owner, other) = (broker.Accounts[0], broker.Accounts[1]);
+		broker.Place(owner, OrderSide.Buy, 99, 5);
+		var orderId = broker.ViewFor(owner).OpenOrderIds[0];
+
+		Assert.False(broker.Cancel(other, orderId));
+		Assert.True(broker.Cancel(owner, orderId));
+		Assert.Equal(0, broker.Summary().OpenOrders);
+	}
+
+	[Fact]
+	public void RunStopOuts_ClosesTheLosingPositionAndTheFundAbsorbsTheDeficit()
+	{
+		var broker = CreateBroker(bots: 3, points: 1_000, leverage: 10);
+		var (shorter, longer, maker) = (broker.Accounts[0], broker.Accounts[1], broker.Accounts[2]);
+		broker.Place(shorter, OrderSide.Sell, 100, 50);
+		broker.Place(longer, OrderSide.Buy, 100, 50);
+		broker.Place(maker, OrderSide.Sell, 131, 60);
+		broker.Place(maker, OrderSide.Sell, 130, 1);
+		broker.Place(longer, OrderSide.Buy, 130, 1);
+
+		broker.RunStopOuts();
+
+		Assert.True(shorter.IsBust);
+		Assert.Equal((0L, 0.0, 1), (shorter.Position, shorter.Cash, shorter.StopOuts));
+		Assert.Equal(550, broker.Summary().AbsorbedLosses);
+		Assert.Equal(1_000_000 - 550, broker.Summary().FundBalance);
+		Assert.False(longer.IsBust);
+	}
+
+	[Fact]
+	public void PopulationSummaries_TotalEachPopulation()
+	{
+		var broker = CreateBroker();
+		broker.Place(broker.Accounts[0], OrderSide.Sell, 101, 10);
+		broker.Place(broker.Accounts[1], OrderSide.Buy, 101, 10);
+
+		var summary = Assert.Single(broker.PopulationSummaries());
+
+		Assert.Equal((2, 2, 20_000.0), (summary.BotCount, summary.ActiveBots, summary.StartingPoints));
+		Assert.Equal((10L, 10L, 2), (summary.LongUnits, summary.ShortUnits, summary.Fills));
+		Assert.Equal(20_000, summary.Equity);
+	}
+}

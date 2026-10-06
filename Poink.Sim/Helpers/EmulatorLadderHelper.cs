@@ -5,7 +5,7 @@ using Poink.Sim.Emulator;
 
 namespace Poink.Sim.Helpers;
 
-/// <summary>One tick of the price ladder: the bid and ask volume resting at that price and the bots there, if any.</summary>
+/// <summary>One tick of the price ladder: the bid and ask volume resting at that price and the bots with orders there, if any.</summary>
 internal readonly record struct EmulatorLadderRow(
 	double Price,
 	double? BidVolume,
@@ -27,7 +27,7 @@ internal static class EmulatorLadderHelper
 		double tickSize
 	)
 	{
-		var centre = SyntheticMarketGenerator.RoundToTick(price, tickSize);
+		var centre = EmulatorTickHelper.RoundToTick(price, tickSize);
 		var bids = VolumeByTickOffset(book.Bids, centre, tickSize);
 		var asks = VolumeByTickOffset(book.Asks, centre, tickSize);
 		var bots = PopulationByTickOffset(population, centre, tickSize);
@@ -36,7 +36,7 @@ internal static class EmulatorLadderHelper
 		var rows = new List<EmulatorLadderRow>((int)(rowsEachSide * 2 + 1));
 		for (var offset = rowsEachSide; offset >= -rowsEachSide; offset--)
 		{
-			var rowPrice = SyntheticMarketGenerator.RoundToTick(centre + offset * tickSize, tickSize);
+			var rowPrice = EmulatorTickHelper.RoundToTick(centre + offset * tickSize, tickSize);
 			rows.Add(
 				new EmulatorLadderRow(
 					rowPrice,

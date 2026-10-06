@@ -3,8 +3,8 @@ using System;
 namespace Poink.Sim.Emulator;
 
 /// <summary>
-/// Drives the brokerage emulator: owns the synthetic asset's current price, order book and price history,
-/// and steps them on a timer while running.
+/// Drives the brokerage emulator: a population of bots trading one synthetic asset through a broker's order book,
+/// stepped on a timer while running. The price moves only when the broker fills orders.
 /// </summary>
 public interface IEmulatorService
 {

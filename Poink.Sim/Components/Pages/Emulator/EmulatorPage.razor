@@ -4,9 +4,9 @@
 
 <div class="emu-page">
     <header class="emu-header">
-        <span class="emu-title" title="Brokerage emulator: a synthetic asset that bots will buy and sell">EMULATOR</span>
+        <span class="emu-title" title="Brokerage emulator: bots buy and sell a synthetic asset through a broker, and fills move the price">EMULATOR</span>
         <span class="emu-symbol" title="The synthetic asset being emulated">@Snapshot.Symbol</span>
-        <span class="emu-stat" title="Current price of @Snapshot.Symbol">
+        <span class="emu-stat" title="Last traded price of @Snapshot.Symbol">
             <span class="emu-stat-label">PRICE</span>@FormatPrice(Snapshot.Price)
         </span>
         <span class="emu-stat" title="Best bid and best ask -- the highest buy and lowest sell resting in the book">
@@ -36,7 +36,7 @@
             <button type="button" class="emu-btn" @onclick="Emulator.Step" disabled="@Emulator.IsRunning"
                     title="Advance the emulator by one step">Step</button>
             <button type="button" class="emu-btn" @onclick="Emulator.Reset"
-                    title="Restart the asset from its start price with a fresh warm-up history">Reset</button>
+                    title="Restart the market: fresh bots and broker fund, an empty book and a new warm-up history from the start price">Reset</button>
         </div>
     </header>
 
@@ -46,9 +46,21 @@
             <EmulatorPriceChartComponent Snapshot="Snapshot" TickSize="Emulator.Settings.TickSize" />
         </section>
 
-        <section class="emu-panel emu-book-panel" title="Resting orders on each side of the market and the bots at each level">
+        <section class="emu-panel emu-book-panel" title="Resting orders on each side of the market and the bots with orders at each level">
             <div class="emu-panel-heading">ORDER BOOK</div>
             <EmulatorOrderBookComponent Book="Snapshot.Book" Population="Snapshot.Population" Price="Snapshot.Price" TickSize="Emulator.Settings.TickSize" />
+        </section>
+    </div>
+
+    <div class="emu-lower">
+        <section class="emu-panel" title="The bot populations trading through the broker -- each bot sees only the market and its own account">
+            <div class="emu-panel-heading">POPULATIONS</div>
+            <EmulatorPopulationsComponent Populations="Snapshot.Populations" />
+        </section>
+
+        <section class="emu-panel" title="The broker that fills the bots' orders and funds their leverage">
+            <div class="emu-panel-heading">BROKER</div>
+            <EmulatorBrokerComponent Broker="Snapshot.Broker" />
         </section>
     </div>
 </div>

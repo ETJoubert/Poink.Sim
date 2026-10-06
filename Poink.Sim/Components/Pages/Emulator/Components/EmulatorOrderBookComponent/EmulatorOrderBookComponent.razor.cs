@@ -10,7 +10,7 @@ namespace Poink.Sim.Components.Emulator
 {
 	/// <summary>
 	/// Price ladder view of an order book: the current price in the middle row, asks stacking up and bids stepping down,
-	/// each level shaded by its share of the deepest level, with the bots there and their balance alongside.
+	/// each level shaded by its share of the deepest level, with the bots resting orders there and their equity alongside.
 	/// </summary>
 	public partial class EmulatorOrderBookComponent : ComponentBase
 	{
@@ -56,9 +56,9 @@ namespace Poink.Sim.Components.Emulator
 			row.Population is { BotCount: > 0 } population
 				? string.Create(
 					CultureInfo.InvariantCulture,
-					$"{population.BotCount:N0} bots at {FormatPrice(row.Price)} holding {population.Balance:N2} in total, {population.Balance / population.BotCount:N2} each on average"
+					$"{population.BotCount:N0} bots with orders resting at {FormatPrice(row.Price)}, holding {population.Balance:N2} equity in total, {population.Balance / population.BotCount:N2} each on average"
 				)
-				: $"No bots at {FormatPrice(row.Price)}";
+				: $"No bots with orders resting at {FormatPrice(row.Price)}";
 
 		private string DepthWidth(double volume) =>
 			EmulatorChartHelper.Coord(EmulatorChartHelper.DepthPercent(volume, _maxVolume));
