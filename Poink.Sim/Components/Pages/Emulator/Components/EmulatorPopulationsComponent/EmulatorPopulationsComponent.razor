@@ -7,6 +7,10 @@
             @foreach (var population in Populations)
             {
                 <th class="emu-pop-group" title="The @population.Name group">
+                    @if (_medals.TryGetValue(population.Name, out var medal))
+                    {
+                        <span class="emu-pop-medal emu-pop-medal-@medal.ToString().ToLowerInvariant()" title="@MedalTooltip(medal, population)">@MedalLabel(medal)</span>
+                    }
                     <span class="emu-pop-swatch" style="background: @ColorOf(population.Name)" title="The @population.Name group's colour"></span>@population.Name
                 </th>
             }

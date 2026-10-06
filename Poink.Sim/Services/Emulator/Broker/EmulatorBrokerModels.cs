@@ -4,8 +4,8 @@ namespace Poink.Sim.Emulator.Broker;
 
 /// <summary>
 /// One bot's account at the broker. Negative cash is points the broker lent for a leveraged buy; a negative position is
-/// units it lent for a short sale. Capital is every point paid in (starting capital plus replenishments); balance is
-/// capital plus realised P/L; equity adds the open position's unrealised P/L at the given price.
+/// units it lent for a short sale. Capital is every point paid in (starting capital plus replenishments); equity is cash
+/// plus the open position at the given price.
 /// </summary>
 internal sealed class EmulatorBotAccount(int id, string population, double startingCapital)
 {
@@ -21,8 +21,6 @@ internal sealed class EmulatorBotAccount(int id, string population, double start
 
 	/// <summary>Chance this bot acts on any one step, drawn from the settings' action frequency range.</summary>
 	public double ActivityChance { get; set; }
-
-	public double Balance => Cash + Position * AverageEntryPrice;
 
 	public double Equity(double price) => Cash + Position * price;
 

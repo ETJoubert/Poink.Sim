@@ -97,6 +97,9 @@ internal sealed class EmulatorBroker
 	/// </summary>
 	public double Replenish() => _accounts.Sum(ReplenishAccount);
 
+	/// <summary>Pays every bot in one group its starting capital on top of what it has. Returns the points paid in.</summary>
+	public double ReplenishGroup(string group) => _accounts.Where(bot => bot.Population == group).Sum(ReplenishAccount);
+
 	/// <summary>Pays one bot its population's starting capital on top of what it has. Returns the points paid in.</summary>
 	public double Replenish(int botId) => _accountsById.TryGetValue(botId, out var bot) ? ReplenishAccount(bot) : 0;
 
@@ -237,7 +240,6 @@ internal sealed class EmulatorBroker
 				bot.Id,
 				bot.Population,
 				bot.Capital,
-				bot.Balance,
 				bot.Equity(LastPrice),
 				bot.Position,
 				bot.AverageEntryPrice,

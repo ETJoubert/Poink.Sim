@@ -41,6 +41,19 @@
     color: var(--color-secondary);
 }
 
+.emu-group-card-replenish {
+    padding: 1px 8px;
+    font-size: 0.55rem;
+    font-weight: bold;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-success);
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--color-success) 55%, transparent);
+    border-radius: var(--border-radius-sm);
+    cursor: pointer;
+}
+
 .emu-group-card-remove {
     padding: 0 6px;
     font-size: 0.8rem;

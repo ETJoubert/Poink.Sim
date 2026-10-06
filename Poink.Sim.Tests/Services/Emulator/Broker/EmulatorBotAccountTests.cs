@@ -17,7 +17,7 @@ public class EmulatorBotAccountTests
 		account.ApplyFill(OrderSide.Buy, 2, 12);
 
 		Assert.Equal((4L, 11.0), (account.Position, account.AverageEntryPrice));
-		Assert.Equal(1_000, account.Balance);
+		Assert.Equal(1_000, account.Equity(account.AverageEntryPrice));
 		Assert.Equal(1_004, account.Equity(12));
 	}
 
@@ -30,11 +30,11 @@ public class EmulatorBotAccountTests
 		account.ApplyFill(OrderSide.Sell, 1, 13);
 
 		Assert.Equal((3L, 10.0), (account.Position, account.AverageEntryPrice));
-		Assert.Equal(1_003, account.Balance);
+		Assert.Equal(1_003, account.Equity(account.AverageEntryPrice));
 	}
 
 	[Fact]
-	public void ApplyFill_ClosingLeavesOnlyRealisedBalance()
+	public void ApplyFill_ClosingLeavesOnlyRealisedProfit()
 	{
 		var account = CreateAccount();
 		account.ApplyFill(OrderSide.Sell, 5, 20);
@@ -42,8 +42,8 @@ public class EmulatorBotAccountTests
 		account.ApplyFill(OrderSide.Buy, 5, 18);
 
 		Assert.Equal((0L, 0.0), (account.Position, account.AverageEntryPrice));
-		Assert.Equal(1_010, account.Balance);
-		Assert.Equal(account.Balance, account.Equity(99));
+		Assert.Equal(1_010, account.Cash);
+		Assert.Equal(account.Cash, account.Equity(99));
 	}
 
 	[Fact]
@@ -55,7 +55,7 @@ public class EmulatorBotAccountTests
 		account.ApplyFill(OrderSide.Sell, 5, 11);
 
 		Assert.Equal((-3L, 11.0), (account.Position, account.AverageEntryPrice));
-		Assert.Equal(1_002, account.Balance);
+		Assert.Equal(1_002, account.Equity(account.AverageEntryPrice));
 	}
 
 	[Fact]
@@ -67,7 +67,7 @@ public class EmulatorBotAccountTests
 		account.Deposit(500);
 
 		Assert.Equal((1_480.0, 1_500.0), (account.Cash, account.Capital));
-		Assert.Equal(1_500, account.Balance);
+		Assert.Equal(1_500, account.Equity(account.AverageEntryPrice));
 	}
 
 	[Fact]
@@ -90,6 +90,6 @@ public class EmulatorBotAccountTests
 		account.GoBust();
 
 		Assert.True(account.IsBust);
-		Assert.Equal(0, account.Balance);
+		Assert.Equal(0, account.Equity(100));
 	}
 }

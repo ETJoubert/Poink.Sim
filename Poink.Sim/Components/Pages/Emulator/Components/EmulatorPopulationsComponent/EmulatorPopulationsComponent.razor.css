@@ -49,3 +49,26 @@
 .emu-pop-negative {
     color: var(--color-error);
 }
+
+.emu-pop-medal {
+    display: inline-block;
+    margin-right: 6px;
+    padding: 0 5px;
+    font-size: 0.55rem;
+    font-weight: bold;
+    letter-spacing: 0.04em;
+    color: #1a1a19;
+    border-radius: var(--border-radius-sm);
+}
+
+.emu-pop-medal-gold {
+    background: #d4af37;
+}
+
+.emu-pop-medal-silver {
+    background: #c0c0c0;
+}
+
+.emu-pop-medal-bronze {
+    background: #cd7f32;
+}

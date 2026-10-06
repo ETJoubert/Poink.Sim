@@ -48,7 +48,7 @@ public class EmulatorLadderHelperTests
 		var rows = EmulatorLadderHelper.BuildRows(Book, Population, 10, OneTickRows);
 
 		Assert.Equal([null, null, 2, null, 3, null, null], rows.Select(row => row.Population?.BotCount));
-		Assert.Equal(900, rows[4].Population!.Value.Balance);
+		Assert.Equal(900, rows[4].Population!.Value.Equity);
 	}
 
 	[Fact]

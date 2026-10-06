@@ -45,6 +45,9 @@ namespace Poink.Sim.Components.Emulator
 		public EventCallback OnRemove { get; set; }
 
 		[Parameter]
+		public EventCallback OnReplenish { get; set; }
+
+		[Parameter]
 		public EventCallback<int> OnReplenishBot { get; set; }
 
 		private PopulationSettings? _source;

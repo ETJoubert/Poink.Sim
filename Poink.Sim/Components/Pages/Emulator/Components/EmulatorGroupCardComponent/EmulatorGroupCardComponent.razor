@@ -7,6 +7,8 @@
         <input class="emu-group-card-name" type="text" value="@_name" title="Group name -- must be unique; renaming keeps the group's bots"
                @onchange="e => ChangeAsync(() => _name = e.Value?.ToString()?.Trim() ?? string.Empty)" />
         <span class="emu-group-card-count" title="Bots still trading / bots in the group">@ActiveBots / @Bots.Count</span>
+        <button type="button" class="emu-group-card-replenish" @onclick="OnReplenish"
+                title="Replenish the @Group.Name group: add @Group.StartingPoints.ToString("N0") points to every bot on top of what it has -- bust bots come back">Replenish</button>
         <button type="button" class="emu-group-card-remove" @onclick="OnRemove" disabled="@(!CanRemove)"
                 title="@(CanRemove ? $"Remove the {Group.Name} group -- restarts the market" : "The last group cannot be removed")">×</button>
     </div>

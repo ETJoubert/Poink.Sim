@@ -60,7 +60,7 @@ namespace Poink.Sim.Components.Emulator
 			row.Population is { BotCount: > 0 } population
 				? string.Create(
 					CultureInfo.InvariantCulture,
-					$"{population.BotCount:N0} bots with orders resting at {RowPrices(row)}, holding {population.Balance:N2} equity in total, {population.Balance / population.BotCount:N2} each on average"
+					$"{population.BotCount:N0} bots with orders resting at {RowPrices(row)}, holding {population.Equity:N2} equity in total, {population.Equity / population.BotCount:N2} each on average"
 				)
 				: $"No bots with orders resting at {RowPrices(row)}";
 

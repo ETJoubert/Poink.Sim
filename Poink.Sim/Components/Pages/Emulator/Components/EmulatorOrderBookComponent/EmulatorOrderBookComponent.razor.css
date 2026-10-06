@@ -118,11 +118,11 @@
     color: var(--color-info);
 }
 
-.emu-ladder-balance {
+.emu-ladder-equity {
     color: var(--color-text);
 }
 
 .emu-ladder-head .emu-ladder-bots,
-.emu-ladder-head .emu-ladder-balance {
+.emu-ladder-head .emu-ladder-equity {
     color: var(--color-secondary);
 }

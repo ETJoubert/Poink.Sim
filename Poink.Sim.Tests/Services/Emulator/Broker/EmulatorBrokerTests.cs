@@ -146,8 +146,8 @@ public class EmulatorBrokerTests
 		var bots = broker.BotSummaries();
 
 		Assert.Equal([1, 2], bots.Select(bot => bot.Id));
-		Assert.Equal((-10L, 101.0, 10_000.0, 1), (bots[0].Position, bots[0].AverageEntryPrice, bots[0].Balance, bots[0].OpenOrders));
-		Assert.Equal((10L, 10_000.0, 10_000.0), (bots[1].Position, bots[1].Balance, bots[1].Equity));
+		Assert.Equal((-10L, 101.0, 10_000.0, 1), (bots[0].Position, bots[0].AverageEntryPrice, bots[0].Equity, bots[0].OpenOrders));
+		Assert.Equal((10L, 10_000.0), (bots[1].Position, bots[1].Equity));
 	}
 
 	[Fact]
@@ -295,5 +295,19 @@ public class EmulatorBrokerTests
 		Assert.Equal(["Renamed", "Renamed", "Renamed", "New", "New"], broker.Accounts.Select(bot => bot.Population));
 		Assert.Equal((250.0, 250.0), (broker.Accounts[4].Cash, broker.Accounts[4].Capital));
 		Assert.Equal(["Renamed", "New"], broker.PopulationSummaries().Select(summary => summary.Name));
+	}
+
+	[Fact]
+	public void ReplenishGroup_PaysOnlyThatGroupsBots()
+	{
+		var broker = new EmulatorBroker(
+			new EmulatorSettings { Populations = [new PopulationSettings("A", 2, 100), new PopulationSettings("B", 3, 250)] }
+		);
+
+		var paidIn = broker.ReplenishGroup("B");
+
+		Assert.Equal(750, paidIn);
+		Assert.Equal([100.0, 100, 500, 500, 500], broker.Accounts.Select(bot => bot.Capital));
+		Assert.Equal(0, broker.ReplenishGroup("Missing"));
 	}
 }

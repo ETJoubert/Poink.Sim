@@ -69,7 +69,7 @@ internal static class EmulatorLadderHelper
 				group => new PopulationLevel(
 					EmulatorTickHelper.FromTicks(scale.RowBottomTicks(group.Key), scale.TickSize),
 					group.Sum(entry => entry.Item.BotCount),
-					group.Sum(entry => entry.Item.Balance)
+					group.Sum(entry => entry.Item.Equity)
 				)
 			);
 }

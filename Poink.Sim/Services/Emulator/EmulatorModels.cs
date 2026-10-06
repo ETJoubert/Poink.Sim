@@ -27,7 +27,7 @@ public sealed record OrderBook(IReadOnlyList<OrderBookLevel> Bids, IReadOnlyList
 }
 
 /// <summary>The bots with orders resting at one price level and the equity they hold between them.</summary>
-public readonly record struct PopulationLevel(double Price, int BotCount, double Balance);
+public readonly record struct PopulationLevel(double Price, int BotCount, double Equity);
 
 /// <summary>
 /// A group of bots that start with the same capital (also what each gets on a replenish) and act alike: when a bot acts
@@ -64,17 +64,19 @@ public sealed record PopulationSummary(
 )
 {
 	public double ProfitLoss => Equity - Capital;
+
+	/// <summary>Profit/loss as a share of capital paid in, so groups of any size compare fairly.</summary>
+	public double Return => Capital > 0 ? ProfitLoss / Capital : 0;
 }
 
 /// <summary>
-/// One bot's account as the page shows it: capital is every point paid in, balance adds realised P/L, equity adds the
-/// open position.
+/// One bot's account as the page shows it: capital is every point paid in; equity is its cash plus its open position at
+/// the last price.
 /// </summary>
 public sealed record BotSummary(
 	int Id,
 	string Population,
 	double Capital,
-	double Balance,
 	double Equity,
 	long Position,
 	double AverageEntryPrice,

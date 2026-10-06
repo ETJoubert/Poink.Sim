@@ -133,6 +133,19 @@ public sealed class EmulatorService : IEmulatorService, IDisposable
 		Changed?.Invoke();
 	}
 
+	public void ReplenishGroup(string group)
+	{
+		double paidIn;
+		lock (_lock)
+		{
+			paidIn = _broker.ReplenishGroup(group);
+			_snapshot = BuildSnapshot(_broker, _snapshot.Step);
+		}
+
+		_logger.LogInformation("Emulator group {Group} replenished for {Symbol}: {PaidIn:N0} points paid in", group, Settings.Symbol, paidIn);
+		Changed?.Invoke();
+	}
+
 	public void Replenish(int botId)
 	{
 		double paidIn;

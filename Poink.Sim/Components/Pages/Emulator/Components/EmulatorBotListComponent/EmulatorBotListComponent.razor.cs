@@ -7,7 +7,7 @@ using Poink.Sim.Emulator;
 namespace Poink.Sim.Components.Emulator
 {
 	/// <summary>
-	/// Every bot's account: its position, balance (realised) and equity (with the open position), bust bots dimmed.
+	/// Every bot's account: its position and equity (cash plus the open position), bust bots dimmed.
 	/// </summary>
 	public partial class EmulatorBotListComponent : ComponentBase
 	{
@@ -21,7 +21,7 @@ namespace Poink.Sim.Components.Emulator
 			string.Create(
 				CultureInfo.InvariantCulture,
 				$"Bot #{bot.Id} ({bot.Population}){(bot.IsBust ? " -- bust, no longer trading" : "")}: position {bot.Position:N0}"
-					+ $"{(bot.Position != 0 ? $" at an average {bot.AverageEntryPrice:N4}" : "")}, capital paid in {bot.Capital:N2}, balance {bot.Balance:N2}, equity {bot.Equity:N2}, "
+					+ $"{(bot.Position != 0 ? $" at an average {bot.AverageEntryPrice:N4}" : "")}, capital paid in {bot.Capital:N2}, equity {bot.Equity:N2}, "
 					+ $"{bot.OpenOrders:N0} orders resting, acts on {bot.ActivityChance:P1} of steps"
 			);
 

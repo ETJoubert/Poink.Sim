@@ -31,6 +31,9 @@ public interface IEmulatorService
 	/// <summary>Pays every bot its population's starting capital on top of what it has; bust bots come back.</summary>
 	void Replenish();
 
+	/// <summary>Pays every bot in one group its starting capital on top of what it has; bust bots come back.</summary>
+	void ReplenishGroup(string group);
+
 	/// <summary>Pays one bot its population's starting capital on top of what it has; a bust bot comes back.</summary>
 	void Replenish(int botId);
 

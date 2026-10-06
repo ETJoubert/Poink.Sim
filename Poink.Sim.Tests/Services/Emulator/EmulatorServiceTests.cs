@@ -365,6 +365,20 @@ public class EmulatorServiceTests
 	}
 
 	[Fact]
+	public void ReplenishGroup_PaysOneGroupWithoutReopening()
+	{
+		using var service = CreateService(
+			Settings with { Populations = [new PopulationSettings("Test", 2, 10_000), new PopulationSettings("Other", 1, 500)] }
+		);
+		service.Step();
+
+		service.ReplenishGroup("Other");
+
+		Assert.Equal(1, service.Snapshot.Step);
+		Assert.Equal([10_000.0, 10_000, 1_000], service.Snapshot.Bots.Select(bot => bot.Capital));
+	}
+
+	[Fact]
 	public void StartAndStop_ToggleIsRunning()
 	{
 		using var service = CreateService();

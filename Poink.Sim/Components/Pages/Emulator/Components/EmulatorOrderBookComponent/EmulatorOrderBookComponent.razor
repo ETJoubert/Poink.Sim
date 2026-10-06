@@ -8,7 +8,7 @@
         <span class="emu-ladder-ask">ASK</span>
         <span class="emu-ladder-pop" title="Population: bots with orders resting at the level and the equity they hold between them">
             <span class="emu-ladder-bots">BOTS</span>
-            <span class="emu-ladder-balance">BALANCE</span>
+            <span class="emu-ladder-equity">EQUITY</span>
         </span>
     </div>
     <div class="emu-ladder-rows" style="grid-template-rows: repeat(@_rows.Count, minmax(0, 1fr))">
@@ -34,7 +34,7 @@
                     @if (row.Population is { } population)
                     {
                         <span class="emu-ladder-bots">@population.BotCount.ToString("N0")</span>
-                        <span class="emu-ladder-balance">@EmulatorChartHelper.CompactAmount(population.Balance)</span>
+                        <span class="emu-ladder-equity">@EmulatorChartHelper.CompactAmount(population.Equity)</span>
                     }
                 </span>
             </div>
