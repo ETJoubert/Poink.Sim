@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
 using Poink.Sim.Components.Pages.Trade.Helpers;
 using Poink.Sim.Components.Pages.Trade.Models;
+using Poink.Sim.Helpers;
 using Poink.Sim.Models;
 using Poink.Sim.Repository;
 using Poink.Sim.Services.CTrader;
@@ -89,6 +91,11 @@ namespace Poink.Sim.Components.Pages.Trade
 			SymbolFilterHelper.TotalMatchCount(Session.Symbols, FilterCriteria, _symbolCategories, _coverage);
 
 		private SymbolTickCoverage CoverageFor(string symbolName) => SymbolCoverageHelper.For(symbolName, _coverage);
+
+		private IReadOnlyDictionary<string, string> SymbolColors => SymbolColorHelper.Assign(Session.Watchlist.Select(q => q.SymbolName));
+
+		private string SymbolColorStyle(string symbolName) =>
+			$"--trade-symbol-color: var({SymbolColorHelper.ColorVarFor(SymbolColors, symbolName)})";
 
 		protected override void OnInitialized()
 		{
@@ -198,6 +205,12 @@ namespace Poink.Sim.Components.Pages.Trade
 		{
 			await Session.UnwatchSymbolAsync(symbolId);
 			await OnSymbolUnwatched.InvokeAsync(symbolId);
+		}
+
+		private async Task UnwatchAllAsync()
+		{
+			foreach (var symbolId in Session.Watchlist.Select(q => q.SymbolId).ToList())
+				await UnwatchAsync(symbolId);
 		}
 
 		private Task SelectAsync(long symbolId, string symbolName) => OnSymbolSelected.InvokeAsync((symbolId, symbolName));

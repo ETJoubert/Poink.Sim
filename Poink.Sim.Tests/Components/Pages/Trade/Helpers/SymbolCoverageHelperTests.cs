@@ -55,6 +55,15 @@ public class SymbolCoverageHelperTests
 	}
 
 	[Fact]
+	public void ShortLabel_ShowsStoredRangeOrNone()
+	{
+		var coverage = SymbolCoverageHelper.Build([("live_ticks_eurusd", 10, Monday, Friday)], Friday.AddDays(1));
+
+		Assert.Equal("2026-01-05 → 2026-01-09", SymbolCoverageHelper.ShortLabel(SymbolCoverageHelper.For("EURUSD", coverage)));
+		Assert.Equal("no stored ticks", SymbolCoverageHelper.ShortLabel(SymbolCoverageHelper.For("GBPUSD", coverage)));
+	}
+
+	[Fact]
 	public void For_SymbolWithoutTable_HasNoData()
 	{
 		var coverage = SymbolCoverageHelper.Build([("demo_ticks_eurusd", 10, Monday, Monday.AddHours(1))], Monday.AddDays(1));

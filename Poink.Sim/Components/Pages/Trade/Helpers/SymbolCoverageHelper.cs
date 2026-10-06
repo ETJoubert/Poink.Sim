@@ -54,6 +54,9 @@ namespace Poink.Sim.Components.Pages.Trade.Helpers
 				_ => $"Stored ticks {RangeLabel(coverage)}, {coverage.Rows:N0} rows -- up to date",
 			};
 
+		public static string ShortLabel(SymbolTickCoverage coverage) =>
+			coverage.HasData ? RangeLabel(coverage) : "no stored ticks";
+
 		private static SymbolCoverageStatus StatusOf(long rows, DateTime? maxUtc, DateTime expectedFrom) =>
 			rows <= 0 || maxUtc is not { } max ? SymbolCoverageStatus.None
 			: max >= expectedFrom ? SymbolCoverageStatus.Current
