@@ -1,0 +1,54 @@
+@page "/emulator"
+@namespace Poink.Sim.Components.Pages
+@using Poink.Sim.Components.Emulator
+
+<div class="emu-page">
+    <header class="emu-header">
+        <span class="emu-title" title="Brokerage emulator: a synthetic asset that bots will buy and sell">EMULATOR</span>
+        <span class="emu-symbol" title="The synthetic asset being emulated">@Snapshot.Symbol</span>
+        <span class="emu-stat" title="Current price of @Snapshot.Symbol">
+            <span class="emu-stat-label">PRICE</span>@FormatPrice(Snapshot.Price)
+        </span>
+        <span class="emu-stat" title="Best bid and best ask -- the highest buy and lowest sell resting in the book">
+            <span class="emu-stat-label">BID / ASK</span>@FormatPrice(Snapshot.Book.BestBid) / @FormatPrice(Snapshot.Book.BestAsk)
+        </span>
+        <span class="emu-stat" title="Gap between the best ask and the best bid">
+            <span class="emu-stat-label">SPREAD</span>@FormatPrice(Snapshot.Book.Spread)
+        </span>
+        <span class="emu-stat" title="Steps taken since the last reset">
+            <span class="emu-stat-label">STEP</span>@Snapshot.Step.ToString("N0")
+        </span>
+        <span class="emu-state @(Emulator.IsRunning ? "running" : "")" title="Whether the emulator is stepping on its timer right now">
+            @(Emulator.IsRunning ? "RUNNING" : "STOPPED")
+        </span>
+
+        <div class="emu-actions">
+            @if (Emulator.IsRunning)
+            {
+                <button type="button" class="emu-btn emu-btn-stop" @onclick="Emulator.Stop"
+                        title="Stop stepping the emulator -- the price, book and history are kept">Stop</button>
+            }
+            else
+            {
+                <button type="button" class="emu-btn emu-btn-go" @onclick="Emulator.Start"
+                        title="Step the emulator every @Emulator.Settings.StepInterval.TotalMilliseconds.ToString("N0") ms">Start</button>
+            }
+            <button type="button" class="emu-btn" @onclick="Emulator.Step" disabled="@Emulator.IsRunning"
+                    title="Advance the emulator by one step">Step</button>
+            <button type="button" class="emu-btn" @onclick="Emulator.Reset"
+                    title="Restart the asset from its start price with a fresh warm-up history">Reset</button>
+        </div>
+    </header>
+
+    <div class="emu-body">
+        <section class="emu-panel emu-chart-panel" title="Price history of @Snapshot.Symbol, centred on its current price">
+            <div class="emu-panel-heading">PRICE</div>
+            <EmulatorPriceChartComponent Snapshot="Snapshot" TickSize="Emulator.Settings.TickSize" />
+        </section>
+
+        <section class="emu-panel emu-book-panel" title="Resting orders on each side of the market and the bots at each level">
+            <div class="emu-panel-heading">ORDER BOOK</div>
+            <EmulatorOrderBookComponent Book="Snapshot.Book" Population="Snapshot.Population" Price="Snapshot.Price" TickSize="Emulator.Settings.TickSize" />
+        </section>
+    </div>
+</div>

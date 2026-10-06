@@ -1,0 +1,16 @@
+@namespace Poink.Sim.Components.Emulator
+@using Poink.Sim.Helpers
+
+<div class="emu-chart" title="@Snapshot.Symbol price history -- the newest price is on the right edge">
+    <svg viewBox="0 0 @EmulatorChartHelper.Coord(ViewWidth) @EmulatorChartHelper.Coord(ViewHeight)" preserveAspectRatio="none" class="emu-chart-svg">
+        <polyline points="@HistoryPoints" class="emu-chart-history" vector-effect="non-scaling-stroke">
+            <title>Price history: last @Snapshot.History.Count prices</title>
+        </polyline>
+        <line x1="0" y1="@PriceY" x2="@EmulatorChartHelper.Coord(ViewWidth)" y2="@PriceY" class="emu-chart-price" vector-effect="non-scaling-stroke">
+            <title>Current price @FormatPrice(Snapshot.Price)</title>
+        </line>
+    </svg>
+    <span class="emu-chart-axis emu-chart-axis-max" title="Top of the chart's price scale">@FormatPrice(Range.Max)</span>
+    <span class="emu-chart-axis emu-chart-axis-min" title="Bottom of the chart's price scale">@FormatPrice(Range.Min)</span>
+    <span class="emu-chart-price-label" style="top: @PriceTopPercent%" title="Current price of @Snapshot.Symbol">@FormatPrice(Snapshot.Price)</span>
+</div>

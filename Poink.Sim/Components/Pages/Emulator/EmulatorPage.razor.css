@@ -1,0 +1,125 @@
+.emu-page {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    height: 100%;
+    min-height: 0;
+    padding: 12px 16px;
+    color: var(--color-secondary);
+}
+
+.emu-header {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 14px;
+}
+
+.emu-title {
+    font-size: 0.8rem;
+    font-weight: bold;
+    letter-spacing: 0.1em;
+    color: var(--color-primary);
+}
+
+.emu-symbol {
+    font-size: 0.75rem;
+    font-weight: bold;
+    color: var(--color-highlight);
+}
+
+.emu-stat {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--color-text);
+}
+
+.emu-stat-label {
+    font-size: 0.55rem;
+    letter-spacing: 0.08em;
+    color: var(--color-secondary);
+}
+
+.emu-state {
+    font-size: 0.55rem;
+    letter-spacing: 0.08em;
+    padding: 2px 6px;
+    border: 1px solid color-mix(in srgb, var(--color-secondary) 30%, transparent);
+    border-radius: var(--border-radius-sm);
+}
+
+.emu-state.running {
+    color: var(--color-highlight);
+    border-color: var(--color-highlight);
+}
+
+.emu-actions {
+    display: flex;
+    gap: 8px;
+    margin-left: auto;
+}
+
+.emu-btn {
+    padding: 3px 12px;
+    font-size: 0.7rem;
+    color: var(--color-primary);
+    background: var(--color-bg-terminal);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 45%, transparent);
+    border-radius: var(--border-radius-sm);
+    cursor: pointer;
+}
+
+.emu-btn:disabled {
+    color: var(--color-disabled);
+    border-color: var(--color-disabled);
+    cursor: default;
+}
+
+.emu-btn-go {
+    color: var(--color-success);
+    border-color: var(--color-success);
+}
+
+.emu-btn-stop {
+    color: var(--color-error);
+    border-color: var(--color-error);
+}
+
+.emu-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 480px;
+    gap: 12px;
+    flex: 1;
+    min-height: 0;
+}
+
+.emu-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 0;
+    padding: 10px 12px;
+    border: 1px solid color-mix(in srgb, var(--color-secondary) 25%, transparent);
+    border-radius: var(--border-radius-md);
+    background: color-mix(in srgb, var(--color-secondary) 6%, var(--color-bg-terminal));
+}
+
+.emu-book-panel {
+    overflow: hidden;
+}
+
+.emu-panel-heading {
+    font-size: 0.6rem;
+    font-weight: bold;
+    letter-spacing: 0.08em;
+    color: var(--color-primary);
+}
+
+@media (max-width: 900px) {
+    .emu-body {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}

@@ -9,6 +9,7 @@ using Poink.Sim.Components.Pages.Calls.Services;
 using Poink.Sim.Components.Pages.Code.Services;
 using Poink.Sim.Components.Pages.Trade;
 using Poink.Sim.Data;
+using Poink.Sim.Emulator;
 using Poink.Sim.Helpers;
 using Poink.Sim.Repository;
 using Poink.Sim.Services.Activity;
@@ -224,6 +225,18 @@ public static class ServiceCollectionExtensions
 		services.AddSingleton<SignalStudy.ISignalDatasetBuilder, SignalStudy.SignalDatasetBuilder>();
 		services.AddSingleton<SignalStudy.ISignalDatasetService, SignalStudy.SignalDatasetService>();
 		services.AddSingleton<SignalStudy.ISignalAnalysisService, SignalStudy.SignalAnalysisService>();
+
+		return services;
+	}
+
+	/// <summary>
+	/// The Emulator page's brokerage emulator: one process-wide synthetic market, so it keeps stepping across page
+	/// visits. The generator stands in for the bots and matching engine until they are built.
+	/// </summary>
+	public static IServiceCollection BuildEmulatorServices(this IServiceCollection services)
+	{
+		services.AddSingleton<ISyntheticMarketGenerator, SyntheticMarketGenerator>();
+		services.AddSingleton<IEmulatorService, EmulatorService>();
 
 		return services;
 	}

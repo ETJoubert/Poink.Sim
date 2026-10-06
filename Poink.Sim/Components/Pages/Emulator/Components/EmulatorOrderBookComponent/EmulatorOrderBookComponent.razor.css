@@ -1,0 +1,130 @@
+.emu-ladder {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    font-size: 0.7rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.emu-ladder-head,
+.emu-ladder-row {
+    display: grid;
+    grid-template-columns: 1fr 80px 1fr 1.3fr;
+    align-items: center;
+}
+
+.emu-ladder-head {
+    padding-bottom: 4px;
+    font-size: 0.55rem;
+    font-weight: bold;
+    letter-spacing: 0.08em;
+    color: var(--color-secondary);
+    border-bottom: 1px solid color-mix(in srgb, var(--color-secondary) 25%, transparent);
+}
+
+.emu-ladder-rows {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.emu-ladder-row {
+    flex-shrink: 0;
+    height: 16px;
+    color: color-mix(in srgb, var(--color-text) 45%, transparent);
+}
+
+.emu-ladder-cell {
+    position: relative;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    padding: 0 6px;
+}
+
+.emu-ladder-bid {
+    justify-content: flex-end;
+    text-align: right;
+}
+
+.emu-ladder-price {
+    justify-content: center;
+    text-align: center;
+}
+
+.emu-ladder-ask {
+    justify-content: flex-start;
+    text-align: left;
+}
+
+.emu-ladder-depth {
+    position: absolute;
+    top: 1px;
+    bottom: 1px;
+    opacity: 0.2;
+    pointer-events: none;
+}
+
+.emu-ladder-bid .emu-ladder-depth {
+    right: 0;
+    background: var(--color-success);
+}
+
+.emu-ladder-ask .emu-ladder-depth {
+    left: 0;
+    background: var(--color-error);
+}
+
+.emu-ladder-volume {
+    position: relative;
+    color: var(--color-text);
+}
+
+.emu-ladder-ask-row .emu-ladder-price {
+    color: var(--color-error);
+}
+
+.emu-ladder-bid-row .emu-ladder-price {
+    color: var(--color-success);
+}
+
+.emu-ladder-current {
+    border-top: 1px dashed var(--color-highlight);
+    border-bottom: 1px dashed var(--color-highlight);
+}
+
+.emu-ladder-current .emu-ladder-price {
+    font-weight: bold;
+    color: var(--color-bg-terminal);
+    background: var(--color-highlight);
+    border-radius: var(--border-radius-sm);
+}
+
+.emu-ladder-pop {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    margin-left: 6px;
+    border-left: 1px solid color-mix(in srgb, var(--color-secondary) 25%, transparent);
+}
+
+.emu-ladder-head .emu-ladder-pop {
+    padding: 0 6px;
+}
+
+.emu-ladder-bots {
+    color: var(--color-info);
+}
+
+.emu-ladder-balance {
+    color: var(--color-text);
+}
+
+.emu-ladder-head .emu-ladder-bots,
+.emu-ladder-head .emu-ladder-balance {
+    color: var(--color-secondary);
+}

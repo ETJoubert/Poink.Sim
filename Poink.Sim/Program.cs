@@ -31,6 +31,7 @@ builder.Services.BuildDataSeriesSyncServices();
 builder.Services.BuildTrainingServices();
 builder.Services.BuildTrainingEngineServices();
 builder.Services.BuildSimulationServices();
+builder.Services.BuildEmulatorServices();
 
 builder.Services.AddSingleton<IProfilerService, ProfilerService>();
 builder.Services.AddSingleton<IBarKindChartService, BarKindChartService>();
