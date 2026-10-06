@@ -61,23 +61,6 @@
                                      Mode="_chartMode" ModeChanged="SetChartModeAsync" BarSpan="BarSpan" />
         </section>
 
-        <div class="emu-groups-grid" style="@GroupGridStyle" title="Bot groups: each card is one group, its bots on the left and its settings on the right">
-            @for (var i = 0; i < Emulator.Settings.Populations.Count; i++)
-            {
-                var index = i;
-                var group = Emulator.Settings.Populations[index];
-                <EmulatorGroupCardComponent @key="index" Group="group" Bots="BotsOf(group.Name)" Color="@EmulatorGroupColorHelper.ColorVar(index)"
-                                            OtherGroupNames="OtherGroupNames(index)" CanRemove="@(Emulator.Settings.Populations.Count > 1)"
-                                            OnChange="(PopulationSettings changed) => ChangeGroupAsync(index, changed)"
-                                            OnRemove="() => RemoveGroupAsync(index)"
-                                            OnReplenishBot="(int botId) => Emulator.Replenish(botId)" />
-            }
-            <button type="button" class="emu-add-group-card" @onclick="AddGroupAsync"
-                    title="Add a group with the same bots, capital and buy/sell/close chances as the last one -- its bots join the running market">
-                + Add group
-            </button>
-        </div>
-
         <section class="emu-panel emu-summary-panel" title="The bot groups side by side -- each bot sees only the market and its own account">
             <div class="emu-panel-heading">GROUPS</div>
             <EmulatorPopulationsComponent Populations="Snapshot.Populations" Groups="Emulator.Settings.Populations" />
@@ -94,5 +77,22 @@
                 <EmulatorBrokerComponent Broker="Snapshot.Broker" FundTopUp="Emulator.Settings.BrokerFund" OnReplenishFund="Emulator.ReplenishFund" />
             </section>
         </div>
+    </div>
+
+    <div class="emu-groups-row" title="Bot groups: each card is one group, its bots on the left and its settings on the right">
+        @for (var i = 0; i < Emulator.Settings.Populations.Count; i++)
+        {
+            var index = i;
+            var group = Emulator.Settings.Populations[index];
+            <EmulatorGroupCardComponent @key="index" Group="group" Bots="BotsOf(group.Name)" Color="@EmulatorGroupColorHelper.ColorVar(index)"
+                                        OtherGroupNames="OtherGroupNames(index)" CanRemove="@(Emulator.Settings.Populations.Count > 1)"
+                                        OnChange="(PopulationSettings changed) => ChangeGroupAsync(index, changed)"
+                                        OnRemove="() => RemoveGroupAsync(index)"
+                                        OnReplenishBot="(int botId) => Emulator.Replenish(botId)" />
+        }
+        <button type="button" class="emu-add-group-card" @onclick="AddGroupAsync"
+                title="Add a group with the same bots, capital and buy/sell/close chances as the last one -- its bots join the running market">
+            + Add group
+        </button>
     </div>
 </div>
