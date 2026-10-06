@@ -6,6 +6,10 @@
         <span class="emu-broker-label">FUND</span>
         <span class="emu-broker-value @(Broker.FundBalance < 0 ? "emu-broker-negative" : "")">@EmulatorChartHelper.CompactAmount(Broker.FundBalance)</span>
     </div>
+    <div class="emu-broker-stat" title="Every point paid into the fund: what it opened with plus each replenish">
+        <span class="emu-broker-label">PAID IN</span>
+        <span class="emu-broker-value">@EmulatorChartHelper.CompactAmount(Broker.FundCapital)</span>
+    </div>
     <div class="emu-broker-stat" title="Lent now: points borrowed for leveraged buys plus the value of units borrowed for short sales (@FundUsePercent of the fund)">
         <span class="emu-broker-label">LENT</span>
         <span class="emu-broker-value">@EmulatorChartHelper.CompactAmount(Broker.Lent)</span>
@@ -33,5 +37,9 @@
     <div class="emu-broker-stat" title="Orders the broker turned away for exceeding the bot's margin or the fund's lending room">
         <span class="emu-broker-label">REJECTED</span>
         <span class="emu-broker-value">@Broker.RejectedOrders.ToString("N0")</span>
+    </div>
+    <div class="emu-broker-actions">
+        <button type="button" class="emu-broker-btn" @onclick="OnReplenishFund"
+                title="Add the broker fund setting (@FundTopUp.ToString("N0") points) to the fund on top of what it has">Replenish fund</button>
     </div>
 </div>

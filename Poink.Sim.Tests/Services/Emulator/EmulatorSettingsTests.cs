@@ -8,9 +8,28 @@ public class EmulatorSettingsTests
 	private static readonly EmulatorSettings Settings = new();
 
 	[Fact]
-	public void RequiresReopen_SpeedAndLeverageDoNot()
+	public void RequiresReopen_LiveSettingsDoNot()
 	{
-		Assert.False(Settings.RequiresReopen(Settings with { SpeedMultiplier = 1_000, Leverage = 20 }));
+		Assert.False(
+			Settings.RequiresReopen(
+				Settings with
+				{
+					SpeedMultiplier = 1_000,
+					Leverage = 20,
+					BrokerFund = 5,
+					OrderRangeTicks = 5,
+					ActivityChanceMin = 0.3,
+					ActivityChanceMax = 0.9,
+				}
+			)
+		);
+	}
+
+	[Fact]
+	public void ActivityRangeDiffers_OnlyWhenTheRangeChanges()
+	{
+		Assert.False(Settings.ActivityRangeDiffers(Settings with { Leverage = 9 }));
+		Assert.True(Settings.ActivityRangeDiffers(Settings with { ActivityChanceMax = 0.9 }));
 	}
 
 	[Fact]
@@ -28,6 +47,6 @@ public class EmulatorSettingsTests
 	[Fact]
 	public void RequiresReopen_OtherSettingsDo()
 	{
-		Assert.True(Settings.RequiresReopen(Settings with { BrokerFund = 5 }));
+		Assert.True(Settings.RequiresReopen(Settings with { StopOutLevelPercent = 80 }));
 	}
 }

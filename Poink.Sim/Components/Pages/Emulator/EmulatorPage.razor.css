@@ -78,17 +78,6 @@
     cursor: default;
 }
 
-.emu-btn-icon {
-    display: flex;
-    align-items: center;
-    padding: 3px 8px;
-}
-
-::deep .emu-btn-icon-img {
-    width: 12px;
-    height: 12px;
-}
-
 .emu-speed {
     display: flex;
 }
@@ -132,7 +121,7 @@
 
 .emu-body {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 300px;
+    grid-template-columns: minmax(0, 1fr) 320px;
     gap: 12px;
     flex: 1;
     min-height: 0;
@@ -154,6 +143,18 @@
     overflow: hidden;
 }
 
+.emu-side {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-height: 0;
+}
+
+.emu-bots-panel {
+    flex: 1;
+    min-height: 200px;
+}
+
 .emu-panel-heading {
     font-size: 0.6rem;
     font-weight: bold;
@@ -172,8 +173,18 @@
         grid-template-columns: minmax(0, 1fr);
     }
 
+    .emu-side {
+        flex-direction: row;
+        flex-wrap: wrap;
+    }
+
+    .emu-settings-panel {
+        flex: 1 1 320px;
+    }
+
     .emu-bots-panel {
-        height: 320px;
+        flex: 1 1 320px;
+        height: 360px;
     }
 }
 

@@ -13,7 +13,8 @@ public class EmulatorServiceTests
 		StartPrice = 100,
 		TickSize = 1,
 		Populations = [new PopulationSettings("Test", 2, 10_000)],
-		ActivityChance = 1,
+		ActivityChanceMin = 1,
+		ActivityChanceMax = 1,
 		WarmupSteps = 0,
 		HistoryCapacity = 8,
 	};
@@ -221,6 +222,75 @@ public class EmulatorServiceTests
 		Assert.Equal(40_000, population.Capital);
 		Assert.Equal(40_000, population.Equity, 6);
 		Assert.Equal(1, service.Snapshot.Step);
+	}
+
+	[Fact]
+	public void Step_RecordsTheTicksOpenHighLowAndClose()
+	{
+		using var service = CreateService();
+
+		service.Step();
+
+		Assert.Equal(new EmulatorPricePoint(service.Snapshot.History[^1].Timestamp, 100, 101, 100, 101), service.Snapshot.History[^1]);
+	}
+
+	[Fact]
+	public void Replenish_OneBotPaysOnlyThatBot()
+	{
+		using var service = CreateService();
+
+		service.Replenish(2);
+
+		var bots = service.Snapshot.Bots;
+		Assert.Equal((10_000.0, 20_000.0), (bots[0].Capital, bots[1].Capital));
+	}
+
+	[Fact]
+	public void Bots_ActOnAFrequencyDrawnFromTheRange()
+	{
+		using var service = CreateService(Settings with { Populations = [new PopulationSettings("Test", 50, 10_000)], ActivityChanceMin = 0.2, ActivityChanceMax = 0.4 });
+
+		Assert.All(service.Snapshot.Bots, bot => Assert.InRange(bot.ActivityChance, 0.2, 0.4));
+	}
+
+	[Fact]
+	public void ApplySettings_ANewFrequencyRangeRedrawsEveryBotWithoutReopening()
+	{
+		using var service = CreateService();
+		service.Step();
+
+		service.ApplySettings(service.Settings with { ActivityChanceMin = 0.5, ActivityChanceMax = 0.6, OrderRangeTicks = 3 });
+
+		Assert.All(service.Snapshot.Bots, bot => Assert.InRange(bot.ActivityChance, 0.5, 0.6));
+		Assert.Equal(1, service.Snapshot.Step);
+		Assert.Equal(3, service.Settings.OrderRangeTicks);
+	}
+
+	[Fact]
+	public void ReplenishFund_TopsUpTheFundWithoutTouchingTheBots()
+	{
+		using var service = CreateService(Settings with { BrokerFund = 1_000 });
+		service.Step();
+
+		service.ReplenishFund();
+
+		Assert.Equal((2_000.0, 2_000.0), (service.Snapshot.Broker.FundBalance, service.Snapshot.Broker.FundCapital));
+		Assert.Equal(20_000, Assert.Single(service.Snapshot.Populations).Capital);
+		Assert.Equal(1, service.Snapshot.Step);
+	}
+
+	[Fact]
+	public void ApplySettings_ANewBrokerFundAppliesWithoutChangingTheBalance()
+	{
+		using var service = CreateService();
+		service.Step();
+
+		service.ApplySettings(service.Settings with { BrokerFund = 50 });
+
+		Assert.Equal(Settings.BrokerFund, service.Snapshot.Broker.FundBalance);
+		Assert.Equal(1, service.Snapshot.Step);
+		service.ReplenishFund();
+		Assert.Equal(Settings.BrokerFund + 50, service.Snapshot.Broker.FundBalance);
 	}
 
 	[Fact]

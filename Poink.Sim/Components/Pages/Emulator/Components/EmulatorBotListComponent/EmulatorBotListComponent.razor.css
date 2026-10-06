@@ -16,7 +16,7 @@
 
 .emu-bots-row {
     display: grid;
-    grid-template-columns: 48px 1fr 1.2fr 1.2fr;
+    grid-template-columns: 48px 1fr 1.2fr 1.2fr 18px;
     gap: 6px;
     padding: 1px 6px;
     color: var(--color-text);
@@ -51,7 +51,21 @@
     color: var(--color-error);
 }
 
-.emu-bots-bust {
+.emu-bots-bust span {
     opacity: 0.35;
     text-decoration: line-through;
+}
+
+.emu-bots-replenish {
+    padding: 0;
+    width: 16px;
+    height: 14px;
+    line-height: 12px;
+    font-size: 0.7rem;
+    font-weight: bold;
+    color: var(--color-success);
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--color-success) 45%, transparent);
+    border-radius: var(--border-radius-sm);
+    cursor: pointer;
 }

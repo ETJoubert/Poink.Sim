@@ -1,6 +1,9 @@
+using System;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 using Poink.Sim.Emulator;
 using Poink.Sim.Helpers;
+using Poink.Sim.Models;
 
 namespace Poink.Sim.Components.Emulator
 {
@@ -16,7 +19,18 @@ namespace Poink.Sim.Components.Emulator
 		[Parameter]
 		public double TickSize { get; set; } = 0.01;
 
+		[Parameter]
+		public EmulatorChartMode Mode { get; set; }
+
+		[Parameter]
+		public EventCallback<EmulatorChartMode> ModeChanged { get; set; }
+
+		[Parameter]
+		public TimeSpan BarSpan { get; set; } = TimeSpan.FromMilliseconds(500);
+
 		private EmulatorMarketScale _scale = default!;
+
+		private Task SelectModeAsync(EmulatorChartMode mode) => mode == Mode ? Task.CompletedTask : ModeChanged.InvokeAsync(mode);
 
 		protected override void OnParametersSet()
 		{

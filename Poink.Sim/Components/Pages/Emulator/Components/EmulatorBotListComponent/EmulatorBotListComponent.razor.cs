@@ -14,12 +14,15 @@ namespace Poink.Sim.Components.Emulator
 		[Parameter, EditorRequired]
 		public IReadOnlyList<BotSummary> Bots { get; set; } = Array.Empty<BotSummary>();
 
+		[Parameter]
+		public EventCallback<int> OnReplenish { get; set; }
+
 		private static string BotTooltip(BotSummary bot) =>
 			string.Create(
 				CultureInfo.InvariantCulture,
 				$"Bot #{bot.Id} ({bot.Population}){(bot.IsBust ? " -- bust, no longer trading" : "")}: position {bot.Position:N0}"
 					+ $"{(bot.Position != 0 ? $" at an average {bot.AverageEntryPrice:N4}" : "")}, capital paid in {bot.Capital:N2}, balance {bot.Balance:N2}, equity {bot.Equity:N2}, "
-					+ $"{bot.OpenOrders:N0} orders resting"
+					+ $"{bot.OpenOrders:N0} orders resting, acts on {bot.ActivityChance:P1} of steps"
 			);
 
 		private static string SignClass(double amount) =>

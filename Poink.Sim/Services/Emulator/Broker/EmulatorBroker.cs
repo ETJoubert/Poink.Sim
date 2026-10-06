@@ -25,18 +25,21 @@ internal sealed class EmulatorBroker
 
 	private long _lastPriceTicks;
 	private double _fundBalance;
+	private double _fundCapital;
 	private double _absorbedLosses;
 	private double _lentAtStepStart;
 	private double _committedThisStep;
 	private long _tradeCount;
 	private long _tradedVolume;
 	private long _rejectedOrders;
+	private double? _tradedHigh;
+	private double? _tradedLow;
 
 	public EmulatorBroker(EmulatorSettings settings)
 	{
 		_settings = settings;
 		_lastPriceTicks = Math.Max(1, EmulatorTickHelper.ToTicks(settings.StartPrice, settings.TickSize));
-		_fundBalance = settings.BrokerFund;
+		_fundBalance = _fundCapital = settings.BrokerFund;
 
 		var nextId = 1;
 		_accounts = settings
@@ -66,20 +69,26 @@ internal sealed class EmulatorBroker
 	/// Pays every bot its population's starting capital on top of what it has, reviving bust bots. Returns the points
 	/// paid in.
 	/// </summary>
-	public double Replenish()
-	{
-		var capitalByPopulation = _settings.Populations.ToDictionary(p => p.Name, p => p.StartingPoints);
-		var paidIn = 0.0;
-		foreach (var bot in _accounts)
-		{
-			if (capitalByPopulation.TryGetValue(bot.Population, out var capital) && capital > 0)
-			{
-				bot.Deposit(capital);
-				paidIn += capital;
-			}
-		}
+	public double Replenish() => _accounts.Sum(ReplenishAccount);
 
-		return paidIn;
+	/// <summary>Pays one bot its population's starting capital on top of what it has. Returns the points paid in.</summary>
+	public double Replenish(int botId) => _accountsById.TryGetValue(botId, out var bot) ? ReplenishAccount(bot) : 0;
+
+	/// <summary>Pays the settings' broker fund into the fund on top of what it has. Returns the points paid in.</summary>
+	public double ReplenishFund()
+	{
+		var amount = Math.Max(0, _settings.BrokerFund);
+		_fundBalance += amount;
+		_fundCapital += amount;
+		return amount;
+	}
+
+	/// <summary>The lowest and highest traded prices since the last call, or null when nothing traded.</summary>
+	public (double Low, double High)? TakeTradedRange()
+	{
+		var range = _tradedLow is { } low && _tradedHigh is { } high ? (low, high) : ((double, double)?)null;
+		_tradedLow = _tradedHigh = null;
+		return range;
 	}
 
 	public BotMarketView ViewFor(EmulatorBotAccount bot) =>
@@ -188,6 +197,7 @@ internal sealed class EmulatorBroker
 				bot.Position,
 				bot.AverageEntryPrice,
 				_book.OrderIdsOf(bot.Id).Count,
+				bot.ActivityChance,
 				bot.IsBust
 			))
 			.ToArray();
@@ -195,6 +205,7 @@ internal sealed class EmulatorBroker
 	public BrokerSummary Summary() =>
 		new(
 			_fundBalance,
+			_fundCapital,
 			_accounts.Sum(account => account.Borrowed(LastPrice)),
 			_absorbedLosses,
 			_settings.Leverage,
@@ -289,9 +300,23 @@ internal sealed class EmulatorBroker
 			_accountsById[trade.SellBotId].ApplyFill(OrderSide.Sell, trade.Volume, price);
 
 			_lastPriceTicks = trade.PriceTicks;
+			_tradedLow = Math.Min(_tradedLow ?? price, price);
+			_tradedHigh = Math.Max(_tradedHigh ?? price, price);
 			_tradeCount++;
 			_tradedVolume += trade.Volume;
 		}
+	}
+
+	private double ReplenishAccount(EmulatorBotAccount bot)
+	{
+		var capital = _settings.Populations.FirstOrDefault(p => p.Name == bot.Population)?.StartingPoints ?? 0;
+		if (capital <= 0)
+		{
+			return 0;
+		}
+
+		bot.Deposit(capital);
+		return capital;
 	}
 
 	private double ToPrice(long priceTicks) => EmulatorTickHelper.FromTicks(priceTicks, _settings.TickSize);

@@ -17,11 +17,20 @@ public class EmulatorPageSettingsTests
 			SpeedMultiplier = 100,
 		};
 
-		var json = JsonSerializer.Serialize(EmulatorPageSettings.From(chosen));
-		var restored = JsonSerializer.Deserialize<EmulatorPageSettings>(json)!.ApplyTo(new EmulatorSettings());
+		var json = JsonSerializer.Serialize(
+			EmulatorPageSettings.From(
+				chosen with { OrderRangeTicks = 7, ActivityChanceMin = 0.3, ActivityChanceMax = 0.6, BrokerFund = 250_000 },
+				EmulatorChartMode.Ohlc
+			)
+		);
+		var saved = JsonSerializer.Deserialize<EmulatorPageSettings>(json)!;
+		var restored = saved.ApplyTo(new EmulatorSettings());
 
 		Assert.Equal(new PopulationSettings("Random", 40, 2_500), Assert.Single(restored.Populations));
-		Assert.Equal((7.5, 100), (restored.Leverage, restored.SpeedMultiplier));
+		Assert.Equal((7.5, 100, 7), (restored.Leverage, restored.SpeedMultiplier, restored.OrderRangeTicks));
+		Assert.Equal((0.3, 0.6), (restored.ActivityChanceMin, restored.ActivityChanceMax));
+		Assert.Equal(EmulatorChartMode.Ohlc, saved.ChartMode);
+		Assert.Equal(250_000, restored.BrokerFund);
 	}
 
 	[Fact]
@@ -37,11 +46,26 @@ public class EmulatorPageSettingsTests
 	}
 
 	[Fact]
+	public void SettingsSavedBeforeNewChoicesStillLoad()
+	{
+		var current = new EmulatorSettings();
+		var json = """{"Populations":[{"Name":"Random","BotCount":30,"StartingPoints":500}],"Leverage":4,"SpeedMultiplier":10}""";
+
+		var saved = JsonSerializer.Deserialize<EmulatorPageSettings>(json)!;
+		var applied = saved.ApplyTo(current);
+
+		Assert.Null(saved.ChartMode);
+		Assert.Equal((4.0, 10, 30), (applied.Leverage, applied.SpeedMultiplier, applied.Populations[0].BotCount));
+		Assert.Equal((current.OrderRangeTicks, current.ActivityChanceMin), (applied.OrderRangeTicks, applied.ActivityChanceMin));
+		Assert.Equal(current.BrokerFund, applied.BrokerFund);
+	}
+
+	[Fact]
 	public void ApplyTo_LeavesInternalTimingsAlone()
 	{
 		var current = new EmulatorSettings();
 
-		var applied = EmulatorPageSettings.From(current with { Leverage = 3 }).ApplyTo(current);
+		var applied = EmulatorPageSettings.From(current with { Leverage = 3 }, EmulatorChartMode.Line).ApplyTo(current);
 
 		Assert.Equal(current.TickInterval, applied.TickInterval);
 		Assert.Equal(current.HistoryCapacity, applied.HistoryCapacity);

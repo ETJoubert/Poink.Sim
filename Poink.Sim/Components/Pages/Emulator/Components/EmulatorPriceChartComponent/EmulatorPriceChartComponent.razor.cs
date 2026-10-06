@@ -1,13 +1,15 @@
+using System;
 using System.Globalization;
 using Microsoft.AspNetCore.Components;
 using Poink.Sim.Emulator;
 using Poink.Sim.Helpers;
+using Poink.Sim.Models;
 
 namespace Poink.Sim.Components.Emulator
 {
 	/// <summary>
-	/// The synthetic asset's price history as a line on the market scale it shares with the ladder, with the last price and
-	/// the best bid and best ask drawn as level lines.
+	/// The synthetic asset's price history, as a close-price line or as OHLC bars, on the market scale it shares with the
+	/// ladder, with the last price and the best bid and best ask drawn as level lines.
 	/// </summary>
 	public partial class EmulatorPriceChartComponent : ComponentBase
 	{
@@ -23,7 +25,17 @@ namespace Poink.Sim.Components.Emulator
 		[Parameter, EditorRequired]
 		public EmulatorPriceRange Range { get; set; }
 
+		[Parameter]
+		public EmulatorChartMode Mode { get; set; }
+
+		[Parameter]
+		public TimeSpan BarSpan { get; set; } = TimeSpan.FromMilliseconds(500);
+
 		private string HistoryPoints { get; set; } = string.Empty;
+
+		private (string Rising, string Falling) OhlcPaths { get; set; } = (string.Empty, string.Empty);
+
+		private int BarCount { get; set; }
 
 		private ChartLevel Price { get; set; } = default!;
 
@@ -36,7 +48,16 @@ namespace Poink.Sim.Components.Emulator
 		protected override void OnParametersSet()
 		{
 			_priceFormat = EmulatorChartHelper.PriceFormat(TickSize);
-			HistoryPoints = EmulatorChartHelper.PolylinePoints(Snapshot.History, Range, ViewWidth, ViewHeight);
+			if (Mode == EmulatorChartMode.Ohlc)
+			{
+				var bars = EmulatorChartHelper.GroupBars(Snapshot.History, BarSpan);
+				BarCount = bars.Count;
+				OhlcPaths = EmulatorChartHelper.OhlcPaths(bars, Range, ViewWidth, ViewHeight);
+			}
+			else
+			{
+				HistoryPoints = EmulatorChartHelper.PolylinePoints(Snapshot.History, Range, ViewWidth, ViewHeight);
+			}
 			Price = LevelAt(Snapshot.Price);
 			Bid = Snapshot.Book.BestBid is { } bid ? LevelAt(bid) : null;
 			Ask = Snapshot.Book.BestAsk is { } ask ? LevelAt(ask) : null;

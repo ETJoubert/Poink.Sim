@@ -1,5 +1,6 @@
 @namespace Poink.Sim.Components.Emulator
 @using Poink.Sim.Helpers
+@using Poink.Sim.Models
 
 <div class="emu-chart" title="@Snapshot.Symbol price history -- the newest price is on the right edge">
     <svg viewBox="0 0 @EmulatorChartHelper.Coord(ViewWidth) @EmulatorChartHelper.Coord(ViewHeight)" preserveAspectRatio="none" class="emu-chart-svg">
@@ -15,9 +16,21 @@
                 <title>Best bid @bid.Label -- the highest price anyone is buying at</title>
             </line>
         }
-        <polyline points="@HistoryPoints" class="emu-chart-history" vector-effect="non-scaling-stroke">
-            <title>Price history: last @Snapshot.History.Count prices</title>
-        </polyline>
+        @if (Mode == EmulatorChartMode.Ohlc)
+        {
+            <path d="@OhlcPaths.Rising" class="emu-chart-ohlc-rising" vector-effect="non-scaling-stroke">
+                <title>Rising bars: closed at or above their open (@BarCount bars of @BarSpan.TotalMilliseconds.ToString("N0") ms)</title>
+            </path>
+            <path d="@OhlcPaths.Falling" class="emu-chart-ohlc-falling" vector-effect="non-scaling-stroke">
+                <title>Falling bars: closed below their open (@BarCount bars of @BarSpan.TotalMilliseconds.ToString("N0") ms)</title>
+            </path>
+        }
+        else
+        {
+            <polyline points="@HistoryPoints" class="emu-chart-history" vector-effect="non-scaling-stroke">
+                <title>Price history: last @Snapshot.History.Count prices</title>
+            </polyline>
+        }
         <line x1="0" y1="@Price.Y" x2="@EmulatorChartHelper.Coord(ViewWidth)" y2="@Price.Y" class="emu-chart-price" vector-effect="non-scaling-stroke">
             <title>Last traded price @Price.Label</title>
         </line>

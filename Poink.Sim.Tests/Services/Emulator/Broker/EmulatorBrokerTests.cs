@@ -195,4 +195,56 @@ public class EmulatorBrokerTests
 		Assert.Equal((1_000.0, 2_000.0), (shorter.Cash, shorter.Capital));
 		Assert.Equal(6_000, broker.PopulationSummaries()[0].Capital);
 	}
+
+	[Fact]
+	public void Replenish_OneBotLeavesTheOthersAlone()
+	{
+		var broker = CreateBroker();
+
+		var paidIn = broker.Replenish(broker.Accounts[1].Id);
+
+		Assert.Equal(10_000, paidIn);
+		Assert.Equal((10_000.0, 20_000.0), (broker.Accounts[0].Capital, broker.Accounts[1].Capital));
+		Assert.Equal(0, broker.Replenish(999));
+	}
+
+	[Fact]
+	public void TakeTradedRange_ReportsTheLowAndHighFillsSinceTheLastCall()
+	{
+		var broker = CreateBroker(bots: 3);
+		broker.Place(broker.Accounts[0], OrderSide.Sell, 101, 1);
+		broker.Place(broker.Accounts[0], OrderSide.Sell, 104, 1);
+		broker.Place(broker.Accounts[1], OrderSide.Buy, 104, 2);
+
+		Assert.Equal((101.0, 104.0), broker.TakeTradedRange());
+		Assert.Null(broker.TakeTradedRange());
+	}
+
+	[Fact]
+	public void ReplenishFund_AddsTheFundSettingOnTopOfTheBalance()
+	{
+		var broker = CreateBroker(fund: 500);
+
+		var paidIn = broker.ReplenishFund();
+
+		Assert.Equal(500, paidIn);
+		Assert.Equal((1_000.0, 1_000.0), (broker.Summary().FundBalance, broker.Summary().FundCapital));
+	}
+
+	[Fact]
+	public void ReplenishFund_UsesTheFundSettingInForceNow()
+	{
+		var broker = CreateBroker(fund: 500);
+		broker.UpdateTerms(new EmulatorSettings
+		{
+			StartPrice = 100,
+			TickSize = 1,
+			Populations = [new PopulationSettings("Test", 2, 10_000)],
+			BrokerFund = 2_000,
+		});
+
+		broker.ReplenishFund();
+
+		Assert.Equal(2_500, broker.Summary().FundBalance);
+	}
 }

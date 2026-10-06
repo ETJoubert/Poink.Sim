@@ -19,6 +19,9 @@ internal sealed class EmulatorBotAccount(int id, string population, double start
 	public int Fills { get; private set; }
 	public int StopOuts { get; set; }
 
+	/// <summary>Chance this bot acts on any one step, drawn from the settings' action frequency range.</summary>
+	public double ActivityChance { get; set; }
+
 	public double Balance => Cash + Position * AverageEntryPrice;
 
 	public double Equity(double price) => Cash + Position * price;

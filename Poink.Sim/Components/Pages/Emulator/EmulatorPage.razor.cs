@@ -24,10 +24,14 @@ namespace Poink.Sim.Components.Pages
 		[Inject]
 		private ILogger<EmulatorPage> Logger { get; set; } = default!;
 
-		private bool _settingsOpen;
+		private const int TicksPerChartBar = 10;
+
 		private bool _settingsLoaded;
+		private EmulatorChartMode _chartMode = EmulatorChartMode.Line;
 
 		private EmulatorSnapshot Snapshot => Emulator.Snapshot;
+
+		private TimeSpan BarSpan => Emulator.Settings.TickInterval * TicksPerChartBar;
 
 		protected override void OnInitialized()
 		{
@@ -42,14 +46,15 @@ namespace Poink.Sim.Components.Pages
 			}
 		}
 
-		private void OpenSettings() => _settingsOpen = true;
-
-		private void CloseSettings() => _settingsOpen = false;
-
 		private Task ApplySettingsAsync(EmulatorSettings settings)
 		{
-			_settingsOpen = false;
 			Emulator.ApplySettings(settings);
+			return SaveSettingsAsync();
+		}
+
+		private Task SetChartModeAsync(EmulatorChartMode mode)
+		{
+			_chartMode = mode;
 			return SaveSettingsAsync();
 		}
 
@@ -70,11 +75,13 @@ namespace Poink.Sim.Components.Pages
 					return;
 				}
 
+				_chartMode = saved.ChartMode ?? _chartMode;
 				var settings = saved.ApplyTo(Emulator.Settings);
 				if (!SameChoices(Emulator.Settings, settings))
 				{
 					Emulator.ApplySettings(settings);
 				}
+				StateHasChanged();
 				Logger.LogInformation("Emulator settings loaded from browser storage: {Settings}", saved);
 			}
 			catch (Exception ex)
@@ -95,7 +102,7 @@ namespace Poink.Sim.Components.Pages
 				return;
 			}
 
-			var settings = EmulatorPageSettings.From(Emulator.Settings);
+			var settings = EmulatorPageSettings.From(Emulator.Settings, _chartMode);
 			try
 			{
 				await LocalStorage.SetItemAsync(EmulatorPageSettings.StorageKey, settings);
@@ -108,7 +115,12 @@ namespace Poink.Sim.Components.Pages
 		}
 
 		private static bool SameChoices(EmulatorSettings current, EmulatorSettings next) =>
-			!current.RequiresReopen(next) && current.Leverage == next.Leverage && current.SpeedMultiplier == next.SpeedMultiplier;
+			!current.RequiresReopen(next)
+			&& current.Leverage == next.Leverage
+			&& current.BrokerFund == next.BrokerFund
+			&& current.SpeedMultiplier == next.SpeedMultiplier
+			&& current.OrderRangeTicks == next.OrderRangeTicks
+			&& !current.ActivityRangeDiffers(next);
 
 		private void HandleEmulatorChanged() => _ = InvokeAsync(StateHasChanged);
 

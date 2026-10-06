@@ -37,3 +37,30 @@
     flex-shrink: 0;
     border-left: 1px solid color-mix(in srgb, var(--color-secondary) 35%, transparent);
 }
+
+.emu-market-modes {
+    display: flex;
+    margin-left: auto;
+    margin-right: 8px;
+}
+
+.emu-market-mode {
+    padding: 0 8px;
+    font-size: 0.55rem;
+    font-weight: bold;
+    letter-spacing: 0.08em;
+    color: var(--color-secondary);
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
+    cursor: pointer;
+}
+
+.emu-market-mode + .emu-market-mode {
+    border-left: none;
+}
+
+.emu-market-mode.selected {
+    color: var(--color-bg-terminal);
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+}

@@ -43,6 +43,33 @@ public class EmulatorChartHelperTests
 	}
 
 	[Fact]
+	public void GroupBars_FoldsPointsIntoClockAlignedBars()
+	{
+		var start = DateTime.UnixEpoch;
+		EmulatorPricePoint[] history =
+		[
+			new(start, 10, 12, 9, 11),
+			new(start.AddMilliseconds(400), 11, 15, 11, 14),
+			new(start.AddMilliseconds(500), 14, 14, 8, 9),
+		];
+
+		var bars = EmulatorChartHelper.GroupBars(history, TimeSpan.FromMilliseconds(500));
+
+		Assert.Equal([new EmulatorPricePoint(start, 10, 15, 9, 14), history[2]], bars);
+	}
+
+	[Fact]
+	public void OhlcPaths_SplitsRisingAndFallingBars()
+	{
+		EmulatorPricePoint[] bars = [new(DateTime.UnixEpoch, 100, 110, 100, 110), new(DateTime.UnixEpoch, 110, 110, 100, 100)];
+
+		var (rising, falling) = EmulatorChartHelper.OhlcPaths(bars, new EmulatorPriceRange(100, 110), 100, 10);
+
+		Assert.Equal("M25,0V10M7.5,10H25M25,0H42.5", rising);
+		Assert.Equal("M75,0V10M57.5,0H75M75,10H92.5", falling);
+	}
+
+	[Fact]
 	public void DepthPercent_IsShareOfDeepestLevel()
 	{
 		Assert.Equal(25, EmulatorChartHelper.DepthPercent(10, 40));

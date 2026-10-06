@@ -63,12 +63,17 @@ public sealed record BotSummary(
 	long Position,
 	double AverageEntryPrice,
 	int OpenOrders,
+	double ActivityChance,
 	bool IsBust
 );
 
-/// <summary>The broker's fund, what it has lent out, the losses it has absorbed and the market's activity.</summary>
+/// <summary>
+/// The broker's fund (its balance and every point paid into it), what it has lent out, the losses it has absorbed and the
+/// market's activity.
+/// </summary>
 public sealed record BrokerSummary(
 	double FundBalance,
+	double FundCapital,
 	double Lent,
 	double AbsorbedLosses,
 	double Leverage,
@@ -78,8 +83,15 @@ public sealed record BrokerSummary(
 	int OpenOrders
 );
 
-/// <summary>The synthetic asset's price at one moment of its history.</summary>
-public readonly record struct EmulatorPricePoint(DateTime Timestamp, double Price);
+/// <summary>
+/// One tick of the synthetic asset's history: the open, high, low and close of every trade in it, with
+/// <see cref="Price"/> as the close.
+/// </summary>
+public readonly record struct EmulatorPricePoint(DateTime Timestamp, double Open, double High, double Low, double Price)
+{
+	public EmulatorPricePoint(DateTime timestamp, double price)
+		: this(timestamp, price, price, price, price) { }
+}
 
 /// <summary>Everything the Emulator page shows at one step: the asset price, its order book, the bots and the broker.</summary>
 public sealed record EmulatorSnapshot(
@@ -103,7 +115,8 @@ public sealed record EmulatorSettings
 	public int BookDepth { get; init; } = 25;
 
 	public IReadOnlyList<PopulationSettings> Populations { get; init; } = [new PopulationSettings("Random", 200, 10_000)];
-	public double ActivityChance { get; init; } = 0.1;
+	public double ActivityChanceMin { get; init; } = 0.05;
+	public double ActivityChanceMax { get; init; } = 0.15;
 	public double CancelChance { get; init; } = 0.2;
 	public int OrderRangeTicks { get; init; } = 20;
 	public double MaxOrderFraction { get; init; } = 0.1;
@@ -120,12 +133,28 @@ public sealed record EmulatorSettings
 	public static IReadOnlyList<int> SpeedMultipliers { get; } = [1, 10, 100, 1_000];
 	public const double MinLeverage = 1;
 	public const double MaxLeverage = 100;
+	public const double MinBrokerFund = 0;
+	public const double MaxBrokerFund = 1_000_000_000_000;
+	public const int MinOrderRangeTicks = 1;
+	public const int MaxOrderRangeTicks = 1_000;
 
 	/// <summary>
-	/// Whether moving to <paramref name="next"/> needs a fresh market. Speed and leverage apply to the running market;
-	/// anything else, such as the populations, does not.
+	/// Whether moving to <paramref name="next"/> needs a fresh market. Speed, leverage, broker fund, order range and the
+	/// action frequency range apply to the running market; anything else, such as the populations, does not.
 	/// </summary>
 	public bool RequiresReopen(EmulatorSettings next) =>
 		!Populations.SequenceEqual(next.Populations)
-		|| this with { SpeedMultiplier = next.SpeedMultiplier, Leverage = next.Leverage, Populations = next.Populations } != next;
+		|| this with
+		{
+			SpeedMultiplier = next.SpeedMultiplier,
+			Leverage = next.Leverage,
+			BrokerFund = next.BrokerFund,
+			OrderRangeTicks = next.OrderRangeTicks,
+			ActivityChanceMin = next.ActivityChanceMin,
+			ActivityChanceMax = next.ActivityChanceMax,
+			Populations = next.Populations,
+		} != next;
+
+	public bool ActivityRangeDiffers(EmulatorSettings next) =>
+		ActivityChanceMin != next.ActivityChanceMin || ActivityChanceMax != next.ActivityChanceMax;
 }

@@ -133,6 +133,39 @@ public sealed class EmulatorService : IEmulatorService, IDisposable
 		Changed?.Invoke();
 	}
 
+	public void Replenish(int botId)
+	{
+		double paidIn;
+		lock (_lock)
+		{
+			paidIn = _broker.Replenish(botId);
+			_snapshot = BuildSnapshot(_broker, _snapshot.Step);
+		}
+
+		_logger.LogInformation("Emulator bot #{BotId} replenished for {Symbol}: {PaidIn:N0} points paid in", botId, Settings.Symbol, paidIn);
+		Changed?.Invoke();
+	}
+
+	public void ReplenishFund()
+	{
+		double paidIn;
+		double balance;
+		lock (_lock)
+		{
+			paidIn = _broker.ReplenishFund();
+			_snapshot = BuildSnapshot(_broker, _snapshot.Step);
+			balance = _snapshot.Broker.FundBalance;
+		}
+
+		_logger.LogInformation(
+			"Emulator broker fund replenished for {Symbol}: {PaidIn:N0} points paid in, fund now {FundBalance:N0}",
+			Settings.Symbol,
+			paidIn,
+			balance
+		);
+		Changed?.Invoke();
+	}
+
 	public void SetSpeed(int speedMultiplier)
 	{
 		if (!EmulatorSettings.SpeedMultipliers.Contains(speedMultiplier))
@@ -154,7 +187,8 @@ public sealed class EmulatorService : IEmulatorService, IDisposable
 		bool reopened;
 		lock (_lock)
 		{
-			reopened = Settings.RequiresReopen(settings);
+			var previous = Settings;
+			reopened = previous.RequiresReopen(settings);
 			_settings = settings;
 			if (reopened)
 			{
@@ -162,6 +196,10 @@ public sealed class EmulatorService : IEmulatorService, IDisposable
 			}
 			else
 			{
+				if (previous.ActivityRangeDiffers(settings))
+				{
+					AssignActivity(_broker);
+				}
 				_broker.UpdateTerms(settings);
 				_snapshot = BuildSnapshot(_broker, _snapshot.Step);
 			}
@@ -189,6 +227,8 @@ public sealed class EmulatorService : IEmulatorService, IDisposable
 		var done = 0;
 		lock (_lock)
 		{
+			var open = _broker.LastPrice;
+			_broker.TakeTradedRange();
 			while (done < steps)
 			{
 				AdvanceMarket(_broker);
@@ -199,7 +239,7 @@ public sealed class EmulatorService : IEmulatorService, IDisposable
 				}
 			}
 
-			AppendHistory(new EmulatorPricePoint(_timeProvider.GetUtcNow().UtcDateTime, _broker.LastPrice));
+			AppendHistory(BarOf(_timeProvider.GetUtcNow().UtcDateTime, open, _broker));
 			_snapshot = BuildSnapshot(_broker, _snapshot.Step + done);
 		}
 
@@ -260,12 +300,14 @@ public sealed class EmulatorService : IEmulatorService, IDisposable
 	{
 		_history.Clear();
 		var broker = new EmulatorBroker(Settings);
+		AssignActivity(broker);
 		var now = _timeProvider.GetUtcNow().UtcDateTime;
 		AppendHistory(new EmulatorPricePoint(now - Settings.TickInterval * Math.Max(0, Settings.WarmupSteps), broker.LastPrice));
 		for (var step = Settings.WarmupSteps - 1; step >= 0; step--)
 		{
+			var open = broker.LastPrice;
 			AdvanceMarket(broker);
-			AppendHistory(new EmulatorPricePoint(now - Settings.TickInterval * step, broker.LastPrice));
+			AppendHistory(BarOf(now - Settings.TickInterval * step, open, broker));
 		}
 
 		return (broker, BuildSnapshot(broker, 0));
@@ -278,13 +320,30 @@ public sealed class EmulatorService : IEmulatorService, IDisposable
 		_random.Shuffle(turnOrder);
 		foreach (var bot in turnOrder)
 		{
-			if (!bot.IsBust && _random.NextDouble() < Settings.ActivityChance)
+			if (!bot.IsBust && _random.NextDouble() < bot.ActivityChance)
 			{
 				broker.Execute(bot, _strategy.Decide(broker.ViewFor(bot), Settings));
 			}
 		}
 
 		broker.RunStopOuts();
+	}
+
+	private void AssignActivity(EmulatorBroker broker)
+	{
+		var min = Math.Min(Settings.ActivityChanceMin, Settings.ActivityChanceMax);
+		var max = Math.Max(Settings.ActivityChanceMin, Settings.ActivityChanceMax);
+		foreach (var bot in broker.Accounts)
+		{
+			bot.ActivityChance = min + (max - min) * _random.NextDouble();
+		}
+	}
+
+	private static EmulatorPricePoint BarOf(DateTime timestamp, double open, EmulatorBroker broker)
+	{
+		var close = broker.LastPrice;
+		var (low, high) = broker.TakeTradedRange() ?? (close, close);
+		return new EmulatorPricePoint(timestamp, open, Math.Max(high, Math.Max(open, close)), Math.Min(low, Math.Min(open, close)), close);
 	}
 
 	private EmulatorSnapshot BuildSnapshot(EmulatorBroker broker, long step) =>

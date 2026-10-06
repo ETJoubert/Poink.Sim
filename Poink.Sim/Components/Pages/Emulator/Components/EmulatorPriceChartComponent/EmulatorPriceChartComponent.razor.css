@@ -18,6 +18,20 @@
     stroke-width: 1.5;
 }
 
+.emu-chart-ohlc-rising,
+.emu-chart-ohlc-falling {
+    fill: none;
+    stroke-width: 1.5;
+}
+
+.emu-chart-ohlc-rising {
+    stroke: var(--color-success);
+}
+
+.emu-chart-ohlc-falling {
+    stroke: var(--color-error);
+}
+
 .emu-chart-price {
     stroke: var(--color-highlight);
     stroke-width: 1;
