@@ -160,7 +160,7 @@
 
 .emu-groups-row ::deep .emu-group-card,
 .emu-add-group-card {
-    flex: 0 1 460px;
+    flex: 0 1 414px;
     min-width: 0;
 }
 
@@ -178,13 +178,24 @@
     cursor: pointer;
 }
 
-.emu-add-group-card:hover {
+.emu-add-group-card:disabled {
+    color: var(--color-disabled);
+    border-color: var(--color-disabled);
+    cursor: default;
+}
+
+.emu-add-group-card:hover:not(:disabled) {
     background: color-mix(in srgb, var(--color-info) 8%, transparent);
 }
 
+.emu-summary-column {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+}
+
 .emu-summary-panel {
-    flex: none;
-    max-width: 100%;
     overflow-x: auto;
 }
 

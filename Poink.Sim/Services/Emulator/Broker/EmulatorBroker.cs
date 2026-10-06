@@ -234,6 +234,9 @@ internal sealed class EmulatorBroker
 			))
 			.ToArray();
 
+	public IReadOnlyDictionary<string, double> EquityByGroup() =>
+		_accounts.GroupBy(bot => bot.Population).ToDictionary(group => group.Key, group => group.Sum(bot => bot.Equity(LastPrice)));
+
 	public IReadOnlyList<BotSummary> BotSummaries() =>
 		_accounts
 			.Select(bot => new BotSummary(

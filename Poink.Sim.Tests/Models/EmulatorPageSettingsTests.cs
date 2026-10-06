@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Text.Json;
 using Poink.Sim.Emulator;
 using Poink.Sim.Models;
@@ -80,6 +81,17 @@ public class EmulatorPageSettingsTests
 
 		Assert.Same(current.Populations, overSpent.Populations);
 		Assert.Same(current.Populations, duplicated.Populations);
+	}
+
+	[Fact]
+	public void ApplyTo_RejectsMoreGroupsThanTheMaximum()
+	{
+		var current = new EmulatorSettings();
+		var tooMany = Enumerable.Range(1, EmulatorSettings.MaxGroups + 1).Select(i => new PopulationSettings($"G{i}", 5, 100)).ToArray();
+
+		var applied = new EmulatorPageSettings(tooMany, 2, 1).ApplyTo(current);
+
+		Assert.Same(current.Populations, applied.Populations);
 	}
 
 	[Fact]

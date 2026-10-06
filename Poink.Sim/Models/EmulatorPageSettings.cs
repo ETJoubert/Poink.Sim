@@ -42,7 +42,7 @@ public sealed record EmulatorPageSettings(
 			ActivityChanceMin is >= 0 and <= 1 && ActivityChanceMax is >= 0 and <= 1 && ActivityChanceMin <= ActivityChanceMax;
 		return settings with
 		{
-			Populations = Populations is { Count: > 0 } populations
+			Populations = Populations is { Count: > 0 and <= EmulatorSettings.MaxGroups } populations
 				&& populations.All(p => !string.IsNullOrWhiteSpace(p.Name) && p.BotCount > 0 && p.StartingPoints > 0 && p.HasValidActionChances)
 				&& populations.Select(p => p.Name).Distinct().Count() == populations.Count
 					? populations.ToArray()

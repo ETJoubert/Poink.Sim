@@ -16,6 +16,8 @@ public readonly record struct EmulatorPriceRange(double Min, double Max)
 /// <summary>Maps the Emulator's prices and book volumes onto chart and depth-bar geometry.</summary>
 internal static class EmulatorChartHelper
 {
+	private const double ValueRangePaddingFraction = 0.08;
+
 	public static double YFraction(double price, EmulatorPriceRange range) =>
 		range.Span <= 0 ? 0.5 : Math.Clamp(1 - (price - range.Min) / range.Span, 0, 1);
 
@@ -24,18 +26,49 @@ internal static class EmulatorChartHelper
 		EmulatorPriceRange range,
 		double width,
 		double height
+	) => PolylinePoints(history.Select(point => point.Price).ToArray(), range, width, height);
+
+	/// <summary>SVG polyline points for values spread evenly across the width, first value on the left.</summary>
+	public static string PolylinePoints(IReadOnlyList<double> values, EmulatorPriceRange range, double width, double height) =>
+		PolylinePoints(values, 0, values.Count, range, width, height);
+
+	/// <summary>
+	/// SVG polyline points for a series that starts <paramref name="firstIndex"/> slots into a timeline of
+	/// <paramref name="totalCount"/> evenly spaced slots, so a series that began late still lines up in time.
+	/// </summary>
+	public static string PolylinePoints(
+		IReadOnlyList<double> values,
+		int firstIndex,
+		int totalCount,
+		EmulatorPriceRange range,
+		double width,
+		double height
 	)
 	{
-		if (history.Count == 0)
+		if (values.Count == 0)
 		{
 			return string.Empty;
 		}
 
-		var xStep = history.Count > 1 ? width / (history.Count - 1) : 0;
+		var xStep = totalCount > 1 ? width / (totalCount - 1) : 0;
 		return string.Join(
 			' ',
-			history.Select((point, index) => $"{Coord(index * xStep)},{Coord(YFraction(point.Price, range) * height)}")
+			values.Select((value, index) => $"{Coord((firstIndex + index) * xStep)},{Coord(YFraction(value, range) * height)}")
 		);
+	}
+
+	/// <summary>The span of <paramref name="values"/> with a little headroom above and below, never zero-height.</summary>
+	public static EmulatorPriceRange RangeOfValues(IEnumerable<double> values)
+	{
+		var all = values.ToArray();
+		if (all.Length == 0)
+		{
+			return new EmulatorPriceRange(0, 1);
+		}
+
+		var (min, max) = (all.Min(), all.Max());
+		var padding = Math.Max((max - min) * ValueRangePaddingFraction, Math.Max(Math.Abs(max) * 0.001, 1));
+		return new EmulatorPriceRange(min - padding, max + padding);
 	}
 
 	/// <summary>

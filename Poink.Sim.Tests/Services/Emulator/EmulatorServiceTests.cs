@@ -379,6 +379,55 @@ public class EmulatorServiceTests
 	}
 
 	[Fact]
+	public void EquityHistory_RecordsEachGroupAlongsideThePriceHistory()
+	{
+		using var service = CreateService(Settings with { WarmupSteps = 3 });
+
+		service.Step();
+
+		var history = service.Snapshot.EquityHistory;
+		Assert.Equal(service.Snapshot.History.Count, history.Count);
+		Assert.All(history, point => Assert.Equal(20_000, point.EquityByGroup["Test"], 6));
+	}
+
+	[Fact]
+	public void EquityHistory_StartsAfreshWhenTheMarketReopens()
+	{
+		using var service = CreateService();
+		service.Step();
+		service.Step();
+
+		service.Reset();
+
+		Assert.Single(service.Snapshot.EquityHistory);
+	}
+
+	[Fact]
+	public void EquityHistory_CarriesARenamedGroupsLineOver()
+	{
+		using var service = CreateService();
+		service.Step();
+
+		service.ApplySettings(service.Settings with { Populations = [new PopulationSettings("Renamed", 2, 10_000)] });
+
+		Assert.All(service.Snapshot.EquityHistory, point => Assert.Equal(["Renamed"], point.EquityByGroup.Keys));
+	}
+
+	[Fact]
+	public void EquityHistory_AnAddedGroupAppearsFromWhenItJoined()
+	{
+		using var service = CreateService();
+		service.Step();
+
+		service.ApplySettings(service.Settings with { Populations = [new PopulationSettings("Test", 2, 10_000), new PopulationSettings("Late", 1, 500)] });
+		service.Step();
+
+		var history = service.Snapshot.EquityHistory;
+		Assert.False(history[^2].EquityByGroup.ContainsKey("Late"));
+		Assert.Equal(500, history[^1].EquityByGroup["Late"], 6);
+	}
+
+	[Fact]
 	public void StartAndStop_ToggleIsRunning()
 	{
 		using var service = CreateService();

@@ -62,8 +62,10 @@ namespace Poink.Sim.Components.Emulator
 				_ => "3rd",
 			};
 
-		private static string MedalTooltip(EmulatorMedal medal, PopulationSummary group) =>
-			$"{medal}: {MedalLabel(medal)} best return of all groups at {Percent(group.Return)}";
+		private string RankTooltip(PopulationSummary group) =>
+			_medals.TryGetValue(group.Name, out var medal)
+				? $"{group.Name} -- {medal}: {MedalLabel(medal)} best return of all groups at {Percent(group.Return)}"
+				: $"{group.Name} -- no medal, return {Percent(group.Return)}";
 
 		private string ColorOf(string group)
 		{

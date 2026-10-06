@@ -310,4 +310,24 @@ public class EmulatorBrokerTests
 		Assert.Equal([100.0, 100, 500, 500, 500], broker.Accounts.Select(bot => bot.Capital));
 		Assert.Equal(0, broker.ReplenishGroup("Missing"));
 	}
+
+	[Fact]
+	public void EquityByGroup_TotalsEachGroupAtTheLastPrice()
+	{
+		var broker = new EmulatorBroker(
+			new EmulatorSettings
+			{
+				StartPrice = 100,
+				TickSize = 1,
+				Populations = [new PopulationSettings("A", 1, 1_000), new PopulationSettings("B", 2, 500)],
+			}
+		);
+		broker.BeginStep();
+		broker.Place(broker.Accounts[1], OrderSide.Sell, 110, 2);
+		broker.Place(broker.Accounts[0], OrderSide.Buy, 110, 2);
+
+		var equity = broker.EquityByGroup();
+
+		Assert.Equal((1_000.0, 1_000.0), (equity["A"], equity["B"]));
+	}
 }

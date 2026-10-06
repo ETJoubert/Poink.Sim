@@ -61,10 +61,17 @@
                                      Mode="_chartMode" ModeChanged="SetChartModeAsync" BarSpan="BarSpan" />
         </section>
 
-        <section class="emu-panel emu-summary-panel" title="The bot groups side by side -- each bot sees only the market and its own account">
-            <div class="emu-panel-heading">GROUPS</div>
-            <EmulatorPopulationsComponent Populations="Snapshot.Populations" Groups="Emulator.Settings.Populations" />
-        </section>
+        <div class="emu-summary-column">
+            <section class="emu-panel emu-summary-panel" title="The bot groups side by side -- each bot sees only the market and its own account">
+                <div class="emu-panel-heading">GROUPS</div>
+                <EmulatorPopulationsComponent Populations="Snapshot.Populations" Groups="Emulator.Settings.Populations" />
+            </section>
+
+            <section class="emu-panel" title="Each group's total equity over time, in the group's colour">
+                <div class="emu-panel-heading">EQUITY</div>
+                <EmulatorEquityCurveComponent History="Snapshot.EquityHistory" Groups="Emulator.Settings.Populations" />
+            </section>
+        </div>
 
         <div class="emu-settings-column">
             <section class="emu-panel" title="Emulator settings -- edits take effect on Apply and are saved in this browser">
@@ -91,9 +98,19 @@
                                         OnReplenish="() => Emulator.ReplenishGroup(group.Name)"
                                         OnReplenishBot="(int botId) => Emulator.Replenish(botId)" />
         }
-        <button type="button" class="emu-add-group-card" @onclick="AddGroupAsync"
-                title="Add a group with the same bots, capital and buy/sell/close chances as the last one -- its bots join the running market">
-            + Add group
-        </button>
+        @if (Emulator.Settings.Populations.Count < EmulatorSettings.MaxGroups)
+        {
+            <button type="button" class="emu-add-group-card" @onclick="AddGroupAsync"
+                    title="Add a group with the same bots, capital and buy/sell/close chances as the last one -- its bots join the running market">
+                + Add group
+            </button>
+        }
+        else
+        {
+            <button type="button" class="emu-add-group-card" disabled
+                    title="The emulator runs at most @EmulatorSettings.MaxGroups groups -- remove one to add another">
+                @EmulatorSettings.MaxGroups groups max
+            </button>
+        }
     </div>
 </div>

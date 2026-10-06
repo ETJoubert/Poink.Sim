@@ -68,6 +68,11 @@ namespace Poink.Sim.Components.Pages
 		private Task AddGroupAsync()
 		{
 			var groups = Emulator.Settings.Populations;
+			if (groups.Count >= EmulatorSettings.MaxGroups)
+			{
+				return Task.CompletedTask;
+			}
+
 			var number = groups.Count + 1;
 			while (groups.Any(group => group.Name == $"Group {number}"))
 			{

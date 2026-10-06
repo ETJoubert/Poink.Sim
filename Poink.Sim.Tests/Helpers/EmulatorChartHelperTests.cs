@@ -70,6 +70,24 @@ public class EmulatorChartHelperTests
 	}
 
 	[Fact]
+	public void PolylinePoints_ALateSeriesStartsAtItsSlotInTheTimeline()
+	{
+		var points = EmulatorChartHelper.PolylinePoints([110.0, 100], 2, 5, new EmulatorPriceRange(100, 110), 100, 10);
+
+		Assert.Equal("50,0 75,10", points);
+	}
+
+	[Fact]
+	public void RangeOfValues_AddsHeadroomAndNeverCollapses()
+	{
+		var range = EmulatorChartHelper.RangeOfValues([100.0, 200]);
+		var flat = EmulatorChartHelper.RangeOfValues([500.0, 500]);
+
+		Assert.Equal((92.0, 208.0), (range.Min, range.Max));
+		Assert.True(flat.Span > 0);
+	}
+
+	[Fact]
 	public void DepthPercent_IsShareOfDeepestLevel()
 	{
 		Assert.Equal(25, EmulatorChartHelper.DepthPercent(10, 40));

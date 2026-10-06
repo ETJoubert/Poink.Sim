@@ -111,6 +111,9 @@ public readonly record struct EmulatorPricePoint(DateTime Timestamp, double Open
 		: this(timestamp, price, price, price, price) { }
 }
 
+/// <summary>Each group's total equity at one tick of the market's history, keyed by group name.</summary>
+public sealed record EmulatorEquityPoint(DateTime Timestamp, IReadOnlyDictionary<string, double> EquityByGroup);
+
 /// <summary>Everything the Emulator page shows at one step: the asset price, its order book, the bots and the broker.</summary>
 public sealed record EmulatorSnapshot(
 	string Symbol,
@@ -121,6 +124,7 @@ public sealed record EmulatorSnapshot(
 	IReadOnlyList<BotSummary> Bots,
 	BrokerSummary Broker,
 	IReadOnlyList<EmulatorPricePoint> History,
+	IReadOnlyList<EmulatorEquityPoint> EquityHistory,
 	long Step
 );
 
@@ -149,6 +153,7 @@ public sealed record EmulatorSettings
 	public int SpeedMultiplier { get; init; } = 1;
 
 	public static IReadOnlyList<int> SpeedMultipliers { get; } = [1, 10, 100, 1_000];
+	public const int MaxGroups = 5;
 	public const double MinLeverage = 1;
 	public const double MaxLeverage = 100;
 	public const double MinBrokerFund = 0;

@@ -27,6 +27,7 @@ public sealed class EmulatorService : IEmulatorService, IDisposable
 	private readonly Random _random;
 	private readonly object _lock = new();
 	private readonly Queue<EmulatorPricePoint> _history = new();
+	private readonly Queue<EmulatorEquityPoint> _equityHistory = new();
 
 	private EmulatorBroker _broker;
 	private volatile EmulatorSnapshot _snapshot;
@@ -210,6 +211,7 @@ public sealed class EmulatorService : IEmulatorService, IDisposable
 			else
 			{
 				var added = _broker.ApplyGroups(previous.Populations, settings.Populations);
+				RenameEquityHistory(previous.Populations, settings.Populations);
 				AssignActivity(previous.ActivityRangeDiffers(settings) ? _broker.Accounts : added);
 				_broker.UpdateTerms(settings);
 				_snapshot = BuildSnapshot(_broker, _snapshot.Step);
@@ -250,7 +252,9 @@ public sealed class EmulatorService : IEmulatorService, IDisposable
 				}
 			}
 
-			AppendHistory(BarOf(_timeProvider.GetUtcNow().UtcDateTime, open, _broker));
+			var now = _timeProvider.GetUtcNow().UtcDateTime;
+			AppendHistory(BarOf(now, open, _broker));
+			AppendEquity(now, _broker);
 			_snapshot = BuildSnapshot(_broker, _snapshot.Step + done);
 		}
 
@@ -310,15 +314,20 @@ public sealed class EmulatorService : IEmulatorService, IDisposable
 	private (EmulatorBroker Broker, EmulatorSnapshot Snapshot) OpenWarmedUpMarket()
 	{
 		_history.Clear();
+		_equityHistory.Clear();
 		var broker = new EmulatorBroker(Settings);
 		AssignActivity(broker.Accounts);
 		var now = _timeProvider.GetUtcNow().UtcDateTime;
-		AppendHistory(new EmulatorPricePoint(now - Settings.TickInterval * Math.Max(0, Settings.WarmupSteps), broker.LastPrice));
+		var start = now - Settings.TickInterval * Math.Max(0, Settings.WarmupSteps);
+		AppendHistory(new EmulatorPricePoint(start, broker.LastPrice));
+		AppendEquity(start, broker);
 		for (var step = Settings.WarmupSteps - 1; step >= 0; step--)
 		{
 			var open = broker.LastPrice;
 			AdvanceMarket(broker);
-			AppendHistory(BarOf(now - Settings.TickInterval * step, open, broker));
+			var timestamp = now - Settings.TickInterval * step;
+			AppendHistory(BarOf(timestamp, open, broker));
+			AppendEquity(timestamp, broker);
 		}
 
 		return (broker, BuildSnapshot(broker, 0));
@@ -367,8 +376,46 @@ public sealed class EmulatorService : IEmulatorService, IDisposable
 			broker.BotSummaries(),
 			broker.Summary(),
 			_history.ToArray(),
+			_equityHistory.ToArray(),
 			step
 		);
+
+	private void AppendEquity(DateTime timestamp, EmulatorBroker broker)
+	{
+		_equityHistory.Enqueue(new EmulatorEquityPoint(timestamp, broker.EquityByGroup()));
+		while (_equityHistory.Count > Math.Max(1, Settings.HistoryCapacity))
+		{
+			_equityHistory.Dequeue();
+		}
+	}
+
+	// Groups match by position, so a renamed group's line carries on under its new name.
+	private void RenameEquityHistory(IReadOnlyList<PopulationSettings> previous, IReadOnlyList<PopulationSettings> next)
+	{
+		var renames = previous
+			.Zip(next)
+			.Where(pair => pair.First.Name != pair.Second.Name)
+			.ToDictionary(pair => pair.First.Name, pair => pair.Second.Name);
+		if (renames.Count == 0)
+		{
+			return;
+		}
+
+		var points = _equityHistory.ToArray();
+		_equityHistory.Clear();
+		foreach (var point in points)
+		{
+			_equityHistory.Enqueue(
+				point with
+				{
+					EquityByGroup = point.EquityByGroup.ToDictionary(
+						entry => renames.TryGetValue(entry.Key, out var renamed) ? renamed : entry.Key,
+						entry => entry.Value
+					),
+				}
+			);
+		}
+	}
 
 	private void AppendHistory(EmulatorPricePoint point)
 	{
