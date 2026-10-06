@@ -16,7 +16,9 @@ using Poink.Sim.Services.Activity.Sources;
 using Poink.Sim.Services.CTrader;
 using Poink.Sim.Services.DataSeriesSync;
 using Poink.Sim.Services.MarketData;
+using Poink.Sim.Services.MarketData.History;
 using Poink.Sim.Services.MarketData.Import;
+using Poink.Sim.Services.MarketData.Recording;
 using Poink.Sim.Services.Symbols;
 using Poink.Sim.Services.TrainingEngine;
 using Poink.Sim.Simulation;
@@ -117,7 +119,8 @@ public static class ServiceCollectionExtensions
 	/// <summary>
 	/// IHostedService workers: session restore on startup. The tick backfill worker (live
 	/// streaming + gap-fill) was removed pending a rebuild -- ITickIngest stays registered since
-	/// ZTicksImportService still writes through it and DataSeriesSyncService reads its coverage.
+	/// ZTicksImportService still writes through it and DataSeriesSyncService reads its coverage. The Trade page's
+	/// database-first tick history and its live tick recorder also write through it.
 	/// Depends on BuildCTraderServices for CTraderSessionService.
 	/// </summary>
 	public static IServiceCollection BuildBackgroundWorkers(this IServiceCollection services)
@@ -127,6 +130,8 @@ public static class ServiceCollectionExtensions
 		services.AddSingleton<ITickIngest, TickIngest>();
 		services.AddSingleton<IZTicksImportService, ZTicksImportService>();
 		services.AddSingleton<IHistoricalTickSource, CTraderHistoricalTickSource>();
+		services.AddSingleton<ITickHistoryService, TickHistoryService>();
+		services.AddSingleton<ILiveTickRecorder, LiveTickRecorder>();
 
 		return services;
 	}

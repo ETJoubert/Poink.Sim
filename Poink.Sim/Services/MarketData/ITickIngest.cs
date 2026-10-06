@@ -52,6 +52,9 @@ namespace Poink.Sim.Services.MarketData
 		/// <summary>Upserts one calendar day's row count and time bounds into the tick_daily_stats registry.</summary>
 		void UpsertDailyStat(string table, DateOnly day, long rowCount, DateTime? minUtc, DateTime? maxUtc);
 
+		/// <summary>Recounts one UTC day straight from the tick table and upserts it into tick_daily_stats.</summary>
+		void RefreshDailyStat(string table, DateOnly day);
+
 		/// <summary>Returns every tick_daily_stats row for a table, ordered by day ascending.</summary>
 		IReadOnlyList<TickDailyStatRow> GetDailyStats(string table);
 	}

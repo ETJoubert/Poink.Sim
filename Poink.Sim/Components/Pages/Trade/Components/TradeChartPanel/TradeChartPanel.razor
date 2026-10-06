@@ -60,6 +60,11 @@
         }
         else
         {
+            @if (_chartWarning is not null)
+            {
+                <p class="trade-chart-status trade-chart-status-warning"
+                   title="History before today is read from the database only; missing days are not fetched from cTrader">@_chartWarning</p>
+            }
             <div class="trade-chart" @ref="_chartRowRef">
                 @if (_showMainChart)
                 {

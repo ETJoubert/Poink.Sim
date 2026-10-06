@@ -282,6 +282,27 @@ namespace Poink.Sim.Services.MarketData
 			);
 		}
 
+		public void RefreshDailyStat(string table, DateOnly day)
+		{
+			using var conn = new NpgsqlConnection(_connectionString);
+			conn.Open();
+			EnsureTable(conn, Sql.CreateDailyStatsTable);
+
+			var from = DateTime.SpecifyKind(day.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc);
+			var stats = conn.QuerySingle<StatsRow>(Sql.SelectRangeStats(table), new { from, to = from.AddDays(1) });
+			conn.Execute(
+				Sql.UpsertDailyStat,
+				new
+				{
+					table,
+					day = day.ToDateTime(TimeOnly.MinValue),
+					rowCount = stats.Rows,
+					min = stats.MinTime,
+					max = stats.MaxTime,
+				}
+			);
+		}
+
 		public IReadOnlyList<TickDailyStatRow> GetDailyStats(string table)
 		{
 			using var conn = new NpgsqlConnection(_connectionString);
@@ -346,6 +367,10 @@ namespace Poink.Sim.Services.MarketData
 
 			public static string SelectTableStats(string table) =>
 				$"SELECT COUNT(*) AS \"Rows\", MIN(\"timestamp\") AS \"MinTime\", MAX(\"timestamp\") AS \"MaxTime\" FROM \"{table}\"";
+
+			public static string SelectRangeStats(string table) =>
+				$"SELECT COUNT(*) AS \"Rows\", MIN(\"timestamp\") AS \"MinTime\", MAX(\"timestamp\") AS \"MaxTime\" FROM \"{table}\" "
+				+ "WHERE \"timestamp\" >= @from AND \"timestamp\" < @to";
 
 			// Fresh registries get the symbol/source_path columns; pre-existing ones are patched with the ALTERs.
 			public const string CreateRegistryTable =

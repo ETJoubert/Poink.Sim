@@ -10,6 +10,7 @@ using Poink.Sim.Components.Shared.PositionTable;
 using Poink.Sim.Components.Shared.TradeConsole;
 using Poink.Sim.Models;
 using Poink.Sim.Services.CTrader;
+using Poink.Sim.Services.MarketData.Recording;
 using Poink.Sim.Services.Symbols;
 using Poink.Sim.Trader.Risk;
 
@@ -39,6 +40,9 @@ namespace Poink.Sim.Components.Pages.Trade
 		[Inject]
 		private ITradeHistoryService History { get; set; } = null!;
 
+		[Inject]
+		private ILiveTickRecorder TickRecorder { get; set; } = null!;
+
 		private static readonly TimeSpan HistoryLookback = TimeSpan.FromDays(30);
 
 		private enum RealizedWindow
@@ -49,6 +53,7 @@ namespace Poink.Sim.Components.Pages.Trade
 			Month,
 		}
 
+		private IAsyncDisposable? _tickRecordingLease;
 		private TradeChartPanel? _chartPanelRef;
 		private TradeConsole? _consoleRef;
 		private bool _consoleBusy;
@@ -287,6 +292,7 @@ namespace Poink.Sim.Components.Pages.Trade
 		protected override void OnInitialized()
 		{
 			Coordinator.Changed += HandleCoordinatorChanged;
+			_tickRecordingLease = TickRecorder.Acquire();
 			_knownPositionIds = Session.Positions.Select(p => p.PositionId).ToHashSet();
 			_ = LoadRealizedPnlAsync();
 		}
@@ -323,6 +329,9 @@ namespace Poink.Sim.Components.Pages.Trade
 		{
 			Coordinator.Changed -= HandleCoordinatorChanged;
 			TradeDraft.Clear();
+
+			if (_tickRecordingLease is not null)
+				await _tickRecordingLease.DisposeAsync();
 
 			if (_dividerResizeInstance is not null)
 			{

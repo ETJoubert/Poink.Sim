@@ -186,3 +186,7 @@
 .trade-chart-status-error {
     color: var(--color-error);
 }
+
+.trade-chart-status-warning {
+    color: var(--color-warning);
+}

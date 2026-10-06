@@ -9,6 +9,7 @@ using Poink.Sim.Models;
 using Poink.Sim.Repository;
 using Poink.Sim.Services.CTrader;
 using Poink.Sim.Services.MarketData;
+using Poink.Sim.Services.MarketData.History;
 using Poink.Sim.Simulation;
 
 namespace Poink.Sim.Components.Pages.Trade
@@ -29,7 +30,7 @@ namespace Poink.Sim.Components.Pages.Trade
 		private ITickStreamAccess Session { get; set; } = null!;
 
 		[Inject]
-		private ICTraderHistory History { get; set; } = null!;
+		private ITickHistoryService TickHistory { get; set; } = null!;
 
 		[Inject]
 		private IJSRuntime JS { get; set; } = null!;
@@ -79,6 +80,7 @@ namespace Poink.Sim.Components.Pages.Trade
 		private List<BarPriceHistogram> _chartHistograms = new();
 		private bool _chartLoading;
 		private string? _chartError;
+		private string? _chartWarning;
 		private SimulationBarAggregator? _barAggregator;
 
 		private bool _showMainChart = true;
@@ -285,6 +287,7 @@ namespace Poink.Sim.Components.Pages.Trade
 		private async Task LoadChartHistoryAsync(long symbolId)
 		{
 			_chartError = null;
+			_chartWarning = null;
 			_chartBars = new List<CTraderBarRow>();
 			_chartHlocBars = new List<HlocAvdtBar>();
 			_chartHistograms = new List<BarPriceHistogram>();
@@ -300,7 +303,11 @@ namespace Poink.Sim.Components.Pages.Trade
 					Math.Min(barSize.Ticks * TargetHistoryBarCount, MaxHistoryLookback.Ticks)
 				);
 				var to = DateTime.UtcNow;
-				var ticks = await History.GetHistoricalTicksAsync(symbolId, to - lookback, to);
+				var history = await TickHistory.LoadAsync(
+					new TickHistoryRequest(symbolId, SymbolName ?? symbolId.ToString(), to - lookback, to, BackfillTrigger.User)
+				);
+				var ticks = history.Ticks;
+				_chartWarning = ChartHistoryWarning(history);
 
 				var bars = new List<CTraderBarRow>();
 				var hlocBars = new List<HlocAvdtBar>();
@@ -338,6 +345,16 @@ namespace Poink.Sim.Components.Pages.Trade
 			}
 		}
 
+		private static string? ChartHistoryWarning(TickHistoryResult history)
+		{
+			var parts = new List<string>();
+			if (history.MissingDays.Count > 0)
+				parts.Add($"{history.HistoryTable} has no ticks for {string.Join(", ", history.MissingDays.Select(d => d.ToString("ddd yyyy-MM-dd")))} -- import them from the Data page.");
+			if (history.ApiUnavailable)
+				parts.Add("cTrader history is unavailable, so today's unstored ticks are missing.");
+			return parts.Count == 0 ? null : string.Join(" ", parts);
+		}
+
 		private static CTraderBarRow ToBarRow(HlocAvdtBar bar) =>
 			new(bar.OpenTime, bar.Open, bar.High, bar.Low, bar.Close, bar.Volume, bar.UpVolume, bar.DownVolume, bar.Distance);
 
@@ -348,6 +365,7 @@ namespace Poink.Sim.Components.Pages.Trade
 			_chartHistograms = new List<BarPriceHistogram>();
 			_chartKeepView = false;
 			_chartError = null;
+			_chartWarning = null;
 			_barAggregator = null;
 		}
 
