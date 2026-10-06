@@ -1,13 +1,13 @@
 @namespace Poink.Sim.Components.Emulator
 @using Poink.Sim.Helpers
 
-<div class="emu-ladder" title="Order book as a price ladder level with the chart: asks (sell orders) above the last price, bids (buy orders) below it, and the bots with orders at each level on the right">
-    <div class="emu-ladder-head" title="Bid volume, price, ask volume and bot population per price level">
+<div class="emu-ladder" title="Order book as a price ladder level with the chart: asks (sell orders) above the last price, bids (buy orders) below it, and on the right the bots whose positions were entered at each level">
+    <div class="emu-ladder-head" title="Bid volume, price, ask volume and the bots positioned at each price level">
         <span class="emu-ladder-bid">BID</span>
         <span class="emu-ladder-price">PRICE</span>
         <span class="emu-ladder-ask">ASK</span>
-        <span class="emu-ladder-pop" title="Population: bots with orders resting at the level and the equity they hold between them">
-            <span class="emu-ladder-bots">BOTS</span>
+        <span class="emu-ladder-pop" title="Positions: bots holding a position entered at the level (their average entry) and the equity they hold between them -- each bot counted once">
+            <span class="emu-ladder-bots">POS</span>
             <span class="emu-ladder-equity">EQUITY</span>
         </span>
     </div>
@@ -30,11 +30,11 @@
                         <span class="emu-ladder-volume">@FormatVolume(ask)</span>
                     }
                 </span>
-                <span class="emu-ladder-cell emu-ladder-pop" title="@PopulationTooltip(row)">
-                    @if (row.Population is { } population)
+                <span class="emu-ladder-cell emu-ladder-pop" title="@PositionsTooltip(row)">
+                    @if (row.Positions is { } positions)
                     {
-                        <span class="emu-ladder-bots">@population.BotCount.ToString("N0")</span>
-                        <span class="emu-ladder-equity">@EmulatorChartHelper.CompactAmount(population.Equity)</span>
+                        <span class="emu-ladder-bots">@positions.BotCount.ToString("N0")</span>
+                        <span class="emu-ladder-equity">@EmulatorChartHelper.CompactAmount(positions.Equity)</span>
                     }
                 </span>
             </div>

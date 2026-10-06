@@ -371,7 +371,7 @@ public sealed class EmulatorService : IEmulatorService, IDisposable
 			Settings.Symbol,
 			broker.LastPrice,
 			broker.Book(),
-			broker.RestingPopulation(),
+			broker.PositionLevels(),
 			broker.PopulationSummaries(),
 			broker.BotSummaries(),
 			broker.Summary(),

@@ -206,14 +206,17 @@ internal sealed class EmulatorBroker
 				.ToArray();
 	}
 
-	public IReadOnlyList<PopulationLevel> RestingPopulation() =>
-		new[] { OrderSide.Buy, OrderSide.Sell }
-			.SelectMany(side => _book.Levels(side, _settings.BookDepth))
-			.Select(level =>
-			{
-				var bots = level.Orders.Select(order => order.BotId).Distinct().Select(id => _accountsById[id]).ToArray();
-				return new PopulationLevel(ToPrice(level.PriceTicks), bots.Length, bots.Sum(bot => bot.Equity(LastPrice)));
-			})
+	/// <summary>Bots holding a position, grouped by the tick nearest their average entry price.</summary>
+	public IReadOnlyList<PositionLevel> PositionLevels() =>
+		_accounts
+			.Where(bot => !bot.IsBust && bot.Position != 0)
+			.GroupBy(bot => EmulatorTickHelper.ToTicks(bot.AverageEntryPrice, _settings.TickSize))
+			.Select(level => new PositionLevel(
+				ToPrice(level.Key),
+				level.Count(bot => bot.Position > 0),
+				level.Count(bot => bot.Position < 0),
+				level.Sum(bot => bot.Equity(LastPrice))
+			))
 			.ToArray();
 
 	public IReadOnlyList<PopulationSummary> PopulationSummaries() =>

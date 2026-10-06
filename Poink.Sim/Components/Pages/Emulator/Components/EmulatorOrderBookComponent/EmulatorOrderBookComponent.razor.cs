@@ -10,8 +10,8 @@ namespace Poink.Sim.Components.Emulator
 {
 	/// <summary>
 	/// Price ladder view of an order book on the market scale it shares with the chart, so each row sits level with its
-	/// price on the chart: bids and asks shaded by their share of the deepest row, with the bots resting orders there and
-	/// their equity alongside.
+	/// price on the chart: bids and asks shaded by their share of the deepest row, with the bots whose positions were
+	/// entered there and their equity alongside.
 	/// </summary>
 	public partial class EmulatorOrderBookComponent : ComponentBase
 	{
@@ -19,7 +19,7 @@ namespace Poink.Sim.Components.Emulator
 		public OrderBook Book { get; set; } = OrderBook.Empty;
 
 		[Parameter, EditorRequired]
-		public IReadOnlyList<PopulationLevel> Population { get; set; } = Array.Empty<PopulationLevel>();
+		public IReadOnlyList<PositionLevel> Positions { get; set; } = Array.Empty<PositionLevel>();
 
 		[Parameter, EditorRequired]
 		public double Price { get; set; }
@@ -34,7 +34,7 @@ namespace Poink.Sim.Components.Emulator
 		protected override void OnParametersSet()
 		{
 			_priceFormat = EmulatorChartHelper.PriceFormat(Scale.TickSize);
-			_rows = EmulatorLadderHelper.BuildRows(Book, Population, Price, Scale);
+			_rows = EmulatorLadderHelper.BuildRows(Book, Positions, Price, Scale);
 			_maxVolume = _rows.Select(row => Math.Max(row.BidVolume ?? 0, row.AskVolume ?? 0)).DefaultIfEmpty(0).Max();
 		}
 
@@ -56,13 +56,13 @@ namespace Poink.Sim.Components.Emulator
 				: $"No orders resting at {price}";
 		}
 
-		private string PopulationTooltip(EmulatorLadderRow row) =>
-			row.Population is { BotCount: > 0 } population
+		private string PositionsTooltip(EmulatorLadderRow row) =>
+			row.Positions is { BotCount: > 0 } positions
 				? string.Create(
 					CultureInfo.InvariantCulture,
-					$"{population.BotCount:N0} bots with orders resting at {RowPrices(row)}, holding {population.Equity:N2} equity in total, {population.Equity / population.BotCount:N2} each on average"
+					$"{positions.BotCount:N0} bots positioned at {RowPrices(row)} ({positions.LongBots:N0} long, {positions.ShortBots:N0} short), holding {positions.Equity:N2} equity in total, {positions.Equity / positions.BotCount:N2} each on average"
 				)
-				: $"No bots with orders resting at {RowPrices(row)}";
+				: $"No bots positioned at {RowPrices(row)}";
 
 		private string DepthWidth(double volume) =>
 			EmulatorChartHelper.Coord(EmulatorChartHelper.DepthPercent(volume, _maxVolume));

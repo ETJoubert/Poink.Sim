@@ -7,33 +7,33 @@ namespace Poink.Sim.Helpers;
 
 /// <summary>
 /// One row of the price ladder, covering <see cref="Price"/> to <see cref="TopPrice"/> (the same price when a row is one
-/// tick): the bid and ask volume resting there and the bots with orders there, if any.
+/// tick): the bid and ask volume resting there and the bots whose positions were entered there, if any.
 /// </summary>
 internal readonly record struct EmulatorLadderRow(
 	double Price,
 	double TopPrice,
 	double? BidVolume,
 	double? AskVolume,
-	PopulationLevel? Population,
+	PositionLevel? Positions,
 	bool IsCurrentPrice
 );
 
 /// <summary>
 /// Lays an order book out on the shared market scale: one row per scale row, highest price first, each adding up the
-/// book levels and bots that fall inside it.
+/// book levels and positioned bots that fall inside it.
 /// </summary>
 internal static class EmulatorLadderHelper
 {
 	public static IReadOnlyList<EmulatorLadderRow> BuildRows(
 		OrderBook book,
-		IReadOnlyList<PopulationLevel> population,
+		IReadOnlyList<PositionLevel> positions,
 		double price,
 		EmulatorMarketScale scale
 	)
 	{
 		var bids = VolumeByRow(book.Bids, scale);
 		var asks = VolumeByRow(book.Asks, scale);
-		var bots = PopulationByRow(population, scale);
+		var bots = PositionsByRow(positions, scale);
 		var priceTicks = EmulatorTickHelper.ToTicks(price, scale.TickSize);
 		var priceRow = scale.Contains(priceTicks) ? scale.RowOf(priceTicks) : -1;
 
@@ -61,14 +61,15 @@ internal static class EmulatorLadderHelper
 			.GroupBy(entry => entry.Row)
 			.ToDictionary(group => group.Key, group => group.Sum(entry => entry.Item.Volume));
 
-	private static Dictionary<int, PopulationLevel> PopulationByRow(IReadOnlyList<PopulationLevel> population, EmulatorMarketScale scale) =>
-		InScale(population, level => level.Price, scale)
+	private static Dictionary<int, PositionLevel> PositionsByRow(IReadOnlyList<PositionLevel> positions, EmulatorMarketScale scale) =>
+		InScale(positions, level => level.Price, scale)
 			.GroupBy(entry => entry.Row)
 			.ToDictionary(
 				group => group.Key,
-				group => new PopulationLevel(
+				group => new PositionLevel(
 					EmulatorTickHelper.FromTicks(scale.RowBottomTicks(group.Key), scale.TickSize),
-					group.Sum(entry => entry.Item.BotCount),
+					group.Sum(entry => entry.Item.LongBots),
+					group.Sum(entry => entry.Item.ShortBots),
 					group.Sum(entry => entry.Item.Equity)
 				)
 			);

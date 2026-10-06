@@ -26,8 +26,14 @@ public sealed record OrderBook(IReadOnlyList<OrderBookLevel> Bids, IReadOnlyList
 	public double? Spread => BestAsk - BestBid;
 }
 
-/// <summary>The bots with orders resting at one price level and the equity they hold between them.</summary>
-public readonly record struct PopulationLevel(double Price, int BotCount, double Equity);
+/// <summary>
+/// The bots holding a position entered at one price level (their average entry), long and short, and the equity they
+/// hold between them. Each positioned bot sits at exactly one level.
+/// </summary>
+public readonly record struct PositionLevel(double Price, int LongBots, int ShortBots, double Equity)
+{
+	public int BotCount => LongBots + ShortBots;
+}
 
 /// <summary>
 /// A group of bots that start with the same capital (also what each gets on a replenish) and act alike: when a bot acts
@@ -119,7 +125,7 @@ public sealed record EmulatorSnapshot(
 	string Symbol,
 	double Price,
 	OrderBook Book,
-	IReadOnlyList<PopulationLevel> Population,
+	IReadOnlyList<PositionLevel> Positions,
 	IReadOnlyList<PopulationSummary> Populations,
 	IReadOnlyList<BotSummary> Bots,
 	BrokerSummary Broker,

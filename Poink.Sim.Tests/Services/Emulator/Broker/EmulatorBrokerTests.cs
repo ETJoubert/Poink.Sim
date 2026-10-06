@@ -330,4 +330,25 @@ public class EmulatorBrokerTests
 
 		Assert.Equal((1_000.0, 1_000.0), (equity["A"], equity["B"]));
 	}
+
+	[Fact]
+	public void PositionLevels_CountEachPositionedBotOnceAtItsAverageEntry()
+	{
+		var broker = CreateBroker(bots: 4);
+		var (a, b, c, d) = (broker.Accounts[0], broker.Accounts[1], broker.Accounts[2], broker.Accounts[3]);
+		broker.Place(a, OrderSide.Sell, 100, 2);
+		broker.Place(b, OrderSide.Buy, 100, 2);
+		broker.Place(c, OrderSide.Sell, 104, 1);
+		broker.Place(c, OrderSide.Sell, 106, 1);
+		broker.Place(d, OrderSide.Buy, 106, 2);
+		broker.Place(d, OrderSide.Buy, 90, 5);
+		broker.Place(d, OrderSide.Buy, 91, 5);
+
+		var levels = broker.PositionLevels().OrderBy(level => level.Price).ToArray();
+
+		Assert.Equal([100.0, 105], levels.Select(level => level.Price));
+		Assert.Equal((1, 1), (levels[0].LongBots, levels[0].ShortBots));
+		Assert.Equal((1, 1), (levels[1].LongBots, levels[1].ShortBots));
+		Assert.Equal(4, levels.Sum(level => level.BotCount));
+	}
 }
