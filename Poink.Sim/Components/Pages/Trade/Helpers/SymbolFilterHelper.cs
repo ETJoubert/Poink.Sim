@@ -1,55 +1,54 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Poink.Sim.Components.Pages.Trade.Models;
 using Poink.Sim.Models;
 using Poink.Sim.Services.CTrader;
 
 namespace Poink.Sim.Components.Pages.Trade.Helpers
 {
-	/// <summary>Name/category/enabled/FX-currency filtering for the Trade page's symbol search, shared by SymbolWatchlistPanel's list and match-count display.</summary>
+	/// <summary>Name/category/enabled/FX-currency/stored-data filtering for the Trade page's symbol search, shared by SymbolWatchlistPanel's list and match-count display.</summary>
 	public static class SymbolFilterHelper
 	{
 		private const int MaxResults = 100;
 
 		public static IReadOnlyList<CTraderSymbolInfo> Filter(
 			IReadOnlyList<CTraderSymbolInfo> symbols,
-			string nameFilter,
-			IReadOnlySet<SymbolCategoryBucket> selectedCategoryBuckets,
-			bool showDisabledSymbols,
-			IReadOnlySet<string> selectedFxCurrencies,
-			IReadOnlyDictionary<long, SymbolCategoryModel> categories
-		) =>
-			Matching(symbols, nameFilter, selectedCategoryBuckets, showDisabledSymbols, selectedFxCurrencies, categories)
-				.Take(MaxResults)
-				.ToList();
+			SymbolFilterCriteria criteria,
+			IReadOnlyDictionary<long, SymbolCategoryModel> categories,
+			IReadOnlyDictionary<string, SymbolTickCoverage> coverage
+		) => Matching(symbols, criteria, categories, coverage).Take(MaxResults).ToList();
 
 		public static int TotalMatchCount(
 			IReadOnlyList<CTraderSymbolInfo> symbols,
-			string nameFilter,
-			IReadOnlySet<SymbolCategoryBucket> selectedCategoryBuckets,
-			bool showDisabledSymbols,
-			IReadOnlySet<string> selectedFxCurrencies,
-			IReadOnlyDictionary<long, SymbolCategoryModel> categories
-		) => Matching(symbols, nameFilter, selectedCategoryBuckets, showDisabledSymbols, selectedFxCurrencies, categories).Count();
+			SymbolFilterCriteria criteria,
+			IReadOnlyDictionary<long, SymbolCategoryModel> categories,
+			IReadOnlyDictionary<string, SymbolTickCoverage> coverage
+		) => Matching(symbols, criteria, categories, coverage).Count();
 
 		private static IEnumerable<CTraderSymbolInfo> Matching(
 			IReadOnlyList<CTraderSymbolInfo> symbols,
-			string nameFilter,
-			IReadOnlySet<SymbolCategoryBucket> selectedCategoryBuckets,
-			bool showDisabledSymbols,
-			IReadOnlySet<string> selectedFxCurrencies,
-			IReadOnlyDictionary<long, SymbolCategoryModel> categories
+			SymbolFilterCriteria criteria,
+			IReadOnlyDictionary<long, SymbolCategoryModel> categories,
+			IReadOnlyDictionary<string, SymbolTickCoverage> coverage
 		)
 		{
-			var matches = string.IsNullOrWhiteSpace(nameFilter)
+			var matches = string.IsNullOrWhiteSpace(criteria.NameFilter)
 				? symbols
-				: symbols.Where(s => s.SymbolName.Contains(nameFilter, StringComparison.OrdinalIgnoreCase));
+				: symbols.Where(s => s.SymbolName.Contains(criteria.NameFilter, StringComparison.OrdinalIgnoreCase));
 
 			return matches
-				.Where(s => MatchesCategoryFilter(s, selectedCategoryBuckets, categories))
-				.Where(s => MatchesEnabledFilter(s, showDisabledSymbols))
-				.Where(s => MatchesFxCurrencyFilter(s, selectedFxCurrencies, categories));
+				.Where(s => MatchesCategoryFilter(s, criteria.CategoryBuckets, categories))
+				.Where(s => MatchesEnabledFilter(s, criteria.ShowDisabled))
+				.Where(s => MatchesFxCurrencyFilter(s, criteria.FxCurrencies, categories))
+				.Where(s => MatchesDataFilter(s, criteria.OnlyWithData, coverage));
 		}
+
+		public static bool MatchesDataFilter(
+			CTraderSymbolInfo symbol,
+			bool onlyWithData,
+			IReadOnlyDictionary<string, SymbolTickCoverage> coverage
+		) => !onlyWithData || SymbolCoverageHelper.For(symbol.SymbolName, coverage).HasData;
 
 		// No toggle selected shows everything, matching the name-only-filter default.
 		public static bool MatchesCategoryFilter(

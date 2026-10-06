@@ -8,7 +8,7 @@ using Poink.Sim.Services.CTrader;
 
 namespace Poink.Sim.Components.Pages.Trade
 {
-	/// <summary>Pure lookback-window math for TradeChartPanel -- windowing, VWAP, profile overlay lines and XGrid position mapping, all derived from the same offset/width slider (see TradeChartPanel.razor.cs's ClampedBarWindow/ClampedBarOffset). Internal because it takes BarPriceHistogram, which is itself internal.</summary>
+	/// <summary>Pure lookback-window math for TradeChartPanel -- windowing, position/draft lines and XGrid position mapping, all derived from the same offset/width slider (see TradeChartPanel.razor.cs's ClampedBarWindow/ClampedBarOffset). Internal because it takes BarPriceHistogram, which is itself internal.</summary>
 	internal static class ChartWindowHelper
 	{
 		public static (IReadOnlyList<HlocAvdtBar> Bars, IReadOnlyList<BarPriceHistogram> Histograms) WindowedBarData(
@@ -86,38 +86,16 @@ namespace Poink.Sim.Components.Pages.Trade
 			return lines;
 		}
 
-		public static List<ChartHorizontalLine> ProfileLevelLines(bool showProfileChartLines, List<WeightedPriceSample> mergedSamples)
-		{
-			if (!showProfileChartLines)
-				return new();
-			if (VolumeProfileStats.Compute(mergedSamples) is not { } levels)
-				return new();
-			return new()
-			{
-				new ChartHorizontalLine(levels.Poc, "POC", "profile"),
-				new ChartHorizontalLine(levels.ValueAreaHigh, "VAH", "profile"),
-				new ChartHorizontalLine(levels.ValueAreaLow, "VAL", "profile"),
-			};
-		}
-
-		public static List<ChartLinePoint> VwapPoints(
-			bool showVwap,
+		/// <summary>The Lookback Window's own bars: the windowed bars' last <paramref name="clampedWindow"/>, oldest first.</summary>
+		public static IReadOnlyList<HlocAvdtBar> WindowBars(
 			IReadOnlyList<HlocAvdtBar> hlocBars,
 			IReadOnlyList<BarPriceHistogram> histograms,
 			int clampedOffset,
 			int clampedWindow
 		)
 		{
-			if (!showVwap)
-				return new();
-
 			var (bars, _) = WindowedBarData(hlocBars, histograms, clampedOffset);
-			var windowBars = bars.Count > clampedWindow ? bars.Skip(bars.Count - clampedWindow) : bars;
-
-			return VectorStatsHelper
-				.Vwap(windowBars, b => b.OpenTime, b => b.Average, b => b.Volume)
-				.Select(p => new ChartLinePoint(p.TimeUtc, p.Value))
-				.ToList();
+			return bars.Count > clampedWindow ? bars.Skip(bars.Count - clampedWindow).ToList() : bars;
 		}
 
 		public static DateTime? WindowStartUtc(

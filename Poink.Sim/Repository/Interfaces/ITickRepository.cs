@@ -3,7 +3,8 @@ using System.Collections.Generic;
 
 namespace Poink.Sim.Repository;
 
-internal readonly record struct Tick(DateTime Timestamp, double Bid, double Ask);
+/// <summary>One bid/ask quote; public so hosts can hand ticks to shared chart components.</summary>
+public readonly record struct Tick(DateTime Timestamp, double Bid, double Ask);
 
 internal interface ITickRepository
 {

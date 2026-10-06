@@ -15,6 +15,12 @@ namespace Poink.Sim.Services.CTrader
 	{
 		bool CanFetchHistory { get; }
 
+		/// <summary>Whether fetched history comes from the live environment, which decides its tick table.</summary>
+		bool UseLiveEnvironment { get; }
+
+		/// <summary>The account history is fetched for; a change mid-fetch means the result belongs to the previous account.</summary>
+		long? SelectedAccountId { get; }
+
 		Task<IReadOnlyList<Tick>> GetHistoricalTicksAsync(
 			long symbolId,
 			DateTime fromUtc,

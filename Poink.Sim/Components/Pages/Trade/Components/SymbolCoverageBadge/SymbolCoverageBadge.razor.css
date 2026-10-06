@@ -1,0 +1,26 @@
+.symbol-coverage-badge {
+    flex-shrink: 0;
+    min-width: 22px;
+    padding: 0 4px;
+    border-radius: 3px;
+    font-size: 0.62rem;
+    font-weight: bold;
+    letter-spacing: 0.04em;
+    line-height: 1.5;
+    text-align: center;
+}
+
+.symbol-coverage-current {
+    color: var(--color-success);
+    border: 1px solid color-mix(in srgb, var(--color-success) 50%, transparent);
+}
+
+.symbol-coverage-stale {
+    color: var(--color-warning);
+    border: 1px solid color-mix(in srgb, var(--color-warning) 50%, transparent);
+}
+
+.symbol-coverage-none {
+    color: var(--color-secondary);
+    opacity: 0.5;
+}

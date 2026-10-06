@@ -1,21 +1,20 @@
 using System.Collections.Generic;
-using Poink.Sim.Components.Charts;
 using Poink.Sim.Models;
 
-namespace Poink.Sim.Components.Simulation
+namespace Poink.Sim.Components.Charts
 {
-	/// <summary>What the Simulation compare chart measures each symbol's % change from.</summary>
-	public enum SimulationCompareMode
+	/// <summary>What the compare chart measures each symbol's % change from.</summary>
+	public enum CompareSetMode
 	{
 		/// <summary>Each symbol's first bar in view, re-basing as the chart pans.</summary>
 		PercentChange,
 
-		/// <summary>Each symbol's bar at the Lookback Window edge picked by <see cref="SimulationCompareAnchor"/>.</summary>
+		/// <summary>Each symbol's bar at the Lookback Window edge picked by <see cref="CompareSetAnchor"/>.</summary>
 		WindowAnchored,
 	}
 
-	/// <summary>Which Lookback Window edge <see cref="SimulationCompareMode.WindowAnchored"/> measures % change from.</summary>
-	public enum SimulationCompareAnchor
+	/// <summary>Which Lookback Window edge <see cref="CompareSetMode.WindowAnchored"/> measures % change from.</summary>
+	public enum CompareSetAnchor
 	{
 		/// <summary>The window's left edge, so lines fan out from 0% across the window.</summary>
 		WindowStart,
@@ -24,11 +23,14 @@ namespace Poink.Sim.Components.Simulation
 		WindowEnd,
 	}
 
-	/// <summary>One symbol on the Simulation compare chart, its bars oldest first; the traded symbol comes first.</summary>
-	public sealed record SimulationCompareSymbol(string Table, string ColorVar, IReadOnlyList<CTraderBarRow> Bars);
+	/// <summary>
+	/// One symbol on the compare chart, its bars oldest first; the primary symbol comes first. <paramref name="HistoryTable"/>,
+	/// when set, supplies TxFold's ticks before the set's HistoryBeforeUtc and <paramref name="Table"/> the rest.
+	/// </summary>
+	public sealed record CompareSetSymbol(string Table, string ColorVar, IReadOnlyList<CTraderBarRow> Bars, string? HistoryTable = null);
 
 	/// <summary>The compare view's TxFold panel options; a null <paramref name="Seconds"/> means the default timeframes.</summary>
-	public sealed record SimulationCompareTxFoldSettings(
+	public sealed record CompareSetTxFoldSettings(
 		bool Show = false,
 		CompareTxFoldLayout Layout = CompareTxFoldLayout.Overlaid,
 		List<int>? Seconds = null,
@@ -37,7 +39,7 @@ namespace Poink.Sim.Components.Simulation
 	);
 
 	/// <summary>The compare view's XGrid panel options; a null <paramref name="DifferenceTable"/> compares against the second symbol.</summary>
-	public sealed record SimulationCompareXGridSettings(
+	public sealed record CompareSetXGridSettings(
 		bool Show = false,
 		CompareXGridMode Mode = CompareXGridMode.Dominant,
 		string? DifferenceTable = null,
@@ -49,7 +51,7 @@ namespace Poink.Sim.Components.Simulation
 	);
 
 	/// <summary>Which compare view panel fills the main area; the others stack in the side column.</summary>
-	public enum SimulationComparePanel
+	public enum CompareSetPanel
 	{
 		Chart,
 		TxFold,

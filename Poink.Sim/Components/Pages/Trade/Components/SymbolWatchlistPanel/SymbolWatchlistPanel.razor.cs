@@ -1,16 +1,21 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.Logging;
 using Poink.Sim.Components.Pages.Trade.Helpers;
+using Poink.Sim.Components.Pages.Trade.Models;
+using Poink.Sim.Helpers;
 using Poink.Sim.Models;
+using Poink.Sim.Repository;
 using Poink.Sim.Services.CTrader;
 using Poink.Sim.Services.Symbols;
 
 namespace Poink.Sim.Components.Pages.Trade
 {
-	/// <summary>Left sidebar of the live Trade page -- symbol search/category filters and the streaming watchlist. Owns its own filter/tab UI state; watch/unwatch and symbol category loading go through the injected session and symbol services directly.</summary>
+	/// <summary>Left sidebar of the live Trade page -- symbol search/category/stored-data filters and the streaming watchlist. Owns its own filter/tab UI state; watch/unwatch, symbol category and tick coverage loading go through the injected session, symbol and tick services directly.</summary>
 	public partial class SymbolWatchlistPanel : ComponentBase, IDisposable
 	{
 		[Inject]
@@ -21,6 +26,12 @@ namespace Poink.Sim.Components.Pages.Trade
 
 		[Inject]
 		private ISymbolMetadataCache MetadataCache { get; set; } = null!;
+
+		[Inject]
+		private ITickRepository TickRepository { get; set; } = null!;
+
+		[Inject]
+		private ILogger<SymbolWatchlistPanel> Logger { get; set; } = null!;
 
 		[Parameter]
 		public long? ActiveSymbolId { get; set; }
@@ -52,6 +63,9 @@ namespace Poink.Sim.Components.Pages.Trade
 		private readonly HashSet<SymbolCategoryBucket> _selectedCategoryBuckets = new();
 		private bool _showDisabledSymbols;
 		private readonly HashSet<string> _selectedFxCurrencies = new();
+		private bool _onlyWithData;
+		private IReadOnlyDictionary<string, SymbolTickCoverage> _coverage = new Dictionary<string, SymbolTickCoverage>();
+		private bool _coverageFailed;
 
 		private static readonly (SymbolCategoryBucket Bucket, string Label, string FullName)[] CategoryToggleDefs =
 		{
@@ -67,31 +81,45 @@ namespace Poink.Sim.Components.Pages.Trade
 
 		private bool IsConnected => Session.State == CTraderConnectionState.Connected;
 
+		private SymbolFilterCriteria FilterCriteria =>
+			new(_symbolFilter, _selectedCategoryBuckets, _showDisabledSymbols, _selectedFxCurrencies, _onlyWithData);
+
 		private IReadOnlyList<CTraderSymbolInfo> FilteredSymbols =>
-			SymbolFilterHelper.Filter(
-				Session.Symbols,
-				_symbolFilter,
-				_selectedCategoryBuckets,
-				_showDisabledSymbols,
-				_selectedFxCurrencies,
-				_symbolCategories
-			);
+			SymbolFilterHelper.Filter(Session.Symbols, FilterCriteria, _symbolCategories, _coverage);
 
 		private int TotalSymbolMatchCount =>
-			SymbolFilterHelper.TotalMatchCount(
-				Session.Symbols,
-				_symbolFilter,
-				_selectedCategoryBuckets,
-				_showDisabledSymbols,
-				_selectedFxCurrencies,
-				_symbolCategories
-			);
+			SymbolFilterHelper.TotalMatchCount(Session.Symbols, FilterCriteria, _symbolCategories, _coverage);
+
+		private SymbolTickCoverage CoverageFor(string symbolName) => SymbolCoverageHelper.For(symbolName, _coverage);
+
+		private IReadOnlyDictionary<string, string> SymbolColors => SymbolColorHelper.Assign(Session.Watchlist.Select(q => q.SymbolName));
+
+		private string SymbolColorStyle(string symbolName) =>
+			$"--trade-symbol-color: var({SymbolColorHelper.ColorVarFor(SymbolColors, symbolName)})";
 
 		protected override void OnInitialized()
 		{
 			Session.Changed += HandleSessionChanged;
 			if (IsConnected)
 				_ = EnsureSymbolCategoriesAsync();
+			_ = LoadCoverageAsync();
+		}
+
+		// Reads only the tick_table_stats registry (no tick scans), so it is cheap enough to reload whenever the Symbols tab opens.
+		private async Task LoadCoverageAsync()
+		{
+			try
+			{
+				var registry = await Task.Run(TickRepository.ListTickTables);
+				_coverage = SymbolCoverageHelper.Build(registry, DateTime.UtcNow);
+				_coverageFailed = false;
+			}
+			catch (Exception ex)
+			{
+				Logger.LogError(ex, "Failed to load stored tick coverage for the Trade symbol panel.");
+				_coverageFailed = true;
+			}
+			await InvokeAsync(StateHasChanged);
 		}
 
 		private void HandleSessionChanged() =>
@@ -131,11 +159,16 @@ namespace Poink.Sim.Components.Pages.Trade
 
 		private Task ToggleCollapsed() => CollapsedChanged.InvokeAsync(!Collapsed);
 
-		private void SelectTab(SidepanelTab tab) => _sidepanelTab = tab;
+		private void SelectTab(SidepanelTab tab)
+		{
+			_sidepanelTab = tab;
+			if (tab == SidepanelTab.Symbols)
+				_ = LoadCoverageAsync();
+		}
 
 		private Task SelectTabAndExpand(SidepanelTab tab)
 		{
-			_sidepanelTab = tab;
+			SelectTab(tab);
 			return ToggleCollapsed();
 		}
 
@@ -154,6 +187,8 @@ namespace Poink.Sim.Components.Pages.Trade
 
 		private void ToggleShowDisabledSymbols() => _showDisabledSymbols = !_showDisabledSymbols;
 
+		private void ToggleOnlyWithData() => _onlyWithData = !_onlyWithData;
+
 		private void ToggleFxCurrency(string currency)
 		{
 			if (!_selectedFxCurrencies.Remove(currency))
@@ -170,6 +205,12 @@ namespace Poink.Sim.Components.Pages.Trade
 		{
 			await Session.UnwatchSymbolAsync(symbolId);
 			await OnSymbolUnwatched.InvokeAsync(symbolId);
+		}
+
+		private async Task UnwatchAllAsync()
+		{
+			foreach (var symbolId in Session.Watchlist.Select(q => q.SymbolId).ToList())
+				await UnwatchAsync(symbolId);
 		}
 
 		private Task SelectAsync(long symbolId, string symbolName) => OnSymbolSelected.InvokeAsync((symbolId, symbolName));

@@ -23,6 +23,21 @@ namespace Poink.Sim.Components.Charts
 		[Parameter]
 		public int RefreshToken { get; set; }
 
+		/// <summary>When set, shows a RELOAD TODAY button that asks the host to override today's stored ticks.</summary>
+		[Parameter]
+		public EventCallback OnReloadToday { get; set; }
+
+		[Parameter]
+		public bool ReloadingToday { get; set; }
+
+		/// <summary>Tooltip for the RELOAD TODAY button, naming what the host's reload replaces.</summary>
+		[Parameter]
+		public string ReloadTodayTitle { get; set; } = "Replace today's stored ticks with a fresh cTrader fetch";
+
+		/// <summary>The last reload's outcome, shown beside the button.</summary>
+		[Parameter]
+		public string? ReloadStatus { get; set; }
+
 		private static readonly DataSeriesSyncDay[] NoDays = Array.Empty<DataSeriesSyncDay>();
 
 		private DataSeriesSyncRange _range = new("", false, null, DateOnly.FromDateTime(DateTime.UtcNow), null, NoDays);

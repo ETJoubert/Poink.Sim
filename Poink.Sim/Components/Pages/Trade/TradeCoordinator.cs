@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
+using Poink.Sim.Components.Pages.Trade.Helpers;
 using Poink.Sim.Helpers;
 using Poink.Sim.Models;
 using Poink.Sim.Services.CTrader;
@@ -76,8 +77,7 @@ namespace Poink.Sim.Components.Pages.Trade
 		public void HandleSymbolSelected((long SymbolId, string SymbolName) selection) =>
 			OpenChart(selection.SymbolId, selection.SymbolName);
 
-		// Unwatching the symbol whose chart is open closes that chart too, since a chart
-		// with no live quote behind it can no longer receive ticks.
+		// Unwatching the charted symbol closes its chart, since a chart with no live quote can no longer receive ticks.
 		public void HandleSymbolUnwatched(long symbolId)
 		{
 			if (ChartSymbolId != symbolId)
@@ -93,18 +93,7 @@ namespace Poink.Sim.Components.Pages.Trade
 			if (settings is not null)
 			{
 				BarSizeSeconds = settings.BarSizeSeconds;
-				PendingChartSettings = new ChartPanelSettings(
-					settings.ShowMainChart,
-					settings.ShowXGrid,
-					settings.ShowVolumeProfile,
-					settings.ShowTimeProfile,
-					settings.ShowProfileChartLines,
-					settings.ShowVwap,
-					settings.BarWindowSize,
-					settings.BarWindowOffset,
-					settings.XGridPipCount,
-					settings.XGridColCount
-				);
+				PendingChartSettings = TradeChartSettingsHelper.FromPersisted(settings);
 				SidepanelCollapsed = settings.SidepanelCollapsed;
 				RightPanelCollapsed = settings.RightPanelCollapsed;
 				_pendingChartSymbolId = settings.ChartSymbolId;
@@ -138,26 +127,16 @@ namespace Poink.Sim.Components.Pages.Trade
 		}
 
 		private TradePageSettings BuildSettings(ChartPanelSettings? chart) =>
-			new(
+			TradeChartSettingsHelper.ToPersisted(
+				chart ?? PendingChartSettings,
 				BarSizeSeconds,
-				chart?.ShowMainChart ?? true,
-				chart?.ShowXGrid ?? false,
-				chart?.ShowVolumeProfile ?? false,
-				chart?.ShowTimeProfile ?? false,
-				chart?.ShowProfileChartLines ?? true,
-				chart?.ShowVwap ?? true,
-				chart?.BarWindowSize ?? 50,
-				chart?.BarWindowOffset ?? 0,
-				chart?.XGridPipCount ?? 20,
-				chart?.XGridColCount ?? 20,
 				ChartSymbolId,
 				ChartSymbolName,
 				SidepanelCollapsed,
 				RightPanelCollapsed
 			);
 
-		// Reopens the last chart this browser had open -- called once settings load if already
-		// connected, or on the next Connected transition otherwise.
+		// Reopens this browser's last chart once settings load while connected, or on the next Connected transition.
 		private void ApplyPendingRestore()
 		{
 			if (!_restorePending)

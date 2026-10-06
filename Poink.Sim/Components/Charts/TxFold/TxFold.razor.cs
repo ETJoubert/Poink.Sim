@@ -34,6 +34,13 @@ namespace Poink.Sim.Components.Charts
 		[Parameter, EditorRequired]
 		public DateTime RangeStart { get; set; }
 
+		/// <summary>Supplies the ticks before <see cref="HistoryBeforeUtc"/> when set; <see cref="Table"/> supplies the rest.</summary>
+		[Parameter]
+		public string? HistoryTable { get; set; }
+
+		[Parameter]
+		public DateTime? HistoryBeforeUtc { get; set; }
+
 		/// <summary>Drawn as a dashed horizontal line across every bar -- null hides it.</summary>
 		[Parameter]
 		public double? LatestPrice { get; set; }
@@ -114,7 +121,7 @@ namespace Poink.Sim.Components.Charts
 		private List<TxFoldBar> _bars = new();
 		private IReadOnlyList<TxFoldVolumeBucket> _volumeProfile = Array.Empty<TxFoldVolumeBucket>();
 		private RangeStatsResult? _levels;
-		private (string Table, DateTime AnchorEnd, DateTime RangeStart, BarAggregationKind BarKind, string SelectedKey)? _loadedFor;
+		private (string Table, string? HistoryTable, DateTime? HistoryBeforeUtc, DateTime AnchorEnd, DateTime RangeStart, BarAggregationKind BarKind, string SelectedKey)? _loadedFor;
 		private bool _loading;
 		private string? _error;
 
@@ -196,7 +203,7 @@ namespace Poink.Sim.Components.Charts
 				return;
 
 			var selectedKey = string.Join(",", SelectedSeconds.OrderBy(s => s));
-			var key = (Table, AnchorEnd, RangeStart, BarKind, selectedKey);
+			var key = (Table, HistoryTable, HistoryBeforeUtc, AnchorEnd, RangeStart, BarKind, selectedKey);
 			if (_loadedFor == key)
 				return;
 
@@ -207,6 +214,8 @@ namespace Poink.Sim.Components.Charts
 			try
 			{
 				var table = Table;
+				var historyTable = HistoryTable;
+				var historyBeforeUtc = HistoryBeforeUtc;
 				var anchorEnd = AnchorEnd;
 				var rangeStart = RangeStart;
 				var selectedSeconds = SelectedSeconds;
@@ -214,7 +223,14 @@ namespace Poink.Sim.Components.Charts
 				var result = await Task.Run(() =>
 				{
 					var largestSeconds = selectedSeconds.Max();
-					var ticks = TickRepository.ReadTicks(table, anchorEnd.AddSeconds(-largestSeconds), anchorEnd).ToList();
+					var ticks = SplitTickReadHelper.Read(
+						TickRepository,
+						table,
+						historyTable,
+						historyBeforeUtc,
+						anchorEnd.AddSeconds(-largestSeconds),
+						anchorEnd
+					);
 					return TxFoldStats.Compute(ticks, anchorEnd, rangeStart, selectedSeconds, barKind);
 				});
 				_bars = result.Bars;

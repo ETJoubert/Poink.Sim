@@ -1,21 +1,20 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Poink.Sim.Components.Charts;
 using Poink.Sim.Models;
 
-namespace Poink.Sim.Components.Simulation
+namespace Poink.Sim.Components.Charts
 {
-	/// <summary>Builds the Simulation compare chart's series from each symbol's live bars.</summary>
-	internal static class SimulationCompareHelper
+	/// <summary>Builds the compare chart's series from each symbol's bars.</summary>
+	internal static class CompareSetHelper
 	{
 		public const string RatioColorVar = "--color-warning";
 
 		public static string RatioLabel(string numerator, string denominator) => $"{numerator} ÷ {denominator}";
 
 		public static List<CompareChartSeries> Build(
-			IReadOnlyList<SimulationCompareSymbol> symbols,
-			SimulationCompareMode mode,
+			IReadOnlyList<CompareSetSymbol> symbols,
+			CompareSetMode mode,
 			DateTime? anchor,
 			string? ratioTable,
 			CompareChartSeriesStyle style
@@ -47,13 +46,13 @@ namespace Poink.Sim.Components.Simulation
 		}
 
 		private static CompareChartSeries SymbolSeries(
-			SimulationCompareSymbol symbol,
-			SimulationCompareMode mode,
+			CompareSetSymbol symbol,
+			CompareSetMode mode,
 			DateTime? anchor,
 			CompareChartSeriesStyle style
 		)
 		{
-			Func<double, double> scale = mode == SimulationCompareMode.WindowAnchored ? PercentScale(symbol.Bars, anchor) : price => price;
+			Func<double, double> scale = mode == CompareSetMode.WindowAnchored ? PercentScale(symbol.Bars, anchor) : price => price;
 			var points = symbol.Bars.Select(b => new ChartLinePoint(b.TimeUtc, scale(b.Close))).ToList();
 			var bars = style == CompareChartSeriesStyle.Bars
 				? symbol.Bars.Select(b => new CTraderBarRow(b.TimeUtc, scale(b.Open), scale(b.High), scale(b.Low), scale(b.Close), b.Volume)).ToList()
@@ -70,7 +69,7 @@ namespace Poink.Sim.Components.Simulation
 		}
 
 		// Joins on exact bar time, which holds because every symbol's bars are floored to the same bar-size buckets.
-		private static List<ChartLinePoint> RatioLine(SimulationCompareSymbol numerator, SimulationCompareSymbol denominator)
+		private static List<ChartLinePoint> RatioLine(CompareSetSymbol numerator, CompareSetSymbol denominator)
 		{
 			var denominatorCloses = denominator.Bars
 				.Where(b => b.Close != 0)

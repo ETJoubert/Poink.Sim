@@ -40,13 +40,13 @@ namespace Poink.Sim.Models
 		RobotPositionRules? RobotPositionRules = null,
 		IReadOnlyList<string>? WatchTables = null,
 		bool ShowCompare = false,
-		SimulationCompareMode CompareMode = SimulationCompareMode.PercentChange,
-		SimulationCompareAnchor CompareAnchor = SimulationCompareAnchor.WindowStart,
+		CompareSetMode CompareMode = CompareSetMode.PercentChange,
+		CompareSetAnchor CompareAnchor = CompareSetAnchor.WindowStart,
 		CompareChartSeriesStyle CompareStyle = CompareChartSeriesStyle.Lines,
 		string? CompareRatioTable = null,
-		SimulationCompareTxFoldSettings? CompareTxFold = null,
-		SimulationCompareXGridSettings? CompareXGrid = null,
-		SimulationComparePanel CompareMainPanel = SimulationComparePanel.Chart
+		CompareSetTxFoldSettings? CompareTxFold = null,
+		CompareSetXGridSettings? CompareXGrid = null,
+		CompareSetPanel CompareMainPanel = CompareSetPanel.Chart
 	)
 	{
 		/// <summary>The browser localStorage key the Simulation page keeps these settings under.</summary>

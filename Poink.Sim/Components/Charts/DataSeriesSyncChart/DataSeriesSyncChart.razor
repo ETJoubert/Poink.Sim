@@ -16,4 +16,14 @@
             }
         </div>
     }
+    @if (OnReloadToday.HasDelegate)
+    {
+        @if (ReloadStatus is not null)
+        {
+            <span class="dssc-status" title="Outcome of the last RELOAD TODAY">@ReloadStatus</span>
+        }
+        <button type="button" class="dssc-reload-btn" @onclick="OnReloadToday" disabled="@ReloadingToday" title="@ReloadTodayTitle">
+            @(ReloadingToday ? "RELOADING..." : "RELOAD TODAY")
+        </button>
+    }
 </div>

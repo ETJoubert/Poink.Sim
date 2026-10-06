@@ -10,6 +10,9 @@ namespace Poink.Sim.Components.Charts
 		SideBySide,
 	}
 
-	/// <summary>One symbol on a <see cref="CompareTxFold"/>: the ticks_&lt;symbol&gt; table it reads and the theme colour var it is drawn in.</summary>
-	public sealed record CompareTxFoldSymbol(string Table, string ColorVar);
+	/// <summary>
+	/// One symbol on a <see cref="CompareTxFold"/>: the tick table it reads, the theme colour var it is drawn in, and an
+	/// optional table supplying its ticks before <see cref="CompareTxFold.HistoryBeforeUtc"/>.
+	/// </summary>
+	public sealed record CompareTxFoldSymbol(string Table, string ColorVar, string? HistoryTable = null);
 }

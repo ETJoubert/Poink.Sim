@@ -312,7 +312,9 @@
                             @if (CompareActive(s))
                             {
                                 var compareWindow = LookbackWindowTimes(s);
-                                <SimulationCompareSet Symbols="CompareSymbols(s)" @bind-Mode="_compareMode" @bind-Anchor="_compareAnchor"
+                                <CompareSet Symbols="CompareSymbols(s)" PrimaryRole="traded" SecondaryRole="watched"
+                                            Description="The traded symbol and every watched symbol on one chart, updated as the simulation plays"
+                                            @bind-Mode="_compareMode" @bind-Anchor="_compareAnchor"
                                                       @bind-Style="_compareStyle" @bind-RatioTable="_compareRatioTable"
                                                       WindowStart="compareWindow.Start" WindowEnd="compareWindow.End"
                                                       @bind-TxFold="_compareTxFold" TxFoldAnchor="CompareTxFoldAnchor(s)" RangeStart="s.Config.From"

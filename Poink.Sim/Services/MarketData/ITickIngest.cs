@@ -35,6 +35,12 @@ namespace Poink.Sim.Services.MarketData
 		/// <summary>Bulk-appends the ticks (assumed sorted ascending by timestamp) and updates the registry. Returns the row count written.</summary>
 		long InsertTicks(string table, IReadOnlyList<Tick> ticks);
 
+		/// <summary>
+		/// Atomically deletes the table's ticks in [<paramref name="fromUtc"/>, <paramref name="toUtc"/>) and inserts
+		/// <paramref name="ticks"/> (sorted ascending, inside that range) in their place. Returns the rows deleted and inserted.
+		/// </summary>
+		(long Deleted, long Inserted) ReplaceTicks(string table, DateTime fromUtc, DateTime toUtc, IReadOnlyList<Tick> ticks);
+
 		/// <summary>Records a completed backfill fetch-and-store to the tick_backfill_log audit table.</summary>
 		void LogBackfill(
 			string table,
@@ -51,6 +57,9 @@ namespace Poink.Sim.Services.MarketData
 
 		/// <summary>Upserts one calendar day's row count and time bounds into the tick_daily_stats registry.</summary>
 		void UpsertDailyStat(string table, DateOnly day, long rowCount, DateTime? minUtc, DateTime? maxUtc);
+
+		/// <summary>Recounts one UTC day straight from the tick table and upserts it into tick_daily_stats.</summary>
+		void RefreshDailyStat(string table, DateOnly day);
 
 		/// <summary>Returns every tick_daily_stats row for a table, ordered by day ascending.</summary>
 		IReadOnlyList<TickDailyStatRow> GetDailyStats(string table);

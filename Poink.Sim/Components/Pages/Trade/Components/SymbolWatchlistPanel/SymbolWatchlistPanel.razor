@@ -1,6 +1,7 @@
 @namespace Poink.Sim.Components.Pages.Trade
 @using Poink.Sim.Components.Shared.Icon
 @using Poink.Sim.Models
+@using Poink.Sim.Components.Pages.Trade.Helpers
 
 <aside class="trade-sidepanel @(Collapsed ? "trade-sidepanel-collapsed" : "")">
     <button type="button" class="trade-sidepanel-toggle" @onclick="ToggleCollapsed"
@@ -59,6 +60,9 @@
                         }
                         <button type="button" class="trade-panel-toggle-btn @(_showDisabledSymbols ? "active" : "")"
                                 @onclick="ToggleShowDisabledSymbols" title="Show symbols currently disabled for trading">Disabled</button>
+                        <button type="button" class="trade-panel-toggle-btn @(_onlyWithData ? "active" : "")"
+                                @onclick="ToggleOnlyWithData"
+                                title="Show only symbols with stored tick history in the database (from the Data page import) -- their charts need no API calls before today">DB</button>
                     </div>
                     @if (_selectedCategoryBuckets.Contains(SymbolCategoryBucket.Forex))
                     {
@@ -69,6 +73,10 @@
                                         @onclick="() => ToggleFxCurrency(currency)" title="Show FX pairs containing @currency">@currency</button>
                             }
                         </div>
+                    }
+                    @if (_coverageFailed)
+                    {
+                        <p class="trade-symbol-more" title="The tick_table_stats registry could not be read, so stored-data markers and the DB filter are unavailable">Stored-data coverage unavailable (database down?).</p>
                     }
                     <ul class="trade-symbol-list">
                         @foreach (var symbol in FilteredSymbols)
@@ -82,6 +90,7 @@
                                           title="@(symbol.Enabled ? "Enabled" : "Disabled")"></span>
                                     <Icon Name="@(watched ? "eye-fill" : "plus-lg")" Class="trade-symbol-row-icon" />
                                     <span class="trade-symbol-row-name" title="@SymbolInfoTooltip(symbol)">@symbol.SymbolName</span>
+                                    <SymbolCoverageBadge Coverage="CoverageFor(symbol.SymbolName)" />
                                 </button>
                             </li>
                         }
@@ -95,7 +104,15 @@
         }
         else
         {
-            <section class="trade-watchlist">
+            <section class="trade-watchlist" title="Watched symbols -- each streams live bid/ask; its colour marks it across the Trade page's charts">
+                <div class="trade-watch-header">
+                    <span class="trade-watch-label" title="Symbols streaming live prices">WATCHED</span>
+                    @if (Session.Watchlist.Count > 0)
+                    {
+                        <button type="button" class="trade-watch-link-btn" @onclick="UnwatchAllAsync"
+                                title="Stop streaming every watched symbol -- open positions keep their own price subscriptions">CLEAR</button>
+                    }
+                </div>
                 @if (Session.Watchlist.Count == 0)
                 {
                     <p class="trade-sidepanel-empty">Pick a symbol from the Symbols tab to stream its bid/ask.</p>
@@ -106,15 +123,24 @@
                         @foreach (var quote in Session.Watchlist)
                         {
                             var selected = quote.SymbolId == ActiveSymbolId;
-                            <li class="trade-quote-row @(selected ? "trade-quote-row-selected" : "")"
+                            var coverage = CoverageFor(quote.SymbolName);
+                            <li class="trade-watch-item @(selected ? "trade-watch-item-active" : "")" style="@SymbolColorStyle(quote.SymbolName)"
                                 @onclick="() => SelectAsync(quote.SymbolId, quote.SymbolName)"
                                 title="@QuoteRowTitle(quote, selected)">
-                                <span class="trade-quote-name">@quote.SymbolName</span>
+                                <div class="trade-watch-text">
+                                    <span class="trade-watch-name">@quote.SymbolName</span>
+                                    <span class="trade-watch-meta" title="@SymbolCoverageHelper.Describe(coverage)">@SymbolCoverageHelper.ShortLabel(coverage)</span>
+                                </div>
                                 <span class="trade-quote-prices">
                                     <span class="trade-quote-bid" title="Bid">@Price(quote.Bid)</span>
                                     <span class="trade-quote-ask" title="Ask">@Price(quote.Ask)</span>
                                 </span>
-                                <button class="trade-quote-remove" @onclick="() => UnwatchAsync(quote.SymbolId)"
+                                <SymbolCoverageBadge Coverage="coverage" />
+                                @if (selected)
+                                {
+                                    <span class="trade-watch-badge" title="This symbol is on the chart">CHART</span>
+                                }
+                                <button type="button" class="trade-watch-icon-btn" @onclick="() => UnwatchAsync(quote.SymbolId)"
                                         @onclick:stopPropagation="true" title="Stop streaming @quote.SymbolName">
                                     <Icon Name="x-lg" Class="trade-quote-remove-icon" />
                                 </button>

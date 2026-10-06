@@ -55,3 +55,38 @@
 .dssc-day-current {
     background: var(--color-info);
 }
+
+.dssc-status {
+    flex: 0 1 auto;
+    min-width: 0;
+    font-family: var(--font-body);
+    font-size: 0.64rem;
+    color: var(--color-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dssc-reload-btn {
+    flex: 0 0 auto;
+    font-family: var(--font-body);
+    font-size: 0.6rem;
+    font-weight: bold;
+    letter-spacing: 0.06em;
+    padding: 2px 7px;
+    background: transparent;
+    color: var(--color-warning);
+    border: 1px solid color-mix(in srgb, var(--color-warning) 50%, transparent);
+    border-radius: var(--border-radius-sm);
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.dssc-reload-btn:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-warning) 15%, transparent);
+}
+
+.dssc-reload-btn:disabled {
+    opacity: 0.5;
+    cursor: wait;
+}

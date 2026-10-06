@@ -16,48 +16,9 @@ namespace Poink.Sim.Components.Pages.Trade
 		[Parameter, SupplyParameterFromQuery]
 		public int BarSizeSeconds { get; set; } = 60;
 
-		[Parameter, SupplyParameterFromQuery(Name = "showMainChart")]
-		public bool ShowMainChart { get; set; } = true;
+		[Parameter, SupplyParameterFromQuery(Name = "settings")]
+		public string? SettingsJson { get; set; }
 
-		[Parameter, SupplyParameterFromQuery(Name = "showXGrid")]
-		public bool ShowXGrid { get; set; }
-
-		[Parameter, SupplyParameterFromQuery(Name = "showVolumeProfile")]
-		public bool ShowVolumeProfile { get; set; }
-
-		[Parameter, SupplyParameterFromQuery(Name = "showTimeProfile")]
-		public bool ShowTimeProfile { get; set; }
-
-		[Parameter, SupplyParameterFromQuery(Name = "showProfileChartLines")]
-		public bool ShowProfileChartLines { get; set; } = true;
-
-		[Parameter, SupplyParameterFromQuery(Name = "showVwap")]
-		public bool ShowVwap { get; set; } = true;
-
-		[Parameter, SupplyParameterFromQuery(Name = "barWindowSize")]
-		public int BarWindowSize { get; set; } = 50;
-
-		[Parameter, SupplyParameterFromQuery(Name = "barWindowOffset")]
-		public int BarWindowOffset { get; set; }
-
-		[Parameter, SupplyParameterFromQuery(Name = "xgridPipCount")]
-		public int XGridPipCount { get; set; } = 20;
-
-		[Parameter, SupplyParameterFromQuery(Name = "xgridColCount")]
-		public int XGridColCount { get; set; } = 20;
-
-		private ChartPanelSettings InitialSettings =>
-			new(
-				ShowMainChart,
-				ShowXGrid,
-				ShowVolumeProfile,
-				ShowTimeProfile,
-				ShowProfileChartLines,
-				ShowVwap,
-				BarWindowSize,
-				BarWindowOffset,
-				XGridPipCount,
-				XGridColCount
-			);
+		private ChartPanelSettings InitialSettings => ChartPopoutUrlHelper.ParseSettings(SettingsJson);
 	}
 }
