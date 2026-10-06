@@ -61,7 +61,7 @@
                                      Mode="_chartMode" ModeChanged="SetChartModeAsync" BarSpan="BarSpan" />
         </section>
 
-        <div class="emu-groups-column" title="Bot groups: each card is one group, its bots on the left and its settings on the right">
+        <div class="emu-groups-grid" style="@GroupGridStyle" title="Bot groups: each card is one group, its bots on the left and its settings on the right">
             @for (var i = 0; i < Emulator.Settings.Populations.Count; i++)
             {
                 var index = i;
@@ -78,21 +78,21 @@
             </button>
         </div>
 
-        <section class="emu-panel emu-settings-panel" title="Emulator settings -- edits take effect on Apply and are saved in this browser">
-            <div class="emu-panel-heading">SETTINGS</div>
-            <EmulatorSettingsComponent Settings="Emulator.Settings" OnApply="ApplySettingsAsync" />
-        </section>
-    </div>
-
-    <div class="emu-lower">
-        <section class="emu-panel" title="The bot groups trading through the broker -- each bot sees only the market and its own account">
+        <section class="emu-panel emu-summary-panel" title="The bot groups side by side -- each bot sees only the market and its own account">
             <div class="emu-panel-heading">GROUPS</div>
             <EmulatorPopulationsComponent Populations="Snapshot.Populations" Groups="Emulator.Settings.Populations" />
         </section>
 
-        <section class="emu-panel" title="The broker that fills the bots' orders and funds their leverage">
-            <div class="emu-panel-heading">BROKER</div>
-            <EmulatorBrokerComponent Broker="Snapshot.Broker" FundTopUp="Emulator.Settings.BrokerFund" OnReplenishFund="Emulator.ReplenishFund" />
-        </section>
+        <div class="emu-settings-column">
+            <section class="emu-panel" title="Emulator settings -- edits take effect on Apply and are saved in this browser">
+                <div class="emu-panel-heading">SETTINGS</div>
+                <EmulatorSettingsComponent Settings="Emulator.Settings" OnApply="ApplySettingsAsync" />
+            </section>
+
+            <section class="emu-panel" title="The broker that fills the bots' orders and funds their leverage">
+                <div class="emu-panel-heading">BROKER</div>
+                <EmulatorBrokerComponent Broker="Snapshot.Broker" FundTopUp="Emulator.Settings.BrokerFund" OnReplenishFund="Emulator.ReplenishFund" />
+            </section>
+        </div>
     </div>
 </div>

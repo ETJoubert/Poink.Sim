@@ -35,6 +35,16 @@ namespace Poink.Sim.Components.Pages
 
 		private TimeSpan BarSpan => Emulator.Settings.TickInterval * TicksPerChartBar;
 
+		// The add-group card flows with the group cards, so it counts as one more card.
+		private string GroupGridStyle
+		{
+			get
+			{
+				var (columns, rows) = EmulatorGroupLayoutHelper.GridOf(Emulator.Settings.Populations.Count + 1);
+				return $"grid-template-columns: repeat({columns}, var(--emu-group-card-width)); grid-template-rows: repeat({rows}, auto);";
+			}
+		}
+
 		protected override void OnInitialized()
 		{
 			Emulator.Changed += HandleEmulatorChanged;

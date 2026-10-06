@@ -128,11 +128,11 @@
 }
 
 .emu-body {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 460px 250px;
+    --emu-group-card-width: 460px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
     gap: 12px;
-    flex: 1;
-    min-height: 0;
 }
 
 .emu-panel {
@@ -147,24 +147,19 @@
 }
 
 .emu-market-panel {
+    flex: 1 1 760px;
+    min-width: 0;
     overflow: hidden;
 }
 
-.emu-settings-panel {
-    align-self: start;
-}
-
-.emu-groups-column {
-    display: flex;
-    flex-direction: column;
+.emu-groups-grid {
+    display: grid;
+    grid-auto-flow: column;
+    align-items: start;
     gap: 12px;
-    min-height: 0;
-    max-height: 640px;
-    overflow-y: auto;
 }
 
 .emu-add-group-card {
-    flex-shrink: 0;
     padding: 14px;
     font-size: 0.7rem;
     font-weight: bold;
@@ -180,6 +175,20 @@
     background: color-mix(in srgb, var(--color-info) 8%, transparent);
 }
 
+.emu-summary-panel {
+    flex: none;
+    max-width: 100%;
+    overflow-x: auto;
+}
+
+.emu-settings-column {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    flex: 0 0 270px;
+    margin-left: auto;
+}
+
 .emu-panel-heading {
     font-size: 0.6rem;
     font-weight: bold;
@@ -187,30 +196,14 @@
     color: var(--color-primary);
 }
 
-.emu-lower {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 480px;
-    gap: 12px;
-}
-
-@media (max-width: 1500px) {
-    .emu-body {
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    }
-
-    .emu-market-panel {
-        grid-column: 1 / -1;
-    }
-
-    .emu-groups-column {
-        max-height: none;
-    }
-}
-
 @media (max-width: 900px) {
-    .emu-body,
-    .emu-lower {
-        grid-template-columns: minmax(0, 1fr);
+    .emu-body {
+        --emu-group-card-width: minmax(0, 1fr);
+    }
+
+    .emu-groups-grid,
+    .emu-settings-column {
+        flex: 1 1 100%;
     }
 }
 

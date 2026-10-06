@@ -1,39 +1,26 @@
 @namespace Poink.Sim.Components.Emulator
-@using Poink.Sim.Helpers
 
-<table class="emu-pop-table" title="Each group's bots, their combined account and their trading so far">
+<table class="emu-pop-table" title="Each group's bots, their combined account and their trading so far -- one column per group">
     <thead>
         <tr>
-            <th title="Group name">GROUP</th>
-            <th title="Bots still trading / bots in the group -- a bot is out once its equity is gone">BOTS</th>
-            <th title="Points paid in, in total: starting capital plus every replenish">CAPITAL</th>
-            <th title="Cash plus open positions valued at the last price, in total">EQUITY</th>
-            <th title="Equity minus capital paid in">P/L</th>
-            <th title="Cash in total -- negative cash is points borrowed from the broker for leveraged buys">CASH</th>
-            <th title="Units held long in total">LONG</th>
-            <th title="Units sold short in total -- borrowed from the broker">SHORT</th>
-            <th title="Orders resting on the book">ORDERS</th>
-            <th title="Fills received, as buyer or seller">FILLS</th>
-            <th title="Times a bot was stopped out for falling below the stop-out margin level">STOP-OUTS</th>
+            <th class="emu-pop-measure" title="What each row measures">GROUP</th>
+            @foreach (var population in Populations)
+            {
+                <th class="emu-pop-group" title="The @population.Name group">
+                    <span class="emu-pop-swatch" style="background: @ColorOf(population.Name)" title="The @population.Name group's colour"></span>@population.Name
+                </th>
+            }
         </tr>
     </thead>
     <tbody>
-        @foreach (var population in Populations)
+        @foreach (var row in Rows)
         {
-            <tr title="@population.Name group">
-                <td class="emu-pop-name" title="Group name">
-                    <span class="emu-pop-swatch" style="background: @ColorOf(population.Name)" title="The @population.Name group's colour"></span>@population.Name
-                </td>
-                <td title="@population.ActiveBots of @population.BotCount bots still trading">@population.ActiveBots / @population.BotCount</td>
-                <td title="@Amount(population.Capital) points paid in">@EmulatorChartHelper.CompactAmount(population.Capital)</td>
-                <td title="@Amount(population.Equity) equity">@EmulatorChartHelper.CompactAmount(population.Equity)</td>
-                <td class="@SignClass(population.ProfitLoss)" title="@Amount(population.ProfitLoss) profit/loss">@EmulatorChartHelper.CompactAmount(population.ProfitLoss)</td>
-                <td class="@SignClass(population.Cash)" title="@Amount(population.Cash) cash">@EmulatorChartHelper.CompactAmount(population.Cash)</td>
-                <td title="@population.LongUnits.ToString("N0") units long">@population.LongUnits.ToString("N0")</td>
-                <td title="@population.ShortUnits.ToString("N0") units short">@population.ShortUnits.ToString("N0")</td>
-                <td title="@population.OpenOrders.ToString("N0") orders resting">@population.OpenOrders.ToString("N0")</td>
-                <td title="@population.Fills.ToString("N0") fills">@population.Fills.ToString("N0")</td>
-                <td title="@population.StopOuts.ToString("N0") stop-outs">@population.StopOuts.ToString("N0")</td>
+            <tr title="@row.Tooltip">
+                <th class="emu-pop-measure" title="@row.Tooltip">@row.Label</th>
+                @foreach (var population in Populations)
+                {
+                    <td class="@(row.CssClass?.Invoke(population))" title="@population.Name: @row.CellTooltip(population)">@row.Value(population)</td>
+                }
             </tr>
         }
     </tbody>
