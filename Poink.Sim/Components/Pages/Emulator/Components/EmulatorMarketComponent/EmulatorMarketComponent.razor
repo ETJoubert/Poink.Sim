@@ -1,0 +1,17 @@
+@namespace Poink.Sim.Components.Emulator
+
+<div class="emu-market" title="Price chart and order book on one shared price scale: each ladder row sits level with its price on the chart">
+    <div class="emu-market-chart">
+        <div class="emu-market-head" title="Price history of @Snapshot.Symbol with the last price, best bid and best ask">
+            PRICE
+            @if (_scale.TicksPerRow > 1)
+            {
+                <span class="emu-market-zoom" title="Each ladder row covers @_scale.TicksPerRow ticks so the whole range fits">@_scale.TicksPerRow ticks / row</span>
+            }
+        </div>
+        <EmulatorPriceChartComponent Snapshot="Snapshot" TickSize="TickSize" Range="_scale.PriceRange" />
+    </div>
+    <div class="emu-market-book" title="Resting orders on each side of the market and the bots with orders at each level">
+        <EmulatorOrderBookComponent Book="Snapshot.Book" Population="Snapshot.Population" Price="Snapshot.Price" Scale="_scale" />
+    </div>
+</div>

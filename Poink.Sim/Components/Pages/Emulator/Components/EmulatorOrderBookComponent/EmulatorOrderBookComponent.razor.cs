@@ -9,8 +9,9 @@ using Poink.Sim.Helpers;
 namespace Poink.Sim.Components.Emulator
 {
 	/// <summary>
-	/// Price ladder view of an order book: the current price in the middle row, asks stacking up and bids stepping down,
-	/// each level shaded by its share of the deepest level, with the bots resting orders there and their equity alongside.
+	/// Price ladder view of an order book on the market scale it shares with the chart, so each row sits level with its
+	/// price on the chart: bids and asks shaded by their share of the deepest row, with the bots resting orders there and
+	/// their equity alongside.
 	/// </summary>
 	public partial class EmulatorOrderBookComponent : ComponentBase
 	{
@@ -23,8 +24,8 @@ namespace Poink.Sim.Components.Emulator
 		[Parameter, EditorRequired]
 		public double Price { get; set; }
 
-		[Parameter]
-		public double TickSize { get; set; } = 0.01;
+		[Parameter, EditorRequired]
+		public EmulatorMarketScale Scale { get; set; } = default!;
 
 		private IReadOnlyList<EmulatorLadderRow> _rows = Array.Empty<EmulatorLadderRow>();
 		private double _maxVolume;
@@ -32,9 +33,9 @@ namespace Poink.Sim.Components.Emulator
 
 		protected override void OnParametersSet()
 		{
-			_priceFormat = EmulatorChartHelper.PriceFormat(TickSize);
-			_rows = EmulatorLadderHelper.BuildRows(Book, Population, Price, TickSize);
-			_maxVolume = Book.Bids.Concat(Book.Asks).Select(level => level.Volume).DefaultIfEmpty(0).Max();
+			_priceFormat = EmulatorChartHelper.PriceFormat(Scale.TickSize);
+			_rows = EmulatorLadderHelper.BuildRows(Book, Population, Price, Scale);
+			_maxVolume = _rows.Select(row => Math.Max(row.BidVolume ?? 0, row.AskVolume ?? 0)).DefaultIfEmpty(0).Max();
 		}
 
 		private static string RowClass(EmulatorLadderRow row) =>
@@ -43,10 +44,13 @@ namespace Poink.Sim.Components.Emulator
 			: row.BidVolume is not null ? "emu-ladder-bid-row"
 			: string.Empty;
 
+		private string RowPrices(EmulatorLadderRow row) =>
+			row.TopPrice > row.Price ? $"{FormatPrice(row.Price)}–{FormatPrice(row.TopPrice)}" : FormatPrice(row.Price);
+
 		private string RowTooltip(EmulatorLadderRow row)
 		{
-			var price = FormatPrice(row.Price);
-			return row.IsCurrentPrice ? $"Current price {price}"
+			var price = RowPrices(row);
+			return row.IsCurrentPrice ? $"Last traded price {FormatPrice(Price)}, in row {price}"
 				: row.AskVolume is { } ask ? $"{FormatVolume(ask)} to sell at {price}"
 				: row.BidVolume is { } bid ? $"{FormatVolume(bid)} to buy at {price}"
 				: $"No orders resting at {price}";
@@ -56,9 +60,9 @@ namespace Poink.Sim.Components.Emulator
 			row.Population is { BotCount: > 0 } population
 				? string.Create(
 					CultureInfo.InvariantCulture,
-					$"{population.BotCount:N0} bots with orders resting at {FormatPrice(row.Price)}, holding {population.Balance:N2} equity in total, {population.Balance / population.BotCount:N2} each on average"
+					$"{population.BotCount:N0} bots with orders resting at {RowPrices(row)}, holding {population.Balance:N2} equity in total, {population.Balance / population.BotCount:N2} each on average"
 				)
-				: $"No bots with orders resting at {FormatPrice(row.Price)}";
+				: $"No bots with orders resting at {RowPrices(row)}";
 
 		private string DepthWidth(double volume) =>
 			EmulatorChartHelper.Coord(EmulatorChartHelper.DepthPercent(volume, _maxVolume));

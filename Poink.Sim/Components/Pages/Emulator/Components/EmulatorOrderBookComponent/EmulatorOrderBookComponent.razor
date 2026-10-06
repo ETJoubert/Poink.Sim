@@ -1,7 +1,7 @@
 @namespace Poink.Sim.Components.Emulator
 @using Poink.Sim.Helpers
 
-<div class="emu-ladder" title="Order book as a price ladder: the current price in the middle, asks (sell orders) above it, bids (buy orders) below it, and the bots with orders at each level on the right">
+<div class="emu-ladder" title="Order book as a price ladder level with the chart: asks (sell orders) above the last price, bids (buy orders) below it, and the bots with orders at each level on the right">
     <div class="emu-ladder-head" title="Bid volume, price, ask volume and bot population per price level">
         <span class="emu-ladder-bid">BID</span>
         <span class="emu-ladder-price">PRICE</span>
@@ -11,7 +11,7 @@
             <span class="emu-ladder-balance">BALANCE</span>
         </span>
     </div>
-    <div class="emu-ladder-rows">
+    <div class="emu-ladder-rows" style="grid-template-rows: repeat(@_rows.Count, minmax(0, 1fr))">
         @foreach (var row in _rows)
         {
             <div class="emu-ladder-row @RowClass(row)" title="@RowTooltip(row)">

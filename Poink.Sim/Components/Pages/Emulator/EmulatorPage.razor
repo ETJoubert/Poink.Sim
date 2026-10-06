@@ -45,14 +45,8 @@
     </header>
 
     <div class="emu-body">
-        <section class="emu-panel emu-chart-panel" title="Price history of @Snapshot.Symbol, centred on its current price">
-            <div class="emu-panel-heading">PRICE</div>
-            <EmulatorPriceChartComponent Snapshot="Snapshot" TickSize="Emulator.Settings.TickSize" />
-        </section>
-
-        <section class="emu-panel emu-book-panel" title="Resting orders on each side of the market and the bots with orders at each level">
-            <div class="emu-panel-heading">ORDER BOOK</div>
-            <EmulatorOrderBookComponent Book="Snapshot.Book" Population="Snapshot.Population" Price="Snapshot.Price" TickSize="Emulator.Settings.TickSize" />
+        <section class="emu-panel emu-market-panel" title="Price history and order book of @Snapshot.Symbol on one shared price scale">
+            <EmulatorMarketComponent Snapshot="Snapshot" TickSize="Emulator.Settings.TickSize" />
         </section>
 
         <section class="emu-panel emu-bots-panel" title="Every bot's account at the broker: position, balance and equity">

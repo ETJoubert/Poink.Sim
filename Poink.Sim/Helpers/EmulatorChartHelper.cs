@@ -7,7 +7,7 @@ using Poink.Sim.Emulator;
 namespace Poink.Sim.Helpers;
 
 /// <summary>Vertical price span an Emulator chart is scaled to.</summary>
-internal readonly record struct EmulatorPriceRange(double Min, double Max)
+public readonly record struct EmulatorPriceRange(double Min, double Max)
 {
 	public double Span => Max - Min;
 }
@@ -15,26 +15,6 @@ internal readonly record struct EmulatorPriceRange(double Min, double Max)
 /// <summary>Maps the Emulator's prices and book volumes onto chart and depth-bar geometry.</summary>
 internal static class EmulatorChartHelper
 {
-	private const double RangePaddingFraction = 0.08;
-
-	/// <summary>A span centred on the current price, wide enough to fit the whole history and any extra levels on either side.</summary>
-	public static EmulatorPriceRange RangeOf(
-		IReadOnlyList<EmulatorPricePoint> history,
-		double price,
-		double tickSize,
-		params double?[] levels
-	)
-	{
-		var reach = history
-			.Select(p => p.Price)
-			.Concat(levels.OfType<double>())
-			.Select(p => Math.Abs(p - price))
-			.DefaultIfEmpty(0)
-			.Max();
-		var halfSpan = Math.Max(reach * (1 + RangePaddingFraction), tickSize);
-		return new EmulatorPriceRange(price - halfSpan, price + halfSpan);
-	}
-
 	public static double YFraction(double price, EmulatorPriceRange range) =>
 		range.Span <= 0 ? 0.5 : Math.Clamp(1 - (price - range.Min) / range.Span, 0, 1);
 

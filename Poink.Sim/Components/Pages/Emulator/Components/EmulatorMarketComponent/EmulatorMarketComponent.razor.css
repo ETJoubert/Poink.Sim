@@ -1,0 +1,39 @@
+.emu-market {
+    --emu-market-head-height: 20px;
+    display: flex;
+    height: 600px;
+    min-height: 0;
+}
+
+.emu-market-chart {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+}
+
+.emu-market-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-sizing: border-box;
+    height: var(--emu-market-head-height);
+    font-size: 0.6rem;
+    font-weight: bold;
+    letter-spacing: 0.08em;
+    color: var(--color-primary);
+    border-bottom: 1px solid color-mix(in srgb, var(--color-secondary) 25%, transparent);
+}
+
+.emu-market-zoom {
+    font-weight: normal;
+    color: var(--color-secondary);
+}
+
+.emu-market-book {
+    display: flex;
+    flex-direction: column;
+    width: 480px;
+    flex-shrink: 0;
+    border-left: 1px solid color-mix(in srgb, var(--color-secondary) 35%, transparent);
+}

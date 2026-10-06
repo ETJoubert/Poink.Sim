@@ -126,7 +126,7 @@ public sealed class EmulatorService : IEmulatorService, IDisposable
 		_logger.LogInformation(
 			"Emulator reset for {Symbol} with populations {Populations} and {Settings}",
 			Settings.Symbol,
-			string.Join(", ", Settings.Populations.Select(p => $"{p.Name}: {p.BotCount} bots × {p.StartingPoints:N0} points")),
+			string.Join(", ", Settings.Populations.Select(p => $"{p.Name}: {p.BotCount} bots Ã— {p.StartingPoints:N0} points")),
 			Settings
 		);
 		Changed?.Invoke();
@@ -152,7 +152,7 @@ public sealed class EmulatorService : IEmulatorService, IDisposable
 	public void Dispose() => TryCancelLoop();
 
 	private string DescribePopulations() =>
-		string.Join(", ", Settings.Populations.Select(p => $"{p.Name}: {p.BotCount} bots � {p.StartingPoints:N0} points"));
+		string.Join(", ", Settings.Populations.Select(p => $"{p.Name}: {p.BotCount} bots × {p.StartingPoints:N0} points"));
 
 	private async Task RunLoopAsync(CancellationToken token)
 	{

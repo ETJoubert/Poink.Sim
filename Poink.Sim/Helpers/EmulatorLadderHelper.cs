@@ -5,9 +5,13 @@ using Poink.Sim.Emulator;
 
 namespace Poink.Sim.Helpers;
 
-/// <summary>One tick of the price ladder: the bid and ask volume resting at that price and the bots with orders there, if any.</summary>
+/// <summary>
+/// One row of the price ladder, covering <see cref="Price"/> to <see cref="TopPrice"/> (the same price when a row is one
+/// tick): the bid and ask volume resting there and the bots with orders there, if any.
+/// </summary>
 internal readonly record struct EmulatorLadderRow(
 	double Price,
+	double TopPrice,
 	double? BidVolume,
 	double? AskVolume,
 	PopulationLevel? Population,
@@ -15,8 +19,8 @@ internal readonly record struct EmulatorLadderRow(
 );
 
 /// <summary>
-/// Lays an order book out as a price ladder centred on the current price: one row per tick, asks above and bids below,
-/// with the same number of rows on each side so the current price stays in the middle.
+/// Lays an order book out on the shared market scale: one row per scale row, highest price first, each adding up the
+/// book levels and bots that fall inside it.
 /// </summary>
 internal static class EmulatorLadderHelper
 {
@@ -24,53 +28,48 @@ internal static class EmulatorLadderHelper
 		OrderBook book,
 		IReadOnlyList<PopulationLevel> population,
 		double price,
-		double tickSize
+		EmulatorMarketScale scale
 	)
 	{
-		var centre = EmulatorTickHelper.RoundToTick(price, tickSize);
-		var bids = VolumeByTickOffset(book.Bids, centre, tickSize);
-		var asks = VolumeByTickOffset(book.Asks, centre, tickSize);
-		var bots = PopulationByTickOffset(population, centre, tickSize);
-		var rowsEachSide = bids.Keys.Concat(asks.Keys).Concat(bots.Keys).Select(Math.Abs).DefaultIfEmpty(0).Max();
+		var bids = VolumeByRow(book.Bids, scale);
+		var asks = VolumeByRow(book.Asks, scale);
+		var bots = PopulationByRow(population, scale);
+		var priceTicks = EmulatorTickHelper.ToTicks(price, scale.TickSize);
+		var priceRow = scale.Contains(priceTicks) ? scale.RowOf(priceTicks) : -1;
 
-		var rows = new List<EmulatorLadderRow>((int)(rowsEachSide * 2 + 1));
-		for (var offset = rowsEachSide; offset >= -rowsEachSide; offset--)
-		{
-			var rowPrice = EmulatorTickHelper.RoundToTick(centre + offset * tickSize, tickSize);
-			rows.Add(
-				new EmulatorLadderRow(
-					rowPrice,
-					bids.TryGetValue(offset, out var bid) ? bid : null,
-					asks.TryGetValue(offset, out var ask) ? ask : null,
-					bots.TryGetValue(offset, out var level) ? level with { Price = rowPrice } : null,
-					offset == 0
-				)
-			);
-		}
-
-		return rows;
+		return Enumerable
+			.Range(0, scale.RowCount)
+			.Select(row => new EmulatorLadderRow(
+				EmulatorTickHelper.FromTicks(scale.RowBottomTicks(row), scale.TickSize),
+				EmulatorTickHelper.FromTicks(scale.RowTopTicks(row), scale.TickSize),
+				bids.TryGetValue(row, out var bid) ? bid : null,
+				asks.TryGetValue(row, out var ask) ? ask : null,
+				bots.TryGetValue(row, out var level) ? level : null,
+				row == priceRow
+			))
+			.ToArray();
 	}
 
-	private static long TickOffset(double price, double centre, double tickSize) => (long)Math.Round((price - centre) / tickSize);
+	private static IEnumerable<(int Row, T Item)> InScale<T>(IEnumerable<T> items, Func<T, double> priceOf, EmulatorMarketScale scale) =>
+		items
+			.Select(item => (Ticks: EmulatorTickHelper.ToTicks(priceOf(item), scale.TickSize), Item: item))
+			.Where(entry => scale.Contains(entry.Ticks))
+			.Select(entry => (scale.RowOf(entry.Ticks), entry.Item));
 
-	private static Dictionary<long, double> VolumeByTickOffset(
-		IReadOnlyList<OrderBookLevel> levels,
-		double centre,
-		double tickSize
-	) =>
-		levels
-			.GroupBy(level => TickOffset(level.Price, centre, tickSize))
-			.ToDictionary(group => group.Key, group => group.Sum(level => level.Volume));
+	private static Dictionary<int, double> VolumeByRow(IReadOnlyList<OrderBookLevel> levels, EmulatorMarketScale scale) =>
+		InScale(levels, level => level.Price, scale)
+			.GroupBy(entry => entry.Row)
+			.ToDictionary(group => group.Key, group => group.Sum(entry => entry.Item.Volume));
 
-	private static Dictionary<long, PopulationLevel> PopulationByTickOffset(
-		IReadOnlyList<PopulationLevel> population,
-		double centre,
-		double tickSize
-	) =>
-		population
-			.GroupBy(level => TickOffset(level.Price, centre, tickSize))
+	private static Dictionary<int, PopulationLevel> PopulationByRow(IReadOnlyList<PopulationLevel> population, EmulatorMarketScale scale) =>
+		InScale(population, level => level.Price, scale)
+			.GroupBy(entry => entry.Row)
 			.ToDictionary(
 				group => group.Key,
-				group => new PopulationLevel(group.First().Price, group.Sum(l => l.BotCount), group.Sum(l => l.Balance))
+				group => new PopulationLevel(
+					EmulatorTickHelper.FromTicks(scale.RowBottomTicks(group.Key), scale.TickSize),
+					group.Sum(entry => entry.Item.BotCount),
+					group.Sum(entry => entry.Item.Balance)
+				)
 			);
 }

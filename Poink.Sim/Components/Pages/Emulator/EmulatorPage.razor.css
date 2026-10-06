@@ -101,7 +101,7 @@
 
 .emu-body {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 480px 300px;
+    grid-template-columns: minmax(0, 1fr) 300px;
     gap: 12px;
     flex: 1;
     min-height: 0;
@@ -118,7 +118,7 @@
     background: color-mix(in srgb, var(--color-secondary) 6%, var(--color-bg-terminal));
 }
 
-.emu-book-panel,
+.emu-market-panel,
 .emu-bots-panel {
     overflow: hidden;
 }
@@ -138,11 +138,10 @@
 
 @media (max-width: 1400px) {
     .emu-body {
-        grid-template-columns: minmax(0, 1fr) 480px;
+        grid-template-columns: minmax(0, 1fr);
     }
 
     .emu-bots-panel {
-        grid-column: 1 / -1;
         height: 320px;
     }
 }

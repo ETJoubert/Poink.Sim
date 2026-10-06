@@ -2,7 +2,7 @@
     position: relative;
     display: flex;
     flex: 1;
-    min-height: 240px;
+    min-height: 0;
     padding-right: 72px;
 }
 

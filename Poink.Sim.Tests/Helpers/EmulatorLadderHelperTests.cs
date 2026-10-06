@@ -14,29 +14,29 @@ public class EmulatorLadderHelperTests
 
 	private static readonly PopulationLevel[] Population = [new(11, 2, 400), new(9, 1, 500), new(9, 2, 400)];
 
-	[Fact]
-	public void BuildRows_PutsCurrentPriceInTheMiddleRow()
-	{
-		var rows = EmulatorLadderHelper.BuildRows(Book, Population, 10, 1);
-
-		Assert.Equal(7, rows.Count);
-		Assert.True(rows[3].IsCurrentPrice);
-		Assert.Equal(10, rows[3].Price);
-		Assert.Single(rows, row => row.IsCurrentPrice);
-	}
+	private static readonly EmulatorMarketScale OneTickRows = new(7, 13, 1, 1);
 
 	[Fact]
-	public void BuildRows_RunsFromHighestPriceDownOneTickPerRow()
+	public void BuildRows_RunsFromHighestPriceDownOneRowPerScaleRow()
 	{
-		var rows = EmulatorLadderHelper.BuildRows(Book, Population, 10, 1);
+		var rows = EmulatorLadderHelper.BuildRows(Book, Population, 10, OneTickRows);
 
 		Assert.Equal([13.0, 12, 11, 10, 9, 8, 7], rows.Select(row => row.Price));
 	}
 
 	[Fact]
+	public void BuildRows_MarksTheLastPricesRow()
+	{
+		var rows = EmulatorLadderHelper.BuildRows(Book, Population, 12, OneTickRows);
+
+		Assert.Equal(1, rows.ToList().FindIndex(row => row.IsCurrentPrice));
+		Assert.Single(rows, row => row.IsCurrentPrice);
+	}
+
+	[Fact]
 	public void BuildRows_PlacesAsksAboveAndBidsBelowThePrice()
 	{
-		var rows = EmulatorLadderHelper.BuildRows(Book, Population, 10, 1);
+		var rows = EmulatorLadderHelper.BuildRows(Book, Population, 10, OneTickRows);
 
 		Assert.Equal([6.0, 4, 3, null, null, null, null], rows.Select(row => row.AskVolume));
 		Assert.Equal([null, null, null, null, 5.0, 7, null], rows.Select(row => row.BidVolume));
@@ -45,28 +45,29 @@ public class EmulatorLadderHelperTests
 	[Fact]
 	public void BuildRows_PutsEachLevelsBotsOnItsRow()
 	{
-		var rows = EmulatorLadderHelper.BuildRows(Book, Population, 10, 1);
+		var rows = EmulatorLadderHelper.BuildRows(Book, Population, 10, OneTickRows);
 
 		Assert.Equal([null, null, 2, null, 3, null, null], rows.Select(row => row.Population?.BotCount));
 		Assert.Equal(900, rows[4].Population!.Value.Balance);
 	}
 
 	[Fact]
-	public void BuildRows_WidensToFitBotsBeyondTheBook()
+	public void BuildRows_GroupedRowsAddUpTheirTicks()
 	{
-		var rows = EmulatorLadderHelper.BuildRows(Book, [new PopulationLevel(5, 1, 50)], 10, 1);
+		var rows = EmulatorLadderHelper.BuildRows(Book, Population, 10, new EmulatorMarketScale(6, 13, 2, 1));
 
-		Assert.Equal(11, rows.Count);
-		Assert.Equal(5, rows[^1].Price);
-		Assert.Equal(1, rows[^1].Population!.Value.BotCount);
+		Assert.Equal([(12.0, 13.0), (10, 11), (8, 9), (6, 7)], rows.Select(row => (row.Price, row.TopPrice)));
+		Assert.Equal([10.0, 3, null, null], rows.Select(row => row.AskVolume));
+		Assert.Equal([null, null, 12.0, null], rows.Select(row => row.BidVolume));
+		Assert.True(rows[1].IsCurrentPrice);
 	}
 
 	[Fact]
-	public void BuildRows_EmptyBookIsJustTheCurrentPrice()
+	public void BuildRows_LeavesOutLevelsBeyondTheScale()
 	{
-		var row = Assert.Single(EmulatorLadderHelper.BuildRows(OrderBook.Empty, [], 100.004, 0.01));
+		var rows = EmulatorLadderHelper.BuildRows(Book, Population, 10, new EmulatorMarketScale(9, 11, 1, 1));
 
-		Assert.Equal(100, row.Price);
-		Assert.True(row.IsCurrentPrice);
+		Assert.Equal([3.0, null, null], rows.Select(row => row.AskVolume));
+		Assert.Equal([null, null, 5.0], rows.Select(row => row.BidVolume));
 	}
 }

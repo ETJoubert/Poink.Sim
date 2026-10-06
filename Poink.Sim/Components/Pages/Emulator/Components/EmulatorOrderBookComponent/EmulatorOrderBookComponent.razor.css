@@ -15,7 +15,8 @@
 }
 
 .emu-ladder-head {
-    padding-bottom: 4px;
+    box-sizing: border-box;
+    height: var(--emu-market-head-height, 20px);
     font-size: 0.55rem;
     font-weight: bold;
     letter-spacing: 0.08em;
@@ -24,17 +25,14 @@
 }
 
 .emu-ladder-rows {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
+    display: grid;
     flex: 1;
     min-height: 0;
     overflow: hidden;
 }
 
 .emu-ladder-row {
-    flex-shrink: 0;
-    height: 16px;
+    min-height: 0;
     color: color-mix(in srgb, var(--color-text) 45%, transparent);
 }
 

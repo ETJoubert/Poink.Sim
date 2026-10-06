@@ -14,33 +14,6 @@ public class EmulatorChartHelperTests
 		new(DateTime.UnixEpoch.AddSeconds(2), 105),
 	];
 
-	[Fact]
-	public void RangeOf_CentresOnCurrentPriceAndFitsTheFarthestHistory()
-	{
-		var range = EmulatorChartHelper.RangeOf(History, 120, 0.01);
-
-		Assert.Equal(98.4, range.Min, 9);
-		Assert.Equal(141.6, range.Max, 9);
-		Assert.Equal(0.5, EmulatorChartHelper.YFraction(120, range), 9);
-	}
-
-	[Fact]
-	public void RangeOf_WidensToFitExtraLevels()
-	{
-		var range = EmulatorChartHelper.RangeOf([], 100, 0.01, 99, null, 102);
-
-		Assert.Equal(97.84, range.Min, 9);
-		Assert.Equal(102.16, range.Max, 9);
-	}
-
-	[Fact]
-	public void RangeOf_FlatPricePadsByAtLeastOneTick()
-	{
-		var range = EmulatorChartHelper.RangeOf([], 50, 0.5);
-
-		Assert.Equal((49.5, 50.5), (range.Min, range.Max));
-	}
-
 	[Theory]
 	[InlineData(120, 0)]
 	[InlineData(100, 1)]

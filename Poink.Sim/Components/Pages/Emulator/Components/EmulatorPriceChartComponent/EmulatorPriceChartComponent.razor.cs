@@ -6,8 +6,8 @@ using Poink.Sim.Helpers;
 namespace Poink.Sim.Components.Emulator
 {
 	/// <summary>
-	/// The synthetic asset's price history as a line, scaled around the current price so its level line stays at mid-height,
-	/// with the best bid and best ask drawn as the spread's edges.
+	/// The synthetic asset's price history as a line on the market scale it shares with the ladder, with the last price and
+	/// the best bid and best ask drawn as level lines.
 	/// </summary>
 	public partial class EmulatorPriceChartComponent : ComponentBase
 	{
@@ -20,7 +20,8 @@ namespace Poink.Sim.Components.Emulator
 		[Parameter]
 		public double TickSize { get; set; } = 0.01;
 
-		private EmulatorPriceRange Range { get; set; }
+		[Parameter, EditorRequired]
+		public EmulatorPriceRange Range { get; set; }
 
 		private string HistoryPoints { get; set; } = string.Empty;
 
@@ -35,13 +36,6 @@ namespace Poink.Sim.Components.Emulator
 		protected override void OnParametersSet()
 		{
 			_priceFormat = EmulatorChartHelper.PriceFormat(TickSize);
-			Range = EmulatorChartHelper.RangeOf(
-				Snapshot.History,
-				Snapshot.Price,
-				TickSize,
-				Snapshot.Book.BestBid,
-				Snapshot.Book.BestAsk
-			);
 			HistoryPoints = EmulatorChartHelper.PolylinePoints(Snapshot.History, Range, ViewWidth, ViewHeight);
 			Price = LevelAt(Snapshot.Price);
 			Bid = Snapshot.Book.BestBid is { } bid ? LevelAt(bid) : null;
