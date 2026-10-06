@@ -1,0 +1,70 @@
+.emu-equity {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.emu-equity-plot {
+    position: relative;
+    display: flex;
+    height: 160px;
+    padding-right: 44px;
+}
+
+.emu-equity-svg {
+    display: block;
+    flex: 1;
+    min-width: 0;
+}
+
+.emu-equity-line {
+    fill: none;
+    stroke-width: 2;
+    stroke-linejoin: round;
+}
+
+.emu-equity-axis {
+    position: absolute;
+    right: 0;
+    font-size: 0.58rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--color-secondary);
+}
+
+.emu-equity-axis-max {
+    top: 0;
+}
+
+.emu-equity-axis-min {
+    bottom: 0;
+}
+
+.emu-equity-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    font-size: 0.62rem;
+    color: var(--color-text);
+}
+
+.emu-equity-key {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.emu-equity-swatch {
+    width: 10px;
+    height: 2px;
+    border-radius: 1px;
+}
+
+.emu-equity-value {
+    font-variant-numeric: tabular-nums;
+    color: var(--color-secondary);
+}
+
+.emu-equity-empty {
+    font-size: 0.65rem;
+    color: var(--color-secondary);
+}

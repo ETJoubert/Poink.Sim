@@ -1,0 +1,23 @@
+@namespace Poink.Sim.Components.Emulator
+@using Poink.Sim.Helpers
+
+<div class="emu-bots" title="Every bot's account at the broker">
+    <div class="emu-bots-row emu-bots-head" title="Bot, position and equity">
+        <span title="Bot number">BOT</span>
+        <span title="Units held -- negative is a short position">POS</span>
+        <span title="Cash plus the open position valued at the last price">EQUITY</span>
+        <span title="Replenish one bot with its population's starting capital"></span>
+    </div>
+    <div class="emu-bots-scroll">
+        @foreach (var bot in Bots)
+        {
+            <div @key="bot.Id" class="emu-bots-row @(bot.IsBust ? "emu-bots-bust" : "")" title="@BotTooltip(bot)">
+                <span class="emu-bots-id">#@bot.Id</span>
+                <span class="@SignClass(bot.Position)">@bot.Position.ToString("N0")</span>
+                <span class="@EquityClass(bot)">@EmulatorChartHelper.CompactAmount(bot.Equity)</span>
+                <button type="button" class="emu-bots-replenish" @onclick="() => OnReplenish.InvokeAsync(bot.Id)" @onclick:stopPropagation="true"
+                        title="Replenish bot #@bot.Id: add its population's starting capital to what it has@(bot.IsBust ? " and bring it back into the market" : "")">+</button>
+            </div>
+        }
+    </div>
+</div>

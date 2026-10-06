@@ -1,0 +1,49 @@
+@namespace Poink.Sim.Components.Emulator
+@using System.Globalization
+@using Poink.Sim.Emulator
+
+<div class="emu-settings" title="Emulator settings -- edits take effect on Apply and are saved in this browser">
+    <section class="emu-settings-section" title="The broker's terms">
+        <div class="emu-settings-heading">BROKER</div>
+        <label class="emu-settings-field" title="Most a bot's position plus its resting orders on one side may be worth, as a multiple of its equity -- applied without restarting; lowering it can stop bots out">
+            <span>Leverage ×</span>
+            <input type="number" min="@EmulatorSettings.MinLeverage" max="@EmulatorSettings.MaxLeverage" step="0.5"
+                   value="@_leverage.ToString(CultureInfo.InvariantCulture)" @onchange="e => _leverage = ParseDouble(e.Value)" />
+        </label>
+        <label class="emu-settings-field" title="Points the broker's fund opens with -- and what Replenish fund adds again. Applied without restarting: the current fund only changes on a replenish or reset">
+            <span>Broker fund</span>
+            <input type="number" min="@EmulatorSettings.MinBrokerFund" max="@EmulatorSettings.MaxBrokerFund" step="10000"
+                   value="@_brokerFund.ToString(CultureInfo.InvariantCulture)" @onchange="e => _brokerFund = ParseDouble(e.Value)" />
+        </label>
+    </section>
+
+    <section class="emu-settings-section" title="How the bots trade -- applied without restarting">
+        <div class="emu-settings-heading">BOTS</div>
+        <label class="emu-settings-field" title="How far from the last price, in ticks, bots place their orders">
+            <span>Order range (ticks)</span>
+            <input type="number" min="@EmulatorSettings.MinOrderRangeTicks" max="@EmulatorSettings.MaxOrderRangeTicks" step="1"
+                   value="@_orderRangeTicks" @onchange="e => _orderRangeTicks = ParseInt(e.Value)" />
+        </label>
+        <div class="emu-settings-field" title="Each bot acts on a share of steps drawn from this range, so some trade more often than others -- changing it redraws every bot's frequency">
+            <span>Action frequency %</span>
+            <span class="emu-settings-range">
+                <input type="number" min="0" max="100" step="0.5" title="Least often a bot acts, as a percentage of steps"
+                       value="@_activityMinPercent.ToString(CultureInfo.InvariantCulture)" @onchange="e => _activityMinPercent = ParseDouble(e.Value)" />
+                <span title="Range from the least to the most often a bot acts">–</span>
+                <input type="number" min="0" max="100" step="0.5" title="Most often a bot acts, as a percentage of steps"
+                       value="@_activityMaxPercent.ToString(CultureInfo.InvariantCulture)" @onchange="e => _activityMaxPercent = ParseDouble(e.Value)" />
+            </span>
+        </div>
+    </section>
+
+    @if (ValidationMessage is { } validation)
+    {
+        <span class="emu-settings-error" title="Why the settings cannot be applied yet">@validation</span>
+    }
+
+    <div class="emu-settings-actions">
+        <button type="button" class="emu-settings-btn" @onclick="Revert" disabled="@(!IsDirty)" title="Discard the edits and show the settings in use">Revert</button>
+        <button type="button" class="emu-settings-btn emu-settings-btn-apply" @onclick="ApplyAsync" disabled="@(!IsDirty || ValidationMessage is not null)"
+                title="@(ValidationMessage ?? (IsDirty ? "Apply the settings to the running market -- no restart" : "Nothing to apply -- the settings shown are in use"))">Apply</button>
+    </div>
+</div>

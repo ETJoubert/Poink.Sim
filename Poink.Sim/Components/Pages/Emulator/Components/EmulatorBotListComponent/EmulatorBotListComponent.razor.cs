@@ -1,0 +1,35 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using Microsoft.AspNetCore.Components;
+using Poink.Sim.Emulator;
+
+namespace Poink.Sim.Components.Emulator
+{
+	/// <summary>
+	/// Every bot's account: its position and equity (cash plus the open position), bust bots dimmed.
+	/// </summary>
+	public partial class EmulatorBotListComponent : ComponentBase
+	{
+		[Parameter, EditorRequired]
+		public IReadOnlyList<BotSummary> Bots { get; set; } = Array.Empty<BotSummary>();
+
+		[Parameter]
+		public EventCallback<int> OnReplenish { get; set; }
+
+		private static string BotTooltip(BotSummary bot) =>
+			string.Create(
+				CultureInfo.InvariantCulture,
+				$"Bot #{bot.Id} ({bot.Population}){(bot.IsBust ? " -- bust, no longer trading" : "")}: position {bot.Position:N0}"
+					+ $"{(bot.Position != 0 ? $" at an average {bot.AverageEntryPrice:N4}" : "")}, capital paid in {bot.Capital:N2}, equity {bot.Equity:N2}, "
+					+ $"{bot.OpenOrders:N0} orders resting, acts on {bot.ActivityChance:P1} of steps"
+			);
+
+		private static string SignClass(double amount) =>
+			amount > 0 ? "emu-bots-positive"
+			: amount < 0 ? "emu-bots-negative"
+			: string.Empty;
+
+		private static string EquityClass(BotSummary bot) => SignClass(bot.Equity - bot.Capital);
+	}
+}

@@ -1,0 +1,24 @@
+@namespace Poink.Sim.Components.Emulator
+@using Poink.Sim.Models
+
+<div class="emu-market" title="Price chart and order book on one shared price scale: each ladder row sits level with its price on the chart">
+    <div class="emu-market-chart">
+        <div class="emu-market-head" title="Price history of @Snapshot.Symbol with the last price, best bid and best ask">
+            PRICE
+            <div class="emu-market-modes" title="How the price history is drawn">
+                <button type="button" class="emu-market-mode @(Mode == EmulatorChartMode.Line ? "selected" : "")" @onclick="() => SelectModeAsync(EmulatorChartMode.Line)"
+                        title="Draw the history as a close-price line">LINE</button>
+                <button type="button" class="emu-market-mode @(Mode == EmulatorChartMode.Ohlc ? "selected" : "")" @onclick="() => SelectModeAsync(EmulatorChartMode.Ohlc)"
+                        title="Draw the history as OHLC bars of @BarSpan.TotalMilliseconds.ToString("N0") ms: high-low stem, open ticked left, close ticked right">OHLC</button>
+            </div>
+            @if (_scale.TicksPerRow > 1)
+            {
+                <span class="emu-market-zoom" title="Each ladder row covers @_scale.TicksPerRow ticks so the whole range fits">@_scale.TicksPerRow ticks / row</span>
+            }
+        </div>
+        <EmulatorPriceChartComponent Snapshot="Snapshot" TickSize="TickSize" Range="_scale.PriceRange" Mode="Mode" BarSpan="BarSpan" />
+    </div>
+    <div class="emu-market-book" title="Resting orders on each side of the market and the bots with orders at each level">
+        <EmulatorOrderBookComponent Book="Snapshot.Book" Positions="Snapshot.Positions" Price="Snapshot.Price" Scale="_scale" />
+    </div>
+</div>

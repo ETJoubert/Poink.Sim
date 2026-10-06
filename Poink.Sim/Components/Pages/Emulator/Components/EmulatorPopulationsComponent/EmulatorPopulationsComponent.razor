@@ -1,0 +1,43 @@
+@namespace Poink.Sim.Components.Emulator
+
+<table class="emu-pop-table" title="Each group's bots, their combined account and their trading so far -- one column per group">
+    <thead>
+        <tr class="emu-pop-rank-row" title="Gold, silver and bronze for the three best returns on capital">
+            <th class="emu-pop-measure" title="Gold, silver and bronze for the three best returns on capital">RANK</th>
+            @foreach (var population in Populations)
+            {
+                <th class="emu-pop-rank" title="@RankTooltip(population)">
+                    @if (_medals.TryGetValue(population.Name, out var medal))
+                    {
+                        <span class="emu-pop-medal emu-pop-medal-@medal.ToString().ToLowerInvariant()">@MedalLabel(medal)</span>
+                    }
+                    else
+                    {
+                        <span class="emu-pop-medal emu-pop-medal-none" aria-hidden="true">3rd</span>
+                    }
+                </th>
+            }
+        </tr>
+        <tr>
+            <th class="emu-pop-measure" title="What each row measures">GROUP</th>
+            @foreach (var population in Populations)
+            {
+                <th class="emu-pop-group" title="The @population.Name group">
+                    <span class="emu-pop-swatch" style="background: @ColorOf(population.Name)" title="The @population.Name group's colour"></span>@population.Name
+                </th>
+            }
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var row in Rows)
+        {
+            <tr title="@row.Tooltip">
+                <th class="emu-pop-measure" title="@row.Tooltip">@row.Label</th>
+                @foreach (var population in Populations)
+                {
+                    <td class="@(row.CssClass?.Invoke(population))" title="@population.Name: @row.CellTooltip(population)">@row.Value(population)</td>
+                }
+            </tr>
+        }
+    </tbody>
+</table>

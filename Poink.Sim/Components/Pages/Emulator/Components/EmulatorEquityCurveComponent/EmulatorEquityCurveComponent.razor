@@ -1,0 +1,33 @@
+@namespace Poink.Sim.Components.Emulator
+@using Poink.Sim.Helpers
+
+<div class="emu-equity" title="Each group's total equity over time, one line per group in its colour">
+    @if (_lines.Count == 0)
+    {
+        <span class="emu-equity-empty" title="Equity is recorded once the market has steps">No equity history yet</span>
+    }
+    else
+    {
+        <div class="emu-equity-plot">
+            <svg viewBox="0 0 @EmulatorChartHelper.Coord(ViewWidth) @EmulatorChartHelper.Coord(ViewHeight)" preserveAspectRatio="none" class="emu-equity-svg">
+                @foreach (var line in _lines)
+                {
+                    <polyline points="@line.Points" class="emu-equity-line" style="stroke: @line.Color" vector-effect="non-scaling-stroke">
+                        <title>@line.Name: equity now @line.Latest.ToString("N2")</title>
+                    </polyline>
+                }
+            </svg>
+            <span class="emu-equity-axis emu-equity-axis-max" title="Top of the equity scale">@EmulatorChartHelper.CompactAmount(_range.Max)</span>
+            <span class="emu-equity-axis emu-equity-axis-min" title="Bottom of the equity scale">@EmulatorChartHelper.CompactAmount(_range.Min)</span>
+        </div>
+        <div class="emu-equity-legend" title="Groups and their equity now">
+            @foreach (var line in _lines)
+            {
+                <span class="emu-equity-key" title="@line.Name: equity now @line.Latest.ToString("N2")">
+                    <span class="emu-equity-swatch" style="background: @line.Color"></span>@line.Name
+                    <span class="emu-equity-value">@EmulatorChartHelper.CompactAmount(line.Latest)</span>
+                </span>
+            }
+        </div>
+    }
+</div>

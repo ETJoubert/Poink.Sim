@@ -1,0 +1,49 @@
+@namespace Poink.Sim.Components.Emulator
+@using Poink.Sim.Helpers
+@using Poink.Sim.Models
+
+<div class="emu-chart" title="@Snapshot.Symbol price history -- the newest price is on the right edge">
+    <svg viewBox="0 0 @EmulatorChartHelper.Coord(ViewWidth) @EmulatorChartHelper.Coord(ViewHeight)" preserveAspectRatio="none" class="emu-chart-svg">
+        @if (Ask is { } ask)
+        {
+            <line x1="0" y1="@ask.Y" x2="@EmulatorChartHelper.Coord(ViewWidth)" y2="@ask.Y" class="emu-chart-ask" vector-effect="non-scaling-stroke">
+                <title>Best ask @ask.Label -- the lowest price anyone is selling at</title>
+            </line>
+        }
+        @if (Bid is { } bid)
+        {
+            <line x1="0" y1="@bid.Y" x2="@EmulatorChartHelper.Coord(ViewWidth)" y2="@bid.Y" class="emu-chart-bid" vector-effect="non-scaling-stroke">
+                <title>Best bid @bid.Label -- the highest price anyone is buying at</title>
+            </line>
+        }
+        @if (Mode == EmulatorChartMode.Ohlc)
+        {
+            <path d="@OhlcPaths.Rising" class="emu-chart-ohlc-rising" vector-effect="non-scaling-stroke">
+                <title>Rising bars: closed at or above their open (@BarCount bars of @BarSpan.TotalMilliseconds.ToString("N0") ms)</title>
+            </path>
+            <path d="@OhlcPaths.Falling" class="emu-chart-ohlc-falling" vector-effect="non-scaling-stroke">
+                <title>Falling bars: closed below their open (@BarCount bars of @BarSpan.TotalMilliseconds.ToString("N0") ms)</title>
+            </path>
+        }
+        else
+        {
+            <polyline points="@HistoryPoints" class="emu-chart-history" vector-effect="non-scaling-stroke">
+                <title>Price history: last @Snapshot.History.Count prices</title>
+            </polyline>
+        }
+        <line x1="0" y1="@Price.Y" x2="@EmulatorChartHelper.Coord(ViewWidth)" y2="@Price.Y" class="emu-chart-price" vector-effect="non-scaling-stroke">
+            <title>Last traded price @Price.Label</title>
+        </line>
+    </svg>
+    <span class="emu-chart-axis emu-chart-axis-max" title="Top of the chart's price scale">@FormatPrice(Range.Max)</span>
+    <span class="emu-chart-axis emu-chart-axis-min" title="Bottom of the chart's price scale">@FormatPrice(Range.Min)</span>
+    @if (Ask is { } askLabel)
+    {
+        <span class="emu-chart-spread-label emu-chart-ask-label" style="top: @askLabel.TopPercent%" title="Best ask -- the lowest price anyone is selling at">ASK @askLabel.Label</span>
+    }
+    @if (Bid is { } bidLabel)
+    {
+        <span class="emu-chart-spread-label emu-chart-bid-label" style="top: @bidLabel.TopPercent%" title="Best bid -- the highest price anyone is buying at">BID @bidLabel.Label</span>
+    }
+    <span class="emu-chart-price-label" style="top: @Price.TopPercent%" title="Last traded price of @Snapshot.Symbol">@Price.Label</span>
+</div>

@@ -1,0 +1,45 @@
+@namespace Poink.Sim.Components.Emulator
+@using Poink.Sim.Helpers
+
+<div class="emu-broker" title="The broker: its fund, what it has lent the bots and the market's activity">
+    <div class="emu-broker-stat" title="The broker's fund: what backs leveraged buys and short sales. Absorbed losses come out of it">
+        <span class="emu-broker-label">FUND</span>
+        <span class="emu-broker-value @(Broker.FundBalance < 0 ? "emu-broker-negative" : "")">@EmulatorChartHelper.CompactAmount(Broker.FundBalance)</span>
+    </div>
+    <div class="emu-broker-stat" title="Every point paid into the fund: what it opened with plus each replenish">
+        <span class="emu-broker-label">PAID IN</span>
+        <span class="emu-broker-value">@EmulatorChartHelper.CompactAmount(Broker.FundCapital)</span>
+    </div>
+    <div class="emu-broker-stat" title="Lent now: points borrowed for leveraged buys plus the value of units borrowed for short sales (@FundUsePercent of the fund)">
+        <span class="emu-broker-label">LENT</span>
+        <span class="emu-broker-value">@EmulatorChartHelper.CompactAmount(Broker.Lent)</span>
+    </div>
+    <div class="emu-broker-stat" title="Losses the fund covered when stopped-out bots ended with negative equity">
+        <span class="emu-broker-label">ABSORBED</span>
+        <span class="emu-broker-value @(Broker.AbsorbedLosses > 0 ? "emu-broker-negative" : "")">@EmulatorChartHelper.CompactAmount(Broker.AbsorbedLosses)</span>
+    </div>
+    <div class="emu-broker-stat" title="Most a bot's position plus its resting orders on one side may be worth, as a multiple of its equity">
+        <span class="emu-broker-label">LEVERAGE</span>
+        <span class="emu-broker-value">@Broker.Leverage.ToString("0.##")×</span>
+    </div>
+    <div class="emu-broker-stat" title="Fills the broker has made">
+        <span class="emu-broker-label">TRADES</span>
+        <span class="emu-broker-value">@Broker.TradeCount.ToString("N0")</span>
+    </div>
+    <div class="emu-broker-stat" title="Units traded in total">
+        <span class="emu-broker-label">VOLUME</span>
+        <span class="emu-broker-value">@Broker.TradedVolume.ToString("N0")</span>
+    </div>
+    <div class="emu-broker-stat" title="Orders resting on the book now">
+        <span class="emu-broker-label">ORDERS</span>
+        <span class="emu-broker-value">@Broker.OpenOrders.ToString("N0")</span>
+    </div>
+    <div class="emu-broker-stat" title="Orders the broker turned away for exceeding the bot's margin or the fund's lending room">
+        <span class="emu-broker-label">REJECTED</span>
+        <span class="emu-broker-value">@Broker.RejectedOrders.ToString("N0")</span>
+    </div>
+    <div class="emu-broker-actions">
+        <button type="button" class="emu-broker-btn" @onclick="OnReplenishFund"
+                title="Add the broker fund setting (@FundTopUp.ToString("N0") points) to the fund on top of what it has">Replenish fund</button>
+    </div>
+</div>

@@ -1,0 +1,95 @@
+using Poink.Sim.Emulator;
+using Poink.Sim.Emulator.Broker;
+using Xunit;
+
+namespace Poink.Sim.Tests.Services.Emulator.Broker;
+
+public class EmulatorBotAccountTests
+{
+	private static EmulatorBotAccount CreateAccount() => new(1, "Test", 1_000);
+
+	[Fact]
+	public void ApplyFill_AddingToAPositionAveragesTheEntry()
+	{
+		var account = CreateAccount();
+
+		account.ApplyFill(OrderSide.Buy, 2, 10);
+		account.ApplyFill(OrderSide.Buy, 2, 12);
+
+		Assert.Equal((4L, 11.0), (account.Position, account.AverageEntryPrice));
+		Assert.Equal(1_000, account.Equity(account.AverageEntryPrice));
+		Assert.Equal(1_004, account.Equity(12));
+	}
+
+	[Fact]
+	public void ApplyFill_ReducingRealisesIntoBalanceAndKeepsTheEntry()
+	{
+		var account = CreateAccount();
+		account.ApplyFill(OrderSide.Buy, 4, 10);
+
+		account.ApplyFill(OrderSide.Sell, 1, 13);
+
+		Assert.Equal((3L, 10.0), (account.Position, account.AverageEntryPrice));
+		Assert.Equal(1_003, account.Equity(account.AverageEntryPrice));
+	}
+
+	[Fact]
+	public void ApplyFill_ClosingLeavesOnlyRealisedProfit()
+	{
+		var account = CreateAccount();
+		account.ApplyFill(OrderSide.Sell, 5, 20);
+
+		account.ApplyFill(OrderSide.Buy, 5, 18);
+
+		Assert.Equal((0L, 0.0), (account.Position, account.AverageEntryPrice));
+		Assert.Equal(1_010, account.Cash);
+		Assert.Equal(account.Cash, account.Equity(99));
+	}
+
+	[Fact]
+	public void ApplyFill_FlippingStartsANewEntryAtTheFillPrice()
+	{
+		var account = CreateAccount();
+		account.ApplyFill(OrderSide.Buy, 2, 10);
+
+		account.ApplyFill(OrderSide.Sell, 5, 11);
+
+		Assert.Equal((-3L, 11.0), (account.Position, account.AverageEntryPrice));
+		Assert.Equal(1_002, account.Equity(account.AverageEntryPrice));
+	}
+
+	[Fact]
+	public void Deposit_AddsToWhatTheBotHasAndToItsCapital()
+	{
+		var account = CreateAccount();
+		account.ApplyFill(OrderSide.Buy, 2, 10);
+
+		account.Deposit(500);
+
+		Assert.Equal((1_480.0, 1_500.0), (account.Cash, account.Capital));
+		Assert.Equal(1_500, account.Equity(account.AverageEntryPrice));
+	}
+
+	[Fact]
+	public void Deposit_BringsABustBotBack()
+	{
+		var account = CreateAccount();
+		account.GoBust();
+
+		account.Deposit(1_000);
+
+		Assert.False(account.IsBust);
+		Assert.Equal(1_000, account.Cash);
+	}
+
+	[Fact]
+	public void GoBust_ZeroesTheAccountAndStopsIt()
+	{
+		var account = CreateAccount();
+
+		account.GoBust();
+
+		Assert.True(account.IsBust);
+		Assert.Equal(0, account.Equity(100));
+	}
+}

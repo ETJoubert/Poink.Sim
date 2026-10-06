@@ -1,0 +1,55 @@
+@namespace Poink.Sim.Components.Emulator
+@using System.Globalization
+
+<section class="emu-group-card" style="--emu-group-color: @Color" title="The @Group.Name group: its bots on the left, its settings on the right -- edits apply as soon as you leave a field">
+    <div class="emu-group-card-head">
+        <span class="emu-group-swatch" title="The @Group.Name group's colour"></span>
+        <input class="emu-group-card-name" type="text" value="@_name" title="Group name -- must be unique; renaming keeps the group's bots"
+               @onchange="e => ChangeAsync(() => _name = e.Value?.ToString()?.Trim() ?? string.Empty)" />
+        <span class="emu-group-card-count" title="Bots still trading / bots in the group">@ActiveBots / @Bots.Count</span>
+        <button type="button" class="emu-group-card-replenish" @onclick="OnReplenish"
+                title="Replenish the @Group.Name group: add @Group.StartingPoints.ToString("N0") points to every bot on top of what it has -- bust bots come back">Replenish</button>
+        <button type="button" class="emu-group-card-remove" @onclick="OnRemove" disabled="@(!CanRemove)"
+                title="@(CanRemove ? $"Remove the {Group.Name} group -- restarts the market" : "The last group cannot be removed")">×</button>
+    </div>
+
+    <div class="emu-group-card-body">
+        <div class="emu-group-card-table" style="height: @TableHeight">
+            <EmulatorBotListComponent Bots="Bots" OnReplenish="OnReplenishBot" />
+        </div>
+
+        <div class="emu-group-card-settings" title="How the @Group.Name group's bots are made up and how they act">
+            <div class="emu-group-card-field" title="How many bots the group has -- more bots join the running market; fewer restarts it">
+                <span>Bots</span>
+                <EmulatorStepperComponent Value="_botCount" Step="1" Min="MinBotCount" Max="MaxBotCount"
+                                          Tooltip="How many bots the group has -- more bots join the running market; fewer restarts it"
+                                          OnChange="(double value) => ChangeAsync(() => _botCount = ToBotCount(value))" />
+            </div>
+            <div class="emu-group-card-field" title="Points each bot starts with, and gets again on a replenish -- applies to bots added and replenished from now on">
+                <span>Capital</span>
+                <EmulatorStepperComponent Value="_capital" Step="CapitalStep" Min="MinCapital" Max="MaxCapital"
+                                          Tooltip="Points each bot starts with, and gets again on a replenish"
+                                          OnChange="(double value) => ChangeAsync(() => _capital = value)" />
+            </div>
+            <span class="emu-group-card-weights-head" title="When a bot acts it picks one of these in proportion to the weights -- any numbers, e.g. 3 / 3 / 1 / 0">
+                <button type="button" class="emu-group-card-reset" @onclick="ResetWeightsAsync" disabled="@WeightsAreDefault"
+                        title="Reset the weights to Buy @DefaultWeights.BuyWeight / Sell @DefaultWeights.SellWeight / Close @DefaultWeights.CloseWeight / Hold @DefaultWeights.HoldWeight">Reset</button>
+                <span class="emu-group-card-head-chance">CHANCE</span>
+                <span class="emu-group-card-head-weight">WEIGHT</span>
+            </span>
+            @foreach (var field in _weightFields)
+            {
+                <div class="emu-group-card-field emu-group-card-weight" title="@field.Tooltip">
+                    <span class="emu-group-card-label">@field.Label</span>
+                    <span class="emu-group-card-share" title="Chance a bot that acts does this">@Share(field.Get())</span>
+                    <EmulatorStepperComponent Value="field.Get()" Step="1" Min="0" Tooltip="@field.Tooltip"
+                                              OnChange="(double value) => ChangeAsync(() => field.Set(value))" />
+                </div>
+            }
+            @if (_error is { } error)
+            {
+                <span class="emu-group-card-error" title="Why this edit was not applied">@error</span>
+            }
+        </div>
+    </div>
+</section>

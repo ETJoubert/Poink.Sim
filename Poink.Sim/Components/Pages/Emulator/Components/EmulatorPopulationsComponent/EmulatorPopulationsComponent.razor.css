@@ -1,0 +1,86 @@
+.emu-pop-table {
+    border-collapse: collapse;
+    font-size: 0.7rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.emu-pop-table th,
+.emu-pop-table td {
+    padding: 3px 8px;
+    text-align: right;
+    white-space: nowrap;
+}
+
+.emu-pop-table td {
+    color: var(--color-text);
+}
+
+.emu-pop-measure {
+    text-align: left;
+    font-size: 0.55rem;
+    font-weight: bold;
+    letter-spacing: 0.08em;
+    color: var(--color-secondary);
+}
+
+.emu-pop-table thead th {
+    padding-bottom: 4px;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-secondary) 25%, transparent);
+}
+
+.emu-pop-group {
+    font-size: 0.65rem;
+    font-weight: bold;
+    color: var(--color-text);
+}
+
+.emu-pop-swatch {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    margin-right: 6px;
+    border-radius: 50%;
+}
+
+.emu-pop-positive {
+    color: var(--color-success);
+}
+
+.emu-pop-negative {
+    color: var(--color-error);
+}
+
+.emu-pop-table .emu-pop-rank-row th {
+    padding-bottom: 2px;
+    border-bottom: none;
+}
+
+.emu-pop-rank {
+    text-align: right;
+}
+
+.emu-pop-medal {
+    display: inline-block;
+    padding: 0 5px;
+    font-size: 0.55rem;
+    font-weight: bold;
+    letter-spacing: 0.04em;
+    color: #1a1a19;
+    border-radius: var(--border-radius-sm);
+}
+
+.emu-pop-medal-gold {
+    background: #d4af37;
+}
+
+.emu-pop-medal-silver {
+    background: #c0c0c0;
+}
+
+.emu-pop-medal-bronze {
+    background: #cd7f32;
+}
+
+.emu-pop-medal-none {
+    visibility: hidden;
+}
