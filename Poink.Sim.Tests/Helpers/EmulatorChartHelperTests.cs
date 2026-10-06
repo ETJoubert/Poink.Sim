@@ -25,6 +25,15 @@ public class EmulatorChartHelperTests
 	}
 
 	[Fact]
+	public void RangeOf_WidensToFitExtraLevels()
+	{
+		var range = EmulatorChartHelper.RangeOf([], 100, 0.01, 99, null, 102);
+
+		Assert.Equal(97.84, range.Min, 9);
+		Assert.Equal(102.16, range.Max, 9);
+	}
+
+	[Fact]
 	public void RangeOf_FlatPricePadsByAtLeastOneTick()
 	{
 		var range = EmulatorChartHelper.RangeOf([], 50, 0.5);

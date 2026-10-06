@@ -1,0 +1,57 @@
+.emu-bots {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    font-size: 0.7rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.emu-bots-scroll {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow-y: auto;
+    contain: size;
+}
+
+.emu-bots-row {
+    display: grid;
+    grid-template-columns: 48px 1fr 1.2fr 1.2fr;
+    gap: 6px;
+    padding: 1px 6px;
+    color: var(--color-text);
+}
+
+.emu-bots-row span {
+    text-align: right;
+}
+
+.emu-bots-row span:first-child {
+    text-align: left;
+}
+
+.emu-bots-head {
+    padding-bottom: 4px;
+    font-size: 0.55rem;
+    font-weight: bold;
+    letter-spacing: 0.08em;
+    color: var(--color-secondary);
+    border-bottom: 1px solid color-mix(in srgb, var(--color-secondary) 25%, transparent);
+}
+
+.emu-bots-id {
+    color: var(--color-info);
+}
+
+.emu-bots-positive {
+    color: var(--color-success);
+}
+
+.emu-bots-negative {
+    color: var(--color-error);
+}
+
+.emu-bots-bust {
+    opacity: 0.35;
+    text-decoration: line-through;
+}

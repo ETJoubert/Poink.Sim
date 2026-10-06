@@ -1,3 +1,4 @@
+using System.Linq;
 using Poink.Sim.Emulator;
 using Poink.Sim.Emulator.Broker;
 using Xunit;
@@ -132,5 +133,20 @@ public class EmulatorBrokerTests
 		Assert.Equal((2, 2, 20_000.0), (summary.BotCount, summary.ActiveBots, summary.StartingPoints));
 		Assert.Equal((10L, 10L, 2), (summary.LongUnits, summary.ShortUnits, summary.Fills));
 		Assert.Equal(20_000, summary.Equity);
+	}
+
+	[Fact]
+	public void BotSummaries_ShowEachBotsBalanceAndEquity()
+	{
+		var broker = CreateBroker();
+		broker.Place(broker.Accounts[0], OrderSide.Sell, 101, 10);
+		broker.Place(broker.Accounts[1], OrderSide.Buy, 101, 10);
+		broker.Place(broker.Accounts[0], OrderSide.Buy, 95, 3);
+
+		var bots = broker.BotSummaries();
+
+		Assert.Equal([1, 2], bots.Select(bot => bot.Id));
+		Assert.Equal((-10L, 101.0, 10_000.0, 1), (bots[0].Position, bots[0].AverageEntryPrice, bots[0].Balance, bots[0].OpenOrders));
+		Assert.Equal((10L, 10_000.0, 10_000.0), (bots[1].Position, bots[1].Balance, bots[1].Equity));
 	}
 }

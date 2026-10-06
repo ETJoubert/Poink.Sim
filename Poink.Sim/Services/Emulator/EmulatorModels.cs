@@ -49,6 +49,19 @@ public sealed record PopulationSummary(
 	public double ProfitLoss => Equity - StartingPoints;
 }
 
+/// <summary>One bot's account as the page shows it: balance is starting points plus realised P/L, equity adds the open position.</summary>
+public sealed record BotSummary(
+	int Id,
+	string Population,
+	double StartingPoints,
+	double Balance,
+	double Equity,
+	long Position,
+	double AverageEntryPrice,
+	int OpenOrders,
+	bool IsBust
+);
+
 /// <summary>The broker's fund, what it has lent out, the losses it has absorbed and the market's activity.</summary>
 public sealed record BrokerSummary(
 	double FundBalance,
@@ -71,6 +84,7 @@ public sealed record EmulatorSnapshot(
 	OrderBook Book,
 	IReadOnlyList<PopulationLevel> Population,
 	IReadOnlyList<PopulationSummary> Populations,
+	IReadOnlyList<BotSummary> Bots,
 	BrokerSummary Broker,
 	IReadOnlyList<EmulatorPricePoint> History,
 	long Step

@@ -1,0 +1,96 @@
+.emu-settings-backdrop {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: color-mix(in srgb, var(--color-bg-dark) 70%, transparent);
+    z-index: 2000;
+}
+
+.emu-settings {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-width: 320px;
+    max-width: 480px;
+    padding: 18px 20px;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 45%, transparent);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-bg-terminal);
+    box-shadow: 0 0 24px color-mix(in srgb, var(--color-primary) 20%, transparent);
+}
+
+.emu-settings-title {
+    font-size: 0.72rem;
+    font-weight: bold;
+    letter-spacing: 0.1em;
+    color: var(--color-primary);
+}
+
+.emu-settings-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.emu-settings-heading {
+    font-size: 0.6rem;
+    font-weight: bold;
+    letter-spacing: 0.08em;
+    color: var(--color-secondary);
+}
+
+.emu-settings-field {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 0.75rem;
+    color: var(--color-text);
+}
+
+.emu-settings-field input {
+    width: 110px;
+    padding: 3px 6px;
+    text-align: right;
+    color: var(--color-primary);
+    background: var(--color-bg-terminal);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 45%, transparent);
+    border-radius: var(--border-radius-sm);
+}
+
+.emu-settings-error {
+    font-size: 0.7rem;
+    color: var(--color-error);
+}
+
+.emu-settings-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.emu-settings-btn {
+    padding: 6px 14px;
+    font-size: 0.62rem;
+    font-weight: bold;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-secondary);
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
+    border-radius: var(--border-radius-sm);
+    cursor: pointer;
+}
+
+.emu-settings-btn-apply {
+    color: var(--color-success);
+    border-color: var(--color-success);
+}
+
+.emu-settings-btn:disabled {
+    color: var(--color-disabled);
+    border-color: var(--color-disabled);
+    cursor: default;
+}

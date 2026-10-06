@@ -17,10 +17,20 @@ internal static class EmulatorChartHelper
 {
 	private const double RangePaddingFraction = 0.08;
 
-	/// <summary>A span centred on the current price, wide enough to fit the whole history on either side.</summary>
-	public static EmulatorPriceRange RangeOf(IReadOnlyList<EmulatorPricePoint> history, double price, double tickSize)
+	/// <summary>A span centred on the current price, wide enough to fit the whole history and any extra levels on either side.</summary>
+	public static EmulatorPriceRange RangeOf(
+		IReadOnlyList<EmulatorPricePoint> history,
+		double price,
+		double tickSize,
+		params double?[] levels
+	)
 	{
-		var reach = history.Count > 0 ? history.Max(p => Math.Abs(p.Price - price)) : 0;
+		var reach = history
+			.Select(p => p.Price)
+			.Concat(levels.OfType<double>())
+			.Select(p => Math.Abs(p - price))
+			.DefaultIfEmpty(0)
+			.Max();
 		var halfSpan = Math.Max(reach * (1 + RangePaddingFraction), tickSize);
 		return new EmulatorPriceRange(price - halfSpan, price + halfSpan);
 	}

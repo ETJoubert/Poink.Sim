@@ -1,0 +1,30 @@
+@namespace Poink.Sim.Components.Emulator
+
+<div class="emu-settings-backdrop" title="Close the settings without applying" @onclick="OnClose">
+    <div class="emu-settings" role="dialog" aria-modal="true" title="Emulator settings" @onclick:stopPropagation="true">
+        <div class="emu-settings-title">EMULATOR SETTINGS</div>
+
+        <section class="emu-settings-section" title="The bot populations trading in the market">
+            <div class="emu-settings-heading">POPULATIONS</div>
+            @foreach (var draft in _populations)
+            {
+                <label class="emu-settings-field" title="How many bots the @draft.Name population has">
+                    <span>@draft.Name bots</span>
+                    <input type="number" min="@MinBotCount" max="@MaxBotCount" step="1" value="@draft.BotCount"
+                           @onchange="e => SetBotCount(draft, e.Value)" />
+                </label>
+            }
+        </section>
+
+        @if (ValidationMessage is { } validation)
+        {
+            <span class="emu-settings-error" title="Why the settings cannot be applied yet">@validation</span>
+        }
+
+        <div class="emu-settings-actions">
+            <button type="button" class="emu-settings-btn" @onclick="OnClose" title="Close without changing anything">Cancel</button>
+            <button type="button" class="emu-settings-btn emu-settings-btn-apply" @onclick="ApplyAsync" disabled="@(ValidationMessage is not null)"
+                    title="@(ValidationMessage ?? "Apply the settings -- the market restarts with fresh bots, an empty book and a new warm-up")">Apply</button>
+        </div>
+    </div>
+</div>

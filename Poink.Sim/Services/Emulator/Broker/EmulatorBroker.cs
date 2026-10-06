@@ -160,6 +160,21 @@ internal sealed class EmulatorBroker
 			))
 			.ToArray();
 
+	public IReadOnlyList<BotSummary> BotSummaries() =>
+		_accounts
+			.Select(bot => new BotSummary(
+				bot.Id,
+				bot.Population,
+				bot.StartingPoints,
+				bot.Balance,
+				bot.Equity(LastPrice),
+				bot.Position,
+				bot.AverageEntryPrice,
+				_book.OrderIdsOf(bot.Id).Count,
+				bot.IsBust
+			))
+			.ToArray();
+
 	public BrokerSummary Summary() =>
 		new(
 			_fundBalance,
@@ -245,23 +260,16 @@ internal sealed class EmulatorBroker
 		_book.CancelAll(bot.Id);
 		_fundBalance += bot.Cash;
 		_absorbedLosses -= bot.Cash;
-		bot.Cash = 0;
-		bot.IsBust = true;
+		bot.GoBust();
 	}
 
 	private void Settle(IReadOnlyList<EmulatorTrade> trades)
 	{
 		foreach (var trade in trades)
 		{
-			var notional = trade.Volume * ToPrice(trade.PriceTicks);
-			var buyer = _accountsById[trade.BuyBotId];
-			var seller = _accountsById[trade.SellBotId];
-			buyer.Cash -= notional;
-			buyer.Position += trade.Volume;
-			buyer.Fills++;
-			seller.Cash += notional;
-			seller.Position -= trade.Volume;
-			seller.Fills++;
+			var price = ToPrice(trade.PriceTicks);
+			_accountsById[trade.BuyBotId].ApplyFill(OrderSide.Buy, trade.Volume, price);
+			_accountsById[trade.SellBotId].ApplyFill(OrderSide.Sell, trade.Volume, price);
 
 			_lastPriceTicks = trade.PriceTicks;
 			_tradeCount++;

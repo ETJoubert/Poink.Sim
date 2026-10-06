@@ -122,6 +122,22 @@ public class EmulatorServiceTests
 	}
 
 	[Fact]
+	public void ApplySettings_ReopensTheMarketWithTheNewPopulation()
+	{
+		using var service = CreateService();
+		service.Step();
+		var changed = 0;
+		service.Changed += () => changed++;
+
+		service.ApplySettings(Settings with { Populations = [new PopulationSettings("Test", 5, 10_000)] });
+
+		Assert.Equal(5, service.Settings.Populations[0].BotCount);
+		Assert.Equal(5, service.Snapshot.Bots.Count);
+		Assert.Equal(0, service.Snapshot.Step);
+		Assert.Equal(1, changed);
+	}
+
+	[Fact]
 	public void StartAndStop_ToggleIsRunning()
 	{
 		using var service = CreateService();

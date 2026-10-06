@@ -46,7 +46,7 @@ public sealed class EmulatorService : IEmulatorService, IDisposable
 		(_broker, _snapshot) = OpenWarmedUpMarket();
 	}
 
-	public EmulatorSettings Settings { get; }
+	public EmulatorSettings Settings { get; private set; }
 
 	public EmulatorSnapshot Snapshot
 	{
@@ -132,7 +132,27 @@ public sealed class EmulatorService : IEmulatorService, IDisposable
 		Changed?.Invoke();
 	}
 
+	public void ApplySettings(EmulatorSettings settings)
+	{
+		lock (_lock)
+		{
+			Settings = settings;
+			(_broker, _snapshot) = OpenWarmedUpMarket();
+		}
+
+		_logger.LogInformation(
+			"Emulator settings applied for {Symbol}: populations {Populations}, {Settings}",
+			Settings.Symbol,
+			DescribePopulations(),
+			Settings
+		);
+		Changed?.Invoke();
+	}
+
 	public void Dispose() => TryCancelLoop();
+
+	private string DescribePopulations() =>
+		string.Join(", ", Settings.Populations.Select(p => $"{p.Name}: {p.BotCount} bots × {p.StartingPoints:N0} points"));
 
 	private async Task RunLoopAsync(CancellationToken token)
 	{
@@ -210,6 +230,7 @@ public sealed class EmulatorService : IEmulatorService, IDisposable
 			broker.Book(),
 			broker.RestingPopulation(),
 			broker.PopulationSummaries(),
+			broker.BotSummaries(),
 			broker.Summary(),
 			_history.ToArray(),
 			step

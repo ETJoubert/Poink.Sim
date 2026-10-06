@@ -24,4 +24,7 @@ public interface IEmulatorService
 	void Step();
 
 	void Reset();
+
+	/// <summary>Replaces the settings and reopens the market with them, keeping it running if it was.</summary>
+	void ApplySettings(EmulatorSettings settings);
 }

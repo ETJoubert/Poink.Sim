@@ -78,6 +78,17 @@
     cursor: default;
 }
 
+.emu-btn-icon {
+    display: flex;
+    align-items: center;
+    padding: 3px 8px;
+}
+
+::deep .emu-btn-icon-img {
+    width: 12px;
+    height: 12px;
+}
+
 .emu-btn-go {
     color: var(--color-success);
     border-color: var(--color-success);
@@ -90,7 +101,7 @@
 
 .emu-body {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 480px;
+    grid-template-columns: minmax(0, 1fr) 480px 300px;
     gap: 12px;
     flex: 1;
     min-height: 0;
@@ -107,7 +118,8 @@
     background: color-mix(in srgb, var(--color-secondary) 6%, var(--color-bg-terminal));
 }
 
-.emu-book-panel {
+.emu-book-panel,
+.emu-bots-panel {
     overflow: hidden;
 }
 
@@ -122,6 +134,17 @@
     display: grid;
     grid-template-columns: minmax(0, 1fr) 480px;
     gap: 12px;
+}
+
+@media (max-width: 1400px) {
+    .emu-body {
+        grid-template-columns: minmax(0, 1fr) 480px;
+    }
+
+    .emu-bots-panel {
+        grid-column: 1 / -1;
+        height: 320px;
+    }
 }
 
 @media (max-width: 900px) {

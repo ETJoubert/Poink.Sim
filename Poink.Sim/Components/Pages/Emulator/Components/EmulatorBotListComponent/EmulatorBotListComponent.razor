@@ -1,0 +1,22 @@
+@namespace Poink.Sim.Components.Emulator
+@using Poink.Sim.Helpers
+
+<div class="emu-bots" title="Every bot's account at the broker">
+    <div class="emu-bots-row emu-bots-head" title="Bot, position, balance and equity">
+        <span title="Bot number">BOT</span>
+        <span title="Units held -- negative is a short position">POS</span>
+        <span title="Starting points plus realised profit/loss">BALANCE</span>
+        <span title="Balance plus the open position's unrealised profit/loss at the last price">EQUITY</span>
+    </div>
+    <div class="emu-bots-scroll">
+        @foreach (var bot in Bots)
+        {
+            <div @key="bot.Id" class="emu-bots-row @(bot.IsBust ? "emu-bots-bust" : "")" title="@BotTooltip(bot)">
+                <span class="emu-bots-id">#@bot.Id</span>
+                <span class="@SignClass(bot.Position)">@bot.Position.ToString("N0")</span>
+                <span>@EmulatorChartHelper.CompactAmount(bot.Balance)</span>
+                <span class="@EquityClass(bot)">@EmulatorChartHelper.CompactAmount(bot.Equity)</span>
+            </div>
+        }
+    </div>
+</div>
