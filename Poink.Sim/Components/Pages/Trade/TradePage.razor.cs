@@ -354,7 +354,9 @@ namespace Poink.Sim.Components.Pages.Trade
 			)
 				return;
 
-			await TradeExecution.ClosePositionAsync(position.PositionId);
+			var result = await TradeExecution.ClosePositionAsync(position.PositionId);
+			_consoleStatus = result.Message;
+			_consoleStatusIsError = !result.Success;
 		}
 
 		private async Task HandleConsoleSubmit(TradeConsoleOrderRequest request)
