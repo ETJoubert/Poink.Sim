@@ -19,7 +19,18 @@ public readonly record struct XGridCell(
 	double DownDistance,
 	double Seconds,
 	double Value
-);
+)
+{
+	/// <summary>Dwell seconds multiplied by tick count -- weights time held by how busy the cell was.</summary>
+	public double SecondsCount => Seconds * Count;
+
+	public double SecondsUpCount => Seconds * UpCount;
+
+	public double SecondsDownCount => Seconds * DownCount;
+
+	/// <summary>SecondsUpCount minus SecondsDownCount -- positive when up ticks lead the time held.</summary>
+	public double SecondsDelta => SecondsUpCount - SecondsDownCount;
+}
 
 // One bar's column -- Cells is row-ordered high-to-low, matching XGridResult's RowLow/RowHigh.
 public readonly record struct XGridColumn(DateTime OpenTime, IReadOnlyList<XGridCell> Cells);
@@ -33,7 +44,9 @@ public readonly record struct XGridLevel(double Price, int Row);
 /// steps landed their window's POC there (see <see cref="XGridStats.Compute"/>). Vah/Val/Vwap/Average/Median/
 /// RegressionLine/TotalPeak/UpPeak/DownPeak are null when there isn't enough data for that level; TotalPeak/UpPeak/DownPeak
 /// are computed independently from Poc and can land on a different row. NetByColumn is the running
-/// cumulative SBuy - SSell, one point per column. MaxSeconds is the longest any one cell held price.
+/// cumulative SBuy - SSell, one point per column. MaxSeconds is the longest any one cell held price;
+/// MaxSecondsCount is the largest seconds-times-ticks product of any one cell, MaxAbsSecondsDelta the largest
+/// magnitude of its up-minus-down split.
 /// </summary>
 public readonly record struct XGridResult(
 	IReadOnlyList<double> RowLow,
@@ -48,6 +61,8 @@ public readonly record struct XGridResult(
 	double MaxUpDistance,
 	double MaxDownDistance,
 	double MaxSeconds,
+	double MaxSecondsCount,
+	double MaxAbsSecondsDelta,
 	double SBuy,
 	double SSell,
 	IReadOnlyList<double> NetByColumn,
@@ -183,6 +198,8 @@ internal static class XGridStats
 		var maxUpDistance = 0.0;
 		var maxDownDistance = 0.0;
 		var maxSeconds = 0.0;
+		var maxSecondsCount = 0.0;
+		var maxAbsSecondsDelta = 0.0;
 		var sBuy = 0.0;
 		var sSell = 0.0;
 		var netByColumn = new List<double>(colCount);
@@ -243,6 +260,12 @@ internal static class XGridStats
 					maxDownDistance = downDistances[r];
 				if (seconds[r] > maxSeconds)
 					maxSeconds = seconds[r];
+				var secondsCount = seconds[r] * counts[r];
+				if (secondsCount > maxSecondsCount)
+					maxSecondsCount = secondsCount;
+				var absSecondsDelta = Math.Abs(seconds[r] * (upCounts[r] - downCounts[r]));
+				if (absSecondsDelta > maxAbsSecondsDelta)
+					maxAbsSecondsDelta = absSecondsDelta;
 				cells.Add(
 					new XGridCell(counts[r], upCounts[r], downCounts[r], upDistances[r], downDistances[r], seconds[r], value)
 				);
@@ -302,6 +325,8 @@ internal static class XGridStats
 			maxUpDistance,
 			maxDownDistance,
 			maxSeconds,
+			maxSecondsCount,
+			maxAbsSecondsDelta,
 			sBuy,
 			sSell,
 			netByColumn,

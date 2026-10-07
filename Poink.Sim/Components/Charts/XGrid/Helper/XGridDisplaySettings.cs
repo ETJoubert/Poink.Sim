@@ -27,6 +27,12 @@ namespace Poink.Sim.Components.Charts
 		/// <summary>Shades each cell by how long price spent there; exclusive with ShadeDelta and DistanceWeighted.</summary>
 		public bool TimeWeighted { get; init; }
 
+		/// <summary>Shades each cell by its seconds times its tick count; exclusive with TimeWeighted, ShadeDelta and DistanceWeighted.</summary>
+		public bool TimeCountWeighted { get; init; }
+
+		/// <summary>Splits TimeCountWeighted into signed seconds-times-up versus seconds-times-down shading; only set alongside it.</summary>
+		public bool TimeCountSplit { get; init; }
+
 		public bool ShowDwellHighlight { get; init; }
 		public XGridDwellComparison DwellComparison { get; init; } = XGridDwellComparison.Above;
 		public double DwellSeconds { get; init; } = 60;

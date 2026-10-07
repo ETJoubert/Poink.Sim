@@ -22,11 +22,15 @@
             <span class="xgrid-row-divider"></span>
             <div class="xgrid-control-group">
                 <button class="xgrid-delta-toggle @(Display.ShadeDelta ? "active" : "")" @onclick="ToggleShadeDelta"
-                        title="Shade green when up ticks lead, red when down ticks lead, brighter with a larger imbalance. Replaces the tick-count shading while active. Turns Time off.">Up/Dn</button>
+                        title="Shade green when up ticks lead, red when down ticks lead, brighter with a larger imbalance. Replaces the tick-count shading while active. Turns Time and Time&times;Tk off.">Up/Dn</button>
                 <button class="xgrid-delta-toggle @(Display.DistanceWeighted ? "active" : "")" @onclick="ToggleDistanceWeighted"
-                        title="Weight each tick by the price distance it moved instead of counting it as one. Applies to whichever shading mode is active. Turns Time off.">&times;Dist</button>
+                        title="Weight each tick by the price distance it moved instead of counting it as one. Applies to whichever shading mode is active. Turns Time and Time&times;Tk off.">&times;Dist</button>
                 <button class="xgrid-delta-toggle @(Display.TimeWeighted ? "active" : "")" @onclick="ToggleTimeWeighted"
-                        title="Shade each cell by how long price spent in it (Time Profile's estimate: each bar's span spread over its ticks), brighter for longer. Turns Up/Dn and &times;Dist off. Hover a cell for its Time.">Time</button>
+                        title="Shade each cell by how long price spent in it (Time Profile's estimate: each bar's span spread over its ticks), brighter for longer. Turns Up/Dn, &times;Dist and Time&times;Tk off. Hover a cell for its Time.">Time</button>
+                <button class="xgrid-delta-toggle @(Display.TimeCountWeighted ? "active" : "")" @onclick="ToggleTimeCountWeighted"
+                        title="Shade each cell by its time in seconds multiplied by its tick count, brighter for a larger product -- favours cells price both lingered in and traded through. Turns Up/Dn, &times;Dist and Time off. Hover a cell for its Time&times;Ticks.">Time&times;Tk</button>
+                <button class="xgrid-delta-toggle @(Display.TimeCountSplit ? "active" : "")" @onclick="ToggleTimeCountSplit"
+                        title="Split Time&times;Tk into time &times; up ticks versus time &times; down ticks: green where up ticks lead, red where down ticks lead, brighter with a larger imbalance. Turns Time&times;Tk on; click again to return to the unsplit product. Hover a cell for its Time&times;Up and Time&times;Down.">Split</button>
             </div>
             <span class="xgrid-row-divider"></span>
             <div class="xgrid-control-group">
@@ -283,9 +287,28 @@
             </div>
         </div>
         <div class="xgrid-footer">
-            <span class="xgrid-footer-time" title="Oldest bar in the grid range">@(grid.Columns.Count > 0 ? grid.Columns[0].OpenTime.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) : "--")</span>
-            <span class="xgrid-footer-span" title="Time span from the oldest to the latest bar in the grid">@GridTimeSpan(grid) &middot; @GridTickCount(grid).ToString("N0", CultureInfo.InvariantCulture) ticks</span>
-            <span class="xgrid-footer-time" title="Latest bar in the grid range">@(grid.Columns.Count > 0 ? grid.Columns[^1].OpenTime.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) : "--")</span>
+            <div class="xgrid-footer-cell">
+                <span class="xgrid-footer-cell-label" title="Measurements of the cell holding the current price in the latest column -- hover any grid cell for the same readings">Current cell</span>
+                @if (CurrentCell(grid) is { } currentCell)
+                {
+                    @foreach (var measurement in CellMeasurements(currentCell))
+                    {
+                        <span class="xgrid-footer-measure" title="@measurement.Description">
+                            <span class="xgrid-footer-measure-label">@measurement.Label</span>
+                            <span class="xgrid-footer-measure-value @(measurement.Tone is { } tone ? $"xgrid-footer-measure-{tone}" : "")">@measurement.Value</span>
+                        </span>
+                    }
+                }
+                else
+                {
+                    <span class="xgrid-footer-measure" title="No current price in the grid range">--</span>
+                }
+            </div>
+            <div class="xgrid-footer-range">
+                <span class="xgrid-footer-time" title="Oldest bar in the grid range">@(grid.Columns.Count > 0 ? grid.Columns[0].OpenTime.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) : "--")</span>
+                <span class="xgrid-footer-span" title="Time span from the oldest to the latest bar in the grid">@GridTimeSpan(grid) &middot; @GridTickCount(grid).ToString("N0", CultureInfo.InvariantCulture) ticks</span>
+                <span class="xgrid-footer-time" title="Latest bar in the grid range">@(grid.Columns.Count > 0 ? grid.Columns[^1].OpenTime.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) : "--")</span>
+            </div>
         </div>
     }
 </div>
