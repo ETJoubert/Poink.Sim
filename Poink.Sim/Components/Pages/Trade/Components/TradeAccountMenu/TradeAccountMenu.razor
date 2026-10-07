@@ -1,5 +1,6 @@
 @namespace Poink.Sim.Components.Pages.Trade
 @using Poink.Sim.Services.CTrader
+@using Poink.Sim.Services.OrderBot
 @using Poink.Sim.Components.Shared.Icon
 
 <div class="trade-header-account">
@@ -13,6 +14,13 @@
                 <span class="trade-header-state @StateClass" title="Current cTrader connection state">
                     <span class="trade-state-dot"></span>@StateLabel
                 </span>
+                @if (BotStatus.Status.State != OrderBotConnectionState.Idle)
+                {
+                    <span class="trade-header-state @BotStateClass"
+                          title="Live orders go through the cTrader OrderBot. @BotStatus.Status.Message">
+                        <span class="trade-state-dot"></span>BOT
+                    </span>
+                }
                 <Icon Name="chevron-down" Class="trade-account-caret" />
             </button>
 

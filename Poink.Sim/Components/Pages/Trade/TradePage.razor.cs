@@ -345,15 +345,6 @@ namespace Poink.Sim.Components.Pages.Trade
 
 		private async Task ClosePositionAsync(CTraderPositionInfo position)
 		{
-			if (
-				TradeExecution.UseLiveEnvironment
-				&& !await JS.InvokeAsync<bool>(
-					"confirm",
-					$"Close the {(position.IsLong ? "LONG" : "SHORT")} position on {position.SymbolName}?"
-				)
-			)
-				return;
-
 			var result = await TradeExecution.ClosePositionAsync(position.PositionId);
 			_consoleStatus = result.Message;
 			_consoleStatusIsError = !result.Success;
@@ -363,15 +354,6 @@ namespace Poink.Sim.Components.Pages.Trade
 		{
 			_consoleStatus = null;
 			if (Coordinator.ChartSymbolId is not { } symbolId)
-				return;
-
-			if (
-				TradeExecution.UseLiveEnvironment
-				&& !await JS.InvokeAsync<bool>(
-					"confirm",
-					$"Place a LIVE {(request.IsLong ? "BUY" : "SELL")} order for {Coordinator.ChartSymbolName ?? "this symbol"}?"
-				)
-			)
 				return;
 
 			_consoleBusy = true;

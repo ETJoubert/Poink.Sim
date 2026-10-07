@@ -1,25 +1,45 @@
 {
-  "AccessRights": "None",
+  "AccessRights": "FullAccess",
   "AddIndicators": false,
   "Parameters": [
+    {
+      "Name": "AcceptExternalCommands",
+      "DefaultValue": false,
+      "Type": "Boolean",
+      "Group": "Bridge"
+    },
+    {
+      "Name": "ListenPort",
+      "DefaultValue": 5099,
+      "MinValue": 1024,
+      "MaxValue": 65535,
+      "Type": "Integer",
+      "Group": "Bridge"
+    },
+    {
+      "Name": "CommandToken",
+      "DefaultValue": "",
+      "Type": "String",
+      "Group": "Bridge"
+    },
     {
       "Name": "TestSymbolName",
       "DefaultValue": "#USNDAQ100",
       "Type": "String",
-      "Group": "Order"
+      "Group": "Channel Test"
     },
     {
       "Name": "IsBuy",
       "DefaultValue": true,
       "Type": "Boolean",
-      "Group": "Order"
+      "Group": "Channel Test"
     },
     {
       "Name": "VolumeInUnits",
       "DefaultValue": 0,
       "MinValue": 0,
       "Type": "Double",
-      "Group": "Order"
+      "Group": "Channel Test"
     },
     {
       "Name": "HoldSeconds",
@@ -27,7 +47,7 @@
       "MinValue": 1,
       "MaxValue": 300,
       "Type": "Integer",
-      "Group": "Order"
+      "Group": "Channel Test"
     },
     {
       "Name": "AllowLive",
