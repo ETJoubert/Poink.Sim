@@ -9,6 +9,7 @@ using Microsoft.JSInterop;
 using Poink.Sim.Components.Charts;
 using Poink.Sim.Components.Pages.Trade.Helpers;
 using Poink.Sim.Components.Shared.Indicators;
+using Poink.Sim.Helpers;
 using Poink.Sim.Models;
 using Poink.Sim.Repository;
 using Poink.Sim.Services.CTrader;
@@ -149,6 +150,11 @@ namespace Poink.Sim.Components.Pages.Trade
 		private IReadOnlyList<HlocAvdtBar> ChartHlocBars => ChartSeries?.HlocBars ?? Array.Empty<HlocAvdtBar>();
 
 		private IReadOnlyList<BarPriceHistogram> ChartHistograms => ChartSeries?.Histograms ?? Array.Empty<BarPriceHistogram>();
+
+		private TickRate? ChartTickRate =>
+			ChartSeries is { } series
+				? TickRateHelper.Measure(series.RecentTicks(TickRateHelper.DefaultWindow), TickRateHelper.DefaultWindow)
+				: null;
 
 		private CTraderSymbolQuote? ChartQuote =>
 			SymbolId is { } id ? Session.Quotes.FirstOrDefault(q => q.SymbolId == id) : null;

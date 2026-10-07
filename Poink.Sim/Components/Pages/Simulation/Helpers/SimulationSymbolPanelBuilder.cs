@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Poink.Sim.Components.Charts;
 using Poink.Sim.Components.Shared.Indicators;
+using Poink.Sim.Helpers;
 using Poink.Sim.Models;
 using Poink.Sim.Repository;
 
@@ -150,6 +151,7 @@ namespace Poink.Sim.Components.Simulation
 				samples,
 				timeSamples,
 				grid,
+				grid is null ? null : TickRateHelper.Measure(symbol.RecentTicks, TickRateHelper.DefaultWindow),
 				anchorBar?.CloseTime.AddTicks(1),
 				anchorBar?.Close
 			);
@@ -174,6 +176,7 @@ namespace Poink.Sim.Components.Simulation
 				0,
 				new List<WeightedPriceSample>(),
 				new List<WeightedTimeSample>(),
+				null,
 				null,
 				null,
 				null

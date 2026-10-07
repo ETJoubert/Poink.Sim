@@ -84,6 +84,18 @@ namespace Poink.Sim.Components.Pages.Trade
 			}
 		}
 
+		/// <summary>A copy of the held raw ticks within <paramref name="window"/> of the newest one, plus the tick just before.</summary>
+		public List<Tick> RecentTicks(TimeSpan window)
+		{
+			lock (_gate)
+			{
+				if (_ticks.Count == 0)
+					return new List<Tick>();
+				var start = Math.Max(0, LowerBound(_ticks[^1].Timestamp - window) - 1);
+				return _ticks.GetRange(start, _ticks.Count - start);
+			}
+		}
+
 		/// <summary>Feeds a live tick, finalizing the forming bar on a boundary crossing and updating or appending the new forming bar.</summary>
 		public void Apply(Tick tick)
 		{

@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Components;
 using Poink.Sim.Components.Shared.Differentials;
 using Poink.Sim.Components.Shared.Indicators;
 using Poink.Sim.Components.Shared.Measurements;
+using Poink.Sim.Models;
 
 namespace Poink.Sim.Components.Charts
 {
@@ -18,6 +19,9 @@ namespace Poink.Sim.Components.Charts
 	{
 		[Parameter]
 		public XGridResult? Grid { get; set; }
+
+		[Parameter]
+		public TickRate? TickRate { get; set; }
 
 		[Parameter]
 		public int PipCount { get; set; } = 20;
