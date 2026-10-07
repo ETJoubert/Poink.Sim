@@ -61,7 +61,8 @@ namespace Poink.CTrader
         /// <summary>
         /// Requires <see cref="AuthorizeAccountAsync"/> first. Submits a new order and waits for the terminal
         /// execution event (accepted for a resting Limit/Stop, filled for Market, or rejected) that matches
-        /// <paramref name="request"/>'s ClientOrderId - the caller must set that to a unique value.
+        /// <paramref name="request"/>'s ClientOrderId - the caller must set that to a unique value. A refusal
+        /// (ProtoOAErrorRes or ProtoOAOrderErrorEvent) throws <see cref="CTraderApiException"/> carrying cTrader's error code.
         /// </summary>
         Task<ProtoOAExecutionEvent> NewOrderAsync(ProtoOANewOrderReq request, CancellationToken cancellationToken = default);
 

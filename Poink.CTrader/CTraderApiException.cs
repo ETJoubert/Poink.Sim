@@ -1,7 +1,7 @@
 namespace Poink.CTrader
 {
     /// <summary>
-    /// Thrown when cTrader responds with a ProtoOAErrorRes instead of the expected message.
+    /// Thrown when cTrader responds with a ProtoOAErrorRes (or, for a trading request, a ProtoOAOrderErrorEvent) instead of the expected message.
     /// </summary>
     public class CTraderApiException : Exception
     {

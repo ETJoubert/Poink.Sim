@@ -124,6 +124,7 @@ namespace Poink.CTrader
             SendAndWaitAsync<ProtoOAExecutionEvent>(
                 request,
                 e => IsTerminalOrderEvent(e.ExecutionType) && e.Order?.ClientOrderId == request.ClientOrderId,
+                e => e.CtidTraderAccountId == request.CtidTraderAccountId,
                 cancellationToken);
 
         public Task<ProtoOAExecutionEvent> ClosePositionAsync(long ctidTraderAccountId, long positionId, long volume, CancellationToken cancellationToken = default) =>
@@ -135,6 +136,7 @@ namespace Poink.CTrader
                     Volume = volume
                 },
                 e => e.Position?.PositionId == positionId,
+                e => e.CtidTraderAccountId == ctidTraderAccountId && (!e.HasPositionId || e.PositionId == positionId),
                 cancellationToken);
 
         public Task<ProtoOAExecutionEvent> CancelOrderAsync(long ctidTraderAccountId, long orderId, CancellationToken cancellationToken = default) =>
@@ -145,6 +147,7 @@ namespace Poink.CTrader
                     OrderId = orderId
                 },
                 e => e.Order?.OrderId == orderId,
+                e => e.CtidTraderAccountId == ctidTraderAccountId && (!e.HasOrderId || e.OrderId == orderId),
                 cancellationToken);
 
         public Task<ProtoOAReconcileRes> ReconcileAsync(long ctidTraderAccountId, CancellationToken cancellationToken = default) =>
@@ -179,9 +182,15 @@ namespace Poink.CTrader
             type is ProtoOAExecutionType.OrderFilled or ProtoOAExecutionType.OrderAccepted or ProtoOAExecutionType.OrderRejected;
 
         private Task<TRes> SendAndWaitAsync<TRes>(IMessage request, CancellationToken cancellationToken) where TRes : IMessage =>
-            SendAndWaitAsync<TRes>(request, static _ => true, cancellationToken);
+            SendAndWaitAsync<TRes>(request, static _ => true, static _ => false, cancellationToken);
 
-        private async Task<TRes> SendAndWaitAsync<TRes>(IMessage request, Func<TRes, bool> isMatch, CancellationToken cancellationToken) where TRes : IMessage
+        // cTrader answers a refused trading request with ProtoOAOrderErrorEvent rather than ProtoOAErrorRes,
+        // so trading calls must watch for it or they only ever see a timeout.
+        private async Task<TRes> SendAndWaitAsync<TRes>(
+            IMessage request,
+            Func<TRes, bool> isMatch,
+            Func<ProtoOAOrderErrorEvent, bool> isOrderErrorMatch,
+            CancellationToken cancellationToken) where TRes : IMessage
         {
             if (_client is null) throw new InvalidOperationException("Not connected yet - call ConnectAsync first.");
 
@@ -197,6 +206,9 @@ namespace Poink.CTrader
                             break;
                         case ProtoOAErrorRes error:
                             tcs.TrySetException(new CTraderApiException(error.ErrorCode, error.Description));
+                            break;
+                        case ProtoOAOrderErrorEvent orderError when isOrderErrorMatch(orderError):
+                            tcs.TrySetException(new CTraderApiException(orderError.ErrorCode, orderError.Description));
                             break;
                     }
                 },

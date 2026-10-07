@@ -582,7 +582,7 @@ namespace Poink.Sim.Services.CTrader
 						);
 						closed++;
 					}
-					catch (CTraderApiException ex)
+					catch (Exception ex) when (ex is CTraderApiException or TimeoutException)
 					{
 						_logger.LogError(ex, "cTrader: failed to close position {PositionId} for symbol {SymbolId}.", position.PositionId, symbolId);
 						errors.Add($"position {position.PositionId}: {ex.Message}");
@@ -596,7 +596,7 @@ namespace Poink.Sim.Services.CTrader
 						await _client.CancelOrderAsync(accountId, order.OrderId, cancellationToken);
 						cancelled++;
 					}
-					catch (CTraderApiException ex)
+					catch (Exception ex) when (ex is CTraderApiException or TimeoutException)
 					{
 						_logger.LogError(ex, "cTrader: failed to cancel order {OrderId} for symbol {SymbolId}.", order.OrderId, symbolId);
 						errors.Add($"order {order.OrderId}: {ex.Message}");
@@ -641,6 +641,11 @@ namespace Poink.Sim.Services.CTrader
 			{
 				_logger.LogError(ex, "cTrader: failed to close position {PositionId}.", positionId);
 				return new CTraderOrderResult(false, ex.Message);
+			}
+			catch (TimeoutException ex)
+			{
+				_logger.LogError(ex, "cTrader: closing position {PositionId} timed out.", positionId);
+				return new CTraderOrderResult(false, "Timed out waiting for a response.");
 			}
 			finally
 			{
@@ -933,7 +938,18 @@ namespace Poink.Sim.Services.CTrader
 			{
 				var response = await _client!.GetTraderAsync(accountId, cancellationToken);
 				ApplyTrader(response.Trader);
-				_logger.LogInformation("cTrader: balance {Balance} loaded for account {AccountId}.", Balance, accountId);
+				_logger.LogInformation(
+					"cTrader: balance {Balance} loaded for account {AccountId} (access rights {AccessRights}).",
+					Balance,
+					accountId,
+					response.Trader.AccessRights
+				);
+				if (response.Trader.AccessRights != ProtoOAAccessRights.FullAccess)
+					_logger.LogWarning(
+						"cTrader: account {AccountId} has {AccessRights} access; cTrader will refuse some trading requests.",
+						accountId,
+						response.Trader.AccessRights
+					);
 			}
 			catch (Exception ex)
 			{
