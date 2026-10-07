@@ -18,6 +18,11 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<!-- The bot's wire contract, compiled in so OrderBotContractTests catch drift between Poink.Sim and the cBot. -->
+		<Compile Include="..\cBots\OrderBot\OrderBot\OrderBotContract.cs" Link="Services\OrderBot\OrderBotContract.cs" />
+	</ItemGroup>
+
+	<ItemGroup>
 		<ProjectReference Include="..\Poink.Sim\Poink.Sim.csproj" />
 		<ProjectReference
 			Include="..\Poink.Analyzers\Poink.Analyzers.csproj"

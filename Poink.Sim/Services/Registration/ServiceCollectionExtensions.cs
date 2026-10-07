@@ -1,6 +1,9 @@
+using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 using Poink.CTrader;
 using Poink.Sim.Analysis;
 using Poink.Sim.Brain;
@@ -21,6 +24,7 @@ using Poink.Sim.Services.MarketData;
 using Poink.Sim.Services.MarketData.History;
 using Poink.Sim.Services.MarketData.Import;
 using Poink.Sim.Services.MarketData.Recording;
+using Poink.Sim.Services.OrderBot;
 using Poink.Sim.Services.Symbols;
 using Poink.Sim.Services.TrainingEngine;
 using Poink.Sim.Simulation;
@@ -79,13 +83,48 @@ public static class ServiceCollectionExtensions
 		services.AddSingleton<ICTraderHistory>(sp => sp.GetRequiredService<CTraderSessionService>());
 		services.AddSingleton<IWatchlistAccess>(sp => sp.GetRequiredService<CTraderSessionService>());
 		services.AddSingleton<ITickStreamAccess>(sp => sp.GetRequiredService<CTraderSessionService>());
-		services.AddSingleton<ITradeExecutionAccess>(sp => sp.GetRequiredService<CTraderSessionService>());
+		services.AddKeyedSingleton<ITradeExecutionAccess>(
+			TradeExecutionRouter.OpenApiKey,
+			(sp, _) => sp.GetRequiredService<CTraderSessionService>()
+		);
 		services.AddSingleton<ITradeHistoryAccess>(sp => sp.GetRequiredService<CTraderSessionService>());
 		services.AddSingleton<IAccountAccess>(sp => sp.GetRequiredService<CTraderSessionService>());
 
 		services.AddSingleton<ITradeDealRepository, TradeDealRepository>();
 		services.AddSingleton<TradeDealHistoryService>();
 		services.AddSingleton<ITradeHistoryService>(sp => sp.GetRequiredService<TradeDealHistoryService>());
+
+		return services;
+	}
+
+	/// <summary>
+	/// cTrader OrderBot bridge: registers the app-wide <see cref="ITradeExecutionAccess"/> as a router that sends a
+	/// live account's trades to the OrderBot over localhost HTTP and everything else to the Open API session, plus the
+	/// background bridge status monitor. Settings bind from the "OrderBot" config section; the CommandToken belongs in
+	/// appsettings.Secrets.json. Depends on BuildCTraderServices for the keyed Open API execution.
+	/// </summary>
+	public static IServiceCollection BuildOrderBotServices(
+		this IServiceCollection services,
+		IConfiguration configuration
+	)
+	{
+		services.Configure<OrderBotOptions>(configuration.GetSection(OrderBotOptions.SectionName));
+		services.TryAddSingleton(TimeProvider.System);
+
+		services.AddHttpClient<IOrderBotClient, OrderBotClient>(
+			(sp, http) =>
+			{
+				var options = sp.GetRequiredService<IOptions<OrderBotOptions>>().Value;
+				http.BaseAddress = new Uri(options.BaseUrl);
+				http.Timeout = TimeSpan.FromSeconds(options.RequestTimeoutSeconds);
+			}
+		);
+		services.AddSingleton<IOrderBotTradeExecution, OrderBotTradeExecution>();
+		services.AddSingleton<ITradeExecutionAccess, TradeExecutionRouter>();
+
+		services.AddSingleton<OrderBotStatusMonitor>();
+		services.AddSingleton<IOrderBotStatus>(sp => sp.GetRequiredService<OrderBotStatusMonitor>());
+		services.AddHostedService(sp => sp.GetRequiredService<OrderBotStatusMonitor>());
 
 		return services;
 	}

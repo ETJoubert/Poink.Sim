@@ -25,6 +25,7 @@ builder.SetupLogging();
 
 builder.Services.BuildDatabase(builder.Configuration);
 builder.Services.BuildCTraderServices(builder.Configuration);
+builder.Services.BuildOrderBotServices(builder.Configuration);
 builder.Services.BuildSymbolServices();
 builder.Services.BuildBackgroundWorkers();
 builder.Services.BuildDataSeriesSyncServices();

@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 using Poink.Sim.Services.CTrader;
+using Poink.Sim.Services.OrderBot;
 
 namespace Poink.Sim.Components.Pages.Trade
 {
@@ -14,6 +15,9 @@ namespace Poink.Sim.Components.Pages.Trade
 
 		[Inject]
 		private NavigationManager Navigation { get; set; } = null!;
+
+		[Inject]
+		private IOrderBotStatus BotStatus { get; set; } = null!;
 
 		private bool _accountMenuOpen;
 
@@ -39,9 +43,13 @@ namespace Poink.Sim.Components.Pages.Trade
 				_ => "trade-state-disconnected",
 			};
 
+		private string BotStateClass =>
+			BotStatus.Status.State == OrderBotConnectionState.Online ? "trade-state-connected" : "trade-state-failed";
+
 		protected override void OnInitialized()
 		{
 			Session.Changed += HandleSessionChanged;
+			BotStatus.Changed += HandleSessionChanged;
 		}
 
 		private void HandleSessionChanged() => InvokeAsync(StateHasChanged);
@@ -86,6 +94,7 @@ namespace Poink.Sim.Components.Pages.Trade
 		public void Dispose()
 		{
 			Session.Changed -= HandleSessionChanged;
+			BotStatus.Changed -= HandleSessionChanged;
 		}
 	}
 }
