@@ -28,14 +28,24 @@ namespace Poink.Sim.Components.Charts
 
 		private Task SetDisplay(XGridDisplaySettings value) => DisplayChanged.InvokeAsync(Display = value);
 
-		private Task ToggleShadeDelta() =>
-			SetDisplay(Display with { ShadeDelta = !Display.ShadeDelta, TimeWeighted = false });
+		private XGridDisplaySettings WithoutTimeShading =>
+			Display with { TimeWeighted = false, TimeCountWeighted = false, TimeCountSplit = false };
+
+		private XGridDisplaySettings WithoutShadingModes =>
+			WithoutTimeShading with { ShadeDelta = false, DistanceWeighted = false };
+
+		private Task ToggleShadeDelta() => SetDisplay(WithoutTimeShading with { ShadeDelta = !Display.ShadeDelta });
 
 		private Task ToggleDistanceWeighted() =>
-			SetDisplay(Display with { DistanceWeighted = !Display.DistanceWeighted, TimeWeighted = false });
+			SetDisplay(WithoutTimeShading with { DistanceWeighted = !Display.DistanceWeighted });
 
-		private Task ToggleTimeWeighted() =>
-			SetDisplay(Display with { TimeWeighted = !Display.TimeWeighted, ShadeDelta = false, DistanceWeighted = false });
+		private Task ToggleTimeWeighted() => SetDisplay(WithoutShadingModes with { TimeWeighted = !Display.TimeWeighted });
+
+		private Task ToggleTimeCountWeighted() =>
+			SetDisplay(WithoutShadingModes with { TimeCountWeighted = !Display.TimeCountWeighted });
+
+		private Task ToggleTimeCountSplit() =>
+			SetDisplay(WithoutShadingModes with { TimeCountWeighted = true, TimeCountSplit = !Display.TimeCountSplit });
 
 		private Task ToggleDwellComparison() =>
 			SetDisplay(

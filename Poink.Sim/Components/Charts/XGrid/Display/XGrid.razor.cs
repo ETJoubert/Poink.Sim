@@ -537,7 +537,7 @@ namespace Poink.Sim.Components.Charts
 			{
 				rows,
 				cols,
-				mode = Spectrum.HighlightsEnabled && Display.ShadeDelta ? "delta" : "count",
+				mode = Spectrum.HighlightsEnabled && (Display.ShadeDelta || Display.TimeCountSplit) ? "delta" : "count",
 				cells,
 				present,
 				topHighlight = TopHighlightMask(grid, XGridSpectrumMetric.Total),
@@ -641,6 +641,10 @@ namespace Poink.Sim.Components.Charts
 			XGridCell cell = grid.Columns[col].Cells[row];
 			if (Spectrum.HighlightsEnabled && Display.TimeWeighted)
 				return grid.MaxSeconds <= 0 ? 0 : cell.Seconds / grid.MaxSeconds;
+			if (Spectrum.HighlightsEnabled && Display.TimeCountSplit)
+				return grid.MaxAbsSecondsDelta <= 0 ? 0 : cell.SecondsDelta / grid.MaxAbsSecondsDelta;
+			if (Spectrum.HighlightsEnabled && Display.TimeCountWeighted)
+				return grid.MaxSecondsCount <= 0 ? 0 : cell.SecondsCount / grid.MaxSecondsCount;
 
 			bool distanceWeighted = Spectrum.HighlightsEnabled && Display.DistanceWeighted;
 			if (Spectrum.HighlightsEnabled && Display.ShadeDelta)
@@ -667,14 +671,10 @@ namespace Poink.Sim.Components.Charts
 				return rows;
 
 			XGridCell cell = grid.Columns[col].Cells[row];
-			int deltaUpDown = cell.UpCount - cell.DownCount;
 			rows.Add(new XGridTooltipRow("Price: ", $"{grid.RowLow[row]:F5} - {grid.RowHigh[row]:F5}"));
 			rows.Add(new XGridTooltipRow("Time: ", $"{grid.Columns[col].OpenTime:HH:mm}"));
-			rows.Add(new XGridTooltipRow("Ticks: ", $"{cell.Count}"));
-			rows.Add(new XGridTooltipRow("Up: ", $"{cell.UpCount}"));
-			rows.Add(new XGridTooltipRow("Down: ", $"{cell.DownCount}"));
-			rows.Add(new XGridTooltipRow("Delta: ", $"{deltaUpDown:+0;-0;0}"));
-			rows.Add(new XGridTooltipRow("Time: ", FormatDuration(TimeSpan.FromSeconds(cell.Seconds))));
+			foreach (var measurement in CellMeasurements(cell))
+				rows.Add(new XGridTooltipRow($"{measurement.Label}: ", measurement.Value));
 
 			if (Display.SweepMode != XGridSweepMode.None)
 				rows.Add(new XGridTooltipRow("Sweep: ", $"{RowSweepValue(grid, row):0} steps"));
@@ -1154,6 +1154,30 @@ namespace Poink.Sim.Components.Charts
 
 		private double RowSweepIntensity(XGridResult grid, int row) =>
 			grid.MaxSweepValue <= 0 ? 0 : RowSweepValue(grid, row) / grid.MaxSweepValue;
+
+		private static IReadOnlyList<XGridCellMeasurement> CellMeasurements(XGridCell cell)
+		{
+			int delta = cell.UpCount - cell.DownCount;
+			return
+			[
+				new("Ticks", $"{cell.Count}", "Ticks that started in this cell"),
+				new("Up", $"{cell.UpCount}", "Up ticks that started in this cell", "up"),
+				new("Down", $"{cell.DownCount}", "Down ticks that started in this cell", "down"),
+				new("Delta", $"{delta:+0;-0;0}", "Up ticks minus down ticks", ToneOf(delta)),
+				new("Time", FormatDuration(TimeSpan.FromSeconds(cell.Seconds)), "How long price held in this cell"),
+				new("Time×Ticks", $"{cell.SecondsCount:N0}", "Seconds held multiplied by tick count"),
+				new("Time×Up", $"{cell.SecondsUpCount:N0}", "Seconds held multiplied by up-tick count", "up"),
+				new("Time×Down", $"{cell.SecondsDownCount:N0}", "Seconds held multiplied by down-tick count", "down"),
+			];
+		}
+
+		private static string? ToneOf(double value) =>
+			value > 0 ? "up"
+			: value < 0 ? "down"
+			: null;
+
+		private static XGridCell? CurrentCell(XGridResult grid) =>
+			grid.Current is { } current && grid.Columns.Count > 0 ? grid.Columns[^1].Cells[current.Row] : null;
 
 		private static int GridTickCount(XGridResult grid)
 		{

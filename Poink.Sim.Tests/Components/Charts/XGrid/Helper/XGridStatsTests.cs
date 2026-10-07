@@ -77,6 +77,57 @@ public class XGridStatsTests
 		Assert.Equal(120, ComputeSingleColumn().MaxSeconds, 6);
 	}
 
+	[Fact]
+	public void Compute_MultipliesSecondsByTicksPerCell()
+	{
+		var grid = ComputeSingleColumn();
+
+		Assert.Equal(150, CellAt(grid, 10.5).SecondsCount, 6);
+		Assert.Equal(120, CellAt(grid, 11.5).SecondsCount, 6);
+	}
+
+	[Fact]
+	public void Compute_TracksTheLargestSecondsTimesTicksAsMaxSecondsCount()
+	{
+		Assert.Equal(150, ComputeSingleColumn().MaxSecondsCount, 6);
+	}
+
+	[Fact]
+	public void SecondsDelta_SplitsTimeByUpAndDownTicks()
+	{
+		var cell = new XGridCell(3, 1, 2, 0, 0, 40, 3);
+
+		Assert.Equal(40, cell.SecondsUpCount, 6);
+		Assert.Equal(80, cell.SecondsDownCount, 6);
+		Assert.Equal(-40, cell.SecondsDelta, 6);
+	}
+
+	[Fact]
+	public void Compute_TracksTheLargestSecondsDeltaMagnitudeAsMaxAbsSecondsDelta()
+	{
+		var histogram = new BarPriceHistogram(UnitWidth);
+		histogram.Add(10.5, 1, 0);
+		histogram.Add(10.5, -1, 0);
+		histogram.Add(10.5, -1, 0);
+		histogram.AddDwell(10.5, 40);
+		histogram.Add(11.5, 1, 0);
+		histogram.AddDwell(11.5, 20);
+
+		var grid = XGridStats.Compute(
+			new List<HlocAvdtBar> { Bar(0) },
+			new List<BarPriceHistogram> { histogram },
+			new List<WeightedPriceSample>(),
+			DateTime.MinValue,
+			DateTime.MaxValue,
+			UnitWidth,
+			colCount: 1
+		);
+
+		Assert.NotNull(grid);
+		Assert.Equal(-40, CellAt(grid.Value, 10.5).SecondsDelta, 6);
+		Assert.Equal(40, grid.Value.MaxAbsSecondsDelta, 6);
+	}
+
 	[Theory]
 	[InlineData(XGridDwellComparison.Above, 60, true)]
 	[InlineData(XGridDwellComparison.Above, 59, false)]
