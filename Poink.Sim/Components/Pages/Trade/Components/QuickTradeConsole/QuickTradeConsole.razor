@@ -1,0 +1,54 @@
+@namespace Poink.Sim.Components.Pages.Trade
+@using Poink.Sim.Components.Pages.Trade.Models
+@using Poink.Sim.Components.Pages.Trade.Helpers
+
+<div class="qtc-panel">
+    <button type="button" role="switch" aria-checked="@(_armed ? "true" : "false")"
+            class="qtc-guard @(_armed ? "qtc-guard-armed" : "")" @onclick="ToggleArmed" disabled="@(!HasSelection)"
+            title="@(_armed ? "LONG/SHORT will open positions -- click to lock them (CLOSE always works)" : "LONG/SHORT are locked; CLOSE still works -- click to arm opening")">
+        <span class="qtc-guard-track"><span class="qtc-guard-thumb"></span></span>
+        <span class="qtc-guard-label">@(_armed ? "ARMED" : "LOCKED")</span>
+    </button>
+
+    <div class="qtc-field" title="Units per market order">
+        Volume
+        <div class="qtc-volumes" role="group">
+            @foreach (var volume in QuickTradeHelper.VolumePresets)
+            {
+                <button type="button" class="qtc-volume @(IsSelected(volume) ? "active" : "")"
+                        disabled="@(!HasSelection || !QuickTradeHelper.IsVolumeAllowed(volume, MinVolume))"
+                        @onclick="() => SelectVolumeAsync(volume)" title="@VolumeTooltip(volume)">
+                    @FormatVolume(volume)
+                </button>
+            }
+        </div>
+    </div>
+
+    <div class="qtc-margins">
+        <div class="qtc-margin-row" title="Margin this order will commit at the current mid price and the account's leverage">
+            <span class="qtc-margin-label">Margin</span>
+            <span class="qtc-margin-value">@FormatMoney(OrderMargin)</span>
+        </div>
+        <div class="qtc-margin-row @(MarginFreeAfter < 0 ? "qtc-margin-short" : "")"
+             title="Free margin left once this order's margin is committed (current free margin minus this order's margin)">
+            <span class="qtc-margin-label">Margin free</span>
+            <span class="qtc-margin-value">@FormatMoney(MarginFreeAfter)</span>
+        </div>
+    </div>
+
+    <div class="qtc-buttons">
+        @foreach (var side in new[] { Long, Short })
+        {
+            <button type="button" class="qtc-btn @SideClass(side)" disabled="@(!CanPress(side))"
+                    @onclick="() => PressAsync(side)" title="@SideTooltip(side)">
+                <span class="qtc-btn-label">@SideLabel(side)</span>
+                <span class="qtc-btn-sub">@SideDetail(side)</span>
+            </button>
+        }
+    </div>
+
+    @if (StatusMessage is not null)
+    {
+        <span class="qtc-status @(StatusIsError ? "qtc-status-error" : "")" title="Result of the last order or close">@StatusMessage</span>
+    }
+</div>

@@ -5,9 +5,11 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 using Poink.Sim.Components.Pages.Trade.Helpers;
+using Poink.Sim.Components.Pages.Trade.Models;
 using Poink.Sim.Components.Shared.FinancialsPanel;
 using Poink.Sim.Components.Shared.PositionTable;
 using Poink.Sim.Components.Shared.TradeConsole;
+using Poink.Sim.Helpers;
 using Poink.Sim.Models;
 using Poink.Sim.Services.CTrader;
 using Poink.Sim.Services.MarketData.Recording;
@@ -43,6 +45,14 @@ namespace Poink.Sim.Components.Pages.Trade
 		[Inject]
 		private ILiveTickRecorder TickRecorder { get; set; } = null!;
 
+		[Inject]
+		private ILocalStorageHelper LocalStorage { get; set; } = null!;
+
+		private const string ConsoleModeStorageKey = "trade.consoleMode";
+
+		/// <summary>cTrader expresses symbol volume limits in hundredths of a unit.</summary>
+		private const double CTraderVolumeScale = 100.0;
+
 		private static readonly TimeSpan HistoryLookback = TimeSpan.FromDays(30);
 
 		private enum RealizedWindow
@@ -59,6 +69,9 @@ namespace Poink.Sim.Components.Pages.Trade
 		private bool _consoleBusy;
 		private string? _consoleStatus;
 		private bool _consoleStatusIsError;
+		private TradeConsoleMode _consoleMode = TradeConsoleMode.Simple;
+		private bool _quickLongBusy;
+		private bool _quickShortBusy;
 
 		private RealizedWindow _realizedWindow = RealizedWindow.Day;
 		private double? _realizedPnl;
@@ -170,6 +183,8 @@ namespace Poink.Sim.Components.Pages.Trade
 
 		private double? FreeMargin => Equity is { } equity && MarginUsed is { } used ? equity - used : null;
 
+		private double? AvailableMargin => Session.Positions.Count == 0 ? Session.Balance : FreeMargin;
+
 		private IReadOnlyList<PositionRowViewModel<CTraderPositionInfo>> PositionRows => Session.Positions.Select(ToPositionRow).ToList();
 
 		private PositionRowViewModel<CTraderPositionInfo> ToPositionRow(CTraderPositionInfo position)
@@ -247,6 +262,10 @@ namespace Poink.Sim.Components.Pages.Trade
 		/// </summary>
 		private double? PriceStep => Metadata is { } metadata ? 1.0 / Math.Pow(10, metadata.Digits) : null;
 
+		private double? ChartMinVolume => Metadata is { MinVolume: > 0 } metadata ? metadata.MinVolume / CTraderVolumeScale : null;
+
+		private double? ChartVolumeStep => Metadata is { StepVolume: > 0 } metadata ? metadata.StepVolume / CTraderVolumeScale : null;
+
 		private ElementReference _positionsHDividerRef;
 		private IJSObjectReference? _dividerResizeInstance;
 
@@ -314,6 +333,7 @@ namespace Poink.Sim.Components.Pages.Trade
 			{
 				_dividerResizeInstance = await JS.InvokeAsync<IJSObjectReference>("eval", PositionsDividerScript);
 				await Coordinator.LoadPersistedSettingsAsync();
+				_consoleMode = await LocalStorage.GetItemAsync<TradeConsoleMode?>(ConsoleModeStorageKey) ?? TradeConsoleMode.Simple;
 				StateHasChanged();
 			}
 			else
@@ -345,9 +365,7 @@ namespace Poink.Sim.Components.Pages.Trade
 
 		private async Task ClosePositionAsync(CTraderPositionInfo position)
 		{
-			var result = await TradeExecution.ClosePositionAsync(position.PositionId);
-			_consoleStatus = result.Message;
-			_consoleStatusIsError = !result.Success;
+			ShowConsoleResult(await TradeExecution.ClosePositionAsync(position.PositionId));
 		}
 
 		private async Task HandleConsoleSubmit(TradeConsoleOrderRequest request)
@@ -383,6 +401,90 @@ namespace Poink.Sim.Components.Pages.Trade
 			{
 				_consoleBusy = false;
 			}
+		}
+
+		private async Task SetConsoleModeAsync(TradeConsoleMode mode)
+		{
+			if (mode == _consoleMode)
+				return;
+
+			_consoleMode = mode;
+			_consoleStatus = null;
+			if (mode == TradeConsoleMode.Simple)
+				TradeDraft.Clear();
+			await LocalStorage.SetItemAsync(ConsoleModeStorageKey, mode);
+		}
+
+		private QuickTradeSideState QuickSide(bool isLong)
+		{
+			var positions = Coordinator.ChartSymbolId is { } symbolId
+				? QuickTradeHelper.SidePositions(Session.Positions, symbolId, isLong)
+				: Array.Empty<CTraderPositionInfo>();
+			return new QuickTradeSideState(
+				isLong,
+				positions.Count,
+				positions.Sum(p => p.Volume),
+				isLong ? _quickLongBusy : _quickShortBusy
+			);
+		}
+
+		private async Task HandleQuickOpenAsync(QuickTradeOpenRequest request)
+		{
+			if (Coordinator.ChartSymbolId is not { } symbolId)
+				return;
+
+			SetQuickBusy(request.IsLong, true);
+			try
+			{
+				var result = await TradeExecution.PlaceOrderAsync(
+					symbolId,
+					request.IsLong,
+					request.Volume,
+					CTraderOrderType.Market,
+					null,
+					null,
+					null
+				);
+				ShowConsoleResult(result);
+			}
+			finally
+			{
+				SetQuickBusy(request.IsLong, false);
+			}
+		}
+
+		private async Task HandleQuickCloseAsync(bool isLong)
+		{
+			if (Coordinator.ChartSymbolId is not { } symbolId)
+				return;
+			var positions = QuickTradeHelper.SidePositions(Session.Positions, symbolId, isLong);
+			if (positions.Count == 0)
+				return;
+
+			SetQuickBusy(isLong, true);
+			try
+			{
+				var results = await Task.WhenAll(positions.Select(p => TradeExecution.ClosePositionAsync(p.PositionId)));
+				ShowConsoleResult(QuickTradeHelper.SummarizeClose(isLong, results));
+			}
+			finally
+			{
+				SetQuickBusy(isLong, false);
+			}
+		}
+
+		private void SetQuickBusy(bool isLong, bool busy)
+		{
+			if (isLong)
+				_quickLongBusy = busy;
+			else
+				_quickShortBusy = busy;
+		}
+
+		private void ShowConsoleResult(CTraderOrderResult result)
+		{
+			_consoleStatus = result.Message;
+			_consoleStatusIsError = !result.Success;
 		}
 
 		private void HandleDraftChanged(TradeConsoleDraft? draft)
