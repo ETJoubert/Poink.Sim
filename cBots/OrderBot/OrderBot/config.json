@@ -1,0 +1,39 @@
+{
+  "AccessRights": "None",
+  "AddIndicators": false,
+  "Parameters": [
+    {
+      "Name": "TestSymbolName",
+      "DefaultValue": "#USNDAQ100",
+      "Type": "String",
+      "Group": "Order"
+    },
+    {
+      "Name": "IsBuy",
+      "DefaultValue": true,
+      "Type": "Boolean",
+      "Group": "Order"
+    },
+    {
+      "Name": "VolumeInUnits",
+      "DefaultValue": 0,
+      "MinValue": 0,
+      "Type": "Double",
+      "Group": "Order"
+    },
+    {
+      "Name": "HoldSeconds",
+      "DefaultValue": 5,
+      "MinValue": 1,
+      "MaxValue": 300,
+      "Type": "Integer",
+      "Group": "Order"
+    },
+    {
+      "Name": "AllowLive",
+      "DefaultValue": false,
+      "Type": "Boolean",
+      "Group": "Safety"
+    }
+  ]
+}
