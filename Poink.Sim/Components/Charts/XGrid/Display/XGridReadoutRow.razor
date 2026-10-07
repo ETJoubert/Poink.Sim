@@ -1,0 +1,19 @@
+@namespace Poink.Sim.Components.Charts
+
+<div class="xgrid-readout-row">
+    <span class="xgrid-readout-label" title="@LabelTitle">@Label</span>
+    @if (Readouts is { } readouts)
+    {
+        @foreach (var readout in readouts)
+        {
+            <span class="xgrid-readout" title="@readout.Description">
+                <span class="xgrid-readout-name">@readout.Label</span>
+                <span class="xgrid-readout-value @(readout.Tone is { } tone ? $"xgrid-readout-{tone}" : "")">@readout.Value</span>
+            </span>
+        }
+    }
+    else
+    {
+        <span class="xgrid-readout" title="@EmptyTitle">--</span>
+    }
+</div>

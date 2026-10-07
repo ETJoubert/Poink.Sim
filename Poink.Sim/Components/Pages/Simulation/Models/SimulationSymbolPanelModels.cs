@@ -8,7 +8,7 @@ namespace Poink.Sim.Components.Simulation
 {
 	/// <summary>
 	/// Everything one watched symbol's chart set renders, already computed for the page's Lookback Window and Indicators:
-	/// its chart bars and indicator lines, XGrid, volume/time profile samples and TxFold anchor.
+	/// its chart bars and indicator lines, XGrid and its recent tick rate, volume/time profile samples and TxFold anchor.
 	/// </summary>
 	public sealed record SimulationSymbolPanelData(
 		string Table,
@@ -29,6 +29,7 @@ namespace Poink.Sim.Components.Simulation
 		List<WeightedPriceSample> Samples,
 		List<WeightedTimeSample> TimeSamples,
 		XGridResult? XGrid,
+		TickRate? TickRate,
 		DateTime? TxFoldAnchorEnd,
 		double? TxFoldLatestPrice
 	)

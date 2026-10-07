@@ -287,23 +287,16 @@
             </div>
         </div>
         <div class="xgrid-footer">
-            <div class="xgrid-footer-cell">
-                <span class="xgrid-footer-cell-label" title="Measurements of the cell holding the current price in the latest column -- hover any grid cell for the same readings">Current cell</span>
-                @if (CurrentCell(grid) is { } currentCell)
-                {
-                    @foreach (var measurement in CellMeasurements(currentCell))
-                    {
-                        <span class="xgrid-footer-measure" title="@measurement.Description">
-                            <span class="xgrid-footer-measure-label">@measurement.Label</span>
-                            <span class="xgrid-footer-measure-value @(measurement.Tone is { } tone ? $"xgrid-footer-measure-{tone}" : "")">@measurement.Value</span>
-                        </span>
-                    }
-                }
-                else
-                {
-                    <span class="xgrid-footer-measure" title="No current price in the grid range">--</span>
-                }
-            </div>
+            <XGridReadoutRow Label="Current cell"
+                             LabelTitle="Measurements of the cell holding the current price in the latest column -- hover any grid cell for the same readings"
+                             Readouts="@(CurrentCell(grid) is { } currentCell ? CellReadouts(currentCell) : null)"
+                             EmptyTitle="No current price in the grid range" />
+            @if (TickRate is { } tickRate)
+            {
+                <XGridReadoutRow Label="@($"{(int)tickRate.Window.TotalSeconds}s rate")"
+                                 LabelTitle="@($"Whole-symbol tick rates averaged over the {(int)tickRate.Window.TotalSeconds} seconds up to the newest tick ({tickRate.AsOfUtc:HH:mm:ss}) -- not limited to the current cell or the grid range")"
+                                 Readouts="TickRateReadouts(tickRate)" />
+            }
             <div class="xgrid-footer-range">
                 <span class="xgrid-footer-time" title="Oldest bar in the grid range">@(grid.Columns.Count > 0 ? grid.Columns[0].OpenTime.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) : "--")</span>
                 <span class="xgrid-footer-span" title="Time span from the oldest to the latest bar in the grid">@GridTimeSpan(grid) &middot; @GridTickCount(grid).ToString("N0", CultureInfo.InvariantCulture) ticks</span>

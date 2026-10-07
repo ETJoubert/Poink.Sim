@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
+using Poink.Sim.Models;
 using Poink.Sim.Trader.Risk;
 
 namespace Poink.Sim.Components.Charts
@@ -24,6 +25,10 @@ namespace Poink.Sim.Components.Charts
 
 		[Parameter]
 		public XGridResult? Grid { get; set; }
+
+		/// <summary>Recent whole-symbol tick rates for the footer; null hides that readout row.</summary>
+		[Parameter]
+		public TickRate? TickRate { get; set; }
 
 		[Parameter]
 		public XGridDisplaySettings Display { get; set; } = new();
@@ -673,8 +678,8 @@ namespace Poink.Sim.Components.Charts
 			XGridCell cell = grid.Columns[col].Cells[row];
 			rows.Add(new XGridTooltipRow("Price: ", $"{grid.RowLow[row]:F5} - {grid.RowHigh[row]:F5}"));
 			rows.Add(new XGridTooltipRow("Time: ", $"{grid.Columns[col].OpenTime:HH:mm}"));
-			foreach (var measurement in CellMeasurements(cell))
-				rows.Add(new XGridTooltipRow($"{measurement.Label}: ", measurement.Value));
+			foreach (var readout in CellReadouts(cell))
+				rows.Add(new XGridTooltipRow($"{readout.Label}: ", readout.Value));
 
 			if (Display.SweepMode != XGridSweepMode.None)
 				rows.Add(new XGridTooltipRow("Sweep: ", $"{RowSweepValue(grid, row):0} steps"));
@@ -1155,7 +1160,7 @@ namespace Poink.Sim.Components.Charts
 		private double RowSweepIntensity(XGridResult grid, int row) =>
 			grid.MaxSweepValue <= 0 ? 0 : RowSweepValue(grid, row) / grid.MaxSweepValue;
 
-		private static IReadOnlyList<XGridCellMeasurement> CellMeasurements(XGridCell cell)
+		private static IReadOnlyList<XGridReadout> CellReadouts(XGridCell cell)
 		{
 			int delta = cell.UpCount - cell.DownCount;
 			return
@@ -1168,6 +1173,18 @@ namespace Poink.Sim.Components.Charts
 				new("Time×Ticks", $"{cell.SecondsCount:N0}", "Seconds held multiplied by tick count"),
 				new("Time×Up", $"{cell.SecondsUpCount:N0}", "Seconds held multiplied by up-tick count", "up"),
 				new("Time×Down", $"{cell.SecondsDownCount:N0}", "Seconds held multiplied by down-tick count", "down"),
+			];
+		}
+
+		private static IReadOnlyList<XGridReadout> TickRateReadouts(TickRate rate)
+		{
+			int seconds = (int)rate.Window.TotalSeconds;
+			return
+			[
+				new("Ticks/s", $"{rate.TicksPerSecond:N1}", $"Ticks per second averaged over the last {seconds}s"),
+				new("Up/s", $"{rate.UpPerSecond:N1}", $"Up ticks per second averaged over the last {seconds}s", "up"),
+				new("Down/s", $"{rate.DownPerSecond:N1}", $"Down ticks per second averaged over the last {seconds}s", "down"),
+				new("Δ/s", $"{rate.DeltaPerSecond:+0.0;-0.0;0.0}", "Up/s minus Down/s", ToneOf(rate.DeltaPerSecond)),
 			];
 		}
 

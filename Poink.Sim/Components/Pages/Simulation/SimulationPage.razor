@@ -353,7 +353,7 @@
                                              title="Drag to resize"></div>
                                     }
                                     <div class="sim-chart-side">
-                                        <XGridController Grid="ComputeXGrid(s)" Positions="XGridPositions(s)"
+                                        <XGridController Grid="ComputeXGrid(s)" TickRate="TickRateHelper.Measure(s.RecentTicks, TickRateHelper.DefaultWindow)" Positions="XGridPositions(s)"
                                                Pending="XGridPending()" OnOrderPlaced="PlaceXGridOrder"
                                                OnPendingModified="ModifyXGridPending" OnPendingCancelled="CancelXGridPending"
                                                OnPositionClosed="CloseXGridPosition"

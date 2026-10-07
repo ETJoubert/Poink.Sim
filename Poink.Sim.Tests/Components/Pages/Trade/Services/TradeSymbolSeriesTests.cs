@@ -26,6 +26,21 @@ public class TradeSymbolSeriesTests
 	}
 
 	[Fact]
+	public void RecentTicks_KeepsTheWindowPlusTheTickJustBefore()
+	{
+		var series = Series(
+			TestTickHelper.AtMid(1, 1.0),
+			TestTickHelper.AtMid(3, 1.1),
+			TestTickHelper.AtMid(7, 1.2),
+			TestTickHelper.AtMid(10, 1.3)
+		);
+
+		var recent = series.RecentTicks(TimeSpan.FromSeconds(5));
+
+		Assert.Equal(new[] { 1.1, 1.2, 1.3 }, recent.Select(t => t.Bid));
+	}
+
+	[Fact]
 	public void Apply_WithinFormingBar_UpdatesItInPlace()
 	{
 		var series = Series(TestTickHelper.AtMid(5, 1.1));
