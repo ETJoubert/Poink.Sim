@@ -40,6 +40,7 @@ builder.Services.AddSingleton<ITimeAboveBelowAnalysisService, TimeAboveBelowAnal
 builder.Services.AddSingleton<IPriceReturnAnalysisService, PriceReturnAnalysisService>();
 builder.Services.AddSingleton<IBarrierMapAnalysisService, BarrierMapAnalysisService>();
 builder.Services.AddScoped<ILocalStorageHelper, LocalStorageHelper>();
+builder.Services.AddScoped<ISessionStorageHelper, SessionStorageHelper>();
 builder.Services.BuildTradePageServices();
 builder.Services.BuildCodeGraphServices();
 builder.Services.BuildCallGraphServices();

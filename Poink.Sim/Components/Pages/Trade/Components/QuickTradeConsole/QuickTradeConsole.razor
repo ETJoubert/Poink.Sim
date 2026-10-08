@@ -39,6 +39,19 @@
     <div class="qtc-buttons">
         @foreach (var side in new[] { Long, Short })
         {
+            <button type="button" class="qtc-be @(side.IsLong ? "qtc-be-long" : "qtc-be-short") @(side.BreakevenArmed ? "qtc-be-armed" : "")"
+                    role="switch" aria-checked="@(side.BreakevenArmed ? "true" : "false")"
+                    disabled="@(!CanToggleBreakeven(side))" @onclick="() => OnToggleBreakeven.InvokeAsync(side.IsLong)"
+                    title="@BreakevenTooltip(side)">
+                <span class="qtc-be-label">@(side.BreakevenArmed ? "BE ARMED" : "CLOSE @ BE")</span>
+                <span class="qtc-be-sub">@BreakevenDetail(side)</span>
+            </button>
+        }
+    </div>
+
+    <div class="qtc-buttons">
+        @foreach (var side in new[] { Long, Short })
+        {
             <button type="button" class="qtc-btn @SideClass(side)" disabled="@(!CanPress(side))"
                     @onclick="() => PressAsync(side)" title="@SideTooltip(side)">
                 <span class="qtc-btn-label">@SideLabel(side)</span>

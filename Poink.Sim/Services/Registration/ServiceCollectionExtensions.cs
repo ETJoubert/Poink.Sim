@@ -146,7 +146,8 @@ public static class ServiceCollectionExtensions
 	}
 
 	/// <summary>
-	/// TradePage's cross-panel UI state (selected symbol, side-panel collapse, settings persistence) and the per-circuit bar feed --
+	/// TradePage's cross-panel UI state (selected symbol, side-panel collapse, settings persistence), the per-circuit bar feed
+	/// and the breakeven-close watcher --
 	/// scoped, to match its <see cref="ILocalStorageHelper"/> and driver-interface dependencies.
 	/// </summary>
 	public static IServiceCollection BuildTradePageServices(this IServiceCollection services)
@@ -154,6 +155,7 @@ public static class ServiceCollectionExtensions
 		services.AddScoped<ITradeCoordinator, TradeCoordinator>();
 		services.AddScoped<ITradeDraftService, TradeDraftService>();
 		services.AddScoped<ITradeBarFeed, TradeBarFeed>();
+		services.AddScoped<IBreakevenCloseService, BreakevenCloseService>();
 
 		return services;
 	}

@@ -2,8 +2,11 @@ using System;
 
 namespace Poink.Sim.Components.Pages.Trade.Models
 {
-	/// <summary>One side of the quick trade console: how much is open on the charted symbol and whether a request is in flight.</summary>
-	public sealed record QuickTradeSideState(bool IsLong, int OpenCount, double OpenVolume, bool Busy)
+	/// <summary>
+	/// One side of the quick trade console: how much is open on the charted symbol, whether a request is in flight, and
+	/// whether its positions are armed to close at breakeven.
+	/// </summary>
+	public sealed record QuickTradeSideState(bool IsLong, int OpenCount, double OpenVolume, bool Busy, bool BreakevenArmed = false)
 	{
 		public bool HasOpenPositions => OpenCount > 0;
 	}

@@ -66,6 +66,10 @@ namespace Poink.Sim.Components.Pages.Trade
 		[Parameter]
 		public EventCallback<bool> OnClose { get; set; }
 
+		/// <summary>Arms or disarms a side's close-at-breakeven; the bool is the side (true = long).</summary>
+		[Parameter]
+		public EventCallback<bool> OnToggleBreakeven { get; set; }
+
 		private double? _storedVolume;
 
 		private bool _armed;
@@ -152,6 +156,26 @@ namespace Poink.Sim.Components.Pages.Trade
 			}
 
 			return $"Place a market {(side.IsLong ? "buy" : "sell")} of {FormatVolume(OrderVolume)} units on {Symbol}";
+		}
+
+		private bool CanToggleBreakeven(QuickTradeSideState side) => HasSelection && (side.BreakevenArmed || side.HasOpenPositions);
+
+		private static string BreakevenDetail(QuickTradeSideState side) =>
+			side.BreakevenArmed ? $"{SideName(side).ToLowerInvariant()} · waiting for 0+"
+			: side.HasOpenPositions ? $"{SideName(side).ToLowerInvariant()} · {side.OpenCount} open"
+			: $"no {SideName(side).ToLowerInvariant()}";
+
+		private string BreakevenTooltip(QuickTradeSideState side)
+		{
+			var name = SideName(side).ToLowerInvariant();
+			if (!HasSelection)
+				return "Open a chart to use close-at-breakeven";
+			if (side.BreakevenArmed)
+				return $"Armed: each {name} position on {Symbol} closes on its own once price is back to its entry or better (P&L 0 or positive). Turns off when no {name}s are left or a close fails. Click to disarm.";
+			if (!side.HasOpenPositions)
+				return $"No {name} positions on {Symbol} to close at breakeven";
+
+			return $"Wait for each of the {side.OpenCount} {name} position(s) on {Symbol} to get back to its entry or better (P&L 0 or positive), then close it. Stays armed across reloads of this tab; closing the tab stops it.";
 		}
 
 		private static string FormatMoney(double? amount) => amount is { } value ? value.ToString("N2") : "--";
