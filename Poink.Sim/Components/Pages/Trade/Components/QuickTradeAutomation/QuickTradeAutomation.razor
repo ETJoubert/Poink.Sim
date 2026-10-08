@@ -1,0 +1,32 @@
+@namespace Poink.Sim.Components.Pages.Trade
+@using Poink.Sim.Components.Pages.Trade.Helpers
+@using Poink.Sim.Components.Emulator
+
+<div class="qta-panel">
+    <div class="qta-row">
+        <button type="button" class="qta-chip @(Settings.AutoArm ? "active" : "")" @onclick="ToggleAutoArmAsync"
+                title="@(Settings.AutoArm ? $"Auto-arm on: each position on the charted symbol joins the breakeven watch once it has been open {Settings.ArmAfterSeconds}s -- click to turn off" : "Auto-arm: each new position joins the breakeven watch (CLOSE @ BE) once it has been open t seconds")">AUTO BE</button>
+        <span class="qta-text" title="t: seconds a position must be open before it joins the breakeven watch">after t</span>
+        <EmulatorStepperComponent Value="Settings.ArmAfterSeconds" Step="SecondsStep" Min="PositionCloseHelper.MinSeconds" Max="PositionCloseHelper.MaxSeconds"
+                                  Tooltip="t: seconds a position must be open before it joins the breakeven watch"
+                                  OnChange="SetArmAfterSecondsAsync" />
+        <span class="qta-text">s</span>
+    </div>
+    <div class="qta-row">
+        <button type="button" class="qta-chip @(Settings.AutoClose ? "active" : "")" @onclick="ToggleAutoCloseAsync"
+                title="@(Settings.AutoClose ? $"Time stop on: each position on the charted symbol closes at market once it has been open {Settings.TimeStopSeconds}s (t + s), whatever its P&L -- click to turn off" : "Time stop: close each position at market once it has been open t + s seconds, whatever its P&L")">AUTO CLOSE</button>
+        <span class="qta-text" title="s: extra seconds after t before a position is closed at market">after t +</span>
+        <EmulatorStepperComponent Value="Settings.CloseAfterSeconds" Step="SecondsStep" Min="PositionCloseHelper.MinSeconds" Max="PositionCloseHelper.MaxSeconds"
+                                  Tooltip="s: extra seconds after t before a position is closed at market"
+                                  OnChange="SetCloseAfterSecondsAsync" />
+        <span class="qta-text" title="Total time a position may stay open with the time stop on (t + s)">s = @(Settings.TimeStopSeconds)s</span>
+    </div>
+    <div class="qta-row">
+        <button type="button" class="qta-chip qta-chip-fire @(AutoFire ? "active" : "")" @onclick="ToggleAutoFireAsync"
+                disabled="@(!GateEnabled && !AutoFire)"
+                title="@AutoFireTooltip">AUTO FIRE</button>
+        <span class="qta-text" title="Auto-fire places one market order of the selected volume when a side's zone gate goes from locked to open, only on a flat side and only while ARMED">
+            on gate pass · flat side · needs ARMED
+        </span>
+    </div>
+</div>

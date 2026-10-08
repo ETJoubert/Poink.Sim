@@ -1,0 +1,50 @@
+.qta-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding: 6px 0;
+    border-top: 1px solid color-mix(in srgb, var(--color-primary) 12%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 12%, transparent);
+}
+
+.qta-row {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.7rem;
+    color: var(--color-secondary);
+}
+
+.qta-chip {
+    min-width: 6.8em;
+    padding: 2px 6px;
+    font-size: 0.68rem;
+    font-weight: bold;
+    letter-spacing: 0.05em;
+    background: var(--color-bg-terminal);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
+    border-radius: 3px;
+    color: var(--color-secondary);
+    cursor: pointer;
+}
+
+.qta-chip.active {
+    background: color-mix(in srgb, var(--color-primary) 18%, transparent);
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+}
+
+.qta-chip-fire.active {
+    background: color-mix(in srgb, var(--color-warning) 22%, transparent);
+    border-color: var(--color-warning);
+    color: var(--color-warning);
+}
+
+.qta-chip:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.qta-text {
+    white-space: nowrap;
+}

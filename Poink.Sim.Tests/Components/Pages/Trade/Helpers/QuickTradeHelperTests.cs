@@ -150,4 +150,39 @@ public class QuickTradeHelperTests
 	{
 		Assert.Equal(expected, QuickTradeHelper.SnapVolume(volume, minVolume, volumeStep), 10);
 	}
+
+	private static ColumnZoneGate Gate(bool longLocked) => new(true, longLocked ? 0 : 2, 0, 2, 3);
+
+	private static QuickTradeSideState FlatLong(bool busy = false) => new(true, 0, 0, busy);
+
+	[Theory]
+	[InlineData(true, true, false, false, 1, true)]
+	[InlineData(false, true, false, false, 1, false)]
+	[InlineData(true, false, false, false, 1, false)]
+	[InlineData(true, true, true, false, 1, false)]
+	[InlineData(true, true, false, true, 1, false)]
+	[InlineData(true, true, false, false, 0, false)]
+	public void ShouldAutoFire_OnlyOnTheGatesLockedToOpenChangeForAFlatIdleSide(
+		bool allowed,
+		bool wasLocked,
+		bool stillLocked,
+		bool busy,
+		double volume,
+		bool expected
+	)
+	{
+		Assert.Equal(expected, QuickTradeHelper.ShouldAutoFire(allowed, wasLocked, Gate(stillLocked), FlatLong(busy), volume));
+	}
+
+	[Fact]
+	public void ShouldAutoFire_SideWithOpenPositions_DoesNotFire()
+	{
+		Assert.False(QuickTradeHelper.ShouldAutoFire(true, true, Gate(false), new QuickTradeSideState(true, 1, 1, false), 1));
+	}
+
+	[Fact]
+	public void ShouldAutoFire_GateOff_DoesNotFire()
+	{
+		Assert.False(QuickTradeHelper.ShouldAutoFire(true, true, new ColumnZoneGate(false, 2, 0, 2, 3), FlatLong(), 1));
+	}
 }

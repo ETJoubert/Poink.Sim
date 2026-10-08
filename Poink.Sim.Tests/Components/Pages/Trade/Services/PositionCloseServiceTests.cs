@@ -12,9 +12,11 @@ using Xunit;
 
 namespace Poink.Sim.Tests.Components.Pages.Trade.Services;
 
-public class BreakevenCloseServiceTests
+public class PositionCloseServiceTests
 {
 	private const long Nasdaq = 1107;
+
+	private static readonly DateTimeOffset Start = new(2026, 10, 8, 9, 0, 0, TimeSpan.Zero);
 
 	private static readonly BreakevenSide Longs = new(Nasdaq, IsLong: true);
 	private static readonly BreakevenSide Shorts = new(Nasdaq, IsLong: false);
@@ -22,15 +24,19 @@ public class BreakevenCloseServiceTests
 	private readonly FakeTickStream _stream = new();
 	private readonly FakeCloseExecution _execution = new();
 	private readonly FakeAccountAccess _account = new();
-	private readonly BreakevenCloseService _service;
+	private readonly ManualTimeProvider _clock = new(Start);
+	private readonly PositionCloseService _service;
 
-	public BreakevenCloseServiceTests()
+	public PositionCloseServiceTests()
 	{
-		_service = new BreakevenCloseService(_stream, _execution, _account, NullLogger<BreakevenCloseService>.Instance);
+		_service = new PositionCloseService(_stream, _execution, _account, _clock, NullLogger<PositionCloseService>.Instance);
 	}
 
 	private static CTraderPositionInfo Position(long id, bool isLong, double entry) =>
-		new(id, Nasdaq, "NAS100", isLong, 1, entry, DateTime.UtcNow, null, null, 0);
+		new(id, Nasdaq, "NAS100", isLong, 1, entry, Start.UtcDateTime, null, null, 0);
+
+	private static CloseAutomationScope Automation(bool autoArm = false, bool autoClose = false) =>
+		new(Nasdaq, new CloseAutomationSettings(autoArm, ArmAfterSeconds: 30, autoClose, CloseAfterSeconds: 60));
 
 	private void Tick(double bid, double ask) =>
 		_stream.Raise(new MarketTick(Nasdaq, "NAS100", DateTime.UtcNow, bid, ask));
@@ -136,6 +142,7 @@ public class BreakevenCloseServiceTests
 	[Fact]
 	public void ArmedSides_ListsWhatIsArmed()
 	{
+		_stream.Positions = [Position(1, isLong: true, entry: 100)];
 		_service.Arm(Longs);
 
 		Assert.Equal([Longs], _service.ArmedSides);
@@ -149,6 +156,79 @@ public class BreakevenCloseServiceTests
 		_service.Disarm(Longs);
 
 		Tick(100.5, 100.7);
+
+		Assert.Empty(_execution.Closed);
+	}
+
+	[Fact]
+	public void AutoArm_WatchesEachPositionOnlyOnceItIsTSecondsOld()
+	{
+		_stream.Positions = [Position(1, isLong: true, entry: 100)];
+		_service.SetAutomation(Automation(autoArm: true));
+
+		_clock.Advance(TimeSpan.FromSeconds(29));
+		Tick(100.5, 100.7);
+		Assert.Empty(_execution.Closed);
+
+		_clock.Advance(TimeSpan.FromSeconds(1));
+		Tick(100.5, 100.7);
+		Assert.Equal([1L], _execution.Closed);
+	}
+
+	[Fact]
+	public void TimeStop_ClosesAtTPlusSOnTheClockWithoutATick()
+	{
+		var reports = new List<CTraderOrderResult>();
+		_service.CloseReported += reports.Add;
+		_stream.Positions = [Position(1, isLong: true, entry: 100)];
+		_service.SetAutomation(Automation(autoClose: true));
+
+		_clock.Advance(TimeSpan.FromSeconds(89));
+		_service.Sweep();
+		Assert.Empty(_execution.Closed);
+
+		_clock.Advance(TimeSpan.FromSeconds(1));
+		_service.Sweep();
+		Assert.Equal([1L], _execution.Closed);
+		Assert.Contains("time stop", Assert.Single(reports).Message);
+	}
+
+	[Fact]
+	public void Automation_LeavesOtherSymbolsAlone()
+	{
+		_stream.Positions = [Position(1, isLong: true, entry: 100) with { SymbolId = 1287 }];
+		_service.SetAutomation(Automation(autoClose: true));
+
+		_clock.Advance(TimeSpan.FromHours(1));
+		_service.Sweep();
+		_stream.Raise(new MarketTick(1287, "US30", DateTime.UtcNow, 100, 100.2));
+
+		Assert.Empty(_execution.Closed);
+	}
+
+	[Fact]
+	public void FailedAutomatedClose_IsNotRetried()
+	{
+		_execution.Result = new CTraderOrderResult(false, "market closed");
+		_stream.Positions = [Position(1, isLong: true, entry: 100)];
+		_service.SetAutomation(Automation(autoClose: true));
+
+		_clock.Advance(TimeSpan.FromSeconds(90));
+		_service.Sweep();
+		_service.Sweep();
+
+		Assert.Equal([1L], _execution.Closed);
+	}
+
+	[Fact]
+	public void SetAutomationNull_StopsTheTimeStop()
+	{
+		_stream.Positions = [Position(1, isLong: true, entry: 100)];
+		_service.SetAutomation(Automation(autoClose: true));
+		_service.SetAutomation(null);
+
+		_clock.Advance(TimeSpan.FromSeconds(90));
+		_service.Sweep();
 
 		Assert.Empty(_execution.Closed);
 	}

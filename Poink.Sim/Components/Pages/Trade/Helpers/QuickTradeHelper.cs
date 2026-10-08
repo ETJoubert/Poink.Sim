@@ -32,6 +32,19 @@ namespace Poink.Sim.Components.Pages.Trade.Helpers
 		public static double? MarginFreeAfter(double? availableMargin, double? orderMargin) =>
 			availableMargin is { } available && orderMargin is { } margin ? available - margin : null;
 
+		/// <summary>
+		/// Auto-fire places an order only while <paramref name="allowed"/> (auto-fire on, ARMED, a chart open), on the zone
+		/// gate's locked-to-open change, for a flat and idle side with a volume to send.
+		/// </summary>
+		public static bool ShouldAutoFire(bool allowed, bool wasLocked, ColumnZoneGate gate, QuickTradeSideState side, double orderVolume) =>
+			allowed
+			&& gate.Enabled
+			&& wasLocked
+			&& !gate.IsLocked(side.IsLong)
+			&& !side.HasOpenPositions
+			&& !side.Busy
+			&& orderVolume > 0;
+
 		public static bool IsReported(QuickTradeAwaitedReport awaited, int currentCount) =>
 			awaited.IsOpening ? currentCount > awaited.BaselineCount : currentCount == 0;
 

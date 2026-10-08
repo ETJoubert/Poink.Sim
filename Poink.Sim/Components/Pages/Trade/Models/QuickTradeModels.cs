@@ -4,9 +4,16 @@ namespace Poink.Sim.Components.Pages.Trade.Models
 {
 	/// <summary>
 	/// One side of the quick trade console: how much is open on the charted symbol, whether a request is in flight, and
-	/// whether its positions are armed to close at breakeven.
+	/// whether its positions are armed to close at breakeven, and when its oldest open position opened.
 	/// </summary>
-	public sealed record QuickTradeSideState(bool IsLong, int OpenCount, double OpenVolume, bool Busy, bool BreakevenArmed = false)
+	public sealed record QuickTradeSideState(
+		bool IsLong,
+		int OpenCount,
+		double OpenVolume,
+		bool Busy,
+		bool BreakevenArmed = false,
+		DateTime? OldestOpenUtc = null
+	)
 	{
 		public bool HasOpenPositions => OpenCount > 0;
 	}
