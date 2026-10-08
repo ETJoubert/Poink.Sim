@@ -7,6 +7,7 @@
 @using Poink.Sim.Components.Shared.StatisticsPanel
 @using Poink.Sim.Components.Shared.TraderSidePanel
 @using Poink.Sim.Components.Shared.TradeConsole
+@using Poink.Sim.Components.Pages.Trade.Models
 
 <div class="trade-page">
 
@@ -154,12 +155,33 @@
                 <div class="trade-right-side-panel-content">
                     <TraderSidePanel Collapsed="Coordinator.RightPanelCollapsed" OnExpandRequested="Coordinator.ToggleRightPanel">
                         <TradeTab>
-                            <TradeConsole @ref="_consoleRef" HasSelection="Coordinator.ChartSymbolId is not null"
-                                          CurrentBid="ChartQuote?.Bid" CurrentAsk="ChartQuote?.Ask"
-                                          PipSize="ChartPipSize" Balance="Session.Balance" Leverage="Session.Leverage"
-                                          MinStopLossDistancePrice="MinStopLossDistancePrice" MinTakeProfitDistancePrice="MinTakeProfitDistancePrice"
-                                          PriceStep="PriceStep" Busy="_consoleBusy" StatusMessage="@_consoleStatus" StatusIsError="_consoleStatusIsError"
-                                          OnDraftChanged="HandleDraftChanged" OnSubmit="HandleConsoleSubmit" />
+                            <div class="trade-console-mode" role="group" title="Choose the one-click console or the full order ticket">
+                                <button type="button" class="trade-console-mode-btn @(_consoleMode == TradeConsoleMode.Simple ? "active" : "")"
+                                        @onclick="() => SetConsoleModeAsync(TradeConsoleMode.Simple)"
+                                        title="One-click market LONG/SHORT that turns into CLOSE while a side is open">SIMPLE</button>
+                                <button type="button" class="trade-console-mode-btn @(_consoleMode == TradeConsoleMode.Full ? "active" : "")"
+                                        @onclick="() => SetConsoleModeAsync(TradeConsoleMode.Full)"
+                                        title="Order types, stop loss, take profit and risk-based sizing">FULL</button>
+                            </div>
+                            @if (_consoleMode == TradeConsoleMode.Simple)
+                            {
+                                <QuickTradeConsole HasSelection="Coordinator.ChartSymbolId is not null" SymbolName="@Coordinator.ChartSymbolName"
+                                                   Long="QuickSide(isLong: true)" Short="QuickSide(isLong: false)"
+                                                   MinVolume="ChartMinVolume" VolumeStep="ChartVolumeStep"
+                                                   CurrentBid="ChartQuote?.Bid" CurrentAsk="ChartQuote?.Ask"
+                                                   Leverage="Session.Leverage" AvailableMargin="AvailableMargin"
+                                                   StatusMessage="@_consoleStatus" StatusIsError="_consoleStatusIsError"
+                                                   OnOpen="HandleQuickOpenAsync" OnClose="HandleQuickCloseAsync" />
+                            }
+                            else
+                            {
+                                <TradeConsole @ref="_consoleRef" HasSelection="Coordinator.ChartSymbolId is not null"
+                                              CurrentBid="ChartQuote?.Bid" CurrentAsk="ChartQuote?.Ask"
+                                              PipSize="ChartPipSize" Balance="Session.Balance" Leverage="Session.Leverage"
+                                              MinStopLossDistancePrice="MinStopLossDistancePrice" MinTakeProfitDistancePrice="MinTakeProfitDistancePrice"
+                                              PriceStep="PriceStep" Busy="_consoleBusy" StatusMessage="@_consoleStatus" StatusIsError="_consoleStatusIsError"
+                                              OnDraftChanged="HandleDraftChanged" OnSubmit="HandleConsoleSubmit" />
+                            }
                         </TradeTab>
                     </TraderSidePanel>
                 </div>

@@ -161,3 +161,28 @@
 .trade-right-side-panel-collapsed .trade-right-side-panel-content {
     padding: 0 4px 8px;
 }
+
+.trade-console-mode {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    margin-bottom: 10px;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.trade-console-mode-btn {
+    padding: 4px 0;
+    font-size: 0.68rem;
+    font-weight: bold;
+    letter-spacing: 0.1em;
+    background: transparent;
+    border: none;
+    color: var(--color-secondary);
+    cursor: pointer;
+}
+
+.trade-console-mode-btn.active {
+    background: color-mix(in srgb, var(--color-primary) 18%, transparent);
+    color: var(--color-primary);
+}
