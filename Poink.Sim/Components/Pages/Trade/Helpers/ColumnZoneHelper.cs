@@ -20,7 +20,33 @@ namespace Poink.Sim.Components.Pages.Trade.Helpers
 
 		public const int DefaultColumnsBack = 1;
 
+		public static readonly ColumnZoneSettings DefaultSettings = new(DefaultColumnsBack, DefaultZonePercent, false, 1);
+
 		public static int ClampColumnsBack(int columnsBack) => Math.Clamp(columnsBack, 0, MaxColumnsBack);
+
+		/// <summary>h runs from 1 (any one supporting column unlocks) to every shown column.</summary>
+		public static int ClampGateThreshold(int threshold, int columnCount) => Math.Clamp(threshold, 1, Math.Max(1, columnCount));
+
+		/// <summary>A column supports LONG only with the price at its bottom; MID and an unreadable column never count.</summary>
+		public static bool SupportsLong(ColumnZone? zone) => zone is ColumnZone.Low or ColumnZone.Below;
+
+		/// <summary>A column supports SHORT only with the price at its top; MID and an unreadable column never count.</summary>
+		public static bool SupportsShort(ColumnZone? zone) => zone is ColumnZone.High or ColumnZone.Above;
+
+		public static ColumnZoneGate Gate(IReadOnlyList<ColumnZoneRange?> ranges, ColumnZoneSettings settings)
+		{
+			var zones = ranges.Select(r => r is { } range ? ZoneOf(range, settings.ZonePercent) : (ColumnZone?)null).ToList();
+			return new ColumnZoneGate(
+				settings.GateEnabled,
+				zones.Count(SupportsLong),
+				zones.Count(SupportsShort),
+				ClampGateThreshold(settings.GateThreshold, zones.Count),
+				zones.Count
+			);
+		}
+
+		public static ColumnZoneGate Gate(XGridResult? grid, ColumnZoneSettings settings) =>
+			Gate(RecentColumns(grid, settings.ColumnsBack), settings);
 
 		/// <summary>"n" for the latest column, "n-k" for the column k before it.</summary>
 		public static string ColumnLabel(int columnsBack) => columnsBack == 0 ? "n" : $"n-{columnsBack}";

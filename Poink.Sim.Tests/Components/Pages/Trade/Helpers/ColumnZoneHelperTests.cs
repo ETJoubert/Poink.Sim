@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Poink.Sim.Components.Charts;
 using Poink.Sim.Components.Pages.Trade.Helpers;
 using Poink.Sim.Components.Pages.Trade.Models;
@@ -147,5 +148,82 @@ public class ColumnZoneHelperTests
 	public void ClampZonePercent_KeepsTheShareWithinItsBounds(double percent, double expected)
 	{
 		Assert.Equal(expected, ColumnZoneHelper.ClampZonePercent(percent));
+	}
+
+	private static ColumnZoneSettings GateOn(int threshold) => ColumnZoneHelper.DefaultSettings with { GateEnabled = true, GateThreshold = threshold };
+
+	private static ColumnZoneRange?[] Columns(params double[] prices) =>
+		prices.Select(p => (ColumnZoneRange?)new ColumnZoneRange(10, 14, p)).ToArray();
+
+	[Theory]
+	[InlineData(ColumnZone.Below, true, false)]
+	[InlineData(ColumnZone.Low, true, false)]
+	[InlineData(ColumnZone.Middle, false, false)]
+	[InlineData(ColumnZone.High, false, true)]
+	[InlineData(ColumnZone.Above, false, true)]
+	[InlineData(null, false, false)]
+	public void Supports_LongFromTheBottomAndShortFromTheTop(ColumnZone? zone, bool supportsLong, bool supportsShort)
+	{
+		Assert.Equal(supportsLong, ColumnZoneHelper.SupportsLong(zone));
+		Assert.Equal(supportsShort, ColumnZoneHelper.SupportsShort(zone));
+	}
+
+	[Fact]
+	public void Gate_AtThresholdOne_OpensASideWhenAnyColumnSupportsIt()
+	{
+		var gate = ColumnZoneHelper.Gate(Columns(10.5, 12, 13.5), GateOn(threshold: 1));
+
+		Assert.Equal(1, gate.LongSupporters);
+		Assert.Equal(1, gate.ShortSupporters);
+		Assert.False(gate.LongLocked);
+		Assert.False(gate.ShortLocked);
+	}
+
+	[Theory]
+	[InlineData(2, false)]
+	[InlineData(3, true)]
+	public void Gate_OpensASideOnlyOnceItsSupportersReachH(int threshold, bool longLocked)
+	{
+		var gate = ColumnZoneHelper.Gate(Columns(10.5, 12, 9), GateOn(threshold));
+
+		Assert.Equal(2, gate.LongSupporters);
+		Assert.Equal(longLocked, gate.LongLocked);
+		Assert.True(gate.ShortLocked);
+	}
+
+	[Fact]
+	public void Gate_MiddleNeverCounts()
+	{
+		var gate = ColumnZoneHelper.Gate(Columns(12, 12), GateOn(threshold: 1));
+
+		Assert.True(gate.LongLocked);
+		Assert.True(gate.ShortLocked);
+	}
+
+	[Fact]
+	public void Gate_UnreadableColumn_DoesNotCount()
+	{
+		var gate = ColumnZoneHelper.Gate(new ColumnZoneRange?[] { new(10, 14, 13.5), null }, GateOn(threshold: 2));
+
+		Assert.Equal(1, gate.ShortSupporters);
+		Assert.True(gate.ShortLocked);
+	}
+
+	[Fact]
+	public void Gate_Disabled_NeverLocks()
+	{
+		var gate = ColumnZoneHelper.Gate(Columns(12, 12), ColumnZoneHelper.DefaultSettings);
+
+		Assert.False(gate.LongLocked);
+		Assert.False(gate.ShortLocked);
+	}
+
+	[Theory]
+	[InlineData(0, 3, 1)]
+	[InlineData(5, 3, 3)]
+	[InlineData(2, 0, 1)]
+	public void ClampGateThreshold_RunsFromOneToEveryColumn(int threshold, int columnCount, int expected)
+	{
+		Assert.Equal(expected, ColumnZoneHelper.ClampGateThreshold(threshold, columnCount));
 	}
 }
