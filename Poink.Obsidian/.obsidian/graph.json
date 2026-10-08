@@ -1,0 +1,135 @@
+{
+  "collapse-filter": false,
+  "search": "",
+  "showTags": true,
+  "showAttachments": false,
+  "hideUnresolved": true,
+  "showOrphans": true,
+  "collapse-color-groups": false,
+  "colorGroups": [
+    {
+      "query": "tag:#page",
+      "color": {
+        "a": 1,
+        "rgb": 14697851
+      }
+    },
+    {
+      "query": "tag:#component",
+      "color": {
+        "a": 1,
+        "rgb": 15900236
+      }
+    },
+    {
+      "query": "tag:#code-behind",
+      "color": {
+        "a": 1,
+        "rgb": 15717211
+      }
+    },
+    {
+      "query": "tag:#scoped-style",
+      "color": {
+        "a": 1,
+        "rgb": 10260315
+      }
+    },
+    {
+      "query": "tag:#stylesheet",
+      "color": {
+        "a": 1,
+        "rgb": 9342606
+      }
+    },
+    {
+      "query": "tag:#script",
+      "color": {
+        "a": 1,
+        "rgb": 16244510
+      }
+    },
+    {
+      "query": "tag:#service",
+      "color": {
+        "a": 1,
+        "rgb": 5020402
+      }
+    },
+    {
+      "query": "tag:#interface",
+      "color": {
+        "a": 1,
+        "rgb": 8374520
+      }
+    },
+    {
+      "query": "tag:#repository",
+      "color": {
+        "a": 1,
+        "rgb": 9395158
+      }
+    },
+    {
+      "query": "tag:#model",
+      "color": {
+        "a": 1,
+        "rgb": 5030794
+      }
+    },
+    {
+      "query": "tag:#enum",
+      "color": {
+        "a": 1,
+        "rgb": 3050327
+      }
+    },
+    {
+      "query": "tag:#helper",
+      "color": {
+        "a": 1,
+        "rgb": 2541274
+      }
+    },
+    {
+      "query": "tag:#extensions",
+      "color": {
+        "a": 1,
+        "rgb": 35195
+      }
+    },
+    {
+      "query": "tag:#settings",
+      "color": {
+        "a": 1,
+        "rgb": 11583173
+      }
+    },
+    {
+      "query": "tag:#vendor",
+      "color": {
+        "a": 1,
+        "rgb": 5592405
+      }
+    },
+    {
+      "query": "tag:#class",
+      "color": {
+        "a": 1,
+        "rgb": 13421772
+      }
+    }
+  ],
+  "collapse-display": false,
+  "showArrow": true,
+  "textFadeMultiplier": -0.8,
+  "nodeSizeMultiplier": 1.81810731707317,
+  "lineSizeMultiplier": 0.1,
+  "collapse-forces": false,
+  "centerStrength": 0.519219512195122,
+  "repelStrength": 13.0782573206816,
+  "linkStrength": 0.100878048780488,
+  "linkDistance": 177,
+  "scale": 0.11660891579457303,
+  "close": false
+}
