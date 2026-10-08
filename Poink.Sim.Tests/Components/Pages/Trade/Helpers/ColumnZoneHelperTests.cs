@@ -150,6 +150,109 @@ public class ColumnZoneHelperTests
 		Assert.Equal(expected, ColumnZoneHelper.ClampZonePercent(percent));
 	}
 
+	private static BarPriceHistogram DwellHistogram(double price, double seconds, int direction = 1)
+	{
+		var histogram = new BarPriceHistogram(RowHeight);
+		histogram.Add(price, direction, 0);
+		histogram.AddDwell(price, seconds);
+		return histogram;
+	}
+
+	// Older column: 10s at 10.5 (row 10-11); latest column: 30s at 12.5 (row 12-13); one tick each, so Time×Tk = seconds.
+	private static XGridResult TimeTickGrid(double latestClose, int olderDirection = 1)
+	{
+		var grid = XGridStats.Compute(
+			new List<HlocAvdtBar> { Bar(0, 10.5), Bar(1, latestClose) },
+			new List<BarPriceHistogram> { DwellHistogram(10.5, 10, olderDirection), DwellHistogram(12.5, 30) },
+			new List<WeightedPriceSample>(),
+			DateTime.MinValue,
+			DateTime.MaxValue,
+			RowHeight,
+			colCount: 2
+		);
+
+		Assert.NotNull(grid);
+		return grid.Value;
+	}
+
+	[Fact]
+	public void TimeTickReading_LatestColumnOnly_IsOneCellAcrossItsRow()
+	{
+		var reading = ColumnZoneHelper.TimeTickReading(TimeTickGrid(latestClose: 12.5), columnsBack: 0, 25);
+
+		Assert.NotNull(reading);
+		Assert.Equal((12.0, 13.0), (reading.Low, reading.High));
+		Assert.Equal(0.5, reading.Position, 9);
+		Assert.Equal(ColumnZone.Middle, reading.Zone);
+		Assert.Equal(new[] { new ColumnZoneCell(12, 13, 30, 1) }, reading.Cells!);
+	}
+
+	[Fact]
+	public void TimeTickReading_SpansEveryTradedRowOfTheColumnsWithOneCellPerRowLowToHigh()
+	{
+		var reading = ColumnZoneHelper.TimeTickReading(TimeTickGrid(latestClose: 12.5), columnsBack: 1, 25);
+
+		Assert.NotNull(reading);
+		Assert.Equal((10.0, 13.0), (reading.Low, reading.High));
+		Assert.Equal(2.5 / 3, reading.Position, 9);
+		Assert.Equal(ColumnZone.High, reading.Zone);
+		Assert.Equal(
+			new[] { new ColumnZoneCell(10, 11, 10, 10.0 / 30), new ColumnZoneCell(11, 12, 0, 0), new ColumnZoneCell(12, 13, 30, 1) },
+			reading.Cells!
+		);
+	}
+
+	[Fact]
+	public void TimeTickReading_Split_SignsEachCellByItsUpMinusDownTimeTicks()
+	{
+		var reading = ColumnZoneHelper.TimeTickReading(TimeTickGrid(latestClose: 12.5, olderDirection: -1), columnsBack: 1, 25, split: true);
+
+		Assert.NotNull(reading);
+		Assert.Equal(
+			new[] { new ColumnZoneCell(10, 11, -10, -10.0 / 30), new ColumnZoneCell(11, 12, 0, 0), new ColumnZoneCell(12, 13, 30, 1) },
+			reading.Cells!
+		);
+	}
+
+	[Fact]
+	public void TotalCell_SumsTheRangesTimeTicksAtFullIntensity()
+	{
+		var reading = ColumnZoneHelper.TimeTickReading(TimeTickGrid(latestClose: 12.5), columnsBack: 1, 25);
+
+		Assert.Equal(new ColumnZoneCell(10, 13, 40, 1), ColumnZoneHelper.TotalCell(reading));
+	}
+
+	[Fact]
+	public void TotalCell_Split_NetsUpAgainstDownWithItsShareOfTheTotalAsIntensity()
+	{
+		var reading = ColumnZoneHelper.TimeTickReading(TimeTickGrid(latestClose: 12.5, olderDirection: -1), columnsBack: 1, 25, split: true);
+
+		Assert.Equal(new ColumnZoneCell(10, 13, 20, 0.5), ColumnZoneHelper.TotalCell(reading));
+	}
+
+	[Fact]
+	public void TotalCell_WithoutCells_IsNull()
+	{
+		Assert.Null(ColumnZoneHelper.TotalCell(null));
+		Assert.Null(ColumnZoneHelper.TotalCell(new ColumnZoneReading(10, 14, 12, 0.5, ColumnZone.Middle)));
+	}
+
+	[Theory]
+	[InlineData(9.5, ColumnZone.Below)]
+	[InlineData(13.5, ColumnZone.Above)]
+	public void TimeTickReading_PriceOutsideTheTimeTickRows_IsBelowOrAbove(double latestClose, ColumnZone expected)
+	{
+		var reading = ColumnZoneHelper.TimeTickReading(TimeTickGrid(latestClose), columnsBack: 1, 25);
+
+		Assert.Equal(expected, reading?.Zone);
+	}
+
+	[Fact]
+	public void TimeTickReading_WithoutAGrid_IsNull()
+	{
+		Assert.Null(ColumnZoneHelper.TimeTickReading(null, columnsBack: 1, 25));
+	}
+
 	private static ColumnZoneSettings GateOn(int threshold) => ColumnZoneHelper.DefaultSettings with { GateEnabled = true, GateThreshold = threshold };
 
 	private static ColumnZoneRange?[] Columns(params double[] prices) =>

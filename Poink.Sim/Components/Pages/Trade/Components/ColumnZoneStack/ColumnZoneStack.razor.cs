@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Threading.Tasks;
@@ -24,6 +25,8 @@ namespace Poink.Sim.Components.Pages.Trade
 
 		private const string GateThresholdStorageKey = "trade.quickConsole.zoneGateThreshold";
 
+		private const string TimeTickSplitStorageKey = "trade.quickConsole.timeTickSplit";
+
 		[Inject]
 		private ILocalStorageHelper LocalStorage { get; set; } = null!;
 
@@ -44,6 +47,47 @@ namespace Poink.Sim.Components.Pages.Trade
 
 		private ColumnZoneGate Gate => ColumnZoneHelper.Gate(Grid, Settings);
 
+		private ColumnZoneReading? TimeTickReading =>
+			ColumnZoneHelper.TimeTickReading(Grid, Settings.ColumnsBack, Settings.ZonePercent, Settings.TimeTickSplit);
+
+		private string TimeTickMeasure => Settings.TimeTickSplit ? "Time×Tk split (up − down)" : "Time×Tk";
+
+		private string TotalClass(ColumnZoneCell? total) =>
+			total is null || !Settings.TimeTickSplit ? string.Empty
+			: total.Value < 0 ? "czk-total-down"
+			: "czk-total-up";
+
+		private static string TotalHeat(ColumnZoneCell? total) =>
+			(Math.Abs(total?.Intensity ?? 0) * 100).ToString("0.##", CultureInfo.InvariantCulture) + "%";
+
+		private string TotalTooltip(ColumnZoneCell? total) =>
+			total is null
+				? $"Total {TimeTickMeasure} of columns {TimeTickColumns}: waiting for XGrid data"
+				: Settings.TimeTickSplit
+					? $"Net {TimeTickMeasure} over columns {TimeTickColumns}, {FormatPrice(total.Low)} - {FormatPrice(total.High)}: {total.Value.ToString("+#,0;-#,0;0", CultureInfo.InvariantCulture)} ({FormatPercentValue(total.Intensity * 100)}% of the range's total up + down)"
+					: $"Total {TimeTickMeasure} over columns {TimeTickColumns}, {FormatPrice(total.Low)} - {FormatPrice(total.High)}: {total.Value.ToString("N0", CultureInfo.InvariantCulture)}";
+
+		private static string FormatCompact(double value)
+		{
+			var magnitude = Math.Abs(value);
+			var (scaled, suffix) = magnitude >= 1e9 ? (magnitude / 1e9, "B")
+				: magnitude >= 1e6 ? (magnitude / 1e6, "M")
+				: magnitude >= 1e3 ? (magnitude / 1e3, "k")
+				: (magnitude, string.Empty);
+			var text = scaled.ToString(suffix.Length > 0 ? "0.#" : "0", CultureInfo.InvariantCulture) + suffix;
+			return value < 0 ? "-" + text : text;
+		}
+
+		private static string FormatPrice(double price) => price.ToString("0.#####", CultureInfo.InvariantCulture);
+
+		private static string FormatPercentValue(double percent) => percent.ToString("+0;-0;0", CultureInfo.InvariantCulture);
+
+		private string TimeTickColumns =>
+			Settings.ColumnsBack == 0 ? "n" : $"n to {ColumnZoneHelper.ColumnLabel(Settings.ColumnsBack)}";
+
+		private ColumnZoneReading? ColumnReading(ColumnZoneRange? range) =>
+			range is { } r ? ColumnZoneHelper.ColumnReading(r, Settings.ZonePercent) : null;
+
 		protected override async Task OnAfterRenderAsync(bool firstRender)
 		{
 			if (!firstRender)
@@ -54,16 +98,26 @@ namespace Poink.Sim.Components.Pages.Trade
 				ColumnZoneHelper.ClampColumnsBack(await LocalStorage.GetItemAsync<int?>(ColumnsBackStorageKey) ?? defaults.ColumnsBack),
 				ColumnZoneHelper.ClampZonePercent(await LocalStorage.GetItemAsync<double?>(ZonePercentStorageKey) ?? defaults.ZonePercent),
 				await LocalStorage.GetItemAsync<bool?>(GateEnabledStorageKey) ?? defaults.GateEnabled,
-				await LocalStorage.GetItemAsync<int?>(GateThresholdStorageKey) ?? defaults.GateThreshold
+				await LocalStorage.GetItemAsync<int?>(GateThresholdStorageKey) ?? defaults.GateThreshold,
+				await LocalStorage.GetItemAsync<bool?>(TimeTickSplitStorageKey) ?? defaults.TimeTickSplit
 			);
 			Logger.LogInformation(
-				"Column zone settings loaded: columns n to n-{ColumnsBack}, {ZonePercent}% zones, gate {GateState} at h = {GateThreshold}",
+				"Column zone settings loaded: columns n to n-{ColumnsBack}, {ZonePercent}% zones, gate {GateState} at h = {GateThreshold}, Time×Tk split {SplitState}",
 				loaded.ColumnsBack,
 				loaded.ZonePercent,
 				loaded.GateEnabled ? "on" : "off",
-				loaded.GateThreshold
+				loaded.GateThreshold,
+				loaded.TimeTickSplit ? "on" : "off"
 			);
 			await SettingsChanged.InvokeAsync(loaded);
+		}
+
+		private async Task ToggleTimeTickSplitAsync()
+		{
+			var split = !Settings.TimeTickSplit;
+			Logger.LogInformation("Time×Tk zone slider split turned {SplitState}", split ? "on" : "off");
+			await SettingsChanged.InvokeAsync(Settings with { TimeTickSplit = split });
+			await LocalStorage.SetItemAsync(TimeTickSplitStorageKey, split);
 		}
 
 		private async Task SetColumnsBackAsync(ChangeEventArgs args)

@@ -20,7 +20,7 @@ namespace Poink.Sim.Components.Pages.Trade.Helpers
 
 		public const int DefaultColumnsBack = 1;
 
-		public static readonly ColumnZoneSettings DefaultSettings = new(DefaultColumnsBack, DefaultZonePercent, false, 1);
+		public static readonly ColumnZoneSettings DefaultSettings = new(DefaultColumnsBack, DefaultZonePercent, false, 1, false);
 
 		public static int ClampColumnsBack(int columnsBack) => Math.Clamp(columnsBack, 0, MaxColumnsBack);
 
@@ -74,6 +74,54 @@ namespace Poink.Sim.Components.Pages.Trade.Helpers
 			var topRow = occupiedRows[0].row;
 			var bottomRow = occupiedRows[^1].row;
 			return new ColumnZoneRange(g.RowLow[bottomRow], g.RowHigh[topRow], current.Price);
+		}
+
+		public static ColumnZoneReading ColumnReading(ColumnZoneRange range, double zonePercent) =>
+			new(range.Low, range.High, range.Price, PricePosition(range), ZoneOf(range, zonePercent));
+
+		/// <summary>
+		/// The price range traded across columns n to n-<paramref name="columnsBack"/>, cut into one cell per XGrid row (low to
+		/// high), each holding that row's Time×Tk (seconds held × ticks) summed over those columns -- or with
+		/// <paramref name="split"/> its signed seconds × up ticks minus seconds × down ticks, as XGrid's Split shades it; null
+		/// until those columns have traded and the grid has a current price.
+		/// </summary>
+		public static ColumnZoneReading? TimeTickReading(XGridResult? grid, int columnsBack, double zonePercent, bool split = false)
+		{
+			if (grid is not { } g || g.Columns.Count == 0 || g.Current is not { } current)
+				return null;
+
+			var columns = g.Columns.TakeLast(ClampColumnsBack(columnsBack) + 1).ToList();
+			var tradedRows = Enumerable.Range(0, g.RowLow.Count).Where(row => columns.Any(c => c.Cells[row].Count > 0)).ToList();
+			if (tradedRows.Count == 0)
+				return null;
+
+			var topRow = tradedRows[0];
+			var bottomRow = tradedRows[^1];
+			var rowValues = Enumerable.Range(topRow, bottomRow - topRow + 1)
+				.Reverse()
+				.Select(row => (Row: row, Value: columns.Sum(c => split ? c.Cells[row].SecondsDelta : c.Cells[row].SecondsCount)))
+				.ToList();
+			var largest = rowValues.Max(r => Math.Abs(r.Value));
+			var cells = rowValues
+				.Select(r => new ColumnZoneCell(g.RowLow[r.Row], g.RowHigh[r.Row], r.Value, largest > 0 ? r.Value / largest : 0))
+				.ToList();
+
+			var range = new ColumnZoneRange(g.RowLow[bottomRow], g.RowHigh[topRow], current.Price);
+			return ColumnReading(range, zonePercent) with { Cells = cells };
+		}
+
+		/// <summary>
+		/// One cell for the whole reading: its cells' values summed over its range, with the sum's share of the cells' total
+		/// magnitude as intensity -- 1 for plain Time×Tk, the net imbalance (-1 to 1) for a split; null without cells.
+		/// </summary>
+		public static ColumnZoneCell? TotalCell(ColumnZoneReading? reading)
+		{
+			if (reading?.Cells is not { Count: > 0 } cells)
+				return null;
+
+			var total = cells.Sum(c => c.Value);
+			var magnitude = cells.Sum(c => Math.Abs(c.Value));
+			return new ColumnZoneCell(reading.Low, reading.High, total, magnitude > 0 ? total / magnitude : 0);
 		}
 
 		/// <summary>The price's place along the span, 0 at the low and 1 at the high; a flat span reads as the middle.</summary>

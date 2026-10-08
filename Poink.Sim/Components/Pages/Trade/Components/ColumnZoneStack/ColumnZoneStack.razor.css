@@ -124,3 +124,63 @@
     border: 1px solid color-mix(in srgb, var(--color-error) 45%, transparent);
     background: color-mix(in srgb, var(--color-error) 15%, transparent);
 }
+
+.czk-section {
+    margin-top: 4px;
+    padding-top: 6px;
+    border-top: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
+    font-size: 0.72rem;
+    color: var(--color-secondary);
+    letter-spacing: 0.04em;
+}
+
+.czk-section {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.czk-chip {
+    padding: 1px 8px;
+    font-size: 0.7rem;
+    font-weight: bold;
+    letter-spacing: 0.04em;
+    background: var(--color-bg-terminal);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
+    border-radius: 3px;
+    color: var(--color-secondary);
+    cursor: pointer;
+}
+
+.czk-chip.active {
+    background: color-mix(in srgb, var(--color-primary) 18%, transparent);
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+}
+
+.czk-total {
+    margin-left: auto;
+    margin-right: 8px;
+    min-width: 4.5em;
+    padding: 1px 6px;
+    font-family: var(--font-mono, monospace);
+    font-size: 0.72rem;
+    font-weight: bold;
+    text-align: center;
+    border-radius: 3px;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 45%, transparent);
+    background: color-mix(in srgb, var(--color-primary) 18%, transparent);
+    color: var(--color-primary);
+}
+
+.czk-total-up {
+    border-color: color-mix(in srgb, var(--color-success) 60%, transparent);
+    background: color-mix(in srgb, var(--color-success) calc(var(--czk-heat) * 0.6), transparent);
+    color: var(--color-success);
+}
+
+.czk-total-down {
+    border-color: color-mix(in srgb, var(--color-error) 60%, transparent);
+    background: color-mix(in srgb, var(--color-error) calc(var(--czk-heat) * 0.6), transparent);
+    color: var(--color-error);
+}

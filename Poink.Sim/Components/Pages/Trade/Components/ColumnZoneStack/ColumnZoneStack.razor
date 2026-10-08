@@ -46,7 +46,30 @@
     @for (var k = 0; k < ranges.Count; k++)
     {
         var columnsBack = k;
-        <ColumnZoneSlider @key="columnsBack" Range="ranges[columnsBack]" ColumnLabel="@ColumnZoneHelper.ColumnLabel(columnsBack)"
+        var label = ColumnZoneHelper.ColumnLabel(columnsBack);
+        <ColumnZoneSlider @key="columnsBack" Reading="ColumnReading(ranges[columnsBack])" Label="@label"
+                          LabelTooltip="@($"XGrid column {label}: n is the latest column, n-k the column k before it")"
+                          Subject="@($"column {label}")" Measure="@($"column {label}'s span")"
+                          PositionTooltip="@($"Current price's place along column {label}'s span (0% = low, 100% = high)")"
                           ZonePercent="Settings.ZonePercent" />
     }
+
+    <div class="czk-section">
+        <span class="czk-section-title" title="Price range of columns @TimeTickColumns, one cell per XGrid row, shaded by Time×Tk (seconds held × tick count) summed over those columns">
+            Time×Tk @TimeTickColumns
+        </span>
+        @{
+            var total = ColumnZoneHelper.TotalCell(TimeTickReading);
+        }
+        <span class="czk-total @TotalClass(total)" style="--czk-heat: @TotalHeat(total)" title="@TotalTooltip(total)">
+            Σ @(total is { } t ? FormatCompact(t.Value) : "--")
+        </span>
+        <button type="button" class="czk-chip @(Settings.TimeTickSplit ? "active" : "")" @onclick="ToggleTimeTickSplitAsync"
+                title="@(Settings.TimeTickSplit ? "Showing Split: green where time × up ticks leads, red where time × down ticks leads, brighter with a larger imbalance -- click for plain Time×Tk" : "Split Time×Tk into time × up ticks versus time × down ticks: green where up leads, red where down leads")">Split</button>
+    </div>
+    <ColumnZoneSlider Reading="TimeTickReading" Label="Σ" CellMeasure="@TimeTickMeasure" CellsSigned="Settings.TimeTickSplit"
+                      LabelTooltip="@($"Columns {TimeTickColumns} combined: one cell per XGrid row, shaded by summed {TimeTickMeasure}")"
+                      Subject="@($"columns {TimeTickColumns}")" Measure="@($"the price range of columns {TimeTickColumns}")"
+                      PositionTooltip="@($"Current price's place along the price range of columns {TimeTickColumns} (0% = low, 100% = high)")"
+                      ZonePercent="Settings.ZonePercent" />
 </div>

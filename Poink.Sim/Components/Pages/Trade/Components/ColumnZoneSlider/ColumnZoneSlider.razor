@@ -2,37 +2,47 @@
 @using Poink.Sim.Components.Pages.Trade.Models
 
 <div class="czs-panel">
-    <span class="czs-label" title="XGrid @ColumnName: n is the latest column, n-k the column k before it">@ColumnLabel</span>
+    <span class="czs-label" title="@LabelTooltip">@Label</span>
 
     <span class="czs-cap czs-cap-below @(Zone == ColumnZone.Below ? "active" : "")"
-          title="@(Zone == ColumnZone.Below ? $"Price is below the {ColumnName}'s low" : $"Lights when the price is below the {ColumnName}'s low")"></span>
+          title="@(Zone == ColumnZone.Below ? $"Price is below {Subject}" : $"Lights when the price is below {Subject}")"></span>
 
-    <div class="czs-track @(Range is null ? "czs-track-empty" : "")" title="@TrackTooltip">
-        <div class="czs-band czs-band-low @BandActive(ColumnZone.Low)" style="width: @CssPercent(ZonePercent)"
-             title="LOW: bottom @FormatPercent(ZonePercent)% of the @ColumnName"></div>
-        <div class="czs-band czs-band-mid @BandActive(ColumnZone.Middle)" style="width: @CssPercent(100 - 2 * ZonePercent)"
-             title="MID: between the LOW and HIGH zones of the @ColumnName"></div>
-        <div class="czs-band czs-band-high @BandActive(ColumnZone.High)" style="width: @CssPercent(ZonePercent)"
-             title="HIGH: top @FormatPercent(ZonePercent)% of the @ColumnName"></div>
-        @if (Range is not null && !IsOutside)
+    <div class="czs-track @(Reading is null ? "czs-track-empty" : "") @(Reading?.Cells is not null ? "czs-track-heat" : "")" title="@TrackTooltip">
+        @if (Reading?.Cells is { } cells)
         {
-            <div class="czs-marker" style="left: @CssPercent(Position * 100)" title="@TrackTooltip"></div>
+            <div class="czs-cells">
+                @foreach (var cell in cells)
+                {
+                    <div class="czs-cell @CellClass(cell)" style="--czs-heat: @CssPercent(Math.Abs(cell.Intensity) * 100)"
+                         title="@FormatPrice(cell.Low) - @FormatPrice(cell.High): @CellMeasure @cell.Value.ToString(CellValueFormat) (@FormatPercent(Math.Abs(cell.Intensity) * 100)% of the largest row)"></div>
+                }
+            </div>
         }
-        <span class="czs-position" title="Current price's place along the @ColumnName's span (0% = low, 100% = high)">@PositionText</span>
+        <div class="czs-band czs-band-low @BandActive(ColumnZone.Low)" style="width: @CssPercent(ZonePercent)"
+             title="LOW: bottom @FormatPercent(ZonePercent)% of @Measure"></div>
+        <div class="czs-band czs-band-mid @BandActive(ColumnZone.Middle)" style="width: @CssPercent(100 - 2 * ZonePercent)"
+             title="MID: between the LOW and HIGH zones of @Measure"></div>
+        <div class="czs-band czs-band-high @BandActive(ColumnZone.High)" style="width: @CssPercent(ZonePercent)"
+             title="HIGH: top @FormatPercent(ZonePercent)% of @Measure"></div>
+        @if (Reading is { IsOutside: false } reading)
+        {
+            <div class="czs-marker" style="left: @CssPercent(reading.Position * 100)" title="@TrackTooltip"></div>
+        }
+        <span class="czs-position" title="@PositionTooltip">@PositionText</span>
     </div>
 
     <span class="czs-cap czs-cap-above @(Zone == ColumnZone.Above ? "active" : "")"
-          title="@(Zone == ColumnZone.Above ? $"Price is above the {ColumnName}'s high" : $"Lights when the price is above the {ColumnName}'s high")"></span>
+          title="@(Zone == ColumnZone.Above ? $"Price is above {Subject}" : $"Lights when the price is above {Subject}")"></span>
 
     <div class="czs-scale">
-        @if (Range is { } range)
+        @if (Reading is { } shown)
         {
-            <span title="The @ColumnName's low (floor of its lowest traded XGrid row)">@FormatPrice(range.Low)</span>
-            <span title="The @ColumnName's high (ceiling of its highest traded XGrid row)">@FormatPrice(range.High)</span>
+            <span title="Lowest price @Subject covers">@FormatPrice(shown.Low)</span>
+            <span title="Highest price @Subject covers">@FormatPrice(shown.High)</span>
         }
         else
         {
-            <span class="czs-scale-empty" title="Fills in once the charted symbol's XGrid has this column traded">Waiting for XGrid @ColumnName</span>
+            <span class="czs-scale-empty" title="Fills in once the charted symbol's XGrid has data for @Subject">Waiting for @Subject</span>
         }
     </div>
 </div>
