@@ -47,6 +47,8 @@
         }
     </div>
 
+    <ColumnZoneStack Grid="ChartXGrid" @bind-Settings="_zoneSettings" />
+
     @if (StatusMessage is not null)
     {
         <span class="qtc-status @(StatusIsError ? "qtc-status-error" : "")" title="Result of the last order or close">@StatusMessage</span>

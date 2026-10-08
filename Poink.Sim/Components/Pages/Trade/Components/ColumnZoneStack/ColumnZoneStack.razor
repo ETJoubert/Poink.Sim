@@ -1,0 +1,79 @@
+@namespace Poink.Sim.Components.Pages.Trade
+@using Poink.Sim.Components.Pages.Trade.Helpers
+@using Poink.Sim.Components.Emulator
+
+<div class="czk-panel">
+    <div class="czk-header">
+        <span class="czk-title" title="Where the current price sits within each XGrid column from the latest (n) back to n-k">Columns n to n-k</span>
+        <span class="czk-field" title="How many columns back from the latest (n) to show: k = 0 shows n only, k = 2 shows n, n-1 and n-2">
+            <span class="czk-field-k">k</span>
+            <EmulatorStepperComponent Value="Settings.ColumnsBack" Step="1" Min="0" Max="ColumnZoneHelper.MaxColumnsBack"
+                                      Tooltip="@($"Columns back from the latest to show a zone slider for (0-{ColumnZoneHelper.MaxColumnsBack})")"
+                                      OnChange="SetColumnsBackAsync" />
+        </span>
+        <span class="czk-field" title="Share of every column's span the LOW (left) and HIGH (right) zones each cover; the rest is MID">
+            <span>Zone</span>
+            <EmulatorStepperComponent Value="Settings.ZonePercent" Step="ColumnZoneHelper.ZonePercentStep"
+                                      Min="ColumnZoneHelper.MinZonePercent" Max="ColumnZoneHelper.MaxZonePercent"
+                                      Tooltip="@($"Share of every column's span the LOW (left) and HIGH (right) zones each cover ({ColumnZoneHelper.MinZonePercent}-{ColumnZoneHelper.MaxZonePercent}%); the buttons step by {ColumnZoneHelper.ZonePercentStep}")"
+                                      OnChange="SetZonePercentAsync" />
+            <span>%</span>
+        </span>
+    </div>
+
+    <div class="czk-gate">
+        <button type="button" role="switch" aria-checked="@(Settings.GateEnabled ? "true" : "false")"
+                class="czk-toggle @(Settings.GateEnabled ? "czk-toggle-on" : "")" @onclick="ToggleGateAsync"
+                title="@(Settings.GateEnabled ? "Zone gate on: LONG opens only once h columns are LOW/BELOW, SHORT only once h are HIGH/ABOVE -- click to turn off" : "Zone gate off -- click to keep LONG/SHORT locked until h columns are LOW/BELOW (LONG) or HIGH/ABOVE (SHORT); CLOSE always works")">
+            <span class="czk-toggle-track"><span class="czk-toggle-thumb"></span></span>
+            <span class="czk-toggle-label">Zone gate</span>
+        </button>
+        <span class="czk-field" title="How many of the shown columns must be LOW/BELOW to open LONG, or HIGH/ABOVE to open SHORT; MID never counts. 1 = any one column, @Gate.ColumnCount = all of them">
+            <span class="czk-field-k">h</span>
+            <EmulatorStepperComponent Value="Gate.Threshold" Step="1" Min="1" Max="Gate.ColumnCount" Disabled="!Settings.GateEnabled"
+                                      Tooltip="@($"Supporting columns needed to unlock a side (1-{Gate.ColumnCount})")"
+                                      OnChange="SetGateThresholdAsync" />
+            <span>of @Gate.ColumnCount</span>
+        </span>
+        @if (Settings.GateEnabled)
+        {
+            <span class="czk-gate-side @(Gate.LongLocked ? "czk-gate-locked" : "czk-gate-open")" title="@GateSideTooltip(isLong: true)">L</span>
+            <span class="czk-gate-side @(Gate.ShortLocked ? "czk-gate-locked" : "czk-gate-open")" title="@GateSideTooltip(isLong: false)">S</span>
+        }
+    </div>
+
+    @{
+        var ranges = Ranges;
+    }
+    @for (var k = 0; k < ranges.Count; k++)
+    {
+        var columnsBack = k;
+        var label = ColumnZoneHelper.ColumnLabel(columnsBack);
+        <ColumnZoneSlider @key="columnsBack" Reading="ColumnReading(ranges[columnsBack])" Label="@label"
+                          LabelTooltip="@($"XGrid column {label}: n is the latest column, n-k the column k before it")"
+                          Subject="@($"column {label}")" Measure="@($"column {label}'s span")"
+                          PositionTooltip="@($"Current price's place along column {label}'s span (0% = low, 100% = high)")"
+                          ZonePercent="Settings.ZonePercent" />
+    }
+
+    <div class="czk-section">
+        <span class="czk-section-title" title="Price range of columns @TimeTickColumns, one cell per XGrid row, shaded by @TimeTickMeasure summed over those columns">
+            @(Settings.TimeTickDistance ? "Time×Tk×Dist" : "Time×Tk") @TimeTickColumns
+        </span>
+        @{
+            var total = ColumnZoneHelper.TotalCell(TimeTickReading);
+        }
+        <span class="czk-total @TotalClass(total)" style="--czk-heat: @TotalHeat(total)" title="@TotalTooltip(total)">
+            Σ @(total is { } t ? FormatCompact(t.Value) : "--")
+        </span>
+        <button type="button" class="czk-chip @(Settings.TimeTickSplit ? "active" : "")" @onclick="ToggleTimeTickSplitAsync"
+                title="@(Settings.TimeTickSplit ? "Showing Split: green where time × up ticks leads, red where time × down ticks leads, brighter with a larger imbalance -- click for plain Time×Tk" : "Split Time×Tk into time × up ticks versus time × down ticks: green where up leads, red where down leads")">Split</button>
+        <button type="button" class="czk-chip @(Settings.TimeTickDistance ? "active" : "")" @onclick="ToggleTimeTickDistanceAsync"
+                title="@(Settings.TimeTickDistance ? "Showing Time×Tk×Dist: each tick weighs the price distance it moved, so cells read time × ticks × average move -- click to drop the distance" : "Multiply Time×Tk by distance: each tick weighs the price distance it moved instead of one (time × ticks × average move); works with Split")">Dist</button>
+    </div>
+    <ColumnZoneSlider Reading="TimeTickReading" Label="Σ" CellMeasure="@TimeTickMeasure" CellsSigned="Settings.TimeTickSplit"
+                      LabelTooltip="@($"Columns {TimeTickColumns} combined: one cell per XGrid row, shaded by summed {TimeTickMeasure}")"
+                      Subject="@($"columns {TimeTickColumns}")" Measure="@($"the price range of columns {TimeTickColumns}")"
+                      PositionTooltip="@($"Current price's place along the price range of columns {TimeTickColumns} (0% = low, 100% = high)")"
+                      ZonePercent="Settings.ZonePercent" />
+</div>

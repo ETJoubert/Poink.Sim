@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
+using Poink.Sim.Components.Charts;
 using Poink.Sim.Components.Pages.Trade.Helpers;
 using Poink.Sim.Components.Pages.Trade.Models;
 using Poink.Sim.Helpers;
@@ -49,6 +50,10 @@ namespace Poink.Sim.Components.Pages.Trade
 		[Parameter]
 		public double? AvailableMargin { get; set; }
 
+		/// <summary>The charted symbol's XGrid, read by the column zone sliders; null while the chart has none.</summary>
+		[Parameter]
+		public XGridResult? ChartXGrid { get; set; }
+
 		[Parameter]
 		public string? StatusMessage { get; set; }
 
@@ -64,6 +69,10 @@ namespace Poink.Sim.Components.Pages.Trade
 		private double? _storedVolume;
 
 		private bool _armed;
+
+		private ColumnZoneSettings _zoneSettings = ColumnZoneHelper.DefaultSettings;
+
+		private ColumnZoneGate ZoneGate => ColumnZoneHelper.Gate(ChartXGrid, _zoneSettings);
 
 		private double? SelectedVolume =>
 			QuickTradeHelper.ChooseVolume(_storedVolume, QuickTradeHelper.VolumePresets, MinVolume);
@@ -103,7 +112,9 @@ namespace Poink.Sim.Components.Pages.Trade
 		private void ToggleArmed() => _armed = !_armed;
 
 		private bool CanPress(QuickTradeSideState side) =>
-			HasSelection && !side.Busy && (side.HasOpenPositions || (_armed && OrderVolume > 0));
+			HasSelection && !side.Busy && (side.HasOpenPositions || (_armed && OrderVolume > 0 && !IsZoneLocked(side)));
+
+		private bool IsZoneLocked(QuickTradeSideState side) => ZoneGate.IsLocked(side.IsLong);
 
 		private Task PressAsync(QuickTradeSideState side) =>
 			side.HasOpenPositions
@@ -118,7 +129,9 @@ namespace Poink.Sim.Components.Pages.Trade
 			: SideName(side);
 
 		private string SideDetail(QuickTradeSideState side) =>
-			side.HasOpenPositions ? $"{FormatVolume(side.OpenVolume)} open" : $"{FormatVolume(OrderVolume)} @ market";
+			side.HasOpenPositions ? $"{FormatVolume(side.OpenVolume)} open"
+			: IsZoneLocked(side) ? "zone locked"
+			: $"{FormatVolume(OrderVolume)} @ market";
 
 		private static string SideClass(QuickTradeSideState side) =>
 			(side.IsLong ? "qtc-btn-long" : "qtc-btn-short")
@@ -132,6 +145,11 @@ namespace Poink.Sim.Components.Pages.Trade
 				return $"Close all {side.OpenCount} {SideName(side).ToLowerInvariant()} position(s) on {Symbol} ({FormatVolume(side.OpenVolume)} units)";
 			if (!_armed)
 				return "Locked -- arm the guard switch above the volume to open a position";
+			if (IsZoneLocked(side))
+			{
+				var gate = ZoneGate;
+				return $"Locked by the zone gate -- {gate.Supporters(side.IsLong)} of {gate.ColumnCount} columns are {(side.IsLong ? "LOW/BELOW" : "HIGH/ABOVE")} (needs {gate.Threshold})";
+			}
 
 			return $"Place a market {(side.IsLong ? "buy" : "sell")} of {FormatVolume(OrderVolume)} units on {Symbol}";
 		}
