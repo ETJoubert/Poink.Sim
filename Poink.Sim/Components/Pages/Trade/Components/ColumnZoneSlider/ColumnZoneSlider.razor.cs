@@ -55,7 +55,7 @@ namespace Poink.Sim.Components.Pages.Trade
 			: cell.Value < 0 ? "czs-cell-down"
 			: "czs-cell-up";
 
-		private string CellValueFormat => CellsSigned ? "+#,0;-#,0;0" : "N0";
+		private string FormatCellValue(double value) => ColumnZoneHelper.FormatValue(value, CellsSigned);
 
 		private string PositionText =>
 			Reading switch

@@ -150,20 +150,20 @@ public class ColumnZoneHelperTests
 		Assert.Equal(expected, ColumnZoneHelper.ClampZonePercent(percent));
 	}
 
-	private static BarPriceHistogram DwellHistogram(double price, double seconds, int direction = 1)
+	private static BarPriceHistogram DwellHistogram(double price, double seconds, double distance, int direction = 1)
 	{
 		var histogram = new BarPriceHistogram(RowHeight);
-		histogram.Add(price, direction, 0);
+		histogram.Add(price, direction, distance);
 		histogram.AddDwell(price, seconds);
 		return histogram;
 	}
 
-	// Older column: 10s at 10.5 (row 10-11); latest column: 30s at 12.5 (row 12-13); one tick each, so Time×Tk = seconds.
+	// Older column: 10s at 10.5 moving 0.5; latest column: 30s at 12.5 moving 2; one tick each, so Time×Tk = seconds.
 	private static XGridResult TimeTickGrid(double latestClose, int olderDirection = 1)
 	{
 		var grid = XGridStats.Compute(
 			new List<HlocAvdtBar> { Bar(0, 10.5), Bar(1, latestClose) },
-			new List<BarPriceHistogram> { DwellHistogram(10.5, 10, olderDirection), DwellHistogram(12.5, 30) },
+			new List<BarPriceHistogram> { DwellHistogram(10.5, 10, 0.5, olderDirection), DwellHistogram(12.5, 30, 2) },
 			new List<WeightedPriceSample>(),
 			DateTime.MinValue,
 			DateTime.MaxValue,
@@ -212,6 +212,42 @@ public class ColumnZoneHelperTests
 			new[] { new ColumnZoneCell(10, 11, -10, -10.0 / 30), new ColumnZoneCell(11, 12, 0, 0), new ColumnZoneCell(12, 13, 30, 1) },
 			reading.Cells!
 		);
+	}
+
+	[Theory]
+	[InlineData(1, false, 5, 1)]
+	[InlineData(-1, true, -5, -1)]
+	public void TimeTickReading_Distance_WeightsEachTickByItsMove(int olderDirection, bool split, double olderValue, int olderSign)
+	{
+		var reading = ColumnZoneHelper.TimeTickReading(TimeTickGrid(latestClose: 12.5, olderDirection), columnsBack: 1, 25, split, distance: true);
+
+		Assert.NotNull(reading);
+		Assert.Equal(
+			new[] { new ColumnZoneCell(10, 11, olderValue, olderSign * 5.0 / 60), new ColumnZoneCell(11, 12, 0, 0), new ColumnZoneCell(12, 13, 60, 1) },
+			reading.Cells!
+		);
+	}
+
+	[Theory]
+	[InlineData(false, false, 120)]
+	[InlineData(true, false, -40)]
+	[InlineData(false, true, 100)]
+	[InlineData(true, true, -60)]
+	public void TimeTickValue_PicksTheProductForSplitAndDistance(bool split, bool distance, double expected)
+	{
+		var cell = new XGridCell(3, 1, 2, 0.5, 2, 40, 3);
+
+		Assert.Equal(expected, ColumnZoneHelper.TimeTickValue(cell, split, distance), 6);
+	}
+
+	[Theory]
+	[InlineData(12345.6, false, "12,346")]
+	[InlineData(12345.6, true, "+12,346")]
+	[InlineData(-0.012345, true, "-0.01235")]
+	[InlineData(0, true, "0")]
+	public void FormatValue_KeepsSmallDistanceProductsReadable(double value, bool signed, string expected)
+	{
+		Assert.Equal(expected, ColumnZoneHelper.FormatValue(value, signed));
 	}
 
 	[Fact]

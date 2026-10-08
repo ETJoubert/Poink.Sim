@@ -55,8 +55,8 @@
     }
 
     <div class="czk-section">
-        <span class="czk-section-title" title="Price range of columns @TimeTickColumns, one cell per XGrid row, shaded by Time×Tk (seconds held × tick count) summed over those columns">
-            Time×Tk @TimeTickColumns
+        <span class="czk-section-title" title="Price range of columns @TimeTickColumns, one cell per XGrid row, shaded by @TimeTickMeasure summed over those columns">
+            @(Settings.TimeTickDistance ? "Time×Tk×Dist" : "Time×Tk") @TimeTickColumns
         </span>
         @{
             var total = ColumnZoneHelper.TotalCell(TimeTickReading);
@@ -66,6 +66,8 @@
         </span>
         <button type="button" class="czk-chip @(Settings.TimeTickSplit ? "active" : "")" @onclick="ToggleTimeTickSplitAsync"
                 title="@(Settings.TimeTickSplit ? "Showing Split: green where time × up ticks leads, red where time × down ticks leads, brighter with a larger imbalance -- click for plain Time×Tk" : "Split Time×Tk into time × up ticks versus time × down ticks: green where up leads, red where down leads")">Split</button>
+        <button type="button" class="czk-chip @(Settings.TimeTickDistance ? "active" : "")" @onclick="ToggleTimeTickDistanceAsync"
+                title="@(Settings.TimeTickDistance ? "Showing Time×Tk×Dist: each tick weighs the price distance it moved, so cells read time × ticks × average move -- click to drop the distance" : "Multiply Time×Tk by distance: each tick weighs the price distance it moved instead of one (time × ticks × average move); works with Split")">Dist</button>
     </div>
     <ColumnZoneSlider Reading="TimeTickReading" Label="Σ" CellMeasure="@TimeTickMeasure" CellsSigned="Settings.TimeTickSplit"
                       LabelTooltip="@($"Columns {TimeTickColumns} combined: one cell per XGrid row, shaded by summed {TimeTickMeasure}")"

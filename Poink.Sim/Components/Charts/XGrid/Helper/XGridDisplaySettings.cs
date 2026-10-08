@@ -33,6 +33,9 @@ namespace Poink.Sim.Components.Charts
 		/// <summary>Splits TimeCountWeighted into signed seconds-times-up versus seconds-times-down shading; only set alongside it.</summary>
 		public bool TimeCountSplit { get; init; }
 
+		/// <summary>Weights TimeCountWeighted (and its split) by each tick's moved distance -- time × ticks × average move; only set alongside it.</summary>
+		public bool TimeCountDistance { get; init; }
+
 		public bool ShowDwellHighlight { get; init; }
 		public XGridDwellComparison DwellComparison { get; init; } = XGridDwellComparison.Above;
 		public double DwellSeconds { get; init; } = 60;

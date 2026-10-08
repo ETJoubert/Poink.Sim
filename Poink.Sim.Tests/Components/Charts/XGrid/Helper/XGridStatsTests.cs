@@ -128,6 +128,40 @@ public class XGridStatsTests
 		Assert.Equal(40, grid.Value.MaxAbsSecondsDelta, 6);
 	}
 
+	[Fact]
+	public void SecondsDistance_WeightsTimeByTheDistanceTheTicksMoved()
+	{
+		var cell = new XGridCell(3, 1, 2, 0.5, 2, 40, 3);
+
+		Assert.Equal(100, cell.SecondsDistance, 6);
+		Assert.Equal(-60, cell.SecondsDistanceDelta, 6);
+	}
+
+	[Fact]
+	public void Compute_TracksTheLargestDistanceWeightedTimeProducts()
+	{
+		var histogram = new BarPriceHistogram(UnitWidth);
+		histogram.Add(10.5, 1, 0.5);
+		histogram.Add(10.5, -1, 2);
+		histogram.AddDwell(10.5, 40);
+		histogram.Add(11.5, 1, 3);
+		histogram.AddDwell(11.5, 20);
+
+		var grid = XGridStats.Compute(
+			new List<HlocAvdtBar> { Bar(0) },
+			new List<BarPriceHistogram> { histogram },
+			new List<WeightedPriceSample>(),
+			DateTime.MinValue,
+			DateTime.MaxValue,
+			UnitWidth,
+			colCount: 1
+		);
+
+		Assert.NotNull(grid);
+		Assert.Equal(100, grid.Value.MaxSecondsDistance, 6);
+		Assert.Equal(60, grid.Value.MaxAbsSecondsDistanceDelta, 6);
+	}
+
 	[Theory]
 	[InlineData(XGridDwellComparison.Above, 60, true)]
 	[InlineData(XGridDwellComparison.Above, 59, false)]

@@ -647,9 +647,13 @@ namespace Poink.Sim.Components.Charts
 			if (Spectrum.HighlightsEnabled && Display.TimeWeighted)
 				return grid.MaxSeconds <= 0 ? 0 : cell.Seconds / grid.MaxSeconds;
 			if (Spectrum.HighlightsEnabled && Display.TimeCountSplit)
-				return grid.MaxAbsSecondsDelta <= 0 ? 0 : cell.SecondsDelta / grid.MaxAbsSecondsDelta;
+				return Display.TimeCountDistance
+					? Ratio(cell.SecondsDistanceDelta, grid.MaxAbsSecondsDistanceDelta)
+					: Ratio(cell.SecondsDelta, grid.MaxAbsSecondsDelta);
 			if (Spectrum.HighlightsEnabled && Display.TimeCountWeighted)
-				return grid.MaxSecondsCount <= 0 ? 0 : cell.SecondsCount / grid.MaxSecondsCount;
+				return Display.TimeCountDistance
+					? Ratio(cell.SecondsDistance, grid.MaxSecondsDistance)
+					: Ratio(cell.SecondsCount, grid.MaxSecondsCount);
 
 			bool distanceWeighted = Spectrum.HighlightsEnabled && Display.DistanceWeighted;
 			if (Spectrum.HighlightsEnabled && Display.ShadeDelta)
@@ -1173,8 +1177,15 @@ namespace Poink.Sim.Components.Charts
 				new("Time×Ticks", $"{cell.SecondsCount:N0}", "Seconds held multiplied by tick count"),
 				new("Time×Up", $"{cell.SecondsUpCount:N0}", "Seconds held multiplied by up-tick count", "up"),
 				new("Time×Down", $"{cell.SecondsDownCount:N0}", "Seconds held multiplied by down-tick count", "down"),
+				new(
+					"Time×Tk×Dist",
+					cell.SecondsDistance.ToString("G4", CultureInfo.InvariantCulture),
+					"Seconds held multiplied by the price distance this cell's ticks moved (time × ticks × average move)"
+				),
 			];
 		}
+
+		private static double Ratio(double value, double ceiling) => ceiling <= 0 ? 0 : value / ceiling;
 
 		private static IReadOnlyList<XGridReadout> TickRateReadouts(TickRate rate)
 		{

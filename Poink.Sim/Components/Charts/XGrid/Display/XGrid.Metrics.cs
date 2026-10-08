@@ -29,7 +29,7 @@ namespace Poink.Sim.Components.Charts
 		private Task SetDisplay(XGridDisplaySettings value) => DisplayChanged.InvokeAsync(Display = value);
 
 		private XGridDisplaySettings WithoutTimeShading =>
-			Display with { TimeWeighted = false, TimeCountWeighted = false, TimeCountSplit = false };
+			Display with { TimeWeighted = false, TimeCountWeighted = false, TimeCountSplit = false, TimeCountDistance = false };
 
 		private XGridDisplaySettings WithoutShadingModes =>
 			WithoutTimeShading with { ShadeDelta = false, DistanceWeighted = false };
@@ -45,7 +45,24 @@ namespace Poink.Sim.Components.Charts
 			SetDisplay(WithoutShadingModes with { TimeCountWeighted = !Display.TimeCountWeighted });
 
 		private Task ToggleTimeCountSplit() =>
-			SetDisplay(WithoutShadingModes with { TimeCountWeighted = true, TimeCountSplit = !Display.TimeCountSplit });
+			SetDisplay(
+				WithoutShadingModes with
+				{
+					TimeCountWeighted = true,
+					TimeCountSplit = !Display.TimeCountSplit,
+					TimeCountDistance = Display.TimeCountDistance,
+				}
+			);
+
+		private Task ToggleTimeCountDistance() =>
+			SetDisplay(
+				WithoutShadingModes with
+				{
+					TimeCountWeighted = true,
+					TimeCountSplit = Display.TimeCountSplit,
+					TimeCountDistance = !Display.TimeCountDistance,
+				}
+			);
 
 		private Task ToggleDwellComparison() =>
 			SetDisplay(

@@ -27,6 +27,8 @@ namespace Poink.Sim.Components.Pages.Trade
 
 		private const string TimeTickSplitStorageKey = "trade.quickConsole.timeTickSplit";
 
+		private const string TimeTickDistanceStorageKey = "trade.quickConsole.timeTickDistance";
+
 		[Inject]
 		private ILocalStorageHelper LocalStorage { get; set; } = null!;
 
@@ -48,9 +50,16 @@ namespace Poink.Sim.Components.Pages.Trade
 		private ColumnZoneGate Gate => ColumnZoneHelper.Gate(Grid, Settings);
 
 		private ColumnZoneReading? TimeTickReading =>
-			ColumnZoneHelper.TimeTickReading(Grid, Settings.ColumnsBack, Settings.ZonePercent, Settings.TimeTickSplit);
+			ColumnZoneHelper.TimeTickReading(
+				Grid,
+				Settings.ColumnsBack,
+				Settings.ZonePercent,
+				Settings.TimeTickSplit,
+				Settings.TimeTickDistance
+			);
 
-		private string TimeTickMeasure => Settings.TimeTickSplit ? "Time×Tk split (up − down)" : "Time×Tk";
+		private string TimeTickMeasure =>
+			(Settings.TimeTickDistance ? "Time×Tk×Dist" : "Time×Tk") + (Settings.TimeTickSplit ? " split (up − down)" : string.Empty);
 
 		private string TotalClass(ColumnZoneCell? total) =>
 			total is null || !Settings.TimeTickSplit ? string.Empty
@@ -64,8 +73,8 @@ namespace Poink.Sim.Components.Pages.Trade
 			total is null
 				? $"Total {TimeTickMeasure} of columns {TimeTickColumns}: waiting for XGrid data"
 				: Settings.TimeTickSplit
-					? $"Net {TimeTickMeasure} over columns {TimeTickColumns}, {FormatPrice(total.Low)} - {FormatPrice(total.High)}: {total.Value.ToString("+#,0;-#,0;0", CultureInfo.InvariantCulture)} ({FormatPercentValue(total.Intensity * 100)}% of the range's total up + down)"
-					: $"Total {TimeTickMeasure} over columns {TimeTickColumns}, {FormatPrice(total.Low)} - {FormatPrice(total.High)}: {total.Value.ToString("N0", CultureInfo.InvariantCulture)}";
+					? $"Net {TimeTickMeasure} over columns {TimeTickColumns}, {FormatPrice(total.Low)} - {FormatPrice(total.High)}: {ColumnZoneHelper.FormatValue(total.Value, signed: true)} ({FormatPercentValue(total.Intensity * 100)}% of the range's total up + down)"
+					: $"Total {TimeTickMeasure} over columns {TimeTickColumns}, {FormatPrice(total.Low)} - {FormatPrice(total.High)}: {ColumnZoneHelper.FormatValue(total.Value, signed: false)}";
 
 		private static string FormatCompact(double value)
 		{
@@ -74,7 +83,10 @@ namespace Poink.Sim.Components.Pages.Trade
 				: magnitude >= 1e6 ? (magnitude / 1e6, "M")
 				: magnitude >= 1e3 ? (magnitude / 1e3, "k")
 				: (magnitude, string.Empty);
-			var text = scaled.ToString(suffix.Length > 0 ? "0.#" : "0", CultureInfo.InvariantCulture) + suffix;
+			var format = suffix.Length > 0 ? "0.#"
+				: magnitude >= 1 || magnitude == 0 ? "0"
+				: "G2";
+			var text = scaled.ToString(format, CultureInfo.InvariantCulture) + suffix;
 			return value < 0 ? "-" + text : text;
 		}
 
@@ -99,15 +111,17 @@ namespace Poink.Sim.Components.Pages.Trade
 				ColumnZoneHelper.ClampZonePercent(await LocalStorage.GetItemAsync<double?>(ZonePercentStorageKey) ?? defaults.ZonePercent),
 				await LocalStorage.GetItemAsync<bool?>(GateEnabledStorageKey) ?? defaults.GateEnabled,
 				await LocalStorage.GetItemAsync<int?>(GateThresholdStorageKey) ?? defaults.GateThreshold,
-				await LocalStorage.GetItemAsync<bool?>(TimeTickSplitStorageKey) ?? defaults.TimeTickSplit
+				await LocalStorage.GetItemAsync<bool?>(TimeTickSplitStorageKey) ?? defaults.TimeTickSplit,
+				await LocalStorage.GetItemAsync<bool?>(TimeTickDistanceStorageKey) ?? defaults.TimeTickDistance
 			);
 			Logger.LogInformation(
-				"Column zone settings loaded: columns n to n-{ColumnsBack}, {ZonePercent}% zones, gate {GateState} at h = {GateThreshold}, Time×Tk split {SplitState}",
+				"Column zone settings loaded: columns n to n-{ColumnsBack}, {ZonePercent}% zones, gate {GateState} at h = {GateThreshold}, Time×Tk split {SplitState}, distance {DistanceState}",
 				loaded.ColumnsBack,
 				loaded.ZonePercent,
 				loaded.GateEnabled ? "on" : "off",
 				loaded.GateThreshold,
-				loaded.TimeTickSplit ? "on" : "off"
+				loaded.TimeTickSplit ? "on" : "off",
+				loaded.TimeTickDistance ? "on" : "off"
 			);
 			await SettingsChanged.InvokeAsync(loaded);
 		}
@@ -118,6 +132,14 @@ namespace Poink.Sim.Components.Pages.Trade
 			Logger.LogInformation("Time×Tk zone slider split turned {SplitState}", split ? "on" : "off");
 			await SettingsChanged.InvokeAsync(Settings with { TimeTickSplit = split });
 			await LocalStorage.SetItemAsync(TimeTickSplitStorageKey, split);
+		}
+
+		private async Task ToggleTimeTickDistanceAsync()
+		{
+			var distance = !Settings.TimeTickDistance;
+			Logger.LogInformation("Time×Tk zone slider distance multiplier turned {DistanceState}", distance ? "on" : "off");
+			await SettingsChanged.InvokeAsync(Settings with { TimeTickDistance = distance });
+			await LocalStorage.SetItemAsync(TimeTickDistanceStorageKey, distance);
 		}
 
 		private async Task SetColumnsBackAsync(ChangeEventArgs args)

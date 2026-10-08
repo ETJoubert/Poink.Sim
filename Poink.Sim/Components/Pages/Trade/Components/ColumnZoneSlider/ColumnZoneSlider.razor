@@ -14,7 +14,7 @@
                 @foreach (var cell in cells)
                 {
                     <div class="czs-cell @CellClass(cell)" style="--czs-heat: @CssPercent(Math.Abs(cell.Intensity) * 100)"
-                         title="@FormatPrice(cell.Low) - @FormatPrice(cell.High): @CellMeasure @cell.Value.ToString(CellValueFormat) (@FormatPercent(Math.Abs(cell.Intensity) * 100)% of the largest row)"></div>
+                         title="@FormatPrice(cell.Low) - @FormatPrice(cell.High): @CellMeasure @FormatCellValue(cell.Value) (@FormatPercent(Math.Abs(cell.Intensity) * 100)% of the largest row)"></div>
                 }
             </div>
         }

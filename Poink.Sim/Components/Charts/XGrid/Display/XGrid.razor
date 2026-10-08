@@ -31,6 +31,8 @@
                         title="Shade each cell by its time in seconds multiplied by its tick count, brighter for a larger product -- favours cells price both lingered in and traded through. Turns Up/Dn, &times;Dist and Time off. Hover a cell for its Time&times;Ticks.">Time&times;Tk</button>
                 <button class="xgrid-delta-toggle @(Display.TimeCountSplit ? "active" : "")" @onclick="ToggleTimeCountSplit"
                         title="Split Time&times;Tk into time &times; up ticks versus time &times; down ticks: green where up ticks lead, red where down ticks lead, brighter with a larger imbalance. Turns Time&times;Tk on; click again to return to the unsplit product. Hover a cell for its Time&times;Up and Time&times;Down.">Split</button>
+                <button class="xgrid-delta-toggle @(Display.TimeCountDistance ? "active" : "")" @onclick="ToggleTimeCountDistance"
+                        title="Multiply Time&times;Tk by distance: each tick weighs the price distance it moved instead of one, so a cell shades by time &times; ticks &times; average move. Works with Split (time &times; up moves versus time &times; down moves). Turns Time&times;Tk on; click again to drop the distance. Hover a cell for its Time&times;Tk&times;Dist.">Dist</button>
             </div>
             <span class="xgrid-row-divider"></span>
             <div class="xgrid-control-group">

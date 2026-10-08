@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using Poink.Sim.Components.Charts;
 using Poink.Sim.Components.Pages.Trade.Models;
@@ -20,7 +21,7 @@ namespace Poink.Sim.Components.Pages.Trade.Helpers
 
 		public const int DefaultColumnsBack = 1;
 
-		public static readonly ColumnZoneSettings DefaultSettings = new(DefaultColumnsBack, DefaultZonePercent, false, 1, false);
+		public static readonly ColumnZoneSettings DefaultSettings = new(DefaultColumnsBack, DefaultZonePercent, false, 1, false, false);
 
 		public static int ClampColumnsBack(int columnsBack) => Math.Clamp(columnsBack, 0, MaxColumnsBack);
 
@@ -82,10 +83,11 @@ namespace Poink.Sim.Components.Pages.Trade.Helpers
 		/// <summary>
 		/// The price range traded across columns n to n-<paramref name="columnsBack"/>, cut into one cell per XGrid row (low to
 		/// high), each holding that row's Time×Tk (seconds held × ticks) summed over those columns -- or with
-		/// <paramref name="split"/> its signed seconds × up ticks minus seconds × down ticks, as XGrid's Split shades it; null
-		/// until those columns have traded and the grid has a current price.
+		/// <paramref name="split"/> its signed seconds × up ticks minus seconds × down ticks, as XGrid's Split shades it, and
+		/// with <paramref name="distance"/> each tick weighted by its moved distance (XGrid's Dist); null until those columns
+		/// have traded and the grid has a current price.
 		/// </summary>
-		public static ColumnZoneReading? TimeTickReading(XGridResult? grid, int columnsBack, double zonePercent, bool split = false)
+		public static ColumnZoneReading? TimeTickReading(XGridResult? grid, int columnsBack, double zonePercent, bool split = false, bool distance = false)
 		{
 			if (grid is not { } g || g.Columns.Count == 0 || g.Current is not { } current)
 				return null;
@@ -99,7 +101,7 @@ namespace Poink.Sim.Components.Pages.Trade.Helpers
 			var bottomRow = tradedRows[^1];
 			var rowValues = Enumerable.Range(topRow, bottomRow - topRow + 1)
 				.Reverse()
-				.Select(row => (Row: row, Value: columns.Sum(c => split ? c.Cells[row].SecondsDelta : c.Cells[row].SecondsCount)))
+				.Select(row => (Row: row, Value: columns.Sum(c => TimeTickValue(c.Cells[row], split, distance))))
 				.ToList();
 			var largest = rowValues.Max(r => Math.Abs(r.Value));
 			var cells = rowValues
@@ -109,6 +111,24 @@ namespace Poink.Sim.Components.Pages.Trade.Helpers
 			var range = new ColumnZoneRange(g.RowLow[bottomRow], g.RowHigh[topRow], current.Price);
 			return ColumnReading(range, zonePercent) with { Cells = cells };
 		}
+
+		/// <summary>Whole thousands-separated numbers from 1,000 up, four significant figures below (distance-weighted values are often fractions).</summary>
+		public static string FormatValue(double value, bool signed)
+		{
+			var text = Math.Abs(value) >= 1000
+				? value.ToString("#,0", CultureInfo.InvariantCulture)
+				: value.ToString("G4", CultureInfo.InvariantCulture);
+			return signed && value > 0 ? "+" + text : text;
+		}
+
+		public static double TimeTickValue(XGridCell cell, bool split, bool distance) =>
+			(split, distance) switch
+			{
+				(true, true) => cell.SecondsDistanceDelta,
+				(true, false) => cell.SecondsDelta,
+				(false, true) => cell.SecondsDistance,
+				(false, false) => cell.SecondsCount,
+			};
 
 		/// <summary>
 		/// One cell for the whole reading: its cells' values summed over its range, with the sum's share of the cells' total

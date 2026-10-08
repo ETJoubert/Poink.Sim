@@ -36,14 +36,15 @@ namespace Poink.Sim.Components.Pages.Trade.Models
 	/// <summary>
 	/// The column zone sliders' per-browser settings: columns n to n-<see cref="ColumnsBack"/>, the LOW/HIGH share of each
 	/// span, whether the gate holds LONG/SHORT locked until <see cref="GateThreshold"/> of those columns support the side,
-	/// and whether the Time×Tk slider shades by its up-minus-down split.
+	/// and whether the Time×Tk slider shades by its up-minus-down split and weights each tick by its moved distance.
 	/// </summary>
 	public sealed record ColumnZoneSettings(
 		int ColumnsBack,
 		double ZonePercent,
 		bool GateEnabled,
 		int GateThreshold,
-		bool TimeTickSplit
+		bool TimeTickSplit,
+		bool TimeTickDistance
 	);
 
 	/// <summary>
