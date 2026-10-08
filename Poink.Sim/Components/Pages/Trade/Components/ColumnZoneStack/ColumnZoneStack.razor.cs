@@ -142,20 +142,17 @@ namespace Poink.Sim.Components.Pages.Trade
 			await LocalStorage.SetItemAsync(TimeTickDistanceStorageKey, distance);
 		}
 
-		private async Task SetColumnsBackAsync(ChangeEventArgs args)
+		private async Task SetColumnsBackAsync(double requested)
 		{
-			var columnsBack = ColumnZoneHelper.ClampColumnsBack(ParseInt(args, Settings.ColumnsBack));
+			var columnsBack = ColumnZoneHelper.ClampColumnsBack(WholeOr(requested, Settings.ColumnsBack));
 			Logger.LogInformation("Column zone sliders set to columns n to n-{ColumnsBack}", columnsBack);
 			await SettingsChanged.InvokeAsync(Settings with { ColumnsBack = columnsBack });
 			await LocalStorage.SetItemAsync(ColumnsBackStorageKey, columnsBack);
 		}
 
-		private async Task SetZonePercentAsync(ChangeEventArgs args)
+		private async Task SetZonePercentAsync(double requested)
 		{
-			var requested = double.TryParse(args.Value?.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed)
-				? parsed
-				: Settings.ZonePercent;
-			var zonePercent = ColumnZoneHelper.ClampZonePercent(requested);
+			var zonePercent = ColumnZoneHelper.ClampZonePercent(double.IsFinite(requested) ? requested : Settings.ZonePercent);
 			Logger.LogInformation("Column zone share set to {ZonePercent}%", zonePercent);
 			await SettingsChanged.InvokeAsync(Settings with { ZonePercent = zonePercent });
 			await LocalStorage.SetItemAsync(ZonePercentStorageKey, zonePercent);
@@ -169,9 +166,9 @@ namespace Poink.Sim.Components.Pages.Trade
 			await LocalStorage.SetItemAsync(GateEnabledStorageKey, enabled);
 		}
 
-		private async Task SetGateThresholdAsync(ChangeEventArgs args)
+		private async Task SetGateThresholdAsync(double requested)
 		{
-			var threshold = ColumnZoneHelper.ClampGateThreshold(ParseInt(args, Settings.GateThreshold), Gate.ColumnCount);
+			var threshold = ColumnZoneHelper.ClampGateThreshold(WholeOr(requested, Settings.GateThreshold), Gate.ColumnCount);
 			Logger.LogInformation("Column zone gate threshold set to h = {GateThreshold}", threshold);
 			await SettingsChanged.InvokeAsync(Settings with { GateThreshold = threshold });
 			await LocalStorage.SetItemAsync(GateThresholdStorageKey, threshold);
@@ -186,9 +183,8 @@ namespace Poink.Sim.Components.Pages.Trade
 			return $"{side} {state}: {gate.Supporters(isLong)} of {gate.ColumnCount} columns are {opensFrom} (needs {gate.Threshold})";
 		}
 
-		private static int ParseInt(ChangeEventArgs args, int fallback) =>
-			int.TryParse(args.Value?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed) ? parsed : fallback;
-
-		private static string FormatPercent(double percent) => percent.ToString("0", CultureInfo.InvariantCulture);
+		/// <summary>The stepper's value rounded to a whole count; a value it could not read keeps <paramref name="fallback"/>.</summary>
+		private static int WholeOr(double value, int fallback) =>
+			double.IsFinite(value) ? (int)Math.Clamp(Math.Round(value), int.MinValue, int.MaxValue) : fallback;
 	}
 }

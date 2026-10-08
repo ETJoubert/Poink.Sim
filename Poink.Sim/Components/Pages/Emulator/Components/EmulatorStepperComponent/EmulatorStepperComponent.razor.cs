@@ -27,6 +27,9 @@ namespace Poink.Sim.Components.Emulator
 		public string Tooltip { get; set; } = string.Empty;
 
 		[Parameter]
+		public bool Disabled { get; set; }
+
+		[Parameter]
 		public EventCallback<double> OnChange { get; set; }
 
 		/// <summary>The value one step up or down, kept within bounds; an unreadable value steps from the minimum.</summary>

@@ -17,6 +17,9 @@ namespace Poink.Sim.Components.Pages.Trade.Helpers
 
 		public const double DefaultZonePercent = 25;
 
+		/// <summary>How far one press of the zone share's − or + moves it.</summary>
+		public const double ZonePercentStep = 5;
+
 		public const int MaxColumnsBack = 20;
 
 		public const int DefaultColumnsBack = 1;

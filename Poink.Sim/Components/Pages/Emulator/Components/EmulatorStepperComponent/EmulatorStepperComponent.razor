@@ -2,11 +2,11 @@
 @using System.Globalization
 
 <span class="emu-stepper" title="@Tooltip">
-    <button type="button" class="emu-stepper-btn" @onclick="() => StepAsync(-1)" disabled="@(Value <= Min)"
+    <button type="button" class="emu-stepper-btn" @onclick="() => StepAsync(-1)" disabled="@(Disabled || Value <= Min)"
             title="Decrease by @Step.ToString("N0", CultureInfo.InvariantCulture)">−</button>
     <input class="emu-stepper-input" type="number" min="@Min.ToString(CultureInfo.InvariantCulture)" max="@Max.ToString(CultureInfo.InvariantCulture)"
            step="@Step.ToString(CultureInfo.InvariantCulture)" value="@Value.ToString(CultureInfo.InvariantCulture)" title="@Tooltip"
-           @onchange="e => OnChange.InvokeAsync(Parse(e.Value))" />
-    <button type="button" class="emu-stepper-btn" @onclick="() => StepAsync(1)" disabled="@(Value >= Max)"
+           disabled="@Disabled" @onchange="e => OnChange.InvokeAsync(Parse(e.Value))" />
+    <button type="button" class="emu-stepper-btn" @onclick="() => StepAsync(1)" disabled="@(Disabled || Value >= Max)"
             title="Increase by @Step.ToString("N0", CultureInfo.InvariantCulture)">+</button>
 </span>

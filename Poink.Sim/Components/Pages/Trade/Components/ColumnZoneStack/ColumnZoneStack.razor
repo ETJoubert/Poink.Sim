@@ -1,22 +1,24 @@
 @namespace Poink.Sim.Components.Pages.Trade
 @using Poink.Sim.Components.Pages.Trade.Helpers
+@using Poink.Sim.Components.Emulator
 
 <div class="czk-panel">
     <div class="czk-header">
         <span class="czk-title" title="Where the current price sits within each XGrid column from the latest (n) back to n-k">Columns n to n-k</span>
-        <label class="czk-field" title="How many columns back from the latest (n) to show: k = 0 shows n only, k = 2 shows n, n-1 and n-2">
+        <span class="czk-field" title="How many columns back from the latest (n) to show: k = 0 shows n only, k = 2 shows n, n-1 and n-2">
             <span class="czk-field-k">k</span>
-            <input type="number" class="czk-input" min="0" max="@ColumnZoneHelper.MaxColumnsBack" step="1"
-                   value="@Settings.ColumnsBack" @onchange="SetColumnsBackAsync"
-                   title="Columns back from the latest to show a zone slider for (0-@ColumnZoneHelper.MaxColumnsBack)" />
-        </label>
-        <label class="czk-field" title="Share of every column's span the LOW (left) and HIGH (right) zones each cover; the rest is MID">
+            <EmulatorStepperComponent Value="Settings.ColumnsBack" Step="1" Min="0" Max="ColumnZoneHelper.MaxColumnsBack"
+                                      Tooltip="@($"Columns back from the latest to show a zone slider for (0-{ColumnZoneHelper.MaxColumnsBack})")"
+                                      OnChange="SetColumnsBackAsync" />
+        </span>
+        <span class="czk-field" title="Share of every column's span the LOW (left) and HIGH (right) zones each cover; the rest is MID">
             <span>Zone</span>
-            <input type="number" class="czk-input" min="@ColumnZoneHelper.MinZonePercent" max="@ColumnZoneHelper.MaxZonePercent" step="1"
-                   value="@FormatPercent(Settings.ZonePercent)" @onchange="SetZonePercentAsync"
-                   title="Share of every column's span the LOW (left) and HIGH (right) zones each cover (@ColumnZoneHelper.MinZonePercent-@ColumnZoneHelper.MaxZonePercent%)" />
+            <EmulatorStepperComponent Value="Settings.ZonePercent" Step="ColumnZoneHelper.ZonePercentStep"
+                                      Min="ColumnZoneHelper.MinZonePercent" Max="ColumnZoneHelper.MaxZonePercent"
+                                      Tooltip="@($"Share of every column's span the LOW (left) and HIGH (right) zones each cover ({ColumnZoneHelper.MinZonePercent}-{ColumnZoneHelper.MaxZonePercent}%); the buttons step by {ColumnZoneHelper.ZonePercentStep}")"
+                                      OnChange="SetZonePercentAsync" />
             <span>%</span>
-        </label>
+        </span>
     </div>
 
     <div class="czk-gate">
@@ -26,13 +28,13 @@
             <span class="czk-toggle-track"><span class="czk-toggle-thumb"></span></span>
             <span class="czk-toggle-label">Zone gate</span>
         </button>
-        <label class="czk-field" title="How many of the shown columns must be LOW/BELOW to open LONG, or HIGH/ABOVE to open SHORT; MID never counts. 1 = any one column, @Gate.ColumnCount = all of them">
+        <span class="czk-field" title="How many of the shown columns must be LOW/BELOW to open LONG, or HIGH/ABOVE to open SHORT; MID never counts. 1 = any one column, @Gate.ColumnCount = all of them">
             <span class="czk-field-k">h</span>
-            <input type="number" class="czk-input" min="1" max="@Gate.ColumnCount" step="1"
-                   value="@Gate.Threshold" @onchange="SetGateThresholdAsync" disabled="@(!Settings.GateEnabled)"
-                   title="Supporting columns needed to unlock a side (1-@Gate.ColumnCount)" />
+            <EmulatorStepperComponent Value="Gate.Threshold" Step="1" Min="1" Max="Gate.ColumnCount" Disabled="!Settings.GateEnabled"
+                                      Tooltip="@($"Supporting columns needed to unlock a side (1-{Gate.ColumnCount})")"
+                                      OnChange="SetGateThresholdAsync" />
             <span>of @Gate.ColumnCount</span>
-        </label>
+        </span>
         @if (Settings.GateEnabled)
         {
             <span class="czk-gate-side @(Gate.LongLocked ? "czk-gate-locked" : "czk-gate-open")" title="@GateSideTooltip(isLong: true)">L</span>
