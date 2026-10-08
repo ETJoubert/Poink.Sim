@@ -1,6 +1,10 @@
+using System;
+using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.Logging;
 using Poink.Sim.Components.Charts;
 using Poink.Sim.Components.Pages.Trade.Helpers;
 using Poink.Sim.Components.Pages.Trade.Models;
@@ -18,6 +22,12 @@ namespace Poink.Sim.Components.Pages.Trade
 
 		[Inject]
 		private ILocalStorageHelper LocalStorage { get; set; } = null!;
+
+		[Inject]
+		private ILogger<QuickTradeConsole> Logger { get; set; } = null!;
+
+		[Inject]
+		private TimeProvider Clock { get; set; } = null!;
 
 		[Parameter]
 		public bool HasSelection { get; set; }
@@ -66,6 +76,30 @@ namespace Poink.Sim.Components.Pages.Trade
 		[Parameter]
 		public EventCallback<bool> OnClose { get; set; }
 
+		/// <summary>Arms or disarms a side's close-at-breakeven; the bool is the side (true = long).</summary>
+		[Parameter]
+		public EventCallback<bool> OnToggleBreakeven { get; set; }
+
+		/// <summary>Raised with the auto-arm and time-stop settings whenever they load or change, for the page to apply.</summary>
+		[Parameter]
+		public EventCallback<CloseAutomationSettings> OnAutomationChanged { get; set; }
+
+		private CloseAutomationSettings _automation = PositionCloseHelper.DefaultAutomation;
+
+		private bool _autoFire;
+
+		// Each side's gate lock as of the last render, so auto-fire reacts only to a locked-to-open change.
+		private readonly Dictionary<bool, bool> _gateWasLocked = new();
+
+		private string? _gateSymbol;
+
+		// A bar's start point is fixed when it first appears; re-setting a running CSS animation's delay would make it jump.
+		private readonly Dictionary<string, double> _countdownStarts = new();
+
+		private readonly HashSet<string> _countdownsShown = new();
+
+		private sealed record CountdownBar(string Key, string Kind, string Style, string Tooltip);
+
 		private double? _storedVolume;
 
 		private bool _armed;
@@ -89,11 +123,84 @@ namespace Poink.Sim.Components.Pages.Trade
 
 		protected override async Task OnAfterRenderAsync(bool firstRender)
 		{
-			if (!firstRender)
-				return;
+			if (firstRender)
+			{
+				_storedVolume = await LocalStorage.GetItemAsync<double?>(VolumeStorageKey);
+				StateHasChanged();
+			}
 
-			_storedVolume = await LocalStorage.GetItemAsync<double?>(VolumeStorageKey);
-			StateHasChanged();
+			_countdownStarts.Keys.Where(key => !_countdownsShown.Contains(key)).ToList().ForEach(key => _countdownStarts.Remove(key));
+			_countdownsShown.Clear();
+
+			await AutoFireOnGatePassAsync();
+		}
+
+		private IEnumerable<CountdownBar> CountdownBars(QuickTradeSideState side)
+		{
+			if (side.OldestOpenUtc is not { } opened)
+				yield break;
+
+			var nowUtc = Clock.GetUtcNow().UtcDateTime;
+			var oldest = side.OpenCount > 1 ? $" (oldest of {side.OpenCount})" : string.Empty;
+			if (_automation.AutoArm && !side.BreakevenArmed)
+			{
+				var arm = PositionCloseHelper.Countdown(opened, nowUtc, _automation.ArmAfterSeconds);
+				var tooltip = arm.IsDone
+					? $"Auto BE watching: the position{oldest} has been open past t = {_automation.ArmAfterSeconds}s"
+					: $"Auto BE joins the breakeven watch in {arm.RemainingSeconds:0}s{oldest}";
+				yield return Bar(side, "arm", opened, arm, tooltip);
+			}
+
+			if (_automation.AutoClose)
+			{
+				var stop = PositionCloseHelper.Countdown(opened, nowUtc, _automation.TimeStopSeconds);
+				yield return Bar(side, "stop", opened, stop, $"Time stop closes at market in {stop.RemainingSeconds:0}s{oldest} (t + s = {_automation.TimeStopSeconds}s)");
+			}
+		}
+
+		private CountdownBar Bar(QuickTradeSideState side, string kind, DateTime opened, CloseCountdown countdown, string tooltip)
+		{
+			var key = $"{(side.IsLong ? "long" : "short")}-{kind}-{opened.Ticks}-{countdown.TotalSeconds}";
+			_countdownsShown.Add(key);
+			if (!_countdownStarts.TryGetValue(key, out var startSeconds))
+				_countdownStarts[key] = startSeconds = countdown.ElapsedSeconds;
+
+			var style = string.Create(
+				CultureInfo.InvariantCulture,
+				$"animation-duration: {countdown.TotalSeconds}s; animation-delay: -{startSeconds:0.###}s"
+			);
+			return new CountdownBar(key, kind, style, tooltip);
+		}
+
+		private async Task SetAutomationAsync(CloseAutomationSettings settings)
+		{
+			_automation = settings;
+			await OnAutomationChanged.InvokeAsync(settings);
+		}
+
+		private async Task AutoFireOnGatePassAsync()
+		{
+			var gate = ZoneGate;
+			var symbolChanged = _gateSymbol != SymbolName;
+			_gateSymbol = SymbolName;
+			foreach (var side in new[] { Long, Short })
+			{
+				var wasLocked = !symbolChanged && _gateWasLocked.TryGetValue(side.IsLong, out var locked) && locked;
+				_gateWasLocked[side.IsLong] = gate.IsLocked(side.IsLong);
+				if (!QuickTradeHelper.ShouldAutoFire(_autoFire && _armed && HasSelection, wasLocked, gate, side, OrderVolume))
+					continue;
+
+				Logger.LogInformation(
+					"Auto-fire: {Side} zone gate passed on {Symbol} ({Supporters} of {Columns} columns, needs {Threshold}); placing a market order of {Volume}",
+					SideName(side),
+					Symbol,
+					gate.Supporters(side.IsLong),
+					gate.ColumnCount,
+					gate.Threshold,
+					OrderVolume
+				);
+				await OnOpen.InvokeAsync(new QuickTradeOpenRequest(side.IsLong, OrderVolume));
+			}
 		}
 
 		private Task SelectVolumeAsync(double volume)
@@ -152,6 +259,27 @@ namespace Poink.Sim.Components.Pages.Trade
 			}
 
 			return $"Place a market {(side.IsLong ? "buy" : "sell")} of {FormatVolume(OrderVolume)} units on {Symbol}";
+		}
+
+		private bool CanToggleBreakeven(QuickTradeSideState side) => HasSelection && (side.BreakevenArmed || side.HasOpenPositions);
+
+		private string BreakevenDetail(QuickTradeSideState side) =>
+			side.BreakevenArmed ? $"{SideName(side).ToLowerInvariant()} · waiting for 0+"
+			: side.HasOpenPositions && _automation.AutoArm ? $"{SideName(side).ToLowerInvariant()} · auto after {_automation.ArmAfterSeconds}s"
+			: side.HasOpenPositions ? $"{SideName(side).ToLowerInvariant()} · {side.OpenCount} open"
+			: $"no {SideName(side).ToLowerInvariant()}";
+
+		private string BreakevenTooltip(QuickTradeSideState side)
+		{
+			var name = SideName(side).ToLowerInvariant();
+			if (!HasSelection)
+				return "Open a chart to use close-at-breakeven";
+			if (side.BreakevenArmed)
+				return $"Armed: each {name} position on {Symbol} closes on its own once price is back to its entry or better (P&L 0 or positive). Turns off when no {name}s are left or a close fails. Click to disarm.";
+			if (!side.HasOpenPositions)
+				return $"No {name} positions on {Symbol} to close at breakeven";
+
+			return $"Wait for each of the {side.OpenCount} {name} position(s) on {Symbol} to get back to its entry or better (P&L 0 or positive), then close it. Stays armed across reloads of this tab; closing the tab stops it.";
 		}
 
 		private static string FormatMoney(double? amount) => amount is { } value ? value.ToString("N2") : "--";

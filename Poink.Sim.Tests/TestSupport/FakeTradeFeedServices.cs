@@ -18,9 +18,9 @@ internal sealed class FakeTickStream : ITickStreamAccess
 
 	public double? Leverage => null;
 
-	public IReadOnlyList<CTraderPositionInfo> Positions => Array.Empty<CTraderPositionInfo>();
+	public IReadOnlyList<CTraderPositionInfo> Positions { get; set; } = Array.Empty<CTraderPositionInfo>();
 
-	public IReadOnlyList<CTraderSymbolQuote> Quotes => Array.Empty<CTraderSymbolQuote>();
+	public IReadOnlyList<CTraderSymbolQuote> Quotes { get; set; } = Array.Empty<CTraderSymbolQuote>();
 
 	public event Action<MarketTick>? TickReceived;
 

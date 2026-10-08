@@ -36,6 +36,28 @@
         </div>
     </div>
 
+    <QuickTradeAutomation Settings="_automation" SettingsChanged="SetAutomationAsync" @bind-AutoFire="_autoFire"
+                         GateEnabled="_zoneSettings.GateEnabled" />
+
+    <div class="qtc-buttons">
+        @foreach (var side in new[] { Long, Short })
+        {
+            <button type="button" class="qtc-be @(side.IsLong ? "qtc-be-long" : "qtc-be-short") @(side.BreakevenArmed ? "qtc-be-armed" : "")"
+                    role="switch" aria-checked="@(side.BreakevenArmed ? "true" : "false")"
+                    disabled="@(!CanToggleBreakeven(side))" @onclick="() => OnToggleBreakeven.InvokeAsync(side.IsLong)"
+                    title="@BreakevenTooltip(side)">
+                <span class="qtc-be-label">@(side.BreakevenArmed ? "BE ARMED" : "CLOSE @ BE")</span>
+                <span class="qtc-be-sub">@BreakevenDetail(side)</span>
+                @foreach (var bar in CountdownBars(side))
+                {
+                    <span @key="bar.Key" class="qtc-countdown qtc-countdown-@bar.Kind" title="@bar.Tooltip">
+                        <span class="qtc-countdown-fill" style="@bar.Style"></span>
+                    </span>
+                }
+            </button>
+        }
+    </div>
+
     <div class="qtc-buttons">
         @foreach (var side in new[] { Long, Short })
         {

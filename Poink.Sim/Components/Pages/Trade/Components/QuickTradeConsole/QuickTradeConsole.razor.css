@@ -203,3 +203,90 @@
     color: var(--color-error);
     border-color: color-mix(in srgb, var(--color-error) 30%, transparent);
 }
+
+.qtc-be {
+    --qtc-side: var(--color-success);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    padding: 5px 6px;
+    border-radius: 5px;
+    border: 1px dashed color-mix(in srgb, var(--qtc-side) 60%, transparent);
+    background: transparent;
+    color: var(--qtc-side);
+    font-weight: bold;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.qtc-be-short {
+    --qtc-side: var(--color-error);
+}
+
+.qtc-be:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--qtc-side) 12%, transparent);
+}
+
+.qtc-be-armed {
+    border-style: solid;
+    background: color-mix(in srgb, var(--qtc-side) 22%, transparent);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--qtc-side) 45%, transparent);
+    animation: qtc-be-pulse 1.6s ease-in-out infinite;
+}
+
+.qtc-be:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.qtc-be-label {
+    font-size: 0.78rem;
+}
+
+.qtc-be-sub {
+    font-size: 0.64rem;
+    font-weight: normal;
+    letter-spacing: 0.02em;
+    opacity: 0.85;
+}
+
+@keyframes qtc-be-pulse {
+    0%, 100% { box-shadow: 0 0 4px color-mix(in srgb, var(--qtc-side) 35%, transparent); }
+    50% { box-shadow: 0 0 12px color-mix(in srgb, var(--qtc-side) 65%, transparent); }
+}
+
+.qtc-countdown {
+    display: block;
+    align-self: stretch;
+    height: 3px;
+    margin-top: 2px;
+    border-radius: 2px;
+    overflow: hidden;
+    background: color-mix(in srgb, var(--qtc-side) 15%, transparent);
+}
+
+.qtc-countdown-fill {
+    display: block;
+    width: 100%;
+    height: 100%;
+    transform-origin: left center;
+    background: var(--qtc-side);
+    animation-name: qtc-countdown-grow;
+    animation-timing-function: linear;
+    animation-fill-mode: both;
+}
+
+.qtc-countdown-stop {
+    background: color-mix(in srgb, var(--color-warning) 15%, transparent);
+}
+
+.qtc-countdown-stop .qtc-countdown-fill {
+    background: var(--color-warning);
+}
+
+@keyframes qtc-countdown-grow {
+    from { transform: scaleX(0); }
+    to { transform: scaleX(1); }
+}

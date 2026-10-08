@@ -33,6 +33,9 @@ namespace Poink.Sim.Components.Pages.Trade
 		private ITradeExecutionAccess TradeExecution { get; set; } = null!;
 
 		[Inject]
+		private IPositionCloseService PositionClose { get; set; } = null!;
+
+		[Inject]
 		private ISymbolMetadataCache MetadataCache { get; set; } = null!;
 
 		[Inject]
@@ -50,7 +53,15 @@ namespace Poink.Sim.Components.Pages.Trade
 		[Inject]
 		private ILocalStorageHelper LocalStorage { get; set; } = null!;
 
+		[Inject]
+		private ISessionStorageHelper SessionStorage { get; set; } = null!;
+
+		[Inject]
+		private IAccountAccess Account { get; set; } = null!;
+
 		private const string ConsoleModeStorageKey = "trade.consoleMode";
+
+		private const string BreakevenStorageKey = "trade.breakevenArmed";
 
 		/// <summary>cTrader expresses symbol volume limits in hundredths of a unit.</summary>
 		private const double CTraderVolumeScale = 100.0;
@@ -79,6 +90,8 @@ namespace Poink.Sim.Components.Pages.Trade
 		private bool _quickShortBusy;
 		private readonly Dictionary<bool, QuickTradeAwaitedReport> _quickAwaitedReports = new();
 		private readonly CancellationTokenSource _disposed = new();
+		private bool _breakevenRestored;
+		private CloseAutomationSettings _closeAutomation = PositionCloseHelper.DefaultAutomation;
 		private XGridResult? _xgrid;
 
 		private RealizedWindow _realizedWindow = RealizedWindow.Day;
@@ -319,6 +332,8 @@ namespace Poink.Sim.Components.Pages.Trade
 		protected override void OnInitialized()
 		{
 			Coordinator.Changed += HandleCoordinatorChanged;
+			PositionClose.Changed += HandleBreakevenChanged;
+			PositionClose.CloseReported += HandlePositionCloseReported;
 			_tickRecordingLease = TickRecorder.Acquire();
 			_knownPositionIds = Session.Positions.Select(p => p.PositionId).ToHashSet();
 			_ = LoadRealizedPnlAsync();
@@ -349,6 +364,11 @@ namespace Poink.Sim.Components.Pages.Trade
 				await Coordinator.PersistSettingsIfChangedAsync(_chartPanelRef?.CurrentSettings);
 			}
 
+			if (!_breakevenRestored)
+				await RestoreBreakevenAsync();
+
+			ApplyCloseAutomation();
+
 			if (_dividerResizeInstance is not null && Coordinator.IsConnected)
 				await _dividerResizeInstance.InvokeVoidAsync("bindHeightAfter", _positionsHDividerRef);
 		}
@@ -356,6 +376,8 @@ namespace Poink.Sim.Components.Pages.Trade
 		public async ValueTask DisposeAsync()
 		{
 			Coordinator.Changed -= HandleCoordinatorChanged;
+			PositionClose.Changed -= HandleBreakevenChanged;
+			PositionClose.CloseReported -= HandlePositionCloseReported;
 			TradeDraft.Clear();
 			_disposed.Cancel();
 
@@ -436,7 +458,9 @@ namespace Poink.Sim.Components.Pages.Trade
 				isLong,
 				positions.Count,
 				positions.Sum(p => p.Volume),
-				inFlight || IsAwaitingReport(isLong, positions.Count)
+				inFlight || IsAwaitingReport(isLong, positions.Count),
+				Coordinator.ChartSymbolId is { } id && PositionClose.IsArmed(new BreakevenSide(id, isLong)),
+				positions.Count > 0 ? positions.Min(p => p.OpenTimeUtc) : null
 			);
 		}
 
@@ -537,6 +561,71 @@ namespace Poink.Sim.Components.Pages.Trade
 			else
 				_quickShortBusy = busy;
 		}
+
+		private void HandleQuickBreakevenToggle(bool isLong)
+		{
+			if (Coordinator.ChartSymbolId is not { } symbolId)
+				return;
+
+			var side = new BreakevenSide(symbolId, isLong);
+			if (PositionClose.IsArmed(side))
+				PositionClose.Disarm(side);
+			else
+				PositionClose.Arm(side);
+		}
+
+		private void HandleCloseAutomationChanged(CloseAutomationSettings settings)
+		{
+			_closeAutomation = settings;
+			ApplyCloseAutomation();
+		}
+
+		// The automation follows the charted symbol, so it is re-applied after each render in case the chart changed.
+		private void ApplyCloseAutomation() =>
+			PositionClose.SetAutomation(
+				Coordinator.ChartSymbolId is { } symbolId && _closeAutomation.AnyEnabled
+					? new CloseAutomationScope(symbolId, _closeAutomation)
+					: null
+			);
+
+		private void HandleBreakevenChanged() =>
+			InvokeAsync(async () =>
+			{
+				await SaveBreakevenAsync();
+				StateHasChanged();
+			});
+
+		// Waits for an account so stored sides are matched to it, and never overwrites the tab's copy before reading it.
+		private async Task RestoreBreakevenAsync()
+		{
+			if (Account.SelectedAccountId is not { } accountId)
+				return;
+
+			var entries = await SessionStorage.GetItemAsync<List<BreakevenArmedEntry>>(BreakevenStorageKey);
+			foreach (var side in PositionCloseHelper.SidesToRearm(entries, accountId))
+				PositionClose.Arm(side);
+
+			_breakevenRestored = true;
+			await SaveBreakevenAsync();
+		}
+
+		private async Task SaveBreakevenAsync()
+		{
+			if (!_breakevenRestored)
+				return;
+
+			var entries = Account.SelectedAccountId is { } accountId
+				? PositionCloseHelper.ToEntries(accountId, PositionClose.ArmedSides)
+				: Array.Empty<BreakevenArmedEntry>();
+			await SessionStorage.SetItemAsync(BreakevenStorageKey, entries);
+		}
+
+		private void HandlePositionCloseReported(CTraderOrderResult result) =>
+			InvokeAsync(() =>
+			{
+				ShowConsoleResult(result);
+				StateHasChanged();
+			});
 
 		private void ShowConsoleResult(CTraderOrderResult result)
 		{

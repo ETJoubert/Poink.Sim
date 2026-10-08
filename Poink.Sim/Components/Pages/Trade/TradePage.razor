@@ -172,7 +172,8 @@
                                                    CurrentBid="ChartQuote?.Bid" CurrentAsk="ChartQuote?.Ask"
                                                    Leverage="Session.Leverage" AvailableMargin="AvailableMargin" ChartXGrid="_xgrid"
                                                    StatusMessage="@_consoleStatus" StatusIsError="_consoleStatusIsError"
-                                                   OnOpen="HandleQuickOpenAsync" OnClose="HandleQuickCloseAsync" />
+                                                   OnOpen="HandleQuickOpenAsync" OnClose="HandleQuickCloseAsync"
+                                                   OnToggleBreakeven="HandleQuickBreakevenToggle" OnAutomationChanged="HandleCloseAutomationChanged" />
                             }
                             else
                             {
