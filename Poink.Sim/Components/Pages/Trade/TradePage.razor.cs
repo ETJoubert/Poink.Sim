@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
+using Poink.Sim.Components.Charts;
 using Poink.Sim.Components.Pages.Trade.Helpers;
 using Poink.Sim.Components.Pages.Trade.Models;
 using Poink.Sim.Components.Shared.FinancialsPanel;
@@ -78,6 +79,7 @@ namespace Poink.Sim.Components.Pages.Trade
 		private bool _quickShortBusy;
 		private readonly Dictionary<bool, QuickTradeAwaitedReport> _quickAwaitedReports = new();
 		private readonly CancellationTokenSource _disposed = new();
+		private XGridResult? _xgrid;
 
 		private RealizedWindow _realizedWindow = RealizedWindow.Day;
 		private double? _realizedPnl;
@@ -421,6 +423,8 @@ namespace Poink.Sim.Components.Pages.Trade
 				TradeDraft.Clear();
 			await LocalStorage.SetItemAsync(ConsoleModeStorageKey, mode);
 		}
+
+		private void HandleXGridChanged(XGridResult? grid) => _xgrid = grid;
 
 		private QuickTradeSideState QuickSide(bool isLong)
 		{

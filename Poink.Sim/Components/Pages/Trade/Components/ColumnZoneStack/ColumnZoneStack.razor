@@ -1,0 +1,31 @@
+@namespace Poink.Sim.Components.Pages.Trade
+@using Poink.Sim.Components.Pages.Trade.Helpers
+
+<div class="czk-panel">
+    <div class="czk-header">
+        <span class="czk-title" title="Where the current price sits within each XGrid column from the latest (n) back to n-k">Columns n to n-k</span>
+        <label class="czk-field" title="How many columns back from the latest (n) to show: k = 0 shows n only, k = 2 shows n, n-1 and n-2">
+            <span class="czk-field-k">k</span>
+            <input type="number" class="czk-input" min="0" max="@ColumnZoneHelper.MaxColumnsBack" step="1"
+                   value="@_columnsBack" @onchange="SetColumnsBackAsync"
+                   title="Columns back from the latest to show a zone slider for (0-@ColumnZoneHelper.MaxColumnsBack)" />
+        </label>
+        <label class="czk-field" title="Share of every column's span the LOW (left) and HIGH (right) zones each cover; the rest is MID">
+            <span>Zone</span>
+            <input type="number" class="czk-input" min="@ColumnZoneHelper.MinZonePercent" max="@ColumnZoneHelper.MaxZonePercent" step="1"
+                   value="@FormatPercent(_zonePercent)" @onchange="SetZonePercentAsync"
+                   title="Share of every column's span the LOW (left) and HIGH (right) zones each cover (@ColumnZoneHelper.MinZonePercent-@ColumnZoneHelper.MaxZonePercent%)" />
+            <span>%</span>
+        </label>
+    </div>
+
+    @{
+        var ranges = Ranges;
+    }
+    @for (var k = 0; k < ranges.Count; k++)
+    {
+        var columnsBack = k;
+        <ColumnZoneSlider @key="columnsBack" Range="ranges[columnsBack]" ColumnLabel="@ColumnZoneHelper.ColumnLabel(columnsBack)"
+                          ZonePercent="_zonePercent" />
+    }
+</div>

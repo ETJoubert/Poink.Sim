@@ -1,0 +1,40 @@
+.czk-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.czk-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.72rem;
+    color: var(--color-secondary);
+}
+
+.czk-title {
+    margin-right: auto;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.czk-field {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+}
+
+.czk-field-k {
+    font-style: italic;
+}
+
+.czk-input {
+    width: 3.2em;
+    padding: 1px 3px;
+    font-size: 0.78rem;
+    text-align: right;
+    background: var(--color-bg-terminal);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
+    border-radius: 3px;
+    color: var(--color-primary);
+}

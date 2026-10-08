@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
+using Poink.Sim.Components.Charts;
 using Poink.Sim.Components.Pages.Trade.Helpers;
 using Poink.Sim.Components.Pages.Trade.Models;
 using Poink.Sim.Helpers;
@@ -48,6 +49,10 @@ namespace Poink.Sim.Components.Pages.Trade
 		/// <summary>The account's free margin before this order; null while it cannot be priced.</summary>
 		[Parameter]
 		public double? AvailableMargin { get; set; }
+
+		/// <summary>The charted symbol's XGrid, read by the column zone sliders; null while the chart has none.</summary>
+		[Parameter]
+		public XGridResult? ChartXGrid { get; set; }
 
 		[Parameter]
 		public string? StatusMessage { get; set; }

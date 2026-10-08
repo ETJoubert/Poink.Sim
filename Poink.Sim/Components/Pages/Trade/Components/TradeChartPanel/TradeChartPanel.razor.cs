@@ -73,6 +73,12 @@ namespace Poink.Sim.Components.Pages.Trade
 		[Parameter]
 		public ChartPanelSettings? InitialSettings { get; set; }
 
+		/// <summary>Raised when the charted symbol's XGrid is recomputed, whether or not the XGrid panel is shown.</summary>
+		[Parameter]
+		public EventCallback<XGridResult?> XGridChanged { get; set; }
+
+		private XGridResult? _publishedXGrid;
+
 		public ChartPanelSettings CurrentSettings =>
 			new(
 				_showMainChart,
@@ -314,6 +320,8 @@ namespace Poink.Sim.Components.Pages.Trade
 			if (firstRender)
 				_dividerResizeInstance = await JS.InvokeAsync<IJSObjectReference>("eval", ChartDividerScript);
 
+			await PublishXGridAsync();
+
 			if (_dividerResizeInstance is null || SymbolId is null || _chartLoading || _chartError is not null || CompareActive)
 				return;
 
@@ -479,6 +487,20 @@ namespace Poink.Sim.Components.Pages.Trade
 			_xgridKey = key;
 			_xgridCache = XGridStats.Compute(bars, histograms, MergedBarSamples(), start, end, _xgridPipCount * PipSize, _xgridColCount);
 			return _xgridCache;
+		}
+
+		// Equality compares the grid's lists by reference, so only a recompute (not a cache hit) republishes.
+		private async Task PublishXGridAsync()
+		{
+			if (!XGridChanged.HasDelegate)
+				return;
+
+			var grid = ComputeXGrid();
+			if (grid == _publishedXGrid)
+				return;
+
+			_publishedXGrid = grid;
+			await XGridChanged.InvokeAsync(grid);
 		}
 
 		private List<XGridPosition> XGridPositions() => ChartWindowHelper.XGridPositions(Session.Positions, SymbolId);

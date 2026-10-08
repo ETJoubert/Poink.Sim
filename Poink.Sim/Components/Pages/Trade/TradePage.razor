@@ -30,7 +30,8 @@
         <main class="trade-main">
             <TradeChartPanel @ref="_chartPanelRef" SymbolId="Coordinator.ChartSymbolId" SymbolName="@Coordinator.ChartSymbolName"
                               PipSize="ChartPipSize"
-                              @bind-BarSizeSeconds="Coordinator.BarSizeSeconds" InitialSettings="Coordinator.PendingChartSettings" />
+                              @bind-BarSizeSeconds="Coordinator.BarSizeSeconds" InitialSettings="Coordinator.PendingChartSettings"
+                              XGridChanged="HandleXGridChanged" />
 
             @if (Coordinator.IsConnected)
             {
@@ -169,7 +170,7 @@
                                                    Long="QuickSide(isLong: true)" Short="QuickSide(isLong: false)"
                                                    MinVolume="ChartMinVolume" VolumeStep="ChartVolumeStep"
                                                    CurrentBid="ChartQuote?.Bid" CurrentAsk="ChartQuote?.Ask"
-                                                   Leverage="Session.Leverage" AvailableMargin="AvailableMargin"
+                                                   Leverage="Session.Leverage" AvailableMargin="AvailableMargin" ChartXGrid="_xgrid"
                                                    StatusMessage="@_consoleStatus" StatusIsError="_consoleStatusIsError"
                                                    OnOpen="HandleQuickOpenAsync" OnClose="HandleQuickCloseAsync" />
                             }
