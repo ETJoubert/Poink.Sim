@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using Poink.Sim.Components.Pages.Trade.Helpers;
+using Poink.Sim.Components.Pages.Trade.Models;
 using Poink.Sim.Services.CTrader;
 using Xunit;
 
@@ -28,6 +29,35 @@ public class QuickTradeHelperTests
 		var longs = QuickTradeHelper.SidePositions(positions, Nasdaq, isLong: true);
 
 		Assert.Equal([1L, 4L], longs.Select(p => p.PositionId));
+	}
+
+	private static readonly DateTime Now = new(2026, 10, 7, 9, 0, 0, DateTimeKind.Utc);
+
+	[Theory]
+	[InlineData(true, 1, 1, true)]
+	[InlineData(true, 1, 2, false)]
+	[InlineData(false, 2, 2, true)]
+	[InlineData(false, 2, 1, true)]
+	[InlineData(false, 2, 0, false)]
+	public void IsAwaitingReport_HoldsUntilThePositionCountReflectsTheRequest(
+		bool isOpening,
+		int baseline,
+		int currentCount,
+		bool expected
+	)
+	{
+		var awaited = new QuickTradeAwaitedReport(Nasdaq, isOpening, baseline, Now.AddSeconds(10));
+
+		Assert.Equal(expected, QuickTradeHelper.IsAwaitingReport(awaited, currentCount, Now));
+	}
+
+	[Fact]
+	public void IsAwaitingReport_PastTheDeadline_Releases()
+	{
+		var awaited = new QuickTradeAwaitedReport(Nasdaq, true, 0, Now);
+
+		Assert.False(QuickTradeHelper.IsAwaitingReport(awaited, 0, Now));
+		Assert.False(QuickTradeHelper.IsReported(awaited, 0));
 	}
 
 	[Fact]

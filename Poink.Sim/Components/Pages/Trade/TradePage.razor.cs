@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
@@ -55,6 +56,9 @@ namespace Poink.Sim.Components.Pages.Trade
 
 		private static readonly TimeSpan HistoryLookback = TimeSpan.FromDays(30);
 
+		/// <summary>How long a quick-trade side stays locked waiting for cTrader to report a fill or close.</summary>
+		private static readonly TimeSpan QuickTradeReportTimeout = TimeSpan.FromSeconds(10);
+
 		private enum RealizedWindow
 		{
 			Hour,
@@ -72,6 +76,8 @@ namespace Poink.Sim.Components.Pages.Trade
 		private TradeConsoleMode _consoleMode = TradeConsoleMode.Simple;
 		private bool _quickLongBusy;
 		private bool _quickShortBusy;
+		private readonly Dictionary<bool, QuickTradeAwaitedReport> _quickAwaitedReports = new();
+		private readonly CancellationTokenSource _disposed = new();
 
 		private RealizedWindow _realizedWindow = RealizedWindow.Day;
 		private double? _realizedPnl;
@@ -349,6 +355,7 @@ namespace Poink.Sim.Components.Pages.Trade
 		{
 			Coordinator.Changed -= HandleCoordinatorChanged;
 			TradeDraft.Clear();
+			_disposed.Cancel();
 
 			if (_tickRecordingLease is not null)
 				await _tickRecordingLease.DisposeAsync();
@@ -420,18 +427,25 @@ namespace Poink.Sim.Components.Pages.Trade
 			var positions = Coordinator.ChartSymbolId is { } symbolId
 				? QuickTradeHelper.SidePositions(Session.Positions, symbolId, isLong)
 				: Array.Empty<CTraderPositionInfo>();
+			var inFlight = isLong ? _quickLongBusy : _quickShortBusy;
 			return new QuickTradeSideState(
 				isLong,
 				positions.Count,
 				positions.Sum(p => p.Volume),
-				isLong ? _quickLongBusy : _quickShortBusy
+				inFlight || IsAwaitingReport(isLong, positions.Count)
 			);
 		}
+
+		private bool IsAwaitingReport(bool isLong, int currentCount) =>
+			_quickAwaitedReports.TryGetValue(isLong, out var awaited)
+			&& awaited.SymbolId == Coordinator.ChartSymbolId
+			&& QuickTradeHelper.IsAwaitingReport(awaited, currentCount, DateTime.UtcNow);
 
 		private async Task HandleQuickOpenAsync(QuickTradeOpenRequest request)
 		{
 			if (Coordinator.ChartSymbolId is not { } symbolId)
 				return;
+			var baseline = QuickTradeHelper.SidePositions(Session.Positions, symbolId, request.IsLong).Count;
 
 			SetQuickBusy(request.IsLong, true);
 			try
@@ -446,6 +460,8 @@ namespace Poink.Sim.Components.Pages.Trade
 					null
 				);
 				ShowConsoleResult(result);
+				if (result.Success)
+					AwaitReport(request.IsLong, new QuickTradeAwaitedReport(symbolId, true, baseline, ReportDeadline()));
 			}
 			finally
 			{
@@ -465,12 +481,49 @@ namespace Poink.Sim.Components.Pages.Trade
 			try
 			{
 				var results = await Task.WhenAll(positions.Select(p => TradeExecution.ClosePositionAsync(p.PositionId)));
-				ShowConsoleResult(QuickTradeHelper.SummarizeClose(isLong, results));
+				var summary = QuickTradeHelper.SummarizeClose(isLong, results);
+				ShowConsoleResult(summary);
+				if (summary.Success)
+					AwaitReport(isLong, new QuickTradeAwaitedReport(symbolId, false, positions.Count, ReportDeadline()));
 			}
 			finally
 			{
 				SetQuickBusy(isLong, false);
 			}
+		}
+
+		private static DateTime ReportDeadline() => DateTime.UtcNow + QuickTradeReportTimeout;
+
+		private void AwaitReport(bool isLong, QuickTradeAwaitedReport awaited)
+		{
+			_quickAwaitedReports[isLong] = awaited;
+			_ = ReleaseUnreportedAsync(isLong, awaited);
+		}
+
+		// The lock lifts as soon as cTrader's position event re-renders the page; this only covers a report that never comes.
+		private async Task ReleaseUnreportedAsync(bool isLong, QuickTradeAwaitedReport awaited)
+		{
+			try
+			{
+				await Task.Delay(QuickTradeReportTimeout, _disposed.Token);
+			}
+			catch (OperationCanceledException)
+			{
+				return;
+			}
+			if (!_quickAwaitedReports.TryGetValue(isLong, out var current) || current != awaited)
+				return;
+
+			_quickAwaitedReports.Remove(isLong);
+			var count = QuickTradeHelper.SidePositions(Session.Positions, awaited.SymbolId, isLong).Count;
+			if (!QuickTradeHelper.IsReported(awaited, count))
+				ShowConsoleResult(
+					new CTraderOrderResult(
+						false,
+						$"cTrader has not reported the {(isLong ? "long" : "short")} {(awaited.IsOpening ? "open" : "close")} after {QuickTradeReportTimeout.TotalSeconds:0}s; check Positions before trading again."
+					)
+				);
+			await InvokeAsync(StateHasChanged);
 		}
 
 		private void SetQuickBusy(bool isLong, bool busy)

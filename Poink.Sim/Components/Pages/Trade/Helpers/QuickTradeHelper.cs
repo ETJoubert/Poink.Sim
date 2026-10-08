@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Poink.Sim.Components.Pages.Trade.Models;
 using Poink.Sim.Services.CTrader;
 using Poink.Sim.Trader.Risk;
 
@@ -30,6 +31,12 @@ namespace Poink.Sim.Components.Pages.Trade.Helpers
 		/// <summary>Free margin once <paramref name="orderMargin"/> is committed; negative means the order does not fit.</summary>
 		public static double? MarginFreeAfter(double? availableMargin, double? orderMargin) =>
 			availableMargin is { } available && orderMargin is { } margin ? available - margin : null;
+
+		public static bool IsReported(QuickTradeAwaitedReport awaited, int currentCount) =>
+			awaited.IsOpening ? currentCount > awaited.BaselineCount : currentCount == 0;
+
+		public static bool IsAwaitingReport(QuickTradeAwaitedReport awaited, int currentCount, DateTime nowUtc) =>
+			nowUtc < awaited.DeadlineUtc && !IsReported(awaited, currentCount);
 
 		public static IReadOnlyList<CTraderPositionInfo> SidePositions(
 			IEnumerable<CTraderPositionInfo> positions,
