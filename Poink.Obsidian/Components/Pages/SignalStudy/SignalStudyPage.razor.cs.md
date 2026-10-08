@@ -1,12 +1,26 @@
 ---
-tags: [code-behind]
+tags: [code-behind, feature/signalstudy, kind/component-code]
+role: code-behind
+feature: SignalStudy
+feature_source: folder
+kind: component-code
+code_lines: 186
+types: 1
+methods: 19
+fan_in: 0
+fan_out: 12
+summary_source: documented
+candidates: []
 source: Poink.Sim/Components/Pages/SignalStudy/SignalStudyPage.razor.cs
 ---
 # SignalStudyPage.razor.cs
 
 Builds signal datasets -- the rule engine's signals stored once per second for one fixed profile of settings -- and lists the ones stored so far. The analysis of what follows each signal comes later.
 
-**Used by:** 0 files (see Backlinks)
+**Feature:** SignalStudy · **Kind:** component code-behind · **Code lines:** 186 · **Used by:** 0
+
+## Types
+- `SignalStudyPage` — class, Razor component · 19 methods, 11 properties, 17 fields
 
 ## Uses
 - [[Components/Pages/SignalStudy/SignalStudyPage.razor.md|SignalStudyPage.razor]]

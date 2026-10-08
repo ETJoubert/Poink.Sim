@@ -1,81 +1,40 @@
 ---
-tags: [class]
+tags: [class, feature/code, kind/behavior]
+role: class
+feature: Code
+feature_source: folder
+kind: behavior
+code_lines: 765
+types: 1
+methods: 22
+fan_in: 1
+fan_out: 15
+summary_source: generated
+candidates: []
 source: Poink.Sim/Components/Pages/Code/Services/CodeGraphProvider.cs
 ---
 # CodeGraphProvider.cs
 
 Defines code graph provider.
 
-**Used by:** 1 file (see Backlinks)
+**Feature:** Code · **Kind:** class with behaviour · **Code lines:** 765 · **Used by:** 1
+
+## Types
+- `CodeGraphProvider` — class, class with behaviour · 22 methods, 41 fields, 1 constructor
 
 ## Uses
 - [[Components/Pages/Code/Models/CodeGraphModels.cs.md|CodeGraphModels.cs]]
 - [[Components/Pages/Code/Services/ICodeGraphProvider.cs.md|ICodeGraphProvider.cs]]
 - [[Components/Pages/Code/Services/ICodeSourceIndex.cs.md|ICodeSourceIndex.cs]]
-- [[Components/Pages/Training/Components/BrainBuilder/BrainBuilder.razor.md|BrainBuilder.razor]]
-- [[Components/Shared/TickDataSource/TickDataSource.razor.md|TickDataSource.razor]]
-- [[Models/BarPriceHistogram.cs.md|BarPriceHistogram.cs]]
-- [[Models/HlocAvdtBar.cs.md|HlocAvdtBar.cs]]
 - [[Models/SimulationAccount.cs.md|SimulationAccount.cs]]
-- [[Models/SimulationDecision.cs.md|SimulationDecision.cs]]
-- [[Models/SimulationSnapshot.cs.md|SimulationSnapshot.cs]]
 - [[Models/TrainingModels/FeatureVector.cs.md|FeatureVector.cs]]
 - [[Repository/Interfaces/ITickRepository.cs.md|ITickRepository.cs]]
-- [[Repository/ModelTrainingParameters.cs.md|ModelTrainingParameters.cs]]
-- [[Repository/TickRepository.cs.md|TickRepository.cs]]
 - [[Services/Brain/BrainRegistry.cs.md|BrainRegistry.cs]]
-- [[Services/Brain/Neural/ActionOutputs/DiscretizedLevelsActionHead.cs.md|DiscretizedLevelsActionHead.cs]]
-- [[Services/Brain/Neural/ActionOutputs/IActionOutputHead.cs.md|IActionOutputHead.cs]]
-- [[Services/Brain/Neural/Architectures/CnnArchitecture.cs.md|CnnArchitecture.cs]]
-- [[Services/Brain/Neural/Architectures/INetworkArchitecture.cs.md|INetworkArchitecture.cs]]
-- [[Services/Brain/Neural/Architectures/LstmArchitecture.cs.md|LstmArchitecture.cs]]
-- [[Services/Brain/Neural/Architectures/MlpArchitecture.cs.md|MlpArchitecture.cs]]
 - [[Services/Brain/Neural/BrainCatalog.cs.md|BrainCatalog.cs]]
-- [[Services/Brain/Neural/CategoricalSampling.cs.md|CategoricalSampling.cs]]
 - [[Services/Brain/Neural/ComposedPolicyBrain.cs.md|ComposedPolicyBrain.cs]]
-- [[Services/Brain/Neural/Encoders/BarWindowEncoder.cs.md|BarWindowEncoder.cs]]
-- [[Services/Brain/Neural/Encoders/CompositeEncoder.cs.md|CompositeEncoder.cs]]
-- [[Services/Brain/Neural/Encoders/IObservationEncoder.cs.md|IObservationEncoder.cs]]
-- [[Services/Brain/Neural/Encoders/SessionClockEncoder.cs.md|SessionClockEncoder.cs]]
-- [[Services/Brain/Neural/Encoders/SpreadVolatilityEncoder.cs.md|SpreadVolatilityEncoder.cs]]
-- [[Services/Brain/Neural/Encoders/TimeProfileEncoder.cs.md|TimeProfileEncoder.cs]]
-- [[Services/Brain/Neural/Encoders/TraderStateEncoder.cs.md|TraderStateEncoder.cs]]
-- [[Services/Brain/Neural/Encoders/VolumeProfileEncoder.cs.md|VolumeProfileEncoder.cs]]
-- [[Services/Brain/Neural/IPolicyGradientBrain.cs.md|IPolicyGradientBrain.cs]]
-- [[Services/Brain/Neural/Normalizers/BinaryNormalizer.cs.md|BinaryNormalizer.cs]]
-- [[Services/Brain/Neural/Normalizers/EquityRatioNormalizer.cs.md|EquityRatioNormalizer.cs]]
-- [[Services/Brain/Neural/Normalizers/IFeatureNormalizer.cs.md|IFeatureNormalizer.cs]]
-- [[Services/Brain/Neural/Normalizers/PriceOffsetNormalizer.cs.md|PriceOffsetNormalizer.cs]]
-- [[Services/Brain/Neural/Normalizers/ZScoreNormalizer.cs.md|ZScoreNormalizer.cs]]
-- [[Services/Simulation/DummyTickGenerator.cs.md|DummyTickGenerator.cs]]
 - [[Services/Simulation/ISimulationEngine.cs.md|ISimulationEngine.cs]]
-- [[Services/Simulation/RingBuffer.cs.md|RingBuffer.cs]]
-- [[Services/Simulation/SimulationBarAggregator.cs.md|SimulationBarAggregator.cs]]
-- [[Services/Simulation/SimulationEngine.cs.md|SimulationEngine.cs]]
-- [[Services/Trader/Commission/ICommissionModel.cs.md|ICommissionModel.cs]]
-- [[Services/Trader/Commission/PercentOfNotionalCommission.cs.md|PercentOfNotionalCommission.cs]]
-- [[Services/Trader/ITrader.cs.md|ITrader.cs]]
-- [[Services/Trader/ITraderFactory.cs.md|ITraderFactory.cs]]
-- [[Services/Trader/Orders/PendingOrder.cs.md|PendingOrder.cs]]
-- [[Services/Trader/Risk/IRiskManager.cs.md|IRiskManager.cs]]
-- [[Services/Trader/Risk/IRiskPolicy.cs.md|IRiskPolicy.cs]]
-- [[Services/Trader/Risk/IRiskPolicyService.cs.md|IRiskPolicyService.cs]]
-- [[Services/Trader/Risk/PositionManager.cs.md|PositionManager.cs]]
-- [[Services/Trader/Risk/RiskAwareTrader.cs.md|RiskAwareTrader.cs]]
-- [[Services/Trader/Risk/RiskManager.cs.md|RiskManager.cs]]
-- [[Services/Trader/Risk/RiskPolicyModels.cs.md|RiskPolicyModels.cs]]
-- [[Services/Trader/Trader.cs.md|Trader.cs]]
-- [[Services/Trader/TraderFactory.cs.md|TraderFactory.cs]]
-- [[Services/Trader/TraderSettings.cs.md|TraderSettings.cs]]
 - [[Services/Training/EpisodeTimeConstraint.cs.md|EpisodeTimeConstraint.cs]]
-- [[Services/Training/EpisodeWindowSampler.cs.md|EpisodeWindowSampler.cs]]
 - [[Services/Training/Interfaces/IBrainService.cs.md|IBrainService.cs]]
-- [[Services/Training/Interfaces/IRlTrainingStrategy.cs.md|IRlTrainingStrategy.cs]]
 - [[Services/Training/Interfaces/ITrainingService.cs.md|ITrainingService.cs]]
-- [[Services/Training/PolicyGradientTrainingStrategy.cs.md|PolicyGradientTrainingStrategy.cs]]
-- [[Services/Training/RewardPolicies/EquityDriftRewardPolicy.cs.md|EquityDriftRewardPolicy.cs]]
-- [[Services/Training/RewardPolicies/IRewardPolicy.cs.md|IRewardPolicy.cs]]
 - [[Services/Training/RewardPolicies/IRewardPolicyService.cs.md|IRewardPolicyService.cs]]
-- [[Services/Training/RlEpisode.cs.md|RlEpisode.cs]]
-- [[Services/Training/RlEpisodeRunner.cs.md|RlEpisodeRunner.cs]]
 - [[Services/TrainingEngine/TickWindow.cs.md|TickWindow.cs]]

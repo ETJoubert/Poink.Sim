@@ -1,12 +1,36 @@
 ---
-tags: [code-behind]
+tags: [code-behind, feature/analize, kind/component-code]
+role: code-behind
+feature: Analize
+feature_source: folder
+kind: component-code
+code_lines: 620
+types: 11
+methods: 30
+fan_in: 3
+fan_out: 18
+summary_source: generated
+candidates: []
 source: Poink.Sim/Components/Pages/Analize/AnalizePage.razor.cs
 ---
 # AnalizePage.razor.cs
 
 Code-behind logic for the AnalizePage component.
 
-**Used by:** 3 files (see Backlinks)
+**Feature:** Analize · **Kind:** component code-behind · **Code lines:** 620 · **Used by:** 3
+
+## Types
+- `AnalizeBinRow` — record, data type (at most one helper method) · 3 properties
+- `BarrierResultRow` — record, data type (at most one helper method) · 14 properties
+- `ActiveAnalysis` — enum, enum · 3 values
+- `AnalysisSeriesSummaryView` — record, data type (at most one helper method) · 5 properties
+- `AnalysisDetailView` — record, data type (at most one helper method) · 18 properties
+- `AnalizePage` — class, Razor component · 30 methods, 25 properties, 48 fields
+- `AnalizeMainTab` — enum, nested, enum · 3 values
+- `AnalizeLeftTab` — enum, nested, enum · 3 values
+- `TimeAboveBelowView` — record, nested, data type (at most one helper method) · 3 properties
+- `ReturnView` — record, nested, data type (at most one helper method) · 3 properties
+- `SessionEntry` — record, nested, data type (at most one helper method) · 10 properties
 
 ## Uses
 - [[Components/Charts/HistogramChart/HistogramChart.razor.cs.md|HistogramChart.razor.cs]]

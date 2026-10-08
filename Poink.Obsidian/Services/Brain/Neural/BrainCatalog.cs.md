@@ -1,12 +1,39 @@
 ---
-tags: [class]
+tags: [class, feature/brain, kind/mixed]
+role: class
+feature: Brain
+feature_source: folder
+kind: mixed
+code_lines: 282
+types: 14
+methods: 7
+fan_in: 39
+fan_out: 26
+summary_source: generated
+candidates: []
 source: Poink.Sim/Services/Brain/Neural/BrainCatalog.cs
 ---
 # BrainCatalog.cs
 
 Defines brain catalog.
 
-**Used by:** 39 files (see Backlinks)
+**Feature:** Brain · **Kind:** mixed types · **Code lines:** 282 · **Used by:** 39
+
+## Types
+- `EncoderKind` — enum, enum · 7 values
+- `ArchitectureKind` — enum, enum · 4 values
+- `NormalizationKind` — enum, enum · 5 values
+- `ActionOutputKind` — enum, enum · 3 values
+- `ActionOutputEncodingKind` — enum, enum · 1 values
+- `DecisionDecodingKind` — enum, enum · 2 values
+- `CnnKernelSweepSource` — enum, enum · 2 values
+- `DirectionMaskRuleKind` — enum, enum · 5 values
+- `DecisionMaskResolutionKind` — enum, enum · 4 values
+- `DecisionMaskRuleKind` — enum, enum · 1 values
+- `TraderStateFieldKind` — enum, enum · 12 values
+- `EncoderSizeOptions` — record, data type (at most one helper method) · 34 properties
+- `BrainRecipe` — record, data type (at most one helper method) · 16 properties
+- `BrainCatalog` — class, static helper · 7 methods, 2 fields
 
 ## Uses
 - [[Components/Charts/XGrid/Display/XGrid.razor.md|XGrid.razor]]

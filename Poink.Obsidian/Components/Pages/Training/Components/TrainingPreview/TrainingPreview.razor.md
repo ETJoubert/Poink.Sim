@@ -1,12 +1,26 @@
 ---
-tags: [component]
+tags: [component, feature/training, kind/component]
+role: component
+feature: Training
+feature_source: folder
+kind: component
+code_lines: 245
+types: 1
+methods: 0
+fan_in: 3
+fan_out: 10
+summary_source: generated
+candidates: []
 source: Poink.Sim/Components/Pages/Training/Components/TrainingPreview/TrainingPreview.razor
 ---
 # TrainingPreview.razor
 
 UI component for training preview.
 
-**Used by:** 3 files (see Backlinks)
+**Feature:** Training · **Kind:** Razor component · **Code lines:** 245 · **Used by:** 3
+
+## Types
+- `TrainingPreview` — component, Razor component · empty
 
 ## Uses
 - [[Components/Charts/TickTimeProfileChart/TickTimeProfileChart.razor.cs.md|TickTimeProfileChart.razor.cs]]

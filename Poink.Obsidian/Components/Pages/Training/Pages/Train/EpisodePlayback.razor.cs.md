@@ -1,12 +1,31 @@
 ---
-tags: [code-behind]
+tags: [code-behind, feature/training, kind/component-code]
+role: code-behind
+feature: Training
+feature_source: folder
+kind: component-code
+code_lines: 706
+types: 6
+methods: 27
+fan_in: 1
+fan_out: 23
+summary_source: generated
+candidates: []
 source: Poink.Sim/Components/Pages/Training/Pages/Train/EpisodePlayback.razor.cs
 ---
 # EpisodePlayback.razor.cs
 
 Code-behind logic for the EpisodePlayback component.
 
-**Used by:** 1 file (see Backlinks)
+**Feature:** Training · **Kind:** component code-behind · **Code lines:** 706 · **Used by:** 1
+
+## Types
+- `EpisodePlayback` — class, Razor component · 27 methods, 65 properties, 36 fields
+- `LiveFeedbackSnapshot` — record, nested, data type (at most one helper method) · 12 properties
+- `InputGroup` — record, nested, data type (at most one helper method) · 3 properties
+- `StatsTab` — enum, nested, enum · 2 values
+- `MetricsRow` — record, nested, data type (at most one helper method) · 3 properties
+- `TraderStatsRow` — record, nested, data type (at most one helper method) · 23 properties
 
 ## Uses
 - [[Components/Charts/EquityCurve/EquityCurveHelper.cs.md|EquityCurveHelper.cs]]

@@ -1,12 +1,28 @@
 ---
-tags: [class]
+tags: [class, feature/signalstudy, kind/behavior]
+role: class
+feature: SignalStudy
+feature_source: folder
+kind: behavior
+code_lines: 216
+types: 3
+methods: 9
+fan_in: 1
+fan_out: 12
+summary_source: documented
+candidates: []
 source: Poink.Sim/Services/SignalStudy/SignalDatasetBuilder.cs
 ---
 # SignalDatasetBuilder.cs
 
 Builds signal datasets with the same market feed and rule-engine rows the robot uses, sampling the first tick of every second. TxFold (loaded asynchronously) and position rows (which need a trade) are not part of a dataset.
 
-**Used by:** 0 files (see Backlinks)
+**Feature:** SignalStudy · **Kind:** class with behaviour · **Code lines:** 216 · **Used by:** 1
+
+## Types
+- `SignalDatasetBuilder` — class, class with behaviour · 6 methods, 4 properties, 10 fields, 1 constructor, 1 event
+- `SampledBarData` — class, nested, single-method class · 1 method, 1 property, 4 fields, 1 constructor
+- `SignalCatalog` — class, nested, class with behaviour · 2 methods, 2 properties, 3 fields, 1 constructor
 
 ## Uses
 - [[Components/Charts/TxFold/Helper/TxFoldStats.cs.md|TxFoldStats.cs]]

@@ -1,12 +1,28 @@
 ---
-tags: [code-behind]
+tags: [code-behind, feature/profiler, kind/component-code]
+role: code-behind
+feature: Profiler
+feature_source: folder
+kind: component-code
+code_lines: 624
+types: 3
+methods: 53
+fan_in: 1
+fan_out: 27
+summary_source: generated
+candidates: []
 source: Poink.Sim/Components/Pages/Profiler/ProfilerPage.razor.cs
 ---
 # ProfilerPage.razor.cs
 
 Code-behind logic for the ProfilerPage component.
 
-**Used by:** 1 file (see Backlinks)
+**Feature:** Profiler · **Kind:** component code-behind · **Code lines:** 624 · **Used by:** 1
+
+## Types
+- `ProfilerPage` — class, Razor component · 53 methods, 15 properties, 55 fields
+- `PanelTab` — enum, nested, enum · 3 values
+- `Drawing` — record, nested, data type (at most one helper method) · 12 properties
 
 ## Uses
 - [[Components/Charts/CompareChart/CompareChartModels.cs.md|CompareChartModels.cs]]
@@ -16,6 +32,7 @@ Code-behind logic for the ProfilerPage component.
 - [[Components/Pages/Profiler/Models/ProfilerPageSettingsModels.cs.md|ProfilerPageSettingsModels.cs]]
 - [[Components/Pages/Profiler/Models/ProfilerSymbolData.cs.md|ProfilerSymbolData.cs]]
 - [[Components/Pages/Profiler/ProfilerPage.razor.md|ProfilerPage.razor]]
+- [[Components/Shared/Indicators/Indicators.razor.md|Indicators.razor]]
 - [[Components/Shared/Indicators/IndicatorsModels.cs.md|IndicatorsModels.cs]]
 - [[Helpers/ChartBarRowHelper.cs.md|ChartBarRowHelper.cs]]
 - [[Helpers/ILocalStorageHelper.cs.md|ILocalStorageHelper.cs]]

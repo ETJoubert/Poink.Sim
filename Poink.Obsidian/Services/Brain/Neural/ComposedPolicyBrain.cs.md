@@ -1,12 +1,27 @@
 ---
-tags: [class]
+tags: [class, feature/brain, kind/behavior]
+role: class
+feature: Brain
+feature_source: folder
+kind: behavior
+code_lines: 322
+types: 2
+methods: 19
+fan_in: 4
+fan_out: 14
+summary_source: generated
+candidates: []
 source: Poink.Sim/Services/Brain/Neural/ComposedPolicyBrain.cs
 ---
 # ComposedPolicyBrain.cs
 
 Defines composed policy brain.
 
-**Used by:** 4 files (see Backlinks)
+**Feature:** Brain · **Kind:** class with behaviour · **Code lines:** 322 · **Used by:** 4
+
+## Types
+- `ComposedPolicyBrain` — class, class with behaviour · 18 methods, 5 properties, 11 fields, 1 constructor
+- `DecisionReplay` — record, nested, single-method class · 1 method, 4 properties
 
 ## Uses
 - [[Models/SimulationDecision.cs.md|SimulationDecision.cs]]

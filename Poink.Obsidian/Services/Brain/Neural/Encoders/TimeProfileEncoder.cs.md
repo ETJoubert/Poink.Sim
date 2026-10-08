@@ -1,12 +1,26 @@
 ---
-tags: [class]
+tags: [class, feature/brain, kind/single-method]
+role: class
+feature: Brain
+feature_source: folder
+kind: single-method
+code_lines: 113
+types: 1
+methods: 1
+fan_in: 1
+fan_out: 10
+summary_source: generated
+candidates: []
 source: Poink.Sim/Services/Brain/Neural/Encoders/TimeProfileEncoder.cs
 ---
 # TimeProfileEncoder.cs
 
 Defines time profile encoder.
 
-**Used by:** 2 files (see Backlinks)
+**Feature:** Brain · **Kind:** single-method class · **Code lines:** 113 · **Used by:** 1
+
+## Types
+- `TimeProfileEncoder` — class, single-method class · 1 method, 4 properties, 12 fields, 1 constructor
 
 ## Uses
 - [[Helpers/TimeProfileHelper.cs.md|TimeProfileHelper.cs]]

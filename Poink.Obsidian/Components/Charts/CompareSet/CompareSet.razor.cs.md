@@ -1,12 +1,26 @@
 ---
-tags: [code-behind]
+tags: [code-behind, feature/compareset, kind/component-code]
+role: code-behind
+feature: CompareSet
+feature_source: folder
+kind: component-code
+code_lines: 139
+types: 1
+methods: 16
+fan_in: 0
+fan_out: 11
+summary_source: documented
+candidates: []
 source: Poink.Sim/Components/Charts/CompareSet/CompareSet.razor.cs
 ---
 # CompareSet.razor.cs
 
 A page's primary symbol and every other symbol on one CompareChart as % change by Mode, with an optional primary ÷ RatioTable line, plus optional CompareTxFold and CompareXGrid panels, any of which can take the main area. Shared by the Simulation and Trade pages.
 
-**Used by:** 0 files (see Backlinks)
+**Feature:** CompareSet · **Kind:** component code-behind · **Code lines:** 139 · **Used by:** 0
+
+## Types
+- `CompareSet` — class, Razor component · 16 methods, 36 properties, 3 fields
 
 ## Uses
 - [[Components/Charts/CompareChart/CompareChartModels.cs.md|CompareChartModels.cs]]

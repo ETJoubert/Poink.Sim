@@ -1,12 +1,26 @@
 ---
-tags: [page]
+tags: [page, feature/training, kind/page]
+role: page
+feature: Training
+feature_source: folder
+kind: page
+code_lines: 389
+types: 1
+methods: 0
+fan_in: 2
+fan_out: 12
+summary_source: generated
+candidates: []
 source: Poink.Sim/Components/Pages/Training/Pages/TrainPage.razor
 ---
 # TrainPage.razor
 
 Routable page at `/train` for train.
 
-**Used by:** 2 files (see Backlinks)
+**Feature:** Training · **Kind:** Razor page · **Code lines:** 389 · **Used by:** 2
+
+## Types
+- `TrainPage` — component, Razor component · empty
 
 ## Uses
 - [[Components/Pages/Training/Components/BrainBuilder/BrainBuilder.razor.md|BrainBuilder.razor]]

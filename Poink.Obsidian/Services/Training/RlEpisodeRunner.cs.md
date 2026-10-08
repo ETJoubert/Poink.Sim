@@ -1,12 +1,26 @@
 ---
-tags: [class]
+tags: [class, feature/training, kind/static-helper]
+role: class
+feature: Training
+feature_source: folder
+kind: static-helper
+code_lines: 268
+types: 1
+methods: 2
+fan_in: 1
+fan_out: 16
+summary_source: generated
+candidates: []
 source: Poink.Sim/Services/Training/RlEpisodeRunner.cs
 ---
 # RlEpisodeRunner.cs
 
 Defines rl episode runner.
 
-**Used by:** 2 files (see Backlinks)
+**Feature:** Training · **Kind:** static helper · **Code lines:** 268 · **Used by:** 1
+
+## Types
+- `RlEpisodeRunner` — class, static helper · 2 methods, 3 fields
 
 ## Uses
 - [[Models/BarPriceHistogram.cs.md|BarPriceHistogram.cs]]

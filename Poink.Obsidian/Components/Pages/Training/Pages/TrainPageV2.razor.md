@@ -1,12 +1,26 @@
 ---
-tags: [page]
+tags: [page, feature/training, kind/page]
+role: page
+feature: Training
+feature_source: folder
+kind: page
+code_lines: 982
+types: 1
+methods: 0
+fan_in: 2
+fan_out: 27
+summary_source: generated
+candidates: []
 source: Poink.Sim/Components/Pages/Training/Pages/TrainPageV2.razor
 ---
 # TrainPageV2.razor
 
 Routable page at `/train2` for train page V 2.
 
-**Used by:** 2 files (see Backlinks)
+**Feature:** Training · **Kind:** Razor page · **Code lines:** 982 · **Used by:** 2
+
+## Types
+- `TrainPageV2` — component, Razor component · empty
 
 ## Uses
 - [[Components/Charts/MarketChart/Container/MarketChartContainer.razor.md|MarketChartContainer.razor]]
@@ -30,6 +44,7 @@ Routable page at `/train2` for train page V 2.
 - [[Data/Entities/Symbol.cs.md|Symbol.cs]]
 - [[Helpers/BarSizeOptions.cs.md|BarSizeOptions.cs]]
 - [[Helpers/FeatureDisplayFormatter.cs.md|FeatureDisplayFormatter.cs]]
+- [[Models/SimulationAccount.cs.md|SimulationAccount.cs]]
 - [[Models/TrainingModels/TrainingStrategyModels.cs.md|TrainingStrategyModels.cs]]
 - [[Models/TrainingModels/TrainingTabOptionsModel.cs.md|TrainingTabOptionsModel.cs]]
 - [[Services/Brain/Neural/BrainCatalog.cs.md|BrainCatalog.cs]]

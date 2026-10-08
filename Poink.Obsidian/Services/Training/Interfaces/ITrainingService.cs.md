@@ -1,12 +1,26 @@
 ---
-tags: [interface]
+tags: [interface, feature/training, kind/interface]
+role: interface
+feature: Training
+feature_source: folder
+kind: interface
+code_lines: 47
+types: 1
+methods: 9
+fan_in: 14
+fan_out: 12
+summary_source: generated
+candidates: []
 source: Poink.Sim/Services/Training/Interfaces/ITrainingService.cs
 ---
 # ITrainingService.cs
 
 Contract for the training service.
 
-**Used by:** 14 files (see Backlinks)
+**Feature:** Training · **Kind:** interface · **Code lines:** 47 · **Used by:** 14
+
+## Types
+- `ITrainingService` — interface, interface · 9 methods, 30 properties, 1 event
 
 ## Uses
 - [[Models/BarPriceHistogram.cs.md|BarPriceHistogram.cs]]

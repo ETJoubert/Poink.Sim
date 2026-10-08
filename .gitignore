@@ -400,3 +400,4 @@ appsettings.Secrets.json
 # Obsidian per-user state; graph.json colour groups are shared
 Poink.Obsidian/.obsidian/*
 !Poink.Obsidian/.obsidian/graph.json
+Poink.Obsidian/.generator/__pycache__/

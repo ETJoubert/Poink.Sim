@@ -1,12 +1,26 @@
 ---
-tags: [code-behind]
+tags: [code-behind, feature/xgrid, kind/component-code]
+role: code-behind
+feature: XGrid
+feature_source: folder
+kind: component-code
+code_lines: 67
+types: 1
+methods: 8
+fan_in: 0
+fan_out: 21
+summary_source: documented
+candidates: []
 source: Poink.Sim/Components/Charts/XGrid/Controller/XGridController.razor.cs
 ---
 # XGridController.razor.cs
 
 Owns the overlay/highlight state XGrid's own controls edit and render, merging in the host's Indicators when set -- this is the "Card" that pairs one XGrid with its Measurements/Differentials side panels per host (Profiler/Simulation/EpisodePlayback), which only appear while something on the grid is selected.
 
-**Used by:** 0 files (see Backlinks)
+**Feature:** XGrid · **Kind:** component code-behind · **Code lines:** 67 · **Used by:** 0
+
+## Types
+- `XGridController` — class, Razor component · 8 methods, 22 properties, 6 fields
 
 ## Uses
 - [[Components/Charts/XGrid/Controller/XGridController.razor.md|XGridController.razor]]

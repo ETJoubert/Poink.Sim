@@ -1,12 +1,26 @@
 ---
-tags: [class]
+tags: [class, feature/brain, kind/single-method]
+role: class
+feature: Brain
+feature_source: folder
+kind: single-method
+code_lines: 66
+types: 1
+methods: 1
+fan_in: 1
+fan_out: 10
+summary_source: generated
+candidates: []
 source: Poink.Sim/Services/Brain/Neural/Encoders/BarWindowEncoder.cs
 ---
 # BarWindowEncoder.cs
 
 Defines bar window encoder.
 
-**Used by:** 2 files (see Backlinks)
+**Feature:** Brain · **Kind:** single-method class · **Code lines:** 66 · **Used by:** 1
+
+## Types
+- `BarWindowEncoder` — class, single-method class · 1 method, 4 properties, 7 fields, 1 constructor
 
 ## Uses
 - [[Models/SimulationDecision.cs.md|SimulationDecision.cs]]

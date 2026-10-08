@@ -1,12 +1,30 @@
 ---
-tags: [code-behind]
+tags: [code-behind, feature/xgrid, kind/component-code]
+role: code-behind
+feature: XGrid
+feature_source: folder
+kind: component-code
+code_lines: 809
+types: 5
+methods: 79
+fan_in: 1
+fan_out: 20
+summary_source: documented
+candidates: []
 source: Poink.Sim/Components/Charts/XGrid/Display/XGrid.razor.cs
 ---
 # XGrid.razor.cs
 
 Data/pixels split: every row/column/cell value arrives pre-computed via Grid (see XGridStats.Compute); this component turns the active display state into a flat numeric payload and hands it to xGrid.js, which paints the footprint onto one canvas instead of one DOM node per cell.
 
-**Used by:** 1 file (see Backlinks)
+**Feature:** XGrid · **Kind:** component code-behind · **Code lines:** 809 · **Used by:** 1
+
+## Types
+- `XGrid` — class, Razor component · 79 methods, 26 properties, 20 fields
+- `OrderDraft` — class, nested, data type (at most one helper method) · 5 properties
+- `OrderPanelMode` — enum, nested, enum · 3 values
+- `OrderArm` — enum, nested, enum · 3 values
+- `SegmentMeasure` — record struct, nested, data type (at most one helper method) · 4 properties
 
 ## Uses
 - [[Components/Charts/XGrid/Display/XGrid.razor.md|XGrid.razor]]
@@ -27,4 +45,5 @@ Data/pixels split: every row/column/cell value arrives pre-computed via Grid (se
 - [[Components/Charts/XGrid/Helper/XGridSweepMode.cs.md|XGridSweepMode.cs]]
 - [[Models/TickRateModels.cs.md|TickRateModels.cs]]
 - [[Services/Trader/Risk/RiskHelper.cs.md|RiskHelper.cs]]
+- [[Services/Trader/Trader.cs.md|Trader.cs]]
 - [[wwwroot/js/xGrid.js.md|xGrid.js]]

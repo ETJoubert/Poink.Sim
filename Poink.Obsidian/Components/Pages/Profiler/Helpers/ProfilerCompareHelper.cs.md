@@ -1,12 +1,26 @@
 ---
-tags: [helper]
+tags: [helper, feature/profiler, kind/static-helper]
+role: helper
+feature: Profiler
+feature_source: folder
+kind: static-helper
+code_lines: 74
+types: 1
+methods: 7
+fan_in: 2
+fan_out: 8
+summary_source: documented
+candidates: []
 source: Poink.Sim/Components/Pages/Profiler/Helpers/ProfilerCompareHelper.cs
 ---
 # ProfilerCompareHelper.cs
 
 Builds the Profiler compare chart's lines from each symbol's loaded bars.
 
-**Used by:** 2 files (see Backlinks)
+**Feature:** Profiler · **Kind:** static helper · **Code lines:** 74 · **Used by:** 2
+
+## Types
+- `ProfilerCompareHelper` — class, static helper · 7 methods, 1 field
 
 ## Uses
 - [[Components/Charts/CompareChart/CompareChartModels.cs.md|CompareChartModels.cs]]

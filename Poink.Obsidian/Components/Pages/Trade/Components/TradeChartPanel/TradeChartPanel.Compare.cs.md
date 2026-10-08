@@ -1,12 +1,26 @@
 ---
-tags: [class]
+tags: [class, feature/trade, kind/component-code]
+role: class
+feature: Trade
+feature_source: folder
+kind: component-code
+code_lines: 131
+types: 1
+methods: 9
+fan_in: 0
+fan_out: 19
+summary_source: documented
+candidates: []
 source: Poink.Sim/Components/Pages/Trade/Components/TradeChartPanel/TradeChartPanel.Compare.cs
 ---
 # TradeChartPanel.Compare.cs
 
 The compare view that replaces the chart row while on: the charted symbol and every other watched symbol's live bars on one shared CompareSet, coloured like the watchlist so its cards are the legend. Every panel follows each tick: the % chart and XGrid from the bars, and at Offset 0 the TxFold from TradeLiveTickSource.
 
-**Used by:** 0 files (see Backlinks)
+**Feature:** Trade · **Kind:** component code-behind · **Code lines:** 131 · **Used by:** 0
+
+## Types
+- `TradeChartPanel` — class, class with behaviour · 9 methods, 12 properties, 9 fields
 
 ## Uses
 - [[Components/Charts/CompareChart/CompareChartModels.cs.md|CompareChartModels.cs]]
@@ -26,4 +40,5 @@ The compare view that replaces the chart row while on: the charted symbol and ev
 - [[Components/Pages/Trade/Services/TradeSymbolSeries.cs.md|TradeSymbolSeries.cs]]
 - [[Helpers/SymbolColorHelper.cs.md|SymbolColorHelper.cs]]
 - [[Models/HlocAvdtBar.cs.md|HlocAvdtBar.cs]]
+- [[Models/SimulationAccount.cs.md|SimulationAccount.cs]]
 - [[Services/MarketData/History/TickHistoryPlanner.cs.md|TickHistoryPlanner.cs]]

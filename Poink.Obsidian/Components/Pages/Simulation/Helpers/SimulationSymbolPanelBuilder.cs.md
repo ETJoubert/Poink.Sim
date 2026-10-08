@@ -1,12 +1,27 @@
 ---
-tags: [class]
+tags: [class, feature/simulation, kind/behavior]
+role: class
+feature: Simulation
+feature_source: folder
+kind: behavior
+code_lines: 159
+types: 2
+methods: 4
+fan_in: 20
+fan_out: 15
+summary_source: documented
+candidates: []
 source: Poink.Sim/Components/Pages/Simulation/Helpers/SimulationSymbolPanelBuilder.cs
 ---
 # SimulationSymbolPanelBuilder.cs
 
 Computes a watched symbol's chart set for the traded symbol's Lookback Window, applied by time so every symbol covers the same span the way the Profiler aligns its symbols; recomputes only when the symbol's bars or a setting changed.
 
-**Used by:** 20 files (see Backlinks)
+**Feature:** Simulation · **Kind:** class with behaviour · **Code lines:** 159 · **Used by:** 20
+
+## Types
+- `SimulationSymbolPanelBuilder` — class, class with behaviour · 4 methods, 2 fields, 1 constructor
+- `Key` — record, nested, data type (at most one helper method) · 12 properties
 
 ## Uses
 - [[Components/Charts/TickTimeProfileChart/TickTimeProfileChart.razor.cs.md|TickTimeProfileChart.razor.cs]]

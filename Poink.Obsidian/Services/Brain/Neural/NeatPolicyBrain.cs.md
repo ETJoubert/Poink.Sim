@@ -1,12 +1,26 @@
 ---
-tags: [class]
+tags: [class, feature/brain, kind/behavior]
+role: class
+feature: Brain
+feature_source: folder
+kind: behavior
+code_lines: 182
+types: 1
+methods: 10
+fan_in: 1
+fan_out: 16
+summary_source: generated
+candidates: []
 source: Poink.Sim/Services/Brain/Neural/NeatPolicyBrain.cs
 ---
 # NeatPolicyBrain.cs
 
 Defines neat policy brain.
 
-**Used by:** 1 file (see Backlinks)
+**Feature:** Brain · **Kind:** class with behaviour · **Code lines:** 182 · **Used by:** 1
+
+## Types
+- `NeatPolicyBrain` — class, class with behaviour · 10 methods, 4 properties, 10 fields, 1 constructor
 
 ## Uses
 - [[Models/SimulationDecision.cs.md|SimulationDecision.cs]]

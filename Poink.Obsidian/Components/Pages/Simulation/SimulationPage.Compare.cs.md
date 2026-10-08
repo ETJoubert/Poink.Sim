@@ -1,12 +1,26 @@
 ---
-tags: [class]
+tags: [class, feature/simulation, kind/component-code]
+role: class
+feature: Simulation
+feature_source: folder
+kind: component-code
+code_lines: 87
+types: 1
+methods: 8
+fan_in: 0
+fan_out: 11
+summary_source: documented
+candidates: []
 source: Poink.Sim/Components/Pages/Simulation/SimulationPage.Compare.cs
 ---
 # SimulationPage.Compare.cs
 
 The compare view that replaces the chart row and watched charts while on: the traded and watched symbols' live bars on one CompareChart, coloured with the shared per-symbol palette.
 
-**Used by:** 0 files (see Backlinks)
+**Feature:** Simulation · **Kind:** component code-behind · **Code lines:** 87 · **Used by:** 0
+
+## Types
+- `SimulationPage` — class, class with behaviour · 8 methods, 1 property, 14 fields
 
 ## Uses
 - [[Components/Charts/CompareChart/CompareChartModels.cs.md|CompareChartModels.cs]]

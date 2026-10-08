@@ -1,12 +1,26 @@
 ---
-tags: [page]
+tags: [page, feature/profiler, kind/page]
+role: page
+feature: Profiler
+feature_source: folder
+kind: page
+code_lines: 280
+types: 1
+methods: 0
+fan_in: 2
+fan_out: 17
+summary_source: generated
+candidates: []
 source: Poink.Sim/Components/Pages/Profiler/ProfilerPage.razor
 ---
 # ProfilerPage.razor
 
 Routable page at `/profiler` for profiler.
 
-**Used by:** 2 files (see Backlinks)
+**Feature:** Profiler · **Kind:** Razor page · **Code lines:** 280 · **Used by:** 2
+
+## Types
+- `ProfilerPage` — component, Razor component · empty
 
 ## Uses
 - [[Components/Charts/CandlestickChart/CandlestickChart.razor.md|CandlestickChart.razor]]

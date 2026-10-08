@@ -1,12 +1,27 @@
 ---
-tags: [code-behind]
+tags: [code-behind, feature/simulation, kind/component-code]
+role: code-behind
+feature: Simulation
+feature_source: folder
+kind: component-code
+code_lines: 806
+types: 2
+methods: 75
+fan_in: 1
+fan_out: 45
+summary_source: generated
+candidates: []
 source: Poink.Sim/Components/Pages/Simulation/SimulationPage.razor.cs
 ---
 # SimulationPage.razor.cs
 
 Code-behind logic for the SimulationPage component.
 
-**Used by:** 1 file (see Backlinks)
+**Feature:** Simulation · **Kind:** component code-behind · **Code lines:** 806 · **Used by:** 1
+
+## Types
+- `SimulationPage` — class, Razor component · 75 methods, 19 properties, 88 fields
+- `SimLeftPanelTab` — enum, nested, enum · 4 values
 
 ## Uses
 - [[Components/Charts/TickTimeProfileChart/TickTimeProfileChart.razor.cs.md|TickTimeProfileChart.razor.cs]]
@@ -20,8 +35,11 @@ Code-behind logic for the SimulationPage component.
 - [[Components/Pages/Simulation/Helpers/SimulationRowHelper.cs.md|SimulationRowHelper.cs]]
 - [[Components/Pages/Simulation/SimulationPage.razor.md|SimulationPage.razor]]
 - [[Components/Shared/IndicatorPanel/IndicatorModels.cs.md|IndicatorModels.cs]]
+- [[Components/Shared/IndicatorPanel/IndicatorPanel.razor.md|IndicatorPanel.razor]]
 - [[Components/Shared/Indicators/IndicatorChartOverlayHelper.cs.md|IndicatorChartOverlayHelper.cs]]
+- [[Components/Shared/Indicators/Indicators.razor.md|Indicators.razor]]
 - [[Components/Shared/Indicators/IndicatorsModels.cs.md|IndicatorsModels.cs]]
+- [[Components/Shared/PositionTable/PositionTable.razor.md|PositionTable.razor]]
 - [[Components/Shared/TradeConsole/TradeConsole.razor.md|TradeConsole.razor]]
 - [[Components/Shared/TradeConsole/TradeConsoleModels.cs.md|TradeConsoleModels.cs]]
 - [[Data/Entities/Symbol.cs.md|Symbol.cs]]
@@ -50,3 +68,4 @@ Code-behind logic for the SimulationPage component.
 - [[Services/Trader/Risk/RiskHelper.cs.md|RiskHelper.cs]]
 - [[Services/Trader/Risk/RiskPolicyModels.cs.md|RiskPolicyModels.cs]]
 - [[Services/Trader/Risk/RiskPolicyService.cs.md|RiskPolicyService.cs]]
+- [[Services/Trader/Trader.cs.md|Trader.cs]]

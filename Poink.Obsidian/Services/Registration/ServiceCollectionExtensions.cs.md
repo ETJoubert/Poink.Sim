@@ -1,12 +1,26 @@
 ---
-tags: [extensions]
+tags: [extensions, feature/registration, kind/static-helper]
+role: extensions
+feature: Registration
+feature_source: folder
+kind: static-helper
+code_lines: 179
+types: 1
+methods: 14
+fan_in: 1
+fan_out: 141
+summary_source: generated
+candidates: []
 source: Poink.Sim/Services/Registration/ServiceCollectionExtensions.cs
 ---
 # ServiceCollectionExtensions.cs
 
 Extension methods for service collection.
 
-**Used by:** 1 file (see Backlinks)
+**Feature:** Registration · **Kind:** static helper · **Code lines:** 179 · **Used by:** 1
+
+## Types
+- `ServiceCollectionExtensions` — class, static helper · 14 methods
 
 ## Uses
 - [[Components/Pages/Arch/Services/ArchGraphProvider.cs.md|ArchGraphProvider.cs]]
@@ -28,6 +42,7 @@ Extension methods for service collection.
 - [[Components/Pages/Trade/TradeCoordinator.cs.md|TradeCoordinator.cs]]
 - [[Components/Pages/Trade/TradeDraftService.cs.md|TradeDraftService.cs]]
 - [[Data/PoinkSimContext.cs.md|PoinkSimContext.cs]]
+- [[Models/SimulationAccount.cs.md|SimulationAccount.cs]]
 - [[Repository/AnalysisHistoryRepository.cs.md|AnalysisHistoryRepository.cs]]
 - [[Repository/Interfaces/IAnalysisHistoryRepository.cs.md|IAnalysisHistoryRepository.cs]]
 - [[Repository/Interfaces/INeuralNetworkRepository.cs.md|INeuralNetworkRepository.cs]]
@@ -58,6 +73,8 @@ Extension methods for service collection.
 - [[Services/Analysis/Interfaces/IBarrierMapAnalysisService.cs.md|IBarrierMapAnalysisService.cs]]
 - [[Services/Analysis/Interfaces/IPriceReturnAnalysisService.cs.md|IPriceReturnAnalysisService.cs]]
 - [[Services/Analysis/Interfaces/ITimeAboveBelowAnalysisService.cs.md|ITimeAboveBelowAnalysisService.cs]]
+- [[Services/Bots/BotService.cs.md|BotService.cs]]
+- [[Services/Bots/IBotService.cs.md|IBotService.cs]]
 - [[Services/Brain/BrainRegistry.cs.md|BrainRegistry.cs]]
 - [[Services/Brain/Heuristic/MomentumThresholdBrain.cs.md|MomentumThresholdBrain.cs]]
 - [[Services/Brain/Heuristic/RandomBrain.cs.md|RandomBrain.cs]]
@@ -100,6 +117,12 @@ Extension methods for service collection.
 - [[Services/OrderBot/OrderBotStatusMonitor.cs.md|OrderBotStatusMonitor.cs]]
 - [[Services/OrderBot/OrderBotTradeExecution.cs.md|OrderBotTradeExecution.cs]]
 - [[Services/OrderBot/TradeExecutionRouter.cs.md|TradeExecutionRouter.cs]]
+- [[Services/SignalStudy/ISignalAnalysisService.cs.md|ISignalAnalysisService.cs]]
+- [[Services/SignalStudy/ISignalDatasetBuilder.cs.md|ISignalDatasetBuilder.cs]]
+- [[Services/SignalStudy/ISignalDatasetService.cs.md|ISignalDatasetService.cs]]
+- [[Services/SignalStudy/SignalAnalysisService.cs.md|SignalAnalysisService.cs]]
+- [[Services/SignalStudy/SignalDatasetBuilder.cs.md|SignalDatasetBuilder.cs]]
+- [[Services/SignalStudy/SignalDatasetService.cs.md|SignalDatasetService.cs]]
 - [[Services/Simulation/ISimulationEngine.cs.md|ISimulationEngine.cs]]
 - [[Services/Simulation/SimulationEngine.cs.md|SimulationEngine.cs]]
 - [[Services/Symbols/ISymbolMetadataCache.cs.md|ISymbolMetadataCache.cs]]
@@ -111,6 +134,7 @@ Extension methods for service collection.
 - [[Services/Trader/ITraderFactory.cs.md|ITraderFactory.cs]]
 - [[Services/Trader/Risk/IRiskPolicyService.cs.md|IRiskPolicyService.cs]]
 - [[Services/Trader/Risk/RiskPolicyService.cs.md|RiskPolicyService.cs]]
+- [[Services/Trader/Trader.cs.md|Trader.cs]]
 - [[Services/Trader/TraderFactory.cs.md|TraderFactory.cs]]
 - [[Services/Training/BrainService.cs.md|BrainService.cs]]
 - [[Services/Training/Interfaces/IBrainService.cs.md|IBrainService.cs]]

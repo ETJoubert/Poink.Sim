@@ -1,12 +1,35 @@
 ---
-tags: [code-behind]
+tags: [code-behind, feature/training, kind/component-code]
+role: code-behind
+feature: Training
+feature_source: folder
+kind: component-code
+code_lines: 1107
+types: 10
+methods: 49
+fan_in: 1
+fan_out: 27
+summary_source: generated
+candidates: []
 source: Poink.Sim/Components/Pages/Training/Components/TrainingPreview/TrainingPreview.razor.cs
 ---
 # TrainingPreview.razor.cs
 
 Code-behind logic for the TrainingPreview component.
 
-**Used by:** 1 file (see Backlinks)
+**Feature:** Training · **Kind:** component code-behind · **Code lines:** 1107 · **Used by:** 1
+
+## Types
+- `TrainingPreview` — class, Razor component · 49 methods, 31 properties, 14 fields
+- `RandomEpisodeResult` — record, nested, data type (at most one helper method) · 4 properties
+- `EpisodeBarShape` — record, nested, data type (at most one helper method) · 6 properties
+- `ProfileBarRow` — record, nested, data type (at most one helper method) · 2 properties
+- `ProfileValue` — record, nested, data type (at most one helper method) · 4 properties
+- `HiddenLayerBar` — record, nested, data type (at most one helper method) · 3 properties
+- `StackSegment` — record, nested, data type (at most one helper method) · 4 properties
+- `ActionDecoderOption` — record, data type (at most one helper method) · 6 properties
+- `ActionDecoderGroup` — record, data type (at most one helper method) · 5 properties
+- `TrainingPreviewSourceRow` — record, data type (at most one helper method) · 21 properties
 
 ## Uses
 - [[Components/Charts/TickTimeProfileChart/TickTimeProfileChart.razor.cs.md|TickTimeProfileChart.razor.cs]]

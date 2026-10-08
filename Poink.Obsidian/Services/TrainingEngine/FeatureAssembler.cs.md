@@ -1,12 +1,26 @@
 ---
-tags: [class]
+tags: [class, feature/trainingengine, kind/behavior]
+role: class
+feature: TrainingEngine
+feature_source: folder
+kind: behavior
+code_lines: 118
+types: 1
+methods: 12
+fan_in: 3
+fan_out: 8
+summary_source: documented
+candidates: []
 source: Poink.Sim/Services/TrainingEngine/FeatureAssembler.cs
 ---
 # FeatureAssembler.cs
 
 Turns FeatureOptionsModel's selections into a FeatureModel (structured, for display/inspection) and a flattened FeatureVector (for training), from live tick data and a trader-state snapshot.
 
-**Used by:** 3 files (see Backlinks)
+**Feature:** TrainingEngine · **Kind:** class with behaviour · **Code lines:** 118 · **Used by:** 3
+
+## Types
+- `FeatureAssembler` — class, class with behaviour · 12 methods, 1 field
 
 ## Uses
 - [[Components/Charts/TxFold/Helper/TxFoldLevelOptions.cs.md|TxFoldLevelOptions.cs]]

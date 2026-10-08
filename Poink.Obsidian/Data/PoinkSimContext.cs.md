@@ -1,12 +1,26 @@
 ---
-tags: [class]
+tags: [class, feature/shared, kind/data]
+role: class
+feature: Shared
+feature_source: shared
+kind: data
+code_lines: 18
+types: 1
+methods: 0
+fan_in: 10
+fan_out: 12
+summary_source: generated
+candidates: []
 source: Poink.Sim/Data/PoinkSimContext.cs
 ---
 # PoinkSimContext.cs
 
 Defines poink sim context.
 
-**Used by:** 21 files (see Backlinks)
+**Feature:** Shared · **Kind:** data type (at most one helper method) · **Code lines:** 18 · **Used by:** 10
+
+## Types
+- `PoinkSimContext` — class, data type (at most one helper method) · 12 properties, 1 constructor
 
 ## Uses
 - [[Data/Entities/CTraderAccountToken.cs.md|CTraderAccountToken.cs]]

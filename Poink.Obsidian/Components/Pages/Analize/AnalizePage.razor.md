@@ -1,12 +1,26 @@
 ---
-tags: [page]
+tags: [page, feature/analize, kind/page]
+role: page
+feature: Analize
+feature_source: folder
+kind: page
+code_lines: 400
+types: 1
+methods: 0
+fan_in: 2
+fan_out: 11
+summary_source: generated
+candidates: []
 source: Poink.Sim/Components/Pages/Analize/AnalizePage.razor
 ---
 # AnalizePage.razor
 
 Routable page at `/analize` for analize.
 
-**Used by:** 2 files (see Backlinks)
+**Feature:** Analize · **Kind:** Razor page · **Code lines:** 400 · **Used by:** 2
+
+## Types
+- `AnalizePage` — component, Razor component · empty
 
 ## Uses
 - [[Components/Charts/HistogramChart/HistogramChart.razor.md|HistogramChart.razor]]

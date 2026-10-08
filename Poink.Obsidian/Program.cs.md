@@ -1,14 +1,26 @@
 ---
-tags: [class]
+tags: [class, feature/shared, kind/no-types]
+role: class
+feature: Shared
+feature_source: shared
+kind: no-types
+code_lines: 59
+types: 0
+methods: 0
+fan_in: 0
+fan_out: 19
+summary_source: generated
+candidates: []
 source: Poink.Sim/Program.cs
 ---
 # Program.cs
 
 Defines program.
 
-**Used by:** 0 files (see Backlinks)
+**Feature:** Shared · **Kind:** no type declarations · **Code lines:** 59 · **Used by:** 0
 
 ## Uses
+- [[Components/App.razor.md|App.razor]]
 - [[Data/PoinkSimContext.cs.md|PoinkSimContext.cs]]
 - [[Helpers/ILocalStorageHelper.cs.md|ILocalStorageHelper.cs]]
 - [[Helpers/ISessionStorageHelper.cs.md|ISessionStorageHelper.cs]]

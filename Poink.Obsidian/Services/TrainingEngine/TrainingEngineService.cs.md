@@ -1,12 +1,26 @@
 ---
-tags: [service]
+tags: [service, feature/trainingengine, kind/behavior]
+role: service
+feature: TrainingEngine
+feature_source: folder
+kind: behavior
+code_lines: 305
+types: 1
+methods: 11
+fan_in: 2
+fan_out: 29
+summary_source: documented
+candidates: []
 source: Poink.Sim/Services/TrainingEngine/TrainingEngineService.cs
 ---
 # TrainingEngineService.cs
 
 Runs training: builds one network up front, then runs EpisodeCount episodes against it, handing each episode's recorded decisions to PolicyGradientLearner afterward.
 
-**Used by:** 2 files (see Backlinks)
+**Feature:** TrainingEngine · **Kind:** class with behaviour · **Code lines:** 305 · **Used by:** 2
+
+## Types
+- `TrainingEngineService` — class, class with behaviour · 11 methods, 11 fields, 1 constructor
 
 ## Uses
 - [[Models/SimulationAccount.cs.md|SimulationAccount.cs]]
@@ -19,6 +33,7 @@ Runs training: builds one network up front, then runs EpisodeCount episodes agai
 - [[Services/Trader/ITrader.cs.md|ITrader.cs]]
 - [[Services/Trader/ITraderFactory.cs.md|ITraderFactory.cs]]
 - [[Services/Trader/Risk/RiskHelper.cs.md|RiskHelper.cs]]
+- [[Services/Trader/Trader.cs.md|Trader.cs]]
 - [[Services/Trader/TraderSettings.cs.md|TraderSettings.cs]]
 - [[Services/TrainingEngine/ActionAssembler.cs.md|ActionAssembler.cs]]
 - [[Services/TrainingEngine/ActionSpace.cs.md|ActionSpace.cs]]

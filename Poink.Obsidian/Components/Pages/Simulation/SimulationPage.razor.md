@@ -1,12 +1,26 @@
 ---
-tags: [page]
+tags: [page, feature/simulation, kind/page]
+role: page
+feature: Simulation
+feature_source: folder
+kind: page
+code_lines: 447
+types: 1
+methods: 0
+fan_in: 6
+fan_out: 41
+summary_source: generated
+candidates: []
 source: Poink.Sim/Components/Pages/Simulation/SimulationPage.razor
 ---
 # SimulationPage.razor
 
 Routable page at `/` for simulation.
 
-**Used by:** 6 files (see Backlinks)
+**Feature:** Simulation · **Kind:** Razor page · **Code lines:** 447 · **Used by:** 6
+
+## Types
+- `SimulationPage` — component, Razor component · empty
 
 ## Uses
 - [[Components/Charts/CompareSet/CompareSet.razor.md|CompareSet.razor]]
@@ -29,13 +43,18 @@ Routable page at `/` for simulation.
 - [[Components/Pages/Simulation/Helpers/SimulationRowHelper.cs.md|SimulationRowHelper.cs]]
 - [[Components/Pages/Simulation/SimulationPage.razor.cs.md|SimulationPage.razor.cs]]
 - [[Components/RuleEngine/RuleEnginePanel.razor.md|RuleEnginePanel.razor]]
+- [[Components/Shared/BarSizeSelect/BarSizeSelect.razor.md|BarSizeSelect.razor]]
+- [[Components/Shared/DateRangeSlider/DateRangeSlider.razor.md|DateRangeSlider.razor]]
+- [[Components/Shared/FinancialsPanel/FinancialsPanel.razor.md|FinancialsPanel.razor]]
 - [[Components/Shared/Icon/Icon.razor.md|Icon.razor]]
 - [[Components/Shared/IndicatorPanel/IndicatorPanel.razor.md|IndicatorPanel.razor]]
 - [[Components/Shared/Indicators/Indicators.razor.md|Indicators.razor]]
 - [[Components/Shared/Indicators/IndicatorsHelper.cs.md|IndicatorsHelper.cs]]
 - [[Components/Shared/LookbackWindowBar/LookbackWindowBar.razor.md|LookbackWindowBar.razor]]
 - [[Components/Shared/PolicySelector/PolicySelector.razor.md|PolicySelector.razor]]
+- [[Components/Shared/PositionTable/PositionTable.razor.md|PositionTable.razor]]
 - [[Components/Shared/SimTimeline/SimTimeline.razor.md|SimTimeline.razor]]
+- [[Components/Shared/StatisticsPanel/StatisticsPanel.razor.md|StatisticsPanel.razor]]
 - [[Components/Shared/SymbolMetadataFields/SymbolMetadataFields.razor.md|SymbolMetadataFields.razor]]
 - [[Components/Shared/TickDataSource/TickDataSource.razor.md|TickDataSource.razor]]
 - [[Components/Shared/TradeConsole/TradeConsole.razor.md|TradeConsole.razor]]
@@ -44,3 +63,4 @@ Routable page at `/` for simulation.
 - [[Data/Entities/Symbol.cs.md|Symbol.cs]]
 - [[Models/TickRateModels.cs.md|TickRateModels.cs]]
 - [[Services/Trader/Risk/RiskPolicyService.cs.md|RiskPolicyService.cs]]
+- [[Services/Trader/Trader.cs.md|Trader.cs]]

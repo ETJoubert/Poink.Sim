@@ -1,12 +1,26 @@
 ---
-tags: [code-behind]
+tags: [code-behind, feature/trade, kind/component-code]
+role: code-behind
+feature: Trade
+feature_source: folder
+kind: component-code
+code_lines: 332
+types: 1
+methods: 22
+fan_in: 0
+fan_out: 32
+summary_source: documented
+candidates: []
 source: Poink.Sim/Components/Pages/Trade/Components/TradeChartPanel/TradeChartPanel.razor.cs
 ---
 # TradeChartPanel.razor.cs
 
 Charts region of the live Trade page -- toolbar, Indicators with the lookback window, and the main chart/XGrid/volume-profile/time-profile/TxFold panels for whichever symbol TradePage tells it to show, or the compare view across the watchlist.
 
-**Used by:** 0 files (see Backlinks)
+**Feature:** Trade · **Kind:** component code-behind · **Code lines:** 332 · **Used by:** 0
+
+## Types
+- `TradeChartPanel` — class, Razor component · 22 methods, 37 properties, 36 fields
 
 ## Uses
 - [[Components/Charts/TickTimeProfileChart/TickTimeProfileChart.razor.cs.md|TickTimeProfileChart.razor.cs]]
@@ -25,10 +39,12 @@ Charts region of the live Trade page -- toolbar, Indicators with the lookback wi
 - [[Components/Pages/Trade/Services/TradeSymbolSeries.cs.md|TradeSymbolSeries.cs]]
 - [[Components/Pages/Trade/TradeDraftModels.cs.md|TradeDraftModels.cs]]
 - [[Components/Shared/Indicators/IndicatorChartOverlayHelper.cs.md|IndicatorChartOverlayHelper.cs]]
+- [[Components/Shared/Indicators/Indicators.razor.md|Indicators.razor]]
 - [[Components/Shared/Indicators/IndicatorsModels.cs.md|IndicatorsModels.cs]]
 - [[Helpers/TickRateHelper.cs.md|TickRateHelper.cs]]
 - [[Models/BarPriceHistogram.cs.md|BarPriceHistogram.cs]]
 - [[Models/HlocAvdtBar.cs.md|HlocAvdtBar.cs]]
+- [[Models/SimulationAccount.cs.md|SimulationAccount.cs]]
 - [[Models/TickRateModels.cs.md|TickRateModels.cs]]
 - [[Models/TraderModels.cs.md|TraderModels.cs]]
 - [[Repository/Interfaces/ITickRepository.cs.md|ITickRepository.cs]]

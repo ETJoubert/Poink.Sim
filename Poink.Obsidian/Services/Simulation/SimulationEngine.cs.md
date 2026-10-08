@@ -1,12 +1,27 @@
 ---
-tags: [class]
+tags: [class, feature/simulation, kind/behavior]
+role: class
+feature: Simulation
+feature_source: folder
+kind: behavior
+code_lines: 672
+types: 2
+methods: 46
+fan_in: 1
+fan_out: 19
+summary_source: documented
+candidates: []
 source: Poink.Sim/Services/Simulation/SimulationEngine.cs
 ---
 # SimulationEngine.cs
 
 Interactive replay driver for one shared, in-process simulation run: plays, pauses and steps ticks through the shared aggregator and trader, and publishes an immutable snapshot after each callback for the UI to render.
 
-**Used by:** 2 files (see Backlinks)
+**Feature:** Simulation · **Kind:** class with behaviour · **Code lines:** 672 · **Used by:** 1
+
+## Types
+- `SimulationEngine` — class, class with behaviour · 43 methods, 6 properties, 40 fields, 1 constructor, 4 events
+- `TraderSession` — class, nested, class with behaviour · 3 methods, 12 fields
 
 ## Uses
 - [[Models/BotAccountOptions.cs.md|BotAccountOptions.cs]]

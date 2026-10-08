@@ -1,12 +1,26 @@
 ---
-tags: [component]
+tags: [component, feature/training, kind/component]
+role: component
+feature: Training
+feature_source: folder
+kind: component
+code_lines: 118
+types: 1
+methods: 0
+fan_in: 4
+fan_out: 8
+summary_source: generated
+candidates: []
 source: Poink.Sim/Components/Pages/Training/Components/BrainBuilder/BrainBuilder.razor
 ---
 # BrainBuilder.razor
 
 UI component for brain builder.
 
-**Used by:** 5 files (see Backlinks)
+**Feature:** Training · **Kind:** Razor component · **Code lines:** 118 · **Used by:** 4
+
+## Types
+- `BrainBuilder` — component, Razor component · empty
 
 ## Uses
 - [[Components/Pages/Training/Components/BrainBuilder/BrainBuilder.razor.cs.md|BrainBuilder.razor.cs]]

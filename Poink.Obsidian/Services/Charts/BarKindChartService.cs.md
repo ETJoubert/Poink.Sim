@@ -1,12 +1,27 @@
 ---
-tags: [service]
+tags: [service, feature/charts, kind/mixed]
+role: service
+feature: Charts
+feature_source: folder
+kind: mixed
+code_lines: 60
+types: 2
+methods: 4
+fan_in: 3
+fan_out: 8
+summary_source: generated
+candidates: []
 source: Poink.Sim/Services/Charts/BarKindChartService.cs
 ---
 # BarKindChartService.cs
 
 Service that handles bar kind chart.
 
-**Used by:** 3 files (see Backlinks)
+**Feature:** Charts · **Kind:** mixed types · **Code lines:** 60 · **Used by:** 3
+
+## Types
+- `IBarKindChartService` — interface, interface · 1 method
+- `BarKindChartService` — class, class with behaviour · 3 methods, 2 fields, 1 constructor
 
 ## Uses
 - [[Components/Charts/MarketChart/Display/MarketChart.razor.cs.md|MarketChart.razor.cs]]

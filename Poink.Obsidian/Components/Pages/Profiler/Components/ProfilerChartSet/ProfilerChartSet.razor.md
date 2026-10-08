@@ -1,12 +1,26 @@
 ---
-tags: [component]
+tags: [component, feature/profiler, kind/component]
+role: component
+feature: Profiler
+feature_source: folder
+kind: component
+code_lines: 132
+types: 1
+methods: 0
+fan_in: 3
+fan_out: 9
+summary_source: documented
+candidates: []
 source: Poink.Sim/Components/Pages/Profiler/Components/ProfilerChartSet/ProfilerChartSet.razor
 ---
 # ProfilerChartSet.razor
 
 One Profiler symbol's full chart set: header, main chart, XGrid, volume/time profiles, subchart and TxFold, all driven by the page's global ProfilerChartSetOptions so every symbol is viewed the same way.
 
-**Used by:** 3 files (see Backlinks)
+**Feature:** Profiler · **Kind:** Razor component · **Code lines:** 132 · **Used by:** 3
+
+## Types
+- `ProfilerChartSet` — component, Razor component · empty
 
 ## Uses
 - [[Components/Charts/MarketChart/Container/MarketChartContainer.razor.md|MarketChartContainer.razor]]

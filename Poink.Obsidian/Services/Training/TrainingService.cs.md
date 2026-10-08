@@ -1,12 +1,27 @@
 ---
-tags: [service]
+tags: [service, feature/training, kind/mixed]
+role: service
+feature: Training
+feature_source: folder
+kind: mixed
+code_lines: 687
+types: 2
+methods: 11
+fan_in: 2
+fan_out: 31
+summary_source: generated
+candidates: []
 source: Poink.Sim/Services/Training/TrainingService.cs
 ---
 # TrainingService.cs
 
 Service that handles training.
 
-**Used by:** 2 files (see Backlinks)
+**Feature:** Training · **Kind:** mixed types · **Code lines:** 687 · **Used by:** 2
+
+## Types
+- `RlTrainingLogEntry` — record, data type (at most one helper method) · 3 properties
+- `TrainingService` — class, class with behaviour · 11 methods, 30 properties, 28 fields, 1 constructor, 1 event
 
 ## Uses
 - [[Models/BarPriceHistogram.cs.md|BarPriceHistogram.cs]]
@@ -27,6 +42,7 @@ Service that handles training.
 - [[Services/Brain/Neural/Neat/NeatTopologyDescriber.cs.md|NeatTopologyDescriber.cs]]
 - [[Services/Simulation/DummyTickGenerator.cs.md|DummyTickGenerator.cs]]
 - [[Services/Simulation/RingBuffer.cs.md|RingBuffer.cs]]
+- [[Services/Trader/Commission/PercentOfNotionalCommission.cs.md|PercentOfNotionalCommission.cs]]
 - [[Services/Trader/Trader.cs.md|Trader.cs]]
 - [[Services/Training/EpisodeTimeConstraint.cs.md|EpisodeTimeConstraint.cs]]
 - [[Services/Training/EpisodeWindowSampler.cs.md|EpisodeWindowSampler.cs]]
