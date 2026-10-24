@@ -1,8 +1,8 @@
 <Project>
 
   <PropertyGroup>
-    <!-- Pomelo.EntityFrameworkCore.MySql 9.0.0 targets EF Core 9; no EF Core 10-compatible
-         release exists yet. Remove this suppression once Pomelo ships one. -->
+    <!-- EF Core's design tooling pulls Microsoft.CodeAnalysis.Workspaces.MSBuild 5.0.0, which pins
+         Workspaces.Common to 5.0.0 while Poink.Sim deliberately references Roslyn 5.9.0. -->
     <NoWarn>$(NoWarn);NU1608</NoWarn>
   </PropertyGroup>
 

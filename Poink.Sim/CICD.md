@@ -11,6 +11,8 @@ dotnet build Poink.Sim/Poink.Sim.csproj -c Debug
 ## Run (local)
 
 ```
+# Databases only, then the app on the host:
+docker compose up -d database marketdata
 dotnet run --project Poink.Sim
 ```
 
@@ -23,9 +25,6 @@ docker build -f Poink.Sim/Dockerfile -t poink-sim .
 ## Compose & deploy (Docker)
 
 ```
-# Postgres/pgadmin/metabase stack, if not already running:
-docker compose up -d
-
-# Build and run Poink.Sim itself:
-docker compose -f Poink.Sim/docker-compose.yml up --build -d
+# Full stack: app (http://localhost:5000), both databases and pgAdmin (http://localhost:5051):
+docker compose up --build -d
 ```
