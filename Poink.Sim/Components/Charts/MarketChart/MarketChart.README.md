@@ -124,7 +124,7 @@ added on top of an already-wired-up T-Range Reference Chart):
   give the existing one a more specific title too once there's more than one panel
   (e.g. "SAVED DRAWINGS" → "SAVED T-RANGE CHARTS") so they read as distinct sections.
 - **Want the new kind's "extra" sub-range visible in the mini-chart preview, not just
-  stored as numbers?** `CandlestickChart` (`Poink.Shared.Client`) takes an optional
+  stored as numbers?** `CandlestickChart` (`Components/Charts/CandlestickChart`) takes an optional
   `ReferenceBarCount` parameter: it shades that many of `Bars`' *leading* entries
   (translucent band + dashed boundary, same colour convention as
   `MarketChart`'s own range fills) instead of drawing them as indistinguishable
@@ -149,14 +149,6 @@ added on top of an already-wired-up T-Range Reference Chart):
 - **A distinct-coloured sub-element needs its own tag** at the `AllVerticalLines`/
   `AllRangeFills` call site — `Drawing.ColorGroup` alone can't express "this one
   line within an otherwise-uniform drawing is a different colour."
-- **`Poink.Shared.Client`'s JS is compiled from TypeScript on every build** (see its
-  `.csproj`'s `CompileTypeScript` target: `tsc --project ts/tsconfig.json`, running
-  `BeforeTargets="Build"`). `CandlestickChart` and friends live in
-  `Poink.Shared.Client/ts/*.ts`, not directly in `wwwroot/js/*.js` —
-  `marketChart.js` itself (in `Poink.Sim`, no `.ts` source) is the exception.
-  Edit the `.js` directly in `Poink.Shared.Client` and the next `dotnet build` silently
-  overwrites it back to whatever the `.ts` source says. Check for a same-named `.ts`
-  file before hand-editing any `wwwroot/js/*.js`.
 
 ## Colour groups (`groupColors` in marketChart.js)
 

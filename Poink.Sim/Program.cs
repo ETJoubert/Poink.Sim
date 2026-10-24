@@ -1,4 +1,3 @@
-// Split out of Poink.ML: the always-on dashboard, not the training pipeline (see README.md).
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.AspNetCore.Builder;

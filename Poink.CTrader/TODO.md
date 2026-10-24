@@ -1,32 +1,14 @@
 # Poink.CTrader TODO
 
-Outstanding work for the cTrader Open API integration. See [README.md](README.md) for an architecture overview and [LOGBOOK.md](LOGBOOK.md) for what's already done.
+Outstanding work for the cTrader Open API integration. See [README.md](README.md) for an architecture overview.
 
-## Next up
+## Open
 
-- [x] ~~Decide where App ID/Secret and OAuth access/refresh tokens are stored~~ - static App ID/Secret via `CTraderApiOptions` (options pattern, config section `CTrader`), per-user tokens via `ICTraderTokenStore` backed by Postgres (`CTraderAccountToken` entity in `Poink.Shared.Client`). See LOGBOOK.
-- [ ] Set real `ClientId`/`ClientSecret`/`RedirectUri` values locally: for the MAUI app, use `CTrader__ClientId` / `CTrader__ClientSecret` / `CTrader__RedirectUri` environment variables (the redirect URI embeds a real IP, so it should stay out of tracked files too, not just the secret). For `Poink.Web`, use `dotnet user-secrets set CTrader:ClientSecret "..." --project Poink.Web`. Never fill any of these into a tracked `appsettings*.json`.
-- [x] ~~Apply the new EF migration to your actual database~~ - not needed manually: `MauiProgram.cs` already calls `context.Database.MigrateAsync()` on startup, so it applies automatically as long as Postgres is reachable at the configured connection string.
-- [x] ~~Verify `Auth/TokenFactory.cs` OAuth flow works outside a traditional ASP.NET redirect-callback context~~ - built a native `WebView`-based login page (`Poink/Pages/CTraderLoginPage.xaml`) that intercepts the redirect client-side; see LOGBOOK. The redirect URI never needs to be reachable.
-- [ ] The `CTraderPage` currently saves the token against the *first* `User` row in the database, not the actually-logged-in user (no `ICurrentUserService`/claims-based lookup exists yet in this codebase). Fine for a single-user app; revisit if multi-user support is ever added.
-- [ ] `CTraderLoginPage`'s query-string parser is hand-rolled (deliberately, to avoid a `System.Web.HttpUtility` dependency that isn't guaranteed available across all MAUI target frameworks) - fine for simple `code`/`error` params, but doesn't handle multi-value keys or `+`-encoded spaces.
-- [ ] No refresh-token flow wired up yet (`ProtoOARefreshTokenReq`/`Res` per the vendored `OpenClient`) - access tokens will eventually expire and need silent refresh instead of re-running the whole login page.
-- [x] ~~Fix race condition sending `ProtoOAGetAccountListByAccessTokenReq` before `ProtoOAApplicationAuthRes` came back~~ - `VerifyConnectionAsync` now awaits app-auth before requesting the account list. Wired `LogService` (the app's existing Console Log panel) through the whole connect flow for visibility.
-- [x] ~~Add a Poink-specific service wrapping `OpenClient`~~ - `ICTraderClient`/`CTraderClient` in `Poink.CTrader`: `ConnectAsync` (opens the socket + completes the app-auth handshake), `GetAccountsAsync`, `AuthorizeAccountAsync`, a generic `SendAndWaitAsync<TRes>` helper correlating requests to responses (or a `ProtoOAErrorRes`/timeout), and a public `Messages` observable so callers can still watch every raw message (used by `CTraderPage` for its console logging). Registered in DI via `AddCTraderOpenApi`. `CTraderPage.VerifyConnectionAsync` shrank from ~70 lines of ad hoc subscription/TCS code to ~15 lines using this client.
-  - Reconnect/backoff is still **not** handled - one `CTraderClient` instance is good for exactly one connection attempt (construct a new one to retry). Revisit if/when this needs to run unattended for longer than one interactive check.
-- [x] ~~Add a `ProjectReference` to `Poink.CTrader` from whichever project needs it first~~ - `Poink.Shared.Client` already references it (see earlier LOGBOOK entries).
-- [x] ~~`AuthorizeAccountAsync` isn't called from anywhere yet~~ - `CTraderPage` now calls it when the user selects an account, then loads that account's symbols via the new `GetSymbolsAsync`.
-- [x] ~~Symbols are fetched but not yet used for anything beyond display~~ - added a "WATCH PRICE" action per symbol that subscribes to live spot quotes (`ProtoOASubscribeSpotsReq`/`ProtoOASpotEvent`) and shows current bid/ask on the page.
-- [ ] Only one symbol can be watched at a time (watching a new one unsubscribes the previous). Fine for now; would need a small dictionary of subscriptions to watch several at once.
-- [x] ~~No trendbars (historical candles)~~ - `GetTrendbarsAsync` + a Range/Timeframe picker on `CTraderPage` covers this now. No order placement yet.
-- [ ] "Last month" + "Minute" (or similarly wide range + fine timeframe) combinations may exceed cTrader's own server-side max-range-per-period limit - currently just surfaces as whatever error cTrader returns, no client-side pre-validation or friendlier messaging for this specific case.
-- [x] ~~Need a way to visualize the historic data~~ - added a dependency-free canvas candlestick chart (`ts/candlestickChart.ts` + `CandlestickChart.razor`) with a TABLE VIEW / GRAPH VIEW toggle on `CTraderPage`. The JS module already exposes an `update(canvas, bar)` function for appending/replacing the last bar, in anticipation of real-time streaming.
-- [ ] Wire live spot ticks (the existing "WATCH PRICE" subscription) into the chart's `update()` function so the graph updates in real time instead of only showing whatever was loaded by "LOAD HISTORY". This is the natural next step now that both pieces exist independently.
-- [ ] The custom candlestick chart is intentionally minimal: no zoom/pan, no crosshair/tooltip, no volume sub-panel, fixed price-axis padding. Revisit if it needs to feel more like a "real" trading chart.
-- [ ] `CTraderPage` currently only authorizes one account at a time (selecting a different account doesn't de-authorize the previous one server-side, it just changes what the page displays) - fine for now, revisit if multi-account-at-once views are ever needed.
-- [ ] Decide TCP vs WebSocket transport for our use case.
-- [ ] Clean up the 24 nullable-reference warnings in vendored code (either annotate properly or scope-disable `Nullable` for this vendored code - decide which fits our conventions).
-- [ ] Add a test project (`Poink.CTrader.Tests`) - decide unit vs. integration (real demo account) coverage.
-- [ ] Test end-to-end against a demo account before ever pointing at live.
-- [x] ~~Add a short README to `Poink.CTrader` documenting how to reference and use it from other projects in the solution~~ - see [README.md](README.md).
-- [ ] Decide how to handle upstream updates: keep tracking `spotware/OpenAPI.Net` for new message types/fixes, or treat this as a one-time fork with no further syncing.
+- [ ] No refresh-token flow wired up yet (`ProtoOARefreshTokenReq`/`Res` per the vendored `OpenClient`) - an expired access token means logging in again.
+- [ ] Reconnect/backoff is not handled - one `CTraderClient` instance is good for exactly one connection attempt.
+- [ ] Tokens are stored for a single user; revisit if multi-user support is ever added.
+- [ ] Wide range + fine timeframe trendbar requests may exceed cTrader's server-side max-range-per-period limit - currently surfaces as whatever error cTrader returns, with no client-side pre-validation.
+- [ ] Decide TCP vs WebSocket transport.
+- [ ] Clean up the nullable-reference warnings in vendored code (annotate properly or scope-disable `Nullable` for the vendored folders).
+- [ ] Add unit coverage for `CTraderClient` (request/response correlation, error and timeout paths).
+- [ ] Decide how to handle upstream updates: keep tracking `spotware/OpenAPI.Net` for new message types/fixes, or treat this as a one-time fork.

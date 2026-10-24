@@ -16,7 +16,7 @@ namespace cAlgo.Robots;
 [Robot(AccessRights = AccessRights.FullAccess, AddIndicators = true)]
 public class PoinkTrader : Robot
 {
-    private const string ConnectionString = "Host=localhost;Port=5432;Username=postgres;Password=postgres;Database=Poink.MarketData";
+    private const string ConnectionString = "Host=localhost;Port=5433;Username=postgres;Password=postgres;Database=Poink.MarketData";
     private const string RegistryTable = "tick_table_stats";
     private const int BatchSize = 1000;
     private const int LogInterval = 100_000;

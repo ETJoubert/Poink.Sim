@@ -16,7 +16,7 @@
 // layer's individual nodes additionally get their action names.
 //
 // Colors are read from CSS custom properties at draw time (cssVar helper,
-// same convention as Poink.Shared.Client's CandlestickChart.ts) so this
+// same convention as candlestickChart.js) so this
 // repaints correctly if the theme changes, rather than hardcoding hex values.
 
 const OUTPUT_LABELS = ['HOLD', 'LONG', 'SHORT', 'CLOSE'];

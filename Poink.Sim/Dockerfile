@@ -5,7 +5,7 @@
 #
 # Build context is the repo root (Poink.Sim references sibling projects), e.g.:
 #   docker build -f Poink.Sim/Dockerfile -t poink-sim .
-# or via Poink.Sim/docker-compose.yml, which sets this up for you.
+# or via the root docker-compose.yml, which sets this up for you.
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS base
 WORKDIR /app
